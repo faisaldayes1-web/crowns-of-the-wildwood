@@ -30,10 +30,10 @@ const INTRO := [
 const TOPICS := [
 	["What is the objective?", "Break the enemy castle door, smash the lock on their Crown Vault, grab their monarch and carry them back to your own throne. The first side to two captures wins."],
 	["How do I fight?", "%s attacks. %s and %s are your class abilities, %s dodges (three seconds to recover), and Knights hold %s to block. Watch your stamina or mana bar."],
-	["How do classes work?", "KNIGHT: frontline fighter, strong against enemies and structures. RANGER: attacks from a distance, use cover and keep your space. MAGE: powerful abilities and area attacks. HEALER: keeps teammates alive and can turn losing fights around."],
+	["How do classes work?", "KNIGHT: frontline fighter, strong against enemies and structures. RANGER: attacks from a distance, use cover and keep your space. MAGE: powerful abilities and area attacks. HEALER: keeps teammates alive and can turn losing fights around. ENGINEER: builds and tunes turrets on the walls, and the hammer wrecks doors."],
 	["How do I upgrade?", "Gain experience by fighting, supporting teammates, destroying defenses and completing objectives. Press %s (or stand on the Upgrade Station) to spend perk points. At higher levels you can specialise your class. Dying costs you your perks."],
 	["How does the Crown work?", "The Crown sits in the enemy's Crown Vault behind a lock. Break the lock, press %s to grab it, and run. If you fall it drops where you died; a defender can carry it home, or your team can pick it back up."],
-	["Where should I go?", "Up the stairs, through the courtyard and out the front gate. Fight for the shrine in the middle, cross a bridge, then push to the enemy gate. Blessings of Light appear in the field; Potions heal you."],
+	["Where should I go?", "Up the stairs, through the courtyard and out the front gate. Fight for the shrine in the middle, cross a bridge, then push to the enemy gate. Blessings of Light appear in the field; Potions heal you. Call your team with %s (attack), %s (defend) or %s (to me), and plant a war banner with %s in the field so fallen friends rejoin beside it."],
 ]
 
 var game

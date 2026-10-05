@@ -1458,6 +1458,8 @@ func guide_answer(i: int) -> String:
 			return text % key_label("rank_menu")
 		4:
 			return text % key_label("interact")
+		5:
+			return text % [key_label("cmd_attack"), key_label("cmd_defend"), key_label("cmd_help"), key_label("interact")]
 	return text
 
 
