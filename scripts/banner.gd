@@ -57,6 +57,7 @@ func _build_visual() -> void:
 			c.queue_free()
 	var vis := Node3D.new()
 	vis.name = "vis"
+	vis.scale = Vector3.ONE * 1.35  # reads from the high camera
 	add_child(vis)
 	var tcol: Color = Stats.FACTIONS[team].color
 	var wood := StandardMaterial3D.new()
@@ -69,13 +70,24 @@ func _build_visual() -> void:
 	gold.albedo_color = Color(1.0, 0.82, 0.3)
 	gold.metallic = 0.7
 	gold.roughness = 0.35
-	# A stone footing, the pole, a crossbar and the hanging flag with a gold finial.
+	# A stone footing, the pole, a crossbar and the hanging flag with a gold
+	# finial. The flag spans x so the camera sees it face on.
 	_box(vis, Vector3(0.9, 0.25, 0.9), Vector3(0, 0.125, 0), stone)
 	_box(vis, Vector3(0.14, 3.0, 0.14), Vector3(0, 1.6, 0), wood)
-	_box(vis, Vector3(0.1, 0.1, 1.3), Vector3(0, 3.0, 0), wood)
-	_box(vis, Vector3(0.06, 1.5, 1.1), Vector3(0, 2.25, 0.08), cloth)
-	_box(vis, Vector3(0.07, 0.3, 0.5), Vector3(0, 1.45, -0.2), cloth)
-	_box(vis, Vector3(0.07, 0.3, 0.5), Vector3(0, 1.45, 0.36), cloth)
+	_box(vis, Vector3(1.5, 0.1, 0.1), Vector3(0.6, 3.0, 0), wood)
+	_box(vis, Vector3(1.2, 1.6, 0.07), Vector3(0.72, 2.2, 0.0), cloth)
+	_box(vis, Vector3(0.5, 0.35, 0.08), Vector3(0.42, 1.25, 0.0), cloth)
+	_box(vis, Vector3(0.5, 0.35, 0.08), Vector3(1.02, 1.25, 0.0), cloth)
+	var crest := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.22
+	disc.bottom_radius = 0.22
+	disc.height = 0.09
+	crest.mesh = disc
+	crest.rotation.x = PI / 2.0
+	crest.position = Vector3(0.72, 2.3, 0.0)
+	crest.material_override = gold
+	vis.add_child(crest)
 	var finial := MeshInstance3D.new()
 	var sph := SphereMesh.new()
 	sph.radius = 0.13
