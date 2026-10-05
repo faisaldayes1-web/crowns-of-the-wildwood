@@ -75,6 +75,7 @@ const BANTER := {
 var map_half := Vector2(84, 36)
 var bot_difficulty := "Normal"   # Easy / Normal / Hard, saved with the controls
 var chat_visible := true          # H hides the chat log
+var chat_tab := 0                 # 0 All, 1 Team: the log's filter tabs
 var rosters_visible := true       # N hides the side team rosters
 # Hero customizer (title screen): name, hair and trim colour.
 var hero_name := ""
@@ -272,9 +273,9 @@ func _debug_hooks() -> void:
 			if arg == "--debug-chat":
 				chat_open = true
 				chat_text = "push the middle bridge, I'll take the wall"
-				chat_add("Aelith", "anyone got the healer station?", _team_color(0), true)
-				chat_add("Sylvara", "on it, give me a sec", _team_color(0), true)
-				chat_add("Garrick", "gg so far", _team_color(1), false)
+				chat_add("Aelith", "anyone got the healer station?", _team_color(0), true, Role.RANGER, 0)
+				chat_add("Sylvara", "on it, give me a sec", _team_color(0), true, Role.MAGE, 0)
+				chat_add("Garrick", "gg so far", _team_color(1), false, Role.KNIGHT, 1)
 			if arg == "--debug-variant" and player.role == Role.BASE:
 				player.set_role(Role.KNIGHT)
 				player.level = 4
@@ -1197,6 +1198,9 @@ func menu_tick() -> void:
 					guide_close()
 				else:
 					guide_pick(int(b[1]))
+		for b in hud.chat_buttons:
+			if b[0].has_point(mouse):
+				chat_tab = int(b[1])
 		if hud.close_button.has_point(mouse):
 			if menu_open:
 				menu_open = false
@@ -1256,8 +1260,10 @@ func menu_input(event: InputEvent) -> void:
 
 # --- Chat ------------------------------------------------------------------
 
-func chat_add(who: String, text: String, color: Color, team_only: bool = false) -> void:
-	chat_log.append({"who": who, "text": text, "color": color, "time": Time.get_ticks_msec() / 1000.0, "team": team_only})
+func chat_add(who: String, text: String, color: Color, team_only: bool = false, role: int = -1, pteam: int = -1) -> void:
+	## `role`/`pteam` give the speaker's portrait; `clock` stamps the match time.
+	chat_log.append({"who": who, "text": text, "color": color, "time": Time.get_ticks_msec() / 1000.0, "team": team_only,
+		"role": role, "pteam": pteam, "clock": maxf(time_left, 0.0)})
 	if chat_log.size() > CHAT_LINES:
 		chat_log.pop_front()
 
@@ -1283,7 +1289,7 @@ func _send_chat(text: String) -> void:
 		text = text.trim_prefix("/t ").strip_edges()
 	if text == "":
 		return
-	chat_add(player.display_name, text, _team_color(player.team), team_only)
+	chat_add(player.display_name, text, _team_color(player.team), team_only, player.role, player.team)
 	# A teammate answers after a moment.
 	if randf() < 0.7:
 		_banter(player.team, "reply", null, randf_range(0.8, 2.2))
@@ -1307,7 +1313,8 @@ func _banter(team: int, kind: String, speaker = null, delay: float = -1.0) -> vo
 	if delay < 0.0:
 		delay = randf_range(0.6, 1.8)
 	var who: String = speaker.display_name
-	get_tree().create_timer(delay).timeout.connect(func(): chat_add(who, line, _team_color(team), true))
+	var role: int = speaker.role
+	get_tree().create_timer(delay).timeout.connect(func(): chat_add(who, line, _team_color(team), true, role, team))
 
 
 func _idle_banter() -> void:

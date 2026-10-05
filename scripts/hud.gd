@@ -45,6 +45,7 @@ var options_button := Rect2()
 var close_button := Rect2()
 var difficulty_buttons: Array = []  # [rect, name] on the title screen
 var guide_buttons: Array = []       # [rect, "next" | "close" | topic index]
+var chat_buttons: Array = []        # [rect, tab index]
 var academy_buttons: Array = []     # [rect, role]
 var hero_buttons: Array = []        # [rect, "hair" | "trim" | "name", index]
 var faction_buttons: Array = []     # [rect, team]
@@ -95,6 +96,7 @@ func _draw() -> void:
 	close_button = Rect2()
 	difficulty_buttons = []
 	guide_buttons = []
+	chat_buttons = []
 	academy_buttons = []
 	hero_buttons = []
 	faction_buttons = []
@@ -1428,58 +1430,91 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 
 
 func _draw_chat() -> void:
-	## The chat log over the minimap, and the input line while typing.
+	## The chat log in the reference's style: each message is a row with the
+	## speaker's portrait, their name in team colour, the match clock and the
+	## line; while typing it sits in a panel with All/Team tabs and an input
+	## box with a send arrow. Idle, recent rows fade out over the field.
 	var top: float = 352.0 if game.rosters_visible else 100.0
-	var rect := Rect2(14, top, 262, size.y - 132 - top)
+	var rect := Rect2(14, top, 290, size.y - 166 - top)
 	var now := Time.get_ticks_msec() / 1000.0
 	var typing: bool = game.chat_open
 	if not game.chat_visible and not typing:
 		_text(Vector2(14, size.y - 132), "%s shows chat" % game.key_label("chat_toggle"), 9, Color(0.7, 0.7, 0.75, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 		return
-	var input_h := 26.0 if typing else 0.0
+	var tab_h := 34.0 if typing else 0.0
+	var input_h := 34.0 if typing else 0.0
 	var lines: Array = []
 	for i in range(game.chat_log.size() - 1, -1, -1):
 		var m: Dictionary = game.chat_log[i]
 		var age: float = now - m.time
 		if not typing and age > 14.0:
 			break
+		if typing and game.chat_tab == 1 and not m.team:
+			continue
 		lines.push_front(m)
 		if lines.size() >= 12:
 			break
 	if lines.is_empty() and not typing:
 		return
 	if typing:
-		_plate(rect, Color(0.05, 0.06, 0.1, 0.8), GOLD_DARK, 8, 1)
-	# Lay lines out from the bottom up so the newest sits above the input.
-	var y := rect.end.y - input_h - 6
+		_plate(rect, Color(0.05, 0.06, 0.1, 0.9), GOLD_DARK, 10, 2)
+		# Tabs.
+		var labels := ["All", "Team"]
+		for i in labels.size():
+			var tab := Rect2(rect.position + Vector2(10 + i * 92, 8), Vector2(84, 22))
+			var on: bool = game.chat_tab == i
+			_plate(tab, Color(0.16, 0.14, 0.1, 0.98) if on else Color(0.1, 0.11, 0.16, 0.9), GOLD if on else Color(0.3, 0.32, 0.4), 6, 1)
+			_text(tab.position + Vector2(0, 16), labels[i], 12, CREAM if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, tab.size.x, 1)
+			chat_buttons.append([tab, str(i)])
+		_text(rect.position + Vector2(0, 24), "Enter sends · Esc cancels", 9, GREY, HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 10, 1)
+	# Rows from the bottom up so the newest sits above the input.
+	var y := rect.end.y - input_h - 8
+	var tw: float = rect.size.x - 62
 	for i in range(lines.size() - 1, -1, -1):
 		var m: Dictionary = lines[i]
 		var alpha := 1.0 if typing else clampf((14.0 - (now - m.time)) / 3.0, 0.0, 1.0)
-		var prefix := ""
-		if m.who != "":
-			prefix = ("[Team] " if m.team else "[All] ") + m.who + ": "
-		var text: String = prefix + m.text
-		var h := _paragraph_height(text, 11, rect.size.x - 16, 13.0)
-		y -= h
-		if y < rect.position.y + 4:
+		var named: bool = m.who != ""
+		var body_h := _paragraph_height(m.text, 11, tw, 13.0)
+		var h: float = maxf(36.0, body_h + (22.0 if named else 10.0))
+		y -= h + 4
+		if y < rect.position.y + tab_h + 4:
 			break
-		if not typing:
-			draw_rect(Rect2(rect.position.x, y - 2, rect.size.x, h + 2), Color(0.05, 0.06, 0.1, 0.55 * alpha))
+		var row := Rect2(rect.position.x + 6, y, rect.size.x - 12, h)
+		draw_rect(row, Color(0.08, 0.09, 0.14, (0.75 if typing else 0.6) * alpha))
+		draw_rect(row, Color(0.3, 0.32, 0.4, 0.5 * alpha), false, 1.0)
 		var col: Color = m.color
 		col.a = alpha
-		_paragraph(Vector2(rect.position.x + 8, y + 10), text, 11, col, rect.size.x - 16, 13.0)
-		if m.who != "":
-			_text(Vector2(rect.position.x + 8, y + 10), prefix, 11, Color(1, 1, 1, alpha), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		if named:
+			var role: int = m.get("role", -1)
+			var pteam: int = m.get("pteam", -1)
+			if role >= 0 and pteam >= 0:
+				_class_card(row.position + Vector2(20, 18), 13, pteam, role)
+			else:
+				draw_circle(row.position + Vector2(20, 18), 13, Color(0.2, 0.2, 0.26, alpha))
+				_icon("crown", row.position + Vector2(20, 18), 7, Color(GOLD.r, GOLD.g, GOLD.b, alpha))
+			var who: String = m.who + ("  [Team]" if m.team else "")
+			_text(row.position + Vector2(40, 14), who, 11, col, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			var clock: float = m.get("clock", 0.0)
+			_text(row.position + Vector2(0, 14), "%02d:%02d" % [int(clock) / 60, int(clock) % 60], 9, Color(0.6, 0.62, 0.7, alpha), HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 8, 1)
+			_paragraph(row.position + Vector2(40, 29), m.text, 11, Color(0.92, 0.92, 0.95, alpha), tw, 13.0, 1)
+		else:
+			_icon("crown", row.position + Vector2(20, h / 2.0), 6, Color(GOLD.r, GOLD.g, GOLD.b, 0.8 * alpha))
+			_paragraph(row.position + Vector2(40, h / 2.0 + 4), m.text, 11, col, tw, 13.0, 1)
 	if typing:
-		var box := Rect2(rect.position + Vector2(6, rect.size.y - 24), Vector2(rect.size.x - 12, 20))
-		_plate(box, Color(0.12, 0.13, 0.2, 0.98), GOLD, 5, 1)
+		var box := Rect2(rect.position + Vector2(8, rect.size.y - 30), Vector2(rect.size.x - 56, 24))
+		_plate(box, Color(0.12, 0.13, 0.2, 0.98), GOLD_DARK, 6, 1)
 		var caret := "|" if int(now * 2.5) % 2 == 0 else " "
 		var shown: String = game.chat_text
-		while _text_width("> " + shown + caret, 11) > box.size.x - 10 and shown.length() > 1:
+		var placeholder: bool = shown == ""
+		while _text_width(shown + caret, 11) > box.size.x - 12 and shown.length() > 1:
 			shown = shown.substr(1)
-		_text(box.position + Vector2(5, 14), "> " + shown + caret, 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
-		_text(rect.position + Vector2(8, 12), "TEAM CHAT  ·  Enter sends  ·  Esc cancels", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_text(rect.position + Vector2(8, 23), "/all talks to both teams  ·  %s hides the log" % game.key_label("chat_toggle"), 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(box.position + Vector2(6, 16), ("Type a message..." if placeholder else shown) + ("" if placeholder else caret), 11,
+			Color(0.55, 0.56, 0.62) if placeholder else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+		var send := Rect2(box.end.x + 6, box.position.y, 34, 24)
+		_plate(send, Color(0.5, 0.35, 0.12), GOLD, 6, 1)
+		var c := send.get_center()
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-7, -6), c + Vector2(8, 0), c + Vector2(-7, 6), c + Vector2(-3, 0)]), GOLD.lightened(0.3))
+		_text(rect.position + Vector2(10, rect.size.y - 36), "/all talks to both teams  ·  %s hides the log" % game.key_label("chat_toggle"), 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 
 
 # --- Title and end screens -----------------------------------------------------
