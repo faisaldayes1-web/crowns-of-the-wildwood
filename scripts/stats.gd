@@ -294,11 +294,11 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 
 # Elves are quicker on their feet; humans recover stamina and mana faster.
 # (Regen limits attack rate, so it is worth more than it looks: 1.3 made the
-# Humans win three of every four bot matches; 1.12 against 8% speed is even.)
+# Humans win three of every four bot matches; 1.12 was still winning two of three once raids rallied and escorted, so 1.06.)
 const FACTIONS := [
 	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.5, "regen_mult": 1.0,
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer"]},
-	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.12,
+	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.06,
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer"]},
 ]
 

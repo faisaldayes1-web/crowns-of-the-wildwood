@@ -297,16 +297,17 @@ func _debug_hooks() -> void:
 	## (default 900); "--debug-end" ends the match a second before that.
 	var frame := Engine.get_process_frames()
 	for arg in OS.get_cmdline_user_args():
+		if frame == shot_frame - 150 and player and arg == "--debug-banner" and banners[player_team] == null:
+			# A war banner planted in the field a couple of seconds before the shot.
+			player.facing = Vector3(0, 0, 1)
+			plant_banner(player)
+			player.global_position += Vector3(-2.6, 0, -1.8)
 		if frame == shot_frame - 5 and player:
 			# Menu screenshots: open the menu a few frames before the shot.
 			if arg == "--debug-rank":
 				player.level = 3
 				player.points = 2
 				rank_open = true
-			if arg == "--debug-banner" and banners[player_team] == null:
-				# A war banner planted in the field beside the player.
-				player.facing = Vector3(0, 0, 1)
-				plant_banner(player)
 			if arg == "--debug-turrets" and player.role == Role.BASE:
 				# An Engineer with a turret of each level on the rampart and in the yard.
 				player.set_role(Role.ENGINEER)
