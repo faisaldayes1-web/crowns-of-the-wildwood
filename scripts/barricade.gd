@@ -16,7 +16,7 @@ var shape: CollisionShape3D
 var base_rot := 0.0
 
 
-func setup(p_game, p_team: int, pos: Vector3, length: float, rot_y: float, prop: String) -> void:
+func setup(p_game, p_team: int, pos: Vector3, length: float, rot_y: float) -> void:
 	game = p_game
 	team = p_team
 	position = pos
@@ -26,19 +26,42 @@ func setup(p_game, p_team: int, pos: Vector3, length: float, rot_y: float, prop:
 	collision_mask = 0
 	shape = CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(length, 1.2, 0.5)
+	box.size = Vector3(length, 1.1, 0.4)
 	shape.shape = box
-	shape.position = Vector3(0, 0.6, 0)
+	shape.position = Vector3(0, 0.55, 0)
 	add_child(shape)
 	visual = Node3D.new()
 	add_child(visual)
-	var scene: PackedScene = load("res://assets/props/%s.gltf" % prop)
-	var n := maxi(int(length / 1.75), 1)
-	for i in n:
-		var inst: Node3D = scene.instantiate()
-		inst.position = Vector3(-length / 2.0 + (i + 0.5) * (length / n), 0, 0)
-		inst.scale = Vector3.ONE * 3.5
-		visual.add_child(inst)
+	build_fence(visual, length, game._timber(), game._timber(Color(0.7, 0.6, 0.5)))
+
+
+static func build_fence(parent: Node3D, length: float, wood: Material, dark: Material) -> void:
+	## A timber fence along local x: square posts with two rails, the same
+	## piece everywhere in the game so fences always match the castles.
+	var n := maxi(int(round(length / 1.2)), 1)
+	for i in n + 1:
+		var post := MeshInstance3D.new()
+		var pm := BoxMesh.new()
+		pm.size = Vector3(0.16, 1.1, 0.16)
+		post.mesh = pm
+		post.position = Vector3(-length / 2.0 + i * (length / n), 0.55, 0)
+		post.material_override = dark
+		parent.add_child(post)
+		var cap := MeshInstance3D.new()
+		var cm := BoxMesh.new()
+		cm.size = Vector3(0.22, 0.08, 0.22)
+		cap.mesh = cm
+		cap.position = post.position + Vector3(0, 0.57, 0)
+		cap.material_override = dark
+		parent.add_child(cap)
+	for y in [0.45, 0.85]:
+		var rail := MeshInstance3D.new()
+		var rm := BoxMesh.new()
+		rm.size = Vector3(length, 0.1, 0.08)
+		rail.mesh = rm
+		rail.position = Vector3(0, y, 0)
+		rail.material_override = wood
+		parent.add_child(rail)
 
 
 func is_intact() -> bool:

@@ -44,23 +44,42 @@ func setup(p_game, p_team: int, x: float) -> void:
 	wall.material_override = wall_mat
 	add_child(wall)
 
-	# Vertical planks so it reads as a wooden door.
-	for i in 4:
+	# A double door of vertical planks with iron bands and a centre seam.
+	var plank_mat := StandardMaterial3D.new()
+	plank_mat.albedo_texture = load("res://assets/textures/wood_color.jpg")
+	plank_mat.normal_enabled = true
+	plank_mat.normal_texture = load("res://assets/textures/wood_normal.jpg")
+	plank_mat.albedo_color = Color(0.95, 0.85, 0.72)
+	plank_mat.uv1_triplanar = true
+	plank_mat.uv1_world_triplanar = true
+	plank_mat.uv1_scale = Vector3.ONE * 0.5
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color(0.24, 0.25, 0.28)
+	iron.metallic = 0.6
+	iron.roughness = 0.5
+	var n := 10
+	for i in n:
 		var plank := MeshInstance3D.new()
 		var plank_mesh := BoxMesh.new()
-		plank_mesh.size = Vector3(size.x + 0.1, size.y, 0.15)
+		plank_mesh.size = Vector3(size.x + 0.1, size.y - 0.1, size.z / n - 0.06)
 		plank.mesh = plank_mesh
-		plank.position.z = -size.z / 2.0 + (i + 0.5) * size.z / 4.0
-		var plank_mat := StandardMaterial3D.new()
-		plank_mat.albedo_texture = load("res://assets/textures/wood_color.jpg")
-		plank_mat.normal_enabled = true
-		plank_mat.normal_texture = load("res://assets/textures/wood_normal.jpg")
-		plank_mat.albedo_color = Color(0.9, 0.75, 0.55)
-		plank_mat.uv1_triplanar = true
-		plank_mat.uv1_world_triplanar = true
-		plank_mat.uv1_scale = Vector3.ONE * 0.6
+		plank.position.z = -size.z / 2.0 + (i + 0.5) * size.z / n
 		plank.material_override = plank_mat
 		wall.add_child(plank)
+	for y in [-0.9, 0.0, 0.9]:
+		var band := MeshInstance3D.new()
+		var band_mesh := BoxMesh.new()
+		band_mesh.size = Vector3(size.x + 0.18, 0.16, size.z - 0.1)
+		band.mesh = band_mesh
+		band.position.y = y
+		band.material_override = iron
+		wall.add_child(band)
+	var seam := MeshInstance3D.new()
+	var seam_mesh := BoxMesh.new()
+	seam_mesh.size = Vector3(size.x + 0.12, size.y, 0.06)
+	seam.mesh = seam_mesh
+	seam.material_override = iron
+	wall.add_child(seam)
 
 	rubble = MeshInstance3D.new()
 	var rubble_mesh := BoxMesh.new()

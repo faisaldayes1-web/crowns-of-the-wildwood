@@ -101,7 +101,10 @@ var stolen_timer := 0.0       # the CROWN STOLEN banner
 var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} at +z]
 var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
 var cover_points: Array = []  # places a shooter can duck behind
-var barricades: Array = []    # breakable fences (scripts/barricade.gd)
+var barricades: Array = []
+var audit_props: Array = []   # [name, Node3D] every placed KayKit prop (for --audit)
+var audit_blocks: Array = []  # [label, AABB] every block, ramp, fence, gate and vault
+var audit_label := ""
 var guides: Array = [null, null]   # the Wildwood Guide in each courtyard
 var guide_open := false
 var guide_page := 0       # intro page, or -1 for the topic menu
@@ -156,6 +159,10 @@ func _ready() -> void:
 	_load_controls()
 	_build_world()
 	_build_hud()
+	if "--audit" in OS.get_cmdline_user_args():
+		_audit_clipping()
+		get_tree().quit()
+		return
 	demo = "--demo" in OS.get_cmdline_user_args()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shot-frame="):
@@ -1564,6 +1571,7 @@ func _prop(name: String, pos: Vector3, scale: float = 1.0, rot_y: float = 0.0) -
 	inst.scale = Vector3.ONE * scale
 	inst.rotation.y = rot_y
 	add_child(inst)
+	audit_props.append([name, inst])
 	return inst
 
 
@@ -1594,6 +1602,7 @@ func _add_collider(pos: Vector3, size: Vector3) -> void:
 
 
 func _add_block(pos: Vector3, size: Vector3, color: Color, solid: bool, mat: Material = null) -> void:
+	audit_blocks.append([audit_label if audit_label != "" else ("wall" if solid else "block"), AABB(pos - size / 2.0, size)])
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = size
@@ -1614,9 +1623,14 @@ func _add_block(pos: Vector3, size: Vector3, color: Color, solid: bool, mat: Mat
 		add_child(mesh)
 
 
-func _add_ramp(from: Vector3, to: Vector3, width: float, color: Color) -> void:
+func _add_ramp(from: Vector3, to: Vector3, width: float, color: Color, mat: Material = null) -> void:
 	## A solid slab whose top surface runs from `from` up to `to`.
 	var dir := to - from
+	var wx := 0.0 if absf(dir.x) >= absf(dir.z) else width / 2.0
+	var wz := width / 2.0 if absf(dir.x) >= absf(dir.z) else 0.0
+	var lo := Vector3(minf(from.x, to.x) - wx, minf(from.y, to.y) - 0.4, minf(from.z, to.z) - wz)
+	var hi := Vector3(maxf(from.x, to.x) + wx, maxf(from.y, to.y), maxf(from.z, to.z) + wz)
+	audit_blocks.append(["ramp", AABB(lo, hi - lo)])
 	var thickness := 0.4
 	var body := StaticBody3D.new()
 	var slab_basis := Basis.looking_at(dir.normalized(), Vector3.UP)
@@ -1631,7 +1645,7 @@ func _add_ramp(from: Vector3, to: Vector3, width: float, color: Color) -> void:
 	var box := BoxMesh.new()
 	box.size = box_shape.size
 	mesh.mesh = box
-	mesh.material_override = _stone(color, 0.3)
+	mesh.material_override = mat if mat else _stone(color, 0.3)
 	body.add_child(mesh)
 	add_child(body)
 
@@ -2024,10 +2038,10 @@ func _add_river() -> void:
 		var k := 0
 		var z := -map_half.y - 2.0
 		while z < map_half.y + 2.0:
-			if not _near_bridge(z, 2.5):
-				_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][k % 5], Vector3(sx * (RIVER_HALF + 0.8 + fmod(z * 7.3, 1.0)), 0, z), 3.5, z)
+			if not _near_bridge(z, 2.5) and absf(absf(z) - 25.5) > 5.5 and absf(z) < 34.0:
+				_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][k % 5], Vector3(sx * (RIVER_HALF + 0.8 + fmod(z * 7.3, 1.0)), 0, z), 2.5, z)
 			k += 1
-			z += 2.3
+			z += 2.6
 		# Bank walls between the bridges.
 		var edges: Array = [-length / 2.0]
 		for i in BRIDGES.size():
@@ -2172,7 +2186,7 @@ func _add_cover() -> void:
 	## Low barricades and boulders in the contested middle. Shots stop at
 	## them, so there is always somewhere to duck. Everything is mirrored.
 	var barricades := [[Vector3(11, 0, 5), 3.5], [Vector3(12, 0, -7), 3.5], [Vector3(20, 0, 1), 4.0],
-		[Vector3(18, 0, 12), 3.0], [Vector3(30, 0, -5), 3.5], [Vector3(28, 0, 8), 3.0], [Vector3(36, 0, 16), 3.0], [Vector3(14, 0, -23), 3.0]]
+		[Vector3(18, 0, 12), 3.0], [Vector3(30, 0, -5), 3.5], [Vector3(28, 0, 8), 3.0], [Vector3(31, 0, 19), 3.0], [Vector3(17, 0, -20), 3.0]]
 	var crates := ["hex/crate_A_big", "hex/crate_B_big", "hex/barrel", "hex/crate_A_big", "hex/sack"]
 	for b in barricades:
 		for m in [1.0, -1.0]:
@@ -2187,8 +2201,8 @@ func _add_cover() -> void:
 				_prop(crates[pick], Vector3(c.x, 0, z), 5.2, float(i) * 0.15)
 				if i % 2 == 0:
 					_prop("hex/crate_A_big", Vector3(c.x, 1.05, z), 4.2, float(i) * 0.15 + 0.1)
-	var boulders := [Vector3(5, 0, -12), Vector3(14, 0, -15), Vector3(22, 0, 14), Vector3(33, 0, -8), Vector3(38, 0, 10),
-		Vector3(8, 0, 28), Vector3(20, 0, 26), Vector3(6, 0, -30), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(42, 0, 26)]
+	var boulders := [Vector3(7, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -8), Vector3(38, 0, 10),
+		Vector3(8, 0, 28), Vector3(17, 0, 25), Vector3(14, 0, -36), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(40, 0, 24)]
 	for p in boulders:
 		_add_boulder(p)
 		_add_boulder(-p)
@@ -2196,8 +2210,8 @@ func _add_cover() -> void:
 		cover_points.append(-p)
 	# The Northern Ruins: broken columns and rubble by the north bridge, and
 	# a smaller ruin on the south river path. Mirrored.
-	_add_ruins(Vector3(9, 0, -25))
-	_add_ruins(Vector3(-9, 0, 25))
+	_add_ruins(Vector3(11, 0, -25))
+	_add_ruins(Vector3(-11, 0, 25))
 	_add_ruins(Vector3(-24, 0, -29), true)
 	_add_ruins(Vector3(24, 0, 29), true)
 
@@ -2207,16 +2221,16 @@ func _add_ruins(c: Vector3, small: bool = false) -> void:
 	var n := 3 if small else 6
 	for i in n:
 		var a := TAU * i / n + c.x * 0.1
-		var p := c + Vector3(cos(a) * 3.2, 0, sin(a) * 2.6)
+		var p := c + Vector3(cos(a) * 3.6, 0, sin(a) * 3.0)
 		if i % 2 == 0:
-			_prop("dungeon/column", p, 0.8 + 0.2 * (i % 3), a)
+			_prop("dungeon/column", p, 1.3 + 0.2 * (i % 3), a)
 			_add_collider(p + Vector3(0, 1.0, 0), Vector3(0.9, 2.0, 0.9))
 		else:
-			_prop("dungeon/rubble_large", p, 1.1, a)
+			_prop("dungeon/rubble_large", p, 0.4, a)
 			_add_collider(p + Vector3(0, 0.5, 0), Vector3(1.6, 1.0, 1.6))
-	_add_block(c + Vector3(0, 0.02, 0), Vector3(8.0 if not small else 5.0, 0.03, 6.5 if not small else 4.0), Color(0.6, 0.6, 0.58), false, _pbr("cobble", 0.5, Color(0.7, 0.7, 0.66)))
+	_add_block(c + Vector3(0, 0.02, 0), Vector3(8.0 if not small else 5.0, 0.03, 6.5 if not small else 4.0), Color.WHITE, false, _flagstone(Color(0.9, 0.88, 0.84)))
 	if not small:
-		_prop("dungeon/barrier", c + Vector3(0, 0, 0.2), 1.0, 0.3)
+		_prop("dungeon/barrier", c + Vector3(0, 0, 0.2), 0.8, 0.3)
 		_add_collider(c + Vector3(0, 0.6, 0.2), Vector3(2.2, 1.2, 0.6))
 		_add_bush(c + Vector3(3.8, 0, 2.2), int(c.x))
 		_add_bush(c + Vector3(-3.6, 0, -2.4), int(c.z))
@@ -2243,7 +2257,10 @@ func _add_flag(pos: Vector3, team: int, side: float) -> void:
 
 
 func _add_torch(pos: Vector3) -> void:
-	_add_block(pos + Vector3(0, 0.9, 0), Vector3(0.16, 1.8, 0.16), Color(0.3, 0.2, 0.1), false)
+	audit_label = "pole"
+	_add_block(pos + Vector3(0, 0.9, 0), Vector3(0.2, 1.8, 0.2), Color.WHITE, false, _timber(Color(0.6, 0.5, 0.4)))
+	audit_label = ""
+	_add_block(pos + Vector3(0, 0.08, 0), Vector3(0.5, 0.16, 0.5), Color.WHITE, false, _ashlar(Color(0.85, 0.8, 0.72)))
 	_prop("dungeon/torch_lit", pos + Vector3(0, 2.1, 0), 1.5)
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.7, 0.35)
@@ -2276,31 +2293,209 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 	add_child(pad)
 
 	# The class's gear sits on the pad so you can tell what you'll become.
+	# The second piece lies towards the stairs (-s), clear of the wall stores.
+	var s := 1.0 if team == 0 else -1.0
 	match role:
 		Role.KNIGHT:
-			_prop("gear/sword_1handed", pos + Vector3(-0.3, 0.5, 0), 1.2, 0.4).rotation.x = -PI / 2.0 + 0.4
-			_prop("gear/shield_badge_color", pos + Vector3(0.4, 0.55, 0), 1.0, 0.6)
+			_prop("gear/sword_1handed", pos + Vector3(-s * 0.35, 0.5, -0.25), 1.2, 0.4).rotation.x = -PI / 2.0 + 0.4
+			_prop("gear/shield_badge_color", pos + Vector3(s * 0.75, 0.55, 0.3), 1.0, 0.6)
 		Role.RANGER:
-			_prop("gear/quiver", pos + Vector3(-0.2, 0.15, 0), 1.6, 0.8).rotation.x = 0.6
-			_prop("gear/arrow_bundle", pos + Vector3(0.5, 0.2, 0.2), 1.6, 0.3).rotation.x = 1.2
+			_prop("gear/quiver", pos + Vector3(-s * 0.2, 0.15, 0), 1.6, 0.8).rotation.x = 0.6
+			_prop("gear/arrow_bundle", pos + Vector3(s * 0.85, 0.2, 0.45), 1.6, 0.3).rotation.x = 1.2
 		Role.MAGE:
 			_prop("gear/staff", pos + Vector3(0, 0.3, 0), 1.6, 1.0).rotation.x = 1.0
 		Role.HEALER:
 			_prop("gear/spellbook_open", pos + Vector3(0, 0.3, 0), 1.8, 0.4)
-			_prop("gear/wand", pos + Vector3(0.6, 0.25, 0.3), 1.6, 1.2).rotation.x = 1.3
+			_prop("gear/wand", pos + Vector3(s * 1.1, 0.25, 0.8), 1.6, 1.2).rotation.x = 1.3
 
 
-func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float, prop: String) -> void:
+# --- The castle kit -----------------------------------------------------------
+# Every castle piece is built from the same three materials so both bases read
+# as one art style (the reference renders): cream ashlar stone, warm timber and
+# the team colour on roofs, rugs and banners. Props are placed with clearance
+# from every wall; `--audit` lists anything that still overlaps.
+
+func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
+	return _pbr("stone", 0.3, tint)
+
+
+func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
+	return _pbr("flagstone", 0.2, tint)
+
+
+func _timber(tint: Color = Color.WHITE) -> StandardMaterial3D:
+	return _pbr("wood", 0.45, tint)
+
+
+func _cloth(color: Color) -> StandardMaterial3D:
+	var m := _material(color)
+	m.roughness = 1.0
+	return m
+
+
+func _gold() -> StandardMaterial3D:
+	var m := _material(Color(0.95, 0.78, 0.3))
+	m.metallic = 0.7
+	m.roughness = 0.35
+	return m
+
+
+func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
+	## A solid ashlar wall with a cornice and merlons along its long axis.
+	_add_block(center, size, Color.WHITE, true, _ashlar())
+	var top := center.y + size.y / 2.0
+	var along_x := size.x >= size.z
+	var length := size.x if along_x else size.z
+	var thick := size.z if along_x else size.x
+	_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+	if not merlons:
+		return
+	var n := maxi(int(length / 1.3), 1)
+	for k in n:
+		var t := -length / 2.0 + (k + 0.5) * length / n
+		var p := Vector3(center.x + t, top + 0.5, center.z) if along_x else Vector3(center.x, top + 0.5, center.z + t)
+		var ms := Vector3(0.6, 0.6, thick) if along_x else Vector3(thick, 0.6, 0.6)
+		_add_block(p, ms, Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
+
+
+func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height: float = 5.4, flag: bool = true) -> void:
+	## A square corner tower with a crenellated top and a team-coloured roof.
+	var color: Color = Stats.FACTIONS[team].color
+	_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(width, height, width), Color.WHITE, true, _ashlar())
+	_add_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+	for xs in [-1.0, 1.0]:
+		for zs in [-1.0, 1.0]:
+			_add_block(pos + Vector3(xs * (width / 2.0), height + 0.6, zs * (width / 2.0)), Vector3(0.5, 0.6, 0.5), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
+	# The roof: a pyramid in the team colour with a gold cap.
+	var roof := MeshInstance3D.new()
+	var rm := CylinderMesh.new()
+	rm.top_radius = 0.0
+	rm.bottom_radius = width * 0.62
+	rm.height = 2.0
+	rm.radial_segments = 4
+	roof.mesh = rm
+	roof.rotation.y = PI / 4.0
+	roof.position = pos + Vector3(0, height + 1.3, 0)
+	var roof_mat := _material(color.lightened(0.05))
+	roof_mat.roughness = 0.7
+	roof.material_override = roof_mat
+	add_child(roof)
+	_add_block(pos + Vector3(0, height + 0.38, 0), Vector3(width * 0.95, 0.16, width * 0.95), Color.WHITE, false, _timber(Color(0.8, 0.72, 0.62)))
+	if flag:
+		_add_flag(pos + Vector3(0, height + 2.25, 0), team, side)
+
+
+func _add_railing(from: Vector3, to: Vector3, skip: Array = []) -> void:
+	## A timber railing: posts every 1.4 m and two rails, following the line
+	## (and slope) from `from` to `to`. `skip` lists [z_min, z_max] gaps.
+	var d := to - from
+	var n := maxi(int(d.length() / 1.4), 1)
+	var wood := _timber()
+	var dark := _timber(Color(0.7, 0.6, 0.5))
+	for k in n + 1:
+		var p := from + d * (float(k) / n)
+		var skipped := false
+		for s in skip:
+			if p.z >= s[0] and p.z <= s[1]:
+				skipped = true
+		if skipped:
+			continue
+		_add_block(p + Vector3(0, 0.5, 0), Vector3(0.14, 1.0, 0.14), Color.WHITE, false, dark)
+	var flat := Vector3(d.x, 0, d.z)
+	var count := 0
+	for s in skip:
+		count += 1
+	if skip.is_empty():
+		for y in [0.55, 0.9]:
+			var rail := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(d.length(), 0.08, 0.1)
+			rail.mesh = bm
+			rail.position = (from + to) / 2.0 + Vector3(0, y, 0)
+			rail.rotation.y = atan2(-flat.z, flat.x)
+			rail.rotation.z = atan2(d.y, flat.length())
+			rail.material_override = wood
+			add_child(rail)
+	else:
+		# Rails in pieces around the gaps (straight railings only).
+		var zs: Array = [from.z]
+		for s in skip:
+			zs.append(s[0])
+			zs.append(s[1])
+		zs.append(to.z)
+		var k := 0
+		while k + 1 < zs.size():
+			var z0: float = zs[k]
+			var z1: float = zs[k + 1]
+			if absf(z1 - z0) > 0.3:
+				for y in [0.55, 0.9]:
+					_add_block(Vector3(from.x, from.y + y, (z0 + z1) / 2.0), Vector3(0.1, 0.08, absf(z1 - z0)), Color.WHITE, false, wood)
+			k += 2
+
+
+func _add_stairs(bottom: Vector3, top: Vector3, width: float, mat: Material, rail_side: float) -> void:
+	## A solid ramp dressed as a flight of steps: treads across the slope and
+	## a railing on `rail_side` (-1/+1 in z).
+	_add_ramp(bottom, top, width, Color.WHITE, mat)
+	var d := top - bottom
+	var flat := Vector3(d.x, 0, d.z)
+	var n := maxi(int(flat.length() / 0.5), 1)
+	var edge := _timber(Color(0.62, 0.52, 0.42)) if mat is StandardMaterial3D and (mat as StandardMaterial3D).albedo_texture and (mat as StandardMaterial3D).albedo_texture.resource_path.contains("wood") else _ashlar(Color(0.82, 0.76, 0.66))
+	for k in n:
+		var p := bottom + d * ((k + 0.5) / float(n))
+		var tread := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.08, 0.08, width)
+		tread.mesh = bm
+		tread.position = p + Vector3(0, 0.03, 0)
+		tread.rotation.y = atan2(-flat.z, flat.x)
+		tread.material_override = edge
+		add_child(tread)
+	var off := Vector3(0, 0, rail_side * (width / 2.0 - 0.08))
+	_add_railing(bottom + off, top + off)
+
+
+func _add_banner(team: int, pos: Vector3, out: Vector3, scale: float = 0.7, shield: bool = false) -> void:
+	## A team banner hung on a wall. `pos` is on the wall's face, `out` the
+	## direction away from the wall; the cloth hangs in front of it.
+	var name := "dungeon/banner_%s%s" % ["shield_" if shield else "", ["green", "blue"][team]]
+	_prop(name, pos, scale, atan2(out.x, out.z))
+
+
+func _add_wall_torch(pos: Vector3, out: Vector3) -> void:
+	## A torch in an iron bracket on a wall face.
+	_prop("dungeon/torch_mounted", pos, 1.3, atan2(out.x, out.z))
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.72, 0.4)
+	light.light_energy = 1.3
+	light.omni_range = 6.0
+	light.position = pos + out * 0.8 + Vector3(0, 0.7, 0)
+	add_child(light)
+
+
+func _add_rug(center: Vector3, size: Vector2, color: Color) -> void:
+	## A team-coloured rug with a gold border.
+	_add_block(center + Vector3(0, 0.015, 0), Vector3(size.x, 0.03, size.y), color, false, _cloth(color.darkened(0.15)))
+	for xs in [-1.0, 1.0]:
+		_add_block(center + Vector3(xs * (size.x / 2.0 - 0.12), 0.032, 0), Vector3(0.16, 0.01, size.y), color, false, _gold())
+	for zs in [-1.0, 1.0]:
+		_add_block(center + Vector3(0, 0.032, zs * (size.y / 2.0 - 0.12)), Vector3(size.x, 0.01, 0.16), color, false, _gold())
+
+
+func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float) -> void:
 	var b := Barricade.new()
 	add_child(b)
-	b.setup(self, team, pos, length, rot_y, prop)
+	b.setup(self, team, pos, length, rot_y)
 	barricades.append(b)
+	var along_x := absf(cos(rot_y)) > 0.5
+	var fs := Vector3(length, 1.1, 0.4) if along_x else Vector3(0.4, 1.1, length)
+	audit_blocks.append(["fence", AABB(pos - Vector3(fs.x / 2.0, 0, fs.z / 2.0), fs)])
 
 
 func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 	upgrade_pads[team] = pos
 	var color := Color(1.0, 0.8, 0.25)
-	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.45), false)
+	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.45), false, _flagstone(Color(0.7, 0.62, 0.5)))
 	var pad := MeshInstance3D.new()
 	var pad_mesh := CylinderMesh.new()
 	pad_mesh.top_radius = STATION_RADIUS
@@ -2313,7 +2508,13 @@ func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 	pad.material_override = pad_mat
 	pad.position = pos + Vector3(0, 0.12, 0)
 	add_child(pad)
-	_prop("dungeon/chest_gold", pos + Vector3(0, 0.15, 0), 0.9, PI)
+	# An anvil on a timber block, like the upgrade station in the renders.
+	_add_block(pos + Vector3(0, 0.4, 0), Vector3(0.7, 0.5, 0.7), Color.WHITE, false, _timber(Color(0.75, 0.65, 0.55)))
+	var iron := _material(Color(0.3, 0.31, 0.35))
+	iron.metallic = 0.6
+	iron.roughness = 0.5
+	_add_block(pos + Vector3(0, 0.8, 0), Vector3(1.0, 0.3, 0.42), Color.WHITE, false, iron)
+	_add_block(pos + Vector3(0.45, 0.82, 0), Vector3(0.3, 0.2, 0.3), Color.WHITE, false, iron)
 	var l := Label3D.new()
 	l.text = "UPGRADE STATION"
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -2329,170 +2530,167 @@ func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 func _build_castle(team: int) -> void:
 	var side := -1.0 if team == 0 else 1.0
 	var color: Color = Stats.FACTIONS[team].color
-	var stone := Color(0.45, 0.32, 0.2) if team == 0 else Color(0.6, 0.6, 0.62)
-	# Textured masonry: elves build in warm sandstone, humans in grey granite.
-	var tint := Color(0.9, 0.86, 0.74) if team == 0 else Color(0.8, 0.84, 0.92)
-	var masonry := _stone(tint)
-	var masonry_dark := _stone(tint.darkened(0.12))
-	var cobbles := _pbr("cobble", 0.26, tint.lightened(0.1))
 	var cx := side * CASTLE_X
 	var fx := _front_x(team)                      # outer wall's front, facing the middle
 	var bx := side * (CASTLE_X + CASTLE_DEPTH)    # outer wall's back
 	var kx := _keep_x(team)                       # the keep's front
 	var hz := CASTLE_HALF_Z
+	var dh := Stats.DOOR_HALF
+	var in_x := fx + side * 0.5                   # the front wall's inner face
 
-	# --- The outer castle wall: a ring around the yard. ---
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, cobbles)
+	# --- The yard: sandstone flags inside the walls. ---
+	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone())
+
+	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
+	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
+	for zs in [-1.0, 1.0]:
+		_add_wall(Vector3(fx, WALL_H / 2.0, zs * (dh + 2.2 + seg / 2.0)), Vector3(1, WALL_H, seg), false)
+		_add_wall(Vector3(cx, WALL_H / 2.0, zs * hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1))
+		# The gatehouse: a tower either side of the door.
+		_add_tower(Vector3(fx, 0, zs * (dh + 1.1)), team, side, 2.2, 5.0, false)
+		_add_banner(team, Vector3(fx - side * 1.1, 1.0, zs * (dh + 1.1)), Vector3(-side, 0, 0), 0.6)
+		_add_torch(Vector3(fx - side * 2.0, 0, zs * (dh + 0.6)))
+		# Corner towers.
+		_add_tower(Vector3(fx, 0, zs * hz), team, side)
+		_add_tower(Vector3(bx, 0, zs * hz), team, side)
 	# The back wall has an opening at the middle for the stairs up from the cellar.
-	var seg_b := hz + 0.5 - 1.8
-	_add_block(Vector3(bx, WALL_H / 2.0, -(1.8 + seg_b / 2.0)), Vector3(1, WALL_H, seg_b), stone, true, masonry)
-	_add_block(Vector3(bx, WALL_H / 2.0, 1.8 + seg_b / 2.0), Vector3(1, WALL_H, seg_b), stone, true, masonry)
-	_add_block(Vector3(bx, WALL_H - 0.35, 0), Vector3(1, 0.7, 3.6), stone, false, masonry_dark)
-	_add_block(Vector3(cx, WALL_H / 2.0, -hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true, masonry)
-	_add_block(Vector3(cx, WALL_H / 2.0, hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true, masonry)
-	# Battlements along the side and back walls.
-	for k in 7:
-		var zz := -hz + 1.5 + k * (hz * 2 - 3.0) / 6.0
-		_add_block(Vector3(bx, WALL_H + 0.3, zz), Vector3(1.2, 0.6, 1.0), stone, false, masonry_dark)
-	for k in 6:
-		var xx := fx + side * (2.0 + k * (CASTLE_DEPTH * 2 - 4.0) / 5.0)
-		_add_block(Vector3(xx, WALL_H + 0.3, -hz), Vector3(1.0, 0.6, 1.2), stone, false, masonry_dark)
-		_add_block(Vector3(xx, WALL_H + 0.3, hz), Vector3(1.0, 0.6, 1.2), stone, false, masonry_dark)
-
-	# Front wall either side of the door, with the rampart walkway and parapet on top.
-	var seg := hz - Stats.DOOR_HALF
-	var zc := Stats.DOOR_HALF + seg / 2.0
-	_add_block(Vector3(fx, WALL_H / 2.0, -zc), Vector3(1, WALL_H, seg), stone, true, masonry)
-	_add_block(Vector3(fx, WALL_H / 2.0, zc), Vector3(1, WALL_H, seg), stone, true, masonry)
-	_add_block(Vector3(fx, WALK_Y - 0.3, 0), Vector3(2.4, 0.6, hz * 2 + 1), stone, true, _wood(tint, 1.3))
-	# The parapet is only for looks: step over it to drop down to the field.
-	_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.25, 0), Vector3(0.3, 0.5, hz * 2 + 1), stone, false, masonry_dark)
-	# Crenellations along the parapet.
+	var seg_b := hz - 1.8
+	for zs in [-1.0, 1.0]:
+		_add_wall(Vector3(bx, WALL_H / 2.0, zs * (1.8 + seg_b / 2.0)), Vector3(1, WALL_H, seg_b))
+	_add_block(Vector3(bx, WALL_H - 0.35, 0), Vector3(1, 0.7, 3.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
+	# The rampart: a timber deck along the front wall, a stone parapet with
+	# crenellations on the outside and a railing on the yard side.
+	_add_block(Vector3(fx, WALK_Y - 0.3, 0), Vector3(2.4, 0.6, hz * 2 - 2.0), Color.WHITE, true, _timber())
+	_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.25, 0), Vector3(0.3, 0.5, hz * 2 - 2.0), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	for k in 9:
 		var pz := -hz + 1.0 + k * (hz * 2 - 2.0) / 8.0
-		if absf(pz) > Stats.DOOR_HALF + 0.6:
-			_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.75, pz), Vector3(0.34, 0.5, 0.9), stone, false, masonry_dark)
-	for z in [-hz - 0.5, hz + 0.5]:
-		_add_block(Vector3(fx, 2.6, z), Vector3(2.4, 5.2, 2.4), stone, true, masonry_dark)
-		_add_block(Vector3(bx, 2.6, z), Vector3(2.4, 5.2, 2.4), stone, true, masonry_dark)
-		_add_block(Vector3(fx, 5.4, z), Vector3(2.9, 0.4, 2.9), stone, false, masonry)
-		_add_block(Vector3(bx, 5.4, z), Vector3(2.9, 0.4, 2.9), stone, false, masonry)
+		if absf(pz) > dh + 2.4 and absf(pz) < hz - 1.4:
+			_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.75, pz), Vector3(0.34, 0.5, 0.9), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
+	# The door's lintel: a timber beam and the team crest over the gate.
+	_add_block(Vector3(fx, WALK_Y - 0.7, 0), Vector3(1.4, 0.3, dh * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
+	var ramp_gap := [[hz - 3.7, hz - 1.3], [-(hz - 1.3), -(hz - 3.7)]]
+	_add_railing(Vector3(fx + side * 1.12, WALK_Y, -(hz - 1.3)), Vector3(fx + side * 1.12, WALK_Y, hz - 1.3),
+		[[-(dh + 2.3), dh + 2.3], ramp_gap[1], ramp_gap[0]])
 
-	# Ramps from the yard up to the walkway, one at each end of the front wall.
+	# Stairs from the yard up to the rampart, along each side wall.
 	ramps.append([])
 	for zs in [-1.0, 1.0]:
 		var z: float = zs * (hz - 2.5)
 		var bottom := Vector3(fx + side * (KEEP_SETBACK - 1.5), 0.0, z)
 		var top := Vector3(fx + side * 1.2, WALK_Y, z)
-		_add_ramp(bottom + Vector3(0, -0.3, 0), top, 2.2, tint)
+		_add_stairs(bottom + Vector3(0, -0.3, 0), top, 2.2, _timber(), -zs)
 		ramps[team].append({"bottom": bottom, "top": top})
-	# Archer posts on the walkway, either side of the door.
-	wall_posts.append([Vector3(fx, WALK_Y, -(Stats.DOOR_HALF + 2.0)), Vector3(fx, WALK_Y, Stats.DOOR_HALF + 2.0)])
-
-	# Flags on the towers and torches by the door and the keep.
-	for z in [-hz - 0.5, hz + 0.5]:
-		_add_flag(Vector3(fx, 5.6, z), team, side)
-		_add_flag(Vector3(bx, 5.6, z), team, side)
-	for z in [-(Stats.DOOR_HALF + 1.0), Stats.DOOR_HALF + 1.0]:
-		_add_torch(Vector3(fx - side * 1.1, 0, z))
-		_add_torch(Vector3(kx - side * 0.9, 0, z * 1.2))
+	# Archer posts on the rampart, either side of the gatehouse.
+	wall_posts.append([Vector3(fx, WALK_Y, -(dh + 3.4)), Vector3(fx, WALK_Y, dh + 3.4)])
 
 	# The breakable door.
 	var gate = Gate.new()
 	add_child(gate)
 	gate.setup(self, team, fx)
 	gates.append(gate)
+	audit_blocks.append(["gate", AABB(Vector3(fx - 0.4, 0, -dh), Vector3(0.8, 3.0, dh * 2))])
 
-	# --- The keep: the building inside the wall, with an open archway. ---
+	# --- The keep: the hall inside the wall, open to the sky, with a wide archway. ---
 	var khz := KEEP_HALF_Z
 	var kdepth := absf(bx - kx)
 	var kcx := (kx + bx) / 2.0
-	var keep_stone := stone.lightened(0.25)
-	var keep_mat := _stone(tint.lightened(0.1), 0.26)
-	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), keep_stone, false, _wood(Color(0.85, 0.75, 0.62), 0.9))
+	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _flagstone(Color(0.96, 0.94, 0.9)))
 	# Side walls, each with a side door near the back (a second way out of the keep).
 	for zs in [-1.0, 1.0]:
-		_add_block(Vector3(kx + side * (kdepth - 4.5) / 2.0, KEEP_H / 2.0, zs * khz), Vector3(kdepth - 4.5, KEEP_H, 0.8), keep_stone, true, keep_mat)
-		_add_block(Vector3(bx - side * 0.75, KEEP_H / 2.0, zs * khz), Vector3(1.5, KEEP_H, 0.8), keep_stone, true, keep_mat)
-		_add_block(Vector3(bx - side * 3.0, KEEP_H - 0.3, zs * khz), Vector3(3.0, 0.6, 0.9), keep_stone, false, masonry_dark)  # lintel
+		_add_wall(Vector3(kx + side * (kdepth - 4.5) / 2.0, KEEP_H / 2.0, zs * khz), Vector3(kdepth - 4.5, KEEP_H, 0.8))
+		_add_wall(Vector3(bx - side * 0.75, KEEP_H / 2.0, zs * khz), Vector3(1.5, KEEP_H, 0.8), false)
+		_add_block(Vector3(bx - side * 3.0, KEEP_H - 0.3, zs * khz), Vector3(3.0, 0.6, 0.9), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))  # lintel
 	var kseg := khz - KEEP_DOOR_HALF
 	var kzc := KEEP_DOOR_HALF + kseg / 2.0
-	_add_block(Vector3(kx, KEEP_H / 2.0, -kzc), Vector3(0.8, KEEP_H, kseg), keep_stone, true, keep_mat)
-	_add_block(Vector3(kx, KEEP_H / 2.0, kzc), Vector3(0.8, KEEP_H, kseg), keep_stone, true, keep_mat)
+	for zs in [-1.0, 1.0]:
+		_add_wall(Vector3(kx, KEEP_H / 2.0, zs * kzc), Vector3(0.8, KEEP_H, kseg))
+		# Corner pillars of the keep.
+		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.4, zs * khz), Vector3(1.4, KEEP_H + 0.8, 1.4), Color.WHITE, true, _ashlar())
+		_add_block(Vector3(bx - side * 0.2, KEEP_H / 2.0 + 0.4, zs * khz), Vector3(1.4, KEEP_H + 0.8, 1.4), Color.WHITE, true, _ashlar())
+		# Banners either side of the archway and torches on the arch pillars.
+		_add_banner(team, Vector3(kx - side * 0.4, -0.2, zs * (KEEP_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.75, true)
+		_add_wall_torch(Vector3(kx - side * 0.4, 1.5, zs * (KEEP_DOOR_HALF + 0.3)), Vector3(-side, 0, 0))
 	# Arch over the doorway, well above head height.
-	_add_block(Vector3(kx, KEEP_H + 0.1, 0), Vector3(1.0, 0.7, KEEP_DOOR_HALF * 2 + 0.8), keep_stone, false, masonry_dark)
-	for z in [-khz, khz]:
-		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.5, z), Vector3(1.6, KEEP_H + 1.0, 1.6), keep_stone, true, masonry_dark)
-		_add_block(Vector3(bx - side * 0.2, KEEP_H / 2.0 + 0.5, z), Vector3(1.6, KEEP_H + 1.0, 1.6), keep_stone, true, masonry_dark)
-	# Banners in the team colour either side of the archway.
-	for z in [-(KEEP_DOOR_HALF + 1.2), KEEP_DOOR_HALF + 1.2]:
-		_prop("dungeon/banner_shield_%s" % ["green", "blue"][team], Vector3(kx - side * 0.55, -0.45, z), 0.85,
-			PI / 2.0 if side > 0.0 else -PI / 2.0)
-	# Life in the yard: tents, stores and a training corner.
-	# The ramps run from x = fx + 7 to the wall at z = ±(hz - 2.5), so the
-	# yard's corners are kept clear; camp life sits along the keep's flanks
-	# and under the walkway by the door.
-	# Tents in the yard between the road and the ramps.
+	_add_block(Vector3(kx, KEEP_H + 0.1, 0), Vector3(1.0, 0.7, KEEP_DOOR_HALF * 2 + 0.8), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
+	# A rug up the yard's lane to the archway, and one from the archway to the throne.
+	_add_rug(Vector3(kx - side * 2.4, 0.02, 0), Vector2(3.6, 5.0), color)
+	_add_rug(Vector3(kx + side * 3.0, 0.05, 0), Vector2(5.0, 2.8), color)
+
+	# --- Life in the yard: a training corner north of the gate, stores south of it. ---
+	# Training corner (z < 0): rack against the wall, a target across from it.
+	_prop("hex/weaponrack", Vector3(in_x + side * 0.4, 0, -(dh + 3.0)), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	_prop("hex/target", Vector3(in_x + side * 3.0, 0, -(dh + 3.0)), 4.0, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	_prop("hex/bucket_arrows", Vector3(in_x + side * 3.0, 0, -(dh + 1.9)), 4.0, 0.4)
+	# Stores (z > 0): barrels and crates stacked against the wall.
+	_prop("hex/barrel", Vector3(in_x + side * 0.5, 0, 6.45), 4.0)
+	_prop("hex/barrel", Vector3(in_x + side * 0.5, 0, 7.45), 4.0, PI / 2.0)
+	_prop("hex/barrel", Vector3(in_x + side * 1.4, 0, 6.95), 4.0, PI)
+	_prop("hex/crate_A_big", Vector3(in_x + side * 2.1, 0, 7.7), 4.0, 0.0)
+	_prop("hex/crate_B_big", Vector3(in_x + side * 2.1, 0.84, 7.7), 3.4, 0.2)
+	_prop("hex/crate_long_A", Vector3(in_x + side * 3.2, 0, 7.7), 4.0, 0.0)
+	_prop("hex/sack", Vector3(in_x + side * 2.5, 0, 6.5), 4.0, 0.5)
+	# The strips between the keep's flanks and the side walls: more stores.
 	for zs in [-1.0, 1.0]:
-		_prop("hex/tent", Vector3(fx + side * 5.6, 0, zs * 6.4), 3.6, (0.3 if zs < 0.0 else 2.8) - side)
-	_prop("hex/weaponrack", Vector3(fx + side * 1.8, 0, -(Stats.DOOR_HALF + 1.6)), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
-	_prop("hex/target", Vector3(fx + side * 1.8, 0, Stats.DOOR_HALF + 1.6), 4.0, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	_prop("hex/bucket_arrows", Vector3(fx + side * 1.6, 0, Stats.DOOR_HALF + 3.0), 4.0, 0.4)
-	# The narrow strips between the keep's side walls and the outer wall hold
-	# small stores: barrels, sacks, a long crate and a bit of fence.
-	var strip_z := hz - 0.95   # hugging the outer wall so the strip stays a walkway
+		var sz: float = zs * (hz - 1.0)
+		_prop("hex/barrel", Vector3(kcx - side * 5.0, 0, sz), 4.0)
+		_prop("hex/barrel", Vector3(kcx - side * 4.0, 0, sz), 4.0, PI / 2.0)
+		_prop("hex/crate_A_big", Vector3(kcx - side * 2.6, 0, sz), 4.0, 0.3 * zs)
+		_prop("hex/sack", Vector3(kcx - side * 1.6, 0, sz), 4.0, 1.1 * zs)
+		_prop("hex/wheelbarrow", Vector3(kcx - side * 6.8, 0, zs * (hz - 1.2)), 4.0, PI / 2.0)
+	# Banners on the yard side of the gatehouse towers.
 	for zs in [-1.0, 1.0]:
-		_prop("hex/barrel", Vector3(kcx - side * 4.0, 0, zs * strip_z), 4.0)
-		_prop("hex/barrel", Vector3(kcx - side * 3.1, 0, zs * strip_z), 4.0, 1.0)
-		_prop("hex/sack", Vector3(kcx - side * 1.6, 0, zs * strip_z), 4.0, 1.1 * zs)
-		_prop("hex/crate_long_A", Vector3(kcx + side * 0.8, 0, zs * strip_z), 3.8, PI / 2.0)
-		_prop("hex/crate_A_big", Vector3(kcx + side * 5.2, 0, zs * strip_z), 3.6, 0.3 * zs)
-	_prop("hex/barrel", Vector3(kx - side * 1.4, 0, 6.6), 4.4)
-	_prop("hex/barrel", Vector3(kx - side * 2.3, 0, 6.2), 4.4, 1.0)
-	_prop("hex/wheelbarrow", Vector3(kx - side * 1.8, 0, -6.4), 4.2, 1.2 * side)
-	_prop("hex/pallet", Vector3(kx - side * 1.6, 0, 5.2), 4.2, 0.2)
-	# Inside the keep: stacked stores and columns along the side walls.
+		_add_banner(team, Vector3(fx + side * 1.1, 0.2, zs * (dh + 1.1)), Vector3(side, 0, 0), 0.6)
+	# Inside the keep: columns along the side walls, torches, stacked stores at the back.
 	for zs in [-1.0, 1.0]:
-		_prop("dungeon/box_stacked", Vector3(kx + side * 10.0, 0, zs * (KEEP_HALF_Z - 1.4)), 0.9, 0.3 * zs)
-		_prop("dungeon/column", Vector3(kx + side * 5.5, 0, zs * (KEEP_HALF_Z - 0.9)), 1.0)
-		_prop("dungeon/torch_mounted", Vector3(kx + side * 2.0, 1.6, zs * (KEEP_HALF_Z - 0.45)), 1.4, PI if zs > 0.0 else 0.0)
-	# A rug from the archway to the throne.
-	_add_block(Vector3(kx + side * 4.5, 0.045, 0), Vector3(7.0, 0.02, 2.6), color.darkened(0.55), false, _pbr("wood", 0.8, color.darkened(0.45)))
+		_prop("dungeon/column", Vector3(kx + side * 4.0, 0, zs * (khz - 1.0)), 1.6)
+		_prop("dungeon/column", Vector3(kx + side * 8.0, 0, zs * (khz - 1.0)), 1.6)
+		_add_wall_torch(Vector3(kx + side * 2.0, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
+		_add_wall_torch(Vector3(kx + side * 6.0, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
+		_prop("dungeon/box_stacked", Vector3(kx + side * 11.2, 0, zs * (khz - 1.6)), 0.55, 0.0)
+	# Faction flavour: elves grow greenery against their walls, humans post iron braziers.
+	if team == 0:
+		for zs in [-1.0, 1.0]:
+			_add_bush(Vector3(fx - side * 1.9, 0, zs * (hz - 3.5)), int(zs) + 7)
+			_add_bush(Vector3(fx - side * 2.3, 0, zs * (hz + 1.4)), int(zs) + 9)
+			_add_bush(Vector3(kx - side * 1.2, 0, zs * (khz + 1.5)), int(zs) + 11)
+	else:
+		for zs in [-1.0, 1.0]:
+			_add_torch(Vector3(kx - side * 1.3, 0, zs * (khz - 0.6)))
 
 	# Throne on a dais inside the keep. Carry the enemy monarch here to score.
 	var throne := Vector3(kx + side * 6.0, 0, 0)
 	thrones.append(throne)
-	_add_block(throne + Vector3(side * 1.5, 0.15, 0), Vector3(3, 0.3, 4), Color(0.75, 0.6, 0.25), false, _stone(Color(1.0, 0.85, 0.45), 0.6))
-	_add_block(throne + Vector3(side * 2.4, 1.2, 0), Vector3(0.4, 2.0, 1.6), color.darkened(0.2), false)
-	_add_block(throne + Vector3(side * 2.4, 2.35, 0), Vector3(0.5, 0.3, 1.8), Color(0.95, 0.78, 0.25), false)
-	for z in [-4.4, 4.4]:
-		_prop("dungeon/pillar_decorated", throne + Vector3(side * 2.0, 0, z), 1.5)
-	_prop("dungeon/chest_gold", throne + Vector3(side * 3.0, 0, -5.6), 0.9, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	_add_block(throne + Vector3(side * 1.5, 0.15, 0), Vector3(3, 0.3, 4), Color.WHITE, false, _ashlar(Color(0.95, 0.9, 0.8)))
+	_add_block(throne + Vector3(side * 2.4, 1.2, 0), Vector3(0.4, 2.0, 1.6), color, false, _cloth(color.darkened(0.2)))
+	_add_block(throne + Vector3(side * 2.4, 2.35, 0), Vector3(0.5, 0.3, 1.8), Color.WHITE, false, _gold())
+	for z in [-4.6, 4.6]:
+		_prop("dungeon/column", throne + Vector3(side * 2.0, 0, z), 1.6)
+	_prop("dungeon/chest_gold", throne + Vector3(side * 1.0, 0, -5.6), 0.8, PI / 2.0 if side < 0.0 else -PI / 2.0)
 	# The Crown Vault: a cage around the throne whose lock the enemy must break.
 	var vault = Vault.new()
 	add_child(vault)
 	vault.setup(self, team, throne, side)
 	vaults.append(vault)
-	# Vault decor: elves grow crystals and roots, humans post guard statues and banners.
+	audit_blocks.append(["vault", AABB(throne + Vector3(-3.0, 0, -3.7), Vector3(6.0, 2.8, 7.4))])
+	# Vault decor: elves grow crystals and fireflies, humans post guard shields and banners.
 	if team == 0:
 		for z in [-3.0, 3.0]:
-			_add_crystal(throne + Vector3(side * 3.2, 0, z), 1.0)
+			_add_crystal(throne + Vector3(side * 4.2, 0, z * 1.6), 1.0)
 		_add_fireflies(throne)
 	else:
-		for z in [-3.0, 3.0]:
-			_prop("dungeon/sword_shield", throne + Vector3(side * 3.0, 1.4, z), 1.1, PI / 2.0 if side > 0.0 else -PI / 2.0)
-			_prop("dungeon/banner_blue", throne + Vector3(side * 2.6, 0, z * 1.5), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
-	# Predefined defensive positions: low barricades flanking the vault's front.
-	for z in [-5.0, 5.0]:
-		_add_barricade(team, throne + Vector3(-side * 4.0, 0, z), 2.4, PI / 2.0, "hex/fence_wood_straight")
+		for z in [-1.0, 1.0]:
+			_prop("dungeon/sword_shield", throne + Vector3(side * 5.0, 1.4, z * 4.6), 1.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	# Predefined defensive positions: low fences flanking the vault's front.
+	for z in [-5.6, 5.6]:
+		_add_barricade(team, throne + Vector3(-side * 4.0, 0, z), 2.4, 0.0)
 		cover_points.append(throne + Vector3(-side * 4.0, 0, z))
 	# Outer defense: a breakable fence line across the yard behind the door,
 	# with the centre lane and the flanks left open.
 	for z in [-6.0, 6.0]:
-		_add_barricade(team, Vector3(fx + side * 4.2, 0, z), 3.5, 0.0, "hex/fence_wood_straight")
-		cover_points.append(Vector3(fx + side * 4.2, 0, z))
+		_add_barricade(team, Vector3(fx + side * 5.2, 0, z), 3.5, PI / 2.0)
+		cover_points.append(Vector3(fx + side * 5.2, 0, z))
 
-	_build_cellar(team, bx, side, tint, masonry, masonry_dark, stone)
+	_build_cellar(team, bx, side)
 
 	var ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()
@@ -2511,35 +2709,36 @@ func _build_castle(team: int) -> void:
 	monarchs.append(m)
 
 
-func _build_cellar(team: int, bx: float, side: float, tint: Color, masonry: Material, masonry_dark: Material, stone: Color) -> void:
+func _build_cellar(team: int, bx: float, side: float) -> void:
 	## The spawn cellar: a sunken stone hall behind the keep with the class
 	## stations in it (Fat Princess hat machines, our way) and a flight of
 	## stairs up through the back wall into the keep. Its parapet keeps the
 	## field out, so the only way in from outside is still the front door.
+	var color: Color = Stats.FACTIONS[team].color
 	var cx := bx + side * (CELLAR_DEPTH / 2.0)
 	var hz := CELLAR_HALF_Z
 	var top := 0.9
 	var wall_h := top - CELLAR_Y
 	var wall_y := CELLAR_Y + wall_h / 2.0
-	_add_block(Vector3(cx, CELLAR_Y - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), stone, true, _stone(tint.darkened(0.3), 0.6))
-	_add_block(Vector3(bx + side * (CELLAR_DEPTH + 0.5), wall_y, 0), Vector3(1, wall_h, hz * 2 + 1), stone, true, masonry)
+	_add_block(Vector3(cx, CELLAR_Y - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), Color.WHITE, true, _flagstone(Color(0.9, 0.86, 0.8)))
+	_add_wall(Vector3(bx + side * (CELLAR_DEPTH + 0.5), wall_y, 0), Vector3(1, wall_h, hz * 2 + 1))
 	for zs in [-1.0, 1.0]:
-		_add_block(Vector3(cx, wall_y, zs * (hz + 0.5)), Vector3(CELLAR_DEPTH + 2.0, wall_h, 1), stone, true, masonry)
+		_add_wall(Vector3(cx, wall_y, zs * (hz + 0.5)), Vector3(CELLAR_DEPTH + 2.0, wall_h, 1))
 		# Under the castle's back wall: solid below ground except at the stairs.
 		var seg := hz + 0.5 - 1.8
-		_add_block(Vector3(bx, CELLAR_Y / 2.0, zs * (1.8 + seg / 2.0)), Vector3(1, -CELLAR_Y, seg), stone, true, masonry_dark)
-		# Torches and banners along the side walls.
-		for k in 3:
-			var tx := bx + side * (2.0 + k * 3.2)
-			_add_torch(Vector3(tx, CELLAR_Y, zs * (hz - 0.6)))
-		_prop("dungeon/banner_%s" % ["green", "blue"][team], Vector3(bx + side * 5.0, CELLAR_Y + 0.0, zs * (hz - 0.25)), 0.9, 0.0 if zs > 0.0 else PI)
-		_prop("dungeon/box_stacked", Vector3(bx + side * (CELLAR_DEPTH - 1.3), CELLAR_Y, zs * (hz - 1.3)), 0.8, 0.4 * zs)
-	# The stairs: a straight ramp up the middle into the keep.
+		_add_block(Vector3(bx, CELLAR_Y / 2.0, zs * (1.8 + seg / 2.0)), Vector3(1, -CELLAR_Y, seg), Color.WHITE, true, _ashlar())
+		# Torches in brackets and banners along the side walls.
+		for k in 2:
+			var tx := bx + side * (1.5 + k * 3.0)
+			_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
+		_add_banner(team, Vector3(bx + side * 7.0, CELLAR_Y - 0.1, zs * (hz - 0.05)), Vector3(0, 0, -zs), 0.7)
+		_prop("dungeon/box_stacked", Vector3(bx + side * 8.9, CELLAR_Y, zs * 6.1), 0.45, 0.0)
+	# The stairs: a straight flight up the middle into the keep.
 	var st := cellar_stairs(team)
-	_add_ramp(st[0], st[1], 3.2, tint.darkened(0.1))
+	_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
 	for zs in [-1.0, 1.0]:
 		# Low walls along the raised part of the stairs (the foot is open).
-		_add_block(Vector3(bx + side * 3.0, CELLAR_Y + 0.6, zs * 1.9), Vector3(7.6, 1.2, 0.3), stone, true, masonry_dark)
+		_add_block(Vector3(bx + side * 3.0, CELLAR_Y + 0.6, zs * 1.9), Vector3(7.6, 1.2, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)))
 	# The sanctuary barrier at the top of the stairs: the enemy team can't pass
 	# it and nothing they fire gets through. Elves raise a wall of light,
 	# Humans drop an iron portcullis.
@@ -2604,8 +2803,23 @@ func _build_cellar(team: int, bx: float, side: float, tint: Color, masonry: Mate
 		field.material_override = fm
 		field.position = Vector3(bx, 1.45, 0)
 		add_child(field)
-	# Team emblem on the floor and a banner wall at the spawn end.
-	_add_block(Vector3(bx + side * (CELLAR_DEPTH - 1.2), CELLAR_Y + 0.025, 0), Vector3(1.6, 0.03, 6.0), Stats.FACTIONS[team].color.darkened(0.3), false)
+	# The spawn circle at the far end: a glowing team-coloured ring on the floor.
+	var spawn := Vector3(bx + side * 8.6, CELLAR_Y, 0)
+	_add_rug(spawn + Vector3(-side * 2.0, 0, 0), Vector2(1.4, 9.0), color)
+	var ring := MeshInstance3D.new()
+	var rm2 := TorusMesh.new()
+	rm2.inner_radius = 4.2
+	rm2.outer_radius = 4.45
+	rm2.rings = 48
+	ring.mesh = rm2
+	ring.position = spawn + Vector3(-side * 0.8, 0.04, 0)
+	var ring_mat := _material(color.lightened(0.3))
+	ring_mat.emission_enabled = true
+	ring_mat.emission = color.lightened(0.2)
+	ring_mat.emission_energy_multiplier = 1.2
+	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring.material_override = ring_mat
+	add_child(ring)
 	# A warm light so the hall reads from above.
 	var lamp := OmniLight3D.new()
 	lamp.light_color = Color(1.0, 0.8, 0.55)
@@ -2624,6 +2838,51 @@ func _build_cellar(team: int, bx: float, side: float, tint: Color, masonry: Mate
 	add_child(g)
 	g.setup(self, team, Vector3(bx + side * 1.6, CELLAR_Y, 4.6), PI / 2.0 if side < 0.0 else -PI / 2.0)
 	guides[team] = g
+
+
+func _audit_clipping() -> void:
+	## Testing aid (--audit): lists props that overlap a wall, another prop,
+	## a fence, the gate or the vault by more than 15 cm, then quits.
+	var items: Array = []
+	for p in audit_props:
+		var n: Node3D = p[1]
+		var aabb := AABB()
+		var first := true
+		for m in n.find_children("*", "MeshInstance3D", true, false):
+			var a: AABB = m.global_transform * m.get_aabb()
+			if first:
+				aabb = a
+				first = false
+			else:
+				aabb = aabb.merge(a)
+		var c := aabb.get_center()
+		if not first and absf(c.z) < 38.0 and absf(c.x) < 90.0:  # the horizon forest and hills are backdrop
+			items.append([p[0], aabb])
+	var count := 0
+	for i in items.size():
+		for j in range(i + 1, items.size()):
+			var pen := _penetration(items[i][1], items[j][1])
+			if pen > 0.15:
+				print("CLIP prop/prop %s <-> %s : %.2f at %s" % [items[i][0], items[j][0], pen, items[i][1].get_center().snapped(Vector3(0.1, 0.1, 0.1))])
+				count += 1
+		for b in audit_blocks:
+			var bb: AABB = b[1]
+			if bb.position.y + bb.size.y <= 0.02 and bb.size.y >= 0.9:
+				continue  # the ground
+			if b[0] == "pole":
+				continue  # torch handles sit inside their posts by design
+			var pen := _penetration(items[i][1], bb)
+			if pen > 0.15:
+				print("CLIP prop/%s %s : %.2f at %s (block %s %s)" % [b[0], items[i][0], pen, items[i][1].get_center().snapped(Vector3(0.1, 0.1, 0.1)), bb.position.snapped(Vector3(0.1, 0.1, 0.1)), bb.size.snapped(Vector3(0.1, 0.1, 0.1))])
+				count += 1
+	print("AUDIT done: %d overlaps in %d props" % [count, items.size()])
+
+
+func _penetration(a: AABB, b: AABB) -> float:
+	var i := a.intersection(b)
+	if i.size.x <= 0.0 or i.size.y <= 0.0 or i.size.z <= 0.0:
+		return 0.0
+	return minf(i.size.x, minf(i.size.y, i.size.z))
 
 
 func _add_crystal(pos: Vector3, scale: float) -> void:
