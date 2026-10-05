@@ -77,7 +77,7 @@ static func config(team: int, role: int, variant: String = "") -> Dictionary:
 					c.skin = "healer"
 					c.show = ["1H_Wand", "Spellbook_open"]
 					c.idle = "Idle"
-					c.attacks = ["1H_Melee_Attack_Chop"]
+					c.attacks = ["Spellcast_Shoot"]
 					c.hat = false
 				_:
 					c.scene = "rogue"

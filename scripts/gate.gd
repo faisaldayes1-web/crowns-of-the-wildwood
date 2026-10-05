@@ -88,15 +88,23 @@ func is_intact() -> bool:
 	return not broken
 
 
-func take_hit(amount: int) -> void:
+func take_hit(amount: int, attacker = null) -> void:
 	if broken:
 		return
 	hp = maxi(hp - amount, 0)
+	if attacker:
+		attacker.gain_xp(Stats.XP_GATE * amount)
+	var hit_side := 1.0 if team == 0 else -1.0
+	var where := global_position + Vector3(hit_side * 0.6, 0, randf_range(-size.z * 0.4, size.z * 0.4))
+	game.spawn_splash(where, Color(0.75, 0.55, 0.3), 8, 3.0, 0.5)
 	if hp == 0:
 		broken = true
 		rebuild_timer = Stats.GATE_REBUILD_TIME
 		shape.disabled = true
 		game.announce("The %s door has been broken!" % Stats.FACTIONS[team].name)
+		game.spawn_splash(global_position, Color(0.7, 0.5, 0.28), 60, 7.0, 1.0)
+		game.spawn_splash(global_position + Vector3(0, 1, 0), Color(0.5, 0.45, 0.4), 30, 3.0, 1.4, true)
+		game.shake_at(global_position, 0.8)
 	_refresh()
 
 

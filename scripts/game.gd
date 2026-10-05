@@ -66,6 +66,13 @@ var message_timer := 0.0
 # Run with "-- --demo" to watch bots play each other (used for testing).
 var demo := false
 var shot_frame := 900
+# Menus. The game menu (Esc) pauses; the rank menu (Tab) is an overlay.
+var menu_open := false
+var rank_open := false
+var menu_tab := 0
+var shake_amount := 0.0
+var cam_pos := Vector3.ZERO
+var click_was := false
 
 
 func _ready() -> void:
@@ -79,6 +86,9 @@ func _ready() -> void:
 			shot_frame = int(arg.trim_prefix("--shot-frame="))
 	if demo:
 		_start_match(0)
+		return
+	if "--play" in OS.get_cmdline_user_args():
+		_start_match(0)  # testing: straight into a match with a (idle) local player
 		return
 	banner.visible = false
 
@@ -123,6 +133,17 @@ func _debug_hooks() -> void:
 	## (default 900); "--debug-end" ends the match a second before that.
 	var frame := Engine.get_process_frames()
 	for arg in OS.get_cmdline_user_args():
+		if frame == shot_frame - 5 and player:
+			# Menu screenshots: open the menu a few frames before the shot.
+			if arg == "--debug-rank":
+				player.level = 3
+				player.points = 2
+				rank_open = true
+			if arg == "--debug-menu":
+				menu_open = true
+				menu_tab = 0
+			if arg.begins_with("--debug-tab="):
+				menu_tab = int(arg.trim_prefix("--debug-tab="))
 		if arg.begins_with("--shot=") and frame == shot_frame:
 			get_viewport().get_texture().get_image().save_png(arg.trim_prefix("--shot="))
 		if arg == "--debug-end" and playing and frame == shot_frame - 60:
@@ -152,6 +173,9 @@ func _score_capture(carrier, m) -> void:
 	carrier.carrying = null
 	m.go_home()
 	score[carrier.team] += 1
+	carrier.gain_xp(Stats.XP_CAPTURE)
+	spawn_splash(thrones[carrier.team] + Vector3(0, 1, 0), Color(1.0, 0.85, 0.3), 50, 6.0, 1.2, true)
+	shake(0.3)
 	var team_name: String = Stats.FACTIONS[carrier.team].name
 	if score[carrier.team] >= CAPTURES_TO_WIN:
 		_finish(carrier.team)
@@ -191,6 +215,7 @@ func try_interact(u) -> void:
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
 		m.pick_up(u)
 		u.carrying = m
+		u.gain_xp(Stats.XP_GRAB)
 		announce("The %s has been taken by the %s!" % [m.title, Stats.FACTIONS[u.team].name])
 
 
@@ -319,6 +344,7 @@ func spawn_shot(u, dir: Vector3, s: Dictionary, color: Color) -> void:
 	## An arrow, spell or bolt. `s` carries damage, gate_damage, range and
 	## optionally splash and speed (see projectile.gd).
 	var shot = Projectile.new()
+	shot.owner_unit = u
 	add_child(shot)
 	shot.setup(self, u.team, u.global_position, dir, s, color)
 
@@ -344,6 +370,61 @@ func spawn_burst(where: Vector3, radius: float, color: Color) -> void:
 	add_child(ring)
 	ring.global_position = Vector3(where.x, where.y + 0.15, where.z)
 	get_tree().create_timer(0.25).timeout.connect(ring.queue_free)
+
+
+func spawn_splash(where: Vector3, color: Color, count: int, speed: float, life: float, rise: bool = false) -> void:
+	## A one-shot spray of little bits: sparks, splinters, motes.
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = count
+	p.lifetime = life
+	p.direction = Vector3.UP
+	p.spread = 180.0 if not rise else 50.0
+	p.initial_velocity_min = speed * 0.4
+	p.initial_velocity_max = speed
+	p.gravity = Vector3(0, 2.5, 0) if rise else Vector3(0, -14.0, 0)
+	p.damping_min = 1.0
+	p.damping_max = 3.0
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.2
+	var box := BoxMesh.new()
+	box.size = Vector3(0.14, 0.14, 0.14)
+	p.mesh = box
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.emission_enabled = true
+	mat.emission = color
+	mat.emission_energy_multiplier = 0.8
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	p.mesh.material = mat
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1, 1, 1, 1))
+	fade.set_color(1, Color(1, 1, 1, 0))
+	p.color_ramp = fade
+	add_child(p)
+	p.global_position = where
+	p.emitting = true
+	get_tree().create_timer(life + 0.3).timeout.connect(p.queue_free)
+
+
+func spawn_popup(where: Vector3, text: String, color: Color) -> void:
+	## A number or word that floats up and fades, like damage numbers.
+	var l := Label3D.new()
+	l.text = text
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.font_size = 40
+	l.pixel_size = 0.012
+	l.outline_size = 10
+	l.modulate = color
+	add_child(l)
+	l.global_position = where + Vector3(randf_range(-0.3, 0.3), 0, 0)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(l, "global_position", l.global_position + Vector3(0, 1.4, 0), 0.8).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 0.0, 0.8).set_delay(0.3)
+	tw.chain().tween_callback(l.queue_free)
 
 
 func spawn_swing(u, aim: Vector3) -> void:
@@ -391,16 +472,80 @@ func _start_match(team: int) -> void:
 			units.append(u)
 			if is_player or (demo and player == null):
 				player = u
-	camera.global_position = player.global_position + CAMERA_OFFSET
+	cam_pos = player.global_position + CAMERA_OFFSET
+	camera.global_position = cam_pos
 	playing = true
-	announce("Move with WASD, aim with the mouse, left click to attack, Q and E for abilities, Shift to dodge, F to grab the monarch.")
+	announce("WASD to move, mouse to aim, click to attack, Q and E for abilities, Space to dodge, right click to block, F to grab, Tab to rank up.")
 
 
 func _update_camera(delta: float) -> void:
 	if player == null:
 		return
 	var target: Vector3 = player.global_position + CAMERA_OFFSET
-	camera.global_position = camera.global_position.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
+	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
+	shake_amount = move_toward(shake_amount, 0.0, delta * 1.6)
+	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amount * 0.35
+	camera.global_position = cam_pos + jolt
+
+
+func shake(amount: float) -> void:
+	## Camera recoil for the local player's view.
+	shake_amount = maxf(shake_amount, amount)
+
+
+func shake_at(where: Vector3, amount: float) -> void:
+	## A shake that fades with distance from the player.
+	if player == null:
+		return
+	var d := _flat_dist(where, player.global_position)
+	if d < 16.0:
+		shake(amount * (1.0 - d / 16.0))
+
+
+func menu_blocks_input() -> bool:
+	return menu_open or rank_open
+
+
+func menu_tick() -> void:
+	## Called every frame by the HUD, which keeps running while paused.
+	if not playing or game_over:
+		return
+	if Input.is_action_just_pressed("menu"):
+		menu_open = not menu_open
+		rank_open = false
+		get_tree().paused = menu_open
+	if menu_open:
+		if Input.is_action_just_pressed("menu_left"):
+			menu_tab = posmod(menu_tab - 1, 3)
+		if Input.is_action_just_pressed("menu_right"):
+			menu_tab = posmod(menu_tab + 1, 3)
+		if Input.is_action_just_pressed("quit_match"):
+			get_tree().paused = false
+			get_tree().reload_current_scene()
+	elif Input.is_action_just_pressed("rank_menu") and player and not demo:
+		rank_open = not rank_open
+	if rank_open and player:
+		if player.dead:
+			rank_open = false
+		for i in 4:
+			if Input.is_action_just_pressed("rank_%d" % (i + 1)):
+				player.spend_point(i)
+	# Mouse clicks on menu buttons (the HUD records where it drew them).
+	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	if click and not click_was and hud:
+		var mouse := get_viewport().get_mouse_position()
+		for i in hud.rank_buttons.size():
+			if hud.rank_buttons[i].has_point(mouse) and player:
+				player.spend_point(i)
+		for i in hud.tab_buttons.size():
+			if hud.tab_buttons[i].has_point(mouse):
+				menu_tab = i
+		if hud.close_button.has_point(mouse):
+			if menu_open:
+				menu_open = false
+				get_tree().paused = false
+			rank_open = false
+	click_was = click
 
 
 # --- World -----------------------------------------------------------------
@@ -697,7 +842,8 @@ func _build_castle(team: int) -> void:
 	_add_block(Vector3(fx, WALL_H / 2.0, -zc), Vector3(1, WALL_H, seg), stone, true, masonry)
 	_add_block(Vector3(fx, WALL_H / 2.0, zc), Vector3(1, WALL_H, seg), stone, true, masonry)
 	_add_block(Vector3(fx, WALK_Y - 0.3, 0), Vector3(2.4, 0.6, hz * 2 + 1), stone, true, _wood(tint, 1.3))
-	_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.25, 0), Vector3(0.3, 0.5, hz * 2 + 1), stone, true, masonry_dark)
+	# The parapet is only for looks: step over it to drop down to the field.
+	_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.25, 0), Vector3(0.3, 0.5, hz * 2 + 1), stone, false, masonry_dark)
 	# Crenellations along the parapet.
 	for k in 9:
 		var pz := -hz + 1.0 + k * (hz * 2 - 2.0) / 8.0
@@ -871,6 +1017,7 @@ func _build_world() -> void:
 
 func _build_hud() -> void:
 	var layer := CanvasLayer.new()
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(layer)
 
 	hud = Hud.new()
@@ -923,11 +1070,21 @@ func _setup_input() -> void:
 	_add_action("aim_right", [], [], JOY_AXIS_RIGHT_X, 1.0)
 	_add_action("aim_up", [], [], JOY_AXIS_RIGHT_Y, -1.0)
 	_add_action("aim_down", [], [], JOY_AXIS_RIGHT_Y, 1.0)
-	_add_action("attack", [KEY_SPACE, KEY_J], [JOY_BUTTON_A], JOY_AXIS_TRIGGER_RIGHT, 1.0, [MOUSE_BUTTON_LEFT])
+	_add_action("attack", [KEY_J], [JOY_BUTTON_A], JOY_AXIS_TRIGGER_RIGHT, 1.0, [MOUSE_BUTTON_LEFT])
+	_add_action("block", [KEY_SHIFT, KEY_K], [JOY_BUTTON_LEFT_SHOULDER], JOY_AXIS_TRIGGER_LEFT, 1.0, [MOUSE_BUTTON_RIGHT])
 	_add_action("ability_1", [KEY_Q], [JOY_BUTTON_X])
 	_add_action("ability_2", [KEY_E], [JOY_BUTTON_Y])
-	_add_action("dodge", [KEY_SHIFT, KEY_L], [JOY_BUTTON_B], -1, 0.0, [MOUSE_BUTTON_RIGHT])
-	_add_action("interact", [KEY_F, KEY_K], [JOY_BUTTON_RIGHT_SHOULDER])
+	_add_action("dodge", [KEY_SPACE, KEY_L], [JOY_BUTTON_B])
+	_add_action("interact", [KEY_F], [JOY_BUTTON_RIGHT_SHOULDER])
+	_add_action("rank_menu", [KEY_TAB], [JOY_BUTTON_BACK])
+	_add_action("rank_1", [KEY_1], [JOY_BUTTON_DPAD_UP])
+	_add_action("rank_2", [KEY_2], [JOY_BUTTON_DPAD_LEFT])
+	_add_action("rank_3", [KEY_3], [JOY_BUTTON_DPAD_RIGHT])
+	_add_action("rank_4", [KEY_4], [JOY_BUTTON_DPAD_DOWN])
+	_add_action("menu", [KEY_ESCAPE], [JOY_BUTTON_START])
+	_add_action("menu_left", [KEY_LEFT, KEY_A], [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_LEFT_SHOULDER])
+	_add_action("menu_right", [KEY_RIGHT, KEY_D], [JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_RIGHT_SHOULDER])
+	_add_action("quit_match", [KEY_BACKSPACE], [JOY_BUTTON_Y])
 	_add_action("pick_elves", [KEY_1], [JOY_BUTTON_DPAD_LEFT])
 	_add_action("pick_humans", [KEY_2], [JOY_BUTTON_DPAD_RIGHT])
 	_add_action("restart", [KEY_R, KEY_ENTER], [JOY_BUTTON_START])

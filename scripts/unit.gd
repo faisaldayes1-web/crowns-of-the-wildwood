@@ -1,8 +1,8 @@
 extends CharacterBody3D
 ## One soldier on either team, driven by the local player or by a simple bot brain.
 ## Everyone starts as a plain Elf or Human and transforms by stepping onto a
-## class station in their castle. Dying resets you to the plain form.
-## All class numbers and movesets live in stats.gd.
+## class station in their castle. Dying resets you to the plain form and
+## wipes the experience you earned this life. All numbers live in stats.gd.
 
 const Stats = preload("res://scripts/stats.gd")
 const Monarch = preload("res://scripts/monarch.gd")
@@ -30,12 +30,21 @@ var bash_timer := 0.0       # a Knight's Shield Bash is a dash that hurts
 var bash_speed := 0.0
 var bash_hit: Array = []
 var guard_timer := 0.0      # Shield Wall: no damage gets through
+var blocking := false       # shield up (hold right click): blocks hits from the front
 var root_timer := 0.0       # snared: can't move
 var haste_timer := 0.0      # blessed: faster
 var knockback := Vector3.ZERO
 var carrying = null
 var spawn_point := Vector3.ZERO
 var facing := Vector3(1, 0, 0)
+var kills := 0
+
+# Experience this life. Levels give rank points; ranks are kept per class so
+# switching class at a station starts that class's ranks fresh.
+var xp := 0
+var level := 1
+var points := 0
+var ranks := {}             # role -> [attack, q, e, vigor]
 
 # Where attacks go. The player aims with the mouse or the right stick, so
 # aiming is independent of walking; bots aim at whatever they are fighting.
@@ -49,6 +58,7 @@ var last_mouse := Vector2(-1, -1)
 var bot_job := "attack"
 var bot_class: int = Role.KNIGHT
 var bot_offset := Vector3.ZERO
+var bot_block_timer := 0.0
 var stuck_time := 0.0
 var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
 var sidestep_sign := 1.0
@@ -197,7 +207,12 @@ func energy_kind() -> String:
 
 
 func energy_max() -> float:
-	return Stats.MANA_MAX if energy_kind() == "mana" else Stats.STAMINA_MAX
+	var base := Stats.MANA_MAX if energy_kind() == "mana" else Stats.STAMINA_MAX
+	return base + Stats.VIGOR_ENERGY * rank(3)
+
+
+func can_block() -> bool:
+	return stats().get("block", false)
 
 
 func abilities() -> Array:
@@ -209,6 +224,7 @@ func set_role(new_role: int) -> void:
 	hearts = Stats.MAX_HEARTS
 	energy = energy_max()
 	ability_timers = [0.0, 0.0]
+	blocking = false
 	if model == null:
 		model = CharacterModel.new()
 		build.add_child(model)
@@ -219,37 +235,185 @@ func set_role(new_role: int) -> void:
 
 func _refresh_overhead() -> void:
 	var tag := "YOU · " if is_player else ""
-	label.text = tag + role_name()
+	var lvl := ("  ★%d" % level) if level > 1 else ""
+	label.text = tag + role_name() + lvl
 	label.modulate = Color(1, 1, 0.6) if is_player else Color(1, 1, 1)
 	for i in heart_mats.size():
 		heart_mats[i].albedo_color = Color(0.95, 0.15, 0.2) if i < hearts else Color(0.2, 0.2, 0.2)
 
 
-func take_damage(amount: int) -> void:
+# --- Experience and ranks ----------------------------------------------------
+
+func rank(track: int) -> int:
+	## 0 = attack, 1 = Q, 2 = E, 3 = vigor.
+	if not ranks.has(role):
+		return 0
+	return ranks[role][track]
+
+
+func track_available(track: int) -> bool:
+	return track == 0 or track == 3 or track - 1 < abilities().size()
+
+
+func spend_point(track: int) -> bool:
+	if points <= 0 or dead or not track_available(track) or rank(track) >= Stats.MAX_RANK:
+		return false
+	if not ranks.has(role):
+		ranks[role] = [0, 0, 0, 0]
+	ranks[role][track] += 1
+	points -= 1
+	if track == 3:
+		energy = minf(energy + Stats.VIGOR_ENERGY, energy_max())
+	game.spawn_burst(global_position + Vector3(0, 0.1, 0), 1.1, Color(1.0, 0.85, 0.3))
+	game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(1.0, 0.85, 0.3), 14, 3.0, 0.5)
+	if is_player:
+		game.spawn_popup(global_position + Vector3(0, 2.2, 0), "%s rank %d" % [track_name(track), rank(track)], Color(1, 0.9, 0.5))
+	return true
+
+
+func track_name(track: int) -> String:
+	match track:
+		0: return stats().attack_name
+		1, 2: return abilities()[track - 1].name if track - 1 < abilities().size() else "-"
+	return "Vigor"
+
+
+func gain_xp(amount: int) -> void:
+	if dead or amount <= 0:
+		return
+	xp += amount
+	var new_level := Stats.level_for_xp(xp)
+	if new_level > level:
+		points += new_level - level
+		level = new_level
+		_refresh_overhead()
+		game.spawn_burst(global_position + Vector3(0, 0.1, 0), 1.4, Color(1.0, 0.9, 0.4))
+		game.spawn_splash(global_position + Vector3(0, 0.6, 0), Color(1.0, 0.9, 0.4), 24, 4.5, 0.9)
+		game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
+		if is_player:
+			game.announce("Level %d! Press Tab to rank up an ability." % level)
+		else:
+			_bot_spend()
+
+
+func _bot_spend() -> void:
+	# Bots like their attack first, then Q, E, then Vigor, and keep going round.
+	var order := [0, 1, 2, 3]
+	var guard := 0
+	while points > 0 and guard < 16:
+		guard += 1
+		for t in order:
+			if points > 0 and track_available(t) and rank(t) < Stats.MAX_RANK:
+				spend_point(t)
+				break
+		var any_left := false
+		for t in order:
+			any_left = any_left or (track_available(t) and rank(t) < Stats.MAX_RANK)
+		if not any_left:
+			break
+
+
+func ranked(a: Dictionary, track: int) -> Dictionary:
+	## A copy of an attack or ability with this unit's rank applied.
+	var r := rank(track)
+	if r == 0:
+		return a
+	var out := a.duplicate()
+	out.cooldown = a.cooldown * (1.0 - Stats.RANK_COOLDOWN_CUT * r)
+	out.cost = a.cost * (1.0 - Stats.RANK_COST_CUT * r)
+	if r >= 2:
+		for key in ["distance", "radius", "duration", "haste", "splash", "heal_radius", "root", "range"]:
+			if a.has(key):
+				out[key] = a[key] * (1.0 + Stats.RANK_EFFECT_BOOST)
+		if a.has("arrows"):
+			out.arrows = a.arrows + 2
+	if r >= 3:
+		if a.has("heal"):
+			out.heal = a.heal + 1
+		if a.has("damage") and a.get("kind", "") != "bash":
+			out.damage = a.damage + 1
+		if a.has("gate_damage"):
+			out.gate_damage = a.gate_damage + 1
+	return out
+
+
+func attack_stats() -> Dictionary:
+	return ranked(stats(), 0)
+
+
+func ability(i: int) -> Dictionary:
+	return ranked(abilities()[i], i + 1)
+
+
+func vigor_speed() -> float:
+	return 1.0 + Stats.VIGOR_SPEED * rank(3)
+
+
+# --- Damage ------------------------------------------------------------------
+
+func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knock: float = 0.0) -> bool:
+	## Returns true if the hit landed. `from` is where the hit came from, for
+	## knockback and for the shield: a raised shield stops hits from the front.
 	if dead or dodge_timer > 0.0 or guard_timer > 0.0:
-		return  # mid-dodge or behind the shield: untouchable
+		return false  # mid-dodge or behind the shield wall: untouchable
+	var push := Vector3.ZERO
+	if from.is_finite():
+		push = global_position - from
+		push.y = 0.0
+		push = push.normalized() if push.length() > 0.05 else facing
+	if blocking and from.is_finite() and facing.dot(-push) > 0.1:
+		# Blocked: no damage, but it costs stamina and shoves you a little.
+		energy -= Stats.BLOCK_COST
+		knockback = push * knock * 0.5
+		game.spawn_splash(global_position + facing * 0.6 + Vector3(0, 1.0, 0), Color(0.9, 0.95, 1.0), 10, 4.0, 0.3)
+		game.spawn_popup(global_position + Vector3(0, 2.0, 0), "BLOCKED", Color(0.75, 0.85, 1.0))
+		if energy <= 0.0:
+			energy = 0.0
+			blocking = false
+			model.release()
+		return false
 	hearts -= amount
 	flash_timer = 0.15
+	knockback = push * knock
+	if attacker and attacker != self:
+		attacker.gain_xp(Stats.XP_HIT * amount)
+	game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(1.0, 0.3, 0.25), 10, 3.5, 0.4)
+	game.spawn_popup(global_position + Vector3(0, 2.0, 0), "-%d" % amount, Color(1, 0.35, 0.3))
+	if is_player:
+		game.shake(0.35)
 	if hearts <= 0:
+		if attacker and attacker != self:
+			attacker.gain_xp(Stats.XP_KILL)
+			attacker.kills += 1
 		_die()
-		return
+		return true
 	_refresh_overhead()
 	if model and model._now() >= model.busy_until:
 		model.play_once("Hit_A", 1.5)
 	# Bots roll sideways away from whatever just hit them, half the time.
 	if not is_player and dodge_ready() and randf() < 0.5:
 		try_dodge(facing.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0))
+	return true
 
 
-func heal(amount: int) -> void:
+func heal(amount: int, healer = null) -> int:
 	if dead:
-		return
+		return 0
+	var before := hearts
 	hearts = mini(hearts + amount, Stats.MAX_HEARTS)
-	_refresh_overhead()
+	var healed := hearts - before
+	if healed > 0:
+		_refresh_overhead()
+		game.spawn_splash(global_position + Vector3(0, 0.4, 0), Color(0.4, 1.0, 0.5), 12, 2.0, 0.9, true)
+		game.spawn_popup(global_position + Vector3(0, 2.0, 0), "+%d" % healed, Color(0.4, 1.0, 0.5))
+		if healer and healer != self:
+			healer.gain_xp(Stats.XP_HEAL * healed)
+	return healed
 
 
 func dodge_ready() -> bool:
-	return dodge_cooldown <= 0.0 and not dead and carrying == null and root_timer <= 0.0
+	return dodge_cooldown <= 0.0 and not dead and carrying == null and root_timer <= 0.0 \
+		and energy >= Stats.DODGE_COST
 
 
 func try_dodge(dir: Vector3) -> void:
@@ -261,24 +425,27 @@ func try_dodge(dir: Vector3) -> void:
 	rotation.y = atan2(-facing.x, -facing.z)
 	dodge_timer = Stats.DODGE_TIME
 	dodge_cooldown = Stats.DODGE_COOLDOWN
+	energy -= Stats.DODGE_COST
+	blocking = false
 	model.play_once("Dodge_Forward", 2.2)
-	game.spawn_burst(global_position, 0.8, Color(1, 1, 1))
+	game.spawn_splash(global_position + Vector3(0, 0.2, 0), Color(0.9, 0.85, 0.7), 10, 2.5, 0.5)
 
 
 func ability_ready(i: int) -> bool:
 	return i < abilities().size() and ability_timers[i] <= 0.0 and not dead and carrying == null \
-		and energy >= abilities()[i].cost
+		and energy >= ability(i).cost
 
 
 func use_ability(i: int, dir: Vector3) -> void:
 	if not ability_ready(i):
 		return
-	var a: Dictionary = abilities()[i]
+	var a: Dictionary = ability(i)
 	dir.y = 0.0
 	dir = dir.normalized() if dir.length() > 0.05 else facing
 	energy -= a.cost
 	ability_timers[i] = a.cooldown
 	facing = dir
+	blocking = false
 	match a.kind:
 		"bash": model.play_once("1H_Melee_Attack_Stab", 1.6)
 		"guard": model.hold("Blocking")
@@ -296,7 +463,7 @@ func use_ability(i: int, dir: Vector3) -> void:
 			bash_timer = 0.2
 			bash_speed = a.distance / 0.2
 			bash_hit = []
-			game.spawn_burst(global_position, 1.0, Color(0.8, 0.85, 1.0))
+			game.spawn_splash(global_position + Vector3(0, 0.3, 0), Color(0.8, 0.85, 1.0), 12, 3.0, 0.4)
 		"guard":
 			guard_timer = a.duration
 			guard_ring.visible = true
@@ -304,12 +471,14 @@ func use_ability(i: int, dir: Vector3) -> void:
 			for k in a.arrows:
 				var ang: float = deg_to_rad(a.spread) * (float(k) / (a.arrows - 1) - 0.5)
 				game.spawn_shot(self, dir.rotated(Vector3.UP, ang),
-					{"damage": a.damage, "gate_damage": 1, "range": a.range}, Color(0.95, 0.9, 0.7))
+					{"damage": a.damage, "gate_damage": 1, "range": a.range, "shot_speed": a.shot_speed}, Color(0.95, 0.9, 0.7))
+			_recoil(dir, 3.0)
 		"trap":
 			game.spawn_trap(self, global_position + dir * 1.5, a)
 		"fireball":
 			game.spawn_shot(self, dir, {"damage": a.damage, "gate_damage": 4, "range": a.range,
-				"splash": a.splash, "speed": a.speed}, Color(1.0, 0.5, 0.1))
+				"splash": a.splash, "shot_speed": a.shot_speed, "fire": true}, Color(1.0, 0.5, 0.1))
+			_recoil(dir, 3.5)
 		"blink":
 			var from := global_position + Vector3(0, 0.9, 0)
 			var to: Vector3 = from + dir * a.distance
@@ -317,18 +486,26 @@ func use_ability(i: int, dir: Vector3) -> void:
 			var hit := get_world_3d().direct_space_state.intersect_ray(ray)
 			if hit:
 				to = hit.position - dir * 0.8
-			game.spawn_burst(global_position, 1.0, Color(0.7, 0.45, 1.0))
+			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.7, 0.45, 1.0), 16, 3.0, 0.5)
 			global_position = Vector3(to.x, global_position.y, to.z)
-			game.spawn_burst(global_position, 1.0, Color(0.7, 0.45, 1.0))
+			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.7, 0.45, 1.0), 16, 3.0, 0.5)
 		"blessing":
 			for ally in game.units:
 				if ally.team == team and not ally.dead and _flat_to(ally.global_position).length() <= a.radius:
-					ally.heal(a.heal)
+					ally.heal(a.heal, self)
 					ally.haste_timer = a.haste
 			game.spawn_burst(global_position + Vector3(0, 0.2, 0), a.radius, Color(1.0, 0.95, 0.5))
+			game.spawn_splash(global_position + Vector3(0, 0.5, 0), Color(1.0, 0.95, 0.5), 30, 5.0, 1.0, true)
 		"smite":
 			game.spawn_shot(self, dir, {"damage": a.damage, "gate_damage": 1, "range": a.range,
-				"speed": a.speed}, Color(1.0, 0.95, 0.5))
+				"shot_speed": a.shot_speed}, Color(1.0, 0.95, 0.5))
+			_recoil(dir, 2.0)
+
+
+func _recoil(dir: Vector3, amount: float) -> void:
+	knockback -= dir * amount
+	if is_player:
+		game.shake(amount * 0.05)
 
 
 func _die() -> void:
@@ -342,7 +519,14 @@ func _die() -> void:
 	respawn_timer = Stats.RESPAWN_TIME
 	velocity = Vector3.ZERO
 	guard_timer = 0.0
+	blocking = false
 	guard_ring.visible = false
+	# Experience is per life.
+	xp = 0
+	level = 1
+	points = 0
+	ranks = {}
+	game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.3, 0.3, 0.35), 18, 3.0, 0.8)
 	if aim_marker:
 		aim_marker.visible = false
 		aim_ring.visible = false
@@ -359,8 +543,8 @@ func _respawn() -> void:
 		aim_marker.visible = true
 
 
-func _process(delta: float) -> void:
-	_animate(delta)
+func _process(_delta: float) -> void:
+	_animate()
 	if overhead:
 		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + 0.35, 0)
 	if aim_marker and not dead:
@@ -370,7 +554,7 @@ func _process(delta: float) -> void:
 		aim_ring.global_position = Vector3(aim_point.x, global_position.y + 0.08, aim_point.z)
 
 
-func _animate(_delta: float) -> void:
+func _animate() -> void:
 	if model == null or dead:
 		return
 	var planar := Vector2(velocity.x, velocity.z).length()
@@ -422,13 +606,19 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var regen := Stats.MANA_REGEN if energy_kind() == "mana" else Stats.STAMINA_REGEN
-	energy = minf(energy + regen * Stats.FACTIONS[team].regen_mult * delta, energy_max())
+	regen *= Stats.FACTIONS[team].regen_mult * (1.0 + Stats.VIGOR_REGEN * rank(3))
+	if blocking:
+		energy -= Stats.BLOCK_DRAIN * delta
+	else:
+		energy = minf(energy + regen * delta, energy_max())
+	energy = maxf(energy, 0.0)
 	attack_timer = maxf(attack_timer - delta, 0.0)
 	dodge_cooldown = maxf(dodge_cooldown - delta, 0.0)
 	for i in ability_timers.size():
 		ability_timers[i] = maxf(ability_timers[i] - delta, 0.0)
 	root_timer = maxf(root_timer - delta, 0.0)
 	haste_timer = maxf(haste_timer - delta, 0.0)
+	bot_block_timer = maxf(bot_block_timer - delta, 0.0)
 	if guard_timer > 0.0:
 		guard_timer -= delta
 		if guard_timer <= 0.0:
@@ -439,13 +629,15 @@ func _physics_process(delta: float) -> void:
 		for m in flash_mats:
 			m.albedo_color = Color(1, 0.35, 0.35) if flash_timer > 0.0 else Color.WHITE
 
-	var speed: float = Stats.FACTIONS[team].speed * stats().speed
+	var speed: float = Stats.FACTIONS[team].speed * stats().speed * vigor_speed()
 	if carrying:
 		speed *= Stats.CARRY_SPEED_MULT
 	if haste_timer > 0.0:
 		speed *= 1.3
 	if guard_timer > 0.0:
 		speed *= 0.5
+	elif blocking:
+		speed *= Stats.BLOCK_SPEED_MULT
 
 	# Mid-dash (dodge or Shield Bash): fly in the dash direction and ignore the rest.
 	if dodge_timer > 0.0 or bash_timer > 0.0:
@@ -458,8 +650,7 @@ func _physics_process(delta: float) -> void:
 						and _flat_to(other.global_position).length() < 1.3 \
 						and absf(other.global_position.y - global_position.y) < 1.5:
 					bash_hit.append(other)
-					other.take_damage(abilities()[0].damage)
-					other.knockback = dodge_dir * 9.0
+					other.take_damage(ability(0).damage, self, global_position, 10.0)
 		else:
 			dodge_timer -= delta
 		velocity.x = dodge_dir.x * dash_speed
@@ -471,27 +662,40 @@ func _physics_process(delta: float) -> void:
 
 	var move := Vector3.ZERO
 	var wants_attack := false
+	var wants_block := false
 	var plan := {}
 	if is_player:
 		var stick := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 		move = Vector3(stick.x, 0, stick.y)
 		_update_player_aim(move)
-		wants_attack = Input.is_action_pressed("attack")
-		if Input.is_action_just_pressed("interact"):
-			game.try_interact(self)
-		if Input.is_action_just_pressed("ability_1"):
-			use_ability(0, aim)
-		if Input.is_action_just_pressed("ability_2"):
-			use_ability(1, aim)
-		if Input.is_action_just_pressed("dodge"):
-			try_dodge(move)
+		if not game.menu_blocks_input():
+			wants_attack = Input.is_action_pressed("attack")
+			wants_block = Input.is_action_pressed("block")
+			if Input.is_action_just_pressed("interact"):
+				game.try_interact(self)
+			if Input.is_action_just_pressed("ability_1"):
+				use_ability(0, aim)
+			if Input.is_action_just_pressed("ability_2"):
+				use_ability(1, aim)
+			if Input.is_action_just_pressed("dodge"):
+				try_dodge(move)
 		if dodge_timer > 0.0 or bash_timer > 0.0:
 			return
 	else:
 		plan = _bot_think()
 		move = plan.move
 		wants_attack = plan.attack
+		wants_block = plan.get("block", false)
 		aim = plan.aim
+
+	# Shield up: hold to block. It drains stamina, slows you and stops attacks.
+	var block_now: bool = wants_block and can_block() and energy > 0.0 and carrying == null and guard_timer <= 0.0
+	if block_now != blocking:
+		blocking = block_now
+		if blocking:
+			model.hold("Blocking")
+		else:
+			model.release()
 
 	if root_timer > 0.0:
 		move = Vector3.ZERO
@@ -500,7 +704,7 @@ func _physics_process(delta: float) -> void:
 	# whatever they are attacking.
 	if is_player:
 		facing = aim
-	elif wants_attack and aim.length() > 0.05:
+	elif (wants_attack or blocking) and aim.length() > 0.05:
 		facing = aim.normalized()
 	elif move.length() > 0.05:
 		facing = move.normalized()
@@ -520,7 +724,7 @@ func _physics_process(delta: float) -> void:
 		real.y = 0.0
 		stuck_time = stuck_time + delta if real.length() < speed * 0.3 else 0.0
 
-	if wants_attack and carrying == null and attack_timer <= 0.0:
+	if wants_attack and not blocking and carrying == null and attack_timer <= 0.0:
 		_attack(aim)
 	if plan.has("ability"):
 		use_ability(plan.ability, plan.aim)
@@ -535,7 +739,7 @@ func _clamp_to_map() -> void:
 
 func _injured_allies_near(radius: float = -1.0) -> Array:
 	var hurt := []
-	var reach: float = stats().get("heal_radius", 0.0) if radius < 0.0 else radius
+	var reach: float = attack_stats().get("heal_radius", 0.0) if radius < 0.0 else radius
 	for other in game.units:
 		if other.team == team and not other.dead and other.hearts < Stats.MAX_HEARTS \
 				and _flat_to(other.global_position).length() <= reach:
@@ -544,35 +748,45 @@ func _injured_allies_near(radius: float = -1.0) -> Array:
 
 
 func _attack(dir: Vector3) -> void:
-	var s := stats()
+	var s := attack_stats()
 	dir.y = 0.0
 	dir = dir.normalized() if dir.length() > 0.05 else facing
 	var kind: String = s.attack
+	if energy < s.cost:
+		return  # out of stamina or mana
 	if kind == "heal":
+		# Mend: heal everyone hurt around you, including yourself. With nobody
+		# to heal, the same mana fires a holy bolt at whatever you aim at.
 		var hurt := _injured_allies_near()
-		if not hurt.is_empty() and energy >= s.cost:
-			energy -= s.cost
-			attack_timer = s.cooldown
+		energy -= s.cost
+		attack_timer = s.cooldown
+		if not hurt.is_empty():
 			for ally in hurt:
-				ally.heal(s.heal)
+				ally.heal(s.heal, self)
 			model.play_once("Spellcast_Raise", 1.6)
 			game.spawn_burst(global_position + Vector3(0, 0.2, 0), s.heal_radius, Color(0.3, 1.0, 0.5))
 			return
-		kind = "melee"  # nobody to heal: bonk with the staff, free of mana
-	elif energy < s.cost:
-		return  # out of stamina or mana
-	else:
-		energy -= s.cost
+		model.play_once("Spellcast_Shoot", 1.6)
+		game.spawn_shot(self, dir, {"damage": s.damage, "gate_damage": s.gate_damage, "range": s.range,
+			"shot_speed": s.shot_speed}, Color(1.0, 0.95, 0.6))
+		_recoil(dir, 1.5)
+		return
+	energy -= s.cost
 	attack_timer = s.cooldown
 	model.attack()
 
 	if kind == "arrow":
 		game.spawn_shot(self, dir, s, Color(0.95, 0.9, 0.7))
+		_recoil(dir, 1.5)
 		return
 	if kind == "spell":
 		game.spawn_shot(self, dir, s, Color(0.7, 0.45, 1.0))
+		_recoil(dir, 2.0)
 		return
+	# Melee: a short lunge into the swing.
+	knockback += dir * 2.5
 	game.spawn_swing(self, dir)
+	var landed := false
 	for other in game.units:
 		if other.team == team or other.dead:
 			continue
@@ -581,13 +795,15 @@ func _attack(dir: Vector3) -> void:
 		# Swings reach people at your own height, not someone up on a wall.
 		if dist <= s.range and absf(other.global_position.y - global_position.y) < 1.5 \
 				and (dist < 0.8 or dir.dot(to / dist) > 0.3):
-			other.take_damage(s.damage)
+			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE) or landed
+	if landed and is_player:
+		game.shake(0.12)
 	# Swings from the ground also chip away at the enemy door.
 	var gate = game.gates[1 - team]
 	var gx: float = gate.position.x
 	if gate.is_intact() and global_position.y < 1.0 and absf(global_position.x - gx) < s.range + 0.4 \
 			and absf(global_position.z) < Stats.DOOR_HALF + 0.5 and dir.x * signf(gx - global_position.x) > 0.3:
-		gate.take_hit(s.gate_damage)
+		gate.take_hit(s.gate_damage, self)
 
 
 # --- Bot brain -------------------------------------------------------------
@@ -666,7 +882,7 @@ func _bot_pick_ability(dist: float) -> int:
 
 func _bot_think() -> Dictionary:
 	var plan := {"move": Vector3.ZERO, "attack": false, "aim": facing}
-	var s := stats()
+	var s := attack_stats()
 	var mine = game.monarchs[team]
 	var theirs = game.monarchs[1 - team]
 	var ranged: bool = s.attack == "arrow" or s.attack == "spell"
@@ -714,7 +930,7 @@ func _bot_think() -> Dictionary:
 	# bless the group when several are hurt.
 	if s.attack == "heal" and energy >= s.cost and not _injured_allies_near().is_empty():
 		plan.attack = true
-	if role == Role.HEALER and ability_ready(0) and _injured_allies_near(abilities()[0].radius).size() >= 2 \
+	if role == Role.HEALER and ability_ready(0) and _injured_allies_near(ability(0).radius).size() >= 2 \
 			and randf() < 0.05:
 		plan.ability = 0
 
@@ -753,6 +969,14 @@ func _bot_think() -> Dictionary:
 				plan.ability = pick
 				# A Mage's Blink is an escape: away from the enemy.
 				plan.aim = -to.normalized() if (role == Role.MAGE and pick == 1) else to.normalized()
+		# Knights raise the shield while closing in on an archer or mage.
+		if can_block() and not in_range:
+			var their_attack: String = enemy.stats().attack
+			if (their_attack == "arrow" or their_attack == "spell") and to.length() < 10.0 and randf() < 0.03:
+				bot_block_timer = 1.0
+		if bot_block_timer > 0.0 and not in_range:
+			plan.block = true
+			plan.aim = to.normalized()
 		# Wall archers hold their post: shoot what they can reach, chase nobody.
 		if holding_wall:
 			plan.move = _steer_to(next)

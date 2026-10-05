@@ -3,6 +3,8 @@ extends Node3D
 ## door, hits the first enemy it reaches, and spells splash everyone nearby.
 ## Shots fired from up on the castle walls arc down to ground level.
 
+const Stats = preload("res://scripts/stats.gd")
+
 const HIT_RADIUS := 0.7
 const FLIGHT_HEIGHT := 1.1   # how high above the feet a shot flies
 
@@ -14,18 +16,23 @@ var splash := 0.0
 var direction := Vector3.FORWARD
 var life := 0.6
 var fall_speed := 0.0
-var speed := 22.0
+var speed := 30.0
 var query_mask := 1
+var owner_unit = null      # who fired it, for experience
+var fire := false
+var color := Color.WHITE
 
 
-func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dictionary, color: Color) -> void:
+func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dictionary, p_color: Color) -> void:
 	game = p_game
 	team = p_team
 	damage = stats.damage
 	gate_damage = stats.gate_damage
 	splash = stats.get("splash", 0.0)
 	direction = p_direction.normalized()
-	speed = stats.get("speed", 22.0)
+	speed = stats.get("shot_speed", 30.0)
+	fire = stats.get("fire", false)
+	color = p_color
 	life = stats.range / speed
 	position = from + Vector3(0, FLIGHT_HEIGHT, 0)
 	# From the ramparts, shots come down to ground level over most of their range.
@@ -85,7 +92,7 @@ func _physics_process(delta: float) -> void:
 		# Must pass through the body: a shot sailing over someone's head misses.
 		if offset.length() < HIT_RADIUS and absf(global_position.y - (unit.global_position.y + 1.0)) < 1.5:
 			if splash <= 0.0:
-				unit.take_damage(damage)
+				unit.take_damage(damage, owner_unit, global_position - direction, Stats.KNOCK_SHOT)
 			_burst()
 			return
 
@@ -99,6 +106,14 @@ func _burst() -> void:
 			var offset: Vector3 = unit.global_position - global_position
 			offset.y = 0.0
 			if offset.length() < splash:
-				unit.take_damage(damage)
-		game.spawn_burst(global_position, splash, Color(1.0, 0.55, 0.15) if damage >= 2 else Color(0.7, 0.5, 1.0))
+				unit.take_damage(damage, owner_unit, global_position, Stats.KNOCK_SPLASH)
+		game.spawn_burst(global_position, splash, Color(1.0, 0.55, 0.15) if fire else Color(0.7, 0.5, 1.0))
+		if fire:
+			game.spawn_splash(global_position, Color(1.0, 0.6, 0.15), 40, 9.0, 0.7)
+			game.spawn_splash(global_position + Vector3(0, 0.5, 0), Color(0.25, 0.22, 0.2), 16, 2.5, 1.2, true)
+			game.shake_at(global_position, 0.5)
+		else:
+			game.spawn_splash(global_position, color, 14, 4.0, 0.4)
+	else:
+		game.spawn_splash(global_position, color, 8, 3.0, 0.3)
 	queue_free()

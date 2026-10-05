@@ -53,7 +53,7 @@ func _physics_process(delta: float) -> void:
 			continue
 		var offset: Vector3 = u.global_position - global_position
 		if absf(offset.y) < 1.0 and Vector2(offset.x, offset.z).length() < 0.9:
-			u.take_damage(damage)
+			u.take_damage(damage, null, global_position, 2.0)
 			u.root_timer = root_time
 			game.spawn_burst(global_position, 1.0, Color(0.85, 0.65, 0.25))
 			queue_free()
