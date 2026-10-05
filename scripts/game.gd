@@ -11,6 +11,7 @@ const Gate = preload("res://scripts/gate.gd")
 const Hud = preload("res://scripts/hud.gd")
 const HealOrb = preload("res://scripts/heal_orb.gd")
 const Trap = preload("res://scripts/trap.gd")
+const Blessing = preload("res://scripts/blessing.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -75,6 +76,11 @@ var gates: Array = []
 var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} at +z]
 var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
 var heal_orbs: Array = []
+var blessings: Array = []
+var blessing_timer := 30.0
+# Where a Blessing of Light can appear: the field, never inside a castle. Mirrored.
+const BLESSING_SPOTS := [Vector3(0, 0, -14), Vector3(0, 0, 14), Vector3(9, 0, 3), Vector3(-9, 0, -3), Vector3(16, 0, -10), Vector3(-16, 0, 10),
+	Vector3(22, 0, 2), Vector3(-22, 0, -2), Vector3(10, 0, 16), Vector3(-10, 0, -16)]
 var time_left := Stats.MATCH_TIME
 var player
 
@@ -97,6 +103,7 @@ var shake_amount := 0.0
 var cam_pos := Vector3.ZERO
 var click_was := false
 var scoreboard_open := false   # held: the match scoreboard overlay
+var debug_score := false
 var chat_open := false
 var chat_text := ""
 var chat_log: Array = []       # {who, text, color, time, team}
@@ -147,6 +154,7 @@ func _process(delta: float) -> void:
 	_check_rules()
 	_check_stations()
 	_update_respawn_timer()
+	_tick_blessings(delta)
 	_update_camera(delta)
 	if demo and Engine.get_process_frames() % 1800 == 0:
 		print("t=%ds  score %d-%d  monarchs %s / %s  doors %d / %d" % [Engine.get_process_frames() / 60,
@@ -176,7 +184,10 @@ func _debug_hooks() -> void:
 			if arg.begins_with("--debug-tab="):
 				menu_tab = int(arg.trim_prefix("--debug-tab="))
 			if arg == "--debug-score":
-				scoreboard_open = true
+				debug_score = true
+			if arg == "--debug-blessing":
+				spawn_blessing(Vector3(0, 0, 0), "Regeneration")
+				player.apply_blessing("Might")
 			if arg == "--debug-chat":
 				chat_open = true
 				chat_text = "push the middle bridge, I'll take the wall"
@@ -310,6 +321,44 @@ func wall_post(team: int, z_side: float) -> Vector3:
 	return wall_posts[team][0 if z_side < 0.0 else 1]
 
 
+func nearest_blessing(pos: Vector3, radius: float):
+	var best = null
+	var best_dist := radius
+	for b in blessings:
+		if not is_instance_valid(b):
+			continue
+		var d := _flat_dist(pos, b.global_position)
+		if d < best_dist:
+			best_dist = d
+			best = b
+	return best
+
+
+func _tick_blessings(delta: float) -> void:
+	## Now and then a Blessing of Light appears somewhere in the field.
+	blessings = blessings.filter(func(b): return is_instance_valid(b))
+	blessing_timer -= delta
+	if blessing_timer > 0.0 or blessings.size() >= 2:
+		return
+	blessing_timer = randf_range(Stats.BLESSING_INTERVAL[0], Stats.BLESSING_INTERVAL[1])
+	var spot: Vector3 = BLESSING_SPOTS[randi() % BLESSING_SPOTS.size()]
+	var kinds: Array = Stats.BLESSING_KINDS.keys()
+	spawn_blessing(spot, kinds[randi() % kinds.size()])
+
+
+func spawn_blessing(spot: Vector3, kind: String) -> void:
+	var b = Blessing.new()
+	add_child(b)
+	b.setup(self, spot, kind)
+	blessings.append(b)
+	spawn_pillar(spot, Stats.BLESSING_KINDS[kind].color, 7.0, 1.2)
+	spawn_ring(spot, 4.0, Stats.BLESSING_KINDS[kind].color, 1.0)
+	var where := "near the %s bank" % ("north" if spot.z < -5.0 else ("south" if spot.z > 5.0 else "middle"))
+	if absf(spot.x) > 12.0:
+		where = "on the %s side" % (Stats.FACTIONS[0].realm if spot.x < 0.0 else Stats.FACTIONS[1].realm)
+	announce("A Blessing of %s has appeared %s!" % [kind, where])
+
+
 func nearest_orb(pos: Vector3, radius: float):
 	## The closest healing orb that is currently up, within radius, or null.
 	var best = null
@@ -423,9 +472,19 @@ func spawn_shot(u, dir: Vector3, s: Dictionary, color: Color) -> void:
 
 
 func spawn_trap(u, pos: Vector3, a: Dictionary) -> void:
+	# Stop at the first wall, crate or tree between the thrower and the spot.
+	var from: Vector3 = u.global_position + Vector3(0, 0.5, 0)
+	var to := Vector3(pos.x, u.global_position.y + 0.5, pos.z)
+	var ray := PhysicsRayQueryParameters3D.create(from, to, 1 | 16)
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	if hit:
+		var dir := (to - from).normalized()
+		to = hit.position - dir * 0.8
+		if (to - from).length() < 0.6:
+			return
 	var trap = Trap.new()
 	add_child(trap)
-	trap.setup(self, u.team, Vector3(pos.x, u.global_position.y, pos.z), a)
+	trap.setup(self, u.team, Vector3(to.x, u.global_position.y, to.z), a)
 
 
 func spawn_burst(where: Vector3, radius: float, color: Color) -> void:
@@ -676,7 +735,7 @@ func menu_tick() -> void:
 			menu_open = not menu_open
 			rank_open = false
 			get_tree().paused = menu_open
-		scoreboard_open = Input.is_action_pressed("scoreboard") and not menu_open and not rank_open
+		scoreboard_open = (Input.is_action_pressed("scoreboard") or debug_score) and not menu_open and not rank_open
 		if menu_open:
 			if Input.is_action_just_pressed("quit_match") and rebinding == "":
 				get_tree().paused = false
@@ -856,6 +915,8 @@ func unit_score(u) -> int:
 
 func key_label(action: String) -> String:
 	## A short keycap label for the action's first mouse or keyboard binding.
+	if DisplayServer.get_name() == "headless":
+		return action.to_upper()
 	for ev in InputMap.action_get_events(action):
 		if ev is InputEventMouseButton:
 			return _mouse_name(ev.button_index)
@@ -1454,6 +1515,10 @@ func _add_torch(pos: Vector3) -> void:
 	add_child(light)
 
 
+func kcx_of(kx: float, bx: float) -> float:
+	return (kx + bx) / 2.0
+
+
 func _add_station(team: int, role: int, pos: Vector3) -> void:
 	stations[team][role] = pos
 	var color: Color = Stats.ROLES[role].color
@@ -1583,16 +1648,36 @@ func _build_castle(team: int) -> void:
 		_prop("dungeon/banner_shield_%s" % ["green", "blue"][team], Vector3(kx - side * 0.55, -0.45, z), 0.85,
 			PI / 2.0 if side > 0.0 else -PI / 2.0)
 	# Life in the yard: tents, stores and a training corner.
-	var yx := fx + side * 4.0
-	_prop("hex/tent", Vector3(yx, 0, -hz + 3.0), 5.0, 0.4 - side)
-	_prop("hex/tent", Vector3(yx, 0, hz - 3.0), 5.0, 2.6 - side)
-	_prop("hex/weaponrack", Vector3(kx - side * 2.0, 0, -hz + 2.0), 4.5, PI / 2.0 if side > 0.0 else -PI / 2.0)
-	_prop("hex/target", Vector3(kx - side * 2.0, 0, hz - 2.0), 4.5, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	_prop("hex/crate_A_big", Vector3(kx - side * 1.6, 0, 7.0), 5.0, 0.3)
-	_prop("hex/barrel", Vector3(kx - side * 1.6, 0, 8.3), 5.0)
-	_prop("hex/barrel", Vector3(kx - side * 2.7, 0, 8.0), 5.0, 1.0)
-	_prop("hex/wheelbarrow", Vector3(kx - side * 2.4, 0, -7.6), 4.5, 1.2 * side)
-	_prop("hex/sack", Vector3(kx - side * 1.5, 0, -6.4), 5.0)
+	# The ramps run from x = fx + 7 to the wall at z = ±(hz - 2.5), so the
+	# yard's corners are kept clear; camp life sits along the keep's flanks
+	# and under the walkway by the door.
+	# Tents in the yard between the road and the ramps.
+	for zs in [-1.0, 1.0]:
+		_prop("hex/tent", Vector3(fx + side * 5.6, 0, zs * 6.4), 3.6, (0.3 if zs < 0.0 else 2.8) - side)
+	_prop("hex/weaponrack", Vector3(fx + side * 1.8, 0, -(Stats.DOOR_HALF + 1.6)), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	_prop("hex/target", Vector3(fx + side * 1.8, 0, Stats.DOOR_HALF + 1.6), 4.0, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	_prop("hex/bucket_arrows", Vector3(fx + side * 1.6, 0, Stats.DOOR_HALF + 3.0), 4.0, 0.4)
+	# The narrow strips between the keep's side walls and the outer wall hold
+	# small stores: barrels, sacks, a long crate and a bit of fence.
+	var strip_z := (KEEP_HALF_Z + hz) / 2.0
+	for zs in [-1.0, 1.0]:
+		_prop("hex/barrel", Vector3(kcx - side * 4.0, 0, zs * strip_z), 4.4)
+		_prop("hex/barrel", Vector3(kcx - side * 3.0, 0, zs * (strip_z + 0.4)), 4.4, 1.0)
+		_prop("hex/sack", Vector3(kcx - side * 1.6, 0, zs * (strip_z - 0.3)), 4.4, 1.1 * zs)
+		_prop("hex/crate_long_A", Vector3(kcx + side * 0.8, 0, zs * strip_z), 4.2, PI / 2.0)
+		_prop("hex/fence_wood_straight", Vector3(kcx + side * 3.4, 0, zs * (strip_z + 0.3)), 4.2, PI / 2.0)
+		_prop("hex/crate_A_big", Vector3(kcx + side * 5.2, 0, zs * strip_z), 4.0, 0.3 * zs)
+	_prop("hex/barrel", Vector3(kx - side * 1.4, 0, 6.6), 4.4)
+	_prop("hex/barrel", Vector3(kx - side * 2.3, 0, 6.2), 4.4, 1.0)
+	_prop("hex/wheelbarrow", Vector3(kx - side * 1.8, 0, -6.4), 4.2, 1.2 * side)
+	_prop("hex/pallet", Vector3(kx - side * 1.6, 0, 5.2), 4.2, 0.2)
+	# Inside the keep: stacked stores and columns along the side walls.
+	for zs in [-1.0, 1.0]:
+		_prop("dungeon/box_stacked", Vector3(kx + side * 10.0, 0, zs * (KEEP_HALF_Z - 1.4)), 0.9, 0.3 * zs)
+		_prop("dungeon/column", Vector3(kx + side * 5.5, 0, zs * (KEEP_HALF_Z - 0.9)), 1.0)
+		_prop("dungeon/torch_mounted", Vector3(kx + side * 2.0, 1.6, zs * (KEEP_HALF_Z - 0.45)), 1.4, PI if zs > 0.0 else 0.0)
+	# A rug from the archway to the throne.
+	_add_block(Vector3(kx + side * 4.5, 0.045, 0), Vector3(7.0, 0.02, 2.6), color.darkened(0.35), false)
 
 	# Throne on a dais inside the keep. Carry the enemy monarch here to score.
 	var throne := Vector3(kx + side * 6.0, 0, 0)

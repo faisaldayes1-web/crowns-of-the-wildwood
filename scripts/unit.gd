@@ -47,6 +47,11 @@ var slow_timer := 0.0       # slowed: half speed
 var stealth_timer := 0.0    # smoke bomb: bots lose you
 var bash_damage := 1
 var bash_root := 0.0
+var buff := ""              # Blessing of Light in effect
+var buff_timer := 0.0
+var regen_tick := 0.0
+var highlighted := false     # under the local player's aim
+var blob_mat: StandardMaterial3D
 
 # Experience this life. Levels give rank points; ranks are kept per class so
 # switching class at a station starts that class's ranks fresh.
@@ -122,7 +127,7 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	disc.height = 0.02
 	blob.mesh = disc
 	blob.position.y = 0.02
-	var blob_mat := StandardMaterial3D.new()
+	blob_mat = StandardMaterial3D.new()
 	blob_mat.albedo_color = Color(0, 0, 0, 0.3)
 	blob_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	blob_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -257,6 +262,7 @@ func choose_variant(for_role: int, index: int) -> bool:
 		blocking = false
 		model.setup(team, role, variant().name)
 		flash_mats = model.flash_mats
+		_apply_side_colors()
 		_refresh_overhead()
 		var gold := Color(1.0, 0.85, 0.3)
 		game.spawn_pillar(global_position, gold, 5.0, 1.0)
@@ -309,14 +315,60 @@ func set_role(new_role: int) -> void:
 		build.add_child(model)
 	model.setup(team, role, variant().get("name", ""))
 	flash_mats = model.flash_mats
+	_apply_side_colors()
 	_refresh_overhead()
+
+
+func is_enemy_of_player() -> bool:
+	return team != game.player_team
+
+
+func _apply_side_colors() -> void:
+	## Friend or foe at a glance: enemies get a dark red outline and a red
+	## shadow, allies dark green. Under the player's aim the outline glows.
+	if model == null or model.outline == null:
+		return
+	var enemy := is_enemy_of_player()
+	if is_player:
+		model.outline.albedo_color = Color(0.09, 0.07, 0.1)
+		model.outline.grow_amount = 0.022
+	elif highlighted:
+		model.outline.albedo_color = Color(1.0, 0.18, 0.12) if enemy else Color(0.25, 1.0, 0.4)
+		model.outline.grow_amount = 0.045
+	else:
+		model.outline.albedo_color = Color(0.34, 0.05, 0.05) if enemy else Color(0.04, 0.24, 0.09)
+		model.outline.grow_amount = 0.024
+	if blob_mat:
+		blob_mat.albedo_color = Color(0, 0, 0, 0.3) if is_player else (Color(0.7, 0.0, 0.0, 0.4) if enemy else Color(0.0, 0.5, 0.1, 0.35))
+
+
+func set_highlight(on: bool) -> void:
+	if on == highlighted:
+		return
+	highlighted = on
+	_apply_side_colors()
+
+
+func apply_blessing(kind: String) -> void:
+	buff = kind
+	buff_timer = Stats.BLESSING_DURATION
+	regen_tick = Stats.BLESSING_REGEN_TICK
+	var c: Color = Stats.BLESSING_KINDS[kind].color
+	game.spawn_popup(global_position + Vector3(0, 2.4, 0), kind.to_upper(), c)
+	if is_player:
+		game.announce("Blessing of Light: %s! (%s for %d seconds)" % [kind, Stats.BLESSING_KINDS[kind].desc, int(Stats.BLESSING_DURATION)])
+	else:
+		game.chat_system("%s took the Blessing of %s." % [display_name, kind])
 
 
 func _refresh_overhead() -> void:
 	var tag := "YOU · " if is_player else ""
 	var lvl := ("  ★%d" % level) if level > 1 else ""
 	label.text = tag + role_name() + lvl
-	label.modulate = Color(1, 1, 0.6) if is_player else Color(1, 1, 1)
+	if is_player:
+		label.modulate = Color(1, 1, 0.6)
+	else:
+		label.modulate = Color(1.0, 0.7, 0.65) if is_enemy_of_player() else Color(0.7, 1.0, 0.75)
 	for i in heart_mats.size():
 		heart_mats[i].albedo_color = Color(0.95, 0.15, 0.2) if i < hearts else Color(0.2, 0.2, 0.2)
 
@@ -424,7 +476,11 @@ func ranked(a: Dictionary, track: int) -> Dictionary:
 
 
 func attack_stats() -> Dictionary:
-	return ranked(stats(), 0)
+	var s := ranked(stats(), 0)
+	if buff == "Might" and buff_timer > 0.0:
+		s = s.duplicate()
+		s.damage = s.damage + 1
+	return s
 
 
 func ability(i: int) -> Dictionary:
@@ -479,6 +535,8 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		if attacker and attacker != self:
 			attacker.gain_xp(Stats.XP_KILL)
 			attacker.kills += 1
+			if attacker.is_player:
+				game.spawn_popup(attacker.global_position + Vector3(0, 2.6, 0), "KILL  +%d XP" % Stats.XP_KILL, Color(1.0, 0.85, 0.3))
 		game.chat_kill(attacker, self)
 		_die()
 		return true
@@ -800,6 +858,17 @@ func _physics_process(delta: float) -> void:
 	root_timer = maxf(root_timer - delta, 0.0)
 	haste_timer = maxf(haste_timer - delta, 0.0)
 	slow_timer = maxf(slow_timer - delta, 0.0)
+	if buff_timer > 0.0:
+		buff_timer -= delta
+		if buff == "Regeneration":
+			regen_tick -= delta
+			if regen_tick <= 0.0:
+				regen_tick = Stats.BLESSING_REGEN_TICK
+				heal(1, self)
+		if Engine.get_physics_frames() % 8 == 0:
+			game.spawn_splash(global_position + Vector3(0, 0.3, 0), Stats.BLESSING_KINDS[buff].color, 3, 1.5, 0.7, true)
+		if buff_timer <= 0.0:
+			buff = ""
 	if stealth_timer > 0.0:
 		stealth_timer = maxf(stealth_timer - delta, 0.0)
 		if Engine.get_physics_frames() % 6 == 0:
@@ -821,6 +890,8 @@ func _physics_process(delta: float) -> void:
 		speed *= Stats.CARRY_SPEED_MULT
 	if haste_timer > 0.0:
 		speed *= 1.3
+	if buff == "Swiftness" and buff_timer > 0.0:
+		speed *= Stats.BLESSING_SWIFT_MULT
 	if slow_timer > 0.0:
 		speed *= 0.55
 	if guard_timer > 0.0:
@@ -857,6 +928,7 @@ func _physics_process(delta: float) -> void:
 		var stick := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 		move = Vector3(stick.x, 0, stick.y)
 		_update_player_aim(move)
+		_update_highlights()
 		if not game.menu_blocks_input():
 			wants_attack = Input.is_action_pressed("attack")
 			wants_block = Input.is_action_pressed("block")
@@ -917,6 +989,21 @@ func _physics_process(delta: float) -> void:
 		_attack(aim)
 	if plan.has("ability"):
 		use_ability(plan.ability, plan.aim)
+
+
+func _update_highlights() -> void:
+	## Glow the unit under the cursor (or in the aim cone with a stick).
+	for other in game.units:
+		if other == self or other.dead:
+			other.set_highlight(false)
+			continue
+		var on := false
+		if aim_mode == "mouse":
+			on = Vector2(other.global_position.x - aim_point.x, other.global_position.z - aim_point.z).length() < 1.3
+		else:
+			var to := _flat_to(other.global_position)
+			on = to.length() < 4.0 and to.length() > 0.1 and aim.dot(to.normalized()) > 0.9
+		other.set_highlight(on)
 
 
 func _clamp_to_map() -> void:
@@ -1109,6 +1196,7 @@ func _bot_think() -> Dictionary:
 	# Fresh spawns always grab their class first; the stations sit by the spawn.
 	var gearing_up: bool = role == Role.BASE and bot_class != Role.BASE
 	var orb = game.nearest_orb(global_position, 14.0) if hearts <= 2 and not carrying else null
+	var bless = game.nearest_blessing(global_position, 16.0) if not carrying and buff == "" else null
 	if carrying:
 		goal = game.thrones[team]
 	elif gearing_up:
@@ -1122,6 +1210,8 @@ func _bot_think() -> Dictionary:
 		goal = mine.global_position
 	elif theirs.state == Monarch.State.CARRIED:
 		goal = theirs.carrier.global_position + bot_offset  # escort our carrier
+	elif bless:
+		goal = bless.global_position
 	elif bot_job == "wall":
 		goal = game.wall_post(team, bot_offset.z)
 		holding_wall = true

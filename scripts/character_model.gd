@@ -29,6 +29,7 @@ var attack_anims: Array = ["1H_Melee_Attack_Slice_Horizontal"]
 var height := 1.75             # for the overhead label
 var busy_until := 0.0          # a one-shot action plays until this time
 var tint := Color.WHITE        # the variant's skin tint; unit.gd restores it after a hit flash
+var outline: StandardMaterial3D  # the outline pass; unit.gd colours it by side and highlight
 var held := ""                 # a loop held by the unit (blocking, casting)
 var current := ""
 
@@ -118,7 +119,7 @@ func setup(team: int, role: int, variant: String = "") -> void:
 
 	# A dark outline (an inflated back-face pass) and a soft rim light make
 	# the characters pop from the ground the way the reference art does.
-	var outline := StandardMaterial3D.new()
+	outline = StandardMaterial3D.new()
 	outline.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	outline.albedo_color = Color(0.09, 0.07, 0.1)
 	outline.cull_mode = BaseMaterial3D.CULL_FRONT

@@ -31,6 +31,7 @@ var game
 var font: Font
 var logo: Texture2D
 var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
+var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
 var variant_buttons: Array = []   # [rect, role, index]
@@ -49,10 +50,16 @@ func _ready() -> void:
 			"blink", "blessing", "smite", "dodge", "crown", "vigor", "xp", "class_knight", "class_ranger", "class_mage",
 			"class_healer", "class_elf", "class_human", "crest_forest", "crest_kingdom",
 			"cleave", "pierce", "snipe", "smoke", "wave", "frost", "curse", "drain",
-			"vanguard", "warden", "sharpshooter", "trapper", "pyromancer", "frostweaver", "cleric", "darkpriest"]:
+			"vanguard", "warden", "sharpshooter", "trapper", "pyromancer", "frostweaver", "cleric", "darkpriest",
+			"potion", "regen", "might"]:
 		var path := "res://assets/ui/icons/%s.png" % kind
 		if ResourceLoader.exists(path):
 			icons[kind] = load(path)
+	for key in ["crest_elf", "crest_human", "logo_elves", "logo_humans", "elf_base", "elf_knight", "elf_ranger", "elf_mage", "elf_healer",
+			"human_base", "human_knight", "human_ranger", "human_mage", "human_healer"]:
+		var path := "res://assets/ui/cards/%s.png" % key
+		if ResourceLoader.exists(path):
+			cards[key] = load(path)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -86,8 +93,6 @@ func _draw() -> void:
 		return
 	_draw_logo(Rect2(14, 8, 200, 80))
 	_draw_scoreboard()
-	_draw_roster(0, Vector2(14, 118))
-	_draw_roster(1, Vector2(size.x - 254, 118))
 	_draw_map(Rect2(14, size.y - 126, 214, 96), false)
 	_draw_objective()
 	if game.player:
@@ -211,6 +216,56 @@ func _arc_polygon(center: Vector2, radius: float, from: float, to: float, color:
 		var a := lerpf(from, to, i / 24.0)
 		p.append(center + Vector2(cos(a), sin(a)) * radius)
 	draw_colored_polygon(p, color)
+
+
+func _card_key(team: int, role: int) -> String:
+	var names := {Role.BASE: "base", Role.KNIGHT: "knight", Role.RANGER: "ranger", Role.MAGE: "mage", Role.HEALER: "healer"}
+	return "%s_%s" % ["elf" if team == 0 else "human", names.get(role, "base")]
+
+
+func _card(key: String, rect: Rect2, full: bool = true, dim: bool = false) -> bool:
+	## Draw one of the supplied card images fitted inside rect. With full off
+	## only the portrait part (the top of the card, above its name banner) is
+	## used. Returns false if the art is missing so callers can fall back.
+	if not cards.has(key):
+		return false
+	var tex: Texture2D = cards[key]
+	var src := Rect2(Vector2.ZERO, tex.get_size())
+	if not full:
+		src.size.y *= 0.72
+	var s := minf(rect.size.x / src.size.x, rect.size.y / src.size.y)
+	var dst_size := src.size * s
+	var dst := Rect2(rect.get_center() - dst_size / 2.0, dst_size)
+	draw_texture_rect_region(tex, dst, src, Color(0.45, 0.45, 0.45) if dim else Color.WHITE)
+	return true
+
+
+func _class_card(c: Vector2, r: float, team: int, role: int, dead: bool = false) -> void:
+	## The class portrait from the card sheet in a round gold frame; falls back
+	## to the drawn chibi face when the art is missing.
+	var key := _card_key(team, role)
+	if not cards.has(key):
+		_portrait(c, r, team, role, dead)
+		return
+	draw_circle(c, r + 4, GOLD_DARK)
+	draw_circle(c, r + 2, GOLD if not dead else GREY)
+	draw_circle(c, r, _team_color(team).darkened(0.55))
+	# Clip the square art to the circle with a 16-gon fan of texture coords.
+	var tex: Texture2D = cards[key]
+	var ts := tex.get_size()
+	var src := Rect2(Vector2(0, ts.y * 0.04), Vector2(ts.x, ts.x))
+	var pts := PackedVector2Array()
+	var uvs := PackedVector2Array()
+	var cols := PackedColorArray()
+	var tint := Color(0.4, 0.4, 0.4) if dead else Color.WHITE
+	for i in 24:
+		var a := TAU * i / 24.0
+		var d := Vector2(cos(a), sin(a))
+		pts.append(c + d * r)
+		uvs.append((src.position + src.size * (Vector2(0.5, 0.5) + d * 0.5)) / ts)
+		cols.append(tint)
+	draw_polygon(pts, cols, uvs, tex)
+	draw_arc(c, r, 0, TAU, 32, GOLD_DARK, 1.5)
 
 
 func _portrait(c: Vector2, r: float, team: int, role: int, dead: bool = false) -> void:
@@ -440,7 +495,8 @@ func _draw_scoreboard() -> void:
 		var dir := -1.0 if t == 0 else 1.0
 		var c := Vector2(cx + dir * 175, 36)
 		_hex(c, 160, 50, _team_color(t).darkened(0.25), GOLD)
-		_icon("crest_forest" if t == 0 else "crest_kingdom", c + Vector2(dir * 55, 0), 15, Color.WHITE)
+		if not _card("crest_elf" if t == 0 else "crest_human", Rect2(c + Vector2(dir * 55 - 22, -22), Vector2(44, 44))):
+			_icon("crest_forest" if t == 0 else "crest_kingdom", c + Vector2(dir * 55, 0), 15, Color.WHITE)
 		_text(c + Vector2(-30 - dir * 12, -4), Stats.FACTIONS[t].realm.to_upper(), 11, _team_color(t).lightened(0.55), HORIZONTAL_ALIGNMENT_CENTER, 60, 2)
 		_text(c + Vector2(-30 - dir * 12, 20), str(game.score[t]), 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 60)
 	_plate(Rect2(cx - 85, 10, 170, 54), INK, GOLD_DARK, 8, 2)
@@ -509,7 +565,16 @@ func _draw_player_panel(p) -> void:
 	# Portrait in a framed square with the level badge.
 	var frame := Rect2(rect.position + Vector2(12, 10), Vector2(84, 84))
 	_plate(frame, INK_LIGHT, GOLD, 12, 2)
-	_portrait(frame.get_center(), 28, p.team, p.role, p.dead)
+	if not _card(_card_key(p.team, p.role), frame.grow(-3), false, p.dead):
+		_portrait(frame.get_center(), 28, p.team, p.role, p.dead)
+	if p.buff != "" and p.buff_timer > 0.0:
+		var bc: Color = Stats.BLESSING_KINDS[p.buff].color
+		var badge := Rect2(rect.position + Vector2(12, -30), Vector2(230, 26))
+		_plate(badge, bc.darkened(0.7), bc, 8, 2)
+		_icon(Stats.BLESSING_KINDS[p.buff].icon, badge.position + Vector2(16, 13), 9, Color.WHITE)
+		_text(badge.position + Vector2(32, 18), "BLESSING OF %s" % p.buff.to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(badge.position + Vector2(0, 18), "%ds" % ceili(p.buff_timer), 11, bc.lightened(0.3), HORIZONTAL_ALIGNMENT_RIGHT, badge.size.x - 10, 2)
+		draw_rect(Rect2(badge.position + Vector2(4, badge.size.y - 4), Vector2((badge.size.x - 8) * p.buff_timer / Stats.BLESSING_DURATION, 2)), bc)
 	_hex(frame.position + Vector2(8, 76), 34, 24, INK, GOLD)
 	_text(frame.position + Vector2(-9, 81), str(p.level), 14, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 34, 2)
 	# Name, hearts and energy.
@@ -648,10 +713,16 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
 		if detailed:
 			_text(outer.position + Vector2(0, -6), "%s CASTLE" % Stats.FACTIONS[t].name.to_upper(), 11, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, outer.size.x, 2)
-	# Healing orbs that are up.
+	# Potions that are up, and any Blessing of Light on the field.
 	for orb in game.heal_orbs:
 		if orb.active:
-			draw_circle(m.call(orb.global_position), 2.5 if not detailed else 4.0, Color(0.4, 1.0, 0.5))
+			draw_circle(m.call(orb.global_position), 2.5 if not detailed else 4.0, Color(1.0, 0.35, 0.4))
+	for b in game.blessings:
+		if is_instance_valid(b):
+			var bc: Vector2 = m.call(b.global_position)
+			var br := 4.0 if not detailed else 7.0
+			draw_circle(bc, br + 2.0, Color(1.0, 0.9, 0.5, 0.35 + 0.25 * sin(Time.get_ticks_msec() / 150.0)))
+			_icon("xp", bc, br, GOLD)
 	# Everyone.
 	for u in game.units:
 		if u.dead:
@@ -662,7 +733,8 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 			draw_circle(c, r + 2.5, Color(1, 1, 0.3))
 			var d := Vector2(u.facing.x, u.facing.z) * (r + 6.0)
 			draw_line(c, c + d, Color(1, 1, 0.3), 2.0)
-		draw_circle(c, r, _team_color(u.team).lightened(0.2))
+		var dot := Color(1.0, 0.25, 0.2) if u.team != game.player_team else Color(0.3, 1.0, 0.45)
+		draw_circle(c, r, dot)
 		draw_arc(c, r, 0, TAU, 12, Color(0, 0, 0, 0.6), 1.0)
 		if u.carrying:
 			_crown(c + Vector2(0, -r - 5), 0.5)
@@ -793,7 +865,7 @@ func _menu_overview(body: Rect2) -> void:
 	var map_rect := Rect2(body.position + Vector2(0, 26), Vector2(body.size.x, body.size.x * 26.0 / 58.0))
 	_draw_map(map_rect, true)
 	var y := map_rect.end.y + 22
-	var legend := [["Yellow ring: you", Color(1, 1, 0.3)], ["Green dots: healing orbs", Color(0.4, 1.0, 0.5)],
+	var legend := [["Yellow ring: you", Color(1, 1, 0.3)], ["Red dots: health potions", Color(1.0, 0.35, 0.4)], ["Gold stars: blessings", GOLD],
 		["Gold line: standing door", GOLD], ["Red line: broken door", RED]]
 	for i in legend.size():
 		var x: float = body.position.x + 10 + i * (body.size.x / legend.size())
@@ -813,8 +885,9 @@ func _menu_classes(body: Rect2) -> void:
 		var card := Rect2(body.position + Vector2(i * (cw + 10), 0), Vector2(cw, body.size.y))
 		var mine: bool = game.player and game.player.role == role
 		_plate(card, INK_LIGHT, GOLD if mine else GOLD_DARK, 10, 2)
-		_portrait(card.position + Vector2(cw / 2.0, 44), 26, team, role)
-		_icon(_class_icon(role), card.position + Vector2(cw - 26, 26), 10, Color.WHITE)
+		if not _card(_card_key(team, role), Rect2(card.position + Vector2(8, 6), Vector2(cw - 16, 80)), false):
+			_portrait(card.position + Vector2(cw / 2.0, 44), 26, team, role)
+		_icon(_class_icon(role), card.position + Vector2(cw - 20, 18), 9, Color.WHITE)
 		_text(card.position + Vector2(0, 92), Stats.FACTIONS[team].roles[role].to_upper(), 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER, cw, 3)
 		_text(card.position + Vector2(0, 108), ("uses %s" % s.energy).to_upper(), 10, MANA if s.energy == "mana" else STAMINA, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
 		var y := 128.0
@@ -884,7 +957,8 @@ func _menu_my_class(body: Rect2) -> void:
 	# Left: who you are.
 	var left := Rect2(body.position, Vector2(230, body.size.y))
 	_plate(left, INK_LIGHT, GOLD_DARK, 10, 2)
-	_portrait(left.position + Vector2(115, 54), 34, p.team, p.role, p.dead)
+	if not _card(_card_key(p.team, p.role), Rect2(left.position + Vector2(10, 6), Vector2(210, 100)), false, p.dead):
+		_portrait(left.position + Vector2(115, 54), 34, p.team, p.role, p.dead)
 	if p.role != Role.BASE:
 		_icon(p.variant().get("icon", _class_icon(p.role)), left.position + Vector2(196, 26), 11, Color.WHITE)
 	_text(left.position + Vector2(0, 114), p.role_name().to_upper(), 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, left.size.x, 4)
@@ -981,22 +1055,29 @@ func _menu_scoreboard(body: Rect2) -> void:
 
 func _draw_scoreboard_overlay() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.35))
-	var rect := Rect2(size.x / 2.0 - 340, size.y / 2.0 - 230, 680, 440)
+	var rect := Rect2(size.x / 2.0 - 400, size.y / 2.0 - 240, 800, 470)
 	_plate(rect, INK, GOLD, 14, 3)
-	_text(rect.position + Vector2(0, 30), "SCOREBOARD", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
+	_card("logo_elves", Rect2(rect.position + Vector2(16, 6), Vector2(70, 70)))
+	_card("logo_humans", Rect2(rect.position + Vector2(rect.size.x - 86, 6), Vector2(70, 70)))
+	_text(rect.position + Vector2(0, 30), "TEAMS AND SCOREBOARD", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
 	var left := maxf(game.time_left, 0.0)
 	_text(rect.position + Vector2(0, 48), "%s %d  ·  %02d:%02d left  ·  %d %s" % [Stats.FACTIONS[0].realm, game.score[0], int(left) / 60, int(left) % 60, game.score[1], Stats.FACTIONS[1].realm], 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	_draw_scoreboard_table(Rect2(rect.position + Vector2(20, 60), Vector2(rect.size.x - 40, rect.size.y - 80)))
+	_draw_scoreboard_table(Rect2(rect.position + Vector2(20, 78), Vector2(rect.size.x - 40, rect.size.y - 98)), true)
 	_text(rect.position + Vector2(0, rect.size.y - 10), "Score = kills ×%d, captures ×%d, hearts healed ×%d, damage ×%d, upgrades ×%d" % [Stats.SCORE_KILL, Stats.SCORE_CAPTURE, Stats.SCORE_HEAL, Stats.SCORE_DAMAGE, Stats.SCORE_UPGRADE], 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
-func _draw_scoreboard_table(rect: Rect2) -> void:
+func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 	## Both teams, best score first: class, level, score, kills, deaths,
-	## captures, hearts healed, damage and total upgrades.
+	## captures, hearts healed, damage and total upgrades. The live (Tab)
+	## version also shows everyone's hearts and respawn timers.
 	var cols := [["PLAYER", 0.0, HORIZONTAL_ALIGNMENT_LEFT], ["CLASS", 150.0, HORIZONTAL_ALIGNMENT_LEFT], ["LV", 258.0, HORIZONTAL_ALIGNMENT_CENTER],
 		["SCORE", 300.0, HORIZONTAL_ALIGNMENT_CENTER], ["K", 360.0, HORIZONTAL_ALIGNMENT_CENTER], ["D", 400.0, HORIZONTAL_ALIGNMENT_CENTER],
 		["CAPS", 444.0, HORIZONTAL_ALIGNMENT_CENTER], ["HEAL", 494.0, HORIZONTAL_ALIGNMENT_CENTER], ["DMG", 546.0, HORIZONTAL_ALIGNMENT_CENTER], ["UPG", 598.0, HORIZONTAL_ALIGNMENT_CENTER]]
-	var scale := rect.size.x / 640.0
+	if live:
+		cols = [["PLAYER", 0.0, HORIZONTAL_ALIGNMENT_LEFT], ["CLASS", 128.0, HORIZONTAL_ALIGNMENT_LEFT], ["HEARTS", 236.0, HORIZONTAL_ALIGNMENT_LEFT], ["LV", 330.0, HORIZONTAL_ALIGNMENT_CENTER],
+			["SCORE", 372.0, HORIZONTAL_ALIGNMENT_CENTER], ["K", 426.0, HORIZONTAL_ALIGNMENT_CENTER], ["D", 464.0, HORIZONTAL_ALIGNMENT_CENTER],
+			["CAPS", 506.0, HORIZONTAL_ALIGNMENT_CENTER], ["HEAL", 554.0, HORIZONTAL_ALIGNMENT_CENTER], ["DMG", 604.0, HORIZONTAL_ALIGNMENT_CENTER], ["UPG", 654.0, HORIZONTAL_ALIGNMENT_CENTER]]
+	var scale := rect.size.x / (700.0 if live else 640.0)
 	var y := rect.position.y
 	for t in 2:
 		var tc := _team_color(t)
@@ -1004,7 +1085,8 @@ func _draw_scoreboard_table(rect: Rect2) -> void:
 		members.sort_custom(func(a, b): return game.unit_score(a) > game.unit_score(b))
 		var block := Rect2(Vector2(rect.position.x, y), Vector2(rect.size.x, 30 + 18 + members.size() * 22 + 8))
 		_plate(block, tc.darkened(0.72), tc.darkened(0.1), 8, 1)
-		_icon("crest_forest" if t == 0 else "crest_kingdom", block.position + Vector2(20, 16), 9, Color.WHITE)
+		if not _card("crest_elf" if t == 0 else "crest_human", Rect2(block.position + Vector2(6, 3), Vector2(28, 28))):
+			_icon("crest_forest" if t == 0 else "crest_kingdom", block.position + Vector2(20, 16), 9, Color.WHITE)
 		var kills := 0
 		for u in members:
 			kills += u.kills
@@ -1021,8 +1103,23 @@ func _draw_scoreboard_table(rect: Rect2) -> void:
 			if u.dead:
 				col = col.darkened(0.4)
 			var values := [u.display_name, u.role_name(), str(u.level), str(game.unit_score(u)), str(u.kills), str(u.deaths), str(u.captures), str(u.healing), str(u.damage_dealt), str(u.total_upgrades())]
+			var score_col := 3
+			if live:
+				values.insert(2, "")
+				score_col = 4
+				var hx: float = block.position.x + 12 + cols[2][1] * scale
+				if u.dead:
+					_text(Vector2(hx, ry + 13), "back in %d" % ceili(u.respawn_timer), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+				else:
+					_hearts(Vector2(hx + 6, ry + 9), u.hearts, 0.3, 13)
+					if u.buff != "" and u.buff_timer > 0.0:
+						_icon(Stats.BLESSING_KINDS[u.buff].icon, Vector2(hx + 70, ry + 9), 5, Color.WHITE)
+				if u.role != Role.BASE:
+					_icon(u.variant().get("icon", _class_icon(u.role)), Vector2(block.position.x + 12 + cols[1][1] * scale - 10, ry + 9), 5, Color.WHITE)
+			if u.is_player:
+				values[0] = values[0] + "  (you)"
 			for c in cols.size():
-				_text(Vector2(block.position.x + 12 + cols[c][1] * scale, ry + 13), values[c], 11, col if c != 3 else XP, cols[c][2], 40 if cols[c][2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
+				_text(Vector2(block.position.x + 12 + cols[c][1] * scale, ry + 13), values[c], 11, col if c != score_col else XP, cols[c][2], 40 if cols[c][2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
 			if u.carrying:
 				_icon("crown", Vector2(block.position.x + 12 + cols[1][1] * scale + _text_width(u.role_name(), 11) + 14, ry + 8), 5, GOLD)
 		y = block.end.y + 10
@@ -1030,7 +1127,7 @@ func _draw_scoreboard_table(rect: Rect2) -> void:
 
 func _draw_chat() -> void:
 	## The chat log over the minimap, and the input line while typing.
-	var rect := Rect2(14, 404, 240, size.y - 140 - 404 - 6)
+	var rect := Rect2(14, 300, 240, size.y - 140 - 300 - 6)
 	var now := Time.get_ticks_msec() / 1000.0
 	var typing: bool = game.chat_open
 	var input_h := 26.0 if typing else 0.0
@@ -1097,9 +1194,10 @@ func _paragraph_height(text: String, font_size: int, width: float, line_h: float
 func _faction_card(rect: Rect2, team: int, key: String, pad: String, blurb: String) -> void:
 	var tc := _team_color(team)
 	_plate(rect, tc.darkened(0.72), tc.lightened(0.1), 14, 3)
-	_portrait(rect.position + Vector2(rect.size.x / 2.0, 70), 40, team, Role.KNIGHT)
-	_icon("crest_forest" if team == 0 else "crest_kingdom", rect.position + Vector2(rect.size.x - 34, 34), 12, Color.WHITE)
-	_text(rect.position + Vector2(0, 146), Stats.FACTIONS[team].name.to_upper(), 28, tc.lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 5)
+	if not _card("logo_elves" if team == 0 else "logo_humans", Rect2(rect.position + Vector2(10, 6), Vector2(rect.size.x - 20, 156))):
+		_portrait(rect.position + Vector2(rect.size.x / 2.0, 70), 40, team, Role.KNIGHT)
+		_icon("crest_forest" if team == 0 else "crest_kingdom", rect.position + Vector2(rect.size.x - 34, 34), 12, Color.WHITE)
+		_text(rect.position + Vector2(0, 146), Stats.FACTIONS[team].name.to_upper(), 28, tc.lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 5)
 	_text(rect.position + Vector2(0, 170), blurb, 13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
 	_keycap(rect.position + Vector2(rect.size.x / 2.0 - 46, 200), key, 60)
 	_text(rect.position + Vector2(rect.size.x / 2.0 - 10, 205), "or " + pad, 12, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -1151,6 +1249,8 @@ func _draw_end() -> void:
 		outcome = "VICTORY!" if winner == game.player_team else "DEFEAT"
 		color = Color(0.2, 0.5, 0.95) if winner == game.player_team else Color(0.6, 0.15, 0.15)
 	_icon("crown", Vector2(cx, 50), 16, GOLD)
+	_card("logo_elves", Rect2(cx - 330, 40, 110, 110))
+	_card("logo_humans", Rect2(cx + 220, 40, 110, 110))
 	_ribbon(Vector2(cx, 108), 420, 64, color)
 	_text(Vector2(cx - 210, 122), outcome, 40, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 420, 6)
 	_text(Vector2(cx - 210, 168), "%s %d   -   %d %s" % [Stats.FACTIONS[0].name, game.score[0], game.score[1], Stats.FACTIONS[1].name],
