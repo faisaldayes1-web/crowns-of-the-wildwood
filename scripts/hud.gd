@@ -667,6 +667,17 @@ func _draw_scoreboard() -> void:
 		_text(c + Vector2(-30 - dir * 12, -4), Stats.FACTIONS[t].realm.to_upper(), 11, _team_color(t).lightened(0.55), HORIZONTAL_ALIGNMENT_CENTER, 60, 2)
 		_text(c + Vector2(-30 - dir * 12, 20), str(game.score[t]), 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 60)
 	_plate(Rect2(cx - 85, 10, 170, 54), INK, GOLD_DARK, 8, 2)
+	if game.prep_left > 0.0:
+		# The fortify countdown takes the clock's place; the match clock waits.
+		var pl: float = ceilf(game.prep_left)
+		var pulse: bool = pl <= 5.0 and int(game.prep_left * 2.0) % 2 == 0
+		_text(Vector2(cx - 85, 30), "FORTIFY", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 170, 2)
+		_text(Vector2(cx - 85, 56), "0:%02d" % int(pl), 28, Color(1, 0.85, 0.5) if pulse else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 170)
+		var pw := 360.0
+		_plate(Rect2(cx - pw / 2.0, 66, pw, 22), Color(0.25, 0.2, 0.05, 0.95), GOLD, 6, 1)
+		_text(Vector2(cx - pw / 2.0, 82), "DIG IN: TURRETS · TRAPS · BARRICADES [%s] · %d KITS LEFT" % [game.key_label("interact"), game.barricades_left[game.player_team]], 11,
+			GOLD, HORIZONTAL_ALIGNMENT_CENTER, pw, 2)
+		return
 	var left := maxf(game.time_left, 0.0)
 	var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
 	_text(Vector2(cx - 85, 49), "%02d:%02d" % [int(left) / 60, int(left) % 60], 34,

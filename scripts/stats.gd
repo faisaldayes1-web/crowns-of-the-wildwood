@@ -66,7 +66,10 @@ const BLESSING_KINDS := {
 
 const DOOR_HALF := 3.5        # half-width of each castle door
 const GATE_HITS := 320        # door damage a castle door soaks before it breaks (a full squad needs ~35 s of focus; a lone Knight can't do it in time)
-const BARRICADE_HITS := 4
+const BARRICADE_HITS := 8
+const BARRICADE_TEAM := 4      # barricade kits a team can raise during the fortify phase
+const BARRICADE_LENGTH := 3.2
+const PREP_TIME := 20.0        # the fortify phase: a barrier splits the field while both sides dig in
 const BARRICADE_REBUILD := 45.0
 const VAULT_HITS := 14        # hits to break the Crown Vault's lock (about 7 s for one Knight)
 const VAULT_RELOCK_TIME := 30.0

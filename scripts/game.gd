@@ -113,6 +113,9 @@ var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} 
 var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
 var cover_points: Array = []  # places a shooter can duck behind
 var barricades: Array = []
+var barricades_left := [0, 0]   # barricade kits each team still has (fortify phase)
+var prep_left := 0.0            # seconds left in the fortify phase (0 = the battle is on)
+var barrier: Node3D
 var turrets: Array = []       # every standing Engineer turret, both teams
 # Quality of life settings (saved with the controls).
 var screen_shake := true
@@ -249,10 +252,18 @@ func _process(delta: float) -> void:
 			get_tree().reload_current_scene()
 		return
 
-	time_left -= delta
-	if time_left <= 0.0:
-		_end_on_time()
-		return
+	if prep_left > 0.0:
+		var before := prep_left
+		prep_left -= delta
+		if prep_left > 0.0 and prep_left <= 5.0 and ceili(before) != ceili(prep_left):
+			sfx.ui("ui_click", 0.0, 1.4)
+		if prep_left <= 0.0:
+			_begin_battle()
+	else:
+		time_left -= delta
+		if time_left <= 0.0:
+			_end_on_time()
+			return
 	_check_rules()
 	_check_stations()
 	_update_respawn_timer()
@@ -261,7 +272,8 @@ func _process(delta: float) -> void:
 		plan_timer = 1.0
 		for t in 2:
 			_plan_bots(t)
-	_tick_blessings(delta)
+	if prep_left <= 0.0:
+		_tick_blessings(delta)
 	_tick_tutorial()
 	_update_camera(delta)
 	if demo and Engine.get_process_frames() % 1800 == 0:
@@ -306,6 +318,9 @@ func _debug_hooks() -> void:
 				player.facing = Vector3(0, 0, 1)
 				plant_banner(player, false)
 				player.global_position += Vector3(-2.6, 0, -1.8)
+			if arg == "--debug-barricade":
+				player.facing = Vector3(1.0 if player_team == 0 else -1.0, 0, 0)
+				plant_barricade(player)
 			if arg == "--debug-bubble":
 				# A Holy Bubble over the player and the nearest allies.
 				player.bubble_up(4.0)
@@ -516,6 +531,10 @@ func try_interact(u) -> void:
 			else:
 				seal.take(u)
 			return
+	if prep_left > 0.0:
+		# The fortify phase: F raises a barricade.
+		plant_barricade(u)
+		return
 	var m = monarchs[1 - u.team]
 	if m.state == Monarch.State.CARRIED or _flat_dist(u.global_position, m.global_position) >= Unit.PICKUP_RANGE:
 		# Nothing to grab here: F plants a war banner instead.
@@ -557,7 +576,7 @@ func banner_spot_ok(team: int, pos: Vector3) -> String:
 
 func plant_banner(u, fx: bool = true) -> bool:
 	## Plant the team's war banner where `u` stands (replacing the old one).
-	if u.carrying or u.dead or overtime:
+	if u.carrying or u.dead or overtime or prep_left > 0.0:
 		return false
 	if banner_cooldown[u.team] > 0.0:
 		if u.is_player:
@@ -894,6 +913,13 @@ func _plan_bots(team: int) -> void:
 			bots.append(u)
 	if bots.is_empty():
 		return
+	if prep_left > 0.0:
+		# The fortify phase: everyone but the Engineer digs in (traps,
+		# barricades, the walls); the Engineer keeps building.
+		for u in bots:
+			if u.base_job != "build":
+				u.bot_job = "prep"
+		return
 	var side := -1.0 if team == 0 else 1.0
 	if mine.state == Monarch.State.CARRIED:
 		_assign_nearest(bots, mine.carrier.global_position, 3, "recover")
@@ -960,6 +986,8 @@ func objective_target() -> Dictionary:
 		return {}
 	var mine = monarchs[player_team]
 	var theirs = monarchs[1 - player_team]
+	if prep_left > 0.0:
+		return {"pos": player.global_position, "step": 0, "label": "Fortify: turrets, traps, barricades (%s)" % key_label("interact")}
 	if player.carrying:
 		return {"pos": thrones[player_team], "step": 2, "label": "Carry them to your throne"}
 	if mine.state == Monarch.State.CARRIED:
@@ -1383,11 +1411,136 @@ func _start_match(team: int) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--debug-time="):
 			time_left = float(arg.trim_prefix("--debug-time="))  # testing: a short clock
+		if arg == "--no-prep":
+			prep_left = -1.0
+	if prep_left >= 0.0:
+		prep_left = Stats.PREP_TIME
+		barricades_left = [Stats.BARRICADE_TEAM, Stats.BARRICADE_TEAM]
+		_build_barrier()
+	else:
+		prep_left = 0.0
 	sfx.ui("match_start")
 	sfx.play_music(true)
 	sfx.play_ambience(true)
-	announce("Click to attack, Q and E for abilities, Space to dodge, %s for perks, hold %s for the scoreboard, %s to chat." % [
+	chat_system("Click to attack, Q and E for abilities, Space to dodge, %s for perks, hold %s for the scoreboard, %s to chat." % [
 		key_label("rank_menu"), key_label("scoreboard"), key_label("chat")])
+	if prep_left > 0.0:
+		announce("FORTIFY! Build turrets, set traps and raise barricades (%s) before the barrier falls." % key_label("interact"))
+
+
+func in_prep() -> bool:
+	return prep_left > 0.0
+
+
+func _build_barrier() -> void:
+	## The fortify barrier: a wall of light down the middle of the field that
+	## nothing crosses until the battle begins.
+	barrier = Node3D.new()
+	add_child(barrier)
+	var length: float = map_half.y * 2.0 + 12.0
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(0.8, 10.0, length)
+	shape.shape = box
+	shape.position = Vector3(0, 5.0, 0)
+	body.add_child(shape)
+	barrier.add_child(body)
+	var wall := MeshInstance3D.new()
+	var wm := BoxMesh.new()
+	wm.size = Vector3(0.3, 6.0, length)
+	wall.mesh = wm
+	wall.position = Vector3(0, 3.0, 0)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.9, 0.55, 0.22)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	wall.material_override = mat
+	wall.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	barrier.add_child(wall)
+	# Rune posts along it so it reads from the ground.
+	var n := int(length / 6.0)
+	for i in n + 1:
+		var z: float = -length / 2.0 + i * (length / n)
+		var post := MeshInstance3D.new()
+		var pm := CylinderMesh.new()
+		pm.top_radius = 0.12
+		pm.bottom_radius = 0.18
+		pm.height = 2.2
+		post.mesh = pm
+		post.position = Vector3(0, 1.1, z)
+		var pmat := _material(Color(1.0, 0.85, 0.4))
+		pmat.emission_enabled = true
+		pmat.emission = Color(1.0, 0.8, 0.35)
+		pmat.emission_energy_multiplier = 2.0
+		post.material_override = pmat
+		barrier.add_child(post)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.85, 0.5)
+	light.light_energy = 1.5
+	light.omni_range = 12.0
+	light.position = Vector3(0, 3.0, 0)
+	barrier.add_child(light)
+
+
+func _begin_battle() -> void:
+	## The fortify phase ends: the barrier falls and the clock starts.
+	prep_left = 0.0
+	if is_instance_valid(barrier):
+		barrier.queue_free()
+		barrier = null
+	if demo:
+		print("Battle begins: barricades %d/%d, traps %d, turrets %d/%d" % [Stats.BARRICADE_TEAM - barricades_left[0], Stats.BARRICADE_TEAM - barricades_left[1], get_children().filter(func(c): return c is Trap).size(), turrets_built[0], turrets_built[1]])
+	announce("FIGHT! The barrier is down. Capture the crown!")
+	chat_system("The barrier is down. Fight!")
+	sfx.ui("horn", 0.0, 1.0)
+	sfx.ui("match_start")
+	spawn_flash(Vector3(0, 3.0, 0), Color(1.0, 0.9, 0.6), 8.0, 0.8)
+	spawn_ring(Vector3(0, 0.2, 0), 14.0, Color(1.0, 0.9, 0.6), 1.0)
+	shake_at(Vector3.ZERO, 0.3)
+
+
+func plant_barricade(u) -> bool:
+	## Raise a timber barricade across where `u` faces, on your own half of
+	## the field, during the fortify phase. Each team has a few kits.
+	if u.dead or u.carrying:
+		return false
+	var team: int = u.team
+	var side := -1.0 if team == 0 else 1.0
+	var why := ""
+	if barricades_left[team] <= 0:
+		why = "No barricade kits left"
+	elif u.global_position.y < -0.3:
+		why = "Not in the cellar"
+	elif u.global_position.x * side < RIVER_HALF + 3.0:
+		why = "Only on your own side of the river"
+	elif absf(u.global_position.z) < 3.0 and absf(u.global_position.x - _front_x(team)) < 9.0:
+		why = "Not in the door lane"
+	elif _inside_castle(team, u.global_position) and u.global_position.y < 1.0 and absf(u.global_position.x - _front_x(team)) < 4.0:
+		why = "Not in the doorway"
+	if why != "":
+		if u.is_player:
+			toast(why, Color(1.0, 0.8, 0.5))
+		return false
+	var f: Vector3 = u.facing
+	f.y = 0.0
+	if f.length() < 0.1:
+		f = Vector3(-side, 0, 0)
+	f = f.normalized()
+	var pos: Vector3 = u.global_position + f * 1.6
+	pos.y = maxf(u.global_position.y, 0.0)
+	_add_barricade(team, pos, Stats.BARRICADE_LENGTH, atan2(f.x, f.z))
+	barricades_left[team] -= 1
+	sfx.play("station", pos)
+	spawn_ring(pos, 2.0, Color(0.9, 0.75, 0.45), 0.5)
+	spawn_splash(pos + Vector3(0, 0.6, 0), Color(0.75, 0.55, 0.3), 14, 3.0, 0.5)
+	if u.is_player:
+		announce("Barricade raised. %d kit%s left." % [barricades_left[team], "" if barricades_left[team] == 1 else "s"])
+	return true
 
 
 func _update_camera(delta: float) -> void:

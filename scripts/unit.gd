@@ -32,6 +32,7 @@ var bash_timer := 0.0       # a Knight's Shield Bash is a dash that hurts
 var bash_speed := 0.0
 var bash_hit: Array = []
 var guard_timer := 0.0      # Shield Wall: no damage gets through
+var prep_done := false      # fortify phase: this bot has set its trap or barricade
 var bubble_timer := 0.0     # Holy Bubble: the dome shows while this runs
 var bubble_mesh: MeshInstance3D
 var blocking := false       # shield up (hold right click): blocks hits from the front
@@ -1709,6 +1710,38 @@ func _engineer_goal(plan: Dictionary) -> Vector3:
 	return _raid_goal(0.0)
 
 
+func _prep_goal(plan: Dictionary) -> Vector3:
+	## The fortify phase: Rangers set a trap on the road outside our door,
+	## Knights and Mages raise a barricade on the flanks, then everyone takes
+	## a post (walls for the ranged, the yard for the rest).
+	var out := 1.0 if team == 0 else -1.0   # toward the enemy
+	var fx: float = game._front_x(team)
+	var zs := -1.0 if bot_offset.z < 0.0 else 1.0
+	var spot: Vector3
+	match role:
+		Role.RANGER:
+			spot = Vector3(fx + out * 7.0, 0, zs * 1.5)
+			if not prep_done:
+				if _flat_to(spot).length() < 1.0 and global_position.y < 1.0:
+					plan.aim = Vector3(out, 0, 0)
+					if ability_ready(1) and ability(1).kind == "trap":
+						plan.ability = 1
+					prep_done = true
+				return spot
+			return game.wall_post(team, bot_offset.z)
+		Role.KNIGHT, Role.MAGE:
+			spot = Vector3(fx + out * (9.0 if role == Role.KNIGHT else 6.5), 0, zs * (5.0 if role == Role.KNIGHT else 7.5))
+			if not prep_done:
+				if _flat_to(spot).length() < 0.8 and global_position.y < 1.0:
+					facing = Vector3(out, 0, 0)
+					game.plant_barricade(self)
+					prep_done = true
+				return spot
+			return game.wall_post(team, bot_offset.z) if role == Role.MAGE else game.defense_post(team, bot_offset.z)
+		_:
+			return game.defense_post(team, bot_offset.z) + bot_offset * 0.3
+
+
 func _raid_goal(delta: float) -> Vector3:
 	## Where a raider walks: the enemy monarch, but by way of a rally point
 	## outside the enemy door, where the raid waits for company. One raider at
@@ -1758,6 +1791,8 @@ func _bot_think(delta: float) -> Dictionary:
 		goal = game.station_position(team, bot_class)
 	elif orb:
 		goal = orb.global_position
+	elif bot_job == "prep":
+		goal = _prep_goal(plan)
 	elif mine.state == Monarch.State.CARRIED and (bot_job == "recover" or _flat_to(mine.carrier.global_position).length() < 16.0):
 		# Our crown is being carried off: the recovery group, and anyone who
 		# can see the thief, hunts the carrier.
