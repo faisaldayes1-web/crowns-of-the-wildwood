@@ -758,7 +758,7 @@ func _build_hud() -> void:
 	layer.add_child(message_label)
 
 	var help := Label.new()
-	help.text = "Move: WASD / left stick   Aim: mouse / right stick   Attack: left click, Space / A   Abilities: Q, E / X, Y   Dodge: Shift, right click / B   Grab or drop monarch: F / RB   Class: step on a station in your castle"
+	help.text = "Move: WASD / stick   Aim: mouse / right stick   Attack: click / A   Abilities: Q, E / X, Y   Dodge: Shift / B   Monarch: F / RB   Class: stations in your keep"
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	help.position += Vector2(12, -10)
