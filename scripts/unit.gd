@@ -6,7 +6,7 @@ extends CharacterBody3D
 
 const Stats = preload("res://scripts/stats.gd")
 const Monarch = preload("res://scripts/monarch.gd")
-const Builder = preload("res://scripts/character_builder.gd")
+const CharacterModel = preload("res://scripts/character_model.gd")
 const Role = Stats.Role
 
 const GRAVITY := 20.0
@@ -55,11 +55,9 @@ var sidestep_sign := 1.0
 
 var shape: CollisionShape3D
 var build: Node3D
-var rig := {}                 # pivots from character_builder.gd
+var model                     # character_model.gd: the animated KayKit model
 var flash_mats: Array = []    # materials that turn red when hit
-var base_colors: Array = []
-var walk_phase := 0.0
-var swing := 0.0              # weapon-arm swing, 1.0 right after an attack
+var death_timer := 0.0        # the body stays for a moment after dying
 var guard_ring: MeshInstance3D
 var overhead: Node3D
 var label: Label3D
@@ -211,15 +209,11 @@ func set_role(new_role: int) -> void:
 	hearts = Stats.MAX_HEARTS
 	energy = energy_max()
 	ability_timers = [0.0, 0.0]
-	var s := stats()
-	build.scale = s.build
-	rig = Builder.build(build, team, role)
-	flash_mats = rig.flash_mats
-	base_colors = []
-	for m in flash_mats:
-		base_colors.append(m.albedo_color)
-	walk_phase = 0.0
-	swing = 0.0
+	if model == null:
+		model = CharacterModel.new()
+		build.add_child(model)
+	model.setup(team, role)
+	flash_mats = model.flash_mats
 	_refresh_overhead()
 
 
@@ -240,6 +234,8 @@ func take_damage(amount: int) -> void:
 		_die()
 		return
 	_refresh_overhead()
+	if model and model._now() >= model.busy_until:
+		model.play_once("Hit_A", 1.5)
 	# Bots roll sideways away from whatever just hit them, half the time.
 	if not is_player and dodge_ready() and randf() < 0.5:
 		try_dodge(facing.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0))
@@ -265,6 +261,7 @@ func try_dodge(dir: Vector3) -> void:
 	rotation.y = atan2(-facing.x, -facing.z)
 	dodge_timer = Stats.DODGE_TIME
 	dodge_cooldown = Stats.DODGE_COOLDOWN
+	model.play_once("Dodge_Forward", 2.2)
 	game.spawn_burst(global_position, 0.8, Color(1, 1, 1))
 
 
@@ -281,8 +278,16 @@ func use_ability(i: int, dir: Vector3) -> void:
 	dir = dir.normalized() if dir.length() > 0.05 else facing
 	energy -= a.cost
 	ability_timers[i] = a.cooldown
-	swing = 1.0
 	facing = dir
+	match a.kind:
+		"bash": model.play_once("1H_Melee_Attack_Stab", 1.6)
+		"guard": model.hold("Blocking")
+		"volley": model.play_once("2H_Ranged_Shoot", 1.2)
+		"trap": model.play_once("Interact", 1.5)
+		"fireball": model.play_once("Spellcast_Long", 1.4)
+		"blink": model.play_once("Spellcast_Raise", 2.0)
+		"blessing": model.play_once("Spellcast_Long", 1.2)
+		"smite": model.play_once("Spellcast_Shoot", 1.6)
 	rotation.y = atan2(-facing.x, -facing.z)
 	match a.kind:
 		"bash":
@@ -331,8 +336,9 @@ func _die() -> void:
 	hearts = 0
 	if carrying:
 		game.drop_monarch(self)
-	visible = false
 	shape.disabled = true
+	death_timer = 1.1
+	model.die()
 	respawn_timer = Stats.RESPAWN_TIME
 	velocity = Vector3.ZERO
 	guard_timer = 0.0
@@ -348,6 +354,7 @@ func _respawn() -> void:
 	position = spawn_point + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
 	visible = true
 	shape.disabled = false
+	model.revive()
 	if aim_marker:
 		aim_marker.visible = true
 
@@ -355,7 +362,7 @@ func _respawn() -> void:
 func _process(delta: float) -> void:
 	_animate(delta)
 	if overhead:
-		overhead.global_position = global_position + Vector3(0, 2.4 * build.scale.y + 0.25, 0)
+		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + 0.35, 0)
 	if aim_marker and not dead:
 		aim_marker.global_position = global_position + aim * 1.1 + Vector3(0, 0.08, 0)
 		aim_marker.rotation.y = atan2(-aim.x, -aim.z)
@@ -363,37 +370,11 @@ func _process(delta: float) -> void:
 		aim_ring.global_position = Vector3(aim_point.x, global_position.y + 0.08, aim_point.z)
 
 
-func _animate(delta: float) -> void:
-	## Walk cycle, idle breathing and the weapon swing. Pure cosmetics.
-	if rig.is_empty() or dead:
+func _animate(_delta: float) -> void:
+	if model == null or dead:
 		return
 	var planar := Vector2(velocity.x, velocity.z).length()
-	var moving := planar > 0.5
-	if moving:
-		walk_phase += delta * planar * 1.7
-	else:
-		walk_phase = lerp_angle(walk_phase, 0.0, delta * 10.0)
-	swing = maxf(swing - delta * 4.5, 0.0)
-	var leg := sin(walk_phase) * 0.7 if moving else 0.0
-	rig.left_leg.rotation.x = leg
-	rig.right_leg.rotation.x = -leg
-	var arm := sin(walk_phase) * 0.5 if moving else 0.0
-	rig.left_arm.rotation.x = -arm
-	rig.left_arm.rotation.z = 0.15
-	# The weapon arm swings forward and up on an attack, otherwise walks.
-	var raise := sin(swing * PI) * 2.2
-	rig.right_arm.rotation.x = arm + raise
-	rig.right_arm.rotation.z = -0.15 - raise * 0.15
-	var t := Time.get_ticks_msec() / 1000.0
-	var bob := absf(sin(walk_phase)) * 0.07 if moving else sin(t * 2.0 + float(get_instance_id() % 7)) * 0.015
-	rig.torso.position.y = bob
-	rig.torso.rotation.x = 0.12 if moving else 0.0
-	rig.torso.rotation.z = (sin(walk_phase) * 0.04) if moving else 0.0
-	# Dash: lean into it.
-	if dodge_timer > 0.0 or bash_timer > 0.0:
-		rig.torso.rotation.x = 0.5
-		rig.left_leg.rotation.x = 0.8
-		rig.right_leg.rotation.x = -0.8
+	model.update_locomotion(planar > 0.6)
 
 
 func _update_player_aim(move: Vector3) -> void:
@@ -432,6 +413,10 @@ func _physics_process(delta: float) -> void:
 		return
 	if dead:
 		respawn_timer -= delta
+		if death_timer > 0.0:
+			death_timer -= delta
+			if death_timer <= 0.0:
+				visible = false
 		if respawn_timer <= 0.0:
 			_respawn()
 		return
@@ -448,10 +433,11 @@ func _physics_process(delta: float) -> void:
 		guard_timer -= delta
 		if guard_timer <= 0.0:
 			guard_ring.visible = false
+			model.release()
 	if flash_timer > 0.0:
 		flash_timer -= delta
-		for i in flash_mats.size():
-			flash_mats[i].albedo_color = Color(1, 0.3, 0.3) if flash_timer > 0.0 else base_colors[i]
+		for m in flash_mats:
+			m.albedo_color = Color(1, 0.35, 0.35) if flash_timer > 0.0 else Color.WHITE
 
 	var speed: float = Stats.FACTIONS[team].speed * stats().speed
 	if carrying:
@@ -569,7 +555,7 @@ func _attack(dir: Vector3) -> void:
 			attack_timer = s.cooldown
 			for ally in hurt:
 				ally.heal(s.heal)
-			swing = 1.0
+			model.play_once("Spellcast_Raise", 1.6)
 			game.spawn_burst(global_position + Vector3(0, 0.2, 0), s.heal_radius, Color(0.3, 1.0, 0.5))
 			return
 		kind = "melee"  # nobody to heal: bonk with the staff, free of mana
@@ -578,7 +564,7 @@ func _attack(dir: Vector3) -> void:
 	else:
 		energy -= s.cost
 	attack_timer = s.cooldown
-	swing = 1.0
+	model.attack()
 
 	if kind == "arrow":
 		game.spawn_shot(self, dir, s, Color(0.95, 0.9, 0.7))

@@ -52,7 +52,13 @@ func setup(p_game, p_team: int, x: float) -> void:
 		plank.mesh = plank_mesh
 		plank.position.z = -size.z / 2.0 + (i + 0.5) * size.z / 4.0
 		var plank_mat := StandardMaterial3D.new()
-		plank_mat.albedo_color = base_color.darkened(0.35)
+		plank_mat.albedo_texture = load("res://assets/textures/wood_color.jpg")
+		plank_mat.normal_enabled = true
+		plank_mat.normal_texture = load("res://assets/textures/wood_normal.jpg")
+		plank_mat.albedo_color = Color(0.9, 0.75, 0.55)
+		plank_mat.uv1_triplanar = true
+		plank_mat.uv1_world_triplanar = true
+		plank_mat.uv1_scale = Vector3.ONE * 0.6
 		plank.material_override = plank_mat
 		wall.add_child(plank)
 

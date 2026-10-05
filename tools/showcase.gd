@@ -3,7 +3,7 @@ extends SceneTree
 ## Usage (needs a display or xvfb):
 ##   godot --path . --rendering-driver opengl3 --script tools/showcase.gd -- --out=showcase.png
 
-const Builder = preload("res://scripts/character_builder.gd")
+const CharacterModel = preload("res://scripts/character_model.gd")
 const Stats = preload("res://scripts/stats.gd")
 
 var frames := 0
@@ -39,21 +39,20 @@ func _initialize() -> void:
 	floor.material_override = fm
 	world.add_child(floor)
 	var roles := [Stats.Role.BASE, Stats.Role.KNIGHT, Stats.Role.RANGER, Stats.Role.MAGE, Stats.Role.HEALER]
+	var poses := ["Idle", "1H_Melee_Attack_Slice_Horizontal", "2H_Ranged_Shoot", "Spellcast_Shoot", "Spellcast_Raise"]
 	for team in 2:
 		for i in roles.size():
-			var holder := Node3D.new()
-			holder.position = Vector3(-5.0 + i * 2.5, 0, 1.6 if team == 0 else -1.6)
-			holder.rotation.y = PI  # face the camera (models face -z)
-			holder.scale = Stats.ROLES[roles[i]].build
-			world.add_child(holder)
-			var rig := Builder.build(holder, team, roles[i])
-			rig.left_arm.rotation.z = 0.15
-			rig.right_arm.rotation.z = -0.15
-		var m := Node3D.new()
-		m.position = Vector3(7.5, 0, 1.6 if team == 0 else -1.6)
-		m.rotation.y = PI
-		world.add_child(m)
-		Builder.build_monarch(m, team)
+			var m := CharacterModel.new()
+			m.position = Vector3(-5.0 + i * 2.5, 0, 1.6 if team == 0 else -1.6)
+			m.rotation.y = PI  # face the camera
+			world.add_child(m)
+			m.setup(team, roles[i])
+			m.play_once(poses[i], 0.001)  # freeze mid-action
+		var mon := CharacterModel.new()
+		mon.position = Vector3(7.5, 0, 1.6 if team == 0 else -1.6)
+		mon.rotation.y = PI
+		world.add_child(mon)
+		mon.setup(team, 0, "queen" if team == 0 else "king")
 	var cam := Camera3D.new()
 	cam.position = Vector3(1.2, 4.2, 8.5)
 	cam.rotation_degrees = Vector3(-24, 0, 0)
@@ -64,7 +63,7 @@ func _initialize() -> void:
 
 func _process(_delta: float) -> bool:
 	frames += 1
-	if frames == 20:
+	if frames == 40:
 		root.get_texture().get_image().save_png(out_path)
 		print("saved ", out_path)
 		return true

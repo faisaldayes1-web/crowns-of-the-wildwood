@@ -4,7 +4,7 @@ extends Node3D
 
 enum State { HOME, CARRIED, DROPPED }
 
-const Builder = preload("res://scripts/character_builder.gd")
+const CharacterModel = preload("res://scripts/character_model.gd")
 
 const WALK_HOME_SPEED := 1.5
 const CARRY_HEIGHT := 1.9
@@ -14,6 +14,7 @@ var state := State.HOME
 var carrier = null
 var home := Vector3.ZERO
 var title := ""
+var model
 
 
 func setup(p_team: int, p_home: Vector3, color: Color, p_title: String) -> void:
@@ -22,9 +23,9 @@ func setup(p_team: int, p_home: Vector3, color: Color, p_title: String) -> void:
 	title = p_title
 	position = home
 
-	var model := Node3D.new()
+	model = CharacterModel.new()
 	add_child(model)
-	Builder.build_monarch(model, team)
+	model.setup(team, 0, "queen" if team == 0 else "king")
 
 	var label := Label3D.new()
 	label.text = title
@@ -57,13 +58,22 @@ func go_home() -> void:
 
 func _process(delta: float) -> void:
 	match state:
+		State.HOME:
+			model.update_locomotion(false)
 		State.CARRIED:
 			if carrier:
 				global_position = carrier.global_position + Vector3(0, CARRY_HEIGHT, 0)
+				rotation.y = carrier.rotation.y
+			model.hold("Sit_Floor_Idle")
+			model.update_locomotion(false)
 		State.DROPPED:
+			model.release()
+			model.update_locomotion(true)
 			var to_home := home - global_position
 			to_home.y = 0.0
 			if to_home.length() < 0.2:
 				go_home()
 			else:
-				global_position += to_home.normalized() * WALK_HOME_SPEED * delta
+				var step := to_home.normalized()
+				global_position += step * WALK_HOME_SPEED * delta
+				rotation.y = atan2(-step.x, -step.z)

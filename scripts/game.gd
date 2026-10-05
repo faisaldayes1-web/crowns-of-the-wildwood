@@ -411,12 +411,88 @@ func _material(color: Color) -> StandardMaterial3D:
 	return mat
 
 
-func _add_block(pos: Vector3, size: Vector3, color: Color, solid: bool) -> void:
+# Textured materials (ambientCG, CC0). Triplanar mapping means boxes of any
+# size tile cleanly without UV work. One tile every 1/scale metres.
+func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = load("res://assets/textures/%s_color.jpg" % prefix)
+	mat.albedo_color = tint
+	mat.normal_enabled = true
+	mat.normal_texture = load("res://assets/textures/%s_normal.jpg" % prefix)
+	mat.roughness_texture = load("res://assets/textures/%s_rough.jpg" % prefix)
+	mat.uv1_triplanar = true
+	mat.uv1_world_triplanar = true
+	mat.uv1_scale = Vector3.ONE * scale
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	return mat
+
+
+func _stone(tint: Color = Color.WHITE, scale: float = 0.22) -> StandardMaterial3D:
+	return _pbr("stone", scale, tint)
+
+
+func _grass() -> StandardMaterial3D:
+	return _pbr("grass", 0.28, Color(0.95, 1.0, 0.85))
+
+
+func _wood(tint: Color = Color.WHITE, scale: float = 0.5) -> StandardMaterial3D:
+	return _pbr("wood", scale, tint)
+
+
+func _dirt() -> StandardMaterial3D:
+	## A procedural dirt road: brown noise, no texture file needed.
+	var mat := StandardMaterial3D.new()
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.frequency = 0.03
+	noise.fractal_octaves = 4
+	var tex := NoiseTexture2D.new()
+	tex.noise = noise
+	tex.seamless = true
+	tex.width = 256
+	tex.height = 256
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(0.42, 0.3, 0.18))
+	ramp.set_color(1, Color(0.66, 0.55, 0.38))
+	tex.color_ramp = ramp
+	mat.albedo_texture = tex
+	mat.roughness = 1.0
+	mat.uv1_triplanar = true
+	mat.uv1_world_triplanar = true
+	mat.uv1_scale = Vector3.ONE * 0.12
+	return mat
+
+
+func _prop(name: String, pos: Vector3, scale: float = 1.0, rot_y: float = 0.0) -> Node3D:
+	## Places a KayKit model (CC0). `name` is "hex/tree_single_A",
+	## "dungeon/banner_green" or "gear/staff" under assets/props.
+	var ext := ".glb" if name.begins_with("dungeon/") else ".gltf"
+	var scene: PackedScene = load("res://assets/props/%s%s" % [name, ext])
+	var inst: Node3D = scene.instantiate()
+	inst.position = pos
+	inst.scale = Vector3.ONE * scale
+	inst.rotation.y = rot_y
+	add_child(inst)
+	return inst
+
+
+func _add_collider(pos: Vector3, size: Vector3) -> void:
+	var body := StaticBody3D.new()
+	body.position = pos
+	var shape := CollisionShape3D.new()
+	var box_shape := BoxShape3D.new()
+	box_shape.size = size
+	shape.shape = box_shape
+	body.add_child(shape)
+	add_child(body)
+
+
+func _add_block(pos: Vector3, size: Vector3, color: Color, solid: bool, mat: Material = null) -> void:
 	var mesh := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = size
 	mesh.mesh = box
-	mesh.material_override = _material(color)
+	mesh.material_override = mat if mat else _material(color)
 	if solid:
 		var body := StaticBody3D.new()
 		body.position = pos
@@ -449,7 +525,7 @@ func _add_ramp(from: Vector3, to: Vector3, width: float, color: Color) -> void:
 	var box := BoxMesh.new()
 	box.size = box_shape.size
 	mesh.mesh = box
-	mesh.material_override = _material(color)
+	mesh.material_override = _stone(color, 0.3)
 	body.add_child(mesh)
 	add_child(body)
 
@@ -467,14 +543,22 @@ func _add_boulder(pos: Vector3) -> void:
 	var rock := SphereMesh.new()
 	rock.radius = 1.2
 	rock.height = 2.4
+	rock.radial_segments = 10
+	rock.rings = 5
 	mesh.mesh = rock
 	mesh.position.y = 0.8
-	mesh.material_override = _material(Color(0.5, 0.5, 0.48))
+	mesh.scale = Vector3(1.0, 0.8, 1.1)
+	mesh.material_override = _stone(Color(0.85, 0.85, 0.82), 0.35)
 	body.add_child(mesh)
 	add_child(body)
+	# A few pebbles around the base.
+	for i in 3:
+		var ang := TAU * i / 3.0 + pos.x
+		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][absi(int(pos.x * 7 + pos.z) + i) % 5],
+			pos + Vector3(cos(ang) * 1.7, 0, sin(ang) * 1.7), 4.0, ang)
 
 
-func _add_tree(pos: Vector3) -> void:
+func _add_tree(pos: Vector3, big: bool = false) -> void:
 	var body := StaticBody3D.new()
 	body.position = pos
 	var shape := CollisionShape3D.new()
@@ -484,41 +568,30 @@ func _add_tree(pos: Vector3) -> void:
 	shape.shape = cyl
 	shape.position.y = 1.5
 	body.add_child(shape)
-
-	var trunk := MeshInstance3D.new()
-	var trunk_mesh := CylinderMesh.new()
-	trunk_mesh.top_radius = 0.3
-	trunk_mesh.bottom_radius = 0.4
-	trunk_mesh.height = 1.6
-	trunk.mesh = trunk_mesh
-	trunk.position.y = 0.8
-	trunk.material_override = _material(Color(0.4, 0.27, 0.15))
-	body.add_child(trunk)
-
-	var crown := MeshInstance3D.new()
-	var crown_mesh := CylinderMesh.new()
-	crown_mesh.top_radius = 0.0
-	crown_mesh.bottom_radius = 1.4
-	crown_mesh.height = 2.8
-	crown.mesh = crown_mesh
-	crown.position.y = 2.8
-	crown.material_override = _material(Color(0.15, 0.45, 0.2))
-	body.add_child(crown)
 	add_child(body)
+	var pick := absi(int(pos.x * 13 + pos.z * 7)) % 2
+	var name := ("hex/trees_%s_medium" if big else "hex/tree_single_%s") % ["A", "B"][pick]
+	_prop(name, pos, 3.6 if big else 3.4, float(absi(int(pos.x + pos.z * 3)) % 6))
 
 
 func _add_cover() -> void:
 	## Low barricades and boulders in the contested middle. Shots stop at
 	## them, so there is always somewhere to duck. Everything is mirrored.
-	var wood := Color(0.5, 0.35, 0.2)
 	var barricades := [[Vector3(6, 0, 4), 3.5], [Vector3(7, 0, -6), 3.5], [Vector3(14, 0, 1), 4.0],
 		[Vector3(13, 0, 9), 3.0], [Vector3(21, 0, -4), 3.5], [Vector3(20, 0, 7), 3.0]]
+	var crates := ["hex/crate_A_big", "hex/crate_B_big", "hex/barrel", "hex/crate_A_big", "hex/sack"]
 	for b in barricades:
 		for m in [1.0, -1.0]:
 			var c: Vector3 = b[0] * m
-			_add_block(Vector3(c.x, 0.6, c.z), Vector3(0.6, 1.2, b[1]), wood, true)
-			_add_block(Vector3(c.x, 0.8, c.z - b[1] / 2.0), Vector3(0.8, 1.6, 0.4), wood.darkened(0.3), false)
-			_add_block(Vector3(c.x, 0.8, c.z + b[1] / 2.0), Vector3(0.8, 1.6, 0.4), wood.darkened(0.3), false)
+			var length: float = b[1]
+			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
+			var n := int(length / 1.15)
+			for i in n:
+				var z: float = c.z - length / 2.0 + (i + 0.5) * length / n
+				var pick: int = absi(int(c.x * 3 + z * 5 + i)) % crates.size()
+				_prop(crates[pick], Vector3(c.x, 0, z), 5.2, float(i) * 0.15)
+				if i % 2 == 0:
+					_prop("hex/crate_A_big", Vector3(c.x, 1.05, z), 4.2, float(i) * 0.15 + 0.1)
 	var boulders := [Vector3(3, 0, -11), Vector3(11, 0, -13), Vector3(17, 0, 13), Vector3(24, 0, -6), Vector3(28, 0, 9)]
 	for p in boulders:
 		_add_boulder(p)
@@ -541,51 +614,18 @@ func _add_heal_orbs() -> void:
 			heal_orbs.append(mirror)
 
 
-func _add_flag(pos: Vector3, color: Color, side: float) -> void:
-	var pole := MeshInstance3D.new()
-	var pole_mesh := CylinderMesh.new()
-	pole_mesh.top_radius = 0.06
-	pole_mesh.bottom_radius = 0.08
-	pole_mesh.height = 2.6
-	pole.mesh = pole_mesh
-	pole.position = pos + Vector3(0, 1.3, 0)
-	pole.material_override = _material(Color(0.35, 0.25, 0.15))
-	add_child(pole)
-	var cloth := MeshInstance3D.new()
-	var cloth_mesh := BoxMesh.new()
-	cloth_mesh.size = Vector3(1.4, 0.9, 0.06)
-	cloth.mesh = cloth_mesh
-	cloth.position = pos + Vector3(-side * 0.75, 2.1, 0)
-	cloth.material_override = _material(color)
-	add_child(cloth)
-	var crest := MeshInstance3D.new()
-	var crest_mesh := BoxMesh.new()
-	crest_mesh.size = Vector3(0.4, 0.3, 0.08)
-	crest.mesh = crest_mesh
-	crest.position = pos + Vector3(-side * 0.75, 2.1, 0)
-	crest.material_override = _material(Color(1.0, 0.82, 0.2))
-	add_child(crest)
+func _add_flag(pos: Vector3, team: int, side: float) -> void:
+	_prop("hex/flag_%s" % ["green", "blue"][team], pos, 7.0, PI / 2.0 if side < 0.0 else -PI / 2.0)
 
 
 func _add_torch(pos: Vector3) -> void:
-	_add_block(pos + Vector3(0, 1.0, 0), Vector3(0.14, 2.0, 0.14), Color(0.3, 0.2, 0.1), false)
-	var flame := MeshInstance3D.new()
-	var flame_mesh := SphereMesh.new()
-	flame_mesh.radius = 0.22
-	flame_mesh.height = 0.5
-	flame.mesh = flame_mesh
-	flame.position = pos + Vector3(0, 2.2, 0)
-	var mat := _material(Color(1.0, 0.6, 0.15))
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.5, 0.1)
-	mat.emission_energy_multiplier = 2.0
-	flame.material_override = mat
-	add_child(flame)
+	_add_block(pos + Vector3(0, 0.9, 0), Vector3(0.16, 1.8, 0.16), Color(0.3, 0.2, 0.1), false)
+	_prop("dungeon/torch_lit", pos + Vector3(0, 2.1, 0), 1.5)
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.7, 0.35)
 	light.light_energy = 1.6
 	light.omni_range = 7.0
-	light.position = pos + Vector3(0, 2.4, 0)
+	light.position = pos + Vector3(0, 2.6, 0)
 	add_child(light)
 
 
@@ -607,51 +647,30 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 	pad.position = pos + Vector3(0, 0.12, 0)
 	add_child(pad)
 
-	# A floating, spinning hat shows which class this station gives.
-	var icon := MeshInstance3D.new()
+	# The class's gear sits on the pad so you can tell what you'll become.
 	match role:
 		Role.KNIGHT:
-			var helm := SphereMesh.new()
-			helm.radius = 0.4
-			helm.height = 0.5
-			icon.mesh = helm
+			_prop("gear/sword_1handed", pos + Vector3(-0.3, 0.5, 0), 1.6, 0.4).rotation.x = -PI / 2.0 + 0.4
+			_prop("gear/shield_badge_color", pos + Vector3(0.4, 0.6, 0), 1.6, 0.6)
 		Role.RANGER:
-			var hood := CylinderMesh.new()
-			hood.top_radius = 0.0
-			hood.bottom_radius = 0.4
-			hood.height = 0.6
-			icon.mesh = hood
+			_prop("gear/quiver", pos + Vector3(-0.2, 0.15, 0), 1.6, 0.8).rotation.x = 0.6
+			_prop("gear/arrow_bundle", pos + Vector3(0.5, 0.2, 0.2), 1.6, 0.3).rotation.x = 1.2
 		Role.MAGE:
-			var wizard := CylinderMesh.new()
-			wizard.top_radius = 0.0
-			wizard.bottom_radius = 0.45
-			wizard.height = 1.0
-			icon.mesh = wizard
+			_prop("gear/staff", pos + Vector3(0, 0.3, 0), 1.6, 1.0).rotation.x = 1.0
 		Role.HEALER:
-			var gem := SphereMesh.new()
-			gem.radius = 0.3
-			gem.height = 0.6
-			icon.mesh = gem
-	icon.material_override = _material(color)
-	icon.position = pos + Vector3(0, 1.4, 0)
-	add_child(icon)
-	var spin := icon.create_tween().set_loops()
-	spin.tween_property(icon, "rotation:y", TAU, 3.0).from(0.0)
-
-	var label := Label3D.new()
-	label.text = Stats.FACTIONS[team].roles[role]
-	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.font_size = 32
-	label.pixel_size = 0.012
-	label.outline_size = 8
-	label.position = pos + Vector3(0, 2.3, 0)
-	add_child(label)
+			_prop("gear/spellbook_open", pos + Vector3(0, 0.3, 0), 1.8, 0.4)
+			_prop("gear/wand", pos + Vector3(0.6, 0.25, 0.3), 1.6, 1.2).rotation.x = 1.3
 
 
 func _build_castle(team: int) -> void:
 	var side := -1.0 if team == 0 else 1.0
 	var color: Color = Stats.FACTIONS[team].color
 	var stone := Color(0.45, 0.32, 0.2) if team == 0 else Color(0.6, 0.6, 0.62)
+	# Textured masonry: elves build in warm sandstone, humans in grey granite.
+	var tint := Color(1.0, 0.86, 0.68) if team == 0 else Color(0.82, 0.84, 0.9)
+	var masonry := _stone(tint)
+	var masonry_dark := _stone(tint.darkened(0.12))
+	var cobbles := _stone(tint.darkened(0.2), 0.7)
 	var cx := side * CASTLE_X
 	var fx := _front_x(team)                      # outer wall's front, facing the middle
 	var bx := side * (CASTLE_X + CASTLE_DEPTH)    # outer wall's back
@@ -659,29 +678,36 @@ func _build_castle(team: int) -> void:
 	var hz := CASTLE_HALF_Z
 
 	# --- The outer castle wall: a ring around the yard. ---
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color.darkened(0.5), false)
-	_add_block(Vector3(bx, WALL_H / 2.0, 0), Vector3(1, WALL_H, hz * 2 + 1), stone, true)
-	_add_block(Vector3(cx, WALL_H / 2.0, -hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true)
-	_add_block(Vector3(cx, WALL_H / 2.0, hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true)
+	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, cobbles)
+	_add_block(Vector3(bx, WALL_H / 2.0, 0), Vector3(1, WALL_H, hz * 2 + 1), stone, true, masonry)
+	_add_block(Vector3(cx, WALL_H / 2.0, -hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true, masonry)
+	_add_block(Vector3(cx, WALL_H / 2.0, hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true, masonry)
 	# Battlements along the side and back walls.
 	for k in 7:
 		var zz := -hz + 1.5 + k * (hz * 2 - 3.0) / 6.0
-		_add_block(Vector3(bx, WALL_H + 0.3, zz), Vector3(1.2, 0.6, 1.0), stone.darkened(0.15), false)
+		_add_block(Vector3(bx, WALL_H + 0.3, zz), Vector3(1.2, 0.6, 1.0), stone, false, masonry_dark)
 	for k in 6:
 		var xx := fx + side * (2.0 + k * (CASTLE_DEPTH * 2 - 4.0) / 5.0)
-		_add_block(Vector3(xx, WALL_H + 0.3, -hz), Vector3(1.0, 0.6, 1.2), stone.darkened(0.15), false)
-		_add_block(Vector3(xx, WALL_H + 0.3, hz), Vector3(1.0, 0.6, 1.2), stone.darkened(0.15), false)
+		_add_block(Vector3(xx, WALL_H + 0.3, -hz), Vector3(1.0, 0.6, 1.2), stone, false, masonry_dark)
+		_add_block(Vector3(xx, WALL_H + 0.3, hz), Vector3(1.0, 0.6, 1.2), stone, false, masonry_dark)
 
 	# Front wall either side of the door, with the rampart walkway and parapet on top.
 	var seg := hz - Stats.DOOR_HALF
 	var zc := Stats.DOOR_HALF + seg / 2.0
-	_add_block(Vector3(fx, WALL_H / 2.0, -zc), Vector3(1, WALL_H, seg), stone, true)
-	_add_block(Vector3(fx, WALL_H / 2.0, zc), Vector3(1, WALL_H, seg), stone, true)
-	_add_block(Vector3(fx, WALK_Y - 0.3, 0), Vector3(2.4, 0.6, hz * 2 + 1), stone.lightened(0.15), true)
-	_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.25, 0), Vector3(0.3, 0.5, hz * 2 + 1), stone.darkened(0.15), true)
+	_add_block(Vector3(fx, WALL_H / 2.0, -zc), Vector3(1, WALL_H, seg), stone, true, masonry)
+	_add_block(Vector3(fx, WALL_H / 2.0, zc), Vector3(1, WALL_H, seg), stone, true, masonry)
+	_add_block(Vector3(fx, WALK_Y - 0.3, 0), Vector3(2.4, 0.6, hz * 2 + 1), stone, true, _wood(tint, 1.3))
+	_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.25, 0), Vector3(0.3, 0.5, hz * 2 + 1), stone, true, masonry_dark)
+	# Crenellations along the parapet.
+	for k in 9:
+		var pz := -hz + 1.0 + k * (hz * 2 - 2.0) / 8.0
+		if absf(pz) > Stats.DOOR_HALF + 0.6:
+			_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.75, pz), Vector3(0.34, 0.5, 0.9), stone, false, masonry_dark)
 	for z in [-hz - 0.5, hz + 0.5]:
-		_add_block(Vector3(fx, 2.6, z), Vector3(2.4, 5.2, 2.4), stone.darkened(0.2), true)
-		_add_block(Vector3(bx, 2.6, z), Vector3(2.4, 5.2, 2.4), stone.darkened(0.2), true)
+		_add_block(Vector3(fx, 2.6, z), Vector3(2.4, 5.2, 2.4), stone, true, masonry_dark)
+		_add_block(Vector3(bx, 2.6, z), Vector3(2.4, 5.2, 2.4), stone, true, masonry_dark)
+		_add_block(Vector3(fx, 5.4, z), Vector3(2.9, 0.4, 2.9), stone, false, masonry)
+		_add_block(Vector3(bx, 5.4, z), Vector3(2.9, 0.4, 2.9), stone, false, masonry)
 
 	# Ramps from the yard up to the walkway, one at each end of the front wall.
 	ramps.append([])
@@ -689,15 +715,15 @@ func _build_castle(team: int) -> void:
 		var z: float = zs * (hz - 2.5)
 		var bottom := Vector3(fx + side * (KEEP_SETBACK - 1.5), 0.0, z)
 		var top := Vector3(fx + side * 1.2, WALK_Y, z)
-		_add_ramp(bottom + Vector3(0, -0.3, 0), top, 2.2, stone.lightened(0.1))
+		_add_ramp(bottom + Vector3(0, -0.3, 0), top, 2.2, tint)
 		ramps[team].append({"bottom": bottom, "top": top})
 	# Archer posts on the walkway, either side of the door.
 	wall_posts.append([Vector3(fx, WALK_Y, -(Stats.DOOR_HALF + 2.0)), Vector3(fx, WALK_Y, Stats.DOOR_HALF + 2.0)])
 
 	# Flags on the towers and torches by the door and the keep.
 	for z in [-hz - 0.5, hz + 0.5]:
-		_add_flag(Vector3(fx, 5.2, z), color, side)
-		_add_flag(Vector3(bx, 5.2, z), color, side)
+		_add_flag(Vector3(fx, 5.6, z), team, side)
+		_add_flag(Vector3(bx, 5.6, z), team, side)
 	for z in [-(Stats.DOOR_HALF + 1.0), Stats.DOOR_HALF + 1.0]:
 		_add_torch(Vector3(fx - side * 1.1, 0, z))
 		_add_torch(Vector3(kx - side * 0.9, 0, z * 1.2))
@@ -713,26 +739,44 @@ func _build_castle(team: int) -> void:
 	var kdepth := absf(bx - kx)
 	var kcx := (kx + bx) / 2.0
 	var keep_stone := stone.lightened(0.25)
-	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), keep_stone.darkened(0.35), false)
-	_add_block(Vector3(kcx, KEEP_H / 2.0, -khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true)
-	_add_block(Vector3(kcx, KEEP_H / 2.0, khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true)
+	var keep_mat := _stone(tint.lightened(0.1), 0.26)
+	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), keep_stone, false, _wood(Color(0.8, 0.7, 0.6)))
+	_add_block(Vector3(kcx, KEEP_H / 2.0, -khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true, keep_mat)
+	_add_block(Vector3(kcx, KEEP_H / 2.0, khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true, keep_mat)
 	var kseg := khz - KEEP_DOOR_HALF
 	var kzc := KEEP_DOOR_HALF + kseg / 2.0
-	_add_block(Vector3(kx, KEEP_H / 2.0, -kzc), Vector3(0.8, KEEP_H, kseg), keep_stone, true)
-	_add_block(Vector3(kx, KEEP_H / 2.0, kzc), Vector3(0.8, KEEP_H, kseg), keep_stone, true)
+	_add_block(Vector3(kx, KEEP_H / 2.0, -kzc), Vector3(0.8, KEEP_H, kseg), keep_stone, true, keep_mat)
+	_add_block(Vector3(kx, KEEP_H / 2.0, kzc), Vector3(0.8, KEEP_H, kseg), keep_stone, true, keep_mat)
 	# Arch over the doorway, well above head height.
-	_add_block(Vector3(kx, KEEP_H + 0.1, 0), Vector3(1.0, 0.7, KEEP_DOOR_HALF * 2 + 0.8), keep_stone.darkened(0.1), false)
+	_add_block(Vector3(kx, KEEP_H + 0.1, 0), Vector3(1.0, 0.7, KEEP_DOOR_HALF * 2 + 0.8), keep_stone, false, masonry_dark)
 	for z in [-khz, khz]:
-		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.5, z), Vector3(1.6, KEEP_H + 1.0, 1.6), keep_stone.darkened(0.15), true)
-	# Banners in the team colour on the keep's front.
+		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.5, z), Vector3(1.6, KEEP_H + 1.0, 1.6), keep_stone, true, masonry_dark)
+		_add_block(Vector3(bx - side * 0.2, KEEP_H / 2.0 + 0.5, z), Vector3(1.6, KEEP_H + 1.0, 1.6), keep_stone, true, masonry_dark)
+	# Banners in the team colour either side of the archway.
 	for z in [-(KEEP_DOOR_HALF + 1.2), KEEP_DOOR_HALF + 1.2]:
-		_add_block(Vector3(kx - side * 0.5, 1.8, z), Vector3(0.1, 1.6, 0.7), color, false)
+		_prop("dungeon/banner_shield_%s" % ["green", "blue"][team], Vector3(kx - side * 0.55, -0.45, z), 0.85,
+			PI / 2.0 if side > 0.0 else -PI / 2.0)
+	# Life in the yard: tents, stores and a training corner.
+	var yx := fx + side * 4.0
+	_prop("hex/tent", Vector3(yx, 0, -hz + 3.0), 5.0, 0.4 - side)
+	_prop("hex/tent", Vector3(yx, 0, hz - 3.0), 5.0, 2.6 - side)
+	_prop("hex/weaponrack", Vector3(kx - side * 2.0, 0, -hz + 2.0), 4.5, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	_prop("hex/target", Vector3(kx - side * 2.0, 0, hz - 2.0), 4.5, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	_prop("hex/crate_A_big", Vector3(kx - side * 1.6, 0, 7.0), 5.0, 0.3)
+	_prop("hex/barrel", Vector3(kx - side * 1.6, 0, 8.3), 5.0)
+	_prop("hex/barrel", Vector3(kx - side * 2.7, 0, 8.0), 5.0, 1.0)
+	_prop("hex/wheelbarrow", Vector3(kx - side * 2.4, 0, -7.6), 4.5, 1.2 * side)
+	_prop("hex/sack", Vector3(kx - side * 1.5, 0, -6.4), 5.0)
 
 	# Throne on a dais inside the keep. Carry the enemy monarch here to score.
 	var throne := Vector3(kx + side * 6.0, 0, 0)
 	thrones.append(throne)
-	_add_block(throne + Vector3(side * 1.5, 0.15, 0), Vector3(3, 0.3, 4), Color(0.75, 0.6, 0.25), false)
+	_add_block(throne + Vector3(side * 1.5, 0.15, 0), Vector3(3, 0.3, 4), Color(0.75, 0.6, 0.25), false, _stone(Color(1.0, 0.85, 0.45), 0.6))
 	_add_block(throne + Vector3(side * 2.4, 1.2, 0), Vector3(0.4, 2.0, 1.6), color.darkened(0.2), false)
+	_add_block(throne + Vector3(side * 2.4, 2.35, 0), Vector3(0.5, 0.3, 1.8), Color(0.95, 0.78, 0.25), false)
+	for z in [-2.6, 2.6]:
+		_prop("dungeon/pillar_decorated", throne + Vector3(side * 2.0, 0, z), 1.5)
+	_prop("dungeon/chest_gold", throne + Vector3(side * 3.0, 0, -4.6), 0.9, PI / 2.0 if side < 0.0 else -PI / 2.0)
 
 	# Class stations along the keep's side walls, near the spawn.
 	_add_station(team, Role.KNIGHT, Vector3(kx + side * 3.5, 0, -6.0))
@@ -760,11 +804,21 @@ func _build_castle(team: int) -> void:
 func _build_world() -> void:
 	var env := WorldEnvironment.new()
 	var environment := Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color(0.5, 0.7, 0.9)
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.75, 0.78, 0.85)
-	environment.ambient_light_energy = 0.6
+	var sky := Sky.new()
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color = Color(0.3, 0.55, 0.9)
+	sky_mat.sky_horizon_color = Color(0.75, 0.85, 0.95)
+	sky_mat.ground_bottom_color = Color(0.3, 0.4, 0.25)
+	sky_mat.ground_horizon_color = Color(0.6, 0.7, 0.6)
+	sky.sky_material = sky_mat
+	environment.background_mode = Environment.BG_SKY
+	environment.sky = sky
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	environment.ambient_light_energy = 0.9
+	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.glow_enabled = true
+	environment.glow_intensity = 0.3
+	environment.glow_bloom = 0.1
 	env.environment = environment
 	add_child(env)
 
@@ -774,9 +828,12 @@ func _build_world() -> void:
 	add_child(sun)
 
 	# Ground.
-	_add_block(Vector3(0, -0.5, 0), Vector3(map_half.x * 2 + 80, 1, map_half.y * 2 + 60), Color(0.42, 0.62, 0.3), true)
-	# A dirt road from door to door.
-	_add_block(Vector3(0, 0.005, 0), Vector3((CASTLE_X - CASTLE_DEPTH) * 2, 0.01, 4), Color(0.6, 0.5, 0.35), false)
+	_add_block(Vector3(0, -0.5, 0), Vector3(map_half.x * 2 + 80, 1, map_half.y * 2 + 60), Color(0.42, 0.62, 0.3), true, _grass())
+	# A dirt road from door to door, with a worn patch at each door and in the middle.
+	_add_block(Vector3(0, 0.005, 0), Vector3((CASTLE_X - CASTLE_DEPTH) * 2, 0.01, 4), Color(0.6, 0.5, 0.35), false, _dirt())
+	_add_block(Vector3(0, 0.004, 0), Vector3(12, 0.01, 12), Color(0.6, 0.5, 0.35), false, _dirt())
+	for sx in [-1.0, 1.0]:
+		_add_block(Vector3(sx * (CASTLE_X - CASTLE_DEPTH - 2.0), 0.004, 0), Vector3(8, 0.01, 10), Color(0.6, 0.5, 0.35), false, _dirt())
 
 	_build_castle(0)
 	_build_castle(1)
@@ -791,10 +848,18 @@ func _build_world() -> void:
 		_add_tree(-p)
 	# Woods on the castle flanks.
 	for p in [Vector3(38, 0, 17), Vector3(46, 0, 19), Vector3(52, 0, 16), Vector3(34, 0, 22)]:
-		_add_tree(p)
-		_add_tree(-p)
-		_add_tree(Vector3(p.x, 0, -p.z))
-		_add_tree(Vector3(-p.x, 0, p.z))
+		_add_tree(p, true)
+		_add_tree(-p, true)
+		_add_tree(Vector3(p.x, 0, -p.z), true)
+		_add_tree(Vector3(-p.x, 0, p.z), true)
+	# A tree line and hills beyond the playable edge, so the world has a horizon.
+	for i in 14:
+		var x := -52.0 + i * 8.0
+		_prop("hex/trees_%s_medium" % ["A", "B"][i % 2], Vector3(x, 0, 30.0 + (i % 3) * 1.5), 4.0, float(i))
+		_prop("hex/trees_%s_medium" % ["B", "A"][i % 2], Vector3(x + 3.0, 0, -30.0 - (i % 3) * 1.5), 4.0, float(i))
+	for i in 5:
+		_prop("hex/hill_single_A", Vector3(-40.0 + i * 20.0, -0.2, 40.0), 12.0, float(i))
+		_prop("hex/hill_single_A", Vector3(-30.0 + i * 20.0, -0.2, -40.0), 12.0, float(i) + 1.0)
 
 	camera = Camera3D.new()
 	camera.rotation_degrees = Vector3(-55, 0, 0)
