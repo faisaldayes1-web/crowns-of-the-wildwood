@@ -2316,15 +2316,15 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 # from every wall; `--audit` lists anything that still overlaps.
 
 func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	return _pbr("stone", 0.3, tint)
+	return _pbr("stone", 0.42, tint * Color(0.93, 0.9, 0.84))
 
 
 func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	return _pbr("flagstone", 0.2, tint)
+	return _pbr("flagstone", 0.42, tint * Color(0.95, 0.92, 0.86))
 
 
 func _timber(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	return _pbr("wood", 0.45, tint)
+	return _pbr("wood", 0.8, tint)
 
 
 func _cloth(color: Color) -> StandardMaterial3D:
@@ -2418,11 +2418,13 @@ func _add_railing(from: Vector3, to: Vector3, skip: Array = []) -> void:
 			add_child(rail)
 	else:
 		# Rails in pieces around the gaps (straight railings only).
-		var zs: Array = [from.z]
-		for s in skip:
+		var gaps := skip.duplicate()
+		gaps.sort_custom(func(a, b): return a[0] < b[0])
+		var zs: Array = [minf(from.z, to.z)]
+		for s in gaps:
 			zs.append(s[0])
 			zs.append(s[1])
-		zs.append(to.z)
+		zs.append(maxf(from.z, to.z))
 		var k := 0
 		while k + 1 < zs.size():
 			var z0: float = zs[k]
@@ -2610,8 +2612,13 @@ func _build_castle(team: int) -> void:
 		# Banners either side of the archway and torches on the arch pillars.
 		_add_banner(team, Vector3(kx - side * 0.4, -0.2, zs * (KEEP_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.75, true)
 		_add_wall_torch(Vector3(kx - side * 0.4, 1.5, zs * (KEEP_DOOR_HALF + 0.3)), Vector3(-side, 0, 0))
-	# Arch over the doorway, well above head height.
-	_add_block(Vector3(kx, KEEP_H + 0.1, 0), Vector3(1.0, 0.7, KEEP_DOOR_HALF * 2 + 0.8), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
+	# Arch over the doorway, well above head height: stone, so from above the
+	# keep's front reads as one wall line, with a timber beam underneath.
+	_add_block(Vector3(kx, KEEP_H - 0.05, 0), Vector3(0.8, 0.5, KEEP_DOOR_HALF * 2 + 0.8), Color.WHITE, false, _ashlar())
+	_add_block(Vector3(kx, KEEP_H - 0.42, 0), Vector3(0.9, 0.24, KEEP_DOOR_HALF * 2 + 0.8), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
+	_add_block(Vector3(kx, KEEP_H + 0.3, 0), Vector3(1.0, 0.2, KEEP_DOOR_HALF * 2 + 1.0), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+	for k in 7:
+		_add_block(Vector3(kx, KEEP_H + 0.7, -KEEP_DOOR_HALF + 0.75 + k * 1.25), Vector3(0.8, 0.6, 0.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# A rug up the yard's lane to the archway, and one from the archway to the throne.
 	_add_rug(Vector3(kx - side * 2.4, 0.02, 0), Vector2(3.6, 5.0), color)
 	_add_rug(Vector3(kx + side * 3.0, 0.05, 0), Vector2(5.0, 2.8), color)

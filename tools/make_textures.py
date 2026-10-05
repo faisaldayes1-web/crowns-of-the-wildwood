@@ -107,7 +107,7 @@ def brick_layout(rows, cols, mortar, bevel, jitter_seed=1):
 def make_stone():
     """Cream sandstone ashlar: big clean blocks with soft bevels and a warm
     mortar line, the castle stone in the renders (both castles use it)."""
-    height, shade = brick_layout(rows=6, cols=4, mortar=6, bevel=26)
+    height, shade = brick_layout(rows=6, cols=4, mortar=5, bevel=22)
     grain = fbm(N, 12, 4, 11)
     chips = fbm(N, 64, 2, 12)
     h = height * (0.9 + 0.1 * grain) - 0.05 * (chips > 0.78) * height
@@ -116,7 +116,7 @@ def make_stone():
     deep = rgb(0.76, 0.66, 0.50)
     color = lerp(deep, light, (0.35 + 0.65 * shade)[..., None])
     color = lerp(color, mid, np.clip(grain * 0.8, 0, 1)[..., None] * 0.5)
-    mortar = rgb(0.52, 0.44, 0.32)
+    mortar = rgb(0.62, 0.53, 0.40)
     color = lerp(mortar, color, np.clip(height * 1.4, 0, 1)[..., None])
     # A faint painted highlight along each block's top edge.
     ys = np.mgrid[0:N, 0:N][0].astype(np.float64)
@@ -175,8 +175,8 @@ def make_flagstone():
     u = (xs % cw) / cw
     v = (ys % cw) / cw
     d = np.minimum(np.minimum(u, 1 - u), np.minimum(v, 1 - v)) * cw
-    gap = 7 + 4 * fbm(N, 24, 2, 91)
-    height = np.clip((d - gap) / 16, 0, 1)
+    gap = 4 + 3 * fbm(N, 24, 2, 91)
+    height = np.clip((d - gap) / 14, 0, 1)
     height = height * height * (3 - 2 * height)
     ids = (row * 100 + col).astype(int)
     shade = r.random(int(ids.max()) + 1)[ids]
@@ -186,10 +186,10 @@ def make_flagstone():
     dark = rgb(0.74, 0.62, 0.45)
     color = lerp(dark, light, (0.25 + 0.75 * shade)[..., None]) * (0.92 + 0.16 * grain)[..., None]
     color = lerp(color, rgb(0.70, 0.60, 0.46), np.clip((wear - 0.55) * 3, 0, 1)[..., None] * 0.5)
-    joint = rgb(0.46, 0.38, 0.27)
+    joint = rgb(0.60, 0.50, 0.37)
     color = lerp(joint, color, np.clip(height * 1.4, 0, 1)[..., None])
     h = height * (0.92 + 0.08 * grain)
-    save("flagstone", color, h, 1.8)
+    save("flagstone", color, h, 1.4)
 
 
 def make_wood():

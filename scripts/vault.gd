@@ -43,9 +43,9 @@ func setup(p_game, p_team: int, throne: Vector3, p_side: float) -> void:
 		metal.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		metal.albedo_color.a = 0.75
 	else:
-		metal.albedo_color = Color(0.16, 0.17, 0.2)
-		metal.metallic = 0.55
-		metal.roughness = 0.55
+		metal.albedo_color = Color(0.3, 0.26, 0.22)
+		metal.metallic = 0.6
+		metal.roughness = 0.5
 	# Side and back bars, solid for the enemy: three colliders and their bars.
 	var half_z := 3.4
 	var depth := 5.6
@@ -135,7 +135,7 @@ func _bars_into(parent: Node3D, start: Vector3, span: Vector3, mat: Material, el
 	plinth.mesh = pb
 	plinth.position = start + span / 2.0 + Vector3(0, 0.35, 0)
 	var pmat := StandardMaterial3D.new()
-	pmat.albedo_color = Color(0.5, 0.42, 0.3) if elf else Color(0.5, 0.5, 0.54)
+	pmat.albedo_color = Color(0.5, 0.42, 0.3) if elf else Color(0.9, 0.86, 0.78)
 	pmat.albedo_texture = load("res://assets/textures/%s_color.jpg" % ("bark" if elf else "stone"))
 	pmat.uv1_triplanar = true
 	pmat.uv1_world_triplanar = true
@@ -146,8 +146,8 @@ func _bars_into(parent: Node3D, start: Vector3, span: Vector3, mat: Material, el
 	for i in n + 1:
 		var bar := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
-		cm.top_radius = 0.09 if not elf else 0.05
-		cm.bottom_radius = 0.11 if not elf else 0.14
+		cm.top_radius = 0.06 if not elf else 0.05
+		cm.bottom_radius = 0.075 if not elf else 0.14
 		cm.height = 2.5
 		cm.radial_segments = 6
 		bar.mesh = cm
