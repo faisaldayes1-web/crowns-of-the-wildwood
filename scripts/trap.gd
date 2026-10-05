@@ -8,6 +8,7 @@ var game
 var team := 0
 var damage := 1
 var root_time := 2.0
+var slow_time := 0.0
 var life := 30.0
 var teeth: Array = []
 
@@ -16,7 +17,8 @@ func setup(p_game, p_team: int, pos: Vector3, a: Dictionary) -> void:
 	game = p_game
 	team = p_team
 	damage = a.damage
-	root_time = a.root
+	root_time = a.get("root", 0.0)
+	slow_time = a.get("slow", 0.0)
 	life = a.lifetime
 	position = Vector3(pos.x, pos.y + 0.03, pos.z)
 	var tooth_mat := StandardMaterial3D.new()
@@ -62,7 +64,10 @@ func _physics_process(delta: float) -> void:
 		var offset: Vector3 = u.global_position - global_position
 		if absf(offset.y) < 1.0 and Vector2(offset.x, offset.z).length() < 0.9:
 			u.take_damage(damage, null, global_position, 2.0)
-			u.root_timer = root_time
+			if root_time > 0.0:
+				u.root_timer = maxf(u.root_timer, root_time)
+			if slow_time > 0.0:
+				u.slow_timer = maxf(u.slow_timer, slow_time)
 			game.sfx.play("trap_snap", global_position, 0.0)
 			game.spawn_burst(global_position, 1.0, Color(0.85, 0.65, 0.25))
 			game.spawn_splash(global_position + Vector3(0, 0.3, 0), Color(0.6, 0.5, 0.35), 14, 3.0, 0.4)

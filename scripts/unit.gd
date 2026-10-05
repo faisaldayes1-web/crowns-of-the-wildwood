@@ -32,6 +32,8 @@ var bash_timer := 0.0       # a Knight's Shield Bash is a dash that hurts
 var bash_speed := 0.0
 var bash_hit: Array = []
 var guard_timer := 0.0      # Shield Wall: no damage gets through
+var bubble_timer := 0.0     # Holy Bubble: the dome shows while this runs
+var bubble_mesh: MeshInstance3D
 var blocking := false       # shield up (hold right click): blocks hits from the front
 var root_timer := 0.0       # snared: can't move
 var haste_timer := 0.0      # blessed: faster
@@ -314,7 +316,7 @@ func stats() -> Dictionary:
 	## The class table entry with the chosen variant's attack overrides and
 	## abilities folded in.
 	if _stats_cache.is_empty():
-		_stats_cache = Stats.ROLES[role].duplicate()
+		_stats_cache = Stats.kit(team, role)
 		var v := variant()
 		if not v.is_empty():
 			_stats_cache.merge(v.attack, true)
@@ -610,12 +612,15 @@ func ranked(a: Dictionary, track: int) -> Dictionary:
 		if a.has("arrows"):
 			out.arrows = a.arrows + 2
 	if r >= 3:
+		# Rank 3 widens the effect a little more and heals a heart more; it no
+		# longer adds a heart of damage, so a maxed fighter is not twice a fresh one.
 		if a.has("heal"):
 			out.heal = a.heal + 1
-		if a.has("damage") and a.get("kind", "") != "bash":
-			out.damage = a.damage + 1
 		if a.has("gate_damage"):
 			out.gate_damage = a.gate_damage + 1
+		for key in ["distance", "radius", "splash", "heal_radius", "range"]:
+			if a.has(key):
+				out[key] = a[key] * (1.0 + Stats.RANK_EFFECT_BOOST * 1.5)
 	return out
 
 
@@ -808,12 +813,13 @@ func use_ability(i: int, dir: Vector3) -> void:
 	blocking = false
 	var ability_sound := {"bash": "swing_heavy", "guard": "block_up", "volley": "volley", "trap": "trap_set",
 		"fireball": "frost" if a.get("frost", false) else "fireball", "blink": "blink", "blessing": "blessing", "smite": "smite",
-		"shot": "bow", "cleave": "fireball" if a.get("fire", false) else "swing_heavy", "smoke": "blink", "curse": "curse"}
+		"shot": "bow", "cleave": "fireball" if a.get("fire", false) else "swing_heavy", "smoke": "blink", "curse": "curse", "bubble": "blessing"}
 	if ability_sound.has(a.kind):
 		game.sfx.play(ability_sound[a.kind], global_position, -1.0, 0.08)
 	match a.kind:
 		"bash": model.play_once("1H_Melee_Attack_Stab", 1.6)
 		"guard": model.hold("Blocking")
+		"bubble": model.play_once("Spellcast_Raise", 1.6)
 		"volley": model.play_once("2H_Ranged_Shoot", 1.2)
 		"trap": model.play_once("Interact", 1.5)
 		"fireball": model.play_once("Spellcast_Long", 1.4)
@@ -835,7 +841,7 @@ func use_ability(i: int, dir: Vector3) -> void:
 					game.spawn_splash(old.global_position + Vector3(0, 1.0, 0), Color(0.6, 0.5, 0.4), 14, 3.0, 0.6)
 					game.remove_turret(old)
 					old.queue_free()
-			var t = game.spawn_turret(team, turret_pos, self, {"rapid": a.get("rapid", false), "ballista": a.get("ballista", false)})
+			var t = game.spawn_turret(team, turret_pos, self, {"rapid": a.get("rapid", false), "ballista": a.get("ballista", false), "thorn": a.get("thorn", false)})
 			turrets.append(t)
 			if is_player:
 				game.spawn_popup(global_position + Vector3(0, 2.2, 0), "%s built  (%d / %d)" % [t.kind_name(), turrets.size(), int(a.get("turrets", 2))], Color(1, 0.9, 0.5))
@@ -884,6 +890,15 @@ func use_ability(i: int, dir: Vector3) -> void:
 						ally.guard_ring.visible = true
 			game.spawn_ring(global_position, 2.0, Color(0.5, 0.75, 1.0), 0.4)
 			game.spawn_flash(global_position, Color(0.5, 0.75, 1.0), 2.0, 0.3)
+		"bubble":
+			# A dome of light over you and the teammates inside it: untouchable.
+			bubble_up(a.duration)
+			for ally in game.units:
+				if ally != self and ally.team == team and not ally.dead and _flat_to(ally.global_position).length() <= a.radius:
+					ally.bubble_up(a.duration)
+			game.spawn_ring(global_position, a.radius, Color(1.0, 0.95, 0.6), 0.6)
+			game.spawn_flash(global_position + Vector3(0, 1, 0), Color(1.0, 0.95, 0.6), 3.0, 0.4)
+			game.spawn_splash(global_position + Vector3(0, 1.2, 0), Color(1.0, 0.95, 0.7), 24, 4.0, 0.8, true)
 		"volley":
 			for k in a.arrows:
 				var ang: float = deg_to_rad(a.spread) * (float(k) / (a.arrows - 1) - 0.5)
@@ -931,9 +946,12 @@ func use_ability(i: int, dir: Vector3) -> void:
 			game.spawn_splash(global_position + Vector3(0, 0.5, 0), Color(1.0, 0.95, 0.5), 30, 5.0, 1.0, true)
 		"smite":
 			var dark: bool = stats().get("drain", false)
-			var bolt_color := Color(0.6, 0.3, 0.9) if dark else Color(1.0, 0.95, 0.5)
-			game.spawn_shot(self, dir, {"damage": a.damage, "gate_damage": 1, "range": a.range,
-				"shot_speed": a.shot_speed, "holy": true, "splash": a.get("splash", 0.0)}, bolt_color)
+			var bolt_color := Color(0.6, 0.3, 0.9) if dark else (Color(0.75, 0.9, 1.0) if a.has("slow") else Color(1.0, 0.95, 0.5))
+			var bolt := {"damage": a.damage, "gate_damage": 1, "range": a.range,
+				"shot_speed": a.shot_speed, "holy": true, "splash": a.get("splash", 0.0)}
+			if a.has("slow"):
+				bolt["slow"] = a.slow
+			game.spawn_shot(self, dir, bolt, bolt_color)
 			game.spawn_flash(global_position + dir, bolt_color, 2.0, 0.25)
 			_recoil(dir, 2.0)
 		"shot":
@@ -1065,8 +1083,56 @@ func _respawn() -> void:
 		aim_marker.visible = true
 
 
+func bubble_up(duration: float) -> void:
+	## Holy Bubble: untouchable under a dome of light for `duration` seconds.
+	guard_timer = maxf(guard_timer, duration)
+	bubble_timer = maxf(bubble_timer, duration)
+	guard_ring.visible = true
+	if bubble_mesh == null:
+		bubble_mesh = MeshInstance3D.new()
+		var sph := SphereMesh.new()
+		sph.radius = 1.5
+		sph.height = 3.0
+		sph.radial_segments = 24
+		sph.rings = 12
+		bubble_mesh.mesh = sph
+		var bm := StandardMaterial3D.new()
+		# Faint and see-through, so the people inside stay readable; a thin
+		# gold ring at the equator marks the dome's edge.
+		bm.albedo_color = Color(1.0, 0.95, 0.7, 0.1)
+		bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		bm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		bm.cull_mode = BaseMaterial3D.CULL_BACK
+		bubble_mesh.material_override = bm
+		var ring := MeshInstance3D.new()
+		var tor := TorusMesh.new()
+		tor.inner_radius = 1.46
+		tor.outer_radius = 1.54
+		ring.mesh = tor
+		var rm := StandardMaterial3D.new()
+		rm.albedo_color = Color(1.0, 0.9, 0.5)
+		rm.emission_enabled = true
+		rm.emission = Color(1.0, 0.85, 0.4)
+		rm.emission_energy_multiplier = 1.5
+		rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		ring.material_override = rm
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		bubble_mesh.add_child(ring)
+		bubble_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		bubble_mesh.position = Vector3(0, 1.1, 0)
+		add_child(bubble_mesh)
+	bubble_mesh.visible = true
+
+
 func _process(_delta: float) -> void:
 	_animate()
+	if bubble_mesh and bubble_mesh.visible:
+		bubble_timer -= _delta
+		var k: float = clampf(bubble_timer / 0.3, 0.0, 1.0)
+		bubble_mesh.scale = Vector3.ONE * (0.6 + 0.4 * k + 0.03 * sin(Time.get_ticks_msec() / 90.0))
+		if bubble_timer <= 0.0 or dead:
+			bubble_mesh.visible = false
 	if overhead:
 		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + 0.35, 0)
 	if aim_marker and not dead:
@@ -1560,6 +1626,9 @@ func _bot_pick_ability(dist: float) -> int:
 						return i
 				"smoke":
 					if hearts <= 2 and dist < 5.0 and _roll(0.05):
+						return i
+				"bubble":
+					if (hearts <= 2 or _injured_allies_near(3.0).size() >= 2) and dist < 6.0 and _roll(0.05):
 						return i
 	match role:
 		Role.KNIGHT:

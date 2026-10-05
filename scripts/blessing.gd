@@ -11,6 +11,7 @@ var life := Stats.BLESSING_LIFE
 var t := 0.0
 var star: Node3D
 var ring: MeshInstance3D
+var halo: MeshInstance3D
 var pillar: MeshInstance3D
 var light: OmniLight3D
 var color := Color(1.0, 0.9, 0.5)
@@ -53,6 +54,31 @@ func setup(p_game, pos: Vector3, p_kind: String) -> void:
 	rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring.material_override = rm
 	add_child(ring)
+
+	# A tilted halo ring spinning the other way around the star.
+	halo = MeshInstance3D.new()
+	var ht := TorusMesh.new()
+	ht.inner_radius = 0.62
+	ht.outer_radius = 0.7
+	halo.mesh = ht
+	halo.position.y = 1.75
+	halo.rotation.x = 0.5
+	halo.material_override = rm
+	add_child(halo)
+	# A soft glowing core behind the star.
+	var core := MeshInstance3D.new()
+	var cs := SphereMesh.new()
+	cs.radius = 0.42
+	cs.height = 0.84
+	core.mesh = cs
+	core.position.y = 1.75
+	var corem := StandardMaterial3D.new()
+	corem.albedo_color = Color(color, 0.35)
+	corem.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	corem.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	corem.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	core.material_override = corem
+	add_child(core)
 
 	# A floating star: two crossed diamonds.
 	star = Node3D.new()
@@ -118,6 +144,8 @@ func _process(delta: float) -> void:
 	star.rotation.y += delta * 1.8
 	star.position.y = 1.75 + sin(t * 2.5) * 0.15
 	ring.rotation.y -= delta * 0.6
+	halo.rotation.y -= delta * 1.4
+	halo.position.y = star.position.y
 	var fade: float = clampf(life / 4.0, 0.0, 1.0)
 	pillar.material_override.albedo_color = Color(color, (0.14 + 0.06 * sin(t * 4.0)) * fade)
 	light.light_energy = 2.0 * fade

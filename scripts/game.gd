@@ -17,6 +17,7 @@ const Guide = preload("res://scripts/guide.gd")
 const Barricade = preload("res://scripts/barricade.gd")
 const Banner = preload("res://scripts/banner.gd")
 const Turret = preload("res://scripts/turret.gd")
+const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
 const Role = Stats.Role
 
@@ -158,6 +159,8 @@ var banner: Label
 var respawn_label: Label
 # stations[team] maps a class (Stats.Role) to its station position in that castle.
 var stations := [{}, {}]
+# seals[team] maps a class to its Seal node (the thing you grab to become it).
+var seals := [{}, {}]
 var message_timer := 0.0
 # Run with "-- --demo" to watch bots play each other (used for testing).
 var demo := false
@@ -303,6 +306,16 @@ func _debug_hooks() -> void:
 				player.facing = Vector3(0, 0, 1)
 				plant_banner(player, false)
 				player.global_position += Vector3(-2.6, 0, -1.8)
+			if arg == "--debug-bubble":
+				# A Holy Bubble over the player and the nearest allies.
+				player.bubble_up(4.0)
+				var n := 0
+				for u in units:
+					if u != player and u.team == player.team and not u.dead and n < 2:
+						u.global_position = player.global_position + Vector3(1.6 * (n + 1) - 2.4, 0, 1.4)
+						u.bubble_up(4.0)
+						n += 1
+				spawn_ring(player.global_position, 3.0, Color(1.0, 0.95, 0.6), 0.6)
 			# Menu screenshots: open the menu a few frames before the shot.
 			if arg == "--debug-rank":
 				player.level = 3
@@ -495,6 +508,14 @@ func try_interact(u) -> void:
 	if u.is_player and guides[u.team] and guides[u.team].in_reach(u):
 		guide_toggle()
 		return
+	for role in seals[u.team]:
+		var seal = seals[u.team][role]
+		if seal.in_reach(u):
+			if u.role == role:
+				toast("You already carry the %s's seal" % seal.class_title(), Color(1.0, 0.8, 0.5))
+			else:
+				seal.take(u)
+			return
 	var m = monarchs[1 - u.team]
 	if m.state == Monarch.State.CARRIED or _flat_dist(u.global_position, m.global_position) >= Unit.PICKUP_RANGE:
 		# Nothing to grab here: F plants a war banner instead.
@@ -669,13 +690,14 @@ func drop_monarch(u) -> void:
 
 
 func _check_stations() -> void:
-	# Stepping onto a class station transforms you into that class.
+	# Bots stepping onto a class seal take it. Players grab theirs with the
+	# interact key (see try_interact), so a stroll past a seal changes nothing.
 	for u in units:
-		if u.dead or u.carrying:
+		if u.dead or u.carrying or u.is_player:
 			continue
 		for role in stations[u.team]:
-			# Bots only use the station for the class they were assigned.
-			if not u.is_player and role != u.bot_class:
+			# Bots only use the seal for the class they were assigned.
+			if role != u.bot_class:
 				continue
 			if u.role != role and _flat_dist(u.global_position, stations[u.team][role]) < STATION_RADIUS:
 				u.set_role(role)
@@ -2370,9 +2392,15 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		root.material_override = bark
 		tree.add_child(root)
 	# Canopy: a cluster of faceted blobs with a gradient leaf shader.
-	var autumn := seed % 7 == 0
+	var autumn := seed % 7 == 0 and pos.x > -8.0
 	var leaf := _leaf_material(r, autumn)
-	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.15 if pos.x < -8.0 else 1.0)
+	var wild: bool = pos.x < -8.0
+	if wild and seed % 2 == 0:
+		# Wildwood palette: pale mint and lavender canopies that glow faintly.
+		var lavender: bool = seed % 4 == 0
+		leaf.set_shader_parameter("top_color", Color(0.62, 0.48, 0.85) if lavender else Color(0.45, 0.82, 0.62))
+		leaf.set_shader_parameter("bottom_color", Color(0.25, 0.15, 0.4) if lavender else Color(0.1, 0.35, 0.28))
+	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.25 if wild else 1.0)
 	var blobs := 6 if big else 4
 	var base_y: float = trunk_h * 0.8
 	for i in blobs:
@@ -2385,6 +2413,10 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		blob.scale = Vector3(1.0, 0.85, 1.0)
 		blob.material_override = leaf
 		tree.add_child(blob)
+	if wild and seed % 3 == 0:
+		_add_mushrooms(pos + Vector3(0.9, 0, 0.4), seed)
+	if wild and seed % 4 == 1:
+		_add_fireflies(pos + Vector3(0, 1.0, 0))
 	# Glowing wildwood blossoms on every third tree, like the logo's.
 	if (seed % 3 == 0 or pos.x < -8.0) and not autumn:
 		var glow := StandardMaterial3D.new()
@@ -2948,6 +2980,9 @@ func _add_flag(pos: Vector3, team: int, side: float) -> void:
 
 
 func _add_torch(pos: Vector3) -> void:
+	if mossy:
+		_add_lantern(pos)
+		return
 	audit_label = "pole"
 	_add_block(pos + Vector3(0, 0.9, 0), Vector3(0.2, 1.8, 0.2), Color.WHITE, false, _timber(Color(0.6, 0.5, 0.4)))
 	audit_label = ""
@@ -2966,38 +3001,15 @@ func kcx_of(kx: float, bx: float) -> float:
 
 
 func _add_station(team: int, role: int, pos: Vector3) -> void:
+	## A class seal on its pedestal (see seal.gd). The floor pad under it
+	## matches the castle: flagstone for Humans, mossy flagstone for Elves.
 	stations[team][role] = pos
 	var color: Color = Stats.ROLES[role].color
-	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.3), false)
-
-	var pad := MeshInstance3D.new()
-	var pad_mesh := CylinderMesh.new()
-	pad_mesh.top_radius = STATION_RADIUS
-	pad_mesh.bottom_radius = STATION_RADIUS
-	pad_mesh.height = 0.06
-	pad.mesh = pad_mesh
-	var pad_mat := _material(color)
-	pad_mat.emission_enabled = true
-	pad_mat.emission = color * 0.4
-	pad.material_override = pad_mat
-	pad.position = pos + Vector3(0, 0.12, 0)
-	add_child(pad)
-
-	# The class's gear sits on the pad so you can tell what you'll become.
-	# The second piece lies towards the stairs (-s), clear of the wall stores.
-	var s := 1.0 if team == 0 else -1.0
-	match role:
-		Role.KNIGHT:
-			_prop("gear/sword_1handed", pos + Vector3(-s * 0.35, 0.5, -0.25), 1.2, 0.4).rotation.x = -PI / 2.0 + 0.4
-			_prop("gear/shield_badge_color", pos + Vector3(s * 0.8, 0.55, 0.5), 1.0, 0.6)
-		Role.RANGER:
-			_prop("gear/quiver", pos + Vector3(-s * 0.2, 0.15, 0), 1.6, 0.8).rotation.x = 0.6
-			_prop("gear/arrow_bundle", pos + Vector3(s * 0.85, 0.2, 0.45), 1.6, 0.3).rotation.x = 1.2
-		Role.MAGE:
-			_prop("gear/staff", pos + Vector3(0, 0.3, 0), 1.6, 1.0).rotation.x = 1.0
-		Role.HEALER:
-			_prop("gear/spellbook_open", pos + Vector3(0, 0.3, 0), 1.8, 0.4)
-			_prop("gear/wand", pos + Vector3(s * 1.1, 0.25, 0.8), 1.6, 1.2).rotation.x = 1.3
+	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.3), false, _flagstone(Color(0.6, 0.68, 0.55) if team == 0 else Color(0.7, 0.62, 0.5)))
+	var seal := Seal.new()
+	add_child(seal)
+	seal.setup(self, team, role, pos)
+	seals[team][role] = seal
 
 
 # --- The castle kit -----------------------------------------------------------
@@ -3010,7 +3022,97 @@ var mossy := false   # while an elven castle is being built: ivy and moss on its
 
 
 func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	return _pbr("stone_moss" if mossy else "stone", 0.42, tint * Color(0.93, 0.9, 0.84))
+	## Castle stone; the elven castle is grown, so its "stone" is living bark.
+	if mossy:
+		return _pbr("bark", 0.55, tint * Color(0.72, 0.7, 0.58))
+	return _pbr("stone", 0.42, tint * Color(0.93, 0.9, 0.84))
+
+
+func _elf_leaf(bright: bool = false) -> StandardMaterial3D:
+	## Pale, faintly glowing wildwood foliage for the elven castle's canopies and tufts.
+	var m := _material(Color(0.45, 0.72, 0.55) if bright else Color(0.3, 0.58, 0.42))
+	m.roughness = 0.9
+	m.emission_enabled = true
+	m.emission = Color(0.25, 0.6, 0.45)
+	m.emission_energy_multiplier = 0.18 if bright else 0.08
+	return m
+
+
+func _add_lantern(pos: Vector3, height: float = 2.2) -> void:
+	## An elven lantern: a slim pole with a glowing teal globe.
+	audit_label = "pole"
+	_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(0.14, height, 0.14), Color.WHITE, false, _ashlar(Color(0.7, 0.65, 0.5)))
+	audit_label = ""
+	var globe := MeshInstance3D.new()
+	var sph := SphereMesh.new()
+	sph.radius = 0.26
+	sph.height = 0.52
+	globe.mesh = sph
+	var gm := _material(Color(0.7, 1.0, 0.9))
+	gm.emission_enabled = true
+	gm.emission = Color(0.45, 0.95, 0.8)
+	gm.emission_energy_multiplier = 2.2
+	globe.material_override = gm
+	globe.position = pos + Vector3(0, height + 0.2, 0)
+	add_child(globe)
+	_add_block(pos + Vector3(0, height + 0.5, 0), Vector3(0.22, 0.08, 0.22), Color.WHITE, false, _gold())
+	var light := OmniLight3D.new()
+	light.light_color = Color(0.55, 1.0, 0.85)
+	light.light_energy = 1.4
+	light.omni_range = 7.0
+	light.position = pos + Vector3(0, height + 0.4, 0)
+	add_child(light)
+
+
+func _add_trunk_pillar(pos: Vector3, height: float) -> void:
+	## A living trunk holding up the elven keep, tufted with leaves at the top.
+	var trunk := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.42
+	cyl.bottom_radius = 0.62
+	cyl.height = height
+	trunk.mesh = cyl
+	trunk.position = pos + Vector3(0, height / 2.0, 0)
+	trunk.material_override = _pbr("bark", 0.6, Color(0.8, 0.76, 0.62))
+	add_child(trunk)
+	for i in 3:
+		var tuft := MeshInstance3D.new()
+		tuft.mesh = _rock_mesh(int(pos.x * 7 + pos.z * 3) + i, 0.7, 0.15)
+		var a := TAU * i / 3.0
+		tuft.position = pos + Vector3(cos(a) * 0.5, height + 0.2, sin(a) * 0.5)
+		tuft.material_override = _elf_leaf(i == 0)
+		add_child(tuft)
+
+
+func _add_mushrooms(pos: Vector3, seed: int) -> void:
+	## A cluster of glowing wildwood mushrooms.
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var cap_mat := _material(Color(0.55, 0.8, 1.0) if seed % 2 == 0 else Color(0.8, 0.6, 1.0))
+	cap_mat.emission_enabled = true
+	cap_mat.emission = cap_mat.albedo_color
+	cap_mat.emission_energy_multiplier = 1.6
+	var stem_mat := _material(Color(0.92, 0.9, 0.8))
+	for i in 3:
+		var h: float = r.randf_range(0.25, 0.55)
+		var p := pos + Vector3(r.randf_range(-0.6, 0.6), 0, r.randf_range(-0.6, 0.6))
+		var stem := MeshInstance3D.new()
+		var cyl := CylinderMesh.new()
+		cyl.top_radius = 0.06
+		cyl.bottom_radius = 0.09
+		cyl.height = h
+		stem.mesh = cyl
+		stem.position = p + Vector3(0, h / 2.0, 0)
+		stem.material_override = stem_mat
+		add_child(stem)
+		var cap := MeshInstance3D.new()
+		var sph := SphereMesh.new()
+		sph.radius = h * 0.55
+		sph.height = h * 0.6
+		cap.mesh = sph
+		cap.position = p + Vector3(0, h, 0)
+		cap.material_override = cap_mat
+		add_child(cap)
 
 
 func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
@@ -3041,7 +3143,11 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	var along_x := size.x >= size.z
 	var length := size.x if along_x else size.z
 	var thick := size.z if along_x else size.x
-	_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+	if mossy:
+		# Grown walls: a vine ledge along the top and leaf tufts instead of merlons.
+		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _elf_leaf())
+	else:
+		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
 	if not merlons:
 		return
 	var n := maxi(int(length / 1.3), 1)
@@ -3049,7 +3155,14 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 		var t := -length / 2.0 + (k + 0.5) * length / n
 		var p := Vector3(center.x + t, top + 0.5, center.z) if along_x else Vector3(center.x, top + 0.5, center.z + t)
 		var ms := Vector3(0.6, 0.6, thick) if along_x else Vector3(thick, 0.6, 0.6)
-		_add_block(p, ms, Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
+		if mossy:
+			var tuft := MeshInstance3D.new()
+			tuft.mesh = _rock_mesh(int(p.x * 5 + p.z * 11), 0.45, 0.15)
+			tuft.position = p - Vector3(0, 0.1, 0)
+			tuft.material_override = _elf_leaf(k % 3 == 0)
+			add_child(tuft)
+		else:
+			_add_block(p, ms, Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 
 
 func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height: float = 5.4, flag: bool = true) -> void:
@@ -3057,6 +3170,45 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 	var color: Color = Stats.FACTIONS[team].color
 	_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(width, height, width), Color.WHITE, true, _ashlar())
 	_add_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+	if mossy:
+		# An elven tree-tower: the trunk carries a glowing canopy instead of a roof,
+		# with a lantern hung beneath it.
+		var r := RandomNumberGenerator.new()
+		r.seed = int(pos.x * 3 + pos.z * 17)
+		var canopy := _leaf_material(r, false)
+		canopy.set_shader_parameter("top_color", Color(0.42, 0.78, 0.6))
+		canopy.set_shader_parameter("bottom_color", Color(0.1, 0.35, 0.28))
+		for i in 4:
+			var blob := MeshInstance3D.new()
+			var rr: float = width * (0.8 if i == 0 else r.randf_range(0.45, 0.6))
+			blob.mesh = _rock_mesh(r.randi(), rr, 0.12)
+			var a := TAU * i / 4.0 + 0.6
+			var spread: float = 0.0 if i == 0 else width * 0.45
+			blob.position = pos + Vector3(cos(a) * spread, height + 0.9 + (0.5 if i == 0 else r.randf_range(-0.2, 0.5)), sin(a) * spread)
+			blob.scale = Vector3(1.0, 0.8, 1.0)
+			blob.material_override = canopy
+			add_child(blob)
+		var globe := MeshInstance3D.new()
+		var sph := SphereMesh.new()
+		sph.radius = 0.22
+		sph.height = 0.44
+		globe.mesh = sph
+		var gm := _material(Color(0.7, 1.0, 0.9))
+		gm.emission_enabled = true
+		gm.emission = Color(0.45, 0.95, 0.8)
+		gm.emission_energy_multiplier = 2.0
+		globe.material_override = gm
+		globe.position = pos + Vector3(-side * (width / 2.0 + 0.4), height - 0.6, 0)
+		add_child(globe)
+		var light := OmniLight3D.new()
+		light.light_color = Color(0.55, 1.0, 0.85)
+		light.light_energy = 1.2
+		light.omni_range = 7.0
+		light.position = globe.position
+		add_child(light)
+		if flag:
+			_add_flag(pos + Vector3(0, height + 2.6, 0), team, side)
+		return
 	for xs in [-1.0, 1.0]:
 		for zs in [-1.0, 1.0]:
 			_add_block(pos + Vector3(xs * (width / 2.0), height + 0.6, zs * (width / 2.0)), Vector3(0.5, 0.6, 0.5), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
@@ -3157,7 +3309,16 @@ func _add_banner(team: int, pos: Vector3, out: Vector3, scale: float = 0.7, shie
 
 
 func _add_wall_torch(pos: Vector3, out: Vector3) -> void:
-	## A torch in an iron bracket on a wall face.
+	## A torch in an iron bracket on a wall face (a glowing crystal for the elves).
+	if mossy:
+		_add_crystal(pos + out * 0.35 - Vector3(0, 1.0, 0), 0.55)
+		var cl := OmniLight3D.new()
+		cl.light_color = Color(0.55, 1.0, 0.85)
+		cl.light_energy = 1.1
+		cl.omni_range = 6.0
+		cl.position = pos + out * 0.8 + Vector3(0, 0.4, 0)
+		add_child(cl)
+		return
 	_prop("dungeon/torch_mounted", pos, 1.3, atan2(out.x, out.z))
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.72, 0.4)
@@ -3321,29 +3482,41 @@ func _build_castle(team: int) -> void:
 	_prop("hex/weaponrack", Vector3(in_x + side * 0.4, 0, -(dh + 3.0)), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	_prop("hex/target", Vector3(in_x + side * 3.0, 0, -(dh + 3.0)), 4.0, PI / 2.0 if side < 0.0 else -PI / 2.0)
 	_prop("hex/bucket_arrows", Vector3(in_x + side * 3.0, 0, -(dh + 1.9)), 4.0, 0.4)
-	# Stores (z > 0): barrels and crates stacked against the wall.
-	_prop("hex/barrel", Vector3(in_x + side * 0.5, 0, 6.45), 4.0)
-	_prop("hex/barrel", Vector3(in_x + side * 0.5, 0, 7.45), 4.0, PI / 2.0)
-	_prop("hex/barrel", Vector3(in_x + side * 1.4, 0, 6.95), 4.0, PI)
-	_prop("hex/crate_A_big", Vector3(in_x + side * 2.1, 0, 7.7), 4.0, 0.0)
-	_prop("hex/crate_B_big", Vector3(in_x + side * 2.1, 0.84, 7.7), 3.4, 0.2)
-	_prop("hex/crate_long_A", Vector3(in_x + side * 3.2, 0, 7.7), 4.0, 0.0)
-	_prop("hex/sack", Vector3(in_x + side * 2.5, 0, 6.5), 4.0, 0.5)
-	# The strips between the keep's flanks and the side walls: more stores.
-	for zs in [-1.0, 1.0]:
-		var sz: float = zs * (hz - 1.0)
-		_prop("hex/barrel", Vector3(kcx - side * 5.0, 0, sz), 4.0)
-		_prop("hex/barrel", Vector3(kcx - side * 4.0, 0, sz), 4.0, PI / 2.0)
-		_prop("hex/crate_A_big", Vector3(kcx - side * 2.6, 0, sz), 4.0, 0.3 * zs)
-		_prop("hex/sack", Vector3(kcx - side * 1.6, 0, sz), 4.0, 1.1 * zs)
-		_prop("hex/wheelbarrow", Vector3(kcx - side * 6.8, 0, zs * (hz - 1.2)), 4.0, PI / 2.0)
+	if team == 0:
+		# The elven yard keeps clear: glowing mushrooms along the walls instead of stores.
+		_add_mushrooms(Vector3(in_x + side * 1.2, 0, 7.0), 21)
+		_add_mushrooms(Vector3(kcx - side * 4.0, 0, hz - 1.2), 22)
+		_add_mushrooms(Vector3(kcx - side * 4.0, 0, -(hz - 1.2)), 23)
+		_add_lantern(Vector3(kcx - side * 6.5, 0, hz - 1.4))
+		_add_lantern(Vector3(kcx - side * 6.5, 0, -(hz - 1.4)))
+	else:
+		# Stores (z > 0): barrels and crates stacked against the wall.
+		_prop("hex/barrel", Vector3(in_x + side * 0.5, 0, 6.45), 4.0)
+		_prop("hex/barrel", Vector3(in_x + side * 0.5, 0, 7.45), 4.0, PI / 2.0)
+		_prop("hex/barrel", Vector3(in_x + side * 1.4, 0, 6.95), 4.0, PI)
+		_prop("hex/crate_A_big", Vector3(in_x + side * 2.1, 0, 7.7), 4.0, 0.0)
+		_prop("hex/crate_B_big", Vector3(in_x + side * 2.1, 0.84, 7.7), 3.4, 0.2)
+		_prop("hex/crate_long_A", Vector3(in_x + side * 3.2, 0, 7.7), 4.0, 0.0)
+		_prop("hex/sack", Vector3(in_x + side * 2.5, 0, 6.5), 4.0, 0.5)
+		# The strips between the keep's flanks and the side walls: more stores.
+		for zs in [-1.0, 1.0]:
+			var sz: float = zs * (hz - 1.0)
+			_prop("hex/barrel", Vector3(kcx - side * 5.0, 0, sz), 4.0)
+			_prop("hex/barrel", Vector3(kcx - side * 4.0, 0, sz), 4.0, PI / 2.0)
+			_prop("hex/crate_A_big", Vector3(kcx - side * 2.6, 0, sz), 4.0, 0.3 * zs)
+			_prop("hex/sack", Vector3(kcx - side * 1.6, 0, sz), 4.0, 1.1 * zs)
+			_prop("hex/wheelbarrow", Vector3(kcx - side * 6.8, 0, zs * (hz - 1.2)), 4.0, PI / 2.0)
 	# Banners on the yard side of the gatehouse towers.
 	for zs in [-1.0, 1.0]:
 		_add_banner(team, Vector3(fx + side * 1.1, 0.2, zs * (dh + 1.1)), Vector3(side, 0, 0), 0.6)
 	# Inside the keep: columns along the side walls, torches, stacked stores at the back.
 	for zs in [-1.0, 1.0]:
-		_prop("dungeon/column", Vector3(kx + side * 4.0, 0, zs * (khz - 1.0)), 1.6)
-		_prop("dungeon/column", Vector3(kx + side * 8.0, 0, zs * (khz - 1.0)), 1.6)
+		if team == 0:
+			_add_trunk_pillar(Vector3(kx + side * 4.0, 0, zs * (khz - 1.0)), KEEP_H - 0.2)
+			_add_trunk_pillar(Vector3(kx + side * 8.0, 0, zs * (khz - 1.0)), KEEP_H - 0.2)
+		else:
+			_prop("dungeon/column", Vector3(kx + side * 4.0, 0, zs * (khz - 1.0)), 1.6)
+			_prop("dungeon/column", Vector3(kx + side * 8.0, 0, zs * (khz - 1.0)), 1.6)
 		_add_wall_torch(Vector3(kx + side * 2.0, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
 		_add_wall_torch(Vector3(kx + side * 6.0, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
 		_prop("dungeon/box_stacked", Vector3(kx + side * 11.2, 0, zs * (khz - 1.6)), 0.55, 0.0)
@@ -3706,15 +3879,13 @@ func _build_world() -> void:
 		_add_path(Vector3(sx * 26.0, 0, sb + 2.0), Vector3(sx * (RIVER_HALF + 1.5), 0, sb), 3.4, dirt)
 		# Road dressing: milestones on the verge, signposts at the path
 		# bends and an abandoned cart by the roadside.
-		for k in 4:
-			var mx: float = 14.0 + 10.0 * k
+		# (Two milestones a side; the roadside caravan pile was clutter and went.)
+		for k in 2:
+			var mx: float = 18.0 + 16.0 * k
 			_add_block(Vector3(sx * mx, 0.3, 3.4 if k % 2 == 0 else -3.4), Vector3(0.35, 0.6, 0.35), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
 			_add_block(Vector3(sx * mx, 0.62, 3.4 if k % 2 == 0 else -3.4), Vector3(0.45, 0.06, 0.45), Color.WHITE, false, _ashlar(Color(0.86, 0.82, 0.74)))
 		_add_signpost(Vector3(sx * 31.5, 0, nb - 5.2), -sx)
 		_add_signpost(Vector3(sx * 27.5, 0, sb + 4.3), sx)
-		_prop("hex/wheelbarrow", Vector3(sx * 38.0, 0, -3.9), 4.0, PI / 2.0 if sx > 0 else -PI / 2.0)
-		_prop("hex/crate_B_big", Vector3(sx * 36.4, 0, -4.6), 4.2, 0.0)
-		_prop("hex/sack", Vector3(sx * 39.8, 0, -4.4), 4.0, 0.0)
 	_add_river()
 
 	_build_castle(0)
@@ -3735,6 +3906,12 @@ func _build_world() -> void:
 		_add_bush(-p + Vector3(-1.8, 0, -0.6), int(p.x * 5 + p.z))
 	for p in [Vector3(12, 0, 14), Vector3(-12, 0, -14), Vector3(26, 0, 14), Vector3(-26, 0, -14), Vector3(58, 0, 22), Vector3(-58, 0, -22), Vector3(9, 0, -25), Vector3(-9, 0, 25)]:
 		_add_fireflies(p)
+	# The Wildwood half glows: more fireflies and mushroom rings on the elven side.
+	for p in [Vector3(-50, 0, 12), Vector3(-50, 0, -12), Vector3(-38, 0, 5), Vector3(-30, 0, -20), Vector3(-42, 0, 26), Vector3(-20, 0, 18)]:
+		_add_fireflies(p)
+	for i in 8:
+		var mp := Vector3(-16.0 - i * 6.0, 0, (7.5 + float(i % 3) * 5.0) * (1.0 if i % 2 == 0 else -1.0))
+		_add_mushrooms(mp, 100 + i)
 	# Woods on the castle flanks.
 	for p in [Vector3(52, 0, 19), Vector3(60, 0, 22), Vector3(68, 0, 18), Vector3(46, 0, 24), Vector3(56, 0, 30)]:
 		_add_tree(p, true)

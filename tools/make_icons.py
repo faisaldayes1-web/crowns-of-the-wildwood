@@ -553,3 +553,20 @@ for i in range(4):
     poly(img, pts([(x, 0.15), (x + 0.22, 0.15), (x + 0.22, -0.2), (x, -0.2)]), (255, 215, 170), (210, 140, 90))
 poly(img, pts([(0.0, -0.95), (0.3, -0.5), (0.12, -0.5), (0.12, -0.28), (-0.12, -0.28), (-0.12, -0.5), (-0.3, -0.5)]), (255, 240, 150), (240, 160, 40))
 save(img, "might", (255, 180, 100))
+
+
+# Holy Bubble: a translucent dome of light with a shine arc.
+img = new()
+circle(img, (C, C + 0.1 * C * 0.78), 0.78 * C * 0.78, (200, 235, 255, 150), (120, 170, 255, 200), outline=(90, 130, 220), width=4 * SS)
+circle(img, (C, C + 0.1 * C * 0.78), 0.55 * C * 0.78, (255, 255, 255, 90), (180, 220, 255, 40), outline=None)
+stroke(img, pts([(math.cos(a) * 0.6, 0.1 + math.sin(a) * 0.6) for a in [math.radians(d) for d in range(205, 250, 5)]]), (255, 255, 255), 5 * SS)
+star(img, 4, 0.16, 0.05, (255, 255, 255), (220, 240, 255), dx=0.3, dy=-0.45)
+save(img, "bubble", (150, 200, 255))
+
+# Bramble Burst: three leaves around a thorny seed.
+img = new()
+for rot in [0.0, 2.1, 4.2]:
+    leaf(img, (120, 200, 90), (50, 120, 40), 0.55, math.sin(rot) * 0.45, -math.cos(rot) * 0.45, rot)
+star(img, 8, 0.42, 0.22, (170, 110, 60), (90, 50, 30))
+circle(img, (C, C), 0.2 * C * 0.78, (230, 200, 120), (160, 110, 50))
+save(img, "bramble", (150, 230, 120))

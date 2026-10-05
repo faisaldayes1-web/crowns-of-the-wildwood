@@ -13,6 +13,7 @@ var level := 1
 var hp := 0
 var rapid := false     # Artificer turrets: fire faster
 var ballista := false  # Siegewright turrets: slow, splashing bolts, longer reach
+var thorn := false     # Elven thorn totems: living wood, slowing thorns
 var overclock := 0.0   # seconds of double fire rate left
 var fire_timer := 1.0
 var head: Node3D
@@ -29,6 +30,7 @@ func setup(p_game, p_team: int, pos: Vector3, p_builder, opts: Dictionary) -> vo
 	builder = p_builder
 	rapid = opts.get("rapid", false)
 	ballista = opts.get("ballista", false)
+	thorn = opts.get("thorn", false)
 	position = pos
 	scale = Vector3.ONE * 1.2  # reads better from the high camera
 	collision_layer = 4 if team == 0 else 8   # the enemy's "door" layer: they bump into it and shoot it
@@ -73,6 +75,8 @@ func interval() -> float:
 
 
 func kind_name() -> String:
+	if thorn:
+		return "Thorn totem"
 	return "Ballista" if ballista else ("Rapid turret" if rapid else "Turret")
 
 
@@ -114,6 +118,12 @@ func _build_visual() -> void:
 	_box(head, Vector3(0.14, 0.08, 0.5), Vector3(0, 0.1, 0.25), iron)           # rail
 	var bow_w := 1.1 if ballista else 0.9
 	var limb_mat: StandardMaterial3D = gold if level >= 3 else (iron if level >= 2 else wood)
+	if thorn:
+		# A living totem: leaf-green limbs and bark, no iron.
+		var leaf := StandardMaterial3D.new()
+		leaf.albedo_color = Color(0.35, 0.7, 0.3)
+		leaf.roughness = 0.9
+		limb_mat = leaf if level < 3 else gold
 	for s in [-1.0, 1.0]:
 		var limb := _box(head, Vector3(bow_w / 2.0, 0.06, 0.08), Vector3(s * bow_w / 4.0, 0.0, 0.45), limb_mat)
 		limb.rotation.y = -s * 0.25
@@ -282,6 +292,9 @@ func _fire(dir: Vector3) -> void:
 	if ballista:
 		s["splash"] = 2.0
 		s["shot_speed"] = 26.0
+	if thorn:
+		s["slow"] = 1.0
+		s["shot_speed"] = 30.0
 	var muzzle: Vector3 = global_position + Vector3(0, 1.25, 0) + dir * 0.6
 	var owner_unit = builder if is_instance_valid(builder) else null
 	game.spawn_bolt(team, muzzle, dir, s, Stats.FACTIONS[team].color.lightened(0.5), owner_unit)

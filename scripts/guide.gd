@@ -13,7 +13,7 @@ const BUBBLE_RANGE := 13.0
 const AMBIENT := [
 	"Welcome to the Wildwood!",
 	"Steal the enemy Crown and bring it back here.",
-	"Step on a station to pick your class.",
+	"Grab a class seal (press F beside it) to pick your class.",
 	"Press %s next to me and I'll explain everything.",
 ]
 

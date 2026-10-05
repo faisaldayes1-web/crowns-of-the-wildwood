@@ -489,9 +489,11 @@ func _class_icon(role: int) -> String:
 
 func _attack_icon(role: int, s: Dictionary = {}) -> String:
 	if s.is_empty():
-		s = Stats.ROLES[role]
+		s = Stats.kit(game.player_team, role)
 	if s.get("drain", false):
 		return "drain"
+	if s.get("nature", false):
+		return "bramble"
 	if s.get("frost", false):
 		return "frost"
 	if s.get("fire", false):
@@ -511,7 +513,7 @@ func _keycap(center: Vector2, key: String, w: float = 30.0) -> void:
 
 
 func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: String, label: String,
-		remaining: float, total: float, usable: bool, rank: int = 0, active: bool = false) -> void:
+		remaining: float, total: float, usable: bool, rank: int = 0, active: bool = false, cost: float = 0.0, cost_color: Color = STAMINA) -> void:
 	var rect := Rect2(origin, Vector2(size_px, size_px))
 	var ready := remaining <= 0.0 and usable
 	# A ring bursts out of the slot the moment a cooldown ends.
@@ -535,6 +537,12 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 			16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
 	elif not usable:
 		draw_rect(rect.grow(-3), Color(0.5, 0.1, 0.1, 0.35))
+	# The energy cost in the bottom-left corner, so you can see which moves
+	# are cheap bread-and-butter and which ones to spend sparingly.
+	if cost > 0.0:
+		var tag := Rect2(rect.position + Vector2(3, size_px - 15), Vector2(22, 12))
+		draw_rect(tag, Color(0, 0, 0, 0.6))
+		_text(tag.position + Vector2(0, 10), str(int(cost)), 9, cost_color if usable else cost_color.darkened(0.4), HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 0)
 	# Rank pips in the top-right corner.
 	for i in rank:
 		draw_circle(rect.end - Vector2(8 + i * 8, size_px - 8), 2.6, GOLD)
@@ -801,6 +809,10 @@ func _draw_academy() -> void:
 	var blurbs := {Role.KNIGHT: "Frontline fighter in plate: every third hit glances off. Strong vs enemies and structures.", Role.RANGER: "Ranged attacker. Use cover and keep your distance.",
 		Role.MAGE: "Powerful spells and area control.", Role.HEALER: "Keeps teammates alive and supports the team.",
 		Role.ENGINEER: "Builds and upgrades turrets on the walls. Hammer wrecks doors."}
+	if team == 0:
+		blurbs = {Role.KNIGHT: "Glaive skirmisher: long light sweeps, a wind dash and barkskin. Lighter plate.", Role.RANGER: "Moonbow: swift silver arrows with long reach, a six-arrow starfall and vine snares.",
+			Role.MAGE: "Nature magic: thorn bolts that slow, bramble bursts that root, fae steps.", Role.HEALER: "Grove mender: wide living-light heals, spirit bloom, slowing lunar lances.",
+			Role.ENGINEER: "Grows thorn totems that spit slowing thorns. The root maul wrecks doors."}
 	var rect := Rect2(size.x - 480, 100, 256, 60 + roles.size() * 58)
 	var tc := _team_color(team)
 	_plate(rect, INK, GOLD, 12, 2)
@@ -819,7 +831,7 @@ func _draw_academy() -> void:
 		_keycap(Vector2(row.end.x - 16, row.position.y + 14), str(i + 1), 20)
 		_paragraph(row.position + Vector2(52, 34), blurbs[role], 9, Color(0.85, 0.85, 0.85), row.size.x - 60, 11, 1)
 		academy_buttons.append([row, role])
-	_text(rect.position + Vector2(0, rect.size.y - 8), "Step on a station, click a class or press 1-5", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, rect.size.y - 8), "Grab a seal in your cellar, click a class or press 1-5", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _draw_toasts() -> void:
@@ -955,12 +967,12 @@ func _draw_player_panel(p) -> void:
 	var alive: bool = not p.dead and p.carrying == null
 	var atk: Dictionary = p.attack_stats()
 	_slot(Vector2(sx, sy), slot, _attack_icon(p.role, atk), Stats.ROLES[p.role].color.lightened(0.3), game.key_label("attack"), atk.attack_name,
-		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0))
+		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0), false, atk.cost, STAMINA if p.energy_kind() == "stamina" else MANA)
 	for i in 2:
 		if i < abil.size():
 			var a: Dictionary = p.ability(i)
 			_slot(Vector2(sx + (i + 1) * gap, sy), slot, a.get("icon", a.kind), Stats.ROLES[p.role].color.lightened(0.3), game.key_label("ability_%d" % (i + 1)), a.name,
-				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1))
+				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1), false, a.cost, STAMINA if p.energy_kind() == "stamina" else MANA)
 		else:
 			_slot(Vector2(sx + (i + 1) * gap, sy), slot, "", Color.WHITE, game.key_label("ability_%d" % (i + 1)), "pick a class", 0.0, 1.0, false)
 	_slot(Vector2(sx + 3 * gap, sy), slot, "dodge", STAMINA, game.key_label("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
@@ -1243,7 +1255,7 @@ func _promotion(p, rect: Rect2) -> void:
 		var tag := "CHOSEN" if chosen else ("%s: pick" % str(i + 5) if unlocked else "LOCKED")
 		_text(card.position + Vector2(0, 22), tag, 10, GOLD if chosen else GREY, HORIZONTAL_ALIGNMENT_RIGHT, card.size.x - 10, 2)
 		_paragraph(card.position + Vector2(10, 48), v.desc, 10, Color(0.85, 0.85, 0.85) if unlocked else GREY, card.size.x - 20, 12.0)
-		var moves := "%s  ·  Q %s  ·  E %s" % [v.attack.get("attack_name", Stats.ROLES[role].attack_name), v.abilities[0].name, v.abilities[1].name]
+		var moves := "%s  ·  Q %s  ·  E %s" % [v.attack.get("attack_name", Stats.kit(game.player_team, role).attack_name), v.abilities[0].name, v.abilities[1].name]
 		_text(card.position + Vector2(10, card.size.y - 8), moves, 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		if unlocked and not chosen and not p.dead:
 			variant_buttons.append([card, role, i])
@@ -1293,7 +1305,7 @@ func _menu_overview(body: Rect2) -> void:
 		var ly: float = y + (i / 3) * 18
 		draw_circle(Vector2(x, ly - 4), 5, legend[i][1])
 		_text(Vector2(x + 12, ly), legend[i][0], 11, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, carry their monarch home. Class stations are in your cellar.", 11, GREY,
+	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, carry their monarch home. Grab a class seal in your cellar.", 11, GREY,
 		HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
 
 
@@ -1303,7 +1315,7 @@ func _menu_classes(body: Rect2) -> void:
 	var cw := (body.size.x - 4 * 8) / 5.0
 	for i in roles.size():
 		var role: int = roles[i]
-		var s: Dictionary = Stats.ROLES[role]
+		var s: Dictionary = Stats.kit(team, role)
 		var card := Rect2(body.position + Vector2(i * (cw + 8), 0), Vector2(cw, body.size.y))
 		var mine: bool = game.player and game.player.role == role
 		_plate(card, INK_LIGHT, GOLD if mine else GOLD_DARK, 10, 2)
@@ -1495,7 +1507,7 @@ func _menu_my_class(body: Rect2) -> void:
 		_text(Vector2(left.position.x + 14, y), facts[i][0], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(Vector2(left.position.x, y), facts[i][1], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, left.size.x - 14, 2)
 	if p.role == Role.BASE:
-		_paragraph(left.position + Vector2(14, 328), "You are a villager. Step on a class station in your keep to pick a class.", 10, CREAM, left.size.x - 28, 12.0)
+		_paragraph(left.position + Vector2(14, 328), "You are a villager. Grab a class seal in your cellar (press %s beside it) to pick a class." % game.key_label("interact"), 10, CREAM, left.size.x - 28, 12.0)
 	else:
 		_text(left.position + Vector2(14, 332), s.attack_name, 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_paragraph(left.position + Vector2(14, 348), s.attack_desc, 10, Color(0.8, 0.8, 0.8), left.size.x - 28, 12.0)
@@ -1538,7 +1550,7 @@ func _menu_my_class(body: Rect2) -> void:
 			_text(card.position + Vector2(54, 24), v.name.to_upper(), 14, GOLD if chosen else (Color.WHITE if unlocked else GREY), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 			_text(card.position + Vector2(0, 24), "CHOSEN" if chosen else ("available" if unlocked else "locked"), 10, GOLD if chosen else GREY, HORIZONTAL_ALIGNMENT_RIGHT, card.size.x - 10, 2)
 			var y: float = 50.0 + _paragraph(card.position + Vector2(10, 50), v.desc, 10, Color(0.85, 0.85, 0.85) if unlocked else GREY, card.size.x - 20, 12.0)
-			var moves := [[game.key_label("attack"), v.attack.get("attack_name", Stats.ROLES[p.role].attack_name)], ["Q", v.abilities[0].name], ["E", v.abilities[1].name]]
+			var moves := [[game.key_label("attack"), v.attack.get("attack_name", Stats.kit(p.team, p.role).attack_name)], ["Q", v.abilities[0].name], ["E", v.abilities[1].name]]
 			for m in moves.size():
 				_keycap(card.position + Vector2(28, y + 14 + m * 19), moves[m][0], 34)
 				_text(card.position + Vector2(52, y + 18 + m * 19), moves[m][1], 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -1747,7 +1759,7 @@ func _faction_card(rect: Rect2, team: int, key: String, pad: String, blurb: Stri
 		_portrait(rect.position + Vector2(rect.size.x / 2.0, 70), 40, team, Role.KNIGHT)
 		_icon("crest_forest" if team == 0 else "crest_kingdom", rect.position + Vector2(rect.size.x - 34, 34), 12, Color.WHITE)
 		_text(rect.position + Vector2(0, 146), Stats.FACTIONS[team].name.to_upper(), 28, tc.lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 5)
-	_text(rect.position + Vector2(0, 170), blurb, 13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
+	_text(rect.position + Vector2(0, 170), blurb, 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
 	_keycap(rect.position + Vector2(rect.size.x / 2.0 - 46, 200), key, 60)
 	_text(rect.position + Vector2(rect.size.x / 2.0 - 10, 205), "or " + pad, 12, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
@@ -1759,8 +1771,8 @@ func _draw_title() -> void:
 	_text(Vector2(cx - 300, 236), "Elves against Humans. Break the door, steal the monarch, carry them home.", 15, CREAM,
 		HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
 	_text(Vector2(cx - 300, 264), "CHOOSE YOUR SIDE", 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
-	_faction_card(Rect2(cx - 490, 280, 300, 226), 0, "1", "D-pad left", "Quicker on their feet")
-	_faction_card(Rect2(cx - 170, 280, 300, 226), 1, "2", "D-pad right", "Recover stamina and mana faster")
+	_faction_card(Rect2(cx - 490, 280, 300, 226), 0, "1", "D-pad left", "Wind and wood: glaives, moonbows, brambles, living totems. Quick on their feet.")
+	_faction_card(Rect2(cx - 170, 280, 300, 226), 1, "2", "D-pad right", "Steel and faith: shields, crossbows, fire, holy light. Recover energy faster.")
 	faction_buttons.append([Rect2(cx - 490, 280, 300, 226), 0])
 	faction_buttons.append([Rect2(cx - 170, 280, 300, 226), 1])
 	_draw_hero_panel(Rect2(cx + 150, 280, 340, 226))
@@ -1784,7 +1796,7 @@ func _draw_title() -> void:
 			game.key_label("attack"), game.key_label("block"), game.key_label("dodge"), game.key_label("interact")],
 		"%s and %s are class abilities  ·  %s perks and promotions  ·  hold %s for the scoreboard  ·  %s chats  ·  Esc pauses" % [
 			game.key_label("ability_1"), game.key_label("ability_2"), game.key_label("rank_menu"), game.key_label("scoreboard"), game.key_label("chat")],
-		"You spawn in your castle's cellar: step on a class station, climb the stairs and head out.  %s / %s / %s call your team." % [
+		"You spawn in your castle's cellar: grab a class seal, climb the stairs and head out.  %s / %s / %s call your team." % [
 			game.key_label("cmd_attack"), game.key_label("cmd_defend"), game.key_label("cmd_help")],
 	]
 	for i in lines.size():
