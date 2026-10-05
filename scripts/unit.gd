@@ -96,6 +96,7 @@ var bot_class: int = Role.KNIGHT
 var bot_offset := Vector3.ZERO
 var cluster := 0   # enemies bunched around the bot's current target
 var bot_block_timer := 0.0
+var rally_wait := 0.0   # seconds spent holding at the rally point
 var stuck_time := 0.0
 var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
 var stall_pos := Vector3.ZERO  # demo diagnostics: where the bot last made progress
@@ -1029,6 +1030,7 @@ func _respawn() -> void:
 	position = spawn_point + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
 	spawn_protect = Stats.SPAWN_PROTECT_TIME
 	resist_pool = 0.0
+	rally_wait = 0.0
 	heal_pool = 0.0
 	visible = true
 	shape.disabled = false
@@ -1221,7 +1223,7 @@ func _physics_process(delta: float) -> void:
 		if dodge_timer > 0.0 or bash_timer > 0.0:
 			return
 	else:
-		plan = _bot_think()
+		plan = _bot_think(delta)
 		move = plan.move
 		wants_attack = plan.attack
 		wants_block = plan.get("block", false)
@@ -1608,10 +1610,29 @@ func _engineer_goal(plan: Dictionary) -> Vector3:
 			return stand
 	# Works done: take the hammer to the enemy door with the raiders (the
 	# squad planner still pulls us home to defend when the castle is breached).
-	return game.monarchs[1 - team].global_position
+	return _raid_goal(0.0)
 
 
-func _bot_think() -> Dictionary:
+func _raid_goal(delta: float) -> Vector3:
+	## Where a raider walks: the enemy monarch, but by way of a rally point
+	## outside the enemy door, where the raid waits for company. One raider at
+	## a time just feeds the turrets; two or three together break in.
+	var theirs = game.monarchs[1 - team]
+	var rally: Vector3 = game.rally_point(team)
+	var toward_enemy := 1.0 if team == 0 else -1.0
+	var past_rally: bool = (global_position.x - rally.x) * toward_enemy > 1.0
+	if game.gates[1 - team].broken or game.overtime or past_rally:
+		rally_wait = 0.0
+		return theirs.global_position
+	if _flat_to(rally).length() > Stats.RALLY.radius * 0.6:
+		return rally + bot_offset * 0.5
+	rally_wait += delta
+	if game.raiders_near(team, rally, Stats.RALLY.radius) >= Stats.RALLY.group or rally_wait > Stats.RALLY.wait:
+		return theirs.global_position
+	return rally + bot_offset * 0.5
+
+
+func _bot_think(delta: float) -> Dictionary:
 	var plan := {"move": Vector3.ZERO, "attack": false, "aim": facing}
 	var s := attack_stats()
 	var mine = game.monarchs[team]
@@ -1660,7 +1681,7 @@ func _bot_think() -> Dictionary:
 		var buddy = _heal_focus()
 		goal = (buddy.global_position if buddy else game.thrones[team]) + bot_offset * 0.6
 	elif bot_job == "attack":
-		goal = theirs.global_position
+		goal = _raid_goal(delta)
 	else:
 		goal = game.thrones[team] + Vector3(6.0 if team == 0 else -6.0, 0, 0) + bot_offset
 	# Outnumbered and hurt: fall back toward the nearest teammate instead of

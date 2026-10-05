@@ -825,6 +825,25 @@ func enemies_near(team: int, pos: Vector3, radius: float) -> int:
 	return n
 
 
+func rally_point(team: int) -> Vector3:
+	## Where a team's raid gathers: on the road outside the enemy door, past
+	## the reach of rampart turrets.
+	var toward_home := -1.0 if team == 0 else 1.0
+	return Vector3(_front_x(1 - team) + toward_home * Stats.RALLY.dist, 0, 0)
+
+
+func raiders_near(team: int, pos: Vector3, radius: float) -> int:
+	## Living teammates on the raid (attackers, escorts, Engineers done
+	## building) within `radius` of `pos`; healers tag along and do not count.
+	var n := 0
+	for u in units:
+		if u.team == team and not u.dead and u.role != Unit.Role.HEALER and u.role != Unit.Role.BASE \
+				and (u.is_player or u.bot_job == "attack" or u.bot_job == "build" or u.bot_job == "escort") \
+				and _flat_dist(u.global_position, pos) < radius:
+			n += 1
+	return n
+
+
 func allies_near(team: int, pos: Vector3, radius: float) -> int:
 	var n := 0
 	for u in units:

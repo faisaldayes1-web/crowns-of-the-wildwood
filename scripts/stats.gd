@@ -77,6 +77,7 @@ const SPAWN_PROTECT_TIME := 3.0  # seconds of invulnerability after spawning (en
 # speeds up the door's rebuild while a defender stands by it.
 const DEFENDER := {"resist": 0.1, "heal": 0.1, "regen": 0.1, "interact": 0.15}
 const GATE_REBUILD_TIME := 40.0
+const RALLY := {"dist": 20.0, "group": 2, "radius": 9.0, "wait": 14.0}  # raiders gather this far outside the enemy door until `group` are together (or `wait` seconds pass)
 const GATE_SIEGE_RADIUS := 9.0   # a broken door does not rebuild while an enemy is this close to it (or inside)
 # Engineer turrets, per level 1-3: hits they soak, reach and seconds between
 # bolts. They go on your castle walls or grounds (up to GROUNDS metres
