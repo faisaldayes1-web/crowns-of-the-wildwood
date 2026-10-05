@@ -324,6 +324,11 @@ func variant_unlocked(for_role: int = role) -> bool:
 	return Stats.VARIANTS.has(for_role) and mastery.get(for_role, 0) >= Stats.VARIANT_UNLOCK
 
 
+func gear_rank(for_role: int = role) -> int:
+	## 1-4: the class's armour and weapon tier, stepped by its total upgrades.
+	return 1 + mini(3, mastery.get(for_role, 0))
+
+
 func total_upgrades() -> int:
 	var n := 0
 	for r in mastery:
@@ -342,7 +347,7 @@ func choose_variant(for_role: int, index: int) -> bool:
 		_stats_cache = {}
 		ability_timers = [0.0, 0.0]
 		blocking = false
-		model.setup(team, role, variant().name, game.hero_custom() if is_player else {})
+		model.setup(team, role, variant().name, game.hero_custom() if is_player else {}, gear_rank())
 		flash_mats = model.flash_mats
 		_apply_side_colors()
 		_refresh_overhead()
@@ -395,7 +400,7 @@ func set_role(new_role: int) -> void:
 	if model == null:
 		model = CharacterModel.new()
 		build.add_child(model)
-	model.setup(team, role, variant().get("name", ""), game.hero_custom() if is_player else {})
+	model.setup(team, role, variant().get("name", ""), game.hero_custom() if is_player else {}, gear_rank())
 	flash_mats = model.flash_mats
 	_apply_side_colors()
 	_refresh_overhead()
@@ -510,7 +515,16 @@ func spend_point(track: int) -> bool:
 		ranks[role] = [0, 0, 0, 0]
 	ranks[role][track] += 1
 	points -= 1
+	var old_rank := gear_rank()
 	mastery[role] = mastery.get(role, 0) + 1
+	if gear_rank() != old_rank:
+		# New armour tier: redress the model.
+		model.setup(team, role, variant().get("name", ""), game.hero_custom() if is_player else {}, gear_rank())
+		flash_mats = model.flash_mats
+		_apply_side_colors()
+		_refresh_overhead()
+		if is_player:
+			game.toast("%s rank %d gear" % [class_name_plain(), gear_rank()], Color(1.0, 0.9, 0.5))
 	if track == 3:
 		energy = minf(energy + Stats.VIGOR_ENERGY, energy_max())
 	game.spawn_ring(global_position, 1.6, Color(1.0, 0.85, 0.3), 0.5)

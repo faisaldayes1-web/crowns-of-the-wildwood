@@ -8,12 +8,15 @@ const Stats = preload("res://scripts/stats.gd")
 
 var frames := 0
 var out_path := "showcase.png"
+var ranks_team := -1   # --ranks=0/1: the four classes at ranks 1-4 for one team
 
 
 func _initialize() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--out="):
 			out_path = arg.trim_prefix("--out=")
+		if arg.begins_with("--ranks="):
+			ranks_team = int(arg.trim_prefix("--ranks="))
 	var world := Node3D.new()
 	root.add_child(world)
 	var env := WorldEnvironment.new()
@@ -40,6 +43,22 @@ func _initialize() -> void:
 	world.add_child(floor)
 	var roles := [Stats.Role.BASE, Stats.Role.KNIGHT, Stats.Role.RANGER, Stats.Role.MAGE, Stats.Role.HEALER]
 	var poses := ["Idle", "1H_Melee_Attack_Slice_Horizontal", "2H_Ranged_Shoot", "Spellcast_Shoot", "Spellcast_Raise"]
+	if ranks_team >= 0:
+		var rows := [Stats.Role.KNIGHT, Stats.Role.RANGER, Stats.Role.MAGE, Stats.Role.HEALER]
+		for r in rows.size():
+			for rank in 4:
+				var m := CharacterModel.new()
+				m.position = Vector3(-4.5 + rank * 3.0, 0, 3.0 - r * 2.0)
+				m.rotation.y = PI
+				world.add_child(m)
+				m.setup(ranks_team, rows[r], "", {}, rank + 1)
+		var cam2 := Camera3D.new()
+		cam2.position = Vector3(0, 6.0, 9.5)
+		cam2.rotation_degrees = Vector3(-32, 0, 0)
+		cam2.fov = 50
+		world.add_child(cam2)
+		cam2.make_current()
+		return
 	for team in 2:
 		for i in roles.size():
 			var m := CharacterModel.new()

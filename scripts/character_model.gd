@@ -34,8 +34,10 @@ var held := ""                 # a loop held by the unit (blocking, casting)
 var current := ""
 
 
-static func config(team: int, role: int, variant: String = "") -> Dictionary:
+static func config(team: int, role: int, variant: String = "", rank: int = 1) -> Dictionary:
 	## Which model, gear and animations a faction + class (or monarch) uses.
+	## `rank` (1-4, from the class's total upgrades) steps the gear up, like
+	## the rank rows in the class reference sheet.
 	var c := {"scale": 0.84, "ears": team == 0, "crown": false, "hat": true}
 	match variant:
 		"queen":
@@ -58,14 +60,14 @@ static func config(team: int, role: int, variant: String = "") -> Dictionary:
 				Role.KNIGHT:
 					c.scene = "knight"
 					c.skin = "knight"
-					c.show = ["1H_Sword", "Badge_Shield"]
+					c.show = ["1H_Sword", ["Badge_Shield", "Round_Shield", "Rectangle_Shield", "Spike_Shield"][clampi(rank, 1, 4) - 1]]
 					c.idle = "Idle"
 					c.attacks = ["1H_Melee_Attack_Slice_Horizontal", "1H_Melee_Attack_Chop", "1H_Melee_Attack_Slice_Diagonal"]
 					c.scale = 0.92
 				Role.RANGER:
 					c.scene = "rogue_hooded"
 					c.skin = "rogue"
-					c.show = ["2H_Crossbow"]
+					c.show = ["1H_Crossbow" if rank <= 1 else "2H_Crossbow"]
 					c.idle = "Idle"
 					c.attacks = ["2H_Ranged_Shoot"]
 				Role.MAGE:
@@ -77,7 +79,7 @@ static func config(team: int, role: int, variant: String = "") -> Dictionary:
 				Role.HEALER:
 					c.scene = "mage"
 					c.skin = "healer"
-					c.show = ["1H_Wand", "Spellbook_open"]
+					c.show = ["1H_Wand", "Spellbook_open"] if rank < 4 else ["2H_Staff"]
 					c.idle = "Idle"
 					c.attacks = ["Spellcast_Shoot"]
 					c.hat = false
@@ -150,10 +152,10 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 	return out
 
 
-func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}) -> void:
+func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, rank: int = 1) -> void:
 	for child in get_children():
 		child.queue_free()
-	var c := config(team, role, variant)
+	var c := config(team, role, variant, rank)
 	var inst: Node3D = load(SCENES[c.scene]).instantiate()
 	add_child(inst)
 	inst.scale = Vector3.ONE * c.scale
@@ -184,6 +186,11 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}) 
 			var hat := inst.find_child(name, true, false)
 			if hat and (c.scene != "knight" or variant != ""):
 				hat.visible = false
+	# Capes are earned: Knights and Rangers wear one from rank 3 (promotions always do).
+	for name in ["Knight_Cape", "Rogue_Cape"]:
+		var cape := inst.find_child(name, true, false)
+		if cape and variant == "" and role != Role.BASE:
+			cape.visible = rank >= 3
 
 	# Team colour skin on every mesh.
 	var skin: Texture2D = load("res://assets/characters/skins/%s_%s.png" % [c.skin, "elf" if team == 0 else "human"])
@@ -210,6 +217,8 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}) 
 		if c.crown:
 			_add_crown()
 	_add_class_flair(role, variant)
+	if variant == "" or Stats.VARIANTS.has(role):
+		_add_rank_flair(team, role, rank)
 
 	if anim:
 		for name in LOOPS:
@@ -266,6 +275,134 @@ func _add_class_flair(role: int, variant: String) -> void:
 			mat.albedo_color.a = 0.8
 			cp.material_override = mat
 			add_child(cp)
+
+
+func _glow(color: Color, energy: float = 1.5) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.emission_enabled = true
+	m.emission = color
+	m.emission_energy_multiplier = energy
+	return m
+
+
+func _attach_to(bone: String) -> BoneAttachment3D:
+	var att := BoneAttachment3D.new()
+	att.bone_name = bone
+	skeleton.add_child(att)
+	return att
+
+
+func _box(parent: Node3D, size: Vector3, pos: Vector3, rot: Vector3, mat: Material) -> void:
+	var m := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	m.mesh = bm
+	m.position = pos
+	m.rotation = rot
+	m.material_override = mat
+	parent.add_child(m)
+
+
+func _add_rank_flair(team: int, role: int, rank: int) -> void:
+	## The rank sheet's progression on top of the gear swaps: plumes,
+	## pauldrons and gold trim for Knights, feathers and arrows for Rangers,
+	## hat crystals for Mages, halos and wings for Healers. Rank 1 is plain.
+	if skeleton == null or rank <= 1:
+		return
+	var team_col: Color = Stats.FACTIONS[team].color
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(0.98, 0.8, 0.25)
+	gold.metallic = 0.7
+	gold.roughness = 0.3
+	var steel := StandardMaterial3D.new()
+	steel.albedo_color = Color(0.78, 0.8, 0.86)
+	steel.metallic = 0.6
+	steel.roughness = 0.45
+	var cloth := StandardMaterial3D.new()
+	cloth.albedo_color = team_col.lightened(0.1)
+	cloth.roughness = 1.0
+	match role:
+		Role.KNIGHT:
+			var head := _attach_to_head()
+			var h := 0.4 + 0.14 * (rank - 2)
+			for i in 3:
+				_box(head, Vector3(0.09, h, 0.3), Vector3(0, 0.98 + h / 2.0, -0.05 - i * 0.1), Vector3(-0.35 - i * 0.2, 0, 0), cloth)
+			if rank >= 3:
+				for side in ["l", "r"]:
+					var arm := _attach_to("upperarm." + side)
+					var pad := MeshInstance3D.new()
+					var sm := SphereMesh.new()
+					sm.radius = 0.2 if rank == 3 else 0.24
+					sm.height = sm.radius * 2.0
+					pad.mesh = sm
+					pad.scale = Vector3(1.0, 0.75, 1.0)
+					pad.position = Vector3(0, 0.08, 0)
+					pad.material_override = steel if rank == 3 else gold
+					arm.add_child(pad)
+			if rank >= 4:
+				_box(head, Vector3(0.07, 0.3, 0.07), Vector3(0, 0.98 + h + 0.1, -0.05), Vector3.ZERO, gold)
+		Role.RANGER:
+			var head := _attach_to_head()
+			_box(head, Vector3(0.06, 0.55, 0.14), Vector3(0.24, 0.9, -0.1), Vector3(0, 0, 0.6), cloth)
+			if rank >= 3:
+				var bundle: Node3D = load("res://assets/props/gear/arrow_bundle.gltf").instantiate()
+				bundle.position = Vector3(0.08, 1.28, 0.28)
+				bundle.rotation = Vector3(0.5, 0, -0.25)
+				bundle.scale = Vector3.ONE * 1.1
+				add_child(bundle)
+			if rank >= 4:
+				_box(head, Vector3(0.06, 0.55, 0.14), Vector3(-0.24, 0.9, -0.1), Vector3(0, 0, -0.6), gold)
+		Role.MAGE:
+			var head := _attach_to_head()
+			var glow := _glow(Color(0.75, 0.55, 1.0), 2.0)
+			var gem := MeshInstance3D.new()
+			var sph := SphereMesh.new()
+			sph.radius = 0.08
+			sph.height = 0.16
+			gem.mesh = sph
+			gem.material_override = glow
+			gem.position = Vector3(0, 0.9, 0.4)
+			head.add_child(gem)
+			if rank >= 3:
+				var n := 3 if rank == 3 else 5
+				for i in n:
+					var a := TAU * i / n + PI / 2.0
+					var cr := MeshInstance3D.new()
+					var pm := PrismMesh.new()
+					pm.size = Vector3(0.1, 0.28 if rank == 3 else 0.38, 0.1)
+					cr.mesh = pm
+					cr.material_override = glow
+					cr.position = Vector3(cos(a) * 0.3, 1.3, sin(a) * 0.3)
+					cr.rotation = Vector3(0.45 * sin(a), -a, -0.45 * cos(a))
+					head.add_child(cr)
+		Role.HEALER:
+			var head := _attach_to_head()
+			var halo := MeshInstance3D.new()
+			var tm := TorusMesh.new()
+			tm.inner_radius = 0.28 if rank < 4 else 0.36
+			tm.outer_radius = tm.inner_radius + 0.06
+			halo.mesh = tm
+			halo.material_override = _glow(Color(1.0, 0.9, 0.5), 2.2)
+			halo.position = Vector3(0, 1.08, 0)
+			head.add_child(halo)
+			if rank >= 3:
+				var chest := _attach_to("chest")
+				var wing := _glow(Color(1.0, 0.98, 0.9), 0.8)
+				for side in [-1.0, 1.0]:
+					_box(chest, Vector3(0.55, 0.06, 0.16), Vector3(side * 0.4, 0.25, -0.22), Vector3(0, 0, side * 0.5), wing)
+					_box(chest, Vector3(0.35, 0.05, 0.12), Vector3(side * 0.5, 0.05, -0.24), Vector3(0, 0, side * 0.9), wing)
+			if rank >= 4:
+				for i in 4:
+					var a := TAU * i / 4.0
+					var gem := MeshInstance3D.new()
+					var sph := SphereMesh.new()
+					sph.radius = 0.06
+					sph.height = 0.12
+					gem.mesh = sph
+					gem.material_override = _glow(Color(0.6, 0.95, 1.0), 2.0)
+					gem.position = Vector3(cos(a) * 0.39, 1.08, sin(a) * 0.39)
+					head.add_child(gem)
 
 
 func _meshes(node: Node) -> Array:
