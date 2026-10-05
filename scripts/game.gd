@@ -9,6 +9,8 @@ const Monarch = preload("res://scripts/monarch.gd")
 const Projectile = preload("res://scripts/projectile.gd")
 const Gate = preload("res://scripts/gate.gd")
 const Hud = preload("res://scripts/hud.gd")
+const HealOrb = preload("res://scripts/heal_orb.gd")
+const Trap = preload("res://scripts/trap.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -19,14 +21,19 @@ const LINEUP := [
 	[Role.HEALER, "support"], [Role.RANGER, "wall"],
 ]
 
-# Castle geometry. Each castle is a walled courtyard; the front wall faces the
-# middle of the map, has the breakable door in it, and carries a walkway you
-# can climb up to and shoot down from.
-const CASTLE_X := 44.0        # throne x, mirrored for the two teams
-const CASTLE_DEPTH := 11.0    # half-depth of the courtyard (x)
-const CASTLE_HALF_Z := 12.0   # half-width of the courtyard (z)
+# Castle geometry. Each castle is an outer castle wall ringing a yard, with the
+# keep (the building: throne and class stations) standing inside at the back.
+# The wall's front faces the middle of the map, has the breakable door in it,
+# and carries a walkway you climb up to from the yard and shoot down from.
+const CASTLE_X := 44.0        # centre of the walled area (x), mirrored for the two teams
+const CASTLE_DEPTH := 11.0    # half-depth of the walled area (x)
+const CASTLE_HALF_Z := 12.0   # half-width of the walled area (z)
 const WALL_H := 3.0
 const WALK_Y := 3.6           # height of the walkway floor
+const KEEP_SETBACK := 8.5     # yard depth between the front wall and the keep
+const KEEP_HALF_Z := 8.5
+const KEEP_H := 2.6
+const KEEP_DOOR_HALF := 4.5   # the keep's open archway
 const CAPTURE_RADIUS := 3.0
 const STATION_RADIUS := 1.3
 const CAMERA_OFFSET := Vector3(0, 17, 12)
@@ -43,6 +50,7 @@ var units: Array = []
 var gates: Array = []
 var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} at +z]
 var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
+var heal_orbs: Array = []
 var time_left := Stats.MATCH_TIME
 var player
 
@@ -71,7 +79,7 @@ func _ready() -> void:
 				shot_frame = int(arg.trim_prefix("--shot-frame="))
 		_start_match(0)
 		return
-	banner.text = "CROWNS OF THE WILDWOOD\n\nPress 1 to play the Elves (quicker on their feet)\nPress 2 to play the Humans (faster stamina and mana recovery)\n\nYou start as a plain villager. Step onto a class station in your castle to transform.\nBreak the enemy door, steal their monarch and carry them to your throne.\nFirst to %d captures wins." % CAPTURES_TO_WIN
+	banner.text = "CROWNS OF THE WILDWOOD\n\nPress 1 to play the Elves (quicker on their feet)\nPress 2 to play the Humans (faster stamina and mana recovery)\n\nYou start as a plain villager. Step onto a class station in your castle to transform.\nAim with the mouse, attack with left click, Q and E for your class abilities, Shift to dodge.\nBreak the enemy door, steal their monarch and carry them to your throne.\nFirst to %d captures wins." % CAPTURES_TO_WIN
 
 
 func _process(delta: float) -> void:
@@ -208,6 +216,20 @@ func wall_post(team: int, z_side: float) -> Vector3:
 	return wall_posts[team][0 if z_side < 0.0 else 1]
 
 
+func nearest_orb(pos: Vector3, radius: float):
+	## The closest healing orb that is currently up, within radius, or null.
+	var best = null
+	var best_dist := radius
+	for orb in heal_orbs:
+		if not orb.active:
+			continue
+		var d := _flat_dist(pos, orb.global_position)
+		if d < best_dist:
+			best_dist = d
+			best = orb
+	return best
+
+
 func _update_respawn_timer() -> void:
 	if player and player.dead:
 		respawn_label.text = "You fell!\nRespawning in %d" % ceili(player.respawn_timer)
@@ -220,6 +242,18 @@ func _update_respawn_timer() -> void:
 
 func _front_x(team: int) -> float:
 	return (-1.0 if team == 0 else 1.0) * (CASTLE_X - CASTLE_DEPTH)
+
+
+func _keep_x(team: int) -> float:
+	## The keep's front wall (x).
+	return (-1.0 if team == 0 else 1.0) * (CASTLE_X - CASTLE_DEPTH + KEEP_SETBACK)
+
+
+func _inside_keep(team: int, p: Vector3) -> bool:
+	var side := -1.0 if team == 0 else 1.0
+	var kx := _keep_x(team)
+	var bx := side * (CASTLE_X + CASTLE_DEPTH)
+	return (p.x - kx) * side > 0.0 and (bx - p.x) * side > 0.0 and absf(p.z) < KEEP_HALF_Z + 0.5
 
 
 func _inside_castle(team: int, p: Vector3) -> bool:
@@ -250,27 +284,40 @@ func gate_blocking(team: int, from: Vector3, to: Vector3):
 
 func route_point(from: Vector3, to: Vector3) -> Vector3:
 	## The next place to walk toward on the way to `to`: the ramp when the goal
-	## is up on the walls, the door when a castle wall is in the way, else `to`.
+	## is up on the walls, the castle door when the outer wall is in the way,
+	## the keep's archway when the keep's walls are, else `to`.
+	var target := to
 	if to.y > 2.0 and from.y < WALK_Y - 0.2:
 		var c := 0 if to.x < 0.0 else 1
 		var ramp: Dictionary = ramps[c][0] if to.z < 0.0 else ramps[c][1]
 		if from.y < 0.5 and _flat_dist(from, ramp.bottom) > 1.2:
-			return ramp.bottom
-		return ramp.top
+			target = ramp.bottom
+		else:
+			return ramp.top
 	for c in 2:
-		if _inside_castle(c, from) != _inside_castle(c, to):
+		if _inside_castle(c, from) != _inside_castle(c, target):
 			var fx := _front_x(c)
-			return Vector3(fx + (1.8 if to.x > from.x else -1.8), 0.0, 0.0)
-	return to
+			return Vector3(fx + (1.8 if target.x > from.x else -1.8), 0.0, 0.0)
+		if _inside_keep(c, from) != _inside_keep(c, target):
+			var kx := _keep_x(c)
+			return Vector3(kx + (1.5 if target.x > from.x else -1.5), 0.0, 0.0)
+	return target
 
 
 # --- Effects -----------------------------------------------------------------
 
-func spawn_projectile(u, aim: Vector3) -> void:
+func spawn_shot(u, dir: Vector3, s: Dictionary, color: Color) -> void:
+	## An arrow, spell or bolt. `s` carries damage, gate_damage, range and
+	## optionally splash and speed (see projectile.gd).
 	var shot = Projectile.new()
 	add_child(shot)
-	var color := Color(0.95, 0.9, 0.7) if u.role == Role.RANGER else Color(0.7, 0.45, 1.0)
-	shot.setup(self, u.team, u.global_position, aim, u.stats(), color)
+	shot.setup(self, u.team, u.global_position, dir, s, color)
+
+
+func spawn_trap(u, pos: Vector3, a: Dictionary) -> void:
+	var trap = Trap.new()
+	add_child(trap)
+	trap.setup(self, u.team, Vector3(pos.x, u.global_position.y, pos.z), a)
 
 
 func spawn_burst(where: Vector3, radius: float, color: Color) -> void:
@@ -326,7 +373,7 @@ func _start_match(team: int) -> void:
 		for i in TEAM_SIZE:
 			var u = Unit.new()
 			add_child(u)
-			var spawn := Vector3(side * (CASTLE_X + 8.5), 0.0, -6.0 + i * 3.0)
+			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH - 2.5), 0.0, -5.0 + i * 2.5)
 			var is_player := t == player_team and i == 0 and not demo
 			u.setup(self, t, is_player, spawn)
 			u.bot_class = LINEUP[i][0]
@@ -336,7 +383,7 @@ func _start_match(team: int) -> void:
 				player = u
 	camera.global_position = player.global_position + CAMERA_OFFSET
 	playing = true
-	announce("WASD or left stick to move, Space to attack, Shift to dodge, E to grab or drop the monarch.")
+	announce("Move with WASD, aim with the mouse, left click to attack, Q and E for abilities, Shift to dodge, F to grab the monarch.")
 
 
 func _update_camera(delta: float) -> void:
@@ -468,6 +515,22 @@ func _add_cover() -> void:
 		_add_boulder(-p)
 
 
+func _add_heal_orbs() -> void:
+	## Healing orbs at fixed spots: the road's centre, the field's flanks, and
+	## one in each castle yard. Mirrored for fairness.
+	var spots := [Vector3(0, 0, 0), Vector3(0, 0, 16), Vector3(18, 0, -11), Vector3(37.5, 0, 0)]
+	for p in spots:
+		var orb = HealOrb.new()
+		add_child(orb)
+		orb.setup(self, p)
+		heal_orbs.append(orb)
+		if p.length() > 0.1:
+			var mirror = HealOrb.new()
+			add_child(mirror)
+			mirror.setup(self, -p)
+			heal_orbs.append(mirror)
+
+
 func _add_station(team: int, role: int, pos: Vector3) -> void:
 	stations[team][role] = pos
 	var color: Color = Stats.ROLES[role].color
@@ -532,17 +595,26 @@ func _build_castle(team: int) -> void:
 	var color: Color = Stats.FACTIONS[team].color
 	var stone := Color(0.45, 0.32, 0.2) if team == 0 else Color(0.6, 0.6, 0.62)
 	var cx := side * CASTLE_X
-	var fx := _front_x(team)                      # front wall, facing the middle
-	var bx := side * (CASTLE_X + CASTLE_DEPTH)    # back wall
+	var fx := _front_x(team)                      # outer wall's front, facing the middle
+	var bx := side * (CASTLE_X + CASTLE_DEPTH)    # outer wall's back
+	var kx := _keep_x(team)                       # the keep's front
 	var hz := CASTLE_HALF_Z
 
-	# Courtyard floor, back wall and side walls.
+	# --- The outer castle wall: a ring around the yard. ---
 	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color.darkened(0.5), false)
 	_add_block(Vector3(bx, WALL_H / 2.0, 0), Vector3(1, WALL_H, hz * 2 + 1), stone, true)
 	_add_block(Vector3(cx, WALL_H / 2.0, -hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true)
 	_add_block(Vector3(cx, WALL_H / 2.0, hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true)
+	# Battlements along the side and back walls.
+	for k in 7:
+		var zz := -hz + 1.5 + k * (hz * 2 - 3.0) / 6.0
+		_add_block(Vector3(bx, WALL_H + 0.3, zz), Vector3(1.2, 0.6, 1.0), stone.darkened(0.15), false)
+	for k in 6:
+		var xx := fx + side * (2.0 + k * (CASTLE_DEPTH * 2 - 4.0) / 5.0)
+		_add_block(Vector3(xx, WALL_H + 0.3, -hz), Vector3(1.0, 0.6, 1.2), stone.darkened(0.15), false)
+		_add_block(Vector3(xx, WALL_H + 0.3, hz), Vector3(1.0, 0.6, 1.2), stone.darkened(0.15), false)
 
-	# Front wall either side of the door, with a walkway and parapet on top.
+	# Front wall either side of the door, with the rampart walkway and parapet on top.
 	var seg := hz - Stats.DOOR_HALF
 	var zc := Stats.DOOR_HALF + seg / 2.0
 	_add_block(Vector3(fx, WALL_H / 2.0, -zc), Vector3(1, WALL_H, seg), stone, true)
@@ -553,11 +625,11 @@ func _build_castle(team: int) -> void:
 		_add_block(Vector3(fx, 2.6, z), Vector3(2.4, 5.2, 2.4), stone.darkened(0.2), true)
 		_add_block(Vector3(bx, 2.6, z), Vector3(2.4, 5.2, 2.4), stone.darkened(0.2), true)
 
-	# Ramps from the courtyard up to the walkway, one at each end of the wall.
+	# Ramps from the yard up to the walkway, one at each end of the front wall.
 	ramps.append([])
 	for zs in [-1.0, 1.0]:
 		var z: float = zs * (hz - 2.5)
-		var bottom := Vector3(fx + side * 10.0, 0.0, z)
+		var bottom := Vector3(fx + side * (KEEP_SETBACK - 1.5), 0.0, z)
 		var top := Vector3(fx + side * 1.2, WALK_Y, z)
 		_add_ramp(bottom + Vector3(0, -0.3, 0), top, 2.2, stone.lightened(0.1))
 		ramps[team].append({"bottom": bottom, "top": top})
@@ -570,17 +642,37 @@ func _build_castle(team: int) -> void:
 	gate.setup(self, team, fx)
 	gates.append(gate)
 
-	# Throne on a dais. Carry the enemy monarch here to score.
-	var throne := Vector3(cx, 0, 0)
+	# --- The keep: the building inside the wall, with an open archway. ---
+	var khz := KEEP_HALF_Z
+	var kdepth := absf(bx - kx)
+	var kcx := (kx + bx) / 2.0
+	var keep_stone := stone.lightened(0.25)
+	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), keep_stone.darkened(0.35), false)
+	_add_block(Vector3(kcx, KEEP_H / 2.0, -khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true)
+	_add_block(Vector3(kcx, KEEP_H / 2.0, khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true)
+	var kseg := khz - KEEP_DOOR_HALF
+	var kzc := KEEP_DOOR_HALF + kseg / 2.0
+	_add_block(Vector3(kx, KEEP_H / 2.0, -kzc), Vector3(0.8, KEEP_H, kseg), keep_stone, true)
+	_add_block(Vector3(kx, KEEP_H / 2.0, kzc), Vector3(0.8, KEEP_H, kseg), keep_stone, true)
+	# Arch over the doorway, well above head height.
+	_add_block(Vector3(kx, KEEP_H + 0.1, 0), Vector3(1.0, 0.7, KEEP_DOOR_HALF * 2 + 0.8), keep_stone.darkened(0.1), false)
+	for z in [-khz, khz]:
+		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.5, z), Vector3(1.6, KEEP_H + 1.0, 1.6), keep_stone.darkened(0.15), true)
+	# Banners in the team colour on the keep's front.
+	for z in [-(KEEP_DOOR_HALF + 1.2), KEEP_DOOR_HALF + 1.2]:
+		_add_block(Vector3(kx - side * 0.5, 1.8, z), Vector3(0.1, 1.6, 0.7), color, false)
+
+	# Throne on a dais inside the keep. Carry the enemy monarch here to score.
+	var throne := Vector3(kx + side * 6.0, 0, 0)
 	thrones.append(throne)
 	_add_block(throne + Vector3(side * 1.5, 0.15, 0), Vector3(3, 0.3, 4), Color(0.75, 0.6, 0.25), false)
 	_add_block(throne + Vector3(side * 2.4, 1.2, 0), Vector3(0.4, 2.0, 1.6), color.darkened(0.2), false)
 
-	# Class stations at the back of the courtyard, near the spawn.
-	_add_station(team, Role.KNIGHT, Vector3(cx + side * 2.0, 0, -8.5))
-	_add_station(team, Role.RANGER, Vector3(cx + side * 6.0, 0, -8.5))
-	_add_station(team, Role.MAGE, Vector3(cx + side * 2.0, 0, 8.5))
-	_add_station(team, Role.HEALER, Vector3(cx + side * 6.0, 0, 8.5))
+	# Class stations along the keep's side walls, near the spawn.
+	_add_station(team, Role.KNIGHT, Vector3(kx + side * 3.5, 0, -6.0))
+	_add_station(team, Role.RANGER, Vector3(kx + side * 7.5, 0, -6.0))
+	_add_station(team, Role.MAGE, Vector3(kx + side * 3.5, 0, 6.0))
+	_add_station(team, Role.HEALER, Vector3(kx + side * 7.5, 0, 6.0))
 
 	var ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()
@@ -623,6 +715,7 @@ func _build_world() -> void:
 	_build_castle(0)
 	_build_castle(1)
 	_add_cover()
+	_add_heal_orbs()
 
 	# Mirrored groves in the contested middle, leaving the road clear.
 	var grove := [Vector3(5, 0, 7), Vector3(10, 0, 12), Vector3(16, 0, 6), Vector3(8, 0, 17),
@@ -665,7 +758,7 @@ func _build_hud() -> void:
 	layer.add_child(message_label)
 
 	var help := Label.new()
-	help.text = "Move: WASD / stick   Attack: Space / A   Dodge: Shift / B   Grab or drop monarch: E / X   Change class: step on a station in your castle"
+	help.text = "Move: WASD / left stick   Aim: mouse / right stick   Attack: left click, Space / A   Abilities: Q, E / X, Y   Dodge: Shift, right click / B   Grab or drop monarch: F / RB   Class: step on a station in your castle"
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	help.position += Vector2(12, -10)
@@ -702,15 +795,22 @@ func _setup_input() -> void:
 	_add_action("move_right", [KEY_D, KEY_RIGHT], [], JOY_AXIS_LEFT_X, 1.0)
 	_add_action("move_up", [KEY_W, KEY_UP], [], JOY_AXIS_LEFT_Y, -1.0)
 	_add_action("move_down", [KEY_S, KEY_DOWN], [], JOY_AXIS_LEFT_Y, 1.0)
-	_add_action("attack", [KEY_SPACE, KEY_J], [JOY_BUTTON_A])
-	_add_action("dodge", [KEY_SHIFT, KEY_L], [JOY_BUTTON_B])
-	_add_action("interact", [KEY_E, KEY_K], [JOY_BUTTON_X])
+	_add_action("aim_left", [], [], JOY_AXIS_RIGHT_X, -1.0)
+	_add_action("aim_right", [], [], JOY_AXIS_RIGHT_X, 1.0)
+	_add_action("aim_up", [], [], JOY_AXIS_RIGHT_Y, -1.0)
+	_add_action("aim_down", [], [], JOY_AXIS_RIGHT_Y, 1.0)
+	_add_action("attack", [KEY_SPACE, KEY_J], [JOY_BUTTON_A], JOY_AXIS_TRIGGER_RIGHT, 1.0, [MOUSE_BUTTON_LEFT])
+	_add_action("ability_1", [KEY_Q], [JOY_BUTTON_X])
+	_add_action("ability_2", [KEY_E], [JOY_BUTTON_Y])
+	_add_action("dodge", [KEY_SHIFT, KEY_L], [JOY_BUTTON_B], -1, 0.0, [MOUSE_BUTTON_RIGHT])
+	_add_action("interact", [KEY_F, KEY_K], [JOY_BUTTON_RIGHT_SHOULDER])
 	_add_action("pick_elves", [KEY_1], [JOY_BUTTON_DPAD_LEFT])
 	_add_action("pick_humans", [KEY_2], [JOY_BUTTON_DPAD_RIGHT])
 	_add_action("restart", [KEY_R, KEY_ENTER], [JOY_BUTTON_START])
 
 
-func _add_action(action: StringName, keys: Array, buttons: Array, axis: int = -1, axis_value: float = 0.0) -> void:
+func _add_action(action: StringName, keys: Array, buttons: Array, axis: int = -1, axis_value: float = 0.0,
+		mouse_buttons: Array = []) -> void:
 	if InputMap.has_action(action):
 		return
 	InputMap.add_action(action, 0.25)
@@ -727,3 +827,7 @@ func _add_action(action: StringName, keys: Array, buttons: Array, axis: int = -1
 		jm.axis = axis
 		jm.axis_value = axis_value
 		InputMap.action_add_event(action, jm)
+	for button in mouse_buttons:
+		var mb := InputEventMouseButton.new()
+		mb.button_index = button
+		InputMap.action_add_event(action, mb)

@@ -119,8 +119,22 @@ func _draw_roster(team: int, origin: Vector2, right_side: bool) -> void:
 		row += 1
 
 
+func _ability_slot(origin: Vector2, a: Dictionary, remaining: float, affordable: bool) -> void:
+	var r := Rect2(origin, Vector2(52, 52))
+	draw_rect(r, Color(0.15, 0.17, 0.25, 0.95))
+	draw_rect(r, PANEL_EDGE, false, 1.5)
+	var ready := remaining <= 0.0 and affordable
+	_text(origin + Vector2(0, 34), a.key, 24, GOLD if ready else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, 52)
+	if remaining > 0.0:
+		draw_rect(Rect2(origin, Vector2(52, 52 * clampf(remaining / a.cooldown, 0.0, 1.0))), Color(0, 0, 0, 0.65))
+		_text(origin + Vector2(0, 14), "%.1f" % remaining, 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 52)
+	elif not affordable:
+		_text(origin + Vector2(0, 14), "no %s" % ("mana" if a.cost > 0 else ""), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_CENTER, 52)
+	_text(origin + Vector2(-20, 66), a.name, 11, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 92)
+
+
 func _draw_player_panel(p) -> void:
-	var w := 520.0
+	var w := 680.0
 	var rect := Rect2(size.x / 2.0 - w / 2.0, size.y - 128, w, 92)
 	_panel(rect)
 	_text(rect.position + Vector2(16, 26), p.role_name().to_upper(), 20, GOLD)
@@ -134,6 +148,13 @@ func _draw_player_panel(p) -> void:
 	_text(bar.position + Vector2(0, -6), "MANA" if is_mana else "STAMINA", 13, Color.WHITE)
 	_text(bar.position + Vector2(0, 17), "%d / %d" % [int(p.energy), int(p.energy_max())], 15, Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER, bar.size.x)
+	# Class abilities on Q and E, with their cooldowns.
+	var abil: Array = p.abilities()
+	for i in abil.size():
+		_ability_slot(rect.position + Vector2(426 + i * 66, 10), abil[i], p.ability_timers[i], p.energy >= abil[i].cost)
+	if abil.is_empty():
+		_text(rect.position + Vector2(426, 40), "Pick a class at a station", 12, Color(0.8, 0.8, 0.8))
+		_text(rect.position + Vector2(426, 58), "to unlock Q and E", 12, Color(0.8, 0.8, 0.8))
 	# Dodge: a ring that fills back up over the cooldown.
 	var center := rect.position + Vector2(w - 52, 44)
 	var ready: bool = p.dodge_cooldown <= 0.0
