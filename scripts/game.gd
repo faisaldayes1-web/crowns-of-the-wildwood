@@ -2298,7 +2298,7 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 	match role:
 		Role.KNIGHT:
 			_prop("gear/sword_1handed", pos + Vector3(-s * 0.35, 0.5, -0.25), 1.2, 0.4).rotation.x = -PI / 2.0 + 0.4
-			_prop("gear/shield_badge_color", pos + Vector3(s * 0.75, 0.55, 0.3), 1.0, 0.6)
+			_prop("gear/shield_badge_color", pos + Vector3(s * 0.8, 0.55, 0.5), 1.0, 0.6)
 		Role.RANGER:
 			_prop("gear/quiver", pos + Vector3(-s * 0.2, 0.15, 0), 1.6, 0.8).rotation.x = 0.6
 			_prop("gear/arrow_bundle", pos + Vector3(s * 0.85, 0.2, 0.45), 1.6, 0.3).rotation.x = 1.2
@@ -2315,12 +2315,15 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 # the team colour on roofs, rugs and banners. Props are placed with clearance
 # from every wall; `--audit` lists anything that still overlaps.
 
+var mossy := false   # while an elven castle is being built: ivy and moss on its stone
+
+
 func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	return _pbr("stone", 0.42, tint * Color(0.93, 0.9, 0.84))
+	return _pbr("stone_moss" if mossy else "stone", 0.42, tint * Color(0.93, 0.9, 0.84))
 
 
 func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	return _pbr("flagstone", 0.42, tint * Color(0.95, 0.92, 0.86))
+	return _pbr("flagstone_moss" if mossy else "flagstone", 0.42, tint * Color(0.95, 0.92, 0.86))
 
 
 func _timber(tint: Color = Color.WHITE) -> StandardMaterial3D:
@@ -2376,9 +2379,7 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 	roof.mesh = rm
 	roof.rotation.y = PI / 4.0
 	roof.position = pos + Vector3(0, height + 1.3, 0)
-	var roof_mat := _material(color.lightened(0.05))
-	roof_mat.roughness = 0.7
-	roof.material_override = roof_mat
+	roof.material_override = _pbr("shingle", 1.1, color.lightened(0.1))
 	add_child(roof)
 	_add_block(pos + Vector3(0, height + 0.38, 0), Vector3(width * 0.95, 0.16, width * 0.95), Color.WHITE, false, _timber(Color(0.8, 0.72, 0.62)))
 	if flag:
@@ -2532,6 +2533,7 @@ func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 func _build_castle(team: int) -> void:
 	var side := -1.0 if team == 0 else 1.0
 	var color: Color = Stats.FACTIONS[team].color
+	mossy = team == 0
 	var cx := side * CASTLE_X
 	var fx := _front_x(team)                      # outer wall's front, facing the middle
 	var bx := side * (CASTLE_X + CASTLE_DEPTH)    # outer wall's back
@@ -2687,15 +2689,12 @@ func _build_castle(team: int) -> void:
 	else:
 		for z in [-1.0, 1.0]:
 			_prop("dungeon/sword_shield", throne + Vector3(side * 5.0, 1.4, z * 4.6), 1.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
-	# Predefined defensive positions: low fences flanking the vault's front.
+	# Defensive positions for the bots: the keep's archway pillars and the
+	# gatehouse's inner corners (no fences inside the base).
 	for z in [-5.6, 5.6]:
-		_add_barricade(team, throne + Vector3(-side * 4.0, 0, z), 2.4, 0.0)
 		cover_points.append(throne + Vector3(-side * 4.0, 0, z))
-	# Outer defense: a breakable fence line across the yard behind the door,
-	# with the centre lane and the flanks left open.
-	for z in [-6.0, 6.0]:
-		_add_barricade(team, Vector3(fx + side * 5.2, 0, z), 3.5, PI / 2.0)
-		cover_points.append(Vector3(fx + side * 5.2, 0, z))
+	for z in [-(dh + 2.6), dh + 2.6]:
+		cover_points.append(Vector3(fx + side * 1.6, 0, z))
 
 	_build_cellar(team, bx, side)
 
@@ -2714,6 +2713,7 @@ func _build_castle(team: int) -> void:
 	add_child(m)
 	m.setup(team, throne, color, MONARCH_TITLES[team])
 	monarchs.append(m)
+	mossy = false
 
 
 func _build_cellar(team: int, bx: float, side: float) -> void:

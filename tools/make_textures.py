@@ -106,7 +106,9 @@ def brick_layout(rows, cols, mortar, bevel, jitter_seed=1):
 
 def make_stone():
     """Cream sandstone ashlar: big clean blocks with soft bevels and a warm
-    mortar line, the castle stone in the renders (both castles use it)."""
+    mortar line, the castle stone in the renders (both castles use it).
+    Also saves stone_moss: the same blocks with moss in the joints and ivy
+    for the elven castle."""
     height, shade = brick_layout(rows=6, cols=4, mortar=5, bevel=22)
     grain = fbm(N, 12, 4, 11)
     chips = fbm(N, 64, 2, 12)
@@ -123,7 +125,18 @@ def make_stone():
     row_v = (ys % (N / 6)) / (N / 6)
     top_edge = np.clip(1 - np.abs(row_v - 0.12) / 0.08, 0, 1) * height
     color = lerp(color, rgb(0.98, 0.94, 0.84), (top_edge * 0.35)[..., None])
+    # Weathering: a few chipped corners and faint water stains.
+    stain = np.clip((fbm(N, 5, 3, 14) - 0.55) * 4, 0, 1) * height
+    color = lerp(color, rgb(0.70, 0.62, 0.48), (stain * 0.35)[..., None])
     save("stone", color, h, 2.0)
+    # Mossy variant: moss creeping out of the joints and ivy patches.
+    moss_mask = np.clip((1 - height) * 1.2 + (fbm(N, 7, 3, 15) - 0.6) * 2.0, 0, 1) * (fbm(N, 4, 2, 16) > 0.55)
+    mossy = lerp(color, rgb(0.40, 0.58, 0.28), np.clip(moss_mask * 0.6, 0, 1)[..., None])
+    ivy = (fbm(N, 10, 3, 17) > 0.74) & (fbm(N, 3, 2, 18) > 0.58)
+    leaf_tone = lerp(rgb(0.30, 0.50, 0.22), rgb(0.52, 0.72, 0.30), fbm(N, 40, 2, 19)[..., None])
+    mossy = lerp(mossy, leaf_tone, ivy[..., None] * 0.95)
+    h_moss = h + 0.08 * ivy
+    save("stone_moss", mossy, np.clip(h_moss, 0, 1), 2.0)
 
 
 def make_cobble():
@@ -188,8 +201,45 @@ def make_flagstone():
     color = lerp(color, rgb(0.70, 0.60, 0.46), np.clip((wear - 0.55) * 3, 0, 1)[..., None] * 0.5)
     joint = rgb(0.60, 0.50, 0.37)
     color = lerp(joint, color, np.clip(height * 1.4, 0, 1)[..., None])
-    h = height * (0.92 + 0.08 * grain)
-    save("flagstone", color, h, 1.4)
+    # Cracks across a few tiles and worn, darker patches where feet pass.
+    ridge = fbm(N, 9, 3, 94)
+    crack = (np.abs(ridge - 0.5) < 0.004) & (r.random(int(ids.max()) + 1)[ids] > 0.88)
+    color = lerp(color, rgb(0.56, 0.47, 0.34), crack[..., None] * 0.7)
+    h = height * (0.92 + 0.08 * grain) - 0.15 * crack
+    save("flagstone", color, np.clip(h, 0, 1), 1.4)
+    # Mossy variant for the elven yard: moss in the joints and on worn tiles.
+    moss = np.clip((1 - height) * 1.3 + (fbm(N, 6, 3, 95) - 0.62) * 2.5, 0, 1) * (fbm(N, 3, 2, 96) > 0.5)
+    mossy = lerp(color, rgb(0.42, 0.60, 0.30), np.clip(moss * 0.6, 0, 1)[..., None])
+    save("flagstone_moss", mossy, np.clip(h, 0, 1), 1.4)
+
+
+def make_shingle():
+    """Scalloped roof shingles in light grey, tinted per team in game: rows
+    of overlapping rounded tiles with their own shade."""
+    r = np.random.default_rng(12)
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    rows = 10
+    rh = N / rows
+    row = np.floor(ys / rh)
+    cols = 8
+    cw = N / cols
+    offset = (row % 2) * cw * 0.5
+    col = np.floor((xs + offset) / cw)
+    u = ((xs + offset) % cw) / cw - 0.5
+    v = (ys % rh) / rh
+    # Each tile is a rounded tongue hanging down over the row below.
+    dome = np.clip(1 - (u * 2.0) ** 2, 0, 1)
+    tongue = np.where(v < 0.75, 1.0, np.clip((1 - v) / 0.25, 0, 1) * dome)
+    lip = np.clip(1 - np.abs(u) * 2.2, 0, 1)
+    height = tongue * (0.7 + 0.3 * lip)
+    ids = (row * 100 + col).astype(int)
+    shade = r.random(int(ids.max()) + 1)[ids]
+    grain = fbm(N, 24, 3, 97)
+    light = rgb(0.90, 0.90, 0.92)
+    dark = rgb(0.62, 0.62, 0.66)
+    color = lerp(dark, light, (0.3 + 0.7 * shade)[..., None]) * (0.9 + 0.2 * grain)[..., None]
+    color = lerp(rgb(0.40, 0.40, 0.44), color, np.clip(height * 1.5, 0, 1)[..., None])
+    save("shingle", color, height, 2.2)
 
 
 def make_wood():
@@ -212,6 +262,18 @@ def make_wood():
     dark = rgb(0.58, 0.38, 0.22)
     color = lerp(dark, light, np.clip(0.35 + 0.5 * shade + 0.25 * rings, 0, 1)[..., None])
     color = lerp(rgb(0.32, 0.20, 0.11), color, gap[..., None])
+    # Nail heads near the plank ends and a seam where boards meet.
+    seam = np.abs(((ys + offset) % (N / 2)) - N / 4) < 3
+    color = lerp(color, rgb(0.34, 0.22, 0.12), (seam * gap * 0.8)[..., None])
+    h -= seam * 0.08
+    for pi in range(planks):
+        for sy in (0.08, 0.42, 0.58, 0.92):
+            nx = (pi + 0.5) * pw
+            ny = (sy * N / 2 + offset[0, int(nx)]) % N
+            d = np.sqrt(((xs - nx + N / 2) % N - N / 2) ** 2 + ((ys - ny + N / 2) % N - N / 2) ** 2)
+            nail = np.clip(1 - d / 6, 0, 1)
+            color = lerp(color, rgb(0.30, 0.28, 0.26), (nail ** 0.5)[..., None])
+            h += nail * 0.08
     # Knots.
     for _ in range(7):
         kx, ky = r.uniform(0, N), r.uniform(0, N)
@@ -260,8 +322,14 @@ def make_grass():
         petal = d < 5
         tint = [rgb(0.98, 0.9, 0.5), rgb(0.95, 0.6, 0.7), rgb(0.55, 0.75, 1.0), rgb(0.95, 0.5, 0.6), rgb(0.9, 0.45, 0.2)][_ % 5]
         color = lerp(color, tint, petal[..., None] * 0.9)
-    h = 0.6 * fine + 0.4 * blotch
-    save("grass", color, h, 0.7)
+    # Painted blade strokes: fine streaks that lean one way.
+    sy, sx = np.mgrid[0:N, 0:N].astype(np.float64)
+    streaks = value_noise(N, 96, 57)
+    blades = np.clip((streaks - 0.6) * 4, 0, 1) * (fbm(N, 6, 2, 58) > 0.4)
+    color = lerp(color, rgb(0.62, 0.82, 0.34), blades[..., None] * 0.5)
+    color = lerp(color, rgb(0.24, 0.46, 0.18), np.clip((0.42 - blotch) * 3, 0, 1)[..., None] * 0.4)
+    h = 0.6 * fine + 0.4 * blotch + 0.2 * blades
+    save("grass", color, np.clip(h, 0, 1), 0.7)
 
 
 def make_dirt():
@@ -323,6 +391,7 @@ make_cobble()
 make_wood()
 make_bark()
 make_grass()
+make_shingle()
 make_dirt()
 make_road()
 make_water_noise()
