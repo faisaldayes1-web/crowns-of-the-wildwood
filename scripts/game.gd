@@ -2115,7 +2115,7 @@ func _add_island() -> void:
 	cm.height = 0.5
 	cm.radial_segments = 24
 	mesh.mesh = cm
-	mesh.material_override = _pbr("cobble", 0.4, Color(0.85, 0.82, 0.75))
+	mesh.material_override = _flagstone(Color(0.96, 0.93, 0.88))
 	plateau.add_child(mesh)
 	add_child(plateau)
 	# A paved ring and the shrine: a stepped dais, a gold crown on a plinth, four braziers.
@@ -2126,10 +2126,10 @@ func _add_island() -> void:
 	dm.height = 0.3
 	dais.mesh = dm
 	dais.position = Vector3(0, 0.65, 0)
-	dais.material_override = _stone(Color(0.9, 0.88, 0.8), 0.3)
+	dais.material_override = _ashlar(Color(0.95, 0.92, 0.86))
 	add_child(dais)
 	_add_collider(Vector3(0, 1.2, 0), Vector3(1.6, 1.6, 1.6))
-	_add_block(Vector3(0, 1.2, 0), Vector3(1.2, 0.9, 1.2), Color(0.8, 0.78, 0.7), false, _stone(Color(0.95, 0.9, 0.8), 0.3))
+	_add_block(Vector3(0, 1.2, 0), Vector3(1.2, 0.9, 1.2), Color.WHITE, false, _ashlar(Color(0.95, 0.92, 0.86)))
 	var crown := MeshInstance3D.new()
 	var crown_mesh := CylinderMesh.new()
 	crown_mesh.top_radius = 0.55
@@ -3002,7 +3002,7 @@ func _build_world() -> void:
 	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road)
 	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road)
 	for sx in [-1.0, 1.0]:
-		_add_block(Vector3(sx * (fxr - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.45, Color(0.9, 0.86, 0.78)))
+		_add_block(Vector3(sx * (fxr - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color.WHITE, false, _flagstone(Color(0.96, 0.93, 0.88)))
 		# The Forest Path (north) and the River Path (south): from the road by
 		# the castle door out to the flank bridges, as worn dirt tracks.
 		var dirt := _dirt()
