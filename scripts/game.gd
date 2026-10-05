@@ -297,12 +297,12 @@ func _debug_hooks() -> void:
 	## (default 900); "--debug-end" ends the match a second before that.
 	var frame := Engine.get_process_frames()
 	for arg in OS.get_cmdline_user_args():
-		if frame == shot_frame - 150 and player and arg == "--debug-banner" and banners[player_team] == null:
-			# A war banner planted in the field a couple of seconds before the shot.
-			player.facing = Vector3(0, 0, 1)
-			plant_banner(player)
-			player.global_position += Vector3(-2.6, 0, -1.8)
 		if frame == shot_frame - 5 and player:
+			if arg == "--debug-banner" and banners[player_team] == null:
+				# A war banner planted in the field beside the player (no planting flash).
+				player.facing = Vector3(0, 0, 1)
+				plant_banner(player, false)
+				player.global_position += Vector3(-2.6, 0, -1.8)
 			# Menu screenshots: open the menu a few frames before the shot.
 			if arg == "--debug-rank":
 				player.level = 3
@@ -534,7 +534,7 @@ func banner_spot_ok(team: int, pos: Vector3) -> String:
 	return ""
 
 
-func plant_banner(u) -> bool:
+func plant_banner(u, fx: bool = true) -> bool:
 	## Plant the team's war banner where `u` stands (replacing the old one).
 	if u.carrying or u.dead or overtime:
 		return false
@@ -556,10 +556,11 @@ func plant_banner(u) -> bool:
 	b.setup(self, u.team, pos, u, {})
 	banners[u.team] = b
 	banner_cooldown[u.team] = Stats.BANNER.cooldown
-	spawn_ring(pos, 2.0, Stats.FACTIONS[u.team].color, 0.6)
-	spawn_pillar(pos, Stats.FACTIONS[u.team].color, 5.0, 0.8)
-	sfx.play("turret_place", pos, 0.0)
-	sfx.play("horn", pos, -8.0)
+	if fx:
+		spawn_ring(pos, 2.0, Stats.FACTIONS[u.team].color, 0.6)
+		spawn_pillar(pos, Stats.FACTIONS[u.team].color, 5.0, 0.8)
+		sfx.play("turret_place", pos, 0.0)
+		sfx.play("horn", pos, -8.0)
 	announce("%s planted the %s war banner: fallen %s rejoin there." % [u.display_name, Stats.FACTIONS[u.team].name, Stats.FACTIONS[u.team].name])
 	chat_system("%s planted a war banner." % u.display_name)
 	if demo:
