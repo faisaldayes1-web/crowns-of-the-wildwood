@@ -1087,7 +1087,7 @@ func bubble_up(duration: float) -> void:
 	## Holy Bubble: untouchable under a dome of light for `duration` seconds.
 	guard_timer = maxf(guard_timer, duration)
 	bubble_timer = maxf(bubble_timer, duration)
-	guard_ring.visible = true
+	guard_ring.visible = false   # the dome is the visual; the blue shell on top blew out to white
 	if bubble_mesh == null:
 		bubble_mesh = MeshInstance3D.new()
 		var sph := SphereMesh.new()
@@ -1099,9 +1099,9 @@ func bubble_up(duration: float) -> void:
 		var bm := StandardMaterial3D.new()
 		# Faint and see-through, so the people inside stay readable; a thin
 		# gold ring at the equator marks the dome's edge.
-		bm.albedo_color = Color(1.0, 0.95, 0.7, 0.1)
+		bm.albedo_color = Color(1.0, 0.95, 0.7, 0.16)
 		bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		bm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		bm.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
 		bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		bm.cull_mode = BaseMaterial3D.CULL_BACK
 		bubble_mesh.material_override = bm

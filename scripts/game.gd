@@ -2398,8 +2398,9 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 	if wild and seed % 2 == 0:
 		# Wildwood palette: pale mint and lavender canopies that glow faintly.
 		var lavender: bool = seed % 4 == 0
-		leaf.set_shader_parameter("top_color", Color(0.62, 0.48, 0.85) if lavender else Color(0.45, 0.82, 0.62))
-		leaf.set_shader_parameter("bottom_color", Color(0.25, 0.15, 0.4) if lavender else Color(0.1, 0.35, 0.28))
+		# (The sun and the crown highlight brighten tops a lot, so these stay dark.)
+		leaf.set_shader_parameter("top_color", Color.from_hsv(0.75, 0.6, 0.45) if lavender else Color.from_hsv(0.42, 0.75, 0.42))
+		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.75, 0.75, 0.15) if lavender else Color.from_hsv(0.45, 0.85, 0.14))
 	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.25 if wild else 1.0)
 	var blobs := 6 if big else 4
 	var base_y: float = trunk_h * 0.8
@@ -3030,11 +3031,9 @@ func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 
 func _elf_leaf(bright: bool = false) -> StandardMaterial3D:
 	## Pale, faintly glowing wildwood foliage for the elven castle's canopies and tufts.
-	var m := _material(Color(0.45, 0.72, 0.55) if bright else Color(0.3, 0.58, 0.42))
+	# Kept saturated and mid-value: pale greens blow out to white in the sun.
+	var m := _material(Color.from_hsv(0.41, 0.6, 0.4) if bright else Color.from_hsv(0.4, 0.75, 0.3))
 	m.roughness = 0.9
-	m.emission_enabled = true
-	m.emission = Color(0.25, 0.6, 0.45)
-	m.emission_energy_multiplier = 0.18 if bright else 0.08
 	return m
 
 
@@ -3176,8 +3175,8 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 		var r := RandomNumberGenerator.new()
 		r.seed = int(pos.x * 3 + pos.z * 17)
 		var canopy := _leaf_material(r, false)
-		canopy.set_shader_parameter("top_color", Color(0.42, 0.78, 0.6))
-		canopy.set_shader_parameter("bottom_color", Color(0.1, 0.35, 0.28))
+		canopy.set_shader_parameter("top_color", Color.from_hsv(0.42, 0.7, 0.4))
+		canopy.set_shader_parameter("bottom_color", Color.from_hsv(0.45, 0.85, 0.14))
 		for i in 4:
 			var blob := MeshInstance3D.new()
 			var rr: float = width * (0.8 if i == 0 else r.randf_range(0.45, 0.6))
