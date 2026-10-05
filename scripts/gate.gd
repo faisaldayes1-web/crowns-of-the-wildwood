@@ -124,7 +124,8 @@ func _refresh() -> void:
 func _process(delta: float) -> void:
 	if not broken:
 		return
-	rebuild_timer -= delta
+	# A defender standing by the door speeds the rebuild (the interact bonus).
+	rebuild_timer -= delta * (1.0 + Stats.DEFENDER.interact if game.defender_near(team, global_position, 4.0) else 1.0)
 	if rebuild_timer <= 0.0 and not game.enemy_inside_castle(team):
 		broken = false
 		hp = Stats.GATE_HITS

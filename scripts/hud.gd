@@ -6,6 +6,7 @@ extends Control
 ## objective card bottom-right. Reskin by editing here.
 
 const Stats = preload("res://scripts/stats.gd")
+const Guide = preload("res://scripts/guide.gd")
 const Role = Stats.Role
 
 const INK := Color(0.09, 0.1, 0.15, 0.92)
@@ -41,6 +42,8 @@ var bind_buttons: Array = []      # [rect, action]
 var reset_button := Rect2()
 var options_button := Rect2()
 var close_button := Rect2()
+var difficulty_buttons: Array = []  # [rect, name] on the title screen
+var guide_buttons: Array = []       # [rect, "next" | "close" | topic index]
 
 
 func _ready() -> void:
@@ -86,6 +89,8 @@ func _draw() -> void:
 	reset_button = Rect2()
 	options_button = Rect2()
 	close_button = Rect2()
+	difficulty_buttons = []
+	guide_buttons = []
 	if not game.playing and not game.game_over:
 		_draw_title()
 		if game.menu_open:
@@ -93,11 +98,22 @@ func _draw() -> void:
 		return
 	_draw_logo(Rect2(14, 8, 200, 80))
 	_draw_scoreboard()
-	_draw_map(Rect2(14, size.y - 126, 214, 96), false)
+	_draw_map(Rect2(size.x - 254, 98, 240, 112), false)
 	_draw_objective()
+	_draw_toasts()
 	if game.player:
 		_draw_player_panel(game.player)
+	if game.stolen_timer > 0.0:
+		var a := clampf(game.stolen_timer / 0.6, 0.0, 1.0)
+		var pulse := 1.0 + 0.04 * sin(Time.get_ticks_msec() / 60.0)
+		_ribbon(Vector2(size.x / 2.0, 150), 360 * pulse, 46 * pulse, Color(0.75, 0.15, 0.1, a))
+		_icon("crown", Vector2(size.x / 2.0 - 120, 150), 12, Color(1, 0.85, 0.3, a))
+		_text(Vector2(size.x / 2.0 - 180, 160), "CROWN STOLEN!", 26, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, 360, 4)
 	_draw_chat()
+	if game.tutorial_shown and not game.demo and game.player:
+		_draw_tutorial()
+	if game.guide_open:
+		_draw_guide()
 	if game.scoreboard_open and not game.game_over:
 		_draw_scoreboard_overlay()
 	if game.rank_open and game.player:
@@ -138,7 +154,7 @@ func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHIT
 	draw_string(font, pos, text, align, width, font_size, color)
 
 
-func _paragraph(pos: Vector2, text: String, font_size: int, color: Color, width: float, line_h: float) -> float:
+func _paragraph(pos: Vector2, text: String, font_size: int, color: Color, width: float, line_h: float, outline: int = 2) -> float:
 	## Word-wrapped text. Returns the height used.
 	var lines := []
 	var line := ""
@@ -152,7 +168,7 @@ func _paragraph(pos: Vector2, text: String, font_size: int, color: Color, width:
 	if line != "":
 		lines.append(line)
 	for i in lines.size():
-		_text(pos + Vector2(0, i * line_h), lines[i], font_size, color, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(pos + Vector2(0, i * line_h), lines[i], font_size, color, HORIZONTAL_ALIGNMENT_LEFT, -1, outline)
 	return lines.size() * line_h
 
 
@@ -489,6 +505,90 @@ func _close(rect: Rect2) -> void:
 
 # --- In-match panels ---------------------------------------------------------
 
+func _draw_guide() -> void:
+	## The Wildwood Guide's conversation: a parchment speech bubble on the
+	## right with the intro pages, then the topic menu.
+	var rect := Rect2(size.x - 474, 230, 440, 150)
+	var parch := Color(0.98, 0.94, 0.84, 0.97)
+	var brown := Color(0.42, 0.28, 0.14)
+	var body: String
+	var showing_menu: bool = game.guide_page < 0 and game.guide_topic < 0
+	if game.guide_topic >= 0:
+		body = game.guide_answer(game.guide_topic)
+	elif game.guide_page >= 0:
+		body = Guide.INTRO[game.guide_page]
+	else:
+		body = "What would you like to know?"
+	var text_h := _paragraph_height(body, 14, rect.size.x - 60, 20)
+	var menu_h: float = (Guide.TOPICS.size() * 26 + 10) if showing_menu else 0.0
+	rect.size.y = 66 + text_h + menu_h + 34
+	_plate(rect, parch, brown, 12, 2)
+	# Bubble tail pointing down-left toward the guide, and the name tag.
+	draw_colored_polygon(PackedVector2Array([rect.position + Vector2(40, rect.size.y - 1), rect.position + Vector2(62, rect.size.y - 1), rect.position + Vector2(30, rect.size.y + 18)]), parch)
+	var tag := Rect2(rect.position + Vector2(14, -14), Vector2(170, 28))
+	_plate(tag, Color(0.22, 0.42, 0.22), GOLD_DARK, 8, 2)
+	_icon("guard", tag.position + Vector2(16, 14), 8, GOLD)
+	_text(tag.position + Vector2(30, 19), "Wildwood Guide", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_paragraph(rect.position + Vector2(30, 46), "\u201c" + body + "\u201d" if not showing_menu else body, 14, Color(0.15, 0.1, 0.06), rect.size.x - 60, 20, 0)
+	var y: float = rect.position.y + 46 + text_h + 8
+	if showing_menu:
+		for i in Guide.TOPICS.size():
+			var row := Rect2(rect.position.x + 24, y + i * 26 - 16, rect.size.x - 48, 24)
+			var hover: bool = row.has_point(get_local_mouse_position())
+			_plate(row, Color(0.93, 0.86, 0.7) if hover else Color(0.95, 0.9, 0.78), Color(0.75, 0.6, 0.35), 6, 1)
+			_icon("crown", row.position + Vector2(14, 12), 6, Color(0.8, 0.45, 0.12))
+			_text(row.position + Vector2(28, 17), "%d.  %s" % [i + 1, Guide.TOPICS[i][0]], 13, Color(0.2, 0.12, 0.05), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+			guide_buttons.append([row, str(i)])
+		y += menu_h
+	# Footer: Next / Back and Close.
+	var fy: float = rect.position.y + rect.size.y - 24
+	var next_label: String = "Back" if game.guide_topic >= 0 else ("Next" if game.guide_page >= 0 else "")
+	var fx: float = rect.position.x + 30
+	if next_label != "":
+		var nb := Rect2(fx, fy - 2, 120, 22)
+		_plate(nb, Color(0.3, 0.5, 0.25), GOLD_DARK, 6, 1)
+		_text(nb.position + Vector2(0, 16), "[%s]  %s" % [game.key_label("interact"), next_label], 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, nb.size.x, 2)
+		guide_buttons.append([nb, "next"])
+		fx += 130
+	var cb := Rect2(fx, fy - 2, 110, 22)
+	_plate(cb, Color(0.5, 0.3, 0.2), GOLD_DARK, 6, 1)
+	_text(cb.position + Vector2(0, 16), "[%s]  Close" % game.key_label("menu"), 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x, 2)
+	guide_buttons.append([cb, "close"])
+
+
+func _paragraph_height(text: String, font_size: int, width: float, line_h: float) -> float:
+	var lines := 1
+	var line := ""
+	for word in text.split(" "):
+		var trial := word if line == "" else line + " " + word
+		if _text_width(trial, font_size) > width and line != "":
+			lines += 1
+			line = word
+		else:
+			line = trial
+	return lines * line_h
+
+
+func _draw_tutorial() -> void:
+	## HOW TO WIN: a small checklist under the logo until the first capture.
+	var steps := ["Leave your castle", "Fight for the center", "Break the enemy gate", "Reach the Crown Vault",
+		"Open the Crown Chest", "Steal the Crown", "Return it to your throne", "Capture twice to win"]
+	var rect := Rect2(14, 100, 200, 30 + steps.size() * 18)
+	_plate(rect, INK, GOLD_DARK, 8, 1)
+	_icon("crown", rect.position + Vector2(16, 15), 7, GOLD)
+	_text(rect.position + Vector2(30, 20), "HOW TO WIN", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in steps.size():
+		var done: bool = game.tutorial[i]
+		var y: float = rect.position.y + 38 + i * 18
+		var box := Rect2(rect.position.x + 12, y - 9, 11, 11)
+		draw_rect(box, Color(0.3, 0.6, 0.3) if done else Color(0.2, 0.2, 0.26))
+		draw_rect(box, GOLD_DARK, false, 1.0)
+		if done:
+			draw_line(box.position + Vector2(2, 6), box.position + Vector2(5, 9), CREAM, 2.0)
+			draw_line(box.position + Vector2(5, 9), box.position + Vector2(10, 2), CREAM, 2.0)
+		_text(Vector2(rect.position.x + 30, y + 1), steps[i], 11, GREY if done else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
 func _draw_scoreboard() -> void:
 	var cx := size.x / 2.0
 	for t in 2:
@@ -544,13 +644,28 @@ func _draw_roster(team: int, origin: Vector2) -> void:
 		row += 1
 
 
+func _draw_toasts() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var y := 100.0
+	for t in game.toasts:
+		var age: float = now - t.time
+		if age > 2.6:
+			continue
+		var a := clampf((2.6 - age) / 0.5, 0.0, 1.0)
+		var w := _text_width(t.text, 12) + 28
+		var r := Rect2(size.x / 2.0 - w / 2.0, y, w, 22)
+		_plate(r, Color(0.05, 0.06, 0.1, 0.8 * a), Color(t.color.r, t.color.g, t.color.b, 0.8 * a), 6, 1)
+		_text(r.position + Vector2(0, 16), t.text, 12, Color(t.color.r, t.color.g, t.color.b, a), HORIZONTAL_ALIGNMENT_CENTER, w, 2)
+		y += 26
+
+
 func _draw_objective() -> void:
-	var rect := Rect2(size.x - 254, size.y - 128, 240, 108)
+	var rect := Rect2(size.x - 254, size.y - 146, 240, 126)
 	_plate(rect, INK, GOLD_DARK, 10, 2)
 	_icon("flag", rect.position + Vector2(20, 20), 9, RED)
 	_text(rect.position + Vector2(36, 25), "CAPTURE THE CROWN", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	draw_line(rect.position + Vector2(12, 34), rect.position + Vector2(228, 34), GOLD_DARK, 1.0)
-	var lines := ["Break the enemy castle door", "Carry their monarch to your throne",
+	var lines := ["Break the enemy castle door", "Break the lock on their Crown Vault", "Carry their monarch to your throne",
 		"First to %d captures wins" % Stats.CAPTURES_TO_WIN]
 	for i in lines.size():
 		var y := 54 + i * 18
@@ -580,6 +695,17 @@ func _draw_player_panel(p) -> void:
 	# Name, hearts and energy.
 	var x := rect.position.x + 110
 	_text(Vector2(x, rect.position.y + 28), p.role_name().to_upper(), 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	# Defender and spawn-protection indicators, left of the panel.
+	if p.spawn_protect > 0.0 and not p.dead:
+		var sp := Rect2(rect.position + Vector2(-8, -30), Vector2(150, 24))
+		_plate(sp, Color(0.1, 0.25, 0.4, 0.95), Color(0.6, 0.85, 1.0), 8, 1)
+		_icon("guard", sp.position + Vector2(14, 12), 7, Color.WHITE)
+		_text(sp.position + Vector2(26, 17), "SPAWN PROTECTED  %d" % ceili(p.spawn_protect), 10, Color(0.85, 0.95, 1.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	elif p.home_defense and not p.dead:
+		var hd := Rect2(rect.position + Vector2(-8, -30), Vector2(132, 24))
+		_plate(hd, Color(0.1, 0.2, 0.35, 0.9), Color(0.5, 0.7, 1.0), 8, 1)
+		_icon("guard", hd.position + Vector2(14, 12), 7, Color.WHITE)
+		_text(hd.position + Vector2(26, 17), "DEFENDING HOME", 10, Color(0.8, 0.9, 1.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var name_w := _text_width(p.role_name().to_upper(), 20)
 	_text(Vector2(x + name_w + 10, rect.position.y + 28),
 		Stats.FACTIONS[p.team].name.to_upper(), 11, _team_color(p.team).lightened(0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -601,6 +727,14 @@ func _draw_player_panel(p) -> void:
 		var badge := Rect2(rect.position + Vector2(236, 4), Vector2(112, 22))
 		_plate(badge, Color(0.55, 0.4, 0.05, pulse), GOLD, 6, 1)
 		_text(badge.position + Vector2(0, 16), "%s  RANK UP  +%d" % [game.key_label("rank_menu"), p.points], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, badge.size.x, 2)
+	if p.veteran > 0 and not p.dead:
+		var vb := Rect2(rect.position + Vector2(rect.size.x - 236, -30), Vector2(224, 26))
+		var vc := Color(1.0, 0.55, 0.2) if p.veteran == 2 else Color(1.0, 0.85, 0.3)
+		_plate(vb, vc.darkened(0.7), vc, 8, 2)
+		_icon("crown" if p.veteran == 2 else "xp", vb.position + Vector2(16, 13), 8, Color.WHITE)
+		_text(vb.position + Vector2(30, 18), ("ELITE VETERAN · BOUNTY ON YOU" if p.veteran == 2 else "VETERAN") + "  ·  %d streak" % p.streak, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	elif p.streak >= 2 and not p.dead:
+		_text(rect.position + Vector2(rect.size.x - 12, -8), "%d kill streak" % p.streak, 10, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, -1, 2)
 	# Slots: attack, Q, E, dodge, block (shield classes), grab.
 	var abil: Array = p.abilities()
 	var sx := rect.position.x + 352
@@ -669,8 +803,10 @@ func _draw_xp_bar(p, bar: Rect2) -> void:
 # --- Map ---------------------------------------------------------------------
 
 func _draw_map(rect: Rect2, detailed: bool) -> void:
-	## The valley from above: castles, keeps, doors, road, orbs, everyone's
-	## position. The minimap and the menu's overview share this.
+	## The valley from above: forest, the river with its bridges and the Crown
+	## Shrine island, roads and paths, ruins, castles with their cellars,
+	## doors, potions, blessings, and everyone the team can see. Enemies show
+	## only near a teammate, except Elite Veterans, who are always revealed.
 	var hx: float = game.map_half.x
 	var hz: float = game.map_half.y
 	_plate(rect, GRASS.darkened(0.2), GOLD_DARK, 8, 2)
@@ -681,22 +817,37 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 	var sx: float = inner.size.x / (2.0 * hx)
 	var sz: float = inner.size.y / (2.0 * hz)
 	var fx: float = game.CASTLE_X - game.CASTLE_DEPTH
-	# Road and worn patches.
-	draw_rect(Rect2(m.call(Vector3(-fx, 0, -2)), Vector2(2.0 * fx * sx, 4.0 * sz)), DIRT)
-	draw_rect(Rect2(m.call(Vector3(-6, 0, -6)), Vector2(12 * sx, 12 * sz)), DIRT)
-	# Groves (only on the big map).
-	if detailed:
-		for p in [Vector3(5, 0, 7), Vector3(10, 0, 12), Vector3(16, 0, 6), Vector3(8, 0, 17), Vector3(19, 0, 15),
-				Vector3(23, 0, 10), Vector3(3, 0, 13), Vector3(14, 0, 19), Vector3(27, 0, 14)]:
-			for q in [p, -p]:
-				draw_circle(m.call(q), 2.2 * sx, LEAF.darkened(0.2))
-		for p in [Vector3(38, 0, 17), Vector3(46, 0, 19), Vector3(52, 0, 16), Vector3(34, 0, 22)]:
-			for q in [p, -p, Vector3(p.x, 0, -p.z), Vector3(-p.x, 0, p.z)]:
-				draw_circle(m.call(q), 3.0 * sx, LEAF.darkened(0.3))
+	var pt := Time.get_ticks_msec() / 1000.0
+	# Forest.
+	for t in game.map_trees:
+		var r: float = (2.6 if t.y > 0.5 else 1.8) * sx
+		if detailed:
+			draw_circle(m.call(t) + Vector2(1, 1), r, Color(0, 0, 0, 0.2))
+		draw_circle(m.call(t), r, LEAF.darkened(0.25 if t.y > 0.5 else 0.1))
+	# Paths and the road.
+	for p in game.map_paths:
+		var a: Vector2 = m.call(p[0])
+		var b: Vector2 = m.call(p[1])
+		draw_line(a, b, DIRT, maxf(p[2] * sx, 1.5))
+	# Ruins and the shrine.
+	for mark in game.map_marks:
+		var c: Vector2 = m.call(mark[0])
+		if mark[1] == "ruin":
+			draw_rect(Rect2(c - Vector2(3.5, 2.5) * sx, Vector2(7, 5) * sx), Color(0.62, 0.6, 0.56))
+	# The river, the island and the bridges.
+	draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF, 0, -hz)), Vector2(2.0 * game.RIVER_HALF * sx, 2.0 * hz * sz)), Color(0.25, 0.5, 0.8))
+	draw_circle(m.call(Vector3.ZERO), game.ISLAND_R * sx, Color(0.75, 0.72, 0.64))
+	for i in game.BRIDGES.size():
+		if i == 1:
+			continue
+		var bz: float = game.BRIDGES[i]
+		var half: float = game.BRIDGE_HALF[i]
+		draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF - 1.0, 0, bz - half)), Vector2((2.0 * game.RIVER_HALF + 2.0) * sx, 2.0 * half * sz)), Color(0.6, 0.45, 0.3))
+	_crown(m.call(Vector3.ZERO), 0.4 if not detailed else 0.8)
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
 		var tc := _team_color(t)
-		var ox: float = side * (game.CASTLE_X - game.CASTLE_DEPTH)
+		var ox: float = side * fx
 		var bx: float = side * (game.CASTLE_X + game.CASTLE_DEPTH)
 		var outer := Rect2(m.call(Vector3(minf(ox, bx), 0, -game.CASTLE_HALF_Z)),
 			Vector2(2.0 * game.CASTLE_DEPTH * sx, 2.0 * game.CASTLE_HALF_Z * sz))
@@ -706,6 +857,11 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		var keep := Rect2(m.call(Vector3(minf(kx, bx), 0, -game.KEEP_HALF_Z)),
 			Vector2(absf(bx - kx) * sx, 2.0 * game.KEEP_HALF_Z * sz))
 		draw_rect(keep, tc.darkened(0.3))
+		# The spawn cellar behind the keep.
+		var cx: float = bx + side * game.CELLAR_DEPTH
+		var cellar := Rect2(m.call(Vector3(minf(bx, cx), 0, -game.CELLAR_HALF_Z)), Vector2(game.CELLAR_DEPTH * sx, 2.0 * game.CELLAR_HALF_Z * sz))
+		draw_rect(cellar, tc.darkened(0.7))
+		draw_rect(cellar, tc.darkened(0.2), false, 1.0)
 		# Door: gold while standing, red once broken.
 		var gate = game.gates[t]
 		var door_color: Color = RED if gate.broken else GOLD
@@ -713,6 +869,7 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
 		if detailed:
 			_text(outer.position + Vector2(0, -6), "%s CASTLE" % Stats.FACTIONS[t].name.to_upper(), 11, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, outer.size.x, 2)
+			_text(cellar.position + Vector2(0, cellar.size.y + 12), "SPAWN", 9, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, cellar.size.x, 2)
 	# Potions that are up, and any Blessing of Light on the field.
 	for orb in game.heal_orbs:
 		if orb.active:
@@ -721,32 +878,39 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		if is_instance_valid(b):
 			var bc: Vector2 = m.call(b.global_position)
 			var br := 4.0 if not detailed else 7.0
-			draw_circle(bc, br + 2.0, Color(1.0, 0.9, 0.5, 0.35 + 0.25 * sin(Time.get_ticks_msec() / 150.0)))
+			draw_circle(bc, br + 2.0, Color(1.0, 0.9, 0.5, 0.35 + 0.25 * sin(pt * 6.0)))
 			_icon("xp", bc, br, GOLD)
-	# Everyone.
+	# Everyone we can see. Enemies show within 22 m of a living teammate;
+	# Elite Veterans always show, with a pulsing bounty ring.
+	var my_team: int = game.player_team
+	var allies: Array = game.units.filter(func(u): return u.team == my_team and not u.dead)
 	for u in game.units:
 		if u.dead:
 			continue
 		var c: Vector2 = m.call(u.global_position)
 		var r := 3.0 if not detailed else 5.0
+		var enemy: bool = u.team != my_team
+		if enemy and u.veteran < 2 and u.carrying == null:
+			var seen := false
+			for a in allies:
+				if game._flat_dist(a.global_position, u.global_position) < 22.0:
+					seen = true
+					break
+			if not seen:
+				continue
 		if u.is_player:
 			draw_circle(c, r + 2.5, Color(1, 1, 0.3))
 			var d := Vector2(u.facing.x, u.facing.z) * (r + 6.0)
 			draw_line(c, c + d, Color(1, 1, 0.3), 2.0)
-		var dot := Color(1.0, 0.25, 0.2) if u.team != game.player_team else Color(0.3, 1.0, 0.45)
+		if u.veteran >= 2:
+			draw_arc(c, r + 3.0 + 1.5 * sin(pt * 5.0), 0, TAU, 16, Color(1, 0.3, 0.2) if enemy else GOLD, 2.0)
+		elif u.veteran == 1:
+			draw_arc(c, r + 2.0, 0, TAU, 12, Color(0.95, 0.75, 0.3), 1.5)
+		var dot := Color(1.0, 0.25, 0.2) if enemy else Color(0.3, 1.0, 0.45)
 		draw_circle(c, r, dot)
 		draw_arc(c, r, 0, TAU, 12, Color(0, 0, 0, 0.6), 1.0)
 		if u.carrying:
-			_crown(c + Vector2(0, -r - 5), 0.5)
-	# Monarchs out of their thrones.
-	for mon in game.monarchs:
-		if mon.state != mon.State.HOME and mon.state != mon.State.CARRIED:
-			_crown(m.call(mon.global_position), 0.6, Color(1, 0.5, 0.3))
-	if detailed:
-		_text(m.call(Vector3(0, 0, -hz + 2.5)), "CENTRAL CROSSING", 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 0, 2)
-
-
-# --- Rank menu ---------------------------------------------------------------
+			_crown(c + Vector2(0, -r - 4), 0.35 if not detailed else 0.6)
 
 func _rank_desc(p, track: int) -> String:
 	var r: int = p.rank(track)
@@ -865,8 +1029,8 @@ func _menu_overview(body: Rect2) -> void:
 	var map_rect := Rect2(body.position + Vector2(0, 26), Vector2(body.size.x, body.size.x * 26.0 / 58.0))
 	_draw_map(map_rect, true)
 	var y := map_rect.end.y + 22
-	var legend := [["Yellow ring: you", Color(1, 1, 0.3)], ["Red dots: health potions", Color(1.0, 0.35, 0.4)], ["Gold stars: blessings", GOLD],
-		["Gold line: standing door", GOLD], ["Red line: broken door", RED]]
+	var legend := [["Yellow ring: you", Color(1, 1, 0.3)], ["Red: enemies seen by your team", Color(1.0, 0.25, 0.2)], ["Red dots: potions", Color(1.0, 0.35, 0.4)], ["Gold stars: blessings", GOLD],
+		["Pulsing ring: Elite Veteran bounty", Color(1, 0.5, 0.3)], ["Gold line: door", GOLD]]
 	for i in legend.size():
 		var x: float = body.position.x + 10 + i * (body.size.x / legend.size())
 		draw_circle(Vector2(x, y - 4), 5, legend[i][1])
@@ -1118,6 +1282,10 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 					_icon(u.variant().get("icon", _class_icon(u.role)), Vector2(block.position.x + 12 + cols[1][1] * scale - 10, ry + 9), 5, Color.WHITE)
 			if u.is_player:
 				values[0] = values[0] + "  (you)"
+			if u.veteran == 2:
+				values[0] = "☠ " + values[0]
+			elif u.veteran == 1:
+				values[0] = "★ " + values[0]
 			for c in cols.size():
 				_text(Vector2(block.position.x + 12 + cols[c][1] * scale, ry + 13), values[c], 11, col if c != score_col else XP, cols[c][2], 40 if cols[c][2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
 			if u.carrying:
@@ -1127,9 +1295,12 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 
 func _draw_chat() -> void:
 	## The chat log over the minimap, and the input line while typing.
-	var rect := Rect2(14, 300, 240, size.y - 140 - 300 - 6)
+	var rect := Rect2(14, size.y - 126 - 236, 262, 236)
 	var now := Time.get_ticks_msec() / 1000.0
 	var typing: bool = game.chat_open
+	if not game.chat_visible and not typing:
+		_text(Vector2(14, size.y - 132), "%s shows chat" % game.key_label("chat_toggle"), 9, Color(0.7, 0.7, 0.75, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+		return
 	var input_h := 26.0 if typing else 0.0
 	var lines: Array = []
 	for i in range(game.chat_log.size() - 1, -1, -1):
@@ -1173,20 +1344,7 @@ func _draw_chat() -> void:
 			shown = shown.substr(1)
 		_text(box.position + Vector2(5, 14), "> " + shown + caret, 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
 		_text(rect.position + Vector2(8, 12), "TEAM CHAT  ·  Enter sends  ·  Esc cancels", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_text(rect.position + Vector2(8, 23), "/all talks to both teams", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-
-
-func _paragraph_height(text: String, font_size: int, width: float, line_h: float) -> float:
-	var lines := 1
-	var line := ""
-	for word in text.split(" "):
-		var trial := word if line == "" else line + " " + word
-		if _text_width(trial, font_size) > width and line != "":
-			lines += 1
-			line = word
-		else:
-			line = trial
-	return lines * line_h
+		_text(rect.position + Vector2(8, 23), "/all talks to both teams  ·  %s hides the log" % game.key_label("chat_toggle"), 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 # --- Title and end screens -----------------------------------------------------
@@ -1212,19 +1370,31 @@ func _draw_title() -> void:
 	_text(Vector2(cx - 300, 264), "CHOOSE YOUR SIDE", 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
 	_faction_card(Rect2(cx - 330, 280, 300, 226), 0, "1", "D-pad left", "Quicker on their feet")
 	_faction_card(Rect2(cx + 30, 280, 300, 226), 1, "2", "D-pad right", "Recover stamina and mana faster")
-	var rect := Rect2(cx - 330, 520, 660, 92)
+	# Bot difficulty: click, or Left/Right.
+	var drow := Rect2(cx - 330, 514, 660, 30)
+	_plate(drow, INK, GOLD_DARK, 8, 1)
+	_text(drow.position + Vector2(12, 20), "BOTS", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in Stats.BOT_DIFFICULTIES.size():
+		var name: String = Stats.BOT_DIFFICULTIES[i]
+		var b := Rect2(drow.position + Vector2(60 + i * 84, 4), Vector2(78, 22))
+		var on: bool = game.bot_difficulty == name
+		_plate(b, Color(0.5, 0.38, 0.08, 0.95) if on else INK_LIGHT, GOLD if on else Color(0.3, 0.3, 0.38), 6, 1)
+		_text(b.position + Vector2(0, 16), name.to_upper(), 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+		difficulty_buttons.append([b, name])
+	_text(drow.position + Vector2(318, 20), Stats.BOT_TUNING[game.bot_difficulty].desc, 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var rect := Rect2(cx - 330, 550, 660, 86)
 	_plate(rect, INK, GOLD_DARK, 10, 2)
-	_text(rect.position + Vector2(0, 22), "HOW TO PLAY", 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, 20), "HOW TO PLAY", 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 	var lines := [
 		"Move WASD  ·  Aim with the mouse  ·  %s attacks  ·  %s blocks  ·  %s dodges  ·  %s grabs the monarch" % [
 			game.key_label("attack"), game.key_label("block"), game.key_label("dodge"), game.key_label("interact")],
 		"%s and %s are class abilities  ·  %s perks and promotions  ·  hold %s for the scoreboard  ·  %s chats  ·  Esc pauses" % [
 			game.key_label("ability_1"), game.key_label("ability_2"), game.key_label("rank_menu"), game.key_label("scoreboard"), game.key_label("chat")],
-		"You spawn as a villager: step on a class station in your keep to become a Knight, Ranger, Mage or Healer.",
+		"You spawn in your castle's cellar: step on a class station there, climb the stairs and head out. %s hides the chat." % game.key_label("chat_toggle"),
 	]
 	for i in lines.size():
-		_text(rect.position + Vector2(0, 44 + i * 18), lines[i], 12, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	options_button = Rect2(cx - 110, 626, 220, 30)
+		_text(rect.position + Vector2(0, 40 + i * 17), lines[i], 12, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	options_button = Rect2(cx - 110, 646, 220, 30)
 	_plate(options_button, INK_LIGHT, GOLD, 8, 2)
 	_text(options_button.position + Vector2(0, 20), "OPTIONS AND CONTROLS  (%s)" % game.key_label("options"), 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, options_button.size.x, 2)
 

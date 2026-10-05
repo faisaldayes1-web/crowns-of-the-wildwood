@@ -218,12 +218,19 @@ func _physics_process(delta: float) -> void:
 	if hit:
 		global_position = hit.position
 		var gate = game.gates[1 - team]
+		var vault = game.vaults[1 - team]
 		if hit.collider == gate:
 			gate.take_hit(gate_damage, owner_unit)
+		elif hit.collider == vault:
+			vault.take_hit(gate_damage, owner_unit)
 		_burst()
 		return
 
 	global_position = after
+	# Nothing reaches into the enemy's spawn sanctuary.
+	if game._in_cellar(1 - team, Vector3(after.x, -1.0, after.z)):
+		queue_free()
+		return
 	life -= delta
 	if life <= 0.0:
 		_burst()
@@ -258,7 +265,7 @@ func _burst() -> void:
 				continue
 			var offset: Vector3 = unit.global_position - global_position
 			offset.y = 0.0
-			if offset.length() < splash:
+			if offset.length() < splash and not unit.is_protected():
 				unit.take_damage(damage, owner_unit, global_position, Stats.KNOCK_SPLASH, effect)
 		var ground := Vector3(global_position.x, 0.0, global_position.z)
 		if fire:

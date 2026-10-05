@@ -246,6 +246,32 @@ def make_dirt():
     save("dirt", color, np.clip(h, 0, 1), 1.5)
 
 
+def make_road():
+    """A packed-earth road with flat paving stones half sunk into it, wheel
+    ruts, pebbles and grass creeping in at the edges."""
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    base = fbm(N, 6, 4, 81)
+    v = ys / N
+    rut = np.exp(-((v - 0.36) ** 2) / 0.0015) + np.exp(-((v - 0.64) ** 2) / 0.0015)
+    rut = rut * (0.7 + 0.3 * fbm(N, 3, 2, 82))
+    earth_light = rgb(0.70, 0.58, 0.40)
+    earth_dark = rgb(0.46, 0.36, 0.24)
+    color = lerp(earth_dark, earth_light, np.clip(base * 1.3, 0, 1)[..., None])
+    color = lerp(color, rgb(0.38, 0.30, 0.20), np.clip(rut * 0.8, 0, 1)[..., None])
+    # Paving stones: a cellular pattern from thresholded, blurred noise.
+    cells = fbm(N, 14, 2, 83)
+    edges = np.abs(np.gradient(cells)[0]) + np.abs(np.gradient(cells)[1])
+    stone_mask = (edges < 0.004) & (fbm(N, 5, 2, 84) > 0.42) & (np.abs(v - 0.5) < 0.34)
+    stone_tone = lerp(rgb(0.58, 0.56, 0.50), rgb(0.74, 0.70, 0.62), fbm(N, 20, 2, 85)[..., None])
+    color = lerp(color, stone_tone, stone_mask[..., None] * 0.9)
+    pebbles = fbm(N, 90, 2, 86) > 0.8
+    color = lerp(color, rgb(0.66, 0.62, 0.56), pebbles[..., None] * 0.7)
+    edge = np.clip((np.abs(v - 0.5) - 0.3) / 0.1, 0, 1) * (fbm(N, 10, 3, 87) > 0.42)
+    color = lerp(color, rgb(0.44, 0.60, 0.27), edge[..., None] * 0.9)
+    h = 0.45 * base + 0.45 * stone_mask + 0.25 * pebbles - 0.3 * rut + 0.15 * edge
+    save("road", color, np.clip(h, 0, 1), 1.8)
+
+
 def make_water_noise():
     n = fbm(N // 2, 6, 4, 71)
     Image.fromarray((n * 255).astype(np.uint8)).save(f"{OUT}/water_noise.png")
@@ -259,4 +285,5 @@ make_wood()
 make_bark()
 make_grass()
 make_dirt()
+make_road()
 make_water_noise()

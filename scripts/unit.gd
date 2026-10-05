@@ -51,6 +51,17 @@ var buff := ""              # Blessing of Light in effect
 var buff_timer := 0.0
 var regen_tick := 0.0
 var highlighted := false     # under the local player's aim
+var streak := 0              # kills without dying
+var spawn_protect := 0.0     # seconds of spawn protection left
+var home_defense := false    # inside our own castle: the defender bonus
+var home_timer := 0.0
+var resist_pool := 0.0
+var heal_pool := 0.0
+var carry_fx: Node3D
+var veteran := 0             # 0 nobody, 1 Veteran, 2 Elite Veteran (bounty)
+var bounty_ring: MeshInstance3D
+var bounty_ring_mat: StandardMaterial3D
+var bounty_beam: MeshInstance3D
 var blob_mat: StandardMaterial3D
 
 # Experience this life. Levels give rank points; ranks are kept per class so
@@ -73,8 +84,12 @@ var last_mouse := Vector2(-1, -1)
 # Bots: "attack" raids the enemy castle, "wall" shoots from the ramparts over
 # the door, "support" follows a raider (healers), "defend" guards the throne.
 var bot_job := "attack"
+var base_job := "attack"   # the lineup job the planner falls back to
+var job_target := Vector3.INF
+var cover_spot := Vector3.INF
 var bot_class: int = Role.KNIGHT
 var bot_offset := Vector3.ZERO
+var cluster := 0   # enemies bunched around the bot's current target
 var bot_block_timer := 0.0
 var stuck_time := 0.0
 var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
@@ -99,6 +114,7 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	is_player = p_is_player
 	spawn_point = p_spawn
 	position = p_spawn
+	spawn_protect = Stats.SPAWN_PROTECT_TIME
 	facing = Vector3(1, 0, 0) if team == 0 else Vector3(-1, 0, 0)
 	aim = facing
 	rotation.y = atan2(-facing.x, -facing.z)
@@ -215,6 +231,70 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 		heart.material_override = mat
 		heart_mats.append(mat)
 		overhead.add_child(heart)
+	# Veteran marker: a ring over the head, and a beam of light for an Elite so
+	# everyone can see where the bounty is.
+	bounty_ring = MeshInstance3D.new()
+	var ring_mesh2 := TorusMesh.new()
+	ring_mesh2.inner_radius = 0.42
+	ring_mesh2.outer_radius = 0.52
+	bounty_ring.mesh = ring_mesh2
+	bounty_ring.rotation.x = PI / 2.0
+	bounty_ring.position.y = 0.72
+	bounty_ring_mat = StandardMaterial3D.new()
+	bounty_ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bounty_ring_mat.no_depth_test = true
+	bounty_ring_mat.albedo_color = Color(1, 0.3, 0.2)
+	bounty_ring.material_override = bounty_ring_mat
+	bounty_ring.visible = false
+	overhead.add_child(bounty_ring)
+	bounty_beam = MeshInstance3D.new()
+	var beam := CylinderMesh.new()
+	beam.top_radius = 0.12
+	beam.bottom_radius = 0.35
+	beam.height = 9.0
+	bounty_beam.mesh = beam
+	bounty_beam.position.y = 6.5
+	var beam_mat := StandardMaterial3D.new()
+	beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	beam_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	beam_mat.albedo_color = Color(1, 0.3, 0.2, 0.35)
+	beam_mat.no_depth_test = true
+	bounty_beam.material_override = beam_mat
+	bounty_beam.visible = false
+	add_child(bounty_beam)
+	# The crown carrier's glow: a gold light and rising sparks, shown while carrying.
+	carry_fx = Node3D.new()
+	var cl := OmniLight3D.new()
+	cl.light_color = Color(1.0, 0.8, 0.3)
+	cl.light_energy = 1.6
+	cl.omni_range = 5.0
+	cl.position.y = 2.2
+	carry_fx.add_child(cl)
+	var cp := CPUParticles3D.new()
+	cp.amount = 24
+	cp.lifetime = 1.2
+	cp.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	cp.emission_sphere_radius = 0.7
+	cp.direction = Vector3.UP
+	cp.initial_velocity_min = 0.8
+	cp.initial_velocity_max = 1.6
+	cp.gravity = Vector3(0, 0.5, 0)
+	cp.scale_amount_min = 0.06
+	cp.scale_amount_max = 0.14
+	cp.color = Color(1.0, 0.85, 0.35)
+	cp.position.y = 0.4
+	var cpm := StandardMaterial3D.new()
+	cpm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cpm.vertex_color_use_as_albedo = true
+	cpm.albedo_color = Color(1.0, 0.85, 0.35)
+	var cpq := QuadMesh.new()
+	cpq.size = Vector2(1, 1)
+	cpq.material = cpm
+	cp.mesh = cpq
+	carry_fx.add_child(cp)
+	carry_fx.visible = false
+	add_child(carry_fx)
 
 	set_role(Role.BASE)
 
@@ -305,7 +385,7 @@ func abilities() -> Array:
 
 func set_role(new_role: int) -> void:
 	role = new_role
-	hearts = Stats.MAX_HEARTS
+	hearts = max_hearts()
 	energy = energy_max()
 	ability_timers = [0.0, 0.0]
 	blocking = false
@@ -316,6 +396,29 @@ func set_role(new_role: int) -> void:
 	model.setup(team, role, variant().get("name", ""))
 	flash_mats = model.flash_mats
 	_apply_side_colors()
+	_refresh_overhead()
+
+
+func is_protected() -> bool:
+	## Spawn protection, or standing in our own cellar (the sanctuary).
+	return spawn_protect > 0.0 or game._in_cellar(team, global_position)
+
+
+func max_hearts() -> int:
+	return Stats.MAX_HEARTS + (Stats.ELITE_HEARTS_BONUS if veteran >= 2 else 0)
+
+
+func _check_veteran() -> void:
+	## Called after a kill: streaks make Veterans, long ones Elite Veterans.
+	if streak >= Stats.ELITE_STREAK and veteran < 2:
+		veteran = 2
+		hearts = mini(hearts + Stats.ELITE_HEARTS_BONUS, max_hearts())
+		game.announce_veteran(self, 2)
+		game.spawn_pillar(global_position, Color(1.0, 0.5, 0.2), 8.0, 1.5)
+	elif streak >= Stats.VETERAN_STREAK and veteran < 1:
+		veteran = 1
+		game.announce_veteran(self, 1)
+		game.spawn_ring(global_position, 2.5, Color(1.0, 0.8, 0.3), 0.8)
 	_refresh_overhead()
 
 
@@ -364,11 +467,23 @@ func apply_blessing(kind: String) -> void:
 func _refresh_overhead() -> void:
 	var tag := "YOU · " if is_player else ""
 	var lvl := ("  ★%d" % level) if level > 1 else ""
-	label.text = tag + role_name() + lvl
+	var vet := ""
+	if veteran == 2:
+		vet = "BOUNTY · "
+	elif veteran == 1:
+		vet = "VETERAN · "
+	label.text = vet + tag + role_name() + lvl
 	if is_player:
 		label.modulate = Color(1, 1, 0.6)
 	else:
 		label.modulate = Color(1.0, 0.7, 0.65) if is_enemy_of_player() else Color(0.7, 1.0, 0.75)
+	if veteran == 2:
+		label.modulate = Color(1.0, 0.45, 0.3) if is_enemy_of_player() else Color(1.0, 0.85, 0.4)
+	if bounty_ring:
+		bounty_ring.visible = veteran >= 1 and not dead
+		bounty_ring_mat.albedo_color = (Color(1, 0.3, 0.2) if is_enemy_of_player() else Color(1, 0.85, 0.3)) if veteran == 2 else Color(0.95, 0.75, 0.3)
+		bounty_beam.visible = veteran == 2 and not dead
+		bounty_beam.material_override.albedo_color = Color(1, 0.3, 0.2, 0.3) if is_enemy_of_player() else Color(1, 0.85, 0.3, 0.25)
 	for i in heart_mats.size():
 		heart_mats[i].albedo_color = Color(0.95, 0.15, 0.2) if i < hearts else Color(0.2, 0.2, 0.2)
 
@@ -499,6 +614,10 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	## `effect` can carry slow / root seconds.
 	if dead or dodge_timer > 0.0 or guard_timer > 0.0:
 		return false  # mid-dodge or behind the shield wall: untouchable
+	if is_protected():
+		if attacker and attacker.is_player:
+			game.spawn_popup(global_position + Vector3(0, 2.0, 0), "PROTECTED", Color(0.7, 0.9, 1.0))
+		return false
 	var push := Vector3.ZERO
 	if from.is_finite():
 		push = global_position - from
@@ -515,6 +634,14 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			blocking = false
 			model.release()
 		return false
+	if home_defense:
+		# Defending home: every tenth hit (by default) is shrugged off.
+		resist_pool += Stats.DEFENDER.resist * amount
+		if resist_pool >= 1.0:
+			resist_pool -= 1.0
+			game.spawn_popup(global_position + Vector3(0, 2.0, 0), "FORTIFIED", Color(0.7, 0.85, 1.0))
+			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.7, 0.85, 1.0), 8, 3.0, 0.3)
+			return false
 	hearts -= amount
 	flash_timer = 0.15
 	knockback = push * knock
@@ -535,8 +662,12 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		if attacker and attacker != self:
 			attacker.gain_xp(Stats.XP_KILL)
 			attacker.kills += 1
+			attacker.streak += 1
 			if attacker.is_player:
 				game.spawn_popup(attacker.global_position + Vector3(0, 2.6, 0), "KILL  +%d XP" % Stats.XP_KILL, Color(1.0, 0.85, 0.3))
+			if veteran == 2 and attacker.team != team:
+				game.bounty_claimed(attacker, self)
+			attacker._check_veteran()
 		game.chat_kill(attacker, self)
 		_die()
 		return true
@@ -544,7 +675,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	if model and model._now() >= model.busy_until:
 		model.play_once("Hit_A", 1.5)
 	# Bots roll sideways away from whatever just hit them, half the time.
-	if not is_player and dodge_ready() and randf() < 0.5:
+	if not is_player and dodge_ready() and randf() < 0.5 * game.bot_tuning().react:
 		try_dodge(facing.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0))
 	return true
 
@@ -553,8 +684,14 @@ func heal(amount: int, healer = null) -> int:
 	if dead:
 		return 0
 	var before := hearts
-	hearts = mini(hearts + amount, Stats.MAX_HEARTS)
+	hearts = mini(hearts + amount, max_hearts())
 	var healed := hearts - before
+	if healed > 0 and home_defense:
+		heal_pool += Stats.DEFENDER.heal * healed
+		if heal_pool >= 1.0 and hearts < max_hearts():
+			heal_pool -= 1.0
+			hearts += 1
+			healed += 1
 	if healed > 0:
 		_refresh_overhead()
 		game.spawn_splash(global_position + Vector3(0, 0.4, 0), Color(0.4, 1.0, 0.5), 12, 2.0, 0.9, true)
@@ -750,7 +887,15 @@ func _die() -> void:
 	shape.disabled = true
 	death_timer = 1.1
 	model.die()
-	respawn_timer = Stats.RESPAWN_TIME
+	respawn_timer = minf(Stats.RESPAWN_TIME + Stats.RESPAWN_PER_LEVEL * (level - 1), Stats.RESPAWN_MAX)
+	if is_player and level > 1:
+		game.announce("You fell at level %d: ranks lost, back in %d seconds." % [level, int(respawn_timer)])
+	if veteran > 0:
+		game.chat_system("%s's streak of %d ends." % [display_name, streak])
+	streak = 0
+	veteran = 0
+	buff = ""
+	buff_timer = 0.0
 	velocity = Vector3.ZERO
 	guard_timer = 0.0
 	blocking = false
@@ -775,6 +920,9 @@ func _respawn() -> void:
 	dead = false
 	set_role(Role.BASE)
 	position = spawn_point + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
+	spawn_protect = Stats.SPAWN_PROTECT_TIME
+	resist_pool = 0.0
+	heal_pool = 0.0
 	visible = true
 	shape.disabled = false
 	model.revive()
@@ -844,7 +992,29 @@ func _physics_process(delta: float) -> void:
 			_respawn()
 		return
 
+	# Spawn protection ends on its timer or the moment you leave the cellar.
+	if spawn_protect > 0.0:
+		spawn_protect -= delta
+		if not game._in_cellar(team, global_position):
+			spawn_protect = 0.0
+	# Defending home: a short hysteresis so the door doesn't flicker it.
+	var home_now: bool = game._inside_castle(team, global_position) or game._in_cellar(team, global_position)
+	if home_now != home_defense:
+		home_timer += delta
+		if home_timer > 0.6:
+			home_defense = home_now
+			home_timer = 0.0
+			if is_player:
+				game.toast("HOME DEFENSE ACTIVE" if home_now else "HOME DEFENSE LOST", Color(0.7, 0.85, 1.0) if home_now else Color(0.9, 0.7, 0.6))
+	else:
+		home_timer = 0.0
+	if carry_fx:
+		carry_fx.visible = carrying != null
 	var regen := Stats.MANA_REGEN if energy_kind() == "mana" else Stats.STAMINA_REGEN
+	if veteran >= 2:
+		regen *= Stats.ELITE_REGEN_MULT
+	if home_defense:
+		regen *= 1.0 + Stats.DEFENDER.regen
 	regen *= Stats.FACTIONS[team].regen_mult * (1.0 + Stats.VIGOR_REGEN * rank(3))
 	if blocking:
 		energy -= Stats.BLOCK_DRAIN * delta
@@ -1017,7 +1187,7 @@ func _injured_allies_near(radius: float = -1.0) -> Array:
 	var hurt := []
 	var reach: float = attack_stats().get("heal_radius", 0.0) if radius < 0.0 else radius
 	for other in game.units:
-		if other.team == team and not other.dead and other.hearts < Stats.MAX_HEARTS \
+		if other.team == team and not other.dead and other.hearts < other.max_hearts() \
 				and _flat_to(other.global_position).length() <= reach:
 			hurt.append(other)
 	return hurt
@@ -1082,6 +1252,10 @@ func _attack(dir: Vector3) -> void:
 	if landed and is_player:
 		game.shake(0.12)
 	# Swings from the ground also chip away at the enemy door.
+	var vault = game.vaults[1 - team]
+	if vault.is_locked() and global_position.y < 1.0 and _flat_to(vault.lock_pos).length() < s.range + 0.6 \
+			and dir.dot(_flat_to(vault.lock_pos).normalized()) > 0.3:
+		vault.take_hit(s.gate_damage, self)
 	var gate = game.gates[1 - team]
 	var gx: float = gate.position.x
 	if gate.is_intact() and global_position.y < 1.0 and absf(global_position.x - gx) < s.range + 0.4 \
@@ -1139,6 +1313,59 @@ func _nearest_ally(job: String):
 	return best
 
 
+func _nearest_ally_any(min_dist: float):
+	var best = null
+	var best_dist := 1e9
+	for other in game.units:
+		if other == self or other.team != team or other.dead:
+			continue
+		var d := _flat_to(other.global_position).length()
+		if d > min_dist and d < best_dist:
+			best_dist = d
+			best = other
+	return best
+
+
+func _heal_focus():
+	## Who a healer sticks with: our crown carrier, then anyone on their last
+	## heart, then a knight in a fight, then the nearest hurt teammate, then
+	## whoever is attacking.
+	var theirs = game.monarchs[1 - team]
+	if theirs.state == Monarch.State.CARRIED and theirs.carrier.team == team:
+		return theirs.carrier
+	var best = null
+	var best_score := -1.0
+	for other in game.units:
+		if other == self or other.team != team or other.dead:
+			continue
+		var d := _flat_to(other.global_position).length()
+		var sc := 0.0
+		if other.hearts <= 1:
+			sc = 300.0
+		elif other.role == Role.KNIGHT and other._nearest_enemy(6.0) != null:
+			sc = 200.0
+		elif other.hearts < other.max_hearts():
+			sc = 100.0
+		elif other.bot_job == "attack" or other.bot_job == "escort" or other.bot_job == "recover":
+			sc = 50.0
+		sc -= d * 0.5
+		if sc > best_score:
+			best_score = sc
+			best = other
+	return best
+
+
+func _roll(p: float) -> bool:
+	## A chance scaled by the bot difficulty's ability rate.
+	return randf() < p * game.bot_tuning().ability
+
+
+func _bot_aim(to: Vector3) -> Vector3:
+	## Aim with the wobble the difficulty allows.
+	var e: float = game.bot_tuning().aim_error
+	return to.normalized().rotated(Vector3.UP, randf_range(-e, e))
+
+
 func _bot_pick_ability(dist: float) -> int:
 	## Which ability (0 or 1) a bot wants to use on an enemy this far away, or -1.
 	for i in 2:
@@ -1146,32 +1373,32 @@ func _bot_pick_ability(dist: float) -> int:
 			var a: Dictionary = abilities()[i]
 			match a.kind:
 				"cleave", "curse":
-					if dist < a.radius * 0.9 and randf() < 0.04:
+					if dist < a.radius * 0.9 and _roll(0.04):
 						return i
 				"shot":
-					if dist <= 14.0 and randf() < 0.02:
+					if dist <= 14.0 and _roll(0.06 if cluster >= 2 else 0.015):
 						return i
 				"smoke":
-					if hearts <= 2 and dist < 5.0 and randf() < 0.05:
+					if hearts <= 2 and dist < 5.0 and _roll(0.05):
 						return i
 	match role:
 		Role.KNIGHT:
-			if dist < 4.0 and ability_ready(0) and randf() < 0.03:
+			if dist < 4.0 and ability_ready(0) and _roll(0.03):
 				return 0
-			if hearts <= 2 and dist < 3.0 and ability_ready(1) and randf() < 0.05:
+			if hearts <= 2 and dist < 3.0 and ability_ready(1) and _roll(0.05):
 				return 1
 		Role.RANGER:
-			if dist <= 12.0 and ability_ready(0) and randf() < 0.02:
+			if dist <= 12.0 and ability_ready(0) and _roll(0.02):
 				return 0
-			if dist < 6.0 and ability_ready(1) and randf() < 0.03:
+			if dist < 6.0 and ability_ready(1) and _roll(0.03):
 				return 1
 		Role.MAGE:
-			if dist <= 10.0 and ability_ready(0) and randf() < 0.02:
+			if dist <= 10.0 and ability_ready(0) and _roll(0.06 if cluster >= 2 else 0.015):
 				return 0
 			if hearts <= 1 and dist < 5.0 and ability_ready(1):
 				return 1
 		Role.HEALER:
-			if _injured_allies_near().is_empty() and dist <= 10.0 and ability_ready(1) and randf() < 0.03:
+			if _injured_allies_near().is_empty() and dist <= 10.0 and ability_ready(1) and _roll(0.03):
 				return 1
 	return -1
 
@@ -1203,25 +1430,35 @@ func _bot_think() -> Dictionary:
 		goal = game.station_position(team, bot_class)
 	elif orb:
 		goal = orb.global_position
-	elif mine.state == Monarch.State.CARRIED:
+	elif mine.state == Monarch.State.CARRIED and (bot_job == "recover" or _flat_to(mine.carrier.global_position).length() < 16.0):
+		# Our crown is being carried off: the recovery group, and anyone who
+		# can see the thief, hunts the carrier.
 		priority_target = mine.carrier
 		goal = mine.carrier.global_position
-	elif mine.state == Monarch.State.DROPPED:
+	elif mine.state == Monarch.State.DROPPED and (bot_job == "recover" or _flat_to(mine.global_position).length() < 16.0):
 		goal = mine.global_position
-	elif theirs.state == Monarch.State.CARRIED:
+	elif theirs.state == Monarch.State.CARRIED and (bot_job == "escort" or bot_job == "support" or _flat_to(theirs.carrier.global_position).length() < 10.0):
 		goal = theirs.carrier.global_position + bot_offset  # escort our carrier
+	elif bot_job == "defend":
+		goal = game.defense_post(team, bot_offset.z) + bot_offset * 0.3
 	elif bless:
 		goal = bless.global_position
 	elif bot_job == "wall":
 		goal = game.wall_post(team, bot_offset.z)
 		holding_wall = true
 	elif bot_job == "support":
-		var buddy = _nearest_ally("attack")
+		var buddy = _heal_focus()
 		goal = (buddy.global_position if buddy else game.thrones[team]) + bot_offset * 0.6
 	elif bot_job == "attack":
 		goal = theirs.global_position
 	else:
 		goal = game.thrones[team] + Vector3(6.0 if team == 0 else -6.0, 0, 0) + bot_offset
+	# Outnumbered and hurt: fall back toward the nearest teammate instead of
+	# feeding. Never while carrying or recovering the crown.
+	if not carrying and bot_job != "recover" and hearts <= 2 \
+			and game.enemies_near(team, global_position, 12.0) > game.allies_near(team, global_position, 12.0) + 1:
+		var buddy = _nearest_ally_any(6.0)
+		goal = buddy.global_position if buddy else Vector3(game.gates[team].position.x + (-1.0 if team == 0 else 1.0) * 4.0, 0, 0)
 	# Doors and ramps: the next point to walk toward on the way to the goal.
 	var next: Vector3 = game.route_point(global_position, goal)
 
@@ -1253,14 +1490,57 @@ func _bot_think() -> Dictionary:
 		plan.move = _steer_to(next)
 		return plan
 
+	# The Crown Vault lock stands between us and their monarch: break it.
+	var vault = game.vaults[1 - team]
+	if vault.is_locked() and theirs.state == Monarch.State.HOME and game._inside_keep(1 - team, global_position):
+		var vside := signf(global_position.x - vault.lock_pos.x)
+		var vstandoff := 5.0 if ranged else 1.2
+		var vspot := Vector3(vault.lock_pos.x + vside * vstandoff, 0, clampf(global_position.z, -2.0, 2.0))
+		if _nearest_enemy(2.5) == null:
+			if _flat_to(vspot).length() < 0.9:
+				plan.aim = Vector3(-vside, 0, 0)
+				plan.attack = true
+				if role == Role.MAGE and ability_ready(0) and _roll(0.03):
+					plan.ability = 0
+			else:
+				plan.move = _steer_to(vspot)
+			return plan
+
 	# Fight anyone nearby, the enemy carrier first.
-	var sight := 13.0 if ranged else 7.0
-	var enemy = priority_target if priority_target and _flat_to(priority_target.global_position).length() < sight else _nearest_enemy(sight)
+	var sight: float = (13.0 if ranged else 7.0) * game.bot_tuning().sight
+	# Hunters go after an enemy Elite Veteran's bounty when it is close enough.
+	if priority_target == null and bot_job == "attack" and not gearing_up:
+		var chase: float = game.bot_tuning().chase
+		for e in game.units:
+			if e.team != team and not e.dead and e.veteran == 2 and _flat_to(e.global_position).length() < chase:
+				priority_target = e
+				next = game.route_point(global_position, e.global_position)
+	# Knights cover a healer who is being jumped.
+	if priority_target == null and role == Role.KNIGHT:
+		for h in game.units:
+			if h.team == team and not h.dead and h.role == Role.HEALER and _flat_to(h.global_position).length() < 12.0:
+				var bully = h._nearest_enemy(3.5)
+				if bully:
+					priority_target = bully
+	var enemy = priority_target if priority_target and _flat_to(priority_target.global_position).length() < maxf(sight, game.bot_tuning().chase) else _nearest_enemy(sight)
+	# Healers do not chase: they keep to their group and back off from anyone
+	# who gets close, unless cornered.
+	if enemy and role == Role.HEALER and bot_job != "recover":
+		var threat_d := _flat_to(enemy.global_position).length()
+		if threat_d < 4.0:
+			var away := -_flat_to(enemy.global_position).normalized()
+			var focus = _heal_focus()
+			var toward := _flat_to(focus.global_position).normalized() if focus and focus != self else Vector3.ZERO
+			plan.move = (away + toward * 0.7).normalized()
+			plan.aim = -away
+			plan.attack = plan.attack or energy >= s.cost
+			return plan
 	if enemy:
 		var to := _flat_to(enemy.global_position)
 		var in_range: bool = to.length() <= s.range * 0.9
+		cluster = game.enemies_near(team, enemy.global_position, 3.0)
 		if not plan.attack:
-			plan.aim = to.normalized()
+			plan.aim = _bot_aim(to)
 			plan.attack = in_range
 		if not plan.has("ability"):
 			var pick := _bot_pick_ability(to.length())
@@ -1271,7 +1551,7 @@ func _bot_think() -> Dictionary:
 		# Knights raise the shield while closing in on an archer or mage.
 		if can_block() and not in_range:
 			var their_attack: String = enemy.stats().attack
-			if (their_attack == "arrow" or their_attack == "spell") and to.length() < 10.0 and randf() < 0.03:
+			if (their_attack == "arrow" or their_attack == "spell") and to.length() < 10.0 and randf() < 0.03 * game.bot_tuning().react:
 				bot_block_timer = 1.0
 		if bot_block_timer > 0.0 and not in_range:
 			plan.block = true
@@ -1287,9 +1567,17 @@ func _bot_think() -> Dictionary:
 			plan.move = _steer_to(next)
 			return plan
 		if in_range:
-			# Shooters on the ground keep a little distance.
+			# Shooters on the ground keep a little distance, and rangers tuck
+			# in behind the nearest barricade or boulder when one is handy.
 			if ranged and on_ground and to.length() < 5.0:
 				plan.move = -to.normalized() * 0.6
+			elif role == Role.RANGER and on_ground and not raiding:
+				var c: Vector3 = game.nearest_cover(global_position, 7.0)
+				if c != Vector3.INF and _flat_to(c).length() < to.length():
+					var spot: Vector3 = c + (c - enemy.global_position).normalized() * 1.5
+					spot.y = 0.0
+					if _flat_to(spot).length() > 0.8:
+						plan.move = _steer_to(spot)
 			return plan
 		plan.move = _steer_to(game.route_point(global_position, enemy.global_position))
 		return plan

@@ -12,6 +12,8 @@ const Hud = preload("res://scripts/hud.gd")
 const HealOrb = preload("res://scripts/heal_orb.gd")
 const Trap = preload("res://scripts/trap.gd")
 const Blessing = preload("res://scripts/blessing.gd")
+const Vault = preload("res://scripts/vault.gd")
+const Guide = preload("res://scripts/guide.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -26,7 +28,7 @@ const LINEUP := [
 # keep (the building: throne and class stations) standing inside at the back.
 # The wall's front faces the middle of the map, has the breakable door in it,
 # and carries a walkway you climb up to from the yard and shoot down from.
-const CASTLE_X := 44.0        # centre of the walled area (x), mirrored for the two teams
+const CASTLE_X := 60.0        # centre of the walled area (x), mirrored for the two teams
 const CASTLE_DEPTH := 11.0    # half-depth of the walled area (x)
 const CASTLE_HALF_Z := 12.0   # half-width of the walled area (z)
 const WALL_H := 3.0
@@ -36,19 +38,25 @@ const KEEP_HALF_Z := 8.5
 const KEEP_H := 2.6
 const KEEP_DOOR_HALF := 4.5   # the keep's open archway
 const CAPTURE_RADIUS := 3.0
+# The spawn cellar: a sunken stone hall behind each keep. Everyone spawns
+# there, picks a class at the stations, and climbs the stairs into the keep.
+const CELLAR_DEPTH := 10.0    # how far behind the back wall it reaches (x)
+const CELLAR_HALF_Z := 7.0
+const CELLAR_Y := -2.4        # its floor
+const ISLAND_R := 6.0         # the Crown Shrine island in the river
 const STATION_RADIUS := 1.3
 const CAMERA_OFFSET := Vector3(0, 21.0, 15.0)  # a long lens: less edge distortion
 # The river runs north to south through the middle; three bridges cross it.
 const RIVER_HALF := 3.0
-const BRIDGES := [-14.0, 0.0, 14.0]
-const BRIDGE_HALF := [2.0, 3.0, 2.0]
+const BRIDGES := [-20.0, 0.0, 20.0]      # the middle crossing is the shrine island
+const BRIDGE_HALF := [2.2, 6.3, 3.0]
 const BANK_LAYER := 16        # river banks block walkers, not shots
 const MONARCH_TITLES := ["Elf Queen", "Human King"]
 const CONTROLS_PATH := "user://controls.cfg"
 # Actions the player can rebind in the Controls menu (and what to call them).
 const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"],
 	["dodge", "Dodge"], ["interact", "Grab / drop"], ["rank_menu", "Perks & ranks"], ["scoreboard", "Scoreboard (hold)"],
-	["chat", "Chat"], ["menu", "Pause menu"], ["move_up", "Move up"], ["move_down", "Move down"],
+	["chat", "Chat"], ["chat_toggle", "Show / hide chat"], ["menu", "Pause menu"], ["move_up", "Move up"], ["move_down", "Move down"],
 	["move_left", "Move left"], ["move_right", "Move right"]]
 const MENU_TABS := 5
 const CHAT_LINES := 60
@@ -63,7 +71,12 @@ const BANTER := {
 	"gate_down": ["The door is down, push in!", "Go go go, the gate's open!"],
 }
 
-var map_half := Vector2(58, 26)
+var map_half := Vector2(84, 36)
+var bot_difficulty := "Normal"   # Easy / Normal / Hard, saved with the controls
+var chat_visible := true          # H hides the chat log
+var map_trees: Array[Vector3] = []  # for the minimap: y > 0.5 means a big tree
+var map_paths: Array = []           # [from, to, width] of every path for the minimap
+var map_marks: Array = []           # [position, kind] ruins and such
 var playing := false
 var game_over := false
 var player_team := 0
@@ -73,14 +86,29 @@ var thrones: Array[Vector3] = []
 var monarchs: Array = []
 var units: Array = []
 var gates: Array = []
+var vaults: Array = []
+var toasts: Array = []        # [{text, color, time}] small HUD notices
+var stolen_timer := 0.0       # the CROWN STOLEN banner
 var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} at +z]
 var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
+var cover_points: Array = []  # places a shooter can duck behind
+var guides: Array = [null, null]   # the Wildwood Guide in each courtyard
+var guide_open := false
+var guide_page := 0       # intro page, or -1 for the topic menu
+var guide_topic := -1     # which topic's answer is showing
+var guide_seen := false   # the intro has been read once this match
+var upgrade_pads: Array = [Vector3.INF, Vector3.INF]
+var on_upgrade_pad := false
+# HOW TO WIN checklist for new players: step -> done.
+var tutorial: Array = [false, false, false, false, false, false, false, false]
+var tutorial_shown := true
+var plan_timer := 0.0
 var heal_orbs: Array = []
 var blessings: Array = []
 var blessing_timer := 30.0
 # Where a Blessing of Light can appear: the field, never inside a castle. Mirrored.
-const BLESSING_SPOTS := [Vector3(0, 0, -14), Vector3(0, 0, 14), Vector3(9, 0, 3), Vector3(-9, 0, -3), Vector3(16, 0, -10), Vector3(-16, 0, 10),
-	Vector3(22, 0, 2), Vector3(-22, 0, -2), Vector3(10, 0, 16), Vector3(-10, 0, -16)]
+const BLESSING_SPOTS := [Vector3(0, 0.5, 0), Vector3(0, 0.5, 0), Vector3(0, 0.5, 0), Vector3(12, 0, -24), Vector3(-12, 0, 24), Vector3(26, 0, 4), Vector3(-26, 0, -4),
+	Vector3(16, 0, 12), Vector3(-16, 0, -12), Vector3(30, 0, -16), Vector3(-30, 0, 16), Vector3(10, 0, 26), Vector3(-10, 0, -26)]
 var time_left := Stats.MATCH_TIME
 var player
 
@@ -154,13 +182,20 @@ func _process(delta: float) -> void:
 	_check_rules()
 	_check_stations()
 	_update_respawn_timer()
+	plan_timer -= delta
+	if plan_timer <= 0.0:
+		plan_timer = 1.0
+		for t in 2:
+			_plan_bots(t)
 	_tick_blessings(delta)
+	_tick_tutorial()
 	_update_camera(delta)
 	if demo and Engine.get_process_frames() % 1800 == 0:
 		print("t=%ds  score %d-%d  monarchs %s / %s  doors %d / %d" % [Engine.get_process_frames() / 60,
 			score[0], score[1], monarchs[0].state, monarchs[1].state, gates[0].hp, gates[1].hp])
 		for u in units:
 			print("   team%d %s %s hearts=%d dead=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead])
+	stolen_timer = maxf(stolen_timer - delta, 0.0)
 	if message_timer > 0.0:
 		message_timer -= delta
 		if message_timer <= 0.0:
@@ -183,8 +218,19 @@ func _debug_hooks() -> void:
 				menu_tab = 0
 			if arg.begins_with("--debug-tab="):
 				menu_tab = int(arg.trim_prefix("--debug-tab="))
+			if arg == "--debug-guide":
+				guide_open = true
+				guide_page = 1
+			if arg == "--debug-guide-menu":
+				guide_open = true
+				guide_page = -1
+				guide_topic = -1
 			if arg == "--debug-score":
 				debug_score = true
+			if arg.begins_with("--debug-at="):
+				var p := arg.trim_prefix("--debug-at=").split(",")
+				player.position = Vector3(float(p[0]), float(p[2]) if p.size() > 2 else 0.0, float(p[1]))
+				cam_pos = player.position + CAMERA_OFFSET
 			if arg == "--debug-blessing":
 				spawn_blessing(Vector3(0, 0, 0), "Regeneration")
 				player.apply_blessing("Might")
@@ -279,12 +325,23 @@ func try_interact(u) -> void:
 	if u.carrying:
 		drop_monarch(u)
 		return
+	if u.is_player and guides[u.team] and guides[u.team].in_reach(u):
+		guide_toggle()
+		return
 	var m = monarchs[1 - u.team]
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
+		if m.state == Monarch.State.HOME and vaults[1 - u.team].is_locked():
+			if u.is_player:
+				toast("The Crown Vault is locked: break the lock first", Color(1.0, 0.8, 0.5))
+			return
 		m.pick_up(u)
 		u.carrying = m
 		u.gain_xp(Stats.XP_GRAB)
-		announce("The %s has been taken by the %s!" % [m.title, Stats.FACTIONS[u.team].name])
+		stolen_timer = 3.5
+		announce("CROWN STOLEN! The %s has been taken by the %s!" % [m.title, Stats.FACTIONS[u.team].name])
+		spawn_pillar(u.global_position, Color(1.0, 0.85, 0.3), 7.0, 1.2)
+		spawn_flash(u.global_position + Vector3(0, 1.5, 0), Color(1.0, 0.85, 0.3), 4.0, 0.5)
+		shake_at(u.global_position, 0.5)
 		chat_system("%s grabbed the %s!" % [u.display_name, m.title])
 		_banter(1 - u.team, "ours_taken")
 		_banter(u.team, "carrying", u)
@@ -354,9 +411,42 @@ func spawn_blessing(spot: Vector3, kind: String) -> void:
 	spawn_pillar(spot, Stats.BLESSING_KINDS[kind].color, 7.0, 1.2)
 	spawn_ring(spot, 4.0, Stats.BLESSING_KINDS[kind].color, 1.0)
 	var where := "near the %s bank" % ("north" if spot.z < -5.0 else ("south" if spot.z > 5.0 else "middle"))
-	if absf(spot.x) > 12.0:
+	if spot.length() < 1.0:
+		where = "at the Crown Shrine"
+	elif absf(spot.x) > 12.0:
 		where = "on the %s side" % (Stats.FACTIONS[0].realm if spot.x < 0.0 else Stats.FACTIONS[1].realm)
 	announce("A Blessing of %s has appeared %s!" % [kind, where])
+
+
+func bot_tuning() -> Dictionary:
+	return Stats.BOT_TUNING[bot_difficulty]
+
+
+func announce_veteran(u, tier: int) -> void:
+	var side_name: String = Stats.FACTIONS[u.team].name
+	if tier == 2:
+		announce("%s of the %s is an ELITE VETERAN: %d kills without dying! Bounty on their head, location revealed." % [u.display_name, side_name, u.streak])
+		chat_system("Bounty: %s (%s) is an Elite Veteran. Bring them down for a team reward!" % [u.display_name, side_name])
+		if u.is_player:
+			spawn_popup(u.global_position + Vector3(0, 2.8, 0), "ELITE VETERAN", Color(1.0, 0.6, 0.2))
+	else:
+		announce("%s of the %s is a Veteran: %d kills without dying." % [u.display_name, side_name, u.streak])
+		if u.is_player:
+			spawn_popup(u.global_position + Vector3(0, 2.8, 0), "VETERAN", Color(1.0, 0.85, 0.3))
+
+
+func bounty_claimed(killer, victim) -> void:
+	## An Elite Veteran fell: the killer's whole team is blessed and the killer paid.
+	announce("BOUNTY CLAIMED! %s slew the Elite Veteran %s: the %s gain %s!" % [killer.display_name, victim.display_name, Stats.FACTIONS[killer.team].name, Stats.BOUNTY_BUFF])
+	chat_system("%s claimed the bounty on %s (+%d XP, %s for the team)." % [killer.display_name, victim.display_name, Stats.BOUNTY_XP, Stats.BOUNTY_BUFF])
+	killer.gain_xp(Stats.BOUNTY_XP)
+	spawn_pillar(victim.global_position, Color(1.0, 0.85, 0.3), 9.0, 1.6)
+	spawn_ring(victim.global_position, 5.0, Color(1.0, 0.85, 0.3), 1.0)
+	for u in units:
+		if u.team == killer.team and not u.dead:
+			u.apply_blessing(Stats.BOUNTY_BUFF)
+	if killer.is_player:
+		spawn_popup(killer.global_position + Vector3(0, 3.0, 0), "BOUNTY  +%d XP" % Stats.BOUNTY_XP, Color(1.0, 0.85, 0.3))
 
 
 func nearest_orb(pos: Vector3, radius: float):
@@ -399,11 +489,45 @@ func _inside_keep(team: int, p: Vector3) -> bool:
 	return (p.x - kx) * side > 0.0 and (bx - p.x) * side > 0.0 and absf(p.z) < KEEP_HALF_Z + 0.5
 
 
+func _in_cellar(team: int, p: Vector3) -> bool:
+	var side := -1.0 if team == 0 else 1.0
+	var bx := side * (CASTLE_X + CASTLE_DEPTH)
+	return (p.x - bx) * side > -0.8 and absf(p.z) < CELLAR_HALF_Z + 0.5 and p.y < -0.3
+
+
+func cellar_stairs(team: int) -> Array:
+	## [bottom, top] of the stairs from the cellar up into the keep.
+	var side := -1.0 if team == 0 else 1.0
+	var bx := side * (CASTLE_X + CASTLE_DEPTH)
+	return [Vector3(bx + side * 8.6, CELLAR_Y, 0), Vector3(bx - side * 1.6, 0.0, 0)]
+
+
 func _inside_castle(team: int, p: Vector3) -> bool:
 	var side := -1.0 if team == 0 else 1.0
 	var fx := side * (CASTLE_X - CASTLE_DEPTH)
 	var bx := side * (CASTLE_X + CASTLE_DEPTH)
 	return (p.x - fx) * side > 0.0 and (bx - p.x) * side > 0.0 and absf(p.z) < CASTLE_HALF_Z + 0.5
+
+
+func enemy_inside_keep(team: int) -> bool:
+	for u in units:
+		if u.team != team and not u.dead and _inside_keep(team, u.global_position):
+			return true
+	return false
+
+
+func defender_near(team: int, pos: Vector3, radius: float) -> bool:
+	for u in units:
+		if u.team == team and not u.dead and _flat_dist(u.global_position, pos) < radius:
+			return true
+	return false
+
+
+func toast(text: String, color: Color = Color.WHITE) -> void:
+	## A small, short notice under the clock (not the big announcement).
+	toasts.append({"text": text, "color": color, "time": Time.get_ticks_msec() / 1000.0})
+	if toasts.size() > 4:
+		toasts.pop_front()
 
 
 func enemy_inside_castle(team: int) -> bool:
@@ -415,6 +539,85 @@ func enemy_inside_castle(team: int) -> bool:
 				or (absf(u.global_position.x - fx) < 1.5 and absf(u.global_position.z) < Stats.DOOR_HALF + 0.5):
 			return true
 	return false
+
+
+func _plan_bots(team: int) -> void:
+	## Lightweight squad planner, once a second per team: every bot starts from
+	## its lineup job, then the match state pulls the nearest few onto the
+	## thing that matters most (recover our crown, escort our carrier, defend
+	## the castle). Everyone else keeps attacking.
+	var mine = monarchs[team]
+	var theirs = monarchs[1 - team]
+	var bots := []
+	for u in units:
+		if u.team == team and not u.dead and not u.is_player:
+			u.bot_job = u.base_job
+			u.job_target = Vector3.INF
+			bots.append(u)
+	if bots.is_empty():
+		return
+	var side := -1.0 if team == 0 else 1.0
+	if mine.state == Monarch.State.CARRIED:
+		_assign_nearest(bots, mine.carrier.global_position, 3, "recover")
+	elif mine.state == Monarch.State.DROPPED:
+		_assign_nearest(bots, mine.global_position, 2, "recover")
+	if theirs.state == Monarch.State.CARRIED and theirs.carrier.team == team:
+		_assign_nearest(bots, theirs.carrier.global_position, 2, "escort")
+	var gate_hurt: bool = gates[team].hp < Stats.GATE_HITS * 0.4
+	if enemy_inside_keep(team):
+		_assign_nearest(bots, thrones[team], 3, "defend")
+	elif enemy_inside_castle(team) or gate_hurt:
+		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 2, "defend")
+
+
+func _assign_nearest(bots: Array, pos: Vector3, count: int, job: String) -> void:
+	## Give `job` to the `count` bots closest to `pos` that still hold their
+	## lineup job. Healers stay on support: they follow the group instead.
+	var free := []
+	for u in bots:
+		if u.bot_job == u.base_job and u.role != Unit.Role.HEALER:
+			free.append(u)
+	free.sort_custom(func(a, b): return _flat_dist(a.global_position, pos) < _flat_dist(b.global_position, pos))
+	for i in mini(count, free.size()):
+		free[i].bot_job = job
+		free[i].job_target = pos
+
+
+func defense_post(team: int, z_side: float) -> Vector3:
+	## Where a defender stands: by the vault barricades when the enemy is in
+	## the keep, else inside the yard just behind the door.
+	var side := -1.0 if team == 0 else 1.0
+	var z := -4.5 if z_side < 0.0 else 4.5
+	if enemy_inside_keep(team):
+		return thrones[team] + Vector3(-side * 5.5, 0, z)
+	return Vector3(gates[team].position.x + side * 4.5, 0, z)
+
+
+func nearest_cover(pos: Vector3, radius: float) -> Vector3:
+	var best := Vector3.INF
+	var best_d := radius
+	for c in cover_points:
+		var d := _flat_dist(c, pos)
+		if d < best_d:
+			best_d = d
+			best = c
+	return best
+
+
+func enemies_near(team: int, pos: Vector3, radius: float) -> int:
+	var n := 0
+	for u in units:
+		if u.team != team and not u.dead and _flat_dist(u.global_position, pos) < radius:
+			n += 1
+	return n
+
+
+func allies_near(team: int, pos: Vector3, radius: float) -> int:
+	var n := 0
+	for u in units:
+		if u.team == team and not u.dead and _flat_dist(u.global_position, pos) < radius:
+			n += 1
+	return n
 
 
 func gate_blocking(team: int, from: Vector3, to: Vector3):
@@ -430,6 +633,18 @@ func route_point(from: Vector3, to: Vector3) -> Vector3:
 	## is up on the walls, the castle door when the outer wall is in the way,
 	## the keep's archway when the keep's walls are, else `to`.
 	var target := to
+	# Out of the spawn cellar: line up with the stairs, then climb them.
+	for c in 2:
+		if _in_cellar(c, from) and not _in_cellar(c, to):
+			var st := cellar_stairs(c)
+			var side := -1.0 if c == 0 else 1.0
+			# On the lane: lined up with the stairs and not behind their foot.
+			var on_lane: bool = absf(from.z) < 1.3 and (from.x - st[0].x) * side < 0.4
+			if on_lane:
+				return st[1]
+			if (from.x - st[0].x) * side < 0.6:
+				return st[0]  # behind the foot of the stairs: step across to the lane
+			return Vector3(st[0].x + side * 0.3, CELLAR_Y, from.z)  # walk straight back to the foot first
 	if to.y > 2.0 and from.y < WALK_Y - 0.2:
 		var c := 0 if to.x < 0.0 else 1
 		var ramp: Dictionary = ramps[c][0] if to.z < 0.0 else ramps[c][1]
@@ -666,11 +881,12 @@ func _start_match(team: int) -> void:
 		for i in TEAM_SIZE:
 			var u = Unit.new()
 			add_child(u)
-			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH - 2.5), 0.0, -5.0 + i * 2.5)
+			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 8.6), CELLAR_Y, -4.0 + i * 2.0)
 			var is_player := t == player_team and i == 0 and not demo
 			u.setup(self, t, is_player, spawn)
 			u.bot_class = LINEUP[i][0]
 			u.bot_job = LINEUP[i][1]
+			u.base_job = LINEUP[i][1]
 			u.display_name = "You" if is_player else Stats.BOT_NAMES[t][i % Stats.BOT_NAMES[t].size()]
 			units.append(u)
 			if is_player or (demo and player == null):
@@ -706,8 +922,86 @@ func shake_at(where: Vector3, amount: float) -> void:
 		shake(amount * (1.0 - d / 16.0))
 
 
+func guide_toggle() -> void:
+	if guide_open:
+		guide_advance()
+		return
+	guide_open = true
+	guide_topic = -1
+	guide_page = -1 if guide_seen else 0
+
+
+func guide_advance() -> void:
+	## Interact while talking: next intro page, or back to the topic menu.
+	if guide_topic >= 0:
+		guide_topic = -1
+		guide_page = -1
+	elif guide_page >= 0:
+		guide_page += 1
+		if guide_page >= Guide.INTRO.size():
+			guide_page = -1
+			guide_seen = true
+
+
+func guide_pick(i: int) -> void:
+	if guide_open and guide_page < 0 and i >= 0 and i < Guide.TOPICS.size():
+		guide_topic = i
+
+
+func guide_close() -> void:
+	guide_open = false
+	guide_seen = true
+
+
+func guide_answer(i: int) -> String:
+	## A topic's answer with the current key labels filled in.
+	var text: String = Guide.TOPICS[i][1]
+	match i:
+		1:
+			return text % [key_label("attack"), key_label("ability_1"), key_label("ability_2"), key_label("dodge"), key_label("block")]
+		3:
+			return text % key_label("rank_menu")
+		4:
+			return text % key_label("interact")
+	return text
+
+
+func _tick_tutorial() -> void:
+	## Tick off the HOW TO WIN steps as the player does them; the list folds
+	## away once the Crown has been carried home.
+	if player == null or demo:
+		return
+	var p: Vector3 = player.global_position
+	var e := 1 - player_team
+	if not _inside_castle(player_team, p) and not _in_cellar(player_team, p):
+		tutorial[0] = true
+	if absf(p.x) < 18.0:
+		tutorial[1] = true
+	if not gates[e].is_intact():
+		tutorial[2] = true
+	if _inside_keep(e, p):
+		tutorial[3] = true
+	if _inside_keep(e, p) and not vaults[e].is_locked():
+		tutorial[4] = true
+	if player.carrying:
+		tutorial[5] = true
+	if score[player_team] >= 1:
+		tutorial[6] = true
+	if score[player_team] >= 2:
+		tutorial[7] = true
+	tutorial_shown = not tutorial[6]
+	# The Upgrade Station: standing on it opens the perk menu.
+	var pad: Vector3 = upgrade_pads[player_team]
+	var on_pad: bool = pad != Vector3.INF and _flat_dist(p, pad) < STATION_RADIUS and not player.dead
+	if on_pad and not on_upgrade_pad and not menu_open and not chat_open:
+		rank_open = true
+	elif not on_pad and on_upgrade_pad and rank_open:
+		rank_open = false
+	on_upgrade_pad = on_pad
+
+
 func menu_blocks_input() -> bool:
-	return menu_open or rank_open or chat_open
+	return menu_open or rank_open or chat_open or guide_open
 
 
 func menu_tabs() -> Array:
@@ -721,17 +1015,22 @@ func menu_tick() -> void:
 		return
 	var eaten: bool = Engine.get_process_frames() == swallow_frame
 	if not playing:
-		# Title screen: the options menu (controls, classes).
+		# Title screen: the options menu (controls, classes), bot difficulty.
 		if not eaten and rebinding == "":
 			if Input.is_action_just_pressed("options") and not menu_open:
 				menu_open = true
 				menu_tab = 4
 			elif Input.is_action_just_pressed("menu") and menu_open:
 				menu_open = false
+			elif not menu_open:
+				if Input.is_action_just_pressed("menu_left"):
+					cycle_difficulty(-1)
+				if Input.is_action_just_pressed("menu_right"):
+					cycle_difficulty(1)
 	elif chat_open:
 		pass  # typing: keys go to menu_input
 	else:
-		if Input.is_action_just_pressed("menu") and not eaten and rebinding == "":
+		if Input.is_action_just_pressed("menu") and not eaten and rebinding == "" and not guide_open:
 			menu_open = not menu_open
 			rank_open = false
 			get_tree().paused = menu_open
@@ -740,12 +1039,21 @@ func menu_tick() -> void:
 			if Input.is_action_just_pressed("quit_match") and rebinding == "":
 				get_tree().paused = false
 				get_tree().reload_current_scene()
+		elif guide_open and not eaten:
+			if Input.is_action_just_pressed("menu"):
+				guide_close()
+			for i in Guide.TOPICS.size():
+				if Input.is_action_just_pressed("rank_%d" % (i + 1)):
+					guide_pick(i)
 		elif Input.is_action_just_pressed("rank_menu") and player and not demo:
 			rank_open = not rank_open
 		elif Input.is_action_just_pressed("chat") and player and not demo and not eaten:
 			chat_open = true
 			chat_text = ""
 			rank_open = false
+		if Input.is_action_just_pressed("chat_toggle") and not menu_open and not eaten:
+			chat_visible = not chat_visible
+			_save_settings()
 		if rank_open and player:
 			if player.dead:
 				rank_open = false
@@ -789,9 +1097,21 @@ func menu_tick() -> void:
 				swallow_frame = Engine.get_process_frames()
 		if hud.reset_button.has_point(mouse):
 			_reset_controls()
+		for b in hud.difficulty_buttons:
+			if b[0].has_point(mouse):
+				bot_difficulty = b[1]
+				_save_settings()
 		if hud.options_button.has_point(mouse) and not playing:
 			menu_open = true
 			menu_tab = 4
+		for b in hud.guide_buttons:
+			if b[0].has_point(mouse):
+				if b[1] == "next":
+					guide_advance()
+				elif b[1] == "close":
+					guide_close()
+				else:
+					guide_pick(int(b[1]))
 		if hud.close_button.has_point(mouse):
 			if menu_open:
 				menu_open = false
@@ -1024,8 +1344,23 @@ func _rebind(action: String, event: InputEvent) -> void:
 	_save_controls()
 
 
+func cycle_difficulty(step: int) -> void:
+	var i: int = Stats.BOT_DIFFICULTIES.find(bot_difficulty)
+	bot_difficulty = Stats.BOT_DIFFICULTIES[posmod(i + step, Stats.BOT_DIFFICULTIES.size())]
+	_save_settings()
+
+
+func _save_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(CONTROLS_PATH)
+	cfg.set_value("settings", "bot_difficulty", bot_difficulty)
+	cfg.set_value("settings", "chat_visible", chat_visible)
+	cfg.save(CONTROLS_PATH)
+
+
 func _save_controls() -> void:
 	var cfg := ConfigFile.new()
+	cfg.load(CONTROLS_PATH)
 	for entry in REBINDABLE:
 		var list: Array = []
 		for ev in InputMap.action_get_events(entry[0]):
@@ -1043,6 +1378,10 @@ func _load_controls() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(CONTROLS_PATH) != OK:
 		return
+	var diff: String = cfg.get_value("settings", "bot_difficulty", "Normal")
+	if diff in Stats.BOT_DIFFICULTIES:
+		bot_difficulty = diff
+	chat_visible = cfg.get_value("settings", "chat_visible", true)
 	for entry in REBINDABLE:
 		if not cfg.has_section_key("controls", entry[0]):
 			continue
@@ -1126,6 +1465,21 @@ func _prop(name: String, pos: Vector3, scale: float = 1.0, rot_y: float = 0.0) -
 	inst.rotation.y = rot_y
 	add_child(inst)
 	return inst
+
+
+func _add_path(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
+	## A flat strip of road or dirt from one point to another (any angle).
+	var d := to - from
+	d.y = 0.0
+	var m := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(d.length() + width * 0.6, 0.012, width)
+	m.mesh = box
+	m.material_override = mat
+	m.position = (from + to) / 2.0 + Vector3(0, 0.006, 0)
+	m.rotation.y = atan2(-d.z, d.x)
+	add_child(m)
+	map_paths.append([from, to, width])
 
 
 func _add_collider(pos: Vector3, size: Vector3) -> void:
@@ -1214,6 +1568,7 @@ func _add_boulder(pos: Vector3) -> void:
 
 
 func _add_tree(pos: Vector3, big: bool = false) -> void:
+	map_trees.append(Vector3(pos.x, 1.0 if big else 0.0, pos.z))
 	var body := StaticBody3D.new()
 	body.position = pos
 	var shape := CollisionShape3D.new()
@@ -1423,18 +1778,21 @@ func _add_river() -> void:
 		for i in range(0, edges.size(), 2):
 			var z0: float = edges[i]
 			var z1: float = edges[i + 1]
-			var body := StaticBody3D.new()
-			body.collision_layer = BANK_LAYER
-			body.collision_mask = 0
-			body.position = Vector3(sx * (RIVER_HALF + 0.2), 1.0, (z0 + z1) / 2.0)
-			var shape := CollisionShape3D.new()
-			var box := BoxShape3D.new()
-			box.size = Vector3(0.4, 2.0, z1 - z0)
-			shape.shape = box
-			body.add_child(shape)
-			add_child(body)
+			_add_bank_wall(sx, z0, z1, 1.0, 2.0)
+		# Along the island the bank wall stays below the plateau top: it keeps
+		# walkers on the bank out of the water, but anyone up on the shrine
+		# walks straight over it.
+		_add_bank_wall(sx, -ISLAND_R - 0.4, ISLAND_R + 0.4, -0.05, 1.0)
+	_add_island()
+	# Low stone rims on the island's north and south edges so nobody walks
+	# off the shrine into the river channel (there is no way back up).
+	for zs in [-1.0, 1.0]:
+		var rz: float = zs * (ISLAND_R - 0.3)
+		_add_block(Vector3(0, 0.75, rz), Vector3(RIVER_HALF * 2 + 1.6, 0.5, 0.5), Color(0.6, 0.58, 0.52), true, _pbr("stone", 0.5, Color(0.7, 0.68, 0.62)))
 	# Bridges: a plank deck with rails and posts.
 	for i in BRIDGES.size():
+		if i == 1:
+			continue  # the shrine island is the middle crossing
 		var bz: float = BRIDGES[i]
 		var half: float = BRIDGE_HALF[i]
 		var deck_len := RIVER_HALF * 2 + 2.4
@@ -1453,6 +1811,97 @@ func _add_river() -> void:
 					_add_torch(Vector3(xs * (deck_len / 2.0 - 0.15), 0.9, bz + zs * (half + 0.15)))
 
 
+func _add_bank_wall(sx: float, z0: float, z1: float, y: float, h: float) -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = BANK_LAYER
+	body.collision_mask = 0
+	body.position = Vector3(sx * (RIVER_HALF + 0.2), y, (z0 + z1) / 2.0)
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(0.4, h, z1 - z0)
+	shape.shape = box
+	body.add_child(shape)
+	add_child(body)
+
+
+func _add_island() -> void:
+	## The Crown Shrine: a round stone plateau in the middle of the river,
+	## reached by a flight of steps from each bank. Blessings favour it.
+	var plateau := StaticBody3D.new()
+	plateau.position = Vector3(0, 0.25, 0)
+	var shape := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = ISLAND_R
+	cyl.height = 0.5
+	shape.shape = cyl
+	plateau.add_child(shape)
+	var mesh := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = ISLAND_R
+	cm.bottom_radius = ISLAND_R + 0.6
+	cm.height = 0.5
+	cm.radial_segments = 24
+	mesh.mesh = cm
+	mesh.material_override = _pbr("cobble", 0.4, Color(0.85, 0.82, 0.75))
+	plateau.add_child(mesh)
+	add_child(plateau)
+	# A paved ring and the shrine: a stepped dais, a gold crown on a plinth, four braziers.
+	var dais := MeshInstance3D.new()
+	var dm := CylinderMesh.new()
+	dm.top_radius = 2.2
+	dm.bottom_radius = 2.6
+	dm.height = 0.3
+	dais.mesh = dm
+	dais.position = Vector3(0, 0.65, 0)
+	dais.material_override = _stone(Color(0.9, 0.88, 0.8), 0.3)
+	add_child(dais)
+	_add_collider(Vector3(0, 1.2, 0), Vector3(1.6, 1.6, 1.6))
+	_add_block(Vector3(0, 1.2, 0), Vector3(1.2, 0.9, 1.2), Color(0.8, 0.78, 0.7), false, _stone(Color(0.95, 0.9, 0.8), 0.3))
+	var crown := MeshInstance3D.new()
+	var crown_mesh := CylinderMesh.new()
+	crown_mesh.top_radius = 0.55
+	crown_mesh.bottom_radius = 0.42
+	crown_mesh.height = 0.5
+	crown_mesh.radial_segments = 8
+	crown.mesh = crown_mesh
+	crown.position = Vector3(0, 1.95, 0)
+	var gold := _material(Color(1.0, 0.8, 0.25))
+	gold.metallic = 0.9
+	gold.roughness = 0.25
+	gold.emission_enabled = true
+	gold.emission = Color(1.0, 0.7, 0.2)
+	gold.emission_energy_multiplier = 0.6
+	crown.material_override = gold
+	add_child(crown)
+	for i in 8:
+		var a := TAU * i / 8.0
+		var spike := MeshInstance3D.new()
+		var sm := CylinderMesh.new()
+		sm.top_radius = 0.0
+		sm.bottom_radius = 0.1
+		sm.height = 0.35
+		spike.mesh = sm
+		spike.position = Vector3(cos(a) * 0.5, 2.35, sin(a) * 0.5)
+		spike.material_override = gold
+		add_child(spike)
+	var shrine_light := OmniLight3D.new()
+	shrine_light.light_color = Color(1.0, 0.8, 0.4)
+	shrine_light.light_energy = 2.0
+	shrine_light.omni_range = 9.0
+	shrine_light.position = Vector3(0, 3.0, 0)
+	add_child(shrine_light)
+	for i in 4:
+		var a := TAU * i / 4.0 + PI / 4.0
+		_add_torch(Vector3(cos(a) * 4.2, 0.5, sin(a) * 4.2))
+		_prop("dungeon/column", Vector3(cos(a) * 5.0, 0.5, sin(a) * 5.0), 0.9)
+	map_marks.append([Vector3.ZERO, "shrine"])
+	# Steps up from each bank, and a short pier of planks over the water's edge.
+	for sx in [-1.0, 1.0]:
+		_add_ramp(Vector3(sx * (ISLAND_R + 3.2), 0.0, 0), Vector3(sx * (ISLAND_R - 0.4), 0.5, 0), 4.0, Color(0.85, 0.82, 0.75))
+		_add_torch(Vector3(sx * (ISLAND_R + 3.4), 0, -2.4))
+		_add_torch(Vector3(sx * (ISLAND_R + 3.4), 0, 2.4))
+
+
 func _near_bridge(z: float, margin: float) -> bool:
 	for i in BRIDGES.size():
 		if absf(z - BRIDGES[i]) < BRIDGE_HALF[i] + margin:
@@ -1463,14 +1912,15 @@ func _near_bridge(z: float, margin: float) -> bool:
 func _add_cover() -> void:
 	## Low barricades and boulders in the contested middle. Shots stop at
 	## them, so there is always somewhere to duck. Everything is mirrored.
-	var barricades := [[Vector3(6, 0, 4), 3.5], [Vector3(7, 0, -6), 3.5], [Vector3(14, 0, 1), 4.0],
-		[Vector3(13, 0, 9), 3.0], [Vector3(21, 0, -4), 3.5], [Vector3(20, 0, 7), 3.0]]
+	var barricades := [[Vector3(11, 0, 5), 3.5], [Vector3(12, 0, -7), 3.5], [Vector3(20, 0, 1), 4.0],
+		[Vector3(18, 0, 12), 3.0], [Vector3(30, 0, -5), 3.5], [Vector3(28, 0, 8), 3.0], [Vector3(36, 0, 16), 3.0], [Vector3(14, 0, -23), 3.0]]
 	var crates := ["hex/crate_A_big", "hex/crate_B_big", "hex/barrel", "hex/crate_A_big", "hex/sack"]
 	for b in barricades:
 		for m in [1.0, -1.0]:
 			var c: Vector3 = b[0] * m
 			var length: float = b[1]
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
+			cover_points.append(Vector3(c.x, 0, c.z))
 			var n := int(length / 1.15)
 			for i in n:
 				var z: float = c.z - length / 2.0 + (i + 0.5) * length / n
@@ -1478,16 +1928,45 @@ func _add_cover() -> void:
 				_prop(crates[pick], Vector3(c.x, 0, z), 5.2, float(i) * 0.15)
 				if i % 2 == 0:
 					_prop("hex/crate_A_big", Vector3(c.x, 1.05, z), 4.2, float(i) * 0.15 + 0.1)
-	var boulders := [Vector3(3, 0, -11), Vector3(11, 0, -13), Vector3(17, 0, 13), Vector3(24, 0, -6), Vector3(28, 0, 9)]
+	var boulders := [Vector3(5, 0, -12), Vector3(14, 0, -15), Vector3(22, 0, 14), Vector3(33, 0, -8), Vector3(38, 0, 10),
+		Vector3(8, 0, 28), Vector3(20, 0, 26), Vector3(6, 0, -30), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(42, 0, 26)]
 	for p in boulders:
 		_add_boulder(p)
 		_add_boulder(-p)
+		cover_points.append(p)
+		cover_points.append(-p)
+	# The Northern Ruins: broken columns and rubble by the north bridge, and
+	# a smaller ruin on the south river path. Mirrored.
+	_add_ruins(Vector3(9, 0, -25))
+	_add_ruins(Vector3(-9, 0, 25))
+	_add_ruins(Vector3(-24, 0, -29), true)
+	_add_ruins(Vector3(24, 0, 29), true)
+
+
+func _add_ruins(c: Vector3, small: bool = false) -> void:
+	map_marks.append([c, "ruin"])
+	var n := 3 if small else 6
+	for i in n:
+		var a := TAU * i / n + c.x * 0.1
+		var p := c + Vector3(cos(a) * 3.2, 0, sin(a) * 2.6)
+		if i % 2 == 0:
+			_prop("dungeon/column", p, 0.8 + 0.2 * (i % 3), a)
+			_add_collider(p + Vector3(0, 1.0, 0), Vector3(0.9, 2.0, 0.9))
+		else:
+			_prop("dungeon/rubble_large", p, 1.1, a)
+			_add_collider(p + Vector3(0, 0.5, 0), Vector3(1.6, 1.0, 1.6))
+	_add_block(c + Vector3(0, 0.02, 0), Vector3(8.0 if not small else 5.0, 0.03, 6.5 if not small else 4.0), Color(0.6, 0.6, 0.58), false, _pbr("cobble", 0.5, Color(0.7, 0.7, 0.66)))
+	if not small:
+		_prop("dungeon/barrier", c + Vector3(0, 0, 0.2), 1.0, 0.3)
+		_add_collider(c + Vector3(0, 0.6, 0.2), Vector3(2.2, 1.2, 0.6))
+		_add_bush(c + Vector3(3.8, 0, 2.2), int(c.x))
+		_add_bush(c + Vector3(-3.6, 0, -2.4), int(c.z))
 
 
 func _add_heal_orbs() -> void:
 	## Healing orbs at fixed spots: the road's centre, the field's flanks, and
 	## one in each castle yard. Mirrored for fairness.
-	var spots := [Vector3(0, 0, 0), Vector3(0, 0, 16), Vector3(18, 0, -11), Vector3(37.5, 0, 0)]
+	var spots := [Vector3(9, 0, -22), Vector3(22, 0, 9), Vector3(30, 0, -14), Vector3(CASTLE_X - CASTLE_DEPTH + 4.5, 0, 0), Vector3(16, 0, 27)]
 	for p in spots:
 		var orb = HealOrb.new()
 		add_child(orb)
@@ -1540,8 +2019,8 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 	# The class's gear sits on the pad so you can tell what you'll become.
 	match role:
 		Role.KNIGHT:
-			_prop("gear/sword_1handed", pos + Vector3(-0.3, 0.5, 0), 1.6, 0.4).rotation.x = -PI / 2.0 + 0.4
-			_prop("gear/shield_badge_color", pos + Vector3(0.4, 0.6, 0), 1.6, 0.6)
+			_prop("gear/sword_1handed", pos + Vector3(-0.3, 0.5, 0), 1.2, 0.4).rotation.x = -PI / 2.0 + 0.4
+			_prop("gear/shield_badge_color", pos + Vector3(0.4, 0.55, 0), 1.0, 0.6)
 		Role.RANGER:
 			_prop("gear/quiver", pos + Vector3(-0.2, 0.15, 0), 1.6, 0.8).rotation.x = 0.6
 			_prop("gear/arrow_bundle", pos + Vector3(0.5, 0.2, 0.2), 1.6, 0.3).rotation.x = 1.2
@@ -1550,6 +2029,35 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 		Role.HEALER:
 			_prop("gear/spellbook_open", pos + Vector3(0, 0.3, 0), 1.8, 0.4)
 			_prop("gear/wand", pos + Vector3(0.6, 0.25, 0.3), 1.6, 1.2).rotation.x = 1.3
+
+
+func _add_upgrade_pad(team: int, pos: Vector3) -> void:
+	upgrade_pads[team] = pos
+	var color := Color(1.0, 0.8, 0.25)
+	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.45), false)
+	var pad := MeshInstance3D.new()
+	var pad_mesh := CylinderMesh.new()
+	pad_mesh.top_radius = STATION_RADIUS
+	pad_mesh.bottom_radius = STATION_RADIUS
+	pad_mesh.height = 0.06
+	pad.mesh = pad_mesh
+	var pad_mat := _material(color)
+	pad_mat.emission_enabled = true
+	pad_mat.emission = color * 0.4
+	pad.material_override = pad_mat
+	pad.position = pos + Vector3(0, 0.12, 0)
+	add_child(pad)
+	_prop("dungeon/chest_gold", pos + Vector3(0, 0.15, 0), 0.9, PI)
+	var l := Label3D.new()
+	l.text = "UPGRADE STATION"
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.font_size = 22
+	l.pixel_size = 0.012
+	l.outline_size = 8
+	l.modulate = color
+	l.position = pos + Vector3(0, 1.6, 0)
+	add_child(l)
 
 
 func _build_castle(team: int) -> void:
@@ -1569,7 +2077,11 @@ func _build_castle(team: int) -> void:
 
 	# --- The outer castle wall: a ring around the yard. ---
 	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, cobbles)
-	_add_block(Vector3(bx, WALL_H / 2.0, 0), Vector3(1, WALL_H, hz * 2 + 1), stone, true, masonry)
+	# The back wall has an opening at the middle for the stairs up from the cellar.
+	var seg_b := hz + 0.5 - 1.8
+	_add_block(Vector3(bx, WALL_H / 2.0, -(1.8 + seg_b / 2.0)), Vector3(1, WALL_H, seg_b), stone, true, masonry)
+	_add_block(Vector3(bx, WALL_H / 2.0, 1.8 + seg_b / 2.0), Vector3(1, WALL_H, seg_b), stone, true, masonry)
+	_add_block(Vector3(bx, WALL_H - 0.35, 0), Vector3(1, 0.7, 3.6), stone, false, masonry_dark)
 	_add_block(Vector3(cx, WALL_H / 2.0, -hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true, masonry)
 	_add_block(Vector3(cx, WALL_H / 2.0, hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1), stone, true, masonry)
 	# Battlements along the side and back walls.
@@ -1632,8 +2144,11 @@ func _build_castle(team: int) -> void:
 	var keep_stone := stone.lightened(0.25)
 	var keep_mat := _stone(tint.lightened(0.1), 0.26)
 	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), keep_stone, false, _wood(Color(0.85, 0.75, 0.62), 0.9))
-	_add_block(Vector3(kcx, KEEP_H / 2.0, -khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true, keep_mat)
-	_add_block(Vector3(kcx, KEEP_H / 2.0, khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true, keep_mat)
+	# Side walls, each with a side door near the back (a second way out of the keep).
+	for zs in [-1.0, 1.0]:
+		_add_block(Vector3(kx + side * (kdepth - 4.5) / 2.0, KEEP_H / 2.0, zs * khz), Vector3(kdepth - 4.5, KEEP_H, 0.8), keep_stone, true, keep_mat)
+		_add_block(Vector3(bx - side * 0.75, KEEP_H / 2.0, zs * khz), Vector3(1.5, KEEP_H, 0.8), keep_stone, true, keep_mat)
+		_add_block(Vector3(bx - side * 3.0, KEEP_H - 0.3, zs * khz), Vector3(3.0, 0.6, 0.9), keep_stone, false, masonry_dark)  # lintel
 	var kseg := khz - KEEP_DOOR_HALF
 	var kzc := KEEP_DOOR_HALF + kseg / 2.0
 	_add_block(Vector3(kx, KEEP_H / 2.0, -kzc), Vector3(0.8, KEEP_H, kseg), keep_stone, true, keep_mat)
@@ -1659,14 +2174,13 @@ func _build_castle(team: int) -> void:
 	_prop("hex/bucket_arrows", Vector3(fx + side * 1.6, 0, Stats.DOOR_HALF + 3.0), 4.0, 0.4)
 	# The narrow strips between the keep's side walls and the outer wall hold
 	# small stores: barrels, sacks, a long crate and a bit of fence.
-	var strip_z := (KEEP_HALF_Z + hz) / 2.0
+	var strip_z := hz - 0.95   # hugging the outer wall so the strip stays a walkway
 	for zs in [-1.0, 1.0]:
-		_prop("hex/barrel", Vector3(kcx - side * 4.0, 0, zs * strip_z), 4.4)
-		_prop("hex/barrel", Vector3(kcx - side * 3.0, 0, zs * (strip_z + 0.4)), 4.4, 1.0)
-		_prop("hex/sack", Vector3(kcx - side * 1.6, 0, zs * (strip_z - 0.3)), 4.4, 1.1 * zs)
-		_prop("hex/crate_long_A", Vector3(kcx + side * 0.8, 0, zs * strip_z), 4.2, PI / 2.0)
-		_prop("hex/fence_wood_straight", Vector3(kcx + side * 3.4, 0, zs * (strip_z + 0.3)), 4.2, PI / 2.0)
-		_prop("hex/crate_A_big", Vector3(kcx + side * 5.2, 0, zs * strip_z), 4.0, 0.3 * zs)
+		_prop("hex/barrel", Vector3(kcx - side * 4.0, 0, zs * strip_z), 4.0)
+		_prop("hex/barrel", Vector3(kcx - side * 3.1, 0, zs * strip_z), 4.0, 1.0)
+		_prop("hex/sack", Vector3(kcx - side * 1.6, 0, zs * strip_z), 4.0, 1.1 * zs)
+		_prop("hex/crate_long_A", Vector3(kcx + side * 0.8, 0, zs * strip_z), 3.8, PI / 2.0)
+		_prop("hex/crate_A_big", Vector3(kcx + side * 5.2, 0, zs * strip_z), 3.6, 0.3 * zs)
 	_prop("hex/barrel", Vector3(kx - side * 1.4, 0, 6.6), 4.4)
 	_prop("hex/barrel", Vector3(kx - side * 2.3, 0, 6.2), 4.4, 1.0)
 	_prop("hex/wheelbarrow", Vector3(kx - side * 1.8, 0, -6.4), 4.2, 1.2 * side)
@@ -1685,15 +2199,30 @@ func _build_castle(team: int) -> void:
 	_add_block(throne + Vector3(side * 1.5, 0.15, 0), Vector3(3, 0.3, 4), Color(0.75, 0.6, 0.25), false, _stone(Color(1.0, 0.85, 0.45), 0.6))
 	_add_block(throne + Vector3(side * 2.4, 1.2, 0), Vector3(0.4, 2.0, 1.6), color.darkened(0.2), false)
 	_add_block(throne + Vector3(side * 2.4, 2.35, 0), Vector3(0.5, 0.3, 1.8), Color(0.95, 0.78, 0.25), false)
-	for z in [-2.6, 2.6]:
+	for z in [-4.4, 4.4]:
 		_prop("dungeon/pillar_decorated", throne + Vector3(side * 2.0, 0, z), 1.5)
-	_prop("dungeon/chest_gold", throne + Vector3(side * 3.0, 0, -4.6), 0.9, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	_prop("dungeon/chest_gold", throne + Vector3(side * 3.0, 0, -5.6), 0.9, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	# The Crown Vault: a cage around the throne whose lock the enemy must break.
+	var vault = Vault.new()
+	add_child(vault)
+	vault.setup(self, team, throne, side)
+	vaults.append(vault)
+	# Vault decor: elves grow crystals and roots, humans post guard statues and banners.
+	if team == 0:
+		for z in [-3.0, 3.0]:
+			_add_crystal(throne + Vector3(side * 3.2, 0, z), 1.0)
+		_add_fireflies(throne)
+	else:
+		for z in [-3.0, 3.0]:
+			_prop("dungeon/sword_shield", throne + Vector3(side * 3.0, 1.4, z), 1.1, PI / 2.0 if side > 0.0 else -PI / 2.0)
+			_prop("dungeon/banner_blue", throne + Vector3(side * 2.6, 0, z * 1.5), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	# Predefined defensive positions: low barricades flanking the vault's front.
+	for z in [-5.0, 5.0]:
+		_prop("dungeon/barrier", throne + Vector3(-side * 4.0, 0, z), 1.0, PI / 2.0)
+		_add_collider(throne + Vector3(-side * 4.0, 0.5, z), Vector3(0.6, 1.0, 2.2))
+		cover_points.append(throne + Vector3(-side * 4.0, 0, z))
 
-	# Class stations along the keep's side walls, near the spawn.
-	_add_station(team, Role.KNIGHT, Vector3(kx + side * 3.5, 0, -6.0))
-	_add_station(team, Role.RANGER, Vector3(kx + side * 7.5, 0, -6.0))
-	_add_station(team, Role.MAGE, Vector3(kx + side * 3.5, 0, 6.0))
-	_add_station(team, Role.HEALER, Vector3(kx + side * 7.5, 0, 6.0))
+	_build_cellar(team, bx, side, tint, masonry, masonry_dark, stone)
 
 	var ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()
@@ -1710,6 +2239,146 @@ func _build_castle(team: int) -> void:
 	add_child(m)
 	m.setup(team, throne, color, MONARCH_TITLES[team])
 	monarchs.append(m)
+
+
+func _build_cellar(team: int, bx: float, side: float, tint: Color, masonry: Material, masonry_dark: Material, stone: Color) -> void:
+	## The spawn cellar: a sunken stone hall behind the keep with the class
+	## stations in it (Fat Princess hat machines, our way) and a flight of
+	## stairs up through the back wall into the keep. Its parapet keeps the
+	## field out, so the only way in from outside is still the front door.
+	var cx := bx + side * (CELLAR_DEPTH / 2.0)
+	var hz := CELLAR_HALF_Z
+	var top := 0.9
+	var wall_h := top - CELLAR_Y
+	var wall_y := CELLAR_Y + wall_h / 2.0
+	_add_block(Vector3(cx, CELLAR_Y - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), stone, true, _stone(tint.darkened(0.3), 0.6))
+	_add_block(Vector3(bx + side * (CELLAR_DEPTH + 0.5), wall_y, 0), Vector3(1, wall_h, hz * 2 + 1), stone, true, masonry)
+	for zs in [-1.0, 1.0]:
+		_add_block(Vector3(cx, wall_y, zs * (hz + 0.5)), Vector3(CELLAR_DEPTH + 2.0, wall_h, 1), stone, true, masonry)
+		# Under the castle's back wall: solid below ground except at the stairs.
+		var seg := hz + 0.5 - 1.8
+		_add_block(Vector3(bx, CELLAR_Y / 2.0, zs * (1.8 + seg / 2.0)), Vector3(1, -CELLAR_Y, seg), stone, true, masonry_dark)
+		# Torches and banners along the side walls.
+		for k in 3:
+			var tx := bx + side * (2.0 + k * 3.2)
+			_add_torch(Vector3(tx, CELLAR_Y, zs * (hz - 0.6)))
+		_prop("dungeon/banner_%s" % ["green", "blue"][team], Vector3(bx + side * 5.0, CELLAR_Y + 0.0, zs * (hz - 0.25)), 0.9, 0.0 if zs > 0.0 else PI)
+		_prop("dungeon/box_stacked", Vector3(bx + side * (CELLAR_DEPTH - 1.3), CELLAR_Y, zs * (hz - 1.3)), 0.8, 0.4 * zs)
+	# The stairs: a straight ramp up the middle into the keep.
+	var st := cellar_stairs(team)
+	_add_ramp(st[0], st[1], 3.2, tint.darkened(0.1))
+	for zs in [-1.0, 1.0]:
+		# Low walls along the raised part of the stairs (the foot is open).
+		_add_block(Vector3(bx + side * 3.0, CELLAR_Y + 0.6, zs * 1.9), Vector3(7.6, 1.2, 0.3), stone, true, masonry_dark)
+	# The sanctuary barrier at the top of the stairs: the enemy team can't pass
+	# it and nothing they fire gets through. Elves raise a wall of light,
+	# Humans drop an iron portcullis.
+	var barrier := StaticBody3D.new()
+	barrier.collision_layer = 4 if team == 0 else 8
+	barrier.collision_mask = 0
+	barrier.position = Vector3(bx, 1.4, 0)
+	var bshape := CollisionShape3D.new()
+	var bbox := BoxShape3D.new()
+	bbox.size = Vector3(0.6, 3.2, 3.6)
+	bshape.shape = bbox
+	barrier.add_child(bshape)
+	add_child(barrier)
+	if team == 0:
+		var field := MeshInstance3D.new()
+		var fq := BoxMesh.new()
+		fq.size = Vector3(0.12, 2.9, 3.5)
+		field.mesh = fq
+		var fm := StandardMaterial3D.new()
+		fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		fm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		fm.albedo_color = Color(0.35, 1.0, 0.7, 0.35)
+		field.material_override = fm
+		field.position = Vector3(bx, 1.45, 0)
+		add_child(field)
+		_add_crystal(Vector3(bx - side * 0.2, 0, -2.3), 0.7)
+		_add_crystal(Vector3(bx - side * 0.2, 0, 2.3), 0.7)
+	else:
+		var iron := StandardMaterial3D.new()
+		iron.albedo_color = Color(0.25, 0.26, 0.3)
+		iron.metallic = 0.9
+		iron.roughness = 0.4
+		for k in 7:
+			var bar := MeshInstance3D.new()
+			var bm := CylinderMesh.new()
+			bm.top_radius = 0.06
+			bm.bottom_radius = 0.06
+			bm.height = 2.9
+			bm.radial_segments = 6
+			bar.mesh = bm
+			bar.position = Vector3(bx, 1.45, -1.65 + k * 0.55)
+			bar.material_override = iron
+			add_child(bar)
+		for yy in [0.9, 2.1]:
+			var rail := MeshInstance3D.new()
+			var rm := BoxMesh.new()
+			rm.size = Vector3(0.14, 0.12, 3.5)
+			rail.mesh = rm
+			rail.position = Vector3(bx, yy, 0)
+			rail.material_override = iron
+			add_child(rail)
+		var field := MeshInstance3D.new()
+		var fq := BoxMesh.new()
+		fq.size = Vector3(0.06, 2.9, 3.5)
+		field.mesh = fq
+		var fm := StandardMaterial3D.new()
+		fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		fm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		fm.albedo_color = Color(0.4, 0.6, 1.0, 0.18)
+		field.material_override = fm
+		field.position = Vector3(bx, 1.45, 0)
+		add_child(field)
+	# Team emblem on the floor and a banner wall at the spawn end.
+	_add_block(Vector3(bx + side * (CELLAR_DEPTH - 1.2), CELLAR_Y + 0.025, 0), Vector3(1.6, 0.03, 6.0), Stats.FACTIONS[team].color.darkened(0.3), false)
+	# A warm light so the hall reads from above.
+	var lamp := OmniLight3D.new()
+	lamp.light_color = Color(1.0, 0.8, 0.55)
+	lamp.light_energy = 1.6
+	lamp.omni_range = 14.0
+	lamp.position = Vector3(cx, CELLAR_Y + 3.5, 0)
+	add_child(lamp)
+	# Class stations either side of the stairs.
+	_add_station(team, Role.KNIGHT, Vector3(bx + side * 3.5, CELLAR_Y, -4.4))
+	_add_station(team, Role.RANGER, Vector3(bx + side * 7.0, CELLAR_Y, -4.4))
+	_add_station(team, Role.MAGE, Vector3(bx + side * 3.5, CELLAR_Y, 4.4))
+	_add_station(team, Role.HEALER, Vector3(bx + side * 7.0, CELLAR_Y, 4.4))
+	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall.
+	_add_upgrade_pad(team, Vector3(bx + side * 1.6, CELLAR_Y, -4.6))
+	var g := Guide.new()
+	add_child(g)
+	g.setup(self, team, Vector3(bx + side * 1.6, CELLAR_Y, 4.6), PI / 2.0 if side < 0.0 else -PI / 2.0)
+	guides[team] = g
+
+
+func _add_crystal(pos: Vector3, scale: float) -> void:
+	## A cluster of glowing elven crystals.
+	for i in 3:
+		var c := MeshInstance3D.new()
+		var pm := PrismMesh.new()
+		pm.size = Vector3(0.35, 1.4, 0.35) * scale * (1.0 - i * 0.22)
+		c.mesh = pm
+		c.position = pos + Vector3(cos(i * 2.1) * 0.25 * scale, pm.size.y / 2.0, sin(i * 2.1) * 0.25 * scale)
+		c.rotation = Vector3(sin(i * 1.3) * 0.25, i * 1.1, cos(i * 0.7) * 0.25)
+		var cm := StandardMaterial3D.new()
+		cm.albedo_color = Color(0.5, 0.95, 0.85, 0.85)
+		cm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		cm.emission_enabled = true
+		cm.emission = Color(0.3, 0.9, 0.7)
+		cm.emission_energy_multiplier = 1.4
+		c.material_override = cm
+		add_child(c)
+	var light := OmniLight3D.new()
+	light.light_color = Color(0.4, 1.0, 0.8)
+	light.light_energy = 0.9
+	light.omni_range = 4.0 * scale
+	light.position = pos + Vector3(0, 0.8, 0)
+	add_child(light)
 
 
 func _build_world() -> void:
@@ -1761,21 +2430,41 @@ func _build_world() -> void:
 	fill.light_energy = 0.15
 	add_child(fill)
 
-	# Ground.
-	_add_block(Vector3(0, -0.5, 0), Vector3(map_half.x * 2 + 80, 1, map_half.y * 2 + 60), Color(0.42, 0.62, 0.3), true, _grass())
+	# Ground, in pieces so each castle's spawn cellar can be sunk behind it.
+	var gx := map_half.x + 40.0
+	var gz := map_half.y + 30.0
+	var h0 := CASTLE_X + CASTLE_DEPTH - 0.5          # cellar hole from here...
+	var h1 := CASTLE_X + CASTLE_DEPTH + CELLAR_DEPTH + 0.5   # ...to here (x), mirrored
+	var hz := CELLAR_HALF_Z + 0.5
+	var grass := Color(0.42, 0.62, 0.3)
+	var lane := CASTLE_X + CASTLE_DEPTH - 2.0  # the stairs' top reaches in this far
+	_add_block(Vector3(0, -0.5, 0), Vector3(lane * 2, 1, gz * 2), grass, true, _grass())
+	for sx in [-1.0, 1.0]:
+		for zs in [-1.0, 1.0]:
+			_add_block(Vector3(sx * (lane + h0) / 2.0, -0.5, zs * (1.9 + gz) / 2.0), Vector3(h0 - lane, 1, gz - 1.9), grass, true, _grass())
+	for sx in [-1.0, 1.0]:
+		_add_block(Vector3(sx * (h1 + gx) / 2.0, -0.5, 0), Vector3(gx - h1, 1, gz * 2), grass, true, _grass())
+		for zs in [-1.0, 1.0]:
+			_add_block(Vector3(sx * (h0 + h1) / 2.0, -0.5, zs * (hz + gz) / 2.0), Vector3(h1 - h0, 1, gz - hz), grass, true, _grass())
 	# A dirt road from door to door, with a worn patch at each door and in the middle.
 	# The road: rutted dirt from bridge to door, cobbled aprons at each door,
 	# and grass creeping in at the edges.
-	var road := _dirt()
-	road.uv1_offset = Vector3(0, 0.5, 0)
-	_add_block(Vector3(0, 0.005, 0), Vector3((CASTLE_X - CASTLE_DEPTH) * 2, 0.01, 5.2), Color(0.6, 0.5, 0.35), false, road)
+	var fxr := CASTLE_X - CASTLE_DEPTH
+	var road := _pbr("road", 0.55)
+	# The main road: door to door through the shrine, with cobbled aprons.
+	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road)
+	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road)
 	for sx in [-1.0, 1.0]:
-		_add_block(Vector3(sx * (CASTLE_X - CASTLE_DEPTH - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.45, Color(0.9, 0.86, 0.78)))
-		# Side paths to the flank bridges.
-		for zs in [-1.0, 1.0]:
-			var path := _dirt()
-			path.uv1_offset = Vector3(0, 0.5, 0)
-			_add_block(Vector3(sx * 10.0, 0.004, zs * 14.0), Vector3(14, 0.01, 3.2), Color(0.6, 0.5, 0.35), false, path)
+		_add_block(Vector3(sx * (fxr - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.45, Color(0.9, 0.86, 0.78)))
+		# The Forest Path (north) and the River Path (south): from the road by
+		# the castle door out to the flank bridges, as worn dirt tracks.
+		var dirt := _dirt()
+		var nb: float = BRIDGES[0]
+		var sb: float = BRIDGES[2]
+		_add_path(Vector3(sx * (fxr - 4.0), 0, -3.0), Vector3(sx * 30.0, 0, nb - 3.0), 3.4, dirt)
+		_add_path(Vector3(sx * 30.0, 0, nb - 3.0), Vector3(sx * (RIVER_HALF + 1.5), 0, nb), 3.4, dirt)
+		_add_path(Vector3(sx * (fxr - 4.0), 0, 3.0), Vector3(sx * 26.0, 0, sb + 2.0), 3.4, dirt)
+		_add_path(Vector3(sx * 26.0, 0, sb + 2.0), Vector3(sx * (RIVER_HALF + 1.5), 0, sb), 3.4, dirt)
 	_add_river()
 
 	_build_castle(0)
@@ -1783,30 +2472,37 @@ func _build_world() -> void:
 	_add_cover()
 	_add_heal_orbs()
 
-	# Mirrored groves in the contested middle, leaving the road clear.
-	var grove := [Vector3(5, 0, 7), Vector3(10, 0, 12), Vector3(16, 0, 6), Vector3(8, 0, 17),
-		Vector3(19, 0, 15), Vector3(23, 0, 10), Vector3(3, 0, 13), Vector3(14, 0, 19), Vector3(27, 0, 14)]
+	# Mirrored groves in the contested middle, leaving the roads clear, and
+	# thick forest along the north edge where the Forest Path runs.
+	var grove := [Vector3(8, 0, 8), Vector3(14, 0, 13), Vector3(22, 0, 6), Vector3(10, 0, 18),
+		Vector3(26, 0, 16), Vector3(32, 0, 11), Vector3(5, 0, 14), Vector3(18, 0, 20), Vector3(38, 0, 15), Vector3(42, 0, 5),
+		Vector3(4, 0, -32), Vector3(10, 0, -34), Vector3(18, 0, -31), Vector3(24, 0, -34), Vector3(32, 0, -30), Vector3(40, 0, -33), Vector3(46, 0, -28),
+		Vector3(3, 0, -16), Vector3(16, 0, -11), Vector3(36, 0, -14), Vector3(8, 0, 32), Vector3(30, 0, 33), Vector3(44, 0, 30), Vector3(34, 0, 24)]
 	for p in grove:
 		_add_tree(p)
 		_add_tree(-p)
 		_add_bush(p + Vector3(1.8, 0, 0.6), int(p.x * 3 + p.z))
 		_add_bush(-p + Vector3(-1.8, 0, -0.6), int(p.x * 5 + p.z))
-	for p in [Vector3(9, 0, 13), Vector3(-9, 0, -13), Vector3(20, 0, 12), Vector3(-20, 0, -12), Vector3(44, 0, 20), Vector3(-44, 0, -20)]:
+	for p in [Vector3(12, 0, 14), Vector3(-12, 0, -14), Vector3(26, 0, 14), Vector3(-26, 0, -14), Vector3(58, 0, 22), Vector3(-58, 0, -22), Vector3(9, 0, -25), Vector3(-9, 0, 25)]:
 		_add_fireflies(p)
 	# Woods on the castle flanks.
-	for p in [Vector3(38, 0, 17), Vector3(46, 0, 19), Vector3(52, 0, 16), Vector3(34, 0, 22)]:
+	for p in [Vector3(52, 0, 19), Vector3(60, 0, 22), Vector3(68, 0, 18), Vector3(46, 0, 24), Vector3(56, 0, 30)]:
 		_add_tree(p, true)
 		_add_tree(-p, true)
 		_add_tree(Vector3(p.x, 0, -p.z), true)
 		_add_tree(Vector3(-p.x, 0, p.z), true)
 	# A tree line and hills beyond the playable edge, so the world has a horizon.
-	for i in 14:
-		var x := -52.0 + i * 8.0
-		_prop("hex/trees_%s_medium" % ["A", "B"][i % 2], Vector3(x, 0, 30.0 + (i % 3) * 1.5), 4.0, float(i))
-		_prop("hex/trees_%s_medium" % ["B", "A"][i % 2], Vector3(x + 3.0, 0, -30.0 - (i % 3) * 1.5), 4.0, float(i))
-	for i in 5:
-		_prop("hex/hill_single_A", Vector3(-40.0 + i * 20.0, -0.2, 40.0), 12.0, float(i))
-		_prop("hex/hill_single_A", Vector3(-30.0 + i * 20.0, -0.2, -40.0), 12.0, float(i) + 1.0)
+	for i in 22:
+		var x := -84.0 + i * 8.0
+		_prop("hex/trees_%s_medium" % ["A", "B"][i % 2], Vector3(x, 0, 40.0 + (i % 3) * 1.5), 4.0, float(i))
+		_prop("hex/trees_%s_medium" % ["B", "A"][i % 2], Vector3(x + 3.0, 0, -40.0 - (i % 3) * 1.5), 4.0, float(i))
+	for i in 7:
+		_prop("hex/hill_single_A", Vector3(-60.0 + i * 20.0, -0.2, 52.0), 12.0, float(i))
+		_prop("hex/hill_single_A", Vector3(-50.0 + i * 20.0, -0.2, -52.0), 12.0, float(i) + 1.0)
+	# Hills along the east and west edges behind the castles.
+	for zs in [-1.0, 1.0]:
+		for sx in [-1.0, 1.0]:
+			_prop("hex/hill_single_A", Vector3(sx * 100.0, -0.2, zs * 20.0), 12.0, sx + zs)
 
 	camera = Camera3D.new()
 	camera.rotation_degrees = Vector3(-55, 0, 0)
@@ -1880,6 +2576,7 @@ func _setup_input() -> void:
 	_add_action("rank_menu", [KEY_R], [JOY_BUTTON_RIGHT_STICK])
 	_add_action("scoreboard", [KEY_TAB], [JOY_BUTTON_BACK])
 	_add_action("chat", [KEY_ENTER], [])
+	_add_action("chat_toggle", [KEY_H], [])
 	_add_action("options", [KEY_O], [JOY_BUTTON_BACK])
 	_add_action("rank_1", [KEY_1], [JOY_BUTTON_DPAD_UP])
 	_add_action("rank_2", [KEY_2], [JOY_BUTTON_DPAD_LEFT])

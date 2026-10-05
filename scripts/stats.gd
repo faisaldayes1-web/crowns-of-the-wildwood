@@ -10,6 +10,28 @@ const STAMINA_REGEN := 11.0   # per second (slow: stamina is the limit on attack
 const MANA_MAX := 100.0
 const MANA_REGEN := 7.0       # per second
 const RESPAWN_TIME := 7.0
+const RESPAWN_PER_LEVEL := 1.0  # dying hurts more the higher you were: extra seconds per level
+const RESPAWN_MAX := 13.0
+
+# Veterans: kill streaks without dying. A Veteran is announced and marked;
+# an Elite Veteran carries a bounty: revealed to the enemy, slightly tougher,
+# and worth a team-wide reward to whoever brings them down.
+const VETERAN_STREAK := 5
+const ELITE_STREAK := 10
+const ELITE_HEARTS_BONUS := 1
+const ELITE_REGEN_MULT := 1.25
+const BOUNTY_XP := 80
+const BOUNTY_BUFF := "Might"
+
+# Bot difficulty. aim_error is radians of random aim wobble, ability scales
+# how often bots fire abilities, react scales dodging and blocking, sight
+# scales how far they notice enemies, chase is how far they go after a bounty.
+const BOT_DIFFICULTIES := ["Easy", "Normal", "Hard"]
+const BOT_TUNING := {
+	"Easy": {"aim_error": 0.4, "ability": 0.45, "react": 0.4, "sight": 0.8, "chase": 0.0, "desc": "Bots miss a lot, rarely use abilities and seldom dodge."},
+	"Normal": {"aim_error": 0.12, "ability": 1.0, "react": 1.0, "sight": 1.0, "chase": 18.0, "desc": "A fair fight: bots aim well and use their kit."},
+	"Hard": {"aim_error": 0.03, "ability": 1.9, "react": 1.6, "sight": 1.3, "chase": 30.0, "desc": "Bots aim true, chain abilities, dodge often and hunt veterans."},
+}
 const CARRY_SPEED_MULT := 0.75
 
 const DODGE_TIME := 0.25      # seconds the dash lasts; nothing can hit you during it
@@ -38,6 +60,14 @@ const BLESSING_KINDS := {
 
 const DOOR_HALF := 3.5        # half-width of each castle door
 const GATE_HITS := 50         # door damage a castle door soaks before it breaks
+const VAULT_HITS := 12        # hits to break the Crown Vault's lock (about 6 s for one Knight)
+const VAULT_RELOCK_TIME := 30.0
+const SPAWN_PROTECT_TIME := 3.0  # seconds of invulnerability after spawning (ends on leaving the cellar)
+# Defending home: the bonus a team gets inside its own castle (and cellar).
+# resist and heal are fractions: every 1/resist-th hit is absorbed, every
+# 1/heal-th heart healed is doubled; regen is a multiplier bonus; interact
+# speeds up the door's rebuild while a defender stands by it.
+const DEFENDER := {"resist": 0.1, "heal": 0.1, "regen": 0.1, "interact": 0.15}
 const GATE_REBUILD_TIME := 30.0
 const MATCH_TIME := 600.0     # seconds
 const CAPTURES_TO_WIN := 2
