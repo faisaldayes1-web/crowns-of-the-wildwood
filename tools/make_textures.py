@@ -105,20 +105,23 @@ def brick_layout(rows, cols, mortar, bevel, jitter_seed=1):
 
 
 def make_stone():
-    height, shade = brick_layout(rows=6, cols=5, mortar=6, bevel=22)
+    height, shade = brick_layout(rows=8, cols=6, mortar=7, bevel=18)
     grain = fbm(N, 16, 4, 11)
     chips = fbm(N, 64, 2, 12)
     h = height * (0.85 + 0.15 * grain) - 0.08 * (chips > 0.72) * height
-    base = rgb(0.80, 0.74, 0.66)
-    dark = rgb(0.62, 0.56, 0.50)
-    color = lerp(dark, base, (0.55 + 0.45 * shade)[..., None])
-    color = color * (0.9 + 0.2 * grain)[..., None]
-    mortar = rgb(0.45, 0.40, 0.35)
-    color = lerp(mortar, color, np.clip(height * 1.4, 0, 1)[..., None])
-    # A little moss in the cracks at the bottom edges.
-    moss = (1 - height) * (fbm(N, 8, 3, 13) > 0.74)
-    color = lerp(color, rgb(0.50, 0.60, 0.36), np.clip(moss * 0.5, 0, 1)[..., None])
-    save("stone", color, h, 2.2)
+    # Weathered grey stone with warm and cool blocks mixed, like the renders.
+    base = rgb(0.74, 0.72, 0.68)
+    dark = rgb(0.50, 0.49, 0.48)
+    warm = rgb(0.72, 0.64, 0.54)
+    color = lerp(dark, base, (0.5 + 0.5 * shade)[..., None])
+    color = lerp(color, warm, (shade > 0.7)[..., None] * 0.45)
+    color = color * (0.88 + 0.24 * grain)[..., None]
+    mortar = rgb(0.30, 0.28, 0.26)
+    color = lerp(mortar, color, np.clip(height * 1.5, 0, 1)[..., None])
+    # Moss and damp in the cracks and on the lower edges of blocks.
+    moss = (1 - height) * (fbm(N, 8, 3, 13) > 0.66)
+    color = lerp(color, rgb(0.42, 0.56, 0.30), np.clip(moss * 0.6, 0, 1)[..., None])
+    save("stone", color, h, 2.4)
 
 
 def make_cobble():
@@ -149,11 +152,13 @@ def make_cobble():
     shade = r.random(cells * cells)[ids]
     grain = fbm(N, 32, 3, 21)
     h = height * (0.9 + 0.1 * grain)
-    light = rgb(0.80, 0.76, 0.70)
-    dark = rgb(0.58, 0.55, 0.52)
-    color = lerp(dark, light, (0.3 + 0.7 * shade)[..., None]) * (0.92 + 0.16 * grain)[..., None]
-    gap = rgb(0.38, 0.34, 0.28)
+    light = rgb(0.76, 0.73, 0.68)
+    dark = rgb(0.52, 0.50, 0.48)
+    color = lerp(dark, light, (0.3 + 0.7 * shade)[..., None]) * (0.9 + 0.2 * grain)[..., None]
+    gap = rgb(0.44, 0.41, 0.37)
     color = lerp(gap, color, np.clip(height * 1.6, 0, 1)[..., None])
+    moss = (1 - height) * (fbm(N, 6, 3, 23) > 0.62)
+    color = lerp(color, rgb(0.40, 0.55, 0.28), np.clip(moss * 0.7, 0, 1)[..., None])
     save("cobble", color, h, 2.5)
 
 
@@ -202,24 +207,28 @@ def make_bark():
 
 
 def make_grass():
-    blotch = fbm(N, 6, 3, 51)
+    blotch = fbm(N, 3, 4, 51)
     fine = fbm(N, 48, 3, 52)
     strokes = fbm(N, 12, 2, 53)
     # Painted grass: broad blotches of two greens, fine tufts on top, light flecks.
-    deep = rgb(0.24, 0.44, 0.17)
-    bright = rgb(0.42, 0.63, 0.24)
+    deep = rgb(0.27, 0.50, 0.19)
+    bright = rgb(0.52, 0.72, 0.27)
     color = lerp(deep, bright, np.clip(blotch * 1.3 - 0.15, 0, 1)[..., None])
-    color = color * (0.9 + 0.2 * fine)[..., None]
-    flecks = (fine > 0.74) & (strokes > 0.5)
-    color = lerp(color, rgb(0.6, 0.78, 0.34), flecks[..., None] * 0.5)
-    # The odd flower.
+    color = color * (0.88 + 0.24 * fine)[..., None]
+    flecks = (fine > 0.72) & (strokes > 0.5)
+    color = lerp(color, rgb(0.68, 0.84, 0.38), flecks[..., None] * 0.55)
+    # Clover and worn patches.
+    clover = fbm(N, 5, 2, 55)
+    color = lerp(color, rgb(0.22, 0.42, 0.20), np.clip((clover - 0.6) * 3, 0, 1)[..., None] * 0.6)
+    color = lerp(color, rgb(0.58, 0.60, 0.32), np.clip((0.35 - clover) * 4, 0, 1)[..., None] * 0.5)
+    # Flowers.
     r = np.random.default_rng(54)
     ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
-    for _ in range(26):
+    for _ in range(70):
         fx, fy = r.uniform(0, N), r.uniform(0, N)
         d = np.sqrt(((xs - fx + N / 2) % N - N / 2) ** 2 + ((ys - fy + N / 2) % N - N / 2) ** 2)
         petal = d < 5
-        tint = [rgb(0.98, 0.9, 0.5), rgb(0.95, 0.95, 0.98), rgb(0.55, 0.75, 1.0)][_ % 3]
+        tint = [rgb(0.98, 0.9, 0.5), rgb(0.95, 0.6, 0.7), rgb(0.55, 0.75, 1.0), rgb(0.95, 0.5, 0.6), rgb(0.9, 0.45, 0.2)][_ % 5]
         color = lerp(color, tint, petal[..., None] * 0.9)
     h = 0.6 * fine + 0.4 * blotch
     save("grass", color, h, 0.7)

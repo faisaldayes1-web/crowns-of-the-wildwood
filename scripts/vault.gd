@@ -43,9 +43,9 @@ func setup(p_game, p_team: int, throne: Vector3, p_side: float) -> void:
 		metal.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		metal.albedo_color.a = 0.75
 	else:
-		metal.albedo_color = Color(0.25, 0.26, 0.3)
-		metal.metallic = 0.9
-		metal.roughness = 0.35
+		metal.albedo_color = Color(0.16, 0.17, 0.2)
+		metal.metallic = 0.55
+		metal.roughness = 0.55
 	# Side and back bars, solid for the enemy: three colliders and their bars.
 	var half_z := 3.4
 	var depth := 5.6
@@ -127,12 +127,27 @@ func _bars(start: Vector3, span: Vector3, mat: Material, elf: bool) -> void:
 
 
 func _bars_into(parent: Node3D, start: Vector3, span: Vector3, mat: Material, elf: bool) -> void:
-	var n := int(span.length() / 0.5)
+	# A low stone (or root) plinth under the bars so the cage reads as a
+	# built wall rather than floating lines, then thick bars on top.
+	var plinth := MeshInstance3D.new()
+	var pb := BoxMesh.new()
+	pb.size = Vector3(maxf(absf(span.x), 0.5), 0.7, maxf(absf(span.z), 0.5))
+	plinth.mesh = pb
+	plinth.position = start + span / 2.0 + Vector3(0, 0.35, 0)
+	var pmat := StandardMaterial3D.new()
+	pmat.albedo_color = Color(0.5, 0.42, 0.3) if elf else Color(0.5, 0.5, 0.54)
+	pmat.albedo_texture = load("res://assets/textures/%s_color.jpg" % ("bark" if elf else "stone"))
+	pmat.uv1_triplanar = true
+	pmat.uv1_world_triplanar = true
+	pmat.uv1_scale = Vector3.ONE * 0.5
+	plinth.material_override = pmat
+	parent.add_child(plinth)
+	var n := int(span.length() / 0.7)
 	for i in n + 1:
 		var bar := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
-		cm.top_radius = 0.05 if not elf else 0.02
-		cm.bottom_radius = 0.07 if not elf else 0.09
+		cm.top_radius = 0.09 if not elf else 0.05
+		cm.bottom_radius = 0.11 if not elf else 0.14
 		cm.height = 2.5
 		cm.radial_segments = 6
 		bar.mesh = cm

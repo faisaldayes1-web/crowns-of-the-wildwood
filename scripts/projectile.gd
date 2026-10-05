@@ -7,6 +7,7 @@ extends Node3D
 ## of light. Each spell carries its own light.
 
 const Stats = preload("res://scripts/stats.gd")
+const Barricade = preload("res://scripts/barricade.gd")
 
 const HIT_RADIUS := 0.7
 const FLIGHT_HEIGHT := 1.1   # how high above the feet a shot flies
@@ -223,6 +224,8 @@ func _physics_process(delta: float) -> void:
 			gate.take_hit(gate_damage, owner_unit)
 		elif hit.collider == vault:
 			vault.take_hit(gate_damage, owner_unit)
+		elif hit.collider is Barricade and hit.collider.team != team:
+			hit.collider.take_hit(gate_damage, owner_unit)
 		_burst()
 		return
 

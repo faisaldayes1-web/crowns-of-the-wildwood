@@ -34,12 +34,12 @@ func setup(p_game, pos: Vector3) -> void:
 	orb.position.y = 0.85
 	add_child(orb)
 	var liquid := StandardMaterial3D.new()
-	liquid.albedo_color = Color(0.9, 0.12, 0.2)
+	liquid.albedo_color = Color(0.3, 0.95, 0.4)
 	liquid.emission_enabled = true
-	liquid.emission = Color(0.9, 0.1, 0.2)
+	liquid.emission = Color(0.25, 0.9, 0.35)
 	liquid.emission_energy_multiplier = 1.2
 	var glass := StandardMaterial3D.new()
-	glass.albedo_color = Color(0.9, 0.95, 1.0, 0.35)
+	glass.albedo_color = Color(0.9, 1.0, 0.95, 0.22)
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	glass.roughness = 0.1
 	glass.metallic = 0.2

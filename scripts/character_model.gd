@@ -209,12 +209,63 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}) 
 			_add_ears(team)
 		if c.crown:
 			_add_crown()
+	_add_class_flair(role, variant)
 
 	if anim:
 		for name in LOOPS:
 			if anim.has_animation(name):
 				anim.get_animation(name).loop_mode = Animation.LOOP_LINEAR
 		play_loop(idle_anim)
+
+
+func _add_class_flair(role: int, variant: String) -> void:
+	## What makes each class read at a glance beyond its gear: the Ranger's
+	## quiver on the back, arcane sparks around the Mage, soft healing motes
+	## around the Healer.
+	match role:
+		Role.RANGER:
+			var quiver: Node3D = load("res://assets/props/gear/quiver.gltf").instantiate()
+			quiver.position = Vector3(0.14, 1.05, 0.22)
+			quiver.rotation = Vector3(0.35, 0, -0.25)
+			quiver.scale = Vector3.ONE * 1.1
+			add_child(quiver)
+		Role.MAGE, Role.HEALER:
+			var cp := CPUParticles3D.new()
+			cp.amount = 14
+			cp.lifetime = 1.4
+			cp.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+			cp.emission_sphere_radius = 0.5
+			cp.direction = Vector3.UP
+			cp.spread = 30.0
+			cp.initial_velocity_min = 0.2
+			cp.initial_velocity_max = 0.5
+			cp.gravity = Vector3(0, 0.3, 0)
+			cp.scale_amount_min = 0.05
+			cp.scale_amount_max = 0.1
+			cp.position = Vector3(0, 1.0, 0)
+			var sph := SphereMesh.new()
+			sph.radius = 0.5
+			sph.height = 1.0
+			sph.radial_segments = 5
+			sph.rings = 3
+			cp.mesh = sph
+			var mat := StandardMaterial3D.new()
+			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			var col := Color(0.8, 0.5, 1.0) if role == Role.MAGE else Color(0.6, 1.0, 0.7)
+			if variant == "Pyromancer":
+				col = Color(1.0, 0.6, 0.25)
+			elif variant == "Frostweaver":
+				col = Color(0.6, 0.9, 1.0)
+			elif variant == "Dark Priest":
+				col = Color(0.7, 0.4, 0.9)
+			mat.albedo_color = col
+			mat.emission_enabled = true
+			mat.emission = col
+			mat.emission_energy_multiplier = 2.0
+			mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			mat.albedo_color.a = 0.8
+			cp.material_override = mat
+			add_child(cp)
 
 
 func _meshes(node: Node) -> Array:

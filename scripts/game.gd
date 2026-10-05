@@ -14,6 +14,7 @@ const Trap = preload("res://scripts/trap.gd")
 const Blessing = preload("res://scripts/blessing.gd")
 const Vault = preload("res://scripts/vault.gd")
 const Guide = preload("res://scripts/guide.gd")
+const Barricade = preload("res://scripts/barricade.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -100,6 +101,7 @@ var stolen_timer := 0.0       # the CROWN STOLEN banner
 var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} at +z]
 var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
 var cover_points: Array = []  # places a shooter can duck behind
+var barricades: Array = []    # breakable fences (scripts/barricade.gd)
 var guides: Array = [null, null]   # the Wildwood Guide in each courtyard
 var guide_open := false
 var guide_page := 0       # intro page, or -1 for the topic menu
@@ -1535,12 +1537,12 @@ func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE) -> StandardMa
 	return mat
 
 
-func _stone(tint: Color = Color.WHITE, scale: float = 0.22) -> StandardMaterial3D:
+func _stone(tint: Color = Color.WHITE, scale: float = 0.26) -> StandardMaterial3D:
 	return _pbr("stone", scale, tint)
 
 
 func _grass() -> StandardMaterial3D:
-	return _pbr("grass", 0.28, Color(0.95, 1.0, 0.85))
+	return _pbr("grass", 0.16, Color(0.95, 1.0, 0.88))
 
 
 func _wood(tint: Color = Color.WHITE, scale: float = 0.5) -> StandardMaterial3D:
@@ -1665,8 +1667,167 @@ func _add_boulder(pos: Vector3) -> void:
 			pos + Vector3(cos(ang) * 1.7, 0, sin(ang) * 1.7), 4.0, ang)
 
 
+func _add_ground_detail() -> void:
+	## Life on the ground, kept off the lanes: flowers, grass tufts, small
+	## stones, mushrooms under the trees and fallen leaves. Elven ground
+	## (west) gets glowing blooms and mushrooms; human ground (east) gets
+	## stones, leaf litter and plain wildflowers. All MultiMeshes.
+	var r := RandomNumberGenerator.new()
+	r.seed = 1234
+	var flower := SphereMesh.new()
+	flower.radius = 0.1
+	flower.height = 0.16
+	flower.radial_segments = 6
+	flower.rings = 3
+	var tuft := CylinderMesh.new()
+	tuft.top_radius = 0.0
+	tuft.bottom_radius = 0.2
+	tuft.height = 0.42
+	tuft.radial_segments = 5
+	var stone := _rock_mesh(77, 0.26, 0.25)
+	var cap := CylinderMesh.new()
+	cap.top_radius = 0.08
+	cap.bottom_radius = 0.17
+	cap.height = 0.12
+	cap.radial_segments = 7
+	var leaf := PlaneMesh.new()
+	leaf.size = Vector2(0.34, 0.26)
+	var sets := [
+		["flower", flower, 650, 0.14], ["tuft", tuft, 900, 0.18], ["stone", stone, 220, 0.0], ["cap", cap, 140, 0.26], ["leaf", leaf, 520, 0.02]]
+	for s in sets:
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = s[1]
+		var placed: Array = []
+		var tries := 0
+		while placed.size() < s[2] and tries < s[2] * 12:
+			tries += 1
+			var p: Vector3
+			if s[0] == "leaf" or s[0] == "cap":
+				var t: Vector3 = map_trees[r.randi() % map_trees.size()]
+				var a := r.randf() * TAU
+				var d := r.randf_range(0.8, 3.2)
+				p = Vector3(t.x + cos(a) * d, 0, t.z + sin(a) * d)
+			else:
+				p = Vector3(r.randf_range(-map_half.x + 4.0, map_half.x - 4.0), 0, r.randf_range(-map_half.y + 2.0, map_half.y - 2.0))
+			if not _open_ground(p):
+				continue
+			placed.append(p)
+		mm.instance_count = placed.size()
+		for i in placed.size():
+			var p: Vector3 = placed[i]
+			var elf_side: bool = p.x < 0.0
+			var sc := r.randf_range(0.7, 1.3)
+			var basis := Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(sc, sc * r.randf_range(0.8, 1.2), sc))
+			var col: Color
+			match s[0]:
+				"flower":
+					col = [Color(0.98, 0.9, 0.45), Color(0.98, 0.98, 1.0), Color(0.95, 0.55, 0.65), Color(0.6, 0.8, 1.0), Color(0.95, 0.55, 0.25)][r.randi() % 5]
+					if elf_side and r.randf() < 0.35:
+						col = Color(0.5, 0.95, 1.0)  # glowing wildwood bloom
+				"tuft":
+					col = Color.from_hsv(0.26 + r.randf_range(-0.03, 0.03), 0.7, r.randf_range(0.45, 0.7))
+				"stone":
+					col = Color(0.6, 0.6, 0.58).lerp(Color(0.5, 0.52, 0.5), r.randf())
+					if elf_side and r.randf() < 0.3:
+						col = Color(0.55, 0.62, 0.5)
+				"cap":
+					col = Color(0.85, 0.25, 0.2) if r.randf() < 0.6 else Color(0.8, 0.65, 0.45)
+					if elf_side and r.randf() < 0.4:
+						col = Color(0.45, 0.85, 0.95)
+				"leaf":
+					col = [Color(0.8, 0.45, 0.15), Color(0.65, 0.3, 0.1), Color(0.85, 0.65, 0.2), Color(0.4, 0.55, 0.2)][r.randi() % 4]
+			mm.set_instance_transform(i, Transform3D(basis, p + Vector3(0, s[3], 0)))
+			mm.set_instance_color(i, col)
+		var inst := MultiMeshInstance3D.new()
+		inst.multimesh = mm
+		var mat := StandardMaterial3D.new()
+		mat.vertex_color_use_as_albedo = true
+		mat.roughness = 0.9
+		if s[0] == "flower" or s[0] == "cap":
+			mat.emission_enabled = true
+			mat.emission = Color(0.3, 0.6, 0.7)
+			mat.emission_energy_multiplier = 0.25
+		inst.material_override = mat
+		inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(inst)
+		if s[0] == "cap":
+			# Stems under the caps.
+			var stems := MultiMesh.new()
+			stems.transform_format = MultiMesh.TRANSFORM_3D
+			var stem := CylinderMesh.new()
+			stem.top_radius = 0.05
+			stem.bottom_radius = 0.06
+			stem.height = 0.26
+			stem.radial_segments = 5
+			stems.mesh = stem
+			stems.instance_count = placed.size()
+			for i in placed.size():
+				stems.set_instance_transform(i, Transform3D(Basis.IDENTITY, placed[i] + Vector3(0, 0.13, 0)))
+			var si := MultiMeshInstance3D.new()
+			si.multimesh = stems
+			si.material_override = _material(Color(0.9, 0.86, 0.75))
+			si.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(si)
+
+
+func _open_ground(p: Vector3) -> bool:
+	## Grass that is not a lane: off the roads and paths, out of the river,
+	## the island, the castles and their yards, and not inside a tree trunk.
+	if absf(p.x) < RIVER_HALF + 1.4 or _flat_dist(p, Vector3.ZERO) < ISLAND_R + 1.5:
+		return false
+	if absf(p.x) > CASTLE_X - CASTLE_DEPTH - 2.0:
+		return false
+	for bz in BRIDGES:
+		if absf(p.z - bz) < 4.5 and absf(p.x) < RIVER_HALF + 4.0:
+			return false
+	for path in map_paths:
+		var a: Vector3 = path[0]
+		var b: Vector3 = path[1]
+		var ab := Vector2(b.x - a.x, b.z - a.z)
+		var t := clampf(Vector2(p.x - a.x, p.z - a.z).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+		var q := Vector2(a.x, a.z) + ab * t
+		if Vector2(p.x, p.z).distance_to(q) < path[2] / 2.0 + 0.7:
+			return false
+	for mark in map_marks:
+		if _flat_dist(p, mark[0]) < 5.0:
+			return false
+	for t in map_trees:
+		if _flat_dist(p, t) < 0.7:
+			return false
+	for c in cover_points:
+		if _flat_dist(p, c) < 1.6:
+			return false
+	for orb in heal_orbs:
+		if _flat_dist(p, orb.global_position) < 1.5:
+			return false
+	return true
+
+
 func _add_tree(pos: Vector3, big: bool = false) -> void:
 	map_trees.append(Vector3(pos.x, 1.0 if big else 0.0, pos.z))
+	# Human woodland (east) mixes in KayKit oaks and pines so the two sides
+	# read differently; the elven Wildwood keeps its grown, glowing trees.
+	var tree_seed := absi(int(pos.x * 13 + pos.z * 7))
+	if pos.x > 8.0 and tree_seed % 3 != 0:
+		var body := StaticBody3D.new()
+		body.position = pos
+		var shape := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = 0.5
+		cyl.height = 3.0
+		shape.shape = cyl
+		shape.position.y = 1.5
+		body.add_child(shape)
+		add_child(body)
+		var kind := "hex/tree_single_%s" % ["A", "B"][tree_seed % 2]
+		_prop(kind, pos, (5.2 if big else 4.2) * (0.9 + 0.2 * float(tree_seed % 5) / 4.0), float(tree_seed))
+		return
+	_add_tree_grown(pos, big)
+
+
+func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 	var body := StaticBody3D.new()
 	body.position = pos
 	var shape := CollisionShape3D.new()
@@ -1713,7 +1874,7 @@ func _add_tree(pos: Vector3, big: bool = false) -> void:
 	# Canopy: a cluster of faceted blobs with a gradient leaf shader.
 	var autumn := seed % 7 == 0
 	var leaf := _leaf_material(r, autumn)
-	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1)
+	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.15 if pos.x < -8.0 else 1.0)
 	var blobs := 6 if big else 4
 	var base_y: float = trunk_h * 0.8
 	for i in blobs:
@@ -1727,7 +1888,7 @@ func _add_tree(pos: Vector3, big: bool = false) -> void:
 		blob.material_override = leaf
 		tree.add_child(blob)
 	# Glowing wildwood blossoms on every third tree, like the logo's.
-	if seed % 3 == 0 and not autumn:
+	if (seed % 3 == 0 or pos.x < -8.0) and not autumn:
 		var glow := StandardMaterial3D.new()
 		glow.albedo_color = Color(0.55, 0.85, 1.0)
 		glow.emission_enabled = true
@@ -2129,6 +2290,13 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 			_prop("gear/wand", pos + Vector3(0.6, 0.25, 0.3), 1.6, 1.2).rotation.x = 1.3
 
 
+func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float, prop: String) -> void:
+	var b := Barricade.new()
+	add_child(b)
+	b.setup(self, team, pos, length, rot_y, prop)
+	barricades.append(b)
+
+
 func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 	upgrade_pads[team] = pos
 	var color := Color(1.0, 0.8, 0.25)
@@ -2163,10 +2331,10 @@ func _build_castle(team: int) -> void:
 	var color: Color = Stats.FACTIONS[team].color
 	var stone := Color(0.45, 0.32, 0.2) if team == 0 else Color(0.6, 0.6, 0.62)
 	# Textured masonry: elves build in warm sandstone, humans in grey granite.
-	var tint := Color(0.92, 0.8, 0.62) if team == 0 else Color(0.72, 0.76, 0.84)
+	var tint := Color(0.9, 0.86, 0.74) if team == 0 else Color(0.8, 0.84, 0.92)
 	var masonry := _stone(tint)
 	var masonry_dark := _stone(tint.darkened(0.12))
-	var cobbles := _stone(tint.darkened(0.2), 0.7)
+	var cobbles := _pbr("cobble", 0.26, tint.lightened(0.1))
 	var cx := side * CASTLE_X
 	var fx := _front_x(team)                      # outer wall's front, facing the middle
 	var bx := side * (CASTLE_X + CASTLE_DEPTH)    # outer wall's back
@@ -2289,7 +2457,7 @@ func _build_castle(team: int) -> void:
 		_prop("dungeon/column", Vector3(kx + side * 5.5, 0, zs * (KEEP_HALF_Z - 0.9)), 1.0)
 		_prop("dungeon/torch_mounted", Vector3(kx + side * 2.0, 1.6, zs * (KEEP_HALF_Z - 0.45)), 1.4, PI if zs > 0.0 else 0.0)
 	# A rug from the archway to the throne.
-	_add_block(Vector3(kx + side * 4.5, 0.045, 0), Vector3(7.0, 0.02, 2.6), color.darkened(0.35), false)
+	_add_block(Vector3(kx + side * 4.5, 0.045, 0), Vector3(7.0, 0.02, 2.6), color.darkened(0.55), false, _pbr("wood", 0.8, color.darkened(0.45)))
 
 	# Throne on a dais inside the keep. Carry the enemy monarch here to score.
 	var throne := Vector3(kx + side * 6.0, 0, 0)
@@ -2316,9 +2484,13 @@ func _build_castle(team: int) -> void:
 			_prop("dungeon/banner_blue", throne + Vector3(side * 2.6, 0, z * 1.5), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	# Predefined defensive positions: low barricades flanking the vault's front.
 	for z in [-5.0, 5.0]:
-		_prop("dungeon/barrier", throne + Vector3(-side * 4.0, 0, z), 1.0, PI / 2.0)
-		_add_collider(throne + Vector3(-side * 4.0, 0.5, z), Vector3(0.6, 1.0, 2.2))
+		_add_barricade(team, throne + Vector3(-side * 4.0, 0, z), 2.4, PI / 2.0, "hex/fence_wood_straight")
 		cover_points.append(throne + Vector3(-side * 4.0, 0, z))
+	# Outer defense: a breakable fence line across the yard behind the door,
+	# with the centre lane and the flanks left open.
+	for z in [-6.0, 6.0]:
+		_add_barricade(team, Vector3(fx + side * 4.2, 0, z), 3.5, 0.0, "hex/fence_wood_straight")
+		cover_points.append(Vector3(fx + side * 4.2, 0, z))
 
 	_build_cellar(team, bx, side, tint, masonry, masonry_dark, stone)
 
@@ -2493,8 +2665,15 @@ func _build_world() -> void:
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.ambient_light_energy = 0.55
-	environment.ambient_light_sky_contribution = 0.7
+	environment.ambient_light_energy = 0.6
+	environment.ambient_light_sky_contribution = 0.6
+	environment.ambient_light_color = Color(0.75, 0.85, 0.8)
+	# Soft contact shadows under props and in corners (Forward+ only).
+	environment.ssao_enabled = true
+	environment.ssao_radius = 1.2
+	environment.ssao_intensity = 1.6
+	environment.ssao_power = 1.3
+	environment.ssil_enabled = false
 	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
 	environment.tonemap_exposure = 0.8
 	environment.glow_enabled = true
@@ -2515,10 +2694,14 @@ func _build_world() -> void:
 
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-52, -35, 0)
-	sun.light_color = Color(1.0, 0.95, 0.85)
-	sun.light_energy = 1.0
+	sun.light_color = Color(1.0, 0.94, 0.82)
+	sun.light_energy = 1.15
 	sun.shadow_enabled = true
 	sun.shadow_bias = 0.03
+	sun.shadow_normal_bias = 1.5
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_split_1 = 0.12
+	sun.directional_shadow_split_2 = 0.3
 	sun.directional_shadow_max_distance = 70.0
 	add_child(sun)
 	# A cool fill from the other side so shadows are not black.
@@ -2589,6 +2772,7 @@ func _build_world() -> void:
 		_add_tree(-p, true)
 		_add_tree(Vector3(p.x, 0, -p.z), true)
 		_add_tree(Vector3(-p.x, 0, p.z), true)
+	_add_ground_detail()
 	# A tree line and hills beyond the playable edge, so the world has a horizon.
 	for i in 22:
 		var x := -84.0 + i * 8.0

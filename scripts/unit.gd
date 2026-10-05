@@ -1267,6 +1267,10 @@ func _attack(dir: Vector3) -> void:
 	if vault.is_locked() and global_position.y < 1.0 and _flat_to(vault.lock_pos).length() < s.range + 0.6 \
 			and dir.dot(_flat_to(vault.lock_pos).normalized()) > 0.3:
 		vault.take_hit(s.gate_damage, self)
+	for b in game.barricades:
+		if b.team != team and b.is_intact() and absf(global_position.y - b.global_position.y) < 1.5 \
+				and _flat_to(b.global_position).length() < s.range + 1.0 and dir.dot(_flat_to(b.global_position).normalized()) > 0.3:
+			b.take_hit(s.gate_damage, self)
 	var gate = game.gates[1 - team]
 	var gx: float = gate.position.x
 	if gate.is_intact() and global_position.y < 1.0 and absf(global_position.x - gx) < s.range + 0.4 \

@@ -108,16 +108,18 @@ func _draw() -> void:
 	if game.rosters_visible and game.player:
 		_draw_roster(game.player_team, Vector2(14, 100), true)
 		_draw_roster(1 - game.player_team, Vector2(size.x - 214, 100), true)
-	_draw_map(Rect2(14, size.y - 124, 236, 110), false)
+	if not game.guide_open:
+		_draw_map(Rect2(14, size.y - 124, 236, 110), false)
 	_draw_objective()
 	_draw_toasts()
-	if game.player:
+	if game.player and not game.guide_open:
 		_draw_player_panel(game.player)
 	if game.stolen_timer > 0.0:
 		_draw_stolen_card()
 	elif game.levelup_timer > 0.0:
 		_draw_levelup_card()
-	_draw_chat()
+	if not game.guide_open:
+		_draw_chat()
 	if game.tutorial_shown and not game.demo and game.player:
 		_draw_tutorial()
 	if game.in_academy() and not game.guide_open and not game.rank_open:
@@ -516,53 +518,59 @@ func _close(rect: Rect2) -> void:
 # --- In-match panels ---------------------------------------------------------
 
 func _draw_guide() -> void:
-	## The Wildwood Guide's conversation: a parchment speech bubble on the
-	## right with the intro pages, then the topic menu.
-	var rect := Rect2(size.x - 474, 230, 440, 150)
-	var parch := Color(0.98, 0.94, 0.84, 0.97)
-	var brown := Color(0.42, 0.28, 0.14)
-	var body: String
+	## Talking to an NPC: a visual-novel box along the bottom with a big
+	## portrait on the left, a name plate, the line (or the topic menu) on
+	## parchment, and a Next marker. Drawn over the HUD.
+	var team: int = game.player_team
 	var showing_menu: bool = game.guide_page < 0 and game.guide_topic < 0
+	var body: String
 	if game.guide_topic >= 0:
 		body = game.guide_answer(game.guide_topic)
 	elif game.guide_page >= 0:
 		body = Guide.INTRO[game.guide_page]
 	else:
 		body = "What would you like to know?"
-	var text_h := _paragraph_height(body, 14, rect.size.x - 60, 20)
-	var menu_h: float = (Guide.TOPICS.size() * 26 + 10) if showing_menu else 0.0
-	rect.size.y = 66 + text_h + menu_h + 34
-	_plate(rect, parch, brown, 12, 2)
-	# Bubble tail pointing down-left toward the guide, and the name tag.
-	draw_colored_polygon(PackedVector2Array([rect.position + Vector2(40, rect.size.y - 1), rect.position + Vector2(62, rect.size.y - 1), rect.position + Vector2(30, rect.size.y + 18)]), parch)
-	var tag := Rect2(rect.position + Vector2(14, -14), Vector2(170, 28))
-	_plate(tag, Color(0.22, 0.42, 0.22), GOLD_DARK, 8, 2)
-	_icon("guard", tag.position + Vector2(16, 14), 8, GOLD)
-	_text(tag.position + Vector2(30, 19), "Wildwood Guide", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_paragraph(rect.position + Vector2(30, 46), "\u201c" + body + "\u201d" if not showing_menu else body, 14, Color(0.15, 0.1, 0.06), rect.size.x - 60, 20, 0)
-	var y: float = rect.position.y + 46 + text_h + 8
+	var box := Rect2(24, size.y - 206, minf(size.x - 48, 940), 182)
+	var parch := Color(0.96, 0.92, 0.8, 0.98)
+	var brown := Color(0.45, 0.3, 0.14)
+	# Portrait: the guide's card art, large, standing behind the box.
+	var port := Rect2(box.position + Vector2(-6, -330), Vector2(360, 360))
+	draw_circle(port.get_center() + Vector2(0, 40), 150, Color(0, 0, 0, 0.25))
+	if not _card(_card_key(team, Role.MAGE), port, false):
+		_portrait(port.get_center(), 110, team, Role.MAGE)
+	_plate(box, parch, brown, 14, 3)
+	draw_rect(box.grow(-6), Color(0.6, 0.45, 0.2, 0.35), false, 1.0)
+	# Name plate.
+	var tag := Rect2(box.position + Vector2(120, -22), Vector2(260, 40))
+	_plate(tag, Color(0.12, 0.1, 0.1, 0.98), GOLD, 10, 3)
+	_text(tag.position + Vector2(0, 27), "Wildwood Guide", 18, CREAM, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 3)
+	var tx: float = box.position.x + 40
+	var tw: float = box.size.x - 80
+	var ty: float = box.position.y + 52
 	if showing_menu:
+		_text(Vector2(tx, ty), body, 17, Color(0.2, 0.13, 0.06), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+		var cols := 2
+		var cw: float = (tw - 12) / cols
 		for i in Guide.TOPICS.size():
-			var row := Rect2(rect.position.x + 24, y + i * 26 - 16, rect.size.x - 48, 24)
+			var row := Rect2(tx + (i % cols) * (cw + 12), ty + 14 + (i / cols) * 32, cw, 27)
 			var hover: bool = row.has_point(get_local_mouse_position())
-			_plate(row, Color(0.93, 0.86, 0.7) if hover else Color(0.95, 0.9, 0.78), Color(0.75, 0.6, 0.35), 6, 1)
-			_icon("crown", row.position + Vector2(14, 12), 6, Color(0.8, 0.45, 0.12))
-			_text(row.position + Vector2(28, 17), "%d.  %s" % [i + 1, Guide.TOPICS[i][0]], 13, Color(0.2, 0.12, 0.05), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+			_plate(row, Color(0.9, 0.82, 0.64) if hover else Color(0.93, 0.87, 0.72), Color(0.7, 0.55, 0.3), 6, 1)
+			_keycap(row.position + Vector2(16, 13), str(i + 1), 20)
+			_text(row.position + Vector2(34, 19), Guide.TOPICS[i][0], 13, Color(0.2, 0.12, 0.05), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
 			guide_buttons.append([row, str(i)])
-		y += menu_h
-	# Footer: Next / Back and Close.
-	var fy: float = rect.position.y + rect.size.y - 24
+	else:
+		_paragraph(Vector2(tx, ty), body, 19, Color(0.18, 0.12, 0.06), tw, 26, 0)
+	# Footer: Next / Back marker and Close.
 	var next_label: String = "Back" if game.guide_topic >= 0 else ("Next" if game.guide_page >= 0 else "")
-	var fx: float = rect.position.x + 30
 	if next_label != "":
-		var nb := Rect2(fx, fy - 2, 120, 22)
-		_plate(nb, Color(0.3, 0.5, 0.25), GOLD_DARK, 6, 1)
-		_text(nb.position + Vector2(0, 16), "[%s]  %s" % [game.key_label("interact"), next_label], 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, nb.size.x, 2)
-		guide_buttons.append([nb, "next"])
-		fx += 130
-	var cb := Rect2(fx, fy - 2, 110, 22)
+		var nb := Rect2(box.end.x - 150, box.end.y - 36, 110, 24)
+		var pulse := 2.0 * sin(Time.get_ticks_msec() / 250.0)
+		draw_colored_polygon(PackedVector2Array([nb.end + Vector2(22, -6 + pulse), nb.end + Vector2(36, -6 + pulse), nb.end + Vector2(29, 4 + pulse)]), brown)
+		_text(nb.position + Vector2(0, 17), "[%s]  %s" % [game.key_label("interact"), next_label], 12, brown, HORIZONTAL_ALIGNMENT_RIGHT, nb.size.x, 0)
+		guide_buttons.append([Rect2(nb.position, nb.size + Vector2(40, 0)), "next"])
+	var cb := Rect2(box.end.x - 110, box.position.y + 10, 96, 22)
 	_plate(cb, Color(0.5, 0.3, 0.2), GOLD_DARK, 6, 1)
-	_text(cb.position + Vector2(0, 16), "[%s]  Close" % game.key_label("menu"), 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x, 2)
+	_text(cb.position + Vector2(0, 16), "[%s]  Close" % game.key_label("menu"), 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x, 2)
 	guide_buttons.append([cb, "close"])
 
 
@@ -923,6 +931,9 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 	_plate(rect, GRASS.darkened(0.2), GOLD_DARK, 8, 2)
 	var inner := rect.grow(-3)
 	draw_rect(inner, GRASS)
+	# Elven ground reads a touch bluer and deeper, human ground warmer.
+	draw_rect(Rect2(inner.position, Vector2(inner.size.x / 2.0, inner.size.y)), Color(0.2, 0.45, 0.35, 0.25))
+	draw_rect(Rect2(inner.position + Vector2(inner.size.x / 2.0, 0), Vector2(inner.size.x / 2.0, inner.size.y)), Color(0.55, 0.5, 0.2, 0.18))
 	var m := func(p: Vector3) -> Vector2:
 		return inner.position + Vector2((p.x + hx) / (2.0 * hx) * inner.size.x, (p.z + hz) / (2.0 * hz) * inner.size.y)
 	var sx: float = inner.size.x / (2.0 * hx)
@@ -939,6 +950,7 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 	for p in game.map_paths:
 		var a: Vector2 = m.call(p[0])
 		var b: Vector2 = m.call(p[1])
+		draw_line(a, b, DIRT.darkened(0.35), maxf(p[2] * sx, 1.5) + 2.0)
 		draw_line(a, b, DIRT, maxf(p[2] * sx, 1.5))
 	# Ruins and the shrine.
 	for mark in game.map_marks:
@@ -946,14 +958,18 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		if mark[1] == "ruin":
 			draw_rect(Rect2(c - Vector2(3.5, 2.5) * sx, Vector2(7, 5) * sx), Color(0.62, 0.6, 0.56))
 	# The river, the island and the bridges.
-	draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF, 0, -hz)), Vector2(2.0 * game.RIVER_HALF * sx, 2.0 * hz * sz)), Color(0.25, 0.5, 0.8))
+	draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF - 0.8, 0, -hz)), Vector2((2.0 * game.RIVER_HALF + 1.6) * sx, 2.0 * hz * sz)), Color(0.55, 0.75, 0.9))
+	draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF, 0, -hz)), Vector2(2.0 * game.RIVER_HALF * sx, 2.0 * hz * sz)), Color(0.22, 0.48, 0.8))
+	draw_circle(m.call(Vector3.ZERO), game.ISLAND_R * sx + 1.5, Color(0.45, 0.42, 0.36))
 	draw_circle(m.call(Vector3.ZERO), game.ISLAND_R * sx, Color(0.75, 0.72, 0.64))
 	for i in game.BRIDGES.size():
 		if i == 1:
 			continue
 		var bz: float = game.BRIDGES[i]
 		var half: float = game.BRIDGE_HALF[i]
-		draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF - 1.0, 0, bz - half)), Vector2((2.0 * game.RIVER_HALF + 2.0) * sx, 2.0 * half * sz)), Color(0.6, 0.45, 0.3))
+		var br := Rect2(m.call(Vector3(-game.RIVER_HALF - 1.0, 0, bz - half)), Vector2((2.0 * game.RIVER_HALF + 2.0) * sx, 2.0 * half * sz))
+		draw_rect(br, Color(0.6, 0.45, 0.3))
+		draw_rect(br, Color(0.35, 0.25, 0.15), false, 1.0)
 	_crown(m.call(Vector3.ZERO), 0.4 if not detailed else 0.8)
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
@@ -962,8 +978,13 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		var bx: float = side * (game.CASTLE_X + game.CASTLE_DEPTH)
 		var outer := Rect2(m.call(Vector3(minf(ox, bx), 0, -game.CASTLE_HALF_Z)),
 			Vector2(2.0 * game.CASTLE_DEPTH * sx, 2.0 * game.CASTLE_HALF_Z * sz))
+		draw_rect(outer.grow(1.5), Color(0.3, 0.3, 0.32))
 		draw_rect(outer, tc.darkened(0.55))
 		draw_rect(outer, tc.lightened(0.1), false, 2.0)
+		# Corner towers.
+		for corner in [outer.position, outer.position + Vector2(outer.size.x, 0), outer.end, outer.position + Vector2(0, outer.size.y)]:
+			draw_circle(corner, 2.5 if not detailed else 4.0, Color(0.55, 0.55, 0.58))
+			draw_arc(corner, 2.5 if not detailed else 4.0, 0, TAU, 10, Color(0.2, 0.2, 0.22), 1.0)
 		var kx: float = game._keep_x(t)
 		var keep := Rect2(m.call(Vector3(minf(kx, bx), 0, -game.KEEP_HALF_Z)),
 			Vector2(absf(bx - kx) * sx, 2.0 * game.KEEP_HALF_Z * sz))
@@ -980,6 +1001,7 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
 		if detailed:
 			_text(outer.position + Vector2(0, -6), "%s CASTLE" % Stats.FACTIONS[t].name.to_upper(), 11, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, outer.size.x, 2)
+			_card("crest_elf" if t == 0 else "crest_human", Rect2(keep.position + Vector2(keep.size.x / 2.0 - 11, 2), Vector2(22, 22)))
 			_text(cellar.position + Vector2(0, cellar.size.y + 12), "SPAWN", 9, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, cellar.size.x, 2)
 	# Potions that are up, and any Blessing of Light on the field.
 	for orb in game.heal_orbs:
