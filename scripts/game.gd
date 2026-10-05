@@ -62,8 +62,9 @@ const CONTROLS_PATH := "user://controls.cfg"
 const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"],
 	["dodge", "Dodge"], ["interact", "Grab / drop"], ["rank_menu", "Perks & ranks"], ["scoreboard", "Scoreboard (hold)"],
 	["chat", "Chat"], ["chat_toggle", "Show / hide chat"], ["roster_toggle", "Show / hide team rosters"], ["menu", "Pause menu"], ["move_up", "Move up"], ["move_down", "Move down"],
-	["move_left", "Move left"], ["move_right", "Move right"]]
-const MENU_TABS := 5
+	["move_left", "Move left"], ["move_right", "Move right"], ["cmd_attack", "Call: Attack!"], ["cmd_defend", "Call: Defend!"],
+	["cmd_help", "Call: To me!"]]
+const MENU_TABS := 6
 const CHAT_LINES := 60
 # What bots say. Lines are picked by situation.
 const BANTER := {
@@ -104,11 +105,25 @@ var gates: Array = []
 var vaults: Array = []
 var toasts: Array = []        # [{text, color, time}] small HUD notices
 var stolen_timer := 0.0       # the CROWN STOLEN banner
+var capture_timer := 0.0      # the CAPTURE! banner
+var capture_team := 0
 var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} at +z]
 var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
 var cover_points: Array = []  # places a shooter can duck behind
 var barricades: Array = []
 var turrets: Array = []       # every standing Engineer turret, both teams
+# Quality of life settings (saved with the controls).
+var screen_shake := true
+var damage_numbers := true
+var show_fps := false
+# Quick commands: Z / X / C call the team; bots answer for COMMAND_TIME seconds.
+var team_command := ["", ""]
+var command_timer := [0.0, 0.0]
+var command_pos := [Vector3.ZERO, Vector3.ZERO]
+var compass: Node3D          # the gold arrow at the player's feet pointing at the objective
+var compass_mesh: MeshInstance3D
+var turret_kills := [0, 0]   # demo tally: kills by each team's turrets
+var raid_deaths := [0, 0]    # demo tally: each team's deaths inside the enemy castle
 var turrets_built := [0, 0]   # per team, for the match report
 var audit_props: Array = []   # [name, Node3D] every placed KayKit prop (for --audit)
 var audit_blocks: Array = []  # [label, AABB] every block, ramp, fence, gate and vault
@@ -200,6 +215,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_debug_hooks()
 	_ui_sounds()
+	for t in 2:
+		command_timer[t] = maxf(command_timer[t] - delta, 0.0)
+	_update_compass()
 	if not playing and not game_over:
 		if name_editing or menu_open:
 			return
@@ -240,6 +258,7 @@ func _process(delta: float) -> void:
 		for u in units:
 			print("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
+	capture_timer = maxf(capture_timer - delta, 0.0)
 	levelup_timer = maxf(levelup_timer - delta, 0.0)
 	if message_timer > 0.0:
 		message_timer -= delta
@@ -378,6 +397,8 @@ func _score_capture(carrier, m) -> void:
 	shake(0.3)
 	var team_name: String = Stats.FACTIONS[carrier.team].name
 	carrier.captures += 1
+	capture_timer = 3.5
+	capture_team = carrier.team
 	sfx.ui("capture")
 	chat_system("%s captured the %s for the %s!" % [carrier.display_name, m.title, team_name])
 	_banter(carrier.team, "captured")
@@ -398,7 +419,7 @@ func match_clock() -> int:
 func _demo_summary() -> void:
 	## One line per unit at the end of a bot match, for balance tallies.
 	var w: String = "Draw" if winner_team < 0 else Stats.FACTIONS[winner_team].name
-	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1]])
+	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1]])
 	for u in units:
 		# The class the bot plays all match (its current role resets on death).
 		var cls: String = Stats.FACTIONS[u.team].roles[u.bot_class]
@@ -548,6 +569,7 @@ func spawn_bolt(team: int, from: Vector3, dir: Vector3, s: Dictionary, color: Co
 	## A shot from something that is not a unit (turrets).
 	var shot = Projectile.new()
 	shot.owner_unit = owner_unit
+	shot.from_turret = true
 	add_child(shot)
 	shot.setup(self, team, from - Vector3(0, Projectile.FLIGHT_HEIGHT, 0), dir, s, color)
 
@@ -772,15 +794,128 @@ func _plan_bots(team: int) -> void:
 		_assign_nearest(bots, mine.global_position, 2, "recover")
 	if theirs.state == Monarch.State.CARRIED and theirs.carrier.team == team:
 		_assign_nearest(bots, theirs.carrier.global_position, 2, "escort")
+	# A quick command from the player steers the free bots for a while:
+	# Defend! pulls three home, To me! brings two to where it was called,
+	# Attack! keeps everyone on the raid (and skips the rally wait).
+	var cmd: String = team_command[team] if command_timer[team] > 0.0 else ""
+	if cmd == "defend":
+		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 3, "defend")
+	elif cmd == "help":
+		_assign_nearest(bots, command_pos[team], 2, "rally_to")
 	# In overtime the doors are down for good, so nobody guards a door: the
 	# way to win is the other castle. Only a breach pulls people home.
-	var gate_hurt: bool = gates[team].hp < Stats.GATE_HITS * 0.4 and not overtime
+	var gate_hurt: bool = gates[team].hp < Stats.GATE_HITS * 0.4 and not overtime and cmd != "attack"
 	if enemy_inside_keep(team):
 		_assign_nearest(bots, thrones[team], 2 if overtime else 3, "defend")
-	elif enemy_inside_castle(team):
+	elif enemy_inside_castle(team) and cmd != "attack":
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1 if overtime else 2, "defend")
 	elif gate_hurt:
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1, "defend")
+
+
+func command_active(team: int, kind: String) -> bool:
+	return command_timer[team] > 0.0 and team_command[team] == kind
+
+
+func call_command(kind: String) -> void:
+	## The player calls the team: a chat line, a ring at their feet, a horn,
+	## and the squad planner follows it for a while.
+	if player == null or player.dead:
+		return
+	var team := player_team
+	team_command[team] = kind
+	command_timer[team] = Stats.COMMAND_TIME
+	command_pos[team] = player.global_position
+	var words := {"attack": "Attack! Push the gate!", "defend": "Defend the castle!", "help": "To me! I need help here!"}
+	var titles := {"attack": "ATTACK!", "defend": "DEFEND!", "help": "TO ME!"}
+	chat_add(player.display_name, words[kind], _team_color(team), true, player.role, team)
+	toast("You called: %s  (bots answer for %d s)" % [titles[kind], int(Stats.COMMAND_TIME)], Color(1.0, 0.85, 0.4))
+	spawn_ring(player.global_position, 2.6, _team_color(team), 0.7)
+	sfx.ui("horn", -10.0)
+	_banter(team, "reply")
+
+
+func toggle_setting(key: String) -> void:
+	match key:
+		"shake": screen_shake = not screen_shake
+		"numbers": damage_numbers = not damage_numbers
+		"fps": show_fps = not show_fps
+		"chat": chat_visible = not chat_visible
+		"rosters": rosters_visible = not rosters_visible
+	sfx.ui("ui_click", -4.0)
+	_save_settings()
+
+
+func objective_target() -> Dictionary:
+	## What the player should be doing right now: where it is and which step
+	## of the objective list it is (-1 means recover our own crown).
+	if player == null:
+		return {}
+	var mine = monarchs[player_team]
+	var theirs = monarchs[1 - player_team]
+	if player.carrying:
+		return {"pos": thrones[player_team], "step": 2, "label": "Carry them to your throne"}
+	if mine.state == Monarch.State.CARRIED:
+		return {"pos": mine.carrier.global_position, "step": -1, "label": "Stop the thief carrying our monarch"}
+	if mine.state == Monarch.State.DROPPED:
+		return {"pos": mine.global_position, "step": -1, "label": "Bring our monarch home"}
+	if theirs.state == Monarch.State.CARRIED:
+		return {"pos": theirs.carrier.global_position, "step": 2, "label": "Escort our carrier"}
+	if theirs.state == Monarch.State.DROPPED:
+		return {"pos": theirs.global_position, "step": 2, "label": "Grab their monarch"}
+	var gate = gates[1 - player_team]
+	if not gate.broken and not _inside_castle(1 - player_team, player.global_position):
+		return {"pos": gate.global_position, "step": 0, "label": "Break the enemy castle door"}
+	if vaults[1 - player_team].is_locked():
+		return {"pos": theirs.global_position, "step": 1, "label": "Break the lock on their Crown Vault"}
+	return {"pos": theirs.global_position, "step": 2, "label": "Grab their monarch"}
+
+
+func _update_compass() -> void:
+	## A gold arrow on the ground at the player's feet pointing at the
+	## current objective; hidden when it is close or nothing applies.
+	if compass == null:
+		compass = Node3D.new()
+		add_child(compass)
+		compass_mesh = MeshInstance3D.new()
+		var prism := PrismMesh.new()
+		prism.size = Vector3(0.62, 0.8, 0.1)
+		compass_mesh.mesh = prism
+		compass_mesh.rotation.x = -PI / 2.0
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(1.0, 0.82, 0.3)
+		mat.emission_enabled = true
+		mat.emission = Color(1.0, 0.75, 0.2)
+		mat.emission_energy_multiplier = 0.8
+		compass_mesh.material_override = mat
+		compass_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		compass.add_child(compass_mesh)
+		var tail := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = Vector3(0.18, 0.08, 0.5)
+		tail.mesh = box
+		tail.position = Vector3(0, 0, 0.6)
+		tail.material_override = mat
+		tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		compass.add_child(tail)
+	if not playing or player == null or player.dead or demo or menu_open:
+		compass.visible = false
+		return
+	var obj := objective_target()
+	if obj.is_empty():
+		compass.visible = false
+		return
+	var to: Vector3 = obj.pos - player.global_position
+	to.y = 0.0
+	if to.length() < 6.0:
+		compass.visible = false
+		return
+	compass.visible = true
+	var dir := to.normalized()
+	var pulse := 1.0 + 0.08 * sin(Time.get_ticks_msec() / 180.0)
+	compass.global_position = player.global_position + dir * 1.7 + Vector3(0, 0.1, 0)
+	compass.look_at(compass.global_position + dir, Vector3.UP)
+	compass.scale = Vector3.ONE * pulse
 
 
 func _assign_nearest(bots: Array, pos: Vector3, count: int, job: String) -> void:
@@ -999,6 +1134,8 @@ func spawn_splash(where: Vector3, color: Color, count: int, speed: float, life: 
 
 func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 	## A number or word that floats up and fades, like damage numbers.
+	if not damage_numbers and (text.begins_with("-") or text.begins_with("+")):
+		return
 	var l := Label3D.new()
 	l.text = text
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -1159,6 +1296,8 @@ func _update_camera(delta: float) -> void:
 
 func shake(amount: float) -> void:
 	## Camera recoil for the local player's view.
+	if not screen_shake:
+		return
 	shake_amount = maxf(shake_amount, amount)
 
 
@@ -1279,7 +1418,7 @@ func menu_blocks_input() -> bool:
 
 func menu_tabs() -> Array:
 	## Which menu tabs make sense now: at the title only Classes and Controls.
-	return [1, 4] if not playing else [0, 3, 1, 2, 4]
+	return [1, 4, 5] if not playing else [0, 3, 1, 2, 4, 5]
 
 
 func menu_tick() -> void:
@@ -1330,6 +1469,11 @@ func menu_tick() -> void:
 		if Input.is_action_just_pressed("roster_toggle") and not menu_open and not eaten:
 			rosters_visible = not rosters_visible
 			_save_settings()
+		# Quick commands to the team.
+		if player and not menu_open and not eaten and not demo and not player.dead and not rank_open and not guide_open:
+			for kind in ["attack", "defend", "help"]:
+				if Input.is_action_just_pressed("cmd_" + kind):
+					call_command(kind)
 		# The Academy: in your own courtyard, 1-4 pick a class outright.
 		if player and not rank_open and not guide_open and not player.dead and player.carrying == null and _in_cellar(player_team, player.global_position):
 			for i in 5:
@@ -1397,6 +1541,9 @@ func menu_tick() -> void:
 				bot_difficulty = b[1]
 				sfx.ui("ui_click", -4.0)
 				_save_settings()
+		for b in hud.toggle_buttons:
+			if b[0].has_point(mouse):
+				toggle_setting(b[1])
 		if hud.options_button.has_point(mouse) and not playing:
 			menu_open = true
 			menu_tab = 4
@@ -1694,6 +1841,9 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
 	cfg.set_value("settings", "chat_visible", chat_visible)
 	cfg.set_value("settings", "rosters_visible", rosters_visible)
+	cfg.set_value("settings", "screen_shake", screen_shake)
+	cfg.set_value("settings", "damage_numbers", damage_numbers)
+	cfg.set_value("settings", "show_fps", show_fps)
 	cfg.set_value("settings", "hero_name", hero_name)
 	cfg.set_value("settings", "hero_hair", hero_hair)
 	cfg.set_value("settings", "hero_trim", hero_trim)
@@ -1725,6 +1875,9 @@ func _load_controls() -> void:
 		bot_difficulty = diff
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
 	rosters_visible = cfg.get_value("settings", "rosters_visible", true)
+	screen_shake = cfg.get_value("settings", "screen_shake", true)
+	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
+	show_fps = cfg.get_value("settings", "show_fps", false)
 	sfx.sound_volume = clampf(cfg.get_value("settings", "sound_volume", 0.8), 0.0, 1.0)
 	sfx.music_volume = clampf(cfg.get_value("settings", "music_volume", 0.6), 0.0, 1.0)
 	hero_name = cfg.get_value("settings", "hero_name", "")
@@ -3617,6 +3770,9 @@ func _setup_input() -> void:
 	_add_action("pick_elves", [KEY_1], [JOY_BUTTON_DPAD_LEFT])
 	_add_action("pick_humans", [KEY_2], [JOY_BUTTON_DPAD_RIGHT])
 	_add_action("restart", [KEY_R, KEY_ENTER], [JOY_BUTTON_START])
+	_add_action("cmd_attack", [KEY_Z], [])
+	_add_action("cmd_defend", [KEY_X], [])
+	_add_action("cmd_help", [KEY_C], [])
 
 
 func _add_action(action: StringName, keys: Array, buttons: Array, axis: int = -1, axis_value: float = 0.0,

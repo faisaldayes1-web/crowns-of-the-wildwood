@@ -27,7 +27,7 @@ const LEAF := Color(0.3, 0.62, 0.3)
 const GRASS := Color(0.36, 0.55, 0.28)
 const DIRT := Color(0.62, 0.52, 0.36)
 
-const TABS := ["MAP", "CLASSES", "UPGRADES", "SCOREBOARD", "OPTIONS"]
+const TABS := ["MAP", "CLASSES", "UPGRADES", "SCOREBOARD", "CONTROLS", "SETTINGS"]
 
 var game
 var font: Font
@@ -41,7 +41,10 @@ var tab_buttons: Array = []
 var tab_ids: Array = []
 var bind_buttons: Array = []      # [rect, action]
 var reset_button := Rect2()
-var volume_sliders: Array = []   # [rect, "sound" | "music"] in the controls tab
+var volume_sliders: Array = []   # [rect, "sound" | "music"] in the settings tab
+var toggle_buttons: Array = []   # [rect, setting key] in the settings tab
+var slot_prev: Dictionary = {}   # ability slot cooldowns last frame, for the ready flash
+var slot_flash: Dictionary = {}  # ability slot -> seconds of ready flash left
 var options_button := Rect2()
 var close_button := Rect2()
 var difficulty_buttons: Array = []  # [rect, name] on the title screen
@@ -94,6 +97,7 @@ func _draw() -> void:
 	bind_buttons = []
 	reset_button = Rect2()
 	volume_sliders = []
+	toggle_buttons = []
 	options_button = Rect2()
 	close_button = Rect2()
 	difficulty_buttons = []
@@ -107,8 +111,11 @@ func _draw() -> void:
 		if game.menu_open:
 			_draw_game_menu()
 		return
+	_draw_screen_fx()
 	_draw_logo(Rect2(14, 8, 200, 80))
 	_draw_scoreboard()
+	if game.show_fps:
+		_text(Vector2(size.x - 134, size.y - 152), "%d FPS" % Engine.get_frames_per_second(), 11, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 120, 2)
 	if game.rosters_visible and game.player:
 		_draw_roster(game.player_team, Vector2(14, 100), true)
 		_draw_roster(1 - game.player_team, Vector2(size.x - 214, 100), true)
@@ -120,6 +127,8 @@ func _draw() -> void:
 		_draw_player_panel(game.player)
 	if game.stolen_timer > 0.0:
 		_draw_stolen_card()
+	elif game.capture_timer > 0.0:
+		_draw_capture_card()
 	elif game.levelup_timer > 0.0:
 		_draw_levelup_card()
 	if not game.guide_open:
@@ -505,6 +514,17 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		remaining: float, total: float, usable: bool, rank: int = 0, active: bool = false) -> void:
 	var rect := Rect2(origin, Vector2(size_px, size_px))
 	var ready := remaining <= 0.0 and usable
+	# A ring bursts out of the slot the moment a cooldown ends.
+	var slot_id := key + label
+	var was: float = slot_prev.get(slot_id, remaining)
+	if was > 0.0 and remaining <= 0.0 and usable:
+		slot_flash[slot_id] = 0.45
+	slot_prev[slot_id] = remaining
+	var fl: float = slot_flash.get(slot_id, 0.0)
+	if fl > 0.0:
+		slot_flash[slot_id] = fl - get_process_delta_time()
+		var k := 1.0 - fl / 0.45
+		draw_arc(rect.get_center(), size_px * (0.55 + 0.4 * k), 0, TAU, 32, Color(1.0, 0.9, 0.5, 1.0 - k), 3.0)
 	_plate(rect, INK_LIGHT if not active else Color(0.3, 0.35, 0.5, 0.96), GOLD if ready else Color(0.35, 0.33, 0.4), 9, 2)
 	_icon(icon, rect.get_center(), size_px * 0.3, color if ready else color.darkened(0.45), not ready)
 	if remaining > 0.0:
@@ -745,6 +765,21 @@ func _draw_stolen_card() -> void:
 	_draw_map(Rect2(rect.end.x - 118, rect.position.y + 8, 108, 62), false)
 
 
+func _draw_capture_card() -> void:
+	## CAPTURE! A gold card under the clock when either team scores.
+	var a := clampf(game.capture_timer / 0.5, 0.0, 1.0)
+	var pulse := 1.0 + 0.015 * sin(Time.get_ticks_msec() / 70.0)
+	var rect := Rect2(size.x / 2.0 - 230 * pulse, 98, 460 * pulse, 78)
+	var ours: bool = game.capture_team == game.player_team
+	var tc: Color = _team_color(game.capture_team)
+	_plate(rect, Color(tc.r * 0.45, tc.g * 0.45, tc.b * 0.45, 0.95 * a), Color(1.0, 0.82, 0.3, a), 12, 3)
+	_icon("crown", rect.position + Vector2(34, 36), 16, Color(1, 0.85, 0.3, a))
+	_text(rect.position + Vector2(64, 32), "CAPTURE!" if ours else "THEY SCORED", 24, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	var line := "The %s bring the crown home.  %d - %d, first to %d wins." % [Stats.FACTIONS[game.capture_team].name, game.score[0], game.score[1], Stats.CAPTURES_TO_WIN]
+	_text(rect.position + Vector2(64, 56), line, 12, Color(1, 0.95, 0.9, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_card("logo_elves" if game.capture_team == 0 else "logo_humans", Rect2(rect.end.x - 74, rect.position.y + 7, 64, 64))
+
+
 func _draw_levelup_card() -> void:
 	var a := clampf(game.levelup_timer / 0.5, 0.0, 1.0)
 	var rect := Rect2(size.x / 2.0 - 170, 98, 340, 78)
@@ -804,15 +839,42 @@ func _draw_toasts() -> void:
 func _draw_objective() -> void:
 	var rect := Rect2(size.x - 254, size.y - 146, 240, 126)
 	_plate(rect, INK, GOLD_DARK, 10, 2)
+	var obj: Dictionary = game.objective_target() if (game.playing and not game.demo) else {}
+	var step: int = obj.get("step", -2)
+	var recovering: bool = step == -1
 	_icon("flag", rect.position + Vector2(20, 20), 9, RED)
-	_text(rect.position + Vector2(36, 25), "CAPTURE THE CROWN", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	_text(rect.position + Vector2(36, 25), "RECOVER OUR CROWN" if recovering else "CAPTURE THE CROWN", 14,
+		Color(1.0, 0.55, 0.45) if recovering else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	draw_line(rect.position + Vector2(12, 34), rect.position + Vector2(228, 34), GOLD_DARK, 1.0)
+	var dist := 0
+	if not obj.is_empty() and game.player:
+		var to: Vector3 = obj.pos - game.player.global_position
+		to.y = 0.0
+		dist = roundi(to.length())
+	if recovering:
+		_text(rect.position + Vector2(28, 54), obj.label, 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(rect.position + Vector2(28, 72), "%d m away" % dist, 12, Color(1.0, 0.75, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(rect.position + Vector2(28, 96), "They need %d captures to win" % Stats.CAPTURES_TO_WIN, 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		return
 	var lines := ["Break the enemy castle door", "Break the lock on their Crown Vault", "Carry their monarch to your throne",
 		"First to %d captures wins" % Stats.CAPTURES_TO_WIN]
+	if step == 2 and not obj.is_empty():
+		lines[2] = obj.label
+	var pulse := 0.7 + 0.3 * sin(Time.get_ticks_msec() / 200.0)
 	for i in lines.size():
 		var y := 54 + i * 18
-		draw_circle(rect.position + Vector2(18, y - 4), 3, GOLD)
-		_text(rect.position + Vector2(28, y), lines[i], 12, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var here: bool = i == step
+		var done: bool = step >= 0 and i < step
+		if here:
+			# The current step: a pulsing gold chevron and the distance.
+			var c := rect.position + Vector2(18, y - 4)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-3, -5), c + Vector2(3, 0), c + Vector2(-3, 5)]), GOLD.lerp(Color.WHITE, pulse * 0.5))
+			_text(rect.position + Vector2(28, y), lines[i], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			if dist > 0 and i < 3:
+				_text(rect.position + Vector2(0, y), "%d m" % dist, 10, GOLD, HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 12, 2)
+		else:
+			draw_circle(rect.position + Vector2(18, y - 4), 3, Color(0.4, 0.75, 0.4) if done else GOLD_DARK)
+			_text(rect.position + Vector2(28, y), lines[i], 12, Color(0.55, 0.6, 0.55) if done else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _draw_player_panel(p) -> void:
@@ -1184,7 +1246,7 @@ func _draw_game_menu() -> void:
 	_text(rect.position + Vector2(0, 34), "PAUSED" if in_match else "OPTIONS", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
 	# Tabs (only Classes and Controls before a match).
 	var ids: Array = game.menu_tabs()
-	var tw := 140.0
+	var tw := minf(140.0, (rect.size.x - 40.0 - (ids.size() - 1) * 6.0) / ids.size())
 	var x0: float = rect.position.x + (rect.size.x - ids.size() * (tw + 6)) / 2.0
 	for i in ids.size():
 		var tab := Rect2(Vector2(x0 + i * (tw + 6), rect.position.y + 50), Vector2(tw, 30))
@@ -1198,6 +1260,7 @@ func _draw_game_menu() -> void:
 		0: _menu_overview(body)
 		1: _menu_classes(body)
 		2: _menu_my_class(body)
+		5: _menu_settings(body)
 		3: _menu_scoreboard(body)
 		4: _menu_controls(body)
 	var footer := "Esc resumes  ·  ← → switch tabs  ·  Backspace quits to the title" if in_match else "Esc closes  ·  ← → switch tabs"
@@ -1274,21 +1337,34 @@ func _menu_controls(body: Rect2) -> void:
 			if i >= game.REBINDABLE.size():
 				break
 			var action: String = game.REBINDABLE[i][0]
-			var y: float = body.position.y + 40 + k * 38
-			var row := Rect2(Vector2(x + 4, y - 15), Vector2(half - 14, 32))
+			var y: float = body.position.y + 40 + k * 29
+			var row := Rect2(Vector2(x + 4, y - 14), Vector2(half - 14, 27))
 			var hot: bool = game.rebinding == action
 			_plate(row, Color(0.35, 0.3, 0.12, pulse) if hot else (INK_LIGHT if k % 2 == 0 else Color(0.14, 0.15, 0.22, 0.96)), GOLD if hot else Color(0.3, 0.3, 0.38), 6, 1)
-			_text(Vector2(x + 14, y + 5), game.REBINDABLE[i][1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(Vector2(x + 14, y + 4), game.REBINDABLE[i][1], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			var key_text: String = "PRESS A KEY…" if hot else game.binding_text(action, "key")
-			_keycap(Vector2(x + 210, y + 1), key_text, 124)
-			_keycap(Vector2(x + 326, y + 1), game.binding_text(action, "pad"), 86)
+			_keycap(Vector2(x + 210, y), key_text, 124)
+			_keycap(Vector2(x + 326, y), game.binding_text(action, "pad"), 86)
 			bind_buttons.append([row, action])
+	reset_button = Rect2(body.end - Vector2(150, 30), Vector2(140, 24))
+	_plate(reset_button, Color(0.4, 0.2, 0.15, 0.95), GOLD_DARK, 6, 1)
+	_text(reset_button.position + Vector2(0, 17), "RESET TO DEFAULTS", 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, reset_button.size.x, 2)
+	_text(body.position + Vector2(0, body.size.y - 22), "Click a row, then press the key, mouse button or gamepad button you want. Esc cancels. Bindings are saved.",
+		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(body.position + Vector2(0, body.size.y - 8), "Fixed: the mouse and right stick aim, the left stick moves, 1-6 spend points in the perk menu, Backspace quits a match.",
+		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _menu_settings(body: Rect2) -> void:
+	## Sound, display toggles, bot difficulty and the team calls. Everything
+	## here is saved.
+	var x := body.position.x
+	var y := body.position.y
 	# Sound and music sliders: click or drag.
-	var vy: float = body.end.y - 74
-	_text(Vector2(body.position.x + 10, vy + 5), "SOUND", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(Vector2(body.position.x + 300, vy + 5), "MUSIC", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 10, y + 22), "SOUND", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 330, y + 22), "MUSIC", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in 2:
-		var slider := Rect2(Vector2(body.position.x + 64 + i * 290, vy - 8), Vector2(170, 16))
+		var slider := Rect2(Vector2(x + 70 + i * 320, y + 9), Vector2(190, 16))
 		var value: float = game.sfx.sound_volume if i == 0 else game.sfx.music_volume
 		_plate(slider, Color(0.08, 0.07, 0.1, 0.95), GOLD_DARK, 7, 1)
 		var inner := slider.grow(-2)
@@ -1301,14 +1377,82 @@ func _menu_controls(body: Rect2) -> void:
 		draw_arc(Vector2(inner.position.x + inner.size.x * value, slider.get_center().y), 7.0, 0, TAU, 16, GOLD_DARK, 1.5)
 		_text(slider.end + Vector2(8, -3), "%d%%" % roundi(value * 100), 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		volume_sliders.append([slider, "sound" if i == 0 else "music"])
-	reset_button = Rect2(body.end - Vector2(150, 34), Vector2(140, 26))
-	_plate(reset_button, Color(0.4, 0.2, 0.15, 0.95), GOLD_DARK, 6, 1)
-	_text(reset_button.position + Vector2(0, 18), "RESET TO DEFAULTS", 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, reset_button.size.x, 2)
-	_text(body.position + Vector2(0, body.size.y - 44), "Click a row, then press the key, mouse button or gamepad button you want. Esc cancels. Bindings are saved.",
-		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, body.size.y - 28), "Fixed: the mouse and right stick aim, the left stick moves, 1-6 spend points in the perk menu,",
-		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, body.size.y - 12), "Backspace quits a match.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	draw_line(Vector2(x, y + 44), Vector2(body.end.x, y + 44), GOLD_DARK, 1.0)
+	# Display toggles.
+	_text(Vector2(x + 10, y + 66), "DISPLAY", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var toggles := [["Screen shake", game.screen_shake, "shake"], ["Damage numbers", game.damage_numbers, "numbers"],
+		["FPS counter", game.show_fps, "fps"], ["Chat log  (%s)" % game.key_label("chat_toggle"), game.chat_visible, "chat"],
+		["Team rosters  (%s)" % game.key_label("roster_toggle"), game.rosters_visible, "rosters"]]
+	for i in toggles.size():
+		_toggle(Rect2(Vector2(x + 10 + i * 143, y + 76), Vector2(136, 34)), toggles[i][0], toggles[i][1], toggles[i][2])
+	draw_line(Vector2(x, y + 124), Vector2(body.end.x, y + 124), GOLD_DARK, 1.0)
+	# Bot difficulty: click, or Left/Right on the title screen.
+	_text(Vector2(x + 10, y + 146), "BOTS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in Stats.BOT_DIFFICULTIES.size():
+		var name: String = Stats.BOT_DIFFICULTIES[i]
+		var b := Rect2(Vector2(x + 70 + i * 96, y + 130), Vector2(90, 24))
+		var on: bool = game.bot_difficulty == name
+		_plate(b, Color(0.5, 0.38, 0.08, 0.95) if on else INK_LIGHT, GOLD if on else Color(0.3, 0.3, 0.38), 6, 1)
+		_text(b.position + Vector2(0, 17), name.to_upper(), 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+		difficulty_buttons.append([b, name])
+	_text(Vector2(x + 370, y + 146), Stats.BOT_TUNING[game.bot_difficulty].desc, 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	draw_line(Vector2(x, y + 168), Vector2(body.end.x, y + 168), GOLD_DARK, 1.0)
+	# Team calls.
+	_text(Vector2(x + 10, y + 190), "TEAM CALLS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var calls := [[game.key_label("cmd_attack"), "ATTACK!", "everyone pushes the enemy door now, no waiting at the rally"],
+		[game.key_label("cmd_defend"), "DEFEND!", "three bots come home to hold the castle"],
+		[game.key_label("cmd_help"), "TO ME!", "the two nearest bots come to where you called"]]
+	for i in calls.size():
+		var cy: float = y + 212 + i * 30
+		_keycap(Vector2(x + 34, cy - 4), calls[i][0], 40)
+		_text(Vector2(x + 66, cy + 4), calls[i][1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(x + 150, cy + 4), calls[i][2], 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 10, y + 212 + 3 * 30 + 4), "Bots follow a call for %d seconds; rebind the keys in Controls." % int(Stats.COMMAND_TIME), 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(body.position + Vector2(0, body.size.y - 8), "Settings are saved.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _toggle(rect: Rect2, label: String, on: bool, key: String) -> void:
+	## A labelled on/off switch; recorded for mouse clicks.
+	_plate(rect, Color(0.18, 0.3, 0.16, 0.96) if on else INK_LIGHT, GOLD if on else Color(0.3, 0.3, 0.38), 8, 1)
+	_text(rect.position + Vector2(10, 21), label, 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var pill := Rect2(rect.end - Vector2(40, 24), Vector2(30, 14))
+	_plate(pill, STAMINA if on else Color(0.3, 0.3, 0.35), GOLD_DARK, 7, 1)
+	draw_circle(pill.position + Vector2(pill.size.x - 7 if on else 7, 7), 5.0, CREAM)
+	toggle_buttons.append([rect, key])
+
+
+func _draw_screen_fx() -> void:
+	## Full-screen feedback under the HUD: a red vignette on your last heart
+	## and a flash when you are hit.
+	var p = game.player
+	if p == null or p.dead or game.demo:
+		return
+	var t := Time.get_ticks_msec() / 1000.0
+	if p.hearts == 1:
+		_vignette(Color(0.7, 0.05, 0.05, 0.26 + 0.12 * sin(t * 5.0)))
+	elif p.hearts == 2:
+		_vignette(Color(0.6, 0.1, 0.05, 0.1))
+	if p.flash_timer > 0.0:
+		_vignette(Color(0.9, 0.2, 0.15, 0.35 * p.flash_timer / 0.15))
+		# Which way the hit came from: a red arc around you on that side.
+		if p.last_hit_dir.length() > 0.1 and game.camera:
+			var eye: Vector3 = p.global_position + Vector3(0, 1, 0)
+			var c: Vector2 = game.camera.unproject_position(eye)
+			var o: Vector2 = game.camera.unproject_position(eye - p.last_hit_dir * 2.0)
+			var d2 := (o - c).normalized()
+			var ang := d2.angle()
+			var k: float = p.flash_timer / 0.15
+			draw_arc(c, 96.0 + 20.0 * (1.0 - k), ang - 0.45, ang + 0.45, 18, Color(1.0, 0.25, 0.2, 0.85 * k), 7.0, true)
+
+
+func _vignette(c: Color) -> void:
+	var n := 8
+	var depth := 110.0
+	var w := depth / n
+	for i in n:
+		var d := w * i
+		var col := Color(c.r, c.g, c.b, c.a * (1.0 - float(i) / n))
+		draw_rect(Rect2(d + w / 2.0, d + w / 2.0, size.x - 2.0 * d - w, size.y - 2.0 * d - w), col, false, w + 0.5)
 
 
 func _menu_my_class(body: Rect2) -> void:
@@ -1626,7 +1770,8 @@ func _draw_title() -> void:
 			game.key_label("attack"), game.key_label("block"), game.key_label("dodge"), game.key_label("interact")],
 		"%s and %s are class abilities  ·  %s perks and promotions  ·  hold %s for the scoreboard  ·  %s chats  ·  Esc pauses" % [
 			game.key_label("ability_1"), game.key_label("ability_2"), game.key_label("rank_menu"), game.key_label("scoreboard"), game.key_label("chat")],
-		"You spawn in your castle's cellar: step on a class station there, climb the stairs and head out. %s hides the chat." % game.key_label("chat_toggle"),
+		"You spawn in your castle's cellar: step on a class station, climb the stairs and head out.  %s / %s / %s call your team." % [
+			game.key_label("cmd_attack"), game.key_label("cmd_defend"), game.key_label("cmd_help")],
 	]
 	for i in lines.size():
 		_text(rect.position + Vector2(0, 40 + i * 17), lines[i], 12, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
@@ -1703,7 +1848,17 @@ func _draw_end() -> void:
 	_text(Vector2(cx - 210, 122), outcome, 40, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 420, 6)
 	_text(Vector2(cx - 210, 168), "%s %d   -   %d %s" % [Stats.FACTIONS[0].name, game.score[0], game.score[1], Stats.FACTIONS[1].name],
 		22, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 420, 4)
-	var table := Rect2(cx - 330, 186, 660, size.y - 186 - 60)
+	# Match MVP: the highest score on either team.
+	var mvp = null
+	for u in game.units:
+		if mvp == null or game.unit_score(u) > game.unit_score(mvp):
+			mvp = u
+	if mvp:
+		var mvp_line := "MVP  %s  ·  %s %s  ·  %d kills, %d captures, %d score" % [mvp.display_name, Stats.FACTIONS[mvp.team].name,
+			mvp.role_name(), mvp.kills, mvp.captures, game.unit_score(mvp)]
+		_icon("crown", Vector2(cx - _text_width(mvp_line, 13) / 2.0 - 14, 192), 7, GOLD)
+		_text(Vector2(cx - 300, 197), mvp_line, 13, GOLD.lerp(Color.WHITE, 0.3), HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
+	var table := Rect2(cx - 330, 208, 660, size.y - 208 - 60)
 	_plate(table, INK, GOLD, 12, 2)
 	_draw_scoreboard_table(Rect2(table.position + Vector2(16, 14), Vector2(table.size.x - 32, table.size.y - 28)))
 	_text(Vector2(cx - 210, size.y - 26), "Press R or Enter to play again", 14, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 420, 3)

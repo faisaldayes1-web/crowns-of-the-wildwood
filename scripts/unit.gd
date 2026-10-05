@@ -23,6 +23,7 @@ var dead := false
 var respawn_timer := 0.0
 var attack_timer := 0.0
 var flash_timer := 0.0
+var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
 var ability_timers := [0.0, 0.0]
 var dodge_timer := 0.0      # time left in the current dash
 var dodge_cooldown := 0.0   # time until the next dodge is ready
@@ -680,6 +681,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			return false
 	hearts -= amount
 	flash_timer = 0.15
+	last_hit_dir = push
 	knockback = push * knock
 	if effect.has("slow"):
 		slow_timer = maxf(slow_timer, effect.slow)
@@ -1008,6 +1010,8 @@ func _die() -> void:
 	blocking = false
 	guard_ring.visible = false
 	deaths += 1
+	if game._inside_castle(1 - team, global_position):
+		game.raid_deaths[team] += 1
 	stealth_timer = 0.0
 	slow_timer = 0.0
 	overhead.visible = true
@@ -1621,7 +1625,7 @@ func _raid_goal(delta: float) -> Vector3:
 	var rally: Vector3 = game.rally_point(team)
 	var toward_enemy := 1.0 if team == 0 else -1.0
 	var past_rally: bool = (global_position.x - rally.x) * toward_enemy > 1.0
-	if game.gates[1 - team].broken or game.overtime or past_rally:
+	if game.gates[1 - team].broken or game.overtime or past_rally or game.command_active(team, "attack"):
 		rally_wait = 0.0
 		return theirs.global_position
 	if _flat_to(rally).length() > Stats.RALLY.radius * 0.6:
@@ -1668,6 +1672,8 @@ func _bot_think(delta: float) -> Dictionary:
 		goal = mine.global_position
 	elif theirs.state == Monarch.State.CARRIED and (bot_job == "escort" or bot_job == "support" or _flat_to(theirs.carrier.global_position).length() < 10.0):
 		goal = theirs.carrier.global_position + bot_offset  # escort our carrier
+	elif bot_job == "rally_to":
+		goal = job_target + bot_offset * 0.5  # the player called "To me!"
 	elif bot_job == "defend":
 		goal = game.defense_post(team, bot_offset.z) + bot_offset * 0.3
 	elif bless:

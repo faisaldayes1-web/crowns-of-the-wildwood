@@ -23,6 +23,7 @@ var life := 0.6
 var fall_speed := 0.0
 var speed := 30.0
 var query_mask := 1
+var from_turret := false   # a turret bolt (for the demo tallies)
 var owner_unit = null      # who fired it, for experience
 var fire := false
 var holy := false
@@ -253,6 +254,8 @@ func _physics_process(delta: float) -> void:
 				continue
 			if splash <= 0.0:
 				var landed: bool = unit.take_damage(damage, owner_unit, global_position - direction, Stats.KNOCK_SHOT, effect)
+				if from_turret and unit.dead:
+					game.turret_kills[team] += 1
 				if landed and drain and owner_unit:
 					owner_unit.heal(1, owner_unit)
 				if pierce:
