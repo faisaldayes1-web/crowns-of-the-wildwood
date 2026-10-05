@@ -65,10 +65,10 @@ const BLESSING_KINDS := {
 }
 
 const DOOR_HALF := 3.5        # half-width of each castle door
-const GATE_HITS := 50         # door damage a castle door soaks before it breaks
+const GATE_HITS := 200        # door damage a castle door soaks before it breaks (a 3-strong push needs ~25 s of focus, a lone Knight ~55 s)
 const BARRICADE_HITS := 4
 const BARRICADE_REBUILD := 45.0
-const VAULT_HITS := 12        # hits to break the Crown Vault's lock (about 6 s for one Knight)
+const VAULT_HITS := 20        # hits to break the Crown Vault's lock (about 10 s for one Knight)
 const VAULT_RELOCK_TIME := 30.0
 const SPAWN_PROTECT_TIME := 3.0  # seconds of invulnerability after spawning (ends on leaving the cellar)
 # Defending home: the bonus a team gets inside its own castle (and cellar).
@@ -76,7 +76,7 @@ const SPAWN_PROTECT_TIME := 3.0  # seconds of invulnerability after spawning (en
 # 1/heal-th heart healed is doubled; regen is a multiplier bonus; interact
 # speeds up the door's rebuild while a defender stands by it.
 const DEFENDER := {"resist": 0.1, "heal": 0.1, "regen": 0.1, "interact": 0.15}
-const GATE_REBUILD_TIME := 30.0
+const GATE_REBUILD_TIME := 40.0
 const MATCH_TIME := 600.0     # seconds
 const CAPTURES_TO_WIN := 2
 

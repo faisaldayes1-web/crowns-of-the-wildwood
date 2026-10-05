@@ -47,6 +47,7 @@ const CELLAR_Y := -2.4        # its floor
 const ISLAND_R := 6.0         # the Crown Shrine island in the river
 const STATION_RADIUS := 1.3
 const CAMERA_OFFSET := Vector3(0, 21.0, 15.0)  # a long lens: less edge distortion
+var cam_zoom := 1.0  # --debug-zoom=N pulls the camera back for overview renders
 # The river runs north to south through the middle; three bridges cross it.
 const RIVER_HALF := 3.0
 const BRIDGES := [-20.0, 0.0, 20.0]      # the middle crossing is the shrine island
@@ -220,7 +221,7 @@ func _process(delta: float) -> void:
 		print("t=%ds  score %d-%d  monarchs %s / %s  doors %d / %d" % [Engine.get_process_frames() / 60,
 			score[0], score[1], monarchs[0].state, monarchs[1].state, gates[0].hp, gates[1].hp])
 		for u in units:
-			print("   team%d %s %s hearts=%d dead=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead])
+			print("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
 	levelup_timer = maxf(levelup_timer - delta, 0.0)
 	if message_timer > 0.0:
@@ -263,10 +264,12 @@ func _debug_hooks() -> void:
 				guide_topic = -1
 			if arg == "--debug-score":
 				debug_score = true
+			if arg.begins_with("--debug-zoom="):
+				cam_zoom = float(arg.trim_prefix("--debug-zoom="))
 			if arg.begins_with("--debug-at="):
 				var p := arg.trim_prefix("--debug-at=").split(",")
 				player.position = Vector3(float(p[0]), float(p[2]) if p.size() > 2 else 0.0, float(p[1]))
-				cam_pos = player.position + CAMERA_OFFSET
+				cam_pos = player.position + CAMERA_OFFSET * cam_zoom
 			if arg == "--debug-blessing":
 				spawn_blessing(Vector3(0, 0, 0), "Regeneration")
 				player.apply_blessing("Might")
@@ -675,11 +678,15 @@ func route_point(from: Vector3, to: Vector3) -> Vector3:
 			var st := cellar_stairs(c)
 			var side := -1.0 if c == 0 else 1.0
 			# On the lane: lined up with the stairs and not behind their foot.
-			var on_lane: bool = absf(from.z) < 1.3 and (from.x - st[0].x) * side < 0.4
+			# The thresholds step down (1.3 m back to the foot line, 0.8 m to
+			# count as on the lane) and sit above the 0.6 m arrival radius, so
+			# no spot in the cellar is "arrived" without a next point to go to.
+			var behind: float = (from.x - st[0].x) * side
+			var on_lane: bool = absf(from.z) < 1.3 and behind < 0.8
 			if on_lane:
 				return st[1]
-			if (from.x - st[0].x) * side < 0.6:
-				return st[0]  # behind the foot of the stairs: step across to the lane
+			if behind < 1.3:
+				return st[0]  # near the foot of the stairs: step across to the lane
 			return Vector3(st[0].x + side * 0.3, CELLAR_Y, from.z)  # walk straight back to the foot first
 	if to.y > 2.0 and from.y < WALK_Y - 0.2:
 		var c := 0 if to.x < 0.0 else 1
@@ -704,6 +711,12 @@ func route_point(from: Vector3, to: Vector3) -> Vector3:
 	for c in 2:
 		if _inside_castle(c, from) != _inside_castle(c, target):
 			var fx := _front_x(c)
+			# Off the door lane and close to the front wall (either side): line
+			# up with the door first, or the gatehouse towers and the stairs
+			# corner would hold a walker that heads for the door diagonally.
+			var here := signf(from.x - fx)
+			if here != 0.0 and absf(from.z) > Stats.DOOR_HALF - 0.6 and absf(from.x - fx) < 6.0:
+				return Vector3(fx + here * 4.5, 0.0, 0.0)
 			return Vector3(fx + (1.8 if target.x > from.x else -1.8), 0.0, 0.0)
 		if _inside_keep(c, from) != _inside_keep(c, target):
 			var kx := _keep_x(c)
@@ -927,7 +940,7 @@ func _start_match(team: int) -> void:
 			units.append(u)
 			if is_player or (demo and player == null):
 				player = u
-	cam_pos = player.global_position + CAMERA_OFFSET
+	cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom
 	camera.global_position = cam_pos
 	playing = true
 	announce("Click to attack, Q and E for abilities, Space to dodge, %s for perks, hold %s for the scoreboard, %s to chat." % [
@@ -937,7 +950,7 @@ func _start_match(team: int) -> void:
 func _update_camera(delta: float) -> void:
 	if player == null:
 		return
-	var target: Vector3 = player.global_position + CAMERA_OFFSET
+	var target: Vector3 = player.global_position + CAMERA_OFFSET * cam_zoom
 	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
 	shake_amount = move_toward(shake_amount, 0.0, delta * 1.6)
 	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amount * 0.35
@@ -1556,7 +1569,7 @@ func _stone(tint: Color = Color.WHITE, scale: float = 0.26) -> StandardMaterial3
 
 
 func _grass() -> StandardMaterial3D:
-	return _pbr("grass", 0.16, Color(0.95, 1.0, 0.88))
+	return _pbr("grass", 0.11, Color(0.84, 0.93, 0.74))
 
 
 func _wood(tint: Color = Color.WHITE, scale: float = 0.5) -> StandardMaterial3D:
@@ -1714,7 +1727,7 @@ func _add_ground_detail() -> void:
 	var leaf := PlaneMesh.new()
 	leaf.size = Vector2(0.34, 0.26)
 	var sets := [
-		["flower", flower, 650, 0.14], ["tuft", tuft, 900, 0.18], ["stone", stone, 220, 0.0], ["cap", cap, 140, 0.26], ["leaf", leaf, 520, 0.02]]
+		["flower", flower, 900, 0.14], ["tuft", tuft, 1500, 0.18], ["stone", stone, 260, 0.0], ["cap", cap, 160, 0.26], ["leaf", leaf, 600, 0.02]]
 	for s in sets:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -3214,7 +3227,7 @@ func _build_world() -> void:
 	# The road: rutted dirt from bridge to door, cobbled aprons at each door,
 	# and grass creeping in at the edges.
 	var fxr := CASTLE_X - CASTLE_DEPTH
-	var road := _pbr("road", 0.55)
+	var road := _pbr("road", 0.55, Color(0.9, 0.86, 0.78))
 	# The main road: door to door through the shrine, with cobbled aprons.
 	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road)
 	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road)

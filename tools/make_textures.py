@@ -310,6 +310,8 @@ def make_bark():
 
 def make_grass():
     blotch = fbm(N, 3, 4, 51)
+    macro = fbm(N, 2, 2, 59)   # very low-frequency meadow patches, so the tile reads less as a tile
+    blotch = blotch * 0.7 + macro * 0.3
     fine = fbm(N, 48, 3, 52)
     strokes = fbm(N, 12, 2, 53)
     # Painted grass: broad blotches of two greens, fine tufts on top, light flecks.
