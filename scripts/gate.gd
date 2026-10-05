@@ -147,8 +147,9 @@ func _refresh() -> void:
 		label.text = "Door down for overtime"
 		label.modulate = Color(1, 0.5, 0.4)
 	elif broken:
-		label.text = "Door broken: rebuilding in %d" % ceili(rebuild_timer)
-		label.modulate = Color(1, 0.5, 0.4)
+		var pressed: bool = game.enemy_inside_castle(team) or game.enemies_near(team, global_position, Stats.GATE_SIEGE_RADIUS) > 0
+		label.text = ("Door broken: under siege (%d)" if pressed else "Door broken: rebuilding in %d") % ceili(rebuild_timer)
+		label.modulate = Color(1, 0.35, 0.3) if pressed else Color(1, 0.5, 0.4)
 	else:
 		label.text = "Door %d / %d" % [hp, Stats.GATE_HITS]
 		label.modulate = Color(1, 1, 1)
@@ -158,8 +159,12 @@ func _refresh() -> void:
 func _process(delta: float) -> void:
 	if not broken:
 		return
-	# A defender standing by the door speeds the rebuild (the interact bonus).
-	rebuild_timer -= delta * (1.0 + Stats.DEFENDER.interact if game.defender_near(team, global_position, 4.0) else 1.0)
+	# A siege holds the breach: the rebuild only counts down while no enemy is
+	# inside the castle or pressing the doorway. A defender standing by the
+	# door speeds it (the interact bonus).
+	var pressed: bool = game.enemy_inside_castle(team) or game.enemies_near(team, global_position, Stats.GATE_SIEGE_RADIUS) > 0
+	if not pressed:
+		rebuild_timer -= delta * (1.0 + Stats.DEFENDER.interact if game.defender_near(team, global_position, 4.0) else 1.0)
 	if rebuild_timer <= 0.0 and not game.enemy_inside_castle(team):
 		broken = false
 		hp = Stats.GATE_HITS

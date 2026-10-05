@@ -77,10 +77,11 @@ const SPAWN_PROTECT_TIME := 3.0  # seconds of invulnerability after spawning (en
 # speeds up the door's rebuild while a defender stands by it.
 const DEFENDER := {"resist": 0.1, "heal": 0.1, "regen": 0.1, "interact": 0.15}
 const GATE_REBUILD_TIME := 40.0
+const GATE_SIEGE_RADIUS := 9.0   # a broken door does not rebuild while an enemy is this close to it (or inside)
 # Engineer turrets, per level 1-3: hits they soak, reach and seconds between
 # bolts. They go on your castle walls or grounds (up to GROUNDS metres
 # outside the front wall), never in the door lane.
-const TURRET := {"hits": [8, 12, 16], "range": [8.0, 9.5, 11.0], "interval": [1.3, 1.0, 0.8],
+const TURRET := {"hits": [8, 12, 16], "range": [8.0, 9.5, 11.0], "interval": [1.5, 1.2, 0.95],
 	"damage": 1, "shot_speed": 34.0, "max_level": 3, "team_max": 6, "place_dist": 1.8, "grounds": 14.0,
 	"door_repair": 12.0}
 const MATCH_TIME := 600.0     # seconds
