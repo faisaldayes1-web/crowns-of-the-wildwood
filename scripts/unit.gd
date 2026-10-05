@@ -6,7 +6,6 @@ extends CharacterBody3D
 
 const Stats = preload("res://scripts/stats.gd")
 const Monarch = preload("res://scripts/monarch.gd")
-const Gate = preload("res://scripts/gate.gd")
 const Role = Stats.Role
 
 const GRAVITY := 20.0
@@ -22,16 +21,21 @@ var dead := false
 var respawn_timer := 0.0
 var attack_timer := 0.0
 var flash_timer := 0.0
+var dodge_timer := 0.0      # time left in the current dash
+var dodge_cooldown := 0.0   # time until the next dodge is ready
+var dodge_dir := Vector3.ZERO
 var carrying = null
 var spawn_point := Vector3.ZERO
 var facing := Vector3(1, 0, 0)
 
-# Bots: "attack" raids the enemy castle, "defend" guards the home throne,
-# "support" follows a teammate (healers).
+# Bots: "attack" raids the enemy castle, "wall" shoots from the ramparts over
+# the door, "support" follows a raider (healers), "defend" guards the throne.
 var bot_job := "attack"
 var bot_class: int = Role.KNIGHT
 var bot_offset := Vector3.ZERO
 var stuck_time := 0.0
+var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
+var sidestep_sign := 1.0
 
 var shape: CollisionShape3D
 var build: Node3D
@@ -54,8 +58,9 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	facing = Vector3(1, 0, 0) if team == 0 else Vector3(-1, 0, 0)
 	rotation.y = atan2(-facing.x, -facing.z)
 	bot_offset = Vector3(randf_range(-2.5, 2.5), 0, randf_range(-2.5, 2.5))
+	sidestep_sign = 1.0 if bot_offset.x > 0.0 else -1.0
 	collision_layer = 2
-	# The world, plus the ENEMY gate (layer 4 = human gate, layer 3 = elf gate).
+	# The world, plus the ENEMY door (layer 4 = human door, layer 3 = elf door).
 	collision_mask = 1 | (8 if team == 0 else 4)
 
 	shape = CollisionShape3D.new()
@@ -225,14 +230,17 @@ func _refresh_overhead() -> void:
 
 
 func take_damage(amount: int) -> void:
-	if dead:
-		return
+	if dead or dodge_timer > 0.0:
+		return  # mid-dodge: untouchable
 	hearts -= amount
 	flash_timer = 0.15
 	if hearts <= 0:
 		_die()
-	else:
-		_refresh_overhead()
+		return
+	_refresh_overhead()
+	# Bots roll sideways away from whatever just hit them, half the time.
+	if not is_player and dodge_ready() and randf() < 0.5:
+		try_dodge(facing.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0))
 
 
 func heal(amount: int) -> void:
@@ -240,6 +248,22 @@ func heal(amount: int) -> void:
 		return
 	hearts = mini(hearts + amount, Stats.MAX_HEARTS)
 	_refresh_overhead()
+
+
+func dodge_ready() -> bool:
+	return dodge_cooldown <= 0.0 and not dead and carrying == null
+
+
+func try_dodge(dir: Vector3) -> void:
+	if not dodge_ready():
+		return
+	dir.y = 0.0
+	dodge_dir = dir.normalized() if dir.length() > 0.05 else facing
+	facing = dodge_dir
+	rotation.y = atan2(-facing.x, -facing.z)
+	dodge_timer = Stats.DODGE_TIME
+	dodge_cooldown = Stats.DODGE_COOLDOWN
+	game.spawn_burst(global_position, 0.8, Color(1, 1, 1))
 
 
 func _die() -> void:
@@ -278,9 +302,24 @@ func _physics_process(delta: float) -> void:
 	var regen := Stats.MANA_REGEN if energy_kind() == "mana" else Stats.STAMINA_REGEN
 	energy = minf(energy + regen * Stats.FACTIONS[team].regen_mult * delta, energy_max())
 	attack_timer = maxf(attack_timer - delta, 0.0)
+	dodge_cooldown = maxf(dodge_cooldown - delta, 0.0)
 	if flash_timer > 0.0:
 		flash_timer -= delta
 		body_mat.albedo_color = Color(1, 0.3, 0.3) if flash_timer > 0.0 else Stats.FACTIONS[team].color
+
+	var speed: float = Stats.FACTIONS[team].speed * stats().speed
+	if carrying:
+		speed *= Stats.CARRY_SPEED_MULT
+
+	# Mid-dash: fly in the dodge direction and ignore everything else.
+	if dodge_timer > 0.0:
+		dodge_timer -= delta
+		velocity.x = dodge_dir.x * speed * Stats.DODGE_SPEED_MULT
+		velocity.z = dodge_dir.z * speed * Stats.DODGE_SPEED_MULT
+		velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
+		move_and_slide()
+		_clamp_to_map()
+		return
 
 	var move := Vector3.ZERO
 	var wants_attack := false
@@ -291,15 +330,16 @@ func _physics_process(delta: float) -> void:
 		wants_attack = Input.is_action_pressed("attack")
 		if Input.is_action_just_pressed("interact"):
 			game.try_interact(self)
+		if Input.is_action_just_pressed("dodge"):
+			try_dodge(move)
+			if dodge_timer > 0.0:
+				return
 	else:
 		var plan := _bot_think()
 		move = plan.move
 		wants_attack = plan.attack
 		aim = plan.aim
 
-	var speed: float = Stats.FACTIONS[team].speed * stats().speed
-	if carrying:
-		speed *= Stats.CARRY_SPEED_MULT
 	if move.length() > 0.05:
 		facing = move.normalized()
 		rotation.y = atan2(-facing.x, -facing.z)
@@ -311,10 +351,10 @@ func _physics_process(delta: float) -> void:
 	velocity.z = move.z * speed
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
 	move_and_slide()
-	position.x = clampf(position.x, -game.map_half.x, game.map_half.x)
-	position.z = clampf(position.z, -game.map_half.y, game.map_half.y)
+	_clamp_to_map()
 
 	# Bots that bump into a tree or wall sidestep around it.
+	sidestep_timer = maxf(sidestep_timer - delta, 0.0)
 	if not is_player and move.length() > 0.1:
 		var real := get_real_velocity()
 		real.y = 0.0
@@ -322,6 +362,11 @@ func _physics_process(delta: float) -> void:
 
 	if wants_attack and carrying == null and attack_timer <= 0.0:
 		_attack(facing if is_player else aim)
+
+
+func _clamp_to_map() -> void:
+	position.x = clampf(position.x, -game.map_half.x, game.map_half.x)
+	position.z = clampf(position.z, -game.map_half.y, game.map_half.y)
 
 
 # --- Combat ----------------------------------------------------------------
@@ -365,13 +410,15 @@ func _attack(aim: Vector3) -> void:
 			continue
 		var to := _flat_to(other.global_position)
 		var dist := to.length()
-		if dist <= s.range and (dist < 0.8 or aim.dot(to / dist) > 0.3):
+		# Swings reach people at your own height, not someone up on a wall.
+		if dist <= s.range and absf(other.global_position.y - global_position.y) < 1.5 \
+				and (dist < 0.8 or aim.dot(to / dist) > 0.3):
 			other.take_damage(s.damage)
-	# Swings also chip away at the enemy gate.
+	# Swings from the ground also chip away at the enemy door.
 	var gate = game.gates[1 - team]
 	var gx: float = gate.position.x
-	if gate.is_intact() and absf(global_position.x - gx) < s.range + 0.4 \
-			and absf(global_position.z) < Gate.HALF_OPENING + 0.5 and aim.x * signf(gx - global_position.x) > 0.3:
+	if gate.is_intact() and global_position.y < 1.0 and absf(global_position.x - gx) < s.range + 0.4 \
+			and absf(global_position.z) < Stats.DOOR_HALF + 0.5 and aim.x * signf(gx - global_position.x) > 0.3:
 		gate.take_hit(s.gate_damage)
 
 
@@ -389,8 +436,13 @@ func _steer_to(target: Vector3) -> Vector3:
 		return Vector3.ZERO
 	var dir := to.normalized()
 	if stuck_time > 0.3:
-		# Slide sideways around whatever is in the way.
-		dir = (dir + dir.cross(Vector3.UP) * (1.0 if bot_offset.x > 0.0 else -1.0) * 1.5).normalized()
+		# Blocked: commit to walking around the obstacle for a moment, and try
+		# the other side next time so a corner can't hold us for good.
+		stuck_time = 0.0
+		sidestep_timer = 1.2
+		sidestep_sign = -sidestep_sign
+	if sidestep_timer > 0.0:
+		dir = (dir * 0.4 + dir.cross(Vector3.UP) * sidestep_sign).normalized()
 	return dir
 
 
@@ -426,6 +478,7 @@ func _bot_think() -> Dictionary:
 	var mine = game.monarchs[team]
 	var theirs = game.monarchs[1 - team]
 	var ranged: bool = s.attack == "arrow" or s.attack == "spell"
+	var on_ground: bool = global_position.y < 1.0
 
 	# Grab the enemy monarch whenever it's within reach.
 	if not carrying and theirs.state != Monarch.State.CARRIED \
@@ -435,6 +488,7 @@ func _bot_think() -> Dictionary:
 	# Choose where to go.
 	var goal: Vector3
 	var priority_target = null
+	var holding_wall := false
 	# Fresh spawns always grab their class first; the stations sit by the spawn.
 	var gearing_up: bool = role == Role.BASE and bot_class != Role.BASE
 	if carrying:
@@ -448,6 +502,9 @@ func _bot_think() -> Dictionary:
 		goal = mine.global_position
 	elif theirs.state == Monarch.State.CARRIED:
 		goal = theirs.carrier.global_position + bot_offset  # escort our carrier
+	elif bot_job == "wall":
+		goal = game.wall_post(team, bot_offset.z)
+		holding_wall = true
 	elif bot_job == "support":
 		var buddy = _nearest_ally("attack")
 		goal = (buddy.global_position if buddy else game.thrones[team]) + bot_offset * 0.6
@@ -455,27 +512,29 @@ func _bot_think() -> Dictionary:
 		goal = theirs.global_position
 	else:
 		goal = game.thrones[team] + Vector3(6.0 if team == 0 else -6.0, 0, 0) + bot_offset
+	# Doors and ramps: the next point to walk toward on the way to the goal.
+	var next: Vector3 = game.route_point(global_position, goal)
 
 	# Healers patch up anyone hurt nearby before doing anything else.
 	if s.attack == "heal" and energy >= s.cost and not _injured_allies_near().is_empty():
 		plan.attack = true
 
-	# The enemy gate stands between us and the goal: break it down.
+	# The enemy door stands between us and the goal: break it down.
 	var gate = game.gate_blocking(team, global_position, goal)
 	if gate and not carrying:
 		var side := signf(global_position.x - gate.position.x)
 		var standoff := 7.0 if ranged else 1.3
-		var spot := Vector3(gate.position.x + side * standoff, 0, clampf(global_position.z, -5.0, 5.0))
+		var spot := Vector3(gate.position.x + side * standoff, 0, clampf(global_position.z, -2.5, 2.5))
 		if _nearest_enemy(3.0) == null:
 			if _flat_to(spot).length() < 1.0:
 				plan.aim = Vector3(-side, 0, 0)
 				plan.attack = true
 			else:
-				plan.move = _steer_to(spot)
+				plan.move = _steer_to(game.route_point(global_position, spot))
 			return plan
 
 	if carrying:
-		plan.move = _steer_to(goal)
+		plan.move = _steer_to(next)
 		return plan
 
 	# Fight anyone nearby, the enemy carrier first.
@@ -487,19 +546,23 @@ func _bot_think() -> Dictionary:
 		if not plan.attack:
 			plan.aim = to.normalized()
 			plan.attack = in_range
+		# Wall archers hold their post: shoot what they can reach, chase nobody.
+		if holding_wall:
+			plan.move = _steer_to(next)
+			return plan
 		# Raiders keep running for the monarch, hitting whoever is in reach,
 		# and only stop to fight someone right on top of them.
 		var raiding: bool = gearing_up or (bot_job == "attack" and mine.state == Monarch.State.HOME)
 		if raiding and to.length() > 3.0:
-			plan.move = _steer_to(goal)
+			plan.move = _steer_to(next)
 			return plan
 		if in_range:
-			# Shooters keep a little distance.
-			if ranged and to.length() < 5.0:
+			# Shooters on the ground keep a little distance.
+			if ranged and on_ground and to.length() < 5.0:
 				plan.move = -to.normalized() * 0.6
 			return plan
-		plan.move = _steer_to(enemy.global_position)
+		plan.move = _steer_to(game.route_point(global_position, enemy.global_position))
 		return plan
 
-	plan.move = _steer_to(goal)
+	plan.move = _steer_to(next)
 	return plan

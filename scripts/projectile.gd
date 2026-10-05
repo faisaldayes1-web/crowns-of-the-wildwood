@@ -1,11 +1,11 @@
 extends Node3D
-## An arrow or spell. Flies straight, hits the first enemy (or enemy gate) it
-## reaches, and spells splash everyone nearby.
-
-const Gate = preload("res://scripts/gate.gd")
+## An arrow or spell. Flies straight, stops at walls, cover, trees and the enemy
+## door, hits the first enemy it reaches, and spells splash everyone nearby.
+## Shots fired from up on the castle walls arc down to ground level.
 
 const SPEED := 22.0
 const HIT_RADIUS := 0.7
+const FLIGHT_HEIGHT := 1.1   # how high above the feet a shot flies
 
 var game
 var team := 0
@@ -14,6 +14,8 @@ var gate_damage := 1
 var splash := 0.0
 var direction := Vector3.FORWARD
 var life := 0.6
+var fall_speed := 0.0
+var query_mask := 1
 
 
 func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dictionary, color: Color) -> void:
@@ -24,7 +26,12 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 	splash = stats.get("splash", 0.0)
 	direction = p_direction.normalized()
 	life = stats.range / SPEED
-	position = from + Vector3(0, 1.1, 0)
+	position = from + Vector3(0, FLIGHT_HEIGHT, 0)
+	# From the ramparts, shots come down to ground level over most of their range.
+	if position.y > FLIGHT_HEIGHT + 0.5:
+		fall_speed = (position.y - FLIGHT_HEIGHT) / (stats.range * 0.8 / SPEED)
+	# The world, plus the enemy door (layer 4 = human door, layer 3 = elf door).
+	query_mask = 1 | (8 if team == 0 else 4)
 
 	var mesh := MeshInstance3D.new()
 	if splash > 0.0:
@@ -48,16 +55,24 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 
 func _physics_process(delta: float) -> void:
 	var before := global_position
-	global_position += direction * SPEED * delta
-	life -= delta
-	if life <= 0.0:
+	var after := before + direction * SPEED * delta
+	if fall_speed > 0.0:
+		after.y = maxf(after.y - fall_speed * delta, FLIGHT_HEIGHT)
+
+	# Anything solid in the way stops the shot. The enemy door takes damage.
+	var ray := PhysicsRayQueryParameters3D.create(before, after, query_mask)
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	if hit:
+		global_position = hit.position
+		var gate = game.gates[1 - team]
+		if hit.collider == gate:
+			gate.take_hit(gate_damage)
 		_burst()
 		return
 
-	var gate = game.gates[1 - team]
-	if gate.is_intact() and (before.x - gate.position.x) * (global_position.x - gate.position.x) <= 0.0 \
-			and absf(global_position.z) < Gate.HALF_OPENING:
-		gate.take_hit(gate_damage)
+	global_position = after
+	life -= delta
+	if life <= 0.0:
 		_burst()
 		return
 
@@ -66,7 +81,8 @@ func _physics_process(delta: float) -> void:
 			continue
 		var offset: Vector3 = unit.global_position - global_position
 		offset.y = 0.0
-		if offset.length() < HIT_RADIUS:
+		# Must pass through the body: a shot sailing over someone's head misses.
+		if offset.length() < HIT_RADIUS and absf(global_position.y - (unit.global_position.y + 1.0)) < 1.5:
 			if splash <= 0.0:
 				unit.take_damage(damage)
 			_burst()
@@ -75,6 +91,7 @@ func _physics_process(delta: float) -> void:
 
 func _burst() -> void:
 	if splash > 0.0:
+		# Magic rains down on everyone near the impact, walls or no walls.
 		for unit in game.units:
 			if unit.team == team or unit.dead:
 				continue

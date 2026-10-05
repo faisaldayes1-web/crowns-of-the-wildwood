@@ -120,7 +120,7 @@ func _draw_roster(team: int, origin: Vector2, right_side: bool) -> void:
 
 
 func _draw_player_panel(p) -> void:
-	var w := 420.0
+	var w := 520.0
 	var rect := Rect2(size.x / 2.0 - w / 2.0, size.y - 128, w, 92)
 	_panel(rect)
 	_text(rect.position + Vector2(16, 26), p.role_name().to_upper(), 20, GOLD)
@@ -134,3 +134,12 @@ func _draw_player_panel(p) -> void:
 	_text(bar.position + Vector2(0, -6), "MANA" if is_mana else "STAMINA", 13, Color.WHITE)
 	_text(bar.position + Vector2(0, 17), "%d / %d" % [int(p.energy), int(p.energy_max())], 15, Color.WHITE,
 		HORIZONTAL_ALIGNMENT_CENTER, bar.size.x)
+	# Dodge: a ring that fills back up over the cooldown.
+	var center := rect.position + Vector2(w - 52, 44)
+	var ready: bool = p.dodge_cooldown <= 0.0
+	var frac := 1.0 - clampf(p.dodge_cooldown / Stats.DODGE_COOLDOWN, 0.0, 1.0)
+	draw_circle(center, 24, Color(0, 0, 0, 0.6))
+	draw_arc(center, 19, -PI / 2.0, -PI / 2.0 + TAU * maxf(frac, 0.01), 40, STAMINA if ready else Color(0.55, 0.55, 0.55), 6.0)
+	_text(center + Vector2(-24, 5), "DODGE" if ready else "%.1f" % p.dodge_cooldown, 11, GOLD if ready else Color.WHITE,
+		HORIZONTAL_ALIGNMENT_CENTER, 48)
+	_text(center + Vector2(-40, 40), "Shift / B", 11, Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 80)
