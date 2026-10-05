@@ -67,7 +67,7 @@ static func config(team: int, role: int, variant: String = "", rank: int = 1) ->
 				Role.RANGER:
 					c.scene = "rogue_hooded"
 					c.skin = "rogue"
-					c.show = ["1H_Crossbow" if rank <= 1 else "2H_Crossbow"]
+					c.show = []  # Rangers carry a built bow (see _add_weapon_art)
 					c.idle = "Idle"
 					c.attacks = ["2H_Ranged_Shoot"]
 				Role.MAGE:
@@ -113,6 +113,7 @@ const CELLS := {
 	"healer": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)]},
 }
 static var custom_cache := {}
+var model_root: Node3D
 
 
 static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictionary) -> Texture2D:
@@ -158,6 +159,7 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	var c := config(team, role, variant, rank)
 	var inst: Node3D = load(SCENES[c.scene]).instantiate()
 	add_child(inst)
+	model_root = inst
 	inst.scale = Vector3.ONE * c.scale
 	inst.rotation.y = PI  # the models face +Z; the game's forward is -Z
 	anim = inst.find_child("AnimationPlayer", true, false)
@@ -219,6 +221,8 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	_add_class_flair(role, variant)
 	if variant == "" or Stats.VARIANTS.has(role):
 		_add_rank_flair(team, role, rank)
+	if variant == "":
+		_add_weapon_art(team, role, rank)
 
 	if anim:
 		for name in LOOPS:
@@ -275,6 +279,164 @@ func _add_class_flair(role: int, variant: String) -> void:
 			mat.albedo_color.a = 0.8
 			cp.material_override = mat
 			add_child(cp)
+
+
+func _gear_node(name: String) -> Node3D:
+	## The rig's gear holder for `name` (a BoneAttachment3D riding the gear
+	## bone), so built weapons follow the hand through every animation.
+	if model_root == null:
+		return null
+	return model_root.find_child(name, true, false) as Node3D
+
+
+func _prism(parent: Node3D, size: Vector3, pos: Vector3, rot: Vector3, mat: Material) -> void:
+	var m := MeshInstance3D.new()
+	var pm := PrismMesh.new()
+	pm.size = size
+	m.mesh = pm
+	m.position = pos
+	m.rotation = rot
+	m.material_override = mat
+	parent.add_child(m)
+
+
+func _sphere(parent: Node3D, radius: float, pos: Vector3, mat: Material) -> void:
+	var m := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = radius
+	sm.height = radius * 2.0
+	sm.radial_segments = 8
+	sm.rings = 4
+	m.mesh = sm
+	m.position = pos
+	m.material_override = mat
+	parent.add_child(m)
+
+
+func _ring(parent: Node3D, inner: float, pos: Vector3, mat: Material) -> void:
+	var m := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = inner
+	tm.outer_radius = inner + 0.04
+	tm.rings = 12
+	tm.ring_segments = 6
+	m.mesh = tm
+	m.position = pos
+	m.material_override = mat
+	parent.add_child(m)
+
+
+func _add_weapon_art(team: int, role: int, rank: int) -> void:
+	## The weapon sheet's per-rank art: a built bow for Rangers (the packs
+	## only have crossbows), runes and gold on Knight swords, crystals and
+	## rings on Mage and Healer staves. Everything hangs off the gear bones.
+	var team_col: Color = Stats.FACTIONS[team].color
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(0.98, 0.8, 0.25)
+	gold.metallic = 0.7
+	gold.roughness = 0.3
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color(0.48, 0.3, 0.15)
+	wood.roughness = 0.85
+	var cloth := StandardMaterial3D.new()
+	cloth.albedo_color = team_col.lightened(0.1)
+	cloth.roughness = 1.0
+	var leaf := StandardMaterial3D.new()
+	leaf.albedo_color = Color(0.4, 0.75, 0.3)
+	leaf.roughness = 0.9
+	match role:
+		Role.RANGER:
+			var bow := _gear_node("2H_Crossbow")
+			if bow == null:
+				return
+			# The holder was hidden with the crossbow; show it and hide the mesh.
+			for m in _meshes(bow):
+				m.visible = false
+			bow.visible = true
+			# Limbs: an arc of tapered segments across x, bulging forward (+z).
+			var half := 0.62
+			var bulge := 0.32
+			var segs := 8
+			var limb := gold if rank >= 4 else wood
+			var prev := Vector3(-half, 0.05, -0.05)
+			for i in range(1, segs + 1):
+				var t: float = -1.0 + 2.0 * i / segs
+				var p := Vector3(t * half, 0.05, bulge * (1.0 - t * t) - 0.05)
+				var seg := MeshInstance3D.new()
+				var bm := BoxMesh.new()
+				var thick: float = 0.09 - 0.04 * absf(t)
+				bm.size = Vector3(thick, thick, (p - prev).length() + 0.02)
+				seg.mesh = bm
+				seg.position = (p + prev) / 2.0
+				seg.basis = Basis.looking_at(p - prev, Vector3.UP)
+				seg.material_override = limb
+				bow.add_child(seg)
+				prev = p
+			_box(bow, Vector3(0.1, 0.12, 0.16), Vector3(0, 0.05, bulge - 0.05), Vector3.ZERO, cloth if rank >= 2 else wood)
+			_box(bow, Vector3(half * 2.0, 0.015, 0.015), Vector3(0, 0.05, -0.05), Vector3.ZERO, wood)
+			# A nocked arrow along the bolt line.
+			_box(bow, Vector3(0.03, 0.03, 0.95), Vector3(0, 0.06, 0.35), Vector3.ZERO, wood)
+			var steel := StandardMaterial3D.new()
+			steel.albedo_color = Color(0.8, 0.82, 0.88)
+			steel.metallic = 0.6
+			_prism(bow, Vector3(0.06, 0.12, 0.03), Vector3(0, 0.06, 0.88), Vector3(PI / 2.0, 0, 0), steel)
+			for sx in [-1.0, 1.0]:
+				_box(bow, Vector3(0.06, 0.012, 0.1), Vector3(sx * 0.035, 0.06, -0.06), Vector3(0, 0, sx * 0.5), cloth)
+			if rank >= 2:
+				for t in [-0.5, 0.5]:
+					_box(bow, Vector3(0.12, 0.1, 0.1), Vector3(t * half, 0.05, bulge * 0.75 - 0.05), Vector3.ZERO, cloth)
+			if rank >= 3:
+				for sx in [-1.0, 1.0]:
+					_box(bow, Vector3(0.1, 0.09, 0.09), Vector3(sx * half, 0.05, -0.05), Vector3.ZERO, gold)
+					_prism(bow, Vector3(0.08, 0.16, 0.03), Vector3(sx * half * 0.8, 0.14, 0.05), Vector3(0, 0, sx * 0.6), leaf)
+			if rank >= 4:
+				_sphere(bow, 0.06, Vector3(0, 0.13, bulge - 0.05), _glow(team_col.lightened(0.4), 2.0))
+		Role.KNIGHT:
+			var sword := _gear_node("1H_Sword")
+			if sword == null:
+				return
+			if rank >= 2:
+				var rune := _glow(Color(0.55, 0.8, 1.0), 1.2 if rank < 4 else 2.0)
+				_box(sword, Vector3(0.025, 1.0, 0.16), Vector3(0, 0.7, 0), Vector3.ZERO, rune)
+			if rank >= 3:
+				_box(sword, Vector3(0.62, 0.09, 0.15), Vector3(0, 0.08, 0), Vector3.ZERO, gold)
+				_sphere(sword, 0.07, Vector3(0, -0.4, 0), gold)
+			if rank >= 4:
+				_sphere(sword, 0.07, Vector3(0, 0.08, 0), _glow(Color(0.55, 0.8, 1.0), 2.5))
+		Role.MAGE:
+			var staff := _gear_node("2H_Staff")
+			if staff == null:
+				return
+			var glow := _glow(Color(0.7, 0.55, 1.0), 2.0)
+			if rank >= 2:
+				for sx in [-1.0, 1.0]:
+					_prism(staff, Vector3(0.08, 0.22, 0.08), Vector3(0.04 + sx * 0.17, 0.95, 0), Vector3(0, 0, -sx * 0.5), glow)
+			if rank >= 3:
+				_ring(staff, 0.13, Vector3(0.04, 0.78, 0), gold)
+			if rank >= 4:
+				_prism(staff, Vector3(0.15, 0.42, 0.15), Vector3(0.04, 1.45, 0), Vector3.ZERO, glow)
+				for sx in [-1.0, 1.0]:
+					_prism(staff, Vector3(0.06, 0.3, 0.1), Vector3(0.04 + sx * 0.24, 1.12, 0), Vector3(0, 0, -sx * 0.9), gold)
+		Role.HEALER:
+			var glow := _glow(Color(0.6, 0.95, 0.8), 2.0)
+			if rank < 4:
+				var wand := _gear_node("1H_Wand")
+				if wand == null:
+					return
+				if rank >= 2:
+					_prism(wand, Vector3(0.09, 0.22, 0.09), Vector3(0, 0.8, 0), Vector3.ZERO, glow)
+				if rank >= 3:
+					_ring(wand, 0.07, Vector3(0, 0.6, 0), gold)
+					for sx in [-1.0, 1.0]:
+						_prism(wand, Vector3(0.06, 0.14, 0.03), Vector3(sx * 0.1, 0.68, 0), Vector3(0, 0, sx * 0.7), leaf)
+			else:
+				var staff := _gear_node("2H_Staff")
+				if staff == null:
+					return
+				_box(staff, Vector3(0.08, 0.4, 0.08), Vector3(0.04, 1.1, 0), Vector3.ZERO, gold)
+				_box(staff, Vector3(0.32, 0.08, 0.08), Vector3(0.04, 1.14, 0), Vector3.ZERO, gold)
+				_sphere(staff, 0.085, Vector3(0.04, 1.34, 0), glow)
+				_ring(staff, 0.13, Vector3(0.04, 0.78, 0), gold)
 
 
 func _glow(color: Color, energy: float = 1.5) -> StandardMaterial3D:

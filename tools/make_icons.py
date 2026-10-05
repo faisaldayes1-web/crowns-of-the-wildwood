@@ -140,11 +140,11 @@ def star(img, points_n, r_out, r_in, c1, c2, rot=0.0, scale=1.0, dx=0.0, dy=0.0)
     poly(img, pts(seq, scale, dx, dy), c1, c2)
 
 
-def flame(img, scale=1.0, dx=0.0, dy=0.0):
+def flame(img, scale=1.0, dx=0.0, dy=0.0, c1=(255, 180, 40), c2=(220, 50, 20), c3=(255, 250, 170), c4=(255, 170, 50)):
     outer = [(0, -1.0), (0.35, -0.45), (0.7, -0.2), (0.75, 0.4), (0.4, 0.9), (0, 1.0), (-0.4, 0.9), (-0.75, 0.4), (-0.7, -0.2), (-0.3, -0.35)]
-    poly(img, pts(outer, scale, dx, dy), (255, 180, 40), (220, 50, 20))
+    poly(img, pts(outer, scale, dx, dy), c1, c2)
     inner = [(x * 0.5, y * 0.5 + 0.3) for x, y in outer]
-    poly(img, pts(inner, scale, dx, dy), (255, 250, 170), (255, 170, 50), outline=None)
+    poly(img, pts(inner, scale, dx, dy), c3, c4, outline=None)
 
 
 def chevrons(img, color, count=3, rot=0.0):
@@ -263,29 +263,53 @@ save(img, "vigor", (255, 150, 150))
 
 img = new(); star(img, 5, 1.0, 0.45, (255, 240, 150), (240, 160, 40), rot=-math.pi / 2); save(img, "xp", (255, 210, 90))
 
-# Class emblems.
+# Class emblems: rounded plaques with a gold rim in each class's colour,
+# carrying the sheet's symbols (shield, bow, flame, cross).
+def plaque(img, c1, c2):
+    r = 0.9 * C * 0.78
+    box = [C - r, C - r, C + r, C + r]
+    mask = Image.new("L", img.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle(box, radius=r * 0.32, fill=255)
+    img.paste(gradient(img.size, c1, c2), (0, 0), mask)
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle(box, radius=r * 0.32, outline=INK + (255,), width=7 * SS)
+    d.rounded_rectangle([b + (9 * SS if i < 2 else -9 * SS) for i, b in enumerate(box)], radius=r * 0.26, outline=GOLD + (255,), width=5 * SS)
+    d.rounded_rectangle([b + (15 * SS if i < 2 else -15 * SS) for i, b in enumerate(box)], radius=r * 0.22, outline=GOLD_D + (255,), width=2 * SS)
+
+
+def bow(img, scale=1.0, dx=0.0, dy=0.0):
+    # A bow seen side-on: the stave is an arc bulging left, the string is
+    # the chord, and a nocked arrow points right.
+    r = 0.95 * C * 0.78 * scale
+    cx, cy = C + (dx + 0.25 * scale) * C * 0.78, C + dy * C * 0.78
+    d = ImageDraw.Draw(img)
+    d.arc([cx - r, cy - r, cx + r, cy + r], 125, 235, fill=INK + (255,), width=16 * SS)
+    d.arc([cx - r, cy - r, cx + r, cy + r], 125, 235, fill=(150, 95, 50, 255), width=10 * SS)
+    d.arc([cx - r, cy - r, cx + r, cy + r], 140, 220, fill=(205, 145, 85, 255), width=4 * SS)
+    tips = [(cx + r * math.cos(math.radians(a)), cy + r * math.sin(math.radians(a))) for a in (125, 235)]
+    stroke(img, tips, INK, 5 * SS)
+    stroke(img, tips, (240, 240, 240), 2 * SS)
+    arrow(img, math.pi / 2, 0.85 * scale, dx + 0.05, dy)
+
+
 img = new()
-helm = [(-0.75, 0.2), (-0.75, -0.3), (-0.5, -0.8), (0.0, -1.0), (0.5, -0.8), (0.75, -0.3), (0.75, 0.2), (0.55, 0.9), (-0.55, 0.9)]
-poly(img, pts(helm), STEEL, STEEL_D)
-poly(img, pts([(-0.6, 0.0), (0.6, 0.0), (0.6, 0.22), (-0.6, 0.22)]), INK, (60, 50, 70), outline=None)
-poly(img, pts([(-0.1, -1.3), (0.1, -1.3), (0.1, -0.7), (-0.1, -0.7)]), (255, 90, 90), (190, 30, 40))
+plaque(img, (90, 130, 230), (35, 55, 150))
+shield(img, (150, 185, 250), (70, 100, 200), 0.6)
 save(img, "class_knight", (200, 215, 255))
 
 img = new()
-ImageDraw.Draw(img).arc([C - 0.85 * C * 0.78, C - 0.85 * C * 0.78, C + 0.85 * C * 0.78, C + 0.85 * C * 0.78], 200, 340, fill=(120, 75, 40, 255), width=12 * SS)
-stroke(img, pts([(-0.8, -0.3), (0.8, -0.3)]), (235, 235, 235), 3 * SS)
-arrow(img, -math.pi / 2, 0.9, 0, 0.1)
+plaque(img, (80, 170, 80), (25, 95, 45))
+bow(img, 0.7)
 save(img, "class_ranger", (190, 255, 170))
 
 img = new()
-poly(img, pts([(-1.0, 0.6), (1.0, 0.6), (0.95, 0.8), (-0.95, 0.8)]), (120, 70, 220), (60, 30, 140))
-poly(img, pts([(-0.6, 0.6), (0.6, 0.6), (0.2, -1.0)]), (150, 100, 240), (80, 40, 170))
-star(img, 5, 0.22, 0.1, (255, 250, 180), (255, 200, 80), rot=-math.pi / 2, dx=-0.1, dy=-0.1)
-save(img, "class_mage", (170, 110, 255))
+plaque(img, (190, 90, 230), (100, 35, 150))
+flame(img, 0.62, 0, 0.05, (255, 150, 240), (200, 60, 190), (255, 240, 255), (255, 170, 240))
+save(img, "class_mage", (230, 150, 255))
 
 img = new()
-circle(img, (C, C), 0.95 * C * 0.78, (255, 250, 230), (230, 200, 140))
-poly(img, pts([(-0.2, -0.75), (0.2, -0.75), (0.2, -0.2), (0.75, -0.2), (0.75, 0.2), (0.2, 0.2), (0.2, 0.75), (-0.2, 0.75), (-0.2, 0.2), (-0.75, 0.2), (-0.75, -0.2), (-0.2, -0.2)]), (120, 230, 140), (30, 150, 70))
+plaque(img, (230, 170, 70), (150, 95, 30))
+poly(img, pts([(-0.2, -0.65), (0.2, -0.65), (0.2, -0.2), (0.65, -0.2), (0.65, 0.2), (0.2, 0.2), (0.2, 0.65), (-0.2, 0.65), (-0.2, 0.2), (-0.65, 0.2), (-0.65, -0.2), (-0.2, -0.2)]), (255, 245, 200), (235, 190, 90))
 save(img, "class_healer", (255, 240, 180))
 
 img = new(); leaf(img, (140, 220, 90), (40, 120, 40), 0.9, 0, 0, 0.4); save(img, "class_elf", (160, 255, 120))
