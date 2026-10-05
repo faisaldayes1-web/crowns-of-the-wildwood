@@ -65,7 +65,7 @@ const BLESSING_KINDS := {
 }
 
 const DOOR_HALF := 3.5        # half-width of each castle door
-const GATE_HITS := 200        # door damage a castle door soaks before it breaks (a 3-strong push needs ~25 s of focus, a lone Knight ~55 s)
+const GATE_HITS := 400        # door damage a castle door soaks before it breaks (a full squad needs ~40 s of focus; a lone Knight can't do it in time)
 const BARRICADE_HITS := 4
 const BARRICADE_REBUILD := 45.0
 const VAULT_HITS := 20        # hits to break the Crown Vault's lock (about 10 s for one Knight)

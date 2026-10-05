@@ -3279,6 +3279,20 @@ func _build_world() -> void:
 		_add_tree(-p, true)
 		_add_tree(Vector3(p.x, 0, -p.z), true)
 		_add_tree(Vector3(-p.x, 0, p.z), true)
+	# A staggered inner tree line along the north and south edges thickens
+	# the forest without touching the lanes (clear of the river and the ruins).
+	for i in 26:
+		var x := -78.0 + i * 6.2
+		if absf(x) < 9.0 or (absf(absf(x) - 11.0) < 6.0):
+			continue
+		for zs in [-1.0, 1.0]:
+			var p := Vector3(x + zs * 2.0, 0, zs * (35.0 - float(i % 3) * 1.2))
+			var crowded := false
+			for t in map_trees:
+				if Vector2(t.x - p.x, t.z - p.z).length() < 5.0:
+					crowded = true
+			if not crowded:
+				_add_tree(p, i % 4 == 0)
 	_add_ground_detail()
 	# A tree line and hills beyond the playable edge, so the world has a horizon.
 	for i in 22:
