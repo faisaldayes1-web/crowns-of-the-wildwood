@@ -4,6 +4,8 @@ extends Node3D
 
 enum State { HOME, CARRIED, DROPPED }
 
+const Builder = preload("res://scripts/character_builder.gd")
+
 const WALK_HOME_SPEED := 1.5
 const CARRY_HEIGHT := 1.9
 
@@ -20,30 +22,9 @@ func setup(p_team: int, p_home: Vector3, color: Color, p_title: String) -> void:
 	title = p_title
 	position = home
 
-	var body := MeshInstance3D.new()
-	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.5
-	body_mesh.height = 1.4
-	body.mesh = body_mesh
-	body.position.y = 0.7
-	var body_mat := StandardMaterial3D.new()
-	body_mat.albedo_color = color.lightened(0.35)
-	body.material_override = body_mat
-	add_child(body)
-
-	var crown := MeshInstance3D.new()
-	var crown_mesh := CylinderMesh.new()
-	crown_mesh.top_radius = 0.32
-	crown_mesh.bottom_radius = 0.26
-	crown_mesh.height = 0.3
-	crown.mesh = crown_mesh
-	crown.position.y = 1.55
-	var crown_mat := StandardMaterial3D.new()
-	crown_mat.albedo_color = Color(1.0, 0.82, 0.2)
-	crown_mat.metallic = 0.8
-	crown_mat.roughness = 0.3
-	crown.material_override = crown_mat
-	add_child(crown)
+	var model := Node3D.new()
+	add_child(model)
+	Builder.build_monarch(model, team)
 
 	var label := Label3D.new()
 	label.text = title
@@ -53,7 +34,7 @@ func setup(p_team: int, p_home: Vector3, color: Color, p_title: String) -> void:
 	label.pixel_size = 0.012
 	label.outline_size = 10
 	label.modulate = Color(1.0, 0.9, 0.4)
-	label.position.y = 2.3
+	label.position.y = 2.6
 	add_child(label)
 
 

@@ -40,6 +40,18 @@ On the title screen, press 1 (D-pad left) to play the Elves or 2 (D-pad right) t
 - **Cover.** Barricades, boulders and trees in the middle stop arrows and spells. Duck behind them.
 - **Monarch.** Walk up to the enemy monarch and press F to pick them up. You move slower and cannot attack while carrying. Reach the gold ring around your own throne to score. If the carrier dies, the monarch walks back home; touching your own dropped monarch sends them home instantly.
 
+## The look
+
+Everything is still built from primitive shapes in code, so there are no art files to manage yet:
+
+- `scripts/character_builder.gd` builds the chibi characters: big heads, class gear (helmet, sword and shield; hood, bow and quiver; wizard hat and crystal staff; veil and healing staff), faction looks (elves have pointed ears and blond hair, humans brown hair and a plume) and the two monarchs. They walk, swing and bob.
+- `scripts/hud.gd` draws the whole interface after the UI mockup: logo, hexagonal score tabs, roster cards with portraits, the player panel with portrait, hearts, energy and four ability slots with key caps and cooldown sweeps, the objective card, the title screen with faction cards, and the victory ribbon.
+- `tools/showcase.gd` renders every character to a PNG for a quick art check:
+
+```
+godot --path . --rendering-driver opengl3 --resolution 1600x700 --script tools/showcase.gd -- --out=showcase.png
+```
+
 ## Tuning the game
 
 All the numbers are in one file: `scripts/stats.gd`. Hearts per player, damage per hit, stamina and mana costs, every ability's cooldown and cost, ranges, door strength, healing orb value and respawn, respawn time, match length, captures to win. Change a number, press F5, and it is live.
@@ -53,7 +65,9 @@ All the numbers are in one file: `scripts/stats.gd`. Hearts per player, damage p
 - `scripts/projectile.gd` arrows, spells and bolts.
 - `scripts/heal_orb.gd` the healing orbs on the map.
 - `scripts/trap.gd` the Ranger's snare trap.
-- `scripts/hud.gd` the on-screen HUD: score, timer, team rosters, hearts and stamina or mana.
+- `scripts/hud.gd` the on-screen HUD, title and end screens.
+- `scripts/character_builder.gd` the character and monarch models.
+- `tools/showcase.gd` renders all characters to a PNG.
 - `scripts/monarch.gd` the Elf Queen and Human King.
 
 To watch bots play each other (handy for balance testing), run from a terminal:

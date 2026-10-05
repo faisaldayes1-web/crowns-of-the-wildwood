@@ -6,6 +6,7 @@ extends CharacterBody3D
 
 const Stats = preload("res://scripts/stats.gd")
 const Monarch = preload("res://scripts/monarch.gd")
+const Builder = preload("res://scripts/character_builder.gd")
 const Role = Stats.Role
 
 const GRAVITY := 20.0
@@ -54,11 +55,11 @@ var sidestep_sign := 1.0
 
 var shape: CollisionShape3D
 var build: Node3D
-var body_mat: StandardMaterial3D
-var hat: MeshInstance3D
-var hat_mat: StandardMaterial3D
-var gear: MeshInstance3D
-var gear_mat: StandardMaterial3D
+var rig := {}                 # pivots from character_builder.gd
+var flash_mats: Array = []    # materials that turn red when hit
+var base_colors: Array = []
+var walk_phase := 0.0
+var swing := 0.0              # weapon-arm swing, 1.0 right after an attack
 var guard_ring: MeshInstance3D
 var overhead: Node3D
 var label: Label3D
@@ -93,34 +94,20 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	build = Node3D.new()
 	add_child(build)
 
-	var body := MeshInstance3D.new()
-	var body_mesh := CapsuleMesh.new()
-	body_mesh.radius = 0.4
-	body_mesh.height = 1.6
-	body.mesh = body_mesh
-	body.position.y = 0.8
-	body_mat = StandardMaterial3D.new()
-	body.material_override = body_mat
-	build.add_child(body)
-
-	# A small nose so you can tell which way someone faces.
-	var nose := MeshInstance3D.new()
-	var nose_mesh := BoxMesh.new()
-	nose_mesh.size = Vector3(0.2, 0.2, 0.35)
-	nose.mesh = nose_mesh
-	nose.position = Vector3(0, 1.2, -0.45)
-	nose.material_override = body_mat
-	build.add_child(nose)
-
-	hat = MeshInstance3D.new()
-	hat_mat = StandardMaterial3D.new()
-	hat.material_override = hat_mat
-	build.add_child(hat)
-
-	gear = MeshInstance3D.new()
-	gear_mat = StandardMaterial3D.new()
-	gear.material_override = gear_mat
-	build.add_child(gear)
+	# A soft shadow blob so everyone reads clearly from above.
+	var blob := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = 0.5
+	disc.bottom_radius = 0.5
+	disc.height = 0.02
+	blob.mesh = disc
+	blob.position.y = 0.02
+	var blob_mat := StandardMaterial3D.new()
+	blob_mat.albedo_color = Color(0, 0, 0, 0.3)
+	blob_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	blob_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	blob.material_override = blob_mat
+	add_child(blob)
 
 	# Shield Wall glow, hidden until used.
 	guard_ring = MeshInstance3D.new()
@@ -226,57 +213,13 @@ func set_role(new_role: int) -> void:
 	ability_timers = [0.0, 0.0]
 	var s := stats()
 	build.scale = s.build
-	body_mat.albedo_color = Stats.FACTIONS[team].color
-	hat.visible = role != Role.BASE
-	gear.visible = role != Role.BASE
-	hat_mat.albedo_color = s.color
-	gear_mat.albedo_color = Color(0.4, 0.3, 0.2)
-	match role:
-		Role.KNIGHT:
-			var helm := SphereMesh.new()
-			helm.radius = 0.32
-			helm.height = 0.4
-			hat.mesh = helm
-			hat.position = Vector3(0, 1.72, 0)
-			var shield := BoxMesh.new()
-			shield.size = Vector3(0.12, 0.8, 0.6)
-			gear.mesh = shield
-			gear.position = Vector3(-0.5, 0.9, -0.1)
-			gear_mat.albedo_color = Stats.FACTIONS[team].color.darkened(0.3)
-		Role.RANGER:
-			var hood := CylinderMesh.new()
-			hood.top_radius = 0.0
-			hood.bottom_radius = 0.34
-			hood.height = 0.5
-			hat.mesh = hood
-			hat.position = Vector3(0, 1.75, 0)
-			var bow := BoxMesh.new()
-			bow.size = Vector3(0.08, 1.0, 0.08)
-			gear.mesh = bow
-			gear.position = Vector3(0.45, 1.0, -0.3)
-		Role.MAGE:
-			var wizard := CylinderMesh.new()
-			wizard.top_radius = 0.0
-			wizard.bottom_radius = 0.42
-			wizard.height = 0.9
-			hat.mesh = wizard
-			hat.position = Vector3(0, 1.95, 0)
-			var staff := BoxMesh.new()
-			staff.size = Vector3(0.08, 1.6, 0.08)
-			gear.mesh = staff
-			gear.position = Vector3(0.5, 0.9, -0.2)
-			gear_mat.albedo_color = Color(0.5, 0.35, 0.9)
-		Role.HEALER:
-			var hood := SphereMesh.new()
-			hood.radius = 0.36
-			hood.height = 0.55
-			hat.mesh = hood
-			hat.position = Vector3(0, 1.62, 0.05)
-			var staff := BoxMesh.new()
-			staff.size = Vector3(0.08, 1.5, 0.08)
-			gear.mesh = staff
-			gear.position = Vector3(0.5, 0.85, -0.2)
-			gear_mat.albedo_color = Color(0.2, 0.85, 0.4)
+	rig = Builder.build(build, team, role)
+	flash_mats = rig.flash_mats
+	base_colors = []
+	for m in flash_mats:
+		base_colors.append(m.albedo_color)
+	walk_phase = 0.0
+	swing = 0.0
 	_refresh_overhead()
 
 
@@ -338,6 +281,7 @@ func use_ability(i: int, dir: Vector3) -> void:
 	dir = dir.normalized() if dir.length() > 0.05 else facing
 	energy -= a.cost
 	ability_timers[i] = a.cooldown
+	swing = 1.0
 	facing = dir
 	rotation.y = atan2(-facing.x, -facing.z)
 	match a.kind:
@@ -408,14 +352,48 @@ func _respawn() -> void:
 		aim_marker.visible = true
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_animate(delta)
 	if overhead:
-		overhead.global_position = global_position + Vector3(0, 2.3 * build.scale.y + 0.3, 0)
+		overhead.global_position = global_position + Vector3(0, 2.4 * build.scale.y + 0.25, 0)
 	if aim_marker and not dead:
 		aim_marker.global_position = global_position + aim * 1.1 + Vector3(0, 0.08, 0)
 		aim_marker.rotation.y = atan2(-aim.x, -aim.z)
 		aim_ring.visible = aim_mode == "mouse"
 		aim_ring.global_position = Vector3(aim_point.x, global_position.y + 0.08, aim_point.z)
+
+
+func _animate(delta: float) -> void:
+	## Walk cycle, idle breathing and the weapon swing. Pure cosmetics.
+	if rig.is_empty() or dead:
+		return
+	var planar := Vector2(velocity.x, velocity.z).length()
+	var moving := planar > 0.5
+	if moving:
+		walk_phase += delta * planar * 1.7
+	else:
+		walk_phase = lerp_angle(walk_phase, 0.0, delta * 10.0)
+	swing = maxf(swing - delta * 4.5, 0.0)
+	var leg := sin(walk_phase) * 0.7 if moving else 0.0
+	rig.left_leg.rotation.x = leg
+	rig.right_leg.rotation.x = -leg
+	var arm := sin(walk_phase) * 0.5 if moving else 0.0
+	rig.left_arm.rotation.x = -arm
+	rig.left_arm.rotation.z = 0.15
+	# The weapon arm swings forward and up on an attack, otherwise walks.
+	var raise := sin(swing * PI) * 2.2
+	rig.right_arm.rotation.x = arm + raise
+	rig.right_arm.rotation.z = -0.15 - raise * 0.15
+	var t := Time.get_ticks_msec() / 1000.0
+	var bob := absf(sin(walk_phase)) * 0.07 if moving else sin(t * 2.0 + float(get_instance_id() % 7)) * 0.015
+	rig.torso.position.y = bob
+	rig.torso.rotation.x = 0.12 if moving else 0.0
+	rig.torso.rotation.z = (sin(walk_phase) * 0.04) if moving else 0.0
+	# Dash: lean into it.
+	if dodge_timer > 0.0 or bash_timer > 0.0:
+		rig.torso.rotation.x = 0.5
+		rig.left_leg.rotation.x = 0.8
+		rig.right_leg.rotation.x = -0.8
 
 
 func _update_player_aim(move: Vector3) -> void:
@@ -472,7 +450,8 @@ func _physics_process(delta: float) -> void:
 			guard_ring.visible = false
 	if flash_timer > 0.0:
 		flash_timer -= delta
-		body_mat.albedo_color = Color(1, 0.3, 0.3) if flash_timer > 0.0 else Stats.FACTIONS[team].color
+		for i in flash_mats.size():
+			flash_mats[i].albedo_color = Color(1, 0.3, 0.3) if flash_timer > 0.0 else base_colors[i]
 
 	var speed: float = Stats.FACTIONS[team].speed * stats().speed
 	if carrying:
@@ -590,6 +569,7 @@ func _attack(dir: Vector3) -> void:
 			attack_timer = s.cooldown
 			for ally in hurt:
 				ally.heal(s.heal)
+			swing = 1.0
 			game.spawn_burst(global_position + Vector3(0, 0.2, 0), s.heal_radius, Color(0.3, 1.0, 0.5))
 			return
 		kind = "melee"  # nobody to heal: bonk with the staff, free of mana
@@ -598,6 +578,7 @@ func _attack(dir: Vector3) -> void:
 	else:
 		energy -= s.cost
 	attack_timer = s.cooldown
+	swing = 1.0
 
 	if kind == "arrow":
 		game.spawn_shot(self, dir, s, Color(0.95, 0.9, 0.7))

@@ -36,7 +36,7 @@ const KEEP_H := 2.6
 const KEEP_DOOR_HALF := 4.5   # the keep's open archway
 const CAPTURE_RADIUS := 3.0
 const STATION_RADIUS := 1.3
-const CAMERA_OFFSET := Vector3(0, 17, 12)
+const CAMERA_OFFSET := Vector3(0, 15.5, 11)
 const MONARCH_TITLES := ["Elf Queen", "Human King"]
 
 var map_half := Vector2(58, 26)
@@ -44,6 +44,7 @@ var playing := false
 var game_over := false
 var player_team := 0
 var score := [0, 0]
+var winner_team := -1
 var thrones: Array[Vector3] = []
 var monarchs: Array = []
 var units: Array = []
@@ -73,16 +74,17 @@ func _ready() -> void:
 	_build_world()
 	_build_hud()
 	demo = "--demo" in OS.get_cmdline_user_args()
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shot-frame="):
+			shot_frame = int(arg.trim_prefix("--shot-frame="))
 	if demo:
-		for arg in OS.get_cmdline_user_args():
-			if arg.begins_with("--shot-frame="):
-				shot_frame = int(arg.trim_prefix("--shot-frame="))
 		_start_match(0)
 		return
-	banner.text = "CROWNS OF THE WILDWOOD\n\nPress 1 to play the Elves (quicker on their feet)\nPress 2 to play the Humans (faster stamina and mana recovery)\n\nYou start as a plain villager. Step onto a class station in your castle to transform.\nAim with the mouse, attack with left click, Q and E for your class abilities, Shift to dodge.\nBreak the enemy door, steal their monarch and carry them to your throne.\nFirst to %d captures wins." % CAPTURES_TO_WIN
+	banner.visible = false
 
 
 func _process(delta: float) -> void:
+	_debug_hooks()
 	if not playing and not game_over:
 		if Input.is_action_just_pressed("pick_elves"):
 			_start_match(0)
@@ -90,7 +92,7 @@ func _process(delta: float) -> void:
 			_start_match(1)
 		return
 	if game_over:
-		if demo:
+		if demo and not "--debug-end" in OS.get_cmdline_user_args():
 			print("Match over: Elves %d, Humans %d" % [score[0], score[1]])
 			get_tree().quit()
 		if Input.is_action_just_pressed("restart"):
@@ -105,10 +107,6 @@ func _process(delta: float) -> void:
 	_check_stations()
 	_update_respawn_timer()
 	_update_camera(delta)
-	if demo:
-		for arg in OS.get_cmdline_user_args():
-			if arg.begins_with("--shot=") and Engine.get_process_frames() == shot_frame:
-				get_viewport().get_texture().get_image().save_png(arg.trim_prefix("--shot="))
 	if demo and Engine.get_process_frames() % 1800 == 0:
 		print("t=%ds  score %d-%d  monarchs %s / %s  doors %d / %d" % [Engine.get_process_frames() / 60,
 			score[0], score[1], monarchs[0].state, monarchs[1].state, gates[0].hp, gates[1].hp])
@@ -118,6 +116,17 @@ func _process(delta: float) -> void:
 		message_timer -= delta
 		if message_timer <= 0.0:
 			message_label.text = ""
+
+
+func _debug_hooks() -> void:
+	## Testing aids: "--shot=<png>" saves a screenshot at frame --shot-frame
+	## (default 900); "--debug-end" ends the match a second before that.
+	var frame := Engine.get_process_frames()
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shot=") and frame == shot_frame:
+			get_viewport().get_texture().get_image().save_png(arg.trim_prefix("--shot="))
+		if arg == "--debug-end" and playing and frame == shot_frame - 60:
+			_finish(1)
 
 
 # --- Rules -----------------------------------------------------------------
@@ -168,8 +177,8 @@ func _finish(winner: int) -> void:
 	if winner >= 0:
 		outcome = "VICTORY!" if winner == player_team else "DEFEAT"
 		line = "The %s win %d to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
-	banner.text = "%s\n\n%s\n\nPress R or Enter to play again." % [outcome, line]
-	banner.visible = true
+	winner_team = winner
+	announce(line)
 
 
 func try_interact(u) -> void:
@@ -367,6 +376,7 @@ func _flat_dist(a: Vector3, b: Vector3) -> float:
 
 func _start_match(team: int) -> void:
 	player_team = team
+	winner_team = -1
 	banner.visible = false
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
@@ -531,6 +541,54 @@ func _add_heal_orbs() -> void:
 			heal_orbs.append(mirror)
 
 
+func _add_flag(pos: Vector3, color: Color, side: float) -> void:
+	var pole := MeshInstance3D.new()
+	var pole_mesh := CylinderMesh.new()
+	pole_mesh.top_radius = 0.06
+	pole_mesh.bottom_radius = 0.08
+	pole_mesh.height = 2.6
+	pole.mesh = pole_mesh
+	pole.position = pos + Vector3(0, 1.3, 0)
+	pole.material_override = _material(Color(0.35, 0.25, 0.15))
+	add_child(pole)
+	var cloth := MeshInstance3D.new()
+	var cloth_mesh := BoxMesh.new()
+	cloth_mesh.size = Vector3(1.4, 0.9, 0.06)
+	cloth.mesh = cloth_mesh
+	cloth.position = pos + Vector3(-side * 0.75, 2.1, 0)
+	cloth.material_override = _material(color)
+	add_child(cloth)
+	var crest := MeshInstance3D.new()
+	var crest_mesh := BoxMesh.new()
+	crest_mesh.size = Vector3(0.4, 0.3, 0.08)
+	crest.mesh = crest_mesh
+	crest.position = pos + Vector3(-side * 0.75, 2.1, 0)
+	crest.material_override = _material(Color(1.0, 0.82, 0.2))
+	add_child(crest)
+
+
+func _add_torch(pos: Vector3) -> void:
+	_add_block(pos + Vector3(0, 1.0, 0), Vector3(0.14, 2.0, 0.14), Color(0.3, 0.2, 0.1), false)
+	var flame := MeshInstance3D.new()
+	var flame_mesh := SphereMesh.new()
+	flame_mesh.radius = 0.22
+	flame_mesh.height = 0.5
+	flame.mesh = flame_mesh
+	flame.position = pos + Vector3(0, 2.2, 0)
+	var mat := _material(Color(1.0, 0.6, 0.15))
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.5, 0.1)
+	mat.emission_energy_multiplier = 2.0
+	flame.material_override = mat
+	add_child(flame)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.7, 0.35)
+	light.light_energy = 1.6
+	light.omni_range = 7.0
+	light.position = pos + Vector3(0, 2.4, 0)
+	add_child(light)
+
+
 func _add_station(team: int, role: int, pos: Vector3) -> void:
 	stations[team][role] = pos
 	var color: Color = Stats.ROLES[role].color
@@ -635,6 +693,14 @@ func _build_castle(team: int) -> void:
 		ramps[team].append({"bottom": bottom, "top": top})
 	# Archer posts on the walkway, either side of the door.
 	wall_posts.append([Vector3(fx, WALK_Y, -(Stats.DOOR_HALF + 2.0)), Vector3(fx, WALK_Y, Stats.DOOR_HALF + 2.0)])
+
+	# Flags on the towers and torches by the door and the keep.
+	for z in [-hz - 0.5, hz + 0.5]:
+		_add_flag(Vector3(fx, 5.2, z), color, side)
+		_add_flag(Vector3(bx, 5.2, z), color, side)
+	for z in [-(Stats.DOOR_HALF + 1.0), Stats.DOOR_HALF + 1.0]:
+		_add_torch(Vector3(fx - side * 1.1, 0, z))
+		_add_torch(Vector3(kx - side * 0.9, 0, z * 1.2))
 
 	# The breakable door.
 	var gate = Gate.new()
@@ -747,25 +813,18 @@ func _build_hud() -> void:
 	layer.add_child(hud)
 
 	message_label = Label.new()
-	message_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	message_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	message_label.offset_top = 96
+	message_label.offset_bottom = 136
+	message_label.offset_left = -400
+	message_label.offset_right = 400
 	message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	message_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	message_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	message_label.add_theme_font_size_override("font_size", 22)
-	message_label.add_theme_constant_override("outline_size", 6)
-	message_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	message_label.position.y -= 150
+	message_label.add_theme_font_size_override("font_size", 20)
+	message_label.add_theme_constant_override("outline_size", 7)
+	message_label.add_theme_color_override("font_outline_color", Color(0.05, 0.04, 0.06))
+	message_label.add_theme_color_override("font_color", Color(1, 0.95, 0.75))
 	layer.add_child(message_label)
 
-	var help := Label.new()
-	help.text = "Move: WASD / stick   Aim: mouse / right stick   Attack: click / A   Abilities: Q, E / X, Y   Dodge: Shift / B   Monarch: F / RB   Class: stations in your keep"
-	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-	help.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	help.position += Vector2(12, -10)
-	help.add_theme_font_size_override("font_size", 15)
-	help.add_theme_constant_override("outline_size", 4)
-	help.add_theme_color_override("font_outline_color", Color.BLACK)
-	layer.add_child(help)
 
 	banner = Label.new()
 	banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
