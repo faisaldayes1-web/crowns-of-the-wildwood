@@ -1859,9 +1859,12 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 	tree.position = pos
 	tree.rotation.y = r.randf() * TAU
 	add_child(tree)
+	var bark := _pbr("bark", 0.5, Color(0.95, 0.9, 0.85))
+	if pos.x < -8.0 and seed % 4 == 1:
+		_add_pine(tree, r, bark, big)
+		return
 	# Trunk and roots.
 	var trunk_h: float = (3.4 if big else 2.5) * r.randf_range(0.9, 1.15)
-	var bark := _pbr("bark", 0.6)
 	var trunk := MeshInstance3D.new()
 	var trunk_mesh := CylinderMesh.new()
 	trunk_mesh.top_radius = 0.25 if big else 0.2
@@ -1920,6 +1923,43 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 			bud.position = Vector3(cos(ang) * radius * 0.95, base_y + radius * 0.5 + r.randf_range(-0.6, 0.7), sin(ang) * radius * 0.95)
 			bud.material_override = glow
 			tree.add_child(bud)
+
+
+func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool) -> void:
+	## A conifer: a slim trunk and three stacked cones of dark needles.
+	var trunk_h: float = (4.2 if big else 3.2) * r.randf_range(0.9, 1.1)
+	var trunk := MeshInstance3D.new()
+	var tm := CylinderMesh.new()
+	tm.top_radius = 0.12
+	tm.bottom_radius = 0.32
+	tm.height = trunk_h
+	tm.radial_segments = 7
+	trunk.mesh = tm
+	trunk.position.y = trunk_h / 2.0
+	trunk.material_override = bark
+	tree.add_child(trunk)
+	var leaf := ShaderMaterial.new()
+	leaf.shader = load("res://assets/shaders/leaf.gdshader")
+	leaf.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	var hue := r.randf_range(-0.02, 0.02)
+	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.38 + hue, 0.75, 0.18))
+	leaf.set_shader_parameter("top_color", Color.from_hsv(0.32 + hue, 0.7, 0.5))
+	leaf.set_shader_parameter("height", 1.6)
+	leaf.set_shader_parameter("sway", 0.03)
+	var base_r: float = (1.9 if big else 1.5) * r.randf_range(0.9, 1.1)
+	for i in 3:
+		var cone := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.0
+		cm.bottom_radius = base_r * (1.0 - 0.25 * i)
+		cm.height = trunk_h * 0.42
+		cm.radial_segments = 8
+		cm.rings = 2
+		cone.mesh = cm
+		cone.position.y = trunk_h * (0.42 + 0.22 * i)
+		cone.rotation.y = r.randf() * TAU
+		cone.material_override = leaf
+		tree.add_child(cone)
 
 
 func _leaf_material(r: RandomNumberGenerator, autumn: bool) -> ShaderMaterial:
@@ -2032,16 +2072,56 @@ func _add_river() -> void:
 	water.material_override = wmat
 	water.position = Vector3(0, 0.03, 0)
 	add_child(water)
-	# Banks: a strip of pebbly dirt and a scatter of stones either side.
+	# Lily pads drift on the water away from the crossings.
+	var lr := RandomNumberGenerator.new()
+	lr.seed = 1917
+	var pad_mat := _material(Color(0.36, 0.66, 0.30))
+	pad_mat.roughness = 0.9
+	var bud_mat := _material(Color(0.98, 0.62, 0.78))
+	bud_mat.emission_enabled = true
+	bud_mat.emission = Color(0.6, 0.25, 0.4)
+	bud_mat.emission_energy_multiplier = 0.4
+	for i in 34:
+		var pz := lr.randf_range(-map_half.y + 1.0, map_half.y - 1.0)
+		if _near_bridge(pz, 1.2):
+			continue
+		var pad := MeshInstance3D.new()
+		var pm := CylinderMesh.new()
+		pm.top_radius = lr.randf_range(0.3, 0.48)
+		pm.bottom_radius = pm.top_radius
+		pm.height = 0.05
+		pm.radial_segments = 9
+		pad.mesh = pm
+		pad.position = Vector3(lr.randf_range(-RIVER_HALF + 0.6, RIVER_HALF - 0.6), 0.075, pz)
+		pad.rotation.y = lr.randf() * TAU
+		pad.material_override = pad_mat
+		add_child(pad)
+		if i % 3 == 0:
+			var bud := MeshInstance3D.new()
+			var bm := SphereMesh.new()
+			bm.radius = 0.11
+			bm.height = 0.2
+			bm.radial_segments = 6
+			bm.rings = 3
+			bud.mesh = bm
+			bud.position = Vector3(0, 0.1, 0)
+			bud.material_override = bud_mat
+			pad.add_child(bud)
+	# Banks: a stone kerb of warm grey blocks along the water's edge (like the
+	# render's stacked-block banks), a pebbly strip behind it and a few boulders.
+	var kerb := _pbr("rock", 0.45, Color(0.92, 0.9, 0.86))
 	for sx in [-1.0, 1.0]:
-		_add_block(Vector3(sx * (RIVER_HALF + 0.9), 0.012, 0), Vector3(1.8, 0.01, length), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.6, Color(0.92, 0.86, 0.74)))
+		_add_block(Vector3(sx * (RIVER_HALF + 1.0), 0.012, 0), Vector3(1.6, 0.01, length), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.6, Color(0.92, 0.86, 0.74)))
 		var k := 0
 		var z := -map_half.y - 2.0
 		while z < map_half.y + 2.0:
-			if not _near_bridge(z, 2.5) and absf(absf(z) - 25.5) > 5.5 and absf(z) < 34.0:
-				_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][k % 5], Vector3(sx * (RIVER_HALF + 0.8 + fmod(z * 7.3, 1.0)), 0, z), 2.5, z)
+			if not _near_bridge(z, 0.5):
+				var kh: float = 0.32 + 0.14 * fmod(absf(z) * 3.7, 1.0)
+				_add_block(Vector3(sx * (RIVER_HALF + 0.38), kh / 2.0 - 0.06, z + 0.55), Vector3(0.76, kh, 1.0), Color.WHITE, false, kerb)
+			if k % 4 == 1 and not _near_bridge(z, 2.5) and absf(absf(z) - 25.5) > 5.5 and absf(z) < 34.0:
+				_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][k % 5], Vector3(sx * (RIVER_HALF + 2.0 + fmod(z * 7.3, 1.0) * 0.4), 0, z), 2.5, z)
 			k += 1
-			z += 2.6
+			z += 1.2
 		# Bank walls between the bridges.
 		var edges: Array = [-length / 2.0]
 		for i in BRIDGES.size():
@@ -2061,7 +2141,7 @@ func _add_river() -> void:
 	# off the shrine into the river channel (there is no way back up).
 	for zs in [-1.0, 1.0]:
 		var rz: float = zs * (ISLAND_R - 0.3)
-		_add_block(Vector3(0, 0.75, rz), Vector3(RIVER_HALF * 2 + 1.6, 0.5, 0.5), Color(0.6, 0.58, 0.52), true, _pbr("stone", 0.5, Color(0.7, 0.68, 0.62)))
+		_add_wall(Vector3(0, 0.75, rz), Vector3(RIVER_HALF * 2 + 1.6, 0.5, 0.5), false)
 	# Bridges: a plank deck with rails and posts.
 	for i in BRIDGES.size():
 		if i == 1:
@@ -2069,19 +2149,26 @@ func _add_river() -> void:
 		var bz: float = BRIDGES[i]
 		var half: float = BRIDGE_HALF[i]
 		var deck_len := RIVER_HALF * 2 + 2.4
-		_add_block(Vector3(0, 0.06, bz), Vector3(deck_len, 0.08, half * 2), Color(0.6, 0.45, 0.3), false, _wood(Color(0.9, 0.8, 0.65), 0.9))
+		# Ashlar abutments on each bank carry the timber stringers and planks.
+		for xs in [-1.0, 1.0]:
+			_add_block(Vector3(xs * (deck_len / 2.0 + 0.35), 0.17, bz), Vector3(1.1, 0.34, half * 2 + 1.0), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
+			_add_block(Vector3(xs * (deck_len / 2.0 + 0.35), 0.38, bz), Vector3(1.3, 0.08, half * 2 + 1.2), Color.WHITE, false, _ashlar(Color(0.94, 0.9, 0.82)))
 		for zs in [-1.0, 1.0]:
-			var rz: float = bz + zs * (half + 0.15)
-			_add_block(Vector3(0, 0.55, rz), Vector3(deck_len, 0.1, 0.12), Color(0.5, 0.35, 0.2), false, _wood(Color(0.85, 0.7, 0.5), 1.2))
-			_add_block(Vector3(0, 0.95, rz), Vector3(deck_len, 0.1, 0.12), Color(0.5, 0.35, 0.2), false, _wood(Color(0.85, 0.7, 0.5), 1.2))
+			_add_block(Vector3(0, -0.1, bz + zs * (half - 0.3)), Vector3(deck_len, 0.26, 0.3), Color.WHITE, false, _timber(Color(0.72, 0.58, 0.44)))
+		var planks := int(deck_len / 0.5)
+		for k in planks:
+			var px: float = -deck_len / 2.0 + (k + 0.5) * deck_len / planks
+			var tint := Color(0.9, 0.78, 0.6) if k % 2 == 0 else Color(0.84, 0.7, 0.52)
+			_add_block(Vector3(px, 0.06, bz), Vector3(deck_len / planks - 0.05, 0.1, half * 2), Color.WHITE, false, _timber(tint))
+		for zs in [-1.0, 1.0]:
+			var rz: float = bz + zs * (half + 0.12)
+			_add_railing(Vector3(-deck_len / 2.0 + 0.2, 0.1, rz), Vector3(deck_len / 2.0 - 0.2, 0.1, rz))
 			_add_collider(Vector3(0, 0.6, rz), Vector3(deck_len, 1.2, 0.2))
-			for xs in [-1.0, 0.0, 1.0]:
-				_add_block(Vector3(xs * (deck_len / 2.0 - 0.15), 0.55, rz), Vector3(0.22, 1.1, 0.22), Color(0.45, 0.3, 0.18), false, _wood(Color(0.8, 0.65, 0.45), 1.2))
-		# Lanterns on the big bridge.
+		# Lanterns on the big bridge's abutments.
 		if half > 2.5:
 			for xs in [-1.0, 1.0]:
 				for zs in [-1.0, 1.0]:
-					_add_torch(Vector3(xs * (deck_len / 2.0 - 0.15), 0.9, bz + zs * (half + 0.15)))
+					_add_torch(Vector3(xs * (deck_len / 2.0 + 0.35), 0.42, bz + zs * (half + 0.3)))
 
 
 func _add_bank_wall(sx: float, z0: float, z1: float, y: float, h: float) -> void:
@@ -2119,17 +2206,31 @@ func _add_island() -> void:
 	plateau.add_child(mesh)
 	add_child(plateau)
 	# A paved ring and the shrine: a stepped dais, a gold crown on a plinth, four braziers.
-	var dais := MeshInstance3D.new()
-	var dm := CylinderMesh.new()
-	dm.top_radius = 2.2
-	dm.bottom_radius = 2.6
-	dm.height = 0.3
-	dais.mesh = dm
-	dais.position = Vector3(0, 0.65, 0)
-	dais.material_override = _ashlar(Color(0.95, 0.92, 0.86))
-	add_child(dais)
-	_add_collider(Vector3(0, 1.2, 0), Vector3(1.6, 1.6, 1.6))
-	_add_block(Vector3(0, 1.2, 0), Vector3(1.2, 0.9, 1.2), Color.WHITE, false, _ashlar(Color(0.95, 0.92, 0.86)))
+	var inlay := MeshInstance3D.new()
+	var im := TorusMesh.new()
+	im.inner_radius = 3.5
+	im.outer_radius = 3.75
+	im.rings = 48
+	im.ring_segments = 6
+	inlay.mesh = im
+	inlay.scale.y = 0.12
+	inlay.position = Vector3(0, 0.5, 0)
+	inlay.material_override = _gold()
+	add_child(inlay)
+	for tier in [[3.0, 3.3, 0.2, 0.6, Color(0.9, 0.86, 0.78)], [2.2, 2.5, 0.3, 0.85, Color(0.95, 0.92, 0.86)]]:
+		var dais := MeshInstance3D.new()
+		var dm := CylinderMesh.new()
+		dm.top_radius = tier[0]
+		dm.bottom_radius = tier[1]
+		dm.height = tier[2]
+		dm.radial_segments = 24
+		dais.mesh = dm
+		dais.position = Vector3(0, tier[3], 0)
+		dais.material_override = _ashlar(tier[4])
+		add_child(dais)
+	_add_collider(Vector3(0, 1.3, 0), Vector3(1.6, 1.6, 1.6))
+	_add_block(Vector3(0, 1.42, 0), Vector3(1.2, 0.9, 1.2), Color.WHITE, false, _ashlar(Color(0.95, 0.92, 0.86)))
+	_add_block(Vector3(0, 1.9, 0), Vector3(1.4, 0.1, 1.4), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	var crown := MeshInstance3D.new()
 	var crown_mesh := CylinderMesh.new()
 	crown_mesh.top_radius = 0.55
@@ -2137,7 +2238,7 @@ func _add_island() -> void:
 	crown_mesh.height = 0.5
 	crown_mesh.radial_segments = 8
 	crown.mesh = crown_mesh
-	crown.position = Vector3(0, 1.95, 0)
+	crown.position = Vector3(0, 2.2, 0)
 	var gold := _material(Color(1.0, 0.8, 0.25))
 	gold.metallic = 0.9
 	gold.roughness = 0.25
@@ -2154,7 +2255,7 @@ func _add_island() -> void:
 		sm.bottom_radius = 0.1
 		sm.height = 0.35
 		spike.mesh = sm
-		spike.position = Vector3(cos(a) * 0.5, 2.35, sin(a) * 0.5)
+		spike.position = Vector3(cos(a) * 0.5, 2.6, sin(a) * 0.5)
 		spike.material_override = gold
 		add_child(spike)
 	var shrine_light := OmniLight3D.new()
@@ -2170,9 +2271,12 @@ func _add_island() -> void:
 	map_marks.append([Vector3.ZERO, "shrine"])
 	# Steps up from each bank, and a short pier of planks over the water's edge.
 	for sx in [-1.0, 1.0]:
-		_add_ramp(Vector3(sx * (ISLAND_R + 3.2), 0.0, 0), Vector3(sx * (ISLAND_R - 0.4), 0.5, 0), 4.0, Color(0.85, 0.82, 0.75))
-		_add_torch(Vector3(sx * (ISLAND_R + 3.4), 0, -2.4))
-		_add_torch(Vector3(sx * (ISLAND_R + 3.4), 0, 2.4))
+		var foot := Vector3(sx * (ISLAND_R + 3.2), 0.0, 0)
+		var head := Vector3(sx * (ISLAND_R - 0.4), 0.5, 0)
+		_add_stairs(foot, head, 4.0, _ashlar(Color(0.95, 0.92, 0.86)), 1.0)
+		_add_railing(foot + Vector3(0, 0, -1.92), head + Vector3(0, 0, -1.92))
+		_add_torch(Vector3(sx * (ISLAND_R + 3.6), 0, -2.6))
+		_add_torch(Vector3(sx * (ISLAND_R + 3.6), 0, 2.6))
 
 
 func _near_bridge(z: float, margin: float) -> bool:
@@ -2201,7 +2305,7 @@ func _add_cover() -> void:
 				_prop(crates[pick], Vector3(c.x, 0, z), 5.2, float(i) * 0.15)
 				if i % 2 == 0:
 					_prop("hex/crate_A_big", Vector3(c.x, 1.05, z), 4.2, float(i) * 0.15 + 0.1)
-	var boulders := [Vector3(7, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -8), Vector3(38, 0, 10),
+	var boulders := [Vector3(9, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -8), Vector3(38, 0, 10),
 		Vector3(8, 0, 28), Vector3(17, 0, 25), Vector3(14, 0, -36), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(40, 0, 24)]
 	for p in boulders:
 		_add_boulder(p)

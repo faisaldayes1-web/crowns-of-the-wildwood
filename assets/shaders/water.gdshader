@@ -4,9 +4,11 @@ render_mode cull_back, depth_draw_opaque, specular_schlick_ggx;
 // a gentle vertex bob, and a soft colour between shallows and depth.
 
 uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
-uniform vec4 shallow : source_color = vec4(0.28, 0.62, 0.78, 1.0);
-uniform vec4 deep : source_color = vec4(0.06, 0.26, 0.50, 1.0);
-uniform float alpha : hint_range(0.0, 1.0) = 0.92;
+uniform vec4 shallow : source_color = vec4(0.34, 0.72, 0.94, 1.0);
+uniform vec4 deep : source_color = vec4(0.10, 0.40, 0.80, 1.0);
+uniform float alpha : hint_range(0.0, 1.0) = 0.94;
+uniform float half_width = 3.3;   // the river's half width: foam laps the banks
+uniform float island_r = 6.6;     // and the shrine island
 
 varying vec3 wpos;
 
@@ -20,11 +22,18 @@ void fragment() {
 	float n2 = texture(noise_tex, wpos.xz * 0.06 - TIME * vec2(0.017, 0.012)).r;
 	float v = n1 + n2;
 	vec3 col = mix(deep.rgb, shallow.rgb, smoothstep(0.75, 1.35, v));
-	float foam = smoothstep(1.38, 1.5, v);
-	col = mix(col, vec3(0.85, 0.95, 1.0), foam * 0.6);
+	// Painted ripple crescents: thin bright lines where the noise crosses a band.
+	float lines = smoothstep(0.58, 0.61, n1) - smoothstep(0.66, 0.70, n1);
+	col = mix(col, vec3(0.75, 0.92, 1.0), lines * 0.45);
+	// Foam along the banks and around the island, broken up by the noise.
+	float shore = smoothstep(half_width - 1.0, half_width - 0.1, abs(wpos.x));
+	shore = max(shore, 1.0 - smoothstep(island_r - 0.1, island_r + 1.1, length(wpos.xz)));
+	float foam = smoothstep(1.38, 1.5, v) + shore * smoothstep(0.35, 0.65, n2 + shore * 0.35);
+	foam = clamp(foam, 0.0, 1.0);
+	col = mix(col, vec3(0.9, 0.97, 1.0), foam * 0.75);
 	ALBEDO = col;
 	ALPHA = alpha;
-	ROUGHNESS = 0.12;
+	ROUGHNESS = 0.2;
 	SPECULAR = 0.7;
 	METALLIC = 0.0;
 	// Ripple normals from the two noise layers.

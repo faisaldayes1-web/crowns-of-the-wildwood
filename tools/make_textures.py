@@ -287,15 +287,25 @@ def make_wood():
 def make_bark():
     ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
     ridges = fbm(N, 6, 4, 41)
-    vertical = 0.5 + 0.5 * np.sin(xs * 0.08 + ridges * 14.0)
-    cracks = fbm(N, 24, 3, 42)
-    h = 0.5 * vertical + 0.5 * cracks
-    light = rgb(0.55, 0.42, 0.30)
-    dark = rgb(0.30, 0.22, 0.15)
-    color = lerp(dark, light, h[..., None])
-    moss = (fbm(N, 5, 3, 43) > 0.72) * (1 - vertical)
-    color = lerp(color, rgb(0.42, 0.55, 0.30), np.clip(moss, 0, 1)[..., None] * 0.45)
-    save("bark", color, h, 2.0)
+    # Long wandering fissures: the sine's phase drifts with low noise so the
+    # bark looks hand-painted rather than striped.
+    vertical = 0.5 + 0.5 * np.sin(xs * 0.07 + ridges * 16.0 + ys * 0.004)
+    vertical = vertical ** 1.6
+    cracks = fbm(N, 20, 3, 42)
+    knots = fbm(N, 4, 2, 44)
+    h = 0.55 * vertical + 0.35 * cracks + 0.1 * knots
+    fissure = np.clip((0.22 - vertical) * 5.0, 0, 1)
+    light = rgb(0.62, 0.46, 0.30)
+    mid = rgb(0.44, 0.31, 0.20)
+    dark = rgb(0.22, 0.14, 0.09)
+    color = lerp(mid, light, np.clip(h * 1.3 - 0.25, 0, 1)[..., None])
+    color = lerp(color, dark, fissure[..., None] * 0.9)
+    # Painted ridge highlights where the bark catches the light.
+    hl = np.clip((vertical - 0.75) * 4, 0, 1) * (cracks > 0.45)
+    color = lerp(color, rgb(0.74, 0.58, 0.40), hl[..., None] * 0.5)
+    moss = np.clip((fbm(N, 5, 3, 43) - 0.6) * 4, 0, 1) * (1 - vertical)
+    color = lerp(color, rgb(0.40, 0.56, 0.28), np.clip(moss, 0, 1)[..., None] * 0.6)
+    save("bark", color, h, 3.0)
 
 
 def make_grass():

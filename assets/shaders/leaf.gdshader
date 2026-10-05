@@ -24,6 +24,13 @@ void fragment() {
 	float t = clamp(h / height + 0.5, 0.0, 1.0);
 	float n = texture(noise_tex, wpos.xz * 0.35 + wpos.y * 0.2).r;
 	vec3 col = mix(bottom_color.rgb, top_color.rgb, smoothstep(0.0, 1.0, t + (n - 0.5) * 0.5));
+	// Leaf clumps: a finer noise breaks the gradient into painted tufts.
+	float n2 = texture(noise_tex, wpos.xz * 1.4 + wpos.y * 0.9).r;
+	col *= 0.86 + 0.3 * smoothstep(0.35, 0.7, n2);
+	// Sunlit crown and a darker rim at the silhouette for a cut-out look.
+	col = mix(col, top_color.rgb * 1.25, smoothstep(0.78, 1.0, t) * 0.45);
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+	col = mix(col, bottom_color.rgb * 0.75, rim * 0.6);
 	ALBEDO = col;
 	ROUGHNESS = 0.9;
 	SPECULAR = 0.2;
