@@ -11,7 +11,7 @@ const TEAM_SIZE := 4
 const CAPTURES_TO_WIN := 2
 const CASTLE_X := 32.0
 const CAPTURE_RADIUS := 3.0
-const CLASS_SWITCH_RADIUS := 10.0
+const STATION_RADIUS := 1.3
 const CAMERA_OFFSET := Vector3(0, 17, 12)
 const MONARCH_TITLES := ["Elf Queen", "Human King"]
 
@@ -29,9 +29,13 @@ var camera: Camera3D
 var score_label: Label
 var message_label: Label
 var banner: Label
+var respawn_label: Label
+# stations[team] maps a class (Unit.Role) to its station position in that castle.
+var stations := [{}, {}]
 var message_timer := 0.0
 # Run with "-- --demo" to watch bots play each other (used for testing).
 var demo := false
+var shot_frame := 900
 
 
 func _ready() -> void:
@@ -41,16 +45,19 @@ func _ready() -> void:
 	_build_hud()
 	demo = "--demo" in OS.get_cmdline_user_args()
 	if demo:
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--shot-frame="):
+				shot_frame = int(arg.trim_prefix("--shot-frame="))
 		_start_match(0)
 		return
-	banner.text = "CROWNS OF THE WILDWOOD\n\nPress 1 to play the Elves (fast, fragile)\nPress 2 to play the Humans (slow, tough)\n\nSteal the enemy monarch and carry them to your throne.\nFirst to %d captures wins." % CAPTURES_TO_WIN
+	banner.text = "CROWNS OF THE WILDWOOD\n\nPress 1 to play the Elves (fast, fragile)\nPress 2 to play the Humans (slow, tough)\n\nYou start as a plain villager. Step onto a class station in your castle to transform.\nSteal the enemy monarch and carry them to your throne.\nFirst to %d captures wins." % CAPTURES_TO_WIN
 
 
 func _process(delta: float) -> void:
 	if not playing and not game_over:
-		if Input.is_action_just_pressed("class_1"):
+		if Input.is_action_just_pressed("pick_elves"):
 			_start_match(0)
-		elif Input.is_action_just_pressed("class_2"):
+		elif Input.is_action_just_pressed("pick_humans"):
 			_start_match(1)
 		return
 	if game_over:
@@ -62,10 +69,12 @@ func _process(delta: float) -> void:
 		return
 
 	_check_rules()
+	_check_stations()
+	_update_respawn_timer()
 	_update_camera(delta)
-	if demo and Engine.get_process_frames() == 900:
+	if demo:
 		for arg in OS.get_cmdline_user_args():
-			if arg.begins_with("--shot="):
+			if arg.begins_with("--shot=") and Engine.get_process_frames() == shot_frame:
 				get_viewport().get_texture().get_image().save_png(arg.trim_prefix("--shot="))
 	if demo and Engine.get_process_frames() % 1800 == 0:
 		print("t=%ds  score %d-%d  monarchs %s / %s" % [Engine.get_process_frames() / 60, score[0], score[1], monarchs[0].state, monarchs[1].state])
@@ -134,14 +143,28 @@ func drop_monarch(u) -> void:
 	m.drop_at(u.global_position)
 
 
-func try_switch_class(u, role: int) -> void:
-	if u.carrying:
-		return
-	if _flat_dist(u.global_position, thrones[u.team]) > CLASS_SWITCH_RADIUS:
-		announce("Switch class inside your own castle.")
-		return
-	u.set_role(role)
-	announce("You are now a %s." % u.role_name())
+func _check_stations() -> void:
+	# Stepping onto a class station transforms you into that class.
+	for u in units:
+		if u.dead or u.carrying:
+			continue
+		for role in stations[u.team]:
+			if u.role != role and _flat_dist(u.global_position, stations[u.team][role]) < STATION_RADIUS:
+				u.set_role(role)
+				if u == player:
+					announce("You are now a %s." % u.role_name())
+
+
+func station_position(team: int, role: int) -> Vector3:
+	return stations[team][role]
+
+
+func _update_respawn_timer() -> void:
+	if player and player.dead:
+		respawn_label.text = "You fell!\nRespawning in %d" % ceili(player.respawn_timer)
+		respawn_label.visible = true
+	else:
+		respawn_label.visible = false
 
 
 func spawn_arrow(u, aim: Vector3) -> void:
@@ -190,7 +213,8 @@ func _start_match(team: int) -> void:
 			add_child(u)
 			var spawn := Vector3(side * (CASTLE_X + 4.0), 0.0, -4.5 + i * 3.0)
 			var is_player := t == player_team and i == 0 and not demo
-			u.setup(self, t, roles[i], is_player, spawn)
+			u.setup(self, t, Unit.Role.BASE, is_player, spawn)
+			u.bot_class = roles[i]
 			u.bot_job = "defend" if i == 2 else "attack"
 			units.append(u)
 			if is_player or (demo and player == null):
@@ -270,6 +294,58 @@ func _add_tree(pos: Vector3) -> void:
 	add_child(body)
 
 
+func _add_station(team: int, role: int, pos: Vector3) -> void:
+	stations[team][role] = pos
+	var color: Color = Unit.ROLE_STATS[role].hat
+	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.3), false)
+
+	var pad := MeshInstance3D.new()
+	var pad_mesh := CylinderMesh.new()
+	pad_mesh.top_radius = STATION_RADIUS
+	pad_mesh.bottom_radius = STATION_RADIUS
+	pad_mesh.height = 0.06
+	pad.mesh = pad_mesh
+	var pad_mat := _material(color)
+	pad_mat.emission_enabled = true
+	pad_mat.emission = color * 0.4
+	pad.material_override = pad_mat
+	pad.position = pos + Vector3(0, 0.12, 0)
+	add_child(pad)
+
+	# A floating, spinning hat shows which class this station gives.
+	var icon := MeshInstance3D.new()
+	match role:
+		Unit.Role.WORKER:
+			var cap := BoxMesh.new()
+			cap.size = Vector3(0.7, 0.25, 0.7)
+			icon.mesh = cap
+		Unit.Role.MELEE:
+			var helm := SphereMesh.new()
+			helm.radius = 0.4
+			helm.height = 0.5
+			icon.mesh = helm
+		Unit.Role.RANGED:
+			var hood := CylinderMesh.new()
+			hood.top_radius = 0.0
+			hood.bottom_radius = 0.4
+			hood.height = 0.75
+			icon.mesh = hood
+	icon.material_override = _material(color)
+	icon.position = pos + Vector3(0, 1.4, 0)
+	add_child(icon)
+	var spin := icon.create_tween().set_loops()
+	spin.tween_property(icon, "rotation:y", TAU, 3.0).from(0.0)
+
+	var label := Label3D.new()
+	label.text = Unit.FACTIONS[team].roles[role]
+	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.font_size = 32
+	label.pixel_size = 0.012
+	label.outline_size = 8
+	label.position = pos + Vector3(0, 2.3, 0)
+	add_child(label)
+
+
 func _build_castle(team: int) -> void:
 	var side := -1.0 if team == 0 else 1.0
 	var color: Color = Unit.FACTIONS[team].color
@@ -288,6 +364,11 @@ func _build_castle(team: int) -> void:
 	# Throne on a dais. Carry the enemy monarch here to score.
 	var throne := Vector3(cx, 0, 0)
 	thrones.append(throne)
+
+	# Class stations: step on one to transform. Two along the north wall, one south.
+	_add_station(team, Unit.Role.WORKER, Vector3(cx + side * 6.0, 0, -6.2))
+	_add_station(team, Unit.Role.MELEE, Vector3(cx - side * 1.0, 0, -6.2))
+	_add_station(team, Unit.Role.RANGED, Vector3(cx - side * 1.0, 0, 6.2))
 	_add_block(throne + Vector3(side * 1.5, 0.15, 0), Vector3(3, 0.3, 4), Color(0.75, 0.6, 0.25), false)
 	_add_block(throne + Vector3(side * 2.4, 1.2, 0), Vector3(0.4, 2.0, 1.6), color.darkened(0.2), false)
 
@@ -373,7 +454,7 @@ func _build_hud() -> void:
 	layer.add_child(message_label)
 
 	var help := Label.new()
-	help.text = "Move: WASD / stick   Attack: Space / A   Grab or drop monarch: E / X   Class in castle: 1 Worker  2 Melee  3 Ranged"
+	help.text = "Move: WASD / stick   Attack: Space / A   Grab or drop monarch: E / X   Change class: step on a station in your castle"
 	help.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
 	help.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	help.position += Vector2(12, -10)
@@ -391,6 +472,17 @@ func _build_hud() -> void:
 	banner.add_theme_color_override("font_outline_color", Color.BLACK)
 	layer.add_child(banner)
 
+	respawn_label = Label.new()
+	respawn_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	respawn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	respawn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	respawn_label.add_theme_font_size_override("font_size", 44)
+	respawn_label.add_theme_constant_override("outline_size", 12)
+	respawn_label.add_theme_color_override("font_outline_color", Color.BLACK)
+	respawn_label.add_theme_color_override("font_color", Color(1, 0.85, 0.5))
+	respawn_label.visible = false
+	layer.add_child(respawn_label)
+
 
 func _update_score() -> void:
 	score_label.text = "Elves  %d   —   %d  Humans" % [score[0], score[1]]
@@ -405,9 +497,8 @@ func _setup_input() -> void:
 	_add_action("move_down", [KEY_S, KEY_DOWN], [], JOY_AXIS_LEFT_Y, 1.0)
 	_add_action("attack", [KEY_SPACE, KEY_J], [JOY_BUTTON_A])
 	_add_action("interact", [KEY_E, KEY_K], [JOY_BUTTON_X])
-	_add_action("class_1", [KEY_1], [JOY_BUTTON_DPAD_LEFT])
-	_add_action("class_2", [KEY_2], [JOY_BUTTON_DPAD_UP])
-	_add_action("class_3", [KEY_3], [JOY_BUTTON_DPAD_RIGHT])
+	_add_action("pick_elves", [KEY_1], [JOY_BUTTON_DPAD_LEFT])
+	_add_action("pick_humans", [KEY_2], [JOY_BUTTON_DPAD_RIGHT])
 	_add_action("restart", [KEY_R, KEY_ENTER], [JOY_BUTTON_START])
 
 

@@ -16,13 +16,14 @@ This is the first playable build: one map, 3 classes per faction, 4 vs 4 with bo
 | Move | WASD or arrow keys | Left stick |
 | Attack | Space or J | A |
 | Grab or drop the monarch | E or K | X |
-| Switch class (inside your castle) | 1 Worker, 2 Melee, 3 Ranged | D-pad left, up, right |
 | Play again after a match | R or Enter | Start |
 
-On the title screen, press 1 to play the Elves or 2 to play the Humans.
+On the title screen, press 1 (D-pad left) to play the Elves or 2 (D-pad right) to play the Humans.
 
 ## Rules
 
+- Everyone starts as a plain Elf or Human. Step onto a class station in your castle (Worker, Melee or Ranged) to transform; your body, gear and stats change. Step onto a different station to switch.
+- When you die, a countdown shows until you respawn (7 seconds), and you come back as a plain Elf or Human.
 - Walk up to the enemy monarch and press E to pick them up. You move slower and cannot attack while carrying.
 - Reach the gold ring around your own throne to score.
 - If the carrier dies, the monarch walks back home. Touching your own dropped monarch sends them home instantly.

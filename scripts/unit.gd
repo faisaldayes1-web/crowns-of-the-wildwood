@@ -3,20 +3,27 @@ extends CharacterBody3D
 
 const Monarch = preload("res://scripts/monarch.gd")
 
-enum Role { WORKER, MELEE, RANGED }
+# Everyone starts as a plain Elf or Human (BASE) and transforms by stepping
+# onto a class station in their castle. Dying resets you to BASE.
+enum Role { BASE, WORKER, MELEE, RANGED }
 
 const ROLE_STATS := {
-	Role.WORKER: {"hp": 80.0, "speed": 1.1, "damage": 10.0, "range": 1.8, "cooldown": 0.6, "hat": Color(0.55, 0.35, 0.2)},
-	Role.MELEE: {"hp": 150.0, "speed": 1.0, "damage": 25.0, "range": 2.2, "cooldown": 0.7, "hat": Color(0.8, 0.8, 0.85)},
-	Role.RANGED: {"hp": 90.0, "speed": 0.95, "damage": 18.0, "range": 14.0, "cooldown": 1.0, "hat": Color(0.95, 0.75, 0.2)},
+	Role.BASE: {"hp": 60.0, "speed": 1.0, "damage": 6.0, "range": 1.6, "cooldown": 0.7, "hat": Color.WHITE,
+		"build": Vector3(0.9, 0.9, 0.9)},
+	Role.WORKER: {"hp": 80.0, "speed": 1.1, "damage": 10.0, "range": 1.8, "cooldown": 0.6, "hat": Color(0.55, 0.35, 0.2),
+		"build": Vector3(1.15, 0.9, 1.15)},
+	Role.MELEE: {"hp": 150.0, "speed": 1.0, "damage": 25.0, "range": 2.2, "cooldown": 0.7, "hat": Color(0.8, 0.8, 0.85),
+		"build": Vector3(1.3, 1.12, 1.3)},
+	Role.RANGED: {"hp": 90.0, "speed": 0.95, "damage": 18.0, "range": 14.0, "cooldown": 1.0, "hat": Color(0.95, 0.75, 0.2),
+		"build": Vector3(0.85, 1.08, 0.85)},
 }
 
 # Elves are fast and fragile, humans are slower and tougher.
 const FACTIONS := [
-	{"name": "Elves", "color": Color(0.3, 0.75, 0.35), "speed": 7.0, "hp_mult": 0.9,
-		"roles": ["Grovekeeper", "Bladedancer", "Ranger"]},
+	{"name": "Elves", "color": Color(0.3, 0.75, 0.35), "speed": 7.0, "hp_mult": 0.95,
+		"roles": ["Elf", "Grovekeeper", "Bladedancer", "Ranger"]},
 	{"name": "Humans", "color": Color(0.3, 0.45, 0.9), "speed": 6.0, "hp_mult": 1.15,
-		"roles": ["Laborer", "Knight", "Crossbowman"]},
+		"roles": ["Human", "Laborer", "Knight", "Crossbowman"]},
 ]
 
 const CARRY_SPEED_MULT := 0.75
@@ -26,7 +33,7 @@ const PICKUP_RANGE := 1.8
 
 var game
 var team := 0
-var role := Role.MELEE
+var role := Role.BASE
 var is_player := false
 var hp := 100.0
 var max_hp := 100.0
@@ -40,10 +47,13 @@ var facing := Vector3(1, 0, 0)
 
 # Bots: "attack" raids the enemy castle, "defend" guards the home throne.
 var bot_job := "attack"
+var bot_class := Role.MELEE  # the class this bot walks to a station to pick up
 var bot_offset := Vector3.ZERO
 var stuck_time := 0.0
 
 var shape: CollisionShape3D
+var build: Node3D  # body, nose, hat and gear; scaled per class
+var gear: MeshInstance3D
 var body_mat: StandardMaterial3D
 var hat: MeshInstance3D
 var hat_mat: StandardMaterial3D
@@ -70,6 +80,9 @@ func setup(p_game, p_team: int, p_role: int, p_is_player: bool, p_spawn: Vector3
 	shape.position.y = 0.8
 	add_child(shape)
 
+	build = Node3D.new()
+	add_child(build)
+
 	var body := MeshInstance3D.new()
 	var body_mesh := CapsuleMesh.new()
 	body_mesh.radius = 0.4
@@ -79,7 +92,7 @@ func setup(p_game, p_team: int, p_role: int, p_is_player: bool, p_spawn: Vector3
 	body_mat = StandardMaterial3D.new()
 	body_mat.albedo_color = FACTIONS[team].color
 	body.material_override = body_mat
-	add_child(body)
+	build.add_child(body)
 
 	# A small nose so you can tell which way someone faces.
 	var nose := MeshInstance3D.new()
@@ -88,13 +101,19 @@ func setup(p_game, p_team: int, p_role: int, p_is_player: bool, p_spawn: Vector3
 	nose.mesh = nose_mesh
 	nose.position = Vector3(0, 1.2, -0.45)
 	nose.material_override = body_mat
-	add_child(nose)
+	build.add_child(nose)
 
 	hat = MeshInstance3D.new()
 	hat.position.y = 1.75
 	hat_mat = StandardMaterial3D.new()
 	hat.material_override = hat_mat
-	add_child(hat)
+	build.add_child(hat)
+
+	gear = MeshInstance3D.new()
+	var gear_mat := StandardMaterial3D.new()
+	gear_mat.albedo_color = Color(0.35, 0.3, 0.28)
+	gear.material_override = gear_mat
+	build.add_child(gear)
 
 	if is_player:
 		var ring := MeshInstance3D.new()
@@ -129,22 +148,40 @@ func set_role(new_role: int) -> void:
 	role = new_role
 	max_hp = ROLE_STATS[role].hp * FACTIONS[team].hp_mult
 	hp = max_hp
+	build.scale = ROLE_STATS[role].build
+	hat.visible = role != Role.BASE
+	gear.visible = role != Role.BASE
 	match role:
 		Role.WORKER:
 			var cap := BoxMesh.new()
 			cap.size = Vector3(0.55, 0.2, 0.55)
 			hat.mesh = cap
+			# A hammer.
+			var hammer := BoxMesh.new()
+			hammer.size = Vector3(0.12, 0.7, 0.12)
+			gear.mesh = hammer
+			gear.position = Vector3(0.55, 0.9, -0.2)
 		Role.MELEE:
 			var helm := SphereMesh.new()
 			helm.radius = 0.32
 			helm.height = 0.4
 			hat.mesh = helm
+			# A shield.
+			var shield := BoxMesh.new()
+			shield.size = Vector3(0.12, 0.8, 0.6)
+			gear.mesh = shield
+			gear.position = Vector3(-0.5, 0.9, -0.1)
 		Role.RANGED:
 			var hood := CylinderMesh.new()
 			hood.top_radius = 0.0
 			hood.bottom_radius = 0.32
 			hood.height = 0.6
 			hat.mesh = hood
+			# A bow.
+			var bow := BoxMesh.new()
+			bow.size = Vector3(0.08, 1.0, 0.08)
+			gear.mesh = bow
+			gear.position = Vector3(0.45, 1.0, -0.3)
 	hat_mat.albedo_color = ROLE_STATS[role].hat
 	_update_label()
 
@@ -174,13 +211,11 @@ func _die() -> void:
 	shape.disabled = true
 	respawn_timer = RESPAWN_TIME
 	velocity = Vector3.ZERO
-	if is_player:
-		game.announce("You fell! Back in %d seconds." % int(RESPAWN_TIME))
 
 
 func _respawn() -> void:
 	dead = false
-	hp = max_hp
+	set_role(Role.BASE)
 	position = spawn_point + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
 	visible = true
 	shape.disabled = false
@@ -210,12 +245,6 @@ func _physics_process(delta: float) -> void:
 		wants_attack = Input.is_action_pressed("attack")
 		if Input.is_action_just_pressed("interact"):
 			game.try_interact(self)
-		if Input.is_action_just_pressed("class_1"):
-			game.try_switch_class(self, Role.WORKER)
-		if Input.is_action_just_pressed("class_2"):
-			game.try_switch_class(self, Role.MELEE)
-		if Input.is_action_just_pressed("class_3"):
-			game.try_switch_class(self, Role.RANGED)
 	else:
 		var plan := _bot_think()
 		move = plan.move
@@ -317,7 +346,11 @@ func _bot_think() -> Dictionary:
 	# Choose where to go.
 	var goal: Vector3
 	var priority_target = null
-	if mine.state == Monarch.State.CARRIED:
+	# Fresh spawns always grab their class first; the stations sit next to the spawn.
+	var gearing_up: bool = role == Role.BASE and bot_class != Role.BASE
+	if gearing_up:
+		goal = game.station_position(team, bot_class)
+	elif mine.state == Monarch.State.CARRIED:
 		priority_target = mine.carrier
 		goal = mine.carrier.global_position
 	elif mine.state == Monarch.State.DROPPED:
@@ -339,7 +372,7 @@ func _bot_think() -> Dictionary:
 		plan.attack = in_range
 		# Raiders keep running for the monarch, hitting whoever is in reach,
 		# and only stop to fight someone right on top of them.
-		var raiding: bool = bot_job == "attack" and mine.state == Monarch.State.HOME
+		var raiding: bool = gearing_up or (bot_job == "attack" and mine.state == Monarch.State.HOME)
 		if raiding and to.length() > 3.0:
 			plan.move = _steer_to(goal)
 			return plan
