@@ -15,6 +15,7 @@ const Blessing = preload("res://scripts/blessing.gd")
 const Vault = preload("res://scripts/vault.gd")
 const Guide = preload("res://scripts/guide.gd")
 const Barricade = preload("res://scripts/barricade.gd")
+const Banner = preload("res://scripts/banner.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Sfx = preload("res://scripts/sfx.gd")
 const Role = Stats.Role
@@ -122,6 +123,8 @@ var command_timer := [0.0, 0.0]
 var command_pos := [Vector3.ZERO, Vector3.ZERO]
 var compass: Node3D          # the gold arrow at the player's feet pointing at the objective
 var compass_mesh: MeshInstance3D
+var banners := [null, null]        # each team's standing war banner, if any
+var banner_cooldown := [0.0, 0.0]
 var turret_kills := [0, 0]   # demo tally: kills by each team's turrets
 var raid_deaths := [0, 0]    # demo tally: each team's deaths inside the enemy castle
 var turrets_built := [0, 0]   # per team, for the match report
@@ -217,6 +220,14 @@ func _process(delta: float) -> void:
 	_ui_sounds()
 	for t in 2:
 		command_timer[t] = maxf(command_timer[t] - delta, 0.0)
+		banner_cooldown[t] = maxf(banner_cooldown[t] - delta, 0.0)
+	if playing and overtime and not game_over:
+		# Sudden death: a team with nobody left standing loses.
+		for t in 2:
+			if units.filter(func(u): return u.team == t and not u.dead).is_empty():
+				announce("The %s are wiped out!" % Stats.FACTIONS[t].name)
+				_finish(1 - t)
+				break
 	_update_compass()
 	if not playing and not game_over:
 		if name_editing or menu_open:
@@ -292,6 +303,10 @@ func _debug_hooks() -> void:
 				player.level = 3
 				player.points = 2
 				rank_open = true
+			if arg == "--debug-banner" and banners[player_team] == null:
+				# A war banner planted in the field beside the player.
+				player.facing = Vector3(0, 0, 1)
+				plant_banner(player)
 			if arg == "--debug-turrets" and player.role == Role.BASE:
 				# An Engineer with a turret of each level on the rampart and in the yard.
 				player.set_role(Role.ENGINEER)
@@ -437,8 +452,11 @@ func _end_on_time() -> void:
 		time_left = Stats.OVERTIME
 		for g in gates:
 			g.collapse()
-		announce("OVERTIME! Both doors are down. The next capture wins!")
-		chat_system("Overtime: the doors are down. Next capture wins.")
+		announce("OVERTIME! Both doors are down and nobody respawns. Next capture or last team standing wins!")
+		chat_system("Overtime: the doors are down, no respawns. Next capture or last team standing wins.")
+		for t in 2:
+			if is_instance_valid(banners[t]):
+				banners[t]._expire()
 		sfx.ui("horn", 0.0, 0.8)
 		print("Overtime")
 		return
@@ -477,6 +495,10 @@ func try_interact(u) -> void:
 		guide_toggle()
 		return
 	var m = monarchs[1 - u.team]
+	if m.state == Monarch.State.CARRIED or _flat_dist(u.global_position, m.global_position) >= Unit.PICKUP_RANGE:
+		# Nothing to grab here: F plants a war banner instead.
+		if plant_banner(u):
+			return
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
 		if m.state == Monarch.State.HOME and vaults[1 - u.team].is_locked():
 			if u.is_player:
@@ -496,6 +518,67 @@ func try_interact(u) -> void:
 		chat_system("%s grabbed the %s!" % [u.display_name, m.title])
 		_banter(1 - u.team, "ours_taken")
 		_banter(u.team, "carrying", u)
+
+
+# --- War banners --------------------------------------------------------------
+
+func banner_spot_ok(team: int, pos: Vector3) -> String:
+	## "" if a banner may stand at `pos` for `team`, else why not.
+	if _inside_castle(0, pos) or _inside_castle(1, pos) or pos.y < -0.3:
+		return "Banners stand in the open field, not inside a castle"
+	if absf(pos.x - _front_x(1 - team)) < Stats.BANNER.enemy_clear and (pos.x - _front_x(1 - team)) * (1.0 if team == 0 else -1.0) > -Stats.BANNER.enemy_clear:
+		return "Too close to the enemy walls"
+	if absf(pos.x) < RIVER_HALF + 2.0:
+		return "Not in the river"
+	return ""
+
+
+func plant_banner(u) -> bool:
+	## Plant the team's war banner where `u` stands (replacing the old one).
+	if u.carrying or u.dead or overtime:
+		return false
+	if banner_cooldown[u.team] > 0.0:
+		if u.is_player:
+			toast("War banner ready in %d s" % ceili(banner_cooldown[u.team]), Color(1.0, 0.8, 0.5))
+		return false
+	var why := banner_spot_ok(u.team, u.global_position)
+	if why != "":
+		if u.is_player:
+			toast(why, Color(1.0, 0.8, 0.5))
+		return false
+	var pos: Vector3 = u.global_position + u.facing * 1.2
+	pos.y = u.global_position.y
+	if is_instance_valid(banners[u.team]):
+		banners[u.team]._expire()
+	var b = Banner.new()
+	add_child(b)
+	b.setup(self, u.team, pos, u, {})
+	banners[u.team] = b
+	banner_cooldown[u.team] = Stats.BANNER.cooldown
+	spawn_ring(pos, 2.0, Stats.FACTIONS[u.team].color, 0.6)
+	spawn_pillar(pos, Stats.FACTIONS[u.team].color, 5.0, 0.8)
+	sfx.play("turret_place", pos, 0.0)
+	sfx.play("horn", pos, -8.0)
+	announce("%s planted the %s war banner: fallen %s rejoin there." % [u.display_name, Stats.FACTIONS[u.team].name, Stats.FACTIONS[u.team].name])
+	chat_system("%s planted a war banner." % u.display_name)
+	if demo:
+		print("Banner: %s t=%d at (%.0f, %.0f)" % [Stats.FACTIONS[u.team].name, match_clock(), pos.x, pos.z])
+	return true
+
+
+func remove_banner(b) -> void:
+	if banners[b.team] == b:
+		banners[b.team] = null
+
+
+func banner_spawn(team: int) -> Vector3:
+	## Where a fallen unit of `team` comes back: beside the standing banner,
+	## or Vector3.INF for the castle.
+	var b = banners[team]
+	if b == null or not is_instance_valid(b) or b.hp <= 0 or b.life < 2.0:
+		return Vector3.INF
+	var a := randf() * TAU
+	return b.global_position + Vector3(cos(a), 0, sin(a)) * randf_range(1.0, Stats.BANNER.spread)
 
 
 # --- Turrets ------------------------------------------------------------------

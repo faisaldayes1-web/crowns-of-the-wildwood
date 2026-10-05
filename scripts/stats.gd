@@ -78,6 +78,7 @@ const SPAWN_PROTECT_TIME := 3.0  # seconds of invulnerability after spawning (en
 const DEFENDER := {"resist": 0.1, "heal": 0.1, "regen": 0.1, "interact": 0.15}
 const GATE_REBUILD_TIME := 40.0
 const RALLY := {"dist": 20.0, "group": 2, "radius": 9.0, "wait": 14.0}  # raiders gather this far outside the enemy door until `group` are together (or `wait` seconds pass)
+const BANNER := {"hits": 12, "life": 75.0, "cooldown": 40.0, "enemy_clear": 16.0, "respawn_extra": 3.0, "spread": 2.0}  # war banners: a forward respawn point planted in the field
 const COMMAND_TIME := 15.0    # how long a quick command (Attack! / Defend! / To me!) steers the bots
 const GATE_SIEGE_RADIUS := 9.0   # a broken door does not rebuild while an enemy is this close to it (or inside)
 # Engineer turrets, per level 1-3: hits they soak, reach and seconds between
@@ -87,7 +88,7 @@ const TURRET := {"hits": [8, 12, 16], "range": [7.0, 8.0, 9.0], "interval": [1.5
 	"damage": 1, "shot_speed": 34.0, "max_level": 3, "team_max": 6, "place_dist": 1.8, "grounds": 14.0,
 	"door_repair": 12.0}
 const MATCH_TIME := 600.0     # seconds
-const OVERTIME := 90.0        # a tie at full time: both doors fall and the next capture wins
+const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins
 const CAPTURES_TO_WIN := 2
 
 # Experience, earned per life and lost on death. Each level gives one rank

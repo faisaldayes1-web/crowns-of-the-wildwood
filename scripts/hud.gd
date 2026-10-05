@@ -663,9 +663,10 @@ func _draw_scoreboard() -> void:
 	var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
 	_text(Vector2(cx - 85, 49), "%02d:%02d" % [int(left) / 60, int(left) % 60], 34,
 		Color(1, 0.4, 0.3) if urgent else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 170)
-	_plate(Rect2(cx - 95, 66, 190, 22), INK if not game.overtime else Color(0.4, 0.1, 0.1, 0.95), GOLD_DARK if not game.overtime else Color(1, 0.5, 0.4), 6, 1)
-	_text(Vector2(cx - 95, 82), "OVERTIME · NEXT CAPTURE WINS" if game.overtime else "CAPTURE THE CROWN", 13 if not game.overtime else 11,
-		GOLD if not game.overtime else Color(1, 0.85, 0.7), HORIZONTAL_ALIGNMENT_CENTER, 190, 2)
+	var ow := 190.0 if not game.overtime else 330.0
+	_plate(Rect2(cx - ow / 2.0, 66, ow, 22), INK if not game.overtime else Color(0.4, 0.1, 0.1, 0.95), GOLD_DARK if not game.overtime else Color(1, 0.5, 0.4), 6, 1)
+	_text(Vector2(cx - ow / 2.0, 82), "OVERTIME · NO RESPAWNS · LAST TEAM OR NEXT CAPTURE WINS" if game.overtime else "CAPTURE THE CROWN", 13 if not game.overtime else 11,
+		GOLD if not game.overtime else Color(1, 0.85, 0.7), HORIZONTAL_ALIGNMENT_CENTER, ow, 2)
 
 
 func _draw_roster(team: int, origin: Vector2, compact: bool = false) -> void:
@@ -917,7 +918,12 @@ func _draw_player_panel(p) -> void:
 		_icon(_class_icon(p.role), Vector2(x + name_w + 10 + _text_width(Stats.FACTIONS[p.team].name.to_upper(), 11) + 18, rect.position.y + 20), 8, Color.WHITE)
 	if p.dead:
 		_hearts(Vector2(x + 16, rect.position.y + 54), 0, 0.85, 36)
-		_text(Vector2(x, rect.position.y + 86), "Down! Back in %d" % ceili(p.respawn_timer), 16, Color(1, 0.6, 0.5))
+		if game.overtime:
+			_text(Vector2(x, rect.position.y + 86), "Down for the rest of overtime", 16, Color(1, 0.6, 0.5))
+		elif game.banner_spawn(p.team).is_finite():
+			_text(Vector2(x, rect.position.y + 86), "Rejoining at the war banner in %d" % ceili(p.respawn_timer), 16, Color(1, 0.75, 0.5))
+		else:
+			_text(Vector2(x, rect.position.y + 86), "Down! Back in %d" % ceili(p.respawn_timer), 16, Color(1, 0.6, 0.5))
 	else:
 		_hearts(Vector2(x + 16, rect.position.y + 54), p.hearts, 0.85, 36)
 		var is_mana: bool = p.energy_kind() == "mana"
@@ -1107,6 +1113,14 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		var tcol: Color = _team_color(t.team)
 		draw_colored_polygon(PackedVector2Array([tc + Vector2(0, -tr), tc + Vector2(tr, 0), tc + Vector2(0, tr), tc + Vector2(-tr, 0)]), tcol.lightened(0.2))
 		draw_polyline(PackedVector2Array([tc + Vector2(0, -tr), tc + Vector2(tr, 0), tc + Vector2(0, tr), tc + Vector2(-tr, 0), tc + Vector2(0, -tr)]), Color(0, 0, 0, 0.6), 1.0)
+	# War banners: a little flag in team colour.
+	for b in game.banners:
+		if b == null or not is_instance_valid(b):
+			continue
+		var bp: Vector2 = m.call(b.global_position)
+		var bh := 7.0 if not detailed else 11.0
+		draw_line(bp, bp + Vector2(0, -bh), Color(0.9, 0.85, 0.7), 1.5)
+		draw_colored_polygon(PackedVector2Array([bp + Vector2(0, -bh), bp + Vector2(bh * 0.7, -bh + 2.5), bp + Vector2(0, -bh + 5)]), _team_color(b.team).lightened(0.2))
 	# Everyone we can see. Enemies show within 22 m of a living teammate;
 	# Elite Veterans always show, with a pulsing bounty ring.
 	var allies: Array = game.units.filter(func(u): return u.team == my_team and not u.dead)
@@ -1381,41 +1395,41 @@ func _menu_settings(body: Rect2) -> void:
 	# Display toggles.
 	_text(Vector2(x + 10, y + 66), "DISPLAY", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var toggles := [["Screen shake", game.screen_shake, "shake"], ["Damage numbers", game.damage_numbers, "numbers"],
-		["FPS counter", game.show_fps, "fps"], ["Chat log  (%s)" % game.key_label("chat_toggle"), game.chat_visible, "chat"],
-		["Team rosters  (%s)" % game.key_label("roster_toggle"), game.rosters_visible, "rosters"]]
+		["FPS counter", game.show_fps, "fps"], ["Chat log", game.chat_visible, "chat"], ["Team rosters", game.rosters_visible, "rosters"]]
 	for i in toggles.size():
 		_toggle(Rect2(Vector2(x + 10 + i * 143, y + 76), Vector2(136, 34)), toggles[i][0], toggles[i][1], toggles[i][2])
-	draw_line(Vector2(x, y + 124), Vector2(body.end.x, y + 124), GOLD_DARK, 1.0)
+	_text(Vector2(x + 10, y + 120), "%s and %s also toggle the chat log and the rosters in a match." % [game.key_label("chat_toggle"), game.key_label("roster_toggle")], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	draw_line(Vector2(x, y + 128), Vector2(body.end.x, y + 128), GOLD_DARK, 1.0)
 	# Bot difficulty: click, or Left/Right on the title screen.
-	_text(Vector2(x + 10, y + 146), "BOTS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 10, y + 150), "BOTS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in Stats.BOT_DIFFICULTIES.size():
 		var name: String = Stats.BOT_DIFFICULTIES[i]
-		var b := Rect2(Vector2(x + 70 + i * 96, y + 130), Vector2(90, 24))
+		var b := Rect2(Vector2(x + 70 + i * 96, y + 134), Vector2(90, 24))
 		var on: bool = game.bot_difficulty == name
 		_plate(b, Color(0.5, 0.38, 0.08, 0.95) if on else INK_LIGHT, GOLD if on else Color(0.3, 0.3, 0.38), 6, 1)
 		_text(b.position + Vector2(0, 17), name.to_upper(), 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 		difficulty_buttons.append([b, name])
-	_text(Vector2(x + 370, y + 146), Stats.BOT_TUNING[game.bot_difficulty].desc, 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	draw_line(Vector2(x, y + 168), Vector2(body.end.x, y + 168), GOLD_DARK, 1.0)
+	_text(Vector2(x + 370, y + 150), Stats.BOT_TUNING[game.bot_difficulty].desc, 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	draw_line(Vector2(x, y + 172), Vector2(body.end.x, y + 172), GOLD_DARK, 1.0)
 	# Team calls.
-	_text(Vector2(x + 10, y + 190), "TEAM CALLS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 10, y + 194), "TEAM CALLS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var calls := [[game.key_label("cmd_attack"), "ATTACK!", "everyone pushes the enemy door now, no waiting at the rally"],
 		[game.key_label("cmd_defend"), "DEFEND!", "three bots come home to hold the castle"],
 		[game.key_label("cmd_help"), "TO ME!", "the two nearest bots come to where you called"]]
 	for i in calls.size():
-		var cy: float = y + 212 + i * 30
+		var cy: float = y + 216 + i * 30
 		_keycap(Vector2(x + 34, cy - 4), calls[i][0], 40)
 		_text(Vector2(x + 66, cy + 4), calls[i][1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(Vector2(x + 150, cy + 4), calls[i][2], 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(Vector2(x + 10, y + 212 + 3 * 30 + 4), "Bots follow a call for %d seconds; rebind the keys in Controls." % int(Stats.COMMAND_TIME), 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 10, y + 216 + 3 * 30 + 4), "Bots follow a call for %d seconds; rebind the keys in Controls. %s plants a war banner when there is no monarch to grab." % [int(Stats.COMMAND_TIME), game.key_label("interact")], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_text(body.position + Vector2(0, body.size.y - 8), "Settings are saved.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _toggle(rect: Rect2, label: String, on: bool, key: String) -> void:
 	## A labelled on/off switch; recorded for mouse clicks.
 	_plate(rect, Color(0.18, 0.3, 0.16, 0.96) if on else INK_LIGHT, GOLD if on else Color(0.3, 0.3, 0.38), 8, 1)
-	_text(rect.position + Vector2(10, 21), label, 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var pill := Rect2(rect.end - Vector2(40, 24), Vector2(30, 14))
+	_text(rect.position + Vector2(10, 21), label, 10, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var pill := Rect2(rect.end - Vector2(36, 24), Vector2(28, 14))
 	_plate(pill, STAMINA if on else Color(0.3, 0.3, 0.35), GOLD_DARK, 7, 1)
 	draw_circle(pill.position + Vector2(pill.size.x - 7 if on else 7, 7), 5.0, CREAM)
 	toggle_buttons.append([rect, key])
