@@ -15,6 +15,8 @@ const Blessing = preload("res://scripts/blessing.gd")
 const Vault = preload("res://scripts/vault.gd")
 const Guide = preload("res://scripts/guide.gd")
 const Barricade = preload("res://scripts/barricade.gd")
+const Turret = preload("res://scripts/turret.gd")
+const Sfx = preload("res://scripts/sfx.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -22,7 +24,7 @@ const CAPTURES_TO_WIN := Stats.CAPTURES_TO_WIN
 # Each bot's class and job, in spawn order. The player takes the first slot.
 const LINEUP := [
 	[Role.KNIGHT, "attack"], [Role.RANGER, "attack"], [Role.MAGE, "attack"],
-	[Role.HEALER, "support"], [Role.RANGER, "wall"],
+	[Role.HEALER, "support"], [Role.ENGINEER, "build"],
 ]
 
 # Castle geometry. Each castle is an outer castle wall ringing a yard, with the
@@ -48,6 +50,7 @@ const ISLAND_R := 6.0         # the Crown Shrine island in the river
 const STATION_RADIUS := 1.3
 const CAMERA_OFFSET := Vector3(0, 21.0, 15.0)  # a long lens: less edge distortion
 var cam_zoom := 1.0  # --debug-zoom=N pulls the camera back for overview renders
+var sfx: Node        # every sound: see sfx.gd
 # The river runs north to south through the middle; three bridges cross it.
 const RIVER_HALF := 3.0
 const BRIDGES := [-20.0, 0.0, 20.0]      # the middle crossing is the shrine island
@@ -93,6 +96,7 @@ var game_over := false
 var player_team := 0
 var score := [0, 0]
 var winner_team := -1
+var overtime := false         # tied at full time: doors down, next capture wins
 var thrones: Array[Vector3] = []
 var monarchs: Array = []
 var units: Array = []
@@ -104,6 +108,8 @@ var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} 
 var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
 var cover_points: Array = []  # places a shooter can duck behind
 var barricades: Array = []
+var turrets: Array = []       # every standing Engineer turret, both teams
+var turrets_built := [0, 0]   # per team, for the match report
 var audit_props: Array = []   # [name, Node3D] every placed KayKit prop (for --audit)
 var audit_blocks: Array = []  # [label, AABB] every block, ramp, fence, gate and vault
 var audit_label := ""
@@ -157,8 +163,14 @@ var bot_chat_timer := 18.0
 
 func _ready() -> void:
 	randomize()
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--seed="):
+			seed(int(arg.trim_prefix("--seed=")))
 	_setup_input()
+	sfx = Sfx.new()
+	add_child(sfx)
 	_load_controls()
+	sfx.set_listener(Vector3.ZERO)
 	_build_world()
 	_build_hud()
 	if "--audit" in OS.get_cmdline_user_args():
@@ -182,10 +194,12 @@ func _ready() -> void:
 		_start_match(0)  # testing: straight into a match with a (idle) local player
 		return
 	banner.visible = false
+	sfx.play_music(false)
 
 
 func _process(delta: float) -> void:
 	_debug_hooks()
+	_ui_sounds()
 	if not playing and not game_over:
 		if name_editing or menu_open:
 			return
@@ -197,6 +211,7 @@ func _process(delta: float) -> void:
 	if game_over:
 		if demo and not "--debug-end" in OS.get_cmdline_user_args():
 			print("Match over: Elves %d, Humans %d" % [score[0], score[1]])
+			_demo_summary()
 			get_tree().quit()
 		if Input.is_action_just_pressed("restart"):
 			get_tree().reload_current_scene()
@@ -218,8 +233,10 @@ func _process(delta: float) -> void:
 	_tick_tutorial()
 	_update_camera(delta)
 	if demo and Engine.get_process_frames() % 1800 == 0:
-		print("t=%ds  score %d-%d  monarchs %s / %s  doors %d / %d" % [Engine.get_process_frames() / 60,
-			score[0], score[1], monarchs[0].state, monarchs[1].state, gates[0].hp, gates[1].hp])
+		print("t=%ds  score %d-%d  monarchs %s / %s  doors %d / %d  turrets %d / %d" % [Engine.get_process_frames() / 60,
+			score[0], score[1], monarchs[0].state, monarchs[1].state, gates[0].hp, gates[1].hp, turrets_built[0], turrets_built[1]])
+		for t in turrets:
+			print("   turret team%d L%d hp=%d %s" % [t.team, t.level, t.hp, t.global_position.snapped(Vector3.ONE * 0.1)])
 		for u in units:
 			print("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
@@ -228,6 +245,21 @@ func _process(delta: float) -> void:
 		message_timer -= delta
 		if message_timer <= 0.0:
 			message_label.text = ""
+	message_label.visible = not (menu_open or rank_open or guide_open)
+
+
+var _ui_was := [false, false, false, -1]  # menu, rank menu, chat, tab: for the open/close clicks
+
+
+func _ui_sounds() -> void:
+	## Menus click open and shut; tabs click as they change.
+	var now := [menu_open, rank_open, chat_open, menu_tab]
+	for i in 3:
+		if now[i] != _ui_was[i]:
+			sfx.ui("ui_open" if now[i] else "ui_close", -4.0)
+	if now[3] != _ui_was[3] and menu_open:
+		sfx.ui("ui_click", -4.0)
+	_ui_was = now
 
 
 func _debug_hooks() -> void:
@@ -241,6 +273,23 @@ func _debug_hooks() -> void:
 				player.level = 3
 				player.points = 2
 				rank_open = true
+			if arg == "--debug-turrets" and player.role == Role.BASE:
+				# An Engineer with a turret of each level on the rampart and in the yard.
+				player.set_role(Role.ENGINEER)
+				player.level = 3
+				player.points = 1
+				player.xp = 110
+				var side := -1.0 if player_team == 0 else 1.0
+				var fx := side * (CASTLE_X - CASTLE_DEPTH)
+				var spots := [Vector3(fx, WALK_Y, -(Stats.DOOR_HALF + 5.9)), Vector3(fx, WALK_Y, Stats.DOOR_HALF + 5.9), Vector3(fx + side * 3.2, 0.0, Stats.DOOR_HALF + 3.2)]
+				for k in 3:
+					var t = spawn_turret(player_team, spots[k], player, {})
+					player.turrets.append(t)
+					for _n in k:
+						t.upgrade()
+				player.global_position = Vector3(fx + side * 0.6, WALK_Y, -(Stats.DOOR_HALF + 3.2))
+				player.facing = Vector3(-side, 0, 0)
+				cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom
 			if arg == "--debug-menu":
 				menu_open = true
 				menu_tab = 0
@@ -313,6 +362,7 @@ func _check_rules() -> void:
 			for u in units:
 				if u.team == m.team and not u.dead and _flat_dist(u.global_position, m.global_position) < 1.5:
 					m.go_home()
+					sfx.ui("safe", -3.0)
 					announce("The %s is safe again." % m.title)
 					break
 
@@ -328,16 +378,49 @@ func _score_capture(carrier, m) -> void:
 	shake(0.3)
 	var team_name: String = Stats.FACTIONS[carrier.team].name
 	carrier.captures += 1
+	sfx.ui("capture")
 	chat_system("%s captured the %s for the %s!" % [carrier.display_name, m.title, team_name])
 	_banter(carrier.team, "captured")
-	if score[carrier.team] >= CAPTURES_TO_WIN:
+	if score[carrier.team] >= CAPTURES_TO_WIN or overtime:
 		_finish(carrier.team)
 	else:
 		announce("The %s captured the %s!" % [team_name, m.title])
-	print("Capture: %s  (score %d - %d)" % [team_name, score[0], score[1]])
+	print("Capture: %s  (score %d - %d) t=%d" % [team_name, score[0], score[1], match_clock()])
+
+
+func match_clock() -> int:
+	## Seconds since the match began, overtime included (for the logs).
+	if overtime:
+		return int(Stats.MATCH_TIME + Stats.OVERTIME - time_left)
+	return int(Stats.MATCH_TIME - time_left)
+
+
+func _demo_summary() -> void:
+	## One line per unit at the end of a bot match, for balance tallies.
+	var w: String = "Draw" if winner_team < 0 else Stats.FACTIONS[winner_team].name
+	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1]])
+	for u in units:
+		# The class the bot plays all match (its current role resets on death).
+		var cls: String = Stats.FACTIONS[u.team].roles[u.bot_class]
+		var vi: int = u.variants.get(u.bot_class, -1)
+		if vi >= 0:
+			cls = Stats.VARIANTS[u.bot_class][vi].name
+		print("STAT team=%d class=%s kills=%d deaths=%d assists=%d dmg=%d heal=%d caps=%d level=%d" % [u.team, cls.replace(" ", ""),
+			u.kills, u.deaths, u.assists, u.damage_dealt, u.healing, u.captures, u.level])
 
 
 func _end_on_time() -> void:
+	if score[0] == score[1] and not overtime:
+		# Sudden death: both doors come down and stay down, next capture wins.
+		overtime = true
+		time_left = Stats.OVERTIME
+		for g in gates:
+			g.collapse()
+		announce("OVERTIME! Both doors are down. The next capture wins!")
+		chat_system("Overtime: the doors are down. Next capture wins.")
+		sfx.ui("horn", 0.0, 0.8)
+		print("Overtime")
+		return
 	time_left = 0.0
 	if score[0] == score[1]:
 		_finish(-1)
@@ -356,6 +439,11 @@ func _finish(winner: int) -> void:
 		line = "The %s win %d to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
 	winner_team = winner
 	announce(line)
+	sfx.play_ambience(false)
+	if winner < 0:
+		sfx.ui("horn")
+	else:
+		sfx.ui("victory" if winner == player_team else "defeat")
 
 
 func try_interact(u) -> void:
@@ -377,6 +465,9 @@ func try_interact(u) -> void:
 		u.carrying = m
 		u.gain_xp(Stats.XP_GRAB)
 		stolen_timer = 3.5
+		sfx.play("crown_grab", u.global_position)
+		if u.team != player_team:
+			sfx.ui("stolen", -4.0)
 		announce("CROWN STOLEN! The %s has been taken by the %s!" % [m.title, Stats.FACTIONS[u.team].name])
 		spawn_pillar(u.global_position, Color(1.0, 0.85, 0.3), 7.0, 1.2)
 		spawn_flash(u.global_position + Vector3(0, 1.5, 0), Color(1.0, 0.85, 0.3), 4.0, 0.5)
@@ -386,12 +477,88 @@ func try_interact(u) -> void:
 		_banter(u.team, "carrying", u)
 
 
+# --- Turrets ------------------------------------------------------------------
+
+func turret_spot(team: int, pos: Vector3, builder) -> Vector3:
+	## Where a turret may stand for `pos`, or Vector3.INF. Castle walls and
+	## yard, or the grounds just outside the front wall; never the door lane,
+	## the cellar, inside a wall, or on top of another turret.
+	var side := -1.0 if team == 0 else 1.0
+	var fx := side * (CASTLE_X - CASTLE_DEPTH)
+	var grounds: bool = (fx - pos.x) * side >= 0.0 and (fx - pos.x) * side < Stats.TURRET.grounds and absf(pos.z) < CASTLE_HALF_Z + 6.0
+	if not (_inside_castle(team, pos) or grounds):
+		return Vector3.INF
+	if absf(pos.z) < Stats.DOOR_HALF + 1.3 and absf(pos.x - fx) < 5.0:
+		return Vector3.INF  # keep the door lane clear
+	if pos.y < -0.3:
+		return Vector3.INF
+	for t in turrets:
+		if _flat_dist(t.global_position, pos) < 2.4:
+			return Vector3.INF
+	# The floor under the spot must be at the builder's height (not off a wall edge).
+	var space := get_world_3d().direct_space_state
+	var ray := PhysicsRayQueryParameters3D.create(pos + Vector3(0, 1.5, 0), pos + Vector3(0, -2.0, 0), 1)
+	var hit := space.intersect_ray(ray)
+	if hit.is_empty():
+		return Vector3.INF
+	var floor_y: float = hit.position.y
+	if builder and absf(floor_y - builder.global_position.y) > 0.6:
+		return Vector3.INF
+	# Nothing solid where the turret body goes.
+	var probe := PhysicsShapeQueryParameters3D.new()
+	var sph := SphereShape3D.new()
+	sph.radius = 0.45
+	probe.shape = sph
+	probe.transform = Transform3D(Basis(), Vector3(pos.x, floor_y + 0.9, pos.z))
+	probe.collision_mask = 1 | 4 | 8
+	if not space.intersect_shape(probe, 1).is_empty():
+		return Vector3.INF
+	return Vector3(pos.x, floor_y, pos.z)
+
+
+func spawn_turret(team: int, pos: Vector3, builder, opts: Dictionary) -> Node3D:
+	var t = Turret.new()
+	add_child(t)
+	t.setup(self, team, pos, builder, opts)
+	turrets.append(t)
+	turrets_built[team] += 1
+	spawn_splash(pos + Vector3(0, 0.6, 0), Color(0.8, 0.7, 0.5), 16, 3.0, 0.6)
+	spawn_ring(pos, 1.3, Stats.FACTIONS[team].color, 0.5)
+	sfx.play("turret_place", pos, 0.0)
+	return t
+
+
+func remove_turret(t) -> void:
+	turrets.erase(t)
+	if is_instance_valid(t.builder):
+		t.builder.turrets.erase(t)
+
+
+func turret_spots(team: int) -> Array:
+	## Where bot Engineers build: the rampart either side of the gatehouse,
+	## then the yard just inside the door, flanking the lane.
+	var side := -1.0 if team == 0 else 1.0
+	var fx := side * (CASTLE_X - CASTLE_DEPTH)
+	var dh := Stats.DOOR_HALF
+	return [Vector3(fx, WALK_Y, -(dh + 5.9)), Vector3(fx, WALK_Y, dh + 5.9),
+		Vector3(fx + side * 3.2, 0.0, -(dh + 3.2)), Vector3(fx + side * 3.2, 0.0, dh + 3.2)]
+
+
+func spawn_bolt(team: int, from: Vector3, dir: Vector3, s: Dictionary, color: Color, owner_unit) -> void:
+	## A shot from something that is not a unit (turrets).
+	var shot = Projectile.new()
+	shot.owner_unit = owner_unit
+	add_child(shot)
+	shot.setup(self, team, from - Vector3(0, Projectile.FLIGHT_HEIGHT, 0), dir, s, color)
+
+
 func drop_monarch(u) -> void:
 	var m = u.carrying
 	if m == null:
 		return
 	u.carrying = null
 	m.drop_at(u.global_position)
+	sfx.play("crown_drop", u.global_position)
 
 
 func _check_stations() -> void:
@@ -405,6 +572,7 @@ func _check_stations() -> void:
 				continue
 			if u.role != role and _flat_dist(u.global_position, stations[u.team][role]) < STATION_RADIUS:
 				u.set_role(role)
+				sfx.play("station", u.global_position)
 				if u == player:
 					announce("You are now a %s." % u.role_name())
 
@@ -462,6 +630,7 @@ func bot_tuning() -> Dictionary:
 
 
 func announce_veteran(u, tier: int) -> void:
+	sfx.ui("horn", -6.0, 0.9 if tier == 1 else 0.75)
 	var side_name: String = Stats.FACTIONS[u.team].name
 	if tier == 2:
 		announce("%s of the %s is an ELITE VETERAN: %d kills without dying! Bounty on their head, location revealed." % [u.display_name, side_name, u.streak])
@@ -475,6 +644,7 @@ func announce_veteran(u, tier: int) -> void:
 
 
 func bounty_claimed(killer, victim) -> void:
+	sfx.ui("horn", -2.0, 1.2)
 	## An Elite Veteran fell: the killer's whole team is blessed and the killer paid.
 	announce("BOUNTY CLAIMED! %s slew the Elite Veteran %s: the %s gain %s!" % [killer.display_name, victim.display_name, Stats.FACTIONS[killer.team].name, Stats.BOUNTY_BUFF])
 	chat_system("%s claimed the bounty on %s (+%d XP, %s for the team)." % [killer.display_name, victim.display_name, Stats.BOUNTY_XP, Stats.BOUNTY_BUFF])
@@ -602,11 +772,15 @@ func _plan_bots(team: int) -> void:
 		_assign_nearest(bots, mine.global_position, 2, "recover")
 	if theirs.state == Monarch.State.CARRIED and theirs.carrier.team == team:
 		_assign_nearest(bots, theirs.carrier.global_position, 2, "escort")
-	var gate_hurt: bool = gates[team].hp < Stats.GATE_HITS * 0.4
+	# In overtime the doors are down for good, so nobody guards a door: the
+	# way to win is the other castle. Only a breach pulls people home.
+	var gate_hurt: bool = gates[team].hp < Stats.GATE_HITS * 0.4 and not overtime
 	if enemy_inside_keep(team):
-		_assign_nearest(bots, thrones[team], 3, "defend")
-	elif enemy_inside_castle(team) or gate_hurt:
-		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 2, "defend")
+		_assign_nearest(bots, thrones[team], 2 if overtime else 3, "defend")
+	elif enemy_inside_castle(team):
+		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1 if overtime else 2, "defend")
+	elif gate_hurt:
+		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1, "defend")
 
 
 func _assign_nearest(bots: Array, pos: Vector3, count: int, job: String) -> void:
@@ -943,6 +1117,12 @@ func _start_match(team: int) -> void:
 	cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom
 	camera.global_position = cam_pos
 	playing = true
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--debug-time="):
+			time_left = float(arg.trim_prefix("--debug-time="))  # testing: a short clock
+	sfx.ui("match_start")
+	sfx.play_music(true)
+	sfx.play_ambience(true)
 	announce("Click to attack, Q and E for abilities, Space to dodge, %s for perks, hold %s for the scoreboard, %s to chat." % [
 		key_label("rank_menu"), key_label("scoreboard"), key_label("chat")])
 
@@ -952,6 +1132,7 @@ func _update_camera(delta: float) -> void:
 		return
 	var target: Vector3 = player.global_position + CAMERA_OFFSET * cam_zoom
 	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
+	sfx.set_listener(player.global_position)
 	shake_amount = move_toward(shake_amount, 0.0, delta * 1.6)
 	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amount * 0.35
 	camera.global_position = cam_pos + jolt
@@ -998,6 +1179,7 @@ func guide_toggle() -> void:
 		guide_advance()
 		return
 	guide_open = true
+	sfx.ui("ui_open")
 	guide_topic = -1
 	guide_page = -1 if guide_seen else 0
 
@@ -1021,6 +1203,7 @@ func guide_pick(i: int) -> void:
 
 func guide_close() -> void:
 	guide_open = false
+	sfx.ui("ui_close")
 	guide_seen = true
 
 
@@ -1130,7 +1313,7 @@ func menu_tick() -> void:
 			_save_settings()
 		# The Academy: in your own courtyard, 1-4 pick a class outright.
 		if player and not rank_open and not guide_open and not player.dead and player.carrying == null and _in_cellar(player_team, player.global_position):
-			for i in 4:
+			for i in 5:
 				if Input.is_action_just_pressed("rank_%d" % (i + 1)):
 					academy_pick(i + 1)
 		if rank_open and player:
@@ -1159,6 +1342,20 @@ func menu_tick() -> void:
 			_idle_banter()
 	# Mouse clicks on menu buttons (the HUD records where it drew them).
 	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	if click and hud and menu_open:
+		# Volume sliders follow the mouse while the button is held.
+		var mp := get_viewport().get_mouse_position()
+		for sl in hud.volume_sliders:
+			if sl[0].grow(6).has_point(mp):
+				var v := clampf((mp.x - sl[0].position.x - 2.0) / (sl[0].size.x - 4.0), 0.0, 1.0)
+				if sl[1] == "sound":
+					sfx.sound_volume = v
+				else:
+					sfx.music_volume = v
+				sfx.apply_volumes()
+				if not click_was:
+					sfx.ui("ui_click", -4.0)
+				_save_settings()
 	if click and not click_was and hud and rebinding == "":
 		var mouse := get_viewport().get_mouse_position()
 		for i in hud.rank_buttons.size():
@@ -1179,6 +1376,7 @@ func menu_tick() -> void:
 		for b in hud.difficulty_buttons:
 			if b[0].has_point(mouse):
 				bot_difficulty = b[1]
+				sfx.ui("ui_click", -4.0)
 				_save_settings()
 		if hud.options_button.has_point(mouse) and not playing:
 			menu_open = true
@@ -1473,6 +1671,8 @@ func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(CONTROLS_PATH)
 	cfg.set_value("settings", "bot_difficulty", bot_difficulty)
+	cfg.set_value("settings", "sound_volume", sfx.sound_volume)
+	cfg.set_value("settings", "music_volume", sfx.music_volume)
 	cfg.set_value("settings", "chat_visible", chat_visible)
 	cfg.set_value("settings", "rosters_visible", rosters_visible)
 	cfg.set_value("settings", "hero_name", hero_name)
@@ -1506,6 +1706,8 @@ func _load_controls() -> void:
 		bot_difficulty = diff
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
 	rosters_visible = cfg.get_value("settings", "rosters_visible", true)
+	sfx.sound_volume = clampf(cfg.get_value("settings", "sound_volume", 0.8), 0.0, 1.0)
+	sfx.music_volume = clampf(cfg.get_value("settings", "music_volume", 0.6), 0.0, 1.0)
 	hero_name = cfg.get_value("settings", "hero_name", "")
 	hero_hair = clampi(cfg.get_value("settings", "hero_hair", 0), 0, Stats.HERO_HAIR.size() - 1)
 	hero_trim = clampi(cfg.get_value("settings", "hero_trim", 0), 0, Stats.HERO_TRIM.size() - 1)
@@ -3069,6 +3271,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	_add_station(team, Role.RANGER, Vector3(bx + side * 7.0, CELLAR_Y, -4.4))
 	_add_station(team, Role.MAGE, Vector3(bx + side * 3.5, CELLAR_Y, 4.4))
 	_add_station(team, Role.HEALER, Vector3(bx + side * 7.0, CELLAR_Y, 4.4))
+	_add_station(team, Role.ENGINEER, Vector3(bx + side * 1.6, CELLAR_Y, 4.4))
 	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall.
 	_add_upgrade_pad(team, Vector3(bx + side * 1.6, CELLAR_Y, -4.6))
 	var g := Guide.new()

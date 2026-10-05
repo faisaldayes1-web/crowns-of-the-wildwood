@@ -5,6 +5,7 @@ extends CharacterBody3D
 ## wipes the experience you earned this life. All numbers live in stats.gd.
 
 const Stats = preload("res://scripts/stats.gd")
+const Turret = preload("res://scripts/turret.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
 const Role = Stats.Role
@@ -37,6 +38,8 @@ var knockback := Vector3.ZERO
 var carrying = null
 var spawn_point := Vector3.ZERO
 var facing := Vector3(1, 0, 0)
+var step_timer := 0.0        # footsteps
+var turrets: Array = []      # Engineer: the turrets this unit built (oldest first)
 var kills := 0
 var deaths := 0
 var captures := 0
@@ -95,6 +98,8 @@ var cluster := 0   # enemies bunched around the bot's current target
 var bot_block_timer := 0.0
 var stuck_time := 0.0
 var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
+var stall_pos := Vector3.ZERO  # demo diagnostics: where the bot last made progress
+var stall_clock := 0.0
 var sidestep_sign := 1.0
 
 var shape: CollisionShape3D
@@ -343,6 +348,7 @@ func choose_variant(for_role: int, index: int) -> bool:
 	if variants.get(for_role, -1) == index:
 		return false
 	variants[for_role] = index
+	game.sfx.play("promote", global_position, 0.0 if is_player else -6.0)
 	if for_role == role:
 		_stats_cache = {}
 		ability_timers = [0.0, 0.0]
@@ -531,6 +537,7 @@ func spend_point(track: int) -> bool:
 	game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(1.0, 0.85, 0.3), 14, 3.0, 0.5)
 	game.spawn_flash(global_position, Color(1.0, 0.85, 0.3), 2.0, 0.3)
 	if is_player:
+		game.sfx.ui("rank_up", -3.0)
 		game.spawn_popup(global_position + Vector3(0, 2.2, 0), "%s rank %d" % [track_name(track), rank(track)], Color(1, 0.9, 0.5))
 		if mastery[role] == Stats.VARIANT_UNLOCK and not variants.has(role):
 			game.announce("Promotion unlocked! Press %s and pick a %s variant." % [game.key_label("rank_menu"), class_name_plain()])
@@ -560,6 +567,7 @@ func gain_xp(amount: int) -> void:
 		game.spawn_splash(global_position + Vector3(0, 0.6, 0), Color(1.0, 0.9, 0.4), 24, 4.5, 0.9, true)
 		game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
 		if is_player:
+			game.sfx.ui("level_up", -2.0)
 			game.levelup_timer = 3.2
 			game.levelup_level = level
 		else:
@@ -646,11 +654,21 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		knockback = push * knock * 0.5
 		game.spawn_splash(global_position + facing * 0.6 + Vector3(0, 1.0, 0), Color(0.9, 0.95, 1.0), 10, 4.0, 0.3)
 		game.spawn_popup(global_position + Vector3(0, 2.0, 0), "BLOCKED", Color(0.75, 0.85, 1.0))
+		game.sfx.play("hit_shield", global_position, -1.0, 0.1)
 		if energy <= 0.0:
 			energy = 0.0
 			blocking = false
 			model.release()
 		return false
+	if stats().get("armour", 0.0) > 0.0:
+		# Knights wear plate: every third hit (by default) glances off.
+		resist_pool += stats().armour * amount
+		if resist_pool >= 1.0:
+			resist_pool -= 1.0
+			game.spawn_popup(global_position + Vector3(0, 2.0, 0), "ARMOUR", Color(0.85, 0.85, 0.9))
+			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.85, 0.85, 0.9), 8, 3.0, 0.3)
+			game.sfx.play("hit_shield", global_position, -4.0, 0.1)
+			return false
 	if home_defense:
 		# Defending home: every tenth hit (by default) is shrugged off.
 		resist_pool += Stats.DEFENDER.resist * amount
@@ -674,6 +692,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		recent_hitters[attacker] = Time.get_ticks_msec() / 1000.0
 	game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(1.0, 0.3, 0.25), 10, 3.5, 0.4)
 	game.spawn_popup(global_position + Vector3(0, 2.0, 0), "-%d" % amount, Color(1, 0.35, 0.3))
+	game.sfx.play("hurt", global_position, -4.0 if not is_player else 0.0, 0.15)
 	if is_player:
 		game.shake(0.35)
 	if hearts <= 0:
@@ -744,6 +763,7 @@ func try_dodge(dir: Vector3) -> void:
 	energy -= Stats.DODGE_COST
 	blocking = false
 	model.play_once("Dodge_Forward", 2.2)
+	game.sfx.play("dodge", global_position, -4.0, 0.12)
 	game.spawn_splash(global_position + Vector3(0, 0.2, 0), Color(0.9, 0.85, 0.7), 10, 2.5, 0.5)
 	game.spawn_ring(global_position, 1.0, Color(1, 1, 1), 0.3, 0.2)
 
@@ -759,10 +779,33 @@ func use_ability(i: int, dir: Vector3) -> void:
 	var a: Dictionary = ability(i)
 	dir.y = 0.0
 	dir = dir.normalized() if dir.length() > 0.05 else facing
+	# Building needs a legal spot and tuning needs something to tune: check
+	# before anything is spent.
+	var turret_pos := Vector3.INF
+	var tune_target = null
+	if a.kind == "turret":
+		turret_pos = game.turret_spot(team, global_position + dir * Stats.TURRET.place_dist, self)
+		if not turret_pos.is_finite():
+			if is_player:
+				game.toast("Turrets go on your castle walls or grounds, clear of the door lane", Color(1.0, 0.8, 0.5))
+				game.sfx.ui("ui_deny", -6.0)
+			return
+	elif a.kind == "upgrade":
+		tune_target = _tune_target(a)
+		if tune_target == null:
+			if is_player:
+				game.toast("Nothing to tune up here: stand by one of your turrets or your door", Color(1.0, 0.8, 0.5))
+				game.sfx.ui("ui_deny", -6.0)
+			return
 	energy -= a.cost
 	ability_timers[i] = a.cooldown
 	facing = dir
 	blocking = false
+	var ability_sound := {"bash": "swing_heavy", "guard": "block_up", "volley": "volley", "trap": "trap_set",
+		"fireball": "frost" if a.get("frost", false) else "fireball", "blink": "blink", "blessing": "blessing", "smite": "smite",
+		"shot": "bow", "cleave": "fireball" if a.get("fire", false) else "swing_heavy", "smoke": "blink", "curse": "curse"}
+	if ability_sound.has(a.kind):
+		game.sfx.play(ability_sound[a.kind], global_position, -1.0, 0.08)
 	match a.kind:
 		"bash": model.play_once("1H_Melee_Attack_Stab", 1.6)
 		"guard": model.hold("Blocking")
@@ -776,8 +819,46 @@ func use_ability(i: int, dir: Vector3) -> void:
 		"cleave": model.play_once("2H_Melee_Attack_Spin" if role == Role.KNIGHT else "Spellcast_Long", 1.4)
 		"smoke": model.play_once("Interact", 1.8)
 		"curse": model.play_once("Spellcast_Raise", 1.5)
+		"turret", "upgrade", "overclock": model.play_once("Interact", 1.6)
 	rotation.y = atan2(-facing.x, -facing.z)
 	match a.kind:
+		"turret":
+			_prune_turrets()
+			while turrets.size() >= int(a.get("turrets", 2)):
+				var old = turrets.pop_front()
+				if is_instance_valid(old):
+					game.spawn_splash(old.global_position + Vector3(0, 1.0, 0), Color(0.6, 0.5, 0.4), 14, 3.0, 0.6)
+					game.remove_turret(old)
+					old.queue_free()
+			var t = game.spawn_turret(team, turret_pos, self, {"rapid": a.get("rapid", false), "ballista": a.get("ballista", false)})
+			turrets.append(t)
+			if is_player:
+				game.spawn_popup(global_position + Vector3(0, 2.2, 0), "%s built  (%d / %d)" % [t.kind_name(), turrets.size(), int(a.get("turrets", 2))], Color(1, 0.9, 0.5))
+		"upgrade":
+			if tune_target is Turret:
+				tune_target.upgrade()
+				if is_player:
+					game.spawn_popup(tune_target.global_position + Vector3(0, 2.4, 0), "LEVEL %d" % tune_target.level, Color(1, 0.9, 0.5))
+			else:
+				# Our door: mend it, or hurry the rebuild.
+				var gate = tune_target
+				if gate.broken:
+					gate.rebuild_timer = maxf(gate.rebuild_timer - Stats.TURRET.door_repair, 0.5)
+				else:
+					gate.hp = mini(gate.hp + int(a.get("door", 0)), Stats.GATE_HITS)
+					gate._refresh()
+				game.spawn_ring(gate.global_position, 2.5, Color(1.0, 0.85, 0.3), 0.5)
+				game.spawn_splash(gate.global_position + Vector3(0, 1.5, 0), Color(1.0, 0.85, 0.3), 20, 4.0, 0.6, true)
+				game.sfx.play("door_rebuilt", gate.global_position, -2.0)
+				if is_player:
+					game.spawn_popup(global_position + Vector3(0, 2.2, 0), "DOOR REPAIRED" if not gate.broken else "REBUILD HURRIED", Color(1, 0.9, 0.5))
+		"overclock":
+			_prune_turrets()
+			for t in turrets:
+				t.overclock = a.duration
+				game.spawn_ring(t.global_position, 1.2, Color(0.7, 0.9, 1.0), 0.5)
+			game.spawn_flash(global_position, Color(0.7, 0.9, 1.0), 3.0, 0.4)
+			game.sfx.play("turret_upgrade", global_position, 0.0, 0.0)
 		"bash":
 			# A short dash that hits and shoves everyone in its path.
 			dodge_dir = dir
@@ -936,6 +1017,7 @@ func _die() -> void:
 	ranks = {}
 	game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.3, 0.3, 0.35), 18, 3.0, 0.8)
 	game.spawn_ring(global_position, 1.4, Color(0.6, 0.2, 0.2), 0.5)
+	game.sfx.play("death", global_position, 0.0, 0.1)
 	if aim_marker:
 		aim_marker.visible = false
 		aim_ring.visible = false
@@ -951,6 +1033,7 @@ func _respawn() -> void:
 	visible = true
 	shape.disabled = false
 	model.revive()
+	game.sfx.play("respawn", global_position, -6.0)
 	if aim_marker:
 		aim_marker.visible = true
 
@@ -1143,9 +1226,21 @@ func _physics_process(delta: float) -> void:
 		wants_attack = plan.attack
 		wants_block = plan.get("block", false)
 		aim = plan.aim
+		if game.demo:
+			# Diagnostics: a bot that wants to move but has not for 12 s.
+			stall_clock += delta
+			if global_position.distance_to(stall_pos) > 0.5 or carrying or dead:
+				stall_pos = global_position
+				stall_clock = 0.0
+			elif stall_clock > 20.0:
+				stall_clock = 0.0
+				var e = _nearest_enemy(30.0)
+				print("STALL t=%d team%d %s at %s job=%s move=%s attack=%s enemy=%s d=%.1f" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), bot_job, move.snapped(Vector3.ONE * 0.01), wants_attack, (e.role_name() + str(e.global_position.snapped(Vector3.ONE * 0.1))) if e else "none", _flat_to(e.global_position).length() if e else 0.0])
 
 	# Shield up: hold to block. It drains stamina, slows you and stops attacks.
 	var block_now: bool = wants_block and can_block() and energy > 0.0 and carrying == null and guard_timer <= 0.0
+	if block_now and not blocking:
+		game.sfx.play("block_up", global_position, -6.0)
 	if block_now != blocking:
 		blocking = block_now
 		if blocking:
@@ -1172,6 +1267,13 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_clamp_to_map()
 	knockback = knockback.move_toward(Vector3.ZERO, 40.0 * delta)
+	# Footsteps: soft on grass, a tap on stone (walls, bridges, castle floors).
+	if move.length() > 0.05 and is_on_floor():
+		step_timer -= delta * speed / 6.0
+		if step_timer <= 0.0:
+			step_timer = 0.34
+			var stone: bool = global_position.y > 0.5 or absf(global_position.x) > game.CASTLE_X - game.CASTLE_DEPTH - 1.0 or absf(global_position.x) < 7.0
+			game.sfx.play("step_stone" if stone else "step", global_position, -14.0 if is_player else -20.0, 0.2)
 
 	# Bots that bump into a tree or wall sidestep around it.
 	sidestep_timer = maxf(sidestep_timer - delta, 0.0)
@@ -1235,11 +1337,13 @@ func _attack(dir: Vector3) -> void:
 			for ally in hurt:
 				ally.heal(s.heal, self)
 			model.play_once("Spellcast_Raise", 1.6)
+			game.sfx.play("heal", global_position, -2.0)
 			game.spawn_ring(global_position, s.heal_radius, Color(0.3, 1.0, 0.5), 0.6)
 			game.spawn_flash(global_position, Color(0.3, 1.0, 0.5), 2.0, 0.4)
 			return
 		model.play_once("Spellcast_Shoot", 1.6)
 		var drain: bool = s.get("drain", false)
+		game.sfx.play("curse" if drain else "bolt", global_position, -6.0 if drain else -3.0, 0.12)
 		game.spawn_shot(self, dir, {"damage": s.damage, "gate_damage": s.gate_damage, "range": s.range,
 			"shot_speed": s.shot_speed, "holy": true, "drain": drain}, Color(0.6, 0.3, 0.9) if drain else Color(1.0, 0.95, 0.6))
 		_recoil(dir, 1.5)
@@ -1249,6 +1353,7 @@ func _attack(dir: Vector3) -> void:
 	model.attack()
 
 	if kind == "arrow":
+		game.sfx.play("bow", global_position, -2.0, 0.1)
 		game.spawn_shot(self, dir, s, Color(0.6, 0.9, 0.5) if s.has("slow") else Color(0.95, 0.9, 0.7))
 		_recoil(dir, 1.5)
 		return
@@ -1259,10 +1364,12 @@ func _attack(dir: Vector3) -> void:
 		elif s.get("frost", false):
 			spell_color = Color(0.6, 0.85, 1.0)
 		game.spawn_shot(self, dir, s, spell_color)
+		game.sfx.play("bolt", global_position, -2.0, 0.12)
 		_recoil(dir, 2.0)
 		return
 	# Melee: a short lunge into the swing.
 	knockback += dir * 2.5
+	game.sfx.play("punch" if role == Role.BASE else ("swing_heavy" if s.range > 2.5 else "swing"), global_position, -3.0, 0.12)
 	game.spawn_swing(self, dir)
 	var landed := false
 	for other in game.units:
@@ -1274,8 +1381,10 @@ func _attack(dir: Vector3) -> void:
 		if dist <= s.range and absf(other.global_position.y - global_position.y) < 1.5 \
 				and (dist < 0.8 or dir.dot(to / dist) > 0.3):
 			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE) or landed
-	if landed and is_player:
-		game.shake(0.12)
+	if landed:
+		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
+		if is_player:
+			game.shake(0.12)
 	# Swings from the ground also chip away at the enemy door.
 	var vault = game.vaults[1 - team]
 	if vault.is_locked() and global_position.y < 1.0 and _flat_to(vault.lock_pos).length() < s.range + 0.6 \
@@ -1285,6 +1394,10 @@ func _attack(dir: Vector3) -> void:
 		if b.team != team and b.is_intact() and absf(global_position.y - b.global_position.y) < 1.5 \
 				and _flat_to(b.global_position).length() < s.range + 1.0 and dir.dot(_flat_to(b.global_position).normalized()) > 0.3:
 			b.take_hit(s.gate_damage, self)
+	for t in game.turrets.duplicate():
+		if t.team != team and absf(global_position.y - t.global_position.y) < 1.5 \
+				and _flat_to(t.global_position).length() < s.range + 0.8 and dir.dot(_flat_to(t.global_position).normalized()) > 0.3:
+			t.take_hit(maxi(s.gate_damage, 1), self)
 	var gate = game.gates[1 - team]
 	var gx: float = gate.position.x
 	if gate.is_intact() and global_position.y < 1.0 and absf(global_position.x - gx) < s.range + 0.4 \
@@ -1317,16 +1430,25 @@ func _steer_to(target: Vector3) -> Vector3:
 
 
 func _nearest_enemy(radius: float):
+	## The closest living enemy within `radius` that we can actually see:
+	## walls and doors hide people, so nobody stands shooting at stone.
 	var best = null
 	var best_dist := radius
 	for other in game.units:
 		if other.team == team or other.dead or other.stealth_timer > 0.0:
 			continue
 		var d := _flat_to(other.global_position).length()
-		if d < best_dist:
+		if d < best_dist and _can_see(other):
 			best_dist = d
 			best = other
 	return best
+
+
+func _can_see(other) -> bool:
+	var from := global_position + Vector3(0, 1.0, 0)
+	var to: Vector3 = other.global_position + Vector3(0, 1.0, 0)
+	var ray := PhysicsRayQueryParameters3D.create(from, to, 1 | (8 if team == 0 else 4))
+	return get_world_3d().direct_space_state.intersect_ray(ray).is_empty()
 
 
 func _nearest_ally(job: String):
@@ -1432,6 +1554,63 @@ func _bot_pick_ability(dist: float) -> int:
 	return -1
 
 
+func _prune_turrets() -> void:
+	turrets = turrets.filter(func(t): return is_instance_valid(t))
+
+
+func _tune_target(a: Dictionary):
+	## For Tune Up: the nearest of our own turrets within reach that can take
+	## work, else our door if we stand by it and it needs mending.
+	_prune_turrets()
+	var best = null
+	var best_d := 4.5
+	for t in turrets:
+		var d: float = _flat_to(t.global_position).length()
+		if d < best_d and t.needs_work() and absf(t.global_position.y - global_position.y) < 1.5:
+			best_d = d
+			best = t
+	if best:
+		return best
+	var gate = game.gates[team]
+	if _flat_to(gate.global_position).length() < 5.0 and (gate.broken or (a.get("door", 0) > 0 and gate.hp < Stats.GATE_HITS)):
+		return gate
+	return null
+
+
+func _engineer_goal(plan: Dictionary) -> Vector3:
+	## A bot Engineer's job: build on the team's spots, tune what it built,
+	## then hold the yard like a defender. Sets plan.ability when standing
+	## in place for a build or a tune-up.
+	_prune_turrets()
+	var side := -1.0 if team == 0 else 1.0
+	var behind := Vector3(side, 0, 0)   # toward our own keep
+	var a0: Dictionary = ability(0)
+	if turrets.size() < int(a0.get("turrets", 2)) and game.turrets.size() < Stats.TURRET.team_max:
+		for spot in game.turret_spots(team):
+			var taken := false
+			for t in game.turrets:
+				if game._flat_dist(t.global_position, spot) < 2.4:
+					taken = true
+					break
+			if taken:
+				continue
+			var stand: Vector3 = spot + behind * Stats.TURRET.place_dist
+			if _flat_to(stand).length() < 0.7 and absf(global_position.y - spot.y) < 0.6:
+				if ability_ready(0):
+					plan.aim = -behind
+					plan.ability = 0
+			return stand
+	for t in turrets:
+		if t.needs_work() and ability_ready(1):
+			var stand: Vector3 = t.global_position + behind * 1.5
+			if _flat_to(t.global_position).length() < 3.5 and absf(global_position.y - t.global_position.y) < 1.5:
+				plan.ability = 1
+			return stand
+	# Works done: take the hammer to the enemy door with the raiders (the
+	# squad planner still pulls us home to defend when the castle is breached).
+	return game.monarchs[1 - team].global_position
+
+
 func _bot_think() -> Dictionary:
 	var plan := {"move": Vector3.ZERO, "attack": false, "aim": facing}
 	var s := attack_stats()
@@ -1475,6 +1654,8 @@ func _bot_think() -> Dictionary:
 	elif bot_job == "wall":
 		goal = game.wall_post(team, bot_offset.z)
 		holding_wall = true
+	elif bot_job == "build" and role == Role.ENGINEER:
+		goal = _engineer_goal(plan)
 	elif bot_job == "support":
 		var buddy = _heal_focus()
 		goal = (buddy.global_position if buddy else game.thrones[team]) + bot_offset * 0.6

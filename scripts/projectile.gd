@@ -7,6 +7,7 @@ extends Node3D
 ## of light. Each spell carries its own light.
 
 const Stats = preload("res://scripts/stats.gd")
+const Turret = preload("res://scripts/turret.gd")
 const Barricade = preload("res://scripts/barricade.gd")
 
 const HIT_RADIUS := 0.7
@@ -226,6 +227,8 @@ func _physics_process(delta: float) -> void:
 			vault.take_hit(gate_damage, owner_unit)
 		elif hit.collider is Barricade and hit.collider.team != team:
 			hit.collider.take_hit(gate_damage, owner_unit)
+		elif hit.collider is Turret and hit.collider.team != team:
+			hit.collider.take_hit(maxi(damage, 1), owner_unit)
 		_burst()
 		return
 
@@ -270,7 +273,11 @@ func _burst() -> void:
 			offset.y = 0.0
 			if offset.length() < splash and not unit.is_protected():
 				unit.take_damage(damage, owner_unit, global_position, Stats.KNOCK_SPLASH, effect)
+		for t in game.turrets.duplicate():
+			if t.team != team and game._flat_dist(t.global_position, global_position) < splash + 0.5:
+				t.take_hit(damage, owner_unit)
 		var ground := Vector3(global_position.x, 0.0, global_position.z)
+		game.sfx.play("explosion" if fire and splash > 2.5 else ("frost" if frost else "bolt_hit"), global_position, 0.0 if splash > 2.5 else -5.0, 0.12)
 		if fire:
 			game.spawn_ring(ground, splash, Color(1.0, 0.6, 0.2), 0.45, 0.2)
 			game.spawn_splash(global_position, Color(1.0, 0.6, 0.15), 40, 9.0, 0.7)
@@ -289,5 +296,6 @@ func _burst() -> void:
 		game.spawn_splash(global_position, color, 10, 3.0, 0.3)
 		game.spawn_flash(global_position, color, 2.0, 0.2)
 	else:
+		game.sfx.play("arrow_hit", global_position, -6.0, 0.15)
 		game.spawn_splash(global_position, Color(0.9, 0.85, 0.7), 6, 2.5, 0.3)
 	queue_free()

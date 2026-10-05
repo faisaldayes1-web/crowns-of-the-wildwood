@@ -116,11 +116,15 @@ func take_hit(amount: int, attacker = null) -> void:
 	var hit_side := 1.0 if team == 0 else -1.0
 	var where := global_position + Vector3(hit_side * 0.6, 0, randf_range(-size.z * 0.4, size.z * 0.4))
 	game.spawn_splash(where, Color(0.75, 0.55, 0.3), 8, 3.0, 0.5)
+	game.sfx.play("door_hit", where, -3.0, 0.15)
 	if hp == 0:
 		broken = true
+		game.sfx.play("door_break", global_position, 4.0)
 		rebuild_timer = Stats.GATE_REBUILD_TIME
 		shape.disabled = true
 		game.announce("The %s door has been broken!" % Stats.FACTIONS[team].name)
+		if game.demo:
+			print("Door broken: %s t=%d" % [Stats.FACTIONS[team].name, game.match_clock()])
 		game._banter(1 - team, "gate_down")
 		game.spawn_splash(global_position, Color(0.7, 0.5, 0.28), 60, 7.0, 1.0)
 		game.spawn_splash(global_position + Vector3(0, 1, 0), Color(0.5, 0.45, 0.4), 30, 3.0, 1.4, true)
@@ -128,10 +132,21 @@ func take_hit(amount: int, attacker = null) -> void:
 	_refresh()
 
 
+func collapse() -> void:
+	## Overtime: the door comes down for good.
+	if not broken:
+		take_hit(hp)
+	rebuild_timer = INF
+	_refresh()
+
+
 func _refresh() -> void:
 	wall.visible = not broken
 	rubble.visible = broken
-	if broken:
+	if broken and rebuild_timer == INF:
+		label.text = "Door down for overtime"
+		label.modulate = Color(1, 0.5, 0.4)
+	elif broken:
 		label.text = "Door broken: rebuilding in %d" % ceili(rebuild_timer)
 		label.modulate = Color(1, 0.5, 0.4)
 	else:
@@ -149,5 +164,6 @@ func _process(delta: float) -> void:
 		broken = false
 		hp = Stats.GATE_HITS
 		shape.disabled = false
+		game.sfx.play("door_rebuilt", global_position, 0.0)
 		game.announce("The %s door has been rebuilt." % Stats.FACTIONS[team].name)
 	_refresh()

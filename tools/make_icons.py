@@ -394,7 +394,74 @@ poly(img, pts([(-0.1, -1.0), (0.45, -1.0), (0.1, -0.2), (0.5, -0.2), (-0.35, 1.0
 heart(img, (255, 110, 120), (190, 30, 60), 0.4, 0.55, 0.55)
 save(img, "drain", (170, 100, 240))
 
+def hammer(img, scale=1.0, dx=0.0, dy=0.0, head=STEEL, head_d=STEEL_D):
+    """A war hammer, handle lower-left to head upper-right."""
+    stroke(img, pts([(-0.85, 0.85), (0.35, -0.35)], scale, dx, dy), INK, 16 * SS)
+    stroke(img, pts([(-0.85, 0.85), (0.35, -0.35)], scale, dx, dy), (150, 95, 50), 9 * SS)
+    poly(img, pts([(-0.05, -0.95), (0.85, -0.95), (0.85, -0.25), (-0.05, -0.25)], scale, dx, dy, 0.0), head, head_d)
+    stroke(img, pts([(0.1, -0.85), (0.7, -0.85)], scale, dx, dy), (255, 255, 255), 3 * SS)
+
+
+def gear(img, c1, c2, scale=1.0, dx=0.0, dy=0.0, teeth=8):
+    shape = []
+    for i in range(teeth * 2):
+        a = math.pi * i / teeth
+        r = 0.95 if i % 2 == 0 else 0.72
+        shape.append((math.cos(a) * r, math.sin(a) * r))
+        a2 = a + math.pi / teeth * 0.5
+        shape.append((math.cos(a2) * r, math.sin(a2) * r))
+    poly(img, pts(shape, scale, dx, dy), c1, c2)
+    circle(img, pts([(dx / scale if scale else 0, 0)], scale, dx, dy)[0] if False else pts([(0, 0)], scale, dx, dy)[0], 0.3 * C * 0.78 * scale, c2, c1)
+
+
+img = new()
+plaque(img, (210, 140, 70), (120, 70, 25))
+gear(img, (235, 220, 190), (150, 110, 60), 0.55, 0.22, 0.22)
+hammer(img, 0.6, -0.2, -0.15)
+save(img, "class_engineer", (255, 210, 150))
+
+img = new(); hammer(img, 1.0); save(img, "hammer", (220, 220, 240))
+
+img = new()
+poly(img, pts([(-0.75, 0.55), (0.75, 0.55), (0.6, 0.95), (-0.6, 0.95)]), (180, 180, 195), (90, 90, 105))
+poly(img, pts([(-0.14, -0.3), (0.14, -0.3), (0.14, 0.55), (-0.14, 0.55)]), (150, 95, 50), (90, 55, 25))
+d = ImageDraw.Draw(img)
+cx, cy, r = C, C - 0.3 * C * 0.78, 0.7 * C * 0.78
+d.arc([cx - r, cy - r, cx + r, cy + r], 180, 360, fill=INK + (255,), width=16 * SS)
+d.arc([cx - r, cy - r, cx + r, cy + r], 180, 360, fill=(150, 95, 50, 255), width=9 * SS)
+stroke(img, pts([(-0.7, -0.3), (0.7, -0.3)]), (240, 240, 240), 3 * SS)
+arrow(img, -math.pi / 2, 0.75, 0.0, -0.25)
+save(img, "turret", (255, 220, 150))
+
+img = new()
+poly(img, pts([(0, -1.0), (0.95, 0.0), (0.4, 0.0), (0.4, 0.95), (-0.4, 0.95), (-0.4, 0.0), (-0.95, 0.0)]), (255, 230, 120), (220, 150, 40))
+poly(img, pts([(0, -0.55), (0.45, -0.1), (-0.45, -0.1)]), (255, 250, 200), (255, 210, 90), outline=None)
+save(img, "upgrade", (255, 230, 140))
+
+img = new()
+circle(img, (C, C), 0.85 * C * 0.78, (120, 190, 240), (40, 90, 170), width=10 * SS)
+stroke(img, pts([(0, 0), (0, -0.6)]), INK, 12 * SS)
+stroke(img, pts([(0, 0), (0, -0.6)]), (255, 255, 255), 6 * SS)
+stroke(img, pts([(0, 0), (0.45, 0.25)]), INK, 12 * SS)
+stroke(img, pts([(0, 0), (0.45, 0.25)]), (255, 255, 255), 6 * SS)
+for a in (0, 90, 180, 270):
+    rad = math.radians(a)
+    stroke(img, pts([(math.cos(rad) * 0.72, math.sin(rad) * 0.72), (math.cos(rad) * 0.85, math.sin(rad) * 0.85)]), (255, 255, 255), 4 * SS)
+save(img, "overclock", (150, 210, 255))
+
 # --- Promotion emblems -------------------------------------------------------
+
+img = new()
+gear(img, (200, 225, 250), (90, 130, 190), 0.95)
+circle(img, (C, C), 0.2 * C * 0.78, (255, 255, 255), (150, 200, 255))
+save(img, "artificer", (190, 225, 255))
+
+img = new()
+poly(img, pts([(-0.95, 0.95), (0.95, 0.95), (0.95, 0.35), (-0.95, 0.35)]), (190, 180, 165), (110, 100, 85))
+for x in (-0.5, 0.0, 0.5):
+    stroke(img, pts([(x, 0.35), (x, 0.95)]), INK, 4 * SS)
+hammer(img, 0.75, 0.0, -0.25, GOLD, GOLD_D)
+save(img, "siegewright", (255, 220, 170))
 
 img = new(); crossed_swords(img, 1.0); save(img, "vanguard", (255, 200, 170))
 

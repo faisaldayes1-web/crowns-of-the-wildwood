@@ -127,6 +127,7 @@ func _process(delta: float) -> void:
 		var offset: Vector3 = u.global_position - global_position
 		if absf(offset.y) < 1.5 and Vector2(offset.x, offset.z).length() < 1.2:
 			u.apply_blessing(kind)
+			game.sfx.play("blessing", global_position, 0.0)
 			game.spawn_pillar(global_position, color, 6.0, 1.0)
 			game.spawn_ring(global_position, 3.0, color, 0.7)
 			game.spawn_splash(global_position + Vector3(0, 0.5, 0), color, 40, 5.0, 1.0, true)

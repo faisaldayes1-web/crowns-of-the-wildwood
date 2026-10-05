@@ -180,8 +180,10 @@ func take_hit(amount: int, attacker = null) -> void:
 		attacker.gain_xp(Stats.XP_GATE * amount)
 	game.spawn_splash(lock_pos + Vector3(0, 1.2, 0), Color(1.0, 0.85, 0.4), 10, 3.5, 0.4)
 	game.shake_at(lock_pos, 0.3)
+	game.sfx.play("vault_hit", lock_pos, -2.0, 0.12)
 	if hp == 0:
 		open = true
+		game.sfx.play("vault_open", lock_pos, 2.0)
 		relock_timer = Stats.VAULT_RELOCK_TIME
 		shape.disabled = true
 		game.announce("The %s Crown Vault is open! The %s is exposed!" % [Stats.FACTIONS[team].name, game.monarchs[team].title])
@@ -216,5 +218,6 @@ func _process(delta: float) -> void:
 		open = false
 		hp = Stats.VAULT_HITS
 		shape.disabled = false
+		game.sfx.play("door_rebuilt", lock_pos, -4.0, 0.0)
 		game.announce("The %s Crown Vault has locked again." % Stats.FACTIONS[team].name)
 	_refresh()

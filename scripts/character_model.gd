@@ -76,6 +76,13 @@ static func config(team: int, role: int, variant: String = "", rank: int = 1) ->
 					c.show = ["2H_Staff"]
 					c.idle = "Idle"
 					c.attacks = ["Spellcast_Shoot"]
+				Role.ENGINEER:
+					c.scene = "barbarian"
+					c.skin = "barbarian"
+					c.show = ["1H_Axe"]  # the axe holder carries a built hammer (see _add_weapon_art)
+					c.idle = "Idle"
+					c.attacks = ["1H_Melee_Attack_Chop", "1H_Melee_Attack_Slice_Horizontal"]
+					c.scale = 0.9
 				Role.HEALER:
 					c.scene = "mage"
 					c.skin = "healer"
@@ -344,7 +351,38 @@ func _add_weapon_art(team: int, role: int, rank: int) -> void:
 	var leaf := StandardMaterial3D.new()
 	leaf.albedo_color = Color(0.4, 0.75, 0.3)
 	leaf.roughness = 0.9
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color(0.4, 0.42, 0.47)
+	iron.metallic = 0.6
+	iron.roughness = 0.4
 	match role:
+		Role.ENGINEER:
+			# A hammer (or sledge) on the axe holder: the packs have no hammer.
+			var holder := _gear_node("1H_Axe")
+			if holder == null:
+				holder = _gear_node("2H_Axe")
+			if holder == null:
+				return
+			for m in _meshes(holder):
+				m.visible = false
+			holder.visible = true
+			var big: bool = holder.name == "2H_Axe"
+			var shaft_len := 1.1 if big else 0.8
+			_prism(holder, Vector3(0.05, shaft_len, 0.05), Vector3(0, shaft_len / 2.0 - 0.3, 0), Vector3.ZERO, wood)
+			var head_mat: Material = gold if rank >= 4 else iron
+			var head_size := Vector3(0.36, 0.2, 0.2) if big else Vector3(0.28, 0.16, 0.16)
+			_prism(holder, head_size, Vector3(0, shaft_len - 0.35, 0), Vector3.ZERO, head_mat)
+			if rank >= 2:
+				_prism(holder, Vector3(0.07, 0.05, 0.07), Vector3(0, shaft_len - 0.55, 0), Vector3.ZERO, iron)
+				_prism(holder, Vector3(0.07, 0.05, 0.07), Vector3(0, -0.2, 0), Vector3.ZERO, iron)
+			if rank >= 3:
+				_prism(holder, head_size * Vector3(1.05, 0.3, 1.05), Vector3(0, shaft_len - 0.35, 0), Vector3.ZERO, gold)
+			if rank >= 4:
+				var gm := StandardMaterial3D.new()
+				gm.albedo_color = team_col.lightened(0.4)
+				gm.emission_enabled = true
+				gm.emission = team_col * 1.5
+				_sphere(holder, 0.05, Vector3(0, shaft_len - 0.2, 0), gm)
 		Role.RANGER:
 			var bow := _gear_node("2H_Crossbow")
 			if bow == null:

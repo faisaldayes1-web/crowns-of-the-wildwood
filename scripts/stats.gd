@@ -2,7 +2,7 @@ extends RefCounted
 ## Every number that shapes a fight lives here, so balancing never means
 ## digging through game code. Health is counted in hearts: damage 1 = one heart.
 
-enum Role { BASE, KNIGHT, RANGER, MAGE, HEALER }
+enum Role { BASE, KNIGHT, RANGER, MAGE, HEALER, ENGINEER }
 
 const MAX_HEARTS := 4
 const STAMINA_MAX := 100.0
@@ -38,7 +38,7 @@ const BOT_TUNING := {
 	"Normal": {"aim_error": 0.12, "ability": 1.0, "react": 1.0, "sight": 1.0, "chase": 18.0, "desc": "A fair fight: bots aim well and use their kit."},
 	"Hard": {"aim_error": 0.03, "ability": 1.9, "react": 1.6, "sight": 1.3, "chase": 30.0, "desc": "Bots aim true, chain abilities, dodge often and hunt veterans."},
 }
-const CARRY_SPEED_MULT := 0.75
+const CARRY_SPEED_MULT := 0.8
 
 const DODGE_TIME := 0.25      # seconds the dash lasts; nothing can hit you during it
 const DODGE_SPEED_MULT := 3.2 # dash speed as a multiple of run speed
@@ -65,10 +65,10 @@ const BLESSING_KINDS := {
 }
 
 const DOOR_HALF := 3.5        # half-width of each castle door
-const GATE_HITS := 400        # door damage a castle door soaks before it breaks (a full squad needs ~40 s of focus; a lone Knight can't do it in time)
+const GATE_HITS := 320        # door damage a castle door soaks before it breaks (a full squad needs ~35 s of focus; a lone Knight can't do it in time)
 const BARRICADE_HITS := 4
 const BARRICADE_REBUILD := 45.0
-const VAULT_HITS := 20        # hits to break the Crown Vault's lock (about 10 s for one Knight)
+const VAULT_HITS := 14        # hits to break the Crown Vault's lock (about 7 s for one Knight)
 const VAULT_RELOCK_TIME := 30.0
 const SPAWN_PROTECT_TIME := 3.0  # seconds of invulnerability after spawning (ends on leaving the cellar)
 # Defending home: the bonus a team gets inside its own castle (and cellar).
@@ -77,7 +77,14 @@ const SPAWN_PROTECT_TIME := 3.0  # seconds of invulnerability after spawning (en
 # speeds up the door's rebuild while a defender stands by it.
 const DEFENDER := {"resist": 0.1, "heal": 0.1, "regen": 0.1, "interact": 0.15}
 const GATE_REBUILD_TIME := 40.0
+# Engineer turrets, per level 1-3: hits they soak, reach and seconds between
+# bolts. They go on your castle walls or grounds (up to GROUNDS metres
+# outside the front wall), never in the door lane.
+const TURRET := {"hits": [8, 12, 16], "range": [8.0, 9.5, 11.0], "interval": [1.3, 1.0, 0.8],
+	"damage": 1, "shot_speed": 34.0, "max_level": 3, "team_max": 6, "place_dist": 1.8, "grounds": 14.0,
+	"door_repair": 12.0}
 const MATCH_TIME := 600.0     # seconds
+const OVERTIME := 90.0        # a tie at full time: both doors fall and the next capture wins
 const CAPTURES_TO_WIN := 2
 
 # Experience, earned per life and lost on death. Each level gives one rank
@@ -87,6 +94,7 @@ const XP_HIT := 10            # per heart of damage dealt
 const XP_KILL := 40
 const XP_HEAL := 8            # per heart healed on a teammate
 const XP_GATE := 1            # per door hit
+const XP_TURRET := 30         # for wrecking an enemy turret
 const XP_GRAB := 25           # picking up the enemy monarch
 const XP_CAPTURE := 100
 const MAX_RANK := 3
@@ -132,10 +140,10 @@ const ROLES := {
 		"color": Color(0.85, 0.8, 0.7), "abilities": []},
 	Role.KNIGHT: {"attack": "melee", "attack_name": "Sword Strike", "attack_desc": "A wide swing that also chips at doors.",
 		"damage": 1, "gate_damage": 2, "range": 2.2, "cooldown": 0.55,
-		"energy": "stamina", "cost": 12.0, "speed": 1.0, "block": true,
+		"energy": "stamina", "cost": 12.0, "speed": 1.06, "block": true, "armour": 0.34,
 		"color": Color(0.8, 0.8, 0.85), "abilities": [
-			{"name": "Shield Bash", "key": "Q", "kind": "bash", "cooldown": 5.0, "cost": 30.0,
-				"damage": 1, "distance": 4.0, "desc": "Charge forward, hitting and shoving everyone in the way."},
+			{"name": "Shield Bash", "key": "Q", "kind": "bash", "cooldown": 4.5, "cost": 30.0,
+				"damage": 2, "distance": 4.0, "desc": "Charge forward: two hearts to everyone in the way, and a shove."},
 			{"name": "Shield Wall", "key": "E", "kind": "guard", "cooldown": 10.0, "cost": 35.0,
 				"duration": 1.8, "desc": "Nothing gets through your shield for a moment, from any side."}]},
 	Role.RANGER: {"attack": "arrow", "attack_name": "Quick Shot", "attack_desc": "A fast arrow. Shoot down from the walls.",
@@ -154,6 +162,14 @@ const ROLES := {
 				"damage": 2, "splash": 3.2, "range": 13.0, "shot_speed": 24.0, "desc": "A big slow ball of fire: two hearts to everyone near the blast, four hits to a door."},
 			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 6.0, "cost": 25.0,
 				"distance": 6.0, "desc": "Teleport a short way in the aim direction."}]},
+	Role.ENGINEER: {"attack": "melee", "attack_name": "Hammer", "attack_desc": "A heavy swing that wrecks doors, fences and turrets.",
+		"damage": 1, "gate_damage": 3, "range": 1.9, "cooldown": 0.6,
+		"energy": "stamina", "cost": 13.0, "speed": 0.98,
+		"color": Color(0.85, 0.6, 0.3), "abilities": [
+			{"name": "Build Turret", "key": "Q", "kind": "turret", "cooldown": 10.0, "cost": 45.0,
+				"turrets": 2, "desc": "Build a bolt turret in front of you, on your castle walls or grounds. Two at a time; the oldest makes way."},
+			{"name": "Tune Up", "key": "E", "kind": "upgrade", "cooldown": 7.0, "cost": 35.0,
+				"desc": "Repair the nearest of your turrets and raise it a level (up to 3), or hurry your door's rebuild."}]},
 	Role.HEALER: {"attack": "heal", "attack_name": "Mend", "attack_desc": "Heal hurt teammates around you; with nobody to heal, fire a holy bolt instead.",
 		"damage": 1, "gate_damage": 1, "range": 10.0, "cooldown": 0.8,
 		"energy": "mana", "cost": 20.0, "heal": 1, "heal_radius": 5.0, "speed": 1.0, "shot_speed": 30.0,
@@ -186,14 +202,14 @@ const VARIANTS := {
 				{"name": "Cleave", "key": "Q", "kind": "cleave", "icon": "cleave", "cooldown": 6.0, "cost": 40.0,
 					"damage": 1, "radius": 3.2, "desc": "Spin with the greatsword, hitting and shoving everyone around you."},
 				{"name": "Charge", "key": "E", "kind": "bash", "icon": "bash", "cooldown": 6.0, "cost": 35.0,
-					"damage": 1, "distance": 6.5, "desc": "A long charge that bowls over everyone in the way."}]},
+					"damage": 2, "distance": 6.5, "desc": "A long charge that bowls over everyone in the way for two hearts."}]},
 		{"name": "Warden", "icon": "warden", "tint": Color(0.78, 0.84, 1.0), "show": ["1H_Sword", "Rectangle_Shield"],
 			"desc": "Tower shield defence: a slam that pins enemies down and a bulwark that shields nearby teammates too.",
 			"attack": {"attack_name": "Mace", "attack_desc": "A short, heavy blow that batters doors.",
 				"range": 2.0, "cooldown": 0.55, "gate_damage": 3},
 			"abilities": [
 				{"name": "Shield Slam", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 5.0, "cost": 35.0,
-					"damage": 1, "distance": 3.5, "root": 1.2, "desc": "A short charge that pins everyone it hits in place."},
+					"damage": 2, "distance": 3.5, "root": 1.2, "desc": "A short charge for two hearts that pins everyone it hits in place."},
 				{"name": "Bulwark", "key": "E", "kind": "guard", "icon": "guard", "cooldown": 9.0, "cost": 35.0,
 					"duration": 2.5, "share": 4.0, "desc": "A longer Shield Wall that also shields teammates close to you."}]}],
 	Role.RANGER: [
@@ -230,6 +246,24 @@ const VARIANTS := {
 					"damage": 1, "splash": 3.5, "range": 13.0, "shot_speed": 28.0, "frost": true, "root": 1.0, "desc": "A ball of ice that freezes everyone near the blast in place."},
 				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4.0, "cost": 25.0,
 					"distance": 8.0, "desc": "Teleport further in the aim direction."}]}],
+	Role.ENGINEER: [
+		{"name": "Artificer", "icon": "artificer", "tint": Color(0.75, 0.9, 1.0), "show": ["1H_Axe"],
+			"desc": "Clockwork: three rapid-fire turrets at a time, and an overclock that doubles their fire for a moment.",
+			"attack": {"attack_name": "Spanner", "attack_desc": "A quick, light swing.", "cooldown": 0.5, "cost": 11.0, "gate_damage": 2},
+			"abilities": [
+				{"name": "Rapid Turret", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 8.0, "cost": 40.0,
+					"turrets": 3, "rapid": true, "desc": "A quick-firing turret. Three at a time."},
+				{"name": "Overclock", "key": "E", "kind": "overclock", "icon": "overclock", "cooldown": 14.0, "cost": 40.0,
+					"duration": 6.0, "desc": "Every turret you built fires twice as fast for six seconds."}]},
+		{"name": "Siegewright", "icon": "siegewright", "tint": Color(1.0, 0.8, 0.6), "show": ["2H_Axe"],
+			"attacks": ["2H_Melee_Attack_Chop", "2H_Melee_Attack_Slice"], "idle": "2H_Melee_Idle",
+			"desc": "Heavy works: a sledge that batters doors, ballista turrets with splashing bolts, and door repairs.",
+			"attack": {"attack_name": "Sledge", "attack_desc": "A slow, heavy blow: five hits to a door.", "range": 2.2, "cooldown": 0.75, "cost": 16.0, "gate_damage": 5},
+			"abilities": [
+				{"name": "Ballista", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 12.0, "cost": 50.0,
+					"turrets": 2, "ballista": true, "desc": "A slow turret whose bolts burst on impact and reach further."},
+				{"name": "Fortify", "key": "E", "kind": "upgrade", "icon": "upgrade", "cooldown": 8.0, "cost": 40.0,
+					"door": 60, "desc": "Tune up the nearest turret, or mend your door by 60 hits (and hurry its rebuild)."}]}],
 	Role.HEALER: [
 		{"name": "Cleric", "icon": "cleric", "tint": Color(1.0, 0.95, 0.78), "show": ["1H_Wand", "Spellbook_open"],
 			"desc": "Guardian of the group: wider mending, a sanctuary that heals and shields, and a smite that bursts.",
@@ -242,9 +276,9 @@ const VARIANTS := {
 		{"name": "Dark Priest", "icon": "darkpriest", "tint": Color(0.72, 0.55, 0.9), "show": ["1H_Wand", "Spellbook"],
 			"desc": "Forbidden rites: bolts that drain life back to you, a curse that saps enemies, and a heavier smite.",
 			"attack": {"attack_name": "Drain Bolt", "attack_desc": "Mend nearby teammates; with nobody to heal, a shadow bolt that heals you a heart per hit.",
-				"drain": true, "cost": 20.0},
+				"drain": true, "cost": 27.0},
 			"abilities": [
-				{"name": "Curse", "key": "Q", "kind": "curse", "icon": "curse", "cooldown": 10.0, "cost": 50.0,
+				{"name": "Curse", "key": "Q", "kind": "curse", "icon": "curse", "cooldown": 12.0, "cost": 50.0,
 					"damage": 1, "radius": 5.0, "slow": 2.5, "desc": "Every enemy around you loses a heart and crawls for a moment."},
 				{"name": "Smite", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 7.0, "cost": 45.0,
 					"damage": 2, "range": 12.0, "shot_speed": 36.0, "desc": "A heavy bolt of shadow: two hearts."}]}],
@@ -255,11 +289,13 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 	["Garrick", "Brom", "Ysolde", "Cedric", "Maud", "Aldric"]]
 
 # Elves are quicker on their feet; humans recover stamina and mana faster.
+# (Regen limits attack rate, so it is worth more than it looks: 1.3 made the
+# Humans win three of every four bot matches; 1.12 against 8% speed is even.)
 const FACTIONS := [
-	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.6, "regen_mult": 1.0,
-		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer"]},
-	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.3,
-		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer"]},
+	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.5, "regen_mult": 1.0,
+		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer"]},
+	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.12,
+		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer"]},
 ]
 
 

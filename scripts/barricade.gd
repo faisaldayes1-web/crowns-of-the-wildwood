@@ -75,7 +75,9 @@ func take_hit(amount: int, attacker = null) -> void:
 	game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.75, 0.55, 0.3), 8, 3.0, 0.4)
 	# Each hit knocks it a little more askew.
 	visual.rotation.z = (1.0 - float(hp) / Stats.BARRICADE_HITS) * 0.18
+	game.sfx.play("barricade", global_position, -3.0, 0.15)
 	if hp == 0:
+		game.sfx.play("door_break", global_position, -8.0, 0.2)
 		shape.disabled = true
 		rebuild_timer = Stats.BARRICADE_REBUILD
 		game.spawn_splash(global_position + Vector3(0, 0.6, 0), Color(0.6, 0.42, 0.22), 18, 4.0, 0.7)

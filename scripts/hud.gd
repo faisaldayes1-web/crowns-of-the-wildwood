@@ -41,6 +41,7 @@ var tab_buttons: Array = []
 var tab_ids: Array = []
 var bind_buttons: Array = []      # [rect, action]
 var reset_button := Rect2()
+var volume_sliders: Array = []   # [rect, "sound" | "music"] in the controls tab
 var options_button := Rect2()
 var close_button := Rect2()
 var difficulty_buttons: Array = []  # [rect, name] on the title screen
@@ -59,7 +60,7 @@ func _ready() -> void:
 			"class_healer", "class_elf", "class_human", "crest_forest", "crest_kingdom",
 			"cleave", "pierce", "snipe", "smoke", "wave", "frost", "curse", "drain",
 			"vanguard", "warden", "sharpshooter", "trapper", "pyromancer", "frostweaver", "cleric", "darkpriest",
-			"potion", "regen", "might"]:
+			"potion", "regen", "might", "class_engineer", "hammer", "turret", "upgrade", "overclock", "artificer", "siegewright"]:
 		var path := "res://assets/ui/icons/%s.png" % kind
 		if ResourceLoader.exists(path):
 			icons[kind] = load(path)
@@ -92,6 +93,7 @@ func _draw() -> void:
 	tab_ids = []
 	bind_buttons = []
 	reset_button = Rect2()
+	volume_sliders = []
 	options_button = Rect2()
 	close_button = Rect2()
 	difficulty_buttons = []
@@ -249,7 +251,7 @@ func _arc_polygon(center: Vector2, radius: float, from: float, to: float, color:
 
 
 func _card_key(team: int, role: int) -> String:
-	var names := {Role.BASE: "base", Role.KNIGHT: "knight", Role.RANGER: "ranger", Role.MAGE: "mage", Role.HEALER: "healer"}
+	var names := {Role.BASE: "base", Role.KNIGHT: "knight", Role.RANGER: "ranger", Role.MAGE: "mage", Role.HEALER: "healer", Role.ENGINEER: "engineer"}
 	return "%s_%s" % ["elf" if team == 0 else "human", names.get(role, "base")]
 
 
@@ -388,6 +390,21 @@ func _icon(kind: String, c: Vector2, s: float, color: Color, dim: bool = false) 
 				if kind == "arrow":
 					draw_line(c - d * s * 0.9, c - d * s * 0.9 + side * 0.3 * s - d * 0.2 * s, color, 2.0)
 					draw_line(c - d * s * 0.9, c - d * s * 0.9 - side * 0.3 * s - d * 0.2 * s, color, 2.0)
+		"hammer":
+			draw_line(c + Vector2(-0.9 * s, 0.9 * s), c + Vector2(0.4 * s, -0.4 * s), color.darkened(0.3), 3.0)
+			draw_rect(Rect2(c + Vector2(0.0, -1.0 * s), Vector2(1.0 * s, 0.6 * s)), color)
+		"turret":
+			draw_rect(Rect2(c + Vector2(-0.6 * s, 0.4 * s), Vector2(1.2 * s, 0.4 * s)), color.darkened(0.3))
+			draw_rect(Rect2(c + Vector2(-0.12 * s, -0.4 * s), Vector2(0.24 * s, 0.8 * s)), color)
+			draw_arc(c + Vector2(0, -0.45 * s), 0.7 * s, PI, TAU, 16, color, 2.5)
+			draw_line(c + Vector2(0, -0.45 * s), c + Vector2(0, -1.2 * s), color, 2.0)
+		"upgrade":
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -1.0 * s), c + Vector2(0.9 * s, 0.0), c + Vector2(0.35 * s, 0.0),
+				c + Vector2(0.35 * s, 0.9 * s), c + Vector2(-0.35 * s, 0.9 * s), c + Vector2(-0.35 * s, 0.0), c + Vector2(-0.9 * s, 0.0)]), color)
+		"overclock":
+			draw_arc(c, 0.85 * s, 0, TAU, 24, color, 2.5)
+			draw_line(c, c + Vector2(0, -0.6 * s), color, 2.5)
+			draw_line(c, c + Vector2(0.45 * s, 0.2 * s), color, 2.5)
 		"trap":
 			draw_arc(c, 0.75 * s, 0, TAU, 32, color, 3.5)
 			for i in 8:
@@ -457,6 +474,7 @@ func _class_icon(role: int) -> String:
 		Role.RANGER: return "class_ranger"
 		Role.MAGE: return "class_mage"
 		Role.HEALER: return "class_healer"
+		Role.ENGINEER: return "class_engineer"
 	return "class_elf"
 
 
@@ -470,7 +488,7 @@ func _attack_icon(role: int, s: Dictionary = {}) -> String:
 	if s.get("fire", false):
 		return "fireball"
 	match s.attack:
-		"melee": return "sword" if role == Role.KNIGHT else "fist"
+		"melee": return "sword" if role == Role.KNIGHT else ("hammer" if role == Role.ENGINEER else "fist")
 		"arrow": return "arrow"
 		"spell": return "bolt"
 		"heal": return "mend"
@@ -497,11 +515,12 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 			16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
 	elif not usable:
 		draw_rect(rect.grow(-3), Color(0.5, 0.1, 0.1, 0.35))
-	# Rank pips along the top edge.
+	# Rank pips in the top-right corner.
 	for i in rank:
-		draw_circle(rect.position + Vector2(8 + i * 8, 7), 2.6, GOLD)
-	_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(26.0, _text_width(key, 12) + 12.0))
-	_text(Vector2(rect.position.x - 20, rect.end.y + 30), label, 10, Color(0.85, 0.85, 0.85),
+		draw_circle(rect.end - Vector2(8 + i * 8, size_px - 8), 2.6, GOLD)
+		draw_arc(rect.end - Vector2(8 + i * 8, size_px - 8), 2.6, 0, TAU, 10, Color(0.3, 0.2, 0.05), 1.0)
+	_keycap(Vector2(rect.get_center().x, rect.end.y + 2), key, maxf(26.0, _text_width(key, 12) + 12.0))
+	_text(Vector2(rect.position.x - 20, rect.end.y + 27), label, 10, GOLD.lerp(Color.WHITE, 0.6) if ready else Color(0.6, 0.6, 0.65),
 		HORIZONTAL_ALIGNMENT_CENTER, size_px + 40)
 
 
@@ -624,8 +643,9 @@ func _draw_scoreboard() -> void:
 	var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
 	_text(Vector2(cx - 85, 49), "%02d:%02d" % [int(left) / 60, int(left) % 60], 34,
 		Color(1, 0.4, 0.3) if urgent else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 170)
-	_plate(Rect2(cx - 95, 66, 190, 22), INK, GOLD_DARK, 6, 1)
-	_text(Vector2(cx - 95, 82), "CAPTURE THE CROWN", 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 190, 2)
+	_plate(Rect2(cx - 95, 66, 190, 22), INK if not game.overtime else Color(0.4, 0.1, 0.1, 0.95), GOLD_DARK if not game.overtime else Color(1, 0.5, 0.4), 6, 1)
+	_text(Vector2(cx - 95, 82), "OVERTIME · NEXT CAPTURE WINS" if game.overtime else "CAPTURE THE CROWN", 13 if not game.overtime else 11,
+		GOLD if not game.overtime else Color(1, 0.85, 0.7), HORIZONTAL_ALIGNMENT_CENTER, 190, 2)
 
 
 func _draw_roster(team: int, origin: Vector2, compact: bool = false) -> void:
@@ -741,9 +761,10 @@ func _draw_academy() -> void:
 	## with a line each. Click a row or press 1-4 to become it, or step on
 	## its station.
 	var team: int = game.player_team
-	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER]
-	var blurbs := {Role.KNIGHT: "Frontline fighter. Strong vs enemies and structures.", Role.RANGER: "Ranged attacker. Use cover and keep your distance.",
-		Role.MAGE: "Powerful spells and area control.", Role.HEALER: "Keeps teammates alive and supports the team."}
+	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER]
+	var blurbs := {Role.KNIGHT: "Frontline fighter in plate: every third hit glances off. Strong vs enemies and structures.", Role.RANGER: "Ranged attacker. Use cover and keep your distance.",
+		Role.MAGE: "Powerful spells and area control.", Role.HEALER: "Keeps teammates alive and supports the team.",
+		Role.ENGINEER: "Builds and upgrades turrets on the walls. Hammer wrecks doors."}
 	var rect := Rect2(size.x - 480, 100, 256, 60 + roles.size() * 58)
 	var tc := _team_color(team)
 	_plate(rect, INK, GOLD, 12, 2)
@@ -762,7 +783,7 @@ func _draw_academy() -> void:
 		_keycap(Vector2(row.end.x - 16, row.position.y + 14), str(i + 1), 20)
 		_paragraph(row.position + Vector2(52, 34), blurbs[role], 9, Color(0.85, 0.85, 0.85), row.size.x - 60, 11, 1)
 		academy_buttons.append([row, role])
-	_text(rect.position + Vector2(0, rect.size.y - 8), "Step on a station, click a class or press 1-4", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, rect.size.y - 8), "Step on a station, click a class or press 1-5", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _draw_toasts() -> void:
@@ -845,9 +866,10 @@ func _draw_player_panel(p) -> void:
 	_draw_xp_bar(p, Rect2(rect.position + Vector2(110, 104), Vector2(rect.size.x - 122, 14)))
 	if p.points > 0 and not p.dead:
 		var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 150.0)
-		var badge := Rect2(rect.position + Vector2(236, 4), Vector2(112, 22))
-		_plate(badge, Color(0.55, 0.4, 0.05, pulse), GOLD, 6, 1)
-		_text(badge.position + Vector2(0, 16), "%s  RANK UP  +%d" % [game.key_label("rank_menu"), p.points], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, badge.size.x, 2)
+		var badge := Rect2(rect.position + Vector2(352, -30), Vector2(132, 24))
+		_plate(badge, Color(0.55, 0.4, 0.05, pulse), GOLD, 8, 1)
+		_icon("xp", badge.position + Vector2(14, 12), 7, Color.WHITE)
+		_text(badge.position + Vector2(26, 17), "%s  RANK UP  +%d" % [game.key_label("rank_menu"), p.points], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	if p.veteran > 0 and not p.dead:
 		var vb := Rect2(rect.position + Vector2(rect.size.x - 236, -30), Vector2(224, 26))
 		var vc := Color(1.0, 0.55, 0.2) if p.veteran == 2 else Color(1.0, 0.85, 0.3)
@@ -1015,9 +1037,16 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 			var br := 4.0 if not detailed else 7.0
 			draw_circle(bc, br + 2.0, Color(1.0, 0.9, 0.5, 0.35 + 0.25 * sin(pt * 6.0)))
 			_icon("xp", bc, br, GOLD)
+	# Turrets: small diamonds in team colour (enemy ones once a teammate has seen them).
+	var my_team: int = game.player_team
+	for t in game.turrets:
+		var tc: Vector2 = m.call(t.global_position)
+		var tr := 3.0 if not detailed else 5.0
+		var tcol: Color = _team_color(t.team)
+		draw_colored_polygon(PackedVector2Array([tc + Vector2(0, -tr), tc + Vector2(tr, 0), tc + Vector2(0, tr), tc + Vector2(-tr, 0)]), tcol.lightened(0.2))
+		draw_polyline(PackedVector2Array([tc + Vector2(0, -tr), tc + Vector2(tr, 0), tc + Vector2(0, tr), tc + Vector2(-tr, 0), tc + Vector2(0, -tr)]), Color(0, 0, 0, 0.6), 1.0)
 	# Everyone we can see. Enemies show within 22 m of a living teammate;
 	# Elite Veterans always show, with a pulsing bounty ring.
-	var my_team: int = game.player_team
 	var allies: Array = game.units.filter(func(u): return u.team == my_team and not u.dead)
 	for u in game.units:
 		if u.dead:
@@ -1050,14 +1079,16 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 func _rank_desc(p, track: int) -> String:
 	var r: int = p.rank(track)
 	if track == 3:
-		return "+%d%% speed, +%d max %s, +%d%% regen per rank" % [int(Stats.VIGOR_SPEED * 100), int(Stats.VIGOR_ENERGY),
+		if r >= Stats.MAX_RANK:
+			return "Fully ranked"
+		return "Next: +%d%% speed, +%d %s, +%d%% regen" % [int(Stats.VIGOR_SPEED * 100), int(Stats.VIGOR_ENERGY),
 			p.energy_kind(), int(Stats.VIGOR_REGEN * 100)]
 	var next := r + 1
 	match next:
-		1: return "Rank 1: cools down %d%% faster and costs %d%% less" % [int(Stats.RANK_COOLDOWN_CUT * 100), int(Stats.RANK_COST_CUT * 100)]
-		2: return "Rank 2: bigger effect (range, radius, duration, more arrows)"
-		3: return "Rank 3: one more heart of damage or healing"
-	return "Maxed out"
+		1: return "Next: %d%% faster cooldown, %d%% cheaper" % [int(Stats.RANK_COOLDOWN_CUT * 100), int(Stats.RANK_COST_CUT * 100)]
+		2: return "Next: bigger effect (range, radius, duration)"
+		3: return "Next: one more heart of damage or healing"
+	return "Fully ranked"
 
 
 func _draw_rank_menu(p) -> void:
@@ -1066,38 +1097,52 @@ func _draw_rank_menu(p) -> void:
 	var rect := Rect2(size.x / 2.0 - 290, size.y / 2.0 - h / 2.0 - 20, 580, h)
 	_plate(rect, INK, GOLD, 14, 3)
 	_close(rect)
-	_text(rect.position + Vector2(0, 32), "PERKS AND RANKS", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
-	_text(rect.position + Vector2(0, 54), "Level %d  ·  %d point%s to spend  ·  experience is per life" % [p.level, p.points, "" if p.points == 1 else "s"],
-		13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, 32), "SKILLS AND RANKS", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
+	var pts_text := "%d point%s to spend" % [p.points, "" if p.points == 1 else "s"] if p.points > 0 else "no points yet: earn experience"
+	_text(rect.position + Vector2(0, 54), "Level %d  ·  %s" % [p.level, pts_text], 13, GOLD if p.points > 0 else CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 	var track_icons := [_attack_icon(p.role, p.stats()), "", "", "vigor"]
 	for i in 2:
 		if i < p.abilities().size():
 			track_icons[i + 1] = p.abilities()[i].get("icon", p.abilities()[i].kind)
+	var cls_color: Color = Stats.ROLES[p.role].color.lightened(0.3)
 	for t in 4:
 		var row := Rect2(rect.position + Vector2(16, 70 + t * 64), Vector2(rect.size.x - 32, 58))
 		var available: bool = p.track_available(t)
-		_plate(row, INK_LIGHT if available else Color(0.12, 0.12, 0.15, 0.9), GOLD_DARK if available else Color(0.3, 0.3, 0.3), 8, 1)
-		var cls_color: Color = Stats.ROLES[p.role].color.lightened(0.3)
+		var maxed: bool = p.rank(t) >= Stats.MAX_RANK
+		var can: bool = available and p.points > 0 and not maxed
+		_plate(row, INK_LIGHT if available else Color(0.12, 0.12, 0.15, 0.9), GOLD if can else (GOLD_DARK if available else Color(0.3, 0.3, 0.3)), 8, 1)
+		# A framed icon square on the left.
+		var box := Rect2(row.position + Vector2(8, 7), Vector2(44, 44))
+		_plate(box, Color(0.08, 0.08, 0.12, 0.95), GOLD_DARK if available else Color(0.3, 0.3, 0.3), 7, 1)
 		if available:
-			_icon(track_icons[t], row.position + Vector2(30, 29), 14, cls_color if t < 3 else XP)
+			_icon(track_icons[t], box.get_center(), 13, cls_color if t < 3 else XP)
 		var name: String = p.track_name(t) if available else "No %s ability yet" % ["", "Q", "E", ""][t]
-		_text(row.position + Vector2(60, 22), name, 15, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		_text(row.position + Vector2(64, 21), name, 15, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		# Rank as three segments beside the name, the next rank's effect below.
 		for k in Stats.MAX_RANK:
-			var c := row.position + Vector2(66 + k * 16, 36)
-			draw_circle(c, 5.5, GOLD if k < p.rank(t) else Color(0.2, 0.2, 0.25))
-			draw_arc(c, 5.5, 0, TAU, 12, GOLD_DARK, 1.0)
+			var seg := Rect2(row.position + Vector2(64 + k * 30, 28), Vector2(26, 8))
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = GOLD if k < p.rank(t) else Color(0.2, 0.2, 0.25)
+			sb.set_corner_radius_all(3)
+			sb.border_color = GOLD_DARK if available else Color(0.3, 0.3, 0.3)
+			sb.set_border_width_all(1)
+			draw_style_box(sb, seg)
+		_text(row.position + Vector2(160, 36), ("Rank %d / %d" % [p.rank(t), Stats.MAX_RANK]) if available else "", 10, GOLD if maxed else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		if available:
-			_text(row.position + Vector2(125, 40), _rank_desc(p, t), 10, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		var can: bool = available and p.points > 0 and p.rank(t) < Stats.MAX_RANK
-		var button := Rect2(row.end.x - 118, row.position.y + 13, 106, 32)
+			_text(row.position + Vector2(64, 51), _rank_desc(p, t), 10, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		# One button with its number key inside it.
+		var button := Rect2(row.end.x - 128, row.position.y + 13, 116, 32)
 		_plate(button, Color(0.2, 0.5, 0.25, 0.95) if can else Color(0.2, 0.2, 0.22, 0.9), GOLD if can else Color(0.35, 0.35, 0.4), 7, 1)
-		var label := "RANK UP" if p.rank(t) < Stats.MAX_RANK else "MAXED"
-		_text(button.position + Vector2(0, 21), label, 12, Color.WHITE if can else GREY, HORIZONTAL_ALIGNMENT_CENTER, button.size.x, 2)
-		_keycap(button.position + Vector2(-16, 16), str(t + 1), 22)
+		var label := "RANK UP" if not maxed else "MAXED"
+		if available and not maxed:
+			_keycap(button.position + Vector2(20, 16), str(t + 1), 22)
+			_text(button.position + Vector2(36, 21), label, 12, Color.WHITE if can else GREY, HORIZONTAL_ALIGNMENT_CENTER, button.size.x - 40, 2)
+		else:
+			_text(button.position + Vector2(0, 21), label if available else "", 12, GOLD if maxed else GREY, HORIZONTAL_ALIGNMENT_CENTER, button.size.x, 2)
 		rank_buttons.append(button if can else Rect2())
 	if has_variants:
 		_promotion(p, Rect2(rect.position + Vector2(16, 70 + 4 * 64), Vector2(rect.size.x - 32, 124)))
-	_text(rect.position + Vector2(0, rect.size.y - 12), "Press 1-4 or click to spend a point  ·  5 / 6 pick a promotion  ·  %s closes" % game.key_label("rank_menu"), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, rect.size.y - 12), "1-4 or click spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  experience is per life" % game.key_label("rank_menu"), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _promotion(p, rect: Rect2) -> void:
@@ -1177,12 +1222,12 @@ func _menu_overview(body: Rect2) -> void:
 
 func _menu_classes(body: Rect2) -> void:
 	var team: int = game.player_team
-	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER]
-	var cw := (body.size.x - 3 * 10) / 4.0
+	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER]
+	var cw := (body.size.x - 4 * 8) / 5.0
 	for i in roles.size():
 		var role: int = roles[i]
 		var s: Dictionary = Stats.ROLES[role]
-		var card := Rect2(body.position + Vector2(i * (cw + 10), 0), Vector2(cw, body.size.y))
+		var card := Rect2(body.position + Vector2(i * (cw + 8), 0), Vector2(cw, body.size.y))
 		var mine: bool = game.player and game.player.role == role
 		_plate(card, INK_LIGHT, GOLD if mine else GOLD_DARK, 10, 2)
 		if not _card(_card_key(team, role), Rect2(card.position + Vector2(8, 6), Vector2(cw - 16, 80)), false):
@@ -1238,6 +1283,24 @@ func _menu_controls(body: Rect2) -> void:
 			_keycap(Vector2(x + 210, y + 1), key_text, 124)
 			_keycap(Vector2(x + 326, y + 1), game.binding_text(action, "pad"), 86)
 			bind_buttons.append([row, action])
+	# Sound and music sliders: click or drag.
+	var vy: float = body.end.y - 74
+	_text(Vector2(body.position.x + 10, vy + 5), "SOUND", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(body.position.x + 300, vy + 5), "MUSIC", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in 2:
+		var slider := Rect2(Vector2(body.position.x + 64 + i * 290, vy - 8), Vector2(170, 16))
+		var value: float = game.sfx.sound_volume if i == 0 else game.sfx.music_volume
+		_plate(slider, Color(0.08, 0.07, 0.1, 0.95), GOLD_DARK, 7, 1)
+		var inner := slider.grow(-2)
+		if value > 0.02:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = STAMINA if i == 0 else MANA
+			sb.set_corner_radius_all(5)
+			draw_style_box(sb, Rect2(inner.position, Vector2(inner.size.x * value, inner.size.y)))
+		draw_circle(Vector2(inner.position.x + inner.size.x * value, slider.get_center().y), 7.0, CREAM)
+		draw_arc(Vector2(inner.position.x + inner.size.x * value, slider.get_center().y), 7.0, 0, TAU, 16, GOLD_DARK, 1.5)
+		_text(slider.end + Vector2(8, -3), "%d%%" % roundi(value * 100), 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		volume_sliders.append([slider, "sound" if i == 0 else "music"])
 	reset_button = Rect2(body.end - Vector2(150, 34), Vector2(140, 26))
 	_plate(reset_button, Color(0.4, 0.2, 0.15, 0.95), GOLD_DARK, 6, 1)
 	_text(reset_button.position + Vector2(0, 18), "RESET TO DEFAULTS", 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, reset_button.size.x, 2)
@@ -1329,15 +1392,15 @@ func _menu_my_class(body: Rect2) -> void:
 	else:
 		_text(right.position + Vector2(0, 20), "TOTAL UPGRADES", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
 		_text(right.position + Vector2(0, 38), "Rank points spent per class this match. Three in a class unlock its two promotions.", 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
-		var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER]
+		var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER]
 		for i in roles.size():
 			var role: int = roles[i]
-			var row := Rect2(right.position + Vector2(10, 52 + i * 74), Vector2(right.size.x - 20, 66))
+			var row := Rect2(right.position + Vector2(10, 52 + i * 62), Vector2(right.size.x - 20, 56))
 			_plate(row, INK, GOLD_DARK, 8, 1)
 			_icon(_class_icon(role), row.position + Vector2(26, 24), 11, Color.WHITE)
 			var spent: int = p.mastery.get(role, 0)
-			_text(row.position + Vector2(50, 22), Stats.FACTIONS[p.team].roles[role].to_upper(), 13, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-			_text(row.position + Vector2(0, 22), "%d / %d points" % [spent, Stats.VARIANT_UNLOCK], 10, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 12, 2)
+			_text(row.position + Vector2(50, 20), Stats.FACTIONS[p.team].roles[role].to_upper(), 13, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+			_text(row.position + Vector2(0, 20), "%d / %d points" % [spent, Stats.VARIANT_UNLOCK], 10, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 12, 2)
 			var vs: Array = Stats.VARIANTS[role]
 			var chosen: int = p.variants.get(role, -1)
 			var line := "%s  or  %s" % [vs[0].name, vs[1].name]
@@ -1345,8 +1408,8 @@ func _menu_my_class(body: Rect2) -> void:
 				line = "Promoted: %s" % vs[chosen].name
 			elif p.variant_unlocked(role):
 				line = "Unlocked: choose in the perk menu as a %s" % Stats.FACTIONS[p.team].roles[role]
-			_text(row.position + Vector2(50, 42), line, 10, GOLD if chosen >= 0 else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-			_bar(Rect2(row.position + Vector2(50, 50), Vector2(row.size.x - 70, 8)), float(spent) / Stats.VARIANT_UNLOCK, XP)
+			_text(row.position + Vector2(50, 36), line, 10, GOLD if chosen >= 0 else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_bar(Rect2(row.position + Vector2(50, 43), Vector2(row.size.x - 70, 7)), float(spent) / Stats.VARIANT_UNLOCK, XP)
 
 
 func _menu_scoreboard(body: Rect2) -> void:
