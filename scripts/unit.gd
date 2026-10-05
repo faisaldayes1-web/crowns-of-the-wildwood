@@ -89,7 +89,7 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	sidestep_sign = 1.0 if bot_offset.x > 0.0 else -1.0
 	collision_layer = 2
 	# The world, plus the ENEMY door (layer 4 = human door, layer 3 = elf door).
-	collision_mask = 1 | (8 if team == 0 else 4)
+	collision_mask = 1 | 16 | (8 if team == 0 else 4)  # world, river banks, enemy door
 
 	shape = CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
@@ -119,15 +119,23 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 
 	# Shield Wall glow, hidden until used.
 	guard_ring = MeshInstance3D.new()
-	var guard_mesh := TorusMesh.new()
-	guard_mesh.inner_radius = 0.75
-	guard_mesh.outer_radius = 0.95
+	var guard_mesh := SphereMesh.new()
+	guard_mesh.radius = 1.15
+	guard_mesh.height = 2.3
+	guard_mesh.radial_segments = 16
+	guard_mesh.rings = 8
 	guard_ring.mesh = guard_mesh
 	guard_ring.position.y = 1.0
 	var guard_mat := StandardMaterial3D.new()
-	guard_mat.albedo_color = Color(0.5, 0.75, 1.0)
+	guard_mat.albedo_color = Color(0.5, 0.75, 1.0, 0.3)
+	guard_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	guard_mat.emission_enabled = true
 	guard_mat.emission = Color(0.4, 0.6, 1.0)
+	guard_mat.emission_energy_multiplier = 0.8
+	guard_mat.rim_enabled = true
+	guard_mat.rim = 1.0
+	guard_mat.rim_tint = 0.2
+	guard_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	guard_ring.material_override = guard_mat
 	guard_ring.visible = false
 	add_child(guard_ring)
@@ -264,8 +272,9 @@ func spend_point(track: int) -> bool:
 	points -= 1
 	if track == 3:
 		energy = minf(energy + Stats.VIGOR_ENERGY, energy_max())
-	game.spawn_burst(global_position + Vector3(0, 0.1, 0), 1.1, Color(1.0, 0.85, 0.3))
+	game.spawn_ring(global_position, 1.6, Color(1.0, 0.85, 0.3), 0.5)
 	game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(1.0, 0.85, 0.3), 14, 3.0, 0.5)
+	game.spawn_flash(global_position, Color(1.0, 0.85, 0.3), 2.0, 0.3)
 	if is_player:
 		game.spawn_popup(global_position + Vector3(0, 2.2, 0), "%s rank %d" % [track_name(track), rank(track)], Color(1, 0.9, 0.5))
 	return true
@@ -287,8 +296,9 @@ func gain_xp(amount: int) -> void:
 		points += new_level - level
 		level = new_level
 		_refresh_overhead()
-		game.spawn_burst(global_position + Vector3(0, 0.1, 0), 1.4, Color(1.0, 0.9, 0.4))
-		game.spawn_splash(global_position + Vector3(0, 0.6, 0), Color(1.0, 0.9, 0.4), 24, 4.5, 0.9)
+		game.spawn_pillar(global_position, Color(1.0, 0.9, 0.4), 4.5, 1.0)
+		game.spawn_ring(global_position, 2.2, Color(1.0, 0.9, 0.4), 0.6)
+		game.spawn_splash(global_position + Vector3(0, 0.6, 0), Color(1.0, 0.9, 0.4), 24, 4.5, 0.9, true)
 		game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
 		if is_player:
 			game.announce("Level %d! Press Tab to rank up an ability." % level)
@@ -429,6 +439,7 @@ func try_dodge(dir: Vector3) -> void:
 	blocking = false
 	model.play_once("Dodge_Forward", 2.2)
 	game.spawn_splash(global_position + Vector3(0, 0.2, 0), Color(0.9, 0.85, 0.7), 10, 2.5, 0.5)
+	game.spawn_ring(global_position, 1.0, Color(1, 1, 1), 0.3, 0.2)
 
 
 func ability_ready(i: int) -> bool:
@@ -464,20 +475,25 @@ func use_ability(i: int, dir: Vector3) -> void:
 			bash_speed = a.distance / 0.2
 			bash_hit = []
 			game.spawn_splash(global_position + Vector3(0, 0.3, 0), Color(0.8, 0.85, 1.0), 12, 3.0, 0.4)
+			game.spawn_ring(global_position, 1.8, Color(0.7, 0.8, 1.0), 0.35)
 		"guard":
 			guard_timer = a.duration
 			guard_ring.visible = true
+			game.spawn_ring(global_position, 2.0, Color(0.5, 0.75, 1.0), 0.4)
+			game.spawn_flash(global_position, Color(0.5, 0.75, 1.0), 2.0, 0.3)
 		"volley":
 			for k in a.arrows:
 				var ang: float = deg_to_rad(a.spread) * (float(k) / (a.arrows - 1) - 0.5)
 				game.spawn_shot(self, dir.rotated(Vector3.UP, ang),
 					{"damage": a.damage, "gate_damage": 1, "range": a.range, "shot_speed": a.shot_speed}, Color(0.95, 0.9, 0.7))
+			game.spawn_splash(global_position + dir * 0.8 + Vector3(0, 1.1, 0), Color(0.95, 0.9, 0.7), 8, 3.0, 0.25)
 			_recoil(dir, 3.0)
 		"trap":
 			game.spawn_trap(self, global_position + dir * 1.5, a)
 		"fireball":
 			game.spawn_shot(self, dir, {"damage": a.damage, "gate_damage": 4, "range": a.range,
 				"splash": a.splash, "shot_speed": a.shot_speed, "fire": true}, Color(1.0, 0.5, 0.1))
+			game.spawn_flash(global_position + dir, Color(1.0, 0.55, 0.15), 3.0, 0.3)
 			_recoil(dir, 3.5)
 		"blink":
 			var from := global_position + Vector3(0, 0.9, 0)
@@ -487,18 +503,25 @@ func use_ability(i: int, dir: Vector3) -> void:
 			if hit:
 				to = hit.position - dir * 0.8
 			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.7, 0.45, 1.0), 16, 3.0, 0.5)
+			game.spawn_ring(global_position, 1.5, Color(0.7, 0.45, 1.0), 0.4)
+			game.spawn_flash(global_position, Color(0.7, 0.45, 1.0), 2.5, 0.3)
 			global_position = Vector3(to.x, global_position.y, to.z)
 			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.7, 0.45, 1.0), 16, 3.0, 0.5)
+			game.spawn_ring(global_position, 1.5, Color(0.7, 0.45, 1.0), 0.4)
+			game.spawn_flash(global_position, Color(0.7, 0.45, 1.0), 2.5, 0.3)
 		"blessing":
 			for ally in game.units:
 				if ally.team == team and not ally.dead and _flat_to(ally.global_position).length() <= a.radius:
 					ally.heal(a.heal, self)
 					ally.haste_timer = a.haste
-			game.spawn_burst(global_position + Vector3(0, 0.2, 0), a.radius, Color(1.0, 0.95, 0.5))
+			game.spawn_ring(global_position, a.radius, Color(1.0, 0.95, 0.5), 0.7)
+			game.spawn_pillar(global_position, Color(1.0, 0.95, 0.6), 4.0, 0.8)
+			game.spawn_flash(global_position, Color(1.0, 0.95, 0.5), 4.0, 0.5)
 			game.spawn_splash(global_position + Vector3(0, 0.5, 0), Color(1.0, 0.95, 0.5), 30, 5.0, 1.0, true)
 		"smite":
 			game.spawn_shot(self, dir, {"damage": a.damage, "gate_damage": 1, "range": a.range,
-				"shot_speed": a.shot_speed}, Color(1.0, 0.95, 0.5))
+				"shot_speed": a.shot_speed, "holy": true}, Color(1.0, 0.95, 0.5))
+			game.spawn_flash(global_position + dir, Color(1.0, 0.95, 0.5), 2.0, 0.25)
 			_recoil(dir, 2.0)
 
 
@@ -527,6 +550,7 @@ func _die() -> void:
 	points = 0
 	ranks = {}
 	game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.3, 0.3, 0.35), 18, 3.0, 0.8)
+	game.spawn_ring(global_position, 1.4, Color(0.6, 0.2, 0.2), 0.5)
 	if aim_marker:
 		aim_marker.visible = false
 		aim_ring.visible = false
@@ -764,11 +788,12 @@ func _attack(dir: Vector3) -> void:
 			for ally in hurt:
 				ally.heal(s.heal, self)
 			model.play_once("Spellcast_Raise", 1.6)
-			game.spawn_burst(global_position + Vector3(0, 0.2, 0), s.heal_radius, Color(0.3, 1.0, 0.5))
+			game.spawn_ring(global_position, s.heal_radius, Color(0.3, 1.0, 0.5), 0.6)
+			game.spawn_flash(global_position, Color(0.3, 1.0, 0.5), 2.0, 0.4)
 			return
 		model.play_once("Spellcast_Shoot", 1.6)
 		game.spawn_shot(self, dir, {"damage": s.damage, "gate_damage": s.gate_damage, "range": s.range,
-			"shot_speed": s.shot_speed}, Color(1.0, 0.95, 0.6))
+			"shot_speed": s.shot_speed, "holy": true}, Color(1.0, 0.95, 0.6))
 		_recoil(dir, 1.5)
 		return
 	energy -= s.cost

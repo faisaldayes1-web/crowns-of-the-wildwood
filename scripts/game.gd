@@ -36,7 +36,12 @@ const KEEP_H := 2.6
 const KEEP_DOOR_HALF := 4.5   # the keep's open archway
 const CAPTURE_RADIUS := 3.0
 const STATION_RADIUS := 1.3
-const CAMERA_OFFSET := Vector3(0, 15.5, 11)
+const CAMERA_OFFSET := Vector3(0, 21.0, 15.0)  # a long lens: less edge distortion
+# The river runs north to south through the middle; three bridges cross it.
+const RIVER_HALF := 3.0
+const BRIDGES := [-14.0, 0.0, 14.0]
+const BRIDGE_HALF := [2.0, 3.0, 2.0]
+const BANK_LAYER := 16        # river banks block walkers, not shots
 const MONARCH_TITLES := ["Elf Queen", "Human King"]
 
 var map_half := Vector2(58, 26)
@@ -175,6 +180,8 @@ func _score_capture(carrier, m) -> void:
 	score[carrier.team] += 1
 	carrier.gain_xp(Stats.XP_CAPTURE)
 	spawn_splash(thrones[carrier.team] + Vector3(0, 1, 0), Color(1.0, 0.85, 0.3), 50, 6.0, 1.2, true)
+	spawn_pillar(thrones[carrier.team], Color(1.0, 0.85, 0.3), 7.0, 1.4)
+	spawn_ring(thrones[carrier.team], 6.0, Color(1.0, 0.9, 0.5), 0.8)
 	shake(0.3)
 	var team_name: String = Stats.FACTIONS[carrier.team].name
 	if score[carrier.team] >= CAPTURES_TO_WIN:
@@ -328,6 +335,19 @@ func route_point(from: Vector3, to: Vector3) -> Vector3:
 			target = ramp.bottom
 		else:
 			return ramp.top
+	# The river: cross at the bridge closest to the way, entering it square on.
+	if (from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF):
+		var bz: float = BRIDGES[0]
+		var best := 1e9
+		for z in BRIDGES:
+			var d: float = absf(from.z - z) + absf(target.z - z)
+			if d < best:
+				best = d
+				bz = z
+		var side := signf(from.x)
+		if absf(from.z - bz) > 1.2 and absf(from.x) > RIVER_HALF + 1.0:
+			return Vector3(side * (RIVER_HALF + 2.0), 0.0, bz)
+		return Vector3(-side * (RIVER_HALF + 2.5), 0.0, bz)
 	for c in 2:
 		if _inside_castle(c, from) != _inside_castle(c, target):
 			var fx := _front_x(c)
@@ -427,6 +447,75 @@ func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 	tw.chain().tween_callback(l.queue_free)
 
 
+func spawn_ring(where: Vector3, radius: float, color: Color, duration: float = 0.5, thickness: float = 0.12) -> void:
+	## A ring that expands outward and fades: shockwaves, heals, blessings.
+	var ring := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 1.0 - thickness
+	torus.outer_radius = 1.0
+	torus.rings = 32
+	torus.ring_segments = 6
+	ring.mesh = torus
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.emission_enabled = true
+	mat.emission = color
+	mat.emission_energy_multiplier = 1.5
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring.material_override = mat
+	add_child(ring)
+	ring.global_position = where + Vector3(0, 0.12, 0)
+	ring.scale = Vector3(0.2, 0.2, 0.2)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ring, "scale", Vector3(radius, 1.0, radius), duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(mat, "albedo_color:a", 0.0, duration).set_delay(duration * 0.3)
+	tw.chain().tween_callback(ring.queue_free)
+
+
+func spawn_pillar(where: Vector3, color: Color, height: float = 4.0, duration: float = 0.9) -> void:
+	## A column of light that narrows and fades: level ups, rank ups, captures.
+	var pillar := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = 0.6
+	cyl.bottom_radius = 0.9
+	cyl.height = height
+	cyl.radial_segments = 12
+	pillar.mesh = cyl
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(color, 0.55)
+	mat.emission_enabled = true
+	mat.emission = color
+	mat.emission_energy_multiplier = 2.0
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	pillar.material_override = mat
+	add_child(pillar)
+	pillar.global_position = where + Vector3(0, height / 2.0, 0)
+	var tw := create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(pillar, "scale", Vector3(0.15, 1.3, 0.15), duration).set_ease(Tween.EASE_IN)
+	tw.tween_property(mat, "albedo_color:a", 0.0, duration).set_delay(duration * 0.4)
+	tw.chain().tween_callback(pillar.queue_free)
+
+
+func spawn_flash(where: Vector3, color: Color, energy: float = 3.0, duration: float = 0.25) -> void:
+	## A brief point light: impacts and casts.
+	var light := OmniLight3D.new()
+	light.light_color = color
+	light.light_energy = energy
+	light.omni_range = 6.0
+	light.shadow_enabled = false
+	add_child(light)
+	light.global_position = where + Vector3(0, 1.0, 0)
+	var tw := create_tween()
+	tw.tween_property(light, "light_energy", 0.0, duration)
+	tw.tween_callback(light.queue_free)
+
+
 func spawn_swing(u, aim: Vector3) -> void:
 	var swing := MeshInstance3D.new()
 	var slab := BoxMesh.new()
@@ -475,7 +564,7 @@ func _start_match(team: int) -> void:
 	cam_pos = player.global_position + CAMERA_OFFSET
 	camera.global_position = cam_pos
 	playing = true
-	announce("WASD to move, mouse to aim, click to attack, Q and E for abilities, Space to dodge, right click to block, F to grab, Tab to rank up.")
+	announce("Click to attack, Q and E for abilities, Space to dodge, Tab to rank up. Find a class station in your keep!")
 
 
 func _update_camera(delta: float) -> void:
@@ -564,7 +653,7 @@ func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE) -> StandardMa
 	mat.albedo_color = tint
 	mat.normal_enabled = true
 	mat.normal_texture = load("res://assets/textures/%s_normal.jpg" % prefix)
-	mat.roughness_texture = load("res://assets/textures/%s_rough.jpg" % prefix)
+	mat.roughness = 0.85
 	mat.uv1_triplanar = true
 	mat.uv1_world_triplanar = true
 	mat.uv1_scale = Vector3.ONE * scale
@@ -585,27 +674,8 @@ func _wood(tint: Color = Color.WHITE, scale: float = 0.5) -> StandardMaterial3D:
 
 
 func _dirt() -> StandardMaterial3D:
-	## A procedural dirt road: brown noise, no texture file needed.
-	var mat := StandardMaterial3D.new()
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.frequency = 0.03
-	noise.fractal_octaves = 4
-	var tex := NoiseTexture2D.new()
-	tex.noise = noise
-	tex.seamless = true
-	tex.width = 256
-	tex.height = 256
-	var ramp := Gradient.new()
-	ramp.set_color(0, Color(0.42, 0.3, 0.18))
-	ramp.set_color(1, Color(0.66, 0.55, 0.38))
-	tex.color_ramp = ramp
-	mat.albedo_texture = tex
-	mat.roughness = 1.0
-	mat.uv1_triplanar = true
-	mat.uv1_world_triplanar = true
-	mat.uv1_scale = Vector3.ONE * 0.12
-	return mat
+	## The rutted dirt road texture (tools/make_textures.py).
+	return _pbr("dirt", 0.12)
 
 
 func _prop(name: String, pos: Vector3, scale: float = 1.0, rot_y: float = 0.0) -> Node3D:
@@ -685,16 +755,19 @@ func _add_boulder(pos: Vector3) -> void:
 	shape.position.y = 0.8
 	body.add_child(shape)
 	var mesh := MeshInstance3D.new()
-	var rock := SphereMesh.new()
-	rock.radius = 1.2
-	rock.height = 2.4
-	rock.radial_segments = 10
-	rock.rings = 5
-	mesh.mesh = rock
-	mesh.position.y = 0.8
-	mesh.scale = Vector3(1.0, 0.8, 1.1)
-	mesh.material_override = _stone(Color(0.85, 0.85, 0.82), 0.35)
+	mesh.mesh = _rock_mesh(absi(int(pos.x * 31 + pos.z * 17)), 1.25)
+	mesh.position.y = 0.55
+	mesh.rotation.y = pos.x * 0.7
+	mesh.scale = Vector3(1.0, 0.85, 1.15)
+	mesh.material_override = _stone(Color(0.55, 0.6, 0.7), 0.35)
 	body.add_child(mesh)
+	# A mossy cap.
+	var moss := MeshInstance3D.new()
+	moss.mesh = _rock_mesh(absi(int(pos.x * 31 + pos.z * 17)) + 3, 1.0)
+	moss.position.y = 1.05
+	moss.scale = Vector3(1.0, 0.35, 1.1)
+	moss.material_override = _pbr("grass", 0.4, Color(0.55, 0.8, 0.4))
+	body.add_child(moss)
 	add_child(body)
 	# A few pebbles around the base.
 	for i in 3:
@@ -714,9 +787,240 @@ func _add_tree(pos: Vector3, big: bool = false) -> void:
 	shape.position.y = 1.5
 	body.add_child(shape)
 	add_child(body)
-	var pick := absi(int(pos.x * 13 + pos.z * 7)) % 2
-	var name := ("hex/trees_%s_medium" if big else "hex/tree_single_%s") % ["A", "B"][pick]
-	_prop(name, pos, 3.6 if big else 3.4, float(absi(int(pos.x + pos.z * 3)) % 6))
+	var seed := absi(int(pos.x * 13 + pos.z * 7))
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var tree := Node3D.new()
+	tree.position = pos
+	tree.rotation.y = r.randf() * TAU
+	add_child(tree)
+	# Trunk and roots.
+	var trunk_h: float = (3.4 if big else 2.5) * r.randf_range(0.9, 1.15)
+	var bark := _pbr("bark", 0.6)
+	var trunk := MeshInstance3D.new()
+	var trunk_mesh := CylinderMesh.new()
+	trunk_mesh.top_radius = 0.25 if big else 0.2
+	trunk_mesh.bottom_radius = 0.55 if big else 0.4
+	trunk_mesh.height = trunk_h
+	trunk_mesh.radial_segments = 7
+	trunk.mesh = trunk_mesh
+	trunk.position.y = trunk_h / 2.0
+	trunk.material_override = bark
+	tree.add_child(trunk)
+	for i in 3:
+		var root := MeshInstance3D.new()
+		var rc := CylinderMesh.new()
+		rc.top_radius = 0.12
+		rc.bottom_radius = 0.3
+		rc.height = 1.1
+		rc.radial_segments = 5
+		root.mesh = rc
+		var ang := TAU * i / 3.0 + r.randf() * 0.6
+		root.position = Vector3(cos(ang) * 0.45, 0.25, sin(ang) * 0.45)
+		root.rotation = Vector3(sin(ang) * 0.9, 0, -cos(ang) * 0.9)
+		root.material_override = bark
+		tree.add_child(root)
+	# Canopy: a cluster of faceted blobs with a gradient leaf shader.
+	var autumn := seed % 7 == 0
+	var leaf := _leaf_material(r, autumn)
+	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1)
+	var blobs := 6 if big else 4
+	var base_y: float = trunk_h * 0.8
+	for i in blobs:
+		var blob := MeshInstance3D.new()
+		var rr: float = radius if i == 0 else radius * r.randf_range(0.55, 0.85)
+		blob.mesh = _rock_mesh(seed + i * 11, rr, 0.12)
+		var ang := TAU * i / blobs + r.randf() * 0.8
+		var spread: float = 0.0 if i == 0 else radius * r.randf_range(0.45, 0.75)
+		blob.position = Vector3(cos(ang) * spread, base_y + (0.9 if i == 0 else r.randf_range(-0.3, 0.9)) * radius * 0.5, sin(ang) * spread)
+		blob.scale = Vector3(1.0, 0.85, 1.0)
+		blob.material_override = leaf
+		tree.add_child(blob)
+	# Glowing wildwood blossoms on every third tree, like the logo's.
+	if seed % 3 == 0 and not autumn:
+		var glow := StandardMaterial3D.new()
+		glow.albedo_color = Color(0.55, 0.85, 1.0)
+		glow.emission_enabled = true
+		glow.emission = Color(0.35, 0.75, 1.0)
+		glow.emission_energy_multiplier = 3.0
+		for i in 6:
+			var bud := MeshInstance3D.new()
+			var sph := SphereMesh.new()
+			sph.radius = 0.11
+			sph.height = 0.22
+			sph.radial_segments = 6
+			sph.rings = 3
+			bud.mesh = sph
+			var ang := r.randf() * TAU
+			bud.position = Vector3(cos(ang) * radius * 0.95, base_y + radius * 0.5 + r.randf_range(-0.6, 0.7), sin(ang) * radius * 0.95)
+			bud.material_override = glow
+			tree.add_child(bud)
+
+
+func _leaf_material(r: RandomNumberGenerator, autumn: bool) -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assets/shaders/leaf.gdshader")
+	mat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	var hue := r.randf_range(-0.03, 0.03)
+	if autumn:
+		mat.set_shader_parameter("bottom_color", Color(0.45, 0.18, 0.05))
+		mat.set_shader_parameter("top_color", Color(0.95, 0.55, 0.15))
+	else:
+		mat.set_shader_parameter("bottom_color", Color.from_hsv(0.34 + hue, 0.8, 0.22))
+		mat.set_shader_parameter("top_color", Color.from_hsv(0.27 + hue, 0.65, r.randf_range(0.5, 0.62)))
+	mat.set_shader_parameter("height", 2.0)
+	return mat
+
+
+func _rock_mesh(seed: int, radius: float, jitter: float = 0.22) -> ArrayMesh:
+	## A faceted, lumpy sphere: boulders, rubble and leaf blobs.
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var sphere := SphereMesh.new()
+	sphere.radius = radius
+	sphere.height = radius * 2.0
+	sphere.radial_segments = 9
+	sphere.rings = 5
+	var arrays := sphere.get_mesh_arrays()
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	# Jitter each unique position the same way so the surface stays closed.
+	var moved := {}
+	for i in verts.size():
+		var key := verts[i].snapped(Vector3.ONE * 0.001)
+		if not moved.has(key):
+			moved[key] = verts[i] * (1.0 + r.randf_range(-jitter, jitter))
+		verts[i] = moved[key]
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	var st := SurfaceTool.new()
+	var tmp := ArrayMesh.new()
+	tmp.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	st.create_from(tmp, 0)
+	st.deindex()
+	st.generate_normals()
+	return st.commit()
+
+
+func _add_bush(pos: Vector3, seed: int) -> void:
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var leaf := _leaf_material(r, false)
+	for i in 3:
+		var blob := MeshInstance3D.new()
+		var rr := r.randf_range(0.45, 0.7)
+		blob.mesh = _rock_mesh(seed + i * 7, rr, 0.15)
+		blob.position = pos + Vector3(r.randf_range(-0.5, 0.5), rr * 0.5, r.randf_range(-0.5, 0.5))
+		blob.scale = Vector3(1.0, 0.7, 1.0)
+		blob.material_override = leaf
+		add_child(blob)
+
+
+func _add_fireflies(pos: Vector3) -> void:
+	var p := CPUParticles3D.new()
+	p.amount = 12
+	p.lifetime = 5.0
+	p.preprocess = 5.0
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(4.0, 1.2, 4.0)
+	p.direction = Vector3(0, 1, 0)
+	p.spread = 180.0
+	p.initial_velocity_min = 0.2
+	p.initial_velocity_max = 0.5
+	p.gravity = Vector3.ZERO
+	p.scale_amount_min = 0.5
+	p.scale_amount_max = 1.0
+	var sph := SphereMesh.new()
+	sph.radius = 0.07
+	sph.height = 0.14
+	sph.radial_segments = 6
+	sph.rings = 3
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.9, 1.0, 0.5)
+	mat.emission_enabled = true
+	mat.emission = Color(0.8, 1.0, 0.3)
+	mat.emission_energy_multiplier = 3.0
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	sph.material = mat
+	p.mesh = sph
+	var fade := Gradient.new()
+	fade.set_color(0, Color(1, 1, 1, 0))
+	fade.add_point(0.3, Color(1, 1, 1, 1))
+	fade.add_point(0.7, Color(1, 1, 1, 1))
+	fade.set_color(fade.get_point_count() - 1, Color(1, 1, 1, 0))
+	p.color_ramp = fade
+	add_child(p)
+	p.global_position = pos + Vector3(0, 1.5, 0)
+
+
+func _add_river() -> void:
+	## A river down the middle with three bridges. Invisible bank walls keep
+	## walkers out (layer 5), while arrows and spells fly straight over.
+	var length: float = map_half.y * 2 + 60
+	var water := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(RIVER_HALF * 2 + 0.6, length)
+	plane.subdivide_depth = 60
+	plane.subdivide_width = 6
+	water.mesh = plane
+	var wmat := ShaderMaterial.new()
+	wmat.shader = load("res://assets/shaders/water.gdshader")
+	wmat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	water.material_override = wmat
+	water.position = Vector3(0, 0.03, 0)
+	add_child(water)
+	# Banks: a strip of pebbly dirt and a scatter of stones either side.
+	for sx in [-1.0, 1.0]:
+		_add_block(Vector3(sx * (RIVER_HALF + 0.9), 0.012, 0), Vector3(1.8, 0.01, length), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.5, Color(0.62, 0.6, 0.55)))
+		var k := 0
+		var z := -map_half.y - 2.0
+		while z < map_half.y + 2.0:
+			if not _near_bridge(z, 2.5):
+				_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][k % 5], Vector3(sx * (RIVER_HALF + 0.8 + fmod(z * 7.3, 1.0)), 0, z), 3.5, z)
+			k += 1
+			z += 2.3
+		# Bank walls between the bridges.
+		var edges: Array = [-length / 2.0]
+		for i in BRIDGES.size():
+			edges.append(BRIDGES[i] - BRIDGE_HALF[i] - 0.3)
+			edges.append(BRIDGES[i] + BRIDGE_HALF[i] + 0.3)
+		edges.append(length / 2.0)
+		for i in range(0, edges.size(), 2):
+			var z0: float = edges[i]
+			var z1: float = edges[i + 1]
+			var body := StaticBody3D.new()
+			body.collision_layer = BANK_LAYER
+			body.collision_mask = 0
+			body.position = Vector3(sx * (RIVER_HALF + 0.2), 1.0, (z0 + z1) / 2.0)
+			var shape := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(0.4, 2.0, z1 - z0)
+			shape.shape = box
+			body.add_child(shape)
+			add_child(body)
+	# Bridges: a plank deck with rails and posts.
+	for i in BRIDGES.size():
+		var bz: float = BRIDGES[i]
+		var half: float = BRIDGE_HALF[i]
+		var deck_len := RIVER_HALF * 2 + 2.4
+		_add_block(Vector3(0, 0.06, bz), Vector3(deck_len, 0.08, half * 2), Color(0.6, 0.45, 0.3), false, _wood(Color(0.9, 0.8, 0.65), 0.9))
+		for zs in [-1.0, 1.0]:
+			var rz: float = bz + zs * (half + 0.15)
+			_add_block(Vector3(0, 0.55, rz), Vector3(deck_len, 0.1, 0.12), Color(0.5, 0.35, 0.2), false, _wood(Color(0.85, 0.7, 0.5), 1.2))
+			_add_block(Vector3(0, 0.95, rz), Vector3(deck_len, 0.1, 0.12), Color(0.5, 0.35, 0.2), false, _wood(Color(0.85, 0.7, 0.5), 1.2))
+			_add_collider(Vector3(0, 0.6, rz), Vector3(deck_len, 1.2, 0.2))
+			for xs in [-1.0, 0.0, 1.0]:
+				_add_block(Vector3(xs * (deck_len / 2.0 - 0.15), 0.55, rz), Vector3(0.22, 1.1, 0.22), Color(0.45, 0.3, 0.18), false, _wood(Color(0.8, 0.65, 0.45), 1.2))
+		# Lanterns on the big bridge.
+		if half > 2.5:
+			for xs in [-1.0, 1.0]:
+				for zs in [-1.0, 1.0]:
+					_add_torch(Vector3(xs * (deck_len / 2.0 - 0.15), 0.9, bz + zs * (half + 0.15)))
+
+
+func _near_bridge(z: float, margin: float) -> bool:
+	for i in BRIDGES.size():
+		if absf(z - BRIDGES[i]) < BRIDGE_HALF[i] + margin:
+			return true
+	return false
 
 
 func _add_cover() -> void:
@@ -812,7 +1116,7 @@ func _build_castle(team: int) -> void:
 	var color: Color = Stats.FACTIONS[team].color
 	var stone := Color(0.45, 0.32, 0.2) if team == 0 else Color(0.6, 0.6, 0.62)
 	# Textured masonry: elves build in warm sandstone, humans in grey granite.
-	var tint := Color(1.0, 0.86, 0.68) if team == 0 else Color(0.82, 0.84, 0.9)
+	var tint := Color(0.92, 0.8, 0.62) if team == 0 else Color(0.72, 0.76, 0.84)
 	var masonry := _stone(tint)
 	var masonry_dark := _stone(tint.darkened(0.12))
 	var cobbles := _stone(tint.darkened(0.2), 0.7)
@@ -886,7 +1190,7 @@ func _build_castle(team: int) -> void:
 	var kcx := (kx + bx) / 2.0
 	var keep_stone := stone.lightened(0.25)
 	var keep_mat := _stone(tint.lightened(0.1), 0.26)
-	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), keep_stone, false, _wood(Color(0.8, 0.7, 0.6)))
+	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), keep_stone, false, _wood(Color(0.85, 0.75, 0.62), 0.9))
 	_add_block(Vector3(kcx, KEEP_H / 2.0, -khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true, keep_mat)
 	_add_block(Vector3(kcx, KEEP_H / 2.0, khz), Vector3(kdepth, KEEP_H, 0.8), keep_stone, true, keep_mat)
 	var kseg := khz - KEEP_DOOR_HALF
@@ -952,34 +1256,66 @@ func _build_world() -> void:
 	var environment := Environment.new()
 	var sky := Sky.new()
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.3, 0.55, 0.9)
-	sky_mat.sky_horizon_color = Color(0.75, 0.85, 0.95)
+	sky_mat.sky_top_color = Color(0.25, 0.5, 0.9)
+	sky_mat.sky_horizon_color = Color(0.85, 0.9, 0.95)
 	sky_mat.ground_bottom_color = Color(0.3, 0.4, 0.25)
-	sky_mat.ground_horizon_color = Color(0.6, 0.7, 0.6)
+	sky_mat.ground_horizon_color = Color(0.65, 0.75, 0.6)
+	sky_mat.sun_angle_max = 20.0
 	sky.sky_material = sky_mat
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.ambient_light_energy = 0.9
-	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.ambient_light_energy = 0.55
+	environment.ambient_light_sky_contribution = 0.7
+	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
+	environment.tonemap_exposure = 0.8
 	environment.glow_enabled = true
-	environment.glow_intensity = 0.3
-	environment.glow_bloom = 0.1
+	environment.glow_intensity = 0.45
+	environment.glow_bloom = 0.08
+	environment.glow_hdr_threshold = 1.4
+	# A touch of distance haze and a warmer, punchier grade.
+	environment.fog_enabled = true
+	environment.fog_light_color = Color(0.8, 0.88, 0.95)
+	environment.fog_density = 0.0012
+	environment.fog_sky_affect = 0.2
+	environment.adjustment_enabled = true
+	environment.adjustment_saturation = 1.15
+	environment.adjustment_contrast = 1.1
+	environment.adjustment_brightness = 0.95
 	env.environment = environment
 	add_child(env)
 
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-55, -30, 0)
+	sun.rotation_degrees = Vector3(-52, -35, 0)
+	sun.light_color = Color(1.0, 0.95, 0.85)
+	sun.light_energy = 1.0
 	sun.shadow_enabled = true
+	sun.shadow_bias = 0.03
+	sun.directional_shadow_max_distance = 70.0
 	add_child(sun)
+	# A cool fill from the other side so shadows are not black.
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-30, 140, 0)
+	fill.light_color = Color(0.6, 0.7, 1.0)
+	fill.light_energy = 0.15
+	add_child(fill)
 
 	# Ground.
 	_add_block(Vector3(0, -0.5, 0), Vector3(map_half.x * 2 + 80, 1, map_half.y * 2 + 60), Color(0.42, 0.62, 0.3), true, _grass())
 	# A dirt road from door to door, with a worn patch at each door and in the middle.
-	_add_block(Vector3(0, 0.005, 0), Vector3((CASTLE_X - CASTLE_DEPTH) * 2, 0.01, 4), Color(0.6, 0.5, 0.35), false, _dirt())
-	_add_block(Vector3(0, 0.004, 0), Vector3(12, 0.01, 12), Color(0.6, 0.5, 0.35), false, _dirt())
+	# The road: rutted dirt from bridge to door, cobbled aprons at each door,
+	# and grass creeping in at the edges.
+	var road := _dirt()
+	road.uv1_offset = Vector3(0, 0.5, 0)
+	_add_block(Vector3(0, 0.005, 0), Vector3((CASTLE_X - CASTLE_DEPTH) * 2, 0.01, 5.2), Color(0.6, 0.5, 0.35), false, road)
 	for sx in [-1.0, 1.0]:
-		_add_block(Vector3(sx * (CASTLE_X - CASTLE_DEPTH - 2.0), 0.004, 0), Vector3(8, 0.01, 10), Color(0.6, 0.5, 0.35), false, _dirt())
+		_add_block(Vector3(sx * (CASTLE_X - CASTLE_DEPTH - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.45, Color(0.9, 0.86, 0.78)))
+		# Side paths to the flank bridges.
+		for zs in [-1.0, 1.0]:
+			var path := _dirt()
+			path.uv1_offset = Vector3(0, 0.5, 0)
+			_add_block(Vector3(sx * 10.0, 0.004, zs * 14.0), Vector3(14, 0.01, 3.2), Color(0.6, 0.5, 0.35), false, path)
+	_add_river()
 
 	_build_castle(0)
 	_build_castle(1)
@@ -992,6 +1328,10 @@ func _build_world() -> void:
 	for p in grove:
 		_add_tree(p)
 		_add_tree(-p)
+		_add_bush(p + Vector3(1.8, 0, 0.6), int(p.x * 3 + p.z))
+		_add_bush(-p + Vector3(-1.8, 0, -0.6), int(p.x * 5 + p.z))
+	for p in [Vector3(9, 0, 13), Vector3(-9, 0, -13), Vector3(20, 0, 12), Vector3(-20, 0, -12), Vector3(44, 0, 20), Vector3(-44, 0, -20)]:
+		_add_fireflies(p)
 	# Woods on the castle flanks.
 	for p in [Vector3(38, 0, 17), Vector3(46, 0, 19), Vector3(52, 0, 16), Vector3(34, 0, 22)]:
 		_add_tree(p, true)
@@ -1009,7 +1349,7 @@ func _build_world() -> void:
 
 	camera = Camera3D.new()
 	camera.rotation_degrees = Vector3(-55, 0, 0)
-	camera.fov = 55.0
+	camera.fov = 40.0
 	camera.position = Vector3(0, 40, 26)
 	add_child(camera)
 	camera.make_current()

@@ -30,6 +30,7 @@ const TABS := ["OVERVIEW", "CLASSES", "CONTROLS"]
 var game
 var font: Font
 var logo: Texture2D
+var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
 var tab_buttons: Array = []
@@ -39,6 +40,12 @@ var close_button := Rect2()
 func _ready() -> void:
 	font = ThemeDB.fallback_font
 	logo = load("res://assets/ui/logo.png")
+	for kind in ["sword", "fist", "arrow", "bolt", "mend", "bash", "guard", "block", "volley", "trap", "fireball",
+			"blink", "blessing", "smite", "dodge", "crown", "vigor", "xp", "class_knight", "class_ranger", "class_mage",
+			"class_healer", "class_elf", "class_human", "crest_forest", "crest_kingdom"]:
+		var path := "res://assets/ui/icons/%s.png" % kind
+		if ResourceLoader.exists(path):
+			icons[kind] = load(path)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -90,6 +97,11 @@ func _plate(rect: Rect2, fill: Color = INK, edge: Color = GOLD_DARK, radius: int
 	sb.shadow_color = Color(0, 0, 0, 0.35)
 	sb.shadow_offset = Vector2(0, 2)
 	draw_style_box(sb, rect)
+	# A soft sheen on the upper half and a thin inner line give the plates a bevelled, painted look.
+	if rect.size.y > 30 and border >= 2:
+		var inner := rect.grow(-border - 2)
+		draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.45)), Color(1, 1, 1, 0.045))
+		draw_rect(inner, edge.darkened(0.3) if edge.v > 0.5 else edge.lightened(0.15), false, 1.0)
 
 
 func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHITE,
@@ -234,8 +246,13 @@ func _portrait(c: Vector2, r: float, team: int, role: int, dead: bool = false) -
 		draw_line(c + Vector2(-0.2 * r, -0.02 * r), c + Vector2(-0.4 * r, 0.22 * r), RED, 2.0)
 
 
-func _icon(kind: String, c: Vector2, s: float, color: Color) -> void:
-	## Simple symbol for each ability or action.
+func _icon(kind: String, c: Vector2, s: float, color: Color, dim: bool = false) -> void:
+	## Painted icon when one exists (assets/ui/icons), else a simple vector symbol.
+	if icons.has(kind):
+		var px := s * 2.9
+		draw_texture_rect(icons[kind], Rect2(c - Vector2(px, px) / 2.0, Vector2(px, px)), false,
+			Color(0.45, 0.45, 0.5) if dim else Color.WHITE)
+		return
 	match kind:
 		"bash", "guard", "block":
 			var shield := PackedVector2Array([c + Vector2(-s, -0.8 * s), c + Vector2(s, -0.8 * s),
@@ -327,6 +344,15 @@ func _icon(kind: String, c: Vector2, s: float, color: Color) -> void:
 			draw_line(c + Vector2(0.3 * s, 0.1 * s), c + Vector2(1.1 * s, 0.1 * s), Color.WHITE, 2.0)
 
 
+func _class_icon(role: int) -> String:
+	match role:
+		Role.KNIGHT: return "class_knight"
+		Role.RANGER: return "class_ranger"
+		Role.MAGE: return "class_mage"
+		Role.HEALER: return "class_healer"
+	return "class_elf"
+
+
 func _attack_icon(role: int) -> String:
 	match Stats.ROLES[role].attack:
 		"melee": return "sword" if role == Role.KNIGHT else "fist"
@@ -347,7 +373,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 	var rect := Rect2(origin, Vector2(size_px, size_px))
 	var ready := remaining <= 0.0 and usable
 	_plate(rect, INK_LIGHT if not active else Color(0.3, 0.35, 0.5, 0.96), GOLD if ready else Color(0.35, 0.33, 0.4), 9, 2)
-	_icon(icon, rect.get_center(), size_px * 0.28, color if ready else color.darkened(0.45))
+	_icon(icon, rect.get_center(), size_px * 0.3, color if ready else color.darkened(0.45), not ready)
 	if remaining > 0.0:
 		var frac := clampf(remaining / maxf(total, 0.01), 0.0, 1.0)
 		var inner := rect.grow(-3)
@@ -384,7 +410,7 @@ func _draw_scoreboard() -> void:
 		var dir := -1.0 if t == 0 else 1.0
 		var c := Vector2(cx + dir * 175, 36)
 		_hex(c, 160, 50, _team_color(t).darkened(0.25), GOLD)
-		_crown(c + Vector2(dir * 55, 0), 1.3)
+		_icon("crest_forest" if t == 0 else "crest_kingdom", c + Vector2(dir * 55, 0), 15, Color.WHITE)
 		_text(c + Vector2(-30 - dir * 12, -4), Stats.FACTIONS[t].realm.to_upper(), 11, _team_color(t).lightened(0.55), HORIZONTAL_ALIGNMENT_CENTER, 60, 2)
 		_text(c + Vector2(-30 - dir * 12, 20), str(game.score[t]), 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 60)
 	_plate(Rect2(cx - 85, 10, 170, 54), INK, GOLD_DARK, 8, 2)
@@ -417,7 +443,9 @@ func _draw_roster(team: int, origin: Vector2) -> void:
 		if u.level > 1:
 			_text(Vector2(nx, rect.position.y + 19), "★%d" % u.level, 11, XP, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		if u.carrying:
-			_crown(rect.position + Vector2(222, 16), 0.8)
+			_icon("crown", rect.position + Vector2(218, 16), 7, GOLD)
+		elif u.role != Role.BASE:
+			_icon(_class_icon(u.role), rect.position + Vector2(218, 16), 7, Color.WHITE)
 		if u.dead:
 			_text(rect.position + Vector2(52, 39), "back in %d" % ceili(u.respawn_timer), 12, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		else:
@@ -443,7 +471,7 @@ func _draw_objective() -> void:
 
 func _draw_player_panel(p) -> void:
 	var w := 740.0
-	var rect := Rect2(size.x / 2.0 - w / 2.0, size.y - 126, w, 112)
+	var rect := Rect2(size.x / 2.0 - w / 2.0, size.y - 140, w, 128)
 	_plate(rect, INK, GOLD_DARK, 14, 2)
 	# Portrait in a framed square with the level badge.
 	var frame := Rect2(rect.position + Vector2(12, 10), Vector2(84, 84))
@@ -454,8 +482,11 @@ func _draw_player_panel(p) -> void:
 	# Name, hearts and energy.
 	var x := rect.position.x + 110
 	_text(Vector2(x, rect.position.y + 28), p.role_name().to_upper(), 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	_text(Vector2(x + _text_width(p.role_name().to_upper(), 20) + 10, rect.position.y + 28),
+	var name_w := _text_width(p.role_name().to_upper(), 20)
+	_text(Vector2(x + name_w + 10, rect.position.y + 28),
 		Stats.FACTIONS[p.team].name.to_upper(), 11, _team_color(p.team).lightened(0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	if p.role != Role.BASE:
+		_icon(_class_icon(p.role), Vector2(x + name_w + 10 + _text_width(Stats.FACTIONS[p.team].name.to_upper(), 11) + 18, rect.position.y + 20), 8, Color.WHITE)
 	if p.dead:
 		_hearts(Vector2(x + 16, rect.position.y + 54), 0, 0.85, 36)
 		_text(Vector2(x, rect.position.y + 86), "Down! Back in %d" % ceili(p.respawn_timer), 16, Color(1, 0.6, 0.5))
@@ -466,13 +497,7 @@ func _draw_player_panel(p) -> void:
 		_bar(bar, p.energy / p.energy_max(), MANA if is_mana else STAMINA)
 		_text(bar.position + Vector2(0, 13), "%s  %d / %d" % ["MANA" if is_mana else "STAMINA", int(p.energy), int(p.energy_max())],
 			11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 3)
-	# Experience this life.
-	var span: Array = Stats.xp_span(p.level)
-	var xp_bar := Rect2(Vector2(x, rect.position.y + 92), Vector2(236, 10))
-	var frac := 1.0 if span[1] < 0 else float(p.xp - span[0]) / float(span[1] - span[0])
-	_bar(xp_bar, frac, XP)
-	var xp_text := "MAX LEVEL" if span[1] < 0 else "XP %d / %d" % [p.xp, span[1]]
-	_text(xp_bar.position + Vector2(0, 9), xp_text, 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, xp_bar.size.x, 2)
+	_draw_xp_bar(p, Rect2(rect.position + Vector2(110, 104), Vector2(rect.size.x - 122, 14)))
 	if p.points > 0 and not p.dead:
 		var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 150.0)
 		var badge := Rect2(rect.position + Vector2(236, 4), Vector2(112, 22))
@@ -502,6 +527,45 @@ func _draw_player_panel(p) -> void:
 	else:
 		_slot(Vector2(sx + 4 * gap, sy), slot, "vigor", XP, "TAB", "Ranks", 0.0, 1.0, p.points > 0, p.rank(3))
 	_slot(Vector2(sx + 5 * gap, sy), slot, "crown", GOLD, "F", "Drop" if p.carrying else "Grab", 0.0, 1.0, not p.dead)
+
+
+func _draw_xp_bar(p, bar: Rect2) -> void:
+	## Experience this life: a long gold bar with level ticks, a glow that grows
+	## with progress and a pulse when a rank point is waiting to be spent.
+	var span: Array = Stats.xp_span(p.level)
+	var frac := 1.0 if span[1] < 0 else clampf(float(p.xp - span[0]) / float(span[1] - span[0]), 0.0, 1.0)
+	var t := Time.get_ticks_msec() / 1000.0
+	var hot: bool = p.points > 0 and not p.dead
+	var edge := GOLD.lerp(Color.WHITE, 0.5 + 0.5 * sin(t * 6.0)) if hot else GOLD_DARK
+	# Glow behind the filled part.
+	var fill_w := bar.size.x * frac
+	if fill_w > 0.0:
+		draw_rect(Rect2(bar.position - Vector2(2, 3), Vector2(fill_w + 4, bar.size.y + 6)), Color(1.0, 0.75, 0.25, 0.18 + 0.1 * sin(t * 3.0)))
+	_plate(bar, Color(0.08, 0.07, 0.1, 0.95), edge, 7, 1)
+	var inner := bar.grow(-2)
+	if fill_w > 4.0:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = XP
+		sb.set_corner_radius_all(5)
+		var fill := Rect2(inner.position, Vector2(maxf(fill_w - 4.0, 6.0), inner.size.y))
+		draw_style_box(sb, fill)
+		draw_rect(Rect2(fill.position, Vector2(fill.size.x, fill.size.y * 0.45)), Color(1, 1, 1, 0.25))
+		# A bright cap sweeping along the end of the fill.
+		draw_rect(Rect2(fill.end.x - 3, fill.position.y, 3, fill.size.y), Color(1, 0.95, 0.7, 0.8))
+	# Quarter ticks so progress reads at a glance.
+	for i in range(1, 4):
+		var tx := inner.position.x + inner.size.x * i / 4.0
+		draw_line(Vector2(tx, inner.position.y + 2), Vector2(tx, inner.end.y - 2), Color(0, 0, 0, 0.35), 1.0)
+	# Level badges at both ends and the numbers in the middle.
+	_icon("xp", bar.position + Vector2(-2, bar.size.y / 2.0), 7, XP)
+	_text(bar.position + Vector2(10, bar.size.y - 2), "LV %d" % p.level, 10, Color(0.15, 0.1, 0.05) if frac > 0.12 else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+	var xp_text := "MAX LEVEL" if span[1] < 0 else "%d / %d XP" % [p.xp, span[1]]
+	if hot:
+		xp_text += "   ·   %d RANK POINT%s READY" % [p.points, "" if p.points == 1 else "S"]
+	_text(bar.position + Vector2(0, bar.size.y - 2), xp_text, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 2)
+	if span[1] >= 0:
+		_text(bar.position + Vector2(0, bar.size.y - 2), "LV %d " % (p.level + 1), 10, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, bar.size.x - 6, 2)
+		draw_line(Vector2(bar.end.x, bar.position.y - 2), Vector2(bar.end.x, bar.end.y + 2), GOLD, 2.0)
 
 
 # --- Map ---------------------------------------------------------------------
@@ -599,17 +663,17 @@ func _draw_rank_menu(p) -> void:
 	_text(rect.position + Vector2(0, 32), "RANK UP", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
 	_text(rect.position + Vector2(0, 54), "Level %d  ·  %d point%s to spend  ·  experience is per life" % [p.level, p.points, "" if p.points == 1 else "s"],
 		13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	var icons := [_attack_icon(p.role), "", "", "vigor"]
+	var track_icons := [_attack_icon(p.role), "", "", "vigor"]
 	for i in 2:
 		if i < p.abilities().size():
-			icons[i + 1] = p.abilities()[i].kind
+			track_icons[i + 1] = p.abilities()[i].kind
 	for t in 4:
 		var row := Rect2(rect.position + Vector2(16, 70 + t * 64), Vector2(rect.size.x - 32, 58))
 		var available: bool = p.track_available(t)
 		_plate(row, INK_LIGHT if available else Color(0.12, 0.12, 0.15, 0.9), GOLD_DARK if available else Color(0.3, 0.3, 0.3), 8, 1)
 		var cls_color: Color = Stats.ROLES[p.role].color.lightened(0.3)
 		if available:
-			_icon(icons[t], row.position + Vector2(30, 29), 13, cls_color if t < 3 else XP)
+			_icon(track_icons[t], row.position + Vector2(30, 29), 14, cls_color if t < 3 else XP)
 		var name: String = p.track_name(t) if available else "No %s ability yet" % ["", "Q", "E", ""][t]
 		_text(row.position + Vector2(60, 22), name, 15, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 		for k in Stats.MAX_RANK:
@@ -678,6 +742,7 @@ func _menu_classes(body: Rect2) -> void:
 		var mine: bool = game.player and game.player.role == role
 		_plate(card, INK_LIGHT, GOLD if mine else GOLD_DARK, 10, 2)
 		_portrait(card.position + Vector2(cw / 2.0, 44), 26, team, role)
+		_icon(_class_icon(role), card.position + Vector2(cw - 26, 26), 10, Color.WHITE)
 		_text(card.position + Vector2(0, 92), Stats.FACTIONS[team].roles[role].to_upper(), 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER, cw, 3)
 		_text(card.position + Vector2(0, 108), ("uses %s" % s.energy).to_upper(), 10, MANA if s.energy == "mana" else STAMINA, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
 		var y := 128.0
@@ -687,9 +752,9 @@ func _menu_classes(body: Rect2) -> void:
 		if s.get("block", false):
 			entries.append(["RMB", "Block", "Hold to stop hits from the front with your shield.", "block"])
 		for e in entries:
-			_icon(e[3], card.position + Vector2(18, y + 2), 7, s.color.lightened(0.3))
+			_icon(e[3], card.position + Vector2(20, y + 2), 8, s.color.lightened(0.3))
 			_keycap(card.position + Vector2(cw - 26, y + 2), e[0], 34 if e[0].length() > 2 else 24)
-			_text(card.position + Vector2(32, y + 6), e[1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(card.position + Vector2(36, y + 6), e[1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			y += 14.0
 			y += _paragraph(card.position + Vector2(12, y + 10), e[2], 10, Color(0.8, 0.8, 0.8), cw - 24, 12.0) + 10.0
 		if mine:
@@ -724,6 +789,7 @@ func _faction_card(rect: Rect2, team: int, key: String, pad: String, blurb: Stri
 	var tc := _team_color(team)
 	_plate(rect, tc.darkened(0.72), tc.lightened(0.1), 14, 3)
 	_portrait(rect.position + Vector2(rect.size.x / 2.0, 70), 40, team, Role.KNIGHT)
+	_icon("crest_forest" if team == 0 else "crest_kingdom", rect.position + Vector2(rect.size.x - 34, 34), 12, Color.WHITE)
 	_text(rect.position + Vector2(0, 146), Stats.FACTIONS[team].name.to_upper(), 28, tc.lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 5)
 	_text(rect.position + Vector2(0, 170), blurb, 13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
 	_keycap(rect.position + Vector2(rect.size.x / 2.0 - 46, 200), key, 60)

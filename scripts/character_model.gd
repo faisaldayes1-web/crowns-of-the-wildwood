@@ -34,7 +34,7 @@ var current := ""
 
 static func config(team: int, role: int, variant: String = "") -> Dictionary:
 	## Which model, gear and animations a faction + class (or monarch) uses.
-	var c := {"scale": 0.75, "ears": team == 0, "crown": false, "hat": true}
+	var c := {"scale": 0.84, "ears": team == 0, "crown": false, "hat": true}
 	match variant:
 		"queen":
 			c.scene = "rogue"
@@ -59,7 +59,7 @@ static func config(team: int, role: int, variant: String = "") -> Dictionary:
 					c.show = ["1H_Sword", "Badge_Shield"]
 					c.idle = "Idle"
 					c.attacks = ["1H_Melee_Attack_Slice_Horizontal", "1H_Melee_Attack_Chop", "1H_Melee_Attack_Slice_Diagonal"]
-					c.scale = 0.82
+					c.scale = 0.92
 				Role.RANGER:
 					c.scene = "rogue_hooded"
 					c.skin = "rogue"
@@ -85,7 +85,7 @@ static func config(team: int, role: int, variant: String = "") -> Dictionary:
 					c.show = []
 					c.idle = "Unarmed_Idle"
 					c.attacks = ["Unarmed_Melee_Attack_Punch_A", "Unarmed_Melee_Attack_Punch_B"]
-					c.scale = 0.72
+					c.scale = 0.8
 	return c
 
 
@@ -102,6 +102,15 @@ func setup(team: int, role: int, variant: String = "") -> void:
 	idle_anim = c.idle
 	attack_anims = c.attacks
 	height = 1.75 * (c.scale / 0.75) + (0.25 if c.scene == "mage" and c.hat else 0.0)
+
+	# A dark outline (an inflated back-face pass) and a soft rim light make
+	# the characters pop from the ground the way the reference art does.
+	var outline := StandardMaterial3D.new()
+	outline.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	outline.albedo_color = Color(0.09, 0.07, 0.1)
+	outline.cull_mode = BaseMaterial3D.CULL_FRONT
+	outline.grow = true
+	outline.grow_amount = 0.022
 
 	# Only the gear this class uses.
 	for name in ALL_GEAR:
@@ -123,6 +132,11 @@ func setup(team: int, role: int, variant: String = "") -> void:
 			if mat is StandardMaterial3D:
 				var dup: StandardMaterial3D = mat.duplicate()
 				dup.albedo_texture = skin
+				dup.rim_enabled = true
+				dup.rim = 0.35
+				dup.rim_tint = 0.6
+				dup.roughness = 0.75
+				dup.next_pass = outline
 				mesh.set_surface_override_material(i, dup)
 				flash_mats.append(dup)
 
