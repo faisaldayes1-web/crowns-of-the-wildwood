@@ -1664,7 +1664,7 @@ func _add_boulder(pos: Vector3) -> void:
 	mesh.position.y = 0.55
 	mesh.rotation.y = pos.x * 0.7
 	mesh.scale = Vector3(1.0, 0.85, 1.15)
-	mesh.material_override = _stone(Color(0.55, 0.6, 0.7), 0.35)
+	mesh.material_override = _pbr("rock", 0.45)
 	body.add_child(mesh)
 	# A mossy cap.
 	var moss := MeshInstance3D.new()
@@ -2034,7 +2034,7 @@ func _add_river() -> void:
 	add_child(water)
 	# Banks: a strip of pebbly dirt and a scatter of stones either side.
 	for sx in [-1.0, 1.0]:
-		_add_block(Vector3(sx * (RIVER_HALF + 0.9), 0.012, 0), Vector3(1.8, 0.01, length), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.5, Color(0.62, 0.6, 0.55)))
+		_add_block(Vector3(sx * (RIVER_HALF + 0.9), 0.012, 0), Vector3(1.8, 0.01, length), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.6, Color(0.92, 0.86, 0.74)))
 		var k := 0
 		var z := -map_half.y - 2.0
 		while z < map_half.y + 2.0:

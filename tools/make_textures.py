@@ -379,6 +379,22 @@ def make_road():
     save("road", color, np.clip(h, 0, 1), 1.8)
 
 
+def make_rock():
+    """Rough faceted rock for boulders: warm grey with cracks and lichen,
+    no block pattern."""
+    base = fbm(N, 6, 5, 101)
+    cracks = np.abs(fbm(N, 7, 3, 102) - 0.5) < 0.012
+    facets = value_noise(N, 10, 103)
+    light = rgb(0.80, 0.77, 0.72)
+    dark = rgb(0.52, 0.50, 0.46)
+    color = lerp(dark, light, np.clip(base * 0.6 + facets * 0.6, 0, 1)[..., None])
+    color = lerp(color, rgb(0.38, 0.36, 0.33), cracks[..., None] * 0.8)
+    lichen = (fbm(N, 9, 3, 104) > 0.68)
+    color = lerp(color, rgb(0.62, 0.70, 0.40), lichen[..., None] * 0.55)
+    h = np.clip(0.5 * base + 0.5 * facets - 0.25 * cracks, 0, 1)
+    save("rock", color, h, 2.2)
+
+
 def make_water_noise():
     n = fbm(N // 2, 6, 4, 71)
     Image.fromarray((n * 255).astype(np.uint8)).save(f"{OUT}/water_noise.png")
@@ -392,6 +408,7 @@ make_wood()
 make_bark()
 make_grass()
 make_shingle()
+make_rock()
 make_dirt()
 make_road()
 make_water_noise()
