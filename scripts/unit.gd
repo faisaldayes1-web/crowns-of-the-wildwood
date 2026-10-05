@@ -40,6 +40,8 @@ var facing := Vector3(1, 0, 0)
 var kills := 0
 var deaths := 0
 var captures := 0
+var assists := 0
+var recent_hitters := {}   # attacker -> time of their last hit on us
 var healing := 0        # hearts healed on teammates
 var damage_dealt := 0   # hearts of damage dealt
 var display_name := ""
@@ -340,7 +342,7 @@ func choose_variant(for_role: int, index: int) -> bool:
 		_stats_cache = {}
 		ability_timers = [0.0, 0.0]
 		blocking = false
-		model.setup(team, role, variant().name)
+		model.setup(team, role, variant().name, game.hero_custom() if is_player else {})
 		flash_mats = model.flash_mats
 		_apply_side_colors()
 		_refresh_overhead()
@@ -393,7 +395,7 @@ func set_role(new_role: int) -> void:
 	if model == null:
 		model = CharacterModel.new()
 		build.add_child(model)
-	model.setup(team, role, variant().get("name", ""))
+	model.setup(team, role, variant().get("name", ""), game.hero_custom() if is_player else {})
 	flash_mats = model.flash_mats
 	_apply_side_colors()
 	_refresh_overhead()
@@ -544,7 +546,8 @@ func gain_xp(amount: int) -> void:
 		game.spawn_splash(global_position + Vector3(0, 0.6, 0), Color(1.0, 0.9, 0.4), 24, 4.5, 0.9, true)
 		game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
 		if is_player:
-			game.announce("Level %d! Press %s to rank up an ability." % [level, game.key_label("rank_menu")])
+			game.levelup_timer = 3.2
+			game.levelup_level = level
 		else:
 			_bot_spend()
 
@@ -654,6 +657,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	if attacker and attacker != self:
 		attacker.gain_xp(Stats.XP_HIT * amount)
 		attacker.damage_dealt += amount
+		recent_hitters[attacker] = Time.get_ticks_msec() / 1000.0
 	game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(1.0, 0.3, 0.25), 10, 3.5, 0.4)
 	game.spawn_popup(global_position + Vector3(0, 2.0, 0), "-%d" % amount, Color(1, 0.35, 0.3))
 	if is_player:
@@ -663,6 +667,13 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			attacker.gain_xp(Stats.XP_KILL)
 			attacker.kills += 1
 			attacker.streak += 1
+			# Assists for everyone else who hit us recently.
+			var now_s := Time.get_ticks_msec() / 1000.0
+			for h in recent_hitters:
+				if is_instance_valid(h) and h != attacker and h.team == attacker.team and now_s - recent_hitters[h] < Stats.ASSIST_WINDOW:
+					h.assists += 1
+					h.gain_xp(Stats.XP_ASSIST)
+			recent_hitters = {}
 			if attacker.is_player:
 				game.spawn_popup(attacker.global_position + Vector3(0, 2.6, 0), "KILL  +%d XP" % Stats.XP_KILL, Color(1.0, 0.85, 0.3))
 			if veteran == 2 and attacker.team != team:

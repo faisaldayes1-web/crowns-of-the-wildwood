@@ -56,7 +56,7 @@ const CONTROLS_PATH := "user://controls.cfg"
 # Actions the player can rebind in the Controls menu (and what to call them).
 const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"],
 	["dodge", "Dodge"], ["interact", "Grab / drop"], ["rank_menu", "Perks & ranks"], ["scoreboard", "Scoreboard (hold)"],
-	["chat", "Chat"], ["chat_toggle", "Show / hide chat"], ["menu", "Pause menu"], ["move_up", "Move up"], ["move_down", "Move down"],
+	["chat", "Chat"], ["chat_toggle", "Show / hide chat"], ["roster_toggle", "Show / hide team rosters"], ["menu", "Pause menu"], ["move_up", "Move up"], ["move_down", "Move down"],
 	["move_left", "Move left"], ["move_right", "Move right"]]
 const MENU_TABS := 5
 const CHAT_LINES := 60
@@ -74,6 +74,14 @@ const BANTER := {
 var map_half := Vector2(84, 36)
 var bot_difficulty := "Normal"   # Easy / Normal / Hard, saved with the controls
 var chat_visible := true          # H hides the chat log
+var rosters_visible := true       # N hides the side team rosters
+# Hero customizer (title screen): name, hair and trim colour.
+var hero_name := ""
+var hero_hair := 0
+var hero_trim := 0
+var name_editing := false
+var levelup_timer := 0.0
+var levelup_level := 1
 var map_trees: Array[Vector3] = []  # for the minimap: y > 0.5 means a big tree
 var map_paths: Array = []           # [from, to, width] of every path for the minimap
 var map_marks: Array = []           # [position, kind] ruins and such
@@ -153,6 +161,12 @@ func _ready() -> void:
 	if demo:
 		_start_match(0)
 		return
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--hero="):
+			var parts := arg.trim_prefix("--hero=").split(",")
+			hero_name = parts[0]
+			hero_hair = int(parts[1]) if parts.size() > 1 else 0
+			hero_trim = int(parts[2]) if parts.size() > 2 else 0
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
 		return
@@ -162,6 +176,8 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	_debug_hooks()
 	if not playing and not game_over:
+		if name_editing or menu_open:
+			return
 		if Input.is_action_just_pressed("pick_elves"):
 			_start_match(0)
 		elif Input.is_action_just_pressed("pick_humans"):
@@ -196,6 +212,7 @@ func _process(delta: float) -> void:
 		for u in units:
 			print("   team%d %s %s hearts=%d dead=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead])
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
+	levelup_timer = maxf(levelup_timer - delta, 0.0)
 	if message_timer > 0.0:
 		message_timer -= delta
 		if message_timer <= 0.0:
@@ -218,6 +235,15 @@ func _debug_hooks() -> void:
 				menu_tab = 0
 			if arg.begins_with("--debug-tab="):
 				menu_tab = int(arg.trim_prefix("--debug-tab="))
+			if arg == "--debug-stolen":
+				stolen_timer = 3.5
+				if monarchs[1 - player_team].state == Monarch.State.HOME:
+					var thief = units[TEAM_SIZE - 1] if player_team == 1 else units[TEAM_SIZE + 1]
+					monarchs[1 - player_team].pick_up(thief)
+					thief.carrying = monarchs[1 - player_team]
+			if arg == "--debug-levelup":
+				levelup_timer = 3.0
+				levelup_level = 2
 			if arg == "--debug-guide":
 				guide_open = true
 				guide_page = 1
@@ -887,7 +913,7 @@ func _start_match(team: int) -> void:
 			u.bot_class = LINEUP[i][0]
 			u.bot_job = LINEUP[i][1]
 			u.base_job = LINEUP[i][1]
-			u.display_name = "You" if is_player else Stats.BOT_NAMES[t][i % Stats.BOT_NAMES[t].size()]
+			u.display_name = (hero_name if hero_name.strip_edges() != "" else "You") if is_player else Stats.BOT_NAMES[t][i % Stats.BOT_NAMES[t].size()]
 			units.append(u)
 			if is_player or (demo and player == null):
 				player = u
@@ -920,6 +946,28 @@ func shake_at(where: Vector3, amount: float) -> void:
 	var d := _flat_dist(where, player.global_position)
 	if d < 16.0:
 		shake(amount * (1.0 - d / 16.0))
+
+
+func hero_custom() -> Dictionary:
+	## The player's chosen hair and trim colours for the character skin.
+	var c := {"hair": Stats.HERO_HAIR[hero_hair][1]}
+	if hero_trim > 0:
+		c.trim = Stats.HERO_TRIM[hero_trim][1]
+	return c
+
+
+func academy_pick(role: int) -> void:
+	## Choose a class from the Academy panel (only inside your own courtyard).
+	if player == null or player.dead or player.carrying or not _in_cellar(player_team, player.global_position):
+		return
+	if player.role != role:
+		player.set_role(role)
+		spawn_pillar(player.global_position, Stats.ROLES[role].color, 3.0, 0.8)
+		announce("You are now a %s." % player.role_name())
+
+
+func in_academy() -> bool:
+	return player != null and playing and not player.dead and _in_cellar(player_team, player.global_position)
 
 
 func guide_toggle() -> void:
@@ -1006,7 +1054,7 @@ func menu_blocks_input() -> bool:
 
 func menu_tabs() -> Array:
 	## Which menu tabs make sense now: at the title only Classes and Controls.
-	return [1, 4] if not playing else [0, 1, 2, 3, 4]
+	return [1, 4] if not playing else [0, 3, 1, 2, 4]
 
 
 func menu_tick() -> void:
@@ -1054,6 +1102,14 @@ func menu_tick() -> void:
 		if Input.is_action_just_pressed("chat_toggle") and not menu_open and not eaten:
 			chat_visible = not chat_visible
 			_save_settings()
+		if Input.is_action_just_pressed("roster_toggle") and not menu_open and not eaten:
+			rosters_visible = not rosters_visible
+			_save_settings()
+		# The Academy: in your own courtyard, 1-4 pick a class outright.
+		if player and not rank_open and not guide_open and not player.dead and player.carrying == null and _in_cellar(player_team, player.global_position):
+			for i in 4:
+				if Input.is_action_just_pressed("rank_%d" % (i + 1)):
+					academy_pick(i + 1)
 		if rank_open and player:
 			if player.dead:
 				rank_open = false
@@ -1104,6 +1160,26 @@ func menu_tick() -> void:
 		if hud.options_button.has_point(mouse) and not playing:
 			menu_open = true
 			menu_tab = 4
+		if not playing and not menu_open:
+			var was_editing := name_editing
+			name_editing = false
+			for b in hud.hero_buttons:
+				if b[0].has_point(mouse):
+					match b[1]:
+						"hair": hero_hair = b[2]
+						"trim": hero_trim = b[2]
+						"name": name_editing = true
+					if not name_editing:
+						_save_settings()
+			if was_editing and not name_editing:
+				hero_name = hero_name.strip_edges()
+				_save_settings()
+			for b in hud.faction_buttons:
+				if b[0].has_point(mouse) and not was_editing:
+					_start_match(b[1])
+		for b in hud.academy_buttons:
+			if b[0].has_point(mouse):
+				academy_pick(b[1])
 		for b in hud.guide_buttons:
 			if b[0].has_point(mouse):
 				if b[1] == "next":
@@ -1134,6 +1210,20 @@ func menu_input(event: InputEvent) -> void:
 		elif (event is InputEventMouseButton or event is InputEventJoypadButton) and event.pressed:
 			_rebind(rebinding, event)
 			swallow_frame = Engine.get_process_frames()
+		return
+	if name_editing and event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE:
+				name_editing = false
+				hero_name = hero_name.strip_edges()
+				_save_settings()
+				swallow_frame = Engine.get_process_frames()
+			KEY_BACKSPACE:
+				hero_name = hero_name.left(maxi(hero_name.length() - 1, 0))
+			_:
+				var ch := char(event.unicode)
+				if event.unicode >= 32 and hero_name.length() < Stats.HERO_NAME_MAX and ch.strip_edges() != "" or ch == " ":
+					hero_name += ch
 		return
 	if chat_open and event is InputEventKey and event.pressed:
 		match event.keycode:
@@ -1227,7 +1317,7 @@ func _idle_banter() -> void:
 
 
 func unit_score(u) -> int:
-	return u.kills * Stats.SCORE_KILL + u.captures * Stats.SCORE_CAPTURE + u.healing * Stats.SCORE_HEAL \
+	return u.kills * Stats.SCORE_KILL + u.assists * Stats.SCORE_ASSIST + u.captures * Stats.SCORE_CAPTURE + u.healing * Stats.SCORE_HEAL \
 		+ u.damage_dealt * Stats.SCORE_DAMAGE + u.total_upgrades() * Stats.SCORE_UPGRADE
 
 
@@ -1355,6 +1445,10 @@ func _save_settings() -> void:
 	cfg.load(CONTROLS_PATH)
 	cfg.set_value("settings", "bot_difficulty", bot_difficulty)
 	cfg.set_value("settings", "chat_visible", chat_visible)
+	cfg.set_value("settings", "rosters_visible", rosters_visible)
+	cfg.set_value("settings", "hero_name", hero_name)
+	cfg.set_value("settings", "hero_hair", hero_hair)
+	cfg.set_value("settings", "hero_trim", hero_trim)
 	cfg.save(CONTROLS_PATH)
 
 
@@ -1382,6 +1476,10 @@ func _load_controls() -> void:
 	if diff in Stats.BOT_DIFFICULTIES:
 		bot_difficulty = diff
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
+	rosters_visible = cfg.get_value("settings", "rosters_visible", true)
+	hero_name = cfg.get_value("settings", "hero_name", "")
+	hero_hair = clampi(cfg.get_value("settings", "hero_hair", 0), 0, Stats.HERO_HAIR.size() - 1)
+	hero_trim = clampi(cfg.get_value("settings", "hero_trim", 0), 0, Stats.HERO_TRIM.size() - 1)
 	for entry in REBINDABLE:
 		if not cfg.has_section_key("controls", entry[0]):
 			continue
@@ -2577,6 +2675,7 @@ func _setup_input() -> void:
 	_add_action("scoreboard", [KEY_TAB], [JOY_BUTTON_BACK])
 	_add_action("chat", [KEY_ENTER], [])
 	_add_action("chat_toggle", [KEY_H], [])
+	_add_action("roster_toggle", [KEY_N], [])
 	_add_action("options", [KEY_O], [JOY_BUTTON_BACK])
 	_add_action("rank_1", [KEY_1], [JOY_BUTTON_DPAD_UP])
 	_add_action("rank_2", [KEY_2], [JOY_BUTTON_DPAD_LEFT])

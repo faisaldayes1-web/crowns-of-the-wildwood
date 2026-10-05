@@ -7,6 +7,7 @@ extends Control
 
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
+const Monarch = preload("res://scripts/monarch.gd")
 const Role = Stats.Role
 
 const INK := Color(0.09, 0.1, 0.15, 0.92)
@@ -26,7 +27,7 @@ const LEAF := Color(0.3, 0.62, 0.3)
 const GRASS := Color(0.36, 0.55, 0.28)
 const DIRT := Color(0.62, 0.52, 0.36)
 
-const TABS := ["OVERVIEW", "CLASSES", "MY CLASS", "SCOREBOARD", "CONTROLS"]
+const TABS := ["MAP", "CLASSES", "UPGRADES", "SCOREBOARD", "OPTIONS"]
 
 var game
 var font: Font
@@ -44,6 +45,9 @@ var options_button := Rect2()
 var close_button := Rect2()
 var difficulty_buttons: Array = []  # [rect, name] on the title screen
 var guide_buttons: Array = []       # [rect, "next" | "close" | topic index]
+var academy_buttons: Array = []     # [rect, role]
+var hero_buttons: Array = []        # [rect, "hair" | "trim" | "name", index]
+var faction_buttons: Array = []     # [rect, team]
 
 
 func _ready() -> void:
@@ -91,6 +95,9 @@ func _draw() -> void:
 	close_button = Rect2()
 	difficulty_buttons = []
 	guide_buttons = []
+	academy_buttons = []
+	hero_buttons = []
+	faction_buttons = []
 	if not game.playing and not game.game_over:
 		_draw_title()
 		if game.menu_open:
@@ -98,20 +105,23 @@ func _draw() -> void:
 		return
 	_draw_logo(Rect2(14, 8, 200, 80))
 	_draw_scoreboard()
-	_draw_map(Rect2(size.x - 254, 98, 240, 112), false)
+	if game.rosters_visible and game.player:
+		_draw_roster(game.player_team, Vector2(14, 100), true)
+		_draw_roster(1 - game.player_team, Vector2(size.x - 214, 100), true)
+	_draw_map(Rect2(14, size.y - 124, 236, 110), false)
 	_draw_objective()
 	_draw_toasts()
 	if game.player:
 		_draw_player_panel(game.player)
 	if game.stolen_timer > 0.0:
-		var a := clampf(game.stolen_timer / 0.6, 0.0, 1.0)
-		var pulse := 1.0 + 0.04 * sin(Time.get_ticks_msec() / 60.0)
-		_ribbon(Vector2(size.x / 2.0, 150), 360 * pulse, 46 * pulse, Color(0.75, 0.15, 0.1, a))
-		_icon("crown", Vector2(size.x / 2.0 - 120, 150), 12, Color(1, 0.85, 0.3, a))
-		_text(Vector2(size.x / 2.0 - 180, 160), "CROWN STOLEN!", 26, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, 360, 4)
+		_draw_stolen_card()
+	elif game.levelup_timer > 0.0:
+		_draw_levelup_card()
 	_draw_chat()
 	if game.tutorial_shown and not game.demo and game.player:
 		_draw_tutorial()
+	if game.in_academy() and not game.guide_open and not game.rank_open:
+		_draw_academy()
 	if game.guide_open:
 		_draw_guide()
 	if game.scoreboard_open and not game.game_over:
@@ -573,7 +583,7 @@ func _draw_tutorial() -> void:
 	## HOW TO WIN: a small checklist under the logo until the first capture.
 	var steps := ["Leave your castle", "Fight for the center", "Break the enemy gate", "Reach the Crown Vault",
 		"Open the Crown Chest", "Steal the Crown", "Return it to your throne", "Capture twice to win"]
-	var rect := Rect2(14, 100, 200, 30 + steps.size() * 18)
+	var rect := Rect2(size.x - 214, 356 if game.rosters_visible else 100, 200, 30 + steps.size() * 18)
 	_plate(rect, INK, GOLD_DARK, 8, 1)
 	_icon("crown", rect.position + Vector2(16, 15), 7, GOLD)
 	_text(rect.position + Vector2(30, 20), "HOW TO WIN", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -608,8 +618,11 @@ func _draw_scoreboard() -> void:
 	_text(Vector2(cx - 95, 82), "CAPTURE THE CROWN", 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 190, 2)
 
 
-func _draw_roster(team: int, origin: Vector2) -> void:
+func _draw_roster(team: int, origin: Vector2, compact: bool = false) -> void:
 	var tc := _team_color(team)
+	if compact:
+		_draw_side_roster(team, origin)
+		return
 	_plate(Rect2(origin - Vector2(0, 26), Vector2(240, 22)), tc.darkened(0.6), tc.darkened(0.1), 6, 1)
 	_text(origin + Vector2(0, -10), "%s TEAM" % Stats.FACTIONS[team].name.to_upper(), 12, tc.lightened(0.55), HORIZONTAL_ALIGNMENT_CENTER, 240, 2)
 	var row := 0
@@ -644,9 +657,107 @@ func _draw_roster(team: int, origin: Vector2) -> void:
 		row += 1
 
 
+func _draw_side_roster(team: int, origin: Vector2) -> void:
+	## The always-on team column at the screen edge: portrait, class, hearts,
+	## energy and a class icon per member, your team's colour on the left and
+	## the enemy's on the right (the render's layout). N hides them.
+	var tc := _team_color(team)
+	var row := 0
+	for u in game.units:
+		if u.team != team:
+			continue
+		var rect := Rect2(origin + Vector2(0, row * 50), Vector2(200, 44))
+		var fill: Color = Color(0.3, 0.24, 0.08, 0.94) if u.is_player else tc.darkened(0.68)
+		fill.a = 0.94
+		_plate(rect, fill, GOLD if u.is_player else tc.darkened(0.05), 10, 2)
+		_class_card(rect.position + Vector2(22, 22), 15, team, u.role, u.dead)
+		var name: String = u.role_name()
+		_text(rect.position + Vector2(46, 17), name, 12, GOLD if u.is_player else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		var nx: float = rect.position.x + 50 + _text_width(name, 12)
+		if u.level > 1:
+			_text(Vector2(nx, rect.position.y + 17), "★%d" % u.level, 10, XP, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			nx += 22
+		var who: String = "You" if u.is_player else u.display_name
+		if who != "":
+			_text(Vector2(nx, rect.position.y + 17), who, 9, Color(0.78, 0.78, 0.82), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		if u.carrying:
+			_icon("crown", rect.position + Vector2(183, 15), 6, GOLD)
+		elif u.veteran > 0:
+			_icon("xp", rect.position + Vector2(183, 15), 6, Color(1.0, 0.6, 0.25) if u.veteran == 2 else GOLD)
+		elif u.role != Role.BASE:
+			_icon(_class_icon(u.role), rect.position + Vector2(183, 15), 6, Color.WHITE)
+		if u.dead:
+			_text(rect.position + Vector2(46, 35), "back in %d" % ceili(u.respawn_timer), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		else:
+			_hearts(rect.position + Vector2(52, 30), u.hearts, 0.3, 13)
+			_bar(Rect2(rect.position + Vector2(112, 26), Vector2(78, 8)), u.energy / u.energy_max(),
+				MANA if u.energy_kind() == "mana" else STAMINA)
+		row += 1
+
+
+func _draw_stolen_card() -> void:
+	## CROWN STOLEN! A red card under the clock with the thief and a minimap
+	## inset that shows where they are.
+	var a := clampf(game.stolen_timer / 0.5, 0.0, 1.0)
+	var pulse := 1.0 + 0.015 * sin(Time.get_ticks_msec() / 70.0)
+	var rect := Rect2(size.x / 2.0 - 230 * pulse, 98, 460 * pulse, 78)
+	_plate(rect, Color(0.55, 0.1, 0.08, 0.95 * a), Color(1.0, 0.82, 0.3, a), 12, 3)
+	_icon("crown", rect.position + Vector2(34, 36), 16, Color(1, 0.85, 0.3, a))
+	_text(rect.position + Vector2(64, 32), "CROWN STOLEN!", 24, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	var thief = null
+	for m in game.monarchs:
+		if m.state == Monarch.State.CARRIED and m.carrier:
+			thief = m.carrier
+	if thief:
+		var line: String = "%s (%s) has stolen the Crown! %s" % [thief.role_name(), Stats.FACTIONS[thief.team].name,
+			"Stop them!" if thief.team != game.player_team else "Get them home!"]
+		_text(rect.position + Vector2(64, 56), line, 12, Color(1, 0.9, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_draw_map(Rect2(rect.end.x - 118, rect.position.y + 8, 108, 62), false)
+
+
+func _draw_levelup_card() -> void:
+	var a := clampf(game.levelup_timer / 0.5, 0.0, 1.0)
+	var rect := Rect2(size.x / 2.0 - 170, 98, 340, 78)
+	_plate(rect, Color(0.45, 0.32, 0.06, 0.95 * a), Color(1.0, 0.85, 0.3, a), 12, 3)
+	var p = game.player
+	if p:
+		_class_card(rect.position + Vector2(40, 39), 26, p.team, p.role)
+	_text(rect.position + Vector2(84, 32), "LEVEL UP!", 24, Color(1, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	_text(rect.position + Vector2(84, 54), "You are now Level %d   ·   +1 Perk Point (%s)" % [game.levelup_level, game.key_label("rank_menu")], 12, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _draw_academy() -> void:
+	## The Academy: while you stand in your own courtyard, the four classes
+	## with a line each. Click a row or press 1-4 to become it, or step on
+	## its station.
+	var team: int = game.player_team
+	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER]
+	var blurbs := {Role.KNIGHT: "Frontline fighter. Strong vs enemies and structures.", Role.RANGER: "Ranged attacker. Use cover and keep your distance.",
+		Role.MAGE: "Powerful spells and area control.", Role.HEALER: "Keeps teammates alive and supports the team."}
+	var rect := Rect2(size.x - 480, 100, 256, 60 + roles.size() * 58)
+	var tc := _team_color(team)
+	_plate(rect, INK, GOLD, 12, 2)
+	var head := Rect2(rect.position + Vector2(10, -12), Vector2(rect.size.x - 20, 40))
+	_plate(head, tc.darkened(0.55), GOLD, 8, 2)
+	_text(head.position + Vector2(0, 17), "%s ACADEMY" % Stats.FACTIONS[team].realm.to_upper(), 14, CREAM, HORIZONTAL_ALIGNMENT_CENTER, head.size.x, 3)
+	_text(head.position + Vector2(0, 32), "CHOOSE YOUR CLASS", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, head.size.x, 2)
+	for i in roles.size():
+		var role: int = roles[i]
+		var row := Rect2(rect.position + Vector2(10, 38 + i * 58), Vector2(rect.size.x - 20, 52))
+		var mine: bool = game.player.role == role
+		var hover: bool = row.has_point(get_local_mouse_position())
+		_plate(row, Color(0.3, 0.26, 0.12, 0.98) if mine else (INK_LIGHT.lightened(0.08) if hover else INK_LIGHT), GOLD if mine else GOLD_DARK, 8, 1)
+		_class_card(row.position + Vector2(26, 26), 19, team, role)
+		_text(row.position + Vector2(52, 19), Stats.FACTIONS[team].roles[role], 14, GOLD if mine else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		_keycap(Vector2(row.end.x - 16, row.position.y + 14), str(i + 1), 20)
+		_paragraph(row.position + Vector2(52, 34), blurbs[role], 9, Color(0.85, 0.85, 0.85), row.size.x - 60, 11, 1)
+		academy_buttons.append([row, role])
+	_text(rect.position + Vector2(0, rect.size.y - 8), "Step on a station, click a class or press 1-4", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+
+
 func _draw_toasts() -> void:
 	var now := Time.get_ticks_msec() / 1000.0
-	var y := 100.0
+	var y := 100.0 if game.stolen_timer <= 0.0 and game.levelup_timer <= 0.0 else 184.0
 	for t in game.toasts:
 		var age: float = now - t.time
 		if age > 2.6:
@@ -1032,10 +1143,11 @@ func _menu_overview(body: Rect2) -> void:
 	var legend := [["Yellow ring: you", Color(1, 1, 0.3)], ["Red: enemies seen by your team", Color(1.0, 0.25, 0.2)], ["Red dots: potions", Color(1.0, 0.35, 0.4)], ["Gold stars: blessings", GOLD],
 		["Pulsing ring: Elite Veteran bounty", Color(1, 0.5, 0.3)], ["Gold line: door", GOLD]]
 	for i in legend.size():
-		var x: float = body.position.x + 10 + i * (body.size.x / legend.size())
-		draw_circle(Vector2(x, y - 4), 5, legend[i][1])
-		_text(Vector2(x + 12, y), legend[i][0], 11, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, y + 26), "Break the enemy door, carry their monarch home. Class stations are inside your keep.", 12, GREY,
+		var x: float = body.position.x + 10 + (i % 3) * (body.size.x / 3.0)
+		var ly: float = y + (i / 3) * 18
+		draw_circle(Vector2(x, ly - 4), 5, legend[i][1])
+		_text(Vector2(x + 12, ly), legend[i][0], 11, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, carry their monarch home. Class stations are in your cellar.", 11, GREY,
 		HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
 
 
@@ -1223,25 +1335,25 @@ func _draw_scoreboard_overlay() -> void:
 	_plate(rect, INK, GOLD, 14, 3)
 	_card("logo_elves", Rect2(rect.position + Vector2(16, 6), Vector2(70, 70)))
 	_card("logo_humans", Rect2(rect.position + Vector2(rect.size.x - 86, 6), Vector2(70, 70)))
-	_text(rect.position + Vector2(0, 30), "TEAMS AND SCOREBOARD", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
+	_text(rect.position + Vector2(0, 30), "SCOREBOARD", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
 	var left := maxf(game.time_left, 0.0)
 	_text(rect.position + Vector2(0, 48), "%s %d  ·  %02d:%02d left  ·  %d %s" % [Stats.FACTIONS[0].realm, game.score[0], int(left) / 60, int(left) % 60, game.score[1], Stats.FACTIONS[1].realm], 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 	_draw_scoreboard_table(Rect2(rect.position + Vector2(20, 78), Vector2(rect.size.x - 40, rect.size.y - 98)), true)
-	_text(rect.position + Vector2(0, rect.size.y - 10), "Score = kills ×%d, captures ×%d, hearts healed ×%d, damage ×%d, upgrades ×%d" % [Stats.SCORE_KILL, Stats.SCORE_CAPTURE, Stats.SCORE_HEAL, Stats.SCORE_DAMAGE, Stats.SCORE_UPGRADE], 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, rect.size.y - 10), "Score = kills ×%d, assists ×%d, captures ×%d, hearts healed ×%d, damage ×%d, upgrades ×%d" % [Stats.SCORE_KILL, Stats.SCORE_ASSIST, Stats.SCORE_CAPTURE, Stats.SCORE_HEAL, Stats.SCORE_DAMAGE, Stats.SCORE_UPGRADE], 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 	## Both teams, best score first: class, level, score, kills, deaths,
 	## captures, hearts healed, damage and total upgrades. The live (Tab)
 	## version also shows everyone's hearts and respawn timers.
-	var cols := [["PLAYER", 0.0, HORIZONTAL_ALIGNMENT_LEFT], ["CLASS", 150.0, HORIZONTAL_ALIGNMENT_LEFT], ["LV", 258.0, HORIZONTAL_ALIGNMENT_CENTER],
-		["SCORE", 300.0, HORIZONTAL_ALIGNMENT_CENTER], ["K", 360.0, HORIZONTAL_ALIGNMENT_CENTER], ["D", 400.0, HORIZONTAL_ALIGNMENT_CENTER],
-		["CAPS", 444.0, HORIZONTAL_ALIGNMENT_CENTER], ["HEAL", 494.0, HORIZONTAL_ALIGNMENT_CENTER], ["DMG", 546.0, HORIZONTAL_ALIGNMENT_CENTER], ["UPG", 598.0, HORIZONTAL_ALIGNMENT_CENTER]]
+	var cols := [["PLAYER", 0.0, HORIZONTAL_ALIGNMENT_LEFT], ["CLASS", 150.0, HORIZONTAL_ALIGNMENT_LEFT], ["LV", 250.0, HORIZONTAL_ALIGNMENT_CENTER],
+		["K", 296.0, HORIZONTAL_ALIGNMENT_CENTER], ["D", 336.0, HORIZONTAL_ALIGNMENT_CENTER], ["A", 376.0, HORIZONTAL_ALIGNMENT_CENTER],
+		["CAPS", 420.0, HORIZONTAL_ALIGNMENT_CENTER], ["HEAL", 470.0, HORIZONTAL_ALIGNMENT_CENTER], ["DMG", 520.0, HORIZONTAL_ALIGNMENT_CENTER], ["UPG", 568.0, HORIZONTAL_ALIGNMENT_CENTER], ["SCORE", 614.0, HORIZONTAL_ALIGNMENT_CENTER]]
 	if live:
-		cols = [["PLAYER", 0.0, HORIZONTAL_ALIGNMENT_LEFT], ["CLASS", 128.0, HORIZONTAL_ALIGNMENT_LEFT], ["HEARTS", 236.0, HORIZONTAL_ALIGNMENT_LEFT], ["LV", 330.0, HORIZONTAL_ALIGNMENT_CENTER],
-			["SCORE", 372.0, HORIZONTAL_ALIGNMENT_CENTER], ["K", 426.0, HORIZONTAL_ALIGNMENT_CENTER], ["D", 464.0, HORIZONTAL_ALIGNMENT_CENTER],
-			["CAPS", 506.0, HORIZONTAL_ALIGNMENT_CENTER], ["HEAL", 554.0, HORIZONTAL_ALIGNMENT_CENTER], ["DMG", 604.0, HORIZONTAL_ALIGNMENT_CENTER], ["UPG", 654.0, HORIZONTAL_ALIGNMENT_CENTER]]
-	var scale := rect.size.x / (700.0 if live else 640.0)
+		cols = [["PLAYER", 0.0, HORIZONTAL_ALIGNMENT_LEFT], ["CLASS", 122.0, HORIZONTAL_ALIGNMENT_LEFT], ["HEARTS", 220.0, HORIZONTAL_ALIGNMENT_LEFT], ["LV", 312.0, HORIZONTAL_ALIGNMENT_CENTER],
+			["K", 354.0, HORIZONTAL_ALIGNMENT_CENTER], ["D", 392.0, HORIZONTAL_ALIGNMENT_CENTER], ["A", 430.0, HORIZONTAL_ALIGNMENT_CENTER],
+			["CAPS", 472.0, HORIZONTAL_ALIGNMENT_CENTER], ["HEAL", 520.0, HORIZONTAL_ALIGNMENT_CENTER], ["DMG", 568.0, HORIZONTAL_ALIGNMENT_CENTER], ["UPG", 614.0, HORIZONTAL_ALIGNMENT_CENTER], ["SCORE", 664.0, HORIZONTAL_ALIGNMENT_CENTER]]
+	var scale := rect.size.x / (710.0 if live else 660.0)
 	var y := rect.position.y
 	for t in 2:
 		var tc := _team_color(t)
@@ -1266,11 +1378,11 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 			var col := GOLD if u.is_player else Color.WHITE
 			if u.dead:
 				col = col.darkened(0.4)
-			var values := [u.display_name, u.role_name(), str(u.level), str(game.unit_score(u)), str(u.kills), str(u.deaths), str(u.captures), str(u.healing), str(u.damage_dealt), str(u.total_upgrades())]
-			var score_col := 3
+			var values := [u.display_name, u.role_name(), str(u.level), str(u.kills), str(u.deaths), str(u.assists), str(u.captures), str(u.healing), str(u.damage_dealt), str(u.total_upgrades()), str(game.unit_score(u))]
+			var score_col := 10
 			if live:
 				values.insert(2, "")
-				score_col = 4
+				score_col = 11
 				var hx: float = block.position.x + 12 + cols[2][1] * scale
 				if u.dead:
 					_text(Vector2(hx, ry + 13), "back in %d" % ceili(u.respawn_timer), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -1295,7 +1407,8 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 
 func _draw_chat() -> void:
 	## The chat log over the minimap, and the input line while typing.
-	var rect := Rect2(14, size.y - 126 - 236, 262, 236)
+	var top: float = 352.0 if game.rosters_visible else 100.0
+	var rect := Rect2(14, top, 262, size.y - 132 - top)
 	var now := Time.get_ticks_msec() / 1000.0
 	var typing: bool = game.chat_open
 	if not game.chat_visible and not typing:
@@ -1368,8 +1481,11 @@ func _draw_title() -> void:
 	_text(Vector2(cx - 300, 236), "Elves against Humans. Break the door, steal the monarch, carry them home.", 15, CREAM,
 		HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
 	_text(Vector2(cx - 300, 264), "CHOOSE YOUR SIDE", 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
-	_faction_card(Rect2(cx - 330, 280, 300, 226), 0, "1", "D-pad left", "Quicker on their feet")
-	_faction_card(Rect2(cx + 30, 280, 300, 226), 1, "2", "D-pad right", "Recover stamina and mana faster")
+	_faction_card(Rect2(cx - 490, 280, 300, 226), 0, "1", "D-pad left", "Quicker on their feet")
+	_faction_card(Rect2(cx - 170, 280, 300, 226), 1, "2", "D-pad right", "Recover stamina and mana faster")
+	faction_buttons.append([Rect2(cx - 490, 280, 300, 226), 0])
+	faction_buttons.append([Rect2(cx - 170, 280, 300, 226), 1])
+	_draw_hero_panel(Rect2(cx + 150, 280, 340, 226))
 	# Bot difficulty: click, or Left/Right.
 	var drow := Rect2(cx - 330, 514, 660, 30)
 	_plate(drow, INK, GOLD_DARK, 8, 1)
@@ -1397,6 +1513,48 @@ func _draw_title() -> void:
 	options_button = Rect2(cx - 110, 646, 220, 30)
 	_plate(options_button, INK_LIGHT, GOLD, 8, 2)
 	_text(options_button.position + Vector2(0, 20), "OPTIONS AND CONTROLS  (%s)" % game.key_label("options"), 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, options_button.size.x, 2)
+
+
+func _draw_hero_panel(rect: Rect2) -> void:
+	## YOUR HERO: name, hair and trim colour. The choices follow you into
+	## every class you take, on top of the team colours.
+	_plate(rect, INK, GOLD, 14, 3)
+	_text(rect.position + Vector2(0, 24), "YOUR HERO", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
+	# Portrait with the chosen hair and trim as swatches around it.
+	var pc := rect.position + Vector2(54, 92)
+	_class_card(pc, 34, 0, Role.BASE)
+	draw_circle(pc + Vector2(-30, 30), 9, Stats.HERO_HAIR[game.hero_hair][1])
+	draw_arc(pc + Vector2(-30, 30), 9, 0, TAU, 24, GOLD, 1.5)
+	var trim: Color = Stats.HERO_TRIM[game.hero_trim][1]
+	draw_circle(pc + Vector2(30, 30), 9, trim if game.hero_trim > 0 else Color(0.3, 0.5, 0.4))
+	draw_arc(pc + Vector2(30, 30), 9, 0, TAU, 24, GOLD, 1.5)
+	# Name field.
+	var nx := rect.position.x + 110
+	_text(Vector2(nx, rect.position.y + 52), "NAME", 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var field := Rect2(nx, rect.position.y + 58, rect.size.x - 124, 26)
+	_plate(field, Color(0.05, 0.06, 0.1, 0.9), GOLD if game.name_editing else GOLD_DARK, 6, 1)
+	var shown: String = game.hero_name
+	if game.name_editing and int(Time.get_ticks_msec() / 400) % 2 == 0:
+		shown += "|"
+	elif shown == "" and not game.name_editing:
+		shown = "click to name your hero"
+	_text(field.position + Vector2(8, 18), shown, 12, Color.WHITE if game.hero_name != "" or game.name_editing else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	hero_buttons.append([field, "name", 0])
+	# Hair and trim swatches.
+	for row in 2:
+		var label: String = "HAIR" if row == 0 else "TRIM"
+		var options: Array = Stats.HERO_HAIR if row == 0 else Stats.HERO_TRIM
+		var chosen: int = game.hero_hair if row == 0 else game.hero_trim
+		var y: float = rect.position.y + 104 + row * 44
+		_text(Vector2(nx, y), "%s  ·  %s" % [label, options[chosen][0]], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		for i in options.size():
+			var b := Rect2(nx + i * 34, y + 6, 28, 22)
+			var col: Color = options[i][1]
+			if col.a == 0.0:
+				col = Color(0.3, 0.5, 0.4)  # "Team": the faction's own colour
+			_plate(b, col, GOLD if i == chosen else Color(0.1, 0.1, 0.14), 5, 2 if i == chosen else 1)
+			hero_buttons.append([b, "hair" if row == 0 else "trim", i])
+	_text(rect.position + Vector2(0, rect.size.y - 10), "Your look carries into every class you pick", 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _ribbon(center: Vector2, w: float, h: float, color: Color) -> void:

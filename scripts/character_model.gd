@@ -102,7 +102,55 @@ static func config(team: int, role: int, variant: String = "") -> Dictionary:
 	return c
 
 
-func setup(team: int, role: int, variant: String = "") -> void:
+# Cells (col, row) of the 8x4 palette grid that hold each skin's hair and
+# trim (cape / sash), per base model. Mirrors tools/recolor_skins.py.
+const CELLS := {
+	"knight": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)]},
+	"rogue": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)]},
+	"mage": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)]},
+	"healer": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)]},
+}
+static var custom_cache := {}
+
+
+static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictionary) -> Texture2D:
+	## The team skin with the player's hair and trim colours painted into
+	## the palette cells (keeping each cell's shading gradient). Cached.
+	if custom.is_empty() or not CELLS.has(skin_name):
+		return skin
+	var key := "%s|%s|%s" % [skin.resource_path, custom.get("hair", Color.TRANSPARENT).to_html(), custom.get("trim", Color.TRANSPARENT).to_html()]
+	if custom_cache.has(key):
+		return custom_cache[key]
+	var img: Image = skin.get_image()
+	if img == null:
+		return skin
+	img = img.duplicate()
+	if img.is_compressed():
+		img.decompress()
+	var cw: int = img.get_width() / 8
+	var ch: int = img.get_height() / 4
+	for part in ["hair", "trim"]:
+		if not custom.has(part):
+			continue
+		var target: Color = custom[part]
+		for cell in CELLS[skin_name][part]:
+			var x0: int = cell.x * cw
+			var y0: int = cell.y * ch
+			var vmax := 0.01
+			for y in range(y0, y0 + ch, 8):
+				for x in range(x0, x0 + cw, 8):
+					vmax = maxf(vmax, img.get_pixel(x, y).v)
+			for y in range(y0, y0 + ch):
+				for x in range(x0, x0 + cw):
+					var p := img.get_pixel(x, y)
+					var v := minf(target.v * (p.v / vmax) * 1.15, 1.0)
+					img.set_pixel(x, y, Color.from_hsv(target.h, target.s, v, p.a))
+	var out := ImageTexture.create_from_image(img)
+	custom_cache[key] = out
+	return out
+
+
+func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}) -> void:
 	for child in get_children():
 		child.queue_free()
 	var c := config(team, role, variant)
@@ -139,6 +187,7 @@ func setup(team: int, role: int, variant: String = "") -> void:
 
 	# Team colour skin on every mesh.
 	var skin: Texture2D = load("res://assets/characters/skins/%s_%s.png" % [c.skin, "elf" if team == 0 else "human"])
+	skin = customised_skin(skin, c.skin, custom)
 	flash_mats = []
 	for mesh in _meshes(inst):
 		for i in mesh.get_surface_override_material_count():

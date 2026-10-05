@@ -26,6 +26,12 @@ const BOUNTY_BUFF := "Might"
 # Bot difficulty. aim_error is radians of random aim wobble, ability scales
 # how often bots fire abilities, react scales dodging and blocking, sight
 # scales how far they notice enemies, chase is how far they go after a bounty.
+# Hero customizer: hair and trim (cape / sash) colours the player can pick.
+const HERO_HAIR := [["Blond", Color(0.93, 0.8, 0.4)], ["Brown", Color(0.4, 0.25, 0.12)], ["Black", Color(0.12, 0.1, 0.12)],
+	["Red", Color(0.75, 0.2, 0.1)], ["Silver", Color(0.85, 0.85, 0.9)], ["Moss", Color(0.35, 0.6, 0.3)]]
+const HERO_TRIM := [["Team", Color.TRANSPARENT], ["Crimson", Color(0.7, 0.12, 0.15)], ["Violet", Color(0.5, 0.25, 0.7)],
+	["Teal", Color(0.15, 0.6, 0.6)], ["Gold", Color(0.9, 0.72, 0.2)], ["Night", Color(0.12, 0.12, 0.18)]]
+const HERO_NAME_MAX := 12
 const BOT_DIFFICULTIES := ["Easy", "Normal", "Hard"]
 const BOT_TUNING := {
 	"Easy": {"aim_error": 0.4, "ability": 0.45, "react": 0.4, "sight": 0.8, "chase": 0.0, "desc": "Bots miss a lot, rarely use abilities and seldom dodge."},
@@ -95,6 +101,9 @@ const RANK_TRACKS := ["Attack", "Q", "E", "Vigor"]
 
 # Scoreboard: what a player's match score is made of.
 const SCORE_KILL := 10
+const SCORE_ASSIST := 4
+const XP_ASSIST := 15
+const ASSIST_WINDOW := 8.0   # seconds after your hit that a kill still counts as an assist
 const SCORE_CAPTURE := 100
 const SCORE_HEAL := 5      # per heart healed on a teammate
 const SCORE_DAMAGE := 2    # per heart of damage dealt
