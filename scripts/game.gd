@@ -2291,20 +2291,32 @@ func _add_cover() -> void:
 	## them, so there is always somewhere to duck. Everything is mirrored.
 	var barricades := [[Vector3(11, 0, 5), 3.5], [Vector3(12, 0, -7), 3.5], [Vector3(20, 0, 1), 4.0],
 		[Vector3(18, 0, 12), 3.0], [Vector3(30, 0, -5), 3.5], [Vector3(28, 0, 8), 3.0], [Vector3(31, 0, 19), 3.0], [Vector3(17, 0, -20), 3.0]]
-	var crates := ["hex/crate_A_big", "hex/crate_B_big", "hex/barrel", "hex/crate_A_big", "hex/sack"]
-	for b in barricades:
+	# Three cover designs cycle across the field: supply stacks, timber
+	# palisades and broken ashlar walls, so the middle reads as a battlefield.
+	var crates := ["hex/crate_A_big", "hex/crate_B_big", "hex/barrel", "hex/crate_A_big", "hex/barrel"]
+	for bi in barricades.size():
+		var b: Array = barricades[bi]
 		for m in [1.0, -1.0]:
 			var c: Vector3 = b[0] * m
 			var length: float = b[1]
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
 			cover_points.append(Vector3(c.x, 0, c.z))
-			var n := int(length / 1.15)
-			for i in n:
-				var z: float = c.z - length / 2.0 + (i + 0.5) * length / n
-				var pick: int = absi(int(c.x * 3 + z * 5 + i)) % crates.size()
-				_prop(crates[pick], Vector3(c.x, 0, z), 5.2, float(i) * 0.15)
-				if i % 2 == 0:
-					_prop("hex/crate_A_big", Vector3(c.x, 1.05, z), 4.2, float(i) * 0.15 + 0.1)
+			# Supply stacks on the road itself (an abandoned caravan); palisades
+			# and broken walls alternate across the field.
+			var kind: int = 0 if absf(c.z) < 3.0 else 1 + (bi % 2)
+			match kind:
+				0:
+					var n := int(length / 1.15)
+					for i in n:
+						var z: float = c.z - length / 2.0 + (i + 0.5) * length / n
+						var pick: int = absi(int(c.x * 3 + z * 5 + i)) % crates.size()
+						_prop(crates[pick], Vector3(c.x, 0, z), 5.2, 0.0)
+						if i % 2 == 0:
+							_prop("hex/crate_A_big", Vector3(c.x, 1.05, z), 4.2, 0.0)
+				1:
+					_add_palisade(c, length)
+				2:
+					_add_wall_stub(c, length)
 	var boulders := [Vector3(9, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -8), Vector3(38, 0, 10),
 		Vector3(8, 0, 28), Vector3(17, 0, 25), Vector3(14, 0, -36), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(40, 0, 24)]
 	for p in boulders:
@@ -2314,30 +2326,124 @@ func _add_cover() -> void:
 		cover_points.append(-p)
 	# The Northern Ruins: broken columns and rubble by the north bridge, and
 	# a smaller ruin on the south river path. Mirrored.
-	_add_ruins(Vector3(11, 0, -25))
-	_add_ruins(Vector3(-11, 0, 25))
+	_add_ruins(Vector3(11, 0, -27))
+	_add_ruins(Vector3(-11, 0, 27))
 	_add_ruins(Vector3(-24, 0, -29), true)
 	_add_ruins(Vector3(24, 0, 29), true)
 
 
-func _add_ruins(c: Vector3, small: bool = false) -> void:
-	map_marks.append([c, "ruin"])
-	var n := 3 if small else 6
+func _add_signpost(pos: Vector3, lean: float) -> void:
+	## A timber post with two arrow boards pointing along the paths.
+	audit_label = "pole"
+	_add_block(pos + Vector3(0, 1.0, 0), Vector3(0.16, 2.0, 0.16), Color.WHITE, false, _timber(Color(0.6, 0.5, 0.4)))
+	audit_label = ""
+	_add_block(pos + Vector3(0, 0.06, 0), Vector3(0.4, 0.12, 0.4), Color.WHITE, false, _ashlar(Color(0.85, 0.8, 0.72)))
+	var board := _timber(Color(0.85, 0.72, 0.55))
+	for k in 2:
+		var b := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.95, 0.22, 0.06)
+		b.mesh = bm
+		b.position = pos + Vector3(0.25 * lean, 1.75 - 0.3 * k, 0)
+		b.rotation.y = (0.55 if k == 0 else -0.6) * lean
+		b.material_override = board
+		add_child(b)
+		var tip := MeshInstance3D.new()
+		var tm := PrismMesh.new()
+		tm.size = Vector3(0.22, 0.22, 0.06)
+		tip.mesh = tm
+		tip.position = Vector3(0.58, 0, 0)
+		tip.rotation.z = -PI / 2.0
+		tip.material_override = board
+		b.add_child(tip)
+
+
+func _add_palisade(c: Vector3, length: float) -> void:
+	## Sharpened timber stakes in a row with a rail, like a camp's edge.
+	audit_label = "fence"
+	var post := _timber(Color(0.72, 0.6, 0.48))
+	var dark := _timber(Color(0.55, 0.45, 0.35))
+	var n := maxi(int(length / 0.42), 2)
 	for i in n:
-		var a := TAU * i / n + c.x * 0.1
-		var p := c + Vector3(cos(a) * 3.6, 0, sin(a) * 3.0)
-		if i % 2 == 0:
-			_prop("dungeon/column", p, 1.3 + 0.2 * (i % 3), a)
-			_add_collider(p + Vector3(0, 1.0, 0), Vector3(0.9, 2.0, 0.9))
-		else:
-			_prop("dungeon/rubble_large", p, 0.4, a)
-			_add_collider(p + Vector3(0, 0.5, 0), Vector3(1.6, 1.0, 1.6))
+		var z: float = c.z - length / 2.0 + (i + 0.5) * length / n
+		var h: float = 1.25 if i % 2 == 0 else 1.05
+		_add_block(Vector3(c.x, h / 2.0, z), Vector3(0.22, h, 0.22), Color.WHITE, false, post if i % 2 == 0 else dark)
+		var tip := MeshInstance3D.new()
+		var tm := CylinderMesh.new()
+		tm.top_radius = 0.0
+		tm.bottom_radius = 0.16
+		tm.height = 0.28
+		tm.radial_segments = 4
+		tip.mesh = tm
+		tip.position = Vector3(c.x, h + 0.14, z)
+		tip.rotation.y = PI / 4.0
+		tip.material_override = dark
+		add_child(tip)
+	_add_block(Vector3(c.x, 0.72, c.z), Vector3(0.1, 0.1, length + 0.2), Color.WHITE, false, dark)
+	audit_label = ""
+
+
+func _add_wall_stub(c: Vector3, length: float) -> void:
+	## A broken length of ashlar wall: tall at one end, crumbled at the other,
+	## with rubble spilling off the low end. Mossy on the elven side.
+	mossy = c.x < 0.0
+	audit_label = "wall"
+	var tall_len: float = length * 0.55
+	var low_len: float = length - tall_len
+	_add_block(Vector3(c.x, 0.65, c.z - low_len / 2.0), Vector3(0.6, 1.3, tall_len), Color.WHITE, false, _ashlar())
+	_add_block(Vector3(c.x, 1.38, c.z - low_len / 2.0), Vector3(0.8, 0.16, tall_len + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+	_add_block(Vector3(c.x, 0.4, c.z + tall_len / 2.0), Vector3(0.6, 0.8, low_len), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
+	_add_block(Vector3(c.x, 0.9, c.z + tall_len / 2.0 - low_len / 4.0), Vector3(0.6, 0.2, low_len / 2.0), Color.WHITE, false, _ashlar(Color(0.88, 0.85, 0.78)))
+	audit_label = ""
+	_prop("dungeon/rubble_large", Vector3(c.x + 0.4, 0, c.z + length / 2.0 + 0.7), 0.22, 0.4)
+	mossy = false
+
+
+func _add_ruins(c: Vector3, small: bool = false) -> void:
+	## A ruined hall: a flagstone floor, broken ashlar walls with their
+	## merlons, standing and fallen columns, rubble and ivy. Mirrored by x.
+	map_marks.append([c, "ruin"])
+	mossy = true
+	var m: float = -1.0 if c.x < 0.0 else 1.0
 	_add_block(c + Vector3(0, 0.02, 0), Vector3(8.0 if not small else 5.0, 0.03, 6.5 if not small else 4.0), Color.WHITE, false, _flagstone(Color(0.9, 0.88, 0.84)))
-	if not small:
-		_prop("dungeon/barrier", c + Vector3(0, 0, 0.2), 0.8, 0.3)
-		_add_collider(c + Vector3(0, 0.6, 0.2), Vector3(2.2, 1.2, 0.6))
-		_add_bush(c + Vector3(3.8, 0, 2.2), int(c.x))
-		_add_bush(c + Vector3(-3.6, 0, -2.4), int(c.z))
+	if small:
+		_add_wall(c + Vector3(-1.8 * m, 0.55, 0), Vector3(0.6, 1.1, 2.6), false)
+		for z in [-1.2, 1.2]:
+			var p := c + Vector3(1.6 * m, 0, z)
+			_prop("dungeon/column", p, 1.2, 0.0)
+			_add_collider(p + Vector3(0, 1.0, 0), Vector3(0.9, 2.0, 0.9))
+		_prop("dungeon/rubble_large", c + Vector3(-0.3 * m, 0, -1.4), 0.3, 0.2)
+		_add_collider(c + Vector3(-0.3 * m, 0.4, -1.4), Vector3(2.2, 0.8, 0.9))
+		_add_bush(c + Vector3(-2.4 * m, 0, 1.6), int(c.z))
+		mossy = false
+		return
+	_add_wall(c + Vector3(-3.6 * m, 0.7, -0.6), Vector3(0.6, 1.4, 3.6), true)
+	_add_wall(c + Vector3(-2.0 * m, 0.45, -3.0), Vector3(3.2, 0.9, 0.6), false)
+	for col in [[Vector3(2.6, 0, -1.8), 1.3], [Vector3(2.6, 0, 1.8), 1.5], [Vector3(-0.6, 0, 1.9), 1.2]]:
+		var p: Vector3 = c + Vector3(col[0].x * m, 0, col[0].z)
+		_prop("dungeon/column", p, col[1], 0.0)
+		_add_collider(p + Vector3(0, 1.0, 0), Vector3(0.9, 2.0, 0.9))
+	# A fallen column lying across the floor.
+	var fallen := MeshInstance3D.new()
+	var fm := CylinderMesh.new()
+	fm.top_radius = 0.32
+	fm.bottom_radius = 0.36
+	fm.height = 2.6
+	fm.radial_segments = 8
+	fallen.mesh = fm
+	fallen.position = c + Vector3(0.5 * m, 0.36, -1.5)
+	fallen.rotation.z = PI / 2.0
+	fallen.material_override = _ashlar(Color(0.9, 0.87, 0.8))
+	add_child(fallen)
+	audit_blocks.append(["wall", AABB(fallen.position - Vector3(1.3, 0.36, 0.36), Vector3(2.6, 0.72, 0.72))])
+	_add_collider(c + Vector3(0.5 * m, 0.35, -1.5), Vector3(2.6, 0.7, 0.7))
+	_prop("dungeon/rubble_large", c + Vector3(3.6 * m, 0, -0.5), 0.4, 0.0)
+	_add_collider(c + Vector3(3.6 * m, 0.5, -0.5), Vector3(1.6, 1.0, 1.2))
+	_prop("dungeon/barrier", c + Vector3(0, 0, 0.4), 0.8, 0.0)
+	_add_collider(c + Vector3(0, 0.6, 0.4), Vector3(2.2, 1.2, 0.6))
+	_add_bush(c + Vector3(3.8 * m, 0, 2.4), int(c.x))
+	_add_bush(c + Vector3(-3.0 * m, 0, 1.6), int(c.z))
+	mossy = false
 
 
 func _add_heal_orbs() -> void:
@@ -3116,6 +3222,17 @@ func _build_world() -> void:
 		_add_path(Vector3(sx * 30.0, 0, nb - 3.0), Vector3(sx * (RIVER_HALF + 1.5), 0, nb), 3.4, dirt)
 		_add_path(Vector3(sx * (fxr - 4.0), 0, 3.0), Vector3(sx * 26.0, 0, sb + 2.0), 3.4, dirt)
 		_add_path(Vector3(sx * 26.0, 0, sb + 2.0), Vector3(sx * (RIVER_HALF + 1.5), 0, sb), 3.4, dirt)
+		# Road dressing: milestones on the verge, signposts at the path
+		# bends and an abandoned cart by the roadside.
+		for k in 4:
+			var mx: float = 14.0 + 10.0 * k
+			_add_block(Vector3(sx * mx, 0.3, 3.4 if k % 2 == 0 else -3.4), Vector3(0.35, 0.6, 0.35), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
+			_add_block(Vector3(sx * mx, 0.62, 3.4 if k % 2 == 0 else -3.4), Vector3(0.45, 0.06, 0.45), Color.WHITE, false, _ashlar(Color(0.86, 0.82, 0.74)))
+		_add_signpost(Vector3(sx * 31.5, 0, nb - 5.2), -sx)
+		_add_signpost(Vector3(sx * 27.5, 0, sb + 4.3), sx)
+		_prop("hex/wheelbarrow", Vector3(sx * 38.0, 0, -3.9), 4.0, PI / 2.0 if sx > 0 else -PI / 2.0)
+		_prop("hex/crate_B_big", Vector3(sx * 36.4, 0, -4.6), 4.2, 0.0)
+		_prop("hex/sack", Vector3(sx * 39.8, 0, -4.4), 4.0, 0.0)
 	_add_river()
 
 	_build_castle(0)
