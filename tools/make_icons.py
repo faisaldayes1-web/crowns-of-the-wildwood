@@ -294,3 +294,139 @@ img = new(); shield(img, (120, 160, 240), (40, 60, 150), 0.9); save(img, "class_
 # Faction crests for the score tabs.
 img = new(); shield(img, (60, 150, 80), (20, 70, 35), 1.0); leaf(img, (170, 240, 110), (60, 140, 50), 0.55, 0, -0.05, 0.3); save(img, "crest_forest", (120, 255, 140))
 img = new(); shield(img, (70, 110, 220), (25, 40, 130), 1.0); crown(img, GOLD, GOLD_D, 0.5, 0, -0.05); save(img, "crest_kingdom", (140, 170, 255))
+
+# --- Promotion (variant) abilities ------------------------------------------
+
+def crossed_swords(img, scale=1.0):
+    sword(img, -math.pi / 4, scale * 0.9, 0.0, 0.0)
+    sword(img, math.pi / 4, scale * 0.9, 0.0, 0.0)
+
+
+img = new()
+for k in range(3):
+    a = 2 * math.pi * k / 3
+    blade = [(0.0, 0.0), (0.35, -0.3), (1.0, -0.15), (0.5, 0.2)]
+    poly(img, pts(blade, 1.0, 0, 0, a), STEEL, STEEL_D)
+circle(img, (C, C), 0.22 * C * 0.78, GOLD, GOLD_D)
+save(img, "cleave", (220, 230, 255))
+
+img = new()
+for s in (-0.55, 0.0, 0.55):
+    circle(img, pts([(s, 0.0)])[0], 0.3 * C * 0.78, (240, 190, 150), (190, 120, 90), width=3 * SS)
+arrow(img, math.pi / 2, 1.05)
+save(img, "pierce", (255, 240, 200))
+
+img = new()
+ImageDraw.Draw(img).ellipse([C - 0.9 * C * 0.78, C - 0.9 * C * 0.78, C + 0.9 * C * 0.78, C + 0.9 * C * 0.78], outline=INK + (255,), width=16 * SS)
+ImageDraw.Draw(img).ellipse([C - 0.9 * C * 0.78, C - 0.9 * C * 0.78, C + 0.9 * C * 0.78, C + 0.9 * C * 0.78], outline=(235, 90, 80, 255), width=8 * SS)
+for a in (0, math.pi / 2, math.pi, 3 * math.pi / 2):
+    stroke(img, pts([(math.cos(a) * 0.55, math.sin(a) * 0.55), (math.cos(a) * 1.05, math.sin(a) * 1.05)]), INK, 14 * SS)
+    stroke(img, pts([(math.cos(a) * 0.55, math.sin(a) * 0.55), (math.cos(a) * 1.05, math.sin(a) * 1.05)]), (235, 90, 80), 7 * SS)
+circle(img, (C, C), 0.16 * C * 0.78, (255, 120, 100), (200, 40, 40))
+save(img, "snipe", (255, 160, 140))
+
+img = new()
+for (x, y, r) in ((-0.45, 0.2, 0.5), (0.35, 0.15, 0.55), (-0.05, -0.35, 0.5), (0.0, 0.45, 0.45)):
+    circle(img, pts([(x, y)])[0], r * C * 0.78, (200, 200, 210), (120, 120, 135), width=4 * SS)
+circle(img, pts([(0.0, 0.75)])[0], 0.25 * C * 0.78, (90, 90, 100), (50, 50, 60), width=3 * SS)
+poly(img, pts([(-0.08, 0.75), (0.08, 0.75), (0.12, 1.05), (-0.12, 1.05)]), (120, 70, 40), (70, 40, 20), width=3 * SS)
+save(img, "smoke", (200, 200, 215))
+
+img = new()
+for k in range(5):
+    a = -math.pi / 2 + (k - 2) * 0.42
+    f = [(0, 0.3), (math.cos(a - 0.18) * 0.7, 0.3 + math.sin(a - 0.18) * 0.7), (math.cos(a) * 1.1, 0.3 + math.sin(a) * 1.1), (math.cos(a + 0.18) * 0.7, 0.3 + math.sin(a + 0.18) * 0.7)]
+    poly(img, pts(f), (255, 200, 60), (220, 60, 20), width=3 * SS)
+flame(img, 0.45, 0.0, 0.45)
+save(img, "wave", (255, 150, 50))
+
+img = new()
+for k in range(6):
+    a = math.pi * k / 3
+    stroke(img, pts([(0, 0), (math.cos(a), math.sin(a))]), INK, 14 * SS)
+    stroke(img, pts([(0, 0), (math.cos(a), math.sin(a))]), (200, 240, 255), 7 * SS)
+    for t in (0.5, 0.8):
+        for s in (-1, 1):
+            b = a + s * 0.6
+            p0 = (math.cos(a) * t, math.sin(a) * t)
+            p1 = (p0[0] + math.cos(b) * 0.22, p0[1] + math.sin(b) * 0.22)
+            stroke(img, pts([p0, p1]), INK, 9 * SS)
+            stroke(img, pts([p0, p1]), (200, 240, 255), 4 * SS)
+circle(img, (C, C), 0.16 * C * 0.78, (255, 255, 255), (180, 230, 255), width=3 * SS)
+save(img, "frost", (150, 220, 255))
+
+img = new()
+circle(img, pts([(0, -0.15)])[0], 0.62 * C * 0.78, (235, 235, 245), (150, 150, 170))
+poly(img, pts([(-0.4, 0.3), (0.4, 0.3), (0.35, 0.85), (-0.35, 0.85)]), (235, 235, 245), (150, 150, 170))
+for s in (-1, 1):
+    circle(img, pts([(s * 0.26, -0.2)])[0], 0.17 * C * 0.78, (90, 30, 140), (40, 10, 70), width=3 * SS)
+for x in (-0.18, 0.0, 0.18):
+    stroke(img, pts([(x, 0.4), (x, 0.8)]), INK, 4 * SS)
+poly(img, pts([(-0.08, 0.05), (0.08, 0.05), (0.0, 0.25)]), (120, 60, 160), (70, 30, 110), width=3 * SS)
+save(img, "curse", (170, 90, 230))
+
+img = new()
+poly(img, pts([(-0.1, -1.0), (0.45, -1.0), (0.1, -0.2), (0.5, -0.2), (-0.35, 1.0), (-0.1, 0.1), (-0.5, 0.1)]), (220, 170, 255), (110, 40, 170))
+heart(img, (255, 110, 120), (190, 30, 60), 0.4, 0.55, 0.55)
+save(img, "drain", (170, 100, 240))
+
+# --- Promotion emblems -------------------------------------------------------
+
+img = new(); crossed_swords(img, 1.0); save(img, "vanguard", (255, 200, 170))
+
+img = new()
+shape = [(-0.7, -0.95), (0.7, -0.95), (0.7, 0.55), (0.0, 1.0), (-0.7, 0.55)]
+poly(img, pts(shape), (150, 170, 220), (60, 80, 150))
+poly(img, pts([(x * 0.7, y * 0.7 - 0.05) for x, y in shape]), (60, 80, 150), (150, 170, 220), outline=None)
+for dy in (-0.5, -0.1, 0.3):
+    stroke(img, pts([(-0.5, dy), (0.5, dy)]), GOLD, 4 * SS)
+save(img, "warden", (170, 200, 255))
+
+img = new()
+ImageDraw.Draw(img).ellipse([C - 0.8 * C * 0.78, C - 0.8 * C * 0.78, C + 0.8 * C * 0.78, C + 0.8 * C * 0.78], outline=INK + (255,), width=14 * SS)
+ImageDraw.Draw(img).ellipse([C - 0.8 * C * 0.78, C - 0.8 * C * 0.78, C + 0.8 * C * 0.78, C + 0.8 * C * 0.78], outline=(130, 200, 110, 255), width=7 * SS)
+arrow(img, -math.pi / 4, 1.0)
+save(img, "sharpshooter", (170, 255, 150))
+
+img = new()
+ImageDraw.Draw(img).ellipse([C - 0.8 * C * 0.78, C - 0.8 * C * 0.78, C + 0.8 * C * 0.78, C + 0.8 * C * 0.78], outline=(90, 95, 105, 255), width=14 * SS)
+for i in range(10):
+    a = 2 * math.pi * i / 10
+    tooth = [(math.cos(a) * 0.72 + math.sin(a) * 0.1, math.sin(a) * 0.72 - math.cos(a) * 0.1), (math.cos(a) * 0.72 - math.sin(a) * 0.1, math.sin(a) * 0.72 + math.cos(a) * 0.1), (math.cos(a) * 1.05, math.sin(a) * 1.05)]
+    poly(img, pts(tooth), (190, 150, 100), (110, 75, 40), width=3 * SS)
+leaf(img, (140, 220, 90), (40, 120, 40), 0.5, 0, 0, 0.5)
+save(img, "trapper", (230, 200, 140))
+
+img = new(); flame(img, 1.0)
+star(img, 4, 0.28, 0.1, (255, 255, 255), (255, 220, 150), rot=math.pi / 4, dx=0.6, dy=-0.7)
+save(img, "pyromancer", (255, 120, 40))
+
+img = new()
+for k in range(6):
+    a = math.pi * k / 3
+    stroke(img, pts([(0, 0), (math.cos(a) * 0.95, math.sin(a) * 0.95)]), INK, 16 * SS)
+    stroke(img, pts([(0, 0), (math.cos(a) * 0.95, math.sin(a) * 0.95)]), (190, 235, 255), 8 * SS)
+poly(img, pts([(0, -0.5), (0.43, -0.25), (0.43, 0.25), (0, 0.5), (-0.43, 0.25), (-0.43, -0.25)]), (240, 250, 255), (160, 210, 240))
+save(img, "frostweaver", (140, 210, 255))
+
+img = new()
+for i in range(8):
+    a = 2 * math.pi * i / 8
+    ray = [(math.cos(a) * 0.5, math.sin(a) * 0.5), (math.cos(a - 0.2) * 0.75, math.sin(a - 0.2) * 0.75), (math.cos(a) * 1.0, math.sin(a) * 1.0), (math.cos(a + 0.2) * 0.75, math.sin(a + 0.2) * 0.75)]
+    poly(img, pts(ray), (255, 245, 190), (240, 190, 70), width=3 * SS)
+circle(img, (C, C), 0.5 * C * 0.78, (255, 255, 235), (240, 210, 130))
+poly(img, pts([(-0.1, -0.35), (0.1, -0.35), (0.1, -0.1), (0.35, -0.1), (0.35, 0.1), (0.1, 0.1), (0.1, 0.4), (-0.1, 0.4), (-0.1, 0.1), (-0.35, 0.1), (-0.35, -0.1), (-0.1, -0.1)]), (120, 230, 140), (30, 150, 70), width=3 * SS)
+save(img, "cleric", (255, 230, 150))
+
+img = new()
+circle(img, (C, C), 0.95 * C * 0.78, (70, 40, 110), (25, 10, 45))
+pts_moon = []
+for i in range(40):
+    t = math.pi * i / 39
+    pts_moon.append((math.cos(t - math.pi / 2) * 0.7, math.sin(t - math.pi / 2) * 0.7))
+for i in range(40):
+    t = math.pi * (39 - i) / 39
+    pts_moon.append((math.cos(t - math.pi / 2) * 0.35 + 0.25, math.sin(t - math.pi / 2) * 0.7))
+poly(img, pts(pts_moon, 1.0, -0.1, 0.0), (235, 225, 255), (170, 140, 220))
+star(img, 4, 0.18, 0.07, (255, 255, 255), (220, 200, 255), rot=math.pi / 4, dx=0.5, dy=-0.4)
+save(img, "darkpriest", (150, 90, 220))

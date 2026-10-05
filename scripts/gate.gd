@@ -102,6 +102,7 @@ func take_hit(amount: int, attacker = null) -> void:
 		rebuild_timer = Stats.GATE_REBUILD_TIME
 		shape.disabled = true
 		game.announce("The %s door has been broken!" % Stats.FACTIONS[team].name)
+		game._banter(1 - team, "gate_down")
 		game.spawn_splash(global_position, Color(0.7, 0.5, 0.28), 60, 7.0, 1.0)
 		game.spawn_splash(global_position + Vector3(0, 1, 0), Color(0.5, 0.45, 0.4), 30, 3.0, 1.4, true)
 		game.shake_at(global_position, 0.8)

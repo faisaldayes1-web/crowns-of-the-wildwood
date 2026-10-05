@@ -28,6 +28,7 @@ var move_anim := "Running_A"
 var attack_anims: Array = ["1H_Melee_Attack_Slice_Horizontal"]
 var height := 1.75             # for the overhead label
 var busy_until := 0.0          # a one-shot action plays until this time
+var tint := Color.WHITE        # the variant's skin tint; unit.gd restores it after a hit flash
 var held := ""                 # a loop held by the unit (blocking, casting)
 var current := ""
 
@@ -86,6 +87,17 @@ static func config(team: int, role: int, variant: String = "") -> Dictionary:
 					c.idle = "Unarmed_Idle"
 					c.attacks = ["Unarmed_Melee_Attack_Punch_A", "Unarmed_Melee_Attack_Punch_B"]
 					c.scale = 0.8
+			# A class variant (promotion) swaps gear, animations and tints the skin.
+			if variant != "" and Stats.VARIANTS.has(role):
+				for v in Stats.VARIANTS[role]:
+					if v.name == variant:
+						if v.has("show"):
+							c.show = v.show
+						if v.has("attacks"):
+							c.attacks = v.attacks
+						if v.has("idle"):
+							c.idle = v.idle
+						c.tint = v.get("tint", Color.WHITE)
 	return c
 
 
@@ -101,6 +113,7 @@ func setup(team: int, role: int, variant: String = "") -> void:
 	skeleton = inst.find_child("Skeleton3D", true, false)
 	idle_anim = c.idle
 	attack_anims = c.attacks
+	tint = c.get("tint", Color.WHITE)
 	height = 1.75 * (c.scale / 0.75) + (0.25 if c.scene == "mage" and c.hat else 0.0)
 
 	# A dark outline (an inflated back-face pass) and a soft rim light make
@@ -132,6 +145,7 @@ func setup(team: int, role: int, variant: String = "") -> void:
 			if mat is StandardMaterial3D:
 				var dup: StandardMaterial3D = mat.duplicate()
 				dup.albedo_texture = skin
+				dup.albedo_color = tint
 				dup.rim_enabled = true
 				dup.rim = 0.35
 				dup.rim_tint = 0.6

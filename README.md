@@ -20,9 +20,13 @@ Real low-poly models and textures (all CC0, see `assets/CREDITS.md`), with every
 | Ability Q / Ability E | Q / E | X / Y |
 | Dodge (2 second recharge, costs 10 stamina) | Space or L | B |
 | Grab or drop the monarch | F | Right bumper |
-| Rank menu (spend experience) | Tab, then 1-4 | Back, then D-pad |
-| Game menu (map, classes, controls; pauses) | Esc, arrows switch tabs | Start, bumpers switch tabs |
+| Perk menu (spend experience, pick a promotion) | R, then 1-4 (5 / 6 for a promotion) | Right stick click, then D-pad |
+| Scoreboard | Hold Tab | Hold Back |
+| Chat (team by default, `/all` for everyone) | Enter, type, Enter | - |
+| Pause menu (map, classes, my class, scoreboard, controls) | Esc, arrows switch tabs | Start, bumpers switch tabs |
 | Play again after a match | R or Enter | Start |
+
+Every row above except movement by stick and aiming can be rebound: open **Controls** (Esc in a match, or O / the Options button on the title screen), click a row and press the key, mouse button or gamepad button you want. Bindings are saved to `user://controls.cfg`; **Reset to defaults** puts them back.
 
 On the title screen, press 1 (D-pad left) to play the Elves or 2 (D-pad right) to play the Humans.
 
@@ -42,7 +46,13 @@ On the title screen, press 1 (D-pad left) to play the Elves or 2 (D-pad right) t
   - **Healer** (mana): **Mend** heals every hurt teammate around you, yourself included; with nobody to heal, the same click fires a holy bolt instead. **Q Blessing** (9 s, 60): heal everyone nearby by 2 hearts and speed them up for 4 seconds. **E Smite** (3 s, 30): a fast holy bolt.
   - Step onto a different station to switch. Dying returns you to the plain form.
 - **Stamina and mana.** Every attack costs some, and both refill slowly (11 stamina or 7 mana a second), so the Q and E abilities are a budget, not a rotation. Humans refill faster; Elves move faster.
-- **Experience, per life.** Hitting (10 a heart), killing (30), healing a teammate (8 a heart), hitting the door, grabbing the monarch (25) and capturing (100) earn experience. Levels come at 40, 100, 180, 280 and 400 and each gives one rank point. Press Tab for the rank menu: three ranks each in your base attack, Q, E and Vigor. Rank 1 cuts the cooldown 15% and the cost 12%, rank 2 widens the effect (range, radius, duration, two more arrows), rank 3 adds a heart of damage or healing; each Vigor rank is +7% speed, +15 max energy, +20% regen. Dying wipes it all, so staying alive is how you get strong. Bots rank up too.
+- **Experience, per life.** Hitting (10 a heart), killing (30), healing a teammate (8 a heart), hitting the door, grabbing the monarch (25) and capturing (100) earn experience. Levels come at 40, 100, 180, 280 and 400 and each gives one rank point. Press R for the perk menu: three ranks each in your base attack, Q, E and Vigor. Rank 1 cuts the cooldown 15% and the cost 12%, rank 2 widens the effect (range, radius, duration, two more arrows), rank 3 adds a heart of damage or healing; each Vigor rank is +7% speed, +15 max energy, +20% regen. Dying wipes it all, so staying alive is how you get strong. Bots rank up too.
+- **Promotions (class variants).** Every rank point you spend counts towards your *total upgrades* for the match, per class, and those are kept across lives. Spend 3 in a class and its two variants unlock in the perk menu (press 5 or 6, or click): the pick is kept for the rest of the match and you can switch any time. Like Fat Princess's upgraded hat machines, a promotion changes the base attack, Q and E, and the look:
+  - **Knight → Vanguard** (greatsword, no shield): **Q Cleave** spins and hits everyone around you, **E Charge** is a long knockdown dash. **Knight → Warden** (tower shield, mace): **Q Shield Slam** pins everyone it hits for 1.5 s, **E Bulwark** is a 3 s shield wall that also shields teammates within 4 m.
+  - **Ranger → Sharpshooter** (longbow, 20 m range): **Q Piercing Shot** flies through everyone in line, **E Snipe** takes two hearts. **Ranger → Trapper**: poison arrows slow, **Q Trap Line** plants three traps in a row, **E Smoke Bomb** hides you from bots and speeds you up for 3 s.
+  - **Mage → Pyromancer**: burning bolts that splash, **Q Inferno** is a huge fireball, **E Flame Wave** burns everyone in a cone in front. **Mage → Frostweaver**: frost bolts slow, **Q Ice Burst** freezes everyone near the blast for 1.3 s, **E Blink** goes 8 m.
+  - **Healer → Cleric**: wider Mend, **Q Sanctuary** heals, speeds and shields the group, **E Radiance** is a bursting bolt. **Healer → Dark Priest**: drain bolts heal you a heart per hit, **Q Curse** hurts and slows every enemy around you, **E Smite** takes two hearts.
+- **Scoreboard and chat.** Hold Tab for the scoreboard (also a tab of the pause menu and the end screen): score, kills, deaths, captures, hearts healed, damage and total upgrades per player, score = kills ×10 + captures ×100 + heals ×5 + damage ×2 + upgrades ×3. Enter opens team chat (`/all` for both teams); bots answer and call out captures, broken doors and kills, and the log doubles as an event feed. Bots have names.
 - **Castles.** Each castle is an outer castle wall ringing a yard, with the keep (the building holding the throne and class stations) standing inside at the back. The wall's one wooden door only blocks the enemy team, breaks after enough hits (Knights and Mages break it fastest; a Fireball is worth four hits), and rebuilds itself 30 seconds later once no enemy is left inside. Ramps in the yard at both ends of the front wall lead up to the ramparts: from up there Rangers and Mages shoot down at anyone outside, and arrows from the ground cannot reach them. Mage splash still can. The keep has an open archway facing the door.
 - **Cover.** Barricades, boulders and trees in the middle stop arrows and spells. Duck behind them.
 - **Monarch.** Walk up to the enemy monarch and press F to pick them up. You move slower and cannot attack while carrying. Reach the gold ring around your own throne to score. If the carrier dies, the monarch walks back home; touching your own dropped monarch sends them home instantly.
@@ -67,14 +77,14 @@ All the numbers are in one file: `scripts/stats.gd`. Hearts per player, damage p
 
 ## Code layout
 
-- `scripts/stats.gd` every balance number and the class table.
+- `scripts/stats.gd` every balance number, the class table, the eight promotions and the score weights.
 - `scripts/game.gd` builds the map, spawns teams, runs scoring, the timer and the match flow.
 - `scripts/unit.gd` is every soldier: classes, combat, player controls and the bot brain.
 - `scripts/gate.gd` the breakable castle gate.
 - `scripts/projectile.gd` arrows, spells and bolts.
 - `scripts/heal_orb.gd` the healing orbs on the map.
 - `scripts/trap.gd` the Ranger's snare trap.
-- `scripts/hud.gd` the on-screen HUD, minimap, rank and game menus, title and end screens.
+- `scripts/hud.gd` the on-screen HUD, minimap, chat, scoreboard, perk and pause menus (with control remapping), title and end screens.
 - `scripts/character_model.gd` the animated characters and monarchs built from the KayKit models.
 - `tools/showcase.gd` renders all characters to a PNG; `tools/recolor_skins.py` makes the team skins; `tools/make_textures.py`, `tools/make_icons.py` and `tools/recolor_palette.py` generate the textures, HUD icons and prop palette.
 - `assets/` models, textures, skins, logo and `CREDITS.md`.

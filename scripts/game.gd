@@ -43,6 +43,24 @@ const BRIDGES := [-14.0, 0.0, 14.0]
 const BRIDGE_HALF := [2.0, 3.0, 2.0]
 const BANK_LAYER := 16        # river banks block walkers, not shots
 const MONARCH_TITLES := ["Elf Queen", "Human King"]
+const CONTROLS_PATH := "user://controls.cfg"
+# Actions the player can rebind in the Controls menu (and what to call them).
+const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"],
+	["dodge", "Dodge"], ["interact", "Grab / drop"], ["rank_menu", "Perks & ranks"], ["scoreboard", "Scoreboard (hold)"],
+	["chat", "Chat"], ["menu", "Pause menu"], ["move_up", "Move up"], ["move_down", "Move down"],
+	["move_left", "Move left"], ["move_right", "Move right"]]
+const MENU_TABS := 5
+const CHAT_LINES := 60
+# What bots say. Lines are picked by situation.
+const BANTER := {
+	"reply": ["On it!", "Cover me!", "Heading to the gate.", "Nice one.", "Rally at the bridge!", "Hold the wall!", "Got your back."],
+	"idle": ["Push the gate!", "Archers, hold the wall.", "Rally at the middle bridge.", "Watch the flanks.", "Who's got the healer?"],
+	"hurt": ["Need a healer over here!", "I'm hurt, falling back.", "Healer!"],
+	"carrying": ["I've got them! Cover me!", "Running it home, clear the way!"],
+	"ours_taken": ["They've taken our monarch! Get them!", "Stop the carrier!", "Don't let them cross the river!"],
+	"captured": ["That's one for us!", "Beautiful. Again!"],
+	"gate_down": ["The door is down, push in!", "Go go go, the gate's open!"],
+}
 
 var map_half := Vector2(58, 26)
 var playing := false
@@ -78,11 +96,19 @@ var menu_tab := 0
 var shake_amount := 0.0
 var cam_pos := Vector3.ZERO
 var click_was := false
+var scoreboard_open := false   # held: the match scoreboard overlay
+var chat_open := false
+var chat_text := ""
+var chat_log: Array = []       # {who, text, color, time, team}
+var rebinding := ""            # action waiting for a new key in the Controls menu
+var swallow_frame := -1        # frame on which a key was eaten by chat / rebinding
+var bot_chat_timer := 18.0
 
 
 func _ready() -> void:
 	randomize()
 	_setup_input()
+	_load_controls()
 	_build_world()
 	_build_hud()
 	demo = "--demo" in OS.get_cmdline_user_args()
@@ -149,6 +175,27 @@ func _debug_hooks() -> void:
 				menu_tab = 0
 			if arg.begins_with("--debug-tab="):
 				menu_tab = int(arg.trim_prefix("--debug-tab="))
+			if arg == "--debug-score":
+				scoreboard_open = true
+			if arg == "--debug-chat":
+				chat_open = true
+				chat_text = "push the middle bridge, I'll take the wall"
+				chat_add("Aelith", "anyone got the healer station?", _team_color(0), true)
+				chat_add("Sylvara", "on it, give me a sec", _team_color(0), true)
+				chat_add("Garrick", "gg so far", _team_color(1), false)
+			if arg == "--debug-variant" and player.role == Role.BASE:
+				player.set_role(Role.KNIGHT)
+				player.level = 4
+				player.points = 1
+				player.xp = 200
+				player.mastery[Role.KNIGHT] = 3
+				player.ranks[Role.KNIGHT] = [2, 1, 0, 0]
+				player.choose_variant(Role.KNIGHT, 0)
+				player.kills = 3
+				player.damage_dealt = 7
+		if arg == "--debug-options" and frame == shot_frame - 5 and not playing:
+			menu_open = true
+			menu_tab = 4
 		if arg.begins_with("--shot=") and frame == shot_frame:
 			get_viewport().get_texture().get_image().save_png(arg.trim_prefix("--shot="))
 		if arg == "--debug-end" and playing and frame == shot_frame - 60:
@@ -184,6 +231,9 @@ func _score_capture(carrier, m) -> void:
 	spawn_ring(thrones[carrier.team], 6.0, Color(1.0, 0.9, 0.5), 0.8)
 	shake(0.3)
 	var team_name: String = Stats.FACTIONS[carrier.team].name
+	carrier.captures += 1
+	chat_system("%s captured the %s for the %s!" % [carrier.display_name, m.title, team_name])
+	_banter(carrier.team, "captured")
 	if score[carrier.team] >= CAPTURES_TO_WIN:
 		_finish(carrier.team)
 	else:
@@ -224,6 +274,9 @@ func try_interact(u) -> void:
 		u.carrying = m
 		u.gain_xp(Stats.XP_GRAB)
 		announce("The %s has been taken by the %s!" % [m.title, Stats.FACTIONS[u.team].name])
+		chat_system("%s grabbed the %s!" % [u.display_name, m.title])
+		_banter(1 - u.team, "ours_taken")
+		_banter(u.team, "carrying", u)
 
 
 func drop_monarch(u) -> void:
@@ -536,6 +589,7 @@ func announce(text: String) -> void:
 	if message_label:
 		message_label.text = text
 		message_timer = 3.0
+	chat_system(text)
 
 
 func _flat_dist(a: Vector3, b: Vector3) -> float:
@@ -558,13 +612,15 @@ func _start_match(team: int) -> void:
 			u.setup(self, t, is_player, spawn)
 			u.bot_class = LINEUP[i][0]
 			u.bot_job = LINEUP[i][1]
+			u.display_name = "You" if is_player else Stats.BOT_NAMES[t][i % Stats.BOT_NAMES[t].size()]
 			units.append(u)
 			if is_player or (demo and player == null):
 				player = u
 	cam_pos = player.global_position + CAMERA_OFFSET
 	camera.global_position = cam_pos
 	playing = true
-	announce("Click to attack, Q and E for abilities, Space to dodge, Tab to rank up. Find a class station in your keep!")
+	announce("Click to attack, Q and E for abilities, Space to dodge, %s for perks, hold %s for the scoreboard, %s to chat." % [
+		key_label("rank_menu"), key_label("scoreboard"), key_label("chat")])
 
 
 func _update_camera(delta: float) -> void:
@@ -592,49 +648,369 @@ func shake_at(where: Vector3, amount: float) -> void:
 
 
 func menu_blocks_input() -> bool:
-	return menu_open or rank_open
+	return menu_open or rank_open or chat_open
+
+
+func menu_tabs() -> Array:
+	## Which menu tabs make sense now: at the title only Classes and Controls.
+	return [1, 4] if not playing else [0, 1, 2, 3, 4]
 
 
 func menu_tick() -> void:
 	## Called every frame by the HUD, which keeps running while paused.
-	if not playing or game_over:
+	if game_over:
 		return
-	if Input.is_action_just_pressed("menu"):
-		menu_open = not menu_open
-		rank_open = false
-		get_tree().paused = menu_open
-	if menu_open:
-		if Input.is_action_just_pressed("menu_left"):
-			menu_tab = posmod(menu_tab - 1, 3)
-		if Input.is_action_just_pressed("menu_right"):
-			menu_tab = posmod(menu_tab + 1, 3)
-		if Input.is_action_just_pressed("quit_match"):
-			get_tree().paused = false
-			get_tree().reload_current_scene()
-	elif Input.is_action_just_pressed("rank_menu") and player and not demo:
-		rank_open = not rank_open
-	if rank_open and player:
-		if player.dead:
+	var eaten: bool = Engine.get_process_frames() == swallow_frame
+	if not playing:
+		# Title screen: the options menu (controls, classes).
+		if not eaten and rebinding == "":
+			if Input.is_action_just_pressed("options") and not menu_open:
+				menu_open = true
+				menu_tab = 4
+			elif Input.is_action_just_pressed("menu") and menu_open:
+				menu_open = false
+	elif chat_open:
+		pass  # typing: keys go to menu_input
+	else:
+		if Input.is_action_just_pressed("menu") and not eaten and rebinding == "":
+			menu_open = not menu_open
 			rank_open = false
-		for i in 4:
-			if Input.is_action_just_pressed("rank_%d" % (i + 1)):
-				player.spend_point(i)
+			get_tree().paused = menu_open
+		scoreboard_open = Input.is_action_pressed("scoreboard") and not menu_open and not rank_open
+		if menu_open:
+			if Input.is_action_just_pressed("quit_match") and rebinding == "":
+				get_tree().paused = false
+				get_tree().reload_current_scene()
+		elif Input.is_action_just_pressed("rank_menu") and player and not demo:
+			rank_open = not rank_open
+		elif Input.is_action_just_pressed("chat") and player and not demo and not eaten:
+			chat_open = true
+			chat_text = ""
+			rank_open = false
+		if rank_open and player:
+			if player.dead:
+				rank_open = false
+			for i in 4:
+				if Input.is_action_just_pressed("rank_%d" % (i + 1)):
+					player.spend_point(i)
+			for i in 2:
+				if Input.is_action_just_pressed("rank_%d" % (i + 5)):
+					player.choose_variant(player.role, i)
+	if menu_open and rebinding == "" and not chat_open:
+		var tabs := menu_tabs()
+		var at := maxi(tabs.find(menu_tab), 0)
+		if Input.is_action_just_pressed("menu_left"):
+			menu_tab = tabs[posmod(at - 1, tabs.size())]
+		if Input.is_action_just_pressed("menu_right"):
+			menu_tab = tabs[posmod(at + 1, tabs.size())]
+		if not menu_tab in tabs:
+			menu_tab = tabs[0]
+	# Bot chatter now and then.
+	if playing and not get_tree().paused:
+		bot_chat_timer -= get_process_delta_time()
+		if bot_chat_timer <= 0.0:
+			bot_chat_timer = randf_range(22.0, 40.0)
+			_idle_banter()
 	# Mouse clicks on menu buttons (the HUD records where it drew them).
 	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
-	if click and not click_was and hud:
+	if click and not click_was and hud and rebinding == "":
 		var mouse := get_viewport().get_mouse_position()
 		for i in hud.rank_buttons.size():
 			if hud.rank_buttons[i].has_point(mouse) and player:
 				player.spend_point(i)
+		for b in hud.variant_buttons:
+			if b[0].has_point(mouse) and player:
+				player.choose_variant(b[1], b[2])
 		for i in hud.tab_buttons.size():
 			if hud.tab_buttons[i].has_point(mouse):
-				menu_tab = i
+				menu_tab = hud.tab_ids[i]
+		for b in hud.bind_buttons:
+			if b[0].has_point(mouse):
+				rebinding = b[1]
+				swallow_frame = Engine.get_process_frames()
+		if hud.reset_button.has_point(mouse):
+			_reset_controls()
+		if hud.options_button.has_point(mouse) and not playing:
+			menu_open = true
+			menu_tab = 4
 		if hud.close_button.has_point(mouse):
 			if menu_open:
 				menu_open = false
 				get_tree().paused = false
 			rank_open = false
 	click_was = click
+
+
+func menu_input(event: InputEvent) -> void:
+	## Raw key events from the HUD: typing in chat and rebinding controls.
+	if rebinding != "":
+		if Engine.get_process_frames() == swallow_frame:
+			return  # the click that picked the row
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.keycode == KEY_ESCAPE:
+				rebinding = ""
+			else:
+				_rebind(rebinding, event)
+			swallow_frame = Engine.get_process_frames()
+		elif (event is InputEventMouseButton or event is InputEventJoypadButton) and event.pressed:
+			_rebind(rebinding, event)
+			swallow_frame = Engine.get_process_frames()
+		return
+	if chat_open and event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_ENTER, KEY_KP_ENTER:
+				if chat_text.strip_edges() != "":
+					_send_chat(chat_text.strip_edges())
+					chat_open = false
+					swallow_frame = Engine.get_process_frames()
+				elif Engine.get_process_frames() != swallow_frame:
+					chat_open = false
+					swallow_frame = Engine.get_process_frames()
+			KEY_ESCAPE:
+				chat_open = false
+				swallow_frame = Engine.get_process_frames()
+			KEY_BACKSPACE:
+				chat_text = chat_text.left(maxi(chat_text.length() - 1, 0))
+			_:
+				if event.unicode >= 32 and chat_text.length() < 90:
+					chat_text += char(event.unicode)
+
+
+# --- Chat ------------------------------------------------------------------
+
+func chat_add(who: String, text: String, color: Color, team_only: bool = false) -> void:
+	chat_log.append({"who": who, "text": text, "color": color, "time": Time.get_ticks_msec() / 1000.0, "team": team_only})
+	if chat_log.size() > CHAT_LINES:
+		chat_log.pop_front()
+
+
+func chat_system(text: String) -> void:
+	chat_add("", text, Color(0.8, 0.8, 0.85))
+
+
+func chat_kill(attacker, victim) -> void:
+	if attacker and attacker != victim:
+		chat_add("", "%s (%s) slew %s (%s)." % [attacker.display_name, attacker.role_name(), victim.display_name, victim.role_name()], Color(0.9, 0.6, 0.55))
+	else:
+		chat_add("", "%s (%s) fell." % [victim.display_name, victim.role_name()], Color(0.9, 0.6, 0.55))
+
+
+func _send_chat(text: String) -> void:
+	## Team chat by default; "/all " talks to everyone.
+	var team_only := true
+	if text.begins_with("/all "):
+		text = text.trim_prefix("/all ").strip_edges()
+		team_only = false
+	elif text.begins_with("/t "):
+		text = text.trim_prefix("/t ").strip_edges()
+	if text == "":
+		return
+	chat_add(player.display_name, text, _team_color(player.team), team_only)
+	# A teammate answers after a moment.
+	if randf() < 0.7:
+		_banter(player.team, "reply", null, randf_range(0.8, 2.2))
+
+
+func _team_color(team: int) -> Color:
+	return Stats.FACTIONS[team].color.lightened(0.35)
+
+
+func _banter(team: int, kind: String, speaker = null, delay: float = -1.0) -> void:
+	## A bot on `team` says one of the BANTER lines for `kind`.
+	if speaker == null:
+		var bots: Array = units.filter(func(u): return u.team == team and not u.is_player and not u.dead)
+		if bots.is_empty():
+			return
+		speaker = bots[randi() % bots.size()]
+	elif speaker.is_player:
+		return
+	var lines: Array = BANTER[kind]
+	var line: String = lines[randi() % lines.size()]
+	if delay < 0.0:
+		delay = randf_range(0.6, 1.8)
+	var who: String = speaker.display_name
+	get_tree().create_timer(delay).timeout.connect(func(): chat_add(who, line, _team_color(team), true))
+
+
+func _idle_banter() -> void:
+	var bots: Array = units.filter(func(u): return not u.is_player and not u.dead)
+	if bots.is_empty():
+		return
+	var b = bots[randi() % bots.size()]
+	var kind := "idle"
+	if b.carrying:
+		kind = "carrying"
+	elif b.hearts <= 2:
+		kind = "hurt"
+	elif monarchs[b.team].state == Monarch.State.CARRIED:
+		kind = "ours_taken"
+	_banter(b.team, kind, b, 0.1)
+
+
+func unit_score(u) -> int:
+	return u.kills * Stats.SCORE_KILL + u.captures * Stats.SCORE_CAPTURE + u.healing * Stats.SCORE_HEAL \
+		+ u.damage_dealt * Stats.SCORE_DAMAGE + u.total_upgrades() * Stats.SCORE_UPGRADE
+
+
+# --- Control bindings --------------------------------------------------------
+
+func key_label(action: String) -> String:
+	## A short keycap label for the action's first mouse or keyboard binding.
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventMouseButton:
+			return _mouse_name(ev.button_index)
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventKey:
+			return _short_key(_key_name(ev))
+	return "-"
+
+
+func binding_text(action: String, device: String) -> String:
+	## Every binding on one device ("key" = keyboard + mouse, "pad" = gamepad).
+	var names: Array = []
+	for ev in InputMap.action_get_events(action):
+		if device == "key":
+			if ev is InputEventKey:
+				names.append(_key_name(ev))
+			elif ev is InputEventMouseButton:
+				names.append(_mouse_name(ev.button_index))
+		else:
+			if ev is InputEventJoypadButton:
+				names.append(_pad_name(ev.button_index))
+			elif ev is InputEventJoypadMotion:
+				if ev.axis == JOY_AXIS_TRIGGER_RIGHT:
+					names.append("RT")
+				elif ev.axis == JOY_AXIS_TRIGGER_LEFT:
+					names.append("LT")
+				elif ev.axis == JOY_AXIS_LEFT_X or ev.axis == JOY_AXIS_LEFT_Y:
+					names.append("Left stick")
+	return " / ".join(names) if not names.is_empty() else "-"
+
+
+func _key_name(ev: InputEventKey) -> String:
+	var code: int = ev.physical_keycode if ev.physical_keycode != 0 else ev.keycode
+	return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code) if ev.physical_keycode != 0 else code)
+
+
+func _short_key(name: String) -> String:
+	match name:
+		"Escape": return "ESC"
+		"Backspace": return "BKSP"
+		"Space": return "SPACE"
+		"Enter": return "ENTER"
+		"Shift": return "SHIFT"
+		"Ctrl": return "CTRL"
+		"Alt": return "ALT"
+		"Left": return "←"
+		"Right": return "→"
+		"Up": return "↑"
+		"Down": return "↓"
+	return name.to_upper().left(6)
+
+
+func _mouse_name(button: int) -> String:
+	match button:
+		MOUSE_BUTTON_LEFT: return "LMB"
+		MOUSE_BUTTON_RIGHT: return "RMB"
+		MOUSE_BUTTON_MIDDLE: return "MMB"
+		MOUSE_BUTTON_XBUTTON1: return "M4"
+		MOUSE_BUTTON_XBUTTON2: return "M5"
+	return "M%d" % button
+
+
+func _pad_name(button: int) -> String:
+	match button:
+		JOY_BUTTON_A: return "A"
+		JOY_BUTTON_B: return "B"
+		JOY_BUTTON_X: return "X"
+		JOY_BUTTON_Y: return "Y"
+		JOY_BUTTON_LEFT_SHOULDER: return "LB"
+		JOY_BUTTON_RIGHT_SHOULDER: return "RB"
+		JOY_BUTTON_BACK: return "Back"
+		JOY_BUTTON_START: return "Start"
+		JOY_BUTTON_LEFT_STICK: return "LS"
+		JOY_BUTTON_RIGHT_STICK: return "RS"
+		JOY_BUTTON_DPAD_UP: return "D-up"
+		JOY_BUTTON_DPAD_DOWN: return "D-down"
+		JOY_BUTTON_DPAD_LEFT: return "D-left"
+		JOY_BUTTON_DPAD_RIGHT: return "D-right"
+	return "Btn %d" % button
+
+
+func _rebind(action: String, event: InputEvent) -> void:
+	## Replace the action's bindings of the event's kind (keyboard, mouse or
+	## gamepad button) with this one, and take it off any other action.
+	var fresh: InputEvent
+	if event is InputEventKey:
+		fresh = InputEventKey.new()
+		fresh.physical_keycode = event.physical_keycode if event.physical_keycode != 0 else event.keycode
+	elif event is InputEventMouseButton:
+		fresh = InputEventMouseButton.new()
+		fresh.button_index = event.button_index
+	elif event is InputEventJoypadButton:
+		fresh = InputEventJoypadButton.new()
+		fresh.button_index = event.button_index
+	else:
+		return
+	for entry in REBINDABLE:
+		for ev in InputMap.action_get_events(entry[0]):
+			if entry[0] == action and ev.get_class() == fresh.get_class():
+				InputMap.action_erase_event(entry[0], ev)
+			elif entry[0] != action and ev.is_match(fresh, true):
+				InputMap.action_erase_event(entry[0], ev)
+	InputMap.action_add_event(action, fresh)
+	rebinding = ""
+	_save_controls()
+
+
+func _save_controls() -> void:
+	var cfg := ConfigFile.new()
+	for entry in REBINDABLE:
+		var list: Array = []
+		for ev in InputMap.action_get_events(entry[0]):
+			if ev is InputEventKey:
+				list.append({"t": "key", "c": ev.physical_keycode if ev.physical_keycode != 0 else ev.keycode})
+			elif ev is InputEventMouseButton:
+				list.append({"t": "mouse", "c": ev.button_index})
+			elif ev is InputEventJoypadButton:
+				list.append({"t": "pad", "c": ev.button_index})
+		cfg.set_value("controls", entry[0], list)
+	cfg.save(CONTROLS_PATH)
+
+
+func _load_controls() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(CONTROLS_PATH) != OK:
+		return
+	for entry in REBINDABLE:
+		if not cfg.has_section_key("controls", entry[0]):
+			continue
+		for ev in InputMap.action_get_events(entry[0]):
+			if ev is InputEventKey or ev is InputEventMouseButton or ev is InputEventJoypadButton:
+				InputMap.action_erase_event(entry[0], ev)
+		for item in cfg.get_value("controls", entry[0]):
+			var ev: InputEvent
+			match item.t:
+				"key":
+					ev = InputEventKey.new()
+					ev.physical_keycode = int(item.c)
+				"mouse":
+					ev = InputEventMouseButton.new()
+					ev.button_index = int(item.c)
+				"pad":
+					ev = InputEventJoypadButton.new()
+					ev.button_index = int(item.c)
+			if ev:
+				InputMap.action_add_event(entry[0], ev)
+
+
+func _reset_controls() -> void:
+	for entry in REBINDABLE:
+		if InputMap.has_action(entry[0]):
+			InputMap.erase_action(entry[0])
+	_setup_input()
+	DirAccess.remove_absolute(CONTROLS_PATH)
+	rebinding = ""
 
 
 # --- World -----------------------------------------------------------------
@@ -1416,11 +1792,16 @@ func _setup_input() -> void:
 	_add_action("ability_2", [KEY_E], [JOY_BUTTON_Y])
 	_add_action("dodge", [KEY_SPACE, KEY_L], [JOY_BUTTON_B])
 	_add_action("interact", [KEY_F], [JOY_BUTTON_RIGHT_SHOULDER])
-	_add_action("rank_menu", [KEY_TAB], [JOY_BUTTON_BACK])
+	_add_action("rank_menu", [KEY_R], [JOY_BUTTON_RIGHT_STICK])
+	_add_action("scoreboard", [KEY_TAB], [JOY_BUTTON_BACK])
+	_add_action("chat", [KEY_ENTER], [])
+	_add_action("options", [KEY_O], [JOY_BUTTON_BACK])
 	_add_action("rank_1", [KEY_1], [JOY_BUTTON_DPAD_UP])
 	_add_action("rank_2", [KEY_2], [JOY_BUTTON_DPAD_LEFT])
 	_add_action("rank_3", [KEY_3], [JOY_BUTTON_DPAD_RIGHT])
 	_add_action("rank_4", [KEY_4], [JOY_BUTTON_DPAD_DOWN])
+	_add_action("rank_5", [KEY_5], [])
+	_add_action("rank_6", [KEY_6], [])
 	_add_action("menu", [KEY_ESCAPE], [JOY_BUTTON_START])
 	_add_action("menu_left", [KEY_LEFT, KEY_A], [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_LEFT_SHOULDER])
 	_add_action("menu_right", [KEY_RIGHT, KEY_D], [JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_RIGHT_SHOULDER])

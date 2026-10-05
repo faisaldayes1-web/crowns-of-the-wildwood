@@ -51,6 +51,13 @@ const VIGOR_ENERGY := 15.0
 const VIGOR_REGEN := 0.2
 const RANK_TRACKS := ["Attack", "Q", "E", "Vigor"]
 
+# Scoreboard: what a player's match score is made of.
+const SCORE_KILL := 10
+const SCORE_CAPTURE := 100
+const SCORE_HEAL := 5      # per heart healed on a teammate
+const SCORE_DAMAGE := 2    # per heart of damage dealt
+const SCORE_UPGRADE := 3   # per rank point spent
+
 # Hit feedback: how hard hits shove people (metres per second).
 const KNOCK_MELEE := 6.0
 const KNOCK_SHOT := 4.0
@@ -103,6 +110,96 @@ const ROLES := {
 			{"name": "Smite", "key": "E", "kind": "smite", "cooldown": 3.0, "cost": 30.0,
 				"damage": 1, "range": 12.0, "shot_speed": 36.0, "desc": "A fast bolt of light."}]},
 }
+
+# Class variants (promotions, after Fat Princess's upgraded hat machines):
+# every class branches into two. A variant unlocks once you have spent
+# VARIANT_UNLOCK rank points in that class over the match (your total
+# upgrades, kept across lives), and the pick stays for the rest of the
+# match; switch any time in the perk menu. "attack" overrides the class's
+# base attack fields, "abilities" replace Q and E, and show / attacks /
+# idle / tint dress the model. Extra effect keys: slow and root (seconds)
+# on hits, pierce (arrows fly through everyone), fire / frost / drain looks,
+# cone (a cleave only in front), share / shield (guard allies for seconds),
+# count (traps in a row).
+const VARIANT_UNLOCK := 3
+const VARIANTS := {
+	Role.KNIGHT: [
+		{"name": "Vanguard", "icon": "vanguard", "tint": Color(0.9, 0.62, 0.55), "show": ["2H_Sword"],
+			"attacks": ["2H_Melee_Attack_Slice", "2H_Melee_Attack_Chop"], "idle": "2H_Melee_Idle",
+			"desc": "Greatsword offence: long reach, a spinning cleave and a long charge. The shield is gone, so no blocking.",
+			"attack": {"attack_name": "Greatsword", "attack_desc": "A heavy two-handed swing with long reach.",
+				"range": 2.8, "cooldown": 0.65, "cost": 15.0, "gate_damage": 3, "block": false},
+			"abilities": [
+				{"name": "Cleave", "key": "Q", "kind": "cleave", "icon": "cleave", "cooldown": 5.0, "cost": 40.0,
+					"damage": 1, "radius": 3.2, "desc": "Spin with the greatsword, hitting and shoving everyone around you."},
+				{"name": "Charge", "key": "E", "kind": "bash", "icon": "bash", "cooldown": 6.0, "cost": 35.0,
+					"damage": 1, "distance": 7.0, "desc": "A long charge that bowls over everyone in the way."}]},
+		{"name": "Warden", "icon": "warden", "tint": Color(0.78, 0.84, 1.0), "show": ["1H_Sword", "Rectangle_Shield"],
+			"desc": "Tower shield defence: a slam that pins enemies down and a bulwark that shields nearby teammates too.",
+			"attack": {"attack_name": "Mace", "attack_desc": "A short, heavy blow that batters doors.",
+				"range": 2.0, "cooldown": 0.55, "gate_damage": 3},
+			"abilities": [
+				{"name": "Shield Slam", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 5.0, "cost": 35.0,
+					"damage": 1, "distance": 3.5, "root": 1.5, "desc": "A short charge that pins everyone it hits in place."},
+				{"name": "Bulwark", "key": "E", "kind": "guard", "icon": "guard", "cooldown": 9.0, "cost": 35.0,
+					"duration": 3.0, "share": 4.0, "desc": "A longer Shield Wall that also shields teammates close to you."}]}],
+	Role.RANGER: [
+		{"name": "Sharpshooter", "icon": "sharpshooter", "tint": Color(0.6, 0.8, 0.55), "show": ["2H_Crossbow"],
+			"desc": "Longbow marksman: longer, faster arrows, a piercing shot and a two-heart snipe.",
+			"attack": {"attack_name": "Longbow", "attack_desc": "A long, fast arrow.", "range": 20.0, "cooldown": 0.65, "shot_speed": 55.0},
+			"abilities": [
+				{"name": "Piercing Shot", "key": "Q", "kind": "shot", "icon": "pierce", "cooldown": 4.0, "cost": 40.0,
+					"damage": 1, "range": 20.0, "shot_speed": 55.0, "pierce": true, "desc": "An arrow that flies through everyone in its line."},
+				{"name": "Snipe", "key": "E", "kind": "shot", "icon": "snipe", "cooldown": 8.0, "cost": 50.0,
+					"damage": 2, "range": 24.0, "shot_speed": 70.0, "desc": "A slow-to-ready shot that takes two hearts."}]},
+		{"name": "Trapper", "icon": "trapper", "tint": Color(0.75, 0.6, 0.4), "show": ["1H_Crossbow", "Knife_Offhand"],
+			"desc": "Hunter's tricks: slowing arrows, a line of three traps and a smoke bomb that hides you.",
+			"attack": {"attack_name": "Poison Arrow", "attack_desc": "An arrow that slows whoever it hits.", "slow": 1.5},
+			"abilities": [
+				{"name": "Trap Line", "key": "Q", "kind": "trap", "icon": "trap", "cooldown": 8.0, "cost": 40.0,
+					"damage": 1, "root": 2.0, "lifetime": 30.0, "count": 3, "desc": "Plant three snare traps in a row."},
+				{"name": "Smoke Bomb", "key": "E", "kind": "smoke", "icon": "smoke", "cooldown": 9.0, "cost": 35.0,
+					"duration": 3.0, "haste": 3.0, "desc": "Vanish in smoke: enemies lose you and you run faster for a moment."}]}],
+	Role.MAGE: [
+		{"name": "Pyromancer", "icon": "pyromancer", "tint": Color(1.0, 0.6, 0.4), "show": ["2H_Staff"],
+			"desc": "Fire: burning bolts, a huge fireball and a wave of flame in front of you.",
+			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.8},
+			"abilities": [
+				{"name": "Inferno", "key": "Q", "kind": "fireball", "icon": "fireball", "cooldown": 6.0, "cost": 55.0,
+					"damage": 2, "splash": 4.5, "range": 13.0, "shot_speed": 24.0, "desc": "A huge fireball: two hearts to everyone near the blast."},
+				{"name": "Flame Wave", "key": "E", "kind": "cleave", "icon": "wave", "cooldown": 5.0, "cost": 40.0,
+					"damage": 1, "radius": 4.5, "cone": true, "fire": true, "desc": "A fan of fire that burns everyone in front of you."}]},
+		{"name": "Frostweaver", "icon": "frostweaver", "tint": Color(0.65, 0.88, 1.0), "show": ["2H_Staff"],
+			"desc": "Ice: slowing bolts, a freezing burst and a longer blink.",
+			"attack": {"attack_name": "Frost Bolt", "attack_desc": "A bolt of ice that slows whoever it hits.", "frost": true, "slow": 2.0},
+			"abilities": [
+				{"name": "Ice Burst", "key": "Q", "kind": "fireball", "icon": "frost", "cooldown": 5.0, "cost": 45.0,
+					"damage": 1, "splash": 3.5, "range": 13.0, "shot_speed": 28.0, "frost": true, "root": 1.3, "desc": "A ball of ice that freezes everyone near the blast in place."},
+				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4.0, "cost": 25.0,
+					"distance": 8.0, "desc": "Teleport further in the aim direction."}]}],
+	Role.HEALER: [
+		{"name": "Cleric", "icon": "cleric", "tint": Color(1.0, 0.95, 0.78), "show": ["1H_Wand", "Spellbook_open"],
+			"desc": "Guardian of the group: wider mending, a sanctuary that heals and shields, and a smite that bursts.",
+			"attack": {"heal_radius": 6.5},
+			"abilities": [
+				{"name": "Sanctuary", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 10.0, "cost": 65.0,
+					"heal": 2, "radius": 9.0, "haste": 3.0, "shield": 1.5, "desc": "Heal and speed up every teammate nearby, and shield them for a moment."},
+				{"name": "Radiance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 4.0, "cost": 35.0,
+					"damage": 1, "range": 12.0, "shot_speed": 36.0, "splash": 2.0, "desc": "A bolt of light that bursts on impact."}]},
+		{"name": "Dark Priest", "icon": "darkpriest", "tint": Color(0.72, 0.55, 0.9), "show": ["1H_Wand", "Spellbook"],
+			"desc": "Forbidden rites: bolts that drain life back to you, a curse that saps enemies, and a heavier smite.",
+			"attack": {"attack_name": "Drain Bolt", "attack_desc": "Mend nearby teammates; with nobody to heal, a shadow bolt that heals you a heart per hit.",
+				"drain": true, "cost": 20.0},
+			"abilities": [
+				{"name": "Curse", "key": "Q", "kind": "curse", "icon": "curse", "cooldown": 8.0, "cost": 50.0,
+					"damage": 1, "radius": 5.0, "slow": 2.5, "desc": "Every enemy around you loses a heart and crawls for a moment."},
+				{"name": "Smite", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 5.0, "cost": 40.0,
+					"damage": 2, "range": 12.0, "shot_speed": 36.0, "desc": "A heavy bolt of shadow: two hearts."}]}],
+}
+
+# Names for the bots, by faction.
+const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"],
+	["Garrick", "Brom", "Ysolde", "Cedric", "Maud", "Aldric"]]
 
 # Elves are quicker on their feet; humans recover stamina and mana faster.
 const FACTIONS := [

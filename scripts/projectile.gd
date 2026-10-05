@@ -24,6 +24,11 @@ var query_mask := 1
 var owner_unit = null      # who fired it, for experience
 var fire := false
 var holy := false
+var frost := false
+var drain := false       # each hit heals the shooter a heart
+var pierce := false      # flies on through everyone it hits
+var effect := {}         # slow / root seconds applied on a hit
+var hit_list: Array = []
 var color := Color.WHITE
 var spin: Node3D
 
@@ -38,6 +43,13 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 	speed = stats.get("shot_speed", 30.0)
 	fire = stats.get("fire", false)
 	holy = stats.get("holy", false)
+	frost = stats.get("frost", false)
+	drain = stats.get("drain", false)
+	pierce = stats.get("pierce", false)
+	if stats.has("slow"):
+		effect["slow"] = stats.slow
+	if stats.has("root"):
+		effect["root"] = stats.root
 	color = p_color
 	life = stats.range / speed
 	position = from + Vector3(0, FLIGHT_HEIGHT, 0)
@@ -224,8 +236,16 @@ func _physics_process(delta: float) -> void:
 		offset.y = 0.0
 		# Must pass through the body: a shot sailing over someone's head misses.
 		if offset.length() < HIT_RADIUS and absf(global_position.y - (unit.global_position.y + 1.0)) < 1.5:
+			if unit in hit_list:
+				continue
 			if splash <= 0.0:
-				unit.take_damage(damage, owner_unit, global_position - direction, Stats.KNOCK_SHOT)
+				var landed: bool = unit.take_damage(damage, owner_unit, global_position - direction, Stats.KNOCK_SHOT, effect)
+				if landed and drain and owner_unit:
+					owner_unit.heal(1, owner_unit)
+				if pierce:
+					hit_list.append(unit)
+					game.spawn_splash(global_position, Color(0.9, 0.85, 0.7), 6, 2.5, 0.3)
+					continue
 			_burst()
 			return
 
@@ -239,7 +259,7 @@ func _burst() -> void:
 			var offset: Vector3 = unit.global_position - global_position
 			offset.y = 0.0
 			if offset.length() < splash:
-				unit.take_damage(damage, owner_unit, global_position, Stats.KNOCK_SPLASH)
+				unit.take_damage(damage, owner_unit, global_position, Stats.KNOCK_SPLASH, effect)
 		var ground := Vector3(global_position.x, 0.0, global_position.z)
 		if fire:
 			game.spawn_ring(ground, splash, Color(1.0, 0.6, 0.2), 0.45, 0.2)
@@ -247,6 +267,10 @@ func _burst() -> void:
 			game.spawn_splash(global_position + Vector3(0, 0.5, 0), Color(0.25, 0.22, 0.2), 16, 2.5, 1.2, true)
 			game.spawn_flash(ground, Color(1.0, 0.6, 0.2), 6.0, 0.4)
 			game.shake_at(global_position, 0.5)
+		elif frost:
+			game.spawn_ring(ground, splash, color, 0.5, 0.25)
+			game.spawn_splash(global_position, Color(0.85, 0.95, 1.0), 30, 5.0, 0.8, true)
+			game.spawn_flash(ground, color, 4.0, 0.35)
 		else:
 			game.spawn_ring(ground, splash, color, 0.35, 0.2)
 			game.spawn_splash(global_position, color, 14, 4.0, 0.4)

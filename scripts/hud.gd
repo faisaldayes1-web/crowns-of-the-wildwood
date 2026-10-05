@@ -25,7 +25,7 @@ const LEAF := Color(0.3, 0.62, 0.3)
 const GRASS := Color(0.36, 0.55, 0.28)
 const DIRT := Color(0.62, 0.52, 0.36)
 
-const TABS := ["OVERVIEW", "CLASSES", "CONTROLS"]
+const TABS := ["OVERVIEW", "CLASSES", "MY CLASS", "SCOREBOARD", "CONTROLS"]
 
 var game
 var font: Font
@@ -33,7 +33,12 @@ var logo: Texture2D
 var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
+var variant_buttons: Array = []   # [rect, role, index]
 var tab_buttons: Array = []
+var tab_ids: Array = []
+var bind_buttons: Array = []      # [rect, action]
+var reset_button := Rect2()
+var options_button := Rect2()
 var close_button := Rect2()
 
 
@@ -42,7 +47,9 @@ func _ready() -> void:
 	logo = load("res://assets/ui/logo.png")
 	for kind in ["sword", "fist", "arrow", "bolt", "mend", "bash", "guard", "block", "volley", "trap", "fireball",
 			"blink", "blessing", "smite", "dodge", "crown", "vigor", "xp", "class_knight", "class_ranger", "class_mage",
-			"class_healer", "class_elf", "class_human", "crest_forest", "crest_kingdom"]:
+			"class_healer", "class_elf", "class_human", "crest_forest", "crest_kingdom",
+			"cleave", "pierce", "snipe", "smoke", "wave", "frost", "curse", "drain",
+			"vanguard", "warden", "sharpshooter", "trapper", "pyromancer", "frostweaver", "cleric", "darkpriest"]:
 		var path := "res://assets/ui/icons/%s.png" % kind
 		if ResourceLoader.exists(path):
 			icons[kind] = load(path)
@@ -56,14 +63,26 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 
+func _input(event: InputEvent) -> void:
+	if game:
+		game.menu_input(event)
+
+
 func _draw() -> void:
 	if game == null:
 		return
 	rank_buttons = []
+	variant_buttons = []
 	tab_buttons = []
+	tab_ids = []
+	bind_buttons = []
+	reset_button = Rect2()
+	options_button = Rect2()
 	close_button = Rect2()
 	if not game.playing and not game.game_over:
 		_draw_title()
+		if game.menu_open:
+			_draw_game_menu()
 		return
 	_draw_logo(Rect2(14, 8, 200, 80))
 	_draw_scoreboard()
@@ -73,6 +92,9 @@ func _draw() -> void:
 	_draw_objective()
 	if game.player:
 		_draw_player_panel(game.player)
+	_draw_chat()
+	if game.scoreboard_open and not game.game_over:
+		_draw_scoreboard_overlay()
 	if game.rank_open and game.player:
 		_draw_rank_menu(game.player)
 	if game.menu_open:
@@ -353,8 +375,16 @@ func _class_icon(role: int) -> String:
 	return "class_elf"
 
 
-func _attack_icon(role: int) -> String:
-	match Stats.ROLES[role].attack:
+func _attack_icon(role: int, s: Dictionary = {}) -> String:
+	if s.is_empty():
+		s = Stats.ROLES[role]
+	if s.get("drain", false):
+		return "drain"
+	if s.get("frost", false):
+		return "frost"
+	if s.get("fire", false):
+		return "fireball"
+	match s.attack:
 		"melee": return "sword" if role == Role.KNIGHT else "fist"
 		"arrow": return "arrow"
 		"spell": return "bolt"
@@ -442,6 +472,9 @@ func _draw_roster(team: int, origin: Vector2) -> void:
 			nx += 28
 		if u.level > 1:
 			_text(Vector2(nx, rect.position.y + 19), "★%d" % u.level, 11, XP, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			nx += 24
+		if not u.is_player and u.display_name != "":
+			_text(Vector2(nx, rect.position.y + 19), u.display_name, 10, Color(0.75, 0.75, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		if u.carrying:
 			_icon("crown", rect.position + Vector2(218, 16), 7, GOLD)
 		elif u.role != Role.BASE:
@@ -502,7 +535,7 @@ func _draw_player_panel(p) -> void:
 		var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 150.0)
 		var badge := Rect2(rect.position + Vector2(236, 4), Vector2(112, 22))
 		_plate(badge, Color(0.55, 0.4, 0.05, pulse), GOLD, 6, 1)
-		_text(badge.position + Vector2(0, 16), "TAB  RANK UP  +%d" % p.points, 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, badge.size.x, 2)
+		_text(badge.position + Vector2(0, 16), "%s  RANK UP  +%d" % [game.key_label("rank_menu"), p.points], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, badge.size.x, 2)
 	# Slots: attack, Q, E, dodge, block (shield classes), grab.
 	var abil: Array = p.abilities()
 	var sx := rect.position.x + 352
@@ -511,22 +544,22 @@ func _draw_player_panel(p) -> void:
 	var gap := 64.0
 	var alive: bool = not p.dead and p.carrying == null
 	var atk: Dictionary = p.attack_stats()
-	_slot(Vector2(sx, sy), slot, _attack_icon(p.role), Stats.ROLES[p.role].color.lightened(0.3), "LMB", atk.attack_name,
+	_slot(Vector2(sx, sy), slot, _attack_icon(p.role, atk), Stats.ROLES[p.role].color.lightened(0.3), game.key_label("attack"), atk.attack_name,
 		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0))
 	for i in 2:
 		if i < abil.size():
 			var a: Dictionary = p.ability(i)
-			_slot(Vector2(sx + (i + 1) * gap, sy), slot, a.kind, Stats.ROLES[p.role].color.lightened(0.3), a.key, a.name,
+			_slot(Vector2(sx + (i + 1) * gap, sy), slot, a.get("icon", a.kind), Stats.ROLES[p.role].color.lightened(0.3), game.key_label("ability_%d" % (i + 1)), a.name,
 				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1))
 		else:
-			_slot(Vector2(sx + (i + 1) * gap, sy), slot, "", Color.WHITE, ["Q", "E"][i], "pick a class", 0.0, 1.0, false)
-	_slot(Vector2(sx + 3 * gap, sy), slot, "dodge", STAMINA, "SPACE", "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
+			_slot(Vector2(sx + (i + 1) * gap, sy), slot, "", Color.WHITE, game.key_label("ability_%d" % (i + 1)), "pick a class", 0.0, 1.0, false)
+	_slot(Vector2(sx + 3 * gap, sy), slot, "dodge", STAMINA, game.key_label("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
 		alive and p.energy >= Stats.DODGE_COST)
 	if p.can_block():
-		_slot(Vector2(sx + 4 * gap, sy), slot, "block", STEEL, "RMB", "Block", 0.0, 1.0, alive and p.energy > 0.0, 0, p.blocking)
+		_slot(Vector2(sx + 4 * gap, sy), slot, "block", STEEL, game.key_label("block"), "Block", 0.0, 1.0, alive and p.energy > 0.0, 0, p.blocking)
 	else:
-		_slot(Vector2(sx + 4 * gap, sy), slot, "vigor", XP, "TAB", "Ranks", 0.0, 1.0, p.points > 0, p.rank(3))
-	_slot(Vector2(sx + 5 * gap, sy), slot, "crown", GOLD, "F", "Drop" if p.carrying else "Grab", 0.0, 1.0, not p.dead)
+		_slot(Vector2(sx + 4 * gap, sy), slot, "vigor", XP, game.key_label("rank_menu"), "Perks", 0.0, 1.0, p.points > 0, p.rank(3))
+	_slot(Vector2(sx + 5 * gap, sy), slot, "crown", GOLD, game.key_label("interact"), "Drop" if p.carrying else "Grab", 0.0, 1.0, not p.dead)
 
 
 func _draw_xp_bar(p, bar: Rect2) -> void:
@@ -657,16 +690,18 @@ func _rank_desc(p, track: int) -> String:
 
 
 func _draw_rank_menu(p) -> void:
-	var rect := Rect2(size.x / 2.0 - 290, size.y / 2.0 - 200, 580, 356)
+	var has_variants: bool = Stats.VARIANTS.has(p.role)
+	var h := 494.0 if has_variants else 356.0
+	var rect := Rect2(size.x / 2.0 - 290, size.y / 2.0 - h / 2.0 - 20, 580, h)
 	_plate(rect, INK, GOLD, 14, 3)
 	_close(rect)
-	_text(rect.position + Vector2(0, 32), "RANK UP", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
+	_text(rect.position + Vector2(0, 32), "PERKS AND RANKS", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
 	_text(rect.position + Vector2(0, 54), "Level %d  ·  %d point%s to spend  ·  experience is per life" % [p.level, p.points, "" if p.points == 1 else "s"],
 		13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	var track_icons := [_attack_icon(p.role), "", "", "vigor"]
+	var track_icons := [_attack_icon(p.role, p.stats()), "", "", "vigor"]
 	for i in 2:
 		if i < p.abilities().size():
-			track_icons[i + 1] = p.abilities()[i].kind
+			track_icons[i + 1] = p.abilities()[i].get("icon", p.abilities()[i].kind)
 	for t in 4:
 		var row := Rect2(rect.position + Vector2(16, 70 + t * 64), Vector2(rect.size.x - 32, 58))
 		var available: bool = p.track_available(t)
@@ -689,7 +724,37 @@ func _draw_rank_menu(p) -> void:
 		_text(button.position + Vector2(0, 21), label, 12, Color.WHITE if can else GREY, HORIZONTAL_ALIGNMENT_CENTER, button.size.x, 2)
 		_keycap(button.position + Vector2(-16, 16), str(t + 1), 22)
 		rank_buttons.append(button if can else Rect2())
-	_text(rect.position + Vector2(0, rect.size.y - 12), "Press 1-4 or click to spend a point  ·  Tab closes", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	if has_variants:
+		_promotion(p, Rect2(rect.position + Vector2(16, 70 + 4 * 64), Vector2(rect.size.x - 32, 124)))
+	_text(rect.position + Vector2(0, rect.size.y - 12), "Press 1-4 or click to spend a point  ·  5 / 6 pick a promotion  ·  %s closes" % game.key_label("rank_menu"), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+
+
+func _promotion(p, rect: Rect2) -> void:
+	## The two variants of the player's class: pick one once enough rank
+	## points have been spent in the class over the match.
+	var role: int = p.role
+	var unlocked: bool = p.variant_unlocked(role)
+	var spent: int = p.mastery.get(role, 0)
+	_text(rect.position + Vector2(0, 12), "PROMOTION", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var status := "Unlocked: choose a path" if unlocked else "Spend %d more point%s in this class to unlock (%d / %d, kept across lives)" % [
+		Stats.VARIANT_UNLOCK - spent, "" if Stats.VARIANT_UNLOCK - spent == 1 else "s", spent, Stats.VARIANT_UNLOCK]
+	_text(rect.position + Vector2(90, 12), status, 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var w := (rect.size.x - 10) / 2.0
+	for i in 2:
+		var v: Dictionary = Stats.VARIANTS[role][i]
+		var card := Rect2(rect.position + Vector2(i * (w + 10), 20), Vector2(w, rect.size.y - 20))
+		var chosen: bool = p.variants.get(role, -1) == i
+		_plate(card, Color(0.3, 0.26, 0.12, 0.98) if chosen else (INK_LIGHT if unlocked else Color(0.12, 0.12, 0.15, 0.9)),
+			GOLD if chosen else (GOLD_DARK if unlocked else Color(0.3, 0.3, 0.3)), 8, 2 if chosen else 1)
+		_icon(v.icon, card.position + Vector2(24, 22), 12, Color.WHITE, not unlocked)
+		_text(card.position + Vector2(48, 22), v.name.to_upper(), 14, GOLD if chosen else (Color.WHITE if unlocked else GREY), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		var tag := "CHOSEN" if chosen else ("%s: pick" % str(i + 5) if unlocked else "LOCKED")
+		_text(card.position + Vector2(0, 22), tag, 10, GOLD if chosen else GREY, HORIZONTAL_ALIGNMENT_RIGHT, card.size.x - 10, 2)
+		_paragraph(card.position + Vector2(10, 48), v.desc, 10, Color(0.85, 0.85, 0.85) if unlocked else GREY, card.size.x - 20, 12.0)
+		var moves := "%s  ·  Q %s  ·  E %s" % [v.attack.get("attack_name", Stats.ROLES[role].attack_name), v.abilities[0].name, v.abilities[1].name]
+		_text(card.position + Vector2(10, card.size.y - 8), moves, 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		if unlocked and not chosen and not p.dead:
+			variant_buttons.append([card, role, i])
 
 
 # --- Game menu ---------------------------------------------------------------
@@ -699,21 +764,28 @@ func _draw_game_menu() -> void:
 	var rect := Rect2(size.x / 2.0 - 390, size.y / 2.0 - 250, 780, 500)
 	_plate(rect, INK, GOLD, 16, 3)
 	_close(rect)
-	_text(rect.position + Vector2(0, 34), "GAME MENU", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
-	# Tabs.
-	for i in TABS.size():
-		var tab := Rect2(rect.position + Vector2(24 + i * 130, 50), Vector2(122, 30))
-		var on: bool = game.menu_tab == i
+	var in_match: bool = game.playing
+	_text(rect.position + Vector2(0, 34), "PAUSED" if in_match else "OPTIONS", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
+	# Tabs (only Classes and Controls before a match).
+	var ids: Array = game.menu_tabs()
+	var tw := 140.0
+	var x0: float = rect.position.x + (rect.size.x - ids.size() * (tw + 6)) / 2.0
+	for i in ids.size():
+		var tab := Rect2(Vector2(x0 + i * (tw + 6), rect.position.y + 50), Vector2(tw, 30))
+		var on: bool = game.menu_tab == ids[i]
 		_plate(tab, Color(0.3, 0.26, 0.12, 0.98) if on else INK_LIGHT, GOLD if on else GOLD_DARK, 8, 1)
-		_text(tab.position + Vector2(0, 21), TABS[i], 13, GOLD if on else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, tab.size.x, 2)
+		_text(tab.position + Vector2(0, 21), TABS[ids[i]], 13, GOLD if on else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, tab.size.x, 2)
 		tab_buttons.append(tab)
+		tab_ids.append(ids[i])
 	var body := Rect2(rect.position + Vector2(24, 92), Vector2(rect.size.x - 48, rect.size.y - 130))
 	match game.menu_tab:
 		0: _menu_overview(body)
 		1: _menu_classes(body)
-		2: _menu_controls(body)
-	_text(rect.position + Vector2(0, rect.size.y - 12), "Esc resumes  ·  ← → or A/D switch tabs  ·  Backspace quits to the title", 11, GREY,
-		HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+		2: _menu_my_class(body)
+		3: _menu_scoreboard(body)
+		4: _menu_controls(body)
+	var footer := "Esc resumes  ·  ← → switch tabs  ·  Backspace quits to the title" if in_match else "Esc closes  ·  ← → switch tabs"
+	_text(rect.position + Vector2(0, rect.size.y - 12), footer, 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _menu_overview(body: Rect2) -> void:
@@ -748,7 +820,7 @@ func _menu_classes(body: Rect2) -> void:
 		var y := 128.0
 		var entries := [["LMB", s.attack_name, s.attack_desc, _attack_icon(role)]]
 		for a in s.abilities:
-			entries.append([a.key, a.name, a.desc, a.kind])
+			entries.append([a.key, a.name, a.desc, a.get("icon", a.kind)])
 		if s.get("block", false):
 			entries.append(["RMB", "Block", "Hold to stop hits from the front with your shield.", "block"])
 		for e in entries:
@@ -757,30 +829,267 @@ func _menu_classes(body: Rect2) -> void:
 			_text(card.position + Vector2(36, y + 6), e[1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			y += 14.0
 			y += _paragraph(card.position + Vector2(12, y + 10), e[2], 10, Color(0.8, 0.8, 0.8), cw - 24, 12.0) + 10.0
+		if Stats.VARIANTS.has(role):
+			var vs: Array = Stats.VARIANTS[role]
+			_icon(vs[0].icon, card.position + Vector2(cw / 2.0 - 54, card.size.y - 30), 6, Color.WHITE)
+			_icon(vs[1].icon, card.position + Vector2(cw / 2.0 + 54, card.size.y - 30), 6, Color.WHITE)
+			_text(card.position + Vector2(0, card.size.y - 26), "%s  or  %s" % [vs[0].name, vs[1].name], 10, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
 		if mine:
 			_text(card.position + Vector2(0, card.size.y - 10), "YOUR CLASS", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
+		else:
+			_text(card.position + Vector2(0, card.size.y - 10), "promotions", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
 
 
 func _menu_controls(body: Rect2) -> void:
-	var cols := [["KEYBOARD AND MOUSE", [
-			["WASD", "Move"], ["Mouse", "Aim"], ["Left click", "Base attack"], ["Right click", "Block (shield classes)"],
-			["Q / E", "Class abilities"], ["Space", "Dodge"], ["F", "Grab or drop the monarch"],
-			["Tab", "Rank menu"], ["Esc", "This menu"]]],
-		["GAMEPAD", [
-			["Left stick", "Move"], ["Right stick", "Aim"], ["A / RT", "Base attack"], ["LB / LT", "Block"],
-			["X / Y", "Class abilities"], ["B", "Dodge"], ["RB", "Grab or drop the monarch"],
-			["Back", "Rank menu, D-pad spends"], ["Start", "This menu"]]]]
-	for c in cols.size():
-		var x: float = body.position.x + c * body.size.x / 2.0
-		_text(Vector2(x, body.position.y + 18), cols[c][0], 14, GOLD, HORIZONTAL_ALIGNMENT_CENTER, body.size.x / 2.0, 3)
-		for i in cols[c][1].size():
-			var y: float = body.position.y + 48 + i * 30
-			_keycap(Vector2(x + 70, y), cols[c][1][i][0], 110)
-			_text(Vector2(x + 140, y + 5), cols[c][1][i][1], 13, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, body.size.y - 30), "You spawn as a villager. Step on a class station in your keep to become a Knight, Ranger, Mage or Healer.",
-		11, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
-	_text(body.position + Vector2(0, body.size.y - 12), "Walk off the front of your castle wall to drop into the field. Dying resets your class and experience.",
-		11, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+	## Every action with its keyboard/mouse and gamepad bindings. Click a
+	## binding and press the new key or button; Esc cancels.
+	var half := body.size.x / 2.0
+	var per_col := ceili(game.REBINDABLE.size() / 2.0)
+	var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 120.0)
+	for c in 2:
+		var x: float = body.position.x + c * half
+		_text(Vector2(x + 10, body.position.y + 14), "ACTION", 10, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(x + 150, body.position.y + 14), "KEYBOARD / MOUSE", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
+		_text(Vector2(x + 282, body.position.y + 14), "GAMEPAD", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 80, 2)
+		for k in per_col:
+			var i: int = c * per_col + k
+			if i >= game.REBINDABLE.size():
+				break
+			var action: String = game.REBINDABLE[i][0]
+			var y: float = body.position.y + 40 + k * 38
+			var row := Rect2(Vector2(x + 4, y - 15), Vector2(half - 14, 32))
+			var hot: bool = game.rebinding == action
+			_plate(row, Color(0.35, 0.3, 0.12, pulse) if hot else (INK_LIGHT if k % 2 == 0 else Color(0.14, 0.15, 0.22, 0.96)), GOLD if hot else Color(0.3, 0.3, 0.38), 6, 1)
+			_text(Vector2(x + 14, y + 5), game.REBINDABLE[i][1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			var key_text: String = "PRESS A KEY…" if hot else game.binding_text(action, "key")
+			_keycap(Vector2(x + 210, y + 1), key_text, 124)
+			_keycap(Vector2(x + 326, y + 1), game.binding_text(action, "pad"), 86)
+			bind_buttons.append([row, action])
+	reset_button = Rect2(body.end - Vector2(150, 34), Vector2(140, 26))
+	_plate(reset_button, Color(0.4, 0.2, 0.15, 0.95), GOLD_DARK, 6, 1)
+	_text(reset_button.position + Vector2(0, 18), "RESET TO DEFAULTS", 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, reset_button.size.x, 2)
+	_text(body.position + Vector2(0, body.size.y - 44), "Click a row, then press the key, mouse button or gamepad button you want. Esc cancels. Bindings are saved.",
+		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(body.position + Vector2(0, body.size.y - 28), "Fixed: the mouse and right stick aim, the left stick moves, 1-6 spend points in the perk menu,",
+		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(body.position + Vector2(0, body.size.y - 12), "Backspace quits a match.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _menu_my_class(body: Rect2) -> void:
+	## The player's class, this life's ranks and the class's promotion paths.
+	var p = game.player
+	if p == null:
+		_text(body.position + Vector2(0, body.size.y / 2.0), "Start a match to see your class.", 14, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+		return
+	# Left: who you are.
+	var left := Rect2(body.position, Vector2(230, body.size.y))
+	_plate(left, INK_LIGHT, GOLD_DARK, 10, 2)
+	_portrait(left.position + Vector2(115, 54), 34, p.team, p.role, p.dead)
+	if p.role != Role.BASE:
+		_icon(p.variant().get("icon", _class_icon(p.role)), left.position + Vector2(196, 26), 11, Color.WHITE)
+	_text(left.position + Vector2(0, 114), p.role_name().to_upper(), 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, left.size.x, 4)
+	var sub: String = Stats.FACTIONS[p.team].name if p.variant().is_empty() else "%s %s" % [Stats.FACTIONS[p.team].name, p.class_name_plain()]
+	_text(left.position + Vector2(0, 130), sub.to_upper(), 10, _team_color(p.team).lightened(0.4), HORIZONTAL_ALIGNMENT_CENTER, left.size.x, 2)
+	var s: Dictionary = p.stats()
+	var facts := [["Level", "%d  (%d XP this life)" % [p.level, p.xp]], ["Points to spend", str(p.points)],
+		["Energy", ("%s %d / %d" % [s.energy, int(p.energy), int(p.energy_max())]).capitalize()],
+		["Hearts", "%d / %d" % [p.hearts, Stats.MAX_HEARTS]], ["Kills / deaths", "%d / %d" % [p.kills, p.deaths]],
+		["Captures", str(p.captures)], ["Match score", str(game.unit_score(p))], ["Total upgrades", str(p.total_upgrades())]]
+	for i in facts.size():
+		var y: float = left.position.y + 156 + i * 20
+		_text(Vector2(left.position.x + 14, y), facts[i][0], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(left.position.x, y), facts[i][1], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, left.size.x - 14, 2)
+	if p.role == Role.BASE:
+		_paragraph(left.position + Vector2(14, 328), "You are a villager. Step on a class station in your keep to pick a class.", 10, CREAM, left.size.x - 28, 12.0)
+	else:
+		_text(left.position + Vector2(14, 332), s.attack_name, 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_paragraph(left.position + Vector2(14, 348), s.attack_desc, 10, Color(0.8, 0.8, 0.8), left.size.x - 28, 12.0)
+	# Middle: this life's ranks.
+	var mid := Rect2(body.position + Vector2(240, 0), Vector2(220, body.size.y))
+	_plate(mid, INK_LIGHT, GOLD_DARK, 10, 2)
+	_text(mid.position + Vector2(0, 20), "RANKS THIS LIFE", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, mid.size.x, 2)
+	var track_icons := [_attack_icon(p.role, s), "", "", "vigor"]
+	for i in 2:
+		if i < p.abilities().size():
+			track_icons[i + 1] = p.abilities()[i].get("icon", p.abilities()[i].kind)
+	for t in 4:
+		var y: float = mid.position.y + 50 + t * 58
+		var available: bool = p.track_available(t)
+		if available:
+			_icon(track_icons[t], Vector2(mid.position.x + 28, y + 10), 11, Color.WHITE)
+		_text(Vector2(mid.position.x + 52, y + 6), p.track_name(t) if available else "No %s ability yet" % ["", "Q", "E", ""][t], 12, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		for k in Stats.MAX_RANK:
+			var c := Vector2(mid.position.x + 58 + k * 16, y + 22)
+			draw_circle(c, 5.5, GOLD if k < p.rank(t) else Color(0.2, 0.2, 0.25))
+			draw_arc(c, 5.5, 0, TAU, 12, GOLD_DARK, 1.0)
+		if available:
+			_text(Vector2(mid.position.x + 110, y + 26), "rank %d / %d" % [p.rank(t), Stats.MAX_RANK], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_paragraph(mid.position + Vector2(14, mid.size.y - 70), "Each level gives a point. Ranks cut cooldowns and costs, then widen the effect, then add a heart. Experience resets when you die.", 10, Color(0.8, 0.8, 0.8), mid.size.x - 28, 12.0)
+	_text(mid.position + Vector2(0, mid.size.y - 10), "%s opens the perk menu" % game.key_label("rank_menu"), 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, mid.size.x, 2)
+	# Right: promotions, for this class or all of them.
+	var right := Rect2(body.position + Vector2(470, 0), Vector2(body.size.x - 470, body.size.y))
+	_plate(right, INK_LIGHT, GOLD_DARK, 10, 2)
+	if Stats.VARIANTS.has(p.role):
+		_text(right.position + Vector2(0, 20), "PROMOTION", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
+		var spent: int = p.mastery.get(p.role, 0)
+		var unlocked: bool = p.variant_unlocked(p.role)
+		_text(right.position + Vector2(0, 36), ("%d / %d points spent in this class  ·  unlocked" if unlocked else "%d / %d points spent in this class  ·  locked") % [spent, Stats.VARIANT_UNLOCK], 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
+		for i in 2:
+			var v: Dictionary = Stats.VARIANTS[p.role][i]
+			var card := Rect2(right.position + Vector2(10, 48 + i * 158), Vector2(right.size.x - 20, 150))
+			var chosen: bool = p.variants.get(p.role, -1) == i
+			_plate(card, Color(0.3, 0.26, 0.12, 0.98) if chosen else (INK if unlocked else Color(0.1, 0.1, 0.13, 0.9)), GOLD if chosen else (GOLD_DARK if unlocked else Color(0.3, 0.3, 0.3)), 8, 2 if chosen else 1)
+			_icon(v.icon, card.position + Vector2(26, 24), 12, Color.WHITE, not unlocked)
+			_text(card.position + Vector2(54, 24), v.name.to_upper(), 14, GOLD if chosen else (Color.WHITE if unlocked else GREY), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+			_text(card.position + Vector2(0, 24), "CHOSEN" if chosen else ("available" if unlocked else "locked"), 10, GOLD if chosen else GREY, HORIZONTAL_ALIGNMENT_RIGHT, card.size.x - 10, 2)
+			var y: float = 50.0 + _paragraph(card.position + Vector2(10, 50), v.desc, 10, Color(0.85, 0.85, 0.85) if unlocked else GREY, card.size.x - 20, 12.0)
+			var moves := [[game.key_label("attack"), v.attack.get("attack_name", Stats.ROLES[p.role].attack_name)], ["Q", v.abilities[0].name], ["E", v.abilities[1].name]]
+			for m in moves.size():
+				_keycap(card.position + Vector2(28, y + 14 + m * 19), moves[m][0], 34)
+				_text(card.position + Vector2(52, y + 18 + m * 19), moves[m][1], 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			if unlocked and not chosen and not p.dead:
+				var button := Rect2(card.end - Vector2(96, 30), Vector2(86, 22))
+				_plate(button, Color(0.2, 0.5, 0.25, 0.95), GOLD, 6, 1)
+				_text(button.position + Vector2(0, 15), "CHOOSE", 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, button.size.x, 2)
+				variant_buttons.append([button, p.role, i])
+	else:
+		_text(right.position + Vector2(0, 20), "TOTAL UPGRADES", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
+		_text(right.position + Vector2(0, 38), "Rank points spent per class this match. Three in a class unlock its two promotions.", 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
+		var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER]
+		for i in roles.size():
+			var role: int = roles[i]
+			var row := Rect2(right.position + Vector2(10, 52 + i * 74), Vector2(right.size.x - 20, 66))
+			_plate(row, INK, GOLD_DARK, 8, 1)
+			_icon(_class_icon(role), row.position + Vector2(26, 24), 11, Color.WHITE)
+			var spent: int = p.mastery.get(role, 0)
+			_text(row.position + Vector2(50, 22), Stats.FACTIONS[p.team].roles[role].to_upper(), 13, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+			_text(row.position + Vector2(0, 22), "%d / %d points" % [spent, Stats.VARIANT_UNLOCK], 10, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 12, 2)
+			var vs: Array = Stats.VARIANTS[role]
+			var chosen: int = p.variants.get(role, -1)
+			var line := "%s  or  %s" % [vs[0].name, vs[1].name]
+			if chosen >= 0:
+				line = "Promoted: %s" % vs[chosen].name
+			elif p.variant_unlocked(role):
+				line = "Unlocked: choose in the perk menu as a %s" % Stats.FACTIONS[p.team].roles[role]
+			_text(row.position + Vector2(50, 42), line, 10, GOLD if chosen >= 0 else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_bar(Rect2(row.position + Vector2(50, 50), Vector2(row.size.x - 70, 8)), float(spent) / Stats.VARIANT_UNLOCK, XP)
+
+
+func _menu_scoreboard(body: Rect2) -> void:
+	_draw_scoreboard_table(Rect2(body.position + Vector2(40, 0), Vector2(body.size.x - 80, body.size.y)))
+
+
+func _draw_scoreboard_overlay() -> void:
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.35))
+	var rect := Rect2(size.x / 2.0 - 340, size.y / 2.0 - 230, 680, 440)
+	_plate(rect, INK, GOLD, 14, 3)
+	_text(rect.position + Vector2(0, 30), "SCOREBOARD", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
+	var left := maxf(game.time_left, 0.0)
+	_text(rect.position + Vector2(0, 48), "%s %d  ·  %02d:%02d left  ·  %d %s" % [Stats.FACTIONS[0].realm, game.score[0], int(left) / 60, int(left) % 60, game.score[1], Stats.FACTIONS[1].realm], 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_draw_scoreboard_table(Rect2(rect.position + Vector2(20, 60), Vector2(rect.size.x - 40, rect.size.y - 80)))
+	_text(rect.position + Vector2(0, rect.size.y - 10), "Score = kills ×%d, captures ×%d, hearts healed ×%d, damage ×%d, upgrades ×%d" % [Stats.SCORE_KILL, Stats.SCORE_CAPTURE, Stats.SCORE_HEAL, Stats.SCORE_DAMAGE, Stats.SCORE_UPGRADE], 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+
+
+func _draw_scoreboard_table(rect: Rect2) -> void:
+	## Both teams, best score first: class, level, score, kills, deaths,
+	## captures, hearts healed, damage and total upgrades.
+	var cols := [["PLAYER", 0.0, HORIZONTAL_ALIGNMENT_LEFT], ["CLASS", 150.0, HORIZONTAL_ALIGNMENT_LEFT], ["LV", 258.0, HORIZONTAL_ALIGNMENT_CENTER],
+		["SCORE", 300.0, HORIZONTAL_ALIGNMENT_CENTER], ["K", 360.0, HORIZONTAL_ALIGNMENT_CENTER], ["D", 400.0, HORIZONTAL_ALIGNMENT_CENTER],
+		["CAPS", 444.0, HORIZONTAL_ALIGNMENT_CENTER], ["HEAL", 494.0, HORIZONTAL_ALIGNMENT_CENTER], ["DMG", 546.0, HORIZONTAL_ALIGNMENT_CENTER], ["UPG", 598.0, HORIZONTAL_ALIGNMENT_CENTER]]
+	var scale := rect.size.x / 640.0
+	var y := rect.position.y
+	for t in 2:
+		var tc := _team_color(t)
+		var members: Array = game.units.filter(func(u): return u.team == t)
+		members.sort_custom(func(a, b): return game.unit_score(a) > game.unit_score(b))
+		var block := Rect2(Vector2(rect.position.x, y), Vector2(rect.size.x, 30 + 18 + members.size() * 22 + 8))
+		_plate(block, tc.darkened(0.72), tc.darkened(0.1), 8, 1)
+		_icon("crest_forest" if t == 0 else "crest_kingdom", block.position + Vector2(20, 16), 9, Color.WHITE)
+		var kills := 0
+		for u in members:
+			kills += u.kills
+		_text(block.position + Vector2(38, 21), "%s  ·  %s" % [Stats.FACTIONS[t].name.to_upper(), Stats.FACTIONS[t].realm.to_upper()], 13, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		_text(block.position + Vector2(0, 21), "%d capture%s  ·  %d kills" % [game.score[t], "" if game.score[t] == 1 else "s", kills], 11, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, block.size.x - 12, 2)
+		for c in cols:
+			_text(block.position + Vector2(12 + c[1] * scale, 44), c[0], 9, GREY, c[2], 40 if c[2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
+		for i in members.size():
+			var u = members[i]
+			var ry: float = block.position.y + 52 + i * 22
+			if u.is_player:
+				draw_rect(Rect2(block.position.x + 4, ry - 2, block.size.x - 8, 21), Color(0.45, 0.35, 0.1, 0.5))
+			var col := GOLD if u.is_player else Color.WHITE
+			if u.dead:
+				col = col.darkened(0.4)
+			var values := [u.display_name, u.role_name(), str(u.level), str(game.unit_score(u)), str(u.kills), str(u.deaths), str(u.captures), str(u.healing), str(u.damage_dealt), str(u.total_upgrades())]
+			for c in cols.size():
+				_text(Vector2(block.position.x + 12 + cols[c][1] * scale, ry + 13), values[c], 11, col if c != 3 else XP, cols[c][2], 40 if cols[c][2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
+			if u.carrying:
+				_icon("crown", Vector2(block.position.x + 12 + cols[1][1] * scale + _text_width(u.role_name(), 11) + 14, ry + 8), 5, GOLD)
+		y = block.end.y + 10
+
+
+func _draw_chat() -> void:
+	## The chat log over the minimap, and the input line while typing.
+	var rect := Rect2(14, 404, 240, size.y - 140 - 404 - 6)
+	var now := Time.get_ticks_msec() / 1000.0
+	var typing: bool = game.chat_open
+	var input_h := 26.0 if typing else 0.0
+	var lines: Array = []
+	for i in range(game.chat_log.size() - 1, -1, -1):
+		var m: Dictionary = game.chat_log[i]
+		var age: float = now - m.time
+		if not typing and age > 14.0:
+			break
+		lines.push_front(m)
+		if lines.size() >= 12:
+			break
+	if lines.is_empty() and not typing:
+		return
+	if typing:
+		_plate(rect, Color(0.05, 0.06, 0.1, 0.8), GOLD_DARK, 8, 1)
+	# Lay lines out from the bottom up so the newest sits above the input.
+	var y := rect.end.y - input_h - 6
+	for i in range(lines.size() - 1, -1, -1):
+		var m: Dictionary = lines[i]
+		var alpha := 1.0 if typing else clampf((14.0 - (now - m.time)) / 3.0, 0.0, 1.0)
+		var prefix := ""
+		if m.who != "":
+			prefix = ("[Team] " if m.team else "[All] ") + m.who + ": "
+		var text: String = prefix + m.text
+		var h := _paragraph_height(text, 11, rect.size.x - 16, 13.0)
+		y -= h
+		if y < rect.position.y + 4:
+			break
+		if not typing:
+			draw_rect(Rect2(rect.position.x, y - 2, rect.size.x, h + 2), Color(0.05, 0.06, 0.1, 0.55 * alpha))
+		var col: Color = m.color
+		col.a = alpha
+		_paragraph(Vector2(rect.position.x + 8, y + 10), text, 11, col, rect.size.x - 16, 13.0)
+		if m.who != "":
+			_text(Vector2(rect.position.x + 8, y + 10), prefix, 11, Color(1, 1, 1, alpha), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	if typing:
+		var box := Rect2(rect.position + Vector2(6, rect.size.y - 24), Vector2(rect.size.x - 12, 20))
+		_plate(box, Color(0.12, 0.13, 0.2, 0.98), GOLD, 5, 1)
+		var caret := "|" if int(now * 2.5) % 2 == 0 else " "
+		var shown: String = game.chat_text
+		while _text_width("> " + shown + caret, 11) > box.size.x - 10 and shown.length() > 1:
+			shown = shown.substr(1)
+		_text(box.position + Vector2(5, 14), "> " + shown + caret, 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+		_text(rect.position + Vector2(8, 12), "TEAM CHAT  ·  Enter sends  ·  Esc cancels", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(rect.position + Vector2(8, 23), "/all talks to both teams", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _paragraph_height(text: String, font_size: int, width: float, line_h: float) -> float:
+	var lines := 1
+	var line := ""
+	for word in text.split(" "):
+		var trial := word if line == "" else line + " " + word
+		if _text_width(trial, font_size) > width and line != "":
+			lines += 1
+			line = word
+		else:
+			line = trial
+	return lines * line_h
 
 
 # --- Title and end screens -----------------------------------------------------
@@ -809,12 +1118,17 @@ func _draw_title() -> void:
 	_plate(rect, INK, GOLD_DARK, 10, 2)
 	_text(rect.position + Vector2(0, 22), "HOW TO PLAY", 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 	var lines := [
-		"Move WASD  ·  Aim with the mouse  ·  Left click attacks  ·  Right click blocks  ·  Space dodges",
-		"Q and E are class abilities  ·  F grabs the monarch  ·  Tab opens the rank menu  ·  Esc opens the game menu",
+		"Move WASD  ·  Aim with the mouse  ·  %s attacks  ·  %s blocks  ·  %s dodges  ·  %s grabs the monarch" % [
+			game.key_label("attack"), game.key_label("block"), game.key_label("dodge"), game.key_label("interact")],
+		"%s and %s are class abilities  ·  %s perks and promotions  ·  hold %s for the scoreboard  ·  %s chats  ·  Esc pauses" % [
+			game.key_label("ability_1"), game.key_label("ability_2"), game.key_label("rank_menu"), game.key_label("scoreboard"), game.key_label("chat")],
 		"You spawn as a villager: step on a class station in your keep to become a Knight, Ranger, Mage or Healer.",
 	]
 	for i in lines.size():
 		_text(rect.position + Vector2(0, 44 + i * 18), lines[i], 12, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	options_button = Rect2(cx - 110, 626, 220, 30)
+	_plate(options_button, INK_LIGHT, GOLD, 8, 2)
+	_text(options_button.position + Vector2(0, 20), "OPTIONS AND CONTROLS  (%s)" % game.key_label("options"), 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, options_button.size.x, 2)
 
 
 func _ribbon(center: Vector2, w: float, h: float, color: Color) -> void:
@@ -836,10 +1150,12 @@ func _draw_end() -> void:
 	if winner >= 0:
 		outcome = "VICTORY!" if winner == game.player_team else "DEFEAT"
 		color = Color(0.2, 0.5, 0.95) if winner == game.player_team else Color(0.6, 0.15, 0.15)
-	_crown(Vector2(cx, 200), 3.0)
-	_ribbon(Vector2(cx, 270), 420, 76, color)
-	_text(Vector2(cx - 210, 286), outcome, 44, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 420, 6)
-	_plate(Rect2(cx - 170, 330, 340, 90), INK, GOLD, 12, 2)
-	_text(Vector2(cx - 170, 365), "%s %d   -   %d %s" % [Stats.FACTIONS[0].name, game.score[0], game.score[1], Stats.FACTIONS[1].name],
-		24, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 340, 4)
-	_text(Vector2(cx - 170, 400), "Press R or Enter to play again", 14, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 340, 3)
+	_icon("crown", Vector2(cx, 50), 16, GOLD)
+	_ribbon(Vector2(cx, 108), 420, 64, color)
+	_text(Vector2(cx - 210, 122), outcome, 40, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 420, 6)
+	_text(Vector2(cx - 210, 168), "%s %d   -   %d %s" % [Stats.FACTIONS[0].name, game.score[0], game.score[1], Stats.FACTIONS[1].name],
+		22, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 420, 4)
+	var table := Rect2(cx - 330, 186, 660, size.y - 186 - 60)
+	_plate(table, INK, GOLD, 12, 2)
+	_draw_scoreboard_table(Rect2(table.position + Vector2(16, 14), Vector2(table.size.x - 32, table.size.y - 28)))
+	_text(Vector2(cx - 210, size.y - 26), "Press R or Enter to play again", 14, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 420, 3)
