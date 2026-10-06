@@ -2,7 +2,7 @@ extends RefCounted
 ## Every number that shapes a fight lives here, so balancing never means
 ## digging through game code. Health is counted in hearts: damage 1 = one heart.
 
-enum Role { BASE, KNIGHT, RANGER, MAGE, HEALER, ENGINEER }
+enum Role { BASE, KNIGHT, RANGER, MAGE, HEALER, ENGINEER, ROGUE }
 
 const MAX_HEARTS := 4
 const STAMINA_MAX := 100.0
@@ -32,6 +32,71 @@ const HERO_HAIR := [["Blond", Color(0.93, 0.8, 0.4)], ["Brown", Color(0.4, 0.25,
 const HERO_TRIM := [["Team", Color.TRANSPARENT], ["Crimson", Color(0.7, 0.12, 0.15)], ["Violet", Color(0.5, 0.25, 0.7)],
 	["Teal", Color(0.15, 0.6, 0.6)], ["Gold", Color(0.9, 0.72, 0.2)], ["Night", Color(0.12, 0.12, 0.18)]]
 const HERO_NAME_MAX := 12
+# Hero looks: Classic, and the Shadowborn look unlocked at account level 10
+# (a dusk tint, violet rim light and a cape on every class).
+const HERO_LOOKS := [["Classic", Color.TRANSPARENT], ["Shadowborn", Color(0.5, 0.42, 0.62)]]
+# Maps: the Wildwood by day, and the moonlit night variant unlocked at level 10.
+const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"]]
+
+# Player banners (the calling card the enemy sees when you kill them, and
+# that you edit on the HERO tab): a background, an emblem, a frame and a title.
+const BANNER_BACKGROUNDS := [["Forest", Color(0.12, 0.4, 0.22), Color(0.3, 0.7, 0.35), "plain"], ["Kingdom", Color(0.12, 0.2, 0.5), Color(0.3, 0.45, 0.9), "plain"],
+	["Ember", Color(0.45, 0.12, 0.08), Color(0.95, 0.5, 0.15), "rays"], ["Dusk", Color(0.2, 0.1, 0.35), Color(0.6, 0.3, 0.8), "diamonds"],
+	["Stripes", Color(0.15, 0.15, 0.2), Color(0.85, 0.7, 0.25), "stripes"], ["Vines", Color(0.08, 0.25, 0.15), Color(0.45, 0.8, 0.4), "leaves"],
+	["Frost", Color(0.15, 0.3, 0.45), Color(0.7, 0.9, 1.0), "diamonds"], ["Royal", Color(0.35, 0.05, 0.12), Color(0.95, 0.78, 0.3), "rays"]]
+const BANNER_EMBLEMS := ["crown", "class_knight", "class_ranger", "class_mage", "class_healer", "class_engineer", "crest_forest", "crest_kingdom",
+	"fireball", "guard", "vigor", "trap", "blessing", "class_rogue"]   # the last needs the level-10 unlock
+const BANNER_FRAMES := [["Plain", Color(0.15, 0.12, 0.18)], ["Gold", Color(0.95, 0.78, 0.3)], ["Iron", Color(0.6, 0.62, 0.68)],
+	["Vine", Color(0.4, 0.75, 0.35)], ["Royal", Color(0.9, 0.4, 0.7)]]   # Royal needs the level-10 unlock
+# Banner titles: [needed account level, title].
+const BANNER_TITLES := [[1, "Recruit"], [1, "Door Breaker"], [2, "Crown Thief"], [3, "Militia"], [4, "Trapper"], [5, "Soldier"], [6, "Duelist"],
+	[8, "Veteran"], [10, "Champion"], [10, "Shadowborn"], [15, "Warlord"], [20, "Crownbreaker"], [30, "Legend"]]
+
+# Account progression: every point of XP you earn in a match (plus a match
+# bonus) goes on your account. Level n to n+1 costs ACCOUNT_XP_BASE +
+# ACCOUNT_XP_STEP * (n - 1); level 10 (the unlocks) is 9000 XP, roughly a
+# dozen matches. Rank titles follow the level.
+const ACCOUNT_XP_BASE := 400
+const ACCOUNT_XP_STEP := 150
+const ACCOUNT_MAX_LEVEL := 50
+const UNLOCK_LEVEL := 10
+const MATCH_BONUS := {"win": 300, "draw": 150, "loss": 100}
+const RANK_TITLES := [[1, "Recruit"], [3, "Militia"], [5, "Soldier"], [8, "Veteran"], [10, "Champion"],
+	[15, "Warlord"], [20, "Crownbreaker"], [30, "Legend"], [40, "Mythic"], [50, "Immortal"]]
+const UNLOCKS := [["class", "Rogue", "A sixth class: daggers, shadow dashes and smoke bombs."],
+	["look", "Shadowborn", "A hero look: dusk-tinted armour, violet rim light and a cape on every class."],
+	["map", "Moonlit Wildwood", "A night map: moonlight, mist, lanterns and fireflies everywhere."]]
+
+
+static func account_level_cost(level: int) -> int:
+	return ACCOUNT_XP_BASE + ACCOUNT_XP_STEP * (level - 1)
+
+
+static func account_level(xp: int) -> int:
+	var level := 1
+	var left := xp
+	while level < ACCOUNT_MAX_LEVEL and left >= account_level_cost(level):
+		left -= account_level_cost(level)
+		level += 1
+	return level
+
+
+static func account_span(xp: int) -> Array:
+	## [xp into the current level, xp the level needs] (needs -1 at max).
+	var level := 1
+	var left := xp
+	while level < ACCOUNT_MAX_LEVEL and left >= account_level_cost(level):
+		left -= account_level_cost(level)
+		level += 1
+	return [left, account_level_cost(level) if level < ACCOUNT_MAX_LEVEL else -1]
+
+
+static func rank_title(level: int) -> String:
+	var title := "Recruit"
+	for entry in RANK_TITLES:
+		if level >= entry[0]:
+			title = entry[1]
+	return title
 const BOT_DIFFICULTIES := ["Easy", "Normal", "Hard"]
 const BOT_TUNING := {
 	"Easy": {"aim_error": 0.4, "ability": 0.45, "react": 0.4, "sight": 0.8, "chase": 0.0, "desc": "Bots miss a lot, rarely use abilities and seldom dodge."},
@@ -181,6 +246,14 @@ const ROLES := {
 				"turrets": 2, "desc": "Build a bolt turret in front of you, on your castle walls or grounds. Two at a time; the oldest makes way."},
 			{"name": "Tune Up", "key": "E", "kind": "upgrade", "cooldown": 7.0, "cost": 40.0,
 				"desc": "Repair the nearest of your turrets and raise it a level (up to 3), or hurry your door's rebuild."}]},
+	Role.ROGUE: {"attack": "melee", "attack_name": "Daggers", "attack_desc": "Two quick blades: the fastest strikes in the game, short reach.",
+		"damage": 1, "gate_damage": 1, "range": 1.5, "cooldown": 0.38,
+		"energy": "stamina", "cost": 8.0, "speed": 1.12,
+		"color": Color(0.6, 0.4, 0.75), "abilities": [
+			{"name": "Shadow Dash", "key": "Q", "kind": "bash", "cooldown": 6.0, "cost": 40.0,
+				"damage": 1, "distance": 5.5, "desc": "A dash through the shadows that cuts everyone in the way for a heart."},
+			{"name": "Smoke Bomb", "key": "E", "kind": "smoke", "cooldown": 12.0, "cost": 45.0,
+				"duration": 3.0, "haste": 3.0, "desc": "Vanish in smoke: enemies lose you and you run faster for a moment."}]},
 	Role.HEALER: {"attack": "heal", "attack_name": "Mend", "attack_desc": "Heal hurt teammates around you; with nobody to heal, fire a holy bolt instead.",
 		"damage": 1, "gate_damage": 1, "range": 10.0, "cooldown": 0.8,
 		"energy": "mana", "cost": 16.0, "heal": 1, "heal_radius": 5.0, "speed": 1.0, "shot_speed": 30.0,
@@ -257,6 +330,25 @@ const VARIANTS := {
 					"damage": 1, "splash": 3.5, "range": 13.0, "shot_speed": 28.0, "frost": true, "root": 1.0, "desc": "A ball of ice that freezes everyone near the blast in place."},
 				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 5.0, "cost": 35.0,
 					"distance": 8.0, "desc": "Teleport further in the aim direction."}]}],
+	Role.ROGUE: [
+		{"name": "Assassin", "icon": "assassin", "tint": Color(0.75, 0.55, 0.9), "show": ["1H_Sword"],
+			"attacks": ["1H_Melee_Attack_Stab", "1H_Melee_Attack_Slice_Diagonal"], "idle": "Idle",
+			"desc": "The killer: venomed blades that slow, a backstab dash for two hearts, and a vanish.",
+			"attack": {"attack_name": "Venom Fang", "attack_desc": "A quick cut that slows whoever it catches.", "slow": 0.8, "cost": 9.0},
+			"abilities": [
+				{"name": "Backstab", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 7.0, "cost": 45.0,
+					"damage": 2, "distance": 4.5, "desc": "A short lunge that takes two hearts from everyone in the way."},
+				{"name": "Vanish", "key": "E", "kind": "smoke", "icon": "smoke", "cooldown": 11.0, "cost": 45.0,
+					"duration": 3.5, "haste": 3.5, "desc": "Vanish in smoke: enemies lose you and you run faster."}]},
+		{"name": "Nightrunner", "icon": "nightrunner", "tint": Color(0.6, 0.7, 0.95), "show": ["1H_Sword"],
+			"attacks": ["1H_Melee_Attack_Slice_Horizontal", "1H_Melee_Attack_Chop"], "idle": "Idle",
+			"desc": "The runner: the quickest feet in the game, a long shadow step and caltrops behind you.",
+			"attack": {"attack_name": "Quick Blades", "attack_desc": "Fast strikes with a little more reach.", "range": 1.7, "cooldown": 0.36, "cost": 8.0, "speed": 1.18},
+			"abilities": [
+				{"name": "Shadow Step", "key": "Q", "kind": "blink", "icon": "blink", "cooldown": 7.0, "cost": 35.0,
+					"distance": 7.5, "desc": "Step through the shadows, further than any blink."},
+				{"name": "Caltrops", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 10.0, "cost": 40.0,
+					"damage": 1, "slow": 2.5, "count": 2, "lifetime": 30.0, "desc": "Two spreads of caltrops that hurt and slow the first enemy on them."}]}],
 	Role.ENGINEER: [
 		{"name": "Artificer", "icon": "artificer", "tint": Color(0.75, 0.9, 1.0), "show": ["1H_Axe"],
 			"desc": "Clockwork: three rapid-fire turrets at a time, and an overclock that doubles their fire for a moment.",
@@ -303,7 +395,7 @@ const VARIANTS := {
 const FACTION_KITS := {
 	0: {
 		Role.KNIGHT: {
-			"attack": {"attack_name": "Glaive", "attack_desc": "A light, long-reaching sweep: quicker than a sword.", "range": 2.5, "cooldown": 0.5, "cost": 10.0, "armour": 0.25},
+			"attack": {"attack_name": "Glaive", "attack_desc": "A light, long-reaching sweep: quicker than a sword.", "range": 2.5, "cooldown": 0.5, "cost": 10.0, "armour": 0.3},
 			"abilities": [
 				{"name": "Wind Dash", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 5.5, "cost": 35.0,
 					"damage": 1, "distance": 6.0, "desc": "A long, leaf-light dash that cuts everyone in the way for a heart and shoves them aside."},
@@ -378,9 +470,9 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 # Humans win three of every four bot matches; 1.12 was still winning two of three once raids rallied and escorted, so 1.06.)
 const FACTIONS := [
 	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.5, "regen_mult": 1.0,
-		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer"]},
+		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.06,
-		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer"]},
+		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 ]
 
 

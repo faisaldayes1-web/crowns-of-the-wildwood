@@ -564,6 +564,8 @@ func gain_xp(amount: int) -> void:
 	if dead or amount <= 0:
 		return
 	xp += amount
+	if is_player:
+		game.match_xp += amount
 	var new_level := Stats.level_for_xp(xp)
 	if new_level > level:
 		points += new_level - level
@@ -707,6 +709,9 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	if is_player:
 		game.shake(0.35)
 	if hearts <= 0:
+		if is_player:
+			var weapon: String = attacker.attack_stats().attack_name if (attacker and attacker != self and attacker.has_method("attack_stats")) else ""
+			game.on_player_killed(attacker if attacker != self else null, weapon)
 		if attacker and attacker != self:
 			attacker.gain_xp(Stats.XP_KILL)
 			attacker.kills += 1

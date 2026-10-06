@@ -88,6 +88,21 @@ var rosters_visible := true       # N hides the side team rosters
 var hero_name := ""
 var hero_hair := 0
 var hero_trim := 0
+var title_tab := 0              # main menu tab: 0 Play, 1 Hero, 2 Progress
+var banner_bg := 0              # player banner: Stats.BANNER_BACKGROUNDS index
+var banner_emblem := 0          # Stats.BANNER_EMBLEMS index
+var banner_frame := 0           # Stats.BANNER_FRAMES index
+var banner_title := 0           # Stats.BANNER_TITLES index
+var killer_card := {}           # who killed the player last: {"unit", "weapon"}; the HUD shows their banner
+var killer_timer := 0.0
+var hero_look := 0              # Stats.HERO_LOOKS index (1 needs account level 10)
+var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
+# Account progression (saved): every XP point the player earns in a match,
+# plus a match bonus, goes on the account. See Stats.account_level.
+var account_xp := 0
+var match_xp := 0               # the player's XP earned this match, over every life
+var last_match_gain := 0        # what the last match added (end screen)
+var level_before := 1           # account level before the last match (end screen)
 var name_editing := false
 var levelup_timer := 0.0
 var levelup_level := 1
@@ -174,6 +189,7 @@ var rank_open := false
 var menu_tab := 0
 var shake_amount := 0.0
 var cam_pos := Vector3.ZERO
+var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
 var click_was := false
 var scoreboard_open := false   # held: the match scoreboard overlay
 var debug_score := false
@@ -195,6 +211,8 @@ func _ready() -> void:
 	add_child(sfx)
 	_load_controls()
 	sfx.set_listener(Vector3.ZERO)
+	if "--debug-night" in OS.get_cmdline_user_args():
+		map_variant = 1
 	_build_world()
 	_build_hud()
 	if "--audit" in OS.get_cmdline_user_args():
@@ -284,6 +302,7 @@ func _process(delta: float) -> void:
 		for u in units:
 			print("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
+	killer_timer = maxf(killer_timer - delta, 0.0)
 	capture_timer = maxf(capture_timer - delta, 0.0)
 	levelup_timer = maxf(levelup_timer - delta, 0.0)
 	if message_timer > 0.0:
@@ -312,12 +331,30 @@ func _debug_hooks() -> void:
 	## (default 900); "--debug-end" ends the match a second before that.
 	var frame := Engine.get_process_frames()
 	for arg in OS.get_cmdline_user_args():
+		if frame == shot_frame - 5:
+			if arg.begins_with("--debug-title-tab="):
+				title_tab = int(arg.trim_prefix("--debug-title-tab="))
+			if arg.begins_with("--debug-xp="):
+				account_xp = int(arg.trim_prefix("--debug-xp="))
 		if frame == shot_frame - 5 and player:
 			if arg == "--debug-banner" and banners[player_team] == null:
 				# A war banner planted in the field beside the player (no planting flash).
 				player.facing = Vector3(0, 0, 1)
 				plant_banner(player, false)
 				player.global_position += Vector3(-2.6, 0, -1.8)
+			if arg == "--debug-killed":
+				# The kill screen: a bot's banner over the player's death.
+				player.global_position = Vector3(-20, 0, 3)
+				player.spawn_protect = 0.0
+				player.home_defense = false
+				for u in units:
+					if u.team != player_team and not u.dead:
+						u.bot_class = Role.KNIGHT
+						player.take_damage(player.hearts, u, player.global_position + Vector3(2, 0, 0))
+						killer_timer = 5.4
+						break
+			if arg == "--debug-rogue" and player.role == Role.BASE:
+				player.set_role(Role.ROGUE)
 			if arg == "--debug-barricade":
 				player.facing = Vector3(1.0 if player_team == 0 else -1.0, 0, 0)
 				plant_barricade(player)
@@ -378,6 +415,10 @@ func _debug_hooks() -> void:
 				debug_score = true
 			if arg.begins_with("--debug-zoom="):
 				cam_zoom = float(arg.trim_prefix("--debug-zoom="))
+			if arg.begins_with("--debug-cam="):
+				var c := arg.trim_prefix("--debug-cam=").split(",")
+				cam_lock = Vector3(float(c[0]), 0.0, float(c[1]))
+				cam_pos = cam_lock + CAMERA_OFFSET * cam_zoom
 			if arg.begins_with("--debug-at="):
 				var p := arg.trim_prefix("--debug-at=").split(",")
 				player.position = Vector3(float(p[0]), float(p[2]) if p.size() > 2 else 0.0, float(p[1]))
@@ -507,6 +548,7 @@ func _finish(winner: int) -> void:
 		line = "The %s win %d to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
 	winner_team = winner
 	announce(line)
+	_bank_match_xp(winner)
 	sfx.play_ambience(false)
 	if winner < 0:
 		sfx.ui("horn")
@@ -1546,7 +1588,7 @@ func plant_barricade(u) -> bool:
 func _update_camera(delta: float) -> void:
 	if player == null:
 		return
-	var target: Vector3 = player.global_position + CAMERA_OFFSET * cam_zoom
+	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.global_position) + CAMERA_OFFSET * cam_zoom
 	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
 	sfx.set_listener(player.global_position)
 	shake_amount = move_toward(shake_amount, 0.0, delta * 1.6)
@@ -1575,12 +1617,70 @@ func hero_custom() -> Dictionary:
 	var c := {"hair": Stats.HERO_HAIR[hero_hair][1]}
 	if hero_trim > 0:
 		c.trim = Stats.HERO_TRIM[hero_trim][1]
+	if hero_look > 0 and unlocked():
+		c.look = Stats.HERO_LOOKS[hero_look][1]
 	return c
+
+
+func account_level() -> int:
+	return Stats.account_level(account_xp)
+
+
+func banner_for(u) -> Dictionary:
+	## The calling card a unit shows on the kill screen: the player's is the
+	## one they edited; a bot's is dealt from its name and class.
+	if u == null:
+		return {}
+	if u.is_player:
+		return {"name": u.display_name, "bg": banner_bg, "emblem": banner_emblem, "frame": banner_frame,
+			"title": Stats.BANNER_TITLES[banner_title][1], "level": account_level(), "team": u.team}
+	var h: int = absi(hash(u.display_name))
+	var emblem: int = Stats.BANNER_EMBLEMS.find(hud._class_icon(u.bot_class)) if hud else 0
+	var level: int = 1 + h % 14
+	return {"name": u.display_name, "bg": (h / 7) % (Stats.BANNER_BACKGROUNDS.size() - 1), "emblem": maxi(emblem, 0),
+		"frame": (h / 3) % 4, "title": Stats.rank_title(level), "level": level, "team": u.team}
+
+
+func on_player_killed(killer, weapon: String) -> void:
+	## The player died: show the killer's banner for a while.
+	if killer == null or killer == player:
+		killer_card = {}
+		return
+	killer_card = {"unit": killer, "weapon": weapon}
+	killer_timer = 6.0
+
+
+func unlocked() -> bool:
+	## The level-10 unlocks (Rogue, Shadowborn look, Moonlit map).
+	return account_level() >= Stats.UNLOCK_LEVEL or "--debug-unlock" in OS.get_cmdline_user_args()
+
+
+func night() -> bool:
+	return map_variant == 1 and (unlocked() or "--debug-night" in OS.get_cmdline_user_args())
+
+
+func _bank_match_xp(winner: int) -> void:
+	## The match is over: the player's XP goes on the account.
+	if demo:
+		return
+	var bonus: int = Stats.MATCH_BONUS.draw if winner < 0 else (Stats.MATCH_BONUS.win if winner == player_team else Stats.MATCH_BONUS.loss)
+	level_before = account_level()
+	last_match_gain = match_xp + bonus
+	account_xp += last_match_gain
+	_save_settings()
+	var now := account_level()
+	if now > level_before:
+		sfx.ui("level_up")
+		if now >= Stats.UNLOCK_LEVEL and level_before < Stats.UNLOCK_LEVEL:
+			chat_system("Account level %d: the Rogue, the Shadowborn look and the Moonlit Wildwood are unlocked!" % now)
 
 
 func academy_pick(role: int) -> void:
 	## Choose a class from the Academy panel (only inside your own courtyard).
 	if player == null or player.dead or player.carrying or not _in_cellar(player_team, player.global_position):
+		return
+	if role == Role.ROGUE and not unlocked():
+		toast("The Rogue unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 		return
 	if player.role != role:
 		player.set_role(role)
@@ -1738,7 +1838,7 @@ func menu_tick() -> void:
 					call_command(kind)
 		# The Academy: in your own courtyard, 1-4 pick a class outright.
 		if player and not rank_open and not guide_open and not player.dead and player.carrying == null and _in_cellar(player_team, player.global_position):
-			for i in 5:
+			for i in 6:
 				if Input.is_action_just_pressed("rank_%d" % (i + 1)):
 					academy_pick(i + 1)
 		if rank_open and player:
@@ -1810,6 +1910,10 @@ func menu_tick() -> void:
 			menu_open = true
 			menu_tab = 4
 		if not playing and not menu_open:
+			for b in hud.title_buttons:
+				if b[0].has_point(mouse) and b[1] < 3:
+					title_tab = b[1]
+		if not playing and not menu_open:
 			var was_editing := name_editing
 			name_editing = false
 			for b in hud.hero_buttons:
@@ -1817,6 +1921,33 @@ func menu_tick() -> void:
 					match b[1]:
 						"hair": hero_hair = b[2]
 						"trim": hero_trim = b[2]
+						"banner_bg": banner_bg = b[2]
+						"banner_emblem":
+							if Stats.BANNER_EMBLEMS[b[2]] != "class_rogue" or unlocked():
+								banner_emblem = b[2]
+							else:
+								toast("That emblem unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
+						"banner_frame":
+							if Stats.BANNER_FRAMES[b[2]][0] != "Royal" or unlocked():
+								banner_frame = b[2]
+							else:
+								toast("That frame unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
+						"banner_title":
+							if Stats.BANNER_TITLES[b[2]][0] <= account_level() or "--debug-unlock" in OS.get_cmdline_user_args():
+								banner_title = b[2]
+							else:
+								toast("That title unlocks at account level %d" % Stats.BANNER_TITLES[b[2]][0], Color(1.0, 0.8, 0.5))
+						"look":
+							if b[2] == 0 or unlocked():
+								hero_look = b[2]
+							else:
+								toast("The Shadowborn look unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
+						"map":
+							if b[2] == 0 or unlocked():
+								map_variant = b[2]
+								_apply_map_variant()
+							else:
+								toast("The Moonlit Wildwood unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"name": name_editing = true
 					if not name_editing:
 						_save_settings()
@@ -2109,6 +2240,13 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "hero_name", hero_name)
 	cfg.set_value("settings", "hero_hair", hero_hair)
 	cfg.set_value("settings", "hero_trim", hero_trim)
+	cfg.set_value("settings", "hero_look", hero_look)
+	cfg.set_value("settings", "banner_bg", banner_bg)
+	cfg.set_value("settings", "banner_emblem", banner_emblem)
+	cfg.set_value("settings", "banner_frame", banner_frame)
+	cfg.set_value("settings", "banner_title", banner_title)
+	cfg.set_value("settings", "map_variant", map_variant)
+	cfg.set_value("profile", "account_xp", account_xp)
 	cfg.save(CONTROLS_PATH)
 
 
@@ -2145,6 +2283,13 @@ func _load_controls() -> void:
 	hero_name = cfg.get_value("settings", "hero_name", "")
 	hero_hair = clampi(cfg.get_value("settings", "hero_hair", 0), 0, Stats.HERO_HAIR.size() - 1)
 	hero_trim = clampi(cfg.get_value("settings", "hero_trim", 0), 0, Stats.HERO_TRIM.size() - 1)
+	hero_look = clampi(cfg.get_value("settings", "hero_look", 0), 0, Stats.HERO_LOOKS.size() - 1)
+	banner_bg = clampi(cfg.get_value("settings", "banner_bg", 0), 0, Stats.BANNER_BACKGROUNDS.size() - 1)
+	banner_emblem = clampi(cfg.get_value("settings", "banner_emblem", 0), 0, Stats.BANNER_EMBLEMS.size() - 1)
+	banner_frame = clampi(cfg.get_value("settings", "banner_frame", 0), 0, Stats.BANNER_FRAMES.size() - 1)
+	banner_title = clampi(cfg.get_value("settings", "banner_title", 0), 0, Stats.BANNER_TITLES.size() - 1)
+	map_variant = clampi(cfg.get_value("settings", "map_variant", 0), 0, Stats.MAPS.size() - 1)
+	account_xp = maxi(int(cfg.get_value("profile", "account_xp", 0)), 0)
 	for entry in REBINDABLE:
 		if not cfg.has_section_key("controls", entry[0]):
 			continue
@@ -3489,6 +3634,346 @@ func _add_rug(center: Vector3, size: Vector2, color: Color) -> void:
 		_add_block(center + Vector3(0, 0.032, zs * (size.y / 2.0 - 0.12)), Vector3(size.x, 0.01, 0.16), color, false, _gold())
 
 
+# ---------------------------------------------------------------------------
+# Furniture: what fills the keeps and cellars (lit by chandeliers that cast
+# shadows). Nothing here is solid, so bots never snag on a bench.
+# ---------------------------------------------------------------------------
+
+func _iron() -> StandardMaterial3D:
+	var m := _material(Color(0.28, 0.29, 0.33))
+	m.metallic = 0.6
+	m.roughness = 0.5
+	return m
+
+
+func _add_flame(pos: Vector3, radius: float, color: Color) -> void:
+	var f := MeshInstance3D.new()
+	var sph := SphereMesh.new()
+	sph.radius = radius
+	sph.height = radius * 2.4
+	f.mesh = sph
+	var fm := _material(color.darkened(0.25))
+	fm.emission_enabled = true
+	fm.emission = color
+	fm.emission_energy_multiplier = 0.9
+	f.material_override = fm
+	f.position = pos
+	add_child(f)
+
+
+func _add_chandelier(pos: Vector3, elven: bool, shadows: bool = true) -> void:
+	## A ring of candles (Humans) or a crown of crystals (Elves) hanging on a
+	## chain, with the room's main light under it. `pos` is the ring's centre.
+	var chain_top := pos + Vector3(0, 2.2, 0)
+	_add_block((pos + chain_top) / 2.0, Vector3(0.06, 2.2, 0.06), Color.WHITE, false, _iron() if not elven else _ashlar(Color(0.5, 0.42, 0.3)))
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.62
+	tm.outer_radius = 0.78
+	tm.rings = 24
+	ring.mesh = tm
+	ring.material_override = _iron() if not elven else _timber(Color(0.5, 0.42, 0.3))
+	ring.position = pos
+	add_child(ring)
+	var light := OmniLight3D.new()
+	light.position = pos - Vector3(0, 0.15, 0)
+	light.shadow_enabled = shadows
+	light.shadow_bias = 0.08
+	if elven:
+		for k in 6:
+			var a: float = k * TAU / 6.0
+			_add_crystal(pos + Vector3(cos(a) * 0.68, -0.55, sin(a) * 0.68), 0.22)
+		_add_crystal(pos + Vector3(0, -0.75, 0), 0.3)
+		light.light_color = Color(0.6, 1.0, 0.88)
+		light.light_energy = 1.7
+		light.omni_range = 11.0
+	else:
+		for k in 8:
+			var a: float = k * TAU / 8.0
+			var c := pos + Vector3(cos(a) * 0.7, 0.16, sin(a) * 0.7)
+			_add_block(c, Vector3(0.09, 0.26, 0.09), Color.WHITE, false, _material(Color(0.95, 0.9, 0.78)))
+			_add_flame(c + Vector3(0, 0.2, 0), 0.06, Color(1.0, 0.6, 0.15))
+		light.light_color = Color(1.0, 0.76, 0.42)
+		light.light_energy = 1.9
+		light.omni_range = 11.0
+	add_child(light)
+
+
+func _add_candle_stand(pos: Vector3) -> void:
+	_add_block(pos + Vector3(0, 0.05, 0), Vector3(0.34, 0.1, 0.34), Color.WHITE, false, _iron())
+	_add_block(pos + Vector3(0, 0.65, 0), Vector3(0.06, 1.2, 0.06), Color.WHITE, false, _iron())
+	_add_block(pos + Vector3(0, 1.3, 0), Vector3(0.1, 0.22, 0.1), Color.WHITE, false, _material(Color(0.95, 0.9, 0.78)))
+	_add_flame(pos + Vector3(0, 1.48, 0), 0.06, Color(1.0, 0.6, 0.15))
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.72, 0.4)
+	light.light_energy = 0.7
+	light.omni_range = 4.0
+	light.position = pos + Vector3(0, 1.6, 0)
+	add_child(light)
+
+
+func _add_brazier(pos: Vector3) -> void:
+	## An iron fire bowl on three legs.
+	for k in 3:
+		var a: float = k * TAU / 3.0
+		_add_block(pos + Vector3(cos(a) * 0.25, 0.35, sin(a) * 0.25), Vector3(0.07, 0.7, 0.07), Color.WHITE, false, _iron())
+	var bowl := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.45
+	cm.bottom_radius = 0.25
+	cm.height = 0.3
+	bowl.mesh = cm
+	bowl.material_override = _iron()
+	bowl.position = pos + Vector3(0, 0.8, 0)
+	add_child(bowl)
+	_add_flame(pos + Vector3(0, 1.05, 0), 0.2, Color(1.0, 0.45, 0.08))
+	_add_flame(pos + Vector3(0.08, 1.22, 0.04), 0.1, Color(1.0, 0.7, 0.2))
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.3)
+	light.light_energy = 1.3
+	light.omni_range = 6.0
+	light.position = pos + Vector3(0, 1.5, 0)
+	add_child(light)
+
+
+func _add_table(pos: Vector3, size: Vector2, rot_y: float, elven: bool, laid: bool = true) -> void:
+	## A trestle table with its top at 0.85 m, laid with plates, goblets and a candle.
+	var top_mat := _timber(Color(0.68, 0.56, 0.42)) if not elven else _ashlar(Color(0.55, 0.48, 0.34))
+	var t := Node3D.new()
+	t.position = pos
+	t.rotation.y = rot_y
+	add_child(t)
+	var top := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(size.x, 0.1, size.y)
+	top.mesh = bm
+	top.material_override = top_mat
+	top.position = Vector3(0, 0.8, 0)
+	t.add_child(top)
+	for xs in [-1.0, 1.0]:
+		for zs in [-1.0, 1.0]:
+			var leg := MeshInstance3D.new()
+			var lm := BoxMesh.new()
+			lm.size = Vector3(0.12, 0.78, 0.12)
+			leg.mesh = lm
+			leg.material_override = top_mat
+			leg.position = Vector3(xs * (size.x / 2.0 - 0.2), 0.39, zs * (size.y / 2.0 - 0.2))
+			t.add_child(leg)
+		# Benches along the long sides.
+		var bench := MeshInstance3D.new()
+		var bmm := BoxMesh.new()
+		bmm.size = Vector3(size.x - 0.4, 0.08, 0.34)
+		bench.mesh = bmm
+		bench.material_override = top_mat
+		bench.position = Vector3(0, 0.45, xs * (size.y / 2.0 + 0.35))
+		t.add_child(bench)
+	if not laid:
+		return
+	var n := int(size.x / 1.0)
+	for k in n:
+		var x: float = -size.x / 2.0 + 0.6 + k * ((size.x - 1.2) / maxf(n - 1, 1))
+		for zs in [-1.0, 1.0]:
+			var plate := MeshInstance3D.new()
+			var pm := CylinderMesh.new()
+			pm.top_radius = 0.17
+			pm.bottom_radius = 0.15
+			pm.height = 0.03
+			plate.mesh = pm
+			plate.material_override = _material(Color(0.85, 0.82, 0.74)) if not elven else _elf_leaf(true)
+			plate.position = Vector3(x, 0.87, zs * 0.22)
+			t.add_child(plate)
+			var cup := MeshInstance3D.new()
+			var cm := CylinderMesh.new()
+			cm.top_radius = 0.06
+			cm.bottom_radius = 0.045
+			cm.height = 0.14
+			cup.mesh = cm
+			cup.material_override = _gold()
+			cup.position = Vector3(x + 0.28, 0.92, zs * 0.12)
+			t.add_child(cup)
+	var mid := t.to_global(Vector3(0, 0.85, 0))
+	if elven:
+		_add_mushrooms(mid, 31)
+	else:
+		_add_block(mid + Vector3(0, 0.12, 0), Vector3(0.09, 0.24, 0.09), Color.WHITE, false, _material(Color(0.95, 0.9, 0.78)))
+		_add_flame(mid + Vector3(0, 0.3, 0), 0.05, Color(1.0, 0.6, 0.15))
+		_prop("hex/sack", t.to_global(Vector3(size.x / 2.0 - 0.5, 0.86, 0)), 1.6, 0.4)
+
+
+func _add_bookshelf(pos: Vector3, out: Vector3, elven: bool) -> void:
+	## A case of books (scrolls and jars for the elves) against a wall; `out` faces the room.
+	var rot := atan2(out.x, out.z)
+	var case_mat := _timber(Color(0.6, 0.48, 0.36)) if not elven else _ashlar(Color(0.5, 0.42, 0.3))
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation.y = rot
+	add_child(n)
+	var back := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(1.8, 2.1, 0.08)
+	back.mesh = bm
+	back.material_override = case_mat
+	back.position = Vector3(0, 1.05, -0.26)
+	n.add_child(back)
+	for xs in [-1.0, 1.0]:
+		var sidep := MeshInstance3D.new()
+		var sm := BoxMesh.new()
+		sm.size = Vector3(0.08, 2.1, 0.6)
+		sidep.mesh = sm
+		sidep.material_override = case_mat
+		sidep.position = Vector3(xs * 0.86, 1.05, 0)
+		n.add_child(sidep)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(pos.x * 7 + pos.z * 13)
+	for shelf in 4:
+		var y: float = 0.1 + shelf * 0.52
+		var plank := MeshInstance3D.new()
+		var pm := BoxMesh.new()
+		pm.size = Vector3(1.72, 0.06, 0.6)
+		plank.mesh = pm
+		plank.material_override = case_mat
+		plank.position = Vector3(0, y, 0)
+		n.add_child(plank)
+		var x := -0.76
+		while x < 0.7:
+			var w := rng.randf_range(0.08, 0.16)
+			var book := MeshInstance3D.new()
+			var km := BoxMesh.new()
+			var h := rng.randf_range(0.28, 0.42)
+			km.size = Vector3(w, h, 0.4) if not elven else Vector3(w * 1.3, w * 1.3, 0.4)
+			book.mesh = km
+			var hue := rng.randf()
+			book.material_override = _material(Color.from_hsv(hue, 0.55, 0.55) if not elven else Color.from_hsv(0.35 + hue * 0.2, 0.5, 0.7))
+			book.position = Vector3(x + w / 2.0, y + (h / 2.0 if not elven else w * 0.65) + 0.03, 0.02)
+			n.add_child(book)
+			x += w + rng.randf_range(0.0, 0.06)
+			if elven:
+				x += 0.12
+
+
+func _add_tapestry(team: int, pos: Vector3, out: Vector3, width: float = 1.6, height: float = 2.0) -> void:
+	## A hanging cloth on a wall: team colour with a gold rod and crest stripe.
+	var color: Color = Stats.FACTIONS[team].color
+	var rot := atan2(out.x, out.z)
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation.y = rot
+	add_child(n)
+	var rod := MeshInstance3D.new()
+	var rm := CylinderMesh.new()
+	rm.top_radius = 0.04
+	rm.bottom_radius = 0.04
+	rm.height = width + 0.3
+	rod.mesh = rm
+	rod.rotation.z = PI / 2.0
+	rod.material_override = _gold()
+	rod.position = Vector3(0, height, 0.1)
+	n.add_child(rod)
+	var cloth := MeshInstance3D.new()
+	var cm := BoxMesh.new()
+	cm.size = Vector3(width, height - 0.1, 0.04)
+	cloth.mesh = cm
+	cloth.material_override = _cloth(color.darkened(0.1))
+	cloth.position = Vector3(0, height / 2.0 - 0.05, 0.08)
+	n.add_child(cloth)
+	var stripe := MeshInstance3D.new()
+	var sm := BoxMesh.new()
+	sm.size = Vector3(width * 0.7, 0.12, 0.05)
+	stripe.mesh = sm
+	stripe.material_override = _gold()
+	stripe.position = Vector3(0, height * 0.72, 0.1)
+	n.add_child(stripe)
+	var crest := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(width * 0.5, width * 0.5)
+	crest.mesh = qm
+	var qmat := StandardMaterial3D.new()
+	qmat.albedo_texture = load("res://assets/ui/icons/%s.png" % ("crest_forest" if team == 0 else "crest_kingdom"))
+	qmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	crest.material_override = qmat
+	crest.position = Vector3(0, height * 0.42, 0.11)
+	n.add_child(crest)
+
+
+func _add_bedroll(pos: Vector3, rot_y: float, color: Color) -> void:
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation.y = rot_y
+	add_child(n)
+	var roll := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.9, 0.12, 2.0)
+	roll.mesh = bm
+	roll.material_override = _cloth(color.darkened(0.35))
+	roll.position = Vector3(0, 0.06, 0)
+	n.add_child(roll)
+	var pillow := MeshInstance3D.new()
+	var pm := BoxMesh.new()
+	pm.size = Vector3(0.6, 0.14, 0.4)
+	pillow.mesh = pm
+	pillow.material_override = _material(Color(0.9, 0.86, 0.78))
+	pillow.position = Vector3(0, 0.17, -0.7)
+	n.add_child(pillow)
+
+
+func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3) -> void:
+	## Rugs, chandeliers, a feasting table, shelves and clutter in the keep,
+	## kept to the strips beside the throne so the lanes stay clear.
+	var color: Color = Stats.FACTIONS[team].color
+	var elven := team == 0
+	var khz := KEEP_HALF_Z
+	# Side rugs between the columns and a round-cornered one on the dais.
+	for zs in [-1.0, 1.0]:
+		_add_rug(Vector3(kx + side * 6.0, 0.04, zs * 5.8), Vector2(6.0, 1.9), color.darkened(0.15))
+	# Chandeliers: one over the archway hall, one over the throne.
+	_add_chandelier(Vector3(kx + side * 2.6, 2.1, 0), elven)
+	_add_chandelier(Vector3(kx + side * 9.8, 2.1, 0), elven)
+	for zs in [-1.0, 1.0]:
+		var wz: float = zs * (khz - 0.45)   # the inner face of a side wall
+		var ins := Vector3(0, 0, -zs)
+		# The feasting table along the wall between the two columns.
+		_add_table(Vector3(kx + side * 6.0, 0, zs * 6.6), Vector2(2.8, 1.0), 0.0, elven)
+		# Tapestries on the side walls, bookshelves in the back corners.
+		_add_tapestry(team, Vector3(kx + side * 2.2, 0.5, wz), ins, 1.5, 1.9)
+		_add_tapestry(team, Vector3(kx + side * 10.0, 0.5, wz), ins, 1.5, 1.9)
+		_add_bookshelf(Vector3(bx - side * 1.3, 0, zs * (khz - 2.6)), Vector3(-side, 0, 0), elven)
+		if elven:
+			_add_mushrooms(Vector3(kx + side * 10.6, 0, zs * (khz - 1.0)), 41 + int(zs))
+			_add_mushrooms(Vector3(kx + side * 4.0, 0, zs * (khz - 2.1)), 45 + int(zs))
+		else:
+			_add_brazier(Vector3(kx + side * 4.0, 0, zs * (khz - 2.1)))
+			_add_candle_stand(Vector3(kx + side * 8.3, 0, zs * 5.0))
+			_prop("hex/barrel", Vector3(kx + side * 12.0, 0, zs * 4.6), 3.6, 0.3 * zs)
+	# A map table near the archway (humans) or a shrine stone (elves), off the lane.
+	if elven:
+		_add_fireflies(Vector3(kx + side * 3.0, 0.5, 5.5))
+	else:
+		_add_candle_stand(Vector3(kx + side * 1.4, 0, 6.4))
+		_add_candle_stand(Vector3(kx + side * 1.4, 0, -6.4))
+
+
+func _furnish_cellar(team: int, bx: float, side: float) -> void:
+	## Beam, chandeliers and bunks in the spawn cellar.
+	var color: Color = Stats.FACTIONS[team].color
+	var elven := team == 0
+	var hz := CELLAR_HALF_Z
+	# Two chandeliers over the hall.
+	for k in 2:
+		var x: float = bx + side * (3.5 + k * 4.5)
+		_add_chandelier(Vector3(x, CELLAR_Y + 2.5, 0), elven)
+	# Bunks along the far wall either side of the spawn ring, a shelf of
+	# supplies and candles.
+	for zs in [-1.0, 1.0]:
+		_add_bedroll(Vector3(bx + side * 9.2, CELLAR_Y, zs * (hz - 1.0)), PI / 2.0, color)
+		_add_bedroll(Vector3(bx + side * 7.0, CELLAR_Y, zs * (hz - 1.0)), PI / 2.0, color)
+		_add_bookshelf(Vector3(bx + side * 1.2, CELLAR_Y, zs * (hz - 0.4)), Vector3(0, 0, -zs), elven)
+		if elven:
+			_add_mushrooms(Vector3(bx + side * 5.0, CELLAR_Y, zs * (hz - 0.6)), 51 + int(zs))
+		else:
+			_add_candle_stand(Vector3(bx + side * 5.0, CELLAR_Y, zs * (hz - 0.6)))
+	_add_rug(Vector3(bx + side * 5.5, CELLAR_Y, 0), Vector2(5.0, 3.0), color.darkened(0.15))
+
+
 func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float) -> void:
 	var b := Barricade.new()
 	add_child(b)
@@ -3671,7 +4156,6 @@ func _build_castle(team: int) -> void:
 			_prop("dungeon/column", Vector3(kx + side * 8.0, 0, zs * (khz - 1.0)), 1.6)
 		_add_wall_torch(Vector3(kx + side * 2.0, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
 		_add_wall_torch(Vector3(kx + side * 6.0, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
-		_prop("dungeon/box_stacked", Vector3(kx + side * 11.2, 0, zs * (khz - 1.6)), 0.55, 0.0)
 	# Faction flavour: elves grow greenery against their walls, humans post iron braziers.
 	if team == 0:
 		for zs in [-1.0, 1.0]:
@@ -3689,7 +4173,10 @@ func _build_castle(team: int) -> void:
 	_add_block(throne + Vector3(side * 2.4, 1.2, 0), Vector3(0.4, 2.0, 1.6), color, false, _cloth(color.darkened(0.2)))
 	_add_block(throne + Vector3(side * 2.4, 2.35, 0), Vector3(0.5, 0.3, 1.8), Color.WHITE, false, _gold())
 	for z in [-4.6, 4.6]:
-		_prop("dungeon/column", throne + Vector3(side * 2.0, 0, z), 1.6)
+		if mossy:
+			_add_trunk_pillar(throne + Vector3(side * 2.0, 0, z), KEEP_H - 0.2)
+		else:
+			_prop("dungeon/column", throne + Vector3(side * 2.0, 0, z), 1.6)
 	_prop("dungeon/chest_gold", throne + Vector3(side * 1.0, 0, -5.6), 0.8, PI / 2.0 if side < 0.0 else -PI / 2.0)
 	# The Crown Vault: a cage around the throne whose lock the enemy must break.
 	var vault = Vault.new()
@@ -3711,6 +4198,7 @@ func _build_castle(team: int) -> void:
 		cover_points.append(throne + Vector3(-side * 4.0, 0, z))
 	for z in [-(dh + 2.6), dh + 2.6]:
 		cover_points.append(Vector3(fx + side * 1.6, 0, z))
+	_furnish_keep(team, kx, bx, side, throne)
 
 	_build_cellar(team, bx, side)
 
@@ -3755,7 +4243,6 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 			var tx := bx + side * (1.5 + k * 3.0)
 			_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
 		_add_banner(team, Vector3(bx + side * 7.0, CELLAR_Y - 0.1, zs * (hz - 0.05)), Vector3(0, 0, -zs), 0.7)
-		_prop("dungeon/box_stacked", Vector3(bx + side * 8.9, CELLAR_Y, zs * 6.1), 0.45, 0.0)
 	# The stairs: a straight flight up the middle into the keep.
 	var st := cellar_stairs(team)
 	_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
@@ -3843,24 +4330,21 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring.material_override = ring_mat
 	add_child(ring)
-	# A warm light so the hall reads from above.
-	var lamp := OmniLight3D.new()
-	lamp.light_color = Color(1.0, 0.8, 0.55)
-	lamp.light_energy = 1.6
-	lamp.omni_range = 14.0
-	lamp.position = Vector3(cx, CELLAR_Y + 3.5, 0)
-	add_child(lamp)
+	_furnish_cellar(team, bx, side)
 	# Class stations either side of the stairs.
-	_add_station(team, Role.KNIGHT, Vector3(bx + side * 3.5, CELLAR_Y, -4.4))
-	_add_station(team, Role.RANGER, Vector3(bx + side * 7.0, CELLAR_Y, -4.4))
-	_add_station(team, Role.MAGE, Vector3(bx + side * 3.5, CELLAR_Y, 4.4))
-	_add_station(team, Role.HEALER, Vector3(bx + side * 7.0, CELLAR_Y, 4.4))
-	_add_station(team, Role.ENGINEER, Vector3(bx + side * 1.6, CELLAR_Y, 4.4))
+	# Three seals a side, the Rogue's (locked until account level 10) between
+	# the Mage and the Healer.
+	_add_station(team, Role.KNIGHT, Vector3(bx + side * 3.3, CELLAR_Y, -4.8))
+	_add_station(team, Role.ENGINEER, Vector3(bx + side * 5.5, CELLAR_Y, -4.8))
+	_add_station(team, Role.RANGER, Vector3(bx + side * 7.7, CELLAR_Y, -4.8))
+	_add_station(team, Role.MAGE, Vector3(bx + side * 3.3, CELLAR_Y, 4.8))
+	_add_station(team, Role.ROGUE, Vector3(bx + side * 5.5, CELLAR_Y, 4.8))
+	_add_station(team, Role.HEALER, Vector3(bx + side * 7.7, CELLAR_Y, 4.8))
 	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall.
-	_add_upgrade_pad(team, Vector3(bx + side * 1.6, CELLAR_Y, -4.6))
+	_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
 	var g := Guide.new()
 	add_child(g)
-	g.setup(self, team, Vector3(bx + side * 1.6, CELLAR_Y, 4.6), PI / 2.0 if side < 0.0 else -PI / 2.0)
+	g.setup(self, team, Vector3(bx + side * 1.3, CELLAR_Y, 5.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
 	guides[team] = g
 
 
@@ -3934,6 +4418,54 @@ func _add_crystal(pos: Vector3, scale: float) -> void:
 	add_child(light)
 
 
+var world_env: WorldEnvironment
+var world_environment: Environment
+var sky_material: ProceduralSkyMaterial
+var sun_light: DirectionalLight3D
+var fill_light: DirectionalLight3D
+
+
+func _apply_map_variant() -> void:
+	## Day or the Moonlit Wildwood: sky, sun (or moon), ambient, fog and glow.
+	if world_environment == null:
+		return
+	var dark := night()
+	if dark:
+		sky_material.sky_top_color = Color(0.02, 0.04, 0.1)
+		sky_material.sky_horizon_color = Color(0.1, 0.14, 0.28)
+		sky_material.ground_bottom_color = Color(0.03, 0.05, 0.06)
+		sky_material.ground_horizon_color = Color(0.08, 0.12, 0.16)
+		world_environment.ambient_light_energy = 0.42
+		world_environment.ambient_light_color = Color(0.45, 0.55, 0.85)
+		world_environment.fog_light_color = Color(0.25, 0.3, 0.5)
+		world_environment.fog_density = 0.0024
+		world_environment.glow_intensity = 0.8
+		world_environment.glow_hdr_threshold = 1.0
+		world_environment.adjustment_saturation = 1.05
+		world_environment.adjustment_brightness = 0.92
+		sun_light.light_color = Color(0.62, 0.72, 1.0)
+		sun_light.light_energy = 0.5
+		if fill_light:
+			fill_light.light_energy = 0.1
+	else:
+		sky_material.sky_top_color = Color(0.25, 0.5, 0.9)
+		sky_material.sky_horizon_color = Color(0.85, 0.9, 0.95)
+		sky_material.ground_bottom_color = Color(0.3, 0.4, 0.25)
+		sky_material.ground_horizon_color = Color(0.65, 0.75, 0.6)
+		world_environment.ambient_light_energy = 0.6
+		world_environment.ambient_light_color = Color(0.75, 0.85, 0.8)
+		world_environment.fog_light_color = Color(0.8, 0.88, 0.95)
+		world_environment.fog_density = 0.0012
+		world_environment.glow_intensity = 0.45
+		world_environment.glow_hdr_threshold = 1.4
+		world_environment.adjustment_saturation = 1.15
+		world_environment.adjustment_brightness = 0.95
+		sun_light.light_color = Color(1.0, 0.94, 0.82)
+		sun_light.light_energy = 1.15
+		if fill_light:
+			fill_light.light_energy = 0.15
+
+
 func _build_world() -> void:
 	var env := WorldEnvironment.new()
 	var environment := Environment.new()
@@ -3945,6 +4477,8 @@ func _build_world() -> void:
 	sky_mat.ground_horizon_color = Color(0.65, 0.75, 0.6)
 	sky_mat.sun_angle_max = 20.0
 	sky.sky_material = sky_mat
+	world_env = env
+	sky_material = sky_mat
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
@@ -3973,9 +4507,11 @@ func _build_world() -> void:
 	environment.adjustment_contrast = 1.1
 	environment.adjustment_brightness = 0.95
 	env.environment = environment
+	world_environment = environment
 	add_child(env)
 
 	var sun := DirectionalLight3D.new()
+	sun_light = sun
 	sun.rotation_degrees = Vector3(-52, -35, 0)
 	sun.light_color = Color(1.0, 0.94, 0.82)
 	sun.light_energy = 1.15
@@ -3989,6 +4525,7 @@ func _build_world() -> void:
 	add_child(sun)
 	# A cool fill from the other side so shadows are not black.
 	var fill := DirectionalLight3D.new()
+	fill_light = fill
 	fill.rotation_degrees = Vector3(-30, 140, 0)
 	fill.light_color = Color(0.6, 0.7, 1.0)
 	fill.light_energy = 0.15
@@ -4098,6 +4635,7 @@ func _build_world() -> void:
 		for sx in [-1.0, 1.0]:
 			_prop("hex/hill_single_A", Vector3(sx * 100.0, -0.2, zs * 20.0), 12.0, sx + zs)
 
+	_apply_map_variant()
 	camera = Camera3D.new()
 	camera.rotation_degrees = Vector3(-55, 0, 0)
 	camera.fov = 40.0

@@ -53,20 +53,22 @@ var chat_buttons: Array = []        # [rect, tab index]
 var academy_buttons: Array = []     # [rect, role]
 var hero_buttons: Array = []        # [rect, "hair" | "trim" | "name", index]
 var faction_buttons: Array = []     # [rect, team]
+var title_buttons: Array = []       # [rect, tab] on the title screen
 
 
 func _ready() -> void:
 	font = ThemeDB.fallback_font
 	logo = load("res://assets/ui/logo.png")
-	for kind in ["sword", "fist", "arrow", "bolt", "mend", "bash", "guard", "block", "volley", "trap", "fireball",
-			"blink", "blessing", "smite", "dodge", "crown", "vigor", "xp", "class_knight", "class_ranger", "class_mage",
-			"class_healer", "class_elf", "class_human", "crest_forest", "crest_kingdom",
-			"cleave", "pierce", "snipe", "smoke", "wave", "frost", "curse", "drain",
-			"vanguard", "warden", "sharpshooter", "trapper", "pyromancer", "frostweaver", "cleric", "darkpriest",
-			"potion", "regen", "might", "class_engineer", "hammer", "turret", "upgrade", "overclock", "artificer", "siegewright"]:
-		var path := "res://assets/ui/icons/%s.png" % kind
-		if ResourceLoader.exists(path):
-			icons[kind] = load(path)
+	# Every painted icon in assets/ui/icons (tools/make_icons.py).
+	var dir := DirAccess.open("res://assets/ui/icons")
+	if dir:
+		for file in dir.get_files():
+			if file.ends_with(".png"):
+				icons[file.trim_suffix(".png")] = load("res://assets/ui/icons/%s" % file)
+			elif file.ends_with(".png.import"):
+				var kind := file.trim_suffix(".png.import")
+				if not icons.has(kind):
+					icons[kind] = load("res://assets/ui/icons/%s.png" % kind)
 	for key in ["crest_elf", "crest_human", "logo_elves", "logo_humans", "elf_base", "elf_knight", "elf_ranger", "elf_mage", "elf_healer",
 			"human_base", "human_knight", "human_ranger", "human_mage", "human_healer"]:
 		var path := "res://assets/ui/cards/%s.png" % key
@@ -106,6 +108,7 @@ func _draw() -> void:
 	academy_buttons = []
 	hero_buttons = []
 	faction_buttons = []
+	title_buttons = []
 	if not game.playing and not game.game_over:
 		_draw_title()
 		if game.menu_open:
@@ -125,6 +128,8 @@ func _draw() -> void:
 	_draw_toasts()
 	if game.player and not game.guide_open:
 		_draw_player_panel(game.player)
+	if game.killer_timer > 0.0 and game.player and game.player.dead and not game.killer_card.is_empty():
+		_draw_killer_card()
 	if game.stolen_timer > 0.0:
 		_draw_stolen_card()
 	elif game.capture_timer > 0.0:
@@ -260,7 +265,7 @@ func _arc_polygon(center: Vector2, radius: float, from: float, to: float, color:
 
 
 func _card_key(team: int, role: int) -> String:
-	var names := {Role.BASE: "base", Role.KNIGHT: "knight", Role.RANGER: "ranger", Role.MAGE: "mage", Role.HEALER: "healer", Role.ENGINEER: "engineer"}
+	var names := {Role.BASE: "base", Role.KNIGHT: "knight", Role.RANGER: "ranger", Role.MAGE: "mage", Role.HEALER: "healer", Role.ENGINEER: "engineer", Role.ROGUE: "rogue"}
 	return "%s_%s" % ["elf" if team == 0 else "human", names.get(role, "base")]
 
 
@@ -484,6 +489,7 @@ func _class_icon(role: int) -> String:
 		Role.MAGE: return "class_mage"
 		Role.HEALER: return "class_healer"
 		Role.ENGINEER: return "class_engineer"
+		Role.ROGUE: return "class_rogue"
 	return "class_elf"
 
 
@@ -499,7 +505,7 @@ func _attack_icon(role: int, s: Dictionary = {}) -> String:
 	if s.get("fire", false):
 		return "fireball"
 	match s.attack:
-		"melee": return "sword" if role == Role.KNIGHT else ("hammer" if role == Role.ENGINEER else "fist")
+		"melee": return "sword" if role == Role.KNIGHT else ("hammer" if role == Role.ENGINEER else ("dagger" if role == Role.ROGUE else "fist"))
 		"arrow": return "arrow"
 		"spell": return "bolt"
 		"heal": return "mend"
@@ -816,15 +822,17 @@ func _draw_academy() -> void:
 	## with a line each. Click a row or press 1-4 to become it, or step on
 	## its station.
 	var team: int = game.player_team
-	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER]
+	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
 	var blurbs := {Role.KNIGHT: "Frontline fighter in plate: every third hit glances off. Strong vs enemies and structures.", Role.RANGER: "Ranged attacker. Use cover and keep your distance.",
 		Role.MAGE: "Powerful spells and area control.", Role.HEALER: "Keeps teammates alive and supports the team.",
-		Role.ENGINEER: "Builds and upgrades turrets on the walls. Hammer wrecks doors."}
+		Role.ENGINEER: "Builds and upgrades turrets on the walls. Hammer wrecks doors.",
+		Role.ROGUE: "Daggers, shadow dashes and smoke bombs. The quickest class. Unlocks at account level %d." % Stats.UNLOCK_LEVEL}
 	if team == 0:
 		blurbs = {Role.KNIGHT: "Glaive skirmisher: long light sweeps, a wind dash and barkskin. Lighter plate.", Role.RANGER: "Moonbow: swift silver arrows with long reach, a six-arrow starfall and vine snares.",
 			Role.MAGE: "Nature magic: thorn bolts that slow, bramble bursts that root, fae steps.", Role.HEALER: "Grove mender: wide living-light heals, spirit bloom, slowing lunar lances.",
-			Role.ENGINEER: "Grows thorn totems that spit slowing thorns. The root maul wrecks doors."}
-	var rect := Rect2(size.x - 480, 100, 256, 60 + roles.size() * 58)
+			Role.ENGINEER: "Grows thorn totems that spit slowing thorns. The root maul wrecks doors.",
+			Role.ROGUE: "Daggers, shadow dashes and smoke bombs. The quickest class. Unlocks at account level %d." % Stats.UNLOCK_LEVEL}
+	var rect := Rect2(size.x - 480, 70, 256, 60 + roles.size() * 58)
 	var tc := _team_color(team)
 	_plate(rect, INK, GOLD, 12, 2)
 	var head := Rect2(rect.position + Vector2(10, -12), Vector2(rect.size.x - 20, 40))
@@ -838,11 +846,14 @@ func _draw_academy() -> void:
 		var hover: bool = row.has_point(get_local_mouse_position())
 		_plate(row, Color(0.3, 0.26, 0.12, 0.98) if mine else (INK_LIGHT.lightened(0.08) if hover else INK_LIGHT), GOLD if mine else GOLD_DARK, 8, 1)
 		_class_card(row.position + Vector2(26, 26), 19, team, role)
-		_text(row.position + Vector2(52, 19), Stats.FACTIONS[team].roles[role], 14, GOLD if mine else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		var locked: bool = role == Role.ROGUE and not game.unlocked()
+		_text(row.position + Vector2(52, 19), Stats.FACTIONS[team].roles[role], 14, GOLD if mine else (GREY if locked else CREAM), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		if locked:
+			_text(row.position + Vector2(52 + _text_width(Stats.FACTIONS[team].roles[role], 14) + 8, row.position.y + 19 - row.position.y), "LOCKED", 9, Color(1.0, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_keycap(Vector2(row.end.x - 16, row.position.y + 14), str(i + 1), 20)
 		_paragraph(row.position + Vector2(52, 34), blurbs[role], 9, Color(0.85, 0.85, 0.85), row.size.x - 60, 11, 1)
 		academy_buttons.append([row, role])
-	_text(rect.position + Vector2(0, rect.size.y - 8), "Grab a seal in your cellar, click a class or press 1-5", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, rect.size.y - 8), "Grab a seal in your cellar, click a class or press 1-6", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _draw_toasts() -> void:
@@ -1322,8 +1333,8 @@ func _menu_overview(body: Rect2) -> void:
 
 func _menu_classes(body: Rect2) -> void:
 	var team: int = game.player_team
-	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER]
-	var cw := (body.size.x - 4 * 8) / 5.0
+	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
+	var cw := (body.size.x - 5 * 8) / 6.0
 	for i in roles.size():
 		var role: int = roles[i]
 		var s: Dictionary = Stats.kit(team, role)
@@ -1573,10 +1584,10 @@ func _menu_my_class(body: Rect2) -> void:
 	else:
 		_text(right.position + Vector2(0, 20), "TOTAL UPGRADES", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
 		_text(right.position + Vector2(0, 38), "Rank points spent per class this match. Three in a class unlock its two promotions.", 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
-		var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER]
+		var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
 		for i in roles.size():
 			var role: int = roles[i]
-			var row := Rect2(right.position + Vector2(10, 52 + i * 62), Vector2(right.size.x - 20, 56))
+			var row := Rect2(right.position + Vector2(10, 52 + i * 52), Vector2(right.size.x - 20, 48))
 			_plate(row, INK, GOLD_DARK, 8, 1)
 			_icon(_class_icon(role), row.position + Vector2(26, 24), 11, Color.WHITE)
 			var spent: int = p.mastery.get(role, 0)
@@ -1770,93 +1781,336 @@ func _faction_card(rect: Rect2, team: int, key: String, pad: String, blurb: Stri
 		_portrait(rect.position + Vector2(rect.size.x / 2.0, 70), 40, team, Role.KNIGHT)
 		_icon("crest_forest" if team == 0 else "crest_kingdom", rect.position + Vector2(rect.size.x - 34, 34), 12, Color.WHITE)
 		_text(rect.position + Vector2(0, 146), Stats.FACTIONS[team].name.to_upper(), 28, tc.lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 5)
-	_text(rect.position + Vector2(0, 170), blurb, 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
+	_paragraph(rect.position + Vector2(12, 172), blurb, 10, CREAM, rect.size.x - 24, 12.0)
 	_keycap(rect.position + Vector2(rect.size.x / 2.0 - 46, 200), key, 60)
 	_text(rect.position + Vector2(rect.size.x / 2.0 - 10, 205), "or " + pad, 12, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
-func _draw_title() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.08, 0.05, 0.8))
+func _chunky(rect: Rect2, fill: Color, selected: bool = false, hover: bool = false) -> void:
+	## A chunky Fall Guys style button: thick dark outline, bright fill, a
+	## pale highlight along the top, and a lift when selected or hovered.
+	var r := rect
+	if selected or hover:
+		r = rect.grow(2)
+	draw_rect(Rect2(r.position + Vector2(0, 5), r.size), Color(0.05, 0.05, 0.1, 0.5), true)  # drop shadow
+	_plate(r, fill.lightened(0.12) if (selected or hover) else fill, Color(0.08, 0.06, 0.12), 16, 4)
+	var hi := Rect2(r.position + Vector2(10, 5), Vector2(r.size.x - 20, minf(maxf(r.size.y * 0.22, 6), 14)))
+	draw_rect(hi, Color(1, 1, 1, 0.22), true)
+
+
+func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
+	## A player banner (calling card): patterned background, frame, emblem,
+	## name, title and account level. `weapon` adds a "killed you with" line.
+	if b.is_empty():
+		return
+	var bg: Array = Stats.BANNER_BACKGROUNDS[clampi(b.bg, 0, Stats.BANNER_BACKGROUNDS.size() - 1)]
+	var frame: Array = Stats.BANNER_FRAMES[clampi(b.frame, 0, Stats.BANNER_FRAMES.size() - 1)]
+	var c1: Color = bg[1]
+	var c2: Color = bg[2]
+	draw_rect(Rect2(rect.position + Vector2(0, 4), rect.size), Color(0, 0, 0, 0.45))
+	_plate(rect, c1, frame[1], 10, 3)
+	var inner := rect.grow(-5)
+	match bg[3]:
+		"stripes":
+			for i in range(0, int(inner.size.x / 18) + 2):
+				var x: float = inner.position.x + i * 18 - 20
+				var p := PackedVector2Array([Vector2(x, inner.end.y), Vector2(x + 8, inner.end.y), Vector2(x + 8 + inner.size.y * 0.6, inner.position.y), Vector2(x + inner.size.y * 0.6, inner.position.y)])
+				for k in p.size():
+					p[k].x = clampf(p[k].x, inner.position.x, inner.end.x)
+				draw_colored_polygon(p, Color(c2, 0.35))
+		"diamonds":
+			for i in 7:
+				var cx: float = inner.position.x + 14 + i * (inner.size.x / 6.5)
+				var cy: float = inner.get_center().y + (12 if i % 2 == 0 else -12)
+				var d := 9.0
+				draw_colored_polygon(PackedVector2Array([Vector2(cx, cy - d), Vector2(cx + d, cy), Vector2(cx, cy + d), Vector2(cx - d, cy)]), Color(c2, 0.4))
+		"rays":
+			var o := Vector2(inner.end.x - 10, inner.get_center().y)
+			for i in 7:
+				var a1: float = PI * 0.55 + i * 0.13
+				var a2: float = a1 + 0.065
+				var p := PackedVector2Array([o, o + Vector2(cos(a1), sin(a1)) * inner.size.x * 1.2, o + Vector2(cos(a2), sin(a2)) * inner.size.x * 1.2])
+				for k in p.size():
+					p[k] = Vector2(clampf(p[k].x, inner.position.x, inner.end.x), clampf(p[k].y, inner.position.y, inner.end.y))
+				draw_colored_polygon(p, Color(c2, 0.35))
+		"leaves":
+			for i in 9:
+				var cx: float = inner.position.x + 10 + i * (inner.size.x / 8.5)
+				var cy: float = inner.position.y + 10 + (i * 37) % int(maxf(inner.size.y - 20, 1))
+				draw_circle(Vector2(cx, cy), 7, Color(c2, 0.3))
+				draw_circle(Vector2(cx + 5, cy - 4), 4, Color(c2, 0.3))
+		_:
+			draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.45)), Color(c2, 0.25))
+	var ec := rect.position + Vector2(34, rect.size.y / 2.0)
+	draw_circle(ec, 24, Color(0.05, 0.05, 0.08, 0.7))
+	draw_arc(ec, 24, 0, TAU, 32, frame[1], 2.0)
+	_icon(Stats.BANNER_EMBLEMS[clampi(b.emblem, 0, Stats.BANNER_EMBLEMS.size() - 1)], ec, 13, Color.WHITE)
+	var tc: Color = _team_color(b.get("team", 0)).lightened(0.5)
+	_text(rect.position + Vector2(68, 26), b.name, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	_text(rect.position + Vector2(68, 42), str(b.title).to_upper(), 10, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	if weapon != "":
+		_text(rect.position + Vector2(68, 56), "with %s" % weapon, 9, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var badge := rect.position + Vector2(rect.size.x - 28, rect.size.y / 2.0)
+	draw_circle(badge, 17, Color(0.08, 0.06, 0.12))
+	draw_circle(badge, 14, Color(0.95, 0.6, 0.2))
+	_text(badge + Vector2(-14, 3), str(b.level), 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 28, 2)
+	_text(badge + Vector2(-14, 11), "LV", 6, tc, HORIZONTAL_ALIGNMENT_CENTER, 28, 1)
+
+
+func _draw_killer_card() -> void:
+	## "KILLED BY": the killer's banner drops in over the field while you are down.
+	var k = game.killer_card.get("unit")
+	if k == null or not is_instance_valid(k):
+		return
 	var cx := size.x / 2.0
-	_draw_logo(Rect2(cx - 260, 10, 520, 208))
-	_text(Vector2(cx - 300, 236), "Elves against Humans. Break the door, steal the monarch, carry them home.", 15, CREAM,
+	var slide: float = clampf((6.0 - game.killer_timer) * 4.0, 0.0, 1.0)
+	var y: float = 160.0 - (1.0 - slide) * 60.0
+	var rect := Rect2(cx - 170, y, 340, 70)
+	_text(Vector2(cx - 170, y - 16), "KILLED BY", 13, Color(1.0, 0.5, 0.45), HORIZONTAL_ALIGNMENT_CENTER, 340, 3)
+	_draw_banner(rect, game.banner_for(k), game.killer_card.get("weapon", ""))
+
+
+func _draw_banner_editor(origin: Vector2, w: float) -> void:
+	## The banner editor on the HERO tab: a live preview and a row of
+	## swatches for the background, emblem, frame and title.
+	_text(origin + Vector2(0, 0), "YOUR BANNER  ·  the enemy sees it when you kill them", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var preview := Rect2(origin + Vector2(0, 8), Vector2(w, 64))
+	var me := {"name": game.hero_name if game.hero_name.strip_edges() != "" else "You", "bg": game.banner_bg, "emblem": game.banner_emblem,
+		"frame": game.banner_frame, "title": Stats.BANNER_TITLES[game.banner_title][1], "level": game.account_level(), "team": 0}
+	_draw_banner(preview, me)
+	var y := origin.y + 84
+	var sw := 26.0
+	# Background swatches.
+	_text(Vector2(origin.x, y), "BACKGROUND", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in Stats.BANNER_BACKGROUNDS.size():
+		var b := Rect2(origin.x + 76 + i * (sw + 3), y - 11, sw, 18)
+		var bg: Array = Stats.BANNER_BACKGROUNDS[i]
+		_plate(b, bg[2].lerp(bg[1], 0.4), GOLD if i == game.banner_bg else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_bg else 1)
+		hero_buttons.append([b, "banner_bg", i])
+	y += 26
+	_text(Vector2(origin.x, y), "EMBLEM", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in Stats.BANNER_EMBLEMS.size():
+		var b := Rect2(origin.x + 76 + (i % 7) * (sw + 3), y - 11 + (i / 7) * 22, sw, 18)
+		var locked: bool = Stats.BANNER_EMBLEMS[i] == "class_rogue" and not game.unlocked()
+		_plate(b, INK_LIGHT if not locked else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_emblem else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_emblem else 1)
+		_icon(Stats.BANNER_EMBLEMS[i], b.get_center(), 5, Color.WHITE, locked)
+		hero_buttons.append([b, "banner_emblem", i])
+	y += 48
+	_text(Vector2(origin.x, y), "FRAME", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in Stats.BANNER_FRAMES.size():
+		var b := Rect2(origin.x + 76 + i * (sw + 3), y - 11, sw, 18)
+		var locked: bool = Stats.BANNER_FRAMES[i][0] == "Royal" and not game.unlocked()
+		_plate(b, Stats.BANNER_FRAMES[i][1] if not locked else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_frame else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_frame else 1)
+		hero_buttons.append([b, "banner_frame", i])
+	y += 26
+	_text(Vector2(origin.x, y), "TITLE", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var tx := origin.x + 76
+	var ty := y - 11
+	for i in Stats.BANNER_TITLES.size():
+		var t: Array = Stats.BANNER_TITLES[i]
+		var tw: float = _text_width(t[1].to_upper(), 8) + 12
+		if tx + tw > origin.x + w:
+			tx = origin.x + 76
+			ty += 22
+		var b := Rect2(tx, ty, tw, 18)
+		var have: bool = t[0] <= game.account_level() or "--debug-unlock" in OS.get_cmdline_user_args()
+		_plate(b, INK_LIGHT if have else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_title else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_title else 1)
+		_text(b.position + Vector2(0, 13), t[1].to_upper(), 8, Color.WHITE if have else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
+		hero_buttons.append([b, "banner_title", i])
+		tx += tw + 4
+
+
+func _draw_nameplate(rect: Rect2) -> void:
+	## The account card: portrait, hero name, rank title, level badge, XP bar.
+	_chunky(rect, Color(0.18, 0.16, 0.3))
+	var pc := rect.position + Vector2(40, rect.size.y / 2.0)
+	_class_card(pc, 24, 0, Role.BASE)
+	var level: int = game.account_level()
+	var name: String = game.hero_name if game.hero_name.strip_edges() != "" else "Unnamed hero"
+	_text(rect.position + Vector2(76, 26), name, 16, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	_text(rect.position + Vector2(76, 44), Stats.rank_title(level).to_upper(), 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var span: Array = Stats.account_span(game.account_xp)
+	var bar := Rect2(rect.position + Vector2(76, 52), Vector2(rect.size.x - 150, 12))
+	_bar(bar, (float(span[0]) / span[1]) if span[1] > 0 else 1.0, Color(0.95, 0.6, 0.2))
+	_text(bar.position + Vector2(0, 10), ("%d / %d XP" % [span[0], span[1]]) if span[1] > 0 else "MAX LEVEL", 8, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 2)
+	var badge := rect.position + Vector2(rect.size.x - 36, rect.size.y / 2.0)
+	draw_circle(badge, 24, Color(0.08, 0.06, 0.12))
+	draw_circle(badge, 20, Color(0.95, 0.6, 0.2))
+	_text(badge + Vector2(-20, 7), str(level), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 40, 3)
+	_text(badge + Vector2(-20, 18), "LV", 7, Color(0.1, 0.05, 0.1), HORIZONTAL_ALIGNMENT_CENTER, 40, 0)
+
+
+func _draw_title() -> void:
+	## The main menu: a bright, chunky Fall Guys style front end over the
+	## live world. A nameplate top-left, big tab buttons down the left, and
+	## the chosen tab's panel on the right.
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.07, 0.1, 0.62))
+	var cx := size.x / 2.0
+	_draw_logo(Rect2(cx - 200, 2, 400, 160))
+	_draw_nameplate(Rect2(16, 16, 330, 78))
+	_text(Vector2(cx - 300, 178), "Elves against Humans. Break the door, steal the monarch, carry them home.", 13, CREAM,
 		HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
-	_text(Vector2(cx - 300, 264), "CHOOSE YOUR SIDE", 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
-	_faction_card(Rect2(cx - 490, 280, 300, 226), 0, "1", "D-pad left", "Wind and wood: glaives, moonbows, brambles, living totems. Quick on their feet.")
-	_faction_card(Rect2(cx - 170, 280, 300, 226), 1, "2", "D-pad right", "Steel and faith: shields, crossbows, fire, holy light. Recover energy faster.")
-	faction_buttons.append([Rect2(cx - 490, 280, 300, 226), 0])
-	faction_buttons.append([Rect2(cx - 170, 280, 300, 226), 1])
-	_draw_hero_panel(Rect2(cx + 150, 280, 340, 226))
-	# Bot difficulty: click, or Left/Right.
-	var drow := Rect2(cx - 330, 514, 660, 30)
-	_plate(drow, INK, GOLD_DARK, 8, 1)
-	_text(drow.position + Vector2(12, 20), "BOTS", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# Tabs down the left.
+	var tabs := [["PLAY", Color(0.86, 0.25, 0.5)], ["HERO", Color(0.95, 0.55, 0.15)], ["PROGRESS", Color(0.5, 0.3, 0.8)], ["OPTIONS", Color(0.15, 0.6, 0.65)]]
+	var tx := 24.0
+	var ty := 206.0
+	for i in tabs.size():
+		var b := Rect2(tx, ty + i * 78, 190, 64)
+		var hover: bool = b.has_point(get_local_mouse_position())
+		var selected: bool = game.title_tab == i
+		_chunky(b, tabs[i][1], selected, hover)
+		_text(b.position + Vector2(0, 41), tabs[i][0], 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 5)
+		title_buttons.append([b, i])
+	var panel := Rect2(236, 196, size.x - 236 - 24, size.y - 196 - 46)
+	match game.title_tab:
+		0: _draw_title_play(panel)
+		1: _draw_title_hero(panel)
+		2: _draw_title_progress(panel)
+		_: _draw_title_play(panel)
+	options_button = Rect2(tx, ty + 3 * 78, 190, 64)
+	_text(Vector2(cx - 300, size.y - 16), "Press 1 or 2 (or click a side) to play  ·  Esc never quits by accident", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 600, 2)
+
+
+func _draw_title_play(panel: Rect2) -> void:
+	_chunky(panel, Color(0.12, 0.16, 0.26))
+	_text(panel.position + Vector2(0, 30), "CHOOSE YOUR SIDE", 20, GOLD, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 4)
+	var cw := 300.0
+	var gap := 24.0
+	var left := panel.position.x + (panel.size.x - cw * 2 - gap) / 2.0
+	var fy := panel.position.y + 44
+	var rects := [Rect2(left, fy, cw, 226), Rect2(left + cw + gap, fy, cw, 226)]
+	_faction_card(rects[0], 0, "1", "D-pad left", "Wind and wood: glaives, moonbows, brambles, living totems. Quick on their feet.")
+	_faction_card(rects[1], 1, "2", "D-pad right", "Steel and faith: shields, crossbows, fire, holy light. Recover energy faster.")
+	faction_buttons.append([rects[0], 0])
+	faction_buttons.append([rects[1], 1])
+	# Map tiles and bot difficulty under the sides.
+	var row_y := fy + 240
+	_text(Vector2(left, row_y + 14), "MAP", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in Stats.MAPS.size():
+		var b := Rect2(left + 50 + i * 190, row_y, 180, 34)
+		var on: bool = game.map_variant == i
+		var locked: bool = i > 0 and not game.unlocked()
+		_chunky(b, (Color(0.2, 0.55, 0.3) if i == 0 else Color(0.25, 0.25, 0.55)) if not locked else Color(0.3, 0.3, 0.34), on, b.has_point(get_local_mouse_position()))
+		_text(b.position + Vector2(0, 23), Stats.MAPS[i][0].to_upper(), 12, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 3)
+		if locked:
+			_text(b.position + Vector2(0, 32), "LEVEL %d" % Stats.UNLOCK_LEVEL, 7, Color(1.0, 0.75, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
+		hero_buttons.append([b, "map", i])
+	var dy := row_y + 46
+	_text(Vector2(left, dy + 14), "BOTS", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in Stats.BOT_DIFFICULTIES.size():
 		var name: String = Stats.BOT_DIFFICULTIES[i]
-		var b := Rect2(drow.position + Vector2(60 + i * 84, 4), Vector2(78, 22))
+		var b := Rect2(left + 50 + i * 100, dy, 92, 30)
 		var on: bool = game.bot_difficulty == name
-		_plate(b, Color(0.5, 0.38, 0.08, 0.95) if on else INK_LIGHT, GOLD if on else Color(0.3, 0.3, 0.38), 6, 1)
-		_text(b.position + Vector2(0, 16), name.to_upper(), 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+		_chunky(b, Color(0.55, 0.4, 0.12) if on else Color(0.25, 0.22, 0.3), on, b.has_point(get_local_mouse_position()))
+		_text(b.position + Vector2(0, 21), name.to_upper(), 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 		difficulty_buttons.append([b, name])
-	_text(drow.position + Vector2(318, 20), Stats.BOT_TUNING[game.bot_difficulty].desc, 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var rect := Rect2(cx - 330, 550, 660, 86)
-	_plate(rect, INK, GOLD_DARK, 10, 2)
-	_text(rect.position + Vector2(0, 20), "HOW TO PLAY", 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	var lines := [
-		"Move WASD  ·  Aim with the mouse  ·  %s attacks  ·  %s blocks  ·  %s dodges  ·  %s grabs the monarch" % [
-			game.key_label("attack"), game.key_label("block"), game.key_label("dodge"), game.key_label("interact")],
-		"%s and %s are class abilities  ·  %s perks and promotions  ·  hold %s for the scoreboard  ·  %s chats  ·  Esc pauses" % [
-			game.key_label("ability_1"), game.key_label("ability_2"), game.key_label("rank_menu"), game.key_label("scoreboard"), game.key_label("chat")],
-		"You spawn in your castle's cellar: grab a class seal, climb the stairs and head out.  %s / %s / %s call your team." % [
-			game.key_label("cmd_attack"), game.key_label("cmd_defend"), game.key_label("cmd_help")],
-	]
-	for i in lines.size():
-		_text(rect.position + Vector2(0, 40 + i * 17), lines[i], 12, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	options_button = Rect2(cx - 110, 646, 220, 30)
-	_plate(options_button, INK_LIGHT, GOLD, 8, 2)
-	_text(options_button.position + Vector2(0, 20), "OPTIONS AND CONTROLS  (%s)" % game.key_label("options"), 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, options_button.size.x, 2)
+	_text(Vector2(left + 360, dy + 20), Stats.BOT_TUNING[game.bot_difficulty].desc, 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# The match card: how a round goes, as chunky tags.
+	var ty := dy + 50
+	_text(Vector2(left, ty + 14), "MATCH", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var tags := [["%d s FORTIFY" % int(Stats.PREP_TIME), Color(0.55, 0.42, 0.15)], ["%d MIN CLOCK" % int(Stats.MATCH_TIME / 60.0), Color(0.2, 0.3, 0.5)],
+		["FIRST TO %d CAPTURES" % Stats.CAPTURES_TO_WIN, Color(0.5, 0.2, 0.25)], ["OVERTIME ON A TIE", Color(0.3, 0.25, 0.45)], ["5 v 5 WITH BOTS", Color(0.2, 0.4, 0.3)]]
+	var tx := left + 50
+	for t in tags:
+		var w: float = _text_width(t[0], 10) + 26
+		var b := Rect2(tx, ty, w, 30)
+		_chunky(b, t[1])
+		_text(b.position + Vector2(0, 20), t[0], 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, w, 2)
+		tx += w + 8
+	_text(Vector2(left + 50, ty + 46), "Fortify first: build turrets, set traps and raise barricades behind the wall of light; then the horn sounds and the gates are fair game.", 9, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var how := "Move WASD · aim with the mouse · %s attacks · %s / %s abilities · %s dodges · %s grabs, plants banners and raises barricades · %s perks · Esc pauses" % [
+		game.key_label("attack"), game.key_label("ability_1"), game.key_label("ability_2"), game.key_label("dodge"), game.key_label("interact"), game.key_label("rank_menu")]
+	_paragraph(Vector2(panel.position.x + 20, panel.end.y - 16), how, 10, Color(0.85, 0.85, 0.85), panel.size.x - 40, 12.0)
 
 
-func _draw_hero_panel(rect: Rect2) -> void:
-	## YOUR HERO: name, hair and trim colour. The choices follow you into
+func _draw_title_hero(panel: Rect2) -> void:
+	## YOUR HERO: name, hair, trim and look. The choices follow you into
 	## every class you take, on top of the team colours.
-	_plate(rect, INK, GOLD, 14, 3)
-	_text(rect.position + Vector2(0, 24), "YOUR HERO", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
-	# Portrait with the chosen hair and trim as swatches around it.
-	var pc := rect.position + Vector2(54, 92)
-	_class_card(pc, 34, 0, Role.BASE)
-	draw_circle(pc + Vector2(-30, 30), 9, Stats.HERO_HAIR[game.hero_hair][1])
-	draw_arc(pc + Vector2(-30, 30), 9, 0, TAU, 24, GOLD, 1.5)
+	_chunky(panel, Color(0.3, 0.2, 0.12))
+	_text(panel.position + Vector2(0, 30), "YOUR HERO", 20, GOLD, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 4)
+	var pc := panel.position + Vector2(110, 150)
+	draw_circle(pc, 74, Color(0.08, 0.06, 0.12))
+	draw_circle(pc, 68, Color(0.2, 0.3, 0.25))
+	_class_card(pc, 56, 0, Role.BASE)
+	draw_circle(pc + Vector2(-52, 52), 13, Stats.HERO_HAIR[game.hero_hair][1])
+	draw_arc(pc + Vector2(-52, 52), 13, 0, TAU, 24, GOLD, 2.0)
 	var trim: Color = Stats.HERO_TRIM[game.hero_trim][1]
-	draw_circle(pc + Vector2(30, 30), 9, trim if game.hero_trim > 0 else Color(0.3, 0.5, 0.4))
-	draw_arc(pc + Vector2(30, 30), 9, 0, TAU, 24, GOLD, 1.5)
-	# Name field.
-	var nx := rect.position.x + 110
-	_text(Vector2(nx, rect.position.y + 52), "NAME", 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var field := Rect2(nx, rect.position.y + 58, rect.size.x - 124, 26)
-	_plate(field, Color(0.05, 0.06, 0.1, 0.9), GOLD if game.name_editing else GOLD_DARK, 6, 1)
+	draw_circle(pc + Vector2(52, 52), 13, trim if game.hero_trim > 0 else Color(0.3, 0.5, 0.4))
+	draw_arc(pc + Vector2(52, 52), 13, 0, TAU, 24, GOLD, 2.0)
+	_text(Vector2(pc.x - 100, pc.y + 100), Stats.rank_title(game.account_level()).to_upper(), 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 200, 2)
+	var nx := panel.position.x + 240
+	_text(Vector2(nx, panel.position.y + 64), "NAME", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var field := Rect2(nx, panel.position.y + 70, 400, 30)
+	_plate(field, Color(0.05, 0.06, 0.1, 0.9), GOLD if game.name_editing else GOLD_DARK, 8, 2)
 	var shown: String = game.hero_name
 	if game.name_editing and int(Time.get_ticks_msec() / 400) % 2 == 0:
 		shown += "|"
 	elif shown == "" and not game.name_editing:
 		shown = "click to name your hero"
-	_text(field.position + Vector2(8, 18), shown, 12, Color.WHITE if game.hero_name != "" or game.name_editing else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	_text(field.position + Vector2(10, 21), shown, 14, Color.WHITE if game.hero_name != "" or game.name_editing else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 	hero_buttons.append([field, "name", 0])
-	# Hair and trim swatches.
-	for row in 2:
-		var label: String = "HAIR" if row == 0 else "TRIM"
-		var options: Array = Stats.HERO_HAIR if row == 0 else Stats.HERO_TRIM
-		var chosen: int = game.hero_hair if row == 0 else game.hero_trim
-		var y: float = rect.position.y + 104 + row * 44
-		_text(Vector2(nx, y), "%s  ·  %s" % [label, options[chosen][0]], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var rows := [["HAIR", Stats.HERO_HAIR, game.hero_hair, "hair"], ["TRIM", Stats.HERO_TRIM, game.hero_trim, "trim"], ["LOOK", Stats.HERO_LOOKS, game.hero_look, "look"]]
+	for r in rows.size():
+		var label: String = rows[r][0]
+		var options: Array = rows[r][1]
+		var chosen: int = rows[r][2]
+		var y: float = panel.position.y + 124 + r * 62
+		_text(Vector2(nx, y), "%s  ·  %s" % [label, options[chosen][0]], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		for i in options.size():
-			var b := Rect2(nx + i * 34, y + 6, 28, 22)
+			var wide: bool = rows[r][3] == "look"
+			var b := Rect2(nx + i * (150 if wide else 44), y + 8, 140 if wide else 36, 30)
 			var col: Color = options[i][1]
 			if col.a == 0.0:
-				col = Color(0.3, 0.5, 0.4)  # "Team": the faction's own colour
-			_plate(b, col, GOLD if i == chosen else Color(0.1, 0.1, 0.14), 5, 2 if i == chosen else 1)
-			hero_buttons.append([b, "hair" if row == 0 else "trim", i])
-	_text(rect.position + Vector2(0, rect.size.y - 10), "Your look carries into every class you pick", 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+				col = Color(0.3, 0.5, 0.4) if not wide else Color(0.35, 0.45, 0.4)
+			var locked: bool = wide and i > 0 and not game.unlocked()
+			_chunky(b, col if not locked else Color(0.3, 0.3, 0.34), i == chosen, b.has_point(get_local_mouse_position()))
+			if wide:
+				_text(b.position + Vector2(0, 20), options[i][0].to_upper() if not locked else "LOCKED · LV %d" % Stats.UNLOCK_LEVEL, 11, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+			hero_buttons.append([b, rows[r][3], i])
+	_paragraph(Vector2(nx, panel.position.y + 320), "Your look carries into every class you pick. The Shadowborn look (dusk-tinted armour, violet rim light, a cape on every class) unlocks at account level %d." % Stats.UNLOCK_LEVEL,
+		10, CREAM, 400, 12.0)
+	_draw_banner_editor(Vector2(nx + 430, panel.position.y + 64), panel.end.x - (nx + 430) - 24)
+
+
+func _draw_title_progress(panel: Rect2) -> void:
+	## PROGRESS: account level, rank ladder and the level-10 unlocks.
+	_chunky(panel, Color(0.22, 0.14, 0.34))
+	_text(panel.position + Vector2(0, 30), "PROGRESS", 20, GOLD, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 4)
+	var level: int = game.account_level()
+	var span: Array = Stats.account_span(game.account_xp)
+	var lx := panel.position.x + 30
+	var badge := Vector2(lx + 50, panel.position.y + 110)
+	draw_circle(badge, 50, Color(0.08, 0.06, 0.12))
+	draw_circle(badge, 44, Color(0.95, 0.6, 0.2))
+	_text(badge + Vector2(-50, 14), str(level), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100, 5)
+	_text(badge + Vector2(-50, 34), "LEVEL", 9, Color(0.15, 0.08, 0.1), HORIZONTAL_ALIGNMENT_CENTER, 100, 0)
+	_text(Vector2(lx + 120, panel.position.y + 92), Stats.rank_title(level).to_upper(), 24, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	_text(Vector2(lx + 120, panel.position.y + 112), "%d XP on your account" % game.account_xp, 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var bar := Rect2(lx + 120, panel.position.y + 122, 330, 16)
+	_bar(bar, (float(span[0]) / span[1]) if span[1] > 0 else 1.0, Color(0.95, 0.6, 0.2))
+	_text(bar.position + Vector2(0, 13), ("%d / %d to level %d" % [span[0], span[1], level + 1]) if span[1] > 0 else "MAX LEVEL", 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 2)
+	if game.last_match_gain > 0:
+		_text(Vector2(lx + 120, panel.position.y + 156), "Last match: +%d XP" % game.last_match_gain, 11, Color(0.6, 1.0, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# The rank ladder.
+	_text(Vector2(lx, panel.position.y + 196), "RANKS", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in Stats.RANK_TITLES.size():
+		var entry: Array = Stats.RANK_TITLES[i]
+		var reached: bool = level >= entry[0]
+		var b := Rect2(lx + i * 82, panel.position.y + 204, 76, 40)
+		_chunky(b, Color(0.95, 0.6, 0.2) if reached else Color(0.25, 0.22, 0.3), level >= entry[0] and (i == Stats.RANK_TITLES.size() - 1 or level < Stats.RANK_TITLES[i + 1][0]))
+		_text(b.position + Vector2(0, 17), "LV %d" % entry[0], 9, Color.WHITE if reached else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+		_text(b.position + Vector2(0, 32), entry[1].to_upper(), 8, Color.WHITE if reached else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+	# Unlocks.
+	_text(Vector2(lx, panel.position.y + 276), "LEVEL %d UNLOCKS" % Stats.UNLOCK_LEVEL, 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in Stats.UNLOCKS.size():
+		var u: Array = Stats.UNLOCKS[i]
+		var row := Rect2(lx, panel.position.y + 284 + i * 50, panel.size.x - 60, 44)
+		var open: bool = game.unlocked()
+		_chunky(row, Color(0.2, 0.45, 0.3) if open else Color(0.25, 0.22, 0.3))
+		_icon("class_rogue" if u[0] == "class" else ("cape" if u[0] == "look" else "moon"), row.position + Vector2(26, 22), 11, Color.WHITE if open else GREY)
+		_text(row.position + Vector2(50, 19), u[1].to_upper(), 13, Color.WHITE if open else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		_text(row.position + Vector2(50, 34), u[2], 9, CREAM if open else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+		_text(row.position + Vector2(0, 27), "UNLOCKED" if open else "LOCKED", 10, Color(0.6, 1.0, 0.6) if open else Color(1.0, 0.7, 0.5), HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 14, 2)
 
 
 func _ribbon(center: Vector2, w: float, h: float, color: Color) -> void:
@@ -1895,7 +2149,23 @@ func _draw_end() -> void:
 			mvp.role_name(), mvp.kills, mvp.captures, game.unit_score(mvp)]
 		_icon("crown", Vector2(cx - _text_width(mvp_line, 13) / 2.0 - 14, 192), 7, GOLD)
 		_text(Vector2(cx - 300, 197), mvp_line, 13, GOLD.lerp(Color.WHITE, 0.3), HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
-	var table := Rect2(cx - 330, 208, 660, size.y - 208 - 60)
+	# Account progress: what this match added, and the level you are now.
+	if not game.demo:
+		var strip := Rect2(cx - 330, 208, 660, 30)
+		_plate(strip, Color(0.2, 0.14, 0.3, 0.95), Color(0.95, 0.6, 0.2), 8, 2)
+		var level: int = game.account_level()
+		var span: Array = Stats.account_span(game.account_xp)
+		_text(strip.position + Vector2(12, 20), "ACCOUNT LV %d  %s" % [level, Stats.rank_title(level).to_upper()], 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var bar := Rect2(strip.position + Vector2(230, 9), Vector2(250, 12))
+		_bar(bar, (float(span[0]) / span[1]) if span[1] > 0 else 1.0, Color(0.95, 0.6, 0.2))
+		_text(bar.position + Vector2(0, 10), ("%d / %d XP" % [span[0], span[1]]) if span[1] > 0 else "MAX", 8, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 2)
+		var gain := "+%d XP" % game.last_match_gain
+		if level > game.level_before:
+			gain += "   LEVEL UP!"
+			if level >= Stats.UNLOCK_LEVEL and game.level_before < Stats.UNLOCK_LEVEL:
+				gain += "  Rogue, Shadowborn, Moonlit unlocked"
+		_text(strip.position + Vector2(0, 20), gain, 12, Color(0.6, 1.0, 0.6), HORIZONTAL_ALIGNMENT_RIGHT, strip.size.x - 12, 2)
+	var table := Rect2(cx - 330, 244, 660, size.y - 244 - 60)
 	_plate(table, INK, GOLD, 12, 2)
 	_draw_scoreboard_table(Rect2(table.position + Vector2(16, 14), Vector2(table.size.x - 32, table.size.y - 28)))
 	_text(Vector2(cx - 210, size.y - 26), "Press R or Enter to play again", 14, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 420, 3)

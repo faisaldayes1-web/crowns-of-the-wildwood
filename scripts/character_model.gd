@@ -83,6 +83,13 @@ static func config(team: int, role: int, variant: String = "", rank: int = 1) ->
 					c.idle = "Idle"
 					c.attacks = ["1H_Melee_Attack_Chop", "1H_Melee_Attack_Slice_Horizontal"]
 					c.scale = 0.9
+				Role.ROGUE:
+					c.scene = "rogue_hooded"
+					c.skin = "rogue"
+					c.show = ["Knife", "Knife_Offhand"]
+					c.idle = "Idle"
+					c.attacks = ["1H_Melee_Attack_Stab", "1H_Melee_Attack_Slice_Horizontal", "1H_Melee_Attack_Slice_Diagonal"]
+					c.scale = 0.84
 				Role.HEALER:
 					c.scene = "mage"
 					c.skin = "healer"
@@ -199,7 +206,7 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	for name in ["Knight_Cape", "Rogue_Cape"]:
 		var cape := inst.find_child(name, true, false)
 		if cape and variant == "" and role != Role.BASE:
-			cape.visible = rank >= 3
+			cape.visible = rank >= 3 or custom.has("look")
 
 	# Team colour skin on every mesh.
 	var skin: Texture2D = load("res://assets/characters/skins/%s_%s.png" % [c.skin, "elf" if team == 0 else "human"])
@@ -211,10 +218,15 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 			if mat is StandardMaterial3D:
 				var dup: StandardMaterial3D = mat.duplicate()
 				dup.albedo_texture = skin
-				dup.albedo_color = tint
+				dup.albedo_color = tint * custom.get("look", Color.WHITE)
 				dup.rim_enabled = true
 				dup.rim = 0.35
 				dup.rim_tint = 0.6
+				if custom.has("look"):
+					# The Shadowborn look: a violet glow along the edges.
+					dup.emission_enabled = true
+					dup.emission = Color(0.35, 0.15, 0.6)
+					dup.emission_energy_multiplier = 0.25
 				dup.roughness = 0.75
 				dup.next_pass = outline
 				mesh.set_surface_override_material(i, dup)

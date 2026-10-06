@@ -14,6 +14,8 @@ var light: OmniLight3D
 var prompt: Label3D
 var t := 0.0
 var near := false
+var locked := false
+var crest_mat: StandardMaterial3D
 
 
 func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
@@ -107,11 +109,15 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	crest.mesh = quad
 	var cm := StandardMaterial3D.new()
 	cm.albedo_texture = load("res://assets/ui/icons/class_%s.png" % Stats.Role.keys()[role].to_lower())
+	locked = role == Stats.Role.ROGUE and not game.unlocked()
+	if locked:
+		cm.albedo_color = Color(0.45, 0.45, 0.5)
 	cm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 	cm.alpha_scissor_threshold = 0.4
 	cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	cm.cull_mode = BaseMaterial3D.CULL_DISABLED
 	crest.material_override = cm
+	crest_mat = cm
 	face.add_child(crest)
 	# Four small gems around the rim, in the class colour.
 	for i in 4:
@@ -196,6 +202,10 @@ func in_reach(u) -> bool:
 
 func take(u) -> void:
 	## `u` grabs this seal and becomes the class.
+	if locked:
+		if u == game.player:
+			game.toast("The Rogue's seal unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
+		return
 	u.set_role(role)
 	game.sfx.play("station", u.global_position)
 	var color: Color = Stats.ROLES[role].color
@@ -212,12 +222,17 @@ func _process(delta: float) -> void:
 	seal.position.y = 1.55 + sin(t * 2.2 + role) * 0.08
 	ring.rotation.y -= delta * 0.4
 	var p = game.player
+	if locked and game.unlocked():
+		locked = false
+		crest_mat.albedo_color = Color.WHITE
 	var show: bool = p != null and not p.dead and p.team == team and in_reach(p)
 	if show != near:
 		near = show
 		prompt.visible = show
 	if show:
-		if p.role == role:
+		if locked:
+			prompt.text = "LOCKED · ACCOUNT LEVEL %d" % Stats.UNLOCK_LEVEL
+		elif p.role == role:
 			prompt.text = "Your seal"
 		else:
 			prompt.text = "[%s]  TAKE THE %s'S SEAL" % [game.key_label("interact"), class_title().to_upper()]

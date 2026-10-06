@@ -570,3 +570,49 @@ for rot in [0.0, 2.1, 4.2]:
 star(img, 8, 0.42, 0.22, (170, 110, 60), (90, 50, 30))
 circle(img, (C, C), 0.2 * C * 0.78, (230, 200, 120), (160, 110, 50))
 save(img, "bramble", (150, 230, 120))
+
+# --- Rogue (level-10 unlock) ------------------------------------------------
+def dagger(img, rot=-math.pi / 4, scale=1.0, dx=0.0, dy=0.0):
+    blade = [(-0.1, 0.1), (0.1, 0.1), (0.08, -0.6), (0.0, -0.95), (-0.08, -0.6)]
+    poly(img, pts(blade, scale, dx, dy, rot), STEEL, STEEL_D, vertical=False)
+    stroke(img, pts([(0.0, 0.05), (0.0, -0.8)], scale, dx, dy, rot), (255, 255, 255), 2 * SS)
+    guard = [(-0.3, 0.1), (0.3, 0.1), (0.3, 0.22), (-0.3, 0.22)]
+    poly(img, pts(guard, scale, dx, dy, rot), GOLD, GOLD_D)
+    grip = [(-0.08, 0.22), (0.08, 0.22), (0.08, 0.6), (-0.08, 0.6)]
+    poly(img, pts(grip, scale, dx, dy, rot), (60, 40, 70), (30, 20, 40))
+    circle(img, pts([(0, 0.68)], scale, dx, dy, rot)[0], 0.1 * C * 0.78 * scale, (170, 110, 220), (110, 60, 160))
+
+
+img = new()
+plaque(img, (150, 100, 210), (70, 35, 120))
+dagger(img, -math.pi / 5, 0.62, -0.18, 0.0)
+dagger(img, math.pi / 5, 0.62, 0.18, 0.0)
+save(img, "class_rogue", (210, 170, 255))
+
+img = new(); dagger(img, -math.pi / 4, 1.0); save(img, "dagger", (220, 200, 255))
+img = new(); dagger(img, -math.pi / 4, 0.8, -0.1, 0.05); circle(img, pts([(0.45, -0.45)])[0], 0.18 * C * 0.78, (120, 230, 90), (40, 140, 40)); save(img, "assassin", (170, 255, 150))
+img = new()
+for k in range(3):
+    poly(img, pts([(-0.7 + k * 0.35, -0.6), (-0.3 + k * 0.35, 0.0), (-0.7 + k * 0.35, 0.6), (-0.9 + k * 0.35, 0.6), (-0.5 + k * 0.35, 0.0), (-0.9 + k * 0.35, -0.6)]), (150, 190, 255), (70, 100, 200))
+save(img, "nightrunner", (170, 200, 255))
+
+# --- Progression unlock icons -------------------------------------------------
+# A crescent moon with stars (the Moonlit Wildwood map).
+img = new()
+circle(img, (C - 0.1 * C * 0.78, C), 0.72 * C * 0.78, (240, 235, 200), (190, 180, 120))
+mask = Image.new("L", img.size, 0)
+ImageDraw.Draw(mask).ellipse([C + 0.05 * C * 0.78 - 0.62 * C * 0.78, C - 0.62 * C * 0.78, C + 0.05 * C * 0.78 + 0.62 * C * 0.78, C + 0.62 * C * 0.78], fill=255)
+img.paste(Image.new("RGBA", img.size, (0, 0, 0, 0)), (0, 0), mask)
+star(img, 4, 0.22, 0.08, (255, 250, 200), (220, 200, 120), scale=1.0, dx=0.5, dy=-0.45)
+star(img, 4, 0.14, 0.05, (255, 250, 200), (220, 200, 120), scale=1.0, dx=0.62, dy=0.25)
+save(img, "moon", (200, 210, 255))
+
+# A hooded cape (the Shadowborn look).
+img = new()
+cape = [(-0.75, 0.85), (-0.55, -0.1), (-0.25, -0.75), (0.0, -0.95), (0.25, -0.75), (0.55, -0.1), (0.75, 0.85), (0.3, 0.7), (0.0, 0.85), (-0.3, 0.7)]
+poly(img, pts(cape), (130, 100, 170), (50, 35, 80))
+hood = [(-0.32, -0.55), (0.0, -0.95), (0.32, -0.55), (0.25, -0.1), (-0.25, -0.1)]
+poly(img, pts(hood), (40, 30, 55), (20, 15, 30))
+circle(img, pts([(-0.1, -0.42)])[0], 0.05 * C * 0.78, (200, 150, 255), None, None)
+circle(img, pts([(0.1, -0.42)])[0], 0.05 * C * 0.78, (200, 150, 255), None, None)
+save(img, "cape", (190, 150, 255))
