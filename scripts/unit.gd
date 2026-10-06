@@ -1523,18 +1523,19 @@ func _flat_to(target: Vector3) -> Vector3:
 	return to
 
 
-func _blocked(dir: Vector3, reach: float) -> bool:
-	## True when a world collider (layer 1) that is not a walkable slope sits
-	## within `reach` metres along `dir` at knee height.
+func _probe(dir: Vector3, reach: float) -> Dictionary:
+	## The first world collider (layer 1) within `reach` metres along `dir` at
+	## knee height, or an empty dictionary. Walkable slopes (stairs, ramps)
+	## do not count.
 	var space := get_world_3d().direct_space_state
 	var from := global_position + Vector3(0, 0.6, 0)
 	var probe := PhysicsRayQueryParameters3D.create(from, from + dir * reach, 1)
 	probe.exclude = [get_rid()]
 	var hit := space.intersect_ray(probe)
 	if hit.is_empty():
-		return false
+		return hit
 	var n: Vector3 = hit.get("normal", Vector3.UP)
-	return n.y < 0.45
+	return hit if n.y < 0.45 else {}
 
 
 func _steer_to(target: Vector3) -> Vector3:
@@ -1552,27 +1553,35 @@ func _steer_to(target: Vector3) -> Vector3:
 	if sidestep_timer > 0.0:
 		dir = (dir * 0.4 + dir.cross(Vector3.UP) * sidestep_sign).normalized()
 		return dir
-	# Look ahead: if something solid (a wall, a tree, a crate) is within two
-	# metres on our line, steer round it now rather than walk into it and
-	# wait to count as stuck. Try both sides, 45 degrees out, and take the
-	# clear one nearest our heading. The probe stops short of the target so
-	# the thing we are walking up to (a turret, a door, a seal) never counts,
-	# and a hit on a walkable slope (stairs, ramps) is ignored.
+	# Look ahead: if something solid (a tree, a crate, a wall) is square in
+	# front of us within two metres, walk along it now rather than push into
+	# it and wait to count as stuck. A shallow approach is left alone, since
+	# sliding along the wall already takes us where we are going. The probe
+	# stops short of the target so the thing we are walking up to (a turret,
+	# a door, a hat) never counts.
 	if to.length() > 1.5:
 		# Once we have picked a detour, hold it for half a second so we do not
 		# flip between the detour and the blocked line every frame.
 		if avoid_timer > 0.0:
 			return avoid_dir
 		var reach := minf(2.0, to.length() - 0.6)
-		if _blocked(dir, reach):
-			for ang in [0.8, -0.8, 1.5, -1.5]:
-				var d2 := dir.rotated(Vector3.UP, ang * sidestep_sign)
-				if not _blocked(d2, reach * 0.9):
-					avoid_dir = d2
-					avoid_timer = 0.5
-					return d2
-			# Boxed in on this side: try the other side next time.
-			sidestep_sign = -sidestep_sign
+		var hit := _probe(dir, reach)
+		if not hit.is_empty():
+			var n: Vector3 = hit.normal
+			n.y = 0.0
+			n = n.normalized()
+			if -n.dot(dir) > 0.7:
+				# Along the obstacle's face, the way our heading already leans.
+				var tangent := Vector3(-n.z, 0, n.x)
+				if tangent.dot(dir) < -0.001 or (absf(tangent.dot(dir)) <= 0.001 and sidestep_sign < 0.0):
+					tangent = -tangent
+				for d2: Vector3 in [(dir * 0.5 + tangent).normalized(), tangent, (dir * 0.5 - tangent).normalized(), -tangent]:
+					if _probe(d2, reach * 0.9).is_empty():
+						avoid_dir = d2
+						avoid_timer = 0.5
+						return d2
+				# Boxed in on this side: try the other side next time.
+				sidestep_sign = -sidestep_sign
 	return dir
 
 
