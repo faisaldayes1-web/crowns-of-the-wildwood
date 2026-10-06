@@ -104,6 +104,9 @@ var rally_wait := 0.0   # seconds spent holding at the rally point
 var banner_delayed := false   # the extra wait before a war-banner respawn has been served
 var last_role := 0            # the class held when we died (war-banner respawns keep it)
 var stuck_time := 0.0
+var stall_target := Vector3.ZERO   # last _steer_to target (diagnostics)
+var avoid_dir := Vector3.ZERO      # look-ahead detour we are committed to
+var avoid_timer := 0.0
 var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
 var stall_pos := Vector3.ZERO  # demo diagnostics: where the bot last made progress
 var stall_clock := 0.0
@@ -1337,6 +1340,11 @@ func _physics_process(delta: float) -> void:
 				stall_clock = 0.0
 				var e = _nearest_enemy(30.0)
 				print("STALL t=%d team%d %s at %s job=%s move=%s attack=%s enemy=%s d=%.1f" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), bot_job, move.snapped(Vector3.ONE * 0.01), wants_attack, (e.role_name() + str(e.global_position.snapped(Vector3.ONE * 0.1))) if e else "none", _flat_to(e.global_position).length() if e else 0.0])
+				var hits := []
+				for ci in get_slide_collision_count():
+					var col := get_slide_collision(ci).get_collider()
+					hits.append("%s@%s" % [col.name if col else "?", (col.global_position.snapped(Vector3.ONE * 0.1)) if col is Node3D else ""])
+				print("STALLINFO target=%s hits=%s" % [stall_target.snapped(Vector3.ONE * 0.1), hits])
 
 	# Shield up: hold to block. It drains stamina, slows you and stops attacks.
 	var block_now: bool = wants_block and can_block() and energy > 0.0 and carrying == null and guard_timer <= 0.0
@@ -1378,6 +1386,7 @@ func _physics_process(delta: float) -> void:
 
 	# Bots that bump into a tree or wall sidestep around it.
 	sidestep_timer = maxf(sidestep_timer - delta, 0.0)
+	avoid_timer = maxf(avoid_timer - delta, 0.0)
 	if not is_player and move.length() > 0.1:
 		var real := get_real_velocity()
 		real.y = 0.0
@@ -1529,6 +1538,7 @@ func _blocked(dir: Vector3, reach: float) -> bool:
 
 
 func _steer_to(target: Vector3) -> Vector3:
+	stall_target = target
 	var to := _flat_to(target)
 	if to.length() < 0.6:
 		return Vector3.ZERO
@@ -1549,12 +1559,20 @@ func _steer_to(target: Vector3) -> Vector3:
 	# the thing we are walking up to (a turret, a door, a seal) never counts,
 	# and a hit on a walkable slope (stairs, ramps) is ignored.
 	if to.length() > 1.5:
+		# Once we have picked a detour, hold it for half a second so we do not
+		# flip between the detour and the blocked line every frame.
+		if avoid_timer > 0.0:
+			return avoid_dir
 		var reach := minf(2.0, to.length() - 0.6)
 		if _blocked(dir, reach):
 			for ang in [0.8, -0.8, 1.5, -1.5]:
 				var d2 := dir.rotated(Vector3.UP, ang * sidestep_sign)
 				if not _blocked(d2, reach * 0.9):
+					avoid_dir = d2
+					avoid_timer = 0.5
 					return d2
+			# Boxed in on this side: try the other side next time.
+			sidestep_sign = -sidestep_sign
 	return dir
 
 
