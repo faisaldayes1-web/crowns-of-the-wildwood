@@ -413,6 +413,111 @@ def make_water_noise():
     print("wrote water_noise")
 
 
+# --- Marble, carpet, sand, moss and dark planks (the 2026-10-06 overhaul) --
+
+def make_marble():
+    """Cream marble for the keep floors: big polished slabs with grey veins."""
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    h, shade = brick_layout(4, 4, 3, 10, 9)
+    warp = fbm(N, 3, 4, 91)
+    veins = np.abs(np.sin((xs * 0.006 + ys * 0.011) * 3.0 + warp * 14.0))
+    veins = np.clip(1 - veins * 7.0, 0, 1) ** 1.5
+    veins2 = np.abs(np.sin((xs * 0.013 - ys * 0.004) * 2.0 + fbm(N, 5, 3, 92) * 11.0))
+    veins2 = np.clip(1 - veins2 * 10.0, 0, 1) ** 1.5
+    cloud = fbm(N, 4, 5, 93)
+    base = lerp(rgb(0.9, 0.87, 0.82), rgb(0.97, 0.95, 0.9), (0.3 + 0.7 * cloud)[..., None])
+    base = lerp(base, rgb(0.86, 0.84, 0.82), (0.25 * shade)[..., None])
+    color = lerp(base, rgb(0.62, 0.6, 0.6), (veins * 0.55 + veins2 * 0.35)[..., None])
+    color = lerp(rgb(0.55, 0.52, 0.5), color, h[..., None])
+    height = h * (0.92 + 0.08 * cloud) - veins * 0.03
+    save("marble", color, np.clip(height, 0, 1), 1.2)
+
+
+def make_carpet():
+    """A woven rug: a wide border, an inner band and a lattice of diamonds.
+    Light red so game code can tint it per team."""
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    weave = (np.sin(xs * 0.9) * 0.5 + 0.5) * 0.5 + (np.sin(ys * 0.9) * 0.5 + 0.5) * 0.5
+    fuzz = fbm(N, 64, 2, 101)
+    # Tiles 1/2 texture across: border 0..0.08, band 0.08..0.14, field inside.
+    u = (xs % (N / 2)) / (N / 2)
+    v = (ys % (N / 2)) / (N / 2)
+    d = np.minimum(np.minimum(u, 1 - u), np.minimum(v, 1 - v))
+    border = d < 0.07
+    band = (d >= 0.07) & (d < 0.11)
+    inner = d >= 0.11
+    du = np.abs(((u * 6) % 1.0) - 0.5)
+    dv = np.abs(((v * 6) % 1.0) - 0.5)
+    diamond = ((du + dv) < 0.28) & inner
+    small = ((du + dv) < 0.1) & inner
+    color = np.where(border[..., None], rgb(0.95, 0.9, 0.78), rgb(0.8, 0.72, 0.68))
+    color = np.where(band[..., None], rgb(0.62, 0.56, 0.52), color)
+    color = np.where(diamond[..., None], rgb(0.95, 0.88, 0.7), color)
+    color = np.where(small[..., None], rgb(0.6, 0.5, 0.45), color)
+    color = color * (0.9 + 0.1 * weave + 0.06 * fuzz - 0.06)[..., None]
+    height = 0.5 + 0.25 * weave + 0.1 * fuzz + 0.1 * border
+    save("carpet", np.clip(color, 0, 1), np.clip(height, 0, 1), 0.9)
+
+
+def make_sand():
+    """Pale river sand with ripples and a few pebbles."""
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    ripple = 0.5 + 0.5 * np.sin(ys * 0.05 + fbm(N, 3, 3, 111) * 6.0)
+    grain = fbm(N, 48, 3, 112)
+    color = lerp(rgb(0.78, 0.7, 0.54), rgb(0.9, 0.84, 0.68), (0.4 * ripple + 0.6 * grain)[..., None])
+    h = 0.4 + 0.3 * ripple + 0.2 * grain
+    r = np.random.default_rng(113)
+    for _ in range(60):
+        px, py = r.uniform(0, N), r.uniform(0, N)
+        rad = r.uniform(6, 14)
+        d = np.sqrt(((xs - px + N / 2) % N - N / 2) ** 2 + ((ys - py + N / 2) % N - N / 2) ** 2)
+        peb = np.clip(1 - d / rad, 0, 1) ** 0.6
+        color = lerp(color, rgb(0.62, 0.6, 0.56) * r.uniform(0.8, 1.15), peb[..., None])
+        h += peb * 0.25
+    save("sand", np.clip(color, 0, 1), np.clip(h, 0, 1), 1.2)
+
+
+def make_moss():
+    """Deep moss and clover for the Wildwood floor."""
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    tuft = fbm(N, 24, 4, 121)
+    clumps = fbm(N, 6, 3, 122)
+    color = lerp(rgb(0.16, 0.36, 0.18), rgb(0.4, 0.66, 0.3), (0.3 * tuft + 0.7 * clumps)[..., None])
+    r = np.random.default_rng(123)
+    for _ in range(140):
+        px, py = r.uniform(0, N), r.uniform(0, N)
+        d = np.sqrt(((xs - px + N / 2) % N - N / 2) ** 2 + ((ys - py + N / 2) % N - N / 2) ** 2)
+        leaf = np.clip(1 - d / r.uniform(5, 9), 0, 1)
+        color = lerp(color, rgb(0.55, 0.8, 0.4), (leaf ** 0.7 * 0.8)[..., None])
+    h = 0.3 + 0.5 * tuft + 0.2 * clumps
+    save("moss", np.clip(color, 0, 1), np.clip(h, 0, 1), 1.6)
+
+
+def make_wood_dark():
+    """Weathered dark planks for bridges and piers."""
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    planks = 7
+    pw = N / planks
+    plank = np.floor(xs / pw)
+    u = (xs % pw) / pw
+    edge = np.minimum(u, 1 - u) * pw
+    gap = np.clip((edge - 5) / 10, 0, 1)
+    r = np.random.default_rng(131)
+    shade = r.random(planks)[plank.astype(int)]
+    offset = r.random(planks)[plank.astype(int)] * N
+    grain = fbm(N, 4, 5, 132)
+    rings = 0.5 + 0.5 * np.sin((ys + offset) * 0.06 + grain * 10.0 + xs * 0.003)
+    h = gap * (0.7 + 0.2 * rings + 0.1 * fbm(N, 2, 3, 133))
+    light = rgb(0.5, 0.4, 0.3)
+    dark = rgb(0.3, 0.22, 0.15)
+    color = lerp(dark, light, np.clip(0.3 + 0.5 * shade + 0.3 * rings, 0, 1)[..., None])
+    color = lerp(rgb(0.15, 0.1, 0.06), color, gap[..., None])
+    # Silvered, sun-bleached streaks.
+    bleach = np.clip(fbm(N, 3, 3, 134) - 0.55, 0, 1) * 2.0
+    color = lerp(color, rgb(0.62, 0.6, 0.55), (bleach * gap * 0.6)[..., None])
+    save("wood_dark", np.clip(color, 0, 1), np.clip(h, 0, 1), 1.8)
+
+
 os.makedirs(OUT, exist_ok=True)
 make_stone()
 make_cobble()
@@ -424,3 +529,8 @@ make_rock()
 make_dirt()
 make_road()
 make_water_noise()
+make_marble()
+make_carpet()
+make_sand()
+make_moss()
+make_wood_dark()

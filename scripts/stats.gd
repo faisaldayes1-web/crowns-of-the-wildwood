@@ -361,7 +361,7 @@ const VARIANTS := {
 		{"name": "Siegewright", "icon": "siegewright", "tint": Color(1.0, 0.8, 0.6), "show": ["2H_Axe"],
 			"attacks": ["2H_Melee_Attack_Chop", "2H_Melee_Attack_Slice"], "idle": "2H_Melee_Idle",
 			"desc": "Heavy works: a sledge that batters doors, ballista turrets with splashing bolts, and door repairs.",
-			"attack": {"attack_name": "Sledge", "attack_desc": "A slow, heavy blow: five hits to a door.", "range": 2.2, "cooldown": 0.75, "cost": 16.0, "gate_damage": 5},
+			"attack": {"attack_name": "Sledge", "attack_desc": "A slow, heavy blow: five hits to a door. The siege harness turns about every fourth hit.", "range": 2.2, "cooldown": 0.75, "cost": 16.0, "gate_damage": 5, "armour": 0.25},
 			"abilities": [
 				{"name": "Ballista", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 12.0, "cost": 60.0,
 					"turrets": 2, "ballista": true, "desc": "A slow turret whose bolts burst on impact and reach further."},

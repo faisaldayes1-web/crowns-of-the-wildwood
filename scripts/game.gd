@@ -2620,11 +2620,33 @@ func _open_ground(p: Vector3) -> bool:
 	return true
 
 
+## Ground kept clear of trees for the outskirts built later: the two
+## watermills and the barrow.
+const RESERVED_GROUND := [Vector3(-6.2, 0, -30), Vector3(6.2, 0, 30), Vector3(-30, 0, 22)]
+
+
 func _add_tree(pos: Vector3, big: bool = false) -> void:
+	for rp in RESERVED_GROUND:
+		if _flat_dist(pos, rp) < 5.5:
+			return
 	map_trees.append(Vector3(pos.x, 1.0 if big else 0.0, pos.z))
 	# Human woodland (east) mixes in KayKit oaks and pines so the two sides
 	# read differently; the elven Wildwood keeps its grown, glowing trees.
 	var tree_seed := absi(int(pos.x * 13 + pos.z * 7))
+	if pos.x > 8.0 and tree_seed % 5 == 0:
+		# Autumn pines: the Kingdom's woods turn orange and gold.
+		var body := StaticBody3D.new()
+		body.position = pos
+		var shape := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = 0.5
+		cyl.height = 3.0
+		shape.shape = cyl
+		shape.position.y = 1.5
+		body.add_child(shape)
+		add_child(body)
+		_prop("halloween/tree_pine_%s_%s" % [["orange", "yellow"][tree_seed % 2], "large" if big else "medium"], pos + Vector3(0, 0.3, 0), 0.8 if big else 0.95, float(tree_seed))
+		return
 	if pos.x > 8.0 and tree_seed % 3 != 0:
 		var body := StaticBody3D.new()
 		body.position = pos
@@ -2971,7 +2993,7 @@ func _add_river() -> void:
 		for k in planks:
 			var px: float = -deck_len / 2.0 + (k + 0.5) * deck_len / planks
 			var tint := Color(0.9, 0.78, 0.6) if k % 2 == 0 else Color(0.84, 0.7, 0.52)
-			_add_block(Vector3(px, 0.06, bz), Vector3(deck_len / planks - 0.05, 0.1, half * 2), Color.WHITE, false, _timber(tint))
+			_add_block(Vector3(px, 0.06, bz), Vector3(deck_len / planks - 0.05, 0.1, half * 2), Color.WHITE, false, _plank_dark(tint))
 		for zs in [-1.0, 1.0]:
 			var rz: float = bz + zs * (half + 0.12)
 			_add_railing(Vector3(-deck_len / 2.0 + 0.2, 0.1, rz), Vector3(deck_len / 2.0 - 0.2, 0.1, rz))
@@ -3420,6 +3442,32 @@ func _timber(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	return _pbr("wood", 0.8, tint)
 
 
+func _marble(tint: Color = Color.WHITE) -> StandardMaterial3D:
+	## Polished cream marble (tools/make_textures.py) for the human keep's floor.
+	var m := _pbr("marble", 0.3, tint)
+	m.roughness = 0.35
+	return m
+
+
+func _carpet(color: Color) -> StandardMaterial3D:
+	## A woven rug texture tinted to the team colour.
+	var m := _pbr("carpet", 0.5, color.lightened(0.1))
+	m.roughness = 1.0
+	return m
+
+
+func _sand() -> StandardMaterial3D:
+	return _pbr("sand", 0.3)
+
+
+func _moss() -> StandardMaterial3D:
+	return _pbr("moss", 0.25)
+
+
+func _plank_dark(tint: Color = Color.WHITE) -> StandardMaterial3D:
+	return _pbr("wood_dark", 0.8, tint)
+
+
 func _cloth(color: Color) -> StandardMaterial3D:
 	var m := _material(color)
 	m.roughness = 1.0
@@ -3627,7 +3675,7 @@ func _add_wall_torch(pos: Vector3, out: Vector3) -> void:
 
 func _add_rug(center: Vector3, size: Vector2, color: Color) -> void:
 	## A team-coloured rug with a gold border.
-	_add_block(center + Vector3(0, 0.015, 0), Vector3(size.x, 0.03, size.y), color, false, _cloth(color.darkened(0.15)))
+	_add_block(center + Vector3(0, 0.015, 0), Vector3(size.x, 0.03, size.y), color, false, _carpet(color))
 	for xs in [-1.0, 1.0]:
 		_add_block(center + Vector3(xs * (size.x / 2.0 - 0.12), 0.032, 0), Vector3(0.16, 0.01, size.y), color, false, _gold())
 	for zs in [-1.0, 1.0]:
@@ -3931,19 +3979,44 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	for zs in [-1.0, 1.0]:
 		var wz: float = zs * (khz - 0.45)   # the inner face of a side wall
 		var ins := Vector3(0, 0, -zs)
-		# The feasting table along the wall between the two columns.
-		_add_table(Vector3(kx + side * 6.0, 0, zs * 6.6), Vector2(2.8, 1.0), 0.0, elven)
-		# Tapestries on the side walls, bookshelves in the back corners.
+		# The feasting table along the wall between the two columns (KayKit
+		# dungeon and furniture models), laid with food and candles.
+		var tpos := Vector3(kx + side * 6.0, 0, zs * 6.6)
+		if elven:
+			_prop("furniture/table_medium_long", tpos, BITS_SCALE, 0.0)
+			for k in 3:
+				var fx: float = tpos.x - 0.6 + k * 0.6
+				_prop("kitchen/%s" % ["bowl", "jar_B_medium", "food_stew"][k], Vector3(fx, 0.6, tpos.z + 0.1 * (k - 1)), BITS_SCALE * 0.8, float(k))
+			_prop("dungeon/candle_triple", Vector3(tpos.x + 0.9, 0.6, tpos.z - 0.2), 0.45)
+			for k in 2:
+				_prop("dungeon/stool", tpos + Vector3(-0.5 + k * 1.0, 0, -zs * 0.95), BITS_SCALE, 0.0)
+		else:
+			_prop("dungeon/table_long_tablecloth_decorated_A", tpos, 0.62, PI / 2.0)
+			for k in 3:
+				_prop("dungeon/chair", tpos + Vector3(-0.9 + k * 0.9, 0, -zs * 0.95), BITS_SCALE, PI if zs > 0.0 else 0.0)
+		# Tapestries on the side walls, shelves in the back corners.
 		_add_tapestry(team, Vector3(kx + side * 2.2, 0.5, wz), ins, 1.5, 1.9)
 		_add_tapestry(team, Vector3(kx + side * 10.0, 0.5, wz), ins, 1.5, 1.9)
-		_add_bookshelf(Vector3(bx - side * 1.3, 0, zs * (khz - 2.6)), Vector3(-side, 0, 0), elven)
+		var shelf_pos := Vector3(bx - side * 1.1, 0, zs * (khz - 2.6))
+		if elven:
+			_prop("dungeon/shelves", shelf_pos, 0.7, -PI / 2.0 * side)
+			_prop("kitchen/jar_A_large", shelf_pos + Vector3(-side * 0.2, 1.3, -0.4), BITS_SCALE * 0.7)
+			_prop("kitchen/jar_C_medium", shelf_pos + Vector3(-side * 0.2, 1.3, 0.3), BITS_SCALE * 0.7)
+			_prop("dungeon/bottle_A_green", shelf_pos + Vector3(-side * 0.2, 0.95, 0.0), 0.5)
+		else:
+			_prop("dungeon/shelves", shelf_pos, 0.7, -PI / 2.0 * side)
+			_prop("dungeon/plate_stack", shelf_pos + Vector3(-side * 0.2, 1.3, -0.35), 0.5)
+			_prop("dungeon/bottle_B_brown", shelf_pos + Vector3(-side * 0.2, 1.3, 0.3), 0.5)
+			_prop("dungeon/coin_stack_small", shelf_pos + Vector3(-side * 0.2, 0.95, 0.0), 0.4)
 		if elven:
 			_add_mushrooms(Vector3(kx + side * 10.6, 0, zs * (khz - 1.0)), 41 + int(zs))
 			_add_mushrooms(Vector3(kx + side * 4.0, 0, zs * (khz - 2.1)), 45 + int(zs))
+			_prop("dungeon/trunk_large_A", Vector3(kx + side * 12.0, 0, zs * 4.6), 0.7, 0.3 * zs)
 		else:
 			_add_brazier(Vector3(kx + side * 4.0, 0, zs * (khz - 2.1)))
 			_add_candle_stand(Vector3(kx + side * 8.3, 0, zs * 5.0))
-			_prop("hex/barrel", Vector3(kx + side * 12.0, 0, zs * 4.6), 3.6, 0.3 * zs)
+			_prop("dungeon/keg", Vector3(kx + side * 12.0, 0, zs * 4.6), 0.6, 0.3 * zs)
+			_prop("dungeon/barrel_small_stack", Vector3(kx + side * 12.3, 0, zs * 3.2), 0.6, 0.8 * zs)
 	# A map table near the archway (humans) or a shrine stone (elves), off the lane.
 	if elven:
 		_add_fireflies(Vector3(kx + side * 3.0, 0.5, 5.5))
@@ -3964,14 +4037,493 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 	# Bunks along the far wall either side of the spawn ring, a shelf of
 	# supplies and candles.
 	for zs in [-1.0, 1.0]:
-		_add_bedroll(Vector3(bx + side * 9.2, CELLAR_Y, zs * (hz - 1.0)), PI / 2.0, color)
-		_add_bedroll(Vector3(bx + side * 7.0, CELLAR_Y, zs * (hz - 1.0)), PI / 2.0, color)
-		_add_bookshelf(Vector3(bx + side * 1.2, CELLAR_Y, zs * (hz - 0.4)), Vector3(0, 0, -zs), elven)
+		for k in 2:
+			var bpos := Vector3(bx + side * (9.3 - k * 2.3), CELLAR_Y, zs * (hz - 1.2))
+			if elven:
+				_prop("dungeon/bed_floor", bpos, 0.65, PI / 2.0)
+			else:
+				_prop("furniture/bed_single_%s" % ["A", "B"][k], bpos, BITS_SCALE, PI / 2.0)
+		if elven:
+			_prop("dungeon/shelves", Vector3(bx + side * 1.4, CELLAR_Y, zs * (hz - 0.5)), 0.7, PI if zs > 0.0 else 0.0)
+			_prop("dungeon/bottle_A_labeled_green", Vector3(bx + side * 1.4, CELLAR_Y + 0.95, zs * (hz - 0.75)), 0.5)
+		else:
+			_prop("dungeon/shelves", Vector3(bx + side * 1.4, CELLAR_Y, zs * (hz - 0.5)), 0.7, PI if zs > 0.0 else 0.0)
+			_prop("dungeon/bottle_A_labeled_brown", Vector3(bx + side * 1.4, CELLAR_Y + 0.95, zs * (hz - 0.75)), 0.5)
+			_prop("dungeon/crates_stacked", Vector3(bx + side * 4.0, CELLAR_Y, zs * (hz - 1.3)), 0.55, 0.3 * zs)
 		if elven:
 			_add_mushrooms(Vector3(bx + side * 5.0, CELLAR_Y, zs * (hz - 0.6)), 51 + int(zs))
 		else:
 			_add_candle_stand(Vector3(bx + side * 5.0, CELLAR_Y, zs * (hz - 0.6)))
 	_add_rug(Vector3(bx + side * 5.5, CELLAR_Y, 0), Vector2(5.0, 3.0), color.darkened(0.15))
+
+
+# ---------------------------------------------------------------------------
+# The outskirts: everything beyond the walls that makes the world a place.
+# Hamlets on the castles' north flanks, farms on the south, a lumber camp
+# and a mine behind the cellars, lantern posts along the road, water plants
+# in the river, the old barrow in the Wildwood. All decor: outside the lanes.
+# ---------------------------------------------------------------------------
+
+const HOUSE_SCALE := 3.8   # hex pack buildings (the pack's hex tile is ~2 units across)
+const BITS_SCALE := 0.6    # KayKit "bits" packs (furniture, kitchen, halloween): 1 unit is about 60 cm here
+# Roof heights of the hex buildings (pack units) so chimney smoke sits on top.
+const HOUSE_HEIGHT := {"home_A": 0.93, "home_B": 0.93, "tavern": 1.4, "church": 1.65, "lumbermill": 1.3, "blacksmith": 0.99,
+	"barracks": 1.64, "mine": 1.14, "windmill": 1.19, "market": 0.98, "well": 0.83, "archeryrange": 1.79}
+
+
+func _add_hex_fence(pos: Vector3, along_x: bool) -> void:
+	## A hex-pack fence piece (its mesh sits 1.05 units off its origin in x), centred on `pos`.
+	if along_x:
+		_prop("hex/fence_wood_straight", pos + Vector3(0, 0, -1.05 * 4.0), 4.0, PI / 2.0)
+	else:
+		_prop("hex/fence_wood_straight", pos + Vector3(1.05 * 4.0, 0, 0), 4.0, 0.0)
+
+
+func _add_house(kind: String, team: int, pos: Vector3, scale: float, rot_y: float, smoke: bool = true) -> void:
+	## A hex-pack building in the team's colour, with a collider and chimney smoke.
+	var lift: float = 0.24 * scale if kind == "lumbermill" else (0.5 * scale if kind == "windmill" else 0.0)
+	_prop("hex/building_%s_%s" % [kind, _hex_color(team)], pos + Vector3(0, lift, 0), scale, rot_y)
+	_add_blocker(pos, 0.55 * scale)
+	if smoke:
+		_add_smoke(pos + Vector3(0.1 * scale, (HOUSE_HEIGHT.get(kind, 1.0) * 0.95) * scale, -0.05 * scale), 10, scale / 3.8)
+
+
+func _add_light(pos: Vector3, color: Color, energy: float, range_m: float, shadows: bool = false) -> OmniLight3D:
+	var light := OmniLight3D.new()
+	light.light_color = color
+	light.light_energy = energy
+	light.omni_range = range_m
+	light.shadow_enabled = shadows
+	light.position = pos
+	add_child(light)
+	return light
+
+
+func _add_smoke(pos: Vector3, amount: int = 10, scale: float = 1.0) -> void:
+	## Chimney smoke: grey puffs drifting up and leeward.
+	var p := CPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = 3.2
+	p.preprocess = 3.0
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.12 * scale
+	p.direction = Vector3(0.25, 1, 0.1)
+	p.spread = 12.0
+	p.gravity = Vector3(0.15, 0.35, 0)
+	p.initial_velocity_min = 0.5 * scale
+	p.initial_velocity_max = 0.8 * scale
+	p.scale_amount_min = 0.4 * scale
+	p.scale_amount_max = 0.7 * scale
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 0.5))
+	curve.add_point(Vector2(0.6, 1.0))
+	curve.add_point(Vector2(1, 1.4))
+	p.scale_amount_curve = curve
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.9, 0.9, 0.92, 0.8))
+	grad.set_color(1, Color(0.75, 0.75, 0.8, 0.0))
+	p.color_ramp = grad
+	var sph := SphereMesh.new()
+	sph.radius = 0.5
+	sph.height = 1.0
+	sph.radial_segments = 6
+	sph.rings = 3
+	p.mesh = sph
+	var m := StandardMaterial3D.new()
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.vertex_color_use_as_albedo = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	p.material_override = m
+	p.position = pos
+	add_child(p)
+
+
+func _add_blocker(pos: Vector3, radius: float, height: float = 3.0) -> void:
+	## An invisible round collider so nobody walks through a building.
+	var body := StaticBody3D.new()
+	body.position = pos
+	var shape := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = radius
+	cyl.height = height
+	shape.shape = cyl
+	shape.position.y = height / 2.0
+	body.add_child(shape)
+	add_child(body)
+	audit_blocks.append(["building", AABB(pos - Vector3(radius, 0, radius), Vector3(radius * 2, height, radius * 2))])
+
+
+func _build_outskirts() -> void:
+	for sx in [-1.0, 1.0]:
+		var team := 0 if sx < 0.0 else 1
+		_build_hamlet(team, sx)
+		_build_farm(team, sx)
+		_build_works(team, sx)
+	_add_road_lanterns()
+	_add_river_plants()
+	_add_barrow(Vector3(-30, 0, 22))
+	_add_watermills()
+	_add_field_rocks()
+	_add_clouds()
+	_add_ground_patches()
+
+
+func _add_ground_patches() -> void:
+	## Sandy strips along the river banks and moss beds under the Wildwood trees.
+	var sand := _sand()
+	for sx in [-1.0, 1.0]:
+		var z := -map_half.y - 2.0
+		while z < map_half.y + 2.0:
+			var blocked := absf(z) < ISLAND_R + 1.5
+			for b in BRIDGES:
+				if absf(z - b) < 3.2:
+					blocked = true
+			if not blocked:
+				_add_block(Vector3(sx * (RIVER_HALF + 0.9), 0.004, z + 2.0), Vector3(1.6, 0.008, 4.0), Color.WHITE, false, sand)
+			z += 4.0
+	var moss := _moss()
+	var r := RandomNumberGenerator.new()
+	r.seed = 606
+	for t in map_trees:
+		if t.x < -8.0 and r.randf() < 0.6:
+			var size := r.randf_range(2.4, 4.2)
+			_add_block(Vector3(t.x + r.randf_range(-0.6, 0.6), 0.003, t.z + r.randf_range(-0.6, 0.6)), Vector3(size, 0.006, size * r.randf_range(0.7, 1.0)), Color.WHITE, false, moss)
+
+
+func _hex_color(team: int) -> String:
+	return "green" if team == 0 else "blue"
+
+
+func _build_hamlet(team: int, sx: float) -> void:
+	## A village on the castle's north flank, its lane facing the field.
+	var c := _hex_color(team)
+	var ox := sx * 62.0
+	var oz := -45.0
+	var face := 0.0 if sx > 0.0 else PI      # doors toward the field (-z is "up" on screen)
+	var row := [["home_A", -9.0, 3.8], ["tavern", -2.5, 3.8], ["home_B", 3.5, 3.8], ["church" if team == 1 else "lumbermill", 9.5, 3.6]]
+	for b in row:
+		_add_house(b[0], team, Vector3(ox + sx * b[1], 0, oz), b[2], face)
+	var back := [["market", -5.5, 3.2], ["well", 0.5, 3.4], ["blacksmith" if team == 1 else "archeryrange", 6.0, 3.6]]
+	for b in back:
+		_add_house(b[0], team, Vector3(ox + sx * b[1], 0, oz - 5.5), b[2], face, b[0] == "blacksmith")
+	# Market clutter, a cart, fences along the lane, lanterns at the corners.
+	_prop("hex/crate_A_big", Vector3(ox + sx * -7.2, 0, oz - 2.9), 4.0, 0.3)
+	_prop("hex/sack", Vector3(ox + sx * -6.3, 0, oz - 2.7), 4.0, 1.0)
+	_prop("hex/barrel", Vector3(ox + sx * -4.0, 0, oz - 3.0), 4.0)
+	_prop("hex/wheelbarrow", Vector3(ox + sx * 1.2, 0, oz - 2.6), 4.0, 0.6)
+	_prop("hex/crate_open", Vector3(ox + sx * 12.3, 0, oz - 1.6), 4.0, 0.2)
+	_prop("hex/resource_lumber" if team == 0 else "hex/resource_stone", Vector3(ox + sx * 12.6, 0, oz - 3.8), 4.0, 0.0)
+	for k in 6:
+		var fx: float = ox - 11.0 + k * 4.4
+		if k == 2:
+			continue   # the gap into the lane
+		_add_hex_fence(Vector3(fx, 0, oz + 3.4), true)
+	for x in [ox - 13.2, ox + 13.2]:
+		_prop("halloween/post_lantern", Vector3(x, 0, oz + 3.0), 0.75)
+		_add_light(Vector3(x, 2.4, oz + 3.0), Color(1.0, 0.75, 0.4), 1.1, 7.0)
+	# Trees hugging the village.
+	for k in 6:
+		var tx: float = ox - 14.0 + k * 5.8
+		_prop("hex/trees_%s_medium" % ["A", "B"][k % 2], Vector3(tx + (k % 2) * 1.5, 0, oz - 9.5), 4.2, float(k))
+	for x in [ox - 15.5, ox + 15.5]:
+		_prop("hex/tree_single_A", Vector3(x, 0, oz - 2.0), 4.6, x)
+		_prop("hex/tree_single_B", Vector3(x, 0, oz - 6.5), 4.2, x * 0.7)
+
+
+func _build_farm(team: int, sx: float) -> void:
+	## Fields and a windmill on the castle's south flank.
+	var c := _hex_color(team)
+	var ox := sx * 60.0
+	var oz := 44.0
+	for j in 2:
+		_add_wheat(Vector3(ox - 1.0, 0, oz + 2.6 + j * 4.6), Vector2(17.0, 3.6), 300 + j)
+	_add_house("windmill", team, Vector3(ox + 12.5, 0, oz + 3.0), 4.4, PI if sx > 0.0 else 0.0, false)
+	_add_house("home_B" if team == 0 else "home_A", team, Vector3(ox - 13.0, 0, oz + 4.0), 3.6, PI)
+	for k in 8:
+		var fx: float = ox - 15.0 + k * 4.4
+		if k == 4:
+			continue
+		_add_hex_fence(Vector3(fx, 0, oz - 2.6), true)
+	_prop("hex/wheelbarrow", Vector3(ox - 10.0, 0, oz - 1.0), 4.0, 2.4)
+	_prop("hex/sack", Vector3(ox + 9.0, 0, oz - 1.2), 4.0, 0.3)
+	_prop("hex/sack", Vector3(ox + 9.8, 0, oz - 0.6), 4.0, 1.9)
+	_prop("hex/bucket_water", Vector3(ox + 10.6, 0, oz - 1.4), 4.0)
+	# Pumpkins ripening at the field's edge (orange for the Kingdom, yellow for the Forest).
+	var pk := "orange" if team == 1 else "yellow"
+	for k in 5:
+		_prop("halloween/pumpkin_%s%s" % [pk, "_small" if k % 2 == 1 else ""], Vector3(ox - 9.0 + k * 2.1, 0, oz + 10.5 + (k % 2) * 0.8), BITS_SCALE, float(k) * 1.3)
+
+
+func _add_wheat(center: Vector3, size: Vector2, seed: int) -> void:
+	## A plot of ripe wheat: a dirt bed under a MultiMesh of gold stalks.
+	var soil := _material(Color(0.38, 0.26, 0.15))
+	soil.roughness = 1.0
+	_add_block(center + Vector3(0, 0.005, 0), Vector3(size.x + 0.6, 0.01, size.y + 0.6), Color.WHITE, false, soil)
+	# Furrows: darker ridges running the long way across the plot.
+	var furrow := _material(Color(0.3, 0.2, 0.11))
+	furrow.roughness = 1.0
+	var nf := int(size.y / 0.9)
+	for f in nf:
+		var fz: float = center.z - size.y / 2.0 + 0.45 + f * 0.9
+		_add_block(Vector3(center.x, 0.012, fz), Vector3(size.x + 0.2, 0.012, 0.3), Color.WHITE, false, furrow)
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var stalk := CylinderMesh.new()
+	stalk.top_radius = 0.09
+	stalk.bottom_radius = 0.02
+	stalk.height = 1.0
+	stalk.radial_segments = 4
+	stalk.rings = 1
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = stalk
+	var count := int(size.x * size.y * 9.0)
+	mm.instance_count = count
+	for i in count:
+		var pos := center + Vector3(r.randf_range(-size.x / 2.0, size.x / 2.0), 0.5, r.randf_range(-size.y / 2.0, size.y / 2.0))
+		var t := Transform3D(Basis.from_euler(Vector3(r.randf_range(-0.12, 0.12), r.randf() * TAU, r.randf_range(-0.12, 0.12))).scaled(Vector3(1, r.randf_range(0.8, 1.15), 1)), pos)
+		mm.set_instance_transform(i, t)
+		mm.set_instance_color(i, Color.from_hsv(0.12 + r.randf() * 0.03, 0.6, 0.75 + r.randf() * 0.2))
+	var inst := MultiMeshInstance3D.new()
+	inst.multimesh = mm
+	var m := _material(Color.WHITE)
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 0.9
+	inst.material_override = m
+	add_child(inst)
+	# Heads of grain: a second, shorter mesh of fat gold tips.
+	var head := CapsuleMesh.new()
+	head.radius = 0.06
+	head.height = 0.3
+	head.radial_segments = 4
+	head.rings = 1
+	var hm := MultiMesh.new()
+	hm.transform_format = MultiMesh.TRANSFORM_3D
+	hm.use_colors = true
+	hm.mesh = head
+	hm.instance_count = count
+	for i in count:
+		var t := mm.get_instance_transform(i)
+		hm.set_instance_transform(i, Transform3D(t.basis, t.origin + t.basis.y * 0.55))
+		hm.set_instance_color(i, Color.from_hsv(0.11, 0.7, 0.85))
+	var hinst := MultiMeshInstance3D.new()
+	hinst.multimesh = hm
+	hinst.material_override = m
+	add_child(hinst)
+
+
+func _build_works(team: int, sx: float) -> void:
+	## Behind the cellar: the Kingdom's mine, the Forest's lumber camp, and
+	## mountains on the horizon.
+	var c := _hex_color(team)
+	var x := sx * 93.0
+	_add_house("mine" if team == 1 else "lumbermill", team, Vector3(x, 0, 14.0), 4.0, -PI / 2.0 * sx, team == 1)
+	_add_house("barracks" if team == 1 else "tavern", team, Vector3(x, 0, -14.0), 3.6, -PI / 2.0 * sx)
+	for k in 3:
+		_prop("hex/resource_%s" % ["stone" if team == 1 else "lumber"], Vector3(x - sx * 5.0, 0, 9.5 + k * 2.4), 4.0, float(k) * 0.7)
+	_prop("hex/tent", Vector3(x - sx * 4.0, 0, -8.5), 4.0, 0.4 * sx)
+	_prop("hex/flag_%s" % c, Vector3(x - sx * 6.0, 0, -11.5), 4.0)
+	_prop("hex/trees_%s_large" % ["A" if team == 0 else "B"], Vector3(x - sx * 2.0, 0, 22.0), 4.4, 1.0)
+	_prop("hex/trees_%s_large" % ["B" if team == 0 else "A"], Vector3(x + sx * 4.0, 0, -22.0), 4.4, 2.0)
+	for zs in [-1.0, 1.0]:
+		_prop("hex/mountain_%s_grass_trees" % ["A", "B", "C"][int(zs + 1.0 + (0.0 if sx < 0.0 else 1.0)) % 3], Vector3(sx * 112.0, -0.3, zs * 26.0), 10.0, sx * zs)
+	_prop("hex/mountain_B_grass", Vector3(sx * 116.0, -0.3, 0.0), 10.0, sx)
+	# The camp between the two buildings: a fire, a second tent, stores.
+	_add_campfire(Vector3(x - sx * 6.5, 0, -3.0))
+	_prop("hex/crate_long_A", Vector3(x - sx * 8.5, 0, -6.0), 4.0, 0.3)
+	_prop("hex/pallet", Vector3(x - sx * 8.0, 0, 3.5), 4.0)
+	_prop("hex/sack", Vector3(x - sx * 8.2, 0, 3.6), 3.6, 0.5)
+	_prop("hex/bucket_water", Vector3(x - sx * 5.0, 0, -0.6), 4.0)
+	_prop("hex/wheelbarrow", Vector3(x - sx * 3.0, 0, 6.5), 4.0, 2.2 * sx)
+	if team == 1:
+		# Kingdom: drill yard by the barracks and a half-built wall.
+		_prop("hex/weaponrack", Vector3(x + sx * 4.5, 0, -9.0), 4.0, PI / 2.0)
+		_prop("hex/target", Vector3(x + sx * 5.5, 0, -17.5), 4.0, PI)
+		_prop("hex/target", Vector3(x + sx * 7.0, 0, -16.5), 4.0, PI + 0.4)
+		_prop("hex/bucket_arrows", Vector3(x + sx * 4.0, 0, -11.0), 4.0)
+		_prop("hex/building_scaffolding", Vector3(x + sx * 5.0, 0, 2.0), 2.8, PI / 2.0)
+		_add_blocker(Vector3(x + sx * 5.0, 0, 2.0), 2.4, 3.0)
+		for k in 4:
+			_prop("hex/rock_single_%s" % ["C", "E", "D", "B"][k], Vector3(x + sx * (1.5 + k * 1.3), 0, 10.0 + (k % 2) * 1.4), 3.6, float(k) * 1.3)
+	else:
+		# Forest: a clearing of fresh stumps, logs and a saw-horse of planks.
+		_prop("hex/trees_A_cut", Vector3(x + sx * 4.0, 0, 2.0), 4.0, 0.7)
+		for k in 3:
+			_prop("hex/tree_single_%s_cut" % ["A", "B", "A"][k], Vector3(x + sx * (2.0 + k * 2.2), 0, 7.5 + (k % 2) * 1.2), 4.0, float(k))
+		_prop("hex/resource_lumber", Vector3(x + sx * 5.0, 0, 11.0), 4.0, PI / 2.0)
+		_prop("hex/crate_long_B", Vector3(x + sx * 3.5, 0, -9.5), 4.0, 0.6)
+	# Trodden earth where the carts turn.
+	_add_soil_patch(Vector3(x - sx * 5.0, 0, 0.5), 1.7, Color(0.3, 0.21, 0.12))
+
+
+func _add_soil_patch(pos: Vector3, radius: float, color: Color = Color(0.4, 0.28, 0.17)) -> void:
+	## A flat disc of bare earth.
+	var d := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = radius
+	cm.bottom_radius = radius
+	cm.height = 0.02
+	cm.radial_segments = 14
+	d.mesh = cm
+	var m := _material(color)
+	m.roughness = 1.0
+	d.material_override = m
+	d.position = pos + Vector3(0, 0.01, 0)
+	add_child(d)
+
+
+func _add_campfire(pos: Vector3) -> void:
+	## A ring of stones round burning logs, with a warm light and a thread of smoke.
+	var stone := _material(Color(0.42, 0.4, 0.37))
+	stone.roughness = 1.0
+	for k in 8:
+		var a := float(k) * TAU / 8.0
+		var rock := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.24
+		sm.height = 0.3
+		sm.radial_segments = 6
+		sm.rings = 3
+		rock.mesh = sm
+		rock.material_override = stone
+		rock.position = pos + Vector3(cos(a) * 0.9, 0.1, sin(a) * 0.9)
+		rock.rotation.y = a
+		add_child(rock)
+	_add_soil_patch(pos, 0.8, Color(0.2, 0.16, 0.12))
+	var wood := _material(Color(0.3, 0.2, 0.12))
+	for k in 3:
+		var log := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.09
+		cm.bottom_radius = 0.09
+		cm.height = 1.1
+		cm.radial_segments = 6
+		log.mesh = cm
+		log.material_override = wood
+		log.position = pos + Vector3(0, 0.2, 0)
+		log.rotation = Vector3(0, float(k) * TAU / 3.0, PI / 2.0 - 0.35)
+		add_child(log)
+	_add_flame(pos + Vector3(0, 0.45, 0), 0.3, Color(1.0, 0.42, 0.08))
+	_add_flame(pos + Vector3(0.1, 0.7, -0.08), 0.16, Color(1.0, 0.7, 0.2))
+	_add_light(pos + Vector3(0, 1.6, 0), Color(1.0, 0.62, 0.3), 1.4, 9.0, true)
+	_add_smoke(pos + Vector3(0, 1.1, 0), 8, 0.7)
+	_add_blocker(pos, 1.0, 1.5)
+
+
+func _add_watermills() -> void:
+	## A mill wheel on each team's bank, well away from the bridges.
+	for sx in [-1.0, 1.0]:
+		var team := 0 if sx < 0.0 else 1
+		var z: float = sx * 30.0
+		var pos := Vector3(sx * (RIVER_HALF + 3.2), 0, z)
+		_prop("hex/building_watermill_%s" % _hex_color(team), pos, 3.4, -PI / 2.0 if sx > 0.0 else PI / 2.0)
+		_add_blocker(pos, 2.0, 4.0)
+		_add_light(pos + Vector3(sx * 1.5, 2.2, 0), Color(1.0, 0.8, 0.5), 0.8, 5.0)
+		_prop("hex/sack", pos + Vector3(sx * 2.6, 0, 1.6), 3.6, 0.9)
+		_prop("hex/sack", pos + Vector3(sx * 3.1, 0, 0.9), 3.6, 2.1)
+		_prop("hex/crate_B_small", pos + Vector3(sx * 2.9, 0, -1.8), 4.0, 0.4)
+
+
+func _add_field_rocks() -> void:
+	## Low stones scattered over the open field, kept off the lanes and bridges.
+	var r := RandomNumberGenerator.new()
+	r.seed = 909
+	var placed := 0
+	var tries := 0
+	while placed < 18 and tries < 200:
+		tries += 1
+		var x := r.randf_range(-40.0, 40.0)
+		var z := r.randf_range(-33.0, 33.0)
+		if absf(x) < RIVER_HALF + 4.0 or absf(z) < 6.0:
+			continue
+		if Vector2(x, z).distance_to(Vector2(-30.0, 22.0)) < 9.0:
+			continue
+		var near_tree := false
+		for t in map_trees:
+			if Vector2(t.x, t.z).distance_to(Vector2(x, z)) < 2.5:
+				near_tree = true
+				break
+		if near_tree:
+			continue
+		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][r.randi() % 5], Vector3(x, 0, z), r.randf_range(2.2, 3.4), r.randf() * TAU)
+		if r.randf() < 0.4:
+			_prop("hex/rock_single_%s" % ["A", "B"][r.randi() % 2], Vector3(x + 0.9, 0, z + 0.5), 1.8, r.randf() * TAU)
+		placed += 1
+
+
+func _add_clouds() -> void:
+	## Slow clouds over the mountains and the far hills, never over the field.
+	var spots := [
+		[Vector3(-106.0, 14.0, -20.0), "cloud_big", 3.4], [Vector3(108.0, 15.0, 18.0), "cloud_big", 3.2],
+		[Vector3(-102.0, 13.0, 24.0), "cloud_small", 3.0], [Vector3(104.0, 13.5, -26.0), "cloud_small", 3.2],
+		[Vector3(-34.0, 13.0, -64.0), "cloud_small", 2.8], [Vector3(38.0, 14.0, 66.0), "cloud_big", 2.6],
+		[Vector3(0.0, 15.0, -70.0), "cloud_big", 3.0], [Vector3(-6.0, 14.0, 70.0), "cloud_small", 3.0],
+	]
+	for i in spots.size():
+		var sp: Array = spots[i]
+		var n := _prop("hex/" + sp[1], sp[0], sp[2], float(i) * 0.9)
+		if n == null:
+			continue
+		var tw := create_tween().set_loops()
+		var drift := Vector3(7.0 if i % 2 == 0 else -7.0, 0, 0)
+		tw.tween_property(n, "position", sp[0] + drift, 36.0 + i * 3.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tw.tween_property(n, "position", sp[0], 36.0 + i * 3.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _add_road_lanterns() -> void:
+	## Lantern posts along the main road, lit day and night.
+	for sx in [-1.0, 1.0]:
+		for k in 3:
+			var x: float = sx * (10.0 + k * 16.0)
+			var z: float = 3.9 if k % 2 == 1 else -3.9
+			_prop("halloween/post_lantern", Vector3(x, 0, z), 0.75, PI / 2.0 if z > 0.0 else -PI / 2.0)
+			_add_light(Vector3(x, 2.4, z), Color(1.0, 0.75, 0.4), 1.0, 6.5)
+	# Benches to sit on by the shrine island's bridges.
+	for sx in [-1.0, 1.0]:
+		_prop("halloween/bench", Vector3(sx * (ISLAND_R + 4.5), 0, 4.2), BITS_SCALE, PI if sx > 0.0 else 0.0)
+
+
+func _add_river_plants() -> void:
+	## Lilies in the shallows and reeds on the banks, clear of the bridges and the island.
+	var r := RandomNumberGenerator.new()
+	r.seed = 404
+	var z := -map_half.y + 3.0
+	while z < map_half.y - 3.0:
+		var blocked := absf(z) < ISLAND_R + 2.5
+		for b in BRIDGES:
+			if absf(z - b) < 3.8:
+				blocked = true
+		if not blocked:
+			for sx in [-1.0, 1.0]:
+				if r.randf() < 0.7:
+					_prop("hex/waterlily_%s" % ["A", "B"][r.randi() % 2], Vector3(sx * (RIVER_HALF - 1.0) + r.randf_range(-0.4, 0.4), 0.04, z + r.randf_range(-1.0, 1.0)), 4.0, r.randf() * TAU)
+				if r.randf() < 0.6:
+					_prop("hex/waterplant_%s" % ["A", "B", "C"][r.randi() % 3], Vector3(sx * (RIVER_HALF + 0.5), 0.0, z + r.randf_range(-1.2, 1.2)), 4.0, r.randf() * TAU)
+		z += 4.5
+
+
+func _add_barrow(pos: Vector3) -> void:
+	## The old barrow in the Wildwood: a crypt, leaning stones, a dead tree
+	## and candles that never go out.
+	_prop("halloween/crypt", pos, 0.55, PI * 0.9)
+	_add_blocker(pos, 1.7)
+	_prop("halloween/floor_dirt", pos + Vector3(0, 0.01, 2.6), 1.0, 0.0)
+	var stones := [["gravestone", Vector3(-2.6, 0, 1.4), 0.4], ["grave_A", Vector3(2.4, 0, 1.0), -0.5], ["gravemarker_A", Vector3(-1.6, 0, 3.2), 0.2],
+		["gravemarker_B", Vector3(1.8, 0, 3.4), -0.3], ["grave_B", Vector3(-3.4, 0, -1.2), 1.2], ["bone_A", Vector3(0.6, 0, 3.0), 0.9]]
+	for st in stones:
+		_prop("halloween/%s" % st[0], pos + st[1], 0.7, st[2])
+	_prop("halloween/tree_dead_large_decorated", pos + Vector3(3.8, 0, -2.4), 0.9, 0.7)
+	_add_blocker(pos + Vector3(3.8, 0, -2.4), 0.5)
+	_prop("halloween/lantern_standing", pos + Vector3(-1.2, 0, 2.2), 0.8)
+	_add_light(pos + Vector3(-1.2, 1.0, 2.2), Color(0.55, 1.0, 0.8), 1.1, 6.0)
+	_prop("halloween/candle_triple", pos + Vector3(1.4, 0, 2.0), 0.6)
+	_add_light(pos + Vector3(1.4, 0.6, 2.0), Color(1.0, 0.7, 0.35), 0.7, 3.5)
+	_prop("halloween/fence_broken", pos + Vector3(-2.6, 0, 4.2), 0.7, 0.0)
+	_prop("halloween/fence", pos + Vector3(2.6, 0, 4.2), 0.7, 0.0)
+	_add_fireflies(pos + Vector3(0, 0.6, 1.5))
+	_add_mushrooms(pos + Vector3(-2.8, 0, 2.8), 77)
 
 
 func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float) -> void:
@@ -4087,7 +4639,7 @@ func _build_castle(team: int) -> void:
 	var khz := KEEP_HALF_Z
 	var kdepth := absf(bx - kx)
 	var kcx := (kx + bx) / 2.0
-	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _flagstone(Color(0.96, 0.94, 0.9)))
+	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _flagstone(Color(0.96, 0.94, 0.9)) if mossy else _marble())
 	# Side walls, each with a side door near the back (a second way out of the keep).
 	for zs in [-1.0, 1.0]:
 		_add_wall(Vector3(kx + side * (kdepth - 4.5) / 2.0, KEEP_H / 2.0, zs * khz), Vector3(kdepth - 4.5, KEEP_H, 0.8))
@@ -4178,6 +4730,11 @@ func _build_castle(team: int) -> void:
 		else:
 			_prop("dungeon/column", throne + Vector3(side * 2.0, 0, z), 1.6)
 	_prop("dungeon/chest_gold", throne + Vector3(side * 1.0, 0, -5.6), 0.8, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	# The treasury: coin stacks and a chest heaped behind the throne.
+	_prop("dungeon/coin_stack_large", throne + Vector3(side * 2.6, 0, 2.6), 0.55, 0.4)
+	_prop("dungeon/coin_stack_medium", throne + Vector3(side * 1.8, 0, -2.7), 0.55, 1.2)
+	_prop("dungeon/coin_stack_small", throne + Vector3(side * 2.7, 0, -2.0), 0.55, 2.0)
+	_prop("dungeon/chest", throne + Vector3(side * 2.6, 0, 3.4), 0.7, PI / 2.0 if side < 0.0 else -PI / 2.0)
 	# The Crown Vault: a cage around the throne whose lock the enemy must break.
 	var vault = Vault.new()
 	add_child(vault)
@@ -4622,18 +5179,18 @@ func _build_world() -> void:
 			if not crowded:
 				_add_tree(p, i % 4 == 0)
 	_add_ground_detail()
-	# A tree line and hills beyond the playable edge, so the world has a horizon.
+	# A tree line and hills beyond the playable edge, so the world has a
+	# horizon; the hamlets and farms sit in gaps in it.
 	for i in 22:
 		var x := -84.0 + i * 8.0
-		_prop("hex/trees_%s_medium" % ["A", "B"][i % 2], Vector3(x, 0, 40.0 + (i % 3) * 1.5), 4.0, float(i))
-		_prop("hex/trees_%s_medium" % ["B", "A"][i % 2], Vector3(x + 3.0, 0, -40.0 - (i % 3) * 1.5), 4.0, float(i))
+		if absf(x) < 42.0:
+			_prop("hex/trees_%s_medium" % ["A", "B"][i % 2], Vector3(x, 0, 40.0 + (i % 3) * 1.5), 4.0, float(i))
+			_prop("hex/trees_%s_medium" % ["B", "A"][i % 2], Vector3(x + 3.0, 0, -40.0 - (i % 3) * 1.5), 4.0, float(i))
 	for i in 7:
-		_prop("hex/hill_single_A", Vector3(-60.0 + i * 20.0, -0.2, 52.0), 12.0, float(i))
-		_prop("hex/hill_single_A", Vector3(-50.0 + i * 20.0, -0.2, -52.0), 12.0, float(i) + 1.0)
-	# Hills along the east and west edges behind the castles.
-	for zs in [-1.0, 1.0]:
-		for sx in [-1.0, 1.0]:
-			_prop("hex/hill_single_A", Vector3(sx * 100.0, -0.2, zs * 20.0), 12.0, sx + zs)
+		var hx := -60.0 + i * 20.0
+		_prop("hex/hill_single_%s" % ["A", "B", "C"][i % 3], Vector3(hx, -0.2, 60.0), 12.0, float(i))
+		_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
+	_build_outskirts()
 
 	_apply_map_variant()
 	camera = Camera3D.new()

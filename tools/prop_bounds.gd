@@ -1,14 +1,19 @@
 extends SceneTree
 func _init():
-	var dir := DirAccess.open("res://assets/props/hex")
 	var names := []
-	for f in dir.get_files():
-		if f.ends_with(".gltf"):
-			names.append("hex/" + f.trim_suffix(".gltf"))
-	var d2 := DirAccess.open("res://assets/props/dungeon")
-	for f in d2.get_files():
-		if f.ends_with(".glb"):
-			names.append("dungeon/" + f.trim_suffix(".glb"))
+	var only := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--pack="):
+			only = arg.trim_prefix("--pack=")
+	for pack in ["hex", "dungeon", "halloween", "furniture", "kitchen"]:
+		if only != "" and pack != only:
+			continue
+		var dir := DirAccess.open("res://assets/props/%s" % pack)
+		if dir == null:
+			continue
+		for f in dir.get_files():
+			if f.ends_with(".gltf") or f.ends_with(".glb"):
+				names.append(pack + "/" + f.trim_suffix(".gltf").trim_suffix(".glb"))
 	for n in names:
 		var ext := ".glb" if n.begins_with("dungeon/") else ".gltf"
 		var sc = load("res://assets/props/%s%s" % [n, ext])
