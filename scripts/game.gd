@@ -1193,6 +1193,13 @@ func route_point(from: Vector3, to: Vector3) -> Vector3:
 			if behind < 1.3:
 				return st[0]  # near the foot of the stairs: step across to the lane
 			return Vector3(st[0].x + side * 0.3, CELLAR_Y, from.z)  # walk straight back to the foot first
+		# Crossing the cellar from one row of hats to the other: the low walls
+		# along the stairs are in the way, so go round behind their foot first.
+		if _in_cellar(c, from) and _in_cellar(c, to) and from.z * to.z < 0.0 and absf(from.z) > 1.0 and absf(to.z) > 1.0:
+			var st := cellar_stairs(c)
+			var side := -1.0 if c == 0 else 1.0
+			if (from.x - st[0].x) * side < -1.2:
+				return Vector3(st[0].x + side * 0.3, CELLAR_Y, from.z)
 	if to.y > 2.0 and from.y < WALK_Y - 0.2:
 		var c := 0 if to.x < 0.0 else 1
 		var ramp: Dictionary = ramps[c][0] if to.z < 0.0 else ramps[c][1]
