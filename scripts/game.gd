@@ -169,6 +169,19 @@ const BLESSING_SPOTS := [Vector3(0, 0.5, 0), Vector3(0, 0.5, 0), Vector3(0, 0.5,
 	Vector3(16, 0, 12), Vector3(-16, 0, -12), Vector3(30, 0, -16), Vector3(-30, 0, 16), Vector3(10, 0, 26), Vector3(-10, 0, -26)]
 var time_left := Stats.MATCH_TIME
 var player
+# Couch play: up to four local players on one screen, each with their own
+# pane, camera and HUD. Player 1 keeps the keyboard and mouse; the others
+# play on gamepads.
+var couch_players := 1          # local players this match (1-4); 2 or more splits the screen
+var couch_mode := "versus"      # "versus": odd players on your side, even ones against; "coop": everyone on your side
+var couch_active := false       # a split-screen match is running
+var locals: Array = []          # the local players' units, index 0 is `player`
+var panes: Array = []           # per local player: {unit, view, cam, hud, cam_pos}
+var split_layer: CanvasLayer
+var rank_player = null          # whose perk menu is open
+const COUCH_MAX := 4
+const COUCH_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "aim_left", "aim_right", "aim_up", "aim_down",
+	"attack", "block", "ability_1", "ability_2", "dodge", "interact", "rank_menu", "rank_1", "rank_2", "rank_3", "rank_4", "rank_5", "rank_6"]
 
 var camera: Camera3D
 var hud
@@ -1439,23 +1452,41 @@ func _start_match(team: int) -> void:
 	player_team = team
 	winner_team = -1
 	banner.visible = false
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--couch="):
+			couch_players = clampi(int(arg.trim_prefix("--couch=")), 1, COUCH_MAX)  # testing: split-screen renders
+		if arg.begins_with("--couch-mode="):
+			couch_mode = arg.trim_prefix("--couch-mode=")
+	locals = []
+	locals.resize(couch_players)
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
 		for i in TEAM_SIZE:
 			var u = Unit.new()
 			add_child(u)
 			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 8.6), CELLAR_Y, -4.0 + i * 2.0)
-			var is_player := t == player_team and i == 0 and not demo
+			var local_k := _local_slot(t, i)
+			var is_player := local_k >= 0 and not demo
 			u.setup(self, t, is_player, spawn)
 			u.bot_class = LINEUP[i][0]
 			u.bot_job = LINEUP[i][1]
 			u.base_job = LINEUP[i][1]
-			u.display_name = (hero_name if hero_name.strip_edges() != "" else "You") if is_player else Stats.BOT_NAMES[t][i % Stats.BOT_NAMES[t].size()]
+			if is_player:
+				u.local_index = local_k
+				u.act_prefix = "" if local_k == 0 else "p%d_" % (local_k + 1)
+				u.has_mouse = local_k == 0
+				u.display_name = (hero_name if hero_name.strip_edges() != "" else "You") if local_k == 0 else "Player %d" % (local_k + 1)
+				locals[local_k] = u
+			else:
+				u.display_name = Stats.BOT_NAMES[t][i % Stats.BOT_NAMES[t].size()]
 			units.append(u)
-			if is_player or (demo and player == null):
+			if (is_player and local_k == 0) or (demo and player == null):
 				player = u
 	cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom
 	camera.global_position = cam_pos
+	_bind_couch_input()
+	if couch_players > 1 and not demo:
+		_build_panes()
 	playing = true
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--debug-time="):
@@ -1595,12 +1626,147 @@ func plant_barricade(u) -> bool:
 func _update_camera(delta: float) -> void:
 	if player == null:
 		return
-	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.global_position) + CAMERA_OFFSET * cam_zoom
-	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
 	sfx.set_listener(player.global_position)
 	shake_amount = move_toward(shake_amount, 0.0, delta * 1.6)
 	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amount * 0.35
+	if couch_active:
+		# One camera a pane, each on its own player.
+		for pane in panes:
+			var u = pane.unit
+			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.global_position) + CAMERA_OFFSET * cam_zoom
+			pane.cam_pos = pane.cam_pos.lerp(t, clampf(delta * 5.0, 0.0, 1.0))
+			pane.cam.global_position = pane.cam_pos + jolt
+		return
+	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.global_position) + CAMERA_OFFSET * cam_zoom
+	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
 	camera.global_position = cam_pos + jolt
+
+
+func camera_for(u) -> Camera3D:
+	## The camera looking at this local player (their pane's in couch play).
+	if couch_active:
+		for pane in panes:
+			if pane.unit == u:
+				return pane.cam
+	return camera
+
+
+# --- Couch play --------------------------------------------------------------
+
+func set_couch(what: String) -> void:
+	## Title-screen controls: how many local players, and whether the extra
+	## players join your side or fight it.
+	match what:
+		"more":
+			couch_players = mini(couch_players + 1, COUCH_MAX)
+		"less":
+			couch_players = maxi(couch_players - 1, 1)
+		"mode":
+			couch_mode = "coop" if couch_mode == "versus" else "versus"
+	sfx.ui("ui_click")
+	_save_settings()
+
+
+func _local_slot(team: int, slot: int) -> int:
+	## Which local player (0-based) takes lineup slot `slot` of `team`, or -1
+	## for a bot. Versus: players 1 and 3 on your side, 2 and 4 against.
+	## Co-op: everyone on your side.
+	for k in couch_players:
+		var kt: int = player_team if (couch_mode == "coop" or k % 2 == 0) else 1 - player_team
+		var ks: int = k if couch_mode == "coop" else k / 2
+		if kt == team and ks == slot:
+			return k
+	return -1
+
+
+func _bind_couch_input() -> void:
+	## Give every local player their own controls. Player 1 keeps the keyboard
+	## and mouse (and the first gamepad nobody else has); players 2-4 each
+	## get a gamepad, in order, through copies of the base actions prefixed
+	## p2_, p3_, p4_ that only answer to that pad.
+	var pads: Array = []
+	for k in range(1, couch_players):
+		pads.append(k - 1)
+	var p1_pad: int = couch_players - 1 if couch_players > 1 else -1
+	for action in COUCH_ACTIONS:
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
+				ev.device = p1_pad
+		for k in range(2, COUCH_MAX + 1):
+			var pa := StringName("p%d_%s" % [k, action])
+			if InputMap.has_action(pa):
+				InputMap.erase_action(pa)
+			if k > couch_players:
+				continue
+			InputMap.add_action(pa, 0.25)
+			for ev in InputMap.action_get_events(action):
+				if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
+					var copy: InputEvent = ev.duplicate()
+					copy.device = pads[k - 2]
+					InputMap.action_add_event(pa, copy)
+
+
+func _build_panes() -> void:
+	## Split the window: two players stack top and bottom, three or four
+	## take the quarters. Each pane is a SubViewport sharing the world with
+	## its own camera and HUD.
+	couch_active = true
+	camera.current = false
+	split_layer = CanvasLayer.new()
+	split_layer.layer = 0
+	add_child(split_layer)
+	var n := couch_players
+	var rects: Array = []
+	if n == 2:
+		rects = [Rect2(0, 0, 1, 0.5), Rect2(0, 0.5, 1, 0.5)]
+	else:
+		rects = [Rect2(0, 0, 0.5, 0.5), Rect2(0.5, 0, 0.5, 0.5), Rect2(0, 0.5, 0.5, 0.5), Rect2(0.5, 0.5, 0.5, 0.5)]
+	var hud_scale := 0.72 if n == 2 else 0.56
+	for k in n:
+		var u = locals[k]
+		var r: Rect2 = rects[k]
+		var box := SubViewportContainer.new()
+		box.stretch = true
+		box.anchor_left = r.position.x
+		box.anchor_top = r.position.y
+		box.anchor_right = r.end.x
+		box.anchor_bottom = r.end.y
+		box.offset_left = 2 if r.position.x > 0.0 else 0
+		box.offset_top = 2 if r.position.y > 0.0 else 0
+		box.offset_right = -2 if r.end.x < 1.0 else 0
+		box.offset_bottom = -2 if r.end.y < 1.0 else 0
+		split_layer.add_child(box)
+		var view := SubViewport.new()
+		view.handle_input_locally = false
+		view.audio_listener_enable_3d = false
+		view.msaa_3d = get_viewport().msaa_3d
+		box.add_child(view)
+		var cam := Camera3D.new()
+		cam.rotation_degrees = camera.rotation_degrees
+		cam.fov = camera.fov
+		view.add_child(cam)
+		cam.make_current()
+		var h = Hud.new()
+		h.game = self
+		h.local_unit = u
+		h.pane = true
+		h.scale = Vector2.ONE * hud_scale
+		h.process_mode = Node.PROCESS_MODE_ALWAYS
+		view.add_child(h)
+		var pane := {"unit": u, "view": view, "cam": cam, "hud": h, "cam_pos": u.global_position + CAMERA_OFFSET * cam_zoom}
+		cam.global_position = pane.cam_pos
+		panes.append(pane)
+		view.size_changed.connect(func(): h.size = Vector2(view.size) / hud_scale)
+		h.size = Vector2(view.size) / hud_scale
+	if n == 3:
+		# The spare quarter: a dark plate so it is not raw clear colour.
+		var fill := ColorRect.new()
+		fill.color = Color(0.05, 0.06, 0.09)
+		fill.anchor_left = 0.5
+		fill.anchor_top = 0.5
+		fill.anchor_right = 1.0
+		fill.anchor_bottom = 1.0
+		split_layer.add_child(fill)
 
 
 func shake(amount: float) -> void:
@@ -1755,17 +1921,42 @@ func _tick_tutorial() -> void:
 		tutorial[7] = true
 	tutorial_shown = not tutorial[6]
 	# The Upgrade Station: standing on it opens the perk menu.
-	var pad: Vector3 = upgrade_pads[player_team]
-	var on_pad: bool = pad != Vector3.INF and _flat_dist(p, pad) < STATION_RADIUS and not player.dead
-	if on_pad and not on_upgrade_pad and not menu_open and not chat_open:
-		rank_open = true
-	elif not on_pad and on_upgrade_pad and rank_open:
+	# (Any local player: stepping on their team's pad opens their perks,
+	# stepping off closes them.)
+	var on_pad := false
+	for u in locals:
+		if u == null or u.dead:
+			continue
+		var pad: Vector3 = upgrade_pads[u.team]
+		if pad != Vector3.INF and _flat_dist(u.global_position, pad) < STATION_RADIUS:
+			on_pad = true
+			if not on_upgrade_pad and not menu_open and not chat_open:
+				rank_open = true
+				rank_player = u
+	if not on_pad and on_upgrade_pad and rank_open:
 		rank_open = false
 	on_upgrade_pad = on_pad
 
 
-func menu_blocks_input() -> bool:
-	return menu_open or rank_open or chat_open or guide_open
+func menu_blocks_input(u = null) -> bool:
+	## True while a menu has this player's controls (the perk menu only
+	## blocks the player who opened it).
+	return menu_open or chat_open or guide_open or (rank_open and (u == null or rank_player == null or rank_player == u))
+
+
+func _rank_pressed() -> bool:
+	## Any local player pressing their perk key opens (or closes) their menu.
+	for u in locals:
+		if u == null or demo:
+			continue
+		if Input.is_action_just_pressed(u.act_prefix + "rank_menu"):
+			if rank_open and rank_player == u:
+				rank_open = false
+			else:
+				rank_open = true
+				rank_player = u
+			return true
+	return false
 
 
 func menu_tabs() -> Array:
@@ -1791,6 +1982,12 @@ func menu_tick() -> void:
 					cycle_difficulty(-1)
 				if Input.is_action_just_pressed("menu_right"):
 					cycle_difficulty(1)
+				if Input.is_action_just_pressed("couch_more"):
+					set_couch("more")
+				if Input.is_action_just_pressed("couch_less"):
+					set_couch("less")
+				if Input.is_action_just_pressed("couch_mode"):
+					set_couch("mode")
 	elif chat_open:
 		pass  # typing: keys go to menu_input
 	else:
@@ -1809,8 +2006,8 @@ func menu_tick() -> void:
 			for i in Guide.TOPICS.size():
 				if Input.is_action_just_pressed("rank_%d" % (i + 1)):
 					guide_pick(i)
-		elif Input.is_action_just_pressed("rank_menu") and player and not demo:
-			rank_open = not rank_open
+		elif _rank_pressed() and not demo:
+			pass  # handled in _rank_pressed
 		elif Input.is_action_just_pressed("chat") and player and not demo and not eaten:
 			chat_open = true
 			chat_text = ""
@@ -1826,15 +2023,17 @@ func menu_tick() -> void:
 			for kind in ["attack", "defend", "help"]:
 				if Input.is_action_just_pressed("cmd_" + kind):
 					call_command(kind)
-		if rank_open and player:
-			if player.dead:
+		if rank_open and rank_player == null:
+			rank_player = player
+		if rank_open and rank_player:
+			if rank_player.dead:
 				rank_open = false
 			for i in 4:
-				if Input.is_action_just_pressed("rank_%d" % (i + 1)):
-					player.spend_point(i)
+				if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 1)):
+					rank_player.spend_point(i)
 			for i in 2:
-				if Input.is_action_just_pressed("rank_%d" % (i + 5)):
-					player.choose_variant(player.role, i)
+				if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
+					rank_player.choose_variant(rank_player.role, i)
 	if menu_open and rebinding == "" and not chat_open:
 		var tabs := menu_tabs()
 		var at := maxi(tabs.find(menu_tab), 0)
@@ -1942,6 +2141,9 @@ func menu_tick() -> void:
 			for b in hud.faction_buttons:
 				if b[0].has_point(mouse) and not was_editing:
 					_start_match(b[1])
+			for b in hud.couch_buttons:
+				if b[0].has_point(mouse):
+					set_couch(b[1])
 		for b in hud.guide_buttons:
 			if b[0].has_point(mouse):
 				if b[1] == "next":
@@ -2216,6 +2418,8 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
 	cfg.set_value("settings", "chat_visible", chat_visible)
 	cfg.set_value("settings", "rosters_shown", rosters_visible)
+	cfg.set_value("settings", "couch_players", couch_players)
+	cfg.set_value("settings", "couch_mode", couch_mode)
 	cfg.set_value("settings", "screen_shake", screen_shake)
 	cfg.set_value("settings", "damage_numbers", damage_numbers)
 	cfg.set_value("settings", "show_fps", show_fps)
@@ -2257,6 +2461,8 @@ func _load_controls() -> void:
 		bot_difficulty = diff
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
 	rosters_visible = cfg.get_value("settings", "rosters_shown", false)
+	couch_players = clampi(int(cfg.get_value("settings", "couch_players", 1)), 1, COUCH_MAX)
+	couch_mode = "coop" if cfg.get_value("settings", "couch_mode", "versus") == "coop" else "versus"
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", false)
@@ -5654,6 +5860,9 @@ func _setup_input() -> void:
 	_add_action("cmd_attack", [KEY_Z], [])
 	_add_action("cmd_defend", [KEY_X], [])
 	_add_action("cmd_help", [KEY_C], [])
+	_add_action("couch_more", [KEY_EQUAL, KEY_KP_ADD, KEY_BRACKETRIGHT], [])
+	_add_action("couch_less", [KEY_MINUS, KEY_KP_SUBTRACT, KEY_BRACKETLEFT], [])
+	_add_action("couch_mode", [KEY_M], [])
 
 
 func _add_action(action: StringName, keys: Array, buttons: Array, axis: int = -1, axis_value: float = 0.0,

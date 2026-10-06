@@ -30,6 +30,9 @@ const DIRT := Color(0.62, 0.52, 0.36)
 const TABS := ["MAP", "CLASSES", "UPGRADES", "SCOREBOARD", "CONTROLS", "SETTINGS"]
 
 var game
+var local_unit = null   # couch play: the local player this HUD belongs to (null = the main player)
+var pane := false       # couch play: drawn inside one player's pane
+var couch_buttons: Array = []   # title: [rect, "more"|"less"|"mode"]
 var font: Font
 var logo: Texture2D
 var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
@@ -107,27 +110,43 @@ func _draw() -> void:
 	hero_buttons = []
 	faction_buttons = []
 	title_buttons = []
+	couch_buttons = []
 	if not game.playing and not game.game_over:
 		_draw_title()
 		if game.menu_open:
 			_draw_game_menu()
+		return
+	if game.couch_active and not pane:
+		# Split screen: the panes draw their own players; this HUD, over the
+		# whole window, keeps only what is shared (chat, guide, scoreboard,
+		# pause menu, the end).
+		if not game.guide_open:
+			_draw_chat()
+		if game.guide_open:
+			_draw_guide()
+		if game.scoreboard_open and not game.game_over:
+			_draw_scoreboard_overlay()
+		if game.menu_open:
+			_draw_game_menu()
+		if game.game_over:
+			_draw_end()
 		return
 	_draw_screen_fx()
 	_draw_logo(Rect2(size.x - 214, 8, 200, 80))
 	_draw_scoreboard()
 	if game.show_fps:
 		_text(Vector2(size.x - 134, size.y - 152), "%d FPS" % Engine.get_frames_per_second(), 11, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 120, 2)
-	if game.rosters_visible and game.player:
-		_draw_roster(game.player_team, Vector2(14, 130), true)
-		_draw_roster(1 - game.player_team, Vector2(size.x - 214, 100), true)
+	if game.rosters_visible and _me() and not pane:
+		_draw_roster(_my_team(), Vector2(14, 130), true)
+		_draw_roster(1 - _my_team(), Vector2(size.x - 214, 100), true)
 	if not game.guide_open:
 		# The minimap sits top-left; the objective card and HOW TO WIN list are
 		# gone from the live HUD (the guide and the pause menu still carry them).
 		_draw_map(Rect2(14, 8, 236, 110), false)
 	_draw_toasts()
-	if game.player and not game.guide_open:
-		_draw_player_panel(game.player)
-	if game.killer_timer > 0.0 and game.player and game.player.dead and not game.killer_card.is_empty():
+	if _me() and not game.guide_open:
+		_draw_player_panel(_me())
+	if game.killer_timer > 0.0 and _me() and _me().dead and not game.killer_card.is_empty():
 		_draw_killer_card()
 	if game.stolen_timer > 0.0:
 		_draw_stolen_card()
@@ -135,18 +154,33 @@ func _draw() -> void:
 		_draw_capture_card()
 	elif game.levelup_timer > 0.0:
 		_draw_levelup_card()
+	if pane:
+		if local_unit:
+			_text(Vector2(14, 136), "PLAYER %d" % (local_unit.local_index + 1), 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		if game.rank_open and game.rank_player == local_unit:
+			_draw_rank_menu(local_unit)
+		return
 	if not game.guide_open:
 		_draw_chat()
 	if game.guide_open:
 		_draw_guide()
 	if game.scoreboard_open and not game.game_over:
 		_draw_scoreboard_overlay()
-	if game.rank_open and game.player:
-		_draw_rank_menu(game.player)
+	if game.rank_open and game.rank_player:
+		_draw_rank_menu(game.rank_player)
 	if game.menu_open:
 		_draw_game_menu()
 	if game.game_over:
 		_draw_end()
+
+
+func _me():
+	## The player this HUD is about.
+	return local_unit if local_unit else game.player
+
+
+func _my_team() -> int:
+	return local_unit.team if local_unit else game.player_team
 
 
 # --- Drawing helpers ---------------------------------------------------------
@@ -490,7 +524,7 @@ func _class_icon(role: int) -> String:
 
 func _attack_icon(role: int, s: Dictionary = {}) -> String:
 	if s.is_empty():
-		s = Stats.kit(game.player_team, role)
+		s = Stats.kit(_my_team(), role)
 	if s.get("drain", false):
 		return "drain"
 	if s.get("nature", false):
@@ -571,7 +605,7 @@ func _draw_guide() -> void:
 	## Talking to an NPC: a visual-novel box along the bottom with a big
 	## portrait on the left, a name plate, the line (or the topic menu) on
 	## parchment, and a Next marker. Drawn over the HUD.
-	var team: int = game.player_team
+	var team: int = _my_team()
 	var showing_menu: bool = game.guide_page < 0 and game.guide_topic < 0
 	var body: String
 	if game.guide_topic >= 0:
@@ -676,7 +710,7 @@ func _draw_scoreboard() -> void:
 		_text(Vector2(cx - 85, 56), "0:%02d" % int(pl), 28, Color(1, 0.85, 0.5) if pulse else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 170)
 		var pw := 360.0
 		_plate(Rect2(cx - pw / 2.0, 66, pw, 22), Color(0.25, 0.2, 0.05, 0.95), GOLD, 6, 1)
-		_text(Vector2(cx - pw / 2.0, 82), "DIG IN: TURRETS · TRAPS · BARRICADES [%s] · %d KITS LEFT" % [game.key_label("interact"), game.barricades_left[game.player_team]], 11,
+		_text(Vector2(cx - pw / 2.0, 82), "DIG IN: TURRETS · TRAPS · BARRICADES [%s] · %d KITS LEFT" % [game.key_label("interact"), game.barricades_left[_my_team()]], 11,
 			GOLD, HORIZONTAL_ALIGNMENT_CENTER, pw, 2)
 		return
 	var left := maxf(game.time_left, 0.0)
@@ -781,7 +815,7 @@ func _draw_stolen_card() -> void:
 			thief = m.carrier
 	if thief:
 		var line: String = "%s (%s) has stolen the Crown! %s" % [thief.role_name(), Stats.FACTIONS[thief.team].name,
-			"Stop them!" if thief.team != game.player_team else "Get them home!"]
+			"Stop them!" if thief.team != _my_team() else "Get them home!"]
 		_text(rect.position + Vector2(64, 56), line, 12, Color(1, 0.9, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_draw_map(Rect2(rect.end.x - 118, rect.position.y + 8, 108, 62), false)
 
@@ -791,7 +825,7 @@ func _draw_capture_card() -> void:
 	var a := clampf(game.capture_timer / 0.5, 0.0, 1.0)
 	var pulse := 1.0 + 0.015 * sin(Time.get_ticks_msec() / 70.0)
 	var rect := Rect2(size.x / 2.0 - 230 * pulse, 98, 460 * pulse, 78)
-	var ours: bool = game.capture_team == game.player_team
+	var ours: bool = game.capture_team == _my_team()
 	var tc: Color = _team_color(game.capture_team)
 	_plate(rect, Color(tc.r * 0.45, tc.g * 0.45, tc.b * 0.45, 0.95 * a), Color(1.0, 0.82, 0.3, a), 12, 3)
 	_icon("crown", rect.position + Vector2(34, 36), 16, Color(1, 0.85, 0.3, a))
@@ -805,7 +839,7 @@ func _draw_levelup_card() -> void:
 	var a := clampf(game.levelup_timer / 0.5, 0.0, 1.0)
 	var rect := Rect2(size.x / 2.0 - 170, 98, 340, 78)
 	_plate(rect, Color(0.45, 0.32, 0.06, 0.95 * a), Color(1.0, 0.85, 0.3, a), 12, 3)
-	var p = game.player
+	var p = _me()
 	if p:
 		_class_card(rect.position + Vector2(40, 39), 26, p.team, p.role)
 	_text(rect.position + Vector2(84, 32), "LEVEL UP!", 24, Color(1, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
@@ -838,8 +872,8 @@ func _draw_objective() -> void:
 		Color(1.0, 0.55, 0.45) if recovering else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	draw_line(rect.position + Vector2(12, 34), rect.position + Vector2(228, 34), GOLD_DARK, 1.0)
 	var dist := 0
-	if not obj.is_empty() and game.player:
-		var to: Vector3 = obj.pos - game.player.global_position
+	if not obj.is_empty() and _me():
+		var to: Vector3 = obj.pos - _me().global_position
 		to.y = 0.0
 		dist = roundi(to.length())
 	if recovering:
@@ -1102,7 +1136,7 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 			draw_circle(bc, br + 2.0, Color(1.0, 0.9, 0.5, 0.35 + 0.25 * sin(pt * 6.0)))
 			_icon("xp", bc, br, GOLD)
 	# Turrets: small diamonds in team colour (enemy ones once a teammate has seen them).
-	var my_team: int = game.player_team
+	var my_team: int = _my_team()
 	for t in game.turrets:
 		var tc: Vector2 = m.call(t.global_position)
 		var tr := 3.0 if not detailed else 5.0
@@ -1239,7 +1273,7 @@ func _promotion(p, rect: Rect2) -> void:
 		var tag := "CHOSEN" if chosen else ("%s: pick" % str(i + 5) if unlocked else "LOCKED")
 		_text(card.position + Vector2(0, 22), tag, 10, GOLD if chosen else GREY, HORIZONTAL_ALIGNMENT_RIGHT, card.size.x - 10, 2)
 		_paragraph(card.position + Vector2(10, 48), v.desc, 10, Color(0.85, 0.85, 0.85) if unlocked else GREY, card.size.x - 20, 12.0)
-		var moves := "%s  ·  Q %s  ·  E %s" % [v.attack.get("attack_name", Stats.kit(game.player_team, role).attack_name), v.abilities[0].name, v.abilities[1].name]
+		var moves := "%s  ·  Q %s  ·  E %s" % [v.attack.get("attack_name", Stats.kit(_my_team(), role).attack_name), v.abilities[0].name, v.abilities[1].name]
 		_text(card.position + Vector2(10, card.size.y - 8), moves, 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		if unlocked and not chosen and not p.dead:
 			variant_buttons.append([card, role, i])
@@ -1294,14 +1328,14 @@ func _menu_overview(body: Rect2) -> void:
 
 
 func _menu_classes(body: Rect2) -> void:
-	var team: int = game.player_team
+	var team: int = _my_team()
 	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
 	var cw := (body.size.x - 5 * 8) / 6.0
 	for i in roles.size():
 		var role: int = roles[i]
 		var s: Dictionary = Stats.kit(team, role)
 		var card := Rect2(body.position + Vector2(i * (cw + 8), 0), Vector2(cw, body.size.y))
-		var mine: bool = game.player and game.player.role == role
+		var mine: bool = _me() and _me().role == role
 		_plate(card, INK_LIGHT, GOLD if mine else GOLD_DARK, 10, 2)
 		if not _card(_card_key(team, role), Rect2(card.position + Vector2(8, 6), Vector2(cw - 16, 80)), false):
 			_portrait(card.position + Vector2(cw / 2.0, 44), 26, team, role)
@@ -1434,7 +1468,7 @@ func _toggle(rect: Rect2, label: String, on: bool, key: String) -> void:
 func _draw_screen_fx() -> void:
 	## Full-screen feedback under the HUD: a red vignette on your last heart
 	## and a flash when you are hit.
-	var p = game.player
+	var p = _me()
 	if p == null or p.dead or game.demo:
 		return
 	var t := Time.get_ticks_msec() / 1000.0
@@ -1467,7 +1501,7 @@ func _vignette(c: Color) -> void:
 
 func _menu_my_class(body: Rect2) -> void:
 	## The player's class, this life's ranks and the class's promotion paths.
-	var p = game.player
+	var p = _me()
 	if p == null:
 		_text(body.position + Vector2(0, body.size.y / 2.0), "Start a match to see your class.", 14, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
 		return
@@ -1930,7 +1964,10 @@ func _draw_title() -> void:
 		2: _draw_title_progress(panel)
 		_: _draw_title_play(panel)
 	options_button = Rect2(tx, ty + 3 * 78, 190, 64)
-	_text(Vector2(cx - 300, size.y - 16), "Press 1 or 2 (or click a side) to play  ·  Esc never quits by accident", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 600, 2)
+	var foot := "Press 1 or 2 (or click a side) to play  ·  Esc never quits by accident"
+	if game.couch_players > 1:
+		foot = "%d on this screen: player 1 on keyboard and mouse, players 2-%d on gamepads  ·  press 1 or 2 to play" % [game.couch_players, game.couch_players]
+	_text(Vector2(cx - 300, size.y - 16), foot, 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 600, 2)
 
 
 func _draw_title_play(panel: Rect2) -> void:
@@ -1957,6 +1994,24 @@ func _draw_title_play(panel: Rect2) -> void:
 		if locked:
 			_text(b.position + Vector2(0, 32), "LEVEL %d" % Stats.UNLOCK_LEVEL, 7, Color(1.0, 0.75, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
 		hero_buttons.append([b, "map", i])
+	# Couch play, to the right of the map tiles: how many on this screen and
+	# whether they join you or fight you.
+	var cxr := left + 450
+	_text(Vector2(cxr, row_y + 14), "COUCH", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var less := Rect2(cxr + 56, row_y, 30, 34)
+	var more := Rect2(cxr + 124, row_y, 30, 34)
+	_chunky(less, Color(0.25, 0.22, 0.3), false, less.has_point(get_local_mouse_position()))
+	_chunky(more, Color(0.25, 0.22, 0.3), false, more.has_point(get_local_mouse_position()))
+	_text(less.position + Vector2(0, 23), "-", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, less.size.x, 3)
+	_text(more.position + Vector2(0, 23), "+", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, more.size.x, 3)
+	_text(Vector2(cxr + 86, row_y + 23), "%d" % game.couch_players, 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 38, 3)
+	var mode := Rect2(cxr + 162, row_y, 92, 34)
+	var coop: bool = game.couch_mode == "coop"
+	_chunky(mode, Color(0.2, 0.5, 0.35) if coop else Color(0.55, 0.25, 0.3), game.couch_players > 1, mode.has_point(get_local_mouse_position()))
+	_text(mode.position + Vector2(0, 23), "CO-OP" if coop else "VERSUS", 11, Color.WHITE if game.couch_players > 1 else GREY, HORIZONTAL_ALIGNMENT_CENTER, mode.size.x, 2)
+	couch_buttons.append([less, "less"])
+	couch_buttons.append([more, "more"])
+	couch_buttons.append([mode, "mode"])
 	var dy := row_y + 46
 	_text(Vector2(left, dy + 14), "BOTS", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in Stats.BOT_DIFFICULTIES.size():
@@ -2092,8 +2147,8 @@ func _draw_end() -> void:
 	var outcome := "DRAW"
 	var color := Color(0.5, 0.5, 0.55)
 	if winner >= 0:
-		outcome = "VICTORY!" if winner == game.player_team else "DEFEAT"
-		color = Color(0.2, 0.5, 0.95) if winner == game.player_team else Color(0.6, 0.15, 0.15)
+		outcome = "VICTORY!" if winner == _my_team() else "DEFEAT"
+		color = Color(0.2, 0.5, 0.95) if winner == _my_team() else Color(0.6, 0.15, 0.15)
 	_icon("crown", Vector2(cx, 50), 16, GOLD)
 	_card("logo_elves", Rect2(cx - 330, 40, 110, 110))
 	_card("logo_humans", Rect2(cx + 220, 40, 110, 110))

@@ -105,6 +105,9 @@ var banner_delayed := false   # the extra wait before a war-banner respawn has b
 var last_role := 0            # the class held when we died (war-banner respawns keep it)
 var stuck_time := 0.0
 var stall_target := Vector3.ZERO   # last _steer_to target (diagnostics)
+var local_index := -1              # which local (couch) player drives this unit, -1 for bots
+var act_prefix := ""               # input action prefix: "" for player 1, "p2_" ... for couch players
+var has_mouse := true              # player 1 aims with the mouse; the others with the right stick
 var avoid_dir := Vector3.ZERO      # look-ahead detour we are committed to
 var avoid_timer := 0.0
 var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
@@ -488,7 +491,7 @@ func apply_blessing(kind: String) -> void:
 
 
 func _refresh_overhead() -> void:
-	var tag := "YOU · " if is_player else ""
+	var tag := ("YOU · " if local_index <= 0 else "P%d · " % (local_index + 1)) if is_player else ""
 	var lvl := ("  ★%d" % level) if level > 1 else ""
 	var vet := ""
 	if veteran == 2:
@@ -1158,13 +1161,18 @@ func _animate() -> void:
 	model.update_locomotion(planar > 0.6)
 
 
+func _a(action: String) -> StringName:
+	## This local player's version of an input action.
+	return StringName(act_prefix + action)
+
+
 func _update_player_aim(move: Vector3) -> void:
-	var cam: Camera3D = game.camera
-	var mouse := get_viewport().get_mouse_position()
-	var stick := Input.get_vector("aim_left", "aim_right", "aim_up", "aim_down")
+	var cam: Camera3D = game.camera_for(self)
+	var mouse: Vector2 = cam.get_viewport().get_mouse_position() if has_mouse else last_mouse
+	var stick := Input.get_vector(_a("aim_left"), _a("aim_right"), _a("aim_up"), _a("aim_down"))
 	if stick.length() > 0.3:
 		aim_mode = "stick"
-	elif mouse != last_mouse:
+	elif has_mouse and mouse != last_mouse:
 		aim_mode = "mouse"
 	last_mouse = mouse
 	match aim_mode:
@@ -1307,20 +1315,20 @@ func _physics_process(delta: float) -> void:
 	var wants_block := false
 	var plan := {}
 	if is_player:
-		var stick := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+		var stick := Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
 		move = Vector3(stick.x, 0, stick.y)
 		_update_player_aim(move)
 		_update_highlights()
-		if not game.menu_blocks_input():
-			wants_attack = Input.is_action_pressed("attack")
-			wants_block = Input.is_action_pressed("block")
-			if Input.is_action_just_pressed("interact"):
+		if not game.menu_blocks_input(self):
+			wants_attack = Input.is_action_pressed(_a("attack"))
+			wants_block = Input.is_action_pressed(_a("block"))
+			if Input.is_action_just_pressed(_a("interact")):
 				game.try_interact(self)
-			if Input.is_action_just_pressed("ability_1"):
+			if Input.is_action_just_pressed(_a("ability_1")):
 				use_ability(0, aim)
-			if Input.is_action_just_pressed("ability_2"):
+			if Input.is_action_just_pressed(_a("ability_2")):
 				use_ability(1, aim)
-			if Input.is_action_just_pressed("dodge"):
+			if Input.is_action_just_pressed(_a("dodge")):
 				try_dodge(move)
 		if dodge_timer > 0.0 or bash_timer > 0.0:
 			return
