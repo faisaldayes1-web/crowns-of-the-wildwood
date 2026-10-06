@@ -2332,7 +2332,17 @@ func _stone(tint: Color = Color.WHITE, scale: float = 0.26) -> StandardMaterial3
 
 
 func _grass() -> StandardMaterial3D:
-	return _pbr("grass", 0.11, Color(0.84, 0.93, 0.74))
+	return _pbr("grass", 0.11, Color(0.96, 1.0, 0.9))
+
+
+var verge_mat: StandardMaterial3D
+
+
+func _verge() -> StandardMaterial3D:
+	## Trampled, yellowed grass along the edge of a road.
+	if verge_mat == null:
+		verge_mat = _pbr("grass", 0.11, Color(0.9, 0.86, 0.62))
+	return verge_mat
 
 
 func _wood(tint: Color = Color.WHITE, scale: float = 0.5) -> StandardMaterial3D:
@@ -2393,10 +2403,21 @@ func _solidify_prop(inst: Node3D, pos: Vector3) -> void:
 	add_child(body)
 
 
-func _add_path(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
-	## A flat strip of road or dirt from one point to another (any angle).
+func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: float = 1.6) -> void:
+	## A flat strip of road or dirt from one point to another (any angle),
+	## with a band of trampled grass either side so the edge is not a hard
+	## line.
 	var d := to - from
 	d.y = 0.0
+	if verge > 0.0:
+		var v := MeshInstance3D.new()
+		var vbox := BoxMesh.new()
+		vbox.size = Vector3(d.length() + width * 0.6 + verge, 0.008, width + verge)
+		v.mesh = vbox
+		v.material_override = _verge()
+		v.position = (from + to) / 2.0 + Vector3(0, 0.003, 0)
+		v.rotation.y = atan2(-d.z, d.x)
+		add_child(v)
 	var m := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = Vector3(d.length() + width * 0.6, 0.012, width)
@@ -2525,7 +2546,7 @@ func _add_ground_detail() -> void:
 	var leaf := PlaneMesh.new()
 	leaf.size = Vector2(0.34, 0.26)
 	var sets := [
-		["flower", flower, 520, 0.14], ["tuft", tuft, 1500, 0.18], ["stone", stone, 90, 0.0], ["cap", cap, 120, 0.26], ["leaf", leaf, 260, 0.02]]
+		["flower", flower, 520, 0.14], ["tuft", tuft, 900, 0.18], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
 	for s in sets:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -2559,9 +2580,9 @@ func _add_ground_detail() -> void:
 					if elf_side and r.randf() < 0.35:
 						col = Color(0.5, 0.95, 1.0)  # glowing wildwood bloom
 				"tuft":
-					col = Color.from_hsv(0.26 + r.randf_range(-0.03, 0.03), 0.7, r.randf_range(0.45, 0.7))
+					col = Color.from_hsv(0.27 + r.randf_range(-0.03, 0.03), 0.8, r.randf_range(0.28, 0.42))
 				"stone":
-					col = Color(0.6, 0.6, 0.58).lerp(Color(0.5, 0.52, 0.5), r.randf())
+					col = Color(0.46, 0.46, 0.44).lerp(Color(0.36, 0.38, 0.36), r.randf())
 					if elf_side and r.randf() < 0.3:
 						col = Color(0.55, 0.62, 0.5)
 				"cap":
@@ -5385,7 +5406,7 @@ func _build_world() -> void:
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.ambient_light_energy = 0.6
+	environment.ambient_light_energy = 0.5
 	environment.ambient_light_sky_contribution = 0.6
 	environment.ambient_light_color = Color(0.75, 0.85, 0.8)
 	# Soft contact shadows under props and in corners (Forward+ only).
@@ -5406,9 +5427,9 @@ func _build_world() -> void:
 	environment.fog_density = 0.0012
 	environment.fog_sky_affect = 0.2
 	environment.adjustment_enabled = true
-	environment.adjustment_saturation = 1.15
-	environment.adjustment_contrast = 1.1
-	environment.adjustment_brightness = 0.95
+	environment.adjustment_saturation = 1.2
+	environment.adjustment_contrast = 1.15
+	environment.adjustment_brightness = 0.94
 	env.environment = environment
 	world_environment = environment
 	add_child(env)
@@ -5417,7 +5438,7 @@ func _build_world() -> void:
 	sun_light = sun
 	sun.rotation_degrees = Vector3(-52, -35, 0)
 	sun.light_color = Color(1.0, 0.94, 0.82)
-	sun.light_energy = 1.15
+	sun.light_energy = 1.25
 	sun.shadow_enabled = true
 	sun.shadow_bias = 0.03
 	sun.shadow_normal_bias = 1.5
@@ -5454,7 +5475,7 @@ func _build_world() -> void:
 	# The road: rutted dirt from bridge to door, cobbled aprons at each door,
 	# and grass creeping in at the edges.
 	var fxr := CASTLE_X - CASTLE_DEPTH
-	var road := _pbr("road", 0.2, Color(0.92, 0.88, 0.8))
+	var road := _pbr("road", 0.2)
 	# The main road: door to door through the shrine, with cobbled aprons.
 	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road)
 	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road)

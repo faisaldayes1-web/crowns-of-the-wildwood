@@ -309,52 +309,62 @@ def make_bark():
 
 
 def make_grass():
-    """A clean meadow: two soft greens in broad, low-contrast patches with a
-    fine even nap and nothing that reads as a repeating mark. Flowers,
-    tufts and stones are placed by the game, not painted here."""
-    macro = fbm(N, 2, 2, 59)
-    blotch = fbm(N, 4, 3, 51)
-    patches = np.clip((blotch * 0.65 + macro * 0.35) * 1.4 - 0.2, 0, 1)
-    nap = fbm(N, 64, 2, 52)
-    deep = rgb(0.36, 0.60, 0.24)
-    bright = rgb(0.50, 0.74, 0.30)
-    color = lerp(deep, bright, patches[..., None])
-    color = color * (0.96 + 0.08 * nap)[..., None]
-    h = 0.25 * nap + 0.3 * patches
-    save("grass", color, np.clip(h, 0, 1), 0.35)
+    """A painted meadow: three soft greens in broad brushy clumps, a few
+    darker blade tufts and a fine even nap. Low contrast, nothing that reads
+    as a repeating mark, and nothing directional (the mapping is triplanar)."""
+    broad = fbm(N, 3, 3, 59)
+    clumps = fbm(N, 10, 3, 51)
+    tufts = np.clip((fbm(N, 26, 2, 57) - 0.60) * 6.0, 0, 1)
+    nap = fbm(N, 48, 2, 52)
+    # Posterise the clumps a little so they read as brush strokes, then blend
+    # most of the smooth version back so the steps stay soft.
+    cont = np.clip((clumps - 0.5) * 2.2 + 0.5, 0, 1)
+    band = np.floor(cont * 3.0) / 3.0
+    strokes = band * 0.35 + cont * 0.65
+    deep = rgb(0.30, 0.52, 0.20)
+    mid = rgb(0.40, 0.64, 0.25)
+    bright = rgb(0.52, 0.74, 0.30)
+    color = lerp(deep, mid, strokes[..., None])
+    color = lerp(color, bright, np.clip(broad * 1.2 - 0.3, 0, 1)[..., None] * 0.6)
+    color = lerp(color, deep * 0.85, tufts[..., None] * 0.6)
+    color = color * (0.95 + 0.10 * nap)[..., None]
+    h = 0.45 * strokes + 0.3 * nap + 0.25 * tufts
+    save("grass", np.clip(color, 0, 1), np.clip(h, 0, 1), 0.3)
 
 
 def make_dirt():
-    """Packed earth for the road verges: warm, even, a few faint pebbles,
-    no ruts or edges (the mapping is triplanar, so nothing directional)."""
+    """Worn earth for the side tracks: darker and more mottled than the main
+    road, a few moss flecks, faint pebbles, nothing directional."""
     base = fbm(N, 5, 4, 61)
-    pebbles = fbm(N, 70, 2, 62) > 0.84
-    light = rgb(0.80, 0.68, 0.48)
-    dark = rgb(0.68, 0.56, 0.38)
-    color = lerp(dark, light, np.clip(base * 1.1, 0, 1)[..., None])
-    color = lerp(color, rgb(0.70, 0.66, 0.58), pebbles[..., None] * 0.5)
-    h = 0.5 * base + 0.2 * pebbles
-    save("dirt", color, np.clip(h, 0, 1), 0.8)
+    mottle = fbm(N, 16, 3, 62)
+    fine = fbm(N, 56, 2, 63)
+    moss = np.clip((fbm(N, 9, 2, 64) - 0.60) * 5.0, 0, 1)
+    pebbles = np.clip((fbm(N, 44, 2, 65) - 0.68) * 10.0, 0, 1)
+    dark = rgb(0.46, 0.36, 0.25)
+    light = rgb(0.64, 0.52, 0.36)
+    color = lerp(dark, light, np.clip(base * 0.7 + mottle * 0.5 - 0.1, 0, 1)[..., None])
+    color = lerp(color, rgb(0.42, 0.52, 0.26), moss[..., None] * 0.45)
+    color = lerp(color, rgb(0.62, 0.56, 0.46), pebbles[..., None] * 0.5)
+    color = color * (0.96 + 0.08 * fine)[..., None]
+    h = 0.5 * base + 0.3 * mottle + 0.3 * pebbles
+    save("dirt", np.clip(color, 0, 1), np.clip(h, 0, 1), 0.9)
 
 
 def make_road():
-    """A packed-earth road with flat, worn paving stones sunk into it: an
-    even cobbled look with no direction to it, so it tiles cleanly under
-    the triplanar mapping."""
-    base = fbm(N, 5, 4, 81)
-    earth_light = rgb(0.80, 0.68, 0.48)
-    earth_dark = rgb(0.64, 0.52, 0.36)
-    color = lerp(earth_dark, earth_light, np.clip(base * 1.1, 0, 1)[..., None])
-    # Flat stones: cells of thresholded noise with soft joints between them.
-    cells = fbm(N, 12, 2, 83)
-    gy, gx = np.gradient(cells)
-    edges = np.abs(gx) + np.abs(gy)
-    stone_mask = (edges < 0.0035) & (fbm(N, 4, 2, 84) > 0.38)
-    stone_mask = np.array(Image.fromarray((stone_mask * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(2))) / 255.0
-    stone_tone = lerp(rgb(0.74, 0.68, 0.56), rgb(0.84, 0.78, 0.66), fbm(N, 18, 2, 85)[..., None])
-    color = lerp(color, stone_tone, stone_mask[..., None] * 0.85)
-    h = 0.4 * base + 0.5 * stone_mask
-    save("road", color, np.clip(h, 0, 1), 1.2)
+    """The main road: packed warm earth, soft mottling, a scatter of small
+    pale pebbles. Mid-toned so it sits between the grass and the pale
+    cobbled aprons instead of blowing out white in the sun."""
+    base = fbm(N, 4, 4, 81)
+    mottle = fbm(N, 14, 3, 82)
+    fine = fbm(N, 60, 2, 86)
+    pebbles = np.clip((fbm(N, 40, 2, 87) - 0.66) * 10.0, 0, 1)
+    dark = rgb(0.56, 0.44, 0.30)
+    light = rgb(0.72, 0.60, 0.42)
+    color = lerp(dark, light, np.clip(base * 0.7 + mottle * 0.5 - 0.1, 0, 1)[..., None])
+    color = lerp(color, rgb(0.68, 0.62, 0.52), pebbles[..., None] * 0.5)
+    color = color * (0.96 + 0.08 * fine)[..., None]
+    h = 0.5 * base + 0.3 * mottle + 0.3 * pebbles
+    save("road", np.clip(color, 0, 1), np.clip(h, 0, 1), 0.9)
 
 
 def make_rock():
