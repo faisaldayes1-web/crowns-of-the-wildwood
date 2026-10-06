@@ -4167,6 +4167,7 @@ func _build_outskirts() -> void:
 	_add_field_rocks()
 	_add_clouds()
 	_add_ground_patches()
+	_add_ambient_life()
 
 
 func _add_ground_patches() -> void:
@@ -4202,11 +4203,28 @@ func _build_hamlet(team: int, sx: float) -> void:
 	var oz := -45.0
 	var face := 0.0 if sx > 0.0 else PI      # doors toward the field (-z is "up" on screen)
 	var row := [["home_A", -9.0, 3.8], ["tavern", -2.5, 3.8], ["home_B", 3.5, 3.8], ["church" if team == 1 else "lumbermill", 9.5, 3.6]]
-	for b in row:
-		_add_house(b[0], team, Vector3(ox + sx * b[1], 0, oz), b[2], face)
 	var back := [["market", -5.5, 3.2], ["well", 0.5, 3.4], ["blacksmith" if team == 1 else "archeryrange", 6.0, 3.6]]
+	if team == 0:
+		# The Forest lives in the trees: tree-houses in place of cottages and the tavern.
+		row = [["treehouse", -9.5, 1.0], ["market", -2.5, 3.2], ["treehouse", 3.5, 0.92], ["lumbermill", 9.5, 3.6]]
+		back = [["treehouse", -5.0, 1.1], ["well", 0.5, 3.4], ["archeryrange", 6.5, 3.6]]
+	for b in row:
+		if b[0] == "treehouse":
+			_add_treehouse(Vector3(ox + sx * b[1], 0, oz - 0.5), int(b[1] * 7.0) + 11, b[2])
+		else:
+			_add_house(b[0], team, Vector3(ox + sx * b[1], 0, oz), b[2], face)
 	for b in back:
-		_add_house(b[0], team, Vector3(ox + sx * b[1], 0, oz - 5.5), b[2], face, b[0] == "blacksmith")
+		if b[0] == "treehouse":
+			_add_treehouse(Vector3(ox + sx * b[1], 0, oz - 6.5), int(b[1] * 5.0) + 23, b[2])
+		else:
+			_add_house(b[0], team, Vector3(ox + sx * b[1], 0, oz - 5.5), b[2], face, b[0] == "blacksmith")
+	if team == 0:
+		for k in 4:
+			_add_mushrooms(Vector3(ox + sx * (-12.0 + k * 7.0), 0, oz + 1.6 + (k % 2) * 0.8), 500 + k)
+		_add_fireflies(Vector3(ox, 0, oz - 3.0))
+	# Chickens scratching about the lane.
+	for k in 4:
+		_add_critter("chicken", Vector3(ox - 7.0 + k * 4.0, 0, oz + 2.4), Rect2(ox - 9.0, oz + 1.9, 18.0, 1.1), 700 + k)
 	# Market clutter, a cart, fences along the lane, lanterns at the corners.
 	_prop("hex/crate_A_big", Vector3(ox + sx * -7.2, 0, oz - 2.9), 4.0, 0.3)
 	_prop("hex/sack", Vector3(ox + sx * -6.3, 0, oz - 2.7), 4.0, 1.0)
@@ -4220,8 +4238,11 @@ func _build_hamlet(team: int, sx: float) -> void:
 			continue   # the gap into the lane
 		_add_hex_fence(Vector3(fx, 0, oz + 3.4), true)
 	for x in [ox - 13.2, ox + 13.2]:
-		_prop("halloween/post_lantern", Vector3(x, 0, oz + 3.0), 0.75)
-		_add_light(Vector3(x, 2.4, oz + 3.0), Color(1.0, 0.75, 0.4), 1.1, 7.0)
+		if team == 0:
+			_add_lantern(Vector3(x, 0, oz + 3.0), 2.4)
+		else:
+			_prop("halloween/post_lantern", Vector3(x, 0, oz + 3.0), 0.75)
+			_add_light(Vector3(x, 2.4, oz + 3.0), Color(1.0, 0.75, 0.4), 1.1, 7.0)
 	# Trees hugging the village.
 	for k in 6:
 		var tx: float = ox - 14.0 + k * 5.8
@@ -4239,7 +4260,11 @@ func _build_farm(team: int, sx: float) -> void:
 	for j in 2:
 		_add_wheat(Vector3(ox - 1.0, 0, oz + 2.6 + j * 4.6), Vector2(17.0, 3.6), 300 + j)
 	_add_house("windmill", team, Vector3(ox + 12.5, 0, oz + 3.0), 4.4, PI if sx > 0.0 else 0.0, false)
-	_add_house("home_B" if team == 0 else "home_A", team, Vector3(ox - 13.0, 0, oz + 4.0), 3.6, PI)
+	if team == 0:
+		_add_treehouse(Vector3(ox - 13.0, 0, oz + 4.5), 37, 1.0)
+	else:
+		_add_house("home_A", team, Vector3(ox - 13.0, 0, oz + 4.0), 3.6, PI)
+	_add_sheep_pen(Vector3(ox - 1.0, 0, oz + 14.6), team)
 	for k in 8:
 		var fx: float = ox - 15.0 + k * 4.4
 		if k == 4:
@@ -4320,7 +4345,10 @@ func _build_works(team: int, sx: float) -> void:
 	var c := _hex_color(team)
 	var x := sx * 93.0
 	_add_house("mine" if team == 1 else "lumbermill", team, Vector3(x, 0, 14.0), 4.0, -PI / 2.0 * sx, team == 1)
-	_add_house("barracks" if team == 1 else "tavern", team, Vector3(x, 0, -14.0), 3.6, -PI / 2.0 * sx)
+	if team == 1:
+		_add_house("barracks", team, Vector3(x, 0, -14.0), 3.6, -PI / 2.0 * sx)
+	else:
+		_add_treehouse(Vector3(x, 0, -14.0), 53, 1.08)
 	for k in 3:
 		_prop("hex/resource_%s" % ["stone" if team == 1 else "lumber"], Vector3(x - sx * 5.0, 0, 9.5 + k * 2.4), 4.0, float(k) * 0.7)
 	_prop("hex/tent", Vector3(x - sx * 4.0, 0, -8.5), 4.0, 0.4 * sx)
@@ -4356,6 +4384,273 @@ func _build_works(team: int, sx: float) -> void:
 		_prop("hex/crate_long_B", Vector3(x + sx * 3.5, 0, -9.5), 4.0, 0.6)
 	# Trodden earth where the carts turn.
 	_add_soil_patch(Vector3(x - sx * 5.0, 0, 0.5), 1.7, Color(0.3, 0.21, 0.12))
+
+
+func _add_treehouse(pos: Vector3, seed: int, k: float = 1.0) -> void:
+	## An elven home up a living tree: a round plank platform with a rope rail,
+	## a bark-walled hut under a leaf cone, a spiral of steps round the trunk,
+	## a hanging lantern and the tree's own glowing crown around the roof.
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var body := StaticBody3D.new()
+	body.position = pos
+	var shape := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = 0.8 * k
+	cyl.height = 4.0
+	shape.shape = cyl
+	shape.position.y = 2.0
+	body.add_child(shape)
+	add_child(body)
+	var root := Node3D.new()
+	root.position = pos
+	root.scale = Vector3.ONE * k
+	root.rotation.y = r.randf() * TAU
+	add_child(root)
+	var bark := _pbr("bark", 0.5, Color(0.9, 0.86, 0.78))
+	var pale_bark := _pbr("bark", 0.45, Color(1.0, 0.96, 0.84))
+	var planks := _plank_dark(Color(0.85, 0.8, 0.7))
+	var rope := _material(Color(0.55, 0.45, 0.3))
+	# Trunk and roots.
+	var trunk := MeshInstance3D.new()
+	var tm := CylinderMesh.new()
+	tm.top_radius = 0.5
+	tm.bottom_radius = 0.85
+	tm.height = 5.6
+	tm.radial_segments = 8
+	trunk.mesh = tm
+	trunk.position.y = 2.8
+	trunk.material_override = bark
+	root.add_child(trunk)
+	for i in 5:
+		var rt := MeshInstance3D.new()
+		var rm := CylinderMesh.new()
+		rm.top_radius = 0.12
+		rm.bottom_radius = 0.3
+		rm.height = 1.4
+		rm.radial_segments = 5
+		rt.mesh = rm
+		var a := TAU * i / 5.0 + 0.3
+		rt.position = Vector3(cos(a) * 0.9, 0.3, sin(a) * 0.9)
+		rt.rotation = Vector3(0, -a, 0)
+		rt.rotate_z(-1.15)
+		rt.material_override = bark
+		root.add_child(rt)
+	# Spiral steps up the trunk.
+	for i in 9:
+		var st := MeshInstance3D.new()
+		var sm := BoxMesh.new()
+		sm.size = Vector3(0.9, 0.1, 0.42)
+		st.mesh = sm
+		var a := -0.4 + float(i) * 0.42
+		st.position = Vector3(cos(a) * 1.05, 0.35 + float(i) * 0.34, sin(a) * 1.05)
+		st.rotation.y = -a
+		st.material_override = planks
+		root.add_child(st)
+	# Platform, braces and rope rail.
+	var plat := MeshInstance3D.new()
+	var pm := CylinderMesh.new()
+	pm.top_radius = 2.5
+	pm.bottom_radius = 2.3
+	pm.height = 0.22
+	pm.radial_segments = 14
+	plat.mesh = pm
+	plat.position.y = 3.3
+	plat.material_override = planks
+	root.add_child(plat)
+	for i in 6:
+		var br := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.14, 1.9, 0.14)
+		br.mesh = bm
+		var a := TAU * i / 6.0
+		br.position = Vector3(cos(a) * 1.3, 2.5, sin(a) * 1.3)
+		br.rotation = Vector3(0, -a, 0)
+		br.rotate_z(0.75)
+		br.material_override = bark
+		root.add_child(br)
+	for i in 12:
+		var post := MeshInstance3D.new()
+		var pbm := BoxMesh.new()
+		pbm.size = Vector3(0.1, 0.8, 0.1)
+		post.mesh = pbm
+		var a := TAU * i / 12.0
+		post.position = Vector3(cos(a) * 2.3, 3.8, sin(a) * 2.3)
+		post.material_override = planks
+		root.add_child(post)
+	var rail := MeshInstance3D.new()
+	var rlm := TorusMesh.new()
+	rlm.inner_radius = 2.26
+	rlm.outer_radius = 2.34
+	rlm.rings = 28
+	rlm.ring_segments = 5
+	rail.mesh = rlm
+	rail.position.y = 4.15
+	rail.material_override = rope
+	root.add_child(rail)
+	# The hut: bark walls, a dark door, a lit window, a cone of leaves.
+	var hut := MeshInstance3D.new()
+	var hm := CylinderMesh.new()
+	hm.top_radius = 1.45
+	hm.bottom_radius = 1.55
+	hm.height = 2.1
+	hm.radial_segments = 10
+	hut.mesh = hm
+	hut.position.y = 4.45
+	hut.material_override = pale_bark
+	root.add_child(hut)
+	var door := MeshInstance3D.new()
+	var dm := BoxMesh.new()
+	dm.size = Vector3(0.7, 1.3, 0.12)
+	door.mesh = dm
+	door.position = Vector3(0, 4.05, 1.52)
+	door.material_override = _plank_dark(Color(0.5, 0.42, 0.32))
+	root.add_child(door)
+	var win := MeshInstance3D.new()
+	var wm := BoxMesh.new()
+	wm.size = Vector3(0.12, 0.5, 0.5)
+	win.mesh = wm
+	win.position = Vector3(1.52, 4.7, 0)
+	var glow := _material(Color(0.9, 0.95, 0.7))
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.85, 0.45)
+	glow.emission_energy_multiplier = 1.0
+	win.material_override = glow
+	root.add_child(win)
+	var roof := MeshInstance3D.new()
+	var rfm := CylinderMesh.new()
+	rfm.top_radius = 0.0
+	rfm.bottom_radius = 2.0
+	rfm.height = 1.6
+	rfm.radial_segments = 10
+	roof.mesh = rfm
+	roof.position.y = 6.3
+	var thatch := _material(Color(0.5, 0.62, 0.3))
+	thatch.roughness = 1.0
+	roof.material_override = thatch
+	root.add_child(roof)
+	var finial := MeshInstance3D.new()
+	var fm := SphereMesh.new()
+	fm.radius = 0.16
+	fm.height = 0.32
+	finial.mesh = fm
+	finial.position.y = 7.15
+	finial.material_override = _gold()
+	root.add_child(finial)
+	# The crown: glowing wildwood canopy blobs in a ring round the platform,
+	# below the roof line so the hut stays in view from above.
+	var canopy := _leaf_material(r, false)
+	canopy.set_shader_parameter("top_color", Color.from_hsv(0.43, 0.65, 0.42))
+	canopy.set_shader_parameter("bottom_color", Color.from_hsv(0.46, 0.85, 0.16))
+	for i in 6:
+		var blob := MeshInstance3D.new()
+		var rr: float = r.randf_range(0.85, 1.15)
+		blob.mesh = _rock_mesh(r.randi(), rr, 0.12)
+		var a := TAU * i / 6.0 + 0.4
+		blob.position = Vector3(cos(a) * 2.9, 5.0 + r.randf_range(-0.3, 0.5), sin(a) * 2.9)
+		blob.material_override = canopy
+		root.add_child(blob)
+	# A lantern hung under the platform's edge.
+	var globe := MeshInstance3D.new()
+	var sph := SphereMesh.new()
+	sph.radius = 0.22
+	sph.height = 0.44
+	globe.mesh = sph
+	var gm := _material(Color(0.7, 1.0, 0.9))
+	gm.emission_enabled = true
+	gm.emission = Color(0.45, 0.95, 0.8)
+	gm.emission_energy_multiplier = 2.0
+	globe.material_override = gm
+	globe.position = Vector3(1.9, 2.75, 1.0)
+	root.add_child(globe)
+	var chain := MeshInstance3D.new()
+	var cm := BoxMesh.new()
+	cm.size = Vector3(0.04, 0.4, 0.04)
+	chain.mesh = cm
+	chain.position = Vector3(1.9, 3.05, 1.0)
+	chain.material_override = rope
+	root.add_child(chain)
+	var light := OmniLight3D.new()
+	light.light_color = Color(0.55, 1.0, 0.85)
+	light.light_energy = 1.2
+	light.omni_range = 7.0
+	light.position = Vector3(1.9, 2.6, 1.0)
+	root.add_child(light)
+
+
+func _add_critter(kind: String, pos: Vector3, pen: Rect2, seed: int = 0) -> void:
+	var c := Node3D.new()
+	c.set_script(load("res://scripts/critter.gd"))
+	add_child(c)
+	c.setup(kind, pos, pen, seed)
+
+
+func _add_sheep_pen(center: Vector3, team: int) -> void:
+	## A fenced paddock with a small flock, below the wheat.
+	var hw := 7.0
+	var hd := 2.2
+	for k in 3:
+		var fx: float = center.x - 4.4 + k * 4.4
+		_add_hex_fence(Vector3(fx, 0, center.z - hd), true)
+		_add_hex_fence(Vector3(fx, 0, center.z + hd), true)
+	_add_hex_fence(Vector3(center.x - hw, 0, center.z), false)
+	_add_hex_fence(Vector3(center.x + hw, 0, center.z), false)
+	_prop("hex/bucket_water", center + Vector3(hw - 1.0, 0, hd - 0.8), 4.0)
+	_prop("hex/sack", center + Vector3(-hw + 1.2, 0, -hd + 0.7), 3.4, 0.4)
+	for k in 4 if team == 1 else 3:
+		_add_critter("sheep", center + Vector3(-4.0 + k * 2.6, 0, (k % 2) * 1.2 - 0.6), Rect2(center.x - hw + 1.0, center.z - hd + 0.8, hw * 2.0 - 2.0, hd * 2.0 - 1.6), 800 + k)
+
+
+func _add_ambient_life() -> void:
+	## Leaves on the wind, butterflies over the flowers and birds overhead.
+	for spot: Vector3 in [Vector3(-45.0, 7.0, -8.0), Vector3(45.0, 7.0, 8.0)]:
+		var p := CPUParticles3D.new()
+		var elven: bool = spot.x < 0.0
+		p.amount = 140 if elven else 90
+		p.lifetime = 9.0
+		p.preprocess = 9.0
+		p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+		p.emission_box_extents = Vector3(34.0, 1.0, 40.0)
+		p.direction = Vector3(0.3, -1.0, 0.1)
+		p.spread = 30.0
+		p.initial_velocity_min = 0.3
+		p.initial_velocity_max = 0.7
+		p.gravity = Vector3(0, -0.55, 0)
+		p.angular_velocity_min = -120.0
+		p.angular_velocity_max = 120.0
+		p.scale_amount_min = 0.7
+		p.scale_amount_max = 1.2
+		var quad := QuadMesh.new()
+		quad.size = Vector2(0.2, 0.14)
+		p.mesh = quad
+		var m := StandardMaterial3D.new()
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		m.vertex_color_use_as_albedo = true
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color.WHITE
+		p.material_override = m
+		var ramp := Gradient.new()
+		if elven:
+			ramp.set_color(0, Color(0.6, 0.95, 0.8))
+			ramp.set_color(1, Color(0.75, 0.6, 0.95, 0.0))
+		else:
+			ramp.set_color(0, Color(0.95, 0.55, 0.15))
+			ramp.set_color(1, Color(0.8, 0.3, 0.1, 0.0))
+		p.color_ramp = ramp
+		p.position = spot
+		add_child(p)
+	var spots := [Vector3(-20, 0, 12), Vector3(-34, 0, -9), Vector3(-14, 0, -24), Vector3(20, 0, -12), Vector3(34, 0, 9), Vector3(14, 0, 24), Vector3(-26, 0, 26), Vector3(28, 0, -27)]
+	for i in spots.size():
+		var sp: Vector3 = spots[i]
+		for k in 2:
+			_add_critter("butterfly", sp + Vector3(k * 1.5, 0, k * 0.8), Rect2(sp.x - 4.0, sp.z - 4.0, 8.0, 8.0), 900 + i * 2 + k)
+	for i in 4:
+		var b := Node3D.new()
+		b.set_script(load("res://scripts/critter.gd"))
+		add_child(b)
+		b.setup("bird", Vector3(0, 12, 0), Rect2(), 950 + i)
+		b.orbit(Vector3(float(i - 1.5) * 6.0, 0, -8.0 + float(i % 2) * 14.0), 24.0 + float(i) * 2.5, 11.0 + float(i) * 0.6)
+		b.orbit_phase = float(i) * 0.35
 
 
 func _add_soil_patch(pos: Vector3, radius: float, color: Color = Color(0.4, 0.28, 0.17)) -> void:
@@ -5243,9 +5538,12 @@ func _build_world() -> void:
 			_prop("hex/trees_%s_medium" % ["A", "B"][i % 2], Vector3(x, 0, 40.0 + (i % 3) * 1.5), 4.0, float(i))
 			_prop("hex/trees_%s_medium" % ["B", "A"][i % 2], Vector3(x + 3.0, 0, -40.0 - (i % 3) * 1.5), 4.0, float(i))
 	for i in 7:
+		# Hills beyond the far edges, but not behind the farms and villages.
 		var hx := -60.0 + i * 20.0
-		_prop("hex/hill_single_%s" % ["A", "B", "C"][i % 3], Vector3(hx, -0.2, 60.0), 12.0, float(i))
-		_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
+		if absf(hx) < 42.0:
+			_prop("hex/hill_single_%s" % ["A", "B", "C"][i % 3], Vector3(hx, -0.2, 60.0), 12.0, float(i))
+		if absf(hx + 10.0) < 42.0:
+			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
 	_build_outskirts()
 
 	_apply_map_variant()
