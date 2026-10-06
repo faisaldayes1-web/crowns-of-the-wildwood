@@ -1083,6 +1083,12 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		var c: Vector2 = m.call(mark[0])
 		if mark[1] == "ruin":
 			draw_rect(Rect2(c - Vector2(3.5, 2.5) * sx, Vector2(7, 5) * sx), Color(0.62, 0.6, 0.56))
+		elif mark[1] == "barrow":
+			draw_circle(c, 3.2 * sx, Color(0.4, 0.42, 0.4))
+			draw_rect(Rect2(c - Vector2(1.2, 2.0) * sx, Vector2(2.4, 3.0) * sx), Color(0.3, 0.3, 0.3))
+		elif mark[1] == "mill":
+			draw_rect(Rect2(c - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.6, 0.45, 0.3))
+			draw_arc(c + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
 	# The river, the island and the bridges.
 	draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF - 0.8, 0, -hz)), Vector2((2.0 * game.RIVER_HALF + 1.6) * sx, 2.0 * hz * sz)), Color(0.55, 0.75, 0.9))
 	draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF, 0, -hz)), Vector2(2.0 * game.RIVER_HALF * sx, 2.0 * hz * sz)), Color(0.22, 0.48, 0.8))

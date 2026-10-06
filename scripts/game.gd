@@ -4720,6 +4720,7 @@ func _add_watermills() -> void:
 				w.visible = false
 		_add_waterwheel(Vector3(sx * (RIVER_HALF - 0.4), 0.35, z), sx)
 		_add_blocker(pos, 2.0, 4.0)
+		map_marks.append([pos, "mill"])
 		_add_light(pos + Vector3(sx * 1.5, 2.2, 0), Color(1.0, 0.8, 0.5), 0.8, 5.0)
 		_prop("hex/sack", pos + Vector3(sx * 2.6, 0, 1.6), 3.6, 0.9)
 		_prop("hex/sack", pos + Vector3(sx * 3.1, 0, 0.9), 3.6, 2.1)
@@ -4791,6 +4792,8 @@ func _add_field_rocks() -> void:
 			continue
 		if Vector2(x, z).distance_to(Vector2(-30.0, 22.0)) < 9.0:
 			continue
+		if absf(absf(z) - 30.0) < 6.0 and absf(x) < RIVER_HALF + 8.0:
+			continue   # the watermills
 		var near_tree := false
 		for t in map_trees:
 			if Vector2(t.x, t.z).distance_to(Vector2(x, z)) < 2.5:
@@ -4858,6 +4861,7 @@ func _add_river_plants() -> void:
 func _add_barrow(pos: Vector3) -> void:
 	## The old barrow in the Wildwood: a crypt, leaning stones, a dead tree
 	## and candles that never go out.
+	map_marks.append([pos, "barrow"])
 	_prop("halloween/crypt", pos, 0.55, PI * 0.9)
 	_add_blocker(pos, 1.7)
 	_prop("halloween/floor_dirt", pos + Vector3(0, 0.01, 2.6), 1.0, 0.0)
