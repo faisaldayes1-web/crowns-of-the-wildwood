@@ -3652,8 +3652,9 @@ func _add_stairs(bottom: Vector3, top: Vector3, width: float, mat: Material, rai
 		tread.rotation.y = atan2(-flat.z, flat.x)
 		tread.material_override = edge
 		add_child(tread)
-	var off := Vector3(0, 0, rail_side * (width / 2.0 - 0.08))
-	_add_railing(bottom + off, top + off)
+	if rail_side != 0.0:
+		var off := Vector3(0, 0, rail_side * (width / 2.0 - 0.08))
+		_add_railing(bottom + off, top + off)
 
 
 func _add_banner(team: int, pos: Vector3, out: Vector3, scale: float = 0.7, shield: bool = false) -> void:
@@ -5164,8 +5165,8 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# Low walls along the raised part of the stairs (the foot is open).
 		_add_block(Vector3(bx + side * 3.0, CELLAR_Y + 0.6, zs * 1.9), Vector3(7.6, 1.2, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)))
 	# The sanctuary barrier at the top of the stairs: the enemy team can't pass
-	# it and nothing they fire gets through. Elves raise a wall of light,
-	# Humans drop an iron portcullis.
+	# it and nothing they fire gets through. Elves raise a wall of green
+	# light, Humans a ward of blue light.
 	var barrier := StaticBody3D.new()
 	barrier.collision_layer = 4 if team == 0 else 8
 	barrier.collision_mask = 0
@@ -5192,41 +5193,22 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_add_crystal(Vector3(bx - side * 0.2, 0, -2.3), 0.7)
 		_add_crystal(Vector3(bx - side * 0.2, 0, 2.3), 0.7)
 	else:
-		var iron := StandardMaterial3D.new()
-		iron.albedo_color = Color(0.25, 0.26, 0.3)
-		iron.metallic = 0.9
-		iron.roughness = 0.4
-		for k in 7:
-			var bar := MeshInstance3D.new()
-			var bm := CylinderMesh.new()
-			bm.top_radius = 0.06
-			bm.bottom_radius = 0.06
-			bm.height = 2.9
-			bm.radial_segments = 6
-			bar.mesh = bm
-			bar.position = Vector3(bx, 1.45, -1.65 + k * 0.55)
-			bar.material_override = iron
-			add_child(bar)
-		for yy in [0.9, 2.1]:
-			var rail := MeshInstance3D.new()
-			var rm := BoxMesh.new()
-			rm.size = Vector3(0.14, 0.12, 3.5)
-			rail.mesh = rm
-			rail.position = Vector3(bx, yy, 0)
-			rail.material_override = iron
-			add_child(rail)
+		# The Humans' ward: a sheet of blue light (no portcullis, nothing
+		# gate-like inside the castle) with a brazier either side.
 		var field := MeshInstance3D.new()
 		var fq := BoxMesh.new()
-		fq.size = Vector3(0.06, 2.9, 3.5)
+		fq.size = Vector3(0.12, 2.9, 3.5)
 		field.mesh = fq
 		var fm := StandardMaterial3D.new()
 		fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		fm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		fm.albedo_color = Color(0.4, 0.6, 1.0, 0.18)
+		fm.albedo_color = Color(0.4, 0.6, 1.0, 0.3)
 		field.material_override = fm
 		field.position = Vector3(bx, 1.45, 0)
 		add_child(field)
+		_add_torch(Vector3(bx - side * 0.2, 0, -2.3))
+		_add_torch(Vector3(bx - side * 0.2, 0, 2.3))
 	# The spawn circle at the far end: a glowing team-coloured ring on the floor.
 	var spawn := Vector3(bx + side * 8.6, CELLAR_Y, 0)
 	_add_rug(spawn + Vector3(-side * 2.0, 0, 0), Vector2(1.4, 9.0), color)

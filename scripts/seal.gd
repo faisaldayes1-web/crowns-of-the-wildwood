@@ -73,6 +73,7 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	# turning slowly (after Fat Princess's hats). Grab it to become the class.
 	seal = Node3D.new()
 	seal.position.y = 1.45
+	seal.scale = Vector3.ONE * 1.5   # big enough to read from the camera
 	add_child(seal)
 	locked = role == Stats.Role.ROGUE and not game.unlocked()
 	_build_hat(seal, elf)
