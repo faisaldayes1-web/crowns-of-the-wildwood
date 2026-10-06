@@ -309,86 +309,52 @@ def make_bark():
 
 
 def make_grass():
-    blotch = fbm(N, 3, 4, 51)
-    macro = fbm(N, 2, 2, 59)   # very low-frequency meadow patches, so the tile reads less as a tile
-    blotch = blotch * 0.7 + macro * 0.3
-    fine = fbm(N, 48, 3, 52)
-    strokes = fbm(N, 12, 2, 53)
-    # Painted grass: broad blotches of two greens, fine tufts on top, light flecks.
-    deep = rgb(0.30, 0.56, 0.20)
-    bright = rgb(0.55, 0.78, 0.28)
-    color = lerp(deep, bright, np.clip(blotch * 1.3 - 0.15, 0, 1)[..., None])
-    color = color * (0.88 + 0.24 * fine)[..., None]
-    flecks = (fine > 0.72) & (strokes > 0.5)
-    color = lerp(color, rgb(0.68, 0.84, 0.38), flecks[..., None] * 0.55)
-    # Clover and worn patches.
-    clover = fbm(N, 5, 2, 55)
-    color = lerp(color, rgb(0.22, 0.42, 0.20), np.clip((clover - 0.6) * 3, 0, 1)[..., None] * 0.6)
-    color = lerp(color, rgb(0.58, 0.60, 0.32), np.clip((0.35 - clover) * 4, 0, 1)[..., None] * 0.5)
-    # Flowers.
-    r = np.random.default_rng(54)
-    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
-    for _ in range(70):
-        fx, fy = r.uniform(0, N), r.uniform(0, N)
-        d = np.sqrt(((xs - fx + N / 2) % N - N / 2) ** 2 + ((ys - fy + N / 2) % N - N / 2) ** 2)
-        petal = d < 5
-        tint = [rgb(0.98, 0.9, 0.5), rgb(0.95, 0.6, 0.7), rgb(0.55, 0.75, 1.0), rgb(0.95, 0.5, 0.6), rgb(0.9, 0.45, 0.2)][_ % 5]
-        color = lerp(color, tint, petal[..., None] * 0.9)
-    # Painted blade strokes: fine streaks that lean one way.
-    sy, sx = np.mgrid[0:N, 0:N].astype(np.float64)
-    streaks = value_noise(N, 96, 57)
-    blades = np.clip((streaks - 0.6) * 4, 0, 1) * (fbm(N, 6, 2, 58) > 0.4)
-    color = lerp(color, rgb(0.62, 0.82, 0.34), blades[..., None] * 0.5)
-    color = lerp(color, rgb(0.24, 0.46, 0.18), np.clip((0.42 - blotch) * 3, 0, 1)[..., None] * 0.4)
-    h = 0.6 * fine + 0.4 * blotch + 0.2 * blades
-    save("grass", color, np.clip(h, 0, 1), 0.7)
+    """A clean meadow: two soft greens in broad, low-contrast patches with a
+    fine even nap and nothing that reads as a repeating mark. Flowers,
+    tufts and stones are placed by the game, not painted here."""
+    macro = fbm(N, 2, 2, 59)
+    blotch = fbm(N, 4, 3, 51)
+    patches = np.clip((blotch * 0.65 + macro * 0.35) * 1.4 - 0.2, 0, 1)
+    nap = fbm(N, 64, 2, 52)
+    deep = rgb(0.36, 0.60, 0.24)
+    bright = rgb(0.50, 0.74, 0.30)
+    color = lerp(deep, bright, patches[..., None])
+    color = color * (0.96 + 0.08 * nap)[..., None]
+    h = 0.25 * nap + 0.3 * patches
+    save("grass", color, np.clip(h, 0, 1), 0.35)
 
 
 def make_dirt():
-    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
-    base = fbm(N, 8, 4, 61)
-    pebbles = fbm(N, 80, 2, 62)
-    # Two wheel ruts running along U (world x on the road) and hoof-worn centre.
-    v = ys / N
-    rut = np.exp(-((v - 0.38) ** 2) / 0.0012) + np.exp(-((v - 0.62) ** 2) / 0.0012)
-    rut = rut * (0.8 + 0.2 * fbm(N, 3, 2, 63))
-    light = rgb(0.84, 0.70, 0.48)
-    dark = rgb(0.64, 0.50, 0.32)
-    color = lerp(dark, light, np.clip(base * 1.2, 0, 1)[..., None])
-    color = lerp(color, rgb(0.56, 0.44, 0.28), np.clip(rut * 0.6, 0, 1)[..., None])
-    stones = pebbles > 0.78
-    color = lerp(color, rgb(0.66, 0.62, 0.56), stones[..., None] * 0.8)
-    # Grass creeping in from the edges of the texture's V axis (road sides).
-    edge = np.clip((np.abs(v - 0.5) - 0.27) / 0.1, 0, 1) * (fbm(N, 10, 3, 64) > 0.45)
-    color = lerp(color, rgb(0.45, 0.62, 0.28), edge[..., None] * 0.85)
-    h = 0.5 * base + 0.3 * (pebbles > 0.78) - 0.3 * rut + 0.2 * edge
-    save("dirt", color, np.clip(h, 0, 1), 1.5)
+    """Packed earth for the road verges: warm, even, a few faint pebbles,
+    no ruts or edges (the mapping is triplanar, so nothing directional)."""
+    base = fbm(N, 5, 4, 61)
+    pebbles = fbm(N, 70, 2, 62) > 0.84
+    light = rgb(0.80, 0.68, 0.48)
+    dark = rgb(0.68, 0.56, 0.38)
+    color = lerp(dark, light, np.clip(base * 1.1, 0, 1)[..., None])
+    color = lerp(color, rgb(0.70, 0.66, 0.58), pebbles[..., None] * 0.5)
+    h = 0.5 * base + 0.2 * pebbles
+    save("dirt", color, np.clip(h, 0, 1), 0.8)
 
 
 def make_road():
-    """A packed-earth road with flat paving stones half sunk into it, wheel
-    ruts, pebbles and grass creeping in at the edges."""
-    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
-    base = fbm(N, 6, 4, 81)
-    v = ys / N
-    rut = np.exp(-((v - 0.36) ** 2) / 0.0015) + np.exp(-((v - 0.64) ** 2) / 0.0015)
-    rut = rut * (0.7 + 0.3 * fbm(N, 3, 2, 82))
-    earth_light = rgb(0.86, 0.72, 0.50)
-    earth_dark = rgb(0.64, 0.50, 0.33)
-    color = lerp(earth_dark, earth_light, np.clip(base * 1.3, 0, 1)[..., None])
-    color = lerp(color, rgb(0.54, 0.42, 0.28), np.clip(rut * 0.6, 0, 1)[..., None])
-    # Paving stones: a cellular pattern from thresholded, blurred noise.
-    cells = fbm(N, 14, 2, 83)
-    edges = np.abs(np.gradient(cells)[0]) + np.abs(np.gradient(cells)[1])
-    stone_mask = (edges < 0.004) & (fbm(N, 5, 2, 84) > 0.42) & (np.abs(v - 0.5) < 0.34)
-    stone_tone = lerp(rgb(0.72, 0.64, 0.50), rgb(0.86, 0.78, 0.62), fbm(N, 20, 2, 85)[..., None])
-    color = lerp(color, stone_tone, stone_mask[..., None] * 0.9)
-    pebbles = fbm(N, 90, 2, 86) > 0.8
-    color = lerp(color, rgb(0.66, 0.62, 0.56), pebbles[..., None] * 0.7)
-    edge = np.clip((np.abs(v - 0.5) - 0.3) / 0.1, 0, 1) * (fbm(N, 10, 3, 87) > 0.42)
-    color = lerp(color, rgb(0.44, 0.60, 0.27), edge[..., None] * 0.9)
-    h = 0.45 * base + 0.45 * stone_mask + 0.25 * pebbles - 0.3 * rut + 0.15 * edge
-    save("road", color, np.clip(h, 0, 1), 1.8)
+    """A packed-earth road with flat, worn paving stones sunk into it: an
+    even cobbled look with no direction to it, so it tiles cleanly under
+    the triplanar mapping."""
+    base = fbm(N, 5, 4, 81)
+    earth_light = rgb(0.80, 0.68, 0.48)
+    earth_dark = rgb(0.64, 0.52, 0.36)
+    color = lerp(earth_dark, earth_light, np.clip(base * 1.1, 0, 1)[..., None])
+    # Flat stones: cells of thresholded noise with soft joints between them.
+    cells = fbm(N, 12, 2, 83)
+    gy, gx = np.gradient(cells)
+    edges = np.abs(gx) + np.abs(gy)
+    stone_mask = (edges < 0.0035) & (fbm(N, 4, 2, 84) > 0.38)
+    stone_mask = np.array(Image.fromarray((stone_mask * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(2))) / 255.0
+    stone_tone = lerp(rgb(0.74, 0.68, 0.56), rgb(0.84, 0.78, 0.66), fbm(N, 18, 2, 85)[..., None])
+    color = lerp(color, stone_tone, stone_mask[..., None] * 0.85)
+    h = 0.4 * base + 0.5 * stone_mask
+    save("road", color, np.clip(h, 0, 1), 1.2)
 
 
 def make_rock():

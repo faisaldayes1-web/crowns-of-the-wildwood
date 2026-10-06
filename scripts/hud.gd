@@ -1,9 +1,9 @@
 extends Control
 ## In-match HUD plus the title, pause and rank menus, drawn in code after the
-## UI references: the logo top-left, score and timer up top, team rosters with
-## portraits down each side, a minimap bottom-left, the player's portrait,
+## UI references: the logo top-right, score and timer up top, team rosters with
+## portraits down each side (hidden unless asked for), a minimap top-left, the player's portrait,
 ## hearts, energy, experience and ability slots at the bottom, and the
-## objective card bottom-right. Reskin by editing here.
+## chat on the left. Reskin by editing here.
 
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
@@ -50,7 +50,6 @@ var close_button := Rect2()
 var difficulty_buttons: Array = []  # [rect, name] on the title screen
 var guide_buttons: Array = []       # [rect, "next" | "close" | topic index]
 var chat_buttons: Array = []        # [rect, tab index]
-var academy_buttons: Array = []     # [rect, role]
 var hero_buttons: Array = []        # [rect, "hair" | "trim" | "name", index]
 var faction_buttons: Array = []     # [rect, team]
 var title_buttons: Array = []       # [rect, tab] on the title screen
@@ -105,7 +104,6 @@ func _draw() -> void:
 	difficulty_buttons = []
 	guide_buttons = []
 	chat_buttons = []
-	academy_buttons = []
 	hero_buttons = []
 	faction_buttons = []
 	title_buttons = []
@@ -115,16 +113,17 @@ func _draw() -> void:
 			_draw_game_menu()
 		return
 	_draw_screen_fx()
-	_draw_logo(Rect2(14, 8, 200, 80))
+	_draw_logo(Rect2(size.x - 214, 8, 200, 80))
 	_draw_scoreboard()
 	if game.show_fps:
 		_text(Vector2(size.x - 134, size.y - 152), "%d FPS" % Engine.get_frames_per_second(), 11, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 120, 2)
 	if game.rosters_visible and game.player:
-		_draw_roster(game.player_team, Vector2(14, 100), true)
+		_draw_roster(game.player_team, Vector2(14, 130), true)
 		_draw_roster(1 - game.player_team, Vector2(size.x - 214, 100), true)
 	if not game.guide_open:
-		_draw_map(Rect2(14, size.y - 124, 236, 110), false)
-	_draw_objective()
+		# The minimap sits top-left; the objective card and HOW TO WIN list are
+		# gone from the live HUD (the guide and the pause menu still carry them).
+		_draw_map(Rect2(14, 8, 236, 110), false)
 	_draw_toasts()
 	if game.player and not game.guide_open:
 		_draw_player_panel(game.player)
@@ -138,10 +137,6 @@ func _draw() -> void:
 		_draw_levelup_card()
 	if not game.guide_open:
 		_draw_chat()
-	if game.tutorial_shown and not game.demo and game.player:
-		_draw_tutorial()
-	if game.in_academy() and not game.guide_open and not game.rank_open:
-		_draw_academy()
 	if game.guide_open:
 		_draw_guide()
 	if game.scoreboard_open and not game.game_over:
@@ -688,10 +683,10 @@ func _draw_scoreboard() -> void:
 	var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
 	_text(Vector2(cx - 85, 49), "%02d:%02d" % [int(left) / 60, int(left) % 60], 34,
 		Color(1, 0.4, 0.3) if urgent else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 170)
-	var ow := 190.0 if not game.overtime else 330.0
-	_plate(Rect2(cx - ow / 2.0, 66, ow, 22), INK if not game.overtime else Color(0.4, 0.1, 0.1, 0.95), GOLD_DARK if not game.overtime else Color(1, 0.5, 0.4), 6, 1)
-	_text(Vector2(cx - ow / 2.0, 82), "OVERTIME · NO RESPAWNS · LAST TEAM OR NEXT CAPTURE WINS" if game.overtime else "CAPTURE THE CROWN", 13 if not game.overtime else 11,
-		GOLD if not game.overtime else Color(1, 0.85, 0.7), HORIZONTAL_ALIGNMENT_CENTER, ow, 2)
+	if game.overtime:
+		var ow := 330.0
+		_plate(Rect2(cx - ow / 2.0, 66, ow, 22), Color(0.4, 0.1, 0.1, 0.95), Color(1, 0.5, 0.4), 6, 1)
+		_text(Vector2(cx - ow / 2.0, 82), "OVERTIME · NO RESPAWNS · LAST TEAM OR NEXT CAPTURE WINS", 11, Color(1, 0.85, 0.7), HORIZONTAL_ALIGNMENT_CENTER, ow, 2)
 
 
 func _draw_roster(team: int, origin: Vector2, compact: bool = false) -> void:
@@ -815,45 +810,6 @@ func _draw_levelup_card() -> void:
 		_class_card(rect.position + Vector2(40, 39), 26, p.team, p.role)
 	_text(rect.position + Vector2(84, 32), "LEVEL UP!", 24, Color(1, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	_text(rect.position + Vector2(84, 54), "You are now Level %d   ·   +1 Perk Point (%s)" % [game.levelup_level, game.key_label("rank_menu")], 12, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-
-
-func _draw_academy() -> void:
-	## The Academy: while you stand in your own courtyard, the four classes
-	## with a line each. Click a row or press 1-4 to become it, or step on
-	## its station.
-	var team: int = game.player_team
-	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
-	var blurbs := {Role.KNIGHT: "Frontline fighter in plate: every third hit glances off. Strong vs enemies and structures.", Role.RANGER: "Ranged attacker. Use cover and keep your distance.",
-		Role.MAGE: "Powerful spells and area control.", Role.HEALER: "Keeps teammates alive and supports the team.",
-		Role.ENGINEER: "Builds and upgrades turrets on the walls. Hammer wrecks doors.",
-		Role.ROGUE: "Daggers, shadow dashes and smoke bombs. The quickest class. Unlocks at account level %d." % Stats.UNLOCK_LEVEL}
-	if team == 0:
-		blurbs = {Role.KNIGHT: "Glaive skirmisher: long light sweeps, a wind dash and barkskin. Lighter plate.", Role.RANGER: "Moonbow: swift silver arrows with long reach, a six-arrow starfall and vine snares.",
-			Role.MAGE: "Nature magic: thorn bolts that slow, bramble bursts that root, fae steps.", Role.HEALER: "Grove mender: wide living-light heals, spirit bloom, slowing lunar lances.",
-			Role.ENGINEER: "Grows thorn totems that spit slowing thorns. The root maul wrecks doors.",
-			Role.ROGUE: "Daggers, shadow dashes and smoke bombs. The quickest class. Unlocks at account level %d." % Stats.UNLOCK_LEVEL}
-	var rect := Rect2(size.x - 480, 70, 256, 60 + roles.size() * 58)
-	var tc := _team_color(team)
-	_plate(rect, INK, GOLD, 12, 2)
-	var head := Rect2(rect.position + Vector2(10, -12), Vector2(rect.size.x - 20, 40))
-	_plate(head, tc.darkened(0.55), GOLD, 8, 2)
-	_text(head.position + Vector2(0, 17), "%s ACADEMY" % Stats.FACTIONS[team].realm.to_upper(), 14, CREAM, HORIZONTAL_ALIGNMENT_CENTER, head.size.x, 3)
-	_text(head.position + Vector2(0, 32), "CHOOSE YOUR CLASS", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, head.size.x, 2)
-	for i in roles.size():
-		var role: int = roles[i]
-		var row := Rect2(rect.position + Vector2(10, 38 + i * 58), Vector2(rect.size.x - 20, 52))
-		var mine: bool = game.player.role == role
-		var hover: bool = row.has_point(get_local_mouse_position())
-		_plate(row, Color(0.3, 0.26, 0.12, 0.98) if mine else (INK_LIGHT.lightened(0.08) if hover else INK_LIGHT), GOLD if mine else GOLD_DARK, 8, 1)
-		_class_card(row.position + Vector2(26, 26), 19, team, role)
-		var locked: bool = role == Role.ROGUE and not game.unlocked()
-		_text(row.position + Vector2(52, 19), Stats.FACTIONS[team].roles[role], 14, GOLD if mine else (GREY if locked else CREAM), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-		if locked:
-			_text(row.position + Vector2(52 + _text_width(Stats.FACTIONS[team].roles[role], 14) + 8, row.position.y + 19 - row.position.y), "LOCKED", 9, Color(1.0, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_keycap(Vector2(row.end.x - 16, row.position.y + 14), str(i + 1), 20)
-		_paragraph(row.position + Vector2(52, 34), blurbs[role], 9, Color(0.85, 0.85, 0.85), row.size.x - 60, 11, 1)
-		academy_buttons.append([row, role])
-	_text(rect.position + Vector2(0, rect.size.y - 8), "Grab a seal in your cellar, click a class or press 1-6", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _draw_toasts() -> void:
@@ -996,7 +952,7 @@ func _draw_player_panel(p) -> void:
 			_slot(Vector2(sx + (i + 1) * gap, sy), slot, a.get("icon", a.kind), Stats.ROLES[p.role].color.lightened(0.3), game.key_label("ability_%d" % (i + 1)), a.name,
 				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1), false, a.cost, STAMINA if p.energy_kind() == "stamina" else MANA)
 		else:
-			_slot(Vector2(sx + (i + 1) * gap, sy), slot, "", Color.WHITE, game.key_label("ability_%d" % (i + 1)), "pick a class", 0.0, 1.0, false)
+			_slot(Vector2(sx + (i + 1) * gap, sy), slot, "", Color.WHITE, game.key_label("ability_%d" % (i + 1)), "", 0.0, 1.0, false)
 	_slot(Vector2(sx + 3 * gap, sy), slot, "dodge", STAMINA, game.key_label("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
 		alive and p.energy >= Stats.DODGE_COST)
 	if p.can_block():
@@ -1333,7 +1289,7 @@ func _menu_overview(body: Rect2) -> void:
 		var ly: float = y + (i / 3) * 18
 		draw_circle(Vector2(x, ly - 4), 5, legend[i][1])
 		_text(Vector2(x + 12, ly), legend[i][0], 11, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, carry their monarch home. Grab a class seal in your cellar.", 11, GREY,
+	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, carry their monarch home. Grab a class hat in your cellar.", 11, GREY,
 		HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
 
 
@@ -1535,7 +1491,7 @@ func _menu_my_class(body: Rect2) -> void:
 		_text(Vector2(left.position.x + 14, y), facts[i][0], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(Vector2(left.position.x, y), facts[i][1], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, left.size.x - 14, 2)
 	if p.role == Role.BASE:
-		_paragraph(left.position + Vector2(14, 328), "You are a villager. Grab a class seal in your cellar (press %s beside it) to pick a class." % game.key_label("interact"), 10, CREAM, left.size.x - 28, 12.0)
+		_paragraph(left.position + Vector2(14, 328), "You are a villager. Grab a class hat in your cellar (press %s beside it) to pick a class." % game.key_label("interact"), 10, CREAM, left.size.x - 28, 12.0)
 	else:
 		_text(left.position + Vector2(14, 332), s.attack_name, 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_paragraph(left.position + Vector2(14, 348), s.attack_desc, 10, Color(0.8, 0.8, 0.8), left.size.x - 28, 12.0)
@@ -1695,7 +1651,7 @@ func _draw_chat() -> void:
 	## speaker's portrait, their name in team colour, the match clock and the
 	## line; while typing it sits in a panel with All/Team tabs and an input
 	## box with a send arrow. Idle, recent rows fade out over the field.
-	var top: float = 352.0 if game.rosters_visible else 100.0
+	var top: float = 382.0 if game.rosters_visible else 130.0
 	var rect := Rect2(14, top, 290, size.y - 166 - top)
 	var now := Time.get_ticks_msec() / 1000.0
 	var typing: bool = game.chat_open

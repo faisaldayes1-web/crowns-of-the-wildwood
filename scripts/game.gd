@@ -83,7 +83,7 @@ var map_half := Vector2(84, 36)
 var bot_difficulty := "Normal"   # Easy / Normal / Hard, saved with the controls
 var chat_visible := true          # H hides the chat log
 var chat_tab := 0                 # 0 All, 1 Team: the log's filter tabs
-var rosters_visible := true       # N hides the side team rosters
+var rosters_visible := false      # N shows the side team rosters (off by default; Tab has the teams)
 # Hero customizer (title screen): name, hair and trim colour.
 var hero_name := ""
 var hero_hair := 0
@@ -1562,8 +1562,8 @@ func plant_barricade(u) -> bool:
 		why = "Only on your own side of the river"
 	elif absf(u.global_position.z) < 3.0 and absf(u.global_position.x - _front_x(team)) < 9.0:
 		why = "Not in the door lane"
-	elif _inside_castle(team, u.global_position) and u.global_position.y < 1.0 and absf(u.global_position.x - _front_x(team)) < 4.0:
-		why = "Not in the doorway"
+	elif _inside_castle(team, u.global_position) or absf(u.global_position.x) > CASTLE_X - CASTLE_DEPTH - 1.6:
+		why = "Only outside the walls"
 	if why != "":
 		if u.is_player:
 			toast(why, Color(1.0, 0.8, 0.5))
@@ -1673,23 +1673,6 @@ func _bank_match_xp(winner: int) -> void:
 		sfx.ui("level_up")
 		if now >= Stats.UNLOCK_LEVEL and level_before < Stats.UNLOCK_LEVEL:
 			chat_system("Account level %d: the Rogue, the Shadowborn look and the Moonlit Wildwood are unlocked!" % now)
-
-
-func academy_pick(role: int) -> void:
-	## Choose a class from the Academy panel (only inside your own courtyard).
-	if player == null or player.dead or player.carrying or not _in_cellar(player_team, player.global_position):
-		return
-	if role == Role.ROGUE and not unlocked():
-		toast("The Rogue unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
-		return
-	if player.role != role:
-		player.set_role(role)
-		spawn_pillar(player.global_position, Stats.ROLES[role].color, 3.0, 0.8)
-		announce("You are now a %s." % player.role_name())
-
-
-func in_academy() -> bool:
-	return player != null and playing and not player.dead and _in_cellar(player_team, player.global_position)
 
 
 func guide_toggle() -> void:
@@ -1836,11 +1819,6 @@ func menu_tick() -> void:
 			for kind in ["attack", "defend", "help"]:
 				if Input.is_action_just_pressed("cmd_" + kind):
 					call_command(kind)
-		# The Academy: in your own courtyard, 1-4 pick a class outright.
-		if player and not rank_open and not guide_open and not player.dead and player.carrying == null and _in_cellar(player_team, player.global_position):
-			for i in 6:
-				if Input.is_action_just_pressed("rank_%d" % (i + 1)):
-					academy_pick(i + 1)
 		if rank_open and player:
 			if player.dead:
 				rank_open = false
@@ -1957,9 +1935,6 @@ func menu_tick() -> void:
 			for b in hud.faction_buttons:
 				if b[0].has_point(mouse) and not was_editing:
 					_start_match(b[1])
-		for b in hud.academy_buttons:
-			if b[0].has_point(mouse):
-				academy_pick(b[1])
 		for b in hud.guide_buttons:
 			if b[0].has_point(mouse):
 				if b[1] == "next":
@@ -2233,7 +2208,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "sound_volume", sfx.sound_volume)
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
 	cfg.set_value("settings", "chat_visible", chat_visible)
-	cfg.set_value("settings", "rosters_visible", rosters_visible)
+	cfg.set_value("settings", "rosters_shown", rosters_visible)
 	cfg.set_value("settings", "screen_shake", screen_shake)
 	cfg.set_value("settings", "damage_numbers", damage_numbers)
 	cfg.set_value("settings", "show_fps", show_fps)
@@ -2274,7 +2249,7 @@ func _load_controls() -> void:
 	if diff in Stats.BOT_DIFFICULTIES:
 		bot_difficulty = diff
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
-	rosters_visible = cfg.get_value("settings", "rosters_visible", true)
+	rosters_visible = cfg.get_value("settings", "rosters_shown", false)
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", false)
@@ -2359,7 +2334,7 @@ func _wood(tint: Color = Color.WHITE, scale: float = 0.5) -> StandardMaterial3D:
 
 func _dirt() -> StandardMaterial3D:
 	## The rutted dirt road texture (tools/make_textures.py).
-	return _pbr("dirt", 0.12)
+	return _pbr("dirt", 0.17)
 
 
 func _prop(name: String, pos: Vector3, scale: float = 1.0, rot_y: float = 0.0) -> Node3D:
@@ -2373,7 +2348,42 @@ func _prop(name: String, pos: Vector3, scale: float = 1.0, rot_y: float = 0.0) -
 	inst.rotation.y = rot_y
 	add_child(inst)
 	audit_props.append([name, inst])
+	if prop_solid:
+		_solidify_prop(inst, pos)
 	return inst
+
+
+var prop_solid := false   # while a castle is being built: clutter gets colliders
+
+
+func _solidify_prop(inst: Node3D, pos: Vector3) -> void:
+	## A box collider the size of the prop, so nobody walks through crates,
+	## barrels, racks and furniture. Rugs, coins and anything hung high stay
+	## walkable.
+	var aabb := AABB()
+	var first := true
+	for m in inst.find_children("*", "MeshInstance3D", true, false):
+		var a: AABB = m.global_transform * m.get_aabb()
+		if first:
+			aabb = a
+			first = false
+		else:
+			aabb = aabb.merge(a)
+	if first:
+		return
+	var floor_y: float = CELLAR_Y if pos.y < -1.0 else (WALK_Y if pos.y > 2.5 else 0.0)
+	if aabb.position.y - floor_y > 1.0 or aabb.size.y < 0.35 or aabb.size.x > 6.0 or aabb.size.z > 6.0:
+		return
+	if "--audit" in OS.get_cmdline_user_args():
+		print("SOLID %s at %s size %s" % [inst.scene_file_path.get_file(), aabb.get_center().snapped(Vector3(0.1, 0.1, 0.1)), aabb.size.snapped(Vector3(0.1, 0.1, 0.1))])
+	var body := StaticBody3D.new()
+	body.position = aabb.get_center()
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(maxf(aabb.size.x, 0.3), aabb.size.y, maxf(aabb.size.z, 0.3))
+	shape.shape = box
+	body.add_child(shape)
+	add_child(body)
 
 
 func _add_path(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
@@ -2508,7 +2518,7 @@ func _add_ground_detail() -> void:
 	var leaf := PlaneMesh.new()
 	leaf.size = Vector2(0.34, 0.26)
 	var sets := [
-		["flower", flower, 900, 0.14], ["tuft", tuft, 1500, 0.18], ["stone", stone, 260, 0.0], ["cap", cap, 160, 0.26], ["leaf", leaf, 600, 0.02]]
+		["flower", flower, 520, 0.14], ["tuft", tuft, 1500, 0.18], ["stone", stone, 90, 0.0], ["cap", cap, 120, 0.26], ["leaf", leaf, 260, 0.02]]
 	for s in sets:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -4038,7 +4048,9 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 	# supplies and candles.
 	for zs in [-1.0, 1.0]:
 		for k in 2:
-			var bpos := Vector3(bx + side * (9.3 - k * 2.3), CELLAR_Y, zs * (hz - 1.2))
+			# Two bunks end to end against the side wall, clear of the seal pads
+			# (and with no gap between them for anyone to get wedged in).
+			var bpos := Vector3(bx + side * (9.3 - k * 1.9), CELLAR_Y, zs * (hz - 0.6))
 			if elven:
 				_prop("dungeon/bed_floor", bpos, 0.65, PI / 2.0)
 			else:
@@ -4049,7 +4061,6 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 		else:
 			_prop("dungeon/shelves", Vector3(bx + side * 1.4, CELLAR_Y, zs * (hz - 0.5)), 0.7, PI if zs > 0.0 else 0.0)
 			_prop("dungeon/bottle_A_labeled_brown", Vector3(bx + side * 1.4, CELLAR_Y + 0.95, zs * (hz - 0.75)), 0.5)
-			_prop("dungeon/crates_stacked", Vector3(bx + side * 4.0, CELLAR_Y, zs * (hz - 1.3)), 0.55, 0.3 * zs)
 		if elven:
 			_add_mushrooms(Vector3(bx + side * 5.0, CELLAR_Y, zs * (hz - 0.6)), 51 + int(zs))
 		else:
@@ -4232,11 +4243,6 @@ func _build_hamlet(team: int, sx: float) -> void:
 	_prop("hex/wheelbarrow", Vector3(ox + sx * 1.2, 0, oz - 2.6), 4.0, 0.6)
 	_prop("hex/crate_open", Vector3(ox + sx * 12.3, 0, oz - 1.6), 4.0, 0.2)
 	_prop("hex/resource_lumber" if team == 0 else "hex/resource_stone", Vector3(ox + sx * 12.6, 0, oz - 3.8), 4.0, 0.0)
-	for k in 6:
-		var fx: float = ox - 11.0 + k * 4.4
-		if k == 2:
-			continue   # the gap into the lane
-		_add_hex_fence(Vector3(fx, 0, oz + 3.4), true)
 	for x in [ox - 13.2, ox + 13.2]:
 		if team == 0:
 			_add_lantern(Vector3(x, 0, oz + 3.0), 2.4)
@@ -4265,11 +4271,6 @@ func _build_farm(team: int, sx: float) -> void:
 	else:
 		_add_house("home_A", team, Vector3(ox - 13.0, 0, oz + 4.0), 3.6, PI)
 	_add_sheep_pen(Vector3(ox - 1.0, 0, oz + 14.6), team)
-	for k in 8:
-		var fx: float = ox - 15.0 + k * 4.4
-		if k == 4:
-			continue
-		_add_hex_fence(Vector3(fx, 0, oz - 2.6), true)
 	_prop("hex/wheelbarrow", Vector3(ox - 10.0, 0, oz - 1.0), 4.0, 2.4)
 	_prop("hex/sack", Vector3(ox + 9.0, 0, oz - 1.2), 4.0, 0.3)
 	_prop("hex/sack", Vector3(ox + 9.8, 0, oz - 0.6), 4.0, 1.9)
@@ -4930,6 +4931,7 @@ func _build_castle(team: int) -> void:
 	var side := -1.0 if team == 0 else 1.0
 	var color: Color = Stats.FACTIONS[team].color
 	mossy = team == 0
+	prop_solid = true
 	var cx := side * CASTLE_X
 	var fx := _front_x(team)                      # outer wall's front, facing the middle
 	var bx := side * (CASTLE_X + CASTLE_DEPTH)    # outer wall's back
@@ -4968,9 +4970,7 @@ func _build_castle(team: int) -> void:
 			_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.75, pz), Vector3(0.34, 0.5, 0.9), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# The door's lintel: a timber beam and the team crest over the gate.
 	_add_block(Vector3(fx, WALK_Y - 0.7, 0), Vector3(1.4, 0.3, dh * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
-	var ramp_gap := [[hz - 3.7, hz - 1.3], [-(hz - 1.3), -(hz - 3.7)]]
-	_add_railing(Vector3(fx + side * 1.12, WALK_Y, -(hz - 1.3)), Vector3(fx + side * 1.12, WALK_Y, hz - 1.3),
-		[[-(dh + 2.3), dh + 2.3], ramp_gap[1], ramp_gap[0]])
+	# (No railing along the rampart's inner edge: nothing fence-like inside the walls.)
 
 	# Stairs from the yard up to the rampart, along each side wall.
 	ramps.append([])
@@ -4978,7 +4978,7 @@ func _build_castle(team: int) -> void:
 		var z: float = zs * (hz - 2.5)
 		var bottom := Vector3(fx + side * (KEEP_SETBACK - 1.5), 0.0, z)
 		var top := Vector3(fx + side * 1.2, WALK_Y, z)
-		_add_stairs(bottom + Vector3(0, -0.3, 0), top, 2.2, _timber(), -zs)
+		_add_stairs(bottom + Vector3(0, -0.3, 0), top, 2.2, _timber(), 0.0)
 		ramps[team].append({"bottom": bottom, "top": top})
 	# Archer posts on the rampart, either side of the gatehouse.
 	wall_posts.append([Vector3(fx, WALK_Y, -(dh + 3.4)), Vector3(fx, WALK_Y, dh + 3.4)])
@@ -5024,8 +5024,9 @@ func _build_castle(team: int) -> void:
 	# --- Life in the yard: a training corner north of the gate, stores south of it. ---
 	# Training corner (z < 0): rack against the wall, a target across from it.
 	_prop("hex/weaponrack", Vector3(in_x + side * 0.4, 0, -(dh + 3.0)), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
-	_prop("hex/target", Vector3(in_x + side * 3.0, 0, -(dh + 3.0)), 4.0, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	_prop("hex/bucket_arrows", Vector3(in_x + side * 3.0, 0, -(dh + 1.9)), 4.0, 0.4)
+	# (The target stands past the bots' turret spot just inside the door.)
+	_prop("hex/target", Vector3(in_x + side * 3.0, 0, -(dh + 6.2)), 4.0, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	_prop("hex/bucket_arrows", Vector3(in_x + side * 1.6, 0, -(dh + 5.0)), 4.0, 0.4)
 	if team == 0:
 		# The elven yard keeps clear: glowing mushrooms along the walls instead of stores.
 		_add_mushrooms(Vector3(in_x + side * 1.2, 0, 7.0), 21)
@@ -5130,6 +5131,7 @@ func _build_castle(team: int) -> void:
 	m.setup(team, throne, color, MONARCH_TITLES[team])
 	monarchs.append(m)
 	mossy = false
+	prop_solid = false
 
 
 func _build_cellar(team: int, bx: float, side: float) -> void:
@@ -5463,7 +5465,7 @@ func _build_world() -> void:
 	# The road: rutted dirt from bridge to door, cobbled aprons at each door,
 	# and grass creeping in at the edges.
 	var fxr := CASTLE_X - CASTLE_DEPTH
-	var road := _pbr("road", 0.55, Color(0.9, 0.86, 0.78))
+	var road := _pbr("road", 0.2, Color(0.92, 0.88, 0.8))
 	# The main road: door to door through the shrine, with cobbled aprons.
 	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road)
 	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road)

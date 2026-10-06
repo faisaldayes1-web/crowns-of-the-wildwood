@@ -1514,6 +1514,20 @@ func _flat_to(target: Vector3) -> Vector3:
 	return to
 
 
+func _blocked(dir: Vector3, reach: float) -> bool:
+	## True when a world collider (layer 1) that is not a walkable slope sits
+	## within `reach` metres along `dir` at knee height.
+	var space := get_world_3d().direct_space_state
+	var from := global_position + Vector3(0, 0.6, 0)
+	var probe := PhysicsRayQueryParameters3D.create(from, from + dir * reach, 1)
+	probe.exclude = [get_rid()]
+	var hit := space.intersect_ray(probe)
+	if hit.is_empty():
+		return false
+	var n: Vector3 = hit.get("normal", Vector3.UP)
+	return n.y < 0.45
+
+
 func _steer_to(target: Vector3) -> Vector3:
 	var to := _flat_to(target)
 	if to.length() < 0.6:
@@ -1527,6 +1541,20 @@ func _steer_to(target: Vector3) -> Vector3:
 		sidestep_sign = -sidestep_sign
 	if sidestep_timer > 0.0:
 		dir = (dir * 0.4 + dir.cross(Vector3.UP) * sidestep_sign).normalized()
+		return dir
+	# Look ahead: if something solid (a wall, a tree, a crate) is within two
+	# metres on our line, steer round it now rather than walk into it and
+	# wait to count as stuck. Try both sides, 45 degrees out, and take the
+	# clear one nearest our heading. The probe stops short of the target so
+	# the thing we are walking up to (a turret, a door, a seal) never counts,
+	# and a hit on a walkable slope (stairs, ramps) is ignored.
+	if to.length() > 1.5:
+		var reach := minf(2.0, to.length() - 0.6)
+		if _blocked(dir, reach):
+			for ang in [0.8, -0.8, 1.5, -1.5]:
+				var d2 := dir.rotated(Vector3.UP, ang * sidestep_sign)
+				if not _blocked(d2, reach * 0.9):
+					return d2
 	return dir
 
 
