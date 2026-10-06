@@ -395,7 +395,7 @@ const VARIANTS := {
 const FACTION_KITS := {
 	0: {
 		Role.KNIGHT: {
-			"attack": {"attack_name": "Glaive", "attack_desc": "A light, long-reaching sweep: quicker than a sword.", "range": 2.5, "cooldown": 0.5, "cost": 10.0, "armour": 0.3},
+			"attack": {"attack_name": "Glaive", "attack_desc": "A light, long-reaching sweep: quicker than a sword.", "range": 2.5, "cooldown": 0.5, "cost": 10.0, "armour": 0.32},
 			"abilities": [
 				{"name": "Wind Dash", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 5.5, "cost": 35.0,
 					"damage": 1, "distance": 6.0, "desc": "A long, leaf-light dash that cuts everyone in the way for a heart and shoves them aside."},
@@ -431,7 +431,7 @@ const FACTION_KITS := {
 					"desc": "Grow the nearest of your totems a level (up to 3) and heal it, or hurry your door's regrowth."}]},
 	},
 	1: {
-		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Plate turns two hits in five.", "armour": 0.4}},
+		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Heavy plate turns about every third hit.", "armour": 0.36}},
 		Role.RANGER: {
 			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 14.0, "cooldown": 0.75, "cost": 12.0, "shot_speed": 36.0},
 			"abilities": [
@@ -471,7 +471,7 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 const FACTIONS := [
 	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.5, "regen_mult": 1.0,
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
-	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.06,
+	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.03,
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 ]
 
