@@ -11,25 +11,27 @@ Real low-poly models and textures (all CC0, see `assets/CREDITS.md`), with every
 
 ## Controls
 
-| Action | Keyboard | Controller |
+| Action | Keyboard | Controller (Xbox names · PS5 names) |
 | --- | --- | --- |
 | Move | WASD or arrow keys | Left stick |
 | Aim | Mouse | Right stick |
-| Base attack (every class has one) | Left click or J | A or right trigger |
-| Block (Knight's shield, hold) | Right click, Shift or K | Left bumper or left trigger |
-| Ability Q / Ability E | Q / E | X / Y |
-| Dodge (2 second recharge, costs 10 stamina) | Space or L | B |
-| Grab or drop the monarch; plant a war banner when none is near; during FORTIFY, raise a barricade | F | Right bumper |
-| Perk menu (spend experience, pick a promotion) | R, then 1-4 (5 / 6 for a promotion) | Right stick click, then D-pad |
-| Scoreboard | Hold Tab | Hold Back |
+| Base attack (every class has one) | Left click or J | A or right trigger · Cross or R2 |
+| Block (Knight's shield, hold) | Right click, Shift or K | LB or left trigger · L1 or L2 |
+| Ability Q / Ability E | Q / E | X / Y · Square / Triangle |
+| Dodge (2 second recharge, costs 10 stamina) | Space or L | B · Circle |
+| Grab or drop the monarch; plant a war banner when none is near; during FORTIFY, raise a barricade | F | RB · R1 |
+| Perk menu (spend experience, pick a promotion) | R, then 1-4 (5 / 6 for a promotion) | Right stick click (RS · R3), then D-pad (bumpers · L1 / R1 for a promotion) |
+| Scoreboard | Hold Tab | Hold View · Create or the touchpad |
 | Chat (team by default, `/all` for everyone) | Enter, type, Enter | - |
-| Pause menu (map, scoreboard, classes, upgrades, options) | Esc, arrows switch tabs | Start, bumpers switch tabs |
+| Pause menu (map, scoreboard, classes, upgrades, options) | Esc, arrows switch tabs | Menu · Options, bumpers switch tabs |
 | Show / hide the chat log | H | - |
 | Show / hide the side team rosters | N | - |
-| Talk to the Wildwood Guide (next line) / close | F / Esc, 1-6 pick a topic | Right bumper |
-| Take a class hat (in your cellar, standing at it) | F | A |
+| Talk to the Wildwood Guide (next line) / close | F / Esc, 1-6 pick a topic | RB · R1 |
+| Take a class hat (in your cellar, standing at it) | F | RB · R1 |
 | Team calls: Attack! / Defend! / To me! (bots obey for 15 s) | Z / X / C | - |
-| Play again after a match | R or Enter | Start |
+| Play again after a match | R or Enter | Menu · Options |
+
+**PS5 and other gamepads.** A DualSense (PS5) or DualShock (PS4) pad works over USB or Bluetooth with no setup, as do Xbox and other standard pads. The game reads the pad's name when it connects (a toast says what it found) and from then on every keycap, hint and the Controls tab show that pad's names and glyphs: the blue cross, red circle, pink square and green triangle for a PlayStation pad, coloured A B X Y for an Xbox one. Player 1's labels follow whatever was pressed last, so touching the keyboard brings the key names back; players 2 to 4 in couch play always see their pad's names. The DualSense rumbles when you take a hit (harder on your last heart), land a melee swing or an ability, fire a ranged shot, grab or capture the monarch, and when a castle door comes down; the **Rumble** switch in Settings turns it off, and **Button names** there forces Xbox or PlayStation names if a pad reports an odd name. Adaptive triggers and the light bar are not driven. `--debug-pad=ps` draws the HUD as if a PS5 pad were in hand, for screenshots.
 
 **Couch play.** On the title screen the **COUCH** control next to the map tiles sets how many people play on this screen (1 to 4, with the - and + buttons or the - and + keys) and whether they play **VERSUS** (players 1 and 3 on your side, 2 and 4 on the other, each taking a bot's place) or **CO-OP** (everyone on your side; M switches). Two players split the screen top and bottom, three or four take the quarters, and each pane has its own camera, hearts, abilities, minimap and perk menu. Player 1 keeps the keyboard and mouse (plus the first spare gamepad); players 2 to 4 use gamepads 1, 2 and 3 in order, with the same button layout as the rows above and the right stick to aim. The perk menu opens per player (R or the right stick click, or stepping on the Upgrade Station); the pause menu, chat and scoreboard are shared and belong to player 1. The setting is remembered. `--couch=N` (and `--couch-mode=coop`) starts a split-screen match from the command line for testing.
 

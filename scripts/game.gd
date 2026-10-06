@@ -136,6 +136,9 @@ var turrets: Array = []       # every standing Engineer turret, both teams
 var screen_shake := true
 var damage_numbers := true
 var show_fps := false
+var rumble_on := true          # gamepad vibration on hits, deaths and captures
+var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox" or "ps"
+var pad_active := false        # player 1's last press came from a gamepad (labels follow it)
 # Quick commands: Z / X / C call the team; bots answer for COMMAND_TIME seconds.
 var team_command := ["", ""]
 var command_timer := [0.0, 0.0]
@@ -224,6 +227,11 @@ func _ready() -> void:
 	add_child(sfx)
 	_load_controls()
 	sfx.set_listener(Vector3.ZERO)
+	Input.joy_connection_changed.connect(_on_pad_changed)
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--debug-pad="):  # testing: draw the HUD as if player 1 held this kind of pad
+			pad_style = arg.trim_prefix("--debug-pad=")
+			pad_active = true
 	if "--debug-night" in OS.get_cmdline_user_args():
 		map_variant = 1
 	_build_world()
@@ -493,6 +501,7 @@ func _score_capture(carrier, m) -> void:
 	spawn_pillar(thrones[carrier.team], Color(1.0, 0.85, 0.3), 7.0, 1.4)
 	spawn_ring(thrones[carrier.team], 6.0, Color(1.0, 0.9, 0.5), 0.8)
 	shake(0.3)
+	rumble(carrier, 0.5, 0.9, 0.5)
 	var team_name: String = Stats.FACTIONS[carrier.team].name
 	carrier.captures += 1
 	capture_timer = 3.5
@@ -611,6 +620,7 @@ func try_interact(u) -> void:
 		spawn_pillar(u.global_position, Color(1.0, 0.85, 0.3), 7.0, 1.2)
 		spawn_flash(u.global_position + Vector3(0, 1.5, 0), Color(1.0, 0.85, 0.3), 4.0, 0.5)
 		shake_at(u.global_position, 0.5)
+		rumble(u, 0.4, 0.5, 0.25)
 		chat_system("%s grabbed the %s!" % [u.display_name, m.title])
 		_banter(1 - u.team, "ours_taken")
 		_banter(u.team, "carrying", u)
@@ -1030,6 +1040,11 @@ func toggle_setting(key: String) -> void:
 		"fps": show_fps = not show_fps
 		"chat": chat_visible = not chat_visible
 		"rosters": rosters_visible = not rosters_visible
+		"rumble":
+			rumble_on = not rumble_on
+			if rumble_on:
+				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
+		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
 	sfx.ui("ui_click", -4.0)
 	_save_settings()
 
@@ -1502,8 +1517,13 @@ func _start_match(team: int) -> void:
 	sfx.ui("match_start")
 	sfx.play_music(true)
 	sfx.play_ambience(true)
-	chat_system("Click to attack, Q and E for abilities, Space to dodge, %s for perks, hold %s for the scoreboard, %s to chat." % [
-		key_label("rank_menu"), key_label("scoreboard"), key_label("chat")])
+	if pad_active:
+		var k := pad_kind(local_pad(0))
+		chat_system("%s attacks, %s and %s for abilities, %s dodges, %s grabs, %s for perks, hold %s for the scoreboard." % [
+			pad_label("attack", k), pad_label("ability_1", k), pad_label("ability_2", k), pad_label("dodge", k), pad_label("interact", k), pad_label("rank_menu", k), pad_label("scoreboard", k)])
+	else:
+		chat_system("Click to attack, Q and E for abilities, Space to dodge, %s for perks, hold %s for the scoreboard, %s to chat." % [
+			key_label("rank_menu"), key_label("scoreboard"), key_label("chat")])
 	if prep_left > 0.0:
 		announce("FORTIFY! Build turrets, set traps and raise barricades (%s) before the barrier falls." % key_label("interact"))
 
@@ -1582,6 +1602,8 @@ func _begin_battle() -> void:
 	spawn_flash(Vector3(0, 3.0, 0), Color(1.0, 0.9, 0.6), 8.0, 0.8)
 	spawn_ring(Vector3(0, 0.2, 0), 14.0, Color(1.0, 0.9, 0.6), 1.0)
 	shake_at(Vector3.ZERO, 0.3)
+	for l in locals:
+		rumble(l, 0.6, 0.3, 0.4)
 
 
 func plant_barricade(u) -> bool:
@@ -2165,6 +2187,13 @@ func menu_tick() -> void:
 
 func menu_input(event: InputEvent) -> void:
 	## Raw key events from the HUD: typing in chat and rebinding controls.
+	# Remember whether player 1 is on the keyboard or a pad, so keycaps and
+	# hints show the right names.
+	if (event is InputEventJoypadButton or event is InputEventJoypadMotion) and (couch_players == 1 or event.device == local_pad(0)):
+		if event is InputEventJoypadButton and event.pressed or event is InputEventJoypadMotion and absf(event.axis_value) > 0.6:
+			pad_active = true
+	elif (event is InputEventKey or event is InputEventMouseButton) and event.pressed:
+		pad_active = false
 	if rebinding != "":
 		if Engine.get_process_frames() == swallow_frame:
 			return  # the click that picked the row
@@ -2293,8 +2322,12 @@ func unit_score(u) -> int:
 
 # --- Control bindings --------------------------------------------------------
 
-func key_label(action: String) -> String:
-	## A short keycap label for the action's first mouse or keyboard binding.
+func key_label(action: String, unit = null) -> String:
+	## A short keycap label for the action's binding on whatever the player
+	## holds: the mouse or keyboard for player 1 at the keys, the gamepad
+	## (in Xbox or PlayStation names) for a pad player.
+	if on_pad(unit):
+		return pad_label(action, pad_kind(local_pad(unit.local_index if unit != null else 0)))
 	if DisplayServer.get_name() == "headless":
 		return action.to_upper()
 	for ev in InputMap.action_get_events(action):
@@ -2306,8 +2339,27 @@ func key_label(action: String) -> String:
 	return "-"
 
 
-func binding_text(action: String, device: String) -> String:
-	## Every binding on one device ("key" = keyboard + mouse, "pad" = gamepad).
+func on_pad(unit) -> bool:
+	## Whether this local player (null = player 1) is holding a gamepad.
+	return unit != null and unit.local_index > 0 or (unit == null or unit.local_index <= 0) and pad_active
+
+
+func pad_label(action: String, kind: String) -> String:
+	## The action's first gamepad binding, named for the kind of pad.
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventJoypadButton:
+			return _pad_name(ev.button_index, kind)
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventJoypadMotion:
+			return _axis_name(ev.axis, kind)
+	return "-"
+
+
+func binding_text(action: String, device: String, kind: String = "") -> String:
+	## Every binding on one device ("key" = keyboard + mouse, "pad" = gamepad,
+	## named for the given kind of pad or the one player 1 holds).
+	if kind == "":
+		kind = pad_kind(local_pad(0))
 	var names: Array = []
 	for ev in InputMap.action_get_events(action):
 		if device == "key":
@@ -2317,15 +2369,91 @@ func binding_text(action: String, device: String) -> String:
 				names.append(_mouse_name(ev.button_index))
 		else:
 			if ev is InputEventJoypadButton:
-				names.append(_pad_name(ev.button_index))
+				names.append(_pad_name(ev.button_index, kind))
 			elif ev is InputEventJoypadMotion:
-				if ev.axis == JOY_AXIS_TRIGGER_RIGHT:
-					names.append("RT")
-				elif ev.axis == JOY_AXIS_TRIGGER_LEFT:
-					names.append("LT")
-				elif ev.axis == JOY_AXIS_LEFT_X or ev.axis == JOY_AXIS_LEFT_Y:
-					names.append("Left stick")
+				names.append(_axis_name(ev.axis, kind))
 	return " / ".join(names) if not names.is_empty() else "-"
+
+
+func _axis_name(axis: int, kind: String) -> String:
+	match axis:
+		JOY_AXIS_TRIGGER_RIGHT: return "R2" if kind == "ps" else "RT"
+		JOY_AXIS_TRIGGER_LEFT: return "L2" if kind == "ps" else "LT"
+		JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y: return "Left stick"
+		JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y: return "Right stick"
+	return "Axis %d" % axis
+
+
+# --- Gamepads ----------------------------------------------------------------
+
+func local_pad(local_index: int) -> int:
+	## The gamepad device a local player uses: in couch play players 2-4 hold
+	## pads 0-2 and player 1 the next one; alone, player 1 holds whichever
+	## pad is plugged in first.
+	if couch_players > 1:
+		return couch_players - 1 if local_index <= 0 else local_index - 1
+	var pads: Array = Input.get_connected_joypads()
+	return pads[0] if not pads.is_empty() else -1
+
+
+func pad_kind(device: int) -> String:
+	## "ps" for a DualSense / DualShock, "xbox" for everything else, unless
+	## the Settings tab forces one.
+	if pad_style != "auto":
+		return pad_style
+	if device < 0:
+		return "xbox"
+	return "ps" if _is_playstation(Input.get_joy_name(device), Input.get_joy_guid(device)) else "xbox"
+
+
+func _is_playstation(joy_name: String, guid: String) -> bool:
+	var n := joy_name.to_lower()
+	for word in ["dualsense", "dualshock", "ps5", "ps4", "ps3", "playstation", "sony", "wireless controller"]:
+		if word in n:
+			return true
+	# SDL GUIDs carry the USB vendor id little-endian at offset 8: Sony is 054c.
+	return guid.length() >= 12 and guid.substr(8, 4) == "4c05"
+
+
+func pad_title(device: int) -> String:
+	## What to call a pad in toasts and the Settings tab.
+	if device < 0 or not Input.get_connected_joypads().has(device):
+		return "No gamepad"
+	var n := Input.get_joy_name(device)
+	if pad_kind(device) == "ps":
+		var l := n.to_lower()
+		return "DualSense (PS5)" if "dualsense" in l or "ps5" in l else ("DualShock (PS4)" if "dualshock" in l or "ps4" in l else "PlayStation controller")
+	return n if n != "" else "Gamepad"
+
+
+func _on_pad_changed(device: int, connected: bool) -> void:
+	var who := ""
+	if couch_players > 1:
+		for k in couch_players:
+			if local_pad(k) == device:
+				who = " · player %d" % (k + 1)
+	if connected:
+		toast("%s connected%s" % [pad_title(device), who], Color(0.7, 0.9, 1.0))
+		if not Input.is_joy_known(device):
+			toast("Unknown gamepad layout: buttons may need rebinding in Controls", Color(1.0, 0.8, 0.5))
+	else:
+		toast("Gamepad disconnected%s" % who, Color(1.0, 0.8, 0.5))
+		pad_active = false
+
+
+func rumble(u, weak: float, strong: float, duration: float) -> void:
+	## Shake the pad of the local player driving this unit.
+	if u == null or not u.is_player or not rumble_on:
+		return
+	if couch_players == 1 and not pad_active:
+		return  # player 1 is on the keyboard; no surprise buzzing from a pad on the desk
+	rumble_pad(local_pad(u.local_index), weak, strong, duration)
+
+
+func rumble_pad(device: int, weak: float, strong: float, duration: float) -> void:
+	if not rumble_on or device < 0 or not Input.get_connected_joypads().has(device):
+		return
+	Input.start_joy_vibration(device, clampf(weak, 0.0, 1.0), clampf(strong, 0.0, 1.0), duration)
 
 
 func _key_name(ev: InputEventKey) -> String:
@@ -2359,7 +2487,21 @@ func _mouse_name(button: int) -> String:
 	return "M%d" % button
 
 
-func _pad_name(button: int) -> String:
+func _pad_name(button: int, kind: String = "xbox") -> String:
+	if kind == "ps":
+		match button:
+			JOY_BUTTON_A: return "Cross"
+			JOY_BUTTON_B: return "Circle"
+			JOY_BUTTON_X: return "Square"
+			JOY_BUTTON_Y: return "Triangle"
+			JOY_BUTTON_LEFT_SHOULDER: return "L1"
+			JOY_BUTTON_RIGHT_SHOULDER: return "R1"
+			JOY_BUTTON_BACK: return "Create"
+			JOY_BUTTON_START: return "Options"
+			JOY_BUTTON_LEFT_STICK: return "L3"
+			JOY_BUTTON_RIGHT_STICK: return "R3"
+			JOY_BUTTON_GUIDE: return "PS"
+			JOY_BUTTON_MISC1: return "Mute"
 	match button:
 		JOY_BUTTON_A: return "A"
 		JOY_BUTTON_B: return "B"
@@ -2367,10 +2509,13 @@ func _pad_name(button: int) -> String:
 		JOY_BUTTON_Y: return "Y"
 		JOY_BUTTON_LEFT_SHOULDER: return "LB"
 		JOY_BUTTON_RIGHT_SHOULDER: return "RB"
-		JOY_BUTTON_BACK: return "Back"
-		JOY_BUTTON_START: return "Start"
+		JOY_BUTTON_BACK: return "View"
+		JOY_BUTTON_START: return "Menu"
 		JOY_BUTTON_LEFT_STICK: return "LS"
 		JOY_BUTTON_RIGHT_STICK: return "RS"
+		JOY_BUTTON_GUIDE: return "Guide"
+		JOY_BUTTON_MISC1: return "Share"
+		JOY_BUTTON_TOUCHPAD: return "Touchpad"
 		JOY_BUTTON_DPAD_UP: return "D-up"
 		JOY_BUTTON_DPAD_DOWN: return "D-down"
 		JOY_BUTTON_DPAD_LEFT: return "D-left"
@@ -2423,6 +2568,8 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "screen_shake", screen_shake)
 	cfg.set_value("settings", "damage_numbers", damage_numbers)
 	cfg.set_value("settings", "show_fps", show_fps)
+	cfg.set_value("settings", "rumble", rumble_on)
+	cfg.set_value("settings", "pad_style", pad_style)
 	cfg.set_value("settings", "hero_name", hero_name)
 	cfg.set_value("settings", "hero_hair", hero_hair)
 	cfg.set_value("settings", "hero_trim", hero_trim)
@@ -2466,6 +2613,10 @@ func _load_controls() -> void:
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", false)
+	rumble_on = cfg.get_value("settings", "rumble", true)
+	pad_style = cfg.get_value("settings", "pad_style", "auto")
+	if pad_style not in ["auto", "xbox", "ps"]:
+		pad_style = "auto"
 	sfx.sound_volume = clampf(cfg.get_value("settings", "sound_volume", 0.8), 0.0, 1.0)
 	sfx.music_volume = clampf(cfg.get_value("settings", "music_volume", 0.6), 0.0, 1.0)
 	hero_name = cfg.get_value("settings", "hero_name", "")
@@ -5839,7 +5990,7 @@ func _setup_input() -> void:
 	_add_action("dodge", [KEY_SPACE, KEY_L], [JOY_BUTTON_B])
 	_add_action("interact", [KEY_F], [JOY_BUTTON_RIGHT_SHOULDER])
 	_add_action("rank_menu", [KEY_R], [JOY_BUTTON_RIGHT_STICK])
-	_add_action("scoreboard", [KEY_TAB], [JOY_BUTTON_BACK])
+	_add_action("scoreboard", [KEY_TAB], [JOY_BUTTON_BACK, JOY_BUTTON_TOUCHPAD])
 	_add_action("chat", [KEY_ENTER], [])
 	_add_action("chat_toggle", [KEY_H], [])
 	_add_action("roster_toggle", [KEY_N], [])
@@ -5848,8 +5999,8 @@ func _setup_input() -> void:
 	_add_action("rank_2", [KEY_2], [JOY_BUTTON_DPAD_LEFT])
 	_add_action("rank_3", [KEY_3], [JOY_BUTTON_DPAD_RIGHT])
 	_add_action("rank_4", [KEY_4], [JOY_BUTTON_DPAD_DOWN])
-	_add_action("rank_5", [KEY_5], [])
-	_add_action("rank_6", [KEY_6], [])
+	_add_action("rank_5", [KEY_5], [JOY_BUTTON_LEFT_SHOULDER])
+	_add_action("rank_6", [KEY_6], [JOY_BUTTON_RIGHT_SHOULDER])
 	_add_action("menu", [KEY_ESCAPE], [JOY_BUTTON_START])
 	_add_action("menu_left", [KEY_LEFT, KEY_A], [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_LEFT_SHOULDER])
 	_add_action("menu_right", [KEY_RIGHT, KEY_D], [JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_RIGHT_SHOULDER])

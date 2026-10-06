@@ -714,6 +714,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	game.sfx.play("hurt", global_position, -4.0 if not is_player else 0.0, 0.15)
 	if is_player:
 		game.shake(0.35)
+		game.rumble(self, 0.3, 0.8 if hearts <= 1 else 0.6, 0.22)
 	if hearts <= 0:
 		if is_player:
 			var weapon: String = attacker.attack_stats().attack_name if (attacker and attacker != self and attacker.has_method("attack_stats")) else ""
@@ -998,6 +999,7 @@ func use_ability(i: int, dir: Vector3) -> void:
 				game.spawn_flash(global_position, c, 3.0, 0.3)
 			if landed and is_player:
 				game.shake(0.2)
+				game.rumble(self, 0.5, 0.2, 0.12)
 		"smoke":
 			stealth_timer = a.duration
 			haste_timer = maxf(haste_timer, a.haste)
@@ -1018,6 +1020,7 @@ func _recoil(dir: Vector3, amount: float) -> void:
 	knockback -= dir * amount
 	if is_player:
 		game.shake(amount * 0.05)
+		game.rumble(self, clampf(amount * 0.08, 0.1, 0.5), 0.0, 0.08)
 
 
 func _die() -> void:
@@ -1503,6 +1506,7 @@ func _attack(dir: Vector3) -> void:
 		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
 		if is_player:
 			game.shake(0.12)
+			game.rumble(self, 0.35, 0.15, 0.1)
 	# Swings from the ground also chip away at the enemy door.
 	var vault = game.vaults[1 - team]
 	if vault.is_locked() and global_position.y < 1.0 and _flat_to(vault.lock_pos).length() < s.range + 0.6 \

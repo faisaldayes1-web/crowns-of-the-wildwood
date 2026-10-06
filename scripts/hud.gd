@@ -87,7 +87,7 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if game:
+	if game and not pane:  # the panes would feed every key to the chat twice
 		game.menu_input(event)
 
 
@@ -541,10 +541,42 @@ func _attack_icon(role: int, s: Dictionary = {}) -> String:
 	return "sword"
 
 
+const PS_GLYPHS := {"Cross": Color(0.45, 0.62, 0.95), "Circle": Color(0.95, 0.4, 0.4), "Square": Color(0.95, 0.55, 0.8), "Triangle": Color(0.4, 0.85, 0.6)}
+const XBOX_GLYPHS := {"A": Color(0.35, 0.75, 0.3), "B": Color(0.9, 0.3, 0.25), "X": Color(0.3, 0.55, 0.95), "Y": Color(0.95, 0.8, 0.2)}
+
 func _keycap(center: Vector2, key: String, w: float = 30.0) -> void:
+	## A cream keycap for keys and mouse buttons; PlayStation face buttons
+	## are drawn as the shapes on the pad, Xbox face buttons as coloured
+	## letters on a dark button.
+	if PS_GLYPHS.has(key):
+		var c: Color = PS_GLYPHS[key]
+		draw_circle(center, 10.5, Color(0.12, 0.12, 0.15))
+		draw_arc(center, 10.5, 0, TAU, 24, Color(0.45, 0.45, 0.5), 1.0)
+		match key:
+			"Cross":
+				draw_line(center + Vector2(-4.5, -4.5), center + Vector2(4.5, 4.5), c, 2.0)
+				draw_line(center + Vector2(-4.5, 4.5), center + Vector2(4.5, -4.5), c, 2.0)
+			"Circle":
+				draw_arc(center, 5.0, 0, TAU, 20, c, 2.0)
+			"Square":
+				draw_rect(Rect2(center - Vector2(4.5, 4.5), Vector2(9, 9)), c, false, 2.0)
+			"Triangle":
+				draw_polyline(PackedVector2Array([center + Vector2(0, -5.5), center + Vector2(5.5, 4), center + Vector2(-5.5, 4), center + Vector2(0, -5.5)]), c, 2.0)
+		return
+	if XBOX_GLYPHS.has(key):
+		draw_circle(center, 10.5, Color(0.12, 0.12, 0.15))
+		draw_arc(center, 10.5, 0, TAU, 24, Color(0.45, 0.45, 0.5), 1.0)
+		_text(center + Vector2(-10.5, 5), key, 12, XBOX_GLYPHS[key], HORIZONTAL_ALIGNMENT_CENTER, 21, 0)
+		return
 	var rect := Rect2(center - Vector2(w / 2.0, 10), Vector2(w, 20))
 	_plate(rect, CREAM, Color(0.5, 0.4, 0.25), 5, 1)
 	_text(rect.position + Vector2(0, 15), key, 12, Color(0.15, 0.12, 0.1), HORIZONTAL_ALIGNMENT_CENTER, w, 0)
+
+
+func _k(action: String) -> String:
+	## The keycap label for this HUD's player: keyboard, or pad names when
+	## they hold one.
+	return game.key_label(action, local_unit)
 
 
 func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: String, label: String,
@@ -650,11 +682,11 @@ func _draw_guide() -> void:
 		var nb := Rect2(box.end.x - 150, box.end.y - 36, 110, 24)
 		var pulse := 2.0 * sin(Time.get_ticks_msec() / 250.0)
 		draw_colored_polygon(PackedVector2Array([nb.end + Vector2(22, -6 + pulse), nb.end + Vector2(36, -6 + pulse), nb.end + Vector2(29, 4 + pulse)]), brown)
-		_text(nb.position + Vector2(0, 17), "[%s]  %s" % [game.key_label("interact"), next_label], 12, brown, HORIZONTAL_ALIGNMENT_RIGHT, nb.size.x, 0)
+		_text(nb.position + Vector2(0, 17), "[%s]  %s" % [_k("interact"), next_label], 12, brown, HORIZONTAL_ALIGNMENT_RIGHT, nb.size.x, 0)
 		guide_buttons.append([Rect2(nb.position, nb.size + Vector2(40, 0)), "next"])
 	var cb := Rect2(box.end.x - 110, box.position.y + 10, 96, 22)
 	_plate(cb, Color(0.5, 0.3, 0.2), GOLD_DARK, 6, 1)
-	_text(cb.position + Vector2(0, 16), "[%s]  Close" % game.key_label("menu"), 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x, 2)
+	_text(cb.position + Vector2(0, 16), "[%s]  Close" % _k("menu"), 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x, 2)
 	guide_buttons.append([cb, "close"])
 
 
@@ -710,7 +742,7 @@ func _draw_scoreboard() -> void:
 		_text(Vector2(cx - 85, 56), "0:%02d" % int(pl), 28, Color(1, 0.85, 0.5) if pulse else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 170)
 		var pw := 360.0
 		_plate(Rect2(cx - pw / 2.0, 66, pw, 22), Color(0.25, 0.2, 0.05, 0.95), GOLD, 6, 1)
-		_text(Vector2(cx - pw / 2.0, 82), "DIG IN: TURRETS · TRAPS · BARRICADES [%s] · %d KITS LEFT" % [game.key_label("interact"), game.barricades_left[_my_team()]], 11,
+		_text(Vector2(cx - pw / 2.0, 82), "DIG IN: TURRETS · TRAPS · BARRICADES [%s] · %d KITS LEFT" % [_k("interact"), game.barricades_left[_my_team()]], 11,
 			GOLD, HORIZONTAL_ALIGNMENT_CENTER, pw, 2)
 		return
 	var left := maxf(game.time_left, 0.0)
@@ -843,7 +875,7 @@ func _draw_levelup_card() -> void:
 	if p:
 		_class_card(rect.position + Vector2(40, 39), 26, p.team, p.role)
 	_text(rect.position + Vector2(84, 32), "LEVEL UP!", 24, Color(1, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	_text(rect.position + Vector2(84, 54), "You are now Level %d   ·   +1 Perk Point (%s)" % [game.levelup_level, game.key_label("rank_menu")], 12, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(rect.position + Vector2(84, 54), "You are now Level %d   ·   +1 Perk Point (%s)" % [game.levelup_level, _k("rank_menu")], 12, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _draw_toasts() -> void:
@@ -961,7 +993,7 @@ func _draw_player_panel(p) -> void:
 		var badge := Rect2(rect.position + Vector2(352, -30), Vector2(132, 24))
 		_plate(badge, Color(0.55, 0.4, 0.05, pulse), GOLD, 8, 1)
 		_icon("xp", badge.position + Vector2(14, 12), 7, Color.WHITE)
-		_text(badge.position + Vector2(26, 17), "%s  RANK UP  +%d" % [game.key_label("rank_menu"), p.points], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(badge.position + Vector2(26, 17), "%s  RANK UP  +%d" % [_k("rank_menu"), p.points], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	if p.veteran > 0 and not p.dead:
 		var vb := Rect2(rect.position + Vector2(rect.size.x - 236, -30), Vector2(224, 26))
 		var vc := Color(1.0, 0.55, 0.2) if p.veteran == 2 else Color(1.0, 0.85, 0.3)
@@ -978,22 +1010,22 @@ func _draw_player_panel(p) -> void:
 	var gap := 64.0
 	var alive: bool = not p.dead and p.carrying == null
 	var atk: Dictionary = p.attack_stats()
-	_slot(Vector2(sx, sy), slot, _attack_icon(p.role, atk), Stats.ROLES[p.role].color.lightened(0.3), game.key_label("attack"), atk.attack_name,
+	_slot(Vector2(sx, sy), slot, _attack_icon(p.role, atk), Stats.ROLES[p.role].color.lightened(0.3), _k("attack"), atk.attack_name,
 		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0), false, atk.cost, STAMINA if p.energy_kind() == "stamina" else MANA)
 	for i in 2:
 		if i < abil.size():
 			var a: Dictionary = p.ability(i)
-			_slot(Vector2(sx + (i + 1) * gap, sy), slot, a.get("icon", a.kind), Stats.ROLES[p.role].color.lightened(0.3), game.key_label("ability_%d" % (i + 1)), a.name,
+			_slot(Vector2(sx + (i + 1) * gap, sy), slot, a.get("icon", a.kind), Stats.ROLES[p.role].color.lightened(0.3), _k("ability_%d" % (i + 1)), a.name,
 				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1), false, a.cost, STAMINA if p.energy_kind() == "stamina" else MANA)
 		else:
-			_slot(Vector2(sx + (i + 1) * gap, sy), slot, "", Color.WHITE, game.key_label("ability_%d" % (i + 1)), "", 0.0, 1.0, false)
-	_slot(Vector2(sx + 3 * gap, sy), slot, "dodge", STAMINA, game.key_label("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
+			_slot(Vector2(sx + (i + 1) * gap, sy), slot, "", Color.WHITE, _k("ability_%d" % (i + 1)), "", 0.0, 1.0, false)
+	_slot(Vector2(sx + 3 * gap, sy), slot, "dodge", STAMINA, _k("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
 		alive and p.energy >= Stats.DODGE_COST)
 	if p.can_block():
-		_slot(Vector2(sx + 4 * gap, sy), slot, "block", STEEL, game.key_label("block"), "Block", 0.0, 1.0, alive and p.energy > 0.0, 0, p.blocking)
+		_slot(Vector2(sx + 4 * gap, sy), slot, "block", STEEL, _k("block"), "Block", 0.0, 1.0, alive and p.energy > 0.0, 0, p.blocking)
 	else:
-		_slot(Vector2(sx + 4 * gap, sy), slot, "vigor", XP, game.key_label("rank_menu"), "Perks", 0.0, 1.0, p.points > 0, p.rank(3))
-	_slot(Vector2(sx + 5 * gap, sy), slot, "crown", GOLD, game.key_label("interact"), "Drop" if p.carrying else "Grab", 0.0, 1.0, not p.dead)
+		_slot(Vector2(sx + 4 * gap, sy), slot, "vigor", XP, _k("rank_menu"), "Perks", 0.0, 1.0, p.points > 0, p.rank(3))
+	_slot(Vector2(sx + 5 * gap, sy), slot, "crown", GOLD, _k("interact"), "Drop" if p.carrying else "Grab", 0.0, 1.0, not p.dead)
 
 
 func _draw_xp_bar(p, bar: Rect2) -> void:
@@ -1248,7 +1280,7 @@ func _draw_rank_menu(p) -> void:
 		rank_buttons.append(button if can else Rect2())
 	if has_variants:
 		_promotion(p, Rect2(rect.position + Vector2(16, 70 + 4 * 64), Vector2(rect.size.x - 32, 124)))
-	_text(rect.position + Vector2(0, rect.size.y - 12), "1-4 or click spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  experience is per life" % game.key_label("rank_menu"), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, rect.size.y - 12), ("D-pad spends a point  ·  %s / %s pick a promotion  ·  %s closes  ·  experience is per life" % [_k("rank_5"), _k("rank_6"), _k("rank_menu")]) if game.on_pad(local_unit) else ("1-4 or click spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  experience is per life" % _k("rank_menu")), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _promotion(p, rect: Rect2) -> void:
@@ -1371,11 +1403,12 @@ func _menu_controls(body: Rect2) -> void:
 	var half := body.size.x / 2.0
 	var per_col := ceili(game.REBINDABLE.size() / 2.0)
 	var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 120.0)
+	var pad_kind: String = game.pad_kind(game.local_pad(0))
 	for c in 2:
 		var x: float = body.position.x + c * half
 		_text(Vector2(x + 10, body.position.y + 14), "ACTION", 10, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(Vector2(x + 150, body.position.y + 14), "KEYBOARD / MOUSE", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
-		_text(Vector2(x + 282, body.position.y + 14), "GAMEPAD", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 80, 2)
+		_text(Vector2(x + 282, body.position.y + 14), "DUALSENSE" if pad_kind == "ps" else "GAMEPAD", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 80, 2)
 		for k in per_col:
 			var i: int = c * per_col + k
 			if i >= game.REBINDABLE.size():
@@ -1388,14 +1421,14 @@ func _menu_controls(body: Rect2) -> void:
 			_text(Vector2(x + 14, y + 4), game.REBINDABLE[i][1], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			var key_text: String = "PRESS A KEY…" if hot else game.binding_text(action, "key")
 			_keycap(Vector2(x + 210, y), key_text, 124)
-			_keycap(Vector2(x + 326, y), game.binding_text(action, "pad"), 86)
+			_keycap(Vector2(x + 326, y), game.binding_text(action, "pad", pad_kind), 86)
 			bind_buttons.append([row, action])
 	reset_button = Rect2(body.end - Vector2(150, 30), Vector2(140, 24))
 	_plate(reset_button, Color(0.4, 0.2, 0.15, 0.95), GOLD_DARK, 6, 1)
 	_text(reset_button.position + Vector2(0, 17), "RESET TO DEFAULTS", 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, reset_button.size.x, 2)
 	_text(body.position + Vector2(0, body.size.y - 22), "Click a row, then press the key, mouse button or gamepad button you want. Esc cancels. Bindings are saved.",
 		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, body.size.y - 8), "Fixed: the mouse and right stick aim, the left stick moves, 1-6 spend points in the perk menu, Backspace quits a match.",
+	_text(body.position + Vector2(0, body.size.y - 8), "Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points, Backspace quits a match. PS5 and Xbox pads work as they are; the Settings tab picks the button names.",
 		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
@@ -1428,7 +1461,7 @@ func _menu_settings(body: Rect2) -> void:
 		["FPS counter", game.show_fps, "fps"], ["Chat log", game.chat_visible, "chat"], ["Team rosters", game.rosters_visible, "rosters"]]
 	for i in toggles.size():
 		_toggle(Rect2(Vector2(x + 10 + i * 143, y + 76), Vector2(136, 34)), toggles[i][0], toggles[i][1], toggles[i][2])
-	_text(Vector2(x + 10, y + 120), "%s and %s also toggle the chat log and the rosters in a match." % [game.key_label("chat_toggle"), game.key_label("roster_toggle")], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 10, y + 120), "%s and %s also toggle the chat log and the rosters in a match." % [_k("chat_toggle"), _k("roster_toggle")], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	draw_line(Vector2(x, y + 128), Vector2(body.end.x, y + 128), GOLD_DARK, 1.0)
 	# Bot difficulty: click, or Left/Right on the title screen.
 	_text(Vector2(x + 10, y + 150), "BOTS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -1443,16 +1476,33 @@ func _menu_settings(body: Rect2) -> void:
 	draw_line(Vector2(x, y + 172), Vector2(body.end.x, y + 172), GOLD_DARK, 1.0)
 	# Team calls.
 	_text(Vector2(x + 10, y + 194), "TEAM CALLS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var calls := [[game.key_label("cmd_attack"), "ATTACK!", "everyone pushes the enemy door now, no waiting at the rally"],
-		[game.key_label("cmd_defend"), "DEFEND!", "three bots come home to hold the castle"],
-		[game.key_label("cmd_help"), "TO ME!", "the two nearest bots come to where you called"]]
+	var calls := [[_k("cmd_attack"), "ATTACK!", "everyone pushes the enemy door now, no waiting at the rally"],
+		[_k("cmd_defend"), "DEFEND!", "three bots come home to hold the castle"],
+		[_k("cmd_help"), "TO ME!", "the two nearest bots come to where you called"]]
 	for i in calls.size():
-		var cy: float = y + 216 + i * 30
+		var cy: float = y + 212 + i * 26
 		_keycap(Vector2(x + 34, cy - 4), calls[i][0], 40)
 		_text(Vector2(x + 66, cy + 4), calls[i][1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(Vector2(x + 150, cy + 4), calls[i][2], 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(Vector2(x + 10, y + 216 + 3 * 30 + 4), "Bots follow a call for %d seconds; rebind the keys in Controls. %s plants a war banner when there is no monarch to grab." % [int(Stats.COMMAND_TIME), game.key_label("interact")], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, body.size.y - 8), "Settings are saved.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 10, y + 284), "Bots follow a call for %d seconds; rebind the keys in Controls. %s plants a war banner when there is no monarch to grab." % [int(Stats.COMMAND_TIME), _k("interact")], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	draw_line(Vector2(x, y + 292), Vector2(body.end.x, y + 292), GOLD_DARK, 1.0)
+	# Gamepad: rumble, button names and what is plugged in.
+	_text(Vector2(x + 10, y + 314), "GAMEPAD", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_toggle(Rect2(Vector2(x + 10, y + 324), Vector2(136, 34)), "Rumble", game.rumble_on, "rumble")
+	var style_names := {"auto": "AUTO", "xbox": "XBOX", "ps": "PLAYSTATION"}
+	var style := Rect2(Vector2(x + 156, y + 324), Vector2(150, 34))
+	_plate(style, INK_LIGHT, Color(0.3, 0.3, 0.38), 8, 1)
+	_text(style.position + Vector2(0, 13), "BUTTON NAMES", 8, GREY, HORIZONTAL_ALIGNMENT_CENTER, style.size.x, 1)
+	_text(style.position + Vector2(0, 28), style_names[game.pad_style], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, style.size.x, 2)
+	toggle_buttons.append([style, "pad_style"])
+	var pads: Array = Input.get_connected_joypads()
+	var plugged := "No gamepad connected. DualSense (PS5), DualShock and Xbox pads work over USB or Bluetooth; plug one in and press any button."
+	if not pads.is_empty():
+		var names: Array = []
+		for d in pads:
+			names.append(game.pad_title(d))
+		plugged = "Connected: " + ", ".join(names) + ((". Player 1 holds the %s." % game.pad_title(game.local_pad(0))) if game.couch_players > 1 else ". Press any button on it to switch the hints to its names.")
+	_paragraph(Vector2(x + 320, y + 332), plugged + " Settings are saved.", 10, CREAM, body.end.x - x - 330, 12.0)
 
 
 func _toggle(rect: Rect2, label: String, on: bool, key: String) -> void:
@@ -1525,7 +1575,7 @@ func _menu_my_class(body: Rect2) -> void:
 		_text(Vector2(left.position.x + 14, y), facts[i][0], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(Vector2(left.position.x, y), facts[i][1], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, left.size.x - 14, 2)
 	if p.role == Role.BASE:
-		_paragraph(left.position + Vector2(14, 328), "You are a villager. Grab a class hat in your cellar (press %s beside it) to pick a class." % game.key_label("interact"), 10, CREAM, left.size.x - 28, 12.0)
+		_paragraph(left.position + Vector2(14, 328), "You are a villager. Grab a class hat in your cellar (press %s beside it) to pick a class." % _k("interact"), 10, CREAM, left.size.x - 28, 12.0)
 	else:
 		_text(left.position + Vector2(14, 332), s.attack_name, 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_paragraph(left.position + Vector2(14, 348), s.attack_desc, 10, Color(0.8, 0.8, 0.8), left.size.x - 28, 12.0)
@@ -1550,7 +1600,7 @@ func _menu_my_class(body: Rect2) -> void:
 		if available:
 			_text(Vector2(mid.position.x + 110, y + 26), "rank %d / %d" % [p.rank(t), Stats.MAX_RANK], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_paragraph(mid.position + Vector2(14, mid.size.y - 70), "Each level gives a point. Ranks cut cooldowns and costs, then widen the effect, then add a heart. Experience resets when you die.", 10, Color(0.8, 0.8, 0.8), mid.size.x - 28, 12.0)
-	_text(mid.position + Vector2(0, mid.size.y - 10), "%s opens the perk menu" % game.key_label("rank_menu"), 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, mid.size.x, 2)
+	_text(mid.position + Vector2(0, mid.size.y - 10), "%s opens the perk menu" % _k("rank_menu"), 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, mid.size.x, 2)
 	# Right: promotions, for this class or all of them.
 	var right := Rect2(body.position + Vector2(470, 0), Vector2(body.size.x - 470, body.size.y))
 	_plate(right, INK_LIGHT, GOLD_DARK, 10, 2)
@@ -1568,7 +1618,7 @@ func _menu_my_class(body: Rect2) -> void:
 			_text(card.position + Vector2(54, 24), v.name.to_upper(), 14, GOLD if chosen else (Color.WHITE if unlocked else GREY), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 			_text(card.position + Vector2(0, 24), "CHOSEN" if chosen else ("available" if unlocked else "locked"), 10, GOLD if chosen else GREY, HORIZONTAL_ALIGNMENT_RIGHT, card.size.x - 10, 2)
 			var y: float = 50.0 + _paragraph(card.position + Vector2(10, 50), v.desc, 10, Color(0.85, 0.85, 0.85) if unlocked else GREY, card.size.x - 20, 12.0)
-			var moves := [[game.key_label("attack"), v.attack.get("attack_name", Stats.kit(p.team, p.role).attack_name)], ["Q", v.abilities[0].name], ["E", v.abilities[1].name]]
+			var moves := [[_k("attack"), v.attack.get("attack_name", Stats.kit(p.team, p.role).attack_name)], [_k("ability_1"), v.abilities[0].name], [_k("ability_2"), v.abilities[1].name]]
 			for m in moves.size():
 				_keycap(card.position + Vector2(28, y + 14 + m * 19), moves[m][0], 34)
 				_text(card.position + Vector2(52, y + 18 + m * 19), moves[m][1], 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -1690,7 +1740,7 @@ func _draw_chat() -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	var typing: bool = game.chat_open
 	if not game.chat_visible and not typing:
-		_text(Vector2(14, size.y - 132), "%s shows chat" % game.key_label("chat_toggle"), 9, Color(0.7, 0.7, 0.75, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+		_text(Vector2(14, size.y - 132), "%s shows chat" % _k("chat_toggle"), 9, Color(0.7, 0.7, 0.75, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 		return
 	var tab_h := 34.0 if typing else 0.0
 	var input_h := 34.0 if typing else 0.0
@@ -1765,7 +1815,7 @@ func _draw_chat() -> void:
 		_plate(send, Color(0.5, 0.35, 0.12), GOLD, 6, 1)
 		var c := send.get_center()
 		draw_colored_polygon(PackedVector2Array([c + Vector2(-7, -6), c + Vector2(8, 0), c + Vector2(-7, 6), c + Vector2(-3, 0)]), GOLD.lightened(0.3))
-		_text(rect.position + Vector2(10, rect.size.y - 36), "/all talks to both teams  ·  %s hides the log" % game.key_label("chat_toggle"), 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+		_text(rect.position + Vector2(10, rect.size.y - 36), "/all talks to both teams  ·  %s hides the log" % _k("chat_toggle"), 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 
 
 # --- Title and end screens -----------------------------------------------------
@@ -2035,8 +2085,9 @@ func _draw_title_play(panel: Rect2) -> void:
 		_text(b.position + Vector2(0, 20), t[0], 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, w, 2)
 		tx += w + 8
 	_text(Vector2(left + 50, ty + 46), "Fortify first: build turrets, set traps and raise barricades behind the wall of light; then the horn sounds and the gates are fair game.", 9, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var how := "Move WASD · aim with the mouse · %s attacks · %s / %s abilities · %s dodges · %s grabs, plants banners and raises barricades · %s perks · Esc pauses" % [
-		game.key_label("attack"), game.key_label("ability_1"), game.key_label("ability_2"), game.key_label("dodge"), game.key_label("interact"), game.key_label("rank_menu")]
+	var how := "%s · %s attacks · %s / %s abilities · %s dodges · %s grabs, plants banners and raises barricades · %s perks · %s pauses" % [
+		"Left stick moves · right stick aims" if game.on_pad(null) else "Move WASD · aim with the mouse",
+		_k("attack"), _k("ability_1"), _k("ability_2"), _k("dodge"), _k("interact"), _k("rank_menu"), _k("menu")]
 	_paragraph(Vector2(panel.position.x + 20, panel.end.y - 16), how, 10, Color(0.85, 0.85, 0.85), panel.size.x - 40, 12.0)
 
 
