@@ -4418,12 +4418,68 @@ func _add_watermills() -> void:
 		var team := 0 if sx < 0.0 else 1
 		var z: float = sx * 30.0
 		var pos := Vector3(sx * (RIVER_HALF + 3.2), 0, z)
-		_prop("hex/building_watermill_%s" % _hex_color(team), pos, 3.4, -PI / 2.0 if sx > 0.0 else PI / 2.0)
+		var mill := _prop("hex/building_watermill_%s" % _hex_color(team), pos, 3.4, -PI / 2.0 if sx > 0.0 else PI / 2.0)
+		if mill != null:
+			# The pack's wheel hides under the floor; ours turns in the river.
+			for w in mill.find_children("*wheel*", "", true, false):
+				w.visible = false
+		_add_waterwheel(Vector3(sx * (RIVER_HALF - 0.4), 0.35, z), sx)
 		_add_blocker(pos, 2.0, 4.0)
 		_add_light(pos + Vector3(sx * 1.5, 2.2, 0), Color(1.0, 0.8, 0.5), 0.8, 5.0)
 		_prop("hex/sack", pos + Vector3(sx * 2.6, 0, 1.6), 3.6, 0.9)
 		_prop("hex/sack", pos + Vector3(sx * 3.1, 0, 0.9), 3.6, 2.1)
 		_prop("hex/crate_B_small", pos + Vector3(sx * 2.9, 0, -1.8), 4.0, 0.4)
+
+
+func _add_waterwheel(pos: Vector3, sx: float) -> void:
+	## A turning paddle wheel on an axle into the mill, its bottom in the water.
+	var hub := Node3D.new()
+	hub.position = pos
+	add_child(hub)
+	var wood := _material(Color(0.36, 0.24, 0.13))
+	wood.roughness = 0.9
+	var dark := _material(Color(0.26, 0.17, 0.09))
+	for side in [-0.32, 0.32]:
+		var rim := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 1.05
+		tm.outer_radius = 1.2
+		tm.rings = 24
+		tm.ring_segments = 8
+		rim.mesh = tm
+		rim.material_override = wood
+		rim.rotation.z = PI / 2.0
+		rim.position.x = side
+		hub.add_child(rim)
+	for k in 8:
+		var a := float(k) * TAU / 8.0
+		var spoke := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.7, 2.2, 0.1)
+		spoke.mesh = bm
+		spoke.material_override = dark
+		spoke.rotation.x = a
+		hub.add_child(spoke)
+		var paddle := MeshInstance3D.new()
+		var pm := BoxMesh.new()
+		pm.size = Vector3(0.8, 0.36, 0.08)
+		paddle.mesh = pm
+		paddle.material_override = wood
+		paddle.position = Vector3(0, cos(a) * 1.12, sin(a) * 1.12)
+		paddle.rotation.x = a
+		hub.add_child(paddle)
+	var axle := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.1
+	cm.bottom_radius = 0.1
+	cm.height = 3.2
+	axle.mesh = cm
+	axle.material_override = dark
+	axle.rotation.z = PI / 2.0
+	axle.position.x = sx * 1.5
+	hub.add_child(axle)
+	var tw := create_tween().set_loops()
+	tw.tween_property(hub, "rotation:x", TAU * sx, 7.0).from(0.0)
 
 
 func _add_field_rocks() -> void:
