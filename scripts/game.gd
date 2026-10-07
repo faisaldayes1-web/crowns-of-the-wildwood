@@ -590,7 +590,9 @@ func _finish(winner: int) -> void:
 		outcome = "VICTORY!" if winner == player_team else "DEFEAT"
 		line = "The %s win %d to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
 	winner_team = winner
-	announce(line)
+	chat_system(line)   # the summary screen carries the result; no banner over it
+	if message_label:
+		message_label.text = ""
 	_bank_match_xp(winner)
 	sfx.play_ambience(false)
 	if winner < 0:

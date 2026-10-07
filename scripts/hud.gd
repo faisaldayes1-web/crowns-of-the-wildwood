@@ -147,6 +147,13 @@ func _draw() -> void:
 		if game.game_over:
 			_draw_end()
 		return
+	if game.game_over:
+		# The summary screen replaces the live HUD (couch panes just clear).
+		if not pane:
+			_draw_end()
+			if game.cursor_shown:
+				_draw_cursor()
+		return
 	_draw_screen_fx()
 	_draw_logo(Rect2(size.x - 214, 8, 200, 80))
 	_draw_scoreboard()

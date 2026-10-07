@@ -667,6 +667,9 @@ func ranked(a: Dictionary, track: int) -> Dictionary:
 
 func attack_stats() -> Dictionary:
 	var s := ranked(stats(), 0)
+	if s.attack == "arrow" or s.attack == "spell":
+		s = s.duplicate()
+		s.cooldown = s.cooldown * Stats.RANGED_ATTACK_SLOW
 	if buff == "Might" and buff_timer > 0.0:
 		s = s.duplicate()
 		s.damage = s.damage + 1

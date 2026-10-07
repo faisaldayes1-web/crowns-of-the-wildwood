@@ -67,12 +67,12 @@ const MATCH_BONUS := {"win": 300, "draw": 150, "loss": 100}
 # threshold (hearts healed, siege XP, kills in one life, assists, kills).
 const ACCOLADES := [
 	{"key": "crown", "name": "Crown Thief", "desc": "Carried the enemy crown home.", "xp": 100, "icon": "crown"},
-	{"key": "slayer", "name": "Giant Slayer", "desc": "Brought down an enemy two levels above you.", "xp": 40, "icon": "sword"},
+	{"key": "slayer", "name": "Giant Slayer", "desc": "Felled an enemy two levels above you.", "xp": 40, "icon": "sword"},
 	{"key": "streak", "name": "Unstoppable", "desc": "Five kills in a single life.", "need": 5, "xp": 50, "icon": "might"},
 	{"key": "untouchable", "name": "Untouchable", "desc": "Three or more kills and never fell.", "need": 3, "xp": 50, "icon": "block"},
 	{"key": "top", "name": "Top Blade", "desc": "The most kills in the match.", "need": 3, "xp": 40, "icon": "dagger"},
 	{"key": "medic", "name": "Field Medic", "desc": "Healed twelve hearts on teammates.", "need": 12, "xp": 40, "icon": "mend"},
-	{"key": "breaker", "name": "Siege Breaker", "desc": "Battered doors, turrets and vaults for 40 siege XP.", "need": 40, "xp": 40, "icon": "hammer"},
+	{"key": "breaker", "name": "Siege Breaker", "desc": "Battered enemy doors, turrets and the vault.", "need": 40, "xp": 40, "icon": "hammer"},
 	{"key": "wingman", "name": "Wingman", "desc": "Six or more assists.", "need": 6, "xp": 30, "icon": "guard"},
 	{"key": "promoted", "name": "Promoted", "desc": "Earned a class promotion.", "xp": 30, "icon": "upgrade"}]
 const RANK_TITLES := [[1, "Recruit"], [3, "Militia"], [5, "Soldier"], [8, "Veteran"], [10, "Champion"],
@@ -196,6 +196,9 @@ const MAX_RANK := 3
 const RANK_COOLDOWN_CUT := 0.08
 const RANK_COST_CUT := 0.08
 const RANK_EFFECT_BOOST := 0.2   # Q/E only: the base attack's reach never grows with rank (2026-10-07: ranked bows out-ranged everyone)
+# Bows and staves fire this much slower than their listed cooldown (2026-10-07:
+# ranged classes out-killed melee 1.6 to 0.5 K/D over 18 bot matches).
+const RANGED_ATTACK_SLOW := 1.15
 const VIGOR_SPEED := 0.05
 const VIGOR_ENERGY := 12.0
 const VIGOR_REGEN := 0.2

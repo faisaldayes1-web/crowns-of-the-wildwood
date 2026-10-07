@@ -90,6 +90,7 @@ func _debug_fill(g, u) -> void:
 	u.mastery = {Role.KNIGHT: 4}
 	u.variants = {Role.KNIGHT: 0}
 	u.xp_sources = {"combat": 210, "takedowns": 450, "crown": 125, "siege": 46, "support": 16}
+	show_board = "--debug-end-board" in OS.get_cmdline_user_args()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--debug-end-xp="):
 			g.account_xp = int(arg.trim_prefix("--debug-end-xp="))
@@ -170,13 +171,15 @@ func draw(h) -> void:
 	var t := elapsed()
 	var sz: Vector2 = h.size
 	var cx := sz.x / 2.0
-	h.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.03, 0.02, 0.04, 0.62))
+	h.draw_rect(Rect2(Vector2.ZERO, sz), Color(0.03, 0.02, 0.04, 0.7))
 	# Warm torchlight vignette from the top.
 	for i in 6:
 		h.draw_rect(Rect2(0, 0, sz.x, 40 + i * 26), Color(0.9, 0.55, 0.2, 0.025))
 	_header(h, cx, t)
 	if show_board:
-		var r := Rect2(cx - 345, 150, 690, sz.y - 150 - 70)
+		# Two team blocks (title, header, a row per fighter) plus the frame.
+		var rows: int = game.units.size()
+		var r := Rect2(cx - 345, 150, 690, minf(2 * 56 + rows * 22 + 2 * 18 + 50, sz.y - 150 - 70))
 		_panel(h, r, "SCOREBOARD")
 		h._draw_scoreboard_table(Rect2(r.position + Vector2(16, 28), Vector2(r.size.x - 32, r.size.y - 40)))
 	else:
@@ -214,7 +217,7 @@ func _header(h, cx: float, t: float) -> void:
 	h._text(Vector2(plank.position.x, c.y + 15 * s), outcome, int(44 * s), tone, HORIZONTAL_ALIGNMENT_CENTER, plank.size.x, 8)
 	# The two crests, the winner's lit, the loser's dimmed.
 	for side in 2:
-		var x: float = cx + (-1 if side == 0 else 1) * 330.0
+		var x: float = cx + (-1 if side == 0 else 1) * 360.0
 		var lit: bool = winner < 0 or winner == side
 		var rect := Rect2(Vector2(x - 48, 14), Vector2(96, 96))
 		if lit and winner >= 0:
@@ -348,7 +351,7 @@ func _mvp_panel(h, r: Rect2, t: float) -> void:
 	h.draw_circle(c, 52 + 3 * sin(t * 2.5), Color(1.0, 0.8, 0.3, 0.15))
 	h._class_card(c, 42, mvp.team, _main_role(mvp))
 	h._crown(c + Vector2(0, -54), 1.3)
-	h._text(Vector2(r.position.x, c.y + 66), mvp.display_name + ("  (you)" if mvp.is_player else ""), 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+	h._text(Vector2(r.position.x, c.y + 66), mvp.display_name + ("  (you)" if mvp.is_player and mvp.display_name != "You" else ""), 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
 	h._text(Vector2(r.position.x, c.y + 84), "%s  ·  %d score" % [Stats.FACTIONS[mvp.team].name, game.unit_score(mvp)], 12, GREY, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 	h._text(Vector2(r.position.x, c.y + 102), "%d kills  ·  %d assists  ·  %d captures" % [mvp.kills, mvp.assists, mvp.captures], 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 	# Each side's best three by score.
