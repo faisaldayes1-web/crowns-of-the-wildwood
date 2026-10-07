@@ -148,6 +148,8 @@ func _draw() -> void:
 		_draw_player_panel(_me())
 	if game.killer_timer > 0.0 and _me() and _me().dead and not game.killer_card.is_empty():
 		_draw_killer_card()
+	if _me() and not _me().kill_banner.is_empty():
+		_draw_kill_banner(_me())
 	if game.stolen_timer > 0.0:
 		_draw_stolen_card()
 	elif game.capture_timer > 0.0:
@@ -172,6 +174,40 @@ func _draw() -> void:
 		_draw_game_menu()
 	if game.game_over:
 		_draw_end()
+	if game.cursor_shown:
+		_draw_cursor()
+
+
+func _mouse() -> Vector2:
+	## The pointer the menus react to: the gamepad cursor while it drives them.
+	return game.cursor if game.cursor_shown else get_local_mouse_position()
+
+
+func nav_rects() -> Array:
+	## Every button drawn this frame, for the gamepad cursor to jump between.
+	var out: Array = []
+	for list in [title_buttons, faction_buttons, hero_buttons, couch_buttons, tab_buttons, bind_buttons,
+			difficulty_buttons, toggle_buttons, guide_buttons, chat_buttons, variant_buttons, volume_sliders]:
+		for b in list:
+			if b[0].size.x > 0.0:
+				out.append(b[0])
+	for r in rank_buttons:
+		if r.size.x > 0.0:
+			out.append(r)
+	for r in [options_button, close_button, reset_button]:
+		if r.size.x > 0.0:
+			out.append(r)
+	return out
+
+
+func _draw_cursor() -> void:
+	## A gold pointer where the gamepad cursor is.
+	var c: Vector2 = game.cursor
+	var pts := PackedVector2Array([c, c + Vector2(0, 22), c + Vector2(6, 17), c + Vector2(16, 16)])
+	draw_colored_polygon(pts, Color(0.1, 0.08, 0.05, 0.9))
+	var inner := PackedVector2Array([c + Vector2(2, 4), c + Vector2(2, 18), c + Vector2(6, 15), c + Vector2(12, 14)])
+	draw_colored_polygon(inner, GOLD)
+	draw_arc(c + Vector2(6, 10), 16.0, 0, TAU, 24, Color(1.0, 0.9, 0.5, 0.35), 2.0)
 
 
 func _me():
@@ -669,7 +705,7 @@ func _draw_guide() -> void:
 		var cw: float = (tw - 12) / cols
 		for i in Guide.TOPICS.size():
 			var row := Rect2(tx + (i % cols) * (cw + 12), ty + 14 + (i / cols) * 32, cw, 27)
-			var hover: bool = row.has_point(get_local_mouse_position())
+			var hover: bool = row.has_point(_mouse())
 			_plate(row, Color(0.9, 0.82, 0.64) if hover else Color(0.93, 0.87, 0.72), Color(0.7, 0.55, 0.3), 6, 1)
 			_keycap(row.position + Vector2(16, 13), str(i + 1), 20)
 			_text(row.position + Vector2(34, 19), Guide.TOPICS[i][0], 13, Color(0.2, 0.12, 0.05), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
@@ -876,6 +912,37 @@ func _draw_levelup_card() -> void:
 		_class_card(rect.position + Vector2(40, 39), 26, p.team, p.role)
 	_text(rect.position + Vector2(84, 32), "LEVEL UP!", 24, Color(1, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	_text(rect.position + Vector2(84, 54), "You are now Level %d   ·   +1 Perk Point (%s)" % [game.levelup_level, _k("rank_menu")], 12, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _draw_kill_banner(p) -> void:
+	## KILL! A gold-and-crimson card that punches in under the clock with the
+	## victim's class and your streak, then slides away.
+	var age: float = Time.get_ticks_msec() / 1000.0 - p.kill_banner.time
+	if age < 0.0 or age > 2.4:
+		return
+	var pop: float = clampf(age / 0.18, 0.0, 1.0)
+	var scale_k: float = 1.0 + (1.0 - pop) * 0.35   # lands big and settles
+	var a: float = minf(pop * 2.0, 1.0) * (1.0 if age < 1.9 else clampf((2.4 - age) * 2.0, 0.0, 1.0))
+	var streak: int = p.kill_banner.streak
+	var title := "KILL!"
+	var sub_color := Color(1.0, 0.9, 0.6, a)
+	match streak:
+		2: title = "DOUBLE KILL!"
+		3: title = "TRIPLE KILL!"
+		4: title = "QUAD KILL!"
+		_:
+			if streak >= 5:
+				title = "RAMPAGE  x%d" % streak
+				sub_color = Color(1.0, 0.6, 0.4, a)
+	var w: float = (300.0 + maxf(_text_width(title, 26) - 120.0, 0.0)) * scale_k
+	var rect := Rect2(size.x / 2.0 - w / 2.0, 112 - (1.0 - pop) * 24.0, w, 66 * scale_k)
+	# The burst behind the card.
+	draw_arc(rect.get_center(), 40.0 + age * 160.0, 0, TAU, 40, Color(1.0, 0.85, 0.3, maxf(0.5 - age * 1.2, 0.0)), 6.0)
+	_plate(rect, Color(0.42, 0.08, 0.08, 0.94 * a), Color(1.0, 0.85, 0.3, a), 12, 3)
+	_class_card(rect.position + Vector2(36 * scale_k, rect.size.y / 2.0), 22 * scale_k, p.kill_banner.team, p.kill_banner.role_id, true)
+	_text(rect.position + Vector2(68 * scale_k, 30 * scale_k), title, int(26 * scale_k), Color(1.0, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	_text(rect.position + Vector2(68 * scale_k, 50 * scale_k), "%s the %s  ·  +%d XP" % [p.kill_banner.victim, p.kill_banner.role, Stats.XP_KILL], int(12 * scale_k), sub_color, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_icon("sword", rect.end - Vector2(30 * scale_k, rect.size.y / 2.0), 12 * scale_k, Color(1.0, 0.85, 0.3, a))
 
 
 func _draw_toasts() -> void:
@@ -2002,7 +2069,7 @@ func _draw_title() -> void:
 	var ty := 206.0
 	for i in tabs.size():
 		var b := Rect2(tx, ty + i * 78, 190, 64)
-		var hover: bool = b.has_point(get_local_mouse_position())
+		var hover: bool = b.has_point(_mouse())
 		var selected: bool = game.title_tab == i
 		_chunky(b, tabs[i][1], selected, hover)
 		_text(b.position + Vector2(0, 41), tabs[i][0], 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 5)
@@ -2015,7 +2082,9 @@ func _draw_title() -> void:
 		_: _draw_title_play(panel)
 	options_button = Rect2(tx, ty + 3 * 78, 190, 64)
 	var foot := "Press 1 or 2 (or click a side) to play  ·  Esc never quits by accident"
-	if game.couch_players > 1:
+	if game.cursor_shown:
+		foot = "D-pad or stick moves the pointer  ·  %s picks  ·  %s backs out  ·  bumpers switch tabs" % [_k("ui_confirm"), _k("ui_back")]
+	elif game.couch_players > 1:
 		foot = "%d on this screen: player 1 on keyboard and mouse, players 2-%d on gamepads  ·  press 1 or 2 to play" % [game.couch_players, game.couch_players]
 	_text(Vector2(cx - 300, size.y - 16), foot, 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 600, 2)
 
@@ -2039,7 +2108,7 @@ func _draw_title_play(panel: Rect2) -> void:
 		var b := Rect2(left + 50 + i * 190, row_y, 180, 34)
 		var on: bool = game.map_variant == i
 		var locked: bool = i > 0 and not game.unlocked()
-		_chunky(b, (Color(0.2, 0.55, 0.3) if i == 0 else Color(0.25, 0.25, 0.55)) if not locked else Color(0.3, 0.3, 0.34), on, b.has_point(get_local_mouse_position()))
+		_chunky(b, (Color(0.2, 0.55, 0.3) if i == 0 else Color(0.25, 0.25, 0.55)) if not locked else Color(0.3, 0.3, 0.34), on, b.has_point(_mouse()))
 		_text(b.position + Vector2(0, 23), Stats.MAPS[i][0].to_upper(), 12, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 3)
 		if locked:
 			_text(b.position + Vector2(0, 32), "LEVEL %d" % Stats.UNLOCK_LEVEL, 7, Color(1.0, 0.75, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
@@ -2050,14 +2119,14 @@ func _draw_title_play(panel: Rect2) -> void:
 	_text(Vector2(cxr, row_y + 14), "COUCH", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var less := Rect2(cxr + 56, row_y, 30, 34)
 	var more := Rect2(cxr + 124, row_y, 30, 34)
-	_chunky(less, Color(0.25, 0.22, 0.3), false, less.has_point(get_local_mouse_position()))
-	_chunky(more, Color(0.25, 0.22, 0.3), false, more.has_point(get_local_mouse_position()))
+	_chunky(less, Color(0.25, 0.22, 0.3), false, less.has_point(_mouse()))
+	_chunky(more, Color(0.25, 0.22, 0.3), false, more.has_point(_mouse()))
 	_text(less.position + Vector2(0, 23), "-", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, less.size.x, 3)
 	_text(more.position + Vector2(0, 23), "+", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, more.size.x, 3)
 	_text(Vector2(cxr + 86, row_y + 23), "%d" % game.couch_players, 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 38, 3)
 	var mode := Rect2(cxr + 162, row_y, 92, 34)
 	var coop: bool = game.couch_mode == "coop"
-	_chunky(mode, Color(0.2, 0.5, 0.35) if coop else Color(0.55, 0.25, 0.3), game.couch_players > 1, mode.has_point(get_local_mouse_position()))
+	_chunky(mode, Color(0.2, 0.5, 0.35) if coop else Color(0.55, 0.25, 0.3), game.couch_players > 1, mode.has_point(_mouse()))
 	_text(mode.position + Vector2(0, 23), "CO-OP" if coop else "VERSUS", 11, Color.WHITE if game.couch_players > 1 else GREY, HORIZONTAL_ALIGNMENT_CENTER, mode.size.x, 2)
 	couch_buttons.append([less, "less"])
 	couch_buttons.append([more, "more"])
@@ -2068,7 +2137,7 @@ func _draw_title_play(panel: Rect2) -> void:
 		var name: String = Stats.BOT_DIFFICULTIES[i]
 		var b := Rect2(left + 50 + i * 100, dy, 92, 30)
 		var on: bool = game.bot_difficulty == name
-		_chunky(b, Color(0.55, 0.4, 0.12) if on else Color(0.25, 0.22, 0.3), on, b.has_point(get_local_mouse_position()))
+		_chunky(b, Color(0.55, 0.4, 0.12) if on else Color(0.25, 0.22, 0.3), on, b.has_point(_mouse()))
 		_text(b.position + Vector2(0, 21), name.to_upper(), 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 		difficulty_buttons.append([b, name])
 	_text(Vector2(left + 360, dy + 20), Stats.BOT_TUNING[game.bot_difficulty].desc, 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -2131,7 +2200,7 @@ func _draw_title_hero(panel: Rect2) -> void:
 			if col.a == 0.0:
 				col = Color(0.3, 0.5, 0.4) if not wide else Color(0.35, 0.45, 0.4)
 			var locked: bool = wide and i > 0 and not game.unlocked()
-			_chunky(b, col if not locked else Color(0.3, 0.3, 0.34), i == chosen, b.has_point(get_local_mouse_position()))
+			_chunky(b, col if not locked else Color(0.3, 0.3, 0.34), i == chosen, b.has_point(_mouse()))
 			if wide:
 				_text(b.position + Vector2(0, 20), options[i][0].to_upper() if not locked else "LOCKED · LV %d" % Stats.UNLOCK_LEVEL, 11, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 			hero_buttons.append([b, rows[r][3], i])

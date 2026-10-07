@@ -127,6 +127,7 @@ var capture_team := 0
 var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} at +z]
 var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
 var cover_points: Array = []  # places a shooter can duck behind
+var cover_boxes: Array = []   # their colliders (AABB), for walkers to go round
 var barricades: Array = []
 var barricades_left := [0, 0]   # barricade kits each team still has (fortify phase)
 var prep_left := 0.0            # seconds left in the fortify phase (0 = the battle is on)
@@ -139,6 +140,10 @@ var show_fps := false
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
 var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox" or "ps"
 var pad_active := false        # player 1's last press came from a gamepad (labels follow it)
+var cursor := Vector2.ZERO      # the gamepad's menu cursor (screen pixels)
+var debug_kill := false
+var cursor_shown := false      # drawn and used instead of the mouse while a pad drives the menus
+var nav_repeat := 0.0          # held D-pad / stick repeat timer
 # Quick commands: Z / X / C call the team; bots answer for COMMAND_TIME seconds.
 var team_command := ["", ""]
 var command_timer := [0.0, 0.0]
@@ -168,7 +173,9 @@ var heal_orbs: Array = []
 var blessings: Array = []
 var blessing_timer := 30.0
 # Where a Blessing of Light can appear: the field, never inside a castle. Mirrored.
-const BLESSING_SPOTS := [Vector3(0, 0.5, 0), Vector3(0, 0.5, 0), Vector3(0, 0.5, 0), Vector3(12, 0, -24), Vector3(-12, 0, 24), Vector3(26, 0, 4), Vector3(-26, 0, -4),
+# Three of the spots ring the Crown Shrine's plinth (never on it: the plinth
+# is solid, so a blessing there could not be picked up).
+const BLESSING_SPOTS := [Vector3(0, 0.5, 2.4), Vector3(2.4, 0.5, 0), Vector3(-2.4, 0.5, 0), Vector3(12, 0, -24), Vector3(-12, 0, 24), Vector3(26, 0, 4), Vector3(-26, 0, -4),
 	Vector3(16, 0, 12), Vector3(-16, 0, -12), Vector3(30, 0, -16), Vector3(-30, 0, 16), Vector3(10, 0, 26), Vector3(-10, 0, -26)]
 var time_left := Stats.MATCH_TIME
 var player
@@ -232,6 +239,11 @@ func _ready() -> void:
 		if arg.begins_with("--debug-pad="):  # testing: draw the HUD as if player 1 held this kind of pad
 			pad_style = arg.trim_prefix("--debug-pad=")
 			pad_active = true
+		if arg == "--debug-kill":  # testing: a KILL banner 4.5 s into the match
+			debug_kill = true
+		if arg == "--debug-cursor":  # testing: the gamepad pointer on the title screen
+			cursor_shown = true
+			cursor = Vector2(119, 238)
 	if "--debug-night" in OS.get_cmdline_user_args():
 		map_variant = 1
 	_build_world()
@@ -261,6 +273,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if debug_kill and player and not player.kill_banner.is_empty():
+		player.kill_banner.time = Time.get_ticks_msec() / 1000.0 - 0.7
 	_debug_hooks()
 	_ui_sounds()
 	for t in 2:
@@ -831,7 +845,7 @@ func spawn_blessing(spot: Vector3, kind: String) -> void:
 	spawn_pillar(spot, Stats.BLESSING_KINDS[kind].color, 7.0, 1.2)
 	spawn_ring(spot, 4.0, Stats.BLESSING_KINDS[kind].color, 1.0)
 	var where := "near the %s bank" % ("north" if spot.z < -5.0 else ("south" if spot.z > 5.0 else "middle"))
-	if spot.length() < 1.0:
+	if spot.length() < 3.0:
 		where = "at the Crown Shrine"
 	elif absf(spot.x) > 12.0:
 		where = "on the %s side" % (Stats.FACTIONS[0].realm if spot.x < 0.0 else Stats.FACTIONS[1].realm)
@@ -1203,7 +1217,27 @@ func gate_blocking(team: int, from: Vector3, to: Vector3):
 func route_point(from: Vector3, to: Vector3) -> Vector3:
 	## The next place to walk toward on the way to `to`: the ramp when the goal
 	## is up on the walls, the castle door when the outer wall is in the way,
-	## the keep's archway when the keep's walls are, else `to`.
+	## the keep's archway when the keep's walls are, else `to`; and whatever
+	## that leg is, round the nearer end of any cover stack lying across it.
+	var leg := _route_leg(from, to)
+	if from.y < 1.0 and leg.y < 1.0:
+		var a := Vector3(from.x, 0.6, from.z)
+		var b := Vector3(leg.x, 0.6, leg.z)
+		for box in cover_boxes:
+			var grown: AABB = box.grow(0.5)
+			if grown.has_point(a) or grown.has_point(b) or grown.intersects_segment(a, b) == null:
+				continue
+			var cz: float = box.position.z + box.size.z / 2.0
+			var reach: float = box.size.z / 2.0 + 1.1
+			var near_end := Vector3(box.position.x + 0.5, 0, cz - reach)
+			var far_end := Vector3(box.position.x + 0.5, 0, cz + reach)
+			if _flat_dist(from, far_end) + _flat_dist(far_end, leg) < _flat_dist(from, near_end) + _flat_dist(near_end, leg):
+				return far_end
+			return near_end
+	return leg
+
+
+func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 	var target := to
 	# Out of the spawn cellar: line up with the stairs, then climb them.
 	for c in 2:
@@ -1218,9 +1252,14 @@ func route_point(from: Vector3, to: Vector3) -> Vector3:
 			var on_lane: bool = absf(from.z) < 1.3 and behind < 0.8
 			if on_lane:
 				return st[1]
-			if behind < 1.3:
+			if behind > -1.0 and behind < 1.3:
 				return st[0]  # near the foot of the stairs: step across to the lane
-			return Vector3(st[0].x + side * 0.3, CELLAR_Y, from.z)  # walk straight back to the foot first
+			if behind >= 1.3:
+				return Vector3(st[0].x + side * 0.3, CELLAR_Y, from.z)  # walk straight back to the foot first
+			# Up by the hats, ahead of the foot: the low walls flanking the
+			# stairs end short of the foot, so get out past their ends before
+			# stepping across, or the end post catches the diagonal.
+			return Vector3(st[0].x + side * 0.3, CELLAR_Y, signf(from.z) * 3.2)
 		# Crossing the cellar from one row of hats to the other: the low walls
 		# along the stairs are in the way, so go round behind their foot first.
 		if _in_cellar(c, from) and _in_cellar(c, to) and from.z * to.z < 0.0 and absf(from.z) > 1.0 and absf(to.z) > 1.0:
@@ -1228,6 +1267,17 @@ func route_point(from: Vector3, to: Vector3) -> Vector3:
 			var side := -1.0 if c == 0 else 1.0
 			if (from.x - st[0].x) * side < -1.2:
 				return Vector3(st[0].x + side * 0.3, CELLAR_Y, from.z)
+		# On the stairs lane (between its low walls, or just off their foot)
+		# and heading for a hat beside it: clear the walls' end first, well
+		# out to the hat's side, or the end post catches the diagonal.
+		if _in_cellar(c, from) and _in_cellar(c, to) and absf(from.z) < 2.3 and absf(to.z) > 2.4:
+			var st := cellar_stairs(c)
+			var side := -1.0 if c == 0 else 1.0
+			var bx := side * (CASTLE_X + CASTLE_DEPTH)
+			var lane_lo: float = minf(bx + side * 8.4, bx - side * 0.8)
+			var lane_hi: float = maxf(bx + side * 8.4, bx - side * 0.8)
+			if from.x > lane_lo and from.x < lane_hi:
+				return Vector3(st[0].x + side * 0.3, CELLAR_Y, signf(to.z) * 3.2)
 	if to.y > 2.0 and from.y < WALK_Y - 0.2:
 		var c := 0 if to.x < 0.0 else 1
 		var ramp: Dictionary = ramps[c][0] if to.z < 0.0 else ramps[c][1]
@@ -1235,17 +1285,46 @@ func route_point(from: Vector3, to: Vector3) -> Vector3:
 			target = ramp.bottom
 		else:
 			return ramp.top
+	# The shrine plinth is solid: a goal on it (or right beside it) means
+	# standing at its foot, on the side we come from.
+	if _flat_dist(target, Vector3.ZERO) < 1.6:
+		var away := Vector3(from.x - target.x, 0, from.z - target.z)
+		if away.length() < 0.1:
+			away = Vector3(0, 0, 1)
+		target = target + away.normalized() * 1.8
+		target.y = 0.5
+	# Up on the shrine island and leaving it: the steps are at z 0 on each
+	# side (stone rims close the north and south edges), and the plinth sits
+	# in the middle, so go round it on the side we are already on first.
+	var on_island: bool = from.y > 0.3 and _flat_dist(from, Vector3.ZERO) < ISLAND_R + 0.3
+	if on_island and _flat_dist(target, Vector3.ZERO) > ISLAND_R + 0.3:
+		var exit_side := 1.0 if target.x > 0.0 else -1.0
+		if from.x * exit_side < -1.2 and absf(from.z) < 1.6:
+			return Vector3(0.0, 0.5, (1.0 if from.z >= 0.0 else -1.0) * 2.0)
+		if from.x * exit_side < 1.2 and absf(from.z) < 1.6:
+			return Vector3(exit_side * 2.4, 0.5, (1.0 if from.z >= 0.0 else -1.0) * 1.8)
+		return Vector3(exit_side * (ISLAND_R + 3.6), 0.0, 0.0)
 	# The river: cross at the bridge closest to the way, entering it square on.
 	if (from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF):
-		var bz: float = BRIDGES[0]
+		var bi := 0
 		var best := 1e9
-		for z in BRIDGES:
-			var d: float = absf(from.z - z) + absf(target.z - z)
+		for i in BRIDGES.size():
+			var d: float = absf(from.z - BRIDGES[i]) + absf(target.z - BRIDGES[i])
 			if d < best:
 				best = d
-				bz = z
+				bi = i
+		var bz: float = BRIDGES[bi]
 		var side := signf(from.x)
-		if absf(from.z - bz) > 1.2 and absf(from.x) > RIVER_HALF + 1.0:
+		if bi == 1:
+			# The island: its steps' foot on our bank, straight over, down the
+			# far steps (the island rules above take over once we are up).
+			if absf(from.z) > 1.2 or absf(from.x) > ISLAND_R + 4.6:
+				return Vector3(side * (ISLAND_R + 3.6), 0.0, 0.0)
+			return Vector3(-side * (ISLAND_R + 3.6), 0.0, 0.0)
+		# Off the deck and not lined up with it: our end of the bridge first,
+		# or the rails and the bank walls catch the diagonal.
+		var on_deck: bool = absf(from.x) < RIVER_HALF + 1.0 and absf(from.z - bz) < BRIDGE_HALF[bi] - 0.4
+		if absf(from.z - bz) > 1.2 and not on_deck:
 			return Vector3(side * (RIVER_HALF + 2.0), 0.0, bz)
 		return Vector3(-side * (RIVER_HALF + 2.5), 0.0, bz)
 	for c in 2:
@@ -1258,10 +1337,53 @@ func route_point(from: Vector3, to: Vector3) -> Vector3:
 			if here != 0.0 and absf(from.z) > Stats.DOOR_HALF - 0.6 and absf(from.x - fx) < 6.0:
 				return Vector3(fx + here * 4.5, 0.0, 0.0)
 			return Vector3(fx + (1.8 if target.x > from.x else -1.8), 0.0, 0.0)
+		# Inside the keep, the throne room's walls are in the way of anyone
+		# crossing between the entrance hall and the back: go round through a
+		# gallery, corner to corner. Going into the room (or out of it) means
+		# the doors, which face the hall.
 		if _inside_keep(c, from) != _inside_keep(c, target):
 			var kx := _keep_x(c)
-			return Vector3(kx + (1.5 if target.x > from.x else -1.5), 0.0, 0.0)
+			var arch := Vector3(kx + (1.5 if target.x > from.x else -1.5), 0.0, 0.0)
+			if _inside_keep(c, from):
+				var way := _around_throne_room(c, from, arch)
+				if way != Vector3.INF:
+					return way
+			return arch
+		if _inside_keep(c, from) and _inside_keep(c, target):
+			var way := _around_throne_room(c, from, target)
+			if way != Vector3.INF:
+				return way
 	return target
+
+
+func _around_throne_room(team: int, from: Vector3, to: Vector3) -> Vector3:
+	## A waypoint past the throne room when the straight line would cross it,
+	## or INF when the way is clear.
+	var side := -1.0 if team == 0 else 1.0
+	var throne: Vector3 = thrones[team]
+	var fx := throne.x - side * (ROOM_FRONT + 0.45)   # just outside the front wall
+	var bx := throne.x + side * (ROOM_BACK + 0.45)
+	var hz := ROOM_HALF_Z + 0.5
+	var box := AABB(Vector3(minf(fx, bx), -1.0, -hz), Vector3(absf(bx - fx), 4.0, hz * 2.0))
+	var from_in := box.has_point(from)
+	var to_in := box.has_point(to)
+	if to_in:
+		return Vector3.INF   # heading into the room: straight at the doors
+	if from_in:
+		return Vector3(fx - side * 0.4, 0.0, 0.0)  # leaving: out through the doors first
+	if box.intersects_segment(from, to) == null:
+		return Vector3.INF
+	var gz: float = hz + 1.1   # the galleries' clear lane (furniture hugs the outer walls)
+	var zs: float = signf(from.z) if absf(from.z) > 0.3 else (signf(to.z) if absf(to.z) > 0.3 else 1.0)
+	var front_corner := Vector3(fx - side * 0.8, 0.0, zs * gz)
+	var back_corner := Vector3(bx + side * 0.8, 0.0, zs * gz)
+	var rel_from := (from.x - throne.x) * side
+	var in_gallery := absf(from.z) > hz
+	if rel_from < -(ROOM_FRONT + 0.45):      # in front of the room
+		return back_corner if in_gallery else front_corner
+	if rel_from > ROOM_BACK + 0.45:          # behind it
+		return front_corner if in_gallery else back_corner
+	return front_corner if (to.x - throne.x) * side < 0.0 else back_corner
 
 
 # --- Effects -----------------------------------------------------------------
@@ -1517,6 +1639,9 @@ func _start_match(team: int) -> void:
 	sfx.ui("match_start")
 	sfx.play_music(true)
 	sfx.play_ambience(true)
+	if debug_kill and player:
+		player.kill_banner = {"victim": "Sir Aldric", "role": "Knight", "team": 1 - player_team, "role_id": Stats.Role.KNIGHT,
+			"streak": 2, "time": Time.get_ticks_msec() / 1000.0}
 	if pad_active:
 		var k := pad_kind(local_pad(0))
 		chat_system("%s attacks, %s and %s for abilities, %s dodges, %s grabs, %s for perks, hold %s for the scoreboard." % [
@@ -1671,6 +1796,87 @@ func camera_for(u) -> Camera3D:
 			if pane.unit == u:
 				return pane.cam
 	return camera
+
+
+func menu_mouse() -> Vector2:
+	## Where menu clicks land: the gamepad cursor while it is in use, else the mouse.
+	return cursor if cursor_shown else get_viewport().get_mouse_position()
+
+
+func in_menus() -> bool:
+	## Whether a screen of buttons is up (title, pause menu, guide, end screen).
+	return (not playing or menu_open or game_over or guide_open) and not rank_open and rebinding == "" and not chat_open and not name_editing
+
+
+func _pad_nav() -> void:
+	## Move the gamepad cursor: the D-pad (or a stick flick) jumps to the next
+	## button in that direction, the stick held steers it freely, and the
+	## Circle / B button backs out of the pause menu or the guide.
+	if hud == null or not in_menus():
+		cursor_shown = false
+		return
+	var dt := get_process_delta_time()
+	var stick := Vector2.ZERO
+	for d in Input.get_connected_joypads():
+		var v := Vector2(Input.get_joy_axis(d, JOY_AXIS_LEFT_X), Input.get_joy_axis(d, JOY_AXIS_LEFT_Y))
+		if v.length() > stick.length():
+			stick = v
+	var pressed := Vector2.ZERO
+	for dir in [["nav_left", Vector2.LEFT], ["nav_right", Vector2.RIGHT], ["nav_up", Vector2.UP], ["nav_down", Vector2.DOWN]]:
+		if Input.is_action_just_pressed(dir[0]):
+			pressed += dir[1]
+	var any_nav: bool = pressed != Vector2.ZERO or stick.length() > 0.3 or Input.is_action_just_pressed("ui_confirm") or Input.is_action_just_pressed("ui_back")
+	if any_nav and not cursor_shown:
+		cursor_shown = true
+		pad_active = true
+		var rects: Array = hud.nav_rects()
+		cursor = rects[0].get_center() if not rects.is_empty() else get_viewport().get_visible_rect().size / 2.0
+		if pressed != Vector2.ZERO:
+			return  # the first press only shows the cursor
+	if not cursor_shown:
+		return
+	if pressed != Vector2.ZERO:
+		_snap_cursor(pressed.normalized())
+		nav_repeat = 0.4
+	elif stick.length() > 0.3:
+		# Holding the stick: steer freely (slow) and keep snapping at a steady beat.
+		nav_repeat -= dt
+		if nav_repeat <= 0.0 and stick.length() > 0.75:
+			_snap_cursor(stick.normalized())
+			nav_repeat = 0.28
+		elif stick.length() <= 0.75:
+			cursor += stick * dt * 700.0
+	else:
+		nav_repeat = 0.0
+	cursor = cursor.clamp(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	if Input.is_action_just_pressed("ui_back"):
+		if menu_open:
+			menu_open = false
+			get_tree().paused = false
+			sfx.ui("ui_click", -4.0)
+		elif guide_open:
+			guide_close()
+
+
+func _snap_cursor(dir: Vector2) -> void:
+	## Jump to the nearest button centre that lies in this direction.
+	var best := Rect2()
+	var best_score := INF
+	for r in hud.nav_rects():
+		var to: Vector2 = r.get_center() - cursor
+		var along := to.dot(dir)
+		if along < 6.0 or r.has_point(cursor):
+			continue
+		var perp := absf(to.dot(Vector2(-dir.y, dir.x)))
+		if perp > along * 1.6 + 30.0:
+			continue
+		var score := along + perp * 2.0
+		if score < best_score:
+			best_score = score
+			best = r
+	if best.size != Vector2.ZERO:
+		cursor = best.get_center()
+		sfx.ui("ui_click", -10.0)
 
 
 # --- Couch play --------------------------------------------------------------
@@ -2071,11 +2277,13 @@ func menu_tick() -> void:
 		if bot_chat_timer <= 0.0:
 			bot_chat_timer = randf_range(22.0, 40.0)
 			_idle_banter()
-	# Mouse clicks on menu buttons (the HUD records where it drew them).
-	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	# Mouse clicks on menu buttons (the HUD records where it drew them). A
+	# gamepad drives the same buttons through its cursor.
+	_pad_nav()
+	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (cursor_shown and Input.is_action_pressed("ui_confirm"))
 	if click and hud and menu_open:
 		# Volume sliders follow the mouse while the button is held.
-		var mp := get_viewport().get_mouse_position()
+		var mp := menu_mouse()
 		for sl in hud.volume_sliders:
 			if sl[0].grow(6).has_point(mp):
 				var v := clampf((mp.x - sl[0].position.x - 2.0) / (sl[0].size.x - 4.0), 0.0, 1.0)
@@ -2088,7 +2296,7 @@ func menu_tick() -> void:
 					sfx.ui("ui_click", -4.0)
 				_save_settings()
 	if click and not click_was and hud and rebinding == "":
-		var mouse := get_viewport().get_mouse_position()
+		var mouse := menu_mouse()
 		for i in hud.rank_buttons.size():
 			if hud.rank_buttons[i].has_point(mouse) and player:
 				player.spend_point(i)
@@ -2194,6 +2402,9 @@ func menu_input(event: InputEvent) -> void:
 			pad_active = true
 	elif (event is InputEventKey or event is InputEventMouseButton) and event.pressed:
 		pad_active = false
+		cursor_shown = false
+	elif event is InputEventMouseMotion and event.relative.length() > 2.0:
+		cursor_shown = false
 	if rebinding != "":
 		if Engine.get_process_frames() == swallow_frame:
 			return  # the click that picked the row
@@ -2748,6 +2959,12 @@ func _solidify_prop(inst: Node3D, pos: Vector3) -> void:
 	var floor_y: float = CELLAR_Y if pos.y < -1.0 else (WALK_Y if pos.y > 2.5 else 0.0)
 	if aabb.position.y - floor_y > 1.0 or aabb.size.y < 0.35 or aabb.size.x > 6.0 or aabb.size.z > 6.0:
 		return
+	# Things hung on walls (banners, shields, torches, frames) stay walkable:
+	# their colliders stuck out of the wall and caught anyone hugging it.
+	var file := inst.scene_file_path.get_file()
+	for hung in ["banner", "sword_shield", "torch", "pictureframe", "wall_shelves"]:
+		if hung in file:
+			return
 	if "--audit" in OS.get_cmdline_user_args():
 		print("SOLID %s at %s size %s" % [inst.scene_file_path.get_file(), aabb.get_center().snapped(Vector3(0.1, 0.1, 0.1)), aabb.size.snapped(Vector3(0.1, 0.1, 0.1))])
 	var body := StaticBody3D.new()
@@ -3508,6 +3725,16 @@ func _add_island() -> void:
 		_add_torch(Vector3(sx * (ISLAND_R + 3.6), 0, 2.6))
 
 
+func in_channel(p: Vector3) -> bool:
+	## In the river itself: between the banks, off every bridge deck and off
+	## the shrine island. Nothing should ever stand there.
+	if absf(p.x) >= RIVER_HALF - 0.1 or p.y > 0.3:
+		return false
+	if _flat_dist(p, Vector3.ZERO) < ISLAND_R + 0.4:
+		return false
+	return not _near_bridge(p.z, 0.3)
+
+
 func _near_bridge(z: float, margin: float) -> bool:
 	for i in BRIDGES.size():
 		if absf(z - BRIDGES[i]) < BRIDGE_HALF[i] + margin:
@@ -3530,6 +3757,7 @@ func _add_cover() -> void:
 			var length: float = b[1]
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
 			cover_points.append(Vector3(c.x, 0, c.z))
+			cover_boxes.append(AABB(Vector3(c.x - 0.5, 0, c.z - length / 2.0), Vector3(1.0, 1.2, length)))
 			# Supply stacks on the road itself (an abandoned caravan); palisades
 			# and broken walls alternate across the field.
 			var kind: int = 0 if absf(c.z) < 3.0 else 1 + (bi % 2)
@@ -4070,12 +4298,27 @@ func _add_wall_torch(pos: Vector3, out: Vector3) -> void:
 
 
 func _add_rug(center: Vector3, size: Vector2, color: Color) -> void:
-	## A team-coloured rug with a gold border.
-	_add_block(center + Vector3(0, 0.015, 0), Vector3(size.x, 0.03, size.y), color, false, _carpet(color))
+	## A woven rug: a dark field with a gold border, an inner band and a pale
+	## medallion in the middle, so it reads as a rug and not a coloured tile.
+	var y := center.y
+	_add_block(Vector3(center.x, y + 0.015, center.z), Vector3(size.x, 0.03, size.y), color, false, _carpet(color.darkened(0.25)))
 	for xs in [-1.0, 1.0]:
-		_add_block(center + Vector3(xs * (size.x / 2.0 - 0.12), 0.032, 0), Vector3(0.16, 0.01, size.y), color, false, _gold())
+		_add_block(Vector3(center.x + xs * (size.x / 2.0 - 0.1), y + 0.032, center.z), Vector3(0.12, 0.01, size.y), color, false, _gold())
+		_add_block(Vector3(center.x + xs * (size.x / 2.0 - 0.36), y + 0.032, center.z), Vector3(0.06, 0.01, size.y - 0.6), color, false, _cloth(color.lightened(0.35)))
 	for zs in [-1.0, 1.0]:
-		_add_block(center + Vector3(0, 0.032, zs * (size.y / 2.0 - 0.12)), Vector3(size.x, 0.01, 0.16), color, false, _gold())
+		_add_block(Vector3(center.x, y + 0.032, center.z + zs * (size.y / 2.0 - 0.1)), Vector3(size.x, 0.01, 0.12), color, false, _gold())
+		_add_block(Vector3(center.x, y + 0.032, center.z + zs * (size.y / 2.0 - 0.36)), Vector3(size.x - 0.6, 0.01, 0.06), color, false, _cloth(color.lightened(0.35)))
+	# The medallion: a diamond of lighter cloth with a gold centre.
+	var med := minf(size.x, size.y) * 0.42
+	var d := MeshInstance3D.new()
+	var dm := BoxMesh.new()
+	dm.size = Vector3(med, 0.01, med)
+	d.mesh = dm
+	d.rotation.y = PI / 4.0
+	d.position = Vector3(center.x, y + 0.034, center.z)
+	d.material_override = _cloth(color.lightened(0.2))
+	add_child(d)
+	_add_block(Vector3(center.x, y + 0.036, center.z), Vector3(med * 0.3, 0.01, med * 0.3), color, false, _gold())
 
 
 # ---------------------------------------------------------------------------
@@ -4360,65 +4603,244 @@ func _add_bedroll(pos: Vector3, rot_y: float, color: Color) -> void:
 	n.add_child(pillow)
 
 
+const ROOM_FRONT := 2.8    # throne room: doors this far in front of the throne
+const ROOM_BACK := 3.6     # back wall this far behind it
+const ROOM_HALF_Z := 4.2
+const ROOM_H := 2.3
+const ROOM_DOOR_HALF := 1.2
+
+func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -> void:
+	## Walls, floor, dais and finery of the throne room. Stone and velvet for
+	## the Humans; living bark, moss and crystal for the Elves. The doorway
+	## in the front wall is the Crown Vault's lock (scripts/vault.gd).
+	var elven := team == 0
+	var front_x := throne.x - side * ROOM_FRONT
+	var back_x := throne.x + side * ROOM_BACK
+	var cx := (front_x + back_x) / 2.0
+	var depth := ROOM_FRONT + ROOM_BACK
+	var hz := ROOM_HALF_Z
+	audit_label = "vault"
+	# Floor: dark marble with a pale border (Humans) or a mossy glade floor (Elves).
+	if elven:
+		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _pbr("bark", 0.5, Color(0.7, 0.66, 0.55)))
+		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _pbr("flagstone_moss", 0.8, Color(0.95, 0.95, 0.88)))
+	else:
+		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _marble(Color(0.55, 0.5, 0.52)))
+		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _marble())
+	# Walls: side walls, the back wall, and the front wall either side of the doors.
+	var wall_mat := _ashlar()
+	for zs in [-1.0, 1.0]:
+		_add_block(Vector3(cx, ROOM_H / 2.0, zs * hz), Vector3(depth + 0.5, ROOM_H, 0.5), Color.WHITE, true, wall_mat)
+		var seg := hz - ROOM_DOOR_HALF - 0.3
+		_add_block(Vector3(front_x, ROOM_H / 2.0, zs * (ROOM_DOOR_HALF + 0.3 + seg / 2.0)), Vector3(0.5, ROOM_H, seg), Color.WHITE, true, wall_mat)
+		# Door posts and the lintel over the doors.
+		_add_block(Vector3(front_x, (ROOM_H + 0.3) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.7, ROOM_H + 0.3, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)))
+	_add_block(Vector3(back_x, ROOM_H / 2.0, 0), Vector3(0.5, ROOM_H, hz * 2 + 0.5), Color.WHITE, true, wall_mat)
+	_add_block(Vector3(front_x, ROOM_H - 0.2, 0), Vector3(0.7, 0.4, ROOM_DOOR_HALF * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)) if not elven else _elf_leaf())
+	# A cornice (or vine ledge) along every wall top.
+	var cap := _ashlar(Color(0.92, 0.88, 0.8))
+	for zs in [-1.0, 1.0]:
+		_add_block(Vector3(cx, ROOM_H + 0.08, zs * hz), Vector3(depth + 0.7, 0.16, 0.7), Color.WHITE, false, cap)
+	_add_block(Vector3(back_x, ROOM_H + 0.08, 0), Vector3(0.7, 0.16, hz * 2 + 0.7), Color.WHITE, false, cap)
+	for zs in [-1.0, 1.0]:
+		_add_block(Vector3(front_x, ROOM_H + 0.08, zs * (hz / 2.0 + ROOM_DOOR_HALF / 2.0)), Vector3(0.7, 0.16, hz - ROOM_DOOR_HALF), Color.WHITE, false, cap)
+	if elven:
+		# Leaf tufts along the grown walls' tops instead of a solid green slab.
+		for k in 7:
+			var t: float = -hz + 0.6 + k * (hz * 2 - 1.2) / 6.0
+			_add_block(Vector3(back_x, ROOM_H + 0.3, t), Vector3(0.9, 0.3, 0.7), Color.WHITE, false, _elf_leaf(k % 2 == 0))
+		for k in 6:
+			var t: float = front_x + side * (0.5 + k * (depth - 1.0) / 5.0)
+			for zs in [-1.0, 1.0]:
+				_add_block(Vector3(t, ROOM_H + 0.3, zs * hz), Vector3(0.7, 0.3, 0.9), Color.WHITE, false, _elf_leaf(k % 2 == 1))
+	audit_label = ""
+	# Carpet from the doors to the dais, and the dais itself: two steps.
+	_add_rug(Vector3(throne.x - side * 1.0, 0.07, 0), Vector2(2.6, 2.4), color)
+	_add_block(throne + Vector3(side * 1.5, 0.14, 0), Vector3(3.0, 0.16, 4.8), Color.WHITE, false, _ashlar(Color(0.95, 0.9, 0.8)))
+	_add_block(throne + Vector3(side * 1.8, 0.3, 0), Vector3(2.2, 0.16, 3.8), Color.WHITE, false, _ashlar(Color(0.98, 0.94, 0.86)))
+	_add_block(throne + Vector3(side * 1.8, 0.39, 0), Vector3(1.8, 0.03, 3.0), Color.WHITE, false, _carpet(color))
+	# The throne: a tall velvet-backed seat under a canopy on two posts.
+	_add_block(throne + Vector3(side * 2.1, 0.68, 0), Vector3(1.0, 0.6, 1.3), Color.WHITE, false, _timber(Color(0.55, 0.42, 0.3)) if not elven else _ashlar(Color(0.6, 0.52, 0.4)))
+	_add_block(throne + Vector3(side * 2.5, 1.5, 0), Vector3(0.4, 2.3, 1.6), color, false, _cloth(color.darkened(0.2)))
+	_add_block(throne + Vector3(side * 2.5, 2.7, 0), Vector3(0.5, 0.3, 1.8), Color.WHITE, false, _gold())
+	for zs in [-1.0, 1.0]:
+		_add_block(throne + Vector3(side * 2.2, 0.65, zs * 0.75), Vector3(1.0, 0.5, 0.14), Color.WHITE, false, _gold())
+		_add_block(throne + Vector3(side * 2.9, 1.6, zs * 1.3), Vector3(0.14, 3.2, 0.14), Color.WHITE, false, _gold() if not elven else _ashlar(Color(0.6, 0.52, 0.4)))
+	_add_block(throne + Vector3(side * 2.3, 3.2, 0), Vector3(1.8, 0.08, 2.9), color, false, _cloth(color.darkened(0.1)) if not elven else _elf_leaf(true))
+	_add_block(throne + Vector3(side * 1.45, 3.05, 0), Vector3(0.14, 0.3, 2.9), Color.WHITE, false, _gold())
+	# A glowing window in the back wall, tapestries, torches and guards' finery.
+	var glass := _material(color.lightened(0.5))
+	glass.emission_enabled = true
+	glass.emission = color.lightened(0.3)
+	glass.emission_energy_multiplier = 1.6
+	for zs in [-1.0, 1.0]:
+		_add_block(Vector3(back_x - side * 0.3, 1.5, zs * 2.6), Vector3(0.06, 1.5, 0.9), Color.WHITE, false, glass)
+		_add_block(Vector3(back_x - side * 0.34, 1.5, zs * 2.6), Vector3(0.04, 1.7, 1.1), Color.WHITE, false, _gold())
+		_add_tapestry(team, Vector3(cx - side * 0.6, 0.4, zs * (hz - 0.3)), Vector3(0, 0, -zs), 1.4, 1.7)
+		_add_wall_torch(Vector3(front_x + side * 1.2, 1.5, zs * (hz - 0.3)), Vector3(0, 0, -zs))
+		_add_banner(team, Vector3(front_x - side * 0.4, 0.0, zs * (ROOM_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.6, true)
+		if elven:
+			_add_crystal(Vector3(back_x - side * 0.9, 0, zs * (hz - 0.9)), 0.9)
+			_add_mushrooms(Vector3(front_x + side * 0.9, 0, zs * (hz - 0.8)), 61 + int(zs))
+		else:
+			_add_candle_stand(throne + Vector3(-side * 0.4, 0, zs * 2.2))
+			_prop("dungeon/sword_shield", Vector3(back_x - side * 0.3, 1.4, zs * 1.2), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	_add_light(Vector3(back_x - side * 0.8, 1.6, 0), color.lightened(0.4), 1.0, 6.0)
+	# The treasury heaped in the back corners.
+	_prop("dungeon/chest_gold", Vector3(back_x - side * 0.9, 0, -(hz - 0.8)), 0.7, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	_prop("dungeon/coin_stack_large", Vector3(back_x - side * 1.9, 0, -(hz - 0.9)), 0.45, 0.4)
+	_prop("dungeon/coin_stack_medium", Vector3(back_x - side * 0.7, 0, -(hz - 1.7)), 0.45, 1.2)
+	_prop("dungeon/chest", Vector3(back_x - side * 1.0, 0, hz - 0.9), 0.6, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	_prop("dungeon/coin_stack_small", Vector3(back_x - side * 2.0, 0, hz - 1.0), 0.45, 2.0)
+	if elven:
+		_add_fireflies(throne + Vector3(0, 0.8, 0))
+
+
 func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3) -> void:
-	## Rugs, chandeliers, a feasting table, shelves and clutter in the keep,
-	## kept to the strips beside the throne so the lanes stay clear.
+	## The keep's rooms around the throne room: an entrance hall, the great
+	## hall (feasting) down one side, the chapel (Humans) or moon shrine
+	## (Elves) down the other, and the royal chambers and armoury at the
+	## back. Each room has its own floor, panelled walls and furniture; the
+	## lanes between them stay clear for the bots.
 	var color: Color = Stats.FACTIONS[team].color
 	var elven := team == 0
 	var khz := KEEP_HALF_Z
-	# Side rugs between the columns and a round-cornered one on the dais.
-	for zs in [-1.0, 1.0]:
-		_add_rug(Vector3(kx + side * 6.0, 0.04, zs * 5.8), Vector2(6.0, 1.9), color.darkened(0.15))
-	# Chandeliers: one over the archway hall, one over the throne.
-	_add_chandelier(Vector3(kx + side * 2.6, 2.1, 0), elven)
-	_add_chandelier(Vector3(kx + side * 9.8, 2.1, 0), elven)
-	for zs in [-1.0, 1.0]:
-		var wz: float = zs * (khz - 0.45)   # the inner face of a side wall
-		var ins := Vector3(0, 0, -zs)
-		# The feasting table along the wall between the two columns (KayKit
-		# dungeon and furniture models), laid with food and candles.
-		var tpos := Vector3(kx + side * 6.0, 0, zs * 6.6)
-		if elven:
-			_prop("furniture/table_medium_long", tpos, BITS_SCALE, 0.0)
-			for k in 3:
-				var fx: float = tpos.x - 0.6 + k * 0.6
-				_prop("kitchen/%s" % ["bowl", "jar_B_medium", "food_stew"][k], Vector3(fx, 0.6, tpos.z + 0.1 * (k - 1)), BITS_SCALE * 0.8, float(k))
-			_prop("dungeon/candle_triple", Vector3(tpos.x + 0.9, 0.6, tpos.z - 0.2), 0.45)
-			for k in 2:
-				_prop("dungeon/stool", tpos + Vector3(-0.5 + k * 1.0, 0, -zs * 0.95), BITS_SCALE, 0.0)
-		else:
-			_prop("dungeon/table_long_tablecloth_decorated_A", tpos, 0.62, PI / 2.0)
-			for k in 3:
-				_prop("dungeon/chair", tpos + Vector3(-0.9 + k * 0.9, 0, -zs * 0.95), BITS_SCALE, PI if zs > 0.0 else 0.0)
-		# Tapestries on the side walls, shelves in the back corners.
-		_add_tapestry(team, Vector3(kx + side * 2.2, 0.5, wz), ins, 1.5, 1.9)
-		_add_tapestry(team, Vector3(kx + side * 10.0, 0.5, wz), ins, 1.5, 1.9)
-		var shelf_pos := Vector3(bx - side * 1.1, 0, zs * (khz - 2.6))
-		if elven:
-			_prop("dungeon/shelves", shelf_pos, 0.7, -PI / 2.0 * side)
-			_prop("kitchen/jar_A_large", shelf_pos + Vector3(-side * 0.2, 1.3, -0.4), BITS_SCALE * 0.7)
-			_prop("kitchen/jar_C_medium", shelf_pos + Vector3(-side * 0.2, 1.3, 0.3), BITS_SCALE * 0.7)
-			_prop("dungeon/bottle_A_green", shelf_pos + Vector3(-side * 0.2, 0.95, 0.0), 0.5)
-		else:
-			_prop("dungeon/shelves", shelf_pos, 0.7, -PI / 2.0 * side)
-			_prop("dungeon/plate_stack", shelf_pos + Vector3(-side * 0.2, 1.3, -0.35), 0.5)
-			_prop("dungeon/bottle_B_brown", shelf_pos + Vector3(-side * 0.2, 1.3, 0.3), 0.5)
-			_prop("dungeon/coin_stack_small", shelf_pos + Vector3(-side * 0.2, 0.95, 0.0), 0.4)
-		if elven:
-			_add_mushrooms(Vector3(kx + side * 10.6, 0, zs * (khz - 1.0)), 41 + int(zs))
-			_add_mushrooms(Vector3(kx + side * 4.0, 0, zs * (khz - 2.1)), 45 + int(zs))
-			_prop("dungeon/trunk_large_A", Vector3(kx + side * 12.0, 0, zs * 4.6), 0.7, 0.3 * zs)
-		else:
-			_add_brazier(Vector3(kx + side * 4.0, 0, zs * (khz - 2.1)))
-			_add_candle_stand(Vector3(kx + side * 8.3, 0, zs * 5.0))
-			_prop("dungeon/keg", Vector3(kx + side * 12.0, 0, zs * 4.6), 0.6, 0.3 * zs)
-			_prop("dungeon/barrel_small_stack", Vector3(kx + side * 12.3, 0, zs * 3.2), 0.6, 0.8 * zs)
-	# A map table near the archway (humans) or a shrine stone (elves), off the lane.
+	var wz := khz - 0.45                     # inner face of the keep's side walls
+	var room_f: float = kx + side * ROOM_FRONT  # the throne room's front wall... (throne is kx + 6)
+	room_f = throne.x - side * ROOM_FRONT
+	var room_b: float = throne.x + side * ROOM_BACK
+	var g_z := (ROOM_HALF_Z + 0.35 + wz) / 2.0   # gallery centre line (z)
+	var g_w := wz - (ROOM_HALF_Z + 0.35)          # gallery width
+	var back_c := (room_b + side * 0.35 + bx - side * 0.5) / 2.0
+	var back_d := absf((bx - side * 0.5) - (room_b + side * 0.35))
+	var planks := _pbr("wood", 0.55, Color(0.9, 0.82, 0.7)) if not elven else _pbr("wood_dark", 0.5, Color(0.8, 0.85, 0.7))
+	var wainscot := _pbr("wood_dark", 0.5, Color(0.85, 0.75, 0.62)) if not elven else _moss()
+	# --- Floors -------------------------------------------------------------
+	# Entrance hall: fine flags; great hall: planks; chapel: a dark carpet on
+	# stone (or a mossy glade); chambers: planks under big rugs.
+	_add_block(Vector3(kx + side * 1.8, 0.045, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone_moss" if elven else "flagstone", 0.9, Color(0.92, 0.9, 0.86)))
+	_add_block(Vector3((room_f + room_b) / 2.0, 0.045, -g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, planks)
 	if elven:
-		_add_fireflies(Vector3(kx + side * 3.0, 0.5, 5.5))
+		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _moss())
 	else:
-		_add_candle_stand(Vector3(kx + side * 1.4, 0, 6.4))
-		_add_candle_stand(Vector3(kx + side * 1.4, 0, -6.4))
+		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pbr("carpet", 1.1, Color(0.3, 0.3, 0.5)))
+	_add_block(Vector3(back_c, 0.045, 0), Vector3(back_d, 0.03, wz * 2), Color.WHITE, false, planks)
+	# --- Panelled walls: a wainscot along every inner face, with a ledge. ---
+	for zs in [-1.0, 1.0]:
+		var depth := absf(bx - kx) - 1.2
+		_add_block(Vector3((kx + bx) / 2.0, 0.5, zs * (wz - 0.05)), Vector3(depth, 1.0, 0.1), Color.WHITE, false, wainscot)
+		_add_block(Vector3((kx + bx) / 2.0, 1.03, zs * (wz - 0.09)), Vector3(depth, 0.06, 0.18), Color.WHITE, false, _timber(Color(0.6, 0.5, 0.4)) if not elven else _elf_leaf())
+	_add_block(Vector3(bx - side * 0.55, 0.5, 0), Vector3(0.1, 1.0, wz * 2), Color.WHITE, false, wainscot)
+	# --- Lighting: chandeliers in the hall and over the throne, lanterns in the wings. ---
+	_add_chandelier(Vector3(kx + side * 2.0, 2.1, 0), elven)
+	_add_chandelier(Vector3(kx + side * 6.4, 2.1, 0), elven)
+	_add_chandelier(Vector3((room_f + room_b) / 2.0, 2.1, -g_z), elven, false)
+	_add_chandelier(Vector3((room_f + room_b) / 2.0, 2.1, g_z), elven, false)
+	_add_chandelier(Vector3(back_c, 2.1, 0), elven, false)
+	# --- The great hall (z < 0): the feasting table along the wall, the hearth, casks. ---
+	# Everything hugs the outer wall; the lane nearest the throne room stays clear.
+	var tpos := Vector3((room_f + room_b) / 2.0 - side * 1.0, 0, -(wz - 0.55))
+	if elven:
+		_prop("furniture/table_medium_long", tpos, BITS_SCALE, 0.0)
+		for k in 3:
+			var fx: float = tpos.x - 0.6 + k * 0.6
+			_prop("kitchen/%s" % ["bowl", "jar_B_medium", "food_stew"][k], Vector3(fx, 0.6, tpos.z + 0.1 * (k - 1)), BITS_SCALE * 0.8, float(k))
+		_prop("dungeon/candle_triple", Vector3(tpos.x + 0.9, 0.6, tpos.z - 0.2), 0.45)
+		for k in 2:
+			_prop("dungeon/stool", tpos + Vector3(-0.5 + k * 1.0, 0, 0.9), BITS_SCALE, 0.0)
+	else:
+		_prop("dungeon/table_long_tablecloth_decorated_A", tpos, 0.62, PI / 2.0)
+		for k in 3:
+			_prop("dungeon/chair", tpos + Vector3(-0.9 + k * 0.9, 0, 0.9), BITS_SCALE, PI)
+	var hearth := Vector3(room_b - side * 1.1, 0, -(wz - 0.3))
+	audit_label = "hearth"
+	_add_block(hearth + Vector3(0, 0.75, 0), Vector3(1.8, 1.5, 0.5), Color.WHITE, true, _ashlar(Color(0.8, 0.76, 0.7)))
+	_add_block(hearth + Vector3(0, 1.58, 0), Vector3(2.0, 0.16, 0.7), Color.WHITE, false, _timber(Color(0.55, 0.45, 0.35)))
+	_add_block(hearth + Vector3(0, 0.5, 0.26), Vector3(1.1, 1.0, 0.04), Color.WHITE, false, _material(Color(0.08, 0.06, 0.05)))
+	audit_label = ""
+	_add_flame(hearth + Vector3(0, 0.35, 0.3), 0.22, Color(1.0, 0.6, 0.2) if not elven else Color(0.5, 1.0, 0.7))
+	_add_light(hearth + Vector3(0, 0.9, 1.0), Color(1.0, 0.7, 0.4) if not elven else Color(0.5, 1.0, 0.8), 1.4, 7.0)
+	_prop("dungeon/keg", Vector3(room_f + side * 0.4, 0, -(wz - 0.5)), 0.55, 0.3)
+	_prop("kitchen/crate_cheese" if not elven else "kitchen/crate_carrots", Vector3(room_f - side * 0.5, 0, -(wz - 0.55)), BITS_SCALE * 0.9, 0.4)
+	# --- The chapel (Humans) or the moon shrine (Elves) (z > 0). ---
+	if elven:
+		# A still pool of moonlight ringed with stones, a shrine stone and crystals.
+		var pool := Vector3((room_f + room_b) / 2.0, 0, wz - 1.05)
+		var water := _material(Color(0.5, 0.9, 0.95))
+		water.emission_enabled = true
+		water.emission = Color(0.4, 0.9, 0.9)
+		water.emission_energy_multiplier = 0.7
+		var disc := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.8
+		cm.bottom_radius = 0.8
+		cm.height = 0.04
+		disc.mesh = cm
+		disc.material_override = water
+		disc.position = pool + Vector3(0, 0.07, 0)
+		add_child(disc)
+		for k in 9:
+			var a: float = k * TAU / 9.0
+			_add_block(pool + Vector3(cos(a) * 0.95, 0.12, sin(a) * 0.95), Vector3(0.28, 0.2, 0.28), Color.WHITE, false, _ashlar(Color(0.8, 0.8, 0.75)))
+		_add_light(pool + Vector3(0, 1.0, 0), Color(0.5, 0.9, 1.0), 1.2, 6.0)
+		_add_fireflies(pool + Vector3(0, 0.6, 0))
+		_add_block(Vector3(room_b - side * 0.9, 0.6, wz - 0.7), Vector3(0.8, 1.2, 0.8), Color.WHITE, true, _ashlar(Color(0.75, 0.72, 0.62)))
+		_add_crystal(Vector3(room_b - side * 0.9, 1.2, wz - 0.7), 0.8)
+		_add_mushrooms(Vector3(room_f + side * 0.6, 0, wz - 0.8), 71)
+	else:
+		# An altar against the wall under a glowing window, candle stands and a kneeling cloth.
+		var altar := Vector3((room_f + room_b) / 2.0, 0, wz - 0.8)
+		_add_block(altar + Vector3(0, 0.08, 0), Vector3(2.6, 0.16, 1.5), Color.WHITE, false, _ashlar(Color(0.95, 0.92, 0.86)))
+		_add_block(altar + Vector3(0, 0.6, 0.1), Vector3(1.6, 0.9, 0.6), Color.WHITE, true, _ashlar(Color(0.9, 0.88, 0.82)))
+		_add_block(altar + Vector3(0, 1.07, 0.1), Vector3(1.7, 0.04, 0.7), Color.WHITE, false, _cloth(color.lightened(0.3)))
+		_prop("dungeon/candle_triple", altar + Vector3(-0.5, 1.1, 0.1), 0.5)
+		_prop("dungeon/candle_triple", altar + Vector3(0.5, 1.1, 0.1), 0.5)
+		var glass := _material(Color(0.95, 0.85, 0.5))
+		glass.emission_enabled = true
+		glass.emission = Color(1.0, 0.85, 0.4)
+		glass.emission_energy_multiplier = 1.5
+		_add_block(Vector3(altar.x, 1.7, wz - 0.12), Vector3(1.0, 1.2, 0.06), Color.WHITE, false, glass)
+		_add_block(Vector3(altar.x, 1.7, wz - 0.14), Vector3(1.2, 1.4, 0.04), Color.WHITE, false, _gold())
+		_add_light(altar + Vector3(0, 1.6, -0.6), Color(1.0, 0.85, 0.5), 1.0, 6.0)
+		_add_block(altar + Vector3(0, 0.02, -1.4), Vector3(1.8, 0.02, 0.8), Color.WHITE, false, _cloth(color.darkened(0.2)))
+		_add_candle_stand(Vector3(room_b - side * 0.6, 0, wz - 0.6))
+		_add_candle_stand(Vector3(room_f + side * 0.5, 0, wz - 0.6))
+	# --- Behind the throne room: the royal chamber (z < 0) and the armoury (z > 0). ---
+	# Furniture keeps to the back wall and the side strips: the lanes from the
+	# cellar stairs to the galleries' corners run through the middle.
+	var bw: float = bx - side * 1.05    # just off the back wall
+	if elven:
+		_prop("furniture/bed_double_B", Vector3(bw - side * 0.5, 0, -(wz - 1.5)), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
+		_prop("furniture/shelf_B_large_decorated", Vector3(bw - side * 0.1, 0, -4.1), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
+		_prop("furniture/cabinet_small_decorated", Vector3(room_b + side * 0.8, 0, -(wz - 0.45)), BITS_SCALE, PI)
+		_prop("dungeon/trunk_large_A", Vector3(room_b + side * 1.1, 0, -(wz - 0.5)), 0.5, 0.0)
+		_add_mushrooms(Vector3(bw, 0, -2.9), 75)
+	else:
+		_prop("dungeon/bed_decorated", Vector3(bw - side * 0.6, 0, -(wz - 1.5)), 0.62, PI / 2.0 if side > 0.0 else -PI / 2.0)
+		_prop("furniture/shelf_B_large_decorated", Vector3(bw - side * 0.1, 0, -4.1), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
+		_prop("furniture/cabinet_medium_decorated", Vector3(room_b + side * 0.9, 0, -(wz - 0.45)), BITS_SCALE, PI)
+		_prop("dungeon/chest", Vector3(room_b + side * 1.1, 0, -(wz - 0.5)), 0.5, 0.0)
+		_prop("furniture/pictureframe_large_A", Vector3(bx - side * 0.62, 1.6, -2.6), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	_add_rug(Vector3(back_c, 0.06, -4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color)
+	# The armoury.
+	_prop("hex/weaponrack", Vector3(bw + side * 0.15, 0, 5.2), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	_prop("dungeon/sword_shield_gold" if not elven else "dungeon/sword_shield", Vector3(bx - side * 0.62, 1.4, 3.2), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	_prop("dungeon/sword_shield", Vector3(room_b + side * 1.6, 1.5, wz - 0.1), 0.9, 0.0)
+	_prop("dungeon/box_stacked", Vector3(room_b + side * 0.9, 0, wz - 0.7), 0.55, 0.2)
+	_prop("dungeon/barrel_large_decorated", Vector3(room_b + side * 2.6, 0, wz - 0.6), 0.5, 0.0)
+	_prop("hex/bucket_arrows", Vector3(bw, 0, wz - 1.0), 4.0, 0.4)
+	_add_rug(Vector3(back_c, 0.06, 4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color.darkened(0.2))
+	# Tapestries and torches along the galleries, braziers for the Humans.
+	for zs in [-1.0, 1.0]:
+		var ins := Vector3(0, 0, -zs)
+		_add_tapestry(team, Vector3(kx + side * 1.6, 0.5, zs * wz), ins, 1.5, 1.9)
+		_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 0.5, zs * wz), ins, 1.2, 1.7)
+		_add_wall_torch(Vector3(room_f - side * 0.2, 1.6, zs * (wz - 0.05)), ins)
+		_add_wall_torch(Vector3(room_b + side * 1.5, 1.6, zs * (wz - 0.05)), ins)
+		if not elven:
+			_add_brazier(Vector3(kx + side * 0.9, 0, zs * (wz - 0.8)))
+	if elven:
+		_add_fireflies(Vector3(kx + side * 2.0, 0.5, 5.5))
 
 
 func _furnish_cellar(team: int, bx: float, side: float) -> void:
@@ -5380,7 +5802,7 @@ func _build_castle(team: int) -> void:
 	var khz := KEEP_HALF_Z
 	var kdepth := absf(bx - kx)
 	var kcx := (kx + bx) / 2.0
-	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _flagstone(Color(0.96, 0.94, 0.9)) if mossy else _marble())
+	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _pbr("flagstone_moss", 0.75, Color(0.9, 0.9, 0.84)) if mossy else _pbr("stone", 0.7, Color(0.86, 0.84, 0.8)))
 	# Side walls, each with a side door near the back (a second way out of the keep).
 	for zs in [-1.0, 1.0]:
 		_add_wall(Vector3(kx + side * (kdepth - 4.5) / 2.0, KEEP_H / 2.0, zs * khz), Vector3(kdepth - 4.5, KEEP_H, 0.8))
@@ -5442,14 +5864,7 @@ func _build_castle(team: int) -> void:
 		_add_banner(team, Vector3(fx + side * 1.1, 0.2, zs * (dh + 1.1)), Vector3(side, 0, 0), 0.6)
 	# Inside the keep: columns along the side walls, torches, stacked stores at the back.
 	for zs in [-1.0, 1.0]:
-		if team == 0:
-			_add_trunk_pillar(Vector3(kx + side * 4.0, 0, zs * (khz - 1.0)), KEEP_H - 0.2)
-			_add_trunk_pillar(Vector3(kx + side * 8.0, 0, zs * (khz - 1.0)), KEEP_H - 0.2)
-		else:
-			_prop("dungeon/column", Vector3(kx + side * 4.0, 0, zs * (khz - 1.0)), 1.6)
-			_prop("dungeon/column", Vector3(kx + side * 8.0, 0, zs * (khz - 1.0)), 1.6)
-		_add_wall_torch(Vector3(kx + side * 2.0, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
-		_add_wall_torch(Vector3(kx + side * 6.0, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
+		_add_wall_torch(Vector3(kx + side * 1.2, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
 	# Faction flavour: elves grow greenery against their walls, humans post iron braziers.
 	if team == 0:
 		for zs in [-1.0, 1.0]:
@@ -5460,37 +5875,17 @@ func _build_castle(team: int) -> void:
 		for zs in [-1.0, 1.0]:
 			_add_torch(Vector3(kx - side * 1.3, 0, zs * (khz - 0.6)))
 
-	# Throne on a dais inside the keep. Carry the enemy monarch here to score.
+	# The throne room: a walled hall at the heart of the keep with the
+	# monarch's throne on a dais. Its doors (the Crown Vault lock) only hold
+	# the enemy. Carry the enemy monarch here to score.
 	var throne := Vector3(kx + side * 6.0, 0, 0)
 	thrones.append(throne)
-	_add_block(throne + Vector3(side * 1.5, 0.15, 0), Vector3(3, 0.3, 4), Color.WHITE, false, _ashlar(Color(0.95, 0.9, 0.8)))
-	_add_block(throne + Vector3(side * 2.4, 1.2, 0), Vector3(0.4, 2.0, 1.6), color, false, _cloth(color.darkened(0.2)))
-	_add_block(throne + Vector3(side * 2.4, 2.35, 0), Vector3(0.5, 0.3, 1.8), Color.WHITE, false, _gold())
-	for z in [-4.6, 4.6]:
-		if mossy:
-			_add_trunk_pillar(throne + Vector3(side * 2.0, 0, z), KEEP_H - 0.2)
-		else:
-			_prop("dungeon/column", throne + Vector3(side * 2.0, 0, z), 1.6)
-	_prop("dungeon/chest_gold", throne + Vector3(side * 1.0, 0, -5.6), 0.8, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	# The treasury: coin stacks and a chest heaped behind the throne.
-	_prop("dungeon/coin_stack_large", throne + Vector3(side * 2.6, 0, 2.6), 0.55, 0.4)
-	_prop("dungeon/coin_stack_medium", throne + Vector3(side * 1.8, 0, -2.7), 0.55, 1.2)
-	_prop("dungeon/coin_stack_small", throne + Vector3(side * 2.7, 0, -2.0), 0.55, 2.0)
-	_prop("dungeon/chest", throne + Vector3(side * 2.6, 0, 3.4), 0.7, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	# The Crown Vault: a cage around the throne whose lock the enemy must break.
+	_build_throne_room(team, throne, side, color)
 	var vault = Vault.new()
 	add_child(vault)
 	vault.setup(self, team, throne, side)
 	vaults.append(vault)
-	audit_blocks.append(["vault", AABB(throne + Vector3(-3.0, 0, -3.7), Vector3(6.0, 2.8, 7.4))])
-	# Vault decor: elves grow crystals and fireflies, humans post guard shields and banners.
-	if team == 0:
-		for z in [-3.0, 3.0]:
-			_add_crystal(throne + Vector3(side * 4.2, 0, z * 1.6), 1.0)
-		_add_fireflies(throne)
-	else:
-		for z in [-1.0, 1.0]:
-			_prop("dungeon/sword_shield", throne + Vector3(side * 5.0, 1.4, z * 4.6), 1.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	audit_blocks.append(["vault", AABB(throne + Vector3(minf(-side * 2.8, side * 3.6), 0, -4.4), Vector3(6.4, 2.8, 8.8))])
 	# Defensive positions for the bots: the keep's archway pillars and the
 	# gatehouse's inner corners (no fences inside the base).
 	for z in [-5.6, 5.6]:
@@ -6002,11 +6397,19 @@ func _setup_input() -> void:
 	_add_action("rank_5", [KEY_5], [JOY_BUTTON_LEFT_SHOULDER])
 	_add_action("rank_6", [KEY_6], [JOY_BUTTON_RIGHT_SHOULDER])
 	_add_action("menu", [KEY_ESCAPE], [JOY_BUTTON_START])
-	_add_action("menu_left", [KEY_LEFT, KEY_A], [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_LEFT_SHOULDER])
-	_add_action("menu_right", [KEY_RIGHT, KEY_D], [JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_RIGHT_SHOULDER])
+	_add_action("menu_left", [KEY_LEFT, KEY_A], [JOY_BUTTON_LEFT_SHOULDER])
+	_add_action("menu_right", [KEY_RIGHT, KEY_D], [JOY_BUTTON_RIGHT_SHOULDER])
 	_add_action("quit_match", [KEY_BACKSPACE], [JOY_BUTTON_Y])
-	_add_action("pick_elves", [KEY_1], [JOY_BUTTON_DPAD_LEFT])
-	_add_action("pick_humans", [KEY_2], [JOY_BUTTON_DPAD_RIGHT])
+	_add_action("pick_elves", [KEY_1], [])
+	_add_action("pick_humans", [KEY_2], [])
+	# Gamepad menu cursor: the D-pad and left stick move it between buttons,
+	# Cross / A picks, Circle / B backs out.
+	_add_action("nav_left", [], [JOY_BUTTON_DPAD_LEFT], JOY_AXIS_LEFT_X, -1.0)
+	_add_action("nav_right", [], [JOY_BUTTON_DPAD_RIGHT], JOY_AXIS_LEFT_X, 1.0)
+	_add_action("nav_up", [], [JOY_BUTTON_DPAD_UP], JOY_AXIS_LEFT_Y, -1.0)
+	_add_action("nav_down", [], [JOY_BUTTON_DPAD_DOWN], JOY_AXIS_LEFT_Y, 1.0)
+	_add_action("ui_confirm", [], [JOY_BUTTON_A])
+	_add_action("ui_back", [], [JOY_BUTTON_B])
 	_add_action("restart", [KEY_R, KEY_ENTER], [JOY_BUTTON_START])
 	_add_action("cmd_attack", [KEY_Z], [])
 	_add_action("cmd_defend", [KEY_X], [])

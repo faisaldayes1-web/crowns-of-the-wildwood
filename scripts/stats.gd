@@ -6,9 +6,11 @@ enum Role { BASE, KNIGHT, RANGER, MAGE, HEALER, ENGINEER, ROGUE }
 
 const MAX_HEARTS := 4
 const STAMINA_MAX := 100.0
-const STAMINA_REGEN := 11.0   # per second (slow: stamina is the limit on attacks)
+const STAMINA_REGEN := 12.0   # per second (slow: stamina is the limit on attacks)
 const MANA_MAX := 100.0
-const MANA_REGEN := 7.0       # per second
+const MANA_REGEN := 9.0       # per second
+const KILL_ENERGY := 20.0     # energy back on a kill, and
+const KILL_COOLDOWN_CUT := 2.0  # seconds off every ability cooldown: kills chain into abilities
 const RESPAWN_TIME := 7.0
 const RESPAWN_PER_LEVEL := 1.0  # dying hurts more the higher you were: extra seconds per level
 const RESPAWN_MAX := 13.0
@@ -218,49 +220,49 @@ const ROLES := {
 		"damage": 1, "gate_damage": 2, "range": 2.2, "cooldown": 0.55,
 		"energy": "stamina", "cost": 10.0, "speed": 1.06, "block": true, "armour": 0.34,
 		"color": Color(0.8, 0.8, 0.85), "abilities": [
-			{"name": "Shield Bash", "key": "Q", "kind": "bash", "cooldown": 6.0, "cost": 40.0,
+			{"name": "Shield Bash", "key": "Q", "kind": "bash", "cooldown": 5.0, "cost": 35.0,
 				"damage": 2, "distance": 4.0, "desc": "Charge forward: two hearts to everyone in the way, and a shove."},
-			{"name": "Shield Wall", "key": "E", "kind": "guard", "cooldown": 12.0, "cost": 45.0,
+			{"name": "Shield Wall", "key": "E", "kind": "guard", "cooldown": 9.5, "cost": 40.0,
 				"duration": 1.8, "desc": "Nothing gets through your shield for a moment, from any side."}]},
 	Role.RANGER: {"attack": "arrow", "attack_name": "Quick Shot", "attack_desc": "A fast arrow. Shoot down from the walls.",
 		"damage": 1, "gate_damage": 1, "range": 15.0, "cooldown": 0.55,
 		"energy": "stamina", "cost": 10.0, "speed": 1.05, "shot_speed": 40.0,
 		"color": Color(0.35, 0.55, 0.25), "abilities": [
-			{"name": "Volley", "key": "Q", "kind": "volley", "cooldown": 8.0, "cost": 50.0,
+			{"name": "Volley", "key": "Q", "kind": "volley", "cooldown": 6.5, "cost": 40.0,
 				"damage": 1, "arrows": 5, "spread": 24.0, "range": 15.0, "shot_speed": 40.0, "desc": "A fan of five arrows."},
-			{"name": "Snare Trap", "key": "E", "kind": "trap", "cooldown": 10.0, "cost": 40.0,
+			{"name": "Snare Trap", "key": "E", "kind": "trap", "cooldown": 8.0, "cost": 35.0,
 				"damage": 1, "root": 2.0, "lifetime": 30.0, "desc": "Plant a trap that roots and hurts the first enemy on it."}]},
 	Role.MAGE: {"attack": "spell", "attack_name": "Arcane Bolt", "attack_desc": "A bolt that bursts on impact.",
 		"damage": 1, "gate_damage": 2, "range": 13.0, "cooldown": 0.65,
 		"energy": "mana", "cost": 12.0, "splash": 1.4, "speed": 0.95, "shot_speed": 32.0,
 		"color": Color(0.45, 0.3, 0.85), "abilities": [
-			{"name": "Fireball", "key": "Q", "kind": "fireball", "cooldown": 9.0, "cost": 65.0,
+			{"name": "Fireball", "key": "Q", "kind": "fireball", "cooldown": 7.0, "cost": 55.0,
 				"damage": 2, "splash": 3.2, "range": 13.0, "shot_speed": 24.0, "desc": "A big slow ball of fire: two hearts to everyone near the blast, four hits to a door."},
-			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 7.0, "cost": 35.0,
+			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 5.5, "cost": 30.0,
 				"distance": 6.0, "desc": "Teleport a short way in the aim direction."}]},
 	Role.ENGINEER: {"attack": "melee", "attack_name": "Hammer", "attack_desc": "A heavy swing that wrecks doors, fences and turrets.",
 		"damage": 1, "gate_damage": 3, "range": 1.9, "cooldown": 0.6,
 		"energy": "stamina", "cost": 11.0, "speed": 0.98,
 		"color": Color(0.85, 0.6, 0.3), "abilities": [
-			{"name": "Build Turret", "key": "Q", "kind": "turret", "cooldown": 10.0, "cost": 55.0,
+			{"name": "Build Turret", "key": "Q", "kind": "turret", "cooldown": 8.0, "cost": 45.0,
 				"turrets": 2, "desc": "Build a bolt turret in front of you, on your castle walls or grounds. Two at a time; the oldest makes way."},
-			{"name": "Tune Up", "key": "E", "kind": "upgrade", "cooldown": 7.0, "cost": 40.0,
+			{"name": "Tune Up", "key": "E", "kind": "upgrade", "cooldown": 5.5, "cost": 35.0,
 				"desc": "Repair the nearest of your turrets and raise it a level (up to 3), or hurry your door's rebuild."}]},
 	Role.ROGUE: {"attack": "melee", "attack_name": "Daggers", "attack_desc": "Two quick blades: the fastest strikes in the game, short reach.",
 		"damage": 1, "gate_damage": 1, "range": 1.5, "cooldown": 0.38,
 		"energy": "stamina", "cost": 8.0, "speed": 1.12,
 		"color": Color(0.6, 0.4, 0.75), "abilities": [
-			{"name": "Shadow Dash", "key": "Q", "kind": "bash", "cooldown": 6.0, "cost": 40.0,
+			{"name": "Shadow Dash", "key": "Q", "kind": "bash", "cooldown": 5.0, "cost": 35.0,
 				"damage": 1, "distance": 5.5, "desc": "A dash through the shadows that cuts everyone in the way for a heart."},
-			{"name": "Smoke Bomb", "key": "E", "kind": "smoke", "cooldown": 12.0, "cost": 45.0,
+			{"name": "Smoke Bomb", "key": "E", "kind": "smoke", "cooldown": 9.5, "cost": 40.0,
 				"duration": 3.0, "haste": 3.0, "desc": "Vanish in smoke: enemies lose you and you run faster for a moment."}]},
 	Role.HEALER: {"attack": "heal", "attack_name": "Mend", "attack_desc": "Heal hurt teammates around you; with nobody to heal, fire a holy bolt instead.",
 		"damage": 1, "gate_damage": 1, "range": 10.0, "cooldown": 0.8,
 		"energy": "mana", "cost": 16.0, "heal": 1, "heal_radius": 5.0, "speed": 1.0, "shot_speed": 30.0,
 		"color": Color(0.95, 0.93, 0.8), "abilities": [
-			{"name": "Blessing", "key": "Q", "kind": "blessing", "cooldown": 14.0, "cost": 70.0,
+			{"name": "Blessing", "key": "Q", "kind": "blessing", "cooldown": 11.0, "cost": 60.0,
 				"heal": 2, "radius": 8.0, "haste": 3.0, "desc": "Heal every teammate nearby two hearts and speed them up."},
-			{"name": "Smite", "key": "E", "kind": "smite", "cooldown": 5.0, "cost": 35.0,
+			{"name": "Smite", "key": "E", "kind": "smite", "cooldown": 4.0, "cost": 30.0,
 				"damage": 1, "range": 12.0, "shot_speed": 36.0, "desc": "A fast bolt of light."}]},
 }
 
@@ -283,52 +285,52 @@ const VARIANTS := {
 			"attack": {"attack_name": "Greatsword", "attack_desc": "A heavy two-handed swing with long reach.",
 				"range": 2.8, "cooldown": 0.65, "cost": 15.0, "gate_damage": 3, "block": false},
 			"abilities": [
-				{"name": "Cleave", "key": "Q", "kind": "cleave", "icon": "cleave", "cooldown": 7.5, "cost": 50.0,
+				{"name": "Cleave", "key": "Q", "kind": "cleave", "icon": "cleave", "cooldown": 6.0, "cost": 40.0,
 					"damage": 1, "radius": 3.2, "desc": "Spin with the greatsword, hitting and shoving everyone around you."},
-				{"name": "Charge", "key": "E", "kind": "bash", "icon": "bash", "cooldown": 7.5, "cost": 45.0,
+				{"name": "Charge", "key": "E", "kind": "bash", "icon": "bash", "cooldown": 6.0, "cost": 40.0,
 					"damage": 2, "distance": 6.5, "desc": "A long charge that bowls over everyone in the way for two hearts."}]},
 		{"name": "Warden", "icon": "warden", "tint": Color(0.78, 0.84, 1.0), "show": ["1H_Sword", "Rectangle_Shield"],
 			"desc": "Tower shield defence: a slam that pins enemies down and a bulwark that shields nearby teammates too.",
 			"attack": {"attack_name": "Mace", "attack_desc": "A short, heavy blow that batters doors.",
 				"range": 2.0, "cooldown": 0.55, "gate_damage": 3},
 			"abilities": [
-				{"name": "Shield Slam", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 6.5, "cost": 45.0,
+				{"name": "Shield Slam", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 5.0, "cost": 40.0,
 					"damage": 2, "distance": 3.5, "root": 1.2, "desc": "A short charge for two hearts that pins everyone it hits in place."},
-				{"name": "Bulwark", "key": "E", "kind": "guard", "icon": "guard", "cooldown": 11.0, "cost": 45.0,
+				{"name": "Bulwark", "key": "E", "kind": "guard", "icon": "guard", "cooldown": 9.0, "cost": 40.0,
 					"duration": 2.5, "share": 4.0, "desc": "A longer Shield Wall that also shields teammates close to you."}]}],
 	Role.RANGER: [
 		{"name": "Sharpshooter", "icon": "sharpshooter", "tint": Color(0.6, 0.8, 0.55), "show": ["2H_Crossbow"],
 			"desc": "Longbow marksman: longer, faster arrows, a piercing shot and a two-heart snipe.",
 			"attack": {"attack_name": "Longbow", "attack_desc": "A long, fast arrow.", "range": 20.0, "cooldown": 0.65, "shot_speed": 55.0},
 			"abilities": [
-				{"name": "Piercing Shot", "key": "Q", "kind": "shot", "icon": "pierce", "cooldown": 6.5, "cost": 50.0,
+				{"name": "Piercing Shot", "key": "Q", "kind": "shot", "icon": "pierce", "cooldown": 5.0, "cost": 40.0,
 					"damage": 1, "range": 20.0, "shot_speed": 55.0, "pierce": true, "desc": "An arrow that flies through everyone in its line."},
-				{"name": "Snipe", "key": "E", "kind": "shot", "icon": "snipe", "cooldown": 12.0, "cost": 60.0,
+				{"name": "Snipe", "key": "E", "kind": "shot", "icon": "snipe", "cooldown": 9.5, "cost": 50.0,
 					"damage": 2, "range": 24.0, "shot_speed": 70.0, "desc": "A slow-to-ready shot that takes two hearts."}]},
 		{"name": "Trapper", "icon": "trapper", "tint": Color(0.75, 0.6, 0.4), "show": ["1H_Crossbow", "Knife_Offhand"],
 			"desc": "Hunter's tricks: slowing arrows, a line of three traps and a smoke bomb that hides you.",
 			"attack": {"attack_name": "Poison Arrow", "attack_desc": "An arrow that slows whoever it hits.", "slow": 1.5},
 			"abilities": [
-				{"name": "Trap Line", "key": "Q", "kind": "trap", "icon": "trap", "cooldown": 12.0, "cost": 50.0,
+				{"name": "Trap Line", "key": "Q", "kind": "trap", "icon": "trap", "cooldown": 9.5, "cost": 40.0,
 					"damage": 1, "root": 2.0, "lifetime": 30.0, "count": 3, "desc": "Plant three snare traps in a row."},
-				{"name": "Smoke Bomb", "key": "E", "kind": "smoke", "icon": "smoke", "cooldown": 12.0, "cost": 45.0,
+				{"name": "Smoke Bomb", "key": "E", "kind": "smoke", "icon": "smoke", "cooldown": 9.5, "cost": 40.0,
 					"duration": 3.0, "haste": 3.0, "desc": "Vanish in smoke: enemies lose you and you run faster for a moment."}]}],
 	Role.MAGE: [
 		{"name": "Pyromancer", "icon": "pyromancer", "tint": Color(1.0, 0.6, 0.4), "show": ["2H_Staff"],
 			"desc": "Fire: burning bolts, a huge fireball and a wave of flame in front of you.",
 			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.8},
 			"abilities": [
-				{"name": "Inferno", "key": "Q", "kind": "fireball", "icon": "fireball", "cooldown": 10.0, "cost": 70.0,
+				{"name": "Inferno", "key": "Q", "kind": "fireball", "icon": "fireball", "cooldown": 8.0, "cost": 60.0,
 					"damage": 2, "splash": 4.5, "range": 13.0, "shot_speed": 24.0, "desc": "A huge fireball: two hearts to everyone near the blast."},
-				{"name": "Flame Wave", "key": "E", "kind": "cleave", "icon": "wave", "cooldown": 8.0, "cost": 50.0,
+				{"name": "Flame Wave", "key": "E", "kind": "cleave", "icon": "wave", "cooldown": 6.5, "cost": 40.0,
 					"damage": 1, "radius": 4.5, "cone": true, "fire": true, "desc": "A fan of fire that burns everyone in front of you."}]},
 		{"name": "Frostweaver", "icon": "frostweaver", "tint": Color(0.65, 0.88, 1.0), "show": ["2H_Staff"],
 			"desc": "Ice: slowing bolts, a freezing burst and a longer blink.",
 			"attack": {"attack_name": "Frost Bolt", "attack_desc": "A bolt of ice that slows whoever it hits.", "frost": true, "slow": 2.0},
 			"abilities": [
-				{"name": "Ice Burst", "key": "Q", "kind": "fireball", "icon": "frost", "cooldown": 8.0, "cost": 55.0,
+				{"name": "Ice Burst", "key": "Q", "kind": "fireball", "icon": "frost", "cooldown": 6.5, "cost": 45.0,
 					"damage": 1, "splash": 3.5, "range": 13.0, "shot_speed": 28.0, "frost": true, "root": 1.0, "desc": "A ball of ice that freezes everyone near the blast in place."},
-				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 5.0, "cost": 35.0,
+				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4.0, "cost": 30.0,
 					"distance": 8.0, "desc": "Teleport further in the aim direction."}]}],
 	Role.ROGUE: [
 		{"name": "Assassin", "icon": "assassin", "tint": Color(0.75, 0.55, 0.9), "show": ["1H_Sword"],
@@ -336,54 +338,54 @@ const VARIANTS := {
 			"desc": "The killer: venomed blades that slow, a backstab dash for two hearts, and a vanish.",
 			"attack": {"attack_name": "Venom Fang", "attack_desc": "A quick cut that slows whoever it catches.", "slow": 0.8, "cost": 9.0},
 			"abilities": [
-				{"name": "Backstab", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 7.0, "cost": 45.0,
+				{"name": "Backstab", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 5.5, "cost": 40.0,
 					"damage": 2, "distance": 4.5, "desc": "A short lunge that takes two hearts from everyone in the way."},
-				{"name": "Vanish", "key": "E", "kind": "smoke", "icon": "smoke", "cooldown": 11.0, "cost": 45.0,
+				{"name": "Vanish", "key": "E", "kind": "smoke", "icon": "smoke", "cooldown": 9.0, "cost": 40.0,
 					"duration": 3.5, "haste": 3.5, "desc": "Vanish in smoke: enemies lose you and you run faster."}]},
 		{"name": "Nightrunner", "icon": "nightrunner", "tint": Color(0.6, 0.7, 0.95), "show": ["1H_Sword"],
 			"attacks": ["1H_Melee_Attack_Slice_Horizontal", "1H_Melee_Attack_Chop"], "idle": "Idle",
 			"desc": "The runner: the quickest feet in the game, a long shadow step and caltrops behind you.",
 			"attack": {"attack_name": "Quick Blades", "attack_desc": "Fast strikes with a little more reach.", "range": 1.7, "cooldown": 0.36, "cost": 8.0, "speed": 1.18},
 			"abilities": [
-				{"name": "Shadow Step", "key": "Q", "kind": "blink", "icon": "blink", "cooldown": 7.0, "cost": 35.0,
+				{"name": "Shadow Step", "key": "Q", "kind": "blink", "icon": "blink", "cooldown": 5.5, "cost": 30.0,
 					"distance": 7.5, "desc": "Step through the shadows, further than any blink."},
-				{"name": "Caltrops", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 10.0, "cost": 40.0,
+				{"name": "Caltrops", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 8.0, "cost": 35.0,
 					"damage": 1, "slow": 2.5, "count": 2, "lifetime": 30.0, "desc": "Two spreads of caltrops that hurt and slow the first enemy on them."}]}],
 	Role.ENGINEER: [
 		{"name": "Artificer", "icon": "artificer", "tint": Color(0.75, 0.9, 1.0), "show": ["1H_Axe"],
 			"desc": "Clockwork: three rapid-fire turrets at a time, and an overclock that doubles their fire for a moment.",
 			"attack": {"attack_name": "Spanner", "attack_desc": "A quick, light swing.", "cooldown": 0.5, "cost": 11.0, "gate_damage": 2},
 			"abilities": [
-				{"name": "Rapid Turret", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 8.0, "cost": 50.0,
+				{"name": "Rapid Turret", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 6.5, "cost": 40.0,
 					"turrets": 3, "rapid": true, "desc": "A quick-firing turret. Three at a time."},
-				{"name": "Overclock", "key": "E", "kind": "overclock", "icon": "overclock", "cooldown": 14.0, "cost": 50.0,
+				{"name": "Overclock", "key": "E", "kind": "overclock", "icon": "overclock", "cooldown": 11.0, "cost": 40.0,
 					"duration": 6.0, "desc": "Every turret you built fires twice as fast for six seconds."}]},
 		{"name": "Siegewright", "icon": "siegewright", "tint": Color(1.0, 0.8, 0.6), "show": ["2H_Axe"],
 			"attacks": ["2H_Melee_Attack_Chop", "2H_Melee_Attack_Slice"], "idle": "2H_Melee_Idle",
 			"desc": "Heavy works: a sledge that batters doors, ballista turrets with splashing bolts, and door repairs.",
 			"attack": {"attack_name": "Sledge", "attack_desc": "A slow, heavy blow: five hits to a door. The siege harness turns about every fourth hit.", "range": 2.2, "cooldown": 0.75, "cost": 16.0, "gate_damage": 5, "armour": 0.25},
 			"abilities": [
-				{"name": "Ballista", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 12.0, "cost": 60.0,
+				{"name": "Ballista", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 9.5, "cost": 50.0,
 					"turrets": 2, "ballista": true, "desc": "A slow turret whose bolts burst on impact and reach further."},
-				{"name": "Fortify", "key": "E", "kind": "upgrade", "icon": "upgrade", "cooldown": 8.0, "cost": 50.0,
+				{"name": "Fortify", "key": "E", "kind": "upgrade", "icon": "upgrade", "cooldown": 6.5, "cost": 40.0,
 					"door": 60, "desc": "Tune up the nearest turret, or mend your door by 60 hits (and hurry its rebuild)."}]}],
 	Role.HEALER: [
 		{"name": "Cleric", "icon": "cleric", "tint": Color(1.0, 0.95, 0.78), "show": ["1H_Wand", "Spellbook_open"],
 			"desc": "Guardian of the group: wider mending, a sanctuary that heals and shields, and a smite that bursts.",
 			"attack": {"heal_radius": 6.5},
 			"abilities": [
-				{"name": "Sanctuary", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 14.0, "cost": 75.0,
+				{"name": "Sanctuary", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 11.0, "cost": 65.0,
 					"heal": 2, "radius": 9.0, "haste": 3.0, "shield": 1.5, "desc": "Heal and speed up every teammate nearby, and shield them for a moment."},
-				{"name": "Radiance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 5.5, "cost": 45.0,
+				{"name": "Radiance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 4.5, "cost": 40.0,
 					"damage": 1, "range": 12.0, "shot_speed": 36.0, "splash": 1.6, "desc": "A bolt of light that bursts on impact."}]},
 		{"name": "Dark Priest", "icon": "darkpriest", "tint": Color(0.72, 0.55, 0.9), "show": ["1H_Wand", "Spellbook"],
 			"desc": "Forbidden rites: bolts that drain life back to you, a curse that saps enemies, and a heavier smite.",
 			"attack": {"attack_name": "Drain Bolt", "attack_desc": "Mend nearby teammates; with nobody to heal, a shadow bolt that heals you a heart per hit.",
 				"drain": true, "cost": 27.0},
 			"abilities": [
-				{"name": "Curse", "key": "Q", "kind": "curse", "icon": "curse", "cooldown": 14.0, "cost": 60.0,
+				{"name": "Curse", "key": "Q", "kind": "curse", "icon": "curse", "cooldown": 11.0, "cost": 50.0,
 					"damage": 1, "radius": 5.0, "slow": 2.5, "desc": "Every enemy around you loses a heart and crawls for a moment."},
-				{"name": "Smite", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 9.0, "cost": 55.0,
+				{"name": "Smite", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 7.0, "cost": 45.0,
 					"damage": 2, "range": 12.0, "shot_speed": 36.0, "desc": "A heavy bolt of shadow: two hearts."}]}],
 }
 
@@ -397,37 +399,37 @@ const FACTION_KITS := {
 		Role.KNIGHT: {
 			"attack": {"attack_name": "Glaive", "attack_desc": "A light, long-reaching sweep: quicker than a sword.", "range": 2.5, "cooldown": 0.5, "cost": 10.0, "armour": 0.32},
 			"abilities": [
-				{"name": "Wind Dash", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 5.5, "cost": 35.0,
+				{"name": "Wind Dash", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 4.5, "cost": 30.0,
 					"damage": 1, "distance": 6.0, "desc": "A long, leaf-light dash that cuts everyone in the way for a heart and shoves them aside."},
-				{"name": "Barkskin", "key": "E", "kind": "guard", "icon": "guard", "cooldown": 12.0, "cost": 40.0,
+				{"name": "Barkskin", "key": "E", "kind": "guard", "icon": "guard", "cooldown": 9.5, "cost": 35.0,
 					"duration": 1.6, "desc": "Living bark turns every blow for a moment, from any side."}]},
 		Role.RANGER: {
 			"attack": {"attack_name": "Moonbow", "attack_desc": "Swift silver arrows with long reach.", "range": 16.0, "cooldown": 0.55, "cost": 10.0, "shot_speed": 46.0},
 			"abilities": [
-				{"name": "Starfall", "key": "Q", "kind": "volley", "icon": "volley", "cooldown": 8.0, "cost": 50.0,
+				{"name": "Starfall", "key": "Q", "kind": "volley", "icon": "volley", "cooldown": 6.5, "cost": 40.0,
 					"damage": 1, "arrows": 6, "spread": 30.0, "range": 16.0, "shot_speed": 46.0, "desc": "A fan of six silver arrows."},
-				{"name": "Vine Snare", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 10.0, "cost": 40.0,
+				{"name": "Vine Snare", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 8.0, "cost": 35.0,
 					"damage": 1, "root": 2.5, "lifetime": 30.0, "desc": "A living snare that roots the first enemy who steps on it."}]},
 		Role.MAGE: {
 			"attack": {"attack_name": "Thorn Bolt", "attack_desc": "A seed that bursts into thorns and slows whoever it catches.", "slow": 0.8, "splash": 1.3, "cost": 12.0, "nature": true},
 			"abilities": [
-				{"name": "Bramble Burst", "key": "Q", "kind": "fireball", "icon": "bramble", "cooldown": 8.0, "cost": 60.0,
+				{"name": "Bramble Burst", "key": "Q", "kind": "fireball", "icon": "bramble", "cooldown": 6.5, "cost": 50.0,
 					"damage": 1, "splash": 3.4, "range": 13.0, "shot_speed": 26.0, "root": 1.3, "nature": true, "desc": "A seed-ball that bursts into brambles: a heart to everyone near the blast, and they are rooted."},
-				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 7.0, "cost": 35.0,
+				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 5.5, "cost": 30.0,
 					"distance": 7.5, "desc": "Step along the fae paths, further than any blink."}]},
 		Role.HEALER: {
 			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 6.0, "cooldown": 0.7, "cost": 16.0},
 			"abilities": [
-				{"name": "Spirit Bloom", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 14.0, "cost": 70.0,
+				{"name": "Spirit Bloom", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 11.0, "cost": 60.0,
 					"heal": 2, "radius": 8.0, "haste": 4.0, "desc": "Heal every teammate nearby two hearts and quicken them."},
-				{"name": "Lunar Lance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 5.0, "cost": 35.0,
+				{"name": "Lunar Lance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 4.0, "cost": 30.0,
 					"damage": 1, "range": 13.0, "shot_speed": 38.0, "slow": 1.5, "desc": "A lance of moonlight that slows whoever it hits."}]},
 		Role.ENGINEER: {
 			"attack": {"attack_name": "Root Maul", "attack_desc": "A heavy wooden maul that wrecks doors, fences and turrets.", "cost": 11.0},
 			"abilities": [
-				{"name": "Thorn Totem", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 10.0, "cost": 55.0,
+				{"name": "Thorn Totem", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 8.0, "cost": 45.0,
 					"turrets": 2, "thorn": true, "desc": "A living totem that spits slowing thorns, on your walls or grounds. Two at a time."},
-				{"name": "Tend", "key": "E", "kind": "upgrade", "icon": "upgrade", "cooldown": 7.0, "cost": 40.0,
+				{"name": "Tend", "key": "E", "kind": "upgrade", "icon": "upgrade", "cooldown": 5.5, "cost": 35.0,
 					"desc": "Grow the nearest of your totems a level (up to 3) and heal it, or hurry your door's regrowth."}]},
 	},
 	1: {
@@ -435,16 +437,16 @@ const FACTION_KITS := {
 		Role.RANGER: {
 			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 14.0, "cooldown": 0.75, "cost": 12.0, "shot_speed": 36.0},
 			"abilities": [
-				{"name": "Heavy Bolt", "key": "Q", "kind": "shot", "icon": "snipe", "cooldown": 7.0, "cost": 45.0,
+				{"name": "Heavy Bolt", "key": "Q", "kind": "shot", "icon": "snipe", "cooldown": 5.5, "cost": 40.0,
 					"damage": 2, "range": 16.0, "shot_speed": 50.0, "desc": "A wound-up bolt that takes two hearts."},
-				{"name": "Caltrops", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 10.0, "cost": 40.0,
+				{"name": "Caltrops", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 8.0, "cost": 35.0,
 					"damage": 1, "slow": 2.5, "count": 2, "lifetime": 30.0, "desc": "Two spreads of caltrops that hurt and slow the first enemy on them."}]},
 		Role.HEALER: {
 			"attack": {"attack_name": "Prayer", "attack_desc": "Heal hurt teammates around you; with nobody to heal, fire a holy bolt instead."},
 			"abilities": [
-				{"name": "Blessing", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 14.0, "cost": 70.0,
+				{"name": "Blessing", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 11.0, "cost": 60.0,
 					"heal": 2, "radius": 8.0, "haste": 3.0, "shield": 1.0, "desc": "Heal every teammate nearby two hearts, speed them up and shield them for a second."},
-				{"name": "Holy Bubble", "key": "E", "kind": "bubble", "icon": "bubble", "cooldown": 14.0, "cost": 55.0,
+				{"name": "Holy Bubble", "key": "E", "kind": "bubble", "icon": "bubble", "cooldown": 11.0, "cost": 45.0,
 					"duration": 2.0, "radius": 3.0, "desc": "A dome of light: nothing can hurt you or the teammates inside it for two seconds."}]},
 	},
 }

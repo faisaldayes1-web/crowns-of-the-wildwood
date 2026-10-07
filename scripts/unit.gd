@@ -61,6 +61,7 @@ var buff_timer := 0.0
 var regen_tick := 0.0
 var highlighted := false     # under the local player's aim
 var streak := 0              # kills without dying
+var kill_banner := {}        # the HUD's KILL card for a local player: {victim, role, team, streak, time}
 var spawn_protect := 0.0     # seconds of spawn protection left
 var home_defense := false    # inside our own castle: the defender bonus
 var home_timer := 0.0
@@ -111,6 +112,7 @@ var has_mouse := true              # player 1 aims with the mouse; the others wi
 var avoid_dir := Vector3.ZERO      # look-ahead detour we are committed to
 var avoid_timer := 0.0
 var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
+var avoid_side := 0.0       # which way round the current obstacle (+1 / -1), kept until the way ahead is clear
 var stall_pos := Vector3.ZERO  # demo diagnostics: where the bot last made progress
 var stall_clock := 0.0
 var sidestep_sign := 1.0
@@ -730,8 +732,16 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 					h.assists += 1
 					h.gain_xp(Stats.XP_ASSIST)
 			recent_hitters = {}
+			# A kill feeds the next move: energy back and every cooldown cut.
+			attacker.energy = minf(attacker.energy + Stats.KILL_ENERGY, attacker.energy_max())
+			for i in attacker.ability_timers.size():
+				attacker.ability_timers[i] = maxf(attacker.ability_timers[i] - Stats.KILL_COOLDOWN_CUT, 0.0)
 			if attacker.is_player:
-				game.spawn_popup(attacker.global_position + Vector3(0, 2.6, 0), "KILL  +%d XP" % Stats.XP_KILL, Color(1.0, 0.85, 0.3))
+				attacker.kill_banner = {"victim": display_name, "role": role_name(), "team": team, "role_id": role,
+					"streak": attacker.streak, "time": Time.get_ticks_msec() / 1000.0}
+				game.sfx.ui("rank_up", -2.0, 1.15 if attacker.streak < 2 else 1.0 + 0.1 * mini(attacker.streak, 5))
+				game.rumble(attacker, 0.4, 0.7, 0.3)
+				game.spawn_ring(attacker.global_position, 2.2, Color(1.0, 0.85, 0.3), 0.5)
 			if veteran == 2 and attacker.team != team:
 				game.bounty_claimed(attacker, self)
 			attacker._check_veteran()
@@ -938,6 +948,14 @@ func use_ability(i: int, dir: Vector3) -> void:
 			var hit := get_world_3d().direct_space_state.intersect_ray(ray)
 			if hit:
 				to = hit.position - dir * 0.8
+			# Never land in the river (the ray clears the island's rims and
+			# the bank walls when cast from up on the shrine): stop short.
+			var steps := 0
+			while game.in_channel(Vector3(to.x, 0, to.z)) and steps < 12:
+				to -= dir * 0.5
+				steps += 1
+			if steps >= 12:
+				to = from
 			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.7, 0.45, 1.0), 16, 3.0, 0.5)
 			game.spawn_ring(global_position, 1.5, Color(0.7, 0.45, 1.0), 0.4)
 			game.spawn_flash(global_position, Color(0.7, 0.45, 1.0), 2.5, 0.3)
@@ -1215,6 +1233,14 @@ func _physics_process(delta: float) -> void:
 			_respawn()
 		return
 
+	# Nobody stands in the river: anyone shoved or blown into the channel
+	# (a knockback over the shrine's rim) is set back on the nearer bank.
+	if game.in_channel(global_position):
+		var bank := 1.0 if global_position.x >= 0.0 else -1.0
+		if game.demo:
+			print("RIVER t=%d team%d %s at %s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1)])
+		global_position.x = bank * (game.RIVER_HALF + 0.9)
+		knockback = Vector3.ZERO
 	# Spawn protection ends on its timer or the moment you leave the cellar.
 	if spawn_protect > 0.0:
 		spawn_protect -= delta
@@ -1560,6 +1586,21 @@ func _steer_to(target: Vector3) -> Vector3:
 		# Blocked: commit to walking around the obstacle for a moment, and try
 		# the other side next time so a corner can't hold us for good.
 		stuck_time = 0.0
+		if game.demo:
+			# Diagnostics: every time a bot has to shove off something.
+			var hits := []
+			for ci in get_slide_collision_count():
+				var col := get_slide_collision(ci).get_collider()
+				if col is Node3D and not (col is CharacterBody3D):
+					var what: String = col.name
+					if col.get_parent() != game:
+						what = "%s/%s" % [col.get_parent().name, col.name]
+					for ch in col.get_children():
+						if ch is CollisionShape3D and ch.shape is BoxShape3D:
+							what += "[%s]" % [ch.shape.size.snapped(Vector3.ONE * 0.1)]
+					hits.append("%s@%s" % [what, get_slide_collision(ci).get_position().snapped(Vector3.ONE * 0.1)])
+			if not hits.is_empty():
+				print("BUMP t=%d team%d %s at %s job=%s target=%s hits=%s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), bot_job, target.snapped(Vector3.ONE * 0.1), hits])
 		sidestep_timer = 1.2
 		sidestep_sign = -sidestep_sign
 	if sidestep_timer > 0.0:
@@ -1578,21 +1619,30 @@ func _steer_to(target: Vector3) -> Vector3:
 			return avoid_dir
 		var reach := minf(2.0, to.length() - 0.6)
 		var hit := _probe(dir, reach)
-		if not hit.is_empty():
+		if hit.is_empty():
+			avoid_side = 0.0   # the way ahead is clear: the next obstacle picks its own side
+		else:
 			var n: Vector3 = hit.normal
 			n.y = 0.0
 			n = n.normalized()
 			if -n.dot(dir) > 0.7:
-				# Along the obstacle's face, the way our heading already leans.
+				# Along the obstacle's face. The side is chosen once per
+				# obstacle (the way our heading already leans) and kept until
+				# the line ahead is clear: re-choosing every half second made
+				# a bot on a long wall walk back and forth across the target
+				# line without ever reaching the wall's end.
 				var tangent := Vector3(-n.z, 0, n.x)
-				if tangent.dot(dir) < -0.001 or (absf(tangent.dot(dir)) <= 0.001 and sidestep_sign < 0.0):
-					tangent = -tangent
+				if avoid_side == 0.0:
+					var lean := tangent.dot(dir)
+					avoid_side = signf(lean) if absf(lean) > 0.001 else sidestep_sign
+				tangent *= avoid_side
 				for d2: Vector3 in [(dir * 0.5 + tangent).normalized(), tangent, (dir * 0.5 - tangent).normalized(), -tangent]:
 					if _probe(d2, reach * 0.9).is_empty():
 						avoid_dir = d2
 						avoid_timer = 0.5
 						return d2
 				# Boxed in on this side: try the other side next time.
+				avoid_side = -avoid_side
 				sidestep_sign = -sidestep_sign
 	return dir
 
@@ -1811,7 +1861,13 @@ func _prep_goal(plan: Dictionary) -> Vector3:
 				return spot
 			return game.wall_post(team, bot_offset.z) if role == Role.MAGE else game.defense_post(team, bot_offset.z)
 		_:
-			return game.defense_post(team, bot_offset.z) + bot_offset * 0.3
+			return game.defense_post(team, bot_offset.z) + _post_spread()
+
+
+func _post_spread() -> Vector3:
+	## How far off the defence post this bot stands: a little along the
+	## wall, never out into the yard clutter.
+	return Vector3(bot_offset.x * 0.3, 0, clampf(bot_offset.z * 0.3, -1.2, 1.2))
 
 
 func _raid_goal(delta: float) -> Vector3:
@@ -1877,7 +1933,8 @@ func _bot_think(delta: float) -> Dictionary:
 	elif bot_job == "rally_to":
 		goal = job_target + bot_offset * 0.5  # the player called "To me!"
 	elif bot_job == "defend":
-		goal = game.defense_post(team, bot_offset.z) + bot_offset * 0.3
+		# Spread a little along the wall, not out into the yard clutter.
+		goal = game.defense_post(team, bot_offset.z) + _post_spread()
 	elif bless:
 		goal = bless.global_position
 	elif bot_job == "wall":
