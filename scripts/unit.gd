@@ -1450,7 +1450,9 @@ func _update_highlights() -> void:
 
 
 func _clamp_to_map() -> void:
-	position.x = clampf(position.x, -game.map_half.x, game.map_half.x)
+	# The spawn cellars reach past the field's edge (the Healer hat sits at x 87.5).
+	var hx: float = maxf(game.map_half.x, game.CASTLE_X + game.CASTLE_DEPTH + game.CELLAR_DEPTH)
+	position.x = clampf(position.x, -hx, hx)
 	position.z = clampf(position.z, -game.map_half.y, game.map_half.y)
 
 
