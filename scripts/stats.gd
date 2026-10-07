@@ -37,6 +37,19 @@ const HERO_NAME_MAX := 12
 # Hero looks: Classic, and the Shadowborn look unlocked at account level 10
 # (a dusk tint, violet rim light and a cape on every class).
 const HERO_LOOKS := [["Classic", Color.TRANSPARENT], ["Shadowborn", Color(0.5, 0.42, 0.62)]]
+# Skin tones and the unclassed body's build (Create Your Character). The
+# build is the base model you spawn as; a class's own body replaces it.
+const HERO_SKINS := [["Fair", Color(0.98, 0.85, 0.74)], ["Light", Color(0.96, 0.75, 0.61)], ["Tan", Color(0.84, 0.62, 0.45)],
+	["Brown", Color(0.62, 0.42, 0.28)], ["Deep", Color(0.4, 0.26, 0.18)]]
+const HERO_BODIES := [["Slim", "rogue"], ["Sturdy", "knight"], ["Broad", "barbarian"]]
+# Face styles (scripts/face.gd, tools/make_faces.py): [name, blurb].
+const HERO_FACES := [["Bold", "Steady eyes, set brows"], ["Bright", "Wide eyes and a big grin"], ["Fierce", "Narrowed eyes, a smirk"], ["Gentle", "Soft eyes, a small smile"],
+	["Noble", "Calm eyes, a faint smile"], ["Sly", "Heavy lids, a crooked grin"]]
+# Eye colours: [name, swatch, texture suffix]. Humans default to brown, Elves to green.
+const HERO_EYES := [["Brown", Color(0.4, 0.22, 0.1), "brown"], ["Blue", Color(0.2, 0.4, 0.85), "blue"], ["Green", Color(0.2, 0.55, 0.25), "green"],
+	["Grey", Color(0.5, 0.52, 0.56), "grey"], ["Amber", Color(0.9, 0.62, 0.15), "amber"], ["Red", Color(0.75, 0.15, 0.15), "red"]]
+# Facial markings: [name, texture suffix ("" = none)].
+const HERO_MARKS := [["None", ""], ["Scar", "scar"], ["Claws", "claws"], ["Freckles", "freckles"], ["War Paint", "paint"]]
 # Maps: the Wildwood by day, and the moonlit night variant unlocked at level 10.
 # Ember Pass is the volcano map (castles on basalt plateaus over lava, joined
 # by bridges, and the Fire Objective in the middle); open to everyone.

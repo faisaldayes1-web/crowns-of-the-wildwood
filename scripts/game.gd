@@ -19,6 +19,8 @@ const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
 const Volcano = preload("res://scripts/volcano.gd")
+const MainMenu = preload("res://scripts/menu.gd")
+const MenuStage = preload("res://scripts/menu_stage.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -97,7 +99,20 @@ var killer_card := {}           # who killed the player last: {"unit", "weapon"}
 var killer_timer := 0.0
 var hero_look := 0              # Stats.HERO_LOOKS index (1 needs account level 10)
 var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
+static var reopen_screen := ""  # a menu screen to reopen after select_map() reloads the scene
 var vmap = null                 # Ember Pass (the volcano map): its layout, bot routes and Fire Objective; null on the Wildwood
+var hero_skin := 1              # Stats.HERO_SKINS index
+var hero_face := 0              # Stats.HERO_FACES index
+var hero_eye := -1              # Stats.HERO_EYES index (-1: the side's own colour)
+var hero_mark := 0              # Stats.HERO_MARKS index
+var hero_body := 0              # Stats.HERO_BODIES index: the unclassed body's build
+var team_size := TEAM_SIZE      # fighters a side (SELECT MAP's TEAM SIZE); bots fill the gaps
+var split_screen := false       # SELECT MAP's SPLIT SCREEN: extra pads may join in the lobby
+var lobby_sides: Array = []     # READY UP: each local player's side (0 Elves, 1 Humans)
+var join_pads: Array = []       # READY UP: pad device of local players 2-4, in join order
+var p1_pad_device := -1         # the pad player 1 used in the menus (-1: none or unknown)
+var main_menu                   # menu.gd: the title, Select Map, Create Your Character, Ready Up
+var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
@@ -150,6 +165,8 @@ var cursor := Vector2.ZERO      # the gamepad's menu cursor (screen pixels)
 var debug_kill := false
 var cursor_shown := false      # drawn and used instead of the mouse while a pad drives the menus
 var nav_repeat := 0.0          # held D-pad / stick repeat timer
+var confirm_block := false     # a lobby pad's A press: not a cursor click until released
+var lobby_pad_frame := -1      # frame a lobby pad's press was handled (its B is not "back")
 # Quick commands: Z / X / C call the team; bots answer for COMMAND_TIME seconds.
 var team_command := ["", ""]
 var command_timer := [0.0, 0.0]
@@ -279,11 +296,39 @@ func _ready() -> void:
 			hero_name = parts[0]
 			hero_hair = int(parts[1]) if parts.size() > 1 else 0
 			hero_trim = int(parts[2]) if parts.size() > 2 else 0
+			hero_body = int(parts[3]) if parts.size() > 3 else hero_body
+			hero_skin = int(parts[4]) if parts.size() > 4 else hero_skin
+			hero_face = int(parts[5]) if parts.size() > 5 else hero_face
+			hero_eye = int(parts[6]) if parts.size() > 6 else hero_eye
+			hero_mark = int(parts[7]) if parts.size() > 7 else hero_mark
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
 		return
 	banner.visible = false
 	sfx.play_music(false)
+	main_menu = MainMenu.new(self)
+	menu_stage = MenuStage.new()
+	add_child(menu_stage)
+	menu_stage.build(self)
+	menu_stage.activate()
+	main_menu.stage = menu_stage
+	if reopen_screen != "":
+		main_menu.go(reopen_screen)
+		reopen_screen = ""
+	for arg in OS.get_cmdline_user_args():
+		# Testing: open a menu screen (title, map, character, lobby) or overlay.
+		if arg.begins_with("--debug-screen="):
+			var scr := arg.trim_prefix("--debug-screen=")
+			if scr in ["credits", "tutorial", "progress"]:
+				main_menu.overlay = scr
+			else:
+				main_menu.go(scr)
+		if arg.begins_with("--debug-char-tab="):
+			main_menu.char_tab = int(arg.trim_prefix("--debug-char-tab="))
+		if arg.begins_with("--debug-lobby="):  # N local players, all ready
+			split_screen = true
+			couch_players = clampi(int(arg.trim_prefix("--debug-lobby=")), 1, COUCH_MAX)
+			main_menu.readied = [true, true, true, true]
 
 
 func _process(delta: float) -> void:
@@ -308,10 +353,11 @@ func _process(delta: float) -> void:
 	if not playing and not game_over:
 		if name_editing or menu_open:
 			return
-		if Input.is_action_just_pressed("pick_elves"):
-			_start_match(0)
-		elif Input.is_action_just_pressed("pick_humans"):
-			_start_match(1)
+		if main_menu and main_menu.screen == "lobby" and main_menu.overlay == "":
+			# Ready Up: 1 or 2 picks player 1's side and starts.
+			if Input.is_action_just_pressed("pick_elves") or Input.is_action_just_pressed("pick_humans"):
+				lobby_sides[0] = 0 if Input.is_action_just_pressed("pick_elves") else 1
+				main_menu.start()
 		return
 	if game_over:
 		if demo and not "--debug-end" in OS.get_cmdline_user_args():
@@ -437,6 +483,8 @@ func _debug_hooks() -> void:
 				player.global_position = Vector3(fx + side * 0.6, WALK_Y, -(Stats.DOOR_HALF + 3.2))
 				player.facing = Vector3(-side, 0, 0)
 				cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom
+			if arg == "--debug-nohud":  # clean world renders (the menu's map thumbnails)
+				hud.get_parent().visible = false
 			if arg == "--debug-menu":
 				menu_open = true
 				menu_tab = 0
@@ -445,7 +493,7 @@ func _debug_hooks() -> void:
 			if arg == "--debug-stolen":
 				stolen_timer = 3.5
 				if monarchs[1 - player_team].state == Monarch.State.HOME:
-					var thief = units[TEAM_SIZE - 1] if player_team == 1 else units[TEAM_SIZE + 1]
+					var thief = units.filter(func(x): return x.team != player_team)[mini(1, team_size - 1)]
 					monarchs[1 - player_team].pick_up(thief)
 					thief.carrying = monarchs[1 - player_team]
 			if arg == "--debug-levelup":
@@ -1624,20 +1672,43 @@ func _start_match(team: int) -> void:
 			couch_players = clampi(int(arg.trim_prefix("--couch=")), 1, COUCH_MAX)  # testing: split-screen renders
 		if arg.begins_with("--couch-mode="):
 			couch_mode = arg.trim_prefix("--couch-mode=")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--team-size="):
+			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEAM_SIZE)  # testing: smaller sides
+	if menu_stage:
+		# Leave the menus: their hall and models go, the match camera takes over.
+		# Freed now, not queued: a camera left in the viewport would become
+		# current again and render the whole world behind the split panes.
+		menu_stage.free()
+		menu_stage = null
+		if main_menu:
+			main_menu.stage = null
+		camera.make_current()
+	# Each local player's side: from the lobby, else player 1's pick with
+	# the couch rule (versus: 2 and 4 against, co-op: all together).
+	local_sides = []
+	for k in couch_players:
+		if k < lobby_sides.size() and lobby_sides[k] != null and main_menu:
+			local_sides.append(int(lobby_sides[k]))
+		else:
+			local_sides.append(team if (couch_mode == "coop" or k % 2 == 0) else 1 - team)
+	local_sides[0] = team
 	locals = []
 	locals.resize(couch_players)
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
-		for i in TEAM_SIZE:
+		# A side is team_size strong, or bigger if more local players chose it.
+		var count: int = maxi(team_size, local_sides.count(t))
+		for i in count:
 			var u = Unit.new()
 			add_child(u)
 			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 14.5), CELLAR_Y, -4.0 + i * 2.0)
 			var local_k := _local_slot(t, i)
 			var is_player := local_k >= 0 and not demo
 			u.setup(self, t, is_player, spawn)
-			u.bot_class = LINEUP[i][0]
-			u.bot_job = LINEUP[i][1]
-			u.base_job = LINEUP[i][1]
+			u.bot_class = LINEUP[i % LINEUP.size()][0]
+			u.bot_job = LINEUP[i % LINEUP.size()][1]
+			u.base_job = LINEUP[i % LINEUP.size()][1]
 			if is_player:
 				u.local_index = local_k
 				u.act_prefix = "" if local_k == 0 else "p%d_" % (local_k + 1)
@@ -1888,8 +1959,10 @@ func _pad_nav() -> void:
 	else:
 		nav_repeat = 0.0
 	cursor = cursor.clamp(Vector2.ZERO, get_viewport().get_visible_rect().size)
-	if Input.is_action_just_pressed("ui_back"):
-		if menu_open:
+	if Input.is_action_just_pressed("ui_back") and Engine.get_process_frames() != lobby_pad_frame:
+		if not playing and not menu_open and main_menu:
+			main_menu.back()
+		elif menu_open:
 			menu_open = false
 			get_tree().paused = false
 			sfx.ui("ui_click", -4.0)
@@ -1934,15 +2007,19 @@ func set_couch(what: String) -> void:
 	_save_settings()
 
 
+var local_sides: Array = []     # each local player's side this match (see _start_match)
+var bound_pads: Array = []      # the pad device each local player holds this match (see _bind_couch_input)
+
+
 func _local_slot(team: int, slot: int) -> int:
 	## Which local player (0-based) takes lineup slot `slot` of `team`, or -1
-	## for a bot. Versus: players 1 and 3 on your side, 2 and 4 against.
-	## Co-op: everyone on your side.
+	## for a bot. Local players fill a side's first slots in player order.
+	var ks := 0
 	for k in couch_players:
-		var kt: int = player_team if (couch_mode == "coop" or k % 2 == 0) else 1 - player_team
-		var ks: int = k if couch_mode == "coop" else k / 2
-		if kt == team and ks == slot:
-			return k
+		if local_sides[k] == team:
+			if ks == slot:
+				return k
+			ks += 1
 	return -1
 
 
@@ -1955,6 +2032,18 @@ func _bind_couch_input() -> void:
 	for k in range(1, couch_players):
 		pads.append(k - 1)
 	var p1_pad: int = couch_players - 1 if couch_players > 1 else -1
+	if join_pads.size() == couch_players - 1 and couch_players > 1:
+		# Players who joined in the lobby keep the pad they joined with;
+		# player 1 keeps theirs (or the first pad nobody took).
+		pads = join_pads.duplicate()
+		p1_pad = p1_pad_device
+		if p1_pad < 0 or p1_pad in pads:
+			p1_pad = -1
+			for d in Input.get_connected_joypads():
+				if not d in pads:
+					p1_pad = d
+					break
+	bound_pads = [p1_pad] + pads
 	for action in COUCH_ACTIONS:
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
@@ -2055,7 +2144,9 @@ func shake_at(where: Vector3, amount: float) -> void:
 
 func hero_custom() -> Dictionary:
 	## The player's chosen hair and trim colours for the character skin.
-	var c := {"hair": Stats.HERO_HAIR[hero_hair][1]}
+	var c := {"hair": Stats.HERO_HAIR[hero_hair][1], "skin": Stats.HERO_SKINS[hero_skin][1], "body": Stats.HERO_BODIES[hero_body][1], "face": hero_face, "mark": hero_mark}
+	if hero_eye >= 0:
+		c.eye = hero_eye
 	if hero_trim > 0:
 		c.trim = Stats.HERO_TRIM[hero_trim][1]
 	if hero_look > 0 and unlocked():
@@ -2246,6 +2337,8 @@ func menu_tick() -> void:
 				menu_tab = 4
 			elif Input.is_action_just_pressed("menu") and menu_open:
 				menu_open = false
+			elif Input.is_action_just_pressed("menu") and main_menu and not name_editing:
+				main_menu.back()
 			elif not menu_open:
 				if Input.is_action_just_pressed("menu_left"):
 					cycle_difficulty(-1)
@@ -2320,7 +2413,9 @@ func menu_tick() -> void:
 	# Mouse clicks on menu buttons (the HUD records where it drew them). A
 	# gamepad drives the same buttons through its cursor.
 	_pad_nav()
-	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (cursor_shown and Input.is_action_pressed("ui_confirm"))
+	if confirm_block and not Input.is_action_pressed("ui_confirm"):
+		confirm_block = false
+	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (cursor_shown and Input.is_action_pressed("ui_confirm") and not confirm_block)
 	if click and hud and menu_open:
 		# Volume sliders follow the mouse while the button is held.
 		var mp := menu_mouse()
@@ -2337,6 +2432,8 @@ func menu_tick() -> void:
 				_save_settings()
 	if click and not click_was and hud and rebinding == "":
 		var mouse := menu_mouse()
+		if not playing and not menu_open and main_menu and not name_editing:
+			main_menu.tick(true, mouse)
 		for i in hud.rank_buttons.size():
 			if hud.rank_buttons[i].has_point(mouse) and player:
 				player.spend_point(i)
@@ -2442,6 +2539,10 @@ func menu_input(event: InputEvent) -> void:
 	## Raw key events from the HUD: typing in chat and rebinding controls.
 	# Remember whether player 1 is on the keyboard or a pad, so keycaps and
 	# hints show the right names.
+	if main_menu and not playing and main_menu.pad_event(event):
+		confirm_block = true   # a joining pad's press is theirs, not a click for player 1
+		lobby_pad_frame = Engine.get_process_frames()
+		return
 	if (event is InputEventJoypadButton or event is InputEventJoypadMotion) and (couch_players == 1 or event.device == local_pad(0)):
 		if event is InputEventJoypadButton and event.pressed or event is InputEventJoypadMotion and absf(event.axis_value) > 0.6:
 			pad_active = true
@@ -2655,6 +2756,8 @@ func local_pad(local_index: int) -> int:
 	## pads 0-2 and player 1 the next one; alone, player 1 holds whichever
 	## pad is plugged in first.
 	if couch_players > 1:
+		if bound_pads.size() == couch_players:
+			return bound_pads[maxi(local_index, 0)]
 		return couch_players - 1 if local_index <= 0 else local_index - 1
 	var pads: Array = Input.get_connected_joypads()
 	return pads[0] if not pads.is_empty() else -1
@@ -2828,6 +2931,8 @@ func select_map(index: int) -> void:
 	map_variant = index
 	if want != built:
 		_save_settings()
+		if main_menu:
+			reopen_screen = main_menu.screen
 		get_tree().reload_current_scene()
 		return
 	_apply_map_variant()
@@ -2859,6 +2964,13 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "banner_frame", banner_frame)
 	cfg.set_value("settings", "banner_title", banner_title)
 	cfg.set_value("settings", "map_variant", map_variant)
+	cfg.set_value("settings", "hero_skin", hero_skin)
+	cfg.set_value("settings", "hero_face", hero_face)
+	cfg.set_value("settings", "hero_eye", hero_eye)
+	cfg.set_value("settings", "hero_mark", hero_mark)
+	cfg.set_value("settings", "hero_body", hero_body)
+	cfg.set_value("settings", "team_size", team_size)
+	cfg.set_value("settings", "split_screen", split_screen)
 	cfg.set_value("profile", "account_xp", account_xp)
 	cfg.save(CONTROLS_PATH)
 
@@ -2888,7 +3000,7 @@ func _load_controls() -> void:
 		bot_difficulty = diff
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
 	rosters_visible = cfg.get_value("settings", "rosters_shown", false)
-	couch_players = clampi(int(cfg.get_value("settings", "couch_players", 1)), 1, COUCH_MAX)
+	couch_players = 1  # extra players join each session in the Ready Up lobby
 	couch_mode = "coop" if cfg.get_value("settings", "couch_mode", "versus") == "coop" else "versus"
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
@@ -2910,6 +3022,13 @@ func _load_controls() -> void:
 	banner_frame = clampi(cfg.get_value("settings", "banner_frame", 0), 0, Stats.BANNER_FRAMES.size() - 1)
 	banner_title = clampi(cfg.get_value("settings", "banner_title", 0), 0, Stats.BANNER_TITLES.size() - 1)
 	map_variant = clampi(cfg.get_value("settings", "map_variant", 0), 0, Stats.MAPS.size() - 1)
+	hero_skin = clampi(cfg.get_value("settings", "hero_skin", 1), 0, Stats.HERO_SKINS.size() - 1)
+	hero_face = clampi(cfg.get_value("settings", "hero_face", 0), 0, Stats.HERO_FACES.size() - 1)
+	hero_eye = clampi(cfg.get_value("settings", "hero_eye", -1), -1, Stats.HERO_EYES.size() - 1)
+	hero_mark = clampi(cfg.get_value("settings", "hero_mark", 0), 0, Stats.HERO_MARKS.size() - 1)
+	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)
+	team_size = clampi(cfg.get_value("settings", "team_size", TEAM_SIZE), 1, TEAM_SIZE)
+	split_screen = cfg.get_value("settings", "split_screen", false)
 	account_xp = maxi(int(cfg.get_value("profile", "account_xp", 0)), 0)
 	for entry in REBINDABLE:
 		if not cfg.has_section_key("controls", entry[0]):
