@@ -12,6 +12,7 @@ uniform float threshold = 0.012;   // relative change in inverse depth that star
 uniform float softness = 0.03;     // how quickly a line goes from faint to full
 uniform float strength = 0.9;
 uniform float fade_far = 120.0;    // lines thin out into the distance
+uniform float vignette = 0.45;     // a soft storybook darkening at the screen's edges
 
 void vertex() {
 	POSITION = vec4(VERTEX.xy * 2.0, 1.0, 1.0);
@@ -43,6 +44,9 @@ void fragment() {
 	float a = smoothstep(threshold, threshold + softness, e);
 	float dist = 1.0 / max(c, 1e-5);
 	a *= 1.0 - smoothstep(fade_far * 0.6, fade_far, dist);
+	// Vignette: the same warm ink, faint, towards the corners.
+	vec2 q = (uv - 0.5) * vec2(1.25, 1.0);
+	float v = smoothstep(0.3, 0.8, length(q)) * vignette;
 	ALBEDO = ink.rgb;
-	ALPHA = a * strength;
+	ALPHA = max(a * strength, v);
 }

@@ -1582,7 +1582,8 @@ func _start_match(team: int) -> void:
 	_show_loading(1.0)
 	player_team = team
 	for m in monarchs:
-		m.label.text = "OUR CROWN - DEFEND!" if m.team == player_team else "THEIR CROWN - STEAL IT!"
+		# Only our own crown is labelled (Faisal 2026-10-07: no "steal" text).
+		m.label.text = "OUR CROWN - DEFEND!" if m.team == player_team else ""
 	winner_team = -1
 	banner.visible = false
 	for arg in OS.get_cmdline_user_args():
@@ -4481,6 +4482,9 @@ func _add_fire(pos: Vector3, size: float = 1.0) -> void:
 		var mat := StandardMaterial3D.new()
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mat.albedo_color = p[3]
+		mat.emission_enabled = true    # (unshaded ignores it; kept for the toon pass)
+		mat.emission = p[3]
+		mat.albedo_color = Color(p[3].r * 1.6, p[3].g * 1.6, p[3].b * 1.6)   # HDR: blooms
 		var base := pos + Vector3(p[0] * size, p[1] * size + r, 0.0 if p[2] != 0.09 else 0.1 * size)
 		var ball := MeshInstance3D.new()
 		var sm := SphereMesh.new()
@@ -4506,6 +4510,19 @@ func _add_fire(pos: Vector3, size: float = 1.0) -> void:
 		add_child(tip)
 
 
+
+func _add_banner_pole(team: int, pos: Vector3) -> void:
+	## A timber pole with a crossbar and the faction's banner hanging from it,
+	## facing the camera: they flank each castle door (the target art).
+	audit_label = "pole"
+	_add_block(pos + Vector3(0, 1.75, 0), Vector3(0.2, 3.5, 0.2), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
+	audit_label = ""
+	_add_block(pos + Vector3(0, 0.1, 0), Vector3(0.5, 0.2, 0.5), Color.WHITE, false, _ashlar(Color(0.85, 0.82, 0.78)))
+	_add_block(pos + Vector3(0, 3.35, 0.1), Vector3(1.4, 0.12, 0.12), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
+	_add_block(pos + Vector3(0, 3.62, 0), Vector3(0.16, 0.3, 0.16), Color.WHITE, false, _gold())
+	_add_pennant(team, pos + Vector3(0, 3.28, 0.06), Vector3(0, 0, 1), 1.1, 2.2)
+
+
 func _add_torch_stand(pos: Vector3, height: float = 1.9) -> void:
 	## A tall iron torch stand with a burning bowl (Humans' halls and courts).
 	audit_label = "pole"
@@ -4523,9 +4540,10 @@ func _add_torch_stand(pos: Vector3, height: float = 1.9) -> void:
 	add_child(bowl)
 	_add_fire(pos + Vector3(0, height + 0.12, 0), 2.0)
 	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.68, 0.32)
-	light.light_energy = 1.5
-	light.omni_range = 6.5
+	light.light_color = Color(1.0, 0.6, 0.26)
+	light.light_energy = 2.2
+	light.omni_range = 7.5
+	light.omni_attenuation = 1.4
 	light.position = pos + Vector3(0, height + 0.6, 0)
 	add_child(light)
 
@@ -6205,9 +6223,10 @@ func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 	l.text = "UPGRADE STATION"
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
-	l.font_size = 22
-	l.pixel_size = 0.012
-	l.outline_size = 8
+	l.font_size = 26
+	l.pixel_size = 0.0075
+	l.outline_size = 12
+	l.outline_modulate = Color(0.08, 0.06, 0.04)
 	l.modulate = color
 	l.position = pos + Vector3(0, 1.6, 0)
 	add_child(l)
@@ -6239,6 +6258,7 @@ func _build_castle(team: int) -> void:
 		_add_tower(Vector3(fx, 0, zs * (dh + 1.1)), team, side, 2.2, 5.0, false)
 		_add_banner(team, Vector3(fx - side * 1.1, 1.0, zs * (dh + 1.1)), Vector3(-side, 0, 0), 0.6)
 		_add_torch(Vector3(fx - side * 2.0, 0, zs * (dh + 0.6)))
+		_add_banner_pole(team, Vector3(fx - side * 4.6, 0, zs * (dh + 1.9)))
 		# Corner towers.
 		_add_tower(Vector3(fx, 0, zs * hz), team, side)
 		_add_tower(Vector3(bx, 0, zs * hz), team, side)
@@ -6620,20 +6640,25 @@ func _apply_map_variant() -> void:
 		sky_material.sky_horizon_color = Color(0.85, 0.9, 0.95)
 		sky_material.ground_bottom_color = Color(0.3, 0.4, 0.25)
 		sky_material.ground_horizon_color = Color(0.65, 0.75, 0.6)
-		# Bright cartoon daylight: a strong warm sun, soft blue-green
-		# ambient so shadows stay coloured and light, very little haze.
-		world_environment.ambient_light_energy = 0.55
-		world_environment.ambient_light_color = Color(0.72, 0.84, 0.9)
-		world_environment.fog_light_color = Color(0.8, 0.9, 1.0)
-		world_environment.fog_density = 0.0008
-		world_environment.glow_intensity = 0.4
-		world_environment.glow_hdr_threshold = 1.5
-		world_environment.adjustment_saturation = 1.2
+		# Late-afternoon storybook light (Faisal's target art, 2026-10-07): a
+		# low warm sun throwing long shadows, cool blue ambient so the shade
+		# reads coloured, and torches and braziers that bloom.
+		world_environment.ambient_light_energy = 0.17
+		world_environment.ambient_light_sky_contribution = 0.25
+		world_environment.ambient_light_color = Color(0.45, 0.55, 0.85)
+		world_environment.fog_light_color = Color(0.95, 0.85, 0.7)
+		world_environment.fog_density = 0.0012
+		world_environment.glow_intensity = 0.7
+		world_environment.glow_hdr_threshold = 1.0
+		world_environment.adjustment_saturation = 1.22
 		world_environment.adjustment_brightness = 1.0
-		sun_light.light_color = Color(1.0, 0.96, 0.86)
-		sun_light.light_energy = 0.95
+		world_environment.adjustment_contrast = 1.1
+		sun_light.light_color = Color(1.0, 0.84, 0.62)
+		sun_light.light_energy = 1.35
+		sun_light.rotation_degrees = Vector3(-36, -38, 0)
+		sun_light.shadow_opacity = 1.0
 		if fill_light:
-			fill_light.light_energy = 0.2
+			fill_light.light_energy = 0.12
 
 
 func _build_world() -> void:

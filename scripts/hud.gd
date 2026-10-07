@@ -870,8 +870,8 @@ func _laurel(c: Vector2, side: float, scale: float, rx: float = 50.0, ry: float 
 
 
 func _draw_minimap(c: Vector2, r: float) -> void:
-	## The minimap as a round parchment chart in a twisted rope ring on a
-	## dark iron plate with bracketed, riveted corners, and the home-defence
+	## The minimap as a round painted chart of the valley in a ring of wooden
+	## blocks (gold star on top) on a dark iron plate with bracketed, riveted corners, and the home-defence
 	## tag hung across the bottom.
 	var hs := r * 1.0
 	var plate := Rect2(c - Vector2(hs, hs), Vector2(hs, hs) * 2.0)
@@ -900,52 +900,286 @@ func _draw_minimap(c: Vector2, r: float) -> void:
 		for q in [o + Vector2(dx * 6, dy * 6), o + Vector2(dx * 27, dy * 6), o + Vector2(dx * 6, dy * 27)]:
 			draw_circle(q, 2.4, Color(0.78, 0.8, 0.85))
 			draw_circle(q + Vector2(0.6, 0.7), 1.2, Color(0.2, 0.21, 0.25))
-	# The chart.
+	# The chart: a painted top-down valley filling the whole round window.
 	draw_circle(c + Vector2(0, 3), r + 8, Color(0, 0, 0, 0.35))
-	draw_circle(c, r, PARCHMENT.darkened(0.1))
-	draw_circle(c, r * 0.95, PARCHMENT)
-	draw_circle(c + Vector2(-r * 0.15, -r * 0.2), r * 0.6, Color(1, 0.97, 0.85, 0.25))
-	var hx: float = game.map_half.x
-	var hz: float = game.map_half.y
-	var mw := r * 1.84
-	var mh := mw * hz / hx
-	# Little inked trees and bushes on the parchment around the field.
-	for i in 46:
-		var a := fmod(i * 2.39996, TAU)
-		var d := r * (0.35 + 0.6 * fmod(i * 0.618034, 1.0))
-		var q := c + Vector2(cos(a), sin(a)) * d
-		if absf(q.y - c.y) < mh / 2.0 + 5.0 or (q - c).length() > r - 9.0:
-			continue
-		var tr := 2.4 + fmod(i * 1.7, 2.0)
-		draw_circle(q + Vector2(0.8, 1.0), tr, Color(0.35, 0.28, 0.15, 0.35))
-		draw_circle(q, tr, LEAF.darkened(0.1) if i % 3 else Color(0.5, 0.62, 0.3))
-		if i % 7 == 0:
-			draw_circle(q + Vector2(tr + 1.5, 0), 1.3, RED)
-	for i in 3:
-		var y := c.y + (mh / 2.0 + 10.0 + i * 9.0) * (1.0 if i % 2 else -1.0)
-		draw_line(Vector2(c.x - r * 0.45 + i * 12.0, y), Vector2(c.x - r * 0.2 + i * 12.0, y + 2.0), Color(0.55, 0.42, 0.25, 0.4), 1.0)
-	_draw_map(Rect2(c - Vector2(mw, mh) / 2.0, Vector2(mw, mh)), false)
-	# A burnt edge on the parchment inside the rope.
-	draw_arc(c, r - 3.0, 0, TAU, 64, Color(0.45, 0.3, 0.12, 0.35), 6.0)
-	# Rope ring: a thick dark band, then twisted strands laid diagonally.
-	var rw := maxf(r * 0.11, 8.0)
-	draw_arc(c, r + rw * 0.35, 0, TAU, 80, Color(0.22, 0.13, 0.05), rw + 4.0)
-	draw_arc(c, r + rw * 0.35, 0, TAU, 80, ROPE.darkened(0.25), rw)
-	var strands := int(TAU * r / 7.0)
-	for i in strands:
-		var a := TAU * i / strands
-		var d := Vector2(cos(a), sin(a))
-		var t := Vector2(-d.y, d.x)
-		var mid := c + d * (r + rw * 0.35)
-		var p0 := mid - d * rw * 0.5 - t * rw * 0.28
-		var p1 := mid + d * rw * 0.5 + t * rw * 0.28
-		draw_line(p0, p1, ROPE.lightened(0.18), rw * 0.42)
-		draw_line(p0 + t * rw * 0.12, p1 + t * rw * 0.12, Color(1, 0.9, 0.7, 0.35), 1.0)
-		draw_line(p0 - t * rw * 0.22, p1 - t * rw * 0.22, Color(0.25, 0.14, 0.05, 0.8), 1.2)
+	_minimap_field(c, r)
+	# Ring: a band of wooden blocks between dark rims, a gold star on top.
+	var rw := maxf(r * 0.17, 11.0)
+	var ri := r - 4.0
+	var ro := r + rw * 0.6
+	var rm := (ri + ro) / 2.0
+	var band := ro - ri
+	draw_arc(c, rm, 0, TAU, 96, Color(0.16, 0.09, 0.04), band + 4.0)
+	var planks := int(TAU * rm / (band * 0.78))
+	for i in planks:
+		var a0 := TAU * i / planks - PI / 2.0
+		var a1 := TAU * (i + 1) / planks - PI / 2.0
+		var gap := 1.4 / rm
+		var tint := 0.06 * sin(i * 2.7) + 0.04 * cos(i * 1.3)
+		var base := Color(0.78 + tint, 0.54 + tint * 0.8, 0.29 + tint * 0.5)
+		var q := PackedVector2Array()
+		for k in 3:
+			var a := lerpf(a0 + gap, a1 - gap, k / 2.0)
+			q.append(c + Vector2(cos(a), sin(a)) * (ri + 1.2))
+		for k in 3:
+			var a := lerpf(a1 - gap, a0 + gap, k / 2.0)
+			q.append(c + Vector2(cos(a), sin(a)) * (ro - 1.2))
+		draw_colored_polygon(q, base)
+		# Lit outer face, shaded inner face, and a dark notch across the middle.
+		var hi := PackedVector2Array()
+		for k in 3:
+			var a := lerpf(a0 + gap, a1 - gap, k / 2.0)
+			hi.append(c + Vector2(cos(a), sin(a)) * (rm + band * 0.08))
+		for k in 3:
+			var a := lerpf(a1 - gap, a0 + gap, k / 2.0)
+			hi.append(c + Vector2(cos(a), sin(a)) * (ro - 1.2))
+		draw_colored_polygon(hi, Color(1, 0.88, 0.62, 0.22))
+		var am := (a0 + a1) / 2.0
+		var dm := Vector2(cos(am), sin(am))
+		var tm := Vector2(-dm.y, dm.x)
+		var wt := (a1 - a0) * rm * 0.32
+		draw_line(c + dm * (ri + band * 0.3) - tm * wt, c + dm * (ri + band * 0.3) + tm * wt, Color(0.3, 0.17, 0.07, 0.55), 1.2)
+		draw_line(c + dm * (ri + 1.5) - tm * wt * 1.4, c + dm * (ri + 1.5) + tm * wt * 1.4, Color(0.25, 0.13, 0.05, 0.5), 1.6)
+	draw_arc(c, ro + 0.5, 0, TAU, 96, Color(0.14, 0.08, 0.03), 2.2)
+	draw_arc(c, ri - 0.5, 0, TAU, 96, Color(0.14, 0.08, 0.03), 2.2)
+	draw_arc(c, ri - 2.0, 0, TAU, 96, Color(0.85, 0.62, 0.3, 0.55), 1.0)
+	var sc := c + Vector2(0, -rm)
+	draw_circle(sc + Vector2(0, 1.5), band * 0.55, Color(0, 0, 0, 0.35))
+	_star(sc, band * 0.7, GOLD)
 	var me = _me()
 	if me and me.home_defense and not me.dead:
 		var tw := minf(r * 1.6, 170.0)
 		_home_pill(Rect2(Vector2(c.x - tw / 2.0 - r * 0.05, plate.end.y - 30), Vector2(tw, 26)), me.team)
+
+
+func _mm_poly(poly: PackedVector2Array, clip: PackedVector2Array, col: Color, edge: Color = Color(0, 0, 0, 0), ew: float = 1.0) -> void:
+	## Fills (and optionally outlines) a polygon trimmed to the minimap circle.
+	for piece in Geometry2D.intersect_polygons(poly, clip):
+		if piece.size() < 3:
+			continue
+		draw_colored_polygon(piece, col)
+		if edge.a > 0.0:
+			var loop: PackedVector2Array = piece.duplicate()
+			loop.append(piece[0])
+			draw_polyline(loop, edge, ew)
+
+
+func _mm_rect(rect: Rect2, clip: PackedVector2Array, col: Color, edge: Color = Color(0, 0, 0, 0), ew: float = 1.0) -> void:
+	_mm_poly(PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]), clip, col, edge, ew)
+
+
+func _mm_line(a: Vector2, b: Vector2, c: Vector2, rad: float, col: Color, w: float) -> void:
+	## A line segment trimmed to the circle (c, rad).
+	var d := b - a
+	var f := a - c
+	var qa := d.dot(d)
+	if qa < 0.0001:
+		return
+	var qb := 2.0 * f.dot(d)
+	var qc := f.dot(f) - rad * rad
+	var disc := qb * qb - 4.0 * qa * qc
+	if disc <= 0.0:
+		return
+	var sq := sqrt(disc)
+	var t0 := maxf(0.0, (-qb - sq) / (2.0 * qa))
+	var t1 := minf(1.0, (-qb + sq) / (2.0 * qa))
+	if t0 >= t1:
+		return
+	draw_line(a + d * t0, a + d * t1, col, w)
+
+
+func _minimap_field(c: Vector2, r: float) -> void:
+	## The valley painted from above and clipped to the minimap circle: deep
+	## forest round the edge, lighter meadow over the battlefield, tan roads,
+	## the bright river and its bridges, the shrine ring, both castles as team
+	## blocks with their crowns, potions, turrets and everyone the team can see.
+	## The map is stretched a little north-south so the field fills the window.
+	var hx: float = game.map_half.x
+	var hz: float = game.map_half.y
+	var sx := r / (hx - 6.0)
+	var sz := sx * 1.6
+	var m := func(p: Vector3) -> Vector2:
+		return c + Vector2(p.x * sx, p.z * sz)
+	var clip := PackedVector2Array()
+	for i in 56:
+		var a := TAU * i / 56.0
+		clip.append(c + Vector2(cos(a), sin(a)) * r)
+	var pt := Time.get_ticks_msec() / 1000.0
+	var fx: float = game.CASTLE_X - game.CASTLE_DEPTH
+	# Ground: deep forest green, the open field a lighter meadow.
+	draw_circle(c, r, Color(0.2, 0.38, 0.15))
+	var field := Rect2(c - Vector2(hx * sx, hz * sz), Vector2(hx * sx, hz * sz) * 2.0)
+	_mm_rect(field, clip, Color(0.36, 0.6, 0.24))
+	# Woodland blobs filling the ground outside the field.
+	for i in 150:
+		var a := fmod(i * 2.39996, TAU)
+		var d := r * sqrt((i + 0.5) / 150.0)
+		var q := c + Vector2(cos(a), sin(a)) * d
+		if field.grow(-2.0).has_point(q) or d > r - 2.0:
+			continue
+		var tr := r * (0.045 + 0.025 * fmod(i * 0.618034, 1.0))
+		draw_circle(q + Vector2(1, 1.5), tr, Color(0.08, 0.17, 0.06, 0.6))
+		draw_circle(q, tr, Color(0.17, 0.4, 0.14) if i % 3 else Color(0.25, 0.48, 0.17))
+		draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.45, Color(0.4, 0.62, 0.25, 0.6))
+	# Sunlit patches on the meadow.
+	for i in 14:
+		var a := fmod(i * 2.39996 + 0.7, TAU)
+		var d := r * 0.75 * sqrt((i + 0.5) / 14.0)
+		var q := c + Vector2(cos(a), sin(a) * 0.6) * d
+		if field.has_point(q):
+			draw_circle(q, r * (0.07 + 0.03 * fmod(i * 0.618, 1.0)), Color(0.55, 0.78, 0.33, 0.28))
+	# Trees on the field.
+	for t in game.map_trees:
+		var q: Vector2 = m.call(t)
+		var tr: float = (2.6 if t.y > 0.5 else 1.9) * sx * 1.25
+		if (q - c).length() > r - tr * 0.5:
+			continue
+		draw_circle(q + Vector2(0.8, 1.2), tr, Color(0.06, 0.14, 0.05, 0.55))
+		draw_circle(q, tr, Color(0.16, 0.42, 0.14) if t.y > 0.5 else Color(0.22, 0.5, 0.17))
+		draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.42, Color(0.42, 0.68, 0.28, 0.7))
+	# Roads and tracks: a dark edge under tan dirt.
+	var road := Color(0.8, 0.66, 0.43)
+	for p in game.map_paths:
+		var w: float = maxf(p[2] * sx * 1.1, 2.4)
+		_mm_line(m.call(p[0]), m.call(p[1]), c, r, Color(0.42, 0.3, 0.16, 0.85), w + 2.0)
+	for p in game.map_paths:
+		var w: float = maxf(p[2] * sx * 1.1, 2.4)
+		var a: Vector2 = m.call(p[0])
+		var b: Vector2 = m.call(p[1])
+		_mm_line(a, b, c, r, road, w)
+		if (a - c).length() < r:
+			draw_circle(a, w / 2.0, road)
+		if (b - c).length() < r:
+			draw_circle(b, w / 2.0, road)
+	# Ruins, barrows and mills.
+	for mark in game.map_marks:
+		var q: Vector2 = m.call(mark[0])
+		if (q - c).length() > r - 4.0:
+			continue
+		if mark[1] == "ruin":
+			var rr := Rect2(q - Vector2(3.5 * sx, 2.5 * sz), Vector2(7 * sx, 5 * sz))
+			draw_rect(rr.grow(1.0), Color(0.3, 0.3, 0.3, 0.6))
+			draw_rect(rr, Color(0.7, 0.68, 0.64))
+			draw_rect(rr.grow(-rr.size.x * 0.25), Color(0.55, 0.53, 0.5))
+		elif mark[1] == "barrow":
+			draw_circle(q, 3.2 * sx, Color(0.42, 0.45, 0.4))
+			draw_circle(q, 1.6 * sx, Color(0.25, 0.26, 0.25))
+		elif mark[1] == "mill":
+			draw_rect(Rect2(q - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.62, 0.46, 0.3))
+			draw_arc(q + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
+	# The river (drawn a little wider than life so it reads), then bridges.
+	var rh: float = maxf(game.RIVER_HALF * sx * 1.7, r * 0.055)
+	_mm_rect(Rect2(c.x - rh - 2.0, c.y - r, 2.0 * rh + 4.0, 2.0 * r), clip, Color(0.62, 0.55, 0.36))
+	_mm_rect(Rect2(c.x - rh, c.y - r, 2.0 * rh, 2.0 * r), clip, Color(0.13, 0.45, 0.95))
+	_mm_rect(Rect2(c.x - rh * 0.35, c.y - r, rh * 0.7, 2.0 * r), clip, Color(0.4, 0.72, 1.0, 0.55))
+	for i in game.BRIDGES.size():
+		if i == 1:
+			continue
+		var bz: float = game.BRIDGES[i]
+		var half: float = game.BRIDGE_HALF[i]
+		var bq: Vector2 = m.call(Vector3(0, 0, bz))
+		var br := Rect2(bq.x - rh - 3.0, bq.y - half * sz, 2.0 * rh + 6.0, 2.0 * half * sz)
+		_mm_rect(br, clip, Color(0.6, 0.4, 0.22), Color(0.28, 0.16, 0.07), 1.2)
+		for k in 3:
+			var ly := br.position.y + br.size.y * (k + 1) / 4.0
+			draw_line(Vector2(br.position.x + 1, ly), Vector2(br.end.x - 1, ly), Color(0.35, 0.2, 0.09, 0.6), 1.0)
+	# The Crown Shrine: a gold ring round a glowing green heart.
+	var sr: float = maxf(game.ISLAND_R * sx * 1.15, 7.0)
+	draw_circle(c + Vector2(0, 1.5), sr + 2.5, Color(0, 0, 0, 0.35))
+	draw_circle(c, sr + 2.0, Color(0.38, 0.27, 0.06))
+	draw_circle(c, sr, GOLD)
+	draw_circle(c, sr * 0.72, Color(0.65, 0.45, 0.1))
+	draw_circle(c, sr * 0.6, Color(0.2, 0.62, 0.22))
+	draw_circle(c, sr * 0.38, Color(0.45, 0.95, 0.4, 0.75 + 0.2 * sin(pt * 3.0)))
+	for k in 8:
+		var a := TAU * k / 8.0
+		draw_circle(c + Vector2(cos(a), sin(a)) * sr * 0.86, maxf(sr * 0.1, 0.9), Color(1, 0.95, 0.65))
+	# The castles: team-colour blocks, crown on the throne, door gold or red.
+	for t in 2:
+		var side := -1.0 if t == 0 else 1.0
+		var tc := _team_color(t)
+		var ox: float = side * fx
+		var bx: float = side * (game.CASTLE_X + game.CASTLE_DEPTH)
+		var cx: float = bx + side * game.CELLAR_DEPTH
+		var cel_a: Vector2 = m.call(Vector3(minf(bx, cx), 0, -game.CELLAR_HALF_Z))
+		var cel_b: Vector2 = m.call(Vector3(maxf(bx, cx), 0, game.CELLAR_HALF_Z))
+		_mm_rect(Rect2(cel_a, cel_b - cel_a), clip, tc.darkened(0.65), tc.darkened(0.2), 1.0)
+		var oa: Vector2 = m.call(Vector3(minf(ox, bx), 0, -game.CASTLE_HALF_Z))
+		var ob: Vector2 = m.call(Vector3(maxf(ox, bx), 0, game.CASTLE_HALF_Z))
+		var outer := Rect2(oa, ob - oa)
+		_mm_rect(outer.grow(2.0), clip, Color(0.12, 0.12, 0.14, 0.9))
+		_mm_rect(outer, clip, tc.darkened(0.1), tc.lightened(0.45), 1.5)
+		_mm_rect(outer.grow(-outer.size.x * 0.16), clip, tc.lightened(0.12), tc.darkened(0.35), 1.0)
+		var gate = game.gates[t]
+		var door_color: Color = RED if gate.broken else GOLD
+		_mm_line(m.call(Vector3(ox, 0, -Stats.DOOR_HALF)), m.call(Vector3(ox, 0, Stats.DOOR_HALF)), c, r, door_color, 3.0)
+		var th: Vector2 = m.call(game.thrones[t])
+		if (th - c).length() < r - 4.0:
+			var cs := clampf(r / 180.0, 0.38, 0.62)
+			_crown(th + Vector2(0.6, 1.0), cs, Color(0.25, 0.15, 0.02, 0.6))
+			_crown(th, cs, GOLD)
+	# Potions that are up: small pink-red markers.
+	for orb in game.heal_orbs:
+		if orb.active:
+			var q: Vector2 = m.call(orb.global_position)
+			if (q - c).length() < r - 3.0:
+				draw_circle(q, 3.4, Color(1, 0.9, 0.9))
+				draw_circle(q, 2.5, Color(0.95, 0.25, 0.35))
+	for b in game.blessings:
+		if is_instance_valid(b):
+			var bc: Vector2 = m.call(b.global_position)
+			if (bc - c).length() < r - 3.0:
+				draw_circle(bc, 6.0, Color(1.0, 0.9, 0.5, 0.35 + 0.25 * sin(pt * 6.0)))
+				_icon("xp", bc, 4.0, GOLD)
+	var my_team: int = _my_team()
+	for tu in game.turrets:
+		var tq: Vector2 = m.call(tu.global_position)
+		if (tq - c).length() > r - 3.0:
+			continue
+		var tr := 3.0
+		var dia := PackedVector2Array([tq + Vector2(0, -tr), tq + Vector2(tr, 0), tq + Vector2(0, tr), tq + Vector2(-tr, 0)])
+		draw_colored_polygon(dia, _team_color(tu.team).lightened(0.2))
+		dia.append(dia[0])
+		draw_polyline(dia, Color(0, 0, 0, 0.6), 1.0)
+	# Everyone we can see. Enemies show within 22 m of a living teammate;
+	# Elite Veterans and crown carriers always show. The player's own arrow
+	# sticks to the rim when they are off the edge of the chart.
+	var allies: Array = game.units.filter(func(u): return u.team == my_team and not u.dead)
+	for u in game.units:
+		if u.dead:
+			continue
+		var q: Vector2 = m.call(u.global_position)
+		var enemy: bool = u.team != my_team
+		if enemy and u.veteran < 2 and u.carrying == null:
+			var seen := false
+			for a in allies:
+				if game._flat_dist(a.global_position, u.global_position) < 22.0:
+					seen = true
+					break
+			if not seen:
+				continue
+		var ur := 3.0
+		if (q - c).length() > r - ur - 2.0:
+			if not u.is_player:
+				continue
+			q = c + (q - c).normalized() * (r - ur - 4.0)
+		if u.is_player:
+			var d := Vector2(u.facing.x, u.facing.z * 1.6).normalized()
+			var n := Vector2(-d.y, d.x)
+			var tip := q + d * (ur + 7.0)
+			draw_colored_polygon(PackedVector2Array([tip, q + n * (ur + 2.5), q - n * (ur + 2.5)]), Color(1, 1, 0.3))
+			draw_circle(q, ur + 2.5, Color(1, 1, 0.3))
+			draw_arc(q, ur + 2.5, 0, TAU, 14, Color(0.3, 0.2, 0.0, 0.8), 1.0)
+		if u.veteran >= 2:
+			draw_arc(q, ur + 3.0 + 1.5 * sin(pt * 5.0), 0, TAU, 16, Color(1, 0.3, 0.2) if enemy else GOLD, 2.0)
+		elif u.veteran == 1:
+			draw_arc(q, ur + 2.0, 0, TAU, 12, Color(0.95, 0.75, 0.3), 1.5)
+		draw_circle(q, ur, Color(1.0, 0.25, 0.2) if enemy else Color(0.3, 1.0, 0.45))
+		draw_arc(q, ur, 0, TAU, 12, Color(0, 0, 0, 0.65), 1.0)
+		if u.carrying:
+			_crown(q + Vector2(0, -ur - 4), 0.35)
+	# A soft shadow round the inside of the ring.
+	draw_arc(c, r - 3.0, 0, TAU, 72, Color(0, 0, 0, 0.22), 6.0)
 
 
 func _draw_logo(rect: Rect2) -> void:

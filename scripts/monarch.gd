@@ -36,11 +36,12 @@ func setup(p_team: int, p_home: Vector3, color: Color, p_title: String) -> void:
 	label.text = title.to_upper()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
-	label.font_size = 40
-	label.pixel_size = 0.012
-	label.outline_size = 10
+	label.font_size = 34
+	label.pixel_size = 0.009
+	label.outline_size = 12
+	label.outline_modulate = Color(0.08, 0.06, 0.04)
 	label.modulate = Color(1.0, 0.9, 0.4)
-	label.position.y = 2.5
+	label.position.y = 3.1
 	add_child(label)
 
 

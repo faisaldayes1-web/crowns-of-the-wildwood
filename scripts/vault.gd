@@ -96,8 +96,9 @@ func setup(p_game, p_team: int, throne: Vector3, p_side: float) -> void:
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
 	label.font_size = 30
-	label.pixel_size = 0.011
-	label.outline_size = 8
+	label.pixel_size = 0.0085
+	label.outline_size = 12
+	label.outline_modulate = Color(0.08, 0.06, 0.04)
 	label.position = Vector3(front_x - throne.x, 3.3, 0)
 	add_child(label)
 	glow_light = OmniLight3D.new()
@@ -127,7 +128,7 @@ func take_hit(amount: int, attacker = null) -> void:
 		game.sfx.play("vault_open", lock_pos, 2.0)
 		relock_timer = Stats.VAULT_RELOCK_TIME
 		shape.disabled = true
-		game.announce("The %s Crown Vault is open! The %s is exposed!" % [Stats.FACTIONS[team].name, game.monarchs[team].title])
+		game.announce("The %s Crown Vault is open! The %s is exposed!" % [Stats.FACTIONS[team].name, game.monarchs[team].title.to_lower()])
 		game.chat_system("The %s vault lock is broken." % Stats.FACTIONS[team].name)
 		game.spawn_splash(lock_pos + Vector3(0, 1.0, 0), Color(1.0, 0.85, 0.4), 50, 6.0, 1.0, true)
 		game.spawn_flash(lock_pos + Vector3(0, 1.5, 0), Color(1.0, 0.85, 0.4), 4.0, 0.4)
@@ -143,6 +144,8 @@ func _refresh() -> void:
 	else:
 		label.text = "Crown Vault lock %d / %d" % [hp, Stats.VAULT_HITS]
 		label.modulate = Color(1, 0.9, 0.5)
+	# Out of the way until someone starts on the lock (it sat on the crown's label).
+	label.visible = open or hp < Stats.VAULT_HITS
 
 
 func _process(delta: float) -> void:

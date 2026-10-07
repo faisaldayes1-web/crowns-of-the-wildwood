@@ -234,17 +234,20 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	add_child(overhead)
 	label = Label3D.new()
 	label.no_depth_test = true
-	label.font_size = 26
-	label.pixel_size = 0.012
-	label.outline_size = 8
-	label.position.y = 0.35
+	label.font_size = 30
+	label.pixel_size = 0.0085
+	label.outline_size = 12
+	label.outline_modulate = Color(0.08, 0.06, 0.04)
+	label.render_priority = 3
+	label.outline_render_priority = 2
+	label.position.y = 0.3
 	overhead.add_child(label)
 	for i in Stats.MAX_HEARTS:
 		var heart := MeshInstance3D.new()
 		var quad := QuadMesh.new()
-		quad.size = Vector2(0.24, 0.22)
+		quad.size = Vector2(0.19, 0.17)
 		heart.mesh = quad
-		heart.position.x = (i - (Stats.MAX_HEARTS - 1) / 2.0) * 0.3
+		heart.position.x = (i - (Stats.MAX_HEARTS - 1) / 2.0) * 0.22
 		var mat := StandardMaterial3D.new()
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mat.no_depth_test = true
@@ -470,6 +473,13 @@ func _apply_side_colors() -> void:
 		model.outline.grow_amount = 0.024
 	if blob_mat:
 		blob_mat.albedo_color = Color(0, 0, 0, 0.3) if is_player else (Color(0.7, 0.0, 0.0, 0.4) if enemy else Color(0.0, 0.5, 0.1, 0.35))
+	# A faint glow over the whole body (Faisal 2026-10-07): green for
+	# teammates, an even slighter red for enemies. The player stays as is.
+	if not is_player:
+		for m in flash_mats:
+			m.emission_enabled = true
+			m.emission = Color(1.0, 0.18, 0.12) if enemy else Color(0.25, 1.0, 0.4)
+			m.emission_energy_multiplier = (0.1 if enemy else 0.12) * (2.0 if highlighted else 1.0)
 
 
 func set_highlight(on: bool) -> void:
@@ -499,7 +509,9 @@ func _refresh_overhead() -> void:
 		vet = "BOUNTY · "
 	elif veteran == 1:
 		vet = "VETERAN · "
-	label.text = vet + tag + role_name() + lvl
+	# Only the player's own name (and a veteran's warning) floats overhead;
+	# everyone else shows just their hearts, so crowds stay readable.
+	label.text = vet + tag + role_name() + lvl if (is_player or veteran >= 1) else ""
 	if is_player:
 		label.modulate = Color(1, 1, 0.6)
 	else:
