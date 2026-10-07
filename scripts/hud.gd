@@ -50,6 +50,7 @@ var slot_prev: Dictionary = {}   # ability slot cooldowns last frame, for the re
 var slot_flash: Dictionary = {}  # ability slot -> seconds of ready flash left
 var options_button := Rect2()
 var close_button := Rect2()
+var quit_button := Rect2()     # pause menu: back to the main menu
 var difficulty_buttons: Array = []  # [rect, name] on the title screen
 var guide_buttons: Array = []       # [rect, "next" | "close" | topic index]
 var chat_buttons: Array = []        # [rect, tab index]
@@ -104,6 +105,7 @@ func _draw() -> void:
 	toggle_buttons = []
 	options_button = Rect2()
 	close_button = Rect2()
+	quit_button = Rect2()
 	difficulty_buttons = []
 	guide_buttons = []
 	chat_buttons = []
@@ -196,7 +198,7 @@ func nav_rects() -> Array:
 	for r in rank_buttons:
 		if r.size.x > 0.0:
 			out.append(r)
-	for r in [options_button, close_button, reset_button]:
+	for r in [options_button, close_button, reset_button, quit_button]:
 		if r.size.x > 0.0:
 			out.append(r)
 	return out
@@ -1429,8 +1431,14 @@ func _draw_game_menu() -> void:
 		5: _menu_settings(body)
 		3: _menu_scoreboard(body)
 		4: _menu_controls(body)
-	var footer := "Esc resumes  ·  ← → switch tabs  ·  Backspace quits to the title" if in_match else "Esc closes  ·  ← → switch tabs"
+	var footer := "Esc / Start resumes  ·  ← → switch tabs" if in_match else "Esc closes  ·  ← → switch tabs"
 	_text(rect.position + Vector2(0, rect.size.y - 12), footer, 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	if in_match and not game.demo:
+		# Back to the main menu: click (or Cross/A on it) twice to confirm.
+		quit_button = Rect2(rect.position + Vector2(16, rect.size.y - 34), Vector2(170, 26))
+		var arm: bool = game.quit_armed > 0.0
+		_plate(quit_button, Color(0.6, 0.18, 0.12, 0.98) if arm else Color(0.4, 0.2, 0.15, 0.95), GOLD if arm else GOLD_DARK, 6, 1)
+		_text(quit_button.position + Vector2(0, 18), "SURE? CLICK AGAIN" if arm else "MAIN MENU", 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, quit_button.size.x, 2)
 
 
 func _menu_overview(body: Rect2) -> void:
@@ -1547,10 +1555,18 @@ func _menu_settings(body: Rect2) -> void:
 	draw_line(Vector2(x, y + 44), Vector2(body.end.x, y + 44), GOLD_DARK, 1.0)
 	# Display toggles.
 	_text(Vector2(x + 10, y + 66), "DISPLAY", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var toggles := [["Screen shake", game.screen_shake, "shake"], ["Damage numbers", game.damage_numbers, "numbers"],
-		["FPS counter", game.show_fps, "fps"], ["Chat log", game.chat_visible, "chat"], ["Team rosters", game.rosters_visible, "rosters"]]
+	var toggles := [["Shake", game.screen_shake, "shake"], ["Numbers", game.damage_numbers, "numbers"],
+		["FPS", game.show_fps, "fps"], ["Chat log", game.chat_visible, "chat"], ["Rosters", game.rosters_visible, "rosters"],
+		["Fullscreen", game.fullscreen, "fullscreen"]]
+	var tw: float = minf(136.0, (body.end.x - x - 10.0 - 7.0 * toggles.size()) / (toggles.size() + 1))
 	for i in toggles.size():
-		_toggle(Rect2(Vector2(x + 10 + i * 143, y + 76), Vector2(136, 34)), toggles[i][0], toggles[i][1], toggles[i][2])
+		_toggle(Rect2(Vector2(x + 10 + i * (tw + 7), y + 76), Vector2(tw, 34)), toggles[i][0], toggles[i][1], toggles[i][2])
+	# The graphics preset: click to cycle Low, Medium, High, Ultra.
+	var gfx := Rect2(Vector2(x + 10 + toggles.size() * (tw + 7), y + 76), Vector2(tw, 34))
+	_plate(gfx, INK_LIGHT, GOLD if game.gfx_quality >= 2 else Color(0.3, 0.3, 0.38), 8, 1)
+	_text(gfx.position + Vector2(0, 13), "GRAPHICS", 8, GREY, HORIZONTAL_ALIGNMENT_CENTER, gfx.size.x, 1)
+	_text(gfx.position + Vector2(0, 28), game.GFX_NAMES[game.gfx_quality], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, gfx.size.x, 2)
+	toggle_buttons.append([gfx, "gfx"])
 	_text(Vector2(x + 10, y + 120), "%s and %s also toggle the chat log and the rosters in a match." % [_k("chat_toggle"), _k("roster_toggle")], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	draw_line(Vector2(x, y + 128), Vector2(body.end.x, y + 128), GOLD_DARK, 1.0)
 	# Bot difficulty: click, or Left/Right on the title screen.

@@ -137,6 +137,10 @@ var turrets: Array = []       # every standing Engineer turret, both teams
 var screen_shake := true
 var damage_numbers := true
 var show_fps := false
+var quit_armed := 0.0          # pause menu: seconds the MAIN MENU button stays armed after a first click
+var gfx_quality := 2           # graphics preset: 0 Low, 1 Medium, 2 High, 3 Ultra
+var fullscreen := false
+const GFX_NAMES := ["LOW", "MEDIUM", "HIGH", "ULTRA"]
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
 var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox" or "ps"
 var pad_active := false        # player 1's last press came from a gamepad (labels follow it)
@@ -245,6 +249,10 @@ func _ready() -> void:
 	if "--debug-night" in OS.get_cmdline_user_args():
 		map_variant = 1
 	_build_world()
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--gfx="):  # testing: render at a given preset (0-3)
+			gfx_quality = clampi(int(arg.trim_prefix("--gfx=")), 0, 3)
+	apply_graphics()
 	_build_hud()
 	if "--audit" in OS.get_cmdline_user_args():
 		_audit_clipping()
@@ -972,6 +980,12 @@ func call_command(kind: String) -> void:
 	_banter(team, "reply")
 
 
+func quit_to_title() -> void:
+	## Leave the match for the main menu (the scene restarts on the title).
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
 func toggle_setting(key: String) -> void:
 	match key:
 		"shake": screen_shake = not screen_shake
@@ -984,6 +998,12 @@ func toggle_setting(key: String) -> void:
 			if rumble_on:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
 		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
+		"gfx":
+			gfx_quality = (gfx_quality + 1) % GFX_NAMES.size()
+			apply_graphics()
+		"fullscreen":
+			fullscreen = not fullscreen
+			apply_graphics()
 	sfx.ui("ui_click", -4.0)
 	_save_settings()
 
@@ -1898,6 +1918,7 @@ func _build_panes() -> void:
 		view.handle_input_locally = false
 		view.audio_listener_enable_3d = false
 		view.msaa_3d = get_viewport().msaa_3d
+		view.screen_space_aa = get_viewport().screen_space_aa
 		box.add_child(view)
 		var cam := Camera3D.new()
 		cam.rotation_degrees = camera.rotation_degrees
@@ -2124,6 +2145,7 @@ func menu_tabs() -> Array:
 
 func menu_tick() -> void:
 	## Called every frame by the HUD, which keeps running while paused.
+	quit_armed = maxf(quit_armed - get_process_delta_time(), 0.0) if menu_open else 0.0
 	if game_over:
 		return
 	var eaten: bool = Engine.get_process_frames() == swallow_frame
@@ -2156,8 +2178,7 @@ func menu_tick() -> void:
 		scoreboard_open = (Input.is_action_pressed("scoreboard") or debug_score) and not menu_open and not rank_open
 		if menu_open:
 			if Input.is_action_just_pressed("quit_match") and rebinding == "":
-				get_tree().paused = false
-				get_tree().reload_current_scene()
+				quit_to_title()
 		elif guide_open and not eaten:
 			if Input.is_action_just_pressed("menu"):
 				guide_close()
@@ -2315,6 +2336,12 @@ func menu_tick() -> void:
 		for b in hud.chat_buttons:
 			if b[0].has_point(mouse):
 				chat_tab = int(b[1])
+		if hud.quit_button.has_point(mouse) and menu_open:
+			if quit_armed > 0.0:
+				quit_to_title()
+				return
+			quit_armed = 3.0
+			sfx.ui("ui_click", -4.0)
 		if hud.close_button.has_point(mouse):
 			if menu_open:
 				menu_open = false
@@ -2709,6 +2736,8 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "screen_shake", screen_shake)
 	cfg.set_value("settings", "damage_numbers", damage_numbers)
 	cfg.set_value("settings", "show_fps", show_fps)
+	cfg.set_value("settings", "gfx_quality", gfx_quality)
+	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
 	cfg.set_value("settings", "hero_name", hero_name)
@@ -2754,6 +2783,8 @@ func _load_controls() -> void:
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", false)
+	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
+	fullscreen = cfg.get_value("settings", "fullscreen", false)
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
 	if pad_style not in ["auto", "xbox", "ps"]:
@@ -4281,40 +4312,22 @@ func _add_flame(pos: Vector3, radius: float, color: Color) -> void:
 
 
 func _add_chandelier(pos: Vector3, elven: bool, shadows: bool = true) -> void:
-	## A ring of candles (Humans) or a crown of crystals (Elves) hanging on a
-	## chain, with the room's main light under it. `pos` is the ring's centre.
-	var chain_top := pos + Vector3(0, 2.2, 0)
-	_add_block((pos + chain_top) / 2.0, Vector3(0.06, 2.2, 0.06), Color.WHITE, false, _iron() if not elven else _ashlar(Color(0.5, 0.42, 0.3)))
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 0.62
-	tm.outer_radius = 0.78
-	tm.rings = 24
-	ring.mesh = tm
-	ring.material_override = _iron() if not elven else _timber(Color(0.5, 0.42, 0.3))
-	ring.position = pos
-	add_child(ring)
+	## A room's main light. The keeps and cellars are open to the sky (the
+	## camera looks down into them), so nothing hangs from a ceiling: the
+	## light is warm candlelight (Humans) or cool crystal light (Elves) with
+	## no fixture, and the visible sources are the wall torches, candle
+	## stands, braziers and crystals around the room.
 	var light := OmniLight3D.new()
-	light.position = pos - Vector3(0, 0.15, 0)
+	light.position = pos
 	light.shadow_enabled = shadows
 	light.shadow_bias = 0.08
 	if elven:
-		for k in 6:
-			var a: float = k * TAU / 6.0
-			_add_crystal(pos + Vector3(cos(a) * 0.68, -0.55, sin(a) * 0.68), 0.22)
-		_add_crystal(pos + Vector3(0, -0.75, 0), 0.3)
 		light.light_color = Color(0.6, 1.0, 0.88)
-		light.light_energy = 1.7
-		light.omni_range = 11.0
+		light.light_energy = 1.5
 	else:
-		for k in 8:
-			var a: float = k * TAU / 8.0
-			var c := pos + Vector3(cos(a) * 0.7, 0.16, sin(a) * 0.7)
-			_add_block(c, Vector3(0.09, 0.26, 0.09), Color.WHITE, false, _material(Color(0.95, 0.9, 0.78)))
-			_add_flame(c + Vector3(0, 0.2, 0), 0.06, Color(1.0, 0.6, 0.15))
 		light.light_color = Color(1.0, 0.76, 0.42)
-		light.light_energy = 1.9
-		light.omni_range = 11.0
+		light.light_energy = 1.7
+	light.omni_range = 10.0
 	add_child(light)
 
 
@@ -4660,7 +4673,7 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 		_add_block(Vector3((kx + bx) / 2.0, 0.5, zs * (wz - 0.05)), Vector3(depth, 1.0, 0.1), Color.WHITE, false, wainscot)
 		_add_block(Vector3((kx + bx) / 2.0, 1.03, zs * (wz - 0.09)), Vector3(depth, 0.06, 0.18), Color.WHITE, false, _timber(Color(0.6, 0.5, 0.4)) if not elven else _elf_leaf())
 	_add_block(Vector3(bx - side * 0.55, 0.5, 0), Vector3(0.1, 1.0, wz * 2), Color.WHITE, false, wainscot)
-	# --- Lighting: chandeliers in the hall and over the throne, lanterns in the wings. ---
+	# --- Lighting: warm room lights (no hanging fixtures under the open sky). ---
 	_add_chandelier(Vector3(kx + side * 2.0, 2.1, 0), elven)
 	_add_chandelier(Vector3(kx + side * 6.4, 2.1, 0), elven)
 	_add_chandelier(Vector3((room_f + room_b) / 2.0, 2.1, -g_z), elven, false)
@@ -4733,17 +4746,15 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 		_add_block(altar + Vector3(0, 0.02, -1.4), Vector3(1.8, 0.02, 0.8), Color.WHITE, false, _cloth(color.darkened(0.2)))
 		_add_candle_stand(Vector3(room_b - side * 0.6, 0, wz - 0.6))
 		_add_candle_stand(Vector3(room_f + side * 0.5, 0, wz - 0.6))
-	# --- Behind the throne room: the royal chamber (z < 0) and the armoury (z > 0). ---
+	# --- Behind the throne room: the royal study (z < 0) and the armoury (z > 0). ---
 	# Furniture keeps to the back wall and the side strips: the lanes from the
 	# cellar stairs to the galleries' corners run through the middle.
 	var bw: float = bx - side * 1.05    # just off the back wall
 	if elven:
-		_prop("furniture/bed_double_B", Vector3(bw - side * 0.5, 0, -(wz - 1.5)), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		_prop("furniture/shelf_B_large_decorated", Vector3(bw - side * 0.1, 0, -4.1), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		_prop("furniture/cabinet_small_decorated", Vector3(room_b + side * 0.8, 0, -(wz - 0.45)), BITS_SCALE, PI)
 		_add_mushrooms(Vector3(bw, 0, -2.9), 75)
 	else:
-		_prop("dungeon/bed_decorated", Vector3(bw - side * 0.6, 0, -(wz - 1.5)), 0.62, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		_prop("furniture/shelf_B_large_decorated", Vector3(bw - side * 0.1, 0, -4.1), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		_prop("furniture/cabinet_medium_decorated", Vector3(room_b + side * 0.9, 0, -(wz - 0.45)), BITS_SCALE, PI)
 		_prop("furniture/pictureframe_large_A", Vector3(bx - side * 0.62, 1.6, -2.6), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
@@ -4767,25 +4778,16 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 
 
 func _furnish_cellar(team: int, bx: float, side: float) -> void:
-	## Beam, chandeliers and bunks in the spawn cellar.
+	## Room lights, shelves and candles in the spawn cellar (no bunks: Faisal 2026-10-07).
 	var color: Color = Stats.FACTIONS[team].color
 	var elven := team == 0
 	var hz := CELLAR_HALF_Z
-	# Two chandeliers over the hall.
+	# Three warm room lights down the hall (no hanging fixtures: it is open to the sky).
 	for k in 3:
 		var x: float = bx + side * (3.0 + k * 4.2)
 		_add_chandelier(Vector3(x, CELLAR_Y + 2.5, 0), elven)
-	# Bunks along the far wall either side of the spawn ring, a shelf of
-	# supplies and candles.
+	# A shelf of supplies by the stairs and candles along the side walls.
 	for zs in [-1.0, 1.0]:
-		for k in 2:
-			# Two bunks end to end against the side wall, clear of the seal pads
-			# (and with no gap between them for anyone to get wedged in).
-			var bpos := Vector3(bx + side * (12.6 - k * 1.9), CELLAR_Y, zs * (hz - 0.6))
-			if elven:
-				_prop("dungeon/bed_floor", bpos, 0.65, PI / 2.0)
-			else:
-				_prop("furniture/bed_single_%s" % ["A", "B"][k], bpos, BITS_SCALE, PI / 2.0)
 		if elven:
 			_prop("dungeon/shelves", Vector3(bx + side * 1.4, CELLAR_Y, zs * (hz - 0.5)), 0.7, PI if zs > 0.0 else 0.0)
 			_prop("dungeon/bottle_A_labeled_green", Vector3(bx + side * 1.4, CELLAR_Y + 0.95, zs * (hz - 0.75)), 0.5)
@@ -5996,6 +5998,37 @@ var world_environment: Environment
 var sky_material: ProceduralSkyMaterial
 var sun_light: DirectionalLight3D
 var fill_light: DirectionalLight3D
+var cam_attrs: CameraAttributesPractical
+
+
+func apply_graphics() -> void:
+	## The graphics preset and display mode, applied live. Low suits older
+	## laptops and the Compatibility renderer; Ultra adds volumetric light
+	## shafts and 8x MSAA.
+	var q := gfx_quality
+	var vp := get_viewport()
+	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X, Viewport.MSAA_8X][q]
+	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if q == 0 else Viewport.SCREEN_SPACE_AA_DISABLED
+	vp.scaling_3d_scale = 0.8 if q == 0 else 1.0
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 else Viewport.SCALING_3D_MODE_BILINEAR
+	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 8192][q]
+	RenderingServer.directional_shadow_atlas_set_size([2048, 4096, 8192, 8192][q], true)
+	RenderingServer.directional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
+	RenderingServer.positional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
+	if world_environment:
+		world_environment.ssao_enabled = q >= 1
+		world_environment.ssil_enabled = q >= 2
+		world_environment.glow_enabled = q >= 1
+		world_environment.volumetric_fog_enabled = q >= 3
+	if cam_attrs:
+		cam_attrs.dof_blur_far_enabled = q >= 2
+	for pane in panes:
+		pane.view.msaa_3d = vp.msaa_3d
+		pane.view.screen_space_aa = vp.screen_space_aa
+	if DisplayServer.get_name() != "headless":
+		var want := DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
+		if DisplayServer.window_get_mode() != want:
+			DisplayServer.window_set_mode(want)
 
 
 func _apply_map_variant() -> void:
@@ -6063,13 +6096,28 @@ func _build_world() -> void:
 	environment.ssao_radius = 1.2
 	environment.ssao_intensity = 1.6
 	environment.ssao_power = 1.3
-	environment.ssil_enabled = false
+	# Light bouncing off lit surfaces into shade (grass green on the walls,
+	# torchlight on the floors): Forward+ only, High and Ultra.
+	environment.ssil_enabled = true
+	environment.ssil_radius = 4.0
+	environment.ssil_intensity = 0.7
+	environment.ssil_normal_rejection = 1.0
 	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
 	environment.tonemap_exposure = 0.8
 	environment.glow_enabled = true
 	environment.glow_intensity = 0.45
 	environment.glow_bloom = 0.08
 	environment.glow_hdr_threshold = 1.4
+	environment.glow_blend_mode = Environment.GLOW_BLEND_MODE_SOFTLIGHT
+	for lv in 7:
+		environment.set_glow_level(lv, 1.0 if lv in [2, 3, 4] else (0.5 if lv == 5 else 0.0))
+	# A tilt-shift diorama: the far edge of the view softens a little, the
+	# fight in the middle stays sharp (High and Ultra).
+	environment.volumetric_fog_density = 0.006
+	environment.volumetric_fog_albedo = Color(0.95, 0.93, 0.88)
+	environment.volumetric_fog_anisotropy = 0.6
+	environment.volumetric_fog_length = 80.0
+	environment.volumetric_fog_sky_affect = 0.0
 	# A touch of distance haze and a warmer, punchier grade.
 	environment.fog_enabled = true
 	environment.fog_light_color = Color(0.8, 0.88, 0.95)
@@ -6082,6 +6130,12 @@ func _build_world() -> void:
 	env.environment = environment
 	world_environment = environment
 	add_child(env)
+	# Camera attributes for the tilt-shift softening of the far edge.
+	cam_attrs = CameraAttributesPractical.new()
+	cam_attrs.dof_blur_far_distance = 38.0
+	cam_attrs.dof_blur_far_transition = 18.0
+	cam_attrs.dof_blur_amount = 0.05
+	env.camera_attributes = cam_attrs
 
 	var sun := DirectionalLight3D.new()
 	sun_light = sun
@@ -6091,6 +6145,9 @@ func _build_world() -> void:
 	sun.shadow_enabled = true
 	sun.shadow_bias = 0.03
 	sun.shadow_normal_bias = 1.5
+	sun.shadow_blur = 1.2
+	sun.light_angular_distance = 0.6   # soft, widening contact shadows (PCSS)
+	sun.light_volumetric_fog_energy = 1.4
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_split_1 = 0.12
 	sun.directional_shadow_split_2 = 0.3
