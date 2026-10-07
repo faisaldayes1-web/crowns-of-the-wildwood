@@ -155,8 +155,7 @@ func _draw() -> void:
 			_draw_end()
 		return
 	_draw_screen_fx()
-	if not _narrow():
-		_draw_logo(Rect2(size.x - 196, 6, 182, 73))
+	# (No logo during play: Faisal 2026-10-07 21:14.)
 	_draw_scoreboard()
 	if game.show_fps:
 		_text(Vector2(size.x - 134, size.y - 152), "%d FPS" % Engine.get_frames_per_second(), 11, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 120, 2)
@@ -1077,12 +1076,18 @@ func _minimap_field(c: Vector2, r: float) -> void:
 				continue
 			q = c + (q - c).normalized() * (r - ur - 4.0)
 		if u.is_player:
+			# Each local player's arrow in their own colour; a couch partner
+			# also gets a pulsing ring and their number (Faisal 2026-10-07 21:14).
+			var pc: Color = game.player_color(u.local_index)
 			var d := Vector2(u.facing.x, u.facing.z * 1.6).normalized()
 			var n := Vector2(-d.y, d.x)
 			var tip := q + d * (ur + 7.0)
-			draw_colored_polygon(PackedVector2Array([tip, q + n * (ur + 2.5), q - n * (ur + 2.5)]), Color(1, 1, 0.3))
-			draw_circle(q, ur + 2.5, Color(1, 1, 0.3))
+			draw_colored_polygon(PackedVector2Array([tip, q + n * (ur + 2.5), q - n * (ur + 2.5)]), pc)
+			draw_circle(q, ur + 2.5, pc)
 			draw_arc(q, ur + 2.5, 0, TAU, 14, Color(0.3, 0.2, 0.0, 0.8), 1.0)
+			if u != _me():
+				draw_arc(q, ur + 6.0 + 1.5 * sin(pt * 4.0), 0, TAU, 20, pc, 2.0)
+				_text(q + Vector2(-20, -ur - 22), "P%d" % (u.local_index + 1), 12, pc, HORIZONTAL_ALIGNMENT_CENTER, 40, 3)
 		if u.veteran >= 2:
 			draw_arc(q, ur + 3.0 + 1.5 * sin(pt * 5.0), 0, TAU, 16, Color(1, 0.3, 0.2) if enemy else GOLD, 2.0)
 		elif u.veteran == 1:
