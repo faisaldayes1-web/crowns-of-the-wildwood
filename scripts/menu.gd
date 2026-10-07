@@ -15,7 +15,7 @@ const Role = Stats.Role
 
 # Map cards: [title, thumbnail, Stats.MAPS index or -1 for coming soon].
 const MAP_CARDS := [["THE WILDWOOD", "map_wildwood", 0], ["MOONLIT WILDWOOD", "map_moonlit", 1],
-	["STONEKEEP FORTRESS", "map_stonekeep", -1], ["EMBER PASS", "map_ember", -1], ["TWILIGHT GROVE", "map_twilight", -1]]
+	["STONEKEEP FORTRESS", "map_stonekeep", -1], ["EMBER PASS", "map_ember", 2], ["TWILIGHT GROVE", "map_twilight", -1]]
 const DIFFICULTIES := [["CASUAL", "Relaxed, good for new players", "Easy", "crown"], ["NORMAL", "Classic experience", "Normal", "crown"],
 	["HARDCORE", "For the bravest", "Hard", "skull"]]
 const CHAR_TABS := [["APPEARANCE", "appearance"], ["HAIR", "hair"], ["FACE", "face"], ["ARMOR", "tunic"], ["COLORS", "palette"], ["EMBLEM", "emblem"]]
@@ -59,7 +59,10 @@ func _init(g) -> void:
 			var f := file.trim_suffix(".import")
 			if f.ends_with(".png") and not tex.has(f.trim_suffix(".png")):
 				tex[f.trim_suffix(".png")] = load("res://assets/ui/menu/%s" % f)
-	map_pick = game.map_variant
+	map_pick = 0
+	for i in MAP_CARDS.size():
+		if MAP_CARDS[i][2] == game.map_variant:
+			map_pick = i
 
 
 func go(to: String) -> void:
@@ -348,7 +351,7 @@ func _draw_map() -> void:
 
 func _card_open(i: int) -> bool:
 	var m: int = MAP_CARDS[i][2]
-	return m == 0 or (m == 1 and game.unlocked())
+	return m == 0 or m == 2 or (m == 1 and game.unlocked())
 
 
 func _map_card(r: Rect2, i: int) -> void:
@@ -908,8 +911,9 @@ func _press(id: String, arg) -> void:
 			var i := int(arg)
 			if _card_open(i):
 				map_pick = i
-				game.map_variant = MAP_CARDS[i][2]
-				game._apply_map_variant()
+				# Ember Pass has other ground, so picking it (or leaving it)
+				# rebuilds the world and comes back to this screen.
+				game.select_map(MAP_CARDS[i][2])
 				game._save_settings()
 			elif MAP_CARDS[i][2] == 1:
 				game.toast("The Moonlit Wildwood unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))

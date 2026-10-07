@@ -54,6 +54,11 @@ var core: Node3D
 var core_mats: Array = []
 var fire_light: OmniLight3D
 var lava_mat: ShaderMaterial
+var cover_props: Array = []  # big props by the plazas the obelisks keep clear of
+# For the map: where the obelisks, spike clusters and the beasts' bones are.
+var deco_obelisks: Array = []
+var deco_spikes: Array = []
+var deco_bones: Array = []   # [centre, yaw, length]
 
 
 func _init(p_game) -> void:
@@ -368,7 +373,7 @@ func _animate(delta: float) -> void:
 
 # --- Building the world ------------------------------------------------------------
 
-func basalt(tint: Color = Color(0.36, 0.3, 0.3)) -> StandardMaterial3D:
+func basalt(tint: Color = Color(0.25, 0.19, 0.2)) -> StandardMaterial3D:
 	return game._pbr("rock", 0.22, tint)
 
 
@@ -406,6 +411,7 @@ func build() -> void:
 	_build_spires()
 	_build_volcano()
 	_build_embers()
+	_build_demonic()
 
 
 func _build_floor() -> void:
@@ -437,7 +443,7 @@ func _build_lava() -> void:
 	# The lava lights everything from below: a few big warm fills.
 	for p in [Vector3(-14, LAVA_Y + 1.2, 0), Vector3(14, LAVA_Y + 1.2, 0), Vector3(0, LAVA_Y + 1.2, -32), Vector3(0, LAVA_Y + 1.2, 32),
 			Vector3(-30, LAVA_Y + 1.2, 22), Vector3(30, LAVA_Y + 1.2, 22), Vector3(-30, LAVA_Y + 1.2, -22), Vector3(30, LAVA_Y + 1.2, -22)]:
-		game._add_light(p, Color(1.0, 0.42, 0.12), 0.7, 14.0)
+		game._add_light(p, Color(1.0, 0.16, 0.05), 0.65, 15.0)
 
 
 func _skirt(at: Vector3, size: Vector3, yaw: float = 0.0) -> void:
@@ -445,10 +451,10 @@ func _skirt(at: Vector3, size: Vector3, yaw: float = 0.0) -> void:
 	_box(at + Vector3(0, -size.y / 2.0 - 0.02, 0), Vector3(size.x, size.y, size.z), basalt(), yaw)
 	# A darker, glowing-hot band where it meets the lava.
 	var hot := StandardMaterial3D.new()
-	hot.albedo_color = Color(0.2, 0.06, 0.03)
+	hot.albedo_color = Color(0.08, 0.02, 0.01)
 	hot.emission_enabled = true
-	hot.emission = Color(1.0, 0.35, 0.08)
-	hot.emission_energy_multiplier = 0.5
+	hot.emission = Color(0.85, 0.1, 0.03)
+	hot.emission_energy_multiplier = 0.14
 	_box(at + Vector3(0, LAVA_Y + 0.12, 0), Vector3(size.x + 0.25, 0.3, size.z + 0.25), hot, yaw, false)
 
 
@@ -459,7 +465,7 @@ func _build_plateaus() -> void:
 	var h1: float = game.CASTLE_X + game.CASTLE_DEPTH + game.CELLAR_DEPTH + 0.5
 	var hz: float = game.CELLAR_HALF_Z + 0.5
 	var lane: float = game.CASTLE_X + game.CASTLE_DEPTH - 2.0
-	var top := basalt(Color(0.5, 0.42, 0.38))
+	var top := basalt(Color(0.38, 0.3, 0.29))
 	var depth := absf(LAVA_Y) + 1.5
 	for t in 2:
 		var sx := -1.0 if t == 0 else 1.0
@@ -487,14 +493,14 @@ func _build_plateaus() -> void:
 			for zs in [-1.0, 1.0]:
 				var p := Vector3(sx * x + r.randf_range(-0.6, 0.6), 0, zs * (LAND_Z - 0.5 + r.randf_range(-0.3, 0.6)))
 				var rock := _mesh(game._rock_mesh(int(x * 13) + t * 7 + int(zs), r.randf_range(0.7, 1.3)), p + Vector3(0, 0.15, 0),
-					basalt(Color(0.32, 0.27, 0.27)), Vector3(0, r.randf() * TAU, 0))
+					basalt(Color(0.22, 0.17, 0.18)), Vector3(0, r.randf() * TAU, 0))
 				rock.scale = Vector3(1.0, r.randf_range(0.6, 1.3), 1.0)
 			x += r.randf_range(2.6, 4.2)
 		var z := -LAND_Z + 1.0
 		while z < LAND_Z:
 			if absf(z) > 4.4:
 				var p := Vector3(sx * (LAND_X + 0.5), 0, z + r.randf_range(-0.4, 0.4))
-				_mesh(game._rock_mesh(int(z * 17) + t * 3, r.randf_range(0.6, 1.0)), p + Vector3(0, 0.1, 0), basalt(Color(0.32, 0.27, 0.27)))
+				_mesh(game._rock_mesh(int(z * 17) + t * 3, r.randf_range(0.6, 1.0)), p + Vector3(0, 0.1, 0), basalt(Color(0.22, 0.17, 0.18)))
 			z += r.randf_range(2.4, 3.6)
 		if t == 0:
 			# The Elves bring the forest with them: pines and glowing crystals
@@ -505,7 +511,7 @@ func _build_plateaus() -> void:
 				game._add_crystal(p, 1.1)
 		else:
 			for p in [Vector3(43.8, 0, -8.6), Vector3(43.8, 0, 8.6)]:
-				game._add_torch_stand(p, 2.1)
+				_hell_torch(p, 2.1)
 	game.map_trees.clear()   # the minimap paints this map itself
 
 
@@ -523,13 +529,13 @@ func _build_corridor(s: Array) -> void:
 	game.map_paths.append([a, b, half * 2.0])
 	if kind == "bridge":
 		# A timber deck on stone piers, rails both sides, torches on posts.
-		var deck: Material = game._plank_dark(Color(0.85, 0.72, 0.6))
+		var deck: Material = game._plank_dark(Color(0.5, 0.4, 0.36))
 		_box(mid + Vector3(0, -0.12, 0), Vector3(half * 2.0, 0.24, length), deck, yaw)
 		# Stone kerbs under the rails.
-		var kerb: Material = game._ashlar(Color(0.55, 0.5, 0.48))
+		var kerb: Material = game._ashlar(Color(0.4, 0.33, 0.33))
 		for sd in [-1.0, 1.0]:
 			_box(mid + side * sd * (half + 0.12) + Vector3(0, -0.08, 0), Vector3(0.36, 0.4, length - rad[s[0]] - rad[s[1]] + 1.0), kerb, yaw)
-		var timber: Material = game._timber(Color(0.55, 0.4, 0.28))
+		var timber: Material = game._timber(Color(0.32, 0.22, 0.18))
 		var n := int(length / 2.6)
 		for k in n + 1:
 			var at: Vector3 = a + dir * (float(k) / n * length)
@@ -542,7 +548,7 @@ func _build_corridor(s: Array) -> void:
 				_box(at + Vector3(0, (LAVA_Y - 0.3) / 2.0 - 0.2, 0), Vector3(half * 1.6, absf(LAVA_Y) + 0.2, 1.1), basalt(Color(0.42, 0.36, 0.34)), yaw)
 			if k % 4 == 0 and k > 0 and k < n:
 				for sd in [-1.0, 1.0]:
-					game._add_torch_stand(at + side * sd * (half + 0.12) + Vector3(0, 0.0, 0), 1.6)
+					_hell_torch(at + side * sd * (half + 0.12) + Vector3(0, 0.0, 0), 1.6)
 		# The rails themselves.
 		var start: Vector3 = a + dir * (rad[s[0]] - 0.3)
 		var end: Vector3 = b - dir * (rad[s[1]] - 0.3)
@@ -554,10 +560,10 @@ func _build_corridor(s: Array) -> void:
 		_box(mid + Vector3(0, -0.36, 0), Vector3(half * 2.0 - 0.3, 0.2, length - 1.0), basalt(Color(0.25, 0.2, 0.2)), yaw)
 		return
 	# Causeway and the grand stair: paved rock with a cliff skirt.
-	var pave: Material = game._flagstone(Color(0.68, 0.63, 0.6))
+	var pave: Material = game._flagstone(Color(0.42, 0.35, 0.35))
 	_box(mid + Vector3(0, -0.04, 0), Vector3(half * 2.0, 0.08, length), pave, yaw)
 	_skirt(mid + Vector3(0, -0.08, 0), Vector3(half * 2.0 + 0.6, absf(LAVA_Y) + 1.5, length), yaw)
-	var kerb: Material = game._ashlar(Color(0.6, 0.55, 0.52))
+	var kerb: Material = game._ashlar(Color(0.44, 0.36, 0.35))
 	var start: Vector3 = a + dir * (rad[s[0]] - 0.4)
 	var end: Vector3 = b - dir * (rad[s[1]] - 0.4)
 	if kind == "causeway" and castle_of(a) >= 0:
@@ -573,11 +579,11 @@ func _build_corridor(s: Array) -> void:
 			if k % 2 == 0:
 				_box(at + side * sd * (half + 0.15) + Vector3(0, 0.62, 0), Vector3(0.44, 0.3, 0.6), kerb, yaw)
 			if k % 6 == 3:
-				game._add_torch_stand(at + side * sd * (half + 0.55), 1.7)
+				_hell_torch(at + side * sd * (half + 0.55), 1.7)
 	if kind == "stairs":
 		# Step lines across the flags, so the long run reads as a stair.
 		var steps := int(cl / 1.1)
-		var edge: Material = game._ashlar(Color(0.5, 0.45, 0.42))
+		var edge: Material = game._ashlar(Color(0.38, 0.31, 0.31))
 		for k in steps:
 			var at: Vector3 = start + dir * ((k + 0.5) * cl / steps)
 			_box(at + Vector3(0, 0.005, 0), Vector3(half * 2.0, 0.03, 0.14), edge, yaw, false)
@@ -588,14 +594,14 @@ func _build_plaza(i: int) -> void:
 	var r: float = rad[i]
 	if castle_of(c) >= 0:
 		# The door court on the plateau: just the paving.
-		game._add_rosette(c + Vector3(0, 0.012, 0), r + 0.5, Color(0.8, 0.75, 0.72))
+		game._add_rosette(c + Vector3(0, 0.012, 0), r + 0.5, Color(0.62, 0.55, 0.55))
 		return
 	var top := CylinderMesh.new()
 	top.top_radius = r
 	top.bottom_radius = r
 	top.height = 0.1
 	top.radial_segments = 40
-	_mesh(top, c + Vector3(0, -0.05, 0), game._flagstone(Color(0.66, 0.62, 0.6)))
+	_mesh(top, c + Vector3(0, -0.05, 0), game._flagstone(Color(0.42, 0.35, 0.35)))
 	var cliff := CylinderMesh.new()
 	cliff.top_radius = r + 0.5
 	cliff.bottom_radius = r + 1.6
@@ -603,10 +609,10 @@ func _build_plaza(i: int) -> void:
 	cliff.radial_segments = 9
 	_mesh(cliff, c + Vector3(0, -cliff.height / 2.0 - 0.1, 0), basalt())
 	var hot := StandardMaterial3D.new()
-	hot.albedo_color = Color(0.2, 0.06, 0.03)
+	hot.albedo_color = Color(0.08, 0.02, 0.01)
 	hot.emission_enabled = true
-	hot.emission = Color(1.0, 0.35, 0.08)
-	hot.emission_energy_multiplier = 0.5
+	hot.emission = Color(0.85, 0.1, 0.03)
+	hot.emission_energy_multiplier = 0.14
 	var band := CylinderMesh.new()
 	band.top_radius = r + 1.5
 	band.bottom_radius = r + 1.7
@@ -620,7 +626,7 @@ func _build_plaza(i: int) -> void:
 			var o: int = s[1] if s[0] == i else s[0]
 			var d: Vector3 = pos[o] - c
 			gaps.append([atan2(d.z, d.x), asin(clampf((s[2] + 0.5) / r, 0.0, 1.0))])
-	var kerb: Material = game._ashlar(Color(0.6, 0.55, 0.52))
+	var kerb: Material = game._ashlar(Color(0.44, 0.36, 0.35))
 	var n := int(TAU * r / 1.3)
 	for k in n:
 		var ang := TAU * k / n
@@ -639,7 +645,17 @@ func _build_fire_objective() -> void:
 	## over a font of fire, braziers and red banners round it, and the capture
 	## ring that glows in the holder's colour.
 	var c := FIRE_POS
-	game._add_rosette(c + Vector3(0, 0.014, 0), 8.2, Color(0.6, 0.45, 0.42))
+	game._add_rosette(c + Vector3(0, 0.014, 0), 8.2, Color(0.42, 0.3, 0.3))
+	# A ring of burning runes round the font, glowing straight off the paving.
+	var rune_mat := StandardMaterial3D.new()
+	rune_mat.albedo_texture = load("res://assets/textures/emblems/runes.png")
+	rune_mat.albedo_color = Color(1.0, 0.16, 0.04)
+	rune_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rune_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	rune_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var rune_plane := PlaneMesh.new()
+	rune_plane.size = Vector2(10.4, 10.4)
+	_mesh(rune_plane, c + Vector3(0, 0.03, 0), rune_mat, Vector3.ZERO, false)
 	# The capture ring.
 	var torus := TorusMesh.new()
 	torus.inner_radius = Stats.FIRE_POINT.radius - 0.22
@@ -680,11 +696,12 @@ func _build_fire_objective() -> void:
 		var big := k == 0
 		prism.size = Vector3(0.9, 2.6, 0.9) if big else Vector3(0.45, 1.3, 0.45)
 		var cm := StandardMaterial3D.new()
-		cm.albedo_color = Color(1.0, 0.45, 0.12)
+		cm.albedo_color = Color(0.55, 0.06, 0.04)
 		cm.emission_enabled = true
-		cm.emission = Color(1.0, 0.42, 0.08)
-		cm.emission_energy_multiplier = 2.2
-		cm.roughness = 0.3
+		cm.emission = Color(1.0, 0.18, 0.04)
+		cm.emission_energy_multiplier = 1.5
+		cm.roughness = 0.2
+		cm.metallic = 0.3
 		core_mats.append(cm)
 		var up := MeshInstance3D.new()
 		up.mesh = prism
@@ -699,8 +716,8 @@ func _build_fire_objective() -> void:
 		down.position = up.position + Vector3(0, -prism.size.y if big else -prism.size.y * 0.9, 0)
 		down.rotation = up.rotation + Vector3(PI, 0, 0)
 		core.add_child(down)
-	fire_light = game._add_light(c + Vector3(0, 3.2, 0), Color(1.0, 0.55, 0.15), 1.4, 12.0)
-	game._add_smoke(c + Vector3(0, 4.5, 0), 14, 1.6)
+	fire_light = game._add_light(c + Vector3(0, 3.2, 0), Color(1.0, 0.3, 0.1), 1.5, 12.0)
+	_ash_plume(c + Vector3(0, 4.2, 0), 14, 1.4)
 	# Braziers and fire banners round the court, off the corridor mouths.
 	for k in 6:
 		var ang := TAU * (k + 0.5) / 6.0 + PI / 2.0
@@ -726,7 +743,7 @@ func _fire_banner(at: Vector3, ang: float) -> void:
 	var out := Vector3(-cos(ang), 0, -sin(ang))
 	var yaw := atan2(out.x, out.z)
 	var cloth := StandardMaterial3D.new()
-	cloth.albedo_color = Color(0.62, 0.08, 0.06)
+	cloth.albedo_color = Color(0.4, 0.03, 0.03)
 	cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
 	cloth.roughness = 0.9
 	var q := QuadMesh.new()
@@ -741,7 +758,7 @@ func _build_crossing() -> void:
 	## The Crossing: the high plaza where the northern bridges meet, with
 	## both factions' banners at its back.
 	var c := CROSSING
-	game._add_rosette(c + Vector3(0, 0.014, 0), 6.6, Color(0.72, 0.68, 0.66))
+	game._add_rosette(c + Vector3(0, 0.014, 0), 6.6, Color(0.6, 0.54, 0.54))
 	game._add_banner_pole(0, c + Vector3(-3.6, 0, -6.2))
 	game._add_banner_pole(1, c + Vector3(3.6, 0, -6.2))
 	game._add_brazier(c + Vector3(-6.0, 0, -3.6))
@@ -755,18 +772,19 @@ func _build_watch_post(team: int) -> void:
 	## tower stump and torches.
 	var sx := -1.0 if team == 0 else 1.0
 	var c: Vector3 = pos[ids.find("m%d" % team)]
-	game._add_rosette(c + Vector3(0, 0.014, 0), 5.6, Color(0.6, 0.78, 0.6) if team == 0 else Color(0.66, 0.7, 0.86))
+	game._add_rosette(c + Vector3(0, 0.014, 0), 5.6, Color(0.42, 0.52, 0.42) if team == 0 else Color(0.46, 0.48, 0.6))
 	game._add_banner_pole(team, c + Vector3(sx * 2.0, 0, -5.4))
 	# Cover: a low wall right on the south rim (solid; no gap behind it for
 	# anyone to get wedged in), shooters' spots in front of it.
 	var wall := c + Vector3(sx * 1.0, 0, 6.0)
-	var stone: Material = game._ashlar(Color(0.6, 0.55, 0.52))
+	var stone: Material = game._ashlar(Color(0.44, 0.36, 0.35))
 	_box(wall + Vector3(0, 0.55, 0), Vector3(2.8, 1.1, 0.7), stone)
 	game._add_collider(wall + Vector3(0, 0.55, 0), Vector3(2.8, 1.1, 0.7))
 	game.cover_points.append(wall + Vector3(0, 0, -1.4))
 	# A broken watchtower stump standing on the rock just off the north rim
 	# (outside the walkable plaza, so nobody gets stuck behind it).
 	var tower := c + Vector3(-sx * 2.6, 0, -6.9)
+	cover_props.append(tower)
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = 1.05
 	cyl.bottom_radius = 1.25
@@ -782,8 +800,8 @@ func _build_watch_post(team: int) -> void:
 	for k in 4:
 		var a := k * TAU / 4.0 + 0.4
 		_box(tower + Vector3(cos(a) * 0.9, 2.55, sin(a) * 0.9), Vector3(0.45, 0.4, 0.45), stone, a)
-	game._add_torch_stand(c + Vector3(-sx * 5.6, 0, 1.6), 1.8)
-	game._add_torch_stand(c + Vector3(sx * 4.8, 0, -2.6), 1.8)
+	_hell_torch(c + Vector3(-sx * 5.6, 0, 1.6), 1.8)
+	_hell_torch(c + Vector3(sx * 4.8, 0, -2.6), 1.8)
 	game.map_marks.append([c, "post"])
 
 
@@ -840,7 +858,7 @@ func _build_spires() -> void:
 		k += 1
 	var inst := MultiMeshInstance3D.new()
 	inst.multimesh = mm
-	inst.material_override = basalt(Color(0.3, 0.25, 0.26))
+	inst.material_override = basalt(Color(0.2, 0.15, 0.16))
 	game.add_child(inst)
 
 
@@ -851,14 +869,15 @@ func _build_volcano() -> void:
 	cone.bottom_radius = 46.0
 	cone.height = 34.0
 	cone.radial_segments = 14
-	_mesh(cone, Vector3(0, LAVA_Y + 16.5, -96), basalt(Color(0.28, 0.22, 0.22)))
+	_mesh(cone, Vector3(0, LAVA_Y + 16.5, -96), basalt(Color(0.16, 0.11, 0.12)))
 	var crater := CylinderMesh.new()
 	crater.top_radius = 8.2
 	crater.bottom_radius = 8.2
 	crater.height = 0.3
 	_mesh(crater, Vector3(0, LAVA_Y + 33.6, -96), lava_mat, Vector3.ZERO, false)
-	game._add_light(Vector3(0, LAVA_Y + 38, -96), Color(1.0, 0.45, 0.12), 6.0, 60.0)
-	game._add_smoke(Vector3(0, LAVA_Y + 36, -96), 24, 5.0)
+	game._add_light(Vector3(0, LAVA_Y + 38, -96), Color(1.0, 0.22, 0.06), 6.0, 60.0)
+	_ash_plume(Vector3(0, LAVA_Y + 35, -96), 30, 6.0)
+	_demon_face()
 	for ang in [-0.5, 0.1, 0.55]:
 		# Lava falls pouring down its face.
 		var fall_mat: ShaderMaterial = lava_mat.duplicate()
@@ -894,7 +913,7 @@ func _build_embers() -> void:
 		sph.rings = 3
 		var em := StandardMaterial3D.new()
 		em.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		em.albedo_color = Color(1.6, 0.75, 0.25)
+		em.albedo_color = Color(1.7, 0.42, 0.12)
 		sph.material = em
 		e.mesh = sph
 		var fade := Gradient.new()
@@ -908,28 +927,335 @@ func _build_embers() -> void:
 		game.add_child(e)
 
 
+# --- The demonic dressing ------------------------------------------------------
+
+func _glow_mat(col: Color, energy: float) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col * 0.4
+	m.emission_enabled = true
+	m.emission = col
+	m.emission_energy_multiplier = energy
+	return m
+
+
+func _obsidian() -> StandardMaterial3D:
+	## Black volcanic glass with a faint red sheen from the lava.
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.045, 0.028, 0.035)
+	m.roughness = 0.16
+	m.metallic = 0.35
+	m.emission_enabled = true
+	m.emission = Color(0.55, 0.04, 0.02)
+	m.emission_energy_multiplier = 0.18
+	return m
+
+
+func _bone() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.68, 0.6, 0.5)
+	m.roughness = 0.8
+	return m
+
+
+func _horn_mat() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.11, 0.06, 0.05)
+	m.roughness = 0.35
+	return m
+
+
+func _limb(a: Vector3, b: Vector3, r0: float, r1: float, mat: Material) -> void:
+	## A tapered cylinder from a to b (horn and rib segments).
+	var d := b - a
+	if d.length() < 0.001:
+		return
+	var cyl := CylinderMesh.new()
+	cyl.bottom_radius = r0
+	cyl.top_radius = r1
+	cyl.height = d.length()
+	cyl.radial_segments = 7
+	cyl.rings = 1
+	var m := MeshInstance3D.new()
+	m.mesh = cyl
+	m.material_override = mat
+	m.transform = Transform3D(Basis(Quaternion(Vector3.UP, d.normalized())), (a + b) / 2.0)
+	game.add_child(m)
+
+
+func _horn(base: Vector3, out: Vector3, length: float, radius: float, mat: Material, segs: int = 7) -> void:
+	## A curved demon horn: sweeps out, rises, then hooks back in at the tip.
+	out = Vector3(out.x, 0, out.z).normalized()
+	var prev := base
+	for k in segs:
+		var t := float(k + 1) / segs
+		var p := base + out * length * 0.5 * sin(t * 2.3) + Vector3.UP * length * 0.85 * t * (1.0 - 0.3 * t)
+		var t0 := float(k) / segs
+		_limb(prev, p, radius * (1.0 - t0 * 0.85), radius * (1.0 - t * 0.85) + 0.02, mat)
+		prev = p
+
+
+func _skull(at: Vector3, size: float, yaw: float, eye: Color = Color(1.0, 0.12, 0.04)) -> void:
+	## A horned beast skull with burning eye sockets, facing along yaw.
+	var fwd := Vector3(sin(yaw), 0, cos(yaw))
+	var side := Vector3(fwd.z, 0, -fwd.x)
+	var bone := _bone()
+	var cran := SphereMesh.new()
+	cran.radius = 0.5 * size
+	cran.height = 0.9 * size
+	cran.radial_segments = 10
+	cran.rings = 6
+	_mesh(cran, at, bone, Vector3(0, yaw, 0))
+	var snout := BoxMesh.new()
+	snout.size = Vector3(0.55, 0.32, 0.55) * size
+	_mesh(snout, at + fwd * 0.42 * size - Vector3(0, 0.16 * size, 0), bone, Vector3(0, yaw, 0))
+	var glow := _glow_mat(eye, 3.0)
+	for sd in [-1.0, 1.0]:
+		var sock := SphereMesh.new()
+		sock.radius = 0.11 * size
+		sock.height = 0.18 * size
+		_mesh(sock, at + fwd * 0.4 * size + side * sd * 0.2 * size + Vector3(0, 0.04 * size, 0), glow, Vector3.ZERO, false)
+		_horn(at + side * float(sd) * 0.36 * size + Vector3(0, 0.15 * size, 0), side * sd + fwd * 0.3, 1.5 * size, 0.15 * size, _horn_mat(), 5)
+
+
+func _hell_torch(at: Vector3, height: float = 1.8) -> void:
+	## A black iron spike with a horned cage at the top holding a red flame.
+	var iron := _horn_mat()
+	_limb(at, at + Vector3(0, height, 0), 0.08, 0.06, iron)
+	_box(at + Vector3(0, 0.06, 0), Vector3(0.42, 0.12, 0.42), iron)
+	for sd in [-1.0, 1.0]:
+		_horn(at + Vector3(sd * 0.1, height - 0.05, 0), Vector3(sd, 0, 0), 0.6, 0.06, iron, 4)
+	game._add_flame(at + Vector3(0, height + 0.18, 0), 0.17, Color(1.0, 0.22, 0.05))
+	game._add_flame(at + Vector3(0.04, height + 0.32, 0.02), 0.08, Color(1.0, 0.55, 0.15))
+	game._add_light(at + Vector3(0, height + 0.5, 0), Color(1.0, 0.2, 0.06), 0.9, 5.5)
+
+
+func _mouths(i: int) -> Array:
+	## [angle, half-width] of each corridor entering plaza i.
+	var out := []
+	for sg in segs:
+		if sg[0] == i or sg[1] == i:
+			var o: int = sg[1] if sg[0] == i else sg[0]
+			var d: Vector3 = pos[o] - pos[i]
+			out.append([atan2(d.z, d.x), asin(clampf((sg[2] + 1.2) / rad[i], 0.0, 1.0))])
+	return out
+
+
+func _obelisk(at: Vector3, face: Vector3, footing: bool) -> void:
+	## A black obelisk carved with burning runes, a horned skull on top. Stands
+	## off the walkable ground, on its own rock footing over the lava.
+	var yaw := atan2(face.x, face.z)
+	deco_obelisks.append(at)
+	if footing:
+		var foot := CylinderMesh.new()
+		foot.top_radius = 0.95
+		foot.bottom_radius = 1.3
+		foot.height = absf(LAVA_Y) + 0.3
+		foot.radial_segments = 7
+		_mesh(foot, at + Vector3(0, LAVA_Y / 2.0 - 0.1, 0), basalt())
+	var obs := _obsidian()
+	_box(at + Vector3(0, 0.25, 0), Vector3(1.25, 0.5, 1.25), obs, yaw)
+	var shaft := CylinderMesh.new()
+	shaft.top_radius = 0.2
+	shaft.bottom_radius = 0.48
+	shaft.height = 3.2
+	shaft.radial_segments = 4
+	_mesh(shaft, at + Vector3(0, 2.1, 0), obs, Vector3(0, yaw + PI / 4.0, 0))
+	# The rune strip down the face, and its glow on the ground.
+	var fwd := Vector3(sin(yaw), 0, cos(yaw))
+	for k in 4:
+		_box(at + fwd * (0.32 - k * 0.045) + Vector3(0, 1.0 + k * 0.6, 0), Vector3(0.22 - k * 0.03, 0.34, 0.05), _glow_mat(Color(1.0, 0.1, 0.03), 2.6), yaw, false)
+	_skull(at + Vector3(0, 3.95, 0), 0.62, yaw)
+	game._add_light(at + fwd * 0.9 + Vector3(0, 1.6, 0), Color(1.0, 0.12, 0.04), 0.9, 4.5)
+
+
+func _build_demonic() -> void:
+	## What makes the pass hellish: obsidian spikes jutting from the lava,
+	## rune obelisks crowned with horned skulls at the gates and plazas, and a
+	## great beast's bones half sunk in the lava.
+	var obs := _obsidian()
+	# Gate obelisks either side of each causeway where it leaves the plateau.
+	for t in 2:
+		var sx := -1.0 if t == 0 else 1.0
+		for zs in [-1.0, 1.0]:
+			_obelisk(Vector3(sx * (LAND_X - 1.3), 0, zs * 5.3), Vector3(-sx, 0, 0), true)
+	# Obelisks on the open rims of the plazas.
+	for i in pos.size():
+		if castle_of(pos[i]) >= 0:
+			continue
+		var gaps := _mouths(i)
+		var placed := 0
+		for k in 8:
+			var ang := TAU * k / 8.0 + PI / 8.0
+			var at: Vector3 = pos[i] + Vector3(cos(ang), 0, sin(ang)) * (rad[i] + 1.5)
+			var clear := true
+			for g in gaps:
+				if absf(wrapf(ang - g[0], -PI, PI)) < g[1] + 0.35:
+					clear = false
+			# Keep the camera side (south, +z) of each plaza open, and clear of
+			# the watch posts' tower stumps.
+			if sin(ang) > 0.35 or not clear or placed >= 2:
+				continue
+			var near := false
+			for o in cover_props:
+				if _flat(o, at) < 3.0:
+					near = true
+			if near:
+				continue
+			_obelisk(at, Vector3(-cos(ang), 0, -sin(ang)), true)
+			placed += 1
+	# Obsidian spikes in clusters along the lava's edge, leaning away from the paths.
+	var r := RandomNumberGenerator.new()
+	r.seed = 666
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.5
+	cone.height = 1.0
+	cone.radial_segments = 5
+	cone.rings = 1
+	mm.mesh = cone
+	var xf := []
+	var x := -104.0
+	while x <= 104.0:
+		var z := -46.0
+		while z <= 46.0:
+			var p := Vector3(x + r.randf_range(-1.0, 1.0), 0, z + r.randf_range(-1.0, 1.0))
+			z += 2.8
+			var edge := clamp_walk(p)
+			var gap := _flat(p, edge)
+			if gap < 1.5 or gap > 6.5 or r.randf() > 0.32:
+				continue
+			var away := Vector3(p.x - edge.x, 0, p.z - edge.z).normalized()
+			# South of a walkway the spikes would hide fighters from the camera: keep them low.
+			var tall: float = 2.0 if away.z > 0.3 else 3.6
+			deco_spikes.append([p, away])
+			for n in r.randi_range(2, 4):
+				var h := r.randf_range(0.9, tall) * (1.0 if n == 0 else 0.65)
+				var w := r.randf_range(0.18, 0.38) * (1.0 + h * 0.08)
+				var tilt := r.randf_range(0.15, 0.55)
+				var axis := Vector3(away.z, 0, -away.x)
+				var b := Basis(axis, tilt) * Basis(Vector3.UP, r.randf() * TAU) * Basis.from_scale(Vector3(w * 2.0, h - LAVA_Y, w * 2.0))
+				var o := p + Vector3(r.randf_range(-0.7, 0.7), 0, r.randf_range(-0.7, 0.7))
+				var up: Vector3 = b * Vector3(0, 0.5, 0)
+				xf.append(Transform3D(b, Vector3(o.x, LAVA_Y, o.z) + up))
+		x += 2.8
+	mm.instance_count = xf.size()
+	for k in xf.size():
+		mm.set_instance_transform(k, xf[k])
+	var inst := MultiMeshInstance3D.new()
+	inst.multimesh = mm
+	inst.material_override = obs
+	game.add_child(inst)
+	# A great beast's bones in the open lava: spine, ribs arching out, horned skull.
+	_ribcage(Vector3(-21, 0, 33), 0.25, 15.0)
+	_ribcage(Vector3(22, 0, -34), PI + 0.3, 13.0)
+
+
+func _ribcage(center: Vector3, yaw: float, length: float) -> void:
+	deco_bones.append([center, yaw, length])
+	var fwd := Vector3(cos(yaw), 0, -sin(yaw))
+	var side := Vector3(-fwd.z, 0, fwd.x)
+	var bone := _bone()
+	var y0 := LAVA_Y + 0.15
+	var n := int(length / 1.1)
+	for k in n:
+		var at := center + fwd * (-length / 2.0 + k * length / (n - 1))
+		var v := SphereMesh.new()
+		v.radius = 0.5
+		v.height = 0.8
+		v.radial_segments = 8
+		v.rings = 4
+		_mesh(v, Vector3(at.x, y0 + 0.15, at.z), bone)
+	for k in 6:
+		var t := (k + 1.0) / 7.0
+		var along := center + fwd * (-length / 2.0 + t * length * 0.8)
+		var rr := 4.2 * sin(t * PI * 0.9 + 0.25)
+		for sd in [-1.0, 1.0]:
+			var prev := Vector3(along.x, y0 + 0.3, along.z)
+			for q in 6:
+				var a := PI * (q + 1) / 6.0
+				var pnt: Vector3 = along + side * sd * rr * (1.0 - cos(a)) * 0.5 + fwd * (-0.6 * sin(a)) + Vector3(0, y0 + 0.3 + rr * 0.85 * sin(a), 0)
+				_limb(prev, pnt, 0.24 - q * 0.02, 0.22 - q * 0.02, bone)
+				prev = pnt
+	_skull(center + fwd * (length / 2.0 + 2.0) + Vector3(0, y0 + 0.9, 0), 2.6, atan2(fwd.x, fwd.z))
+
+
+func _ash_plume(at: Vector3, amount: int, scale: float) -> void:
+	## Thick black smoke with a red underglow, rising and drifting.
+	var p := CPUParticles3D.new()
+	p.amount = amount
+	p.lifetime = 6.0
+	p.preprocess = 6.0
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.4 * scale
+	p.direction = Vector3(0.15, 1, 0)
+	p.spread = 14.0
+	p.gravity = Vector3(0.2, 0.25, 0)
+	p.initial_velocity_min = 0.5 * scale
+	p.initial_velocity_max = 0.9 * scale
+	p.scale_amount_min = 0.5 * scale
+	p.scale_amount_max = 0.9 * scale
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 0.4))
+	curve.add_point(Vector2(1, 1.6))
+	p.scale_amount_curve = curve
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.3, 0.04, 0.02, 0.0))
+	grad.add_point(0.12, Color(0.1, 0.035, 0.035, 0.85))
+	grad.set_color(grad.get_point_count() - 1, Color(0.03, 0.02, 0.025, 0.0))
+	p.color_ramp = grad
+	var sph := SphereMesh.new()
+	sph.radius = 0.5
+	sph.height = 1.0
+	sph.radial_segments = 8
+	sph.rings = 4
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.vertex_color_use_as_albedo = true
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sph.material = mat
+	p.mesh = sph
+	p.position = at
+	game.add_child(p)
+
+
+func _demon_face() -> void:
+	## The volcano wears a demon's face: two great horns off its shoulders and
+	## two burning eyes glaring down the pass.
+	var horn := _horn_mat()
+	for sd in [-1.0, 1.0]:
+		_horn(Vector3(sd * 10.0, LAVA_Y + 28.0, -93.0), Vector3(sd, 0, 0.25), 28.0, 3.4, horn, 9)
+	var eye := _glow_mat(Color(1.0, 0.1, 0.02), 5.0)
+	for sd in [-1.0, 1.0]:
+		var b := BoxMesh.new()
+		b.size = Vector3(6.0, 1.5, 1.2)
+		_mesh(b, Vector3(sd * 7.0, LAVA_Y + 21.0, -72.6), eye, Vector3(-0.75, 0, sd * 0.32), false)
+	game._add_light(Vector3(0, LAVA_Y + 21.0, -68.0), Color(1.0, 0.1, 0.03), 4.0, 26.0)
+
+
 func apply_light() -> void:
-	## Volcano light: a smoky red sky, a low dim sun through the ash, warm
-	## ambient and a heavy glow so the lava blooms.
+	## Hellish light: a blood-red sky over black smoke, a dim red sun through
+	## the ash, low ambient so the lava does the lighting, heavy glow.
 	var env: Environment = game.world_environment
 	var sky: ProceduralSkyMaterial = game.sky_material
-	sky.sky_top_color = Color(0.13, 0.05, 0.05)
-	sky.sky_horizon_color = Color(0.55, 0.2, 0.08)
-	sky.ground_bottom_color = Color(0.1, 0.04, 0.03)
-	sky.ground_horizon_color = Color(0.45, 0.16, 0.06)
-	env.ambient_light_energy = 0.24
+	sky.sky_top_color = Color(0.05, 0.01, 0.015)
+	sky.sky_horizon_color = Color(0.42, 0.05, 0.03)
+	sky.ground_bottom_color = Color(0.04, 0.01, 0.01)
+	sky.ground_horizon_color = Color(0.32, 0.04, 0.02)
+	env.ambient_light_energy = 0.22
 	env.ambient_light_sky_contribution = 0.2
-	env.ambient_light_color = Color(0.62, 0.55, 0.58)
-	env.fog_light_color = Color(0.45, 0.2, 0.12)
-	env.fog_density = 0.0025
-	env.glow_intensity = 0.55
-	env.glow_hdr_threshold = 1.15
-	env.adjustment_saturation = 1.0
+	env.ambient_light_color = Color(0.6, 0.44, 0.47)
+	env.fog_light_color = Color(0.32, 0.05, 0.03)
+	env.fog_density = 0.004
+	env.glow_intensity = 0.65
+	env.glow_hdr_threshold = 1.0
+	env.adjustment_saturation = 1.05
 	env.adjustment_brightness = 1.0
-	env.adjustment_contrast = 1.08
-	game.sun_light.light_color = Color(1.0, 0.8, 0.66)
-	game.sun_light.light_energy = 1.05
+	env.adjustment_contrast = 1.12
+	game.sun_light.light_color = Color(1.0, 0.6, 0.5)
+	game.sun_light.light_energy = 0.9
 	game.sun_light.rotation_degrees = Vector3(-42, -38, 0)
 	if game.fill_light:
-		game.fill_light.light_color = Color(1.0, 0.45, 0.25)
-		game.fill_light.light_energy = 0.18
+		game.fill_light.light_color = Color(1.0, 0.22, 0.12)
+		game.fill_light.light_energy = 0.2

@@ -68,6 +68,7 @@ var hero_buttons: Array = []        # [rect, "hair" | "trim" | "name", index]
 var faction_buttons: Array = []     # [rect, team]
 var title_buttons: Array = []       # [rect, tab] on the title screen
 var menu_buttons: Array = []        # [rect, id, arg] drawn by the main menu (menu.gd)
+var lava_cells: Array = []          # Ember Pass maps: crust plates [centre, polygon, shade] in world x/z
 
 
 func _ready() -> void:
@@ -1042,8 +1043,7 @@ func _minimap_field(c: Vector2, r: float) -> void:
 		if orb.active:
 			var q: Vector2 = m.call(orb.global_position)
 			if (q - c).length() < r - 3.0:
-				draw_circle(q, 3.4, Color(1, 0.9, 0.9))
-				draw_circle(q, 2.5, Color(0.95, 0.25, 0.35))
+				_map_pin("potion", q, 4.2, Color(0.95, 0.4, 0.45))
 	for b in game.blessings:
 		if is_instance_valid(b):
 			var bc: Vector2 = m.call(b.global_position)
@@ -1055,11 +1055,7 @@ func _minimap_field(c: Vector2, r: float) -> void:
 		var tq: Vector2 = m.call(tu.global_position)
 		if (tq - c).length() > r - 3.0:
 			continue
-		var tr := 3.0
-		var dia := PackedVector2Array([tq + Vector2(0, -tr), tq + Vector2(tr, 0), tq + Vector2(0, tr), tq + Vector2(-tr, 0)])
-		draw_colored_polygon(dia, _team_color(tu.team).lightened(0.2))
-		dia.append(dia[0])
-		draw_polyline(dia, Color(0, 0, 0, 0.6), 1.0)
+		_map_pin("turret", tq, 4.2, _team_color(tu.team))
 	# Everyone we can see. Enemies show within 22 m of a living teammate;
 	# Elite Veterans and crown carriers always show. The player's own arrow
 	# sticks to the rim when they are off the edge of the chart.
@@ -1108,76 +1104,288 @@ func _minimap_field(c: Vector2, r: float) -> void:
 
 
 func _volcano_field(c: Vector2, r: float, m: Callable, clip: PackedVector2Array, sx: float, sz: float, pt: float) -> void:
-	## Ember Pass painted from above (after Faisal's concept): glowing lava
-	## with dark crust, basalt plateaus under the castles, stone causeways and
-	## plazas, plank bridges, the watch posts' turret rings and the Fire
-	## Objective's flame, ringed in its holder's colour.
-	var v = game.vmap
-	draw_circle(c, r, Color(0.78, 0.22, 0.04))
-	for i in 90:
-		var a := fmod(i * 2.39996, TAU)
-		var d := r * sqrt((i + 0.5) / 90.0)
-		var q := c + Vector2(cos(a), sin(a)) * d
-		var cr := r * (0.05 + 0.04 * fmod(i * 0.618034, 1.0))
-		draw_circle(q, cr, Color(0.22, 0.07, 0.05, 0.85) if i % 3 else Color(1.0, 0.62, 0.15, 0.55))
-	for i in 10:
-		var a := fmod(i * 1.7 + pt * 0.05, TAU)
-		draw_circle(c + Vector2(cos(a), sin(a)) * r * 0.55 * fmod(i * 0.37, 1.0), r * 0.05, Color(1.0, 0.8, 0.3, 0.35))
-	_volcano_network(c, r, m, clip, sx, pt)
+	## Ember Pass painted from above (after Faisal's concept): molten lava
+	## breathing between black crust plates, charred plateaus under the
+	## castles, causeways and plank bridges with their shadows on the lava,
+	## the plazas' markers and the Fire Objective's flame.
+	draw_circle(c, r, _lava_glow(pt))
+	var o: Vector2 = m.call(Vector3.ZERO)
+	var ax: Vector2 = m.call(Vector3(1, 0, 0)) - o
+	var az: Vector2 = m.call(Vector3(0, 0, 1)) - o
+	_draw_lava_plates(o, ax, az, func(q: Vector2) -> bool: return (q - c).length() < r - 1.0, PackedVector2Array(), pt)
+	_volcano_network(c, r, m, clip, sx, pt, false)
 
 
-func _volcano_network(c: Vector2, r: float, m: Callable, clip: PackedVector2Array, sx: float, pt: float) -> void:
+func _lava_glow(pt: float) -> Color:
+	## The molten colour under the crust, breathing slowly.
+	return Color(0.75, 0.1, 0.02).lerp(Color(1.0, 0.32, 0.05), 0.35 + 0.25 * sin(pt * 1.3))
+
+
+func _lava_plates() -> Array:
+	## The lava's crust as irregular plates tiling the whole sea, in world x/z,
+	## made once: a jittered grid whose cells (some split in two) share their
+	## corners, each shrunk a little so a thin molten crack shows round it.
+	if not lava_cells.is_empty() or game.vmap == null:
+		return lava_cells
+	var r := RandomNumberGenerator.new()
+	r.seed = 9
+	var step := 6.5
+	var nx := 40
+	var nz := 22
+	var x0 := -nx * step / 2.0
+	var z0 := -nz * step / 2.0
+	var grid := []
+	for i in nx + 1:
+		var col := []
+		for j in nz + 1:
+			col.append(Vector2(x0 + i * step + r.randf_range(-2.2, 2.2), z0 + j * step + r.randf_range(-2.2, 2.2)))
+		grid.append(col)
+	for i in nx:
+		for j in nz:
+			var q := [grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]]
+			var cells: Array = [q]
+			var roll := r.randf()
+			if roll < 0.3:
+				cells = [[q[0], q[1], q[2]], [q[0], q[2], q[3]]]
+			elif roll < 0.6:
+				cells = [[q[0], q[1], q[3]], [q[1], q[2], q[3]]]
+			for cl in cells:
+				var cc := Vector2.ZERO
+				for v in cl:
+					cc += v
+				cc /= cl.size()
+				if game.vmap.walkable(Vector3(cc.x, 0, cc.y), -1.0):
+					continue
+				# One plate in sixteen has melted away: an open pool.
+				if r.randf() < 0.06:
+					continue
+				var pts := PackedVector2Array()
+				for v in cl:
+					pts.append(cc + (v - cc) * 0.9)
+				lava_cells.append([cc, pts, r.randf()])
+	return lava_cells
+
+
+func _draw_lava_plates(o: Vector2, ax: Vector2, az: Vector2, keep: Callable, box: PackedVector2Array, pt: float) -> void:
+	## The crust plates mapped through o + ax*x + az*z, each with an ember rim;
+	## with a box, plates crossing its edge are trimmed to it.
+	for cell in _lava_plates():
+		var cc: Vector2 = cell[0]
+		if not keep.call(o + ax * cc.x + az * cc.y):
+			continue
+		var poly := PackedVector2Array()
+		for v in cell[1]:
+			poly.append(o + ax * v.x + az * v.y)
+		var shade: float = cell[2]
+		var col := Color(0.09, 0.025, 0.03).lerp(Color(0.24, 0.06, 0.045), shade * 0.7)
+		var pieces: Array = [poly]
+		if not box.is_empty():
+			for pv in poly:
+				if not Geometry2D.is_point_in_polygon(pv, box):
+					pieces = Geometry2D.intersect_polygons(poly, box)
+					break
+		for piece in pieces:
+			if piece.size() < 3:
+				continue
+			draw_colored_polygon(piece, col)
+			var loop: PackedVector2Array = piece.duplicate()
+			loop.append(piece[0])
+			draw_polyline(loop, Color(1.0, 0.3, 0.05, 0.35 + 0.15 * sin(pt * 1.3 + shade * 6.0)), 1.0)
+		# A glint of heat on some plates.
+		if shade > 0.86:
+			draw_circle(o + ax * cc.x + az * cc.y, maxf(ax.length() * 0.6, 1.0), Color(1.0, 0.45, 0.1, 0.5))
+
+
+func _volcano_network(c: Vector2, r: float, m: Callable, clip: PackedVector2Array, sx: float, pt: float, detailed: bool = false) -> void:
 	var v = game.vmap
-	var rock := Color(0.3, 0.24, 0.22)
-	var stone := Color(0.62, 0.55, 0.5)
-	var plank := Color(0.62, 0.42, 0.24)
-	# The castle plateaus.
+	var rock := Color(0.27, 0.2, 0.2)
+	var stone := Color(0.58, 0.5, 0.47)
+	var plank := Color(0.56, 0.35, 0.2)
+	var shadow := Color(0.06, 0.01, 0.01, 0.7)
+	var glow := Color(1.0, 0.25, 0.04, 0.55)
+	var drop := Vector2(1.2, 2.2) * (1.8 if detailed else 1.0)
+	var inside := func(q: Vector2) -> bool:
+		return Geometry2D.is_point_in_polygon(q, clip)
+	# The castle plateaus: shadow on the lava, a hot rim, charred rock, speckles.
 	for t in 2:
 		var sd := -1.0 if t == 0 else 1.0
 		var pa: Vector2 = m.call(Vector3(sd * v.LAND_X, 0, -v.LAND_Z))
 		var pb: Vector2 = m.call(Vector3(sd * v.LAND_X1, 0, v.LAND_Z))
 		var pr := Rect2(Vector2(minf(pa.x, pb.x), pa.y), Vector2(absf(pb.x - pa.x), pb.y - pa.y))
-		_mm_rect(pr.grow(2.0), clip, Color(0.12, 0.05, 0.04))
-		_mm_rect(pr, clip, rock.lightened(0.1))
+		_mm_rect(Rect2(pr.position + drop, pr.size), clip, shadow)
+		_mm_rect(pr.grow(2.0), clip, glow)
+		_mm_rect(pr, clip, rock, Color(0.08, 0.03, 0.03), 1.2)
+		for k in (60 if detailed else 24):
+			var q := pr.position + Vector2(fmod(k * 0.618034, 1.0), fmod(k * 0.381966 + 0.21, 1.0)) * pr.size
+			if inside.call(q):
+				draw_circle(q, (2.2 if detailed else 1.2) * (0.6 + fmod(k * 0.7548, 1.0)), rock.darkened(0.3) if k % 2 else rock.lightened(0.1))
+		_mm_line(pr.position, Vector2(pr.end.x, pr.position.y), c, r, rock.lightened(0.35), 1.0)
 		if t == 0:
+			# The Elves' pines on their side.
 			for k in 7:
 				var tq: Vector2 = m.call(Vector3(-v.LAND_X - 1.5 - k * 7.3, 0, (v.LAND_Z - 1.2) * (1.0 if k % 2 else -1.0)))
-				if (tq - c).length() < r - 3.0:
-					draw_circle(tq, 2.6, Color(0.18, 0.42, 0.16))
-	# Corridors: a dark edge, then stone (causeways, the stair) or planks (bridges).
-	for s in v.segs:
-		var a: Vector2 = m.call(v.pos[s[0]])
-		var b: Vector2 = m.call(v.pos[s[1]])
-		var w: float = maxf(s[2] * 2.0 * sx * 1.25, 3.0)
-		_mm_line(a, b, c, r, Color(0.1, 0.04, 0.03), w + 3.0)
-	for s in v.segs:
-		var a: Vector2 = m.call(v.pos[s[0]])
-		var b: Vector2 = m.call(v.pos[s[1]])
-		var w: float = maxf(s[2] * 2.0 * sx * 1.25, 3.0)
-		_mm_line(a, b, c, r, plank if s[3] == "bridge" else stone, w)
-		if s[3] == "bridge":
-			var d := (b - a)
-			var n := int(d.length() / 4.0)
+				if inside.call(tq):
+					var ts := 2.6 if not detailed else 4.5
+					draw_circle(tq + Vector2(0.8, 1.2), ts, Color(0, 0, 0, 0.3))
+					draw_circle(tq, ts, Color(0.16, 0.38, 0.15))
+					draw_circle(tq - Vector2(ts, ts) * 0.25, ts * 0.45, Color(0.3, 0.55, 0.25))
+	# Corridors: their shadow on the lava, a dark edge, then planks or stone.
+	for sg in v.segs:
+		var a: Vector2 = m.call(v.pos[sg[0]])
+		var b: Vector2 = m.call(v.pos[sg[1]])
+		var w: float = maxf(sg[2] * 2.0 * sx * 1.25, 3.0)
+		_mm_line(a + drop, b + drop, c, r, shadow, w + 2.0)
+		_mm_line(a, b, c, r, glow, w + 4.0)
+		_mm_line(a, b, c, r, Color(0.1, 0.04, 0.03), w + 2.0)
+	for sg in v.segs:
+		var a: Vector2 = m.call(v.pos[sg[0]])
+		var b: Vector2 = m.call(v.pos[sg[1]])
+		var w: float = maxf(sg[2] * 2.0 * sx * 1.25, 3.0)
+		var d := b - a
+		var perp := Vector2(-d.y, d.x).normalized()
+		_mm_line(a, b, c, r, plank if sg[3] == "bridge" else stone, w)
+		if sg[3] == "bridge":
+			# Planks across, a rope rail down each side.
+			var n := int(d.length() / (2.2 if detailed else 3.5))
 			for k in range(1, n):
 				var q := a + d * (float(k) / n)
-				var perp := Vector2(-d.y, d.x).normalized() * w * 0.5
-				_mm_line(q - perp, q + perp, c, r, Color(0.35, 0.22, 0.1, 0.7), 1.0)
-	# Plazas.
+				_mm_line(q - perp * w * 0.5, q + perp * w * 0.5, c, r, Color(0.3, 0.18, 0.08, 0.75), 1.0)
+			for sd2 in [-1.0, 1.0]:
+				_mm_line(a + perp * w * 0.5 * sd2, b + perp * w * 0.5 * sd2, c, r, Color(0.25, 0.14, 0.06), 1.2)
+		else:
+			# Flagstone joints (causeways), steps (the stair).
+			var n2 := int(d.length() / (3.0 if sg[3] == "stairs" else 5.0))
+			for k in range(1, n2):
+				var q := a + d * (float(k) / n2)
+				_mm_line(q - perp * w * 0.5, q + perp * w * 0.5, c, r, stone.darkened(0.3 if sg[3] == "stairs" else 0.15), 1.0)
+			_mm_line(a + perp * w * 0.5, b + perp * w * 0.5, c, r, stone.lightened(0.2), 1.0)
+	# Plazas: shadow, hot rim, paving with a ring.
 	for i in v.pos.size():
 		if v.castle_of(v.pos[i]) >= 0:
 			continue
 		var q: Vector2 = m.call(v.pos[i])
 		var pr2: float = v.rad[i] * sx * 1.2
-		draw_circle(q, pr2 + 1.5, Color(0.1, 0.04, 0.03))
+		draw_circle(q + drop, pr2 + 1.0, shadow)
+		draw_circle(q, pr2 + 2.5, glow)
+		draw_circle(q, pr2 + 1.2, Color(0.1, 0.04, 0.03))
 		draw_circle(q, pr2, stone)
-		draw_arc(q, pr2 * 0.7, 0, TAU, 24, stone.darkened(0.25), 1.0)
-	# Turret rings at the watch posts (the concept legend's turret positions).
+		draw_arc(q, pr2 * 0.72, 0, TAU, 28, stone.darkened(0.22), 1.0)
+		draw_arc(q, pr2 - 1.0, PI * 1.05, PI * 1.85, 16, stone.lightened(0.25), 1.0)
+	if detailed:
+		# The demonic dressing: spike clusters, rune obelisks, the beasts' bones.
+		for sp in v.deco_spikes:
+			var q: Vector2 = m.call(sp[0])
+			if not inside.call(q):
+				continue
+			var aw: Vector3 = sp[1]
+			var dv := Vector2(aw.x, aw.z).normalized() * 4.0
+			var pv := Vector2(-dv.y, dv.x) * 0.35
+			draw_colored_polygon(PackedVector2Array([q + dv, q + pv, q - pv]), Color(0.04, 0.02, 0.03))
+		for ob in v.deco_obelisks:
+			var q: Vector2 = m.call(ob)
+			if inside.call(q):
+				var dia := PackedVector2Array([q + Vector2(0, -4.5), q + Vector2(2.4, 0), q + Vector2(0, 3), q + Vector2(-2.4, 0)])
+				draw_colored_polygon(dia, Color(0.05, 0.03, 0.04))
+				dia.append(dia[0])
+				draw_polyline(dia, Color(0.55, 0.06, 0.03), 1.0)
+		for bn in v.deco_bones:
+			var bc: Vector3 = bn[0]
+			var fw := Vector3(cos(bn[1]), 0, -sin(bn[1]))
+			var half: float = bn[2] / 2.0
+			var a: Vector2 = m.call(bc - fw * half)
+			var b: Vector2 = m.call(bc + fw * half)
+			if not (inside.call(a) and inside.call(b)):
+				continue
+			var bone_col := Color(0.82, 0.76, 0.64)
+			draw_line(a, b, bone_col, 2.0)
+			var dd := b - a
+			var pp := Vector2(-dd.y, dd.x).normalized()
+			for k in 6:
+				var q := a + dd * ((k + 1.0) / 7.0 * 0.8)
+				var len := 3.6 * sx * sin((k + 1.0) / 7.0 * PI * 0.9 + 0.25)
+				draw_line(q - pp * len, q + pp * len, bone_col, 1.4)
+			var sk: Vector2 = m.call(bc + fw * (half + 2.0))
+			draw_circle(sk, 2.4 * sx, bone_col)
+			draw_circle(sk + pp * sx * 0.7, 0.6 * sx, Color(1.0, 0.15, 0.05))
+			draw_circle(sk - pp * sx * 0.7, 0.6 * sx, Color(1.0, 0.15, 0.05))
+	# Markers: the watch posts (each side's turret position), the Crossing,
+	# the Fire Objective.
+	var ps := clampf(r / 22.0, 4.5, 6.5) if not detailed else 9.0
 	for t in 2:
-		var q: Vector2 = m.call(v.pos[v.ids.find("m%d" % t)])
-		draw_circle(q, 4.0, Color(0.15, 0.08, 0.04))
-		draw_circle(q, 3.0, Color(1.0, 0.85, 0.5))
-		draw_circle(q, 1.6, Color(0.6, 0.1, 0.05))
-	_fire_icon(m.call(v.FIRE_POS), clampf(r / 16.0, 5.5, 9.0), v.fire_owner, v.fire_progress, pt)
+		var mi: int = v.ids.find("m%d" % t)
+		var q: Vector2 = m.call(v.pos[mi])
+		_map_pin("post", q, ps, _team_color(t))
+		if detailed:
+			_map_label(q + Vector2(0, v.rad[mi] * sx * 1.2 + 11), "WATCH POST", CREAM)
+	var ci: int = v.ids.find("c")
+	var cq: Vector2 = m.call(v.CROSSING)
+	_map_pin("crossing", cq, ps, GOLD)
+	var fi: int = v.ids.find("f")
+	var fq: Vector2 = m.call(v.FIRE_POS)
+	_fire_icon(fq, clampf(r / 16.0, 5.5, 9.0) if not detailed else 11.0, v.fire_owner, v.fire_progress, pt)
+	if detailed:
+		_map_label(cq - Vector2(0, v.rad[ci] * sx * 1.2 + 6), "THE CROSSING", CREAM)
+		var owner_txt: String = "FIRE OBJECTIVE" if v.fire_owner < 0 else "FIRE OBJECTIVE · %s" % Stats.FACTIONS[v.fire_owner].name.to_upper()
+		_map_label(fq + Vector2(0, v.rad[fi] * sx * 1.2 + 11), owner_txt, Color(1.0, 0.75, 0.35))
+
+
+func _map_label(at: Vector2, txt: String, col: Color) -> void:
+	## A place name on the map: small capitals on a dark rounded tag, centred on at.
+	var w := _text_width(txt, 9) + 12.0
+	var tag := Rect2(at - Vector2(w / 2.0, 7), Vector2(w, 13))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.04, 0.04, 0.82)
+	sb.set_corner_radius_all(5)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(0.55, 0.38, 0.18, 0.9)
+	draw_style_box(sb, tag)
+	_text(Vector2(tag.position.x, at.y + 3.5), txt, 9, col, HORIZONTAL_ALIGNMENT_CENTER, w, 1)
+
+
+func _map_pin(kind: String, q: Vector2, s: float, rim: Color = Color(1.0, 0.8, 0.3)) -> void:
+	## A round map marker: a dark badge in a coloured rim, lit from the top
+	## left, with a small symbol (potion, turret, watch post, crossing, door,
+	## spawn).
+	draw_circle(q + Vector2(0, s * 0.2), s * 1.08, Color(0, 0, 0, 0.45))
+	draw_circle(q, s, rim.darkened(0.3))
+	draw_circle(q, s * 0.8, Color(0.13, 0.09, 0.08))
+	draw_arc(q, s * 0.9, PI * 1.05, PI * 1.75, 10, rim.lightened(0.4), maxf(s * 0.12, 1.0))
+	var k := s * 0.62
+	var ink := Color(1.0, 0.92, 0.75)
+	var hole := Color(0.13, 0.09, 0.08)
+	match kind:
+		"potion":
+			draw_circle(q + Vector2(0, k * 0.3), k * 0.62, Color(0.95, 0.2, 0.3))
+			draw_circle(q + Vector2(-k * 0.22, k * 0.12), k * 0.17, Color(1, 0.75, 0.8))
+			draw_rect(Rect2(q + Vector2(-k * 0.2, -k * 0.7), Vector2(k * 0.4, k * 0.5)), Color(0.85, 0.85, 0.92))
+			draw_rect(Rect2(q + Vector2(-k * 0.28, -k * 0.95), Vector2(k * 0.56, k * 0.26)), Color(0.62, 0.42, 0.22))
+		"turret", "post":
+			var col := rim.lightened(0.35) if kind == "turret" else ink
+			draw_rect(Rect2(q + Vector2(-k * 0.45, -k * 0.4), Vector2(k * 0.9, k * 1.15)), col)
+			for i in 3:
+				draw_rect(Rect2(q + Vector2(-k * 0.6 + i * k * 0.45, -k * 0.75), Vector2(k * 0.3, k * 0.4)), col)
+			draw_rect(Rect2(q + Vector2(-k * 0.15, k * 0.25), Vector2(k * 0.3, k * 0.5)), hole)
+			if kind == "post":
+				draw_rect(Rect2(q + Vector2(-k * 0.06, -k * 1.3), Vector2(k * 0.12, k * 0.6)), ink)
+				draw_colored_polygon(PackedVector2Array([q + Vector2(k * 0.06, -k * 1.3), q + Vector2(k * 0.6, -k * 1.12), q + Vector2(k * 0.06, -k * 0.95)]), rim.lightened(0.2))
+		"crossing":
+			var w := maxf(s * 0.16, 1.2)
+			draw_line(q + Vector2(-k, k) * 0.8, q + Vector2(k, -k) * 0.8, ink, w)
+			draw_line(q + Vector2(k, k) * 0.8, q + Vector2(-k, -k) * 0.8, ink, w)
+			draw_line(q + Vector2(-k * 0.75, k * 0.25), q + Vector2(-k * 0.25, k * 0.75), GOLD, w)
+			draw_line(q + Vector2(k * 0.75, k * 0.25), q + Vector2(k * 0.25, k * 0.75), GOLD, w)
+		"door":
+			var col := rim.lightened(0.2)
+			draw_rect(Rect2(q + Vector2(-k * 0.6, -k * 0.2), Vector2(k * 1.2, k * 0.95)), col)
+			draw_circle(q + Vector2(0, -k * 0.2), k * 0.6, col)
+			for i in 3:
+				var x := -k * 0.35 + i * k * 0.35
+				draw_line(q + Vector2(x, -k * 0.55), q + Vector2(x, k * 0.75), hole, 1.0)
+			draw_line(q + Vector2(-k * 0.6, k * 0.25), q + Vector2(k * 0.6, k * 0.25), hole, 1.0)
+		"spawn":
+			draw_arc(q, k * 0.75, 0, TAU, 18, rim.lightened(0.45), maxf(s * 0.14, 1.0))
+			draw_circle(q, k * 0.42, rim.lightened(0.15))
+			draw_circle(q, k * 0.18, ink)
 
 
 func _fire_icon(q: Vector2, s: float, owner: int, progress: float, pt: float) -> void:
@@ -2251,12 +2459,13 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 	var pt := Time.get_ticks_msec() / 1000.0
 	if game.vmap:
 		# Ember Pass: lava, the plateaus and the bridge network instead of the valley.
-		draw_rect(inner, Color(0.78, 0.22, 0.04))
-		for i in 70:
-			var q := inner.position + Vector2(fmod(i * 0.618034, 1.0), fmod(i * 0.381966 + 0.13, 1.0)) * inner.size
-			draw_circle(q, inner.size.y * (0.03 + 0.03 * fmod(i * 0.7548, 1.0)), Color(0.22, 0.07, 0.05, 0.85) if i % 3 else Color(1.0, 0.62, 0.15, 0.5))
+		draw_rect(inner, _lava_glow(pt))
 		var box := PackedVector2Array([inner.position, Vector2(inner.end.x, inner.position.y), inner.end, Vector2(inner.position.x, inner.end.y)])
-		_volcano_network(inner.get_center(), inner.size.length(), m, box, sx, pt)
+		var o: Vector2 = m.call(Vector3.ZERO)
+		var ax: Vector2 = m.call(Vector3(1, 0, 0)) - o
+		var az: Vector2 = m.call(Vector3(0, 0, 1)) - o
+		_draw_lava_plates(o, ax, az, func(q: Vector2) -> bool: return inner.grow(30.0).has_point(q), box, pt)
+		_volcano_network(inner.get_center(), inner.size.length(), m, box, sx, pt, detailed)
 	# Forest.
 	for t in game.map_trees:
 		var r: float = (2.6 if t.y > 0.5 else 1.8) * sx
@@ -2333,15 +2542,18 @@ func _draw_map_castles(rect: Rect2, m: Callable, sx: float, sz: float, fx: float
 		var gate = game.gates[t]
 		var door_color: Color = RED if gate.broken else GOLD
 		draw_line(m.call(Vector3(ox, 0, -Stats.DOOR_HALF)), m.call(Vector3(ox, 0, Stats.DOOR_HALF)), door_color, 3.0)
+		if detailed:
+			_map_pin("door", m.call(Vector3(ox - side * 3.0, 0, 0)), 7.5, door_color)
+			_map_pin("spawn", m.call(Vector3(cx - side * game.CELLAR_DEPTH * 0.5, 0, 0)), 7.5, tc)
 		_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
 		if detailed:
-			_text(outer.position + Vector2(0, -6), "%s CASTLE" % Stats.FACTIONS[t].name.to_upper(), 11, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, outer.size.x, 2)
+			_text(outer.position + Vector2(-40, -6), "%s CASTLE" % Stats.FACTIONS[t].name.to_upper(), 11, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, outer.size.x + 80, 2)
 			_card("crest_elf" if t == 0 else "crest_human", Rect2(keep.position + Vector2(keep.size.x / 2.0 - 11, 2), Vector2(22, 22)))
 			_text(cellar.position + Vector2(0, cellar.size.y + 12), "SPAWN", 9, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, cellar.size.x, 2)
 	# Potions that are up, and any Blessing of Light on the field.
 	for orb in game.heal_orbs:
 		if orb.active:
-			draw_circle(m.call(orb.global_position), 2.5 if not detailed else 4.0, Color(1.0, 0.35, 0.4))
+			_map_pin("potion", m.call(orb.global_position), 4.0 if not detailed else 7.0, Color(0.95, 0.4, 0.45))
 	for b in game.blessings:
 		if is_instance_valid(b):
 			var bc: Vector2 = m.call(b.global_position)
@@ -2352,10 +2564,7 @@ func _draw_map_castles(rect: Rect2, m: Callable, sx: float, sz: float, fx: float
 	var my_team: int = _my_team()
 	for t in game.turrets:
 		var tc: Vector2 = m.call(t.global_position)
-		var tr := 3.0 if not detailed else 5.0
-		var tcol: Color = _team_color(t.team)
-		draw_colored_polygon(PackedVector2Array([tc + Vector2(0, -tr), tc + Vector2(tr, 0), tc + Vector2(0, tr), tc + Vector2(-tr, 0)]), tcol.lightened(0.2))
-		draw_polyline(PackedVector2Array([tc + Vector2(0, -tr), tc + Vector2(tr, 0), tc + Vector2(0, tr), tc + Vector2(-tr, 0), tc + Vector2(0, -tr)]), Color(0, 0, 0, 0.6), 1.0)
+		_map_pin("turret", tc, 4.0 if not detailed else 7.0, _team_color(t.team))
 	# Everyone we can see. Enemies show within 22 m of a living teammate;
 	# Elite Veterans always show, with a pulsing bounty ring.
 	var allies: Array = game.units.filter(func(u): return u.team == my_team and not u.dead)
@@ -2386,44 +2595,6 @@ func _draw_map_castles(rect: Rect2, m: Callable, sx: float, sz: float, fx: float
 		draw_arc(c, r, 0, TAU, 12, Color(0, 0, 0, 0.6), 1.0)
 		if u.carrying:
 			_crown(c + Vector2(0, -r - 4), 0.35 if not detailed else 0.6)
-	if detailed and game.vmap:
-		_volcano_legend(Rect2(rect.position + Vector2(8, 8), Vector2(300, 72)))
-
-
-func _volcano_legend(rect: Rect2) -> void:
-	## The concept's MINIMAP LEGEND box for Ember Pass.
-	_plate(rect, Color(0.08, 0.06, 0.06, 0.92), GOLD_DARK, 6, 2)
-	_text(rect.position + Vector2(0, 15), "MAP LEGEND", 11, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	var rows := [["elf", "Elf Base"], ["human", "Human Base"], ["fire", "Fire Objective"], ["spawn", "Spawn Area"], ["bridge", "Bridge"], ["path", "Pathway"], ["turret", "Turret Position"]]
-	for i in rows.size():
-		var row: Array = rows[i]
-		# Two columns so it fits in the open lava above the Elf Base.
-		var x := rect.position.x + (0.0 if i < 4 else 172.0)
-		var y := rect.position.y + 27.0 + (i % 4) * 12.0
-		var ic := Vector2(x + 18, y)
-		match row[0]:
-			"elf", "human":
-				var tc := _team_color(0 if row[0] == "elf" else 1)
-				draw_rect(Rect2(ic - Vector2(7, 7), Vector2(14, 14)), tc.darkened(0.2))
-				draw_rect(Rect2(ic - Vector2(7, 7), Vector2(14, 14)), Color(0, 0, 0, 0.6), false, 1.0)
-				_crown(ic, 0.32)
-			"fire":
-				_fire_icon(ic, 6.0, -1, 0.0, Time.get_ticks_msec() / 1000.0)
-			"bridge":
-				draw_rect(Rect2(ic - Vector2(9, 3), Vector2(18, 6)), Color(0.62, 0.42, 0.24))
-				for k in 3:
-					draw_line(ic + Vector2(-5 + k * 5, -3), ic + Vector2(-5 + k * 5, 3), Color(0.35, 0.22, 0.1), 1.0)
-			"path":
-				draw_rect(Rect2(ic - Vector2(9, 3), Vector2(18, 6)), Color(0.62, 0.55, 0.5))
-			"turret":
-				draw_circle(ic, 5.0, Color(1.0, 0.85, 0.5))
-				draw_circle(ic, 2.6, Color(0.6, 0.1, 0.05))
-			"spawn":
-				draw_rect(Rect2(ic - Vector2(6, 6), Vector2(12, 12)), Color(0.25, 0.12, 0.08))
-				draw_rect(Rect2(ic - Vector2(6, 6), Vector2(12, 12)), GOLD, false, 1.5)
-		_text(Vector2(x + 34, y + 4), row[1], 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
-		if row[0] == "fire":
-			_text(Vector2(x + 112, y + 4), "(fire class)", 8, Color(1.0, 0.8, 0.3), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 
 
 func _rank_desc(p, track: int) -> String:
@@ -2563,25 +2734,82 @@ func _draw_game_menu() -> void:
 
 func _menu_overview(body: Rect2) -> void:
 	_text(body.position + Vector2(0, 16), "EMBER PASS" if game.vmap else "THE WILDWOOD VALLEY", 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 3)
+	var keys := [["you", "You"], ["enemy", "Enemy in sight"], ["veteran", "Elite bounty"], ["potion", "Healing potion"],
+		["blessing", "Blessing"], ["turret", "Turret"], ["door", "Door (red: broken)"], ["spawn", "Spawn cellar"]]
+	var cols := 4
+	if game.vmap:
+		keys = [["fire", "Fire Objective"], ["post", "Watch post"], ["crossing", "The Crossing"], ["spawn", "Spawn cellar"],
+			["door", "Door (red: broken)"], ["potion", "Healing potion"], ["you", "You"], ["enemy", "Enemy in sight"],
+			["veteran", "Elite bounty"], ["turret", "Turret"], ["blessing", "Blessing"], ["bridge", "Bridge"],
+			["path", "Causeway"], ["obelisk", "Rune obelisk"], ["spikes", "Obsidian spikes"], ["lava", "Lava (deadly)"]]
+		cols = 6
+	var rows: int = int(ceil(keys.size() / float(cols)))
 	# Keep the key and the blurb below clear of the footer and MAIN MENU.
-	var mh: float = minf(body.size.x * 26.0 / 58.0, body.size.y - 26.0 - 64.0)
+	var mh: float = minf(body.size.x * 26.0 / 58.0, body.size.y - 26.0 - 46.0 - rows * 17.0)
 	var mw: float = mh * 58.0 / 26.0
 	var map_rect := Rect2(body.position + Vector2((body.size.x - mw) / 2.0, 26), Vector2(mw, mh))
 	_draw_map(map_rect, true)
-	var y := map_rect.end.y + 22
-	var legend := [["Yellow ring: you", Color(1, 1, 0.3)], ["Red: enemies seen by your team", Color(1.0, 0.25, 0.2)], ["Red dots: potions", Color(1.0, 0.35, 0.4)], ["Gold stars: blessings", GOLD],
-		["Pulsing ring: Elite Veteran bounty", Color(1, 0.5, 0.3)], ["Gold line: door", GOLD]]
-	for i in legend.size():
-		var x: float = body.position.x + 10 + (i % 3) * (body.size.x / 3.0)
-		var ly: float = y + (i / 3) * 18
-		draw_circle(Vector2(x, ly - 4), 5, legend[i][1])
-		_text(Vector2(x + 12, ly), legend[i][0], 11, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var y := map_rect.end.y + 18
+	var cw := body.size.x / cols
+	var pt := Time.get_ticks_msec() / 1000.0
+	for i in keys.size():
+		var x: float = body.position.x + 14 + (i % cols) * cw
+		var ly: float = y + (i / cols) * 17
+		_legend_icon(keys[i][0], Vector2(x, ly - 4), pt)
+		_text(Vector2(x + 13, ly), keys[i][1], 11, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var blurb := "Break the enemy door, smash the Crown Vault lock, steal their crown, carry it home. Grab a class hat in your cellar."
 	if game.vmap:
-		_text(Vector2(body.position.x, y + 40), "Hold the Fire Objective and every class on your team becomes its Fire form. Break the door, steal their crown, carry it home.", 11, GREY,
-			HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
-		return
-	_text(Vector2(body.position.x, y + 40), "Break the enemy door, smash the Crown Vault lock, steal their crown, carry it home. Grab a class hat in your cellar.", 11, GREY,
-		HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+		blurb = "Hold the Fire Objective and every class on your team becomes its Fire form. Break the door, steal their crown, carry it home."
+	_text(Vector2(body.position.x, y + rows * 17 + 6), blurb, 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+
+
+func _legend_icon(kind: String, q: Vector2, pt: float) -> void:
+	match kind:
+		"you":
+			draw_circle(q, 5.5, Color(1, 1, 0.3))
+			draw_arc(q, 5.5, 0, TAU, 14, Color(0.3, 0.2, 0.0, 0.8), 1.0)
+		"enemy":
+			draw_circle(q, 4.5, Color(1.0, 0.25, 0.2))
+			draw_arc(q, 4.5, 0, TAU, 12, Color(0, 0, 0, 0.6), 1.0)
+		"veteran":
+			draw_circle(q, 3.5, Color(1.0, 0.25, 0.2))
+			draw_arc(q, 6.0 + sin(pt * 5.0), 0, TAU, 16, Color(1, 0.3, 0.2), 1.6)
+		"blessing":
+			_icon("xp", q, 4.5, GOLD)
+		"fire":
+			_fire_icon(q, 5.5, -1, 0.0, pt)
+		"bridge":
+			draw_rect(Rect2(q - Vector2(8, 3), Vector2(16, 6)), Color(0.56, 0.35, 0.2))
+			for k in 3:
+				draw_line(q + Vector2(-4 + k * 4, -3), q + Vector2(-4 + k * 4, 3), Color(0.3, 0.18, 0.08), 1.0)
+		"path":
+			draw_rect(Rect2(q - Vector2(8, 3), Vector2(16, 6)), Color(0.58, 0.5, 0.47))
+			draw_line(q + Vector2(0, -3), q + Vector2(0, 3), Color(0.45, 0.38, 0.36), 1.0)
+		"obelisk":
+			var dia := PackedVector2Array([q + Vector2(0, -6.5), q + Vector2(3.4, 0), q + Vector2(0, 4.5), q + Vector2(-3.4, 0)])
+			draw_colored_polygon(dia, Color(0.08, 0.05, 0.06))
+			dia.append(dia[0])
+			draw_polyline(dia, Color(0.6, 0.08, 0.04), 1.0)
+		"spikes":
+			for k in 3:
+				var bx := q + Vector2(-4 + k * 4, 4)
+				draw_colored_polygon(PackedVector2Array([bx + Vector2(-1.8, 0), bx + Vector2(1.8, 0), bx + Vector2(0.5, -9 + (k % 2) * 3)]), Color(0.06, 0.03, 0.04))
+		"lava":
+			draw_rect(Rect2(q - Vector2(8, 5), Vector2(16, 10)), _lava_glow(pt))
+			draw_colored_polygon(PackedVector2Array([q + Vector2(-7, -4), q + Vector2(-1, -5), q + Vector2(0, 1), q + Vector2(-6, 3)]), Color(0.12, 0.03, 0.03))
+			draw_colored_polygon(PackedVector2Array([q + Vector2(2, -4), q + Vector2(7, -3), q + Vector2(6, 4), q + Vector2(1, 3)]), Color(0.16, 0.04, 0.04))
+		"door":
+			_map_pin("door", q, 6.5, GOLD)
+		"spawn":
+			_map_pin("spawn", q, 6.5, _team_color(_my_team()))
+		"post":
+			_map_pin("post", q, 6.5, _team_color(_my_team()))
+		"turret":
+			_map_pin("turret", q, 6.5, _team_color(_my_team()))
+		"potion":
+			_map_pin("potion", q, 6.5, Color(0.95, 0.4, 0.45))
+		"crossing":
+			_map_pin("crossing", q, 6.5, GOLD)
 
 
 func _menu_classes(body: Rect2) -> void:
