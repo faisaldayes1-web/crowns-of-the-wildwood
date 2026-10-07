@@ -38,7 +38,27 @@ const HERO_NAME_MAX := 12
 # (a dusk tint, violet rim light and a cape on every class).
 const HERO_LOOKS := [["Classic", Color.TRANSPARENT], ["Shadowborn", Color(0.5, 0.42, 0.62)]]
 # Maps: the Wildwood by day, and the moonlit night variant unlocked at level 10.
-const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"]]
+# Ember Pass is the volcano map (castles on basalt plateaus over lava, joined
+# by bridges, and the Fire Objective in the middle); open to everyone.
+const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"], ["Ember Pass", "volcano"]]
+
+# Ember Pass's Fire Objective: stand in the ring to capture it (alone it
+# takes capture_time seconds, each extra teammate adds extra_rate, counted up
+# to max_count); both sides inside freezes it; taking it from the other team
+# first burns it back to neutral. Left alone it settles back toward its
+# holder (or neutral) at `settle` times the capture rate. Bots send bots_take
+# to win it and keep bots_hold on it once it is theirs, one more while enemies
+# stand on it. (2 / 1 starved the raids: three draws in four test matches.)
+const FIRE_POINT := {"radius": 7.0, "capture_time": 8.0, "extra_rate": 0.5, "max_count": 3, "settle": 0.25,
+	"bots_take": 1, "bots_hold": 0}
+# FIRE form: while a team holds the Fire Objective every one of its classes
+# (and promotions) fights as its FIRE variant: the base attack sets enemies
+# alight (one more heart lost burn_delay seconds later, unless a healer mends
+# them first; a target only catches fire once every burn_cooldown seconds),
+# and abilities cost and cool down by the multipliers. It fades the moment
+# the point is lost. flame: the aura colour, Elves then Humans.
+const FIRE_FORM := {"burn_delay": 2.0, "burn_cooldown": 6.0, "burn_damage": 1, "cost_mult": 0.85, "cooldown_mult": 0.85,
+	"prefix": "Fire", "flame": [Color(1.0, 0.78, 0.28), Color(1.0, 0.42, 0.12)]}
 
 # Player banners (the calling card the enemy sees when you kill them, and
 # that you edit on the HERO tab): a background, an emblem, a frame and a title.

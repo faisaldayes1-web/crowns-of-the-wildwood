@@ -916,94 +916,97 @@ func _minimap_field(c: Vector2, r: float) -> void:
 		clip.append(c + Vector2(cos(a), sin(a)) * r)
 	var pt := Time.get_ticks_msec() / 1000.0
 	var fx: float = game.CASTLE_X - game.CASTLE_DEPTH
-	# Ground: deep forest green, the open field a lighter meadow.
-	draw_circle(c, r, Color(0.2, 0.38, 0.15))
-	var field := Rect2(c - Vector2(hx * sx, hz * sz), Vector2(hx * sx, hz * sz) * 2.0)
-	_mm_rect(field, clip, Color(0.36, 0.6, 0.24))
-	# Woodland blobs filling the ground outside the field.
-	for i in 150:
-		var a := fmod(i * 2.39996, TAU)
-		var d := r * sqrt((i + 0.5) / 150.0)
-		var q := c + Vector2(cos(a), sin(a)) * d
-		if field.grow(-2.0).has_point(q) or d > r - 2.0:
-			continue
-		var tr := r * (0.045 + 0.025 * fmod(i * 0.618034, 1.0))
-		draw_circle(q + Vector2(1, 1.5), tr, Color(0.08, 0.17, 0.06, 0.6))
-		draw_circle(q, tr, Color(0.17, 0.4, 0.14) if i % 3 else Color(0.25, 0.48, 0.17))
-		draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.45, Color(0.4, 0.62, 0.25, 0.6))
-	# Sunlit patches on the meadow.
-	for i in 14:
-		var a := fmod(i * 2.39996 + 0.7, TAU)
-		var d := r * 0.75 * sqrt((i + 0.5) / 14.0)
-		var q := c + Vector2(cos(a), sin(a) * 0.6) * d
-		if field.has_point(q):
-			draw_circle(q, r * (0.07 + 0.03 * fmod(i * 0.618, 1.0)), Color(0.55, 0.78, 0.33, 0.28))
-	# Trees on the field.
-	for t in game.map_trees:
-		var q: Vector2 = m.call(t)
-		var tr: float = (2.6 if t.y > 0.5 else 1.9) * sx * 1.25
-		if (q - c).length() > r - tr * 0.5:
-			continue
-		draw_circle(q + Vector2(0.8, 1.2), tr, Color(0.06, 0.14, 0.05, 0.55))
-		draw_circle(q, tr, Color(0.16, 0.42, 0.14) if t.y > 0.5 else Color(0.22, 0.5, 0.17))
-		draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.42, Color(0.42, 0.68, 0.28, 0.7))
-	# Roads and tracks: a dark edge under tan dirt.
-	var road := Color(0.8, 0.66, 0.43)
-	for p in game.map_paths:
-		var w: float = maxf(p[2] * sx * 1.1, 2.4)
-		_mm_line(m.call(p[0]), m.call(p[1]), c, r, Color(0.42, 0.3, 0.16, 0.85), w + 2.0)
-	for p in game.map_paths:
-		var w: float = maxf(p[2] * sx * 1.1, 2.4)
-		var a: Vector2 = m.call(p[0])
-		var b: Vector2 = m.call(p[1])
-		_mm_line(a, b, c, r, road, w)
-		if (a - c).length() < r:
-			draw_circle(a, w / 2.0, road)
-		if (b - c).length() < r:
-			draw_circle(b, w / 2.0, road)
-	# Ruins, barrows and mills.
-	for mark in game.map_marks:
-		var q: Vector2 = m.call(mark[0])
-		if (q - c).length() > r - 4.0:
-			continue
-		if mark[1] == "ruin":
-			var rr := Rect2(q - Vector2(3.5 * sx, 2.5 * sz), Vector2(7 * sx, 5 * sz))
-			draw_rect(rr.grow(1.0), Color(0.3, 0.3, 0.3, 0.6))
-			draw_rect(rr, Color(0.7, 0.68, 0.64))
-			draw_rect(rr.grow(-rr.size.x * 0.25), Color(0.55, 0.53, 0.5))
-		elif mark[1] == "barrow":
-			draw_circle(q, 3.2 * sx, Color(0.42, 0.45, 0.4))
-			draw_circle(q, 1.6 * sx, Color(0.25, 0.26, 0.25))
-		elif mark[1] == "mill":
-			draw_rect(Rect2(q - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.62, 0.46, 0.3))
-			draw_arc(q + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
-	# The river (drawn a little wider than life so it reads), then bridges.
-	var rh: float = maxf(game.RIVER_HALF * sx * 1.7, r * 0.055)
-	_mm_rect(Rect2(c.x - rh - 2.0, c.y - r, 2.0 * rh + 4.0, 2.0 * r), clip, Color(0.62, 0.55, 0.36))
-	_mm_rect(Rect2(c.x - rh, c.y - r, 2.0 * rh, 2.0 * r), clip, Color(0.13, 0.45, 0.95))
-	_mm_rect(Rect2(c.x - rh * 0.35, c.y - r, rh * 0.7, 2.0 * r), clip, Color(0.4, 0.72, 1.0, 0.55))
-	for i in game.BRIDGES.size():
-		if i == 1:
-			continue
-		var bz: float = game.BRIDGES[i]
-		var half: float = game.BRIDGE_HALF[i]
-		var bq: Vector2 = m.call(Vector3(0, 0, bz))
-		var br := Rect2(bq.x - rh - 3.0, bq.y - half * sz, 2.0 * rh + 6.0, 2.0 * half * sz)
-		_mm_rect(br, clip, Color(0.6, 0.4, 0.22), Color(0.28, 0.16, 0.07), 1.2)
-		for k in 3:
-			var ly := br.position.y + br.size.y * (k + 1) / 4.0
-			draw_line(Vector2(br.position.x + 1, ly), Vector2(br.end.x - 1, ly), Color(0.35, 0.2, 0.09, 0.6), 1.0)
-	# The Crown Shrine: a gold ring round a glowing green heart.
-	var sr: float = maxf(game.ISLAND_R * sx * 1.15, 7.0)
-	draw_circle(c + Vector2(0, 1.5), sr + 2.5, Color(0, 0, 0, 0.35))
-	draw_circle(c, sr + 2.0, Color(0.38, 0.27, 0.06))
-	draw_circle(c, sr, GOLD)
-	draw_circle(c, sr * 0.72, Color(0.65, 0.45, 0.1))
-	draw_circle(c, sr * 0.6, Color(0.2, 0.62, 0.22))
-	draw_circle(c, sr * 0.38, Color(0.45, 0.95, 0.4, 0.75 + 0.2 * sin(pt * 3.0)))
-	for k in 8:
-		var a := TAU * k / 8.0
-		draw_circle(c + Vector2(cos(a), sin(a)) * sr * 0.86, maxf(sr * 0.1, 0.9), Color(1, 0.95, 0.65))
+	if game.vmap:
+		_volcano_field(c, r, m, clip, sx, sz, pt)
+	else:
+		# Ground: deep forest green, the open field a lighter meadow.
+		draw_circle(c, r, Color(0.2, 0.38, 0.15))
+		var field := Rect2(c - Vector2(hx * sx, hz * sz), Vector2(hx * sx, hz * sz) * 2.0)
+		_mm_rect(field, clip, Color(0.36, 0.6, 0.24))
+		# Woodland blobs filling the ground outside the field.
+		for i in 150:
+			var a := fmod(i * 2.39996, TAU)
+			var d := r * sqrt((i + 0.5) / 150.0)
+			var q := c + Vector2(cos(a), sin(a)) * d
+			if field.grow(-2.0).has_point(q) or d > r - 2.0:
+				continue
+			var tr := r * (0.045 + 0.025 * fmod(i * 0.618034, 1.0))
+			draw_circle(q + Vector2(1, 1.5), tr, Color(0.08, 0.17, 0.06, 0.6))
+			draw_circle(q, tr, Color(0.17, 0.4, 0.14) if i % 3 else Color(0.25, 0.48, 0.17))
+			draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.45, Color(0.4, 0.62, 0.25, 0.6))
+		# Sunlit patches on the meadow.
+		for i in 14:
+			var a := fmod(i * 2.39996 + 0.7, TAU)
+			var d := r * 0.75 * sqrt((i + 0.5) / 14.0)
+			var q := c + Vector2(cos(a), sin(a) * 0.6) * d
+			if field.has_point(q):
+				draw_circle(q, r * (0.07 + 0.03 * fmod(i * 0.618, 1.0)), Color(0.55, 0.78, 0.33, 0.28))
+		# Trees on the field.
+		for t in game.map_trees:
+			var q: Vector2 = m.call(t)
+			var tr: float = (2.6 if t.y > 0.5 else 1.9) * sx * 1.25
+			if (q - c).length() > r - tr * 0.5:
+				continue
+			draw_circle(q + Vector2(0.8, 1.2), tr, Color(0.06, 0.14, 0.05, 0.55))
+			draw_circle(q, tr, Color(0.16, 0.42, 0.14) if t.y > 0.5 else Color(0.22, 0.5, 0.17))
+			draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.42, Color(0.42, 0.68, 0.28, 0.7))
+		# Roads and tracks: a dark edge under tan dirt.
+		var road := Color(0.8, 0.66, 0.43)
+		for p in game.map_paths:
+			var w: float = maxf(p[2] * sx * 1.1, 2.4)
+			_mm_line(m.call(p[0]), m.call(p[1]), c, r, Color(0.42, 0.3, 0.16, 0.85), w + 2.0)
+		for p in game.map_paths:
+			var w: float = maxf(p[2] * sx * 1.1, 2.4)
+			var a: Vector2 = m.call(p[0])
+			var b: Vector2 = m.call(p[1])
+			_mm_line(a, b, c, r, road, w)
+			if (a - c).length() < r:
+				draw_circle(a, w / 2.0, road)
+			if (b - c).length() < r:
+				draw_circle(b, w / 2.0, road)
+		# Ruins, barrows and mills.
+		for mark in game.map_marks:
+			var q: Vector2 = m.call(mark[0])
+			if (q - c).length() > r - 4.0:
+				continue
+			if mark[1] == "ruin":
+				var rr := Rect2(q - Vector2(3.5 * sx, 2.5 * sz), Vector2(7 * sx, 5 * sz))
+				draw_rect(rr.grow(1.0), Color(0.3, 0.3, 0.3, 0.6))
+				draw_rect(rr, Color(0.7, 0.68, 0.64))
+				draw_rect(rr.grow(-rr.size.x * 0.25), Color(0.55, 0.53, 0.5))
+			elif mark[1] == "barrow":
+				draw_circle(q, 3.2 * sx, Color(0.42, 0.45, 0.4))
+				draw_circle(q, 1.6 * sx, Color(0.25, 0.26, 0.25))
+			elif mark[1] == "mill":
+				draw_rect(Rect2(q - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.62, 0.46, 0.3))
+				draw_arc(q + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
+		# The river (drawn a little wider than life so it reads), then bridges.
+		var rh: float = maxf(game.RIVER_HALF * sx * 1.7, r * 0.055)
+		_mm_rect(Rect2(c.x - rh - 2.0, c.y - r, 2.0 * rh + 4.0, 2.0 * r), clip, Color(0.62, 0.55, 0.36))
+		_mm_rect(Rect2(c.x - rh, c.y - r, 2.0 * rh, 2.0 * r), clip, Color(0.13, 0.45, 0.95))
+		_mm_rect(Rect2(c.x - rh * 0.35, c.y - r, rh * 0.7, 2.0 * r), clip, Color(0.4, 0.72, 1.0, 0.55))
+		for i in game.BRIDGES.size():
+			if i == 1:
+				continue
+			var bz: float = game.BRIDGES[i]
+			var half: float = game.BRIDGE_HALF[i]
+			var bq: Vector2 = m.call(Vector3(0, 0, bz))
+			var br := Rect2(bq.x - rh - 3.0, bq.y - half * sz, 2.0 * rh + 6.0, 2.0 * half * sz)
+			_mm_rect(br, clip, Color(0.6, 0.4, 0.22), Color(0.28, 0.16, 0.07), 1.2)
+			for k in 3:
+				var ly := br.position.y + br.size.y * (k + 1) / 4.0
+				draw_line(Vector2(br.position.x + 1, ly), Vector2(br.end.x - 1, ly), Color(0.35, 0.2, 0.09, 0.6), 1.0)
+		# The Crown Shrine: a gold ring round a glowing green heart.
+		var sr: float = maxf(game.ISLAND_R * sx * 1.15, 7.0)
+		draw_circle(c + Vector2(0, 1.5), sr + 2.5, Color(0, 0, 0, 0.35))
+		draw_circle(c, sr + 2.0, Color(0.38, 0.27, 0.06))
+		draw_circle(c, sr, GOLD)
+		draw_circle(c, sr * 0.72, Color(0.65, 0.45, 0.1))
+		draw_circle(c, sr * 0.6, Color(0.2, 0.62, 0.22))
+		draw_circle(c, sr * 0.38, Color(0.45, 0.95, 0.4, 0.75 + 0.2 * sin(pt * 3.0)))
+		for k in 8:
+			var a := TAU * k / 8.0
+			draw_circle(c + Vector2(cos(a), sin(a)) * sr * 0.86, maxf(sr * 0.1, 0.9), Color(1, 0.95, 0.65))
 	# The castles: team-colour blocks, crown on the throne, door gold or red.
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
@@ -1090,6 +1093,103 @@ func _minimap_field(c: Vector2, r: float) -> void:
 			_crown(q + Vector2(0, -ur - 4), 0.35)
 	# A soft shadow round the inside of the ring.
 	draw_arc(c, r - 3.0, 0, TAU, 72, Color(0, 0, 0, 0.22), 6.0)
+
+
+func _volcano_field(c: Vector2, r: float, m: Callable, clip: PackedVector2Array, sx: float, sz: float, pt: float) -> void:
+	## Ember Pass painted from above (after Faisal's concept): glowing lava
+	## with dark crust, basalt plateaus under the castles, stone causeways and
+	## plazas, plank bridges, the watch posts' turret rings and the Fire
+	## Objective's flame, ringed in its holder's colour.
+	var v = game.vmap
+	draw_circle(c, r, Color(0.78, 0.22, 0.04))
+	for i in 90:
+		var a := fmod(i * 2.39996, TAU)
+		var d := r * sqrt((i + 0.5) / 90.0)
+		var q := c + Vector2(cos(a), sin(a)) * d
+		var cr := r * (0.05 + 0.04 * fmod(i * 0.618034, 1.0))
+		draw_circle(q, cr, Color(0.22, 0.07, 0.05, 0.85) if i % 3 else Color(1.0, 0.62, 0.15, 0.55))
+	for i in 10:
+		var a := fmod(i * 1.7 + pt * 0.05, TAU)
+		draw_circle(c + Vector2(cos(a), sin(a)) * r * 0.55 * fmod(i * 0.37, 1.0), r * 0.05, Color(1.0, 0.8, 0.3, 0.35))
+	_volcano_network(c, r, m, clip, sx, pt)
+
+
+func _volcano_network(c: Vector2, r: float, m: Callable, clip: PackedVector2Array, sx: float, pt: float) -> void:
+	var v = game.vmap
+	var rock := Color(0.3, 0.24, 0.22)
+	var stone := Color(0.62, 0.55, 0.5)
+	var plank := Color(0.62, 0.42, 0.24)
+	# The castle plateaus.
+	for t in 2:
+		var sd := -1.0 if t == 0 else 1.0
+		var pa: Vector2 = m.call(Vector3(sd * v.LAND_X, 0, -v.LAND_Z))
+		var pb: Vector2 = m.call(Vector3(sd * v.LAND_X1, 0, v.LAND_Z))
+		var pr := Rect2(Vector2(minf(pa.x, pb.x), pa.y), Vector2(absf(pb.x - pa.x), pb.y - pa.y))
+		_mm_rect(pr.grow(2.0), clip, Color(0.12, 0.05, 0.04))
+		_mm_rect(pr, clip, rock.lightened(0.1))
+		if t == 0:
+			for k in 7:
+				var tq: Vector2 = m.call(Vector3(-v.LAND_X - 1.5 - k * 7.3, 0, (v.LAND_Z - 1.2) * (1.0 if k % 2 else -1.0)))
+				if (tq - c).length() < r - 3.0:
+					draw_circle(tq, 2.6, Color(0.18, 0.42, 0.16))
+	# Corridors: a dark edge, then stone (causeways, the stair) or planks (bridges).
+	for s in v.segs:
+		var a: Vector2 = m.call(v.pos[s[0]])
+		var b: Vector2 = m.call(v.pos[s[1]])
+		var w: float = maxf(s[2] * 2.0 * sx * 1.25, 3.0)
+		_mm_line(a, b, c, r, Color(0.1, 0.04, 0.03), w + 3.0)
+	for s in v.segs:
+		var a: Vector2 = m.call(v.pos[s[0]])
+		var b: Vector2 = m.call(v.pos[s[1]])
+		var w: float = maxf(s[2] * 2.0 * sx * 1.25, 3.0)
+		_mm_line(a, b, c, r, plank if s[3] == "bridge" else stone, w)
+		if s[3] == "bridge":
+			var d := (b - a)
+			var n := int(d.length() / 4.0)
+			for k in range(1, n):
+				var q := a + d * (float(k) / n)
+				var perp := Vector2(-d.y, d.x).normalized() * w * 0.5
+				_mm_line(q - perp, q + perp, c, r, Color(0.35, 0.22, 0.1, 0.7), 1.0)
+	# Plazas.
+	for i in v.pos.size():
+		if v.castle_of(v.pos[i]) >= 0:
+			continue
+		var q: Vector2 = m.call(v.pos[i])
+		var pr2: float = v.rad[i] * sx * 1.2
+		draw_circle(q, pr2 + 1.5, Color(0.1, 0.04, 0.03))
+		draw_circle(q, pr2, stone)
+		draw_arc(q, pr2 * 0.7, 0, TAU, 24, stone.darkened(0.25), 1.0)
+	# Turret rings at the watch posts (the concept legend's turret positions).
+	for t in 2:
+		var q: Vector2 = m.call(v.pos[v.ids.find("m%d" % t)])
+		draw_circle(q, 4.0, Color(0.15, 0.08, 0.04))
+		draw_circle(q, 3.0, Color(1.0, 0.85, 0.5))
+		draw_circle(q, 1.6, Color(0.6, 0.1, 0.05))
+	_fire_icon(m.call(v.FIRE_POS), clampf(r / 16.0, 5.5, 9.0), v.fire_owner, v.fire_progress, pt)
+
+
+func _fire_icon(q: Vector2, s: float, owner: int, progress: float, pt: float) -> void:
+	## The Fire Objective's marker: a flame in a red hexagon, ringed in the
+	## holder's colour, with the capture filling round it.
+	var ring_col := Color(1.0, 0.8, 0.3) if owner < 0 else _team_color(owner).lightened(0.25)
+	draw_circle(q, s * 1.55, Color(0, 0, 0, 0.35))
+	if absf(progress) > 0.01:
+		var lead := 0 if progress < 0.0 else 1
+		draw_arc(q, s * 1.4, -PI / 2.0, -PI / 2.0 + TAU * absf(progress), 32, _team_color(lead).lightened(0.3), 3.0)
+	draw_arc(q, s * 1.18, 0, TAU, 24, ring_col, 1.6)
+	var hexp := PackedVector2Array()
+	for k in 6:
+		var a := TAU * k / 6.0 + PI / 6.0
+		hexp.append(q + Vector2(cos(a), sin(a)) * s)
+	draw_colored_polygon(hexp, Color(0.75, 0.08, 0.05))
+	hexp.append(hexp[0])
+	draw_polyline(hexp, Color(1.0, 0.75, 0.3), 1.2)
+	var f := s * (0.8 + 0.06 * sin(pt * 8.0))
+	var outer := PackedVector2Array([q + Vector2(0, -f), q + Vector2(f * 0.45, -f * 0.1), q + Vector2(f * 0.5, f * 0.35),
+		q + Vector2(0, f * 0.65), q + Vector2(-f * 0.5, f * 0.35), q + Vector2(-f * 0.45, -f * 0.1)])
+	draw_colored_polygon(outer, Color(1.0, 0.6, 0.12))
+	var inner := PackedVector2Array([q + Vector2(0, -f * 0.35), q + Vector2(f * 0.25, f * 0.15), q + Vector2(0, f * 0.5), q + Vector2(-f * 0.25, f * 0.15)])
+	draw_colored_polygon(inner, Color(1.0, 0.92, 0.45))
 
 
 func _draw_logo(rect: Rect2) -> void:
@@ -1422,8 +1522,23 @@ func _draw_scoreboard() -> void:
 	elif game.overtime:
 		line = "Overtime: no respawns. The last team standing or the next capture wins."
 		ink = Color(0.55, 0.1, 0.05)
+	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify else {}
+	if line == "" and not fire.is_empty():
+		line = fire.text
+		ink = fire.color
 	if line != "":
 		_info_banner(Vector2(cx, 89), line, ink)
+		if not fire.is_empty() and line == fire.text:
+			# Ember Pass: the Fire Objective's flame on the medallion, and the
+			# capture filling along the banner's foot.
+			var w := maxf(_text_width(line, 12) + 74.0, 440.0)
+			var x0 := cx - w / 2.0
+			draw_circle(Vector2(x0 + 24, 89), 10, Color(0.33, 0.2, 0.07))
+			_fire_icon(Vector2(x0 + 24, 89), 7.0, fire.owner, fire.progress, Time.get_ticks_msec() / 1000.0)
+			var p: float = absf(fire.progress)
+			if p > 0.01 and p < 0.999:
+				var lead := 0 if fire.progress < 0.0 else 1
+				draw_rect(Rect2(x0 + 40.0, 98.0, (w - 54.0) * p, 3.0), _team_color(lead))
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
 
@@ -2106,6 +2221,9 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 	## doors, potions, blessings, and everyone the team can see. Enemies show
 	## only near a teammate, except Elite Veterans, who are always revealed.
 	var hx: float = game.map_half.x
+	if detailed:
+		# Room for the spawn cellars, which reach past the playfield's edge.
+		hx = maxf(hx, game.CASTLE_X + game.CASTLE_DEPTH + game.CELLAR_DEPTH + 1.0)
 	var hz: float = game.map_half.y
 	_plate(rect, GRASS.darkened(0.2), GOLD_DARK, 8, 2)
 	var inner := rect.grow(-3)
@@ -2119,9 +2237,19 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 	var sz: float = inner.size.y / (2.0 * hz)
 	var fx: float = game.CASTLE_X - game.CASTLE_DEPTH
 	var pt := Time.get_ticks_msec() / 1000.0
+	if game.vmap:
+		# Ember Pass: lava, the plateaus and the bridge network instead of the valley.
+		draw_rect(inner, Color(0.78, 0.22, 0.04))
+		for i in 70:
+			var q := inner.position + Vector2(fmod(i * 0.618034, 1.0), fmod(i * 0.381966 + 0.13, 1.0)) * inner.size
+			draw_circle(q, inner.size.y * (0.03 + 0.03 * fmod(i * 0.7548, 1.0)), Color(0.22, 0.07, 0.05, 0.85) if i % 3 else Color(1.0, 0.62, 0.15, 0.5))
+		var box := PackedVector2Array([inner.position, Vector2(inner.end.x, inner.position.y), inner.end, Vector2(inner.position.x, inner.end.y)])
+		_volcano_network(inner.get_center(), inner.size.length(), m, box, sx, pt)
 	# Forest.
 	for t in game.map_trees:
 		var r: float = (2.6 if t.y > 0.5 else 1.8) * sx
+		if not inner.grow(-r).has_point(m.call(t)):
+			continue
 		if detailed:
 			draw_circle(m.call(t) + Vector2(1, 1), r, Color(0, 0, 0, 0.2))
 		draw_circle(m.call(t), r, LEAF.darkened(0.25 if t.y > 0.5 else 0.1))
@@ -2143,6 +2271,12 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 			draw_rect(Rect2(c - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.6, 0.45, 0.3))
 			draw_arc(c + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
 	# The river, the island and the bridges.
+	if game.vmap == null:
+		_draw_map_river(m, sx, sz, hz, detailed)
+	_draw_map_castles(rect, m, sx, sz, fx, detailed)
+
+
+func _draw_map_river(m: Callable, sx: float, sz: float, hz: float, detailed: bool) -> void:
 	draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF - 0.8, 0, -hz)), Vector2((2.0 * game.RIVER_HALF + 1.6) * sx, 2.0 * hz * sz)), Color(0.55, 0.75, 0.9))
 	draw_rect(Rect2(m.call(Vector3(-game.RIVER_HALF, 0, -hz)), Vector2(2.0 * game.RIVER_HALF * sx, 2.0 * hz * sz)), Color(0.22, 0.48, 0.8))
 	draw_circle(m.call(Vector3.ZERO), game.ISLAND_R * sx + 1.5, Color(0.45, 0.42, 0.36))
@@ -2156,6 +2290,10 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		draw_rect(br, Color(0.6, 0.45, 0.3))
 		draw_rect(br, Color(0.35, 0.25, 0.15), false, 1.0)
 	_crown(m.call(Vector3.ZERO), 0.4 if not detailed else 0.8)
+
+
+func _draw_map_castles(rect: Rect2, m: Callable, sx: float, sz: float, fx: float, detailed: bool) -> void:
+	var pt := Time.get_ticks_msec() / 1000.0
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
 		var tc := _team_color(t)
@@ -2236,6 +2374,45 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		draw_arc(c, r, 0, TAU, 12, Color(0, 0, 0, 0.6), 1.0)
 		if u.carrying:
 			_crown(c + Vector2(0, -r - 4), 0.35 if not detailed else 0.6)
+	if detailed and game.vmap:
+		_volcano_legend(Rect2(rect.position + Vector2(8, 8), Vector2(300, 72)))
+
+
+func _volcano_legend(rect: Rect2) -> void:
+	## The concept's MINIMAP LEGEND box for Ember Pass.
+	_plate(rect, Color(0.08, 0.06, 0.06, 0.92), GOLD_DARK, 6, 2)
+	_text(rect.position + Vector2(0, 15), "MAP LEGEND", 11, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	var rows := [["elf", "Elf Base"], ["human", "Human Base"], ["fire", "Fire Objective"], ["spawn", "Spawn Area"], ["bridge", "Bridge"], ["path", "Pathway"], ["turret", "Turret Position"]]
+	for i in rows.size():
+		var row: Array = rows[i]
+		# Two columns so it fits in the open lava above the Elf Base.
+		var x := rect.position.x + (0.0 if i < 4 else 172.0)
+		var y := rect.position.y + 27.0 + (i % 4) * 12.0
+		var ic := Vector2(x + 18, y)
+		match row[0]:
+			"elf", "human":
+				var tc := _team_color(0 if row[0] == "elf" else 1)
+				draw_rect(Rect2(ic - Vector2(7, 7), Vector2(14, 14)), tc.darkened(0.2))
+				draw_rect(Rect2(ic - Vector2(7, 7), Vector2(14, 14)), Color(0, 0, 0, 0.6), false, 1.0)
+				_crown(ic, 0.32)
+			"fire":
+				_fire_icon(ic, 6.0, -1, 0.0, Time.get_ticks_msec() / 1000.0)
+			"bridge":
+				draw_rect(Rect2(ic - Vector2(9, 3), Vector2(18, 6)), Color(0.62, 0.42, 0.24))
+				for k in 3:
+					draw_line(ic + Vector2(-5 + k * 5, -3), ic + Vector2(-5 + k * 5, 3), Color(0.35, 0.22, 0.1), 1.0)
+			"path":
+				draw_rect(Rect2(ic - Vector2(9, 3), Vector2(18, 6)), Color(0.62, 0.55, 0.5))
+			"turret":
+				draw_circle(ic, 5.0, Color(1.0, 0.85, 0.5))
+				draw_circle(ic, 2.6, Color(0.6, 0.1, 0.05))
+			"spawn":
+				draw_rect(Rect2(ic - Vector2(6, 6), Vector2(12, 12)), Color(0.25, 0.12, 0.08))
+				draw_rect(Rect2(ic - Vector2(6, 6), Vector2(12, 12)), GOLD, false, 1.5)
+		_text(Vector2(x + 34, y + 4), row[1], 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+		if row[0] == "fire":
+			_text(Vector2(x + 112, y + 4), "(fire class)", 8, Color(1.0, 0.8, 0.3), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+
 
 func _rank_desc(p, track: int) -> String:
 	var r: int = p.rank(track)
@@ -2373,8 +2550,11 @@ func _draw_game_menu() -> void:
 
 
 func _menu_overview(body: Rect2) -> void:
-	_text(body.position + Vector2(0, 16), "THE WILDWOOD VALLEY", 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 3)
-	var map_rect := Rect2(body.position + Vector2(0, 26), Vector2(body.size.x, body.size.x * 26.0 / 58.0))
+	_text(body.position + Vector2(0, 16), "EMBER PASS" if game.vmap else "THE WILDWOOD VALLEY", 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 3)
+	# Keep the key and the blurb below clear of the footer and MAIN MENU.
+	var mh: float = minf(body.size.x * 26.0 / 58.0, body.size.y - 26.0 - 64.0)
+	var mw: float = mh * 58.0 / 26.0
+	var map_rect := Rect2(body.position + Vector2((body.size.x - mw) / 2.0, 26), Vector2(mw, mh))
 	_draw_map(map_rect, true)
 	var y := map_rect.end.y + 22
 	var legend := [["Yellow ring: you", Color(1, 1, 0.3)], ["Red: enemies seen by your team", Color(1.0, 0.25, 0.2)], ["Red dots: potions", Color(1.0, 0.35, 0.4)], ["Gold stars: blessings", GOLD],
@@ -2384,7 +2564,11 @@ func _menu_overview(body: Rect2) -> void:
 		var ly: float = y + (i / 3) * 18
 		draw_circle(Vector2(x, ly - 4), 5, legend[i][1])
 		_text(Vector2(x + 12, ly), legend[i][0], 11, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, steal their crown, carry it home. Grab a class hat in your cellar.", 11, GREY,
+	if game.vmap:
+		_text(Vector2(body.position.x, y + 40), "Hold the Fire Objective and every class on your team becomes its Fire form. Break the door, steal their crown, carry it home.", 11, GREY,
+			HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+		return
+	_text(Vector2(body.position.x, y + 40), "Break the enemy door, smash the Crown Vault lock, steal their crown, carry it home. Grab a class hat in your cellar.", 11, GREY,
 		HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
 
 
@@ -3075,11 +3259,12 @@ func _draw_title_play(panel: Rect2) -> void:
 	var row_y := fy + 240
 	_text(Vector2(left, row_y + 14), "MAP", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in Stats.MAPS.size():
-		var b := Rect2(left + 50 + i * 190, row_y, 180, 34)
+		var b := Rect2(left + 50 + i * 128, row_y, 122, 34)
 		var on: bool = game.map_variant == i
-		var locked: bool = i > 0 and not game.unlocked()
-		_chunky(b, (Color(0.2, 0.55, 0.3) if i == 0 else Color(0.25, 0.25, 0.55)) if not locked else Color(0.3, 0.3, 0.34), on, b.has_point(_mouse()))
-		_text(b.position + Vector2(0, 23), Stats.MAPS[i][0].to_upper(), 12, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 3)
+		var locked: bool = i == 1 and not game.unlocked()
+		var tile: Color = [Color(0.2, 0.55, 0.3), Color(0.25, 0.25, 0.55), Color(0.62, 0.22, 0.08)][mini(i, 2)]
+		_chunky(b, tile if not locked else Color(0.3, 0.3, 0.34), on, b.has_point(_mouse()))
+		_text(b.position + Vector2(0, 22), Stats.MAPS[i][0].to_upper(), 12 if Stats.MAPS[i][0].length() <= 11 else 9, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 3)
 		if locked:
 			_text(b.position + Vector2(0, 32), "LEVEL %d" % Stats.UNLOCK_LEVEL, 7, Color(1.0, 0.75, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
 		hero_buttons.append([b, "map", i])

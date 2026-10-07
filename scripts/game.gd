@@ -18,6 +18,7 @@ const Barricade = preload("res://scripts/barricade.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
+const Volcano = preload("res://scripts/volcano.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -96,6 +97,7 @@ var killer_card := {}           # who killed the player last: {"unit", "weapon"}
 var killer_timer := 0.0
 var hero_look := 0              # Stats.HERO_LOOKS index (1 needs account level 10)
 var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
+var vmap = null                 # Ember Pass (the volcano map): its layout, bot routes and Fire Objective; null on the Wildwood
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
@@ -249,6 +251,9 @@ func _ready() -> void:
 			cursor = Vector2(119, 238)
 	if "--debug-night" in OS.get_cmdline_user_args():
 		map_variant = 1
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--map="):  # testing: play a given Stats.MAPS index (2 = Ember Pass)
+			map_variant = clampi(int(arg.trim_prefix("--map=")), 0, Stats.MAPS.size() - 1)
 	# Cartoon shading on everything that enters the scene, props and units alike.
 	get_tree().node_added.connect(func(n): _toonify.call_deferred(n))
 	_build_world()
@@ -298,6 +303,8 @@ func _process(delta: float) -> void:
 				_finish(1 - t)
 				break
 	_update_compass()
+	if vmap:
+		vmap.tick(delta)
 	if not playing and not game_over:
 		if name_editing or menu_open:
 			return
@@ -463,6 +470,14 @@ func _debug_hooks() -> void:
 				var p := arg.trim_prefix("--debug-at=").split(",")
 				player.position = Vector3(float(p[0]), float(p[2]) if p.size() > 2 else 0.0, float(p[1]))
 				cam_pos = player.position + CAMERA_OFFSET * cam_zoom
+			if arg.begins_with("--debug-fire=") and vmap and not "--debug-fire-early" in OS.get_cmdline_user_args():
+				# Ember Pass: hand the Fire Objective to a team (and give the
+				# player a class so the FIRE form shows).
+				var ft := int(arg.trim_prefix("--debug-fire="))
+				if player.role == Role.BASE:
+					player.set_role(Role.KNIGHT)
+				vmap.fire_progress = -1.0 if ft == 0 else 1.0
+				vmap._set_owner(ft)
 			if arg == "--debug-blessing":
 				spawn_blessing(Vector3(0, 0, 0), "Regeneration")
 				player.apply_blessing("Might")
@@ -482,6 +497,12 @@ func _debug_hooks() -> void:
 				player.choose_variant(Role.KNIGHT, 0)
 				player.kills = 3
 				player.damage_dealt = 7
+		if arg.begins_with("--debug-fire=") and vmap and player and frame == 30 and "--debug-fire-early" in OS.get_cmdline_user_args():
+			# The same, early, so the capture's flash has faded by the shot.
+			if player.role == Role.BASE:
+				player.set_role(Role.KNIGHT)
+			vmap.fire_progress = -1.0 if arg.ends_with("0") else 1.0
+			vmap._set_owner(0 if arg.ends_with("0") else 1)
 		if arg == "--debug-options" and frame == shot_frame - 5 and not playing:
 			menu_open = true
 			menu_tab = 4
@@ -546,6 +567,8 @@ func _demo_summary() -> void:
 	## One line per unit at the end of a bot match, for balance tallies.
 	var w: String = "Draw" if winner_team < 0 else Stats.FACTIONS[winner_team].name
 	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1]])
+	if vmap:
+		print("FIRESTAT held=%d/%d captures=%d/%d" % [int(vmap.fire_held[0]), int(vmap.fire_held[1]), vmap.fire_captures[0], vmap.fire_captures[1]])
 	for u in units:
 		# The class the bot plays all match (its current role resets on death).
 		var cls: String = Stats.FACTIONS[u.team].roles[u.bot_class]
@@ -649,6 +672,8 @@ func turret_spot(team: int, pos: Vector3, builder) -> Vector3:
 	var grounds: bool = (fx - pos.x) * side >= 0.0 and (fx - pos.x) * side < Stats.TURRET.grounds and absf(pos.z) < CASTLE_HALF_Z + 6.0
 	if not (_inside_castle(team, pos) or grounds):
 		return Vector3.INF
+	if vmap and not vmap.walkable(pos, 0.5):
+		return Vector3.INF  # not out over the lava
 	if absf(pos.z) < Stats.DOOR_HALF + 1.3 and absf(pos.x - fx) < 5.0:
 		return Vector3.INF  # keep the door lane clear
 	if pos.y < -0.3:
@@ -768,7 +793,8 @@ func _tick_blessings(delta: float) -> void:
 	if blessing_timer > 0.0 or blessings.size() >= 2:
 		return
 	blessing_timer = randf_range(Stats.BLESSING_INTERVAL[0], Stats.BLESSING_INTERVAL[1])
-	var spot: Vector3 = BLESSING_SPOTS[randi() % BLESSING_SPOTS.size()]
+	var spots: Array = vmap.blessing_spots() if vmap else BLESSING_SPOTS
+	var spot: Vector3 = spots[randi() % spots.size()]
 	var kinds: Array = Stats.BLESSING_KINDS.keys()
 	spawn_blessing(spot, kinds[randi() % kinds.size()])
 
@@ -959,6 +985,9 @@ func _plan_bots(team: int) -> void:
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1 if overtime else 2, "defend")
 	elif gate_hurt:
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1, "defend")
+	# Ember Pass: win the Fire Objective, then keep a guard on it.
+	if vmap and cmd != "defend":
+		_assign_nearest(bots, vmap.FIRE_POS, vmap.bots_wanted(team), "fire")
 
 
 func command_active(team: int, kind: String) -> bool:
@@ -1233,9 +1262,13 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 			target = ramp.bottom
 		else:
 			return ramp.top
+	# Ember Pass: over the plazas and bridges to the leg that matters; the
+	# castle doors and keeps below still apply.
+	if vmap:
+		target = vmap.route(from, target)
 	# The shrine plinth is solid: a goal on it (or right beside it) means
 	# standing at its foot, on the side we come from.
-	if _flat_dist(target, Vector3.ZERO) < 1.6:
+	if vmap == null and _flat_dist(target, Vector3.ZERO) < 1.6:
 		var away := Vector3(from.x - target.x, 0, from.z - target.z)
 		if away.length() < 0.1:
 			away = Vector3(0, 0, 1)
@@ -1244,7 +1277,7 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 	# Up on the shrine island and leaving it: the steps are at z 0 on each
 	# side (stone rims close the north and south edges), and the plinth sits
 	# in the middle, so go round it on the side we are already on first.
-	var on_island: bool = from.y > 0.3 and _flat_dist(from, Vector3.ZERO) < ISLAND_R + 0.3
+	var on_island: bool = vmap == null and from.y > 0.3 and _flat_dist(from, Vector3.ZERO) < ISLAND_R + 0.3
 	if on_island and _flat_dist(target, Vector3.ZERO) > ISLAND_R + 0.3:
 		var exit_side := 1.0 if target.x > 0.0 else -1.0
 		if from.x * exit_side < -1.2 and absf(from.z) < 1.6:
@@ -1253,7 +1286,7 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 			return Vector3(exit_side * 2.4, 0.5, (1.0 if from.z >= 0.0 else -1.0) * 1.8)
 		return Vector3(exit_side * (ISLAND_R + 3.6), 0.0, 0.0)
 	# The river: cross at the bridge closest to the way, entering it square on.
-	if (from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF):
+	if vmap == null and ((from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF)):
 		var bi := 0
 		var best := 1e9
 		for i in BRIDGES.size():
@@ -1751,6 +1784,8 @@ func plant_barricade(u) -> bool:
 		why = "Not in the door lane"
 	elif _inside_castle(team, u.global_position) or absf(u.global_position.x) > CASTLE_X - CASTLE_DEPTH - 1.6:
 		why = "Only outside the walls"
+	elif vmap and not vmap.walkable(u.global_position + u.facing * 1.6, 0.4):
+		why = "Not over the lava"
 	if why != "":
 		if u.is_player:
 			toast(why, Color(1.0, 0.8, 0.5))
@@ -2360,9 +2395,8 @@ func menu_tick() -> void:
 							else:
 								toast("The Shadowborn look unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"map":
-							if b[2] == 0 or unlocked():
-								map_variant = b[2]
-								_apply_map_variant()
+							if b[2] != 1 or unlocked():
+								select_map(b[2])
 							else:
 								toast("The Moonlit Wildwood unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"name": name_editing = true
@@ -2773,6 +2807,20 @@ func cycle_difficulty(step: int) -> void:
 	var i: int = Stats.BOT_DIFFICULTIES.find(bot_difficulty)
 	bot_difficulty = Stats.BOT_DIFFICULTIES[posmod(i + step, Stats.BOT_DIFFICULTIES.size())]
 	_save_settings()
+
+
+func select_map(index: int) -> void:
+	## Pick a map on the title screen. The Moonlit Wildwood only changes the
+	## light; a map with other ground (Ember Pass) rebuilds the world, so the
+	## scene restarts on the title with the new map saved.
+	var built: String = "volcano" if vmap else "wildwood"
+	var want: String = "volcano" if Stats.MAPS[index][1] == "volcano" else "wildwood"
+	map_variant = index
+	if want != built:
+		_save_settings()
+		get_tree().reload_current_scene()
+		return
+	_apply_map_variant()
 
 
 func _save_settings() -> void:
@@ -3894,7 +3942,10 @@ func _add_island() -> void:
 
 func in_channel(p: Vector3) -> bool:
 	## In the river itself: between the banks, off every bridge deck and off
-	## the shrine island. Nothing should ever stand there.
+	## the shrine island. Nothing should ever stand there. On Ember Pass:
+	## anywhere off the plateaus, plazas and bridges (the lava).
+	if vmap:
+		return not vmap.walkable(p)
 	if absf(p.x) >= RIVER_HALF - 0.1 or p.y > 0.3:
 		return false
 	if _flat_dist(p, Vector3.ZERO) < ISLAND_R + 0.4:
@@ -6770,6 +6821,9 @@ func _apply_map_variant() -> void:
 	## Day or the Moonlit Wildwood: sky, sun (or moon), ambient, fog and glow.
 	if world_environment == null:
 		return
+	if vmap:
+		vmap.apply_light()
+		return
 	var dark := night()
 	if dark:
 		sky_material.sky_top_color = Color(0.02, 0.04, 0.1)
@@ -6906,6 +6960,9 @@ func _build_world() -> void:
 	fill.light_energy = 0.15
 	add_child(fill)
 
+	if Stats.MAPS[map_variant][1] == "volcano":
+		_build_volcano()
+		return
 	# Ground, in pieces so each castle's spawn cellar can be sunk behind it.
 	var gx := map_half.x + 40.0
 	var gz := map_half.y + 30.0
@@ -7014,7 +7071,25 @@ func _build_world() -> void:
 			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
 	_build_outskirts()
 	_add_back_forest()
+	_finish_world()
 
+
+func _build_volcano() -> void:
+	## Ember Pass: the same two castles on basalt plateaus over a lava sea,
+	## joined by bridges (scripts/volcano.gd builds everything else).
+	vmap = Volcano.new(self)
+	vmap.build()
+	_build_castle(0)
+	_build_castle(1)
+	for p in vmap.heal_orb_spots():
+		var orb = HealOrb.new()
+		add_child(orb)
+		orb.setup(self, p)
+		heal_orbs.append(orb)
+	_finish_world()
+
+
+func _finish_world() -> void:
 	_apply_map_variant()
 	camera = Camera3D.new()
 	camera.rotation_degrees = Vector3(-50, 0, 0)
