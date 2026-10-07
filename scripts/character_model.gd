@@ -121,10 +121,11 @@ static func config(team: int, role: int, variant: String = "", rank: int = 1) ->
 # Cells (col, row) of the 8x4 palette grid that hold each skin's hair and
 # trim (cape / sash), per base model. Mirrors tools/recolor_skins.py.
 const CELLS := {
-	"knight": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)]},
-	"rogue": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)]},
-	"mage": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)]},
-	"healer": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)]},
+	"knight": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
+	"rogue": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
+	"mage": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)], "skin": [Vector2i(0, 0)]},
+	"healer": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)], "skin": [Vector2i(0, 0)]},
+	"barbarian": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
 }
 static var custom_cache := {}
 var model_root: Node3D
@@ -135,7 +136,8 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 	## the palette cells (keeping each cell's shading gradient). Cached.
 	if custom.is_empty() or not CELLS.has(skin_name):
 		return skin
-	var key := "%s|%s|%s" % [skin.resource_path, custom.get("hair", Color.TRANSPARENT).to_html(), custom.get("trim", Color.TRANSPARENT).to_html()]
+	var key := "%s|%s|%s|%s" % [skin.resource_path, custom.get("hair", Color.TRANSPARENT).to_html(), custom.get("trim", Color.TRANSPARENT).to_html(),
+		custom.get("skin", Color.TRANSPARENT).to_html()]
 	if custom_cache.has(key):
 		return custom_cache[key]
 	var img: Image = skin.get_image()
@@ -146,7 +148,7 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 		img.decompress()
 	var cw: int = img.get_width() / 8
 	var ch: int = img.get_height() / 4
-	for part in ["hair", "trim"]:
+	for part in ["hair", "trim", "skin"]:
 		if not custom.has(part):
 			continue
 		var target: Color = custom[part]
@@ -171,6 +173,12 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	for child in get_children():
 		child.queue_free()
 	var c := config(team, role, variant, rank)
+	if role == Role.BASE and variant == "" and custom.has("body") and SCENES.has(custom.body):
+		# The player's chosen build for the unclassed body, bare-headed.
+		c.scene = custom.body
+		c.skin = custom.body
+		c.hat = false
+		c.bare = true
 	var inst: Node3D = load(SCENES[c.scene]).instantiate()
 	add_child(inst)
 	model_root = inst
@@ -200,7 +208,7 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	if not c.hat:
 		for name in ["Mage_Hat", "Barbarian_Hat", "Knight_Helmet"]:
 			var hat := inst.find_child(name, true, false)
-			if hat and (c.scene != "knight" or variant != ""):
+			if hat and (c.scene != "knight" or variant != "" or c.get("bare", false)):
 				hat.visible = false
 	# Capes are earned: Knights and Rangers wear one from rank 3 (promotions always do).
 	for name in ["Knight_Cape", "Rogue_Cape"]:
@@ -234,7 +242,7 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 
 	if skeleton:
 		if c.ears:
-			_add_ears(team)
+			_add_ears(team, custom.get("skin", Color(0.97, 0.84, 0.72)))
 		if c.crown:
 			_add_crown()
 	_add_class_flair(role, variant)
@@ -633,10 +641,10 @@ func _attach_to_head() -> BoneAttachment3D:
 	return att
 
 
-func _add_ears(team: int) -> void:
+func _add_ears(team: int, skin_color: Color = Color(0.97, 0.84, 0.72)) -> void:
 	var att := _attach_to_head()
 	var skin_mat := StandardMaterial3D.new()
-	skin_mat.albedo_color = Color(0.97, 0.84, 0.72)
+	skin_mat.albedo_color = skin_color
 	for side in [-1.0, 1.0]:
 		var ear := MeshInstance3D.new()
 		var cone := CylinderMesh.new()
