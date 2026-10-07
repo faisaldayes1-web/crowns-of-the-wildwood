@@ -1583,7 +1583,7 @@ func _start_match(team: int) -> void:
 	player_team = team
 	for m in monarchs:
 		# Only our own crown is labelled (Faisal 2026-10-07: no "steal" text).
-		m.label.text = "OUR CROWN - DEFEND!" if m.team == player_team else ""
+		m.label.text = ""   # no crown captions (Faisal 2026-10-07 21:14)
 	winner_team = -1
 	banner.visible = false
 	for arg in OS.get_cmdline_user_args():
@@ -1611,6 +1611,8 @@ func _start_match(team: int) -> void:
 				u.has_mouse = local_k == 0
 				u.display_name = (hero_name if hero_name.strip_edges() != "" else "You") if local_k == 0 else "Player %d" % (local_k + 1)
 				locals[local_k] = u
+				u._apply_side_colors()   # couch colours need local_index, set just now
+				u._refresh_overhead()
 			else:
 				u.display_name = Stats.BOT_NAMES[t][i % Stats.BOT_NAMES[t].size()]
 			units.append(u)
@@ -2605,6 +2607,14 @@ func _axis_name(axis: int, kind: String) -> String:
 
 
 # --- Gamepads ----------------------------------------------------------------
+
+const PLAYER_COLORS := [Color(1.0, 1.0, 0.3), Color(0.3, 0.85, 1.0), Color(1.0, 0.45, 0.8), Color(0.6, 1.0, 0.3)]
+
+
+func player_color(local_index: int) -> Color:
+	## Each couch player's colour: their ground ring, outline, name and map arrow.
+	return PLAYER_COLORS[clampi(local_index, 0, PLAYER_COLORS.size() - 1)]
+
 
 func local_pad(local_index: int) -> int:
 	## The gamepad device a local player uses: in couch play players 2-4 hold

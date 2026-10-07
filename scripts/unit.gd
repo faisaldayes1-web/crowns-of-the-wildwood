@@ -105,6 +105,7 @@ var rally_wait := 0.0   # seconds spent holding at the rally point
 var last_role := 0            # the class held when we died
 var stuck_time := 0.0
 var stall_target := Vector3.ZERO   # last _steer_to target (diagnostics)
+var player_ring_mat: StandardMaterial3D   # the ground ring under a local player
 var local_index := -1              # which local (couch) player drives this unit, -1 for bots
 var act_prefix := ""               # input action prefix: "" for player 1, "p2_" ... for couch players
 var has_mouse := true              # player 1 aims with the mouse; the others with the right stick
@@ -204,6 +205,7 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 		var ring_mat := StandardMaterial3D.new()
 		ring_mat.albedo_color = Color(1, 1, 0.3)
 		ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		player_ring_mat = ring_mat
 		ring.material_override = ring_mat
 		add_child(ring)
 
@@ -462,15 +464,20 @@ func _apply_side_colors() -> void:
 	if model == null or model.outline == null:
 		return
 	var enemy := is_enemy_of_player()
-	if is_player:
+	if is_player and game.couch_players > 1:
+		# Couch play: every local player wears their own colour (outline,
+		# ground ring, name over walls) so partners spot each other.
+		model.outline.albedo_color = game.player_color(local_index)
+		model.outline.grow_amount = 0.04
+	elif is_player:
 		model.outline.albedo_color = Color(0.09, 0.07, 0.1)
-		model.outline.grow_amount = 0.022
+		model.outline.grow_amount = 0.028
 	elif highlighted:
 		model.outline.albedo_color = Color(1.0, 0.18, 0.12) if enemy else Color(0.25, 1.0, 0.4)
 		model.outline.grow_amount = 0.045
 	else:
 		model.outline.albedo_color = Color(0.34, 0.05, 0.05) if enemy else Color(0.04, 0.24, 0.09)
-		model.outline.grow_amount = 0.024
+		model.outline.grow_amount = 0.03
 	if blob_mat:
 		blob_mat.albedo_color = Color(0, 0, 0, 0.3) if is_player else (Color(0.7, 0.0, 0.0, 0.4) if enemy else Color(0.0, 0.5, 0.1, 0.35))
 	# A faint glow over the whole body (Faisal 2026-10-07): green for
@@ -512,7 +519,12 @@ func _refresh_overhead() -> void:
 	# Only the player's own name (and a veteran's warning) floats overhead;
 	# everyone else shows just their hearts, so crowds stay readable.
 	label.text = vet + tag + role_name() + lvl if (is_player or veteran >= 1) else ""
-	if is_player:
+	if is_player and game.couch_players > 1:
+		label.modulate = game.player_color(local_index).lightened(0.3)
+		label.no_depth_test = true   # visible through walls to the other panes
+		if player_ring_mat:
+			player_ring_mat.albedo_color = game.player_color(local_index)
+	elif is_player:
 		label.modulate = Color(1, 1, 0.6)
 	else:
 		label.modulate = Color(1.0, 0.7, 0.65) if is_enemy_of_player() else Color(0.7, 1.0, 0.75)
