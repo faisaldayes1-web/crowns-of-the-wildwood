@@ -294,6 +294,10 @@ def make_flagstone():
     moss = np.clip((1 - height) * 1.3 + (fbm(N, 6, 3, 95) - 0.62) * 2.5, 0, 1) * (fbm(N, 3, 2, 96) > 0.5)
     mossy = lerp(color * rgb(0.96, 1.0, 0.9), rgb(0.42, 0.68, 0.26), np.clip(moss * 0.75, 0, 1)[..., None])
     save("flagstone_moss", mossy, np.clip(height, 0, 1), 1.0)
+    # The Humans' halls: the same flags in a cool, worn grey-beige.
+    lum = color.mean(axis=-1, keepdims=True)
+    grey = lerp(lum * rgb(0.92, 0.90, 0.86), color, 0.18)
+    save("flagstone_grey", grey, np.clip(height, 0, 1), 1.0)
 
 
 def make_stepping_stones(name, cells, seed, drop):
@@ -597,6 +601,33 @@ def make_wood_dark():
 
 
 os.makedirs(OUT, exist_ok=True)
+def make_greystone():
+    """Cool grey castle blocks for the Humans' halls and curtain walls: big,
+    flat-filled, each its own shade of blue-grey, with ink joints and a pale
+    top edge, like the sandstone but colder."""
+    rows, cols = 5, 3
+    height, shade = brick_layout(rows=rows, cols=cols, mortar=6, bevel=5)
+    ys = np.mgrid[0:N, 0:N][0].astype(np.float64)
+    v = (ys % (N / rows)) / (N / rows)
+    light = rgb(0.74, 0.76, 0.80)
+    deep = rgb(0.52, 0.55, 0.60)
+    color = lerp(deep, light, (0.25 + 0.75 * shade)[..., None])
+    color = color * (1.04 - 0.1 * v)[..., None]
+    top = np.clip(1 - np.abs(v - 0.07) / 0.05, 0, 1) * height
+    color = lerp(color, rgb(0.86, 0.88, 0.90), (top * 0.6)[..., None])
+    bottom = np.clip((v - 0.86) / 0.08, 0, 1) * height
+    color = lerp(color, deep * 0.8, (bottom * 0.5)[..., None])
+    ink = rgb(0.18, 0.18, 0.22)
+    color = lerp(ink, color, np.clip(height * 1.6, 0, 1)[..., None])
+    save("greystone", color, height, 1.2)
+
+
+import sys
+if len(sys.argv) > 1:   # e.g. python3 tools/make_textures.py make_greystone
+    for fn in sys.argv[1:]:
+        globals()[fn]()
+    sys.exit(0)
+
 make_stone()
 make_cobble()
 make_wood()
@@ -615,3 +646,4 @@ make_carpet()
 make_sand()
 make_moss()
 make_wood_dark()
+make_greystone()
