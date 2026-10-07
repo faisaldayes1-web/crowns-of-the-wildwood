@@ -123,7 +123,7 @@ def drop_shadow(img, offset=(0, 4), blur=5, alpha=150):
 
 # --- Buttons and frames --------------------------------------------------------
 
-def wood_button(name, gold=False, pointed=False, size=(300, 64), seed=3):
+def wood_button(name, gold=False, pointed=False, size=(300, 64), seed=3, wood=((120, 70, 34), (66, 34, 14))):
     """The menu's plank button. Nine-slice margins: 20 px each side (36 when pointed)."""
     W, H = size[0] * SS, size[1] * SS
     pad = 4 * SS
@@ -140,7 +140,7 @@ def wood_button(name, gold=False, pointed=False, size=(300, 64), seed=3):
         inner = poly_mask((W, H), inner_pts)
         rim = vgrad((W, H), [(0.0, GOLD_L), (0.45, GOLD), (1.0, GOLD_D)])
         img.paste(rim, (0, 0), outer)
-        img.paste(wood_fill((W, H), (120, 70, 34), (66, 34, 14), seed), (0, 0), inner)
+        img.paste(wood_fill((W, H), wood[0], wood[1], seed), (0, 0), inner)
         d = ImageDraw.Draw(img)
         d.line(pts + [pts[0]], fill=INK + (255,), width=2 * SS, joint="curve")
         d.line(inner_pts + [inner_pts[0]], fill=(60, 30, 8, 220), width=SS, joint="curve")
@@ -612,6 +612,15 @@ def banner(name, cloth, cloth_d, emblem, size=(256, 512)):
         for x, y in [(-0.76, -0.66), (-0.78, -0.22), (-0.5, 0.98), (0.12, 1.04)]:
             md.ellipse([*X(x - 0.09, y - 0.07), *X(x + 0.09, y + 0.07)], fill=255)  # claws
         fill_c, fill_d = GOLD_L, GOLD_D
+    elif emblem == "crown":
+        # A five-pointed crown with a jewelled band.
+        pts = [X(-0.62, 0.35), X(-0.7, -0.45), X(-0.36, -0.08), X(-0.2, -0.62), X(0.0, -0.18), X(0.2, -0.62),
+               X(0.36, -0.08), X(0.7, -0.45), X(0.62, 0.35)]
+        md.polygon(pts, fill=255)
+        md.rectangle([*X(-0.66, 0.3), *X(0.66, 0.55)], fill=255)
+        for x, y in [(-0.7, -0.5), (-0.2, -0.68), (0.2, -0.68), (0.7, -0.5), (0.0, -0.3)]:
+            md.ellipse([*X(x - 0.09, y - 0.09), *X(x + 0.09, y + 0.09)], fill=255)
+        fill_c, fill_d = GOLD_L, GOLD_D
     else:
         # The Wildwood tree: trunk, three rising boughs, leaf sprays, roots.
         _thick(md, [X(0.0, 0.85), X(0.0, -0.1)], u * 0.2)
@@ -648,10 +657,13 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "banners":
         banner("banner_lion", (40, 84, 196), (20, 44, 120), "lion")
         banner("banner_tree", (52, 150, 64), (22, 86, 34), "tree")
+        banner("banner_crown_red", (196, 44, 40), (120, 20, 24), "crown")
+        banner("banner_crown_blue", (40, 84, 196), (20, 44, 120), "crown")
         sys.exit(0)
     wood_button("btn_wood")
     wood_button("btn_wood_hi", gold=True, seed=4)
     wood_button("btn_play", gold=True, pointed=True, size=(320, 72), seed=5)
+    wood_button("btn_play_blue", gold=True, pointed=True, size=(320, 72), seed=5, wood=((52, 86, 178), (22, 36, 96)))
     green_button("btn_green")
     green_button("btn_green_off", ((150, 150, 150), (100, 100, 100), (60, 60, 60)))
     big_frame("frame_big")
@@ -662,3 +674,5 @@ if __name__ == "__main__":
     make_icons()
     banner("banner_lion", (40, 84, 196), (20, 44, 120), "lion")
     banner("banner_tree", (52, 150, 64), (22, 86, 34), "tree")
+    banner("banner_crown_red", (196, 44, 40), (120, 20, 24), "crown")
+    banner("banner_crown_blue", (40, 84, 196), (20, 44, 120), "crown")

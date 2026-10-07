@@ -233,7 +233,7 @@ func _draw_title() -> void:
 	var play := Rect2(x - 4, 284, w + 8, 70)
 	var hover := button(play, "play")
 	var pr := play.grow(3) if hover else play
-	nine("btn_play", pr, 36, 22, 36, 22, Color(1.1, 1.08, 1.0) if hover else Color.WHITE)
+	nine("btn_play_blue", pr, 36, 22, 36, 22, Color(1.1, 1.08, 1.0) if hover else Color.WHITE)
 	if hover:
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0, 0, 0, 0)
@@ -242,7 +242,7 @@ func _draw_title() -> void:
 		sb.shadow_size = 14
 		h.draw_style_box(sb, pr.grow(-8))
 	icon("swords", Vector2(pr.position.x + 52, pr.get_center().y), 50)
-	ttext(Vector2(pr.position.x + 92, pr.get_center().y + 13), "PLAY", 36, Color(1.0, 0.92, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 7)
+	ttext(Vector2(pr.position.x + 92, pr.get_center().y + 13), "PLAY", 36, Color(1.0, 0.95, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 7)
 	var items := [["CUSTOMIZE", "tunic", "customize"], ["SETTINGS", "gear", "settings"], ["TUTORIAL", "book", "tutorial"],
 		["CREDITS", "trophy", "credits"], ["EXIT" if exit_armed <= 0.0 else "EXIT? CLICK AGAIN", "exit", "exit"]]
 	for i in items.size():
@@ -399,7 +399,7 @@ func _draw_character() -> void:
 			sb.shadow_color = Color(1.0, 0.7, 0.2, 0.45)
 			sb.shadow_size = 10
 			h.draw_style_box(sb, rr)
-		var locked: bool = i == 2   # FACE: the KayKit heads have one painted face
+		var locked := false
 		icon(CHAR_TABS[i][1], rr.position + Vector2(32, rr.size.y / 2.0), 38, Color(0.6, 0.6, 0.6) if locked else Color.WHITE)
 		ttext(rr.position + Vector2(62, rr.size.y / 2.0 + 7), CHAR_TABS[i][0], 19, Color(0.65, 0.65, 0.65) if locked else (Color(1.0, 0.92, 0.65) if sel else Color.WHITE), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		if locked:
@@ -485,10 +485,10 @@ func _tab_appearance(panel: Rect2) -> void:
 		h.draw_circle(c + Vector2(-5, -5), 4, Color(1, 1, 1, 0.3))
 	y += step
 	_row_label(panel, y, "Face Style")
-	for i in 4:
-		swatch(Rect2(x0 + i * 52, y - 18, 42, 36), Color(0.3, 0.26, 0.22), i == 0, "locked", "face", i > 0)
-		icon("face", Vector2(x0 + i * 52 + 21, y), 28, Color(1, 1, 1, 1.0 if i == 0 else 0.35))
-	icon("lock", Vector2(x0 + 4 * 52 + 14, y), 22)
+	for i in Stats.HERO_FACES.size():
+		var r := Rect2(x0 + i * 52, y - 18, 42, 36)
+		swatch(r, Stats.HERO_SKINS[game.hero_skin][1], game.hero_face == i, "face", i)
+		face_thumb(r.grow(-3), i)
 	y += step
 	_row_label(panel, y, "Preview")
 	for i in PREVIEW_ROLES.size():
@@ -498,7 +498,7 @@ func _tab_appearance(panel: Rect2) -> void:
 		swatch(r, Color(0.2, 0.2, 0.24), on, "preview_role", role)
 		h._icon(h._class_icon(role) if role != Role.BASE else ("class_elf" if preview_team == 0 else "class_human"), r.get_center(), 12, Color.WHITE)
 	y += step - 6
-	h._text(Vector2(panel.position.x + 20, y + 14), "Hair and face styles come with a later update.", 11, Color(0.7, 0.7, 0.68), HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 40, 2)
+	h._text(Vector2(panel.position.x + 20, y + 14), "New hair styles come with a later update.", 11, Color(0.7, 0.7, 0.68), HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 40, 2)
 
 
 func _tab_hair(panel: Rect2) -> void:
@@ -518,10 +518,26 @@ func _tab_hair(panel: Rect2) -> void:
 	h._paragraph(Vector2(panel.position.x + 26, y + 276), "One style per body for now: new cuts arrive with the character art update.", 12, Color(0.8, 0.8, 0.76), panel.size.x - 52, 15.0)
 
 
+func face_thumb(r: Rect2, i: int) -> void:
+	## Both eyes of face style i, cropped from its texture.
+	var path := "res://assets/characters/faces/face_eyes_%s_%s.png" % [["bold", "bright", "fierce", "gentle"][i], "green" if preview_team == 0 else "brown"]
+	if not tex.has(path):
+		tex[path] = load(path)
+	var src := Rect2(40, 50, 432, 190)
+	var w := r.size.x
+	var hh := w * src.size.y / src.size.x
+	h.draw_texture_rect_region(tex[path], Rect2(r.position.x, r.get_center().y - hh / 2.0, w, hh), src)
+
+
 func _tab_face(panel: Rect2) -> void:
-	icon("lock", panel.get_center() + Vector2(0, -60), 70)
-	ttext(Vector2(panel.position.x, panel.get_center().y + 10), "COMING SOON", 26, Color(1.0, 0.85, 0.5), HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 5)
-	h._paragraph(Vector2(panel.position.x + 40, panel.get_center().y + 44), "The heroes share one painted face today. Face styles arrive with the character art update.", 13, Color(0.85, 0.85, 0.8), panel.size.x - 80, 17.0)
+	var y := panel.position.y + 70
+	for i in Stats.HERO_FACES.size():
+		var r := Rect2(panel.position.x + 26 + (i % 2) * 206, y + (i / 2) * 170, 194, 156)
+		var on: bool = game.hero_face == i
+		swatch(r, Stats.HERO_SKINS[game.hero_skin][1], on, "face", i)
+		face_thumb(Rect2(r.position + Vector2(14, 8), Vector2(r.size.x - 28, 84)), i)
+		ttext(Vector2(r.position.x, r.position.y + 118), Stats.HERO_FACES[i][0].to_upper(), 20, Color.WHITE if on else Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+		h._text(Vector2(r.position.x, r.position.y + 140), Stats.HERO_FACES[i][1], 11, Color(1, 1, 1, 0.9), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
 
 
 func _tab_armor(panel: Rect2) -> void:
@@ -847,6 +863,11 @@ func _press(id: String, arg) -> void:
 		"skin":
 			game.hero_skin = int(arg)
 			game._save_settings()
+		"face":
+			game.hero_face = int(arg)
+			if preview_role == Role.KNIGHT:
+				preview_role = Role.BASE   # the helmet hides the brows
+			game._save_settings()
 		"hair":
 			game.hero_hair = int(arg)
 			if preview_role == Role.KNIGHT:
@@ -861,7 +882,7 @@ func _press(id: String, arg) -> void:
 				game._save_settings()
 			else:
 				game.toast("The Shadowborn look unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
-		"locked": game.toast("Hair and face styles arrive in a later update", Color(1.0, 0.8, 0.5))
+		"locked": game.toast("New hair styles arrive in a later update", Color(1.0, 0.8, 0.5))
 		"confirm":
 			game._save_settings()
 			go("title")

@@ -412,7 +412,7 @@ func _fighter(team: int, role: int, pos: Vector3, face: Vector3, kind: String, s
 	m.setup(team, role, "", {}, rank)
 	m.global_position = pos
 	m.scale = Vector3.ONE * scale
-	m.look_at(Vector3(face.x, pos.y, face.z), Vector3.UP, true)
+	m.look_at(Vector3(face.x, pos.y, face.z), Vector3.UP)
 	match kind:
 		"aim":
 			if m.anim and m.anim.has_animation("2H_Ranged_Aiming"):
@@ -465,7 +465,9 @@ func _armies() -> void:
 
 func place_heroes(cam: Camera3D, vp: Vector2) -> void:
 	## Puts the two big heroes at fixed screen spots, whatever the aspect.
-	for pair in [[hero_knight, Vector2(0.37, 1.0), P(3, 0, -6), 0.35], [hero_ranger, Vector2(0.85, 1.0), P(-6, 0, -6), -0.2]]:
+	# As in the key art: the Knight seen from behind, bottom right, looking up at the castle.
+	hero_ranger.visible = false
+	for pair in [[hero_knight, Vector2(0.78, 1.04), P(-3, 0, -26), 0.0]]:
 		var p: Vector2 = vp * pair[1]
 		var o := cam.project_ray_origin(p)
 		var d := cam.project_ray_normal(p)
@@ -474,7 +476,7 @@ func place_heroes(cam: Camera3D, vp: Vector2) -> void:
 		m.global_position = pos
 		m.scale = Vector3.ONE * 1.8
 		var aim: Vector3 = pair[2]
-		m.look_at(Vector3(aim.x, pos.y, aim.z), Vector3.UP, true)
+		m.look_at(Vector3(aim.x, pos.y, aim.z), Vector3.UP)
 		m.rotation.y += pair[3]
 
 

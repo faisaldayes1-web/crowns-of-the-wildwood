@@ -6,6 +6,8 @@ extends Node3D
 
 const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
+const Face = preload("res://scripts/face.gd")
+const OutfitFlair = preload("res://scripts/outfit_flair.gd")
 
 const SCENES := {
 	"knight": "res://assets/characters/Knight.glb",
@@ -241,11 +243,14 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 				flash_mats.append(dup)
 
 	if skeleton:
+		_add_face(inst, c.scene, team, role, custom, skin)
 		if c.ears:
 			_add_ears(team, custom.get("skin", Color(0.97, 0.84, 0.72)))
 		if c.crown:
 			_add_crown()
 	_add_class_flair(role, variant)
+	if skeleton and variant == "":
+		OutfitFlair.dress(skeleton, role, custom.get("trim", Stats.FACTIONS[team].color.darkened(0.1)), outline)
 	if variant == "" or Stats.VARIANTS.has(role):
 		_add_rank_flair(team, role, rank)
 	if variant == "":
@@ -632,6 +637,24 @@ func _meshes(node: Node) -> Array:
 	for child in node.get_children():
 		out.append_array(_meshes(child))
 	return out
+
+
+func _add_face(inst: Node3D, scene: String, team: int, role: int, custom: Dictionary, skin: Texture2D) -> void:
+	## Anime eyes, brows and mouth over the head (scripts/face.gd); the
+	## model's dot eyes are painted out of the head's skin.
+	var head: MeshInstance3D = null
+	for m in _meshes(inst):
+		if "_Head" in str(m.name):
+			head = m
+	if head == null:
+		return
+	for i in head.get_surface_override_material_count():
+		var mat = head.get_surface_override_material(i)
+		if mat is StandardMaterial3D:
+			mat.albedo_texture = Face.no_eyes(mat.albedo_texture)
+	var face = Face.new()
+	var brow: Color = custom.get("hair", Face.hair_color(skin))
+	face.build(skeleton, scene, team, int(custom.get("face", Face.default_style(role))), brow.darkened(0.1))
 
 
 func _attach_to_head() -> BoneAttachment3D:

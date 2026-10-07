@@ -243,6 +243,91 @@ func place_title_cast() -> void:
 
 # --- The hall ----------------------------------------------------------------------------
 
+func _hall_banner(color: String, pos: Vector3, h: float, facing: float) -> void:
+	## A crown banner hung from a gold rod (assets/ui/menu/banner_crown_*.png).
+	var root := Node3D.new()
+	game.add_child(root)
+	root.global_position = pos
+	root.rotation.y = facing
+	var cloth := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(h * 0.5, h)
+	cloth.mesh = q
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = load("res://assets/ui/menu/banner_crown_%s.png" % color)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	m.alpha_scissor_threshold = 0.5
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.roughness = 0.9
+	cloth.material_override = m
+	cloth.position = Vector3(0, -h / 2.0, 0.08)
+	root.add_child(cloth)
+	var rod := MeshInstance3D.new()
+	var rm := CylinderMesh.new()
+	rm.top_radius = 0.05
+	rm.bottom_radius = 0.05
+	rm.height = h * 0.5 + 0.4
+	rod.mesh = rm
+	rod.material_override = game._gold()
+	rod.rotation.z = PI / 2.0
+	rod.position = Vector3(0, 0.03, 0.1)
+	root.add_child(rod)
+
+
+func _window(pos: Vector3) -> void:
+	## An arched leaded window: glowing panes behind a timber frame and mullions.
+	var glass := StandardMaterial3D.new()
+	glass.albedo_color = Color(0.55, 0.72, 0.92)
+	glass.emission_enabled = true
+	glass.emission = Color(0.55, 0.75, 1.0)
+	glass.emission_energy_multiplier = 0.55
+	var frame: Material = game._timber(Color(0.55, 0.4, 0.28))
+	game._add_block(pos + Vector3(0, 0, 0.02), Vector3(2.2, 3.0, 0.06), Color.GRAY, false, glass)
+	var arch := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 1.1
+	cm.bottom_radius = 1.1
+	cm.height = 0.06
+	arch.mesh = cm
+	arch.material_override = glass
+	arch.rotation.x = PI / 2.0
+	game.add_child(arch)
+	arch.global_position = pos + Vector3(0, 1.5, 0.02)
+	for x in [-1.15, 1.15]:
+		game._add_block(pos + Vector3(x, 0, 0.08), Vector3(0.18, 3.1, 0.14), Color.GRAY, false, frame)
+	game._add_block(pos + Vector3(0, -1.55, 0.1), Vector3(2.6, 0.2, 0.3), Color.GRAY, false, frame)
+	for x in [-0.37, 0.37]:
+		game._add_block(pos + Vector3(x, 0.4, 0.07), Vector3(0.06, 3.9, 0.06), Color.GRAY, false, game._iron())
+	for y in [-0.6, 0.4, 1.4]:
+		game._add_block(pos + Vector3(0, y, 0.07), Vector3(2.2, 0.06, 0.06), Color.GRAY, false, game._iron())
+	var sun: OmniLight3D = game._add_light(pos + Vector3(0, 0.6, 1.4), Color(0.8, 0.9, 1.0), 1.4, 7.0)
+	sun.name = "WindowLight"
+
+
+func _throne(pos: Vector3) -> void:
+	## A red-cushioned throne with a gold frame on a two-step dais.
+	var gold: Material = game._gold()
+	var red: Material = game._cloth(Color(0.7, 0.1, 0.12))
+	var wood: Material = game._timber(Color(0.6, 0.38, 0.22))
+	game._add_block(pos + Vector3(0, 0.1, 0.2), Vector3(3.0, 0.2, 2.0), Color.GRAY, false, game._carpet(Color(0.55, 0.08, 0.1)))
+	game._add_block(pos + Vector3(0, 0.3, 0.0), Vector3(2.2, 0.2, 1.4), Color.GRAY, false, wood)
+	game._add_block(pos + Vector3(0, 0.75, 0.0), Vector3(1.3, 0.7, 0.9), Color.GRAY, false, wood)
+	game._add_block(pos + Vector3(0, 1.15, 0.05), Vector3(1.1, 0.16, 0.8), Color.GRAY, false, red)
+	game._add_block(pos + Vector3(0, 1.95, -0.38), Vector3(1.2, 1.7, 0.18), Color.GRAY, false, gold)
+	game._add_block(pos + Vector3(0, 1.9, -0.28), Vector3(0.95, 1.45, 0.06), Color.GRAY, false, red)
+	for x in [-0.62, 0.62]:
+		game._add_block(pos + Vector3(x, 1.35, 0.0), Vector3(0.14, 0.4, 0.9), Color.GRAY, false, gold)
+	for x in [-0.55, 0.0, 0.55]:
+		var ball := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.11
+		sm.height = 0.22
+		ball.mesh = sm
+		ball.material_override = gold
+		game.add_child(ball)
+		ball.global_position = pos + Vector3(x, 2.88 + (0.12 if x == 0.0 else 0.0), -0.38)
+
+
 func _build_hall() -> void:
 	## Stone walls, a flagstone floor, timber beams, blue lion banners, torches,
 	## barrels and crates. Built with the world's own helpers, then moved here.
@@ -251,8 +336,8 @@ func _build_hall() -> void:
 	game.mossy = false
 	var c := HALL
 	# Grey castle stone (the greystone texture where the art pass has made it).
-	var stone: Material = game._pbr("greystone", 0.3, Color(0.95, 0.92, 0.9)) if ResourceLoader.exists("res://assets/textures/greystone_color.jpg") \
-		else game._stone(Color(0.7, 0.7, 0.78), 0.3)
+	var stone: Material = game._pbr("greystone", 0.3, Color(0.78, 0.72, 0.66)) if ResourceLoader.exists("res://assets/textures/greystone_color.jpg") \
+		else game._stone(Color(0.6, 0.55, 0.52), 0.3)
 	var floor_mat: Material = game._flagstone(Color(0.95, 0.88, 0.78))
 	game._add_block(c + Vector3(0, -0.1, 0), Vector3(30, 0.2, 24), Color.GRAY, false, floor_mat)
 	# Back wall, side walls angled in a little, and a dark ceiling to keep the sky out.
@@ -267,12 +352,26 @@ func _build_hall() -> void:
 	game._add_block(c + Vector3(0, 6.9, -5.8), Vector3(22, 0.5, 0.6), Color.GRAY, false, timber)
 	for s in [-1.0, 1.0]:
 		game._add_block(c + Vector3(s * 10.3, 6.9, 1.0), Vector3(0.6, 0.5, 15), Color.GRAY, false, timber)
-	# Blue banners with the kingdom crest between the posts, one on each side wall.
-	for x in [-5.85, 0.0, 5.85]:
-		game._add_tapestry(1, c + Vector3(x, 2.2, -6.0), Vector3(0, 0, 1), 1.7, 3.6)
+	# Warm wood panelling round the lower walls.
+	var panel: Material = game._plank_dark(Color(0.95, 0.78, 0.6))
+	game._add_block(c + Vector3(0, 0.8, -5.92), Vector3(21.0, 1.6, 0.16), Color.GRAY, false, panel)
+	game._add_block(c + Vector3(0, 1.64, -5.84), Vector3(21.0, 0.1, 0.3), Color.GRAY, false, timber)
 	for s in [-1.0, 1.0]:
-		game._add_tapestry(1, c + Vector3(s * 10.5, 2.0, -1.0), Vector3(-s, 0, 0), 1.5, 3.2)
-		game._add_tapestry(1, c + Vector3(s * 10.5, 2.0, 4.0), Vector3(-s, 0, 0), 1.5, 3.2)
+		game._add_block(c + Vector3(s * 10.42, 0.8, 2.0), Vector3(0.16, 1.6, 17.0), Color.GRAY, false, panel)
+		game._add_block(c + Vector3(s * 10.36, 1.64, 2.0), Vector3(0.3, 0.1, 17.0), Color.GRAY, false, timber)
+	# Red and blue crown banners between the posts and down the side walls.
+	for b in [[-5.85, "red", 4.2], [-1.6, "blue", 3.2], [1.6, "blue", 3.2], [5.85, "red", 4.2]]:
+		_hall_banner(b[1], c + Vector3(b[0], 6.4, -5.95), b[2], 0.0)
+	for s in [-1.0, 1.0]:
+		for z in [-2.6, 1.0, 4.6]:
+			_hall_banner("red" if z == 1.0 else "blue", c + Vector3(s * 10.3, 5.6, z), 3.2, -s * PI / 2.0)
+	# A tall arched window over the throne, sunlight pouring in.
+	_window(c + Vector3(0, 3.6, -5.94))
+	_throne(c + Vector3(0, 0, -4.9))
+	# Candle stands along the walls.
+	for p in [Vector3(-7.4, 0, -5.3), Vector3(-4.4, 0, -5.3), Vector3(4.4, 0, -5.3), Vector3(7.4, 0, -5.3),
+			Vector3(-9.8, 0, 2.2), Vector3(9.8, 0, 2.2)]:
+		game._add_candle_stand(c + p)
 	# Torches on the posts.
 	for x in [-8.5, -3.2, 3.2, 8.5]:
 		game._add_wall_torch(c + Vector3(x, 2.4, -5.5), Vector3(0, 0, 1))
@@ -284,14 +383,14 @@ func _build_hall() -> void:
 	for s in [-1.0, 1.0]:
 		game._add_brazier(c + Vector3(s * 6.4, 0, 1.2))
 	# Warm fill so the hall reads bright and friendly, not a dungeon.
-	game._add_light(c + Vector3(0, 5.5, 3.0), Color(1.0, 0.82, 0.62), 2.2, 18.0)
+	game._add_light(c + Vector3(0, 5.5, 3.0), Color(1.0, 0.78, 0.55), 2.0, 18.0)
 	game._add_light(c + Vector3(-6, 3.0, -3.0), Color(1.0, 0.7, 0.45), 1.2, 9.0)
 	game._add_light(c + Vector3(6, 3.0, -3.0), Color(1.0, 0.7, 0.45), 1.2, 9.0)
 	# Clutter in the corners: barrels, crates, a weapon rack, chests.
 	game.prop_solid = false
 	for p in [["dungeon/barrel_large", Vector3(-9.2, 0, -4.6), 1.3, 0.3], ["dungeon/barrel_small_stack", Vector3(-7.4, 0, -4.9), 1.2, 0.0],
 			["dungeon/crates_stacked", Vector3(8.8, 0, -4.4), 1.2, -0.4], ["dungeon/barrel_large_decorated", Vector3(7.0, 0, -4.9), 1.2, 0.8],
-			["dungeon/sword_shield", Vector3(-1.6, 1.9, -5.95), 1.4, 0.0], ["dungeon/sword_shield_gold", Vector3(1.6, 1.9, -5.95), 1.4, 0.0],
+			
 			["dungeon/chest", Vector3(-9.6, 0, 0.0), 1.3, PI / 2.0], ["dungeon/keg_decorated", Vector3(9.6, 0, -1.6), 1.2, -PI / 2.0],
 			["dungeon/box_stacked", Vector3(9.4, 0, 2.8), 1.2, -0.3], ["dungeon/barrel_small", Vector3(-9.4, 0, 3.4), 1.2, 0.0],
 			["dungeon/barrel_large", Vector3(-9.0, 0, 6.2), 1.3, 0.6], ["dungeon/crates_stacked", Vector3(9.0, 0, 6.0), 1.2, 0.2]]:
