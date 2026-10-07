@@ -14,7 +14,6 @@ const KILL_COOLDOWN_CUT := 2.0  # seconds off every ability cooldown: kills chai
 const RESPAWN_TIME := 7.0
 const RESPAWN_PER_LEVEL := 1.0  # dying hurts more the higher you were: extra seconds per level
 const RESPAWN_MAX := 13.0
-const RESPAWN_WAVE := 6.0       # the fallen come back together, in waves this many seconds apart (Castle Wars style)
 
 # Veterans: kill streaks without dying. A Veteran is announced and marked;
 # an Elite Veteran carries a bounty: revealed to the enemy, slightly tougher,
@@ -135,9 +134,7 @@ const BLESSING_KINDS := {
 const DOOR_HALF := 3.5        # half-width of each castle door
 const GATE_HITS := 200        # door damage a castle door soaks before it breaks (a squad of three opens it in ~25 s)
 const BARRICADE_HITS := 8
-const BARRICADE_TEAM := 4      # barricade kits a team starts the fortify phase with
-const BARRICADE_MAX := 3       # kits a team can hold once the battle is on
-const BARRICADE_REFILL := 40.0 # seconds until a team gets another kit
+const BARRICADE_TEAM := 4      # barricade kits a team can raise during the fortify phase
 const BARRICADE_LENGTH := 3.2
 const PREP_TIME := 20.0        # the fortify phase: a barrier splits the field while both sides dig in
 const BARRICADE_REBUILD := 45.0

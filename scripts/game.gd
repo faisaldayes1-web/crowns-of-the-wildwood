@@ -129,9 +129,6 @@ var cover_points: Array = []  # places a shooter can duck behind
 var cover_boxes: Array = []   # their colliders (AABB), for walkers to go round
 var barricades: Array = []
 var barricades_left := [0, 0]   # barricade kits each team still has
-var barricade_refill := [0.0, 0.0]  # seconds until each team's next kit
-var wave_timer := [0.0, 0.0]    # seconds to each team's next respawn wave
-var wave_id := [0, 0]           # counts the waves, so the fallen know which one they wait for
 var kill_feed: Array = []       # recent kills for the HUD's feed: {killer, kteam, krole, victim, vteam, vrole, time}
 var prep_left := 0.0            # seconds left in the fortify phase (0 = the battle is on)
 var barrier: Node3D
@@ -282,19 +279,6 @@ func _process(delta: float) -> void:
 	_ui_sounds()
 	for t in 2:
 		command_timer[t] = maxf(command_timer[t] - delta, 0.0)
-	if playing and not game_over:
-		for t in 2:
-			# Respawn waves: the fallen come back together.
-			wave_timer[t] -= delta
-			if wave_timer[t] <= 0.0:
-				wave_timer[t] += Stats.RESPAWN_WAVE
-				wave_id[t] += 1
-			# Barricade kits come back slowly once the battle is on.
-			if prep_left <= 0.0 and barricades_left[t] < Stats.BARRICADE_MAX:
-				barricade_refill[t] -= delta
-				if barricade_refill[t] <= 0.0:
-					barricade_refill[t] = Stats.BARRICADE_REFILL
-					barricades_left[t] += 1
 	if playing and overtime and not game_over:
 		# Sudden death: a team with nobody left standing loses.
 		for t in 2:
@@ -616,11 +600,11 @@ func try_interact(u) -> void:
 			else:
 				seal.take(u)
 			return
-	var m = monarchs[1 - u.team]
-	if prep_left > 0.0 or m.state == Monarch.State.CARRIED or _flat_dist(u.global_position, m.global_position) >= Unit.PICKUP_RANGE:
-		# Nothing to grab here: F raises a barricade (own half, outside the walls).
+	if prep_left > 0.0:
+		# The fortify phase: F raises a barricade.
 		plant_barricade(u)
 		return
+	var m = monarchs[1 - u.team]
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
 		if m.state == Monarch.State.HOME and vaults[1 - u.team].is_locked():
 			if u.is_player:
@@ -842,7 +826,7 @@ func nearest_orb(pos: Vector3, radius: float):
 
 func _update_respawn_timer() -> void:
 	if player and player.dead:
-		respawn_label.text = "You fell!\nBack with the next wave in %d" % ceili(player.respawn_eta())
+		respawn_label.text = "You fell!\nRespawning in %d" % ceili(player.respawn_timer)
 		respawn_label.visible = true
 	else:
 		respawn_label.visible = false
@@ -1572,9 +1556,6 @@ func _start_match(team: int) -> void:
 		if arg == "--no-prep":
 			prep_left = -1.0
 	barricades_left = [Stats.BARRICADE_TEAM, Stats.BARRICADE_TEAM]
-	barricade_refill = [Stats.BARRICADE_REFILL, Stats.BARRICADE_REFILL]
-	wave_timer = [Stats.RESPAWN_WAVE, Stats.RESPAWN_WAVE]
-	wave_id = [0, 0]
 	kill_feed = []
 	if prep_left >= 0.0:
 		prep_left = Stats.PREP_TIME
@@ -1682,8 +1663,7 @@ func _begin_battle() -> void:
 
 func plant_barricade(u) -> bool:
 	## Raise a timber barricade across where `u` faces, on your own half of
-	## the field. Each team starts the fortify phase with a few kits and gets
-	## another every so often once the battle is on (Castle Wars style).
+	## the field, during the fortify phase. Each team has a few kits.
 	if u.dead or u.carrying:
 		return false
 	var team: int = u.team

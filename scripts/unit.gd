@@ -21,7 +21,6 @@ var hearts := Stats.MAX_HEARTS
 var energy := 100.0
 var dead := false
 var respawn_timer := 0.0
-var wave_seen := 0            # the respawn wave we are waiting out (we ride the next one)
 var attack_timer := 0.0
 var flash_timer := 0.0
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
@@ -1086,16 +1085,6 @@ func _die() -> void:
 		aim_ring.visible = false
 
 
-func respawn_eta() -> float:
-	## Seconds until we are back: the personal timer, then the first wave after it.
-	var w: float = game.wave_timer[team]
-	if respawn_timer <= 0.0:
-		return w
-	while w < respawn_timer:
-		w += Stats.RESPAWN_WAVE
-	return w
-
-
 func _respawn() -> void:
 	dead = false
 	set_role(Role.BASE)
@@ -1226,12 +1215,8 @@ func _physics_process(delta: float) -> void:
 				visible = false
 		if game.overtime:
 			return  # sudden death: nobody comes back
-		# Serve the personal timer, then ride the team's next respawn wave.
-		if respawn_timer > 0.0:
-			respawn_timer -= delta
-			if respawn_timer <= 0.0:
-				wave_seen = game.wave_id[team]
-		elif game.wave_id[team] != wave_seen:
+		respawn_timer -= delta
+		if respawn_timer <= 0.0:
 			_respawn()
 		return
 

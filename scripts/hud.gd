@@ -824,7 +824,7 @@ func _draw_roster(team: int, origin: Vector2, compact: bool = false) -> void:
 		elif u.role != Role.BASE:
 			_icon(_class_icon(u.role), rect.position + Vector2(218, 16), 7, Color.WHITE)
 		if u.dead:
-			_text(rect.position + Vector2(52, 39), "back in %d" % ceili(u.respawn_eta()), 12, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(rect.position + Vector2(52, 39), "back in %d" % ceili(u.respawn_timer), 12, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		else:
 			_hearts(rect.position + Vector2(58, 33), u.hearts, 0.36, 15)
 			_bar(Rect2(rect.position + Vector2(122, 28), Vector2(106, 10)), u.energy / u.energy_max(),
@@ -862,7 +862,7 @@ func _draw_side_roster(team: int, origin: Vector2) -> void:
 		elif u.role != Role.BASE:
 			_icon(_class_icon(u.role), rect.position + Vector2(183, 15), 6, Color.WHITE)
 		if u.dead:
-			_text(rect.position + Vector2(46, 35), "back in %d" % ceili(u.respawn_eta()), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(rect.position + Vector2(46, 35), "back in %d" % ceili(u.respawn_timer), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		else:
 			_hearts(rect.position + Vector2(52, 30), u.hearts, 0.3, 13)
 			_bar(Rect2(rect.position + Vector2(112, 26), Vector2(78, 8)), u.energy / u.energy_max(),
@@ -1077,7 +1077,7 @@ func _draw_player_panel(p) -> void:
 		if game.overtime:
 			_text(Vector2(x, rect.position.y + 86), "Down for the rest of overtime", 16, Color(1, 0.6, 0.5))
 		else:
-			_text(Vector2(x, rect.position.y + 86), "Down! Back with the wave in %d" % ceili(p.respawn_eta()), 16, Color(1, 0.6, 0.5))
+			_text(Vector2(x, rect.position.y + 86), "Down! Back in %d" % ceili(p.respawn_timer), 16, Color(1, 0.6, 0.5))
 	else:
 		_hearts(Vector2(x + 16, rect.position.y + 54), p.hearts, 0.85, 36)
 		var is_mana: bool = p.energy_kind() == "mana"
@@ -1800,7 +1800,7 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 				score_col = 11
 				var hx: float = block.position.x + 12 + cols[2][1] * scale
 				if u.dead:
-					_text(Vector2(hx, ry + 13), "back in %d" % ceili(u.respawn_eta()), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+					_text(Vector2(hx, ry + 13), "back in %d" % ceili(u.respawn_timer), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 				else:
 					_hearts(Vector2(hx + 6, ry + 9), u.hearts, 0.3, 13)
 					if u.buff != "" and u.buff_timer > 0.0:
