@@ -179,6 +179,52 @@ def make_stone():
     make_flagstone()
 
 
+def make_rosette():
+    """A round paved disc: rings of sandstone flags laid around a centre
+    stone, each flag about the same length, ink joints, and a darker brick
+    kerb round the edge. Transparent outside the circle; used as a decal at
+    the castle door aprons and on the shrine."""
+    r = np.random.default_rng(23)
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    cx = (xs - N / 2 + 0.5) / (N / 2)
+    cy = (ys - N / 2 + 0.5) / (N / 2)
+    rad = np.hypot(cx, cy)
+    ang = (np.arctan2(cy, cx) + np.pi) / (2 * np.pi)
+    kerb_in = 0.9
+    ring_w = kerb_in / 6.5
+    ring = np.floor(rad / ring_w)
+    rv = (rad / ring_w) - ring
+    segs = np.maximum(1, np.round(2 * np.pi * (ring + 0.5) * ring_w / 0.2)).astype(int)
+    segs = np.where(ring == 0, 1, segs)
+    off = (ring % 2) * 0.5
+    seg_pos = (ang * segs + off) % segs
+    sid = np.floor(seg_pos)
+    su = seg_pos - sid
+    px = N / 2 * ring_w   # pixels per ring width
+    arc = 2 * np.pi * np.maximum(rad, 1e-3) / segs * (N / 2)
+    d = np.minimum(np.minimum(rv, 1 - rv) * px, np.minimum(su, 1 - su) * arc)
+    d = np.where(ring == 0, (ring_w - rad) * N / 2, d)
+    flag = np.clip((d - 3.5) / 3.5, 0, 1)
+    ids = (ring * 997 + sid).astype(int)
+    shade = r.random(int(ids.max()) + 1)[ids]
+    light = rgb(0.98, 0.86, 0.58)
+    dark = rgb(0.90, 0.75, 0.48)
+    color = lerp(dark, light, (0.3 + 0.7 * shade)[..., None])
+    alt = (ring % 2 == 1)
+    color = lerp(color, rgb(0.86, 0.70, 0.45), alt[..., None] * 0.35)
+    joint = rgb(0.46, 0.33, 0.21)
+    color = lerp(joint, color, flag[..., None])
+    # Brick kerb: short dark-red bricks round the rim.
+    kerb = (rad >= kerb_in) & (rad < 0.995)
+    kseg = (ang * 64) % 1.0
+    kd = np.minimum(np.minimum(rad - kerb_in, 0.995 - rad) * N / 2, np.minimum(kseg, 1 - kseg) * 2 * np.pi * rad / 64 * N / 2)
+    brick = lerp(rgb(0.62, 0.36, 0.24), rgb(0.74, 0.46, 0.30), r.random(64)[(ang * 64).astype(int) % 64][..., None])
+    brick = lerp(joint, brick, np.clip((kd - 3.0) / 3.0, 0, 1)[..., None])
+    color = np.where(kerb[..., None], brick, color)
+    alpha = np.clip((0.995 - rad) * N / 2, 0, 1)
+    save_rgba("rosette", color, alpha, np.where(kerb, 1.0, flag) * alpha, 1.0)
+
+
 def make_cobble():
     r = np.random.default_rng(3)
     ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
@@ -562,6 +608,7 @@ make_dirt()
 make_road()
 make_stepping_stones("path", 5, 401, 0.0)
 make_stepping_stones("path_loose", 5, 402, 0.3)
+make_rosette()
 make_water_noise()
 make_marble()
 make_carpet()

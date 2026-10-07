@@ -3710,6 +3710,8 @@ func _add_island() -> void:
 		dais.position = Vector3(0, tier[3], 0)
 		dais.material_override = _ashlar(tier[4])
 		add_child(dais)
+		_add_rosette(Vector3(0, tier[3] + tier[2] / 2.0 + 0.004, 0), tier[0])
+	_add_rosette(Vector3(0, 0.504, 0), ISLAND_R - 0.05)
 	_add_collider(Vector3(0, 1.3, 0), Vector3(1.6, 1.6, 1.6))
 	_add_block(Vector3(0, 1.42, 0), Vector3(1.2, 0.9, 1.2), Color.WHITE, false, _ashlar(Color(0.95, 0.92, 0.86)))
 	_add_block(Vector3(0, 1.9, 0), Vector3(1.4, 0.1, 1.4), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
@@ -4091,6 +4093,33 @@ func _add_mushrooms(pos: Vector3, seed: int) -> void:
 		cap.position = p + Vector3(0, h, 0)
 		cap.material_override = cap_mat
 		add_child(cap)
+
+
+var rosette_mats := {}
+
+
+func _add_rosette(center: Vector3, radius: float, tint: Color = Color.WHITE) -> void:
+	## A round paved disc (rings of flags inside a brick kerb) laid flat on
+	## the ground as a decal: door courts and the shrine.
+	if not rosette_mats.has(tint):
+		var mat := StandardMaterial3D.new()
+		mat.albedo_texture = load("res://assets/textures/rosette_color.png")
+		mat.albedo_color = tint
+		mat.normal_enabled = true
+		mat.normal_texture = load("res://assets/textures/rosette_normal.jpg")
+		mat.roughness = 0.85
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		mat.alpha_scissor_threshold = 0.5
+		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		rosette_mats[tint] = mat
+	var m := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2.ONE * radius * 2.0
+	m.mesh = plane
+	m.material_override = rosette_mats[tint]
+	m.position = center
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(m)
 
 
 func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
@@ -6273,6 +6302,8 @@ func _build_world() -> void:
 	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road, 0.0)
 	for sx in [-1.0, 1.0]:
 		_add_block(Vector3(sx * (fxr - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color.WHITE, false, _flagstone(Color(0.96, 0.93, 0.88)))
+		# A round paved court before each door, where the paths meet.
+		_add_rosette(Vector3(sx * (fxr - 4.0), 0.016, 0), 4.4, Color(0.92, 1.0, 0.86) if sx < 0.0 else Color.WHITE)
 		# The Forest Path (north) and the River Path (south): from the road by
 		# the castle door out to the flank bridges, as worn dirt tracks.
 		var dirt := _stones(true)
