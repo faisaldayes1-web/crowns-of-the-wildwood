@@ -560,7 +560,7 @@ func _eye_index() -> int:
 	return 2 if preview_team == 0 else 0
 
 
-const MARK_CROPS := {"scar": Rect2(316, 16, 150, 240), "claws": Rect2(28, 140, 130, 120), "freckles": Rect2(326, 196, 136, 60), "paint": Rect2(40, 186, 432, 70)}
+const MARK_CROPS := {"scar": Rect2(316, 16, 150, 240), "claws": Rect2(14, 250, 140, 74), "freckles": Rect2(326, 250, 136, 60), "paint": Rect2(40, 255, 432, 50)}
 
 
 func mark_thumb(r: Rect2, i: int, on: bool) -> void:
@@ -605,7 +605,7 @@ func face_thumb(r: Rect2, i: int) -> void:
 	var path := "res://assets/characters/faces/face_eyes_%s_%s.png" % [Face.STYLES[i], Stats.HERO_EYES[_eye_index()][2]]
 	if not tex.has(path):
 		tex[path] = load(path)
-	var src := Rect2(40, 50, 432, 190)
+	var src := Rect2(30, 60, 452, 230)
 	var w := r.size.x
 	var hh := w * src.size.y / src.size.x
 	h.draw_texture_rect_region(tex[path], Rect2(r.position.x, r.get_center().y - hh / 2.0, w, hh), src)

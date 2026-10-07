@@ -4,7 +4,7 @@ face styles (Bold, Bright, Fierce, Gentle, Noble, Sly), six iris colours
 (Humans default to brown, Elves to green) and four facial markings.
 
 scripts/face.gd lays these on curved patches in front of the KayKit heads:
-- face_eyes_<style>_<iris>.png  512x256, covers head x -0.36..0.36, y 1.48..1.84
+- face_eyes_<style>_<iris>.png  512x320, covers head x -0.36..0.36, y 1.39..1.84 (eyes, nose, blush)
 - face_brows_<style>.png        same frame, white (tinted to the hair colour)
 - face_mouth_<style>.png        128x64, covers x -0.12..0.12, y 1.32..1.44
 - face_mark_<mark>.png          same frame as the eyes (scar, claws, freckles, paint)
@@ -19,7 +19,7 @@ SS = 4
 INK = (34, 20, 18)
 STYLES = ["bold", "bright", "fierce", "gentle", "noble", "sly"]
 IRIS = {
-    "brown": ((60, 32, 18), (150, 84, 34), (226, 160, 72)),
+    "brown": ((44, 22, 12), (118, 64, 30), (196, 128, 62)),
     "green": ((22, 58, 30), (52, 128, 60), (150, 214, 100)),
     "blue": ((18, 36, 92), (40, 92, 190), (130, 190, 255)),
     "grey": ((40, 44, 52), (100, 108, 120), (190, 198, 210)),
@@ -28,8 +28,8 @@ IRIS = {
 }
 
 # Patch frame in head units (model space) -> pixels.
-EW, EH = 512, 256
-X0, X1, Y0, Y1 = -0.36, 0.36, 1.48, 1.84
+EW, EH = 512, 320
+X0, X1, Y0, Y1 = -0.36, 0.36, 1.39, 1.84
 
 
 def px(x, y, w=EW, h=EH, x0=X0, x1=X1, y0=Y0, y1=Y1):
@@ -54,21 +54,23 @@ def vgrad(size, top, bottom, y_from=0, y_to=None):
 # Per-style eye shapes: size, how much the upper lid cuts in (0 none), the
 # lid's tilt toward the nose, lash weight and highlight size.
 SHAPES = {
-    "bold": dict(w=0.172, h=0.21, lid=0.17, tilt=0.05, lash=1.0, hi=1.0, iris=0.84),
-    "bright": dict(w=0.176, h=0.222, lid=0.05, tilt=-0.02, lash=0.9, hi=1.2, iris=0.82),
-    "fierce": dict(w=0.176, h=0.185, lid=0.3, tilt=0.12, lash=1.15, hi=0.85, iris=0.86),
-    "gentle": dict(w=0.172, h=0.2, lid=0.36, tilt=-0.06, lash=0.9, hi=0.95, iris=0.82),
-    "noble": dict(w=0.168, h=0.2, lid=0.22, tilt=0.0, lash=0.95, hi=0.9, iris=0.8),
-    "sly": dict(w=0.18, h=0.18, lid=0.4, tilt=0.08, lash=1.05, hi=0.8, iris=0.84),
+    "bold": dict(w=0.2, h=0.245, lid=0.14, tilt=0.06, lash=1.05, hi=1.0, iris=0.66),
+    "bright": dict(w=0.2, h=0.255, lid=0.05, tilt=-0.02, lash=0.95, hi=1.2, iris=0.66),
+    "fierce": dict(w=0.205, h=0.22, lid=0.28, tilt=0.12, lash=1.15, hi=0.85, iris=0.68),
+    "gentle": dict(w=0.198, h=0.235, lid=0.32, tilt=-0.06, lash=0.95, hi=0.95, iris=0.66),
+    "noble": dict(w=0.196, h=0.235, lid=0.2, tilt=0.0, lash=1.0, hi=0.9, iris=0.64),
+    "sly": dict(w=0.205, h=0.215, lid=0.38, tilt=0.08, lash=1.05, hi=0.8, iris=0.68),
 }
+EYE_X, EYE_CY = 0.168, 1.585
 BROWS = {
-    # (inner (x, y), outer (x, y), arch height, thickness) for the right eye, in head units
-    "bold": ((0.08, 1.765), (0.27, 1.78), -0.004, 0.026),
-    "bright": ((0.09, 1.78), (0.27, 1.79), 0.016, 0.021),
-    "fierce": ((0.075, 1.745), (0.28, 1.795), -0.01, 0.028),
-    "gentle": ((0.09, 1.785), (0.27, 1.765), 0.012, 0.019),
-    "noble": ((0.085, 1.775), (0.28, 1.775), 0.0, 0.022),
-    "sly": ((0.08, 1.76), (0.28, 1.79), 0.012, 0.022),
+    # (inner (x, y), outer (x, y), arch height, thickness) for the right eye, in head units:
+    # thick, blocky brows sitting just over the eyes, as on the character art.
+    "bold": ((0.065, 1.725), (0.265, 1.752), 0.004, 0.052),
+    "bright": ((0.07, 1.745), (0.26, 1.760), 0.016, 0.034),
+    "fierce": ((0.06, 1.712), (0.27, 1.758), -0.004, 0.052),
+    "gentle": ((0.07, 1.752), (0.26, 1.738), 0.012, 0.032),
+    "noble": ((0.065, 1.735), (0.265, 1.750), 0.004, 0.036),
+    "sly": ((0.06, 1.725), (0.27, 1.765), 0.012, 0.038),
 }
 
 
@@ -161,18 +163,36 @@ def blush(img, cx, cy):
     W, H = img.size
     m = Image.new("L", (W, H), 0)
     x, y = px(cx, cy)
-    rx, ry = 0.06 / (X1 - X0) * W, 0.022 / (Y1 - Y0) * H
-    ImageDraw.Draw(m).ellipse([x - rx, y - ry, x + rx, y + ry], fill=120)
+    rx, ry = 0.075 / (X1 - X0) * W, 0.03 / (Y1 - Y0) * H
+    ImageDraw.Draw(m).ellipse([x - rx, y - ry, x + rx, y + ry], fill=95)
     m = m.filter(ImageFilter.GaussianBlur(rx * 0.35))
     img.paste(Image.new("RGBA", (W, H), (240, 110, 110, 255)), (0, 0), m)
+
+
+def nose(img):
+    """A small soft button nose: a shadow under and to one side, a tiny highlight."""
+    W, H = img.size
+    sh = Image.new("L", (W, H), 0)
+    x, y = px(0.016, 1.432)
+    rx, ry = 0.034 / (X1 - X0) * W, 0.022 / (Y1 - Y0) * H
+    ImageDraw.Draw(sh).ellipse([x - rx, y - ry, x + rx, y + ry], fill=58)
+    sh = sh.filter(ImageFilter.GaussianBlur(rx * 0.55))
+    img.paste(Image.new("RGBA", (W, H), (196, 112, 82, 255)), (0, 0), sh)
+    hl = Image.new("L", (W, H), 0)
+    x, y = px(-0.006, 1.452)
+    r = 0.016 / (X1 - X0) * W
+    ImageDraw.Draw(hl).ellipse([x - r, y - r * 0.8, x + r, y + r * 0.8], fill=110)
+    hl = hl.filter(ImageFilter.GaussianBlur(r * 0.5))
+    img.paste(Image.new("RGBA", (W, H), (255, 236, 220, 255)), (0, 0), hl)
 
 
 def eyes_texture(style, iris):
     img = Image.new("RGBA", (EW * SS, EH * SS), (0, 0, 0, 0))
     shape = SHAPES[style]
     for side in (-1, 1):
-        blush(img, side * 0.25, 1.5)
-        eye(img, side * 0.175, 1.61, side, shape, iris)
+        blush(img, side * 0.255, 1.46)
+        eye(img, side * EYE_X, EYE_CY, side, shape, iris)
+    nose(img)
     img = img.resize((EW, EH), Image.LANCZOS)
     img.save(f"{OUT}/face_eyes_{style}_{iris}.png")
 
@@ -191,7 +211,7 @@ def brows_texture(style):
         th = thick / (Y1 - Y0) * EH * SS
         for k in range(16):
             u = k / 16
-            wk = th * (1.0 - 0.55 * u)   # thick inner end tapering outward
+            wk = th * (1.0 - 0.3 * u)   # a thick block, a little slimmer at the tail
             d.line([pts[k], pts[k + 1]], fill=(255, 255, 255, 255), width=max(int(wk), 1))
             d.ellipse([pts[k][0] - wk / 2, pts[k][1] - wk / 2, pts[k][0] + wk / 2, pts[k][1] + wk / 2], fill=(255, 255, 255, 255))
     img = img.resize((EW, EH), Image.LANCZOS)
@@ -226,8 +246,9 @@ def mouth_texture(style):
         d.line([P(-0.035, 1.385), P(0.015, 1.38), P(0.045, 1.398)], fill=INK + (255,), width=lw, joint="curve")
         d.line([P(0.04, 1.392), P(0.05, 1.402)], fill=INK + (255,), width=max(lw - 2, 1))
     else:
-        # Bold: a short determined line, a little turned down.
-        d.line([P(-0.035, 1.38), P(0.0, 1.385), P(0.035, 1.38)], fill=INK + (255,), width=lw, joint="curve")
+        # Bold: a small, sure smile.
+        d.line([P(-0.046, 1.372), P(-0.02, 1.366), P(0.02, 1.366), P(0.046, 1.373)], fill=(70, 34, 26, 255), width=lw, joint="curve")
+        d.line([P(-0.02, 1.352), P(0.02, 1.352)], fill=(176, 100, 84, 120), width=max(lw // 2, 1))
     img = img.resize((MW, MH), Image.LANCZOS)
     img.save(f"{OUT}/face_mouth_{style}.png")
 
@@ -252,8 +273,8 @@ def mark_texture(mark):
     elif mark == "claws":
         # Three red war-paint claw marks on one cheek.
         for k in range(3):
-            x = -0.29 + k * 0.045
-            pts = [px(x + 0.03, 1.565), px(x + 0.005, 1.52), px(x - 0.01, 1.475)]
+            x = -0.315 + k * 0.042
+            pts = [px(x + 0.03, 1.47), px(x + 0.008, 1.435), px(x - 0.006, 1.4)]
             for j in range(2):
                 wk = W(0.016 * (1 - j * 0.6))
                 d.line([pts[j], pts[j + 1]], fill=(196, 34, 30, 235), width=wk)
@@ -263,14 +284,14 @@ def mark_texture(mark):
         for side in (-1, 1):
             for _ in range(9):
                 x = side * (0.2 + rnd.uniform(-0.07, 0.07))
-                y = 1.505 + rnd.uniform(-0.022, 0.022)
+                y = 1.445 + rnd.uniform(-0.02, 0.02)
                 cx, cy = px(x, y)
                 r = W(rnd.uniform(0.004, 0.0065))
                 d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(170, 92, 60, 210))
     elif mark == "paint":
         # A bold red stripe across both cheeks and the nose.
         m = Image.new("L", img.size, 0)
-        ImageDraw.Draw(m).polygon([px(-0.3, 1.535), px(0.3, 1.535), px(0.28, 1.5), px(-0.28, 1.5)], fill=225)
+        ImageDraw.Draw(m).polygon([px(-0.3, 1.462), px(0.3, 1.462), px(0.28, 1.43), px(-0.28, 1.43)], fill=225)
         m = m.filter(ImageFilter.GaussianBlur(SS * 1.5))
         img.paste(Image.new("RGBA", img.size, (190, 30, 34, 255)), (0, 0), m)
     img = img.resize((EW, EH), Image.LANCZOS)

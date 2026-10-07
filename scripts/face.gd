@@ -9,9 +9,9 @@ extends Node3D
 
 const STYLES := ["bold", "bright", "fierce", "gentle", "noble", "sly"]
 # The patches' frames in model space (see tools/make_faces.py).
-const EYES_RECT := Rect2(-0.36, 1.48, 0.72, 0.36)
+const EYES_RECT := Rect2(-0.36, 1.39, 0.72, 0.45)
 const MOUTH_RECT := Rect2(-0.12, 1.32, 0.24, 0.12)
-const EYE_Y := 1.625
+const EYE_Y := 1.585
 # How far the face front sits forward at each |x| (a little proud of the head).
 const PROFILE := [[0.0, 0.457], [0.16, 0.455], [0.22, 0.432], [0.28, 0.388], [0.34, 0.334], [0.38, 0.29]]
 
