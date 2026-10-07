@@ -94,6 +94,11 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if game:
 		game.menu_tick()
+		# The centre hint line (a Label game.gd owns) sits just under the
+		# phase scroll, clear of the timer plate.
+		if not pane and game.message_label and game.message_label.offset_top < 106:
+			game.message_label.offset_top = 106
+			game.message_label.offset_bottom = 146
 	queue_redraw()
 
 
@@ -144,7 +149,8 @@ func _draw() -> void:
 			_draw_end()
 		return
 	_draw_screen_fx()
-	_draw_logo(Rect2(size.x - 214, 8, 200, 80))
+	if not _narrow():
+		_draw_logo(Rect2(size.x - 196, 6, 182, 73))
 	_draw_scoreboard()
 	if game.show_fps:
 		_text(Vector2(size.x - 134, size.y - 152), "%d FPS" % Engine.get_frames_per_second(), 11, GREY, HORIZONTAL_ALIGNMENT_RIGHT, 120, 2)
@@ -154,7 +160,10 @@ func _draw() -> void:
 	if not game.guide_open:
 		# The minimap sits top-left; the objective card and HOW TO WIN list are
 		# gone from the live HUD (the guide and the pause menu still carry them).
-		_draw_minimap(Vector2(124, 116), 104.0)
+		if _narrow():
+			_draw_minimap(Vector2(88, 86), 70.0)
+		else:
+			_draw_minimap(Vector2(126, 120), 106.0)
 	_draw_toasts()
 	if _me() and not game.guide_open:
 		_draw_player_panel(_me())
@@ -172,7 +181,7 @@ func _draw() -> void:
 		_draw_levelup_card()
 	if pane:
 		if local_unit:
-			_text(Vector2(14, 136), "PLAYER %d" % (local_unit.local_index + 1), 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+			_text(Vector2(14, 184 if _narrow() else 252), "PLAYER %d" % (local_unit.local_index + 1), 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 		if game.rank_open and game.rank_player == local_unit:
 			_draw_rank_menu(local_unit)
 		return
@@ -594,10 +603,10 @@ func _attack_icon(role: int, s: Dictionary = {}) -> String:
 const PS_GLYPHS := {"Cross": Color(0.45, 0.62, 0.95), "Circle": Color(0.95, 0.4, 0.4), "Square": Color(0.95, 0.55, 0.8), "Triangle": Color(0.4, 0.85, 0.6)}
 const XBOX_GLYPHS := {"A": Color(0.35, 0.75, 0.3), "B": Color(0.9, 0.3, 0.25), "X": Color(0.3, 0.55, 0.95), "Y": Color(0.95, 0.8, 0.2)}
 
-func _keycap(center: Vector2, key: String, w: float = 30.0) -> void:
-	## A cream keycap for keys and mouse buttons; PlayStation face buttons
-	## are drawn as the shapes on the pad, Xbox face buttons as coloured
-	## letters on a dark button.
+func _keycap(center: Vector2, key: String, w: float = 30.0, dark: bool = false) -> void:
+	## A cream keycap for keys and mouse buttons (a dark one for locked
+	## slots); PlayStation face buttons are drawn as the shapes on the pad,
+	## Xbox face buttons as coloured letters on a dark button.
 	if PS_GLYPHS.has(key):
 		var c: Color = PS_GLYPHS[key]
 		draw_circle(center, 10.5, Color(0.12, 0.12, 0.15))
@@ -618,9 +627,13 @@ func _keycap(center: Vector2, key: String, w: float = 30.0) -> void:
 		draw_arc(center, 10.5, 0, TAU, 24, Color(0.45, 0.45, 0.5), 1.0)
 		_text(center + Vector2(-10.5, 5), key, 12, XBOX_GLYPHS[key], HORIZONTAL_ALIGNMENT_CENTER, 21, 0)
 		return
-	var rect := Rect2(center - Vector2(w / 2.0, 10), Vector2(w, 20))
-	_plate(rect, CREAM, Color(0.5, 0.4, 0.25), 5, 1)
-	_text(rect.position + Vector2(0, 15), key, 12, Color(0.15, 0.12, 0.1), HORIZONTAL_ALIGNMENT_CENTER, w, 0)
+	var rect := Rect2(center - Vector2(w / 2.0, 9), Vector2(w, 18))
+	if dark:
+		_plate(rect, Color(0.14, 0.14, 0.16), Color(0.32, 0.32, 0.36), 4, 1)
+		_text(rect.position + Vector2(0, 14), key, 11, Color(0.5, 0.5, 0.54), HORIZONTAL_ALIGNMENT_CENTER, w, 0)
+		return
+	_plate(rect, CREAM, Color(0.45, 0.33, 0.16), 4, 1)
+	_text(rect.position + Vector2(0, 14), key, 11, Color(0.18, 0.12, 0.08), HORIZONTAL_ALIGNMENT_CENTER, w, 0)
 
 
 func _k(action: String) -> String:
@@ -631,7 +644,12 @@ func _k(action: String) -> String:
 
 func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: String, label: String,
 		remaining: float, total: float, usable: bool, rank: int = 0, active: bool = false, cost: float = 0.0, cost_color: Color = STAMINA) -> void:
+	## One ability slot: a gold (or, when not ready, iron) framed square
+	## with a painted icon on a tinted ground, the key on a cream plate
+	## across its bottom edge and the action's name underneath. A slot with
+	## no icon is locked: dark, with a padlock.
 	var rect := Rect2(origin, Vector2(size_px, size_px))
+	var locked := icon == ""
 	var ready := remaining <= 0.0 and usable
 	# A ring bursts out of the slot the moment a cooldown ends.
 	var slot_id := key + label
@@ -644,198 +662,306 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		slot_flash[slot_id] = fl - get_process_delta_time()
 		var k := 1.0 - fl / 0.45
 		draw_arc(rect.get_center(), size_px * (0.55 + 0.4 * k), 0, TAU, 32, Color(1.0, 0.9, 0.5, 1.0 - k), 3.0)
-	_plate(rect.grow(2), IRON_DARK, IRON, 10, 2)
-	_plate(rect, WOOD_DARK.darkened(0.2) if not active else Color(0.3, 0.35, 0.5, 0.96), BRASS if ready else Color(0.45, 0.36, 0.25), 8, 2)
-	_icon(icon, rect.get_center(), size_px * 0.3, color if ready else color.darkened(0.45), not ready)
+	var frame := BRASS if (ready or active) and not locked else Color(0.36, 0.37, 0.41)
+	if active:
+		frame = Color(0.75, 0.88, 1.0)
+	# Dark outer bevel, metal frame, then the tinted ground.
+	_plate(rect.grow(5), Color(0.1, 0.08, 0.06), Color(0.05, 0.04, 0.03), 10, 1)
+	var fb := StyleBoxFlat.new()
+	fb.bg_color = frame
+	fb.set_corner_radius_all(9)
+	fb.set_border_width_all(2)
+	fb.border_color = frame.darkened(0.5)
+	draw_style_box(fb, rect.grow(3))
+	draw_rect(Rect2(rect.position + Vector2(2, -2), Vector2(size_px - 4, 2)), Color(1, 1, 0.85, 0.35))
+	var ground: Color
+	if locked:
+		ground = Color(0.12, 0.12, 0.14)
+	elif ready:
+		ground = color.darkened(0.5).lerp(WOOD_DARK, 0.25)
+	else:
+		ground = color.darkened(0.75).lerp(Color(0.12, 0.12, 0.14), 0.5)
+	var gb := StyleBoxFlat.new()
+	gb.bg_color = ground
+	gb.set_corner_radius_all(6)
+	gb.set_border_width_all(1)
+	gb.border_color = Color(0, 0, 0, 0.6)
+	draw_style_box(gb, rect.grow(-1))
+	# A soft light from the top so the ground reads as a lit recess.
+	draw_rect(Rect2(rect.position + Vector2(3, 3), Vector2(size_px - 6, size_px * 0.4)), Color(1, 1, 1, 0.07 if ready else 0.03))
+	draw_circle(rect.get_center() + Vector2(0, -2), size_px * 0.32, Color(color.r, color.g, color.b, 0.16 if ready and not locked else 0.0))
+	if locked:
+		_padlock(rect.get_center() + Vector2(0, -3), size_px * 0.3, Color(0.42, 0.42, 0.46))
+	else:
+		_icon(icon, rect.get_center() + Vector2(0, -3), size_px * 0.29, color if ready else color.darkened(0.45), not ready)
 	if remaining > 0.0:
 		var frac := clampf(remaining / maxf(total, 0.01), 0.0, 1.0)
-		var inner := rect.grow(-3)
-		draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * frac)), Color(0, 0, 0, 0.65))
-		_text(rect.position + Vector2(0, size_px * 0.62), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
+		var inner := rect.grow(-2)
+		draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * frac)), Color(0, 0, 0, 0.6))
+		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
 			16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
-	elif not usable:
-		draw_rect(rect.grow(-3), Color(0.5, 0.1, 0.1, 0.35))
-	# The energy cost in the bottom-left corner, so you can see which moves
+	elif not usable and not locked:
+		draw_rect(rect.grow(-2), Color(0.45, 0.08, 0.08, 0.3))
+	# The energy cost in the top-left corner, so you can see which moves
 	# are cheap bread-and-butter and which ones to spend sparingly.
 	if cost > 0.0:
-		var tag := Rect2(rect.position + Vector2(3, size_px - 15), Vector2(22, 12))
-		draw_rect(tag, Color(0, 0, 0, 0.6))
+		var tag := Rect2(rect.position + Vector2(2, 2), Vector2(20, 12))
+		draw_rect(tag, Color(0, 0, 0, 0.55))
 		_text(tag.position + Vector2(0, 10), str(int(cost)), 9, cost_color if usable else cost_color.darkened(0.4), HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 0)
 	# Rank pips in the top-right corner.
 	for i in rank:
-		draw_circle(rect.end - Vector2(8 + i * 8, size_px - 8), 2.6, GOLD)
-		draw_arc(rect.end - Vector2(8 + i * 8, size_px - 8), 2.6, 0, TAU, 10, Color(0.3, 0.2, 0.05), 1.0)
-	_keycap(Vector2(rect.get_center().x, rect.end.y + 2), key, maxf(26.0, _text_width(key, 12) + 12.0))
-	_text(Vector2(rect.position.x - 20, rect.end.y + 27), label, 10, GOLD.lerp(Color.WHITE, 0.6) if ready else Color(0.6, 0.6, 0.65),
-		HORIZONTAL_ALIGNMENT_CENTER, size_px + 40)
+		draw_circle(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, GOLD)
+		draw_arc(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, 0, TAU, 10, Color(0.3, 0.2, 0.05), 1.0)
+	_keycap(Vector2(rect.get_center().x, rect.end.y - 1), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
+	if label != "":
+		_text(Vector2(rect.position.x - 22, rect.end.y + 24), label, 11, CREAM if ready else Color(0.62, 0.58, 0.52),
+			HORIZONTAL_ALIGNMENT_CENTER, size_px + 44, 3)
 
 
 func _wood_panel(rect: Rect2, leaves: bool = true) -> void:
-	## A planked wooden board in an iron rim with brass corner caps and leaf
-	## sprigs: the bottom panel of the HUD reference.
+	## A planked wooden board in a steel rim with gold corner brackets and
+	## leaf sprigs: the bottom panel of the HUD reference.
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = IRON
-	sb.set_corner_radius_all(12)
+	sb.set_corner_radius_all(10)
 	sb.set_border_width_all(2)
-	sb.border_color = IRON_DARK
-	sb.shadow_size = 8
-	sb.shadow_color = Color(0, 0, 0, 0.4)
+	sb.border_color = Color(0.1, 0.1, 0.13)
+	sb.shadow_size = 10
+	sb.shadow_color = Color(0, 0, 0, 0.45)
 	sb.shadow_offset = Vector2(0, 3)
 	draw_style_box(sb, rect)
-	draw_rect(Rect2(rect.position + Vector2(4, 3), Vector2(rect.size.x - 8, 3)), Color(1, 1, 1, 0.18))
-	var board := rect.grow(-7)
+	# Steel rim: a light top edge, a dark lower edge and rivets all round.
+	draw_rect(Rect2(rect.position + Vector2(6, 2), Vector2(rect.size.x - 12, 2)), Color(1, 1, 1, 0.3))
+	draw_rect(Rect2(Vector2(rect.position.x + 6, rect.end.y - 4), Vector2(rect.size.x - 12, 2)), Color(0, 0, 0, 0.3))
+	var n := int(rect.size.x / 70.0)
+	for i in range(1, n):
+		var x := rect.position.x + rect.size.x * i / n
+		for y in [rect.position.y + 4.0, rect.end.y - 4.0]:
+			draw_circle(Vector2(x, y), 1.8, Color(0.82, 0.84, 0.88))
+			draw_circle(Vector2(x + 0.5, y + 0.6), 1.0, Color(0.25, 0.26, 0.3))
+	var board := rect.grow(-8)
 	var wb := StyleBoxFlat.new()
 	wb.bg_color = WOOD
-	wb.set_corner_radius_all(7)
+	wb.set_corner_radius_all(6)
 	wb.set_border_width_all(2)
-	wb.border_color = WOOD_DARK
+	wb.border_color = Color(0.12, 0.07, 0.03)
 	draw_style_box(wb, board)
-	# Planks: horizontal seams, staggered butt joints and a little grain.
-	var rows := maxi(int(board.size.y / 26.0), 2)
+	# Planks: horizontal seams, alternating tones, staggered butt joints,
+	# a little grain and a knot or two.
+	var rows := maxi(int(board.size.y / 24.0), 2)
 	var ph := board.size.y / rows
 	for i in rows:
 		var y := board.position.y + i * ph
+		var tone := Color(1, 0.8, 0.55, 0.05) if i % 2 == 0 else Color(0, 0, 0, 0.08)
+		draw_rect(Rect2(Vector2(board.position.x + 2, y + 1), Vector2(board.size.x - 4, ph - 1)), tone)
 		if i > 0:
-			draw_line(Vector2(board.position.x + 3, y), Vector2(board.end.x - 3, y), WOOD_DARK, 2.0)
-		draw_line(Vector2(board.position.x + 4, y + 3), Vector2(board.end.x - 4, y + 3), Color(1, 0.85, 0.6, 0.08), 1.0)
-		var jx := board.position.x + fmod(97.0 * (i + 1), board.size.x - 60.0) + 30.0
-		draw_line(Vector2(jx, y + 2), Vector2(jx, y + ph - 2), WOOD_DARK, 2.0)
-		for g in 3:
-			var gy := y + ph * (0.3 + 0.2 * g)
-			var gx := board.position.x + fmod(53.0 * (i + g * 3 + 1), board.size.x - 120.0) + 20.0
-			draw_line(Vector2(gx, gy), Vector2(gx + 60.0 + 20.0 * g, gy), Color(0, 0, 0, 0.12), 1.0)
+			draw_line(Vector2(board.position.x + 2, y), Vector2(board.end.x - 2, y), WOOD_DARK.darkened(0.3), 2.0)
+		draw_line(Vector2(board.position.x + 3, y + 2.5), Vector2(board.end.x - 3, y + 2.5), Color(1, 0.85, 0.6, 0.1), 1.0)
+		var jx := board.position.x + fmod(97.0 * (i + 1) + 40.0, board.size.x - 80.0) + 40.0
+		draw_line(Vector2(jx, y + 2), Vector2(jx, y + ph - 1), WOOD_DARK.darkened(0.2), 2.0)
+		for g in 4:
+			var gy := y + ph * (0.25 + 0.17 * g)
+			var gx := board.position.x + fmod(53.0 * (i + g * 3 + 1) + 17.0 * g, board.size.x - 140.0) + 20.0
+			draw_line(Vector2(gx, gy), Vector2(gx + 50.0 + 25.0 * g, gy + (g % 2) * 1.0), Color(0, 0, 0, 0.13), 1.0)
+		var kx := board.position.x + fmod(211.0 * (i + 2), board.size.x - 60.0) + 30.0
+		draw_arc(Vector2(kx, y + ph * 0.5), 3.5, 0, TAU, 12, Color(0, 0, 0, 0.18), 1.5)
+	# Inner shadow under the rim.
+	draw_rect(Rect2(board.position + Vector2(2, 2), Vector2(board.size.x - 4, 4)), Color(0, 0, 0, 0.22))
+	if leaves:
+		# Vines: a sprig spilling over each top corner and a run of leaves
+		# down the left edge, as in the reference.
+		for c in [rect.position + Vector2(2, 6), Vector2(rect.end.x - 2, rect.position.y + 6)]:
+			var dx := 1.0 if c.x < rect.get_center().x else -1.0
+			for k in 6:
+				var a := deg_to_rad(-150.0 + k * 34.0)
+				var dir := Vector2(cos(a) * dx, sin(a))
+				_leaf(c + dir * 3.0, dir, 25.0 - absf(k - 2.5) * 2.4)
+		for k in 6:
+			var y := rect.position.y + 28.0 + k * (rect.size.y - 40.0) / 5.0
+			var side := -1.0 if k % 2 == 0 else -0.6
+			_leaf(Vector2(rect.position.x + 3, y), Vector2(side, 0.55 if k % 2 == 0 else -0.5).normalized(), 21.0 - k * 1.2)
+		for k in 4:
+			var y := rect.position.y + 40.0 + k * 24.0
+			_leaf(Vector2(rect.end.x - 3, y), Vector2(1.0, 0.5 if k % 2 == 0 else -0.4).normalized(), 18.0 - k * 1.5)
+	# Gold L-brackets on the four corners, with a rivet and a curl.
 	for c in [rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]:
 		var dx := 1.0 if c.x < rect.get_center().x else -1.0
 		var dy := 1.0 if c.y < rect.get_center().y else -1.0
-		var cap := PackedVector2Array([c, c + Vector2(dx * 26, 0), c + Vector2(dx * 26, dy * 6), c + Vector2(dx * 6, dy * 6), c + Vector2(dx * 6, dy * 26), c + Vector2(0, dy * 26)])
+		var o: Vector2 = c + Vector2(-dx * 3, -dy * 3)
+		var cap := PackedVector2Array([o, o + Vector2(dx * 34, 0), o + Vector2(dx * 30, dy * 9), o + Vector2(dx * 9, dy * 9),
+			o + Vector2(dx * 9, dy * 30), o + Vector2(0, dy * 34)])
 		draw_colored_polygon(cap, BRASS)
+		draw_colored_polygon(PackedVector2Array([o, o + Vector2(dx * 34, 0), o + Vector2(dx * 32, dy * 3.5), o + Vector2(dx * 3.5, dy * 3.5), o + Vector2(dx * 3.5, dy * 32), o + Vector2(0, dy * 34)]), GOLD.lightened(0.15))
 		cap.append(cap[0])
-		draw_polyline(cap, Color(0.4, 0.27, 0.08), 1.5)
-		draw_circle(c + Vector2(dx * 4, dy * 4), 2.2, Color(1, 0.92, 0.6))
-	if leaves:
-		for c in [rect.position + Vector2(4, 4), Vector2(rect.end.x - 4, rect.position.y + 4), Vector2(rect.position.x + 4, rect.end.y - 4), rect.end - Vector2(4, 4)]:
-			var dx := 1.0 if c.x < rect.get_center().x else -1.0
-			var dy := 1.0 if c.y < rect.get_center().y else -1.0
-			for k in 4:
-				var a := (-0.2 + k * 0.45) * PI / 2.0
-				var dir := Vector2(cos(a) * -dx, sin(a) * -dy)
-				_leaf(c + dir * 4.0, dir, 13.0 - k * 1.5)
+		draw_polyline(cap, Color(0.35, 0.2, 0.04), 1.5)
+		draw_circle(o + Vector2(dx * 5.5, dy * 5.5), 2.4, Color(1, 0.93, 0.65))
+		draw_arc(o + Vector2(dx * 5.5, dy * 5.5), 2.4, 0, TAU, 10, Color(0.35, 0.2, 0.04), 1.0)
 
 
 func _leaf(base: Vector2, dir: Vector2, length: float) -> void:
-	var side := Vector2(-dir.y, dir.x) * length * 0.32
+	var side := Vector2(-dir.y, dir.x) * length * 0.34
 	var tip := base + dir * length
-	var mid := base + dir * length * 0.5
-	var pts := PackedVector2Array([base, mid + side, tip, mid - side])
-	draw_colored_polygon(pts, SPRIG)
-	draw_colored_polygon(PackedVector2Array([base, mid + side, tip]), SPRIG.lightened(0.18))
+	var mid := base + dir * length * 0.45
+	var pts := PackedVector2Array([base, mid + side, base + dir * length * 0.8 + side * 0.5, tip, base + dir * length * 0.8 - side * 0.5, mid - side])
+	draw_colored_polygon(pts, SPRIG.darkened(0.08))
+	draw_colored_polygon(PackedVector2Array([base, mid + side, base + dir * length * 0.8 + side * 0.5, tip]), SPRIG.lightened(0.2))
 	pts.append(pts[0])
-	draw_polyline(pts, Color(0.12, 0.25, 0.08), 1.2)
-	draw_line(base, tip, Color(0.18, 0.35, 0.12), 1.0)
-
-
-func _shield_badge(c: Vector2, w: float, h: float, top: String, big: String, fill: Color) -> void:
-	## A heater shield with a gold rim: the player's level badge.
-	var pts := PackedVector2Array()
-	pts.append(c + Vector2(-w / 2.0, -h / 2.0))
-	pts.append(c + Vector2(w / 2.0, -h / 2.0))
-	for i in 9:
-		var t := i / 8.0
-		pts.append(c + Vector2(w / 2.0 * (1.0 - t * t), -h / 2.0 + h * 0.45 + h * 0.55 * t))
-	for i in range(7, -1, -1):
-		var t := i / 8.0
-		pts.append(c + Vector2(-w / 2.0 * (1.0 - t * t), -h / 2.0 + h * 0.45 + h * 0.55 * t))
-	var outer := PackedVector2Array()
-	for q in pts:
-		outer.append(c + (q - c) * 1.12)
-	draw_colored_polygon(outer, BRASS)
-	draw_colored_polygon(pts, fill)
-	var inner := PackedVector2Array()
-	for q in pts:
-		inner.append(c + (q - c) * 0.84)
-	inner.append(inner[0])
-	draw_polyline(inner, BRASS.darkened(0.2), 1.5)
-	outer.append(outer[0])
-	draw_polyline(outer, Color(0.35, 0.22, 0.06), 2.0)
-	_text(c + Vector2(-w / 2.0, -h * 0.14), top, 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, w, 3)
-	_text(c + Vector2(-w / 2.0, h * 0.28), big, 30, CREAM, HORIZONTAL_ALIGNMENT_CENTER, w, 4)
+	draw_polyline(pts, Color(0.1, 0.22, 0.06), 1.3)
+	draw_line(base, tip - dir * 2.0, Color(0.16, 0.32, 0.1), 1.0)
 
 
 func _banner_ribbon(rect: Rect2, color: Color, notch_left: bool) -> void:
-	## A cloth banner with a swallow-tail end and a darker fold behind it.
-	var tail := 26.0
+	## A cloth banner: the main band with gold trim and, at the outer end,
+	## a swallow-tailed fold dropping behind it.
 	var r := rect
-	var fold := Rect2(r.position + Vector2(0 if notch_left else r.size.x - tail * 1.6, 8), Vector2(tail * 1.6, r.size.y))
-	var fp := PackedVector2Array([Vector2(fold.position.x, fold.position.y), Vector2(fold.end.x, fold.position.y), Vector2(fold.end.x, fold.end.y), Vector2(fold.position.x, fold.end.y)])
-	draw_colored_polygon(fp, color.darkened(0.45))
-	var pts: PackedVector2Array
-	if notch_left:
-		pts = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y), Vector2(r.position.x + tail * 0.6, r.get_center().y)])
-	else:
-		pts = PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), Vector2(r.end.x - tail * 0.6, r.get_center().y), r.end, Vector2(r.position.x, r.end.y)])
+	var dir := -1.0 if notch_left else 1.0
+	var outer_x := r.position.x if notch_left else r.end.x
+	# The tail behind: a darker strip leaving the outer end, lower down.
+	var tail := 44.0
+	var ty := r.position.y + 9.0
+	var th := r.size.y - 4.0
+	var tx0 := outer_x - dir * 16.0
+	var tx1 := outer_x + dir * tail
+	var tail_pts := PackedVector2Array([Vector2(tx0, ty), Vector2(tx1, ty + 4.0), Vector2(tx1 - dir * 14.0, ty + th * 0.55),
+		Vector2(tx1, ty + th + 2.0), Vector2(tx0, ty + th)])
+	draw_colored_polygon(tail_pts, color.darkened(0.3))
+	draw_colored_polygon(PackedVector2Array([Vector2(tx0, ty), Vector2(tx1, ty + 4.0), Vector2(tx1 - dir * 7.0, ty + th * 0.28), Vector2(tx0, ty + th * 0.3)]), Color(1, 1, 1, 0.07))
+	tail_pts.append(tail_pts[0])
+	draw_polyline(tail_pts, color.darkened(0.7), 2.0)
+	# The fold where the band turns under.
+	draw_colored_polygon(PackedVector2Array([Vector2(outer_x, r.end.y), Vector2(outer_x + dir * 14.0, ty + th),
+		Vector2(outer_x + dir * 14.0, r.end.y - 6.0)]), color.darkened(0.6))
+	# The band.
+	var pts := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
 	draw_colored_polygon(pts, color)
-	draw_rect(Rect2(r.position + Vector2(4, 3), Vector2(r.size.x - 8, r.size.y * 0.35)), Color(1, 1, 1, 0.12))
-	draw_line(r.position + Vector2(6, 5), Vector2(r.end.x - 6, r.position.y + 5), BRASS, 2.0)
-	draw_line(Vector2(r.position.x + 6, r.end.y - 5), r.end - Vector2(6, 5), BRASS, 2.0)
+	draw_rect(Rect2(r.position + Vector2(0, 2), Vector2(r.size.x, r.size.y * 0.4)), Color(1, 1, 1, 0.1))
+	draw_rect(Rect2(Vector2(r.position.x, r.end.y - r.size.y * 0.25), Vector2(r.size.x, r.size.y * 0.25 - 2)), Color(0, 0, 0, 0.14))
+	for y in [r.position.y + 4.0, r.end.y - 4.0]:
+		draw_line(Vector2(r.position.x + 2, y), Vector2(r.end.x - 2, y), BRASS, 2.5)
+		draw_line(Vector2(r.position.x + 2, y - 1.0), Vector2(r.end.x - 2, y - 1.0), GOLD.lightened(0.3), 0.8)
 	pts.append(pts[0])
-	draw_polyline(pts, color.darkened(0.6), 2.5)
+	draw_polyline(pts, color.darkened(0.7), 2.5)
 
 
-func _laurel(c: Vector2, side: float, scale: float) -> void:
-	## A gold laurel sprig curling out from the clock.
-	for k in 5:
-		var a := deg_to_rad(-60.0 + k * 28.0)
-		var p := c + Vector2(side * cos(a) * 22.0, sin(a) * 18.0) * scale
-		var dir := Vector2(side * cos(a + 1.2), sin(a + 1.2))
-		var tip := p + dir * 13.0 * scale
-		var sd := Vector2(-dir.y, dir.x) * 4.0 * scale
-		var pts := PackedVector2Array([p, (p + tip) / 2.0 + sd, tip, (p + tip) / 2.0 - sd])
-		draw_colored_polygon(pts, BRASS)
-		pts.append(pts[0])
-		draw_polyline(pts, Color(0.45, 0.3, 0.06), 1.2)
+func _laurel(c: Vector2, side: float, scale: float, rx: float = 50.0, ry: float = 30.0) -> void:
+	## A gold laurel branch curling up one side of the clock from below.
+	var stem := PackedVector2Array()
+	for i in 13:
+		var a := deg_to_rad(lerpf(110.0, 218.0, i / 12.0))
+		stem.append(c + Vector2(-side * cos(a) * rx, sin(a) * ry))
+	draw_polyline(stem, Color(0.45, 0.3, 0.06), 3.0 * scale)
+	draw_polyline(stem, BRASS, 1.6 * scale)
+	for k in 8:
+		var t := 0.06 + k * 0.125
+		var a := deg_to_rad(lerpf(110.0, 218.0, t))
+		var p := c + Vector2(-side * cos(a) * rx, sin(a) * ry)
+		var tang := Vector2(side * sin(a) * rx, cos(a) * ry).normalized()
+		var out := Vector2(-side * cos(a), sin(a) * 0.6).normalized()
+		for s: float in [1.0, -1.0]:
+			var dir := (tang + out * s * 0.85).normalized()
+			var ln := (10.0 + k * 0.9) * scale * (1.0 if s > 0.0 else 0.8)
+			var tip := p + dir * ln
+			var sd := Vector2(-dir.y, dir.x) * ln * 0.3
+			var pts := PackedVector2Array([p, (p + tip) / 2.0 + sd, tip, (p + tip) / 2.0 - sd])
+			draw_colored_polygon(pts, BRASS if s > 0.0 else BRASS.darkened(0.15))
+			draw_colored_polygon(PackedVector2Array([p, (p + tip) / 2.0 + sd, tip]), GOLD.lightened(0.2))
+			pts.append(pts[0])
+			draw_polyline(pts, Color(0.4, 0.25, 0.04), 1.1)
 
 
 func _draw_minimap(c: Vector2, r: float) -> void:
-	## The minimap as a round parchment chart in a rope ring on an iron
-	## plate, with the home-defence tag hung under it.
-	var plate := Rect2(c - Vector2(r + 10, r + 10), Vector2(r + 10, r + 10) * 2.0)
+	## The minimap as a round parchment chart in a twisted rope ring on a
+	## dark iron plate with bracketed, riveted corners, and the home-defence
+	## tag hung across the bottom.
+	var hs := r * 1.0
+	var plate := Rect2(c - Vector2(hs, hs), Vector2(hs, hs) * 2.0)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = IRON
-	sb.set_corner_radius_all(18)
-	sb.set_border_width_all(2)
-	sb.border_color = IRON_DARK
-	sb.shadow_size = 6
-	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.bg_color = IRON_DARK
+	sb.set_corner_radius_all(14)
+	sb.set_border_width_all(3)
+	sb.border_color = Color(0.08, 0.08, 0.1)
+	sb.shadow_size = 7
+	sb.shadow_color = Color(0, 0, 0, 0.4)
+	sb.shadow_offset = Vector2(0, 2)
 	draw_style_box(sb, plate)
-	for corner in [plate.position + Vector2(12, 12), Vector2(plate.end.x - 12, plate.position.y + 12), plate.end - Vector2(12, 12), Vector2(plate.position.x + 12, plate.end.y - 12)]:
-		draw_circle(corner, 4.0, BRASS)
-		draw_arc(corner, 4.0, 0, TAU, 12, Color(0.35, 0.22, 0.06), 1.2)
-	draw_circle(c, r, PARCHMENT)
-	draw_circle(c, r * 0.96, PARCHMENT.lightened(0.06))
+	draw_rect(Rect2(plate.position + Vector2(10, 3), Vector2(plate.size.x - 20, 2)), Color(1, 1, 1, 0.16))
+	draw_rect(plate.grow(-6), Color(0.5, 0.53, 0.6, 0.35), false, 1.0)
+	# Corner brackets: bolted iron L-plates.
+	for corner in [plate.position, Vector2(plate.end.x, plate.position.y), plate.end, Vector2(plate.position.x, plate.end.y)]:
+		var dx := 1.0 if corner.x < c.x else -1.0
+		var dy := 1.0 if corner.y < c.y else -1.0
+		var o: Vector2 = corner + Vector2(dx * 3, dy * 3)
+		var br := PackedVector2Array([o, o + Vector2(dx * 34, 0), o + Vector2(dx * 34, dy * 11), o + Vector2(dx * 11, dy * 11),
+			o + Vector2(dx * 11, dy * 34), o + Vector2(0, dy * 34)])
+		draw_colored_polygon(br, IRON.lightened(0.08))
+		draw_colored_polygon(PackedVector2Array([o, o + Vector2(dx * 34, 0), o + Vector2(dx * 34, dy * 3), o + Vector2(dx * 3, dy * 3), o + Vector2(dx * 3, dy * 34), o + Vector2(0, dy * 34)]), Color(1, 1, 1, 0.18))
+		br.append(br[0])
+		draw_polyline(br, Color(0.08, 0.08, 0.1), 1.5)
+		for q in [o + Vector2(dx * 6, dy * 6), o + Vector2(dx * 27, dy * 6), o + Vector2(dx * 6, dy * 27)]:
+			draw_circle(q, 2.4, Color(0.78, 0.8, 0.85))
+			draw_circle(q + Vector2(0.6, 0.7), 1.2, Color(0.2, 0.21, 0.25))
+	# The chart.
+	draw_circle(c + Vector2(0, 3), r + 8, Color(0, 0, 0, 0.35))
+	draw_circle(c, r, PARCHMENT.darkened(0.1))
+	draw_circle(c, r * 0.95, PARCHMENT)
+	draw_circle(c + Vector2(-r * 0.15, -r * 0.2), r * 0.6, Color(1, 0.97, 0.85, 0.25))
 	var hx: float = game.map_half.x
 	var hz: float = game.map_half.y
 	var mw := r * 1.84
 	var mh := mw * hz / hx
+	# Little inked trees and bushes on the parchment around the field.
+	for i in 46:
+		var a := fmod(i * 2.39996, TAU)
+		var d := r * (0.35 + 0.6 * fmod(i * 0.618034, 1.0))
+		var q := c + Vector2(cos(a), sin(a)) * d
+		if absf(q.y - c.y) < mh / 2.0 + 5.0 or (q - c).length() > r - 9.0:
+			continue
+		var tr := 2.4 + fmod(i * 1.7, 2.0)
+		draw_circle(q + Vector2(0.8, 1.0), tr, Color(0.35, 0.28, 0.15, 0.35))
+		draw_circle(q, tr, LEAF.darkened(0.1) if i % 3 else Color(0.5, 0.62, 0.3))
+		if i % 7 == 0:
+			draw_circle(q + Vector2(tr + 1.5, 0), 1.3, RED)
+	for i in 3:
+		var y := c.y + (mh / 2.0 + 10.0 + i * 9.0) * (1.0 if i % 2 else -1.0)
+		draw_line(Vector2(c.x - r * 0.45 + i * 12.0, y), Vector2(c.x - r * 0.2 + i * 12.0, y + 2.0), Color(0.55, 0.42, 0.25, 0.4), 1.0)
 	_draw_map(Rect2(c - Vector2(mw, mh) / 2.0, Vector2(mw, mh)), false)
-	# Rope ring: a thick brown band twisted with diagonal strands.
-	draw_arc(c, r + 2.0, 0, TAU, 64, ROPE.darkened(0.35), 9.0)
-	draw_arc(c, r + 2.0, 0, TAU, 64, ROPE, 6.5)
-	for i in 48:
-		var a := TAU * i / 48.0
+	# A burnt edge on the parchment inside the rope.
+	draw_arc(c, r - 3.0, 0, TAU, 64, Color(0.45, 0.3, 0.12, 0.35), 6.0)
+	# Rope ring: a thick dark band, then twisted strands laid diagonally.
+	var rw := maxf(r * 0.11, 8.0)
+	draw_arc(c, r + rw * 0.35, 0, TAU, 80, Color(0.22, 0.13, 0.05), rw + 4.0)
+	draw_arc(c, r + rw * 0.35, 0, TAU, 80, ROPE.darkened(0.25), rw)
+	var strands := int(TAU * r / 7.0)
+	for i in strands:
+		var a := TAU * i / strands
 		var d := Vector2(cos(a), sin(a))
 		var t := Vector2(-d.y, d.x)
-		draw_line(c + d * (r - 1.0) - t * 1.5, c + d * (r + 5.0) + t * 1.5, ROPE.darkened(0.4), 1.5)
+		var mid := c + d * (r + rw * 0.35)
+		var p0 := mid - d * rw * 0.5 - t * rw * 0.28
+		var p1 := mid + d * rw * 0.5 + t * rw * 0.28
+		draw_line(p0, p1, ROPE.lightened(0.18), rw * 0.42)
+		draw_line(p0 + t * rw * 0.12, p1 + t * rw * 0.12, Color(1, 0.9, 0.7, 0.35), 1.0)
+		draw_line(p0 - t * rw * 0.22, p1 - t * rw * 0.22, Color(0.25, 0.14, 0.05, 0.8), 1.2)
 	var me = _me()
 	if me and me.home_defense and not me.dead:
-		var tag := Rect2(c + Vector2(-r * 0.78, r - 10), Vector2(r * 1.56, 24))
-		_plate(tag, Color(0.12, 0.25, 0.5, 0.96), Color(0.75, 0.85, 1.0), 9, 2)
-		_icon("guard", tag.position + Vector2(16, 12), 8, Color.WHITE)
-		_text(tag.position + Vector2(28, 17), "DEFENDING HOME", 11, Color(0.9, 0.95, 1.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var tw := minf(r * 1.6, 170.0)
+		_home_pill(Rect2(Vector2(c.x - tw / 2.0 - r * 0.05, plate.end.y - 30), Vector2(tw, 26)), me.team)
 
 
 func _draw_logo(rect: Rect2) -> void:
+	## The supplied logo art; if it is missing, a lettered stand-in in the
+	## same colours (gold CROWNS, green WILDWOOD, a little crown on top).
 	if logo:
 		draw_texture_rect(logo, rect, false)
+		return
+	var cx := rect.get_center().x
+	_crown(Vector2(cx, rect.position.y + 10), 1.1, GOLD)
+	var y := rect.position.y + 40
+	draw_string_outline(font, Vector2(rect.position.x, y), "CROWNS", HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 28, 9, Color(0.18, 0.1, 0.04))
+	draw_string(font, Vector2(rect.position.x, y), "CROWNS", HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 28, Color(1.0, 0.78, 0.25))
+	_text(Vector2(rect.position.x, y + 13), "OF THE", 10, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
+	draw_string_outline(font, Vector2(rect.position.x, y + 40), "WILDWOOD", HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 28, 9, Color(0.08, 0.16, 0.05))
+	draw_string(font, Vector2(rect.position.x, y + 40), "WILDWOOD", HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 28, Color(0.55, 0.82, 0.3))
 
 
 func _close(rect: Rect2) -> void:
@@ -843,6 +969,183 @@ func _close(rect: Rect2) -> void:
 	close_button = Rect2(rect.end.x - 34, rect.position.y + 8, 26, 26)
 	_plate(close_button, Color(0.45, 0.12, 0.12), GOLD_DARK, 6, 1)
 	_text(close_button.position + Vector2(0, 19), "✕", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 26, 0)
+
+
+func _padlock(c: Vector2, s: float, col: Color) -> void:
+	## A small padlock for a slot that has not been unlocked yet.
+	draw_arc(c + Vector2(0, -0.15 * s), 0.42 * s, PI, TAU, 16, col, 0.17 * s)
+	draw_line(c + Vector2(-0.42 * s, -0.15 * s), c + Vector2(-0.42 * s, 0.1 * s), col, 0.17 * s)
+	draw_line(c + Vector2(0.42 * s, -0.15 * s), c + Vector2(0.42 * s, 0.1 * s), col, 0.17 * s)
+	var body := Rect2(c + Vector2(-0.65 * s, 0.05 * s), Vector2(1.3 * s, 0.95 * s))
+	_plate(body, col, col.darkened(0.5), 3, 1)
+	draw_circle(c + Vector2(0, 0.42 * s), 0.13 * s, Color(0.08, 0.08, 0.1))
+	draw_line(c + Vector2(0, 0.45 * s), c + Vector2(0, 0.75 * s), Color(0.08, 0.08, 0.1), 0.1 * s)
+
+
+func _star(c: Vector2, r: float, color: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 10:
+		var a := -PI / 2.0 + PI * i / 5.0
+		pts.append(c + Vector2(cos(a), sin(a)) * (r if i % 2 == 0 else r * 0.45))
+	draw_colored_polygon(pts, color)
+	pts.append(pts[0])
+	draw_polyline(pts, Color(0.35, 0.2, 0.04), 1.2)
+	draw_circle(c + Vector2(-0.15, -0.25) * r, r * 0.16, Color(1, 1, 0.85, 0.7))
+
+
+func _team_shield(c: Vector2, s: float, team: int) -> void:
+	## A tiny heater shield split in the team colour and gold: the home tag.
+	var pts := PackedVector2Array([c + Vector2(-s, -s), c + Vector2(s, -s), c + Vector2(s, 0.1 * s),
+		c + Vector2(0.55 * s, 0.75 * s), c + Vector2(0, 1.1 * s), c + Vector2(-0.55 * s, 0.75 * s), c + Vector2(-s, 0.1 * s)])
+	var outer := PackedVector2Array()
+	for q in pts:
+		outer.append(c + (q - c) * 1.25)
+	draw_colored_polygon(outer, Color(0.85, 0.87, 0.92))
+	draw_colored_polygon(pts, _team_color(team).darkened(0.1))
+	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s, -s), c + Vector2(s, 0.1 * s),
+		c + Vector2(0.55 * s, 0.75 * s), c + Vector2(0, 1.1 * s)]), Color(0.95, 0.6, 0.15))
+	outer.append(outer[0])
+	draw_polyline(outer, Color(0.1, 0.1, 0.14), 1.2)
+
+
+func _home_pill(rect: Rect2, team: int) -> void:
+	## The navy "DEFENDING HOME" tag with a team shield on its left end.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.13, 0.24, 0.97)
+	sb.set_corner_radius_all(int(rect.size.y / 2.0))
+	sb.set_border_width_all(2)
+	sb.border_color = Color(0.72, 0.76, 0.86)
+	sb.shadow_size = 4
+	sb.shadow_color = Color(0, 0, 0, 0.4)
+	draw_style_box(sb, rect)
+	_team_shield(rect.position + Vector2(rect.size.y * 0.55, rect.size.y * 0.42), rect.size.y * 0.33, team)
+	_text(rect.position + Vector2(rect.size.y, rect.size.y * 0.5 + 4.5), "DEFENDING HOME", 12, Color(0.92, 0.94, 1.0),
+		HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - rect.size.y - 6, 2)
+
+
+func _shield_shape(c: Vector2, w: float, h: float) -> PackedVector2Array:
+	## A heater shield outline: flat top with clipped corners, straight sides,
+	## then curving in to a point.
+	var top := -h / 2.0
+	var knee := top + h * 0.4
+	var pts := PackedVector2Array()
+	pts.append(c + Vector2(-w / 2.0, top + 7.0))
+	pts.append(c + Vector2(-w / 2.0 + 7.0, top))
+	pts.append(c + Vector2(0, top + 5.0))
+	pts.append(c + Vector2(w / 2.0 - 7.0, top))
+	pts.append(c + Vector2(w / 2.0, top + 7.0))
+	for i in 11:
+		var t := i / 10.0
+		pts.append(c + Vector2(w / 2.0 * (1.0 - pow(t, 1.7)), knee + (h / 2.0 - knee) * t))
+	for i in range(9, -1, -1):
+		var t := i / 10.0
+		pts.append(c + Vector2(-w / 2.0 * (1.0 - pow(t, 1.7)), knee + (h / 2.0 - knee) * t))
+	return pts
+
+func _shield_portrait(c: Vector2, w: float, h: float, team: int, role: int, dead: bool) -> void:
+	## The player's class portrait (the supplied card art, or the class icon)
+	## inside a gold-rimmed heater shield.
+	var pts := _shield_shape(c, w, h)
+	var scaled := func(k: float) -> PackedVector2Array:
+		var out := PackedVector2Array()
+		for q in pts:
+			out.append(c + (q - c) * k)
+		return out
+	var shadow: PackedVector2Array = scaled.call(1.2)
+	for i in shadow.size():
+		shadow[i] += Vector2(0, 3)
+	draw_colored_polygon(shadow, Color(0, 0, 0, 0.35))
+	var rim: PackedVector2Array = scaled.call(1.17)
+	draw_colored_polygon(rim, BRASS.darkened(0.25))
+	draw_colored_polygon(scaled.call(1.12), BRASS)
+	draw_colored_polygon(scaled.call(1.04), Color(0.3, 0.18, 0.05))
+	var bg := _team_color(team).darkened(0.55)
+	draw_colored_polygon(pts, bg)
+	var key := _card_key(team, role)
+	if cards.has(key):
+		var tex: Texture2D = cards[key]
+		var ts := tex.get_size()
+		# The head and shoulders: the top of the card, a little wider than the shield.
+		var src := Rect2(Vector2(ts.x * 0.12, ts.y * 0.03), Vector2(ts.x * 0.76, ts.x * 0.76 * h / w))
+		var uvs := PackedVector2Array()
+		var cols := PackedColorArray()
+		var tint := Color(0.4, 0.4, 0.42) if dead else Color.WHITE
+		for q in pts:
+			var f := (q - (c - Vector2(w, h) / 2.0)) / Vector2(w, h)
+			uvs.append((src.position + src.size * f) / ts)
+			cols.append(tint)
+		draw_polygon(pts, cols, uvs, tex)
+	else:
+		draw_circle(c + Vector2(0, -4), w * 0.36, bg.lightened(0.15))
+		_icon(_class_icon(role), c + Vector2(0, -4), w * 0.24, Color.WHITE, dead)
+	# Gloss and the gold edge lines.
+	var gloss := PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[4], c + Vector2(w / 2.0, -h * 0.2), c + Vector2(-w / 2.0, -h * 0.05)])
+	draw_colored_polygon(gloss, Color(1, 1, 1, 0.07))
+	var line: PackedVector2Array = pts.duplicate()
+	line.append(pts[0])
+	draw_polyline(line, Color(0.25, 0.14, 0.03), 2.0)
+	rim.append(rim[0])
+	draw_polyline(rim, Color(0.3, 0.18, 0.04), 2.0)
+	var hi: PackedVector2Array = scaled.call(1.09)
+	hi.append(hi[0])
+	draw_polyline(hi, GOLD.lightened(0.3), 1.0)
+	# Rivets on the rim.
+	for q in [rim[1], rim[3], rim[8], rim[rim.size() - 9]]:
+		draw_circle(q.lerp(c, 0.04), 2.2, Color(1, 0.92, 0.6))
+	if dead:
+		_text(c + Vector2(-w / 2.0, 6), "DOWN", 15, Color(1, 0.6, 0.55), HORIZONTAL_ALIGNMENT_CENTER, w, 4)
+
+
+func _narrow() -> bool:
+	## Couch panes too small for the full top row: the scoreboard shrinks,
+	## the minimap gets smaller and the logo is left out.
+	return size.x < 1140.0
+
+
+func _clock_plate(rect: Rect2) -> void:
+	## The timer plate: dark wood-black in a thick gold frame with clipped
+	## corners and a shallow point at the bottom.
+	var r := rect
+	var ch := 10.0
+	var outline := func(g: float) -> PackedVector2Array:
+		var q := r.grow(g)
+		return PackedVector2Array([q.position + Vector2(ch, 0), Vector2(q.end.x - ch, q.position.y), Vector2(q.end.x, q.position.y + ch),
+			Vector2(q.end.x, q.end.y - ch - 4.0), Vector2(q.end.x - ch * 2.0, q.end.y - 4.0), Vector2(q.get_center().x, q.end.y + 3.0),
+			Vector2(q.position.x + ch * 2.0, q.end.y - 4.0), Vector2(q.position.x, q.end.y - ch - 4.0), Vector2(q.position.x, q.position.y + ch)])
+	var shadow: PackedVector2Array = outline.call(3.0)
+	for i in shadow.size():
+		shadow[i] += Vector2(0, 3)
+	draw_colored_polygon(shadow, Color(0, 0, 0, 0.4))
+	var o: PackedVector2Array = outline.call(2.0)
+	draw_colored_polygon(o, BRASS)
+	draw_colored_polygon(outline.call(-2.0), Color(0.35, 0.22, 0.05))
+	var inner: PackedVector2Array = outline.call(-4.0)
+	draw_colored_polygon(inner, Color(0.12, 0.09, 0.08))
+	draw_rect(Rect2(r.position + Vector2(10, 5), Vector2(r.size.x - 20, r.size.y * 0.35)), Color(1, 0.9, 0.7, 0.05))
+	inner.append(inner[0])
+	draw_polyline(inner, Color(0.75, 0.55, 0.2, 0.6), 1.0)
+	o.append(o[0])
+	draw_polyline(o, Color(0.3, 0.18, 0.04), 2.0)
+	var hi: PackedVector2Array = outline.call(0.5)
+	hi.resize(4)
+	draw_polyline(hi, GOLD.lightened(0.35), 1.2)
+	for q in [Vector2(r.position.x + 3, r.get_center().y - 4), Vector2(r.end.x - 3, r.get_center().y - 4)]:
+		draw_circle(q, 2.5, Color(1, 0.92, 0.6))
+		draw_arc(q, 2.5, 0, TAU, 10, Color(0.35, 0.2, 0.04), 1.0)
+
+
+func _energy_bar(rect: Rect2, fraction: float, color: Color) -> void:
+	## Stamina or mana: a sunk dark trough with a bright fill and a bronze end cap.
+	_plate(rect.grow(2), Color(0.08, 0.05, 0.03), Color(0.03, 0.02, 0.01), 5, 1)
+	var inner := rect.grow(-1)
+	draw_rect(inner, Color(0.16, 0.12, 0.08))
+	var w := inner.size.x * clampf(fraction, 0.0, 1.0)
+	if w > 0.0:
+		draw_rect(Rect2(inner.position, Vector2(w, inner.size.y)), color.darkened(0.15))
+		draw_rect(Rect2(inner.position, Vector2(w, inner.size.y * 0.45)), color.lightened(0.2))
+		draw_rect(Rect2(inner.position + Vector2(0, inner.size.y - 3), Vector2(w, 3)), color.darkened(0.4))
+	var cap := Rect2(Vector2(rect.end.x - 6, rect.position.y - 1), Vector2(8, rect.size.y + 2))
+	_plate(cap, Color(0.55, 0.36, 0.16), Color(0.25, 0.14, 0.05), 2, 1)
 
 
 # --- In-match panels ---------------------------------------------------------
@@ -939,52 +1242,84 @@ func _draw_tutorial() -> void:
 
 func _draw_scoreboard() -> void:
 	## Two cloth banners, ELVES in green on the left and HUMANS in blue on the
-	## right, either side of a clock in a gold laurel.
+	## right, each with its crest at the outer end, either side of a framed
+	## clock in gold laurels; the phase line on a parchment scroll below.
 	var cx := size.x / 2.0
+	var k := 0.72 if _narrow() else 1.0
+	if k < 1.0:
+		draw_set_transform(Vector2(cx * (1.0 - k), 0), 0.0, Vector2(k, k))
 	for t in 2:
 		var dir := -1.0 if t == 0 else 1.0
-		var rect := Rect2(Vector2(cx + (dir * 92.0 if t == 1 else -92.0 - 250.0), 12), Vector2(250, 52))
-		_banner_ribbon(rect, _team_color(t).darkened(0.15), t == 0)
-		var crest_c := Vector2(rect.position.x + (54 if t == 0 else rect.size.x - 54), rect.get_center().y)
-		draw_circle(crest_c, 21, _team_color(t).darkened(0.55))
-		draw_arc(crest_c, 21, 0, TAU, 24, BRASS, 2.0)
-		if not _card("crest_elf" if t == 0 else "crest_human", Rect2(crest_c - Vector2(18, 18), Vector2(36, 36))):
+		var rect := Rect2(Vector2(cx - 300.0 if t == 0 else cx + 60.0, 12), Vector2(240, 50))
+		var tc := _team_color(t)
+		_banner_ribbon(rect, tc.darkened(0.3) if t == 0 else tc.darkened(0.25), t == 0)
+		var crest_c := Vector2(cx + dir * 262.0, rect.get_center().y)
+		draw_circle(crest_c + Vector2(0, 2), 27, Color(0, 0, 0, 0.35))
+		draw_circle(crest_c, 26, Color(0.3, 0.18, 0.04))
+		draw_circle(crest_c, 24.5, BRASS)
+		draw_arc(crest_c, 23, PI * 1.1, PI * 1.9, 12, GOLD.lightened(0.3), 1.5)
+		draw_circle(crest_c, 20.5, tc.darkened(0.65))
+		if not _card("crest_elf" if t == 0 else "crest_human", Rect2(crest_c - Vector2(20, 20), Vector2(40, 40))):
 			_icon("crest_forest" if t == 0 else "crest_kingdom", crest_c, 13, Color.WHITE)
-		var tx := rect.position.x + (84 if t == 0 else 30)
-		_text(Vector2(tx, rect.position.y + 20), Stats.FACTIONS[t].name.to_upper(), 13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 130, 3)
-		_text(Vector2(tx, rect.position.y + 46), str(game.score[t]), 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 130, 4)
-	var clock := Rect2(cx - 92, 6, 184, 64)
-	_laurel(Vector2(clock.position.x + 4, clock.get_center().y), -1.0, 1.1)
-	_laurel(Vector2(clock.end.x - 4, clock.get_center().y), 1.0, 1.1)
-	_plate(clock, Color(0.16, 0.12, 0.09, 0.97), BRASS, 14, 3)
-	draw_rect(Rect2(clock.position + Vector2(10, 6), Vector2(clock.size.x - 20, 2)), Color(1, 0.9, 0.6, 0.25))
-	if game.prep_left > 0.0:
+		draw_arc(crest_c, 20.5, 0, TAU, 32, Color(0.3, 0.18, 0.04), 1.5)
+		var tx := cx - 236.0 if t == 0 else cx + 80.0
+		_text(Vector2(tx, 31), Stats.FACTIONS[t].name.to_upper(), 13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 156, 3)
+		_text(Vector2(tx, 57), str(game.score[t]), 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 156, 5)
+	var clock := Rect2(cx - 76, 3, 152, 66)
+	_laurel(Vector2(cx, 34), -1.0, 1.35, 90.0, 42.0)
+	_laurel(Vector2(cx, 34), 1.0, 1.35, 90.0, 42.0)
+	_clock_plate(clock)
+	var fortify: bool = game.prep_left > 0.0
+	if fortify:
 		# The fortify countdown takes the clock's place; the match clock waits.
 		var pl: float = ceilf(game.prep_left)
 		var pulse: bool = pl <= 5.0 and int(game.prep_left * 2.0) % 2 == 0
-		_text(Vector2(clock.position.x, 28), "FORTIFY", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 2)
-		_text(Vector2(clock.position.x, 58), "0:%02d" % int(pl), 30, Color(1, 0.85, 0.5) if pulse else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x)
-		var pw := 380.0
+		_text(Vector2(clock.position.x, 25), "FORTIFY", 13, GOLD, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 3)
+		_text(Vector2(clock.position.x, 58), "%d:%02d" % [int(pl) / 60, int(pl) % 60], 32, Color(1, 0.85, 0.5) if pulse else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 5)
+	else:
+		var left := maxf(game.time_left, 0.0)
+		var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
+		_text(Vector2(clock.position.x, 25), "OVERTIME" if game.overtime else "BATTLE", 13, Color(1, 0.55, 0.4) if game.overtime else GOLD, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 3)
+		_text(Vector2(clock.position.x, 58), "%d:%02d" % [int(left) / 60, int(left) % 60], 32,
+			Color(1, 0.4, 0.3) if urgent else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 5)
+	var line := ""
+	var ink := Color(0.3, 0.18, 0.06)
+	if fortify:
+		line = "DIG IN: TURRETS · TRAPS · BARRICADES [%s] · %d KITS LEFT" % [_k("interact"), game.barricades_left[_my_team()]]
+	elif game.overtime:
+		line = "OVERTIME · NO RESPAWNS · LAST TEAM OR NEXT CAPTURE WINS"
+		ink = Color(0.55, 0.1, 0.05)
+	if line != "":
+		var pw := maxf(_text_width(line, 11) + 56.0, 360.0)
 		_scroll(Rect2(cx - pw / 2.0, 74, pw, 24))
-		_text(Vector2(cx - pw / 2.0, 91), "DIG IN: TURRETS · TRAPS · BARRICADES [%s] · %d KITS LEFT" % [_k("interact"), game.barricades_left[_my_team()]], 11,
-			Color(0.3, 0.18, 0.06), HORIZONTAL_ALIGNMENT_CENTER, pw, 0)
-		return
-	var left := maxf(game.time_left, 0.0)
-	var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
-	_text(Vector2(clock.position.x, 52), "%02d:%02d" % [int(left) / 60, int(left) % 60], 34,
-		Color(1, 0.4, 0.3) if urgent else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x)
-	if game.overtime:
-		var ow := 380.0
-		_scroll(Rect2(cx - ow / 2.0, 74, ow, 24))
-		_text(Vector2(cx - ow / 2.0, 91), "OVERTIME · NO RESPAWNS · LAST TEAM OR NEXT CAPTURE WINS", 11, Color(0.55, 0.1, 0.05), HORIZONTAL_ALIGNMENT_CENTER, ow, 0)
+		_text(Vector2(cx - pw / 2.0, 90.5), line, 11, ink, HORIZONTAL_ALIGNMENT_CENTER, pw, 0)
+	if k < 1.0:
+		draw_set_transform(Vector2.ZERO)
 
 
 func _scroll(rect: Rect2) -> void:
 	## A parchment strip with rolled ends, for the line under the clock.
-	_plate(rect, PARCHMENT, Color(0.55, 0.38, 0.18), 6, 2)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = PARCHMENT
+	sb.set_corner_radius_all(3)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(0.5, 0.33, 0.14)
+	sb.shadow_size = 4
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_offset = Vector2(0, 2)
+	draw_style_box(sb, rect)
+	draw_rect(Rect2(rect.position + Vector2(3, 3), Vector2(rect.size.x - 6, rect.size.y * 0.35)), Color(1, 1, 0.95, 0.3))
+	draw_rect(Rect2(rect.position + Vector2(3, rect.size.y - 7), Vector2(rect.size.x - 6, 4)), Color(0.55, 0.38, 0.15, 0.18))
 	for x in [rect.position.x, rect.end.x]:
-		var roll := Rect2(Vector2(x - 6, rect.position.y - 3), Vector2(12, rect.size.y + 6))
-		_plate(roll, PARCHMENT.darkened(0.12), Color(0.5, 0.33, 0.15), 6, 2)
+		var roll := Rect2(Vector2(x - 7, rect.position.y - 4), Vector2(14, rect.size.y + 8))
+		var rb := StyleBoxFlat.new()
+		rb.bg_color = PARCHMENT.darkened(0.12)
+		rb.set_corner_radius_all(7)
+		rb.set_border_width_all(2)
+		rb.border_color = Color(0.45, 0.29, 0.12)
+		draw_style_box(rb, roll)
+		draw_rect(Rect2(roll.position + Vector2(3, 3), Vector2(3, roll.size.y - 6)), Color(1, 1, 0.9, 0.35))
+		draw_line(Vector2(roll.get_center().x + 2, roll.position.y + 4), Vector2(roll.get_center().x + 2, roll.end.y - 4), Color(0.45, 0.29, 0.12, 0.6), 1.0)
 
 
 func _draw_roster(team: int, origin: Vector2, compact: bool = false) -> void:
@@ -1207,7 +1542,7 @@ func _draw_objective() -> void:
 		_text(rect.position + Vector2(28, 72), "%d m away" % dist, 12, Color(1.0, 0.75, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(rect.position + Vector2(28, 96), "They need %d captures to win" % Stats.CAPTURES_TO_WIN, 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		return
-	var lines := ["Break the enemy castle door", "Break the lock on their Crown Vault", "Carry their monarch to your throne",
+	var lines := ["Break the enemy castle door", "Break the lock on their Crown Vault", "Carry their crown to your throne",
 		"First to %d captures wins" % Stats.CAPTURES_TO_WIN]
 	if step == 2 and not obj.is_empty():
 		lines[2] = obj.label
@@ -1229,100 +1564,108 @@ func _draw_objective() -> void:
 
 
 func _draw_player_panel(p) -> void:
-	## The bottom board (HUD reference 2026-10-07): a level shield, hearts,
-	## the energy bar and the experience bar on planked wood, the ability
-	## keys on the right. No portrait.
+	## The bottom board (HUD reference 2026-10-07): planked wood in a steel
+	## rim with gold corner brackets and leaf sprigs. The class portrait in a
+	## gold shield on the left, then the title, hearts and the energy bar,
+	## the ability slots on the right and the experience bar along the foot.
 	var w := 820.0
-	var rect := Rect2(size.x / 2.0 - w / 2.0, size.y - 136, w, 126)
+	var rect := Rect2(size.x / 2.0 - w / 2.0, size.y - 142, w, 134)
 	_wood_panel(rect)
+	# The class portrait in its shield, under the tags.
+	_shield_portrait(rect.position + Vector2(70, 62), 86, 100, p.team, p.role, p.dead)
+	# Tags along the top edge: DEFENDING HOME first, then a blessing or
+	# spawn protection, a rank point waiting and the veteran streak.
+	var tag_x := rect.position.x + 20
+	if p.home_defense and not p.dead:
+		_home_pill(Rect2(Vector2(tag_x, rect.position.y - 16), Vector2(166, 26)), p.team)
+		tag_x += 178
 	if p.buff != "" and p.buff_timer > 0.0:
 		var bc: Color = Stats.BLESSING_KINDS[p.buff].color
-		var badge := Rect2(rect.position + Vector2(12, -30), Vector2(230, 26))
+		var badge := Rect2(Vector2(tag_x, rect.position.y - 26), Vector2(222, 24))
 		_plate(badge, bc.darkened(0.7), bc, 8, 2)
-		_icon(Stats.BLESSING_KINDS[p.buff].icon, badge.position + Vector2(16, 13), 9, Color.WHITE)
-		_text(badge.position + Vector2(32, 18), "BLESSING OF %s" % p.buff.to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_text(badge.position + Vector2(0, 18), "%ds" % ceili(p.buff_timer), 11, bc.lightened(0.3), HORIZONTAL_ALIGNMENT_RIGHT, badge.size.x - 10, 2)
+		_icon(Stats.BLESSING_KINDS[p.buff].icon, badge.position + Vector2(16, 12), 9, Color.WHITE)
+		_text(badge.position + Vector2(32, 17), "BLESSING OF %s" % p.buff.to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(badge.position + Vector2(0, 17), "%ds" % ceili(p.buff_timer), 11, bc.lightened(0.3), HORIZONTAL_ALIGNMENT_RIGHT, badge.size.x - 10, 2)
 		draw_rect(Rect2(badge.position + Vector2(4, badge.size.y - 4), Vector2((badge.size.x - 8) * p.buff_timer / Stats.BLESSING_DURATION, 2)), bc)
 	elif p.spawn_protect > 0.0 and not p.dead:
-		var sp := Rect2(rect.position + Vector2(12, -30), Vector2(170, 24))
+		var sp := Rect2(Vector2(tag_x, rect.position.y - 26), Vector2(170, 24))
 		_plate(sp, Color(0.1, 0.25, 0.4, 0.95), Color(0.6, 0.85, 1.0), 8, 1)
 		_icon("guard", sp.position + Vector2(14, 12), 7, Color.WHITE)
 		_text(sp.position + Vector2(26, 17), "SPAWN PROTECTED  %d" % ceili(p.spawn_protect), 10, Color(0.85, 0.95, 1.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	# The level shield.
-	var who: int = 1 if p.local_index <= 0 else p.local_index + 1
-	_shield_badge(rect.position + Vector2(64, 54), 78, 86, "PLAYER", str(who), WOOD_DARK.lerp(_team_color(p.team).darkened(0.5), 0.35))
-	var x := rect.position.x + 120
-	var title := "PLAYER LV %d" % p.level
-	if game.hero_name != "" and p.local_index <= 0:
-		title = "%s  LV %d" % [game.hero_name.to_upper(), p.level]
-	_text(Vector2(x, rect.position.y + 30), title, 17, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	if p.role != Role.BASE:
-		_icon(_class_icon(p.role), Vector2(x + _text_width(title, 17) + 16, rect.position.y + 24), 8, Color.WHITE)
-	if p.dead:
-		_hearts(Vector2(x + 16, rect.position.y + 56), 0, 0.85, 36)
-		var msg := "Down for the rest of overtime" if game.overtime else "Down! Back in %d" % ceili(p.respawn_timer)
-		_text(Vector2(x, rect.position.y + 92), msg, 15, Color(1, 0.7, 0.6))
-	else:
-		_hearts(Vector2(x + 16, rect.position.y + 56), p.hearts, 0.85, 36)
-		var is_mana: bool = p.energy_kind() == "mana"
-		var bar := Rect2(Vector2(x, rect.position.y + 76), Vector2(250, 16))
-		_bar(bar, p.energy / p.energy_max(), MANA if is_mana else STAMINA)
-		_text(bar.position + Vector2(0, 13), "%s  %d / %d" % ["MANA" if is_mana else "STAMINA", int(p.energy), int(p.energy_max())],
-			11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 3)
-	_draw_xp_bar(p, Rect2(rect.position + Vector2(120, 100), Vector2(rect.size.x - 150, 14)))
 	if p.points > 0 and not p.dead:
 		var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 150.0)
-		var badge := Rect2(rect.position + Vector2(392, -30), Vector2(132, 24))
+		var badge := Rect2(rect.position + Vector2(436, -26), Vector2(132, 24))
 		_plate(badge, Color(0.55, 0.4, 0.05, pulse), GOLD, 8, 1)
 		_icon("xp", badge.position + Vector2(14, 12), 7, Color.WHITE)
 		_text(badge.position + Vector2(26, 17), "%s  RANK UP  +%d" % [_k("rank_menu"), p.points], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	if p.veteran > 0 and not p.dead:
-		var vb := Rect2(rect.position + Vector2(rect.size.x - 236, -30), Vector2(224, 26))
+		var vb := Rect2(rect.position + Vector2(rect.size.x - 236, -28), Vector2(224, 24))
 		var vc := Color(1.0, 0.55, 0.2) if p.veteran == 2 else Color(1.0, 0.85, 0.3)
 		_plate(vb, vc.darkened(0.7), vc, 8, 2)
-		_icon("crown" if p.veteran == 2 else "xp", vb.position + Vector2(16, 13), 8, Color.WHITE)
-		_text(vb.position + Vector2(30, 18), ("ELITE VETERAN · BOUNTY ON YOU" if p.veteran == 2 else "VETERAN") + "  ·  %d streak" % p.streak, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_icon("crown" if p.veteran == 2 else "xp", vb.position + Vector2(16, 12), 8, Color.WHITE)
+		_text(vb.position + Vector2(30, 17), ("ELITE VETERAN · BOUNTY ON YOU" if p.veteran == 2 else "VETERAN") + "  ·  %d streak" % p.streak, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	elif p.streak >= 2 and not p.dead:
-		_text(rect.position + Vector2(rect.size.x - 12, -8), "%d kill streak" % p.streak, 10, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, -1, 2)
-	# Slots: attack, Q, E, dodge, block (shield classes), grab.
+		_text(rect.position + Vector2(rect.size.x - 14, -8), "%d kill streak" % p.streak, 11, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, -1, 3)
+	var x := rect.position.x + 132
+	var title := "PLAYER LV %d" % p.level
+	if p.local_index > 0:
+		title = "PLAYER %d  LV %d" % [p.local_index + 1, p.level]
+	elif game.hero_name != "":
+		title = "%s  LV %d" % [game.hero_name.to_upper(), p.level]
+	_text(Vector2(x, rect.position.y + 33), title, 18, Color(1.0, 0.9, 0.62), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	if p.dead:
+		_hearts(Vector2(x + 15, rect.position.y + 58), 0, 0.92, 38)
+		var msg := "Down for the rest of overtime" if game.overtime else "Down! Back in %d" % ceili(p.respawn_timer)
+		_text(Vector2(x, rect.position.y + 96), msg, 16, Color(1, 0.7, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	else:
+		_hearts(Vector2(x + 15, rect.position.y + 58), p.hearts, 0.92, 38)
+		var is_mana: bool = p.energy_kind() == "mana"
+		var bar := Rect2(Vector2(x, rect.position.y + 80), Vector2(252, 18))
+		_energy_bar(bar, p.energy / p.energy_max(), MANA if is_mana else STAMINA)
+		_text(bar.position + Vector2(0, 14), "%s %d/%d" % ["MANA" if is_mana else "STAMINA", int(p.energy), int(p.energy_max())],
+			11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 3)
+	_draw_xp_bar(p, Rect2(rect.position + Vector2(118, rect.size.y - 27), Vector2(rect.size.x - 150, 15)))
+	# Slots: attack, Q, E, dodge, block (shield classes) or perks, grab.
 	var abil: Array = p.abilities()
-	var sx := rect.position.x + 418
-	var sy := rect.position.y + 12
-	var slot := 46.0
-	var gap := 62.0
+	var slot := 50.0
+	var gap := 66.0
+	var sx := rect.end.x - 28.0 - 5.0 * gap - slot
+	var sy := rect.position.y + 14
 	var alive: bool = not p.dead and p.carrying == null
 	var atk: Dictionary = p.attack_stats()
-	_slot(Vector2(sx, sy), slot, _attack_icon(p.role, atk), Stats.ROLES[p.role].color.lightened(0.3), _k("attack"), atk.attack_name,
-		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0), false, atk.cost, STAMINA if p.energy_kind() == "stamina" else MANA)
+	var cost_c: Color = STAMINA if p.energy_kind() == "stamina" else MANA
+	_slot(Vector2(sx, sy), slot, _attack_icon(p.role, atk), Color(1.0, 0.62, 0.4), _k("attack"), atk.attack_name,
+		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0), false, atk.cost, cost_c)
 	for i in 2:
 		if i < abil.size():
 			var a: Dictionary = p.ability(i)
 			_slot(Vector2(sx + (i + 1) * gap, sy), slot, a.get("icon", a.kind), Stats.ROLES[p.role].color.lightened(0.3), _k("ability_%d" % (i + 1)), a.name,
-				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1), false, a.cost, STAMINA if p.energy_kind() == "stamina" else MANA)
+				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1), false, a.cost, cost_c)
 		else:
 			_slot(Vector2(sx + (i + 1) * gap, sy), slot, "", Color.WHITE, _k("ability_%d" % (i + 1)), "", 0.0, 1.0, false)
-	_slot(Vector2(sx + 3 * gap, sy), slot, "dodge", STAMINA, _k("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
+	_slot(Vector2(sx + 3 * gap, sy), slot, "dodge", Color(0.45, 0.95, 0.6), _k("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
 		alive and p.energy >= Stats.DODGE_COST)
 	if p.can_block():
 		_slot(Vector2(sx + 4 * gap, sy), slot, "block", STEEL, _k("block"), "Block", 0.0, 1.0, alive and p.energy > 0.0, 0, p.blocking)
 	else:
-		_slot(Vector2(sx + 4 * gap, sy), slot, "vigor", XP, _k("rank_menu"), "Perks", 0.0, 1.0, p.points > 0, p.rank(3))
+		_slot(Vector2(sx + 4 * gap, sy), slot, "vigor", Color(1.0, 0.35, 0.4), _k("rank_menu"), "Perks", 0.0, 1.0, p.points > 0, p.rank(3))
 	_slot(Vector2(sx + 5 * gap, sy), slot, "crown", GOLD, _k("interact"), "Drop" if p.carrying else "Grab", 0.0, 1.0, not p.dead)
 
 
 func _draw_xp_bar(p, bar: Rect2) -> void:
-	## Experience this life: a long gold bar with level ticks, a glow that grows
-	## with progress and a pulse when a rank point is waiting to be spent.
+	## Experience this life: a long bar along the foot of the panel with a
+	## star and level at each end, a glow that grows with progress and a
+	## pulse when a rank point is waiting to be spent.
 	var span: Array = Stats.xp_span(p.level)
 	var frac := 1.0 if span[1] < 0 else clampf(float(p.xp - span[0]) / float(span[1] - span[0]), 0.0, 1.0)
 	var t := Time.get_ticks_msec() / 1000.0
 	var hot: bool = p.points > 0 and not p.dead
-	var edge := GOLD.lerp(Color.WHITE, 0.5 + 0.5 * sin(t * 6.0)) if hot else GOLD_DARK
-	# Glow behind the filled part.
+	var edge := GOLD.lerp(Color.WHITE, 0.5 + 0.5 * sin(t * 6.0)) if hot else Color(0.04, 0.03, 0.05)
 	var fill_w := bar.size.x * frac
 	if fill_w > 0.0:
 		draw_rect(Rect2(bar.position - Vector2(2, 3), Vector2(fill_w + 4, bar.size.y + 6)), Color(1.0, 0.75, 0.25, 0.18 + 0.1 * sin(t * 3.0)))
-	_plate(bar, Color(0.08, 0.07, 0.1, 0.95), edge, 7, 1)
+	_plate(bar, Color(0.1, 0.09, 0.14, 0.97), edge, 7, 2)
+	draw_rect(Rect2(bar.position + Vector2(6, 2), Vector2(bar.size.x - 12, 1)), Color(1, 1, 1, 0.08))
 	var inner := bar.grow(-2)
 	if fill_w > 4.0:
 		var sb := StyleBoxFlat.new()
@@ -1331,22 +1674,23 @@ func _draw_xp_bar(p, bar: Rect2) -> void:
 		var fill := Rect2(inner.position, Vector2(maxf(fill_w - 4.0, 6.0), inner.size.y))
 		draw_style_box(sb, fill)
 		draw_rect(Rect2(fill.position, Vector2(fill.size.x, fill.size.y * 0.45)), Color(1, 1, 1, 0.25))
-		# A bright cap sweeping along the end of the fill.
 		draw_rect(Rect2(fill.end.x - 3, fill.position.y, 3, fill.size.y), Color(1, 0.95, 0.7, 0.8))
-	# Quarter ticks so progress reads at a glance.
 	for i in range(1, 4):
 		var tx := inner.position.x + inner.size.x * i / 4.0
-		draw_line(Vector2(tx, inner.position.y + 2), Vector2(tx, inner.end.y - 2), Color(0, 0, 0, 0.35), 1.0)
-	# Level badges at both ends and the numbers in the middle.
-	_icon("xp", bar.position + Vector2(-2, bar.size.y / 2.0), 7, XP)
-	_text(bar.position + Vector2(10, bar.size.y - 2), "LV %d" % p.level, 10, Color(0.15, 0.1, 0.05) if frac > 0.12 else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+		draw_line(Vector2(tx, inner.position.y + 2), Vector2(tx, inner.end.y - 2), Color(1, 1, 1, 0.08), 1.0)
+	var ty := bar.position.y + bar.size.y - 3.0
+	_star(bar.position + Vector2(10, bar.size.y / 2.0), 8.0, GOLD)
+	_text(Vector2(bar.position.x + 24, ty), "LV %d" % p.level, 11, Color(0.15, 0.1, 0.05) if frac > 0.12 else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 0 if frac > 0.12 else 2)
 	var xp_text := "MAX LEVEL" if span[1] < 0 else "%d / %d XP" % [p.xp, span[1]]
 	if hot:
 		xp_text += "   ·   %d RANK POINT%s READY" % [p.points, "" if p.points == 1 else "S"]
-	_text(bar.position + Vector2(0, bar.size.y - 2), xp_text, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 2)
+	_text(Vector2(bar.position.x, ty), xp_text, 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 3)
 	if span[1] >= 0:
-		_text(bar.position + Vector2(0, bar.size.y - 2), "LV %d " % (p.level + 1), 10, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, bar.size.x - 6, 2)
-		draw_line(Vector2(bar.end.x, bar.position.y - 2), Vector2(bar.end.x, bar.end.y + 2), GOLD, 2.0)
+		_text(Vector2(bar.position.x, ty), "LV %d" % (p.level + 1), 11, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, bar.size.x - 30, 2)
+	# Gold stars spilling off the right end, as in the reference.
+	_star(bar.end + Vector2(-12, -bar.size.y / 2.0 - 1), 7.5, GOLD)
+	_star(bar.end + Vector2(6, -bar.size.y - 4), 6.0, GOLD.lightened(0.1))
+	_star(bar.end + Vector2(10, 4), 5.0, GOLD.darkened(0.05))
 
 
 # --- Map ---------------------------------------------------------------------
@@ -1635,7 +1979,7 @@ func _menu_overview(body: Rect2) -> void:
 		var ly: float = y + (i / 3) * 18
 		draw_circle(Vector2(x, ly - 4), 5, legend[i][1])
 		_text(Vector2(x + 12, ly), legend[i][0], 11, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, carry their monarch home. Grab a class hat in your cellar.", 11, GREY,
+	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, steal their crown, carry it home. Grab a class hat in your cellar.", 11, GREY,
 		HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
 
 
@@ -2282,7 +2626,7 @@ func _draw_title() -> void:
 	var cx := size.x / 2.0
 	_draw_logo(Rect2(cx - 200, 2, 400, 160))
 	_draw_nameplate(Rect2(16, 16, 330, 78))
-	_text(Vector2(cx - 300, 178), "Elves against Humans. Break the door, steal the monarch, carry them home.", 13, CREAM,
+	_text(Vector2(cx - 300, 178), "Elves against Humans. Break the door, steal the crown, carry it home.", 13, CREAM,
 		HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
 	# Tabs down the left.
 	var tabs := [["PLAY", Color(0.86, 0.25, 0.5)], ["HERO", Color(0.95, 0.55, 0.15)], ["PROGRESS", Color(0.5, 0.3, 0.8)], ["OPTIONS", Color(0.15, 0.6, 0.65)]]
