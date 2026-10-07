@@ -28,12 +28,79 @@ var pedestals: Array = []    # [node, ring material, light] per lobby slot
 var screen := ""
 var t := 0.0
 var hidden_labels: Array = []
+var rug: Node3D              # the round rug under the character creator's hero
 
 
 func _exit_tree() -> void:
 	for l in hidden_labels:
 		if is_instance_valid(l):
 			l.visible = true
+	_restore_env()
+
+
+# --- Lighting moods --------------------------------------------------------------
+# The menus light their own sets: a golden afternoon on the title, warm
+# candlelight in the hall. The world's settings come back when the match starts.
+
+const ENV_KEYS := ["ambient_light_energy", "ambient_light_color", "ambient_light_sky_contribution", "tonemap_exposure",
+	"glow_intensity", "glow_bloom", "glow_hdr_threshold", "adjustment_saturation", "adjustment_contrast",
+	"adjustment_brightness", "fog_enabled", "fog_light_color", "ssil_intensity"]
+var env_saved := {}
+var mood := ""
+
+
+func _restore_env() -> void:
+	var env: Environment = game.world_environment if game else null
+	if env == null or env_saved.is_empty():
+		return
+	for k in ENV_KEYS:
+		env.set(k, env_saved[k])
+	game.sun_light.light_color = env_saved.sun_color
+	game.sun_light.light_energy = env_saved.sun_energy
+	if game.fill_light:
+		game.fill_light.light_energy = env_saved.fill_energy
+	env_saved = {}
+
+
+func _set_mood(want: String) -> void:
+	var env: Environment = game.world_environment
+	if env == null or want == mood:
+		return
+	mood = want
+	if env_saved.is_empty():
+		for k in ENV_KEYS:
+			env_saved[k] = env.get(k)
+		env_saved.sun_color = game.sun_light.light_color
+		env_saved.sun_energy = game.sun_light.light_energy
+		env_saved.fill_energy = game.fill_light.light_energy if game.fill_light else 0.0
+	for k in ENV_KEYS:
+		env.set(k, env_saved[k])
+	if want == "hall":
+		# Candlelight: little sky light, warm and glowing, deep shadows.
+		env.ambient_light_sky_contribution = 0.0
+		env.ambient_light_color = Color(0.5, 0.44, 0.42)
+		env.ambient_light_energy = 0.45
+		env.tonemap_exposure = 0.92
+		env.glow_intensity = 0.8
+		env.glow_bloom = 0.1
+		env.glow_hdr_threshold = 0.95
+		env.adjustment_saturation = 1.08
+		env.adjustment_contrast = 1.2
+		env.adjustment_brightness = 0.95
+		env.fog_enabled = false
+		game.sun_light.light_energy = 0.0
+		if game.fill_light:
+			game.fill_light.light_energy = 0.0
+	else:
+		# A golden afternoon: warm sun, rich colour, a soft glow on the light.
+		env.ambient_light_energy = 0.7
+		env.ambient_light_color = Color(0.85, 0.85, 0.75)
+		env.adjustment_saturation = 1.32
+		env.adjustment_contrast = 1.12
+		env.glow_intensity = 0.65
+		env.fog_light_color = Color(0.92, 0.9, 0.82)
+		game.sun_light.light_color = Color(1.0, 0.84, 0.6)
+		game.sun_light.light_energy = 1.5
 
 
 func _flame(pos: Vector3, out: Vector3) -> void:
@@ -76,6 +143,9 @@ func show_screen(name: String) -> void:
 		return
 	screen = name
 	title_cast.visible = name == "title"
+	_set_mood("title" if name == "title" else "hall")
+	if rug:
+		rug.visible = name == "character"
 	match name:
 		"title":
 			# Across the stream at the castle and its crown, the two armies either side.
@@ -139,6 +209,10 @@ func show_hero(team: int, role: int, custom: Dictionary, rank: int) -> void:
 		hero.scale = Vector3.ONE * 1.0
 	hero.visible = screen == "character"
 	hero.global_position = _floor_at(Vector2(0.39, 0.86))
+	if rug == null:
+		rug = _round_rug()
+	rug.global_position = hero.global_position + Vector3(0, 0.02, 0)
+	rug.visible = screen == "character"
 	hero.rotation.y = PI + 0.32 + sin(t * 0.6) * 0.05  # turned a little toward the panel
 
 
@@ -172,6 +246,10 @@ func show_lobby(slots: Array) -> void:
 				var m = CharacterModel.new()
 				add_child(m)
 				m.setup(s.team, s.role, "", s.get("custom", {}), s.get("rank", 1))
+				m.scale = Vector3.ONE * 1.12
+				# Ready-up stances, as on the art: casters mid-spell.
+				match int(s.role):
+					Role.MAGE: m.hold("Spellcasting")
 				lobby_models[i] = m
 				if s.get("cheer", false):
 					m.play_once("Cheer")
@@ -274,6 +352,84 @@ func _hall_banner(color: String, pos: Vector3, h: float, facing: float) -> void:
 	root.add_child(rod)
 
 
+func _flame_at(pos: Vector3, r: float = 0.07) -> void:
+	game._add_flame(pos, r, Color(1.0, 0.55, 0.15))
+	game._add_flame(pos + Vector3(0, r * 0.6, 0), r * 0.5, Color(1.0, 0.92, 0.55))
+
+
+func _candle(pos: Vector3, h: float = 0.28) -> void:
+	game._add_block(pos + Vector3(0, h / 2.0, 0), Vector3(0.09, h, 0.09), Color.GRAY, false, game._material(Color(0.96, 0.9, 0.78)))
+	_flame_at(pos + Vector3(0, h + 0.07, 0))
+
+
+func _candle_wheel(pos: Vector3) -> void:
+	## An iron ring of candles on chains, with its own warm light.
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.75
+	tm.outer_radius = 0.85
+	ring.mesh = tm
+	ring.material_override = game._iron()
+	game.add_child(ring)
+	ring.global_position = pos
+	for k in 8:
+		var a := TAU * k / 8.0
+		_candle(pos + Vector3(cos(a) * 0.8, 0.04, sin(a) * 0.8), 0.22)
+	for k in 3:
+		var a := TAU * k / 3.0
+		var chain := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.015
+		cm.bottom_radius = 0.015
+		cm.height = 3.6
+		chain.mesh = cm
+		chain.material_override = game._iron()
+		game.add_child(chain)
+		chain.global_position = pos + Vector3(cos(a) * 0.4, 1.8, sin(a) * 0.4)
+		chain.rotation.z = cos(a) * 0.12
+		chain.rotation.x = -sin(a) * 0.12
+	game._add_light(pos + Vector3(0, -0.4, 0), Color(1.0, 0.68, 0.36), 1.8, 8.0)
+
+
+func _candelabra(pos: Vector3) -> void:
+	## Three candles on a wall bracket.
+	game._add_block(pos + Vector3(0, 0, 0.12), Vector3(0.6, 0.06, 0.2), Color.GRAY, false, game._gold())
+	game._add_block(pos + Vector3(0, -0.2, 0.05), Vector3(0.08, 0.4, 0.08), Color.GRAY, false, game._gold())
+	for x in [-0.25, 0.0, 0.25]:
+		_candle(pos + Vector3(x, 0.03, 0.15), 0.22 if x != 0.0 else 0.3)
+	game._add_light(pos + Vector3(0, 0.5, 0.5), Color(1.0, 0.66, 0.34), 0.9, 4.5)
+
+
+func _round_rug() -> Node3D:
+	## A round rug like the one under the hero on the art: red field, gold
+	## ring, blue centre with a gold star of points.
+	var root := Node3D.new()
+	add_child(root)
+	var layers := [[1.55, Color(0.45, 0.08, 0.1)], [1.4, Color(0.85, 0.65, 0.25)], [1.3, Color(0.55, 0.1, 0.12)], [0.85, Color(0.85, 0.65, 0.25)], [0.78, Color(0.14, 0.2, 0.5)]]
+	for i in layers.size():
+		var d := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = layers[i][0]
+		cm.bottom_radius = layers[i][0]
+		cm.height = 0.02
+		cm.radial_segments = 40
+		d.mesh = cm
+		d.material_override = game._carpet(layers[i][1]) if i % 2 == 0 else game._gold()
+		d.position.y = 0.004 * i
+		root.add_child(d)
+	for k in 8:
+		var pt := MeshInstance3D.new()
+		var pm := PrismMesh.new()
+		pm.size = Vector3(0.2, 0.5, 0.01)
+		pt.mesh = pm
+		pt.material_override = game._gold()
+		var a := TAU * k / 8.0
+		pt.position = Vector3(cos(a) * 1.05, 0.03, sin(a) * 1.05)
+		pt.rotation = Vector3(-PI / 2.0, -a - PI / 2.0, 0)
+		root.add_child(pt)
+	return root
+
+
 func _window(pos: Vector3) -> void:
 	## An arched leaded window: glowing panes behind a timber frame and mullions.
 	var glass := StandardMaterial3D.new()
@@ -336,9 +492,9 @@ func _build_hall() -> void:
 	game.mossy = false
 	var c := HALL
 	# Grey castle stone (the greystone texture where the art pass has made it).
-	var stone: Material = game._pbr("greystone", 0.3, Color(0.78, 0.72, 0.66)) if ResourceLoader.exists("res://assets/textures/greystone_color.jpg") \
-		else game._stone(Color(0.6, 0.55, 0.52), 0.3)
-	var floor_mat: Material = game._flagstone(Color(0.95, 0.88, 0.78))
+	var stone: Material = game._pbr("greystone", 0.3, Color(0.62, 0.55, 0.5)) if ResourceLoader.exists("res://assets/textures/greystone_color.jpg") \
+		else game._stone(Color(0.5, 0.44, 0.4), 0.3)
+	var floor_mat: Material = game._plank_dark(Color(0.72, 0.56, 0.44))
 	game._add_block(c + Vector3(0, -0.1, 0), Vector3(30, 0.2, 24), Color.GRAY, false, floor_mat)
 	# Back wall, side walls angled in a little, and a dark ceiling to keep the sky out.
 	game._add_block(c + Vector3(0, 4.5, -6.5), Vector3(30, 9, 1.0), Color.GRAY, false, stone)
@@ -353,7 +509,7 @@ func _build_hall() -> void:
 	for s in [-1.0, 1.0]:
 		game._add_block(c + Vector3(s * 10.3, 6.9, 1.0), Vector3(0.6, 0.5, 15), Color.GRAY, false, timber)
 	# Warm wood panelling round the lower walls.
-	var panel: Material = game._plank_dark(Color(0.95, 0.78, 0.6))
+	var panel: Material = game._plank_dark(Color(0.8, 0.6, 0.45))
 	game._add_block(c + Vector3(0, 0.8, -5.92), Vector3(21.0, 1.6, 0.16), Color.GRAY, false, panel)
 	game._add_block(c + Vector3(0, 1.64, -5.84), Vector3(21.0, 0.1, 0.3), Color.GRAY, false, timber)
 	for s in [-1.0, 1.0]:
@@ -370,8 +526,24 @@ func _build_hall() -> void:
 	_throne(c + Vector3(0, 0, -4.9))
 	# Candle stands along the walls.
 	for p in [Vector3(-7.4, 0, -5.3), Vector3(-4.4, 0, -5.3), Vector3(4.4, 0, -5.3), Vector3(7.4, 0, -5.3),
-			Vector3(-9.8, 0, 2.2), Vector3(9.8, 0, 2.2)]:
+			Vector3(-9.8, 0, 2.2), Vector3(9.8, 0, 2.2), Vector3(-2.2, 0, -5.2), Vector3(2.2, 0, -5.2)]:
 		game._add_candle_stand(c + p)
+	# Candle wheels hung from the beams, and candelabras on the walls.
+	for x in [-5.0, 5.0]:
+		_candle_wheel(c + Vector3(x, 5.4, -1.5))
+	for x in [-7.2, -3.6, 3.6, 7.2]:
+		_candelabra(c + Vector3(x, 3.4, -5.85))
+	# A warm key light on the fighters and the hero, from above the camera.
+	var key := SpotLight3D.new()
+	key.light_color = Color(1.0, 0.9, 0.76)
+	key.light_energy = 2.6
+	key.spot_range = 22.0
+	key.spot_angle = 34.0
+	key.spot_attenuation = 0.6
+	key.shadow_enabled = true
+	game.add_child(key)
+	key.global_position = c + Vector3(0, 6.5, 9.0)
+	key.look_at(c + Vector3(0, 0.8, 0.0))
 	# Torches on the posts.
 	for x in [-8.5, -3.2, 3.2, 8.5]:
 		game._add_wall_torch(c + Vector3(x, 2.4, -5.5), Vector3(0, 0, 1))
@@ -383,7 +555,7 @@ func _build_hall() -> void:
 	for s in [-1.0, 1.0]:
 		game._add_brazier(c + Vector3(s * 6.4, 0, 1.2))
 	# Warm fill so the hall reads bright and friendly, not a dungeon.
-	game._add_light(c + Vector3(0, 5.5, 3.0), Color(1.0, 0.78, 0.55), 2.0, 18.0)
+	game._add_light(c + Vector3(0, 5.5, 3.0), Color(1.0, 0.7, 0.45), 1.2, 16.0)
 	game._add_light(c + Vector3(-6, 3.0, -3.0), Color(1.0, 0.7, 0.45), 1.2, 9.0)
 	game._add_light(c + Vector3(6, 3.0, -3.0), Color(1.0, 0.7, 0.45), 1.2, 9.0)
 	# Clutter in the corners: barrels, crates, a weapon rack, chests.

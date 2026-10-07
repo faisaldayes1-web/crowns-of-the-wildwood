@@ -41,6 +41,7 @@ func build(g) -> void:
 	_human_walls()
 	_forest()
 	_backdrop()
+	_town()
 	game.mossy = was_mossy
 	var made: Array = []
 	for i in range(before, game.get_child_count()):
@@ -292,6 +293,51 @@ func _crown() -> void:
 
 # --- Water ---------------------------------------------------------------------------
 
+func _town() -> void:
+	## Market tents and stalls on the terrace, a second fall off its right
+	## side, and a lantern post with bushes in the near left corner.
+	game._prop("hex/tent", P(-9.0, 3.2, -21.5), 2.6, 0.4)
+	game._prop("hex/tent", P(9.5, 3.2, -22.5), 2.6, -0.5)
+	game._prop("hex/building_market_blue", P(-12.0, 3.2, -24.5), 2.2, 0.6)
+	game._prop("hex/building_market_blue", P(12.5, 3.2, -25.0), 2.2, -0.7)
+	for x in [-6.0, 6.0]:
+		game._prop("hex/crate_A_small", P(x, 3.2, -20.0), 2.0, x)
+		game._prop("hex/barrel", P(x + 0.9 * signf(x), 3.2, -20.4), 1.8, 0.0)
+	var noise: Texture2D = load("res://assets/textures/water_noise.png")
+	var fall := ShaderMaterial.new()
+	fall.shader = load("res://assets/shaders/waterfall.gdshader")
+	fall.set_shader_parameter("noise_tex", noise)
+	var q := QuadMesh.new()
+	q.size = Vector2(1.8, 3.4)
+	_mesh(q, P(10.5, 1.65, -17.95), fall)
+	var pool := ShaderMaterial.new()
+	pool.shader = load("res://assets/shaders/water.gdshader")
+	pool.set_shader_parameter("noise_tex", noise)
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(3.4, 2.4)
+	_mesh(pm, P(10.5, 0.04, -16.6), pool)
+	for k in 4:
+		var sp := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.4
+		sm.height = 0.55
+		sp.mesh = sm
+		var fm := _mat(Color(0.92, 0.97, 1.0), 0.3)
+		fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		fm.albedo_color.a = 0.55
+		sp.material_override = fm
+		game.add_child(sp)
+		sp.global_position = P(9.9 + k * 0.4, 0.15, -17.3)
+	# The near left corner: a lantern on a post among bushes.
+	_mesh(_cyl(0.1, 0.14, 3.2, 8), P(-7.6, 1.6, 8.5), game._timber(Color(0.6, 0.42, 0.28)))
+	_mesh(_box(Vector3(0.9, 0.1, 0.1)), P(-7.25, 3.1, 8.5), game._timber(Color(0.6, 0.42, 0.28)))
+	_mesh(_box(Vector3(0.36, 0.5, 0.36)), P(-6.9, 2.7, 8.5), _mat(Color(1.0, 0.75, 0.35), 2.2))
+	_mesh(_cyl(0.0, 0.3, 0.25, 4), P(-6.9, 3.08, 8.5), game._iron())
+	game._add_light(P(-6.9, 2.6, 8.6), Color(1.0, 0.7, 0.35), 1.6, 5.0)
+	for p in [P(-8.5, 0, 9.5), P(-6.4, 0, 10.4), P(-9.2, 0, 6.5)]:
+		game._add_bush(p, int(p.x * 10))
+
+
 func _waterfall_and_stream() -> void:
 	var noise: Texture2D = load("res://assets/textures/water_noise.png")
 	var fall := ShaderMaterial.new()
@@ -452,7 +498,7 @@ func _armies() -> void:
 			[P(8.0, 0, 0.5), Role.RANGER, "shoot"]]:
 		_fighter(0, s[1], s[0], west, s[2])
 	# The heroes up front: placed by screen position in place_heroes().
-	hero_knight = _fighter(1, Role.KNIGHT, P(-3, 0, 12), P(4, 0, -4), "fight", 1.0, 3)
+	hero_knight = _fighter(1, Role.KNIGHT, P(-3, 0, 12), P(4, 0, -4), "idle", 1.0, 3)
 	hero_ranger = _fighter(0, Role.RANGER, P(4, 0, 12), P(-4, 0, -4), "aim", 1.0, 3)
 	var wizard = _fighter(1, Role.MAGE, P(-5.6, 0, 6.5), P(3, 0, -4), "cast", 1.0, 3)
 	var leaper = _fighter(0, Role.MAGE, P(8.5, 3.4, -3.0), P(-4, 0, -4), "leap", 1.0, 3)

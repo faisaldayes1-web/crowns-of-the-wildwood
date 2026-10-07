@@ -49,17 +49,17 @@ def vgrad(size, top, bottom, y_from=0, y_to=None):
 # Per-style eye shapes: size, how much the upper lid cuts in (0 none), the
 # lid's tilt toward the nose, lash weight and highlight size.
 SHAPES = {
-    "bold": dict(w=0.2, h=0.25, lid=0.17, tilt=0.05, lash=1.0, hi=1.0, iris=0.84),
-    "bright": dict(w=0.205, h=0.265, lid=0.05, tilt=-0.02, lash=0.9, hi=1.2, iris=0.82),
-    "fierce": dict(w=0.205, h=0.22, lid=0.3, tilt=0.12, lash=1.15, hi=0.85, iris=0.86),
-    "gentle": dict(w=0.2, h=0.24, lid=0.36, tilt=-0.06, lash=0.9, hi=0.95, iris=0.82),
+    "bold": dict(w=0.172, h=0.21, lid=0.17, tilt=0.05, lash=1.0, hi=1.0, iris=0.84),
+    "bright": dict(w=0.176, h=0.222, lid=0.05, tilt=-0.02, lash=0.9, hi=1.2, iris=0.82),
+    "fierce": dict(w=0.176, h=0.185, lid=0.3, tilt=0.12, lash=1.15, hi=0.85, iris=0.86),
+    "gentle": dict(w=0.172, h=0.2, lid=0.36, tilt=-0.06, lash=0.9, hi=0.95, iris=0.82),
 }
 BROWS = {
     # (inner (x, y), outer (x, y), arch height, thickness) for the right eye, in head units
-    "bold": ((0.07, 1.79), (0.29, 1.805), -0.004, 0.03),
-    "bright": ((0.08, 1.805), (0.29, 1.815), 0.018, 0.024),
-    "fierce": ((0.065, 1.77), (0.3, 1.825), -0.01, 0.032),
-    "gentle": ((0.08, 1.81), (0.29, 1.79), 0.014, 0.022),
+    "bold": ((0.08, 1.765), (0.27, 1.78), -0.004, 0.026),
+    "bright": ((0.09, 1.78), (0.27, 1.79), 0.016, 0.021),
+    "fierce": ((0.075, 1.745), (0.28, 1.795), -0.01, 0.028),
+    "gentle": ((0.09, 1.785), (0.27, 1.765), 0.012, 0.019),
 }
 
 
@@ -162,8 +162,8 @@ def eyes_texture(style, iris):
     img = Image.new("RGBA", (EW * SS, EH * SS), (0, 0, 0, 0))
     shape = SHAPES[style]
     for side in (-1, 1):
-        blush(img, side * 0.26, 1.5)
-        eye(img, side * 0.18, 1.615, side, shape, iris)
+        blush(img, side * 0.25, 1.5)
+        eye(img, side * 0.175, 1.61, side, shape, iris)
     img = img.resize((EW, EH), Image.LANCZOS)
     img.save(f"{OUT}/face_eyes_{style}_{iris}.png")
 
