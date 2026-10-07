@@ -783,7 +783,7 @@ func spawn_blessing(spot: Vector3, kind: String) -> void:
 	if spot.length() < 3.0:
 		where = "at the Crown Shrine"
 	elif absf(spot.x) > 12.0:
-		where = "on the %s side" % (Stats.FACTIONS[0].realm if spot.x < 0.0 else Stats.FACTIONS[1].realm)
+		where = "on the %s' side" % (Stats.FACTIONS[0].name if spot.x < 0.0 else Stats.FACTIONS[1].name)
 	announce("A Blessing of %s has appeared %s!" % [kind, where])
 
 
@@ -3273,9 +3273,61 @@ func _open_ground(p: Vector3) -> bool:
 const RESERVED_GROUND := [Vector3(-6.2, 0, -30), Vector3(6.2, 0, 30), Vector3(-30, 0, 22)]
 
 
-func _add_tree(pos: Vector3, big: bool = false) -> void:
+func _near_path(p: Vector3, margin: float) -> bool:
+	## True when p is within margin of the edge of any path or road.
+	for path in map_paths:
+		var a: Vector3 = path[0]
+		var b: Vector3 = path[1]
+		var ab := Vector2(b.x - a.x, b.z - a.z)
+		var t := clampf(Vector2(p.x - a.x, p.z - a.z).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+		var q := Vector2(a.x, a.z) + ab * t
+		if Vector2(p.x, p.z).distance_to(q) < path[2] / 2.0 + margin:
+			return true
+	return false
+
+
+func _tree_spot_ok(pos: Vector3, big: bool) -> bool:
+	## Trees keep clear of each other's crowns, the roads and tracks, the
+	## paved courts before the castle doors, and anything built (walls,
+	## houses, fences), so no canopy pokes through a roof or blocks a way in.
+	var crown := 2.6 if big else 2.1
+	if absf(pos.x) < RIVER_HALF + crown or _flat_dist(pos, Vector3.ZERO) < ISLAND_R + crown:
+		return false
 	for rp in RESERVED_GROUND:
 		if _flat_dist(pos, rp) < 5.5:
+			return false
+	for t in map_trees:
+		if _flat_dist(pos, t) < 3.6:
+			return false
+	if _near_path(pos, 1.2):
+		return false
+	var fxr := CASTLE_X - CASTLE_DEPTH
+	for sx in [-1.0, 1.0]:
+		if _flat_dist(pos, Vector3(sx * (fxr - 4.0), 0, 0)) < 4.4 + crown + 1.0:
+			return false
+	for blk in audit_blocks:
+		var box: AABB = blk[1]
+		if box.size.y < 0.3 or box.end.y < 0.3:
+			continue  # floors, decals and the ground slabs
+		if pos.x > box.position.x - crown and pos.x < box.end.x + crown and pos.z > box.position.z - crown and pos.z < box.end.z + crown:
+			return false
+	return true
+
+
+func _add_tree(pos: Vector3, big: bool = false) -> void:
+	if not _tree_spot_ok(pos, big):
+		# Slide it a few metres to the nearest clear spot, or leave it out.
+		var moved := false
+		for d in [2.5, 4.0]:
+			for k in 8:
+				var q: Vector3 = pos + Vector3(cos(k * TAU / 8.0), 0, sin(k * TAU / 8.0)) * d
+				if absf(q.z) < map_half.y - 1.0 and _tree_spot_ok(q, big):
+					pos = q
+					moved = true
+					break
+			if moved:
+				break
+		if not moved:
 			return
 	map_trees.append(Vector3(pos.x, 1.0 if big else 0.0, pos.z))
 	# Human woodland (east) mixes in KayKit oaks and pines so the two sides
@@ -3488,6 +3540,26 @@ func _rock_mesh(seed: int, radius: float, jitter: float = 0.22) -> ArrayMesh:
 
 
 func _add_bush(pos: Vector3, seed: int) -> void:
+	# Bushes sit beside trees, never inside them: push out past the crown,
+	# then drop any that would land on a path or a building.
+	for pass_i in 2:
+		for t in map_trees:
+			var away := Vector2(pos.x - t.x, pos.z - t.z)
+			var need := (2.6 if t.y > 0.5 else 2.1) + 1.3
+			if away.length() < need:
+				if away.length() < 0.01:
+					away = Vector2(1, 0)
+				away = away.normalized() * need
+				pos = Vector3(t.x + away.x, 0, t.z + away.y)
+	for t in map_trees:
+		if _flat_dist(pos, t) < 3.0:
+			return
+	if _near_path(pos, 0.9):
+		return
+	for blk in audit_blocks:
+		var box: AABB = blk[1]
+		if box.size.y >= 0.3 and box.end.y >= 0.3 and pos.x > box.position.x - 1.2 and pos.x < box.end.x + 1.2 and pos.z > box.position.z - 1.2 and pos.z < box.end.z + 1.2:
+			return
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var leaf := _leaf_material(r, false)

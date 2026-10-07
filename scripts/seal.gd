@@ -73,7 +73,7 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	# turning slowly (after Fat Princess's hats). Grab it to become the class.
 	seal = Node3D.new()
 	seal.position.y = 1.45
-	seal.scale = Vector3.ONE * 1.5   # big enough to read from the camera
+	seal.scale = Vector3.ONE * 1.9   # big and chunky, like the hat machines in the reference
 	add_child(seal)
 	locked = role == Stats.Role.ROGUE and not game.unlocked()
 	_build_hat(seal, elf)
@@ -137,6 +137,9 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	prompt.position.y = 2.5
 	prompt.visible = false
 	add_child(prompt)
+	# The whole stand is built a size up so the class choice reads from the
+	# camera at a glance (in_reach measures from the centre, unaffected).
+	scale = Vector3.ONE * 1.35
 
 
 func class_title() -> String:
