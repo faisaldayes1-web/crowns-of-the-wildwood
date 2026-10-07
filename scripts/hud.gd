@@ -1565,20 +1565,16 @@ func _draw_objective() -> void:
 
 func _draw_player_panel(p) -> void:
 	## The bottom board (HUD reference 2026-10-07): planked wood in a steel
-	## rim with gold corner brackets and leaf sprigs. The class portrait in a
-	## gold shield on the left, then the title, hearts and the energy bar,
+	## rim with gold corner brackets and leaf sprigs. The title, hearts and the energy bar,
 	## the ability slots on the right and the experience bar along the foot.
 	var w := 820.0
 	var rect := Rect2(size.x / 2.0 - w / 2.0, size.y - 142, w, 134)
 	_wood_panel(rect)
-	# The class portrait in its shield, under the tags.
-	_shield_portrait(rect.position + Vector2(70, 62), 86, 100, p.team, p.role, p.dead)
-	# Tags along the top edge: DEFENDING HOME first, then a blessing or
-	# spawn protection, a rank point waiting and the veteran streak.
+	# No portrait or badge on the board (Faisal 2026-10-07): just the
+	# hearts, energy and XP. DEFENDING HOME shows under the minimap.
+	# Tags along the top edge: a blessing or spawn protection, a rank point
+	# waiting and the veteran streak.
 	var tag_x := rect.position.x + 20
-	if p.home_defense and not p.dead:
-		_home_pill(Rect2(Vector2(tag_x, rect.position.y - 16), Vector2(166, 26)), p.team)
-		tag_x += 178
 	if p.buff != "" and p.buff_timer > 0.0:
 		var bc: Color = Stats.BLESSING_KINDS[p.buff].color
 		var badge := Rect2(Vector2(tag_x, rect.position.y - 26), Vector2(222, 24))
@@ -1606,7 +1602,7 @@ func _draw_player_panel(p) -> void:
 		_text(vb.position + Vector2(30, 17), ("ELITE VETERAN · BOUNTY ON YOU" if p.veteran == 2 else "VETERAN") + "  ·  %d streak" % p.streak, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	elif p.streak >= 2 and not p.dead:
 		_text(rect.position + Vector2(rect.size.x - 14, -8), "%d kill streak" % p.streak, 11, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, -1, 3)
-	var x := rect.position.x + 132
+	var x := rect.position.x + 34
 	var title := "PLAYER LV %d" % p.level
 	if p.local_index > 0:
 		title = "PLAYER %d  LV %d" % [p.local_index + 1, p.level]
@@ -1620,11 +1616,11 @@ func _draw_player_panel(p) -> void:
 	else:
 		_hearts(Vector2(x + 15, rect.position.y + 58), p.hearts, 0.92, 38)
 		var is_mana: bool = p.energy_kind() == "mana"
-		var bar := Rect2(Vector2(x, rect.position.y + 80), Vector2(252, 18))
+		var bar := Rect2(Vector2(x, rect.position.y + 80), Vector2(330, 18))
 		_energy_bar(bar, p.energy / p.energy_max(), MANA if is_mana else STAMINA)
 		_text(bar.position + Vector2(0, 14), "%s %d/%d" % ["MANA" if is_mana else "STAMINA", int(p.energy), int(p.energy_max())],
 			11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 3)
-	_draw_xp_bar(p, Rect2(rect.position + Vector2(118, rect.size.y - 27), Vector2(rect.size.x - 150, 15)))
+	_draw_xp_bar(p, Rect2(rect.position + Vector2(28, rect.size.y - 27), Vector2(rect.size.x - 60, 15)))
 	# Slots: attack, Q, E, dodge, block (shield classes) or perks, grab.
 	var abil: Array = p.abilities()
 	var slot := 50.0

@@ -44,8 +44,8 @@ const KEEP_DOOR_HALF := 4.5   # the keep's open archway
 const CAPTURE_RADIUS := 3.0
 # The spawn cellar: a sunken stone hall behind each keep. Everyone spawns
 # there, picks a class at the stations, and climbs the stairs into the keep.
-const CELLAR_DEPTH := 14.0    # how far behind the back wall it reaches (x)
-const CELLAR_HALF_Z := 9.5
+const CELLAR_DEPTH := 18.0    # how far behind the back wall it reaches (x)
+const CELLAR_HALF_Z := 11.0
 const CELLAR_Y := -2.4        # its floor
 const ISLAND_R := 6.0         # the Crown Shrine island in the river
 const STATION_RADIUS := 1.3
@@ -1597,7 +1597,7 @@ func _start_match(team: int) -> void:
 		for i in TEAM_SIZE:
 			var u = Unit.new()
 			add_child(u)
-			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 11.6), CELLAR_Y, -4.0 + i * 2.0)
+			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 14.5), CELLAR_Y, -4.0 + i * 2.0)
 			var local_k := _local_slot(t, i)
 			var is_player := local_k >= 0 and not demo
 			u.setup(self, t, is_player, spawn)
@@ -5338,7 +5338,7 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 	var hz := CELLAR_HALF_Z
 	# Three warm room lights down the hall (no hanging fixtures: it is open to the sky).
 	for k in 3:
-		var x: float = bx + side * (3.0 + k * 4.2)
+		var x: float = bx + side * (3.5 + k * 5.5)
 		_add_chandelier(Vector3(x, CELLAR_Y + 2.5, 0), elven)
 	# A shelf of supplies by the stairs and candles along the side walls.
 	for zs in [1.0]:   # the north wall holds the class alcoves
@@ -5630,7 +5630,7 @@ func _build_works(team: int, sx: float) -> void:
 	## Behind the cellar: the Kingdom's mine, the Forest's lumber camp, and
 	## mountains on the horizon.
 	var c := _hex_color(team)
-	var x := sx * 93.0
+	var x := sx * 100.0   # clear of the (bigger) spawn cellar
 	_add_house("mine" if team == 1 else "lumbermill", team, Vector3(x, 0, 14.0), 4.0, -PI / 2.0 * sx, team == 1)
 	if team == 1:
 		_add_house("barracks", team, Vector3(x, 0, -14.0), 3.6, -PI / 2.0 * sx)
@@ -6391,10 +6391,10 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# Torches and banners along the south wall; the north wall holds the
 		# class alcoves.
 		if zs > 0.0:
-			for k in 4:
-				var tx := bx + side * (1.5 + k * 3.4)
+			for k in 5:
+				var tx := bx + side * (1.5 + k * 3.8)
 				_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
-			_add_pennant(team, Vector3(bx + side * 6.6, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0)
+			_add_pennant(team, Vector3(bx + side * 9.0, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0)
 	# The stairs: a straight flight up the middle into the keep.
 	var st := cellar_stairs(team)
 	_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
@@ -6447,7 +6447,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_add_torch(Vector3(bx - side * 0.2, 0, -2.3))
 		_add_torch(Vector3(bx - side * 0.2, 0, 2.3))
 	# The spawn circle at the far end: a glowing team-coloured ring on the floor.
-	var spawn := Vector3(bx + side * 11.6, CELLAR_Y, 0)
+	var spawn := Vector3(bx + side * 14.5, CELLAR_Y, 0)
 	_add_rug(spawn, Vector2(3.4, 7.2), color.darkened(0.15))
 	var ring := MeshInstance3D.new()
 	var rm2 := TorusMesh.new()
@@ -6469,7 +6469,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	# a glowing rune circle (the Rogue's is locked until account level 10).
 	var order := [Role.KNIGHT, Role.ENGINEER, Role.RANGER, Role.MAGE, Role.ROGUE, Role.HEALER]
 	for k in order.size():
-		var p := Vector3(bx + side * (1.6 + k * 2.25), CELLAR_Y, -(hz - 1.6))
+		var p := Vector3(bx + side * (2.0 + k * 2.9), CELLAR_Y, -(hz - 1.6))
 		_add_class_alcove(team, order[k], p)
 		_add_station(team, order[k], p)
 	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall.
@@ -6755,8 +6755,6 @@ func _build_world() -> void:
 	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road, 0.0)
 	for sx in [-1.0, 1.0]:
 		_add_block(Vector3(sx * (fxr - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color.WHITE, false, _flagstone(Color(0.96, 0.93, 0.88)))
-		# A round paved court before each door, where the paths meet.
-		_add_rosette(Vector3(sx * (fxr - 4.0), 0.016, 0), 4.4, Color(0.92, 1.0, 0.86) if sx < 0.0 else Color.WHITE)
 		# The Forest Path (north) and the River Path (south): from the road by
 		# the castle door out to the flank bridges, as worn dirt tracks.
 		var dirt := _stones(true)
@@ -6837,6 +6835,7 @@ func _build_world() -> void:
 		if absf(hx + 10.0) < 42.0:
 			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
 	_build_outskirts()
+	_add_back_forest()
 
 	_apply_map_variant()
 	camera = Camera3D.new()
@@ -6846,6 +6845,36 @@ func _build_world() -> void:
 	add_child(camera)
 	camera.make_current()
 	_add_ink()
+
+
+
+func _add_back_forest() -> void:
+	## Thick woods behind each castle and out to the map's ends (Faisal
+	## 2026-10-07: "a surplus of trees"), on a jittered grid. Every spot goes
+	## through the usual tree checks, so roads, buildings, the hamlets,
+	## farms and works stay clear; the spawn cellars are kept open too.
+	var r := RandomNumberGenerator.new()
+	r.seed = 2027
+	var cellar_x1 := CASTLE_X + CASTLE_DEPTH + CELLAR_DEPTH + 3.0
+	for sx in [-1.0, 1.0]:
+		var gx := 46.0
+		while gx < 118.0:
+			var gz := -46.0
+			while gz <= 46.0:
+				var p := Vector3(sx * (gx + r.randf_range(-1.4, 1.4)), 0, gz + r.randf_range(-1.4, 1.4))
+				gz += 4.4
+				var ax := absf(p.x)
+				var az := absf(p.z)
+				if ax < CASTLE_X + CASTLE_DEPTH + 2.0 and az < CASTLE_HALF_Z + 6.0:
+					continue   # the castle and its flanks' lanes
+				if ax < cellar_x1 and az < CELLAR_HALF_Z + 3.0:
+					continue   # the spawn cellar
+				if ax < 70.0 and az < 18.0:
+					continue
+				if ax > 108.0 and az < 34.0:
+					continue   # the mountains
+				_add_tree(p, r.randf() < 0.3)
+			gx += 4.4
 
 
 var ink_on := false
