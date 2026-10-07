@@ -63,6 +63,18 @@ const ACCOUNT_XP_STEP := 150
 const ACCOUNT_MAX_LEVEL := 50
 const UNLOCK_LEVEL := 10
 const MATCH_BONUS := {"win": 300, "draw": 150, "loss": 100}
+# Accolades on the end-of-match screen, each worth account XP. need is the
+# threshold (hearts healed, siege XP, kills in one life, assists, kills).
+const ACCOLADES := [
+	{"key": "crown", "name": "Crown Thief", "desc": "Carried the enemy crown home.", "xp": 100, "icon": "crown"},
+	{"key": "slayer", "name": "Giant Slayer", "desc": "Brought down an enemy two levels above you.", "xp": 40, "icon": "sword"},
+	{"key": "streak", "name": "Unstoppable", "desc": "Five kills in a single life.", "need": 5, "xp": 50, "icon": "might"},
+	{"key": "untouchable", "name": "Untouchable", "desc": "Three or more kills and never fell.", "need": 3, "xp": 50, "icon": "block"},
+	{"key": "top", "name": "Top Blade", "desc": "The most kills in the match.", "need": 3, "xp": 40, "icon": "dagger"},
+	{"key": "medic", "name": "Field Medic", "desc": "Healed twelve hearts on teammates.", "need": 12, "xp": 40, "icon": "mend"},
+	{"key": "breaker", "name": "Siege Breaker", "desc": "Battered doors, turrets and vaults for 40 siege XP.", "need": 40, "xp": 40, "icon": "hammer"},
+	{"key": "wingman", "name": "Wingman", "desc": "Six or more assists.", "need": 6, "xp": 30, "icon": "guard"},
+	{"key": "promoted", "name": "Promoted", "desc": "Earned a class promotion.", "xp": 30, "icon": "upgrade"}]
 const RANK_TITLES := [[1, "Recruit"], [3, "Militia"], [5, "Soldier"], [8, "Veteran"], [10, "Champion"],
 	[15, "Warlord"], [20, "Crownbreaker"], [30, "Legend"], [40, "Mythic"], [50, "Immortal"]]
 const UNLOCKS := [["class", "Rogue", "A sixth class: daggers, shadow dashes and smoke bombs."],
@@ -161,8 +173,9 @@ const SEAL_REACH := 1.9     # how close you stand to a class seal to grab it wit
 const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins
 const CAPTURES_TO_WIN := 2
 
-# Experience, earned per life and lost on death. Each level gives one rank
-# point to spend in the rank menu (Tab) on Attack, Q, E or Vigor.
+# Experience, earned in battle. Each level gives one rank point to spend in
+# the rank menu on Attack, Q, E or Vigor. Falling costs DEATH_LEVEL_LOSS levels
+# and the ranks bought with them (the most recent first), not the whole climb.
 const XP_LEVELS := [40, 100, 180, 280, 400]   # xp needed for level 2, 3, 4, 5, 6
 const XP_HIT := 10            # per heart of damage dealt
 const XP_KILL := 40
@@ -171,6 +184,8 @@ const XP_GATE := 1            # per door hit
 const XP_TURRET := 30         # for wrecking an enemy turret
 const XP_GRAB := 25           # picking up the enemy monarch
 const XP_CAPTURE := 100
+const XP_UPSET := 15          # extra kill XP per level the victim had above you (fresh soldiers hunt veterans)
+const DEATH_LEVEL_LOSS := 2   # levels you drop when you fall (was: back to level 1, every rank gone)
 const MAX_RANK := 3
 # Per rank: abilities cool down and cost less; Vigor makes you quicker and
 # gives you a bigger stamina or mana pool. Rank 2 widens the effect
@@ -180,7 +195,7 @@ const MAX_RANK := 3
 # soldier should still be able to hold their own, since death resets ranks.)
 const RANK_COOLDOWN_CUT := 0.08
 const RANK_COST_CUT := 0.08
-const RANK_EFFECT_BOOST := 0.2
+const RANK_EFFECT_BOOST := 0.2   # Q/E only: the base attack's reach never grows with rank (2026-10-07: ranked bows out-ranged everyone)
 const VIGOR_SPEED := 0.05
 const VIGOR_ENERGY := 12.0
 const VIGOR_REGEN := 0.2
@@ -241,7 +256,7 @@ const ROLES := {
 				"distance": 6.0, "desc": "Teleport a short way in the aim direction."}]},
 	Role.ENGINEER: {"attack": "melee", "attack_name": "Hammer", "attack_desc": "A heavy swing that wrecks doors, fences and turrets.",
 		"damage": 1, "gate_damage": 3, "range": 1.9, "cooldown": 0.6,
-		"energy": "stamina", "cost": 9, "speed": 0.98,
+		"energy": "stamina", "cost": 9, "speed": 0.98, "armour": 0.2,
 		"color": Color(0.85, 0.6, 0.3), "abilities": [
 			{"name": "Build Turret", "key": "Q", "kind": "turret", "cooldown": 6, "cost": 45.0,
 				"turrets": 2, "desc": "Build a bolt turret in front of you, on your castle walls or grounds. Two at a time; the oldest makes way."},
@@ -282,7 +297,7 @@ const VARIANTS := {
 			"attacks": ["2H_Melee_Attack_Slice", "2H_Melee_Attack_Chop"], "idle": "2H_Melee_Idle",
 			"desc": "Greatsword offence: long reach, a spinning cleave and a long charge. The shield is gone, so no blocking.",
 			"attack": {"attack_name": "Greatsword", "attack_desc": "A heavy two-handed swing with long reach.",
-				"range": 2.8, "cooldown": 0.65, "cost": 12, "gate_damage": 3, "block": false},
+				"range": 2.8, "cooldown": 0.65, "cost": 12, "gate_damage": 3, "block": false, "armour": 0.42},
 			"abilities": [
 				{"name": "Cleave", "key": "Q", "kind": "cleave", "icon": "cleave", "cooldown": 4.5, "cost": 40.0,
 					"damage": 1, "radius": 3.2, "desc": "Spin with the greatsword, hitting and shoving everyone around you."},
@@ -362,7 +377,7 @@ const VARIANTS := {
 		{"name": "Siegewright", "icon": "siegewright", "tint": Color(1.0, 0.8, 0.6), "show": ["2H_Axe"],
 			"attacks": ["2H_Melee_Attack_Chop", "2H_Melee_Attack_Slice"], "idle": "2H_Melee_Idle",
 			"desc": "Heavy works: a sledge that batters doors, ballista turrets with splashing bolts, and door repairs.",
-			"attack": {"attack_name": "Sledge", "attack_desc": "A slow, heavy blow: five hits to a door. The siege harness turns about every fourth hit.", "range": 2.2, "cooldown": 0.75, "cost": 13, "gate_damage": 5, "armour": 0.25},
+			"attack": {"attack_name": "Sledge", "attack_desc": "A slow, heavy blow: five hits to a door. The siege harness turns about every fourth hit.", "range": 2.2, "cooldown": 0.75, "cost": 13, "gate_damage": 5, "armour": 0.3},
 			"abilities": [
 				{"name": "Ballista", "key": "Q", "kind": "turret", "icon": "turret", "cooldown": 7, "cost": 50.0,
 					"turrets": 2, "ballista": true, "desc": "A slow turret whose bolts burst on impact and reach further."},
@@ -380,7 +395,7 @@ const VARIANTS := {
 		{"name": "Dark Priest", "icon": "darkpriest", "tint": Color(0.72, 0.55, 0.9), "show": ["1H_Wand", "Spellbook"],
 			"desc": "Forbidden rites: bolts that drain life back to you, a curse that saps enemies, and a heavier smite.",
 			"attack": {"attack_name": "Drain Bolt", "attack_desc": "Mend nearby teammates; with nobody to heal, a shadow bolt that heals you a heart per hit.",
-				"drain": true, "cost": 27.0},
+				"drain": true, "cost": 21.0},
 			"abilities": [
 				{"name": "Curse", "key": "Q", "kind": "curse", "icon": "curse", "cooldown": 8, "cost": 50.0,
 					"damage": 1, "radius": 5.0, "slow": 2.5, "desc": "Every enemy around you loses a heart and crawls for a moment."},
@@ -432,7 +447,7 @@ const FACTION_KITS := {
 					"desc": "Grow the nearest of your totems a level (up to 3) and heal it, or hurry your door's regrowth."}]},
 	},
 	1: {
-		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Heavy plate turns about every third hit.", "armour": 0.40}},
+		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Heavy plate turns about every third hit.", "armour": 0.37}},
 		Role.RANGER: {
 			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 14.0, "cooldown": 0.75, "cost": 10, "shot_speed": 36.0},
 			"abilities": [
@@ -472,7 +487,7 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 const FACTIONS := [
 	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.3, "regen_mult": 1.0,
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
-	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.12,
+	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.06,
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 ]
 

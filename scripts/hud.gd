@@ -90,6 +90,20 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if game and not pane:  # the panes would feed every key to the chat twice
 		game.menu_input(event)
+		if game.game_over and game.summary and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			_click_end(get_local_mouse_position())
+
+
+func _click_end(at: Vector2) -> void:
+	## The summary's two buttons: scoreboard, and skip / continue.
+	var s = game.summary
+	if s.board_rect.has_point(at):
+		s.show_board = not s.show_board
+	elif s.continue_rect.has_point(at):
+		if s.done():
+			get_tree().reload_current_scene()
+		else:
+			s.skip()
 
 
 func _draw() -> void:
@@ -1372,7 +1386,7 @@ func _draw_rank_menu(p) -> void:
 		rank_buttons.append(button if can else Rect2())
 	if has_variants:
 		_promotion(p, Rect2(rect.position + Vector2(16, 70 + 4 * 64), Vector2(rect.size.x - 32, 124)))
-	_text(rect.position + Vector2(0, rect.size.y - 12), ("D-pad spends a point  ·  %s / %s pick a promotion  ·  %s closes  ·  experience is per life" % [_k("rank_5"), _k("rank_6"), _k("rank_menu")]) if game.on_pad(local_unit) else ("1-4 or click spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  experience is per life" % _k("rank_menu")), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, rect.size.y - 12), ("D-pad spends a point  ·  %s / %s pick a promotion  ·  %s closes  ·  a fall costs 2 levels" % [_k("rank_5"), _k("rank_6"), _k("rank_menu")]) if game.on_pad(local_unit) else ("1-4 or click spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  a fall costs 2 levels" % _k("rank_menu")), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _promotion(p, rect: Rect2) -> void:
@@ -2300,48 +2314,6 @@ func _ribbon(center: Vector2, w: float, h: float, color: Color) -> void:
 
 
 func _draw_end() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.55))
-	var cx := size.x / 2.0
-	var winner: int = game.winner_team
-	var outcome := "DRAW"
-	var color := Color(0.5, 0.5, 0.55)
-	if winner >= 0:
-		outcome = "VICTORY!" if winner == _my_team() else "DEFEAT"
-		color = Color(0.2, 0.5, 0.95) if winner == _my_team() else Color(0.6, 0.15, 0.15)
-	_icon("crown", Vector2(cx, 50), 16, GOLD)
-	_card("logo_elves", Rect2(cx - 330, 40, 110, 110))
-	_card("logo_humans", Rect2(cx + 220, 40, 110, 110))
-	_ribbon(Vector2(cx, 108), 420, 64, color)
-	_text(Vector2(cx - 210, 122), outcome, 40, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 420, 6)
-	_text(Vector2(cx - 210, 168), "%s %d   -   %d %s" % [Stats.FACTIONS[0].name, game.score[0], game.score[1], Stats.FACTIONS[1].name],
-		22, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 420, 4)
-	# Match MVP: the highest score on either team.
-	var mvp = null
-	for u in game.units:
-		if mvp == null or game.unit_score(u) > game.unit_score(mvp):
-			mvp = u
-	if mvp:
-		var mvp_line := "MVP  %s  ·  %s %s  ·  %d kills, %d captures, %d score" % [mvp.display_name, Stats.FACTIONS[mvp.team].name,
-			mvp.role_name(), mvp.kills, mvp.captures, game.unit_score(mvp)]
-		_icon("crown", Vector2(cx - _text_width(mvp_line, 13) / 2.0 - 14, 192), 7, GOLD)
-		_text(Vector2(cx - 300, 197), mvp_line, 13, GOLD.lerp(Color.WHITE, 0.3), HORIZONTAL_ALIGNMENT_CENTER, 600, 3)
-	# Account progress: what this match added, and the level you are now.
-	if not game.demo:
-		var strip := Rect2(cx - 330, 208, 660, 30)
-		_plate(strip, Color(0.2, 0.14, 0.3, 0.95), Color(0.95, 0.6, 0.2), 8, 2)
-		var level: int = game.account_level()
-		var span: Array = Stats.account_span(game.account_xp)
-		_text(strip.position + Vector2(12, 20), "ACCOUNT LV %d  %s" % [level, Stats.rank_title(level).to_upper()], 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		var bar := Rect2(strip.position + Vector2(230, 9), Vector2(250, 12))
-		_bar(bar, (float(span[0]) / span[1]) if span[1] > 0 else 1.0, Color(0.95, 0.6, 0.2))
-		_text(bar.position + Vector2(0, 10), ("%d / %d XP" % [span[0], span[1]]) if span[1] > 0 else "MAX", 8, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 2)
-		var gain := "+%d XP" % game.last_match_gain
-		if level > game.level_before:
-			gain += "   LEVEL UP!"
-			if level >= Stats.UNLOCK_LEVEL and game.level_before < Stats.UNLOCK_LEVEL:
-				gain += "  Rogue, Shadowborn, Moonlit unlocked"
-		_text(strip.position + Vector2(0, 20), gain, 12, Color(0.6, 1.0, 0.6), HORIZONTAL_ALIGNMENT_RIGHT, strip.size.x - 12, 2)
-	var table := Rect2(cx - 330, 244, 660, size.y - 244 - 60)
-	_plate(table, INK, GOLD, 12, 2)
-	_draw_scoreboard_table(Rect2(table.position + Vector2(16, 14), Vector2(table.size.x - 32, table.size.y - 28)))
-	_text(Vector2(cx - 210, size.y - 26), "Press R or Enter to play again", 14, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 420, 3)
+	## The end-of-match screen lives in match_summary.gd.
+	if game.summary:
+		game.summary.draw(self)

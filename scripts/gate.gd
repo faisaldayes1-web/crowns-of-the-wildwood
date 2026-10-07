@@ -112,7 +112,7 @@ func take_hit(amount: int, attacker = null) -> void:
 		return
 	hp = maxi(hp - amount, 0)
 	if attacker:
-		attacker.gain_xp(Stats.XP_GATE * amount)
+		attacker.gain_xp(Stats.XP_GATE * amount, "siege")
 	var hit_side := 1.0 if team == 0 else -1.0
 	var where := global_position + Vector3(hit_side * 0.6, 0, randf_range(-size.z * 0.4, size.z * 0.4))
 	game.spawn_splash(where, Color(0.75, 0.55, 0.3), 8, 3.0, 0.5)

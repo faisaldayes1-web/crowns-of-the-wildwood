@@ -118,7 +118,7 @@ func take_hit(amount: int, attacker = null) -> void:
 		return
 	hp = maxi(hp - amount, 0)
 	if attacker:
-		attacker.gain_xp(Stats.XP_GATE * amount)
+		attacker.gain_xp(Stats.XP_GATE * amount, "siege")
 	game.spawn_splash(lock_pos + Vector3(0, 1.2, 0), Color(1.0, 0.85, 0.4), 10, 3.5, 0.4)
 	game.shake_at(lock_pos, 0.3)
 	game.sfx.play("vault_hit", lock_pos, -2.0, 0.12)
