@@ -9,6 +9,7 @@ cropped from in-game renders passed on the command line:
 
     python3 tools/make_menu_art.py                      # every UI piece
     python3 tools/make_menu_art.py thumbs day.png night.png   # map cards
+    python3 tools/make_menu_art.py banners              # title-scene war banners
 
 Writes to assets/ui/menu.
 """
@@ -554,10 +555,99 @@ def thumbs(day_path, night_path):
         print("wrote", name)
 
 
+def _thick(d, pts, w):
+    """A round-jointed thick polyline into a mask."""
+    d.line(pts, fill=255, width=int(w), joint="curve")
+    for x, y in (pts[0], pts[-1]):
+        d.ellipse([x - w / 2, y - w / 2, x + w / 2, y + w / 2], fill=255)
+
+
+def banner(name, cloth, cloth_d, emblem, size=(256, 512)):
+    """A hanging war banner for the title scene: cloth with a gold border and
+    a pointed tail, and the faction's emblem (a rampant lion for the Humans,
+    the white tree for the Elves). Alpha outside the cloth (alpha scissor)."""
+    W, H = size[0] * SS, size[1] * SS
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    tip = H * 0.86
+    shape = [(0, 0), (W, 0), (W, tip), (W / 2, H - 2), (0, tip)]
+    cloth_img = vgrad((W, H), [(0.0, cloth), (1.0, cloth_d)])
+    # Soft vertical folds.
+    folds = Image.new("L", (W, H), 0)
+    fd = ImageDraw.Draw(folds)
+    for k in range(5):
+        x = W * (0.1 + 0.2 * k)
+        fd.rectangle([x - W * 0.035, 0, x + W * 0.035, H], fill=70)
+    folds = folds.filter(ImageFilter.GaussianBlur(W * 0.03))
+    cloth_img = Image.composite(Image.new("RGBA", (W, H), lerp(cloth_d, (0, 0, 0), 0.3) + (255,)), cloth_img, folds)
+    img.paste(cloth_img, (0, 0), poly_mask((W, H), shape))
+    # Gold border just inside the edge.
+    b = W * 0.055
+    inner = [(b, b), (W - b, b), (W - b, tip - b * 0.4), (W / 2, H - 2 - b * 2.0), (b, tip - b * 0.4)]
+    d = ImageDraw.Draw(img)
+    d.line(inner + [inner[0]], fill=GOLD + (255,), width=int(b * 0.55), joint="curve")
+    d.line(shape + [shape[0]], fill=INK + (255,), width=int(SS * 4), joint="curve")
+    # The emblem, built as a mask, then inked and filled.
+    m = Image.new("L", (W, H), 0)
+    md = ImageDraw.Draw(m)
+    cx, cy, u = W / 2, H * 0.47, W * 0.36
+    X = lambda x, y: (cx + x * u, cy + y * u)
+    if emblem == "lion":
+        # Rampant, facing the viewer's left: torso, maned head, raised paws,
+        # hind legs and a curling tail with a tuft.
+        md.polygon([X(-0.18, -0.35), X(0.18, -0.38), X(0.32, 0.1), X(0.22, 0.45), X(-0.05, 0.5), X(-0.2, 0.1)], fill=255)
+        mane = []
+        for k in range(18):
+            a = k / 18 * math.tau
+            r = 0.36 if k % 2 == 0 else 0.26
+            mane.append(X(-0.08 + math.cos(a) * r, -0.55 + math.sin(a) * r))
+        md.polygon(mane, fill=255)
+        md.polygon([X(-0.3, -0.66), X(-0.62, -0.6), X(-0.66, -0.45), X(-0.45, -0.38), X(-0.28, -0.42)], fill=255)  # muzzle
+        md.polygon([X(-0.1, -0.86), X(0.02, -1.02), X(0.08, -0.82)], fill=255)  # ear
+        _thick(md, [X(-0.12, -0.2), X(-0.5, -0.3), X(-0.7, -0.6)], u * 0.22)   # raised fore paw
+        _thick(md, [X(-0.1, 0.02), X(-0.52, 0.0), X(-0.72, -0.18)], u * 0.2)    # second fore paw
+        _thick(md, [X(0.05, 0.38), X(-0.22, 0.62), X(-0.42, 0.92)], u * 0.26)   # hind leg
+        _thick(md, [X(0.2, 0.38), X(0.32, 0.7), X(0.18, 0.98)], u * 0.24)       # other hind leg
+        _thick(md, [X(0.28, 0.35), X(0.62, 0.32), X(0.7, 0.0), X(0.58, -0.3)], u * 0.08)  # tail
+        md.ellipse([*X(0.46, -0.48), *X(0.7, -0.22)], fill=255)  # tuft
+        for x, y in [(-0.76, -0.66), (-0.78, -0.22), (-0.5, 0.98), (0.12, 1.04)]:
+            md.ellipse([*X(x - 0.09, y - 0.07), *X(x + 0.09, y + 0.07)], fill=255)  # claws
+        fill_c, fill_d = GOLD_L, GOLD_D
+    else:
+        # The Wildwood tree: trunk, three rising boughs, leaf sprays, roots.
+        _thick(md, [X(0.0, 0.85), X(0.0, -0.1)], u * 0.2)
+        for side in (-1, 1):
+            _thick(md, [X(0.0, 0.1), X(side * 0.35, -0.2), X(side * 0.48, -0.65)], u * 0.12)
+            _thick(md, [X(0.0, 0.8), X(side * 0.3, 0.92), X(side * 0.55, 1.0)], u * 0.1)
+        _thick(md, [X(0.0, -0.1), X(0.0, -0.85)], u * 0.12)
+        for side in (-1, 1):
+            _thick(md, [X(0.0, -0.45), X(side * 0.22, -0.62), X(side * 0.26, -0.9)], u * 0.08)
+        # Leaf sprays: pointed leaves fanned round each bough tip.
+        for bx, by, n in [(-0.48, -0.7, 7), (0.48, -0.7, 7), (0.0, -0.95, 7), (-0.26, -0.95, 5), (0.26, -0.95, 5)]:
+            for k in range(n):
+                a = -math.pi / 2 + (k - (n - 1) / 2) * 0.5
+                L = 0.26
+                tipx, tipy = bx + math.cos(a) * L, by + math.sin(a) * L
+                mx, my = bx + math.cos(a) * L * 0.5, by + math.sin(a) * L * 0.5
+                wv = 0.075
+                md.polygon([X(bx, by), X(mx + math.cos(a + 1.57) * wv, my + math.sin(a + 1.57) * wv), X(tipx, tipy),
+                            X(mx + math.cos(a - 1.57) * wv, my + math.sin(a - 1.57) * wv)], fill=255)
+        fill_c, fill_d = (250, 252, 240), (196, 226, 200)
+    ink = m.filter(ImageFilter.MaxFilter(int(SS * 5) | 1))
+    img.paste(Image.new("RGBA", (W, H), INK + (255,)), (0, 0), ink)
+    img.paste(vgrad((W, H), [(0.0, fill_c), (0.2, fill_c), (0.8, fill_d), (1.0, fill_d)]), (0, 0), m)
+    img = img.resize(size, Image.LANCZOS)
+    img.save(f"{OUT}/{name}.png")
+    print("wrote", name)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     if len(sys.argv) > 1 and sys.argv[1] == "thumbs":
         thumbs(sys.argv[2], sys.argv[3])
+        sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "banners":
+        banner("banner_lion", (40, 84, 196), (20, 44, 120), "lion")
+        banner("banner_tree", (52, 150, 64), (22, 86, 34), "tree")
         sys.exit(0)
     wood_button("btn_wood")
     wood_button("btn_wood_hi", gold=True, seed=4)
@@ -570,3 +660,5 @@ if __name__ == "__main__":
     plaque("plaque")
     tag("tag")
     make_icons()
+    banner("banner_lion", (40, 84, 196), (20, 44, 120), "lion")
+    banner("banner_tree", (52, 150, 64), (22, 86, 34), "tree")

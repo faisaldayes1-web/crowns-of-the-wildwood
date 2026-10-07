@@ -1,7 +1,6 @@
 extends Node3D
-## The main menu's 3D backdrop. The title looks across the live valley at
-## the Human castle with a Knight and an Elf Ranger in the foreground; the
-## other screens (Select Map, Create Your Character, Ready Up) are shot in a
+## The main menu's 3D backdrop. The title looks at a battle scene built
+## after the game's key art (title_diorama.gd); the other screens (Select Map, Create Your Character, Ready Up) are shot in a
 ## torch-lit castle hall built off the edge of the map, with the hero and
 ## the lobby's fighters standing in it on glowing pedestals.
 ##
@@ -10,18 +9,17 @@ extends Node3D
 
 const Stats = preload("res://scripts/stats.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
+const TitleDiorama = preload("res://scripts/title_diorama.gd")
 const Role = Stats.Role
 
 const HALL := Vector3(0, 0, 420)   # far past the map's south edge
-const TITLE_FROM := Vector3(30.0, 2.4, 2.5)   # the title shot: down the road at the Human gate
-const TITLE_AT := Vector3(56.0, 5.5, -1.0)
 # Player colours for the lobby's P1-P4 tags and pedestal glows.
 const SLOT_COLORS := [Color(0.2, 0.45, 1.0), Color(0.95, 0.22, 0.2), Color(0.25, 0.85, 0.3), Color(1.0, 0.8, 0.15)]
 
 var game
 var cam: Camera3D
 var hall: Node3D
-var title_cast: Node3D
+var title_cast: Node3D       # the battle scene behind the title (title_diorama.gd)
 var hero: Node3D             # the character creator's model
 var hero_key := ""
 var lobby_models: Array = [null, null, null, null]
@@ -53,9 +51,9 @@ func build(g) -> void:
 	hall = Node3D.new()
 	add_child(hall)
 	_build_hall()
-	title_cast = Node3D.new()
+	title_cast = TitleDiorama.new()
 	add_child(title_cast)
-	_build_title_cast()
+	title_cast.build(game)
 
 
 func activate() -> void:
@@ -80,15 +78,17 @@ func show_screen(name: String) -> void:
 	title_cast.visible = name == "title"
 	match name:
 		"title":
-			# Low across the meadow toward the Human castle, sky above.
-			cam.fov = 46.0
-			var from := TITLE_FROM
-			var to := TITLE_AT
+			# Across the stream at the castle and its crown, the two armies either side.
+			cam.fov = TitleDiorama.CAM_FOV
+			var from: Vector3 = TitleDiorama.ORIGIN + TitleDiorama.CAM_FROM
+			var to: Vector3 = TitleDiorama.ORIGIN + TitleDiorama.CAM_AT
 			for arg in OS.get_cmdline_user_args():
-				if arg.begins_with("--debug-title-cam="):  # testing: x,y,z,look x,y,z
+				if arg.begins_with("--debug-title-cam="):  # testing: x,y,z,look x,y,z (relative to the scene)
 					var v := arg.trim_prefix("--debug-title-cam=").split(",")
-					from = Vector3(float(v[0]), float(v[1]), float(v[2]))
-					to = Vector3(float(v[3]), float(v[4]), float(v[5]))
+					from = TitleDiorama.ORIGIN + Vector3(float(v[0]), float(v[1]), float(v[2]))
+					to = TitleDiorama.ORIGIN + Vector3(float(v[3]), float(v[4]), float(v[5]))
+				if arg.begins_with("--debug-title-fov="):
+					cam.fov = float(arg.trim_prefix("--debug-title-fov="))
 			cam.global_position = from
 			cam.look_at(to)
 		"map":
@@ -234,40 +234,11 @@ func _make_pedestal(color: Color) -> Array:
 	return [root, rm, light]
 
 
-# --- The title's foreground pair ----------------------------------------------------
-
-func _build_title_cast() -> void:
-	## A Human Knight and an Elf Ranger in the near meadow, facing the castle.
-	var knight = CharacterModel.new()
-	title_cast.add_child(knight)
-	knight.setup(1, Role.KNIGHT, "", {}, 3)
-	var ranger = CharacterModel.new()
-	title_cast.add_child(ranger)
-	ranger.setup(0, Role.RANGER, "", {}, 3)
-	if ranger.anim and ranger.anim.has_animation("2H_Ranged_Aiming"):
-		ranger.anim.get_animation("2H_Ranged_Aiming").loop_mode = Animation.LOOP_LINEAR
-		ranger.hold("2H_Ranged_Aiming")
-	title_cast.set_meta("knight", knight)
-	title_cast.set_meta("ranger", ranger)
-
+# --- The title's battle scene ------------------------------------------------------
 
 func place_title_cast() -> void:
-	if not title_cast.visible:
-		return
-	var knight = title_cast.get_meta("knight")
-	var ranger = title_cast.get_meta("ranger")
-	var kp := _floor_at(Vector2(0.6, 0.99))
-	var rp := _floor_at(Vector2(0.86, 0.97))
-	knight.global_position = kp
-	ranger.global_position = rp
-	knight.scale = Vector3.ONE * 1.0
-	ranger.scale = Vector3.ONE * 1.0
-	# Both look up the valley at the castle, three-quarters on to the camera.
-	var aim := TITLE_AT
-	knight.look_at(Vector3(aim.x, kp.y, aim.z), Vector3.UP, true)
-	knight.rotation.y += 0.55
-	ranger.look_at(Vector3(aim.x, rp.y, aim.z), Vector3.UP, true)
-	ranger.rotation.y += 0.2
+	if title_cast.visible:
+		title_cast.place_heroes(cam, get_viewport().get_visible_rect().size)
 
 
 # --- The hall ----------------------------------------------------------------------------

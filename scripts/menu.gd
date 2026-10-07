@@ -220,13 +220,13 @@ func _draw_title() -> void:
 		stage.place_title_cast()
 	# A soft shade down the left so the plank column reads over the valley.
 	for i in 24:
-		var a := 0.32 * (1.0 - i / 24.0)
+		var a := 0.2 * (1.0 - i / 24.0)
 		h.draw_rect(Rect2(i * 18.0, 0, 18, h.size.y), Color(0.02, 0.03, 0.02, a))
 	# The logo, big and centred, as in the mockup.
 	var lw := 470.0
 	var lh := lw * 793.0 / 1983.0 * 1.0
 	if h.logo:
-		h.draw_texture_rect(h.logo, Rect2(h.size.x / 2.0 - lw / 2.0 - 90, 12, lw, lh * 1.25), false)
+		h.draw_texture_rect(h.logo, Rect2(h.size.x / 2.0 - lw / 2.0, 10, lw, lh * 1.25), false)
 	var x := 60.0
 	var w := 286.0
 	# PLAY: the big gold plank with pointed ends.
