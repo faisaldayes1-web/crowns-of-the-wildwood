@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back;
+render_mode cull_back, diffuse_toon, specular_toon;
 // Stylized foliage: dark at the bottom, light at the sunlit top, dappled
 // with noise, with a slow wind sway. Colours are per tree.
 

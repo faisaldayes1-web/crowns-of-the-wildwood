@@ -49,7 +49,7 @@ const CELLAR_HALF_Z := 9.5
 const CELLAR_Y := -2.4        # its floor
 const ISLAND_R := 6.0         # the Crown Shrine island in the river
 const STATION_RADIUS := 1.3
-const CAMERA_OFFSET := Vector3(0, 21.0, 15.0)  # a long lens: less edge distortion
+const CAMERA_OFFSET := Vector3(0, 19.0, 16.0)  # a long lens, pitched like a tabletop diorama (50 degrees)
 var cam_zoom := 1.0  # --debug-zoom=N pulls the camera back for overview renders
 var sfx: Node        # every sound: see sfx.gd
 # The river runs north to south through the middle; three bridges cross it.
@@ -248,6 +248,8 @@ func _ready() -> void:
 			cursor = Vector2(119, 238)
 	if "--debug-night" in OS.get_cmdline_user_args():
 		map_variant = 1
+	# Cartoon shading on everything that enters the scene, props and units alike.
+	get_tree().node_added.connect(func(n): _toonify.call_deferred(n))
 	_build_world()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--gfx="):  # testing: render at a given preset (0-3)
@@ -2842,9 +2844,9 @@ func _material(color: Color) -> StandardMaterial3D:
 
 # Textured materials (ambientCG, CC0). Triplanar mapping means boxes of any
 # size tile cleanly without UV work. One tile every 1/scale metres.
-func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE) -> StandardMaterial3D:
+func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE, ext: String = "jpg") -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
-	mat.albedo_texture = load("res://assets/textures/%s_color.jpg" % prefix)
+	mat.albedo_texture = load("res://assets/textures/%s_color.%s" % [prefix, ext])
 	mat.albedo_color = tint
 	mat.normal_enabled = true
 	mat.normal_texture = load("res://assets/textures/%s_normal.jpg" % prefix)
@@ -2861,7 +2863,17 @@ func _stone(tint: Color = Color.WHITE, scale: float = 0.26) -> StandardMaterial3
 
 
 func _grass() -> StandardMaterial3D:
-	return _pbr("grass", 0.11, Color(0.96, 1.0, 0.9))
+	return _pbr("grass", 0.11)
+
+
+func _stones(loose: bool = false) -> StandardMaterial3D:
+	## Pale flagstones with the meadow showing between them (the paths).
+	## The gaps are cut out of the texture, so the grass below shows through.
+	var name := "path_loose" if loose else "path"
+	var mat := _pbr(name, 0.26 if loose else 0.2, Color.WHITE, "png")
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.5
+	return mat
 
 
 var verge_mat: StandardMaterial3D
@@ -3062,16 +3074,8 @@ func _add_ground_detail() -> void:
 	## stones, leaf litter and plain wildflowers. All MultiMeshes.
 	var r := RandomNumberGenerator.new()
 	r.seed = 1234
-	var flower := SphereMesh.new()
-	flower.radius = 0.1
-	flower.height = 0.16
-	flower.radial_segments = 6
-	flower.rings = 3
-	var tuft := CylinderMesh.new()
-	tuft.top_radius = 0.0
-	tuft.bottom_radius = 0.2
-	tuft.height = 0.42
-	tuft.radial_segments = 5
+	var flower := _petal_mesh()
+	var tuft := _tuft_mesh()
 	var stone := _rock_mesh(77, 0.26, 0.25)
 	var cap := CylinderMesh.new()
 	cap.top_radius = 0.08
@@ -3081,7 +3085,7 @@ func _add_ground_detail() -> void:
 	var leaf := PlaneMesh.new()
 	leaf.size = Vector2(0.34, 0.26)
 	var sets := [
-		["flower", flower, 520, 0.14], ["tuft", tuft, 900, 0.18], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
+		["flower", flower, 760, 0.4], ["tuft", tuft, 700, 0.0], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
 	for s in sets:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -3111,11 +3115,13 @@ func _add_ground_detail() -> void:
 			var col: Color
 			match s[0]:
 				"flower":
-					col = [Color(0.98, 0.9, 0.45), Color(0.98, 0.98, 1.0), Color(0.95, 0.55, 0.65), Color(0.6, 0.8, 1.0), Color(0.95, 0.55, 0.25)][r.randi() % 5]
-					if elf_side and r.randf() < 0.35:
-						col = Color(0.5, 0.95, 1.0)  # glowing wildwood bloom
+					# Cartoon blooms: flat five-petal heads tipped towards the camera.
+					basis = Basis(Vector3.RIGHT, deg_to_rad(35.0)) * Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * sc)
+					col = [Color(0.25, 0.45, 1.0), Color(0.25, 0.45, 1.0), Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 1.0), Color(0.95, 0.22, 0.2), Color(1.0, 0.82, 0.2), Color(1.0, 0.55, 0.75)][r.randi() % 7]
+					if elf_side and r.randf() < 0.3:
+						col = Color(0.45, 0.95, 1.0)  # glowing wildwood bloom
 				"tuft":
-					col = Color.from_hsv(0.27 + r.randf_range(-0.03, 0.03), 0.8, r.randf_range(0.28, 0.42))
+					col = Color.from_hsv(0.26 + r.randf_range(-0.02, 0.02), 0.78, r.randf_range(0.5, 0.62))
 				"stone":
 					col = Color(0.46, 0.46, 0.44).lerp(Color(0.36, 0.38, 0.36), r.randf())
 					if elf_side and r.randf() < 0.3:
@@ -3133,6 +3139,8 @@ func _add_ground_detail() -> void:
 		var mat := StandardMaterial3D.new()
 		mat.vertex_color_use_as_albedo = true
 		mat.roughness = 0.9
+		if s[0] == "flower" or s[0] == "tuft":
+			mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		if s[0] == "flower" or s[0] == "cap":
 			mat.emission_enabled = true
 			mat.emission = Color(0.3, 0.6, 0.7)
@@ -3140,6 +3148,37 @@ func _add_ground_detail() -> void:
 		inst.material_override = mat
 		inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(inst)
+		if s[0] == "flower":
+			# A golden eye on each bloom and a green stem under it.
+			var eyes := MultiMesh.new()
+			eyes.transform_format = MultiMesh.TRANSFORM_3D
+			var eye := SphereMesh.new()
+			eye.radius = 0.075
+			eye.height = 0.07
+			eye.radial_segments = 6
+			eye.rings = 2
+			eyes.mesh = eye
+			var stems := MultiMesh.new()
+			stems.transform_format = MultiMesh.TRANSFORM_3D
+			var stem := CylinderMesh.new()
+			stem.top_radius = 0.02
+			stem.bottom_radius = 0.025
+			stem.height = 0.4
+			stem.radial_segments = 4
+			stem.rings = 1
+			stems.mesh = stem
+			eyes.instance_count = placed.size()
+			stems.instance_count = placed.size()
+			for i in placed.size():
+				var t := mm.get_instance_transform(i)
+				eyes.set_instance_transform(i, Transform3D(t.basis, t.origin + t.basis.y * 0.02))
+				stems.set_instance_transform(i, Transform3D(Basis.IDENTITY, placed[i] + Vector3(0, 0.2, 0)))
+			for pair in [[eyes, Color(1.0, 0.85, 0.25)], [stems, Color(0.3, 0.6, 0.18)]]:
+				var ei := MultiMeshInstance3D.new()
+				ei.multimesh = pair[0]
+				ei.material_override = _material(pair[1])
+				ei.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				add_child(ei)
 		if s[0] == "cap":
 			# Stems under the caps.
 			var stems := MultiMesh.new()
@@ -3158,6 +3197,42 @@ func _add_ground_detail() -> void:
 			si.material_override = _material(Color(0.9, 0.86, 0.75))
 			si.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(si)
+
+
+func _petal_mesh() -> ArrayMesh:
+	## Five round, flat petals in a ring (one bloom head, tinted per instance).
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in 5:
+		var a := TAU * k / 5.0
+		var c := Vector3(cos(a), 0, sin(a)) * 0.13
+		var segs := 8
+		for j in segs:
+			var a0 := TAU * j / segs
+			var a1 := TAU * (j + 1) / segs
+			st.set_normal(Vector3.UP)
+			st.add_vertex(c + Vector3(0, 0.01, 0))
+			st.set_normal(Vector3.UP)
+			st.add_vertex(c + Vector3(cos(a1), 0, sin(a1)) * 0.105)
+			st.set_normal(Vector3.UP)
+			st.add_vertex(c + Vector3(cos(a0), 0, sin(a0)) * 0.105)
+	return st.commit()
+
+
+func _tuft_mesh() -> ArrayMesh:
+	## A clump of three tapering grass blades leaning outwards.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.4
+		var out := Vector3(cos(a), 0, sin(a))
+		var side := Vector3(-out.z, 0, out.x) * 0.06
+		var tip := out * 0.16 + Vector3(0, 0.38 - 0.08 * k, 0)
+		var n := (out + Vector3.UP * 0.6).normalized()
+		for v in [-side, tip, side, side, tip, -side]:
+			st.set_normal(n)
+			st.add_vertex(v)
+	return st.commit()
 
 
 func _open_ground(p: Vector3) -> bool:
@@ -3292,8 +3367,8 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		# Wildwood palette: pale mint and lavender canopies that glow faintly.
 		var lavender: bool = seed % 4 == 0
 		# (The sun and the crown highlight brighten tops a lot, so these stay dark.)
-		leaf.set_shader_parameter("top_color", Color.from_hsv(0.75, 0.6, 0.45) if lavender else Color.from_hsv(0.42, 0.75, 0.42))
-		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.75, 0.75, 0.15) if lavender else Color.from_hsv(0.45, 0.85, 0.14))
+		leaf.set_shader_parameter("top_color", Color.from_hsv(0.75, 0.55, 0.6) if lavender else Color.from_hsv(0.4, 0.7, 0.6))
+		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.75, 0.75, 0.22) if lavender else Color.from_hsv(0.44, 0.85, 0.22))
 	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.25 if wild else 1.0)
 	var blobs := 6 if big else 4
 	var base_y: float = trunk_h * 0.8
@@ -3349,8 +3424,8 @@ func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool
 	leaf.shader = load("res://assets/shaders/leaf.gdshader")
 	leaf.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	var hue := r.randf_range(-0.02, 0.02)
-	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.38 + hue, 0.75, 0.18))
-	leaf.set_shader_parameter("top_color", Color.from_hsv(0.32 + hue, 0.7, 0.5))
+	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.38 + hue, 0.75, 0.24))
+	leaf.set_shader_parameter("top_color", Color.from_hsv(0.31 + hue, 0.7, 0.64))
 	leaf.set_shader_parameter("height", 1.6)
 	leaf.set_shader_parameter("sway", 0.03)
 	var base_r: float = (1.9 if big else 1.5) * r.randf_range(0.9, 1.1)
@@ -3378,8 +3453,8 @@ func _leaf_material(r: RandomNumberGenerator, autumn: bool) -> ShaderMaterial:
 		mat.set_shader_parameter("bottom_color", Color(0.45, 0.18, 0.05))
 		mat.set_shader_parameter("top_color", Color(0.95, 0.55, 0.15))
 	else:
-		mat.set_shader_parameter("bottom_color", Color.from_hsv(0.34 + hue, 0.8, 0.22))
-		mat.set_shader_parameter("top_color", Color.from_hsv(0.27 + hue, 0.65, r.randf_range(0.5, 0.62)))
+		mat.set_shader_parameter("bottom_color", Color.from_hsv(0.32 + hue, 0.8, 0.32))
+		mat.set_shader_parameter("top_color", Color.from_hsv(0.26 + hue, 0.7, r.randf_range(0.68, 0.8)))
 	mat.set_shader_parameter("height", 2.0)
 	return mat
 
@@ -3930,7 +4005,7 @@ func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	## Castle stone; the elven castle is grown, so its "stone" is living bark.
 	if mossy:
 		return _pbr("bark", 0.55, tint * Color(0.72, 0.7, 0.58))
-	return _pbr("stone", 0.42, tint * Color(0.93, 0.9, 0.84))
+	return _pbr("stone", 0.42, tint)
 
 
 func _elf_leaf(bright: bool = false) -> StandardMaterial3D:
@@ -4019,7 +4094,7 @@ func _add_mushrooms(pos: Vector3, seed: int) -> void:
 
 
 func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	return _pbr("flagstone_moss" if mossy else "flagstone", 0.42, tint * Color(0.95, 0.92, 0.86))
+	return _pbr("flagstone_moss" if mossy else "flagstone", 0.25, tint)
 
 
 func _timber(tint: Color = Color.WHITE) -> StandardMaterial3D:
@@ -6009,6 +6084,11 @@ func apply_graphics() -> void:
 	var vp := get_viewport()
 	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X, Viewport.MSAA_8X][q]
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if q == 0 else Viewport.SCREEN_SPACE_AA_DISABLED
+	if ink_on:
+		# The ink lines read the depth buffer, which multisampling blurs
+		# away on some drivers: FXAA smooths the lines instead.
+		vp.msaa_3d = Viewport.MSAA_DISABLED
+		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	vp.scaling_3d_scale = 0.8 if q == 0 else 1.0
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 else Viewport.SCALING_3D_MODE_BILINEAR
 	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 8192][q]
@@ -6058,18 +6138,20 @@ func _apply_map_variant() -> void:
 		sky_material.sky_horizon_color = Color(0.85, 0.9, 0.95)
 		sky_material.ground_bottom_color = Color(0.3, 0.4, 0.25)
 		sky_material.ground_horizon_color = Color(0.65, 0.75, 0.6)
-		world_environment.ambient_light_energy = 0.6
-		world_environment.ambient_light_color = Color(0.75, 0.85, 0.8)
-		world_environment.fog_light_color = Color(0.8, 0.88, 0.95)
-		world_environment.fog_density = 0.0012
-		world_environment.glow_intensity = 0.45
-		world_environment.glow_hdr_threshold = 1.4
-		world_environment.adjustment_saturation = 1.15
-		world_environment.adjustment_brightness = 0.95
-		sun_light.light_color = Color(1.0, 0.94, 0.82)
-		sun_light.light_energy = 1.15
+		# Bright cartoon daylight: a strong warm sun, soft blue-green
+		# ambient so shadows stay coloured and light, very little haze.
+		world_environment.ambient_light_energy = 0.55
+		world_environment.ambient_light_color = Color(0.72, 0.84, 0.9)
+		world_environment.fog_light_color = Color(0.8, 0.9, 1.0)
+		world_environment.fog_density = 0.0008
+		world_environment.glow_intensity = 0.4
+		world_environment.glow_hdr_threshold = 1.5
+		world_environment.adjustment_saturation = 1.2
+		world_environment.adjustment_brightness = 1.0
+		sun_light.light_color = Color(1.0, 0.96, 0.86)
+		sun_light.light_energy = 0.95
 		if fill_light:
-			fill_light.light_energy = 0.15
+			fill_light.light_energy = 0.2
 
 
 func _build_world() -> void:
@@ -6088,22 +6170,25 @@ func _build_world() -> void:
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.ambient_light_energy = 0.5
-	environment.ambient_light_sky_contribution = 0.6
+	environment.ambient_light_energy = 0.75
+	environment.ambient_light_sky_contribution = 0.5
 	environment.ambient_light_color = Color(0.75, 0.85, 0.8)
 	# Soft contact shadows under props and in corners (Forward+ only).
 	environment.ssao_enabled = true
-	environment.ssao_radius = 1.2
-	environment.ssao_intensity = 1.6
-	environment.ssao_power = 1.3
+	environment.ssao_radius = 1.0
+	environment.ssao_intensity = 1.0
+	environment.ssao_power = 1.1
 	# Light bouncing off lit surfaces into shade (grass green on the walls,
 	# torchlight on the floors): Forward+ only, High and Ultra.
 	environment.ssil_enabled = true
 	environment.ssil_radius = 4.0
 	environment.ssil_intensity = 0.7
 	environment.ssil_normal_rejection = 1.0
-	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
-	environment.tonemap_exposure = 0.8
+	# Filmic keeps the cartoon colours bright and saturated where ACES
+	# darkened and greyed them.
+	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.tonemap_exposure = 0.95
+	environment.tonemap_white = 6.0
 	environment.glow_enabled = true
 	environment.glow_intensity = 0.45
 	environment.glow_bloom = 0.08
@@ -6125,8 +6210,8 @@ func _build_world() -> void:
 	environment.fog_sky_affect = 0.2
 	environment.adjustment_enabled = true
 	environment.adjustment_saturation = 1.2
-	environment.adjustment_contrast = 1.15
-	environment.adjustment_brightness = 0.94
+	environment.adjustment_contrast = 1.05
+	environment.adjustment_brightness = 1.0
 	env.environment = environment
 	world_environment = environment
 	add_child(env)
@@ -6181,21 +6266,22 @@ func _build_world() -> void:
 	# The road: rutted dirt from bridge to door, cobbled aprons at each door,
 	# and grass creeping in at the edges.
 	var fxr := CASTLE_X - CASTLE_DEPTH
-	var road := _pbr("road", 0.2)
-	# The main road: door to door through the shrine, with cobbled aprons.
-	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road)
-	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road)
+	var road := _stones()
+	# The main road: a flagstone path door to door through the shrine, with
+	# paved aprons at the doors.
+	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road, 0.0)
+	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road, 0.0)
 	for sx in [-1.0, 1.0]:
 		_add_block(Vector3(sx * (fxr - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color.WHITE, false, _flagstone(Color(0.96, 0.93, 0.88)))
 		# The Forest Path (north) and the River Path (south): from the road by
 		# the castle door out to the flank bridges, as worn dirt tracks.
-		var dirt := _dirt()
+		var dirt := _stones(true)
 		var nb: float = BRIDGES[0]
 		var sb: float = BRIDGES[2]
-		_add_path(Vector3(sx * (fxr - 4.0), 0, -3.0), Vector3(sx * 30.0, 0, nb - 3.0), 3.4, dirt)
-		_add_path(Vector3(sx * 30.0, 0, nb - 3.0), Vector3(sx * (RIVER_HALF + 1.5), 0, nb), 3.4, dirt)
-		_add_path(Vector3(sx * (fxr - 4.0), 0, 3.0), Vector3(sx * 26.0, 0, sb + 2.0), 3.4, dirt)
-		_add_path(Vector3(sx * 26.0, 0, sb + 2.0), Vector3(sx * (RIVER_HALF + 1.5), 0, sb), 3.4, dirt)
+		_add_path(Vector3(sx * (fxr - 4.0), 0, -3.0), Vector3(sx * 30.0, 0, nb - 3.0), 3.4, dirt, 0.0)
+		_add_path(Vector3(sx * 30.0, 0, nb - 3.0), Vector3(sx * (RIVER_HALF + 1.5), 0, nb), 3.4, dirt, 0.0)
+		_add_path(Vector3(sx * (fxr - 4.0), 0, 3.0), Vector3(sx * 26.0, 0, sb + 2.0), 3.4, dirt, 0.0)
+		_add_path(Vector3(sx * 26.0, 0, sb + 2.0), Vector3(sx * (RIVER_HALF + 1.5), 0, sb), 3.4, dirt, 0.0)
 		# Road dressing: milestones on the verge, signposts at the path
 		# bends and an abandoned cart by the roadside.
 		# (Two milestones a side; the roadside caravan pile was clutter and went.)
@@ -6270,11 +6356,63 @@ func _build_world() -> void:
 
 	_apply_map_variant()
 	camera = Camera3D.new()
-	camera.rotation_degrees = Vector3(-55, 0, 0)
+	camera.rotation_degrees = Vector3(-50, 0, 0)
 	camera.fov = 40.0
 	camera.position = Vector3(0, 40, 26)
 	add_child(camera)
 	camera.make_current()
+	_add_ink()
+
+
+var ink_on := false
+
+
+func _add_ink() -> void:
+	## Cartoon ink lines: one full-screen pass drawn by every camera (the
+	## shader ignores the quad's place in the world), so split-screen panes
+	## get them too. Needs the depth buffer, so not on the Compatibility
+	## renderer.
+	if RenderingServer.get_rendering_device() == null:
+		return
+	var q := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
+	q.mesh = quad
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assets/shaders/ink_outline.gdshader")
+	mat.render_priority = 100
+	q.material_override = mat
+	q.extra_cull_margin = 16384.0
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(q)
+	ink_on = true
+
+
+func _toonify(node) -> void:
+	## Cel shading: hard-edged light and shadow on every standard material.
+	if not is_instance_valid(node) or not node is GeometryInstance3D:
+		return
+	_toon_mat(node.material_override)
+	if node is MeshInstance3D:
+		for i in node.get_surface_override_material_count():
+			_toon_mat(node.get_surface_override_material(i))
+		if node.mesh:
+			for i in node.mesh.get_surface_count():
+				_toon_mat(node.mesh.surface_get_material(i))
+	elif node is MultiMeshInstance3D and node.multimesh and node.multimesh.mesh:
+		for i in node.multimesh.mesh.get_surface_count():
+			_toon_mat(node.multimesh.mesh.surface_get_material(i))
+
+
+func _toon_mat(m) -> void:
+	if not m is BaseMaterial3D or m.diffuse_mode == BaseMaterial3D.DIFFUSE_TOON:
+		return
+	if m.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED:
+		return
+	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	# Shiny things (gold, glass, water) keep a crisp toon highlight; matte
+	# ones none, so the ground and walls do not get blotchy sun spots.
+	m.specular_mode = BaseMaterial3D.SPECULAR_TOON if m.roughness < 0.6 else BaseMaterial3D.SPECULAR_DISABLED
 
 
 func _build_hud() -> void:
