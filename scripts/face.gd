@@ -17,6 +17,7 @@ const PROFILE := [[0.0, 0.457], [0.16, 0.455], [0.22, 0.432], [0.28, 0.388], [0.
 
 static var tex_cache := {}
 static var noeye_cache := {}
+static var clean_cache := {}
 
 var eyes: MeshInstance3D
 var next_blink := 0.0
@@ -70,6 +71,87 @@ static func _patch(rect: Rect2, pivot_y: float, z_add: float, flat_z: float = -1
 				st.set_uv(quad[k][1])
 				st.add_vertex(quad[k][0])
 	return st.commit()
+
+
+static func clean_head(mesh: Mesh) -> Mesh:
+	## The head with its sculpted face taken off: the nose, the dot eyes and
+	## the eyebrows are separate little islands on the front of the KayKit
+	## heads, and the nose sits in a dent above the mouth. The islands are
+	## dropped and the dent filled, so the painted face lies on a smooth,
+	## round front with no bumps or ink lines poking through it.
+	if clean_cache.has(mesh):
+		return clean_cache[mesh]
+	var out := ArrayMesh.new()
+	for s in mesh.get_surface_count():
+		var a: Array = mesh.surface_get_arrays(s)
+		var v: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+		var idx: PackedInt32Array = a[Mesh.ARRAY_INDEX]
+		if idx.is_empty():
+			return mesh
+		# Islands: join vertices that share a position, then triangles.
+		var keys := {}
+		var vid := PackedInt32Array()
+		vid.resize(v.size())
+		for i in v.size():
+			var k := v[i].snapped(Vector3.ONE * 0.001)
+			if not keys.has(k):
+				keys[k] = keys.size()
+			vid[i] = keys[k]
+		var par := PackedInt32Array()
+		par.resize(keys.size())
+		for i in par.size():
+			par[i] = i
+		for t in range(0, idx.size(), 3):
+			var r0 := _root(par, vid[idx[t]])
+			for j in [1, 2]:
+				var r := _root(par, vid[idx[t + j]])
+				if r != r0:
+					par[r] = r0
+		var boxes := {}
+		var count := {}
+		for t in range(0, idx.size(), 3):
+			var r := _root(par, vid[idx[t]])
+			var box: AABB = boxes.get(r, AABB(v[idx[t]], Vector3.ZERO))
+			for j in 3:
+				box = box.expand(v[idx[t + j]])
+			boxes[r] = box
+			count[r] = count.get(r, 0) + 1
+		var main := -1
+		for r in count:
+			if main < 0 or count[r] > count[main]:
+				main = r
+		var keep := PackedInt32Array()
+		for t in range(0, idx.size(), 3):
+			var r := _root(par, vid[idx[t]])
+			var c: Vector3 = boxes[r].get_center()
+			var face_bit: bool = r != main and absf(c.x) < 0.33 and c.y > 1.4 and c.y < 1.85 and boxes[r].end.z > 0.4
+			if not face_bit:
+				keep.append_array([idx[t], idx[t + 1], idx[t + 2]])
+		# Fill the nose dent and the lip ledge: the middle of the face becomes
+		# one smooth rounded front (z falls off as x², with matching normals
+		# so no seams or flat facets catch the light).
+		var nrm: PackedVector3Array = a[Mesh.ARRAY_NORMAL]
+		for i in v.size():
+			var p := v[i]
+			if _root(par, vid[i]) == main and absf(p.x) < 0.32 and p.y > 1.385 and p.y < 1.6 and p.z > 0.3:
+				var t := (p.y - 1.39) / 0.23
+				var w := smoothstep(0.32, 0.22, absf(p.x)) * smoothstep(1.6, 1.56, p.y)
+				v[i].z = lerpf(p.z, lerpf(0.441, 0.451, t) - 1.25 * p.x * p.x, w)
+				nrm[i] = nrm[i].slerp(Vector3(2.5 * p.x, -0.043, 1.0).normalized(), w)
+		a[Mesh.ARRAY_VERTEX] = v
+		a[Mesh.ARRAY_INDEX] = keep
+		a[Mesh.ARRAY_NORMAL] = nrm
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a, [], {}, mesh.surface_get_format(s) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+		out.surface_set_material(s, mesh.surface_get_material(s))
+	clean_cache[mesh] = out
+	return out
+
+
+static func _root(par: PackedInt32Array, x: int) -> int:
+	while par[x] != x:
+		par[x] = par[par[x]]
+		x = par[x]
+	return x
 
 
 static func no_eyes(skin: Texture2D) -> Texture2D:

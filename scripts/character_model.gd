@@ -648,13 +648,14 @@ func _add_face(inst: Node3D, scene: String, team: int, role: int, custom: Dictio
 			head = m
 	if head == null:
 		return
+	head.mesh = Face.clean_head(head.mesh)
 	for i in head.get_surface_override_material_count():
 		var mat = head.get_surface_override_material(i)
 		if mat is StandardMaterial3D:
 			mat.albedo_texture = Face.no_eyes(mat.albedo_texture)
 	var face = Face.new()
 	var brow: Color = custom.get("hair", Face.hair_color(skin))
-	face.build(skeleton, scene, team, int(custom.get("face", Face.default_style(role))), brow.darkened(0.1))
+	face.build(skeleton, scene, team, int(custom.get("face", Face.default_style(role))), brow.darkened(0.3))
 
 
 func _attach_to_head() -> BoneAttachment3D:
