@@ -150,6 +150,8 @@ func _draw() -> void:
 		_draw_killer_card()
 	if _me() and not _me().kill_banner.is_empty():
 		_draw_kill_banner(_me())
+	if not game.guide_open and not pane:
+		_draw_kill_feed()
 	if game.stolen_timer > 0.0:
 		_draw_stolen_card()
 	elif game.capture_timer > 0.0:
@@ -822,7 +824,7 @@ func _draw_roster(team: int, origin: Vector2, compact: bool = false) -> void:
 		elif u.role != Role.BASE:
 			_icon(_class_icon(u.role), rect.position + Vector2(218, 16), 7, Color.WHITE)
 		if u.dead:
-			_text(rect.position + Vector2(52, 39), "back in %d" % ceili(u.respawn_timer), 12, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(rect.position + Vector2(52, 39), "back in %d" % ceili(u.respawn_eta()), 12, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		else:
 			_hearts(rect.position + Vector2(58, 33), u.hearts, 0.36, 15)
 			_bar(Rect2(rect.position + Vector2(122, 28), Vector2(106, 10)), u.energy / u.energy_max(),
@@ -860,7 +862,7 @@ func _draw_side_roster(team: int, origin: Vector2) -> void:
 		elif u.role != Role.BASE:
 			_icon(_class_icon(u.role), rect.position + Vector2(183, 15), 6, Color.WHITE)
 		if u.dead:
-			_text(rect.position + Vector2(46, 35), "back in %d" % ceili(u.respawn_timer), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(rect.position + Vector2(46, 35), "back in %d" % ceili(u.respawn_eta()), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		else:
 			_hearts(rect.position + Vector2(52, 30), u.hearts, 0.3, 13)
 			_bar(Rect2(rect.position + Vector2(112, 26), Vector2(78, 8)), u.energy / u.energy_max(),
@@ -912,6 +914,37 @@ func _draw_levelup_card() -> void:
 		_class_card(rect.position + Vector2(40, 39), 26, p.team, p.role)
 	_text(rect.position + Vector2(84, 32), "LEVEL UP!", 24, Color(1, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	_text(rect.position + Vector2(84, 54), "You are now Level %d   ·   +1 Perk Point (%s)" % [game.levelup_level, _k("rank_menu")], 12, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _draw_kill_feed() -> void:
+	## The last few kills, under the logo at the right edge: killer, sword,
+	## victim, each in their team's colour, fading out after a few seconds.
+	var now: float = Time.get_ticks_msec() / 1000.0
+	var y: float = 104.0
+	var right: float = size.x - 18.0
+	var shown := 0
+	for i in range(game.kill_feed.size() - 1, -1, -1):
+		var k: Dictionary = game.kill_feed[i]
+		var age: float = now - k.time
+		if age > 7.0 or shown >= 5:
+			continue
+		var a: float = 1.0 if age < 5.5 else clampf((7.0 - age) / 1.5, 0.0, 1.0)
+		var slide: float = clampf(1.0 - age / 0.25, 0.0, 1.0) * 40.0
+		var vw: float = _text_width(k.victim, 11)
+		var kw: float = _text_width(k.killer, 11)
+		var x: float = right + slide
+		var kc: Color = _team_color(k.kteam).lightened(0.35)
+		var vc: Color = _team_color(k.vteam).lightened(0.35)
+		kc.a = a
+		vc.a = a
+		draw_rect(Rect2(x - kw - vw - 62, y - 9, kw + vw + 68, 18), Color(0.05, 0.05, 0.08, 0.45 * a))
+		_text(Vector2(x - vw, y - 7), k.victim, 11, vc, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_icon(_class_icon(k.vrole), Vector2(x - vw - 10, y), 6, vc)
+		_icon("sword", Vector2(x - vw - 28, y), 6, Color(1.0, 0.85, 0.3, a))
+		_text(Vector2(x - vw - 46 - kw, y - 7), k.killer, 11, kc, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_icon(_class_icon(k.krole), Vector2(x - vw - 56 - kw, y), 6, kc)
+		y += 20.0
+		shown += 1
 
 
 func _draw_kill_banner(p) -> void:
@@ -1043,10 +1076,8 @@ func _draw_player_panel(p) -> void:
 		_hearts(Vector2(x + 16, rect.position.y + 54), 0, 0.85, 36)
 		if game.overtime:
 			_text(Vector2(x, rect.position.y + 86), "Down for the rest of overtime", 16, Color(1, 0.6, 0.5))
-		elif game.banner_spawn(p.team).is_finite():
-			_text(Vector2(x, rect.position.y + 86), "Rejoining at the war banner in %d" % ceili(p.respawn_timer), 16, Color(1, 0.75, 0.5))
 		else:
-			_text(Vector2(x, rect.position.y + 86), "Down! Back in %d" % ceili(p.respawn_timer), 16, Color(1, 0.6, 0.5))
+			_text(Vector2(x, rect.position.y + 86), "Down! Back with the wave in %d" % ceili(p.respawn_eta()), 16, Color(1, 0.6, 0.5))
 	else:
 		_hearts(Vector2(x + 16, rect.position.y + 54), p.hearts, 0.85, 36)
 		var is_mana: bool = p.energy_kind() == "mana"
@@ -1242,14 +1273,6 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		var tcol: Color = _team_color(t.team)
 		draw_colored_polygon(PackedVector2Array([tc + Vector2(0, -tr), tc + Vector2(tr, 0), tc + Vector2(0, tr), tc + Vector2(-tr, 0)]), tcol.lightened(0.2))
 		draw_polyline(PackedVector2Array([tc + Vector2(0, -tr), tc + Vector2(tr, 0), tc + Vector2(0, tr), tc + Vector2(-tr, 0), tc + Vector2(0, -tr)]), Color(0, 0, 0, 0.6), 1.0)
-	# War banners: a little flag in team colour.
-	for b in game.banners:
-		if b == null or not is_instance_valid(b):
-			continue
-		var bp: Vector2 = m.call(b.global_position)
-		var bh := 7.0 if not detailed else 11.0
-		draw_line(bp, bp + Vector2(0, -bh), Color(0.9, 0.85, 0.7), 1.5)
-		draw_colored_polygon(PackedVector2Array([bp + Vector2(0, -bh), bp + Vector2(bh * 0.7, -bh + 2.5), bp + Vector2(0, -bh + 5)]), _team_color(b.team).lightened(0.2))
 	# Everyone we can see. Enemies show within 22 m of a living teammate;
 	# Elite Veterans always show, with a pulsing bounty ring.
 	var allies: Array = game.units.filter(func(u): return u.team == my_team and not u.dead)
@@ -1551,7 +1574,7 @@ func _menu_settings(body: Rect2) -> void:
 		_keycap(Vector2(x + 34, cy - 4), calls[i][0], 40)
 		_text(Vector2(x + 66, cy + 4), calls[i][1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(Vector2(x + 150, cy + 4), calls[i][2], 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(Vector2(x + 10, y + 284), "Bots follow a call for %d seconds; rebind the keys in Controls. %s plants a war banner when there is no monarch to grab." % [int(Stats.COMMAND_TIME), _k("interact")], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 10, y + 284), "Bots follow a call for %d seconds; rebind the keys in Controls." % int(Stats.COMMAND_TIME), 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	draw_line(Vector2(x, y + 292), Vector2(body.end.x, y + 292), GOLD_DARK, 1.0)
 	# Gamepad: rumble, button names and what is plugged in.
 	_text(Vector2(x + 10, y + 314), "GAMEPAD", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -1777,7 +1800,7 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 				score_col = 11
 				var hx: float = block.position.x + 12 + cols[2][1] * scale
 				if u.dead:
-					_text(Vector2(hx, ry + 13), "back in %d" % ceili(u.respawn_timer), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+					_text(Vector2(hx, ry + 13), "back in %d" % ceili(u.respawn_eta()), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 				else:
 					_hearts(Vector2(hx + 6, ry + 9), u.hearts, 0.3, 13)
 					if u.buff != "" and u.buff_timer > 0.0:
@@ -2154,7 +2177,7 @@ func _draw_title_play(panel: Rect2) -> void:
 		_text(b.position + Vector2(0, 20), t[0], 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, w, 2)
 		tx += w + 8
 	_text(Vector2(left + 50, ty + 46), "Fortify first: build turrets, set traps and raise barricades behind the wall of light; then the horn sounds and the gates are fair game.", 9, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var how := "%s · %s attacks · %s / %s abilities · %s dodges · %s grabs, plants banners and raises barricades · %s perks · %s pauses" % [
+	var how := "%s · %s attacks · %s / %s abilities · %s dodges · %s grabs and raises barricades · %s perks · %s pauses" % [
 		"Left stick moves · right stick aims" if game.on_pad(null) else "Move WASD · aim with the mouse",
 		_k("attack"), _k("ability_1"), _k("ability_2"), _k("dodge"), _k("interact"), _k("rank_menu"), _k("menu")]
 	_paragraph(Vector2(panel.position.x + 20, panel.end.y - 16), how, 10, Color(0.85, 0.85, 0.85), panel.size.x - 40, 12.0)

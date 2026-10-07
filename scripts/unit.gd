@@ -21,6 +21,7 @@ var hearts := Stats.MAX_HEARTS
 var energy := 100.0
 var dead := false
 var respawn_timer := 0.0
+var wave_seen := 0            # the respawn wave we are waiting out (we ride the next one)
 var attack_timer := 0.0
 var flash_timer := 0.0
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
@@ -102,8 +103,7 @@ var bot_offset := Vector3.ZERO
 var cluster := 0   # enemies bunched around the bot's current target
 var bot_block_timer := 0.0
 var rally_wait := 0.0   # seconds spent holding at the rally point
-var banner_delayed := false   # the extra wait before a war-banner respawn has been served
-var last_role := 0            # the class held when we died (war-banner respawns keep it)
+var last_role := 0            # the class held when we died
 var stuck_time := 0.0
 var stall_target := Vector3.ZERO   # last _steer_to target (diagnostics)
 var local_index := -1              # which local (couch) player drives this unit, -1 for bots
@@ -736,6 +736,10 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			attacker.energy = minf(attacker.energy + Stats.KILL_ENERGY, attacker.energy_max())
 			for i in attacker.ability_timers.size():
 				attacker.ability_timers[i] = maxf(attacker.ability_timers[i] - Stats.KILL_COOLDOWN_CUT, 0.0)
+			game.kill_feed.append({"killer": attacker.display_name, "kteam": attacker.team, "krole": attacker.role,
+				"victim": display_name, "vteam": team, "vrole": role, "time": Time.get_ticks_msec() / 1000.0})
+			if game.kill_feed.size() > 6:
+				game.kill_feed.pop_front()
 			if attacker.is_player:
 				attacker.kill_banner = {"victim": display_name, "role": role_name(), "team": team, "role_id": role,
 					"streak": attacker.streak, "time": Time.get_ticks_msec() / 1000.0}
@@ -1082,28 +1086,22 @@ func _die() -> void:
 		aim_ring.visible = false
 
 
+func respawn_eta() -> float:
+	## Seconds until we are back: the personal timer, then the first wave after it.
+	var w: float = game.wave_timer[team]
+	if respawn_timer <= 0.0:
+		return w
+	while w < respawn_timer:
+		w += Stats.RESPAWN_WAVE
+	return w
+
+
 func _respawn() -> void:
-	# A standing war banner brings you back beside it, in your class (the
-	# castle's stations are far away) but a little later than the castle would.
-	var at_banner: Vector3 = game.banner_spawn(team)
-	if at_banner.is_finite() and not banner_delayed:
-		banner_delayed = true
-		respawn_timer = Stats.BANNER.respawn_extra
-		if is_player:
-			game.toast("Rejoining your squad at the war banner", Stats.FACTIONS[team].color.lightened(0.4))
-		return
-	banner_delayed = false
 	dead = false
-	if at_banner.is_finite():
-		position = at_banner
-		if role == Role.BASE and bot_class != Role.BASE and not is_player:
-			set_role(bot_class)
-		elif role == Role.BASE and is_player and last_role != Role.BASE:
-			set_role(last_role)
-		_stats_cache = {}
-	else:
-		set_role(Role.BASE)
-		position = spawn_point + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
+	set_role(Role.BASE)
+	hearts = max_hearts()
+	energy = energy_max()
+	position = spawn_point + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
 	spawn_protect = Stats.SPAWN_PROTECT_TIME
 	resist_pool = 0.0
 	rally_wait = 0.0
@@ -1228,8 +1226,12 @@ func _physics_process(delta: float) -> void:
 				visible = false
 		if game.overtime:
 			return  # sudden death: nobody comes back
-		respawn_timer -= delta
-		if respawn_timer <= 0.0:
+		# Serve the personal timer, then ride the team's next respawn wave.
+		if respawn_timer > 0.0:
+			respawn_timer -= delta
+			if respawn_timer <= 0.0:
+				wave_seen = game.wave_id[team]
+		elif game.wave_id[team] != wave_seen:
 			_respawn()
 		return
 
@@ -1884,9 +1886,6 @@ func _raid_goal(delta: float) -> Vector3:
 	if _flat_to(rally).length() > Stats.RALLY.radius * 0.6:
 		return rally + bot_offset * 0.5
 	rally_wait += delta
-	# Gathering here: plant the war banner so the fallen rejoin at the front.
-	if game.banners[team] == null and game.banner_cooldown[team] <= 0.0 and rally_wait > 1.0:
-		game.plant_banner(self)
 	if game.raiders_near(team, rally, Stats.RALLY.radius) >= Stats.RALLY.group or rally_wait > Stats.RALLY.wait:
 		return theirs.global_position
 	return rally + bot_offset * 0.5
@@ -2002,19 +2001,6 @@ func _bot_think(delta: float) -> Dictionary:
 				plan.move = _steer_to(vspot)
 			return plan
 
-	# An enemy war banner close by with nobody guarding it: cut it down.
-	var eb = game.banners[1 - team]
-	if eb and is_instance_valid(eb) and not carrying and _nearest_enemy(5.0) == null:
-		var bto: Vector3 = eb.global_position - global_position
-		bto.y = 0.0
-		if bto.length() < 11.0:
-			var reach: float = (s.range * 0.8) if ranged else 1.6
-			if bto.length() <= reach:
-				plan.aim = bto.normalized()
-				plan.attack = true
-			else:
-				plan.move = _steer_to(eb.global_position)
-			return plan
 
 	# Fight anyone nearby, the enemy carrier first.
 	var sight: float = (13.0 if ranged else 7.0) * game.bot_tuning().sight

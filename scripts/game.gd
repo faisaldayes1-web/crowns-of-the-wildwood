@@ -15,7 +15,6 @@ const Blessing = preload("res://scripts/blessing.gd")
 const Vault = preload("res://scripts/vault.gd")
 const Guide = preload("res://scripts/guide.gd")
 const Barricade = preload("res://scripts/barricade.gd")
-const Banner = preload("res://scripts/banner.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
@@ -45,8 +44,8 @@ const KEEP_DOOR_HALF := 4.5   # the keep's open archway
 const CAPTURE_RADIUS := 3.0
 # The spawn cellar: a sunken stone hall behind each keep. Everyone spawns
 # there, picks a class at the stations, and climbs the stairs into the keep.
-const CELLAR_DEPTH := 10.0    # how far behind the back wall it reaches (x)
-const CELLAR_HALF_Z := 7.0
+const CELLAR_DEPTH := 14.0    # how far behind the back wall it reaches (x)
+const CELLAR_HALF_Z := 9.5
 const CELLAR_Y := -2.4        # its floor
 const ISLAND_R := 6.0         # the Crown Shrine island in the river
 const STATION_RADIUS := 1.3
@@ -129,7 +128,11 @@ var wall_posts: Array = []  # wall_posts[team] = [post at -z, post at +z]
 var cover_points: Array = []  # places a shooter can duck behind
 var cover_boxes: Array = []   # their colliders (AABB), for walkers to go round
 var barricades: Array = []
-var barricades_left := [0, 0]   # barricade kits each team still has (fortify phase)
+var barricades_left := [0, 0]   # barricade kits each team still has
+var barricade_refill := [0.0, 0.0]  # seconds until each team's next kit
+var wave_timer := [0.0, 0.0]    # seconds to each team's next respawn wave
+var wave_id := [0, 0]           # counts the waves, so the fallen know which one they wait for
+var kill_feed: Array = []       # recent kills for the HUD's feed: {killer, kteam, krole, victim, vteam, vrole, time}
 var prep_left := 0.0            # seconds left in the fortify phase (0 = the battle is on)
 var barrier: Node3D
 var turrets: Array = []       # every standing Engineer turret, both teams
@@ -150,8 +153,6 @@ var command_timer := [0.0, 0.0]
 var command_pos := [Vector3.ZERO, Vector3.ZERO]
 var compass: Node3D          # the gold arrow at the player's feet pointing at the objective
 var compass_mesh: MeshInstance3D
-var banners := [null, null]        # each team's standing war banner, if any
-var banner_cooldown := [0.0, 0.0]
 var turret_kills := [0, 0]   # demo tally: kills by each team's turrets
 var raid_deaths := [0, 0]    # demo tally: each team's deaths inside the enemy castle
 var turrets_built := [0, 0]   # per team, for the match report
@@ -275,11 +276,25 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if debug_kill and player and not player.kill_banner.is_empty():
 		player.kill_banner.time = Time.get_ticks_msec() / 1000.0 - 0.7
+		for k in kill_feed:
+			k.time = Time.get_ticks_msec() / 1000.0 - 1.0
 	_debug_hooks()
 	_ui_sounds()
 	for t in 2:
 		command_timer[t] = maxf(command_timer[t] - delta, 0.0)
-		banner_cooldown[t] = maxf(banner_cooldown[t] - delta, 0.0)
+	if playing and not game_over:
+		for t in 2:
+			# Respawn waves: the fallen come back together.
+			wave_timer[t] -= delta
+			if wave_timer[t] <= 0.0:
+				wave_timer[t] += Stats.RESPAWN_WAVE
+				wave_id[t] += 1
+			# Barricade kits come back slowly once the battle is on.
+			if prep_left <= 0.0 and barricades_left[t] < Stats.BARRICADE_MAX:
+				barricade_refill[t] -= delta
+				if barricade_refill[t] <= 0.0:
+					barricade_refill[t] = Stats.BARRICADE_REFILL
+					barricades_left[t] += 1
 	if playing and overtime and not game_over:
 		# Sudden death: a team with nobody left standing loses.
 		for t in 2:
@@ -372,11 +387,6 @@ func _debug_hooks() -> void:
 			if arg.begins_with("--debug-xp="):
 				account_xp = int(arg.trim_prefix("--debug-xp="))
 		if frame == shot_frame - 5 and player:
-			if arg == "--debug-banner" and banners[player_team] == null:
-				# A war banner planted in the field beside the player (no planting flash).
-				player.facing = Vector3(0, 0, 1)
-				plant_banner(player, false)
-				player.global_position += Vector3(-2.6, 0, -1.8)
 			if arg == "--debug-killed":
 				# The kill screen: a bot's banner over the player's death.
 				player.global_position = Vector3(-20, 0, 3)
@@ -560,9 +570,6 @@ func _end_on_time() -> void:
 			g.collapse()
 		announce("OVERTIME! Both doors are down and nobody respawns. Next capture or last team standing wins!")
 		chat_system("Overtime: the doors are down, no respawns. Next capture or last team standing wins.")
-		for t in 2:
-			if is_instance_valid(banners[t]):
-				banners[t]._expire()
 		sfx.ui("horn", 0.0, 0.8)
 		print("Overtime")
 		return
@@ -609,15 +616,11 @@ func try_interact(u) -> void:
 			else:
 				seal.take(u)
 			return
-	if prep_left > 0.0:
-		# The fortify phase: F raises a barricade.
+	var m = monarchs[1 - u.team]
+	if prep_left > 0.0 or m.state == Monarch.State.CARRIED or _flat_dist(u.global_position, m.global_position) >= Unit.PICKUP_RANGE:
+		# Nothing to grab here: F raises a barricade (own half, outside the walls).
 		plant_barricade(u)
 		return
-	var m = monarchs[1 - u.team]
-	if m.state == Monarch.State.CARRIED or _flat_dist(u.global_position, m.global_position) >= Unit.PICKUP_RANGE:
-		# Nothing to grab here: F plants a war banner instead.
-		if plant_banner(u):
-			return
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
 		if m.state == Monarch.State.HOME and vaults[1 - u.team].is_locked():
 			if u.is_player:
@@ -638,68 +641,6 @@ func try_interact(u) -> void:
 		chat_system("%s grabbed the %s!" % [u.display_name, m.title])
 		_banter(1 - u.team, "ours_taken")
 		_banter(u.team, "carrying", u)
-
-
-# --- War banners --------------------------------------------------------------
-
-func banner_spot_ok(team: int, pos: Vector3) -> String:
-	## "" if a banner may stand at `pos` for `team`, else why not.
-	if _inside_castle(0, pos) or _inside_castle(1, pos) or pos.y < -0.3:
-		return "Banners stand in the open field, not inside a castle"
-	if absf(pos.x - _front_x(1 - team)) < Stats.BANNER.enemy_clear and (pos.x - _front_x(1 - team)) * (1.0 if team == 0 else -1.0) > -Stats.BANNER.enemy_clear:
-		return "Too close to the enemy walls"
-	if absf(pos.x) < RIVER_HALF + 2.0:
-		return "Not in the river"
-	return ""
-
-
-func plant_banner(u, fx: bool = true) -> bool:
-	## Plant the team's war banner where `u` stands (replacing the old one).
-	if u.carrying or u.dead or overtime or prep_left > 0.0:
-		return false
-	if banner_cooldown[u.team] > 0.0:
-		if u.is_player:
-			toast("War banner ready in %d s" % ceili(banner_cooldown[u.team]), Color(1.0, 0.8, 0.5))
-		return false
-	var why := banner_spot_ok(u.team, u.global_position)
-	if why != "":
-		if u.is_player:
-			toast(why, Color(1.0, 0.8, 0.5))
-		return false
-	var pos: Vector3 = u.global_position + u.facing * 1.2
-	pos.y = u.global_position.y
-	if is_instance_valid(banners[u.team]):
-		banners[u.team]._expire()
-	var b = Banner.new()
-	add_child(b)
-	b.setup(self, u.team, pos, u, {})
-	banners[u.team] = b
-	banner_cooldown[u.team] = Stats.BANNER.cooldown
-	if fx:
-		spawn_ring(pos, 2.0, Stats.FACTIONS[u.team].color, 0.6)
-		spawn_pillar(pos, Stats.FACTIONS[u.team].color, 5.0, 0.8)
-		sfx.play("turret_place", pos, 0.0)
-		sfx.play("horn", pos, -8.0)
-	announce("%s planted the %s war banner: fallen %s rejoin there." % [u.display_name, Stats.FACTIONS[u.team].name, Stats.FACTIONS[u.team].name])
-	chat_system("%s planted a war banner." % u.display_name)
-	if demo:
-		print("Banner: %s t=%d at (%.0f, %.0f)" % [Stats.FACTIONS[u.team].name, match_clock(), pos.x, pos.z])
-	return true
-
-
-func remove_banner(b) -> void:
-	if banners[b.team] == b:
-		banners[b.team] = null
-
-
-func banner_spawn(team: int) -> Vector3:
-	## Where a fallen unit of `team` comes back: beside the standing banner,
-	## or Vector3.INF for the castle.
-	var b = banners[team]
-	if b == null or not is_instance_valid(b) or b.hp <= 0 or b.life < 2.0:
-		return Vector3.INF
-	var a := randf() * TAU
-	return b.global_position + Vector3(cos(a), 0, sin(a)) * randf_range(1.0, Stats.BANNER.spread)
 
 
 # --- Turrets ------------------------------------------------------------------
@@ -766,7 +707,7 @@ func turret_spots(team: int) -> Array:
 	var fx := side * (CASTLE_X - CASTLE_DEPTH)
 	var dh := Stats.DOOR_HALF
 	return [Vector3(fx, WALK_Y, -(dh + 5.9)), Vector3(fx, WALK_Y, dh + 5.9),
-		Vector3(fx + side * 3.2, 0.0, -(dh + 3.2)), Vector3(fx + side * 3.2, 0.0, dh + 3.2)]
+		Vector3(fx + side * 5.5, 0.0, -(dh + 1.5)), Vector3(fx + side * 5.5, 0.0, dh + 1.5)]  # clear of the yard stairs
 
 
 func spawn_bolt(team: int, from: Vector3, dir: Vector3, s: Dictionary, color: Color, owner_unit) -> void:
@@ -901,7 +842,7 @@ func nearest_orb(pos: Vector3, radius: float):
 
 func _update_respawn_timer() -> void:
 	if player and player.dead:
-		respawn_label.text = "You fell!\nRespawning in %d" % ceili(player.respawn_timer)
+		respawn_label.text = "You fell!\nBack with the next wave in %d" % ceili(player.respawn_eta())
 		respawn_label.visible = true
 	else:
 		respawn_label.visible = false
@@ -1601,7 +1542,7 @@ func _start_match(team: int) -> void:
 		for i in TEAM_SIZE:
 			var u = Unit.new()
 			add_child(u)
-			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 8.6), CELLAR_Y, -4.0 + i * 2.0)
+			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 11.6), CELLAR_Y, -4.0 + i * 2.0)
 			var local_k := _local_slot(t, i)
 			var is_player := local_k >= 0 and not demo
 			u.setup(self, t, is_player, spawn)
@@ -1630,9 +1571,13 @@ func _start_match(team: int) -> void:
 			time_left = float(arg.trim_prefix("--debug-time="))  # testing: a short clock
 		if arg == "--no-prep":
 			prep_left = -1.0
+	barricades_left = [Stats.BARRICADE_TEAM, Stats.BARRICADE_TEAM]
+	barricade_refill = [Stats.BARRICADE_REFILL, Stats.BARRICADE_REFILL]
+	wave_timer = [Stats.RESPAWN_WAVE, Stats.RESPAWN_WAVE]
+	wave_id = [0, 0]
+	kill_feed = []
 	if prep_left >= 0.0:
 		prep_left = Stats.PREP_TIME
-		barricades_left = [Stats.BARRICADE_TEAM, Stats.BARRICADE_TEAM]
 		_build_barrier()
 	else:
 		prep_left = 0.0
@@ -1642,6 +1587,10 @@ func _start_match(team: int) -> void:
 	if debug_kill and player:
 		player.kill_banner = {"victim": "Sir Aldric", "role": "Knight", "team": 1 - player_team, "role_id": Stats.Role.KNIGHT,
 			"streak": 2, "time": Time.get_ticks_msec() / 1000.0}
+		var t0: float = Time.get_ticks_msec() / 1000.0
+		kill_feed = [{"killer": "Sir Aldric", "kteam": 1, "krole": Stats.Role.KNIGHT, "victim": "Thistle", "vteam": 0, "vrole": Stats.Role.RANGER, "time": t0},
+			{"killer": player.display_name, "kteam": player_team, "krole": Stats.Role.KNIGHT, "victim": "Sir Aldric", "vteam": 1 - player_team, "vrole": Stats.Role.KNIGHT, "time": t0},
+			{"killer": "Wren", "kteam": 0, "krole": Stats.Role.MAGE, "victim": "Brother Odo", "vteam": 1, "vrole": Stats.Role.HEALER, "time": t0}]
 	if pad_active:
 		var k := pad_kind(local_pad(0))
 		chat_system("%s attacks, %s and %s for abilities, %s dodges, %s grabs, %s for perks, hold %s for the scoreboard." % [
@@ -1733,7 +1682,8 @@ func _begin_battle() -> void:
 
 func plant_barricade(u) -> bool:
 	## Raise a timber barricade across where `u` faces, on your own half of
-	## the field, during the fortify phase. Each team has a few kits.
+	## the field. Each team starts the fortify phase with a few kits and gets
+	## another every so often once the battle is on (Castle Wars style).
 	if u.dead or u.carrying:
 		return false
 	var team: int = u.team
@@ -4305,9 +4255,11 @@ func _add_rug(center: Vector3, size: Vector2, color: Color) -> void:
 	for xs in [-1.0, 1.0]:
 		_add_block(Vector3(center.x + xs * (size.x / 2.0 - 0.1), y + 0.032, center.z), Vector3(0.12, 0.01, size.y), color, false, _gold())
 		_add_block(Vector3(center.x + xs * (size.x / 2.0 - 0.36), y + 0.032, center.z), Vector3(0.06, 0.01, size.y - 0.6), color, false, _cloth(color.lightened(0.35)))
+	# (The end bands sit a hair higher than the side bands: where they cross
+	# at the corners, coplanar tops flicker.)
 	for zs in [-1.0, 1.0]:
-		_add_block(Vector3(center.x, y + 0.032, center.z + zs * (size.y / 2.0 - 0.1)), Vector3(size.x, 0.01, 0.12), color, false, _gold())
-		_add_block(Vector3(center.x, y + 0.032, center.z + zs * (size.y / 2.0 - 0.36)), Vector3(size.x - 0.6, 0.01, 0.06), color, false, _cloth(color.lightened(0.35)))
+		_add_block(Vector3(center.x, y + 0.0335, center.z + zs * (size.y / 2.0 - 0.1)), Vector3(size.x, 0.01, 0.12), color, false, _gold())
+		_add_block(Vector3(center.x, y + 0.0335, center.z + zs * (size.y / 2.0 - 0.36)), Vector3(size.x - 0.6, 0.01, 0.06), color, false, _cloth(color.lightened(0.35)))
 	# The medallion: a diamond of lighter cloth with a gold centre.
 	var med := minf(size.x, size.y) * 0.42
 	var d := MeshInstance3D.new()
@@ -4688,10 +4640,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	_add_light(Vector3(back_x - side * 0.8, 1.6, 0), color.lightened(0.4), 1.0, 6.0)
 	# The treasury heaped in the back corners.
 	_prop("dungeon/chest_gold", Vector3(back_x - side * 0.9, 0, -(hz - 0.8)), 0.7, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	_prop("dungeon/coin_stack_large", Vector3(back_x - side * 1.9, 0, -(hz - 0.9)), 0.45, 0.4)
-	_prop("dungeon/coin_stack_medium", Vector3(back_x - side * 0.7, 0, -(hz - 1.7)), 0.45, 1.2)
 	_prop("dungeon/chest", Vector3(back_x - side * 1.0, 0, hz - 0.9), 0.6, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	_prop("dungeon/coin_stack_small", Vector3(back_x - side * 2.0, 0, hz - 1.0), 0.45, 2.0)
 	if elven:
 		_add_fireflies(throne + Vector3(0, 0.8, 0))
 
@@ -4744,7 +4693,6 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 		_prop("furniture/table_medium_long", tpos, BITS_SCALE, 0.0)
 		for k in 3:
 			var fx: float = tpos.x - 0.6 + k * 0.6
-			_prop("kitchen/%s" % ["bowl", "jar_B_medium", "food_stew"][k], Vector3(fx, 0.6, tpos.z + 0.1 * (k - 1)), BITS_SCALE * 0.8, float(k))
 		_prop("dungeon/candle_triple", Vector3(tpos.x + 0.9, 0.6, tpos.z - 0.2), 0.45)
 		for k in 2:
 			_prop("dungeon/stool", tpos + Vector3(-0.5 + k * 1.0, 0, 0.9), BITS_SCALE, 0.0)
@@ -4761,7 +4709,7 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	_add_flame(hearth + Vector3(0, 0.35, 0.3), 0.22, Color(1.0, 0.6, 0.2) if not elven else Color(0.5, 1.0, 0.7))
 	_add_light(hearth + Vector3(0, 0.9, 1.0), Color(1.0, 0.7, 0.4) if not elven else Color(0.5, 1.0, 0.8), 1.4, 7.0)
 	_prop("dungeon/keg", Vector3(room_f + side * 0.4, 0, -(wz - 0.5)), 0.55, 0.3)
-	_prop("kitchen/crate_cheese" if not elven else "kitchen/crate_carrots", Vector3(room_f - side * 0.5, 0, -(wz - 0.55)), BITS_SCALE * 0.9, 0.4)
+	_prop("kitchen/crate_cheese" if not elven else "kitchen/crate_carrots", Vector3(room_f - side * 1.0, 0, -(wz - 0.55)), BITS_SCALE * 0.9, 0.4)
 	# --- The chapel (Humans) or the moon shrine (Elves) (z > 0). ---
 	if elven:
 		# A still pool of moonlight ringed with stones, a shrine stone and crystals.
@@ -4813,22 +4761,17 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 		_prop("furniture/bed_double_B", Vector3(bw - side * 0.5, 0, -(wz - 1.5)), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		_prop("furniture/shelf_B_large_decorated", Vector3(bw - side * 0.1, 0, -4.1), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		_prop("furniture/cabinet_small_decorated", Vector3(room_b + side * 0.8, 0, -(wz - 0.45)), BITS_SCALE, PI)
-		_prop("dungeon/trunk_large_A", Vector3(room_b + side * 1.1, 0, -(wz - 0.5)), 0.5, 0.0)
 		_add_mushrooms(Vector3(bw, 0, -2.9), 75)
 	else:
 		_prop("dungeon/bed_decorated", Vector3(bw - side * 0.6, 0, -(wz - 1.5)), 0.62, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		_prop("furniture/shelf_B_large_decorated", Vector3(bw - side * 0.1, 0, -4.1), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		_prop("furniture/cabinet_medium_decorated", Vector3(room_b + side * 0.9, 0, -(wz - 0.45)), BITS_SCALE, PI)
-		_prop("dungeon/chest", Vector3(room_b + side * 1.1, 0, -(wz - 0.5)), 0.5, 0.0)
 		_prop("furniture/pictureframe_large_A", Vector3(bx - side * 0.62, 1.6, -2.6), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	_add_rug(Vector3(back_c, 0.06, -4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color)
 	# The armoury.
 	_prop("hex/weaponrack", Vector3(bw + side * 0.15, 0, 5.2), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	_prop("dungeon/sword_shield_gold" if not elven else "dungeon/sword_shield", Vector3(bx - side * 0.62, 1.4, 3.2), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	_prop("dungeon/sword_shield", Vector3(room_b + side * 1.6, 1.5, wz - 0.1), 0.9, 0.0)
-	_prop("dungeon/box_stacked", Vector3(room_b + side * 0.9, 0, wz - 0.7), 0.55, 0.2)
-	_prop("dungeon/barrel_large_decorated", Vector3(room_b + side * 2.6, 0, wz - 0.6), 0.5, 0.0)
-	_prop("hex/bucket_arrows", Vector3(bw, 0, wz - 1.0), 4.0, 0.4)
 	_add_rug(Vector3(back_c, 0.06, 4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color.darkened(0.2))
 	# Tapestries and torches along the galleries, braziers for the Humans.
 	for zs in [-1.0, 1.0]:
@@ -4849,8 +4792,8 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 	var elven := team == 0
 	var hz := CELLAR_HALF_Z
 	# Two chandeliers over the hall.
-	for k in 2:
-		var x: float = bx + side * (3.5 + k * 4.5)
+	for k in 3:
+		var x: float = bx + side * (3.0 + k * 4.2)
 		_add_chandelier(Vector3(x, CELLAR_Y + 2.5, 0), elven)
 	# Bunks along the far wall either side of the spawn ring, a shelf of
 	# supplies and candles.
@@ -4858,7 +4801,7 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 		for k in 2:
 			# Two bunks end to end against the side wall, clear of the seal pads
 			# (and with no gap between them for anyone to get wedged in).
-			var bpos := Vector3(bx + side * (9.3 - k * 1.9), CELLAR_Y, zs * (hz - 0.6))
+			var bpos := Vector3(bx + side * (12.6 - k * 1.9), CELLAR_Y, zs * (hz - 0.6))
 			if elven:
 				_prop("dungeon/bed_floor", bpos, 0.65, PI / 2.0)
 			else:
@@ -4870,10 +4813,9 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 			_prop("dungeon/shelves", Vector3(bx + side * 1.4, CELLAR_Y, zs * (hz - 0.5)), 0.7, PI if zs > 0.0 else 0.0)
 			_prop("dungeon/bottle_A_labeled_brown", Vector3(bx + side * 1.4, CELLAR_Y + 0.95, zs * (hz - 0.75)), 0.5)
 		if elven:
-			_add_mushrooms(Vector3(bx + side * 5.0, CELLAR_Y, zs * (hz - 0.6)), 51 + int(zs))
+			_add_mushrooms(Vector3(bx + side * 6.6, CELLAR_Y, zs * (hz - 0.6)), 51 + int(zs))
 		else:
-			_add_candle_stand(Vector3(bx + side * 5.0, CELLAR_Y, zs * (hz - 0.6)))
-	_add_rug(Vector3(bx + side * 5.5, CELLAR_Y, 0), Vector2(5.0, 3.0), color.darkened(0.15))
+			_add_candle_stand(Vector3(bx + side * 6.6, CELLAR_Y, zs * (hz - 0.6)))
 
 
 # ---------------------------------------------------------------------------
@@ -5826,39 +5768,14 @@ func _build_castle(team: int) -> void:
 	for k in 7:
 		_add_block(Vector3(kx, KEEP_H + 0.7, -KEEP_DOOR_HALF + 0.75 + k * 1.25), Vector3(0.8, 0.6, 0.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# A rug up the yard's lane to the archway, and one from the archway to the throne.
-	_add_rug(Vector3(kx - side * 2.4, 0.02, 0), Vector2(3.6, 5.0), color)
+	_add_rug(Vector3(kx - side * 2.4, 0.025, 0), Vector2(3.6, 5.0), color)  # its top clears the keep floor's (0.05): coplanar tops flicker
 	_add_rug(Vector3(kx + side * 3.0, 0.05, 0), Vector2(5.0, 2.8), color)
 
-	# --- Life in the yard: a training corner north of the gate, stores south of it. ---
-	# Training corner (z < 0): rack against the wall, a target across from it.
-	_prop("hex/weaponrack", Vector3(in_x + side * 0.4, 0, -(dh + 3.0)), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
-	# (The target stands past the bots' turret spot just inside the door.)
-	_prop("hex/target", Vector3(in_x + side * 3.0, 0, -(dh + 6.2)), 4.0, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	_prop("hex/bucket_arrows", Vector3(in_x + side * 1.6, 0, -(dh + 5.0)), 4.0, 0.4)
+	# The yard stays open: lanterns (Elves) or nothing but the gatehouse
+	# banners (Humans). Faisal: the base was too busy.
 	if team == 0:
-		# The elven yard keeps clear: glowing mushrooms along the walls instead of stores.
-		_add_mushrooms(Vector3(in_x + side * 1.2, 0, 7.0), 21)
-		_add_mushrooms(Vector3(kcx - side * 4.0, 0, hz - 1.2), 22)
-		_add_mushrooms(Vector3(kcx - side * 4.0, 0, -(hz - 1.2)), 23)
 		_add_lantern(Vector3(kcx - side * 6.5, 0, hz - 1.4))
 		_add_lantern(Vector3(kcx - side * 6.5, 0, -(hz - 1.4)))
-	else:
-		# Stores (z > 0): barrels and crates stacked against the wall.
-		_prop("hex/barrel", Vector3(in_x + side * 0.5, 0, 6.45), 4.0)
-		_prop("hex/barrel", Vector3(in_x + side * 0.5, 0, 7.45), 4.0, PI / 2.0)
-		_prop("hex/barrel", Vector3(in_x + side * 1.4, 0, 6.95), 4.0, PI)
-		_prop("hex/crate_A_big", Vector3(in_x + side * 2.1, 0, 7.7), 4.0, 0.0)
-		_prop("hex/crate_B_big", Vector3(in_x + side * 2.1, 0.84, 7.7), 3.4, 0.2)
-		_prop("hex/crate_long_A", Vector3(in_x + side * 3.2, 0, 7.7), 4.0, 0.0)
-		_prop("hex/sack", Vector3(in_x + side * 2.5, 0, 6.5), 4.0, 0.5)
-		# The strips between the keep's flanks and the side walls: more stores.
-		for zs in [-1.0, 1.0]:
-			var sz: float = zs * (hz - 1.0)
-			_prop("hex/barrel", Vector3(kcx - side * 5.0, 0, sz), 4.0)
-			_prop("hex/barrel", Vector3(kcx - side * 4.0, 0, sz), 4.0, PI / 2.0)
-			_prop("hex/crate_A_big", Vector3(kcx - side * 2.6, 0, sz), 4.0, 0.3 * zs)
-			_prop("hex/sack", Vector3(kcx - side * 1.6, 0, sz), 4.0, 1.1 * zs)
-			_prop("hex/wheelbarrow", Vector3(kcx - side * 6.8, 0, zs * (hz - 1.2)), 4.0, PI / 2.0)
 	# Banners on the yard side of the gatehouse towers.
 	for zs in [-1.0, 1.0]:
 		_add_banner(team, Vector3(fx + side * 1.1, 0.2, zs * (dh + 1.1)), Vector3(side, 0, 0), 0.6)
@@ -5934,10 +5851,10 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		var seg := hz + 0.5 - 1.8
 		_add_block(Vector3(bx, CELLAR_Y / 2.0, zs * (1.8 + seg / 2.0)), Vector3(1, -CELLAR_Y, seg), Color.WHITE, true, _ashlar())
 		# Torches in brackets and banners along the side walls.
-		for k in 2:
-			var tx := bx + side * (1.5 + k * 3.0)
+		for k in 4:
+			var tx := bx + side * (1.5 + k * 3.4)
 			_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
-		_add_banner(team, Vector3(bx + side * 7.0, CELLAR_Y - 0.1, zs * (hz - 0.05)), Vector3(0, 0, -zs), 0.7)
+		_add_banner(team, Vector3(bx + side * 8.2, CELLAR_Y - 0.1, zs * (hz - 0.05)), Vector3(0, 0, -zs), 0.7)
 	# The stairs: a straight flight up the middle into the keep.
 	var st := cellar_stairs(team)
 	_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
@@ -5990,15 +5907,15 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_add_torch(Vector3(bx - side * 0.2, 0, -2.3))
 		_add_torch(Vector3(bx - side * 0.2, 0, 2.3))
 	# The spawn circle at the far end: a glowing team-coloured ring on the floor.
-	var spawn := Vector3(bx + side * 8.6, CELLAR_Y, 0)
-	_add_rug(spawn + Vector3(-side * 2.0, 0, 0), Vector2(1.4, 9.0), color)
+	var spawn := Vector3(bx + side * 11.6, CELLAR_Y, 0)
+	_add_rug(spawn, Vector2(3.4, 7.2), color.darkened(0.15))
 	var ring := MeshInstance3D.new()
 	var rm2 := TorusMesh.new()
-	rm2.inner_radius = 4.2
-	rm2.outer_radius = 4.45
+	rm2.inner_radius = 2.0
+	rm2.outer_radius = 2.25
 	rm2.rings = 48
 	ring.mesh = rm2
-	ring.position = spawn + Vector3(-side * 0.8, 0.04, 0)
+	ring.position = spawn + Vector3(0, 0.045, 0)
 	var ring_mat := _material(color.lightened(0.3))
 	ring_mat.emission_enabled = true
 	ring_mat.emission = color.lightened(0.2)
@@ -6010,12 +5927,12 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	# Class stations either side of the stairs.
 	# Three seals a side, the Rogue's (locked until account level 10) between
 	# the Mage and the Healer.
-	_add_station(team, Role.KNIGHT, Vector3(bx + side * 3.3, CELLAR_Y, -4.8))
-	_add_station(team, Role.ENGINEER, Vector3(bx + side * 5.5, CELLAR_Y, -4.8))
-	_add_station(team, Role.RANGER, Vector3(bx + side * 7.7, CELLAR_Y, -4.8))
-	_add_station(team, Role.MAGE, Vector3(bx + side * 3.3, CELLAR_Y, 4.8))
-	_add_station(team, Role.ROGUE, Vector3(bx + side * 5.5, CELLAR_Y, 4.8))
-	_add_station(team, Role.HEALER, Vector3(bx + side * 7.7, CELLAR_Y, 4.8))
+	_add_station(team, Role.KNIGHT, Vector3(bx + side * 3.4, CELLAR_Y, -6.8))
+	_add_station(team, Role.ENGINEER, Vector3(bx + side * 6.6, CELLAR_Y, -6.8))
+	_add_station(team, Role.RANGER, Vector3(bx + side * 9.8, CELLAR_Y, -6.8))
+	_add_station(team, Role.MAGE, Vector3(bx + side * 3.4, CELLAR_Y, 6.8))
+	_add_station(team, Role.ROGUE, Vector3(bx + side * 6.6, CELLAR_Y, 6.8))
+	_add_station(team, Role.HEALER, Vector3(bx + side * 9.8, CELLAR_Y, 6.8))
 	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall.
 	_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
 	var g := Guide.new()
