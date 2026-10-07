@@ -10,6 +10,7 @@ extends RefCounted
 
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
+const Face = preload("res://scripts/face.gd")
 const Role = Stats.Role
 
 # Map cards: [title, thumbnail, Stats.MAPS index or -1 for coming soon].
@@ -215,53 +216,65 @@ func draw(hud) -> void:
 
 # --- Title ------------------------------------------------------------------------
 
+# The title's buttons and account chip are painted into its background
+# (assets/ui/menu/title_bg.png); these are their places in its pixels.
+const BG_W := 1672.0
+const BG_PLAY := Rect2(18, 322, 380, 80)
+const BG_ITEMS := [Rect2(38, 415, 340, 63), Rect2(38, 493, 340, 63), Rect2(38, 572, 340, 63), Rect2(38, 651, 340, 63), Rect2(38, 730, 340, 65)]
+const BG_CHIP := Rect2(1385, 20, 265, 70)
+
+
+func _bg_rect(r: Rect2) -> Rect2:
+	## A rect in the title picture's pixels, on screen (the picture covers the screen).
+	var k := maxf(h.size.x / BG_W, h.size.y / (BG_W * 941.0 / 1672.0))
+	var off: Vector2 = (h.size - Vector2(BG_W, BG_W * 941.0 / 1672.0) * k) / 2.0
+	return Rect2(off + r.position * k, r.size * k)
+
+
+func _bg_hover(r: Rect2, round: float) -> void:
+	## A warm glow round a painted button under the pointer.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(1.0, 0.95, 0.8, 0.1)
+	sb.set_corner_radius_all(int(round))
+	sb.set_border_width_all(3)
+	sb.border_color = Color(1.0, 0.85, 0.4, 0.9)
+	sb.shadow_color = Color(1.0, 0.75, 0.25, 0.55)
+	sb.shadow_size = 12
+	h.draw_style_box(sb, r)
+
+
 func _draw_title() -> void:
-	if stage:
-		stage.place_title_cast()
-	# A soft shade down the left so the plank column reads over the valley.
-	for i in 24:
-		var a := 0.2 * (1.0 - i / 24.0)
-		h.draw_rect(Rect2(i * 18.0, 0, 18, h.size.y), Color(0.02, 0.03, 0.02, a))
-	# The logo, big and centred, as in the mockup.
-	var lw := 470.0
-	var lh := lw * 793.0 / 1983.0 * 1.0
-	if h.logo:
-		h.draw_texture_rect(h.logo, Rect2(h.size.x / 2.0 - lw / 2.0, 10, lw, lh * 1.25), false)
-	var x := 60.0
-	var w := 286.0
-	# PLAY: the big gold plank with pointed ends.
-	var play := Rect2(x - 4, 284, w + 8, 70)
-	var hover := button(play, "play")
-	var pr := play.grow(3) if hover else play
-	nine("btn_play_blue", pr, 36, 22, 36, 22, Color(1.1, 1.08, 1.0) if hover else Color.WHITE)
-	if hover:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0, 0, 0, 0)
-		sb.set_corner_radius_all(12)
-		sb.shadow_color = Color(1.0, 0.8, 0.3, 0.4)
-		sb.shadow_size = 14
-		h.draw_style_box(sb, pr.grow(-8))
-	icon("swords", Vector2(pr.position.x + 52, pr.get_center().y), 50)
-	ttext(Vector2(pr.position.x + 92, pr.get_center().y + 13), "PLAY", 36, Color(1.0, 0.95, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 7)
-	var items := [["CUSTOMIZE", "tunic", "customize"], ["SETTINGS", "gear", "settings"], ["TUTORIAL", "book", "tutorial"],
-		["CREDITS", "trophy", "credits"], ["EXIT" if exit_armed <= 0.0 else "EXIT? CLICK AGAIN", "exit", "exit"]]
-	for i in items.size():
-		var r := Rect2(x, 368 + i * 68, w, 58)
-		wood_button(r, items[i][0], items[i][2], null, items[i][1], 22 if exit_armed <= 0.0 or i < 4 else 17)
-	# Account chip, top right: level, rank and XP; opens the progress page.
-	var chip := Rect2(h.size.x - 250, 16, 234, 54)
+	## The painted title: the logo and buttons are part of the picture, so
+	## this only places their hit areas, lights the one under the pointer and
+	## keeps the account chip live.
+	var play := _bg_rect(BG_PLAY)
+	if button(play, "play"):
+		_bg_hover(play.grow(-4), 14)
+	var ids := ["customize", "settings", "tutorial", "credits", "exit"]
+	for i in ids.size():
+		var r := _bg_rect(BG_ITEMS[i])
+		if button(r, ids[i]):
+			_bg_hover(r.grow(-2), 8)
+	if exit_armed > 0.0:
+		var r := _bg_rect(BG_ITEMS[4])
+		var tip := Rect2(r.end.x + 10, r.position.y + 6, 190, r.size.y - 12)
+		slate(tip)
+		ttext(Vector2(tip.position.x, tip.get_center().y + 7), "CLICK AGAIN", 19, Color(1.0, 0.85, 0.5), HORIZONTAL_ALIGNMENT_CENTER, tip.size.x, 4)
+	# Account chip, top right, painted over the picture's own: level, rank and XP.
+	var chip := _bg_rect(BG_CHIP)
 	var ch := button(chip, "progress")
 	slate(chip.grow(2) if ch else chip)
 	var level: int = game.account_level()
-	var badge := chip.position + Vector2(28, 27)
-	h.draw_circle(badge, 19, Color(0.08, 0.06, 0.1))
-	h.draw_circle(badge, 16, Color(0.95, 0.62, 0.2))
-	ttext(badge + Vector2(-20, 7), str(level), 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 40, 4)
-	var nm: String = game.hero_name if game.hero_name.strip_edges() != "" else "Unnamed hero"
-	ttext(chip.position + Vector2(56, 22), nm, 16, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	h._text(chip.position + Vector2(56, 36), Stats.rank_title(level).to_upper(), 9, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var badge := chip.position + Vector2(chip.size.y / 2.0 + 2, chip.size.y / 2.0)
+	h.draw_circle(badge, chip.size.y * 0.36, Color(0.08, 0.06, 0.1))
+	h.draw_circle(badge, chip.size.y * 0.31, Color(0.95, 0.62, 0.2))
+	ttext(badge + Vector2(-20, 8), str(level), 20, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 40, 4)
+	var tx := chip.position.x + chip.size.y + 8
+	var nm: String = game.hero_name if game.hero_name.strip_edges() != "" else "Unnamed Hero"
+	ttext(Vector2(tx, chip.position.y + 24), nm, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	h._text(Vector2(tx, chip.position.y + 39), Stats.rank_title(level).to_upper(), 10, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var span: Array = Stats.account_span(game.account_xp)
-	h._bar(Rect2(chip.position + Vector2(56, 40), Vector2(166, 8)), (float(span[0]) / span[1]) if span[1] > 0 else 1.0, Color(0.95, 0.6, 0.2))
+	h._bar(Rect2(Vector2(tx, chip.position.y + 44), Vector2(chip.end.x - tx - 12, 7)), (float(span[0]) / span[1]) if span[1] > 0 else 1.0, Color(0.95, 0.6, 0.2))
 
 
 # --- Select Map -------------------------------------------------------------------
@@ -382,10 +395,11 @@ func _map_card(r: Rect2, i: int) -> void:
 func _draw_character() -> void:
 	if stage:
 		stage.show_hero(preview_team, preview_role, game.hero_custom(), preview_rank)
-	plaque(632, 14, "CREATE YOUR CHARACTER", 600)
+	plaque(632, 22, "CREATE YOUR CHARACTER", 600)
+	icon("crown", Vector2(632, 20), 46)
 	# Tabs down the left.
 	for i in CHAR_TABS.size():
-		var r := Rect2(62, 112 + i * 64, 240, 54)
+		var r := Rect2(60, 128 + i * 62, 272, 52)
 		var sel := char_tab == i
 		var ov := button(r, "char_tab", i)
 		var rr := r.grow(2) if ov else r
@@ -404,16 +418,27 @@ func _draw_character() -> void:
 		ttext(rr.position + Vector2(62, rr.size.y / 2.0 + 7), CHAR_TABS[i][0], 19, Color(0.65, 0.65, 0.65) if locked else (Color(1.0, 0.92, 0.65) if sel else Color.WHITE), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		if locked:
 			icon("lock", rr.position + Vector2(rr.size.x - 24, rr.size.y / 2.0), 24)
-	# Side switch under the hero.
-	var sw := Rect2(392, 642, 236, 44)
+	# Side switch under the hero: a green stag plate and a blue crown plate.
 	for k in 2:
-		var r := Rect2(sw.position.x + k * 122, sw.position.y, 114, 44)
+		var r := Rect2(410 + k * 202, 630, 196, 56)
 		var on := preview_team == k
 		var ov := button(r, "preview_team", k)
-		option_box(r, on, ov, Stats.FACTIONS[k].color.lightened(0.3))
-		ttext(Vector2(r.position.x, r.position.y + 30), "ELF" if k == 0 else "HUMAN", 19, Color.WHITE if on else Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+		var rr := r.grow(2) if ov else r
+		var base := Color(0.13, 0.42, 0.18) if k == 0 else Color(0.12, 0.27, 0.72)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = base if on else base.darkened(0.35)
+		sb.set_corner_radius_all(9)
+		sb.set_border_width_all(3)
+		sb.border_color = Color(1.0, 0.8, 0.32) if on else Color(0.62, 0.5, 0.28)
+		if on:
+			sb.shadow_color = Color(0.45, 0.6, 1.0, 0.7) if k == 1 else Color(0.5, 1.0, 0.45, 0.6)
+			sb.shadow_size = 10
+		h.draw_style_box(sb, rr)
+		h.draw_rect(Rect2(rr.position + Vector2(6, 5), Vector2(rr.size.x - 12, rr.size.y * 0.32)), Color(1, 1, 1, 0.1))
+		icon("stag" if k == 0 else "crown", rr.position + Vector2(40, rr.size.y / 2.0), 44)
+		ttext(Vector2(rr.position.x + 64, rr.position.y + 38), "ELF" if k == 0 else "HUMAN", 24, Color.WHITE if on else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, rr.size.x - 76, 5)
 	# The panel on the right.
-	var panel := Rect2(752, 100, 452, 430)
+	var panel := Rect2(832, 110, 430, 480)
 	slate(panel)
 	ttext(Vector2(panel.position.x, panel.position.y + 34), CHAR_TABS[char_tab][0], 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 5)
 	h.draw_rect(Rect2(panel.position.x + 30, panel.position.y + 46, panel.size.x - 60, 1), Color(0.6, 0.48, 0.28, 0.6))
@@ -424,11 +449,11 @@ func _draw_character() -> void:
 		3: _tab_armor(panel)
 		4: _tab_colors(panel)
 		5: _tab_emblem(panel)
-	green_button(Rect2(808, 544, 340, 70), "CONFIRM", "confirm", true, false)
+	green_button(Rect2(876, 604, 340, 70), "CONFIRM", "confirm", true, false)
 
 
 func _row_label(panel: Rect2, y: float, text: String) -> void:
-	label(Vector2(panel.position.x + 26, y + 6), text, 15)
+	label(Vector2(panel.position.x + 22, y + 6), text, 15 if text.length() < 12 else 13)
 
 
 func swatch(r: Rect2, fill: Color, sel: bool, id: String, arg, locked: bool = false) -> void:
@@ -445,60 +470,117 @@ func swatch(r: Rect2, fill: Color, sel: bool, id: String, arg, locked: bool = fa
 	h.draw_rect(Rect2(r.position + Vector2(4, 4), Vector2(r.size.x - 8, r.size.y * 0.3)), Color(1, 1, 1, 0.12))
 
 
+func _row_x(panel: Rect2, i: int, n: int, w: float) -> float:
+	## Left edge of item i of n spread across a row's choice area.
+	var x0 := panel.position.x + 132
+	var span := panel.size.x - 132 - 22
+	return x0 + (i * (span - w) / maxf(n - 1, 1)) if n > 1 else x0
+
+
 func _tab_appearance(panel: Rect2) -> void:
-	var x0 := panel.position.x + 160
-	var y := panel.position.y + 80
-	var step := 54.0
-	# Body type: arrows round three silhouettes.
+	var y := panel.position.y + 74
+	var step := 51.0
+	# Body type: arrows round the build silhouettes.
 	_row_label(panel, y, "Body Type")
-	button(Rect2(x0 - 6, y - 18, 26, 36), "body_step", -1)
-	icon("arrow_left", Vector2(x0 + 6, y), 26)
-	for i in Stats.HERO_BODIES.size():
-		var c := Vector2(x0 + 58 + i * 56, y)
+	var ax0 := panel.position.x + 132
+	var ax1 := panel.end.x - 22
+	button(Rect2(ax0 - 4, y - 18, 26, 36), "body_step", -1)
+	icon("arrow_left", Vector2(ax0 + 8, y), 26)
+	button(Rect2(ax1 - 22, y - 18, 26, 36), "body_step", 1)
+	icon("arrow_right", Vector2(ax1 - 8, y), 26)
+	var nb := Stats.HERO_BODIES.size()
+	for i in nb:
+		var c := Vector2(ax0 + 30 + (ax1 - ax0 - 60) * (i + 0.5) / nb, y)
 		var on: bool = game.hero_body == i
 		var r := Rect2(c - Vector2(24, 22), Vector2(48, 44))
 		var ov := button(r, "body", i)
 		if on:
-			h.draw_circle(c, 23, Color(1.0, 0.78, 0.3, 0.25))
+			swatch(r, Color(0.32, 0.28, 0.2), true, "body", i)
 		icon(["body_slim", "body_sturdy", "body_broad"][i], c, 40, Color.WHITE if on else (Color(0.85, 0.85, 0.85) if ov else Color(0.5, 0.5, 0.5)))
-	button(Rect2(x0 + 214, y - 18, 26, 36), "body_step", 1)
-	icon("arrow_right", Vector2(x0 + 226, y), 26)
 	y += step
 	_row_label(panel, y, "Skin Tone")
 	for i in Stats.HERO_SKINS.size():
-		swatch(Rect2(x0 + i * 52, y - 18, 42, 36), Stats.HERO_SKINS[i][1], game.hero_skin == i, "skin", i)
+		swatch(Rect2(_row_x(panel, i, Stats.HERO_SKINS.size(), 50), y - 19, 50, 38), Stats.HERO_SKINS[i][1], game.hero_skin == i, "skin", i)
 	y += step
 	_row_label(panel, y, "Hair Style")
-	for i in 4:
-		swatch(Rect2(x0 + i * 52, y - 18, 42, 36), Color(0.3, 0.26, 0.22), i == 0, "locked", "hair_style", i > 0)
-		icon("hair", Vector2(x0 + i * 52 + 21, y), 28, Color(1, 1, 1, 1.0 if i == 0 else 0.35))
-	icon("lock", Vector2(x0 + 4 * 52 + 14, y), 22)
+	for i in 5:
+		var r := Rect2(_row_x(panel, i, 5, 44), y - 21, 44, 42)
+		swatch(r, Color(0.2, 0.21, 0.24), i == 0, "locked", "hair_style", i > 0)
+		icon("hair", r.get_center(), 32, Color(1, 1, 1, 1.0 if i == 0 else 0.4))
+		if i > 0:
+			icon("lock", r.end - Vector2(8, 8), 15)
 	y += step
 	_row_label(panel, y, "Hair Color")
 	for i in Stats.HERO_HAIR.size():
-		var c := Vector2(x0 + 18 + i * 42, y)
-		var r := Rect2(c - Vector2(18, 18), Vector2(36, 36))
-		var on: bool = game.hero_hair == i
-		var ov := button(r, "hair", i)
-		h.draw_circle(c, 19 if on else 17, Color(1.0, 0.8, 0.3) if on else (Color(0.9, 0.8, 0.6) if ov else Color(0.1, 0.08, 0.06)))
-		h.draw_circle(c, 15, Stats.HERO_HAIR[i][1])
-		h.draw_circle(c + Vector2(-5, -5), 4, Color(1, 1, 1, 0.3))
+		var c := Vector2(_row_x(panel, i, Stats.HERO_HAIR.size(), 36) + 18, y)
+		_dot(c, Stats.HERO_HAIR[i][1], game.hero_hair == i, "hair", i)
 	y += step
 	_row_label(panel, y, "Face Style")
 	for i in Stats.HERO_FACES.size():
-		var r := Rect2(x0 + i * 52, y - 18, 42, 36)
+		var r := Rect2(_row_x(panel, i, Stats.HERO_FACES.size(), 42), y - 20, 42, 40)
 		swatch(r, Stats.HERO_SKINS[game.hero_skin][1], game.hero_face == i, "face", i)
 		face_thumb(r.grow(-3), i)
 	y += step
-	_row_label(panel, y, "Preview")
+	_row_label(panel, y, "Eye Color")
+	var eye := _eye_index()
+	for i in Stats.HERO_EYES.size():
+		var c := Vector2(_row_x(panel, i, Stats.HERO_EYES.size(), 36) + 18, y)
+		_dot(c, Stats.HERO_EYES[i][1], eye == i, "eye", i)
+	y += step
+	_row_label(panel, y, "Facial Markings")
+	for i in Stats.HERO_MARKS.size():
+		var r := Rect2(_row_x(panel, i, Stats.HERO_MARKS.size(), 46), y - 20, 46, 40)
+		mark_thumb(r, i, game.hero_mark == i)
+	y += step + 4
+	label(Vector2(panel.position.x + 26, y - 4), "Preview", 15)
+	label(Vector2(panel.position.x + 26, y + 15), "Emblem", 15)
 	for i in PREVIEW_ROLES.size():
 		var role: int = PREVIEW_ROLES[i]
-		var r := Rect2(x0 + i * 52, y - 21, 44, 42)
+		var r := Rect2(_row_x(panel, i, PREVIEW_ROLES.size(), 46), y - 22, 46, 44)
 		var on := preview_role == role
 		swatch(r, Color(0.2, 0.2, 0.24), on, "preview_role", role)
-		h._icon(h._class_icon(role) if role != Role.BASE else ("class_elf" if preview_team == 0 else "class_human"), r.get_center(), 12, Color.WHITE)
-	y += step - 6
-	h._text(Vector2(panel.position.x + 20, y + 14), "New hair styles come with a later update.", 11, Color(0.7, 0.7, 0.68), HORIZONTAL_ALIGNMENT_CENTER, panel.size.x - 40, 2)
+		h._icon(h._class_icon(role) if role != Role.BASE else ("class_elf" if preview_team == 0 else "class_human"), r.get_center(), 13, Color.WHITE)
+
+
+func _dot(c: Vector2, fill: Color, on: bool, id: String, arg) -> void:
+	## A round colour choice with a gold ring when picked.
+	var r := Rect2(c - Vector2(18, 18), Vector2(36, 36))
+	var ov := button(r, id, arg)
+	if on:
+		h.draw_circle(c, 23, Color(1.0, 0.75, 0.25, 0.3))
+	h.draw_circle(c, 19 if on else 17, Color(1.0, 0.8, 0.3) if on else (Color(0.9, 0.8, 0.6) if ov else Color(0.08, 0.07, 0.06)))
+	h.draw_circle(c, 15, fill)
+	h.draw_circle(c + Vector2(-5, -5), 4, Color(1, 1, 1, 0.3))
+
+
+func _eye_index() -> int:
+	## The eye colour shown as picked: the player's own, else their side's.
+	if game.hero_eye >= 0:
+		return game.hero_eye
+	return 2 if preview_team == 0 else 0
+
+
+const MARK_CROPS := {"scar": Rect2(316, 16, 150, 240), "claws": Rect2(28, 140, 130, 120), "freckles": Rect2(326, 196, 136, 60), "paint": Rect2(40, 186, 432, 70)}
+
+
+func mark_thumb(r: Rect2, i: int, on: bool) -> void:
+	## A facial marking choice: the marking cropped from its texture over the skin.
+	var mk: String = Stats.HERO_MARKS[i][1]
+	swatch(r, Color(0.2, 0.21, 0.24) if mk == "" else Stats.HERO_SKINS[game.hero_skin][1].darkened(0.1), on, "mark", i)
+	if mk == "":
+		var c := r.get_center()
+		h.draw_arc(c, 12, 0, TAU, 24, Color(0.92, 0.9, 0.85), 2.5)
+		h.draw_line(c + Vector2(-8, -8), c + Vector2(8, 8), Color(0.92, 0.9, 0.85), 2.5)
+		h.draw_line(c + Vector2(8, -8), c + Vector2(-8, 8), Color(0.92, 0.9, 0.85), 2.5)
+		return
+	var path := "res://assets/characters/faces/face_mark_%s.png" % mk
+	if not tex.has(path):
+		tex[path] = load(path)
+	var src: Rect2 = MARK_CROPS[mk]
+	var box := r.grow(-5)
+	var k := minf(box.size.x / src.size.x, box.size.y / src.size.y) * 1.0
+	var sz := src.size * k
+	h.draw_texture_rect_region(tex[path], Rect2(box.get_center() - sz / 2.0, sz), src)
 
 
 func _tab_hair(panel: Rect2) -> void:
@@ -520,7 +602,7 @@ func _tab_hair(panel: Rect2) -> void:
 
 func face_thumb(r: Rect2, i: int) -> void:
 	## Both eyes of face style i, cropped from its texture.
-	var path := "res://assets/characters/faces/face_eyes_%s_%s.png" % [["bold", "bright", "fierce", "gentle"][i], "green" if preview_team == 0 else "brown"]
+	var path := "res://assets/characters/faces/face_eyes_%s_%s.png" % [Face.STYLES[i], Stats.HERO_EYES[_eye_index()][2]]
 	if not tex.has(path):
 		tex[path] = load(path)
 	var src := Rect2(40, 50, 432, 190)
@@ -532,12 +614,12 @@ func face_thumb(r: Rect2, i: int) -> void:
 func _tab_face(panel: Rect2) -> void:
 	var y := panel.position.y + 70
 	for i in Stats.HERO_FACES.size():
-		var r := Rect2(panel.position.x + 26 + (i % 2) * 206, y + (i / 2) * 170, 194, 156)
+		var r := Rect2(panel.position.x + 20 + (i % 3) * 132, y + (i / 3) * 196, 124, 184)
 		var on: bool = game.hero_face == i
 		swatch(r, Stats.HERO_SKINS[game.hero_skin][1], on, "face", i)
-		face_thumb(Rect2(r.position + Vector2(14, 8), Vector2(r.size.x - 28, 84)), i)
-		ttext(Vector2(r.position.x, r.position.y + 118), Stats.HERO_FACES[i][0].to_upper(), 20, Color.WHITE if on else Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-		h._text(Vector2(r.position.x, r.position.y + 140), Stats.HERO_FACES[i][1], 11, Color(1, 1, 1, 0.9), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
+		face_thumb(Rect2(r.position + Vector2(8, 12), Vector2(r.size.x - 16, 80)), i)
+		ttext(Vector2(r.position.x, r.position.y + 124), Stats.HERO_FACES[i][0].to_upper(), 18, Color.WHITE if on else Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+		h._paragraph(Vector2(r.position.x + 8, r.position.y + 146), Stats.HERO_FACES[i][1], 11, Color(1, 1, 1, 0.9), r.size.x - 16, 13.0)
 
 
 func _tab_armor(panel: Rect2) -> void:
@@ -867,6 +949,16 @@ func _press(id: String, arg) -> void:
 			game.hero_face = int(arg)
 			if preview_role == Role.KNIGHT:
 				preview_role = Role.BASE   # the helmet hides the brows
+			game._save_settings()
+		"eye":
+			game.hero_eye = int(arg)
+			if preview_role == Role.KNIGHT:
+				preview_role = Role.BASE
+			game._save_settings()
+		"mark":
+			game.hero_mark = int(arg)
+			if preview_role == Role.KNIGHT:
+				preview_role = Role.BASE
 			game._save_settings()
 		"hair":
 			game.hero_hair = int(arg)

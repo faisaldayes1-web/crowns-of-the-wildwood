@@ -100,6 +100,8 @@ var hero_look := 0              # Stats.HERO_LOOKS index (1 needs account level 
 var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
 var hero_skin := 1              # Stats.HERO_SKINS index
 var hero_face := 0              # Stats.HERO_FACES index
+var hero_eye := -1              # Stats.HERO_EYES index (-1: the side's own colour)
+var hero_mark := 0              # Stats.HERO_MARKS index
 var hero_body := 0              # Stats.HERO_BODIES index: the unclassed body's build
 var team_size := TEAM_SIZE      # fighters a side (SELECT MAP's TEAM SIZE); bots fill the gaps
 var split_screen := false       # SELECT MAP's SPLIT SCREEN: extra pads may join in the lobby
@@ -288,6 +290,8 @@ func _ready() -> void:
 			hero_body = int(parts[3]) if parts.size() > 3 else hero_body
 			hero_skin = int(parts[4]) if parts.size() > 4 else hero_skin
 			hero_face = int(parts[5]) if parts.size() > 5 else hero_face
+			hero_eye = int(parts[6]) if parts.size() > 6 else hero_eye
+			hero_mark = int(parts[7]) if parts.size() > 7 else hero_mark
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
 		return
@@ -2047,7 +2051,9 @@ func shake_at(where: Vector3, amount: float) -> void:
 
 func hero_custom() -> Dictionary:
 	## The player's chosen hair and trim colours for the character skin.
-	var c := {"hair": Stats.HERO_HAIR[hero_hair][1], "skin": Stats.HERO_SKINS[hero_skin][1], "body": Stats.HERO_BODIES[hero_body][1], "face": hero_face}
+	var c := {"hair": Stats.HERO_HAIR[hero_hair][1], "skin": Stats.HERO_SKINS[hero_skin][1], "body": Stats.HERO_BODIES[hero_body][1], "face": hero_face, "mark": hero_mark}
+	if hero_eye >= 0:
+		c.eye = hero_eye
 	if hero_trim > 0:
 		c.trim = Stats.HERO_TRIM[hero_trim][1]
 	if hero_look > 0 and unlocked():
@@ -2844,6 +2850,8 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "map_variant", map_variant)
 	cfg.set_value("settings", "hero_skin", hero_skin)
 	cfg.set_value("settings", "hero_face", hero_face)
+	cfg.set_value("settings", "hero_eye", hero_eye)
+	cfg.set_value("settings", "hero_mark", hero_mark)
 	cfg.set_value("settings", "hero_body", hero_body)
 	cfg.set_value("settings", "team_size", team_size)
 	cfg.set_value("settings", "split_screen", split_screen)
@@ -2900,6 +2908,8 @@ func _load_controls() -> void:
 	map_variant = clampi(cfg.get_value("settings", "map_variant", 0), 0, Stats.MAPS.size() - 1)
 	hero_skin = clampi(cfg.get_value("settings", "hero_skin", 1), 0, Stats.HERO_SKINS.size() - 1)
 	hero_face = clampi(cfg.get_value("settings", "hero_face", 0), 0, Stats.HERO_FACES.size() - 1)
+	hero_eye = clampi(cfg.get_value("settings", "hero_eye", -1), -1, Stats.HERO_EYES.size() - 1)
+	hero_mark = clampi(cfg.get_value("settings", "hero_mark", 0), 0, Stats.HERO_MARKS.size() - 1)
 	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)
 	team_size = clampi(cfg.get_value("settings", "team_size", TEAM_SIZE), 1, TEAM_SIZE)
 	split_screen = cfg.get_value("settings", "split_screen", false)

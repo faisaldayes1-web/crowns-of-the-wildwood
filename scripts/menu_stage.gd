@@ -10,6 +10,7 @@ extends Node3D
 const Stats = preload("res://scripts/stats.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
 const TitleDiorama = preload("res://scripts/title_diorama.gd")
+const Face = preload("res://scripts/face.gd")
 const Role = Stats.Role
 
 const HALL := Vector3(0, 0, 420)   # far past the map's south edge
@@ -29,6 +30,17 @@ var screen := ""
 var t := 0.0
 var hidden_labels: Array = []
 var rug: Node3D              # the round rug under the character creator's hero
+var backdrop: CanvasLayer    # the title's painted background (animated)
+var embers: Array = []       # [CPUParticles2D, image px] per torch on it
+
+# The title background's live bits, in image pixels (1672x941): the
+# waterfalls, the pool under the bridge and the torch flames.
+const BG_SIZE := Vector2(1672, 941)
+const BG_FALLS := [Rect2(792, 536, 92, 128), Rect2(1012, 538, 50, 104), Rect2(1512, 170, 36, 122), Rect2(752, 742, 182, 52)]
+const BG_POOL := Rect2(600, 780, 430, 161)
+const BG_FLAMES := [Vector2(583, 400), Vector2(1119, 404), Vector2(707, 463), Vector2(792, 466), Vector2(885, 462),
+	Vector2(964, 467), Vector2(701, 497), Vector2(400, 576), Vector2(584, 581), Vector2(1110, 584), Vector2(496, 778),
+	Vector2(225, 298), Vector2(1380, 436)]
 
 
 func _exit_tree() -> void:
@@ -120,7 +132,7 @@ func build(g) -> void:
 	_build_hall()
 	title_cast = TitleDiorama.new()
 	add_child(title_cast)
-	title_cast.build(game)
+	_build_backdrop()
 
 
 func activate() -> void:
@@ -142,7 +154,10 @@ func show_screen(name: String) -> void:
 	if name == screen:
 		return
 	screen = name
-	title_cast.visible = name == "title"
+	title_cast.visible = false
+	backdrop.visible = name == "title"
+	if name == "title":
+		_place_embers()
 	_set_mood("title" if name == "title" else "hall")
 	if rug:
 		rug.visible = name == "character"
@@ -166,7 +181,7 @@ func show_screen(name: String) -> void:
 			cam.global_position = HALL + Vector3(0, 2.4, 8.5)
 			cam.look_at(HALL + Vector3(0, 2.6, -6.0))
 		"character":
-			cam.fov = 40.0
+			cam.fov = 37.0
 			cam.global_position = HALL + Vector3(0.6, 1.55, 6.2)
 			cam.look_at(HALL + Vector3(0.6, 1.25, 0.0))
 		"lobby":
@@ -319,6 +334,71 @@ func place_title_cast() -> void:
 		title_cast.place_heroes(cam, get_viewport().get_visible_rect().size)
 
 
+func _build_backdrop() -> void:
+	## The title's painted background on a layer under the menu: its water
+	## and torches animate in assets/shaders/title_bg.gdshader, and embers
+	## drift up from each torch.
+	backdrop = CanvasLayer.new()
+	backdrop.layer = -1
+	add_child(backdrop)
+	var bg := TextureRect.new()
+	bg.texture = load("res://assets/ui/menu/title_bg.png")
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sm := ShaderMaterial.new()
+	sm.shader = load("res://assets/shaders/title_bg.gdshader")
+	sm.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	var falls := []
+	for r in BG_FALLS:
+		falls.append(Vector4(r.position.x / BG_SIZE.x, r.position.y / BG_SIZE.y, r.end.x / BG_SIZE.x, r.end.y / BG_SIZE.y))
+	sm.set_shader_parameter("falls", falls)
+	sm.set_shader_parameter("pool", Vector4(BG_POOL.position.x / BG_SIZE.x, BG_POOL.position.y / BG_SIZE.y, BG_POOL.end.x / BG_SIZE.x, BG_POOL.end.y / BG_SIZE.y))
+	var pts := []
+	for p in BG_FLAMES:
+		pts.append(p / BG_SIZE)
+	sm.set_shader_parameter("flames", pts)
+	sm.set_shader_parameter("flame_count", BG_FLAMES.size())
+	sm.set_shader_parameter("aspect", BG_SIZE.x / BG_SIZE.y)
+	bg.material = sm
+	backdrop.add_child(bg)
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.85, 0.4, 1.0))
+	ramp.set_color(1, Color(1.0, 0.3, 0.05, 0.0))
+	for p in BG_FLAMES:
+		var e := CPUParticles2D.new()
+		e.amount = 6
+		e.lifetime = 1.1
+		e.preprocess = 1.0
+		e.emission_shape = CPUParticles2D.EMISSION_SHAPE_SPHERE
+		e.emission_sphere_radius = 3.0
+		e.direction = Vector2(0, -1)
+		e.spread = 25.0
+		e.initial_velocity_min = 14.0
+		e.initial_velocity_max = 30.0
+		e.gravity = Vector2(0, -12)
+		e.scale_amount_min = 1.2
+		e.scale_amount_max = 2.4
+		e.color_ramp = ramp
+		var mat := CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		e.material = mat
+		backdrop.add_child(e)
+		embers.append([e, p])
+	backdrop.visible = false
+
+
+func _place_embers() -> void:
+	## Put each torch's embers over its flame, wherever the picture lands on screen.
+	var vp := get_viewport().get_visible_rect().size
+	var k := maxf(vp.x / BG_SIZE.x, vp.y / BG_SIZE.y)
+	var off := (vp - BG_SIZE * k) / 2.0
+	for e in embers:
+		e[0].position = off + e[1] * k - Vector2(0, 6) * k
+		e[0].scale = Vector2.ONE * k / 0.7656
+
+
 # --- The hall ----------------------------------------------------------------------------
 
 func _hall_banner(color: String, pos: Vector3, h: float, facing: float) -> void:
@@ -427,61 +507,139 @@ func _round_rug() -> Node3D:
 		pt.position = Vector3(cos(a) * 1.05, 0.03, sin(a) * 1.05)
 		pt.rotation = Vector3(-PI / 2.0, -a - PI / 2.0, 0)
 		root.add_child(pt)
+	root.scale = Vector3(1.45, 1.0, 1.45)
 	return root
 
 
 func _window(pos: Vector3) -> void:
-	## An arched leaded window: glowing panes behind a timber frame and mullions.
+	## A tall arched window with diamond leading: sky-blue panes in a
+	## timber frame.
 	var glass := StandardMaterial3D.new()
-	glass.albedo_color = Color(0.55, 0.72, 0.92)
+	glass.albedo_color = Color(0.5, 0.68, 0.9)
 	glass.emission_enabled = true
-	glass.emission = Color(0.55, 0.75, 1.0)
-	glass.emission_energy_multiplier = 0.55
-	var frame: Material = game._timber(Color(0.55, 0.4, 0.28))
-	game._add_block(pos + Vector3(0, 0, 0.02), Vector3(2.2, 3.0, 0.06), Color.GRAY, false, glass)
+	glass.emission = Color(0.5, 0.7, 1.0)
+	glass.emission_energy_multiplier = 0.35
+	var frame: Material = game._timber(Color(0.5, 0.36, 0.26))
+	var w := 2.6
+	var hgt := 4.4
+	game._add_block(pos + Vector3(0, 0, 0.02), Vector3(w, hgt, 0.06), Color.GRAY, false, glass)
 	var arch := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
-	cm.top_radius = 1.1
-	cm.bottom_radius = 1.1
+	cm.top_radius = w / 2.0
+	cm.bottom_radius = w / 2.0
 	cm.height = 0.06
 	arch.mesh = cm
 	arch.material_override = glass
 	arch.rotation.x = PI / 2.0
 	game.add_child(arch)
-	arch.global_position = pos + Vector3(0, 1.5, 0.02)
-	for x in [-1.15, 1.15]:
-		game._add_block(pos + Vector3(x, 0, 0.08), Vector3(0.18, 3.1, 0.14), Color.GRAY, false, frame)
-	game._add_block(pos + Vector3(0, -1.55, 0.1), Vector3(2.6, 0.2, 0.3), Color.GRAY, false, frame)
-	for x in [-0.37, 0.37]:
-		game._add_block(pos + Vector3(x, 0.4, 0.07), Vector3(0.06, 3.9, 0.06), Color.GRAY, false, game._iron())
-	for y in [-0.6, 0.4, 1.4]:
-		game._add_block(pos + Vector3(0, y, 0.07), Vector3(2.2, 0.06, 0.06), Color.GRAY, false, game._iron())
-	var sun: OmniLight3D = game._add_light(pos + Vector3(0, 0.6, 1.4), Color(0.8, 0.9, 1.0), 1.4, 7.0)
+	arch.global_position = pos + Vector3(0, hgt / 2.0, 0.02)
+	for x in [-w / 2.0 - 0.06, w / 2.0 + 0.06]:
+		game._add_block(pos + Vector3(x, 0.3, 0.08), Vector3(0.2, hgt + 0.6, 0.16), Color.GRAY, false, frame)
+	game._add_block(pos + Vector3(0, -hgt / 2.0 - 0.08, 0.1), Vector3(w + 0.5, 0.22, 0.3), Color.GRAY, false, frame)
+	# Mullions and a transom, then diagonal leading in both directions.
+	game._add_block(pos + Vector3(0, 0.6, 0.08), Vector3(0.1, hgt + 1.2, 0.08), Color.GRAY, false, frame)
+	game._add_block(pos + Vector3(0, 0.9, 0.08), Vector3(w, 0.1, 0.08), Color.GRAY, false, frame)
+	var lq := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(w, hgt)
+	lq.mesh = qm
+	var lm := StandardMaterial3D.new()
+	lm.albedo_texture = load("res://assets/ui/menu/window_lead.png")
+	lm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	lm.alpha_scissor_threshold = 0.4
+	lm.roughness = 0.6
+	lq.material_override = lm
+	game.add_child(lq)
+	lq.global_position = pos + Vector3(0, 0, 0.06)
+	var sun: OmniLight3D = game._add_light(pos + Vector3(0, 0.6, 1.4), Color(0.8, 0.9, 1.0), 1.2, 7.0)
 	sun.name = "WindowLight"
 
 
 func _throne(pos: Vector3) -> void:
-	## A red-cushioned throne with a gold frame on a two-step dais.
+	## A tall throne like the art's: a red back with a gold crown in a gold
+	## frame, gold spires on its posts, on red-carpeted steps.
 	var gold: Material = game._gold()
-	var red: Material = game._cloth(Color(0.7, 0.1, 0.12))
-	var wood: Material = game._timber(Color(0.6, 0.38, 0.22))
-	game._add_block(pos + Vector3(0, 0.1, 0.2), Vector3(3.0, 0.2, 2.0), Color.GRAY, false, game._carpet(Color(0.55, 0.08, 0.1)))
-	game._add_block(pos + Vector3(0, 0.3, 0.0), Vector3(2.2, 0.2, 1.4), Color.GRAY, false, wood)
-	game._add_block(pos + Vector3(0, 0.75, 0.0), Vector3(1.3, 0.7, 0.9), Color.GRAY, false, wood)
-	game._add_block(pos + Vector3(0, 1.15, 0.05), Vector3(1.1, 0.16, 0.8), Color.GRAY, false, red)
-	game._add_block(pos + Vector3(0, 1.95, -0.38), Vector3(1.2, 1.7, 0.18), Color.GRAY, false, gold)
-	game._add_block(pos + Vector3(0, 1.9, -0.28), Vector3(0.95, 1.45, 0.06), Color.GRAY, false, red)
-	for x in [-0.62, 0.62]:
-		game._add_block(pos + Vector3(x, 1.35, 0.0), Vector3(0.14, 0.4, 0.9), Color.GRAY, false, gold)
-	for x in [-0.55, 0.0, 0.55]:
-		var ball := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.11
-		sm.height = 0.22
-		ball.mesh = sm
-		ball.material_override = gold
-		game.add_child(ball)
-		ball.global_position = pos + Vector3(x, 2.88 + (0.12 if x == 0.0 else 0.0), -0.38)
+	var red: Material = game._cloth(Color(0.72, 0.1, 0.12))
+	var carpet: Material = game._carpet(Color(0.62, 0.08, 0.1))
+	# Three carpeted steps, gold-edged, widest at the bottom.
+	for k in 3:
+		var w := 3.6 - k * 0.6
+		var d := 2.6 - k * 0.55
+		var y := 0.12 + k * 0.24
+		game._add_block(pos + Vector3(0, y, 0.55 - k * 0.27), Vector3(w, 0.24, d), Color.GRAY, false, carpet)
+		game._add_block(pos + Vector3(0, y + 0.115, 0.55 - k * 0.27 + d / 2.0), Vector3(w, 0.03, 0.05), Color.GRAY, false, gold)
+	var top := pos + Vector3(0, 0.72, -0.15)
+	# Seat and arms.
+	game._add_block(top + Vector3(0, 0.3, 0.1), Vector3(1.4, 0.6, 0.9), Color.GRAY, false, gold)
+	game._add_block(top + Vector3(0, 0.66, 0.12), Vector3(1.16, 0.14, 0.8), Color.GRAY, false, red)
+	for x in [-0.66, 0.66]:
+		game._add_block(top + Vector3(x, 0.85, 0.12), Vector3(0.14, 0.36, 0.86), Color.GRAY, false, gold)
+	# The tall back: gold frame, red cushion, a crown emblem.
+	game._add_block(top + Vector3(0, 1.75, -0.32), Vector3(1.36, 2.5, 0.16), Color.GRAY, false, gold)
+	game._add_block(top + Vector3(0, 1.68, -0.22), Vector3(1.06, 2.1, 0.06), Color.GRAY, false, red)
+	var crown := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.62, 0.62)
+	crown.mesh = q
+	var cm := StandardMaterial3D.new()
+	cm.albedo_texture = load("res://assets/ui/menu/icon_crown.png")
+	cm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	cm.alpha_scissor_threshold = 0.4
+	cm.emission_enabled = true
+	cm.emission = Color(0.4, 0.3, 0.1)
+	crown.material_override = cm
+	game.add_child(crown)
+	crown.global_position = top + Vector3(0, 2.05, -0.18)
+	# Posts with gold spires either side and on top.
+	for x in [-0.78, 0.78]:
+		game._add_block(top + Vector3(x, 1.55, -0.3), Vector3(0.18, 3.1, 0.2), Color.GRAY, false, gold)
+		_spire(top + Vector3(x, 3.1, -0.3), 0.14, 0.55, gold)
+	_spire(top + Vector3(0, 3.0, -0.32), 0.2, 0.75, gold)
+
+
+func _spire(base: Vector3, r: float, h: float, mat: Material) -> void:
+	## A gold finial: a ball and a cone point.
+	var ball := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = r
+	sm.height = r * 2.0
+	ball.mesh = sm
+	ball.material_override = mat
+	game.add_child(ball)
+	ball.global_position = base + Vector3(0, r, 0)
+	var cone := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.0
+	cm.bottom_radius = r * 0.75
+	cm.height = h
+	cone.mesh = cm
+	cone.material_override = mat
+	game.add_child(cone)
+	cone.global_position = base + Vector3(0, r * 1.7 + h / 2.0, 0)
+
+
+func _armour_stand(pos: Vector3) -> void:
+	## A suit of plate armour on a stone plinth, flanking the throne.
+	game._add_block(pos + Vector3(0, 0.15, 0), Vector3(1.0, 0.3, 1.0), Color.GRAY, false, game._stone(Color(0.7, 0.66, 0.6), 0.5))
+	var m = CharacterModel.new()
+	hall.add_child(m)
+	m.setup(1, Role.KNIGHT, "", {}, 3)
+	if m.anim and m.anim.has_animation("Idle"):
+		m.anim.play("Idle")
+		m.anim.seek(0.4, true)
+	var steel := StandardMaterial3D.new()
+	steel.albedo_color = Color(0.5, 0.53, 0.6)
+	steel.metallic = 0.6
+	steel.roughness = 0.45
+	for mi in m._meshes(m):
+		mi.material_override = steel
+	for n in m.find_children("*", "Node3D", true, false):
+		if n.get_script() == Face:
+			n.visible = false
+	m.global_position = pos + Vector3(0, 0.3, 0)
+	m.scale = Vector3.ONE * 1.05
+	m.rotation.y = PI
+	m.process_mode = Node.PROCESS_MODE_DISABLED
 
 
 func _build_hall() -> void:
@@ -492,8 +650,8 @@ func _build_hall() -> void:
 	game.mossy = false
 	var c := HALL
 	# Grey castle stone (the greystone texture where the art pass has made it).
-	var stone: Material = game._pbr("greystone", 0.3, Color(0.62, 0.55, 0.5)) if ResourceLoader.exists("res://assets/textures/greystone_color.jpg") \
-		else game._stone(Color(0.5, 0.44, 0.4), 0.3)
+	var stone: Material = game._pbr("greystone", 0.3, Color(0.86, 0.8, 0.72)) if ResourceLoader.exists("res://assets/textures/greystone_color.jpg") \
+		else game._stone(Color(0.74, 0.73, 0.74), 0.3)
 	var floor_mat: Material = game._plank_dark(Color(0.72, 0.56, 0.44))
 	game._add_block(c + Vector3(0, -0.1, 0), Vector3(30, 0.2, 24), Color.GRAY, false, floor_mat)
 	# Back wall, side walls angled in a little, and a dark ceiling to keep the sky out.
@@ -522,11 +680,11 @@ func _build_hall() -> void:
 		for z in [-2.6, 1.0, 4.6]:
 			_hall_banner("red" if z == 1.0 else "blue", c + Vector3(s * 10.3, 5.6, z), 3.2, -s * PI / 2.0)
 	# A tall arched window over the throne, sunlight pouring in.
-	_window(c + Vector3(0, 3.6, -5.94))
+	_window(c + Vector3(0, 4.0, -5.94))
 	_throne(c + Vector3(0, 0, -4.9))
 	# Candle stands along the walls.
 	for p in [Vector3(-7.4, 0, -5.3), Vector3(-4.4, 0, -5.3), Vector3(4.4, 0, -5.3), Vector3(7.4, 0, -5.3),
-			Vector3(-9.8, 0, 2.2), Vector3(9.8, 0, 2.2), Vector3(-2.2, 0, -5.2), Vector3(2.2, 0, -5.2)]:
+			Vector3(-9.8, 0, 2.2), Vector3(9.8, 0, 2.2)]:
 		game._add_candle_stand(c + p)
 	# Candle wheels hung from the beams, and candelabras on the walls.
 	for x in [-5.0, 5.0]:
@@ -582,3 +740,6 @@ func _build_hall() -> void:
 		made.append(game.get_child(i))
 	for n in made:
 		n.reparent(hall, true)
+	# Suits of armour either side of the throne.
+	for x in [-2.6, 2.6]:
+		_armour_stand(c + Vector3(x, 0, -5.1))

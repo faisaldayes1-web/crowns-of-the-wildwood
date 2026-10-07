@@ -370,6 +370,24 @@ def sword(img, rot, s=1.0, dx=0.0, dy=0.0):
     disc(img, P([(0, 0.93)], s, dx, dy, rot)[0], 0.11 * C * 0.8 * s, GOLD, GOLD_D, width=3)
 
 
+def stag_icon():
+    """A stag's head with branching antlers (the ELF button)."""
+    img = Image.new("RGBA", (N, N))
+    for sd in (-1, 1):
+        beam = [(sd * 0.12, -0.2), (sd * 0.32, -0.5), (sd * 0.42, -0.78), (sd * 0.4, -0.98)]
+        for w, col in ((12, INK), (6, CREAM)):
+            line(img, P(beam), col, w)
+            for a, b in (((sd * 0.32, -0.5), (sd * 0.66, -0.62)), ((sd * 0.38, -0.7), (sd * 0.72, -0.94)), ((sd * 0.25, -0.38), (sd * 0.1, -0.7)),
+                         ((sd * 0.66, -0.62), (sd * 0.86, -0.56))):
+                line(img, P([a, b]), col, w)
+        fillpoly(img, P([(sd * 0.18, -0.15), (sd * 0.62, -0.32), (sd * 0.5, -0.08)]), CREAM, CREAM_D)
+    fillpoly(img, P([(-0.3, -0.25), (0.3, -0.25), (0.26, 0.2), (0.12, 0.72), (0.0, 0.82), (-0.12, 0.72), (-0.26, 0.2)]), CREAM, CREAM_D)
+    disc(img, P([(0.0, 0.68)])[0], 0.08 * C * 0.8, INK, None, None)
+    for x in (-0.14, 0.14):
+        disc(img, P([(x, 0.05)])[0], 0.05 * C * 0.8, INK, None, None)
+    icon_save(img, "stag")
+
+
 def make_icons():
     # Crossed swords (PLAY, START MATCH).
     img = Image.new("RGBA", (N, N))
@@ -654,6 +672,9 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "thumbs":
         thumbs(sys.argv[2], sys.argv[3])
         sys.exit(0)
+    if len(sys.argv) > 1 and sys.argv[1] == "stag":
+        stag_icon()
+        sys.exit(0)
     if len(sys.argv) > 1 and sys.argv[1] == "banners":
         banner("banner_lion", (40, 84, 196), (20, 44, 120), "lion")
         banner("banner_tree", (52, 150, 64), (22, 86, 34), "tree")
@@ -672,6 +693,7 @@ if __name__ == "__main__":
     plaque("plaque")
     tag("tag")
     make_icons()
+    stag_icon()
     banner("banner_lion", (40, 84, 196), (20, 44, 120), "lion")
     banner("banner_tree", (52, 150, 64), (22, 86, 34), "tree")
     banner("banner_crown_red", (196, 44, 40), (120, 20, 24), "crown")

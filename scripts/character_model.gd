@@ -655,7 +655,9 @@ func _add_face(inst: Node3D, scene: String, team: int, role: int, custom: Dictio
 			mat.albedo_texture = Face.no_eyes(mat.albedo_texture)
 	var face = Face.new()
 	var brow: Color = custom.get("hair", Face.hair_color(skin))
-	face.build(skeleton, scene, team, int(custom.get("face", Face.default_style(role))), brow.darkened(0.3))
+	var iris: String = Stats.HERO_EYES[int(custom.eye)][2] if custom.has("eye") else ""
+	var mark: String = Stats.HERO_MARKS[int(custom.get("mark", 0))][1]
+	face.build(skeleton, scene, team, int(custom.get("face", Face.default_style(role))), brow.darkened(0.3), iris, mark)
 
 
 func _attach_to_head() -> BoneAttachment3D:

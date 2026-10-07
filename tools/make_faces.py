@@ -1,12 +1,13 @@
 """Paints the characters' chibi anime faces: big glossy eyes with heavy upper
 lashes and two highlights, eyebrows, cheek blush and small mouths, in four
-face styles (Bold, Bright, Fierce, Gentle) and two iris colours (brown for
-Humans, green for Elves).
+face styles (Bold, Bright, Fierce, Gentle, Noble, Sly), six iris colours
+(Humans default to brown, Elves to green) and four facial markings.
 
 scripts/face.gd lays these on curved patches in front of the KayKit heads:
 - face_eyes_<style>_<iris>.png  512x256, covers head x -0.36..0.36, y 1.48..1.84
 - face_brows_<style>.png        same frame, white (tinted to the hair colour)
 - face_mouth_<style>.png        128x64, covers x -0.12..0.12, y 1.32..1.44
+- face_mark_<mark>.png          same frame as the eyes (scar, claws, freckles, paint)
 
     python3 tools/make_faces.py      # writes assets/characters/faces
 """
@@ -16,10 +17,14 @@ import math, os
 OUT = "assets/characters/faces"
 SS = 4
 INK = (34, 20, 18)
-STYLES = ["bold", "bright", "fierce", "gentle"]
+STYLES = ["bold", "bright", "fierce", "gentle", "noble", "sly"]
 IRIS = {
     "brown": ((60, 32, 18), (150, 84, 34), (226, 160, 72)),
     "green": ((22, 58, 30), (52, 128, 60), (150, 214, 100)),
+    "blue": ((18, 36, 92), (40, 92, 190), (130, 190, 255)),
+    "grey": ((40, 44, 52), (100, 108, 120), (190, 198, 210)),
+    "amber": ((96, 52, 8), (200, 138, 30), (255, 214, 96)),
+    "red": ((80, 10, 16), (176, 36, 40), (255, 128, 110)),
 }
 
 # Patch frame in head units (model space) -> pixels.
@@ -53,6 +58,8 @@ SHAPES = {
     "bright": dict(w=0.176, h=0.222, lid=0.05, tilt=-0.02, lash=0.9, hi=1.2, iris=0.82),
     "fierce": dict(w=0.176, h=0.185, lid=0.3, tilt=0.12, lash=1.15, hi=0.85, iris=0.86),
     "gentle": dict(w=0.172, h=0.2, lid=0.36, tilt=-0.06, lash=0.9, hi=0.95, iris=0.82),
+    "noble": dict(w=0.168, h=0.2, lid=0.22, tilt=0.0, lash=0.95, hi=0.9, iris=0.8),
+    "sly": dict(w=0.18, h=0.18, lid=0.4, tilt=0.08, lash=1.05, hi=0.8, iris=0.84),
 }
 BROWS = {
     # (inner (x, y), outer (x, y), arch height, thickness) for the right eye, in head units
@@ -60,6 +67,8 @@ BROWS = {
     "bright": ((0.09, 1.78), (0.27, 1.79), 0.016, 0.021),
     "fierce": ((0.075, 1.745), (0.28, 1.795), -0.01, 0.028),
     "gentle": ((0.09, 1.785), (0.27, 1.765), 0.012, 0.019),
+    "noble": ((0.085, 1.775), (0.28, 1.775), 0.0, 0.022),
+    "sly": ((0.08, 1.76), (0.28, 1.79), 0.012, 0.022),
 }
 
 
@@ -209,11 +218,63 @@ def mouth_texture(style):
         d.line([P(-0.04, 1.382), P(0.01, 1.376), P(0.045, 1.392)], fill=INK + (255,), width=lw, joint="curve")
     elif style == "gentle":
         d.arc([*P(-0.035, 1.41), *P(0.035, 1.37)], 20, 160, fill=INK + (255,), width=lw)
+    elif style == "noble":
+        # A calm, faint smile.
+        d.arc([*P(-0.03, 1.4), *P(0.03, 1.375)], 25, 155, fill=INK + (255,), width=lw)
+    elif style == "sly":
+        # A lopsided grin, up on one side.
+        d.line([P(-0.035, 1.385), P(0.015, 1.38), P(0.045, 1.398)], fill=INK + (255,), width=lw, joint="curve")
+        d.line([P(0.04, 1.392), P(0.05, 1.402)], fill=INK + (255,), width=max(lw - 2, 1))
     else:
         # Bold: a short determined line, a little turned down.
         d.line([P(-0.035, 1.38), P(0.0, 1.385), P(0.035, 1.38)], fill=INK + (255,), width=lw, joint="curve")
     img = img.resize((MW, MH), Image.LANCZOS)
     img.save(f"{OUT}/face_mouth_{style}.png")
+
+
+MARKS = ["scar", "claws", "freckles", "paint"]
+
+
+def mark_texture(mark):
+    """A facial marking in the eyes' frame (drawn on its own patch)."""
+    img = Image.new("RGBA", (EW * SS, EH * SS), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    W = lambda u: max(int(u / (Y1 - Y0) * EH * SS), 1)
+    if mark == "scar":
+        # A pale scar down across the left eye (viewer's right), with stitches.
+        a, b = px(0.12, 1.79), px(0.25, 1.49)
+        d.line([a, b], fill=(150, 70, 66, 255), width=W(0.014))
+        d.line([a, b], fill=(214, 128, 118, 255), width=W(0.007))
+        for k in range(1, 5):
+            t = k / 5
+            x, y = a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t
+            d.line([(x - W(0.02), y - W(0.006)), (x + W(0.02), y + W(0.006))], fill=(150, 70, 66, 255), width=W(0.005))
+    elif mark == "claws":
+        # Three red war-paint claw marks on one cheek.
+        for k in range(3):
+            x = -0.29 + k * 0.045
+            pts = [px(x + 0.03, 1.565), px(x + 0.005, 1.52), px(x - 0.01, 1.475)]
+            for j in range(2):
+                wk = W(0.016 * (1 - j * 0.6))
+                d.line([pts[j], pts[j + 1]], fill=(196, 34, 30, 235), width=wk)
+    elif mark == "freckles":
+        import random
+        rnd = random.Random(7)
+        for side in (-1, 1):
+            for _ in range(9):
+                x = side * (0.2 + rnd.uniform(-0.07, 0.07))
+                y = 1.505 + rnd.uniform(-0.022, 0.022)
+                cx, cy = px(x, y)
+                r = W(rnd.uniform(0.004, 0.0065))
+                d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(170, 92, 60, 210))
+    elif mark == "paint":
+        # A bold red stripe across both cheeks and the nose.
+        m = Image.new("L", img.size, 0)
+        ImageDraw.Draw(m).polygon([px(-0.3, 1.535), px(0.3, 1.535), px(0.28, 1.5), px(-0.28, 1.5)], fill=225)
+        m = m.filter(ImageFilter.GaussianBlur(SS * 1.5))
+        img.paste(Image.new("RGBA", img.size, (190, 30, 34, 255)), (0, 0), m)
+    img = img.resize((EW, EH), Image.LANCZOS)
+    img.save(f"{OUT}/face_mark_{mark}.png")
 
 
 if __name__ == "__main__":
@@ -223,4 +284,6 @@ if __name__ == "__main__":
             eyes_texture(st, ir)
         brows_texture(st)
         mouth_texture(st)
+    for mk in MARKS:
+        mark_texture(mk)
     print("wrote faces to", OUT)

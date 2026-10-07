@@ -4,10 +4,10 @@ extends Node3D
 ## curved patches just in front of the head (the model's own dot eyes are
 ## painted over in skin colour). The eyes blink now and then.
 ##
-## Four styles (Stats.FACE_STYLES): Bold, Bright, Fierce, Gentle. Humans
-## have brown eyes, Elves green.
+## Six styles (Stats.HERO_FACES), six eye colours (Stats.HERO_EYES; Humans
+## default to brown, Elves to green) and optional markings (Stats.HERO_MARKS).
 
-const STYLES := ["bold", "bright", "fierce", "gentle"]
+const STYLES := ["bold", "bright", "fierce", "gentle", "noble", "sly"]
 # The patches' frames in model space (see tools/make_faces.py).
 const EYES_RECT := Rect2(-0.36, 1.48, 0.72, 0.36)
 const MOUTH_RECT := Rect2(-0.12, 1.32, 0.24, 0.12)
@@ -195,7 +195,7 @@ func _mat(tex: Texture2D, tint: Color = Color.WHITE) -> StandardMaterial3D:
 	return m
 
 
-func build(skeleton: Skeleton3D, scene: String, team: int, style: int, brow: Color) -> void:
+func build(skeleton: Skeleton3D, scene: String, team: int, style: int, brow: Color, iris: String = "", mark: String = "") -> void:
 	## Attach to the head bone; build eyes, brows and (unless bearded) a mouth.
 	var hb := skeleton.find_bone("head")
 	if hb < 0:
@@ -207,13 +207,21 @@ func build(skeleton: Skeleton3D, scene: String, team: int, style: int, brow: Col
 	# Model space -> head bone space.
 	transform = skeleton.get_bone_global_rest(hb).affine_inverse()
 	var st: String = STYLES[clampi(style, 0, STYLES.size() - 1)]
-	var iris := "green" if team == 0 else "brown"
+	if iris == "":
+		iris = "green" if team == 0 else "brown"
 	eyes = MeshInstance3D.new()
 	eyes.mesh = _patch(EYES_RECT, EYE_Y, 0.0)
 	eyes.position.y = EYE_Y
 	eyes.material_override = _mat(_tex("res://assets/characters/faces/face_eyes_%s_%s.png" % [st, iris]))
 	eyes.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(eyes)
+	if mark != "":
+		var mk := MeshInstance3D.new()
+		mk.mesh = _patch(EYES_RECT, EYE_Y, 0.002)
+		mk.position.y = EYE_Y
+		mk.material_override = _mat(_tex("res://assets/characters/faces/face_mark_%s.png" % mark))
+		mk.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mk)
 	var brows := MeshInstance3D.new()
 	brows.mesh = _patch(EYES_RECT, EYE_Y, 0.004)
 	brows.position.y = EYE_Y
