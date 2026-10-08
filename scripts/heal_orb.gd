@@ -81,10 +81,11 @@ func setup(p_game, pos: Vector3) -> void:
 	orb.scale = Vector3.ONE * 1.35   # big enough to spot at a glance
 	add_child(orb)
 	var liquid := StandardMaterial3D.new()
-	liquid.albedo_color = Color(0.92, 0.08, 0.14)
+	# Deep red: brighter values wash out to pink in the Wildwood's sun.
+	liquid.albedo_color = Color(0.72, 0.02, 0.05)
 	liquid.emission_enabled = true
-	liquid.emission = RED
-	liquid.emission_energy_multiplier = 1.5
+	liquid.emission = Color(0.85, 0.04, 0.07)
+	liquid.emission_energy_multiplier = 1.0
 	var glass := StandardMaterial3D.new()
 	glass.albedo_color = Color(1.0, 0.92, 0.94, 0.22)
 	glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
