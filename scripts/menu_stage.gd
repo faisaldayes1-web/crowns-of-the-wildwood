@@ -698,7 +698,9 @@ func _build_hall() -> void:
 	key.spot_range = 22.0
 	key.spot_angle = 34.0
 	key.spot_attenuation = 0.6
-	key.shadow_enabled = true
+	# No spot shadow in the browser: WebGL rejects the Compatibility
+	# renderer's positional shadow texture binds (console spam, no shadow).
+	key.shadow_enabled = not OS.has_feature("web")
 	game.add_child(key)
 	key.global_position = c + Vector3(0, 6.5, 9.0)
 	key.look_at(c + Vector3(0, 0.8, 0.0))
