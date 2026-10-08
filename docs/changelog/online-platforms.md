@@ -9,7 +9,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 
 ---
 
-## 2026-10-08 22:35 UTC · `HASH-PENDING` · iPad web build: world visible, letterbox on first visit
+## 2026-10-08 22:35 UTC · `ad2abae` · iPad web build: world visible, letterbox on first visit
 
 - **What:** the browser build (played in Safari on an iPad) showed only the sky and the HUD once a
   match started, and on a first visit the menus ran off the sides of the screen. Three fixes:
@@ -30,4 +30,4 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tested:** Chromium with an iPad user agent, touch emulation and a 1180x820 landscape viewport
   on the exported build: title taps, Select Map, Ready Up, a match with the Elf spawn cellar and
   class stations drawn, the move stick and the attack pad.
-- **Revert:** `git revert HASH-PENDING`
+- **Revert:** `git revert ad2abae`
