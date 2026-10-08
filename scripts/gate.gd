@@ -96,8 +96,9 @@ func setup(p_game, p_team: int, x: float) -> void:
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
 	label.font_size = 32
-	label.pixel_size = 0.012
-	label.outline_size = 8
+	label.pixel_size = 0.0095
+	label.outline_size = 12
+	label.outline_modulate = Color(0.08, 0.06, 0.04)
 	label.position.y = size.y / 2.0 + 1.8
 	add_child(label)
 	_refresh()

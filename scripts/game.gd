@@ -18,6 +18,9 @@ const Barricade = preload("res://scripts/barricade.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
+const Volcano = preload("res://scripts/volcano.gd")
+const MainMenu = preload("res://scripts/menu.gd")
+const MenuStage = preload("res://scripts/menu_stage.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -44,12 +47,12 @@ const KEEP_DOOR_HALF := 4.5   # the keep's open archway
 const CAPTURE_RADIUS := 3.0
 # The spawn cellar: a sunken stone hall behind each keep. Everyone spawns
 # there, picks a class at the stations, and climbs the stairs into the keep.
-const CELLAR_DEPTH := 14.0    # how far behind the back wall it reaches (x)
-const CELLAR_HALF_Z := 9.5
+const CELLAR_DEPTH := 18.0    # how far behind the back wall it reaches (x)
+const CELLAR_HALF_Z := 11.0
 const CELLAR_Y := -2.4        # its floor
 const ISLAND_R := 6.0         # the Crown Shrine island in the river
 const STATION_RADIUS := 1.3
-const CAMERA_OFFSET := Vector3(0, 21.0, 15.0)  # a long lens: less edge distortion
+const CAMERA_OFFSET := Vector3(0, 19.0, 16.0)  # a long lens, pitched like a tabletop diorama (50 degrees)
 var cam_zoom := 1.0  # --debug-zoom=N pulls the camera back for overview renders
 var sfx: Node        # every sound: see sfx.gd
 # The river runs north to south through the middle; three bridges cross it.
@@ -57,7 +60,7 @@ const RIVER_HALF := 3.0
 const BRIDGES := [-20.0, 0.0, 20.0]      # the middle crossing is the shrine island
 const BRIDGE_HALF := [2.2, 6.3, 3.0]
 const BANK_LAYER := 16        # river banks block walkers, not shots
-const MONARCH_TITLES := ["Elf Queen", "Human King"]
+const MONARCH_TITLES := ["Elven Crown", "Human Crown"]
 const CONTROLS_PATH := "user://controls.cfg"
 # Actions the player can rebind in the Controls menu (and what to call them).
 const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"],
@@ -73,7 +76,7 @@ const BANTER := {
 	"idle": ["Push the gate!", "Archers, hold the wall.", "Rally at the middle bridge.", "Watch the flanks.", "Who's got the healer?"],
 	"hurt": ["Need a healer over here!", "I'm hurt, falling back.", "Healer!"],
 	"carrying": ["I've got them! Cover me!", "Running it home, clear the way!"],
-	"ours_taken": ["They've taken our monarch! Get them!", "Stop the carrier!", "Don't let them cross the river!"],
+	"ours_taken": ["They've taken our crown! Get it back!", "Stop the carrier!", "Don't let them cross the river!"],
 	"captured": ["That's one for us!", "Beautiful. Again!"],
 	"gate_down": ["The door is down, push in!", "Go go go, the gate's open!"],
 }
@@ -96,6 +99,20 @@ var killer_card := {}           # who killed the player last: {"unit", "weapon"}
 var killer_timer := 0.0
 var hero_look := 0              # Stats.HERO_LOOKS index (1 needs account level 10)
 var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
+static var reopen_screen := ""  # a menu screen to reopen after select_map() reloads the scene
+var vmap = null                 # Ember Pass (the volcano map): its layout, bot routes and Fire Objective; null on the Wildwood
+var hero_skin := 1              # Stats.HERO_SKINS index
+var hero_face := 0              # Stats.HERO_FACES index
+var hero_eye := -1              # Stats.HERO_EYES index (-1: the side's own colour)
+var hero_mark := 0              # Stats.HERO_MARKS index
+var hero_body := 0              # Stats.HERO_BODIES index: the unclassed body's build
+var team_size := TEAM_SIZE      # fighters a side (SELECT MAP's TEAM SIZE); bots fill the gaps
+var split_screen := false       # SELECT MAP's SPLIT SCREEN: extra pads may join in the lobby
+var lobby_sides: Array = []     # READY UP: each local player's side (0 Elves, 1 Humans)
+var join_pads: Array = []       # READY UP: pad device of local players 2-4, in join order
+var p1_pad_device := -1         # the pad player 1 used in the menus (-1: none or unknown)
+var main_menu                   # menu.gd: the title, Select Map, Create Your Character, Ready Up
+var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
@@ -148,6 +165,8 @@ var cursor := Vector2.ZERO      # the gamepad's menu cursor (screen pixels)
 var debug_kill := false
 var cursor_shown := false      # drawn and used instead of the mouse while a pad drives the menus
 var nav_repeat := 0.0          # held D-pad / stick repeat timer
+var confirm_block := false     # a lobby pad's A press: not a cursor click until released
+var lobby_pad_frame := -1      # frame a lobby pad's press was handled (its B is not "back")
 # Quick commands: Z / X / C call the team; bots answer for COMMAND_TIME seconds.
 var team_command := ["", ""]
 var command_timer := [0.0, 0.0]
@@ -228,6 +247,7 @@ var bot_chat_timer := 18.0
 
 func _ready() -> void:
 	randomize()
+	_show_loading(1.2)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="):
 			seed(int(arg.trim_prefix("--seed=")))
@@ -248,6 +268,11 @@ func _ready() -> void:
 			cursor = Vector2(119, 238)
 	if "--debug-night" in OS.get_cmdline_user_args():
 		map_variant = 1
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--map="):  # testing: play a given Stats.MAPS index (2 = Ember Pass)
+			map_variant = clampi(int(arg.trim_prefix("--map=")), 0, Stats.MAPS.size() - 1)
+	# Cartoon shading on everything that enters the scene, props and units alike.
+	get_tree().node_added.connect(func(n): _toonify.call_deferred(n))
 	_build_world()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--gfx="):  # testing: render at a given preset (0-3)
@@ -271,11 +296,39 @@ func _ready() -> void:
 			hero_name = parts[0]
 			hero_hair = int(parts[1]) if parts.size() > 1 else 0
 			hero_trim = int(parts[2]) if parts.size() > 2 else 0
+			hero_body = int(parts[3]) if parts.size() > 3 else hero_body
+			hero_skin = int(parts[4]) if parts.size() > 4 else hero_skin
+			hero_face = int(parts[5]) if parts.size() > 5 else hero_face
+			hero_eye = int(parts[6]) if parts.size() > 6 else hero_eye
+			hero_mark = int(parts[7]) if parts.size() > 7 else hero_mark
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
 		return
 	banner.visible = false
 	sfx.play_music(false)
+	main_menu = MainMenu.new(self)
+	menu_stage = MenuStage.new()
+	add_child(menu_stage)
+	menu_stage.build(self)
+	menu_stage.activate()
+	main_menu.stage = menu_stage
+	if reopen_screen != "":
+		main_menu.go(reopen_screen)
+		reopen_screen = ""
+	for arg in OS.get_cmdline_user_args():
+		# Testing: open a menu screen (title, map, character, lobby) or overlay.
+		if arg.begins_with("--debug-screen="):
+			var scr := arg.trim_prefix("--debug-screen=")
+			if scr in ["credits", "tutorial", "progress"]:
+				main_menu.overlay = scr
+			else:
+				main_menu.go(scr)
+		if arg.begins_with("--debug-char-tab="):
+			main_menu.char_tab = int(arg.trim_prefix("--debug-char-tab="))
+		if arg.begins_with("--debug-lobby="):  # N local players, all ready
+			split_screen = true
+			couch_players = clampi(int(arg.trim_prefix("--debug-lobby=")), 1, COUCH_MAX)
+			main_menu.readied = [true, true, true, true]
 
 
 func _process(delta: float) -> void:
@@ -295,13 +348,16 @@ func _process(delta: float) -> void:
 				_finish(1 - t)
 				break
 	_update_compass()
+	if vmap:
+		vmap.tick(delta)
 	if not playing and not game_over:
 		if name_editing or menu_open:
 			return
-		if Input.is_action_just_pressed("pick_elves"):
-			_start_match(0)
-		elif Input.is_action_just_pressed("pick_humans"):
-			_start_match(1)
+		if main_menu and main_menu.screen == "lobby" and main_menu.overlay == "":
+			# Ready Up: 1 or 2 picks player 1's side and starts.
+			if Input.is_action_just_pressed("pick_elves") or Input.is_action_just_pressed("pick_humans"):
+				lobby_sides[0] = 0 if Input.is_action_just_pressed("pick_elves") else 1
+				main_menu.start()
 		return
 	if game_over:
 		if demo and not "--debug-end" in OS.get_cmdline_user_args():
@@ -427,6 +483,8 @@ func _debug_hooks() -> void:
 				player.global_position = Vector3(fx + side * 0.6, WALK_Y, -(Stats.DOOR_HALF + 3.2))
 				player.facing = Vector3(-side, 0, 0)
 				cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom
+			if arg == "--debug-nohud":  # clean world renders (the menu's map thumbnails)
+				hud.get_parent().visible = false
 			if arg == "--debug-menu":
 				menu_open = true
 				menu_tab = 0
@@ -435,7 +493,7 @@ func _debug_hooks() -> void:
 			if arg == "--debug-stolen":
 				stolen_timer = 3.5
 				if monarchs[1 - player_team].state == Monarch.State.HOME:
-					var thief = units[TEAM_SIZE - 1] if player_team == 1 else units[TEAM_SIZE + 1]
+					var thief = units.filter(func(x): return x.team != player_team)[mini(1, team_size - 1)]
 					monarchs[1 - player_team].pick_up(thief)
 					thief.carrying = monarchs[1 - player_team]
 			if arg == "--debug-levelup":
@@ -460,6 +518,14 @@ func _debug_hooks() -> void:
 				var p := arg.trim_prefix("--debug-at=").split(",")
 				player.position = Vector3(float(p[0]), float(p[2]) if p.size() > 2 else 0.0, float(p[1]))
 				cam_pos = player.position + CAMERA_OFFSET * cam_zoom
+			if arg.begins_with("--debug-fire=") and vmap and not "--debug-fire-early" in OS.get_cmdline_user_args():
+				# Ember Pass: hand the Fire Objective to a team (and give the
+				# player a class so the FIRE form shows).
+				var ft := int(arg.trim_prefix("--debug-fire="))
+				if player.role == Role.BASE:
+					player.set_role(Role.KNIGHT)
+				vmap.fire_progress = -1.0 if ft == 0 else 1.0
+				vmap._set_owner(ft)
 			if arg == "--debug-blessing":
 				spawn_blessing(Vector3(0, 0, 0), "Regeneration")
 				player.apply_blessing("Might")
@@ -479,6 +545,12 @@ func _debug_hooks() -> void:
 				player.choose_variant(Role.KNIGHT, 0)
 				player.kills = 3
 				player.damage_dealt = 7
+		if arg.begins_with("--debug-fire=") and vmap and player and frame == 30 and "--debug-fire-early" in OS.get_cmdline_user_args():
+			# The same, early, so the capture's flash has faded by the shot.
+			if player.role == Role.BASE:
+				player.set_role(Role.KNIGHT)
+			vmap.fire_progress = -1.0 if arg.ends_with("0") else 1.0
+			vmap._set_owner(0 if arg.ends_with("0") else 1)
 		if arg == "--debug-options" and frame == shot_frame - 5 and not playing:
 			menu_open = true
 			menu_tab = 4
@@ -543,6 +615,8 @@ func _demo_summary() -> void:
 	## One line per unit at the end of a bot match, for balance tallies.
 	var w: String = "Draw" if winner_team < 0 else Stats.FACTIONS[winner_team].name
 	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1]])
+	if vmap:
+		print("FIRESTAT held=%d/%d captures=%d/%d" % [int(vmap.fire_held[0]), int(vmap.fire_held[1]), vmap.fire_captures[0], vmap.fire_captures[1]])
 	for u in units:
 		# The class the bot plays all match (its current role resets on death).
 		var cls: String = Stats.FACTIONS[u.team].roles[u.bot_class]
@@ -646,6 +720,8 @@ func turret_spot(team: int, pos: Vector3, builder) -> Vector3:
 	var grounds: bool = (fx - pos.x) * side >= 0.0 and (fx - pos.x) * side < Stats.TURRET.grounds and absf(pos.z) < CASTLE_HALF_Z + 6.0
 	if not (_inside_castle(team, pos) or grounds):
 		return Vector3.INF
+	if vmap and not vmap.walkable(pos, 0.5):
+		return Vector3.INF  # not out over the lava
 	if absf(pos.z) < Stats.DOOR_HALF + 1.3 and absf(pos.x - fx) < 5.0:
 		return Vector3.INF  # keep the door lane clear
 	if pos.y < -0.3:
@@ -765,7 +841,8 @@ func _tick_blessings(delta: float) -> void:
 	if blessing_timer > 0.0 or blessings.size() >= 2:
 		return
 	blessing_timer = randf_range(Stats.BLESSING_INTERVAL[0], Stats.BLESSING_INTERVAL[1])
-	var spot: Vector3 = BLESSING_SPOTS[randi() % BLESSING_SPOTS.size()]
+	var spots: Array = vmap.blessing_spots() if vmap else BLESSING_SPOTS
+	var spot: Vector3 = spots[randi() % spots.size()]
 	var kinds: Array = Stats.BLESSING_KINDS.keys()
 	spawn_blessing(spot, kinds[randi() % kinds.size()])
 
@@ -781,7 +858,7 @@ func spawn_blessing(spot: Vector3, kind: String) -> void:
 	if spot.length() < 3.0:
 		where = "at the Crown Shrine"
 	elif absf(spot.x) > 12.0:
-		where = "on the %s side" % (Stats.FACTIONS[0].realm if spot.x < 0.0 else Stats.FACTIONS[1].realm)
+		where = "on the %s' side" % (Stats.FACTIONS[0].name if spot.x < 0.0 else Stats.FACTIONS[1].name)
 	announce("A Blessing of %s has appeared %s!" % [kind, where])
 
 
@@ -956,6 +1033,9 @@ func _plan_bots(team: int) -> void:
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1 if overtime else 2, "defend")
 	elif gate_hurt:
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1, "defend")
+	# Ember Pass: win the Fire Objective, then keep a guard on it.
+	if vmap and cmd != "defend":
+		_assign_nearest(bots, vmap.FIRE_POS, vmap.bots_wanted(team), "fire")
 
 
 func command_active(team: int, kind: String) -> bool:
@@ -1018,21 +1098,21 @@ func objective_target() -> Dictionary:
 	if prep_left > 0.0:
 		return {"pos": player.global_position, "step": 0, "label": "Fortify: turrets, traps, barricades (%s)" % key_label("interact")}
 	if player.carrying:
-		return {"pos": thrones[player_team], "step": 2, "label": "Carry them to your throne"}
+		return {"pos": thrones[player_team], "step": 2, "label": "Carry it to your throne"}
 	if mine.state == Monarch.State.CARRIED:
-		return {"pos": mine.carrier.global_position, "step": -1, "label": "Stop the thief carrying our monarch"}
+		return {"pos": mine.carrier.global_position, "step": -1, "label": "Stop the thief carrying our crown"}
 	if mine.state == Monarch.State.DROPPED:
-		return {"pos": mine.global_position, "step": -1, "label": "Bring our monarch home"}
+		return {"pos": mine.global_position, "step": -1, "label": "Bring our crown home"}
 	if theirs.state == Monarch.State.CARRIED:
 		return {"pos": theirs.carrier.global_position, "step": 2, "label": "Escort our carrier"}
 	if theirs.state == Monarch.State.DROPPED:
-		return {"pos": theirs.global_position, "step": 2, "label": "Grab their monarch"}
+		return {"pos": theirs.global_position, "step": 2, "label": "Grab their crown"}
 	var gate = gates[1 - player_team]
 	if not gate.broken and not _inside_castle(1 - player_team, player.global_position):
 		return {"pos": gate.global_position, "step": 0, "label": "Break the enemy castle door"}
 	if vaults[1 - player_team].is_locked():
 		return {"pos": theirs.global_position, "step": 1, "label": "Break the lock on their Crown Vault"}
-	return {"pos": theirs.global_position, "step": 2, "label": "Grab their monarch"}
+	return {"pos": theirs.global_position, "step": 2, "label": "Grab their crown"}
 
 
 func _update_compass() -> void:
@@ -1230,9 +1310,13 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 			target = ramp.bottom
 		else:
 			return ramp.top
+	# Ember Pass: over the plazas and bridges to the leg that matters; the
+	# castle doors and keeps below still apply.
+	if vmap:
+		target = vmap.route(from, target)
 	# The shrine plinth is solid: a goal on it (or right beside it) means
 	# standing at its foot, on the side we come from.
-	if _flat_dist(target, Vector3.ZERO) < 1.6:
+	if vmap == null and _flat_dist(target, Vector3.ZERO) < 1.6:
 		var away := Vector3(from.x - target.x, 0, from.z - target.z)
 		if away.length() < 0.1:
 			away = Vector3(0, 0, 1)
@@ -1241,7 +1325,7 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 	# Up on the shrine island and leaving it: the steps are at z 0 on each
 	# side (stone rims close the north and south edges), and the plinth sits
 	# in the middle, so go round it on the side we are already on first.
-	var on_island: bool = from.y > 0.3 and _flat_dist(from, Vector3.ZERO) < ISLAND_R + 0.3
+	var on_island: bool = vmap == null and from.y > 0.3 and _flat_dist(from, Vector3.ZERO) < ISLAND_R + 0.3
 	if on_island and _flat_dist(target, Vector3.ZERO) > ISLAND_R + 0.3:
 		var exit_side := 1.0 if target.x > 0.0 else -1.0
 		if from.x * exit_side < -1.2 and absf(from.z) < 1.6:
@@ -1250,7 +1334,7 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 			return Vector3(exit_side * 2.4, 0.5, (1.0 if from.z >= 0.0 else -1.0) * 1.8)
 		return Vector3(exit_side * (ISLAND_R + 3.6), 0.0, 0.0)
 	# The river: cross at the bridge closest to the way, entering it square on.
-	if (from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF):
+	if vmap == null and ((from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF)):
 		var bi := 0
 		var best := 1e9
 		for i in BRIDGES.size():
@@ -1528,10 +1612,59 @@ func _flat_dist(a: Vector3, b: Vector3) -> float:
 	return Vector2(a.x - b.x, a.z - b.z).length()
 
 
+# --- Loading screens ---------------------------------------------------------
+
+const LOADING_SCREENS := ["res://assets/ui/loading_1.jpg", "res://assets/ui/loading_2.jpg"]
+var loading_layer: CanvasLayer
+
+
+func _show_loading(hold: float) -> void:
+	## Faisal's key art (2026-10-07) over everything while the world builds
+	## or a match starts: one of the two, picked at random, then a fade.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--shot") or arg == "--demo" or arg == "--audit":
+			return   # screenshots and headless tests see the game itself
+	if loading_layer:
+		loading_layer.queue_free()
+	loading_layer = CanvasLayer.new()
+	loading_layer.layer = 100
+	add_child(loading_layer)
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.07, 0.05)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	loading_layer.add_child(bg)
+	var art := TextureRect.new()
+	art.texture = load(LOADING_SCREENS[randi() % LOADING_SCREENS.size()])
+	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.add_child(art)
+	var label := Label.new()
+	label.text = "LOADING..."
+	label.add_theme_font_size_override("font_size", 26)
+	label.add_theme_color_override("font_color", Color(1.0, 0.92, 0.65))
+	label.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.04))
+	label.add_theme_constant_override("outline_size", 10)
+	label.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	label.position = Vector2(-220, -64)
+	bg.add_child(label)
+	var layer := loading_layer
+	var tw := create_tween()
+	tw.tween_interval(hold)
+	tw.tween_property(bg, "modulate:a", 0.0, 0.6)
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(layer):
+			layer.queue_free())
+
+
 # --- Match setup -----------------------------------------------------------
 
 func _start_match(team: int) -> void:
+	_show_loading(1.0)
 	player_team = team
+	for m in monarchs:
+		# Only our own crown is labelled (Faisal 2026-10-07: no "steal" text).
+		m.label.text = ""   # no crown captions (Faisal 2026-10-07 21:14)
 	winner_team = -1
 	banner.visible = false
 	for arg in OS.get_cmdline_user_args():
@@ -1539,26 +1672,51 @@ func _start_match(team: int) -> void:
 			couch_players = clampi(int(arg.trim_prefix("--couch=")), 1, COUCH_MAX)  # testing: split-screen renders
 		if arg.begins_with("--couch-mode="):
 			couch_mode = arg.trim_prefix("--couch-mode=")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--team-size="):
+			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEAM_SIZE)  # testing: smaller sides
+	if menu_stage:
+		# Leave the menus: their hall and models go, the match camera takes over.
+		# Freed now, not queued: a camera left in the viewport would become
+		# current again and render the whole world behind the split panes.
+		menu_stage.free()
+		menu_stage = null
+		if main_menu:
+			main_menu.stage = null
+		camera.make_current()
+	# Each local player's side: from the lobby, else player 1's pick with
+	# the couch rule (versus: 2 and 4 against, co-op: all together).
+	local_sides = []
+	for k in couch_players:
+		if k < lobby_sides.size() and lobby_sides[k] != null and main_menu:
+			local_sides.append(int(lobby_sides[k]))
+		else:
+			local_sides.append(team if (couch_mode == "coop" or k % 2 == 0) else 1 - team)
+	local_sides[0] = team
 	locals = []
 	locals.resize(couch_players)
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
-		for i in TEAM_SIZE:
+		# A side is team_size strong, or bigger if more local players chose it.
+		var count: int = maxi(team_size, local_sides.count(t))
+		for i in count:
 			var u = Unit.new()
 			add_child(u)
-			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 11.6), CELLAR_Y, -4.0 + i * 2.0)
+			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 14.5), CELLAR_Y, -4.0 + i * 2.0)
 			var local_k := _local_slot(t, i)
 			var is_player := local_k >= 0 and not demo
 			u.setup(self, t, is_player, spawn)
-			u.bot_class = LINEUP[i][0]
-			u.bot_job = LINEUP[i][1]
-			u.base_job = LINEUP[i][1]
+			u.bot_class = LINEUP[i % LINEUP.size()][0]
+			u.bot_job = LINEUP[i % LINEUP.size()][1]
+			u.base_job = LINEUP[i % LINEUP.size()][1]
 			if is_player:
 				u.local_index = local_k
 				u.act_prefix = "" if local_k == 0 else "p%d_" % (local_k + 1)
 				u.has_mouse = local_k == 0
 				u.display_name = (hero_name if hero_name.strip_edges() != "" else "You") if local_k == 0 else "Player %d" % (local_k + 1)
 				locals[local_k] = u
+				u._apply_side_colors()   # couch colours need local_index, set just now
+				u._refresh_overhead()
 			else:
 				u.display_name = Stats.BOT_NAMES[t][i % Stats.BOT_NAMES[t].size()]
 			units.append(u)
@@ -1699,6 +1857,8 @@ func plant_barricade(u) -> bool:
 		why = "Not in the door lane"
 	elif _inside_castle(team, u.global_position) or absf(u.global_position.x) > CASTLE_X - CASTLE_DEPTH - 1.6:
 		why = "Only outside the walls"
+	elif vmap and not vmap.walkable(u.global_position + u.facing * 1.6, 0.4):
+		why = "Not over the lava"
 	if why != "":
 		if u.is_player:
 			toast(why, Color(1.0, 0.8, 0.5))
@@ -1799,8 +1959,10 @@ func _pad_nav() -> void:
 	else:
 		nav_repeat = 0.0
 	cursor = cursor.clamp(Vector2.ZERO, get_viewport().get_visible_rect().size)
-	if Input.is_action_just_pressed("ui_back"):
-		if menu_open:
+	if Input.is_action_just_pressed("ui_back") and Engine.get_process_frames() != lobby_pad_frame:
+		if not playing and not menu_open and main_menu:
+			main_menu.back()
+		elif menu_open:
 			menu_open = false
 			get_tree().paused = false
 			sfx.ui("ui_click", -4.0)
@@ -1845,15 +2007,19 @@ func set_couch(what: String) -> void:
 	_save_settings()
 
 
+var local_sides: Array = []     # each local player's side this match (see _start_match)
+var bound_pads: Array = []      # the pad device each local player holds this match (see _bind_couch_input)
+
+
 func _local_slot(team: int, slot: int) -> int:
 	## Which local player (0-based) takes lineup slot `slot` of `team`, or -1
-	## for a bot. Versus: players 1 and 3 on your side, 2 and 4 against.
-	## Co-op: everyone on your side.
+	## for a bot. Local players fill a side's first slots in player order.
+	var ks := 0
 	for k in couch_players:
-		var kt: int = player_team if (couch_mode == "coop" or k % 2 == 0) else 1 - player_team
-		var ks: int = k if couch_mode == "coop" else k / 2
-		if kt == team and ks == slot:
-			return k
+		if local_sides[k] == team:
+			if ks == slot:
+				return k
+			ks += 1
 	return -1
 
 
@@ -1866,6 +2032,18 @@ func _bind_couch_input() -> void:
 	for k in range(1, couch_players):
 		pads.append(k - 1)
 	var p1_pad: int = couch_players - 1 if couch_players > 1 else -1
+	if join_pads.size() == couch_players - 1 and couch_players > 1:
+		# Players who joined in the lobby keep the pad they joined with;
+		# player 1 keeps theirs (or the first pad nobody took).
+		pads = join_pads.duplicate()
+		p1_pad = p1_pad_device
+		if p1_pad < 0 or p1_pad in pads:
+			p1_pad = -1
+			for d in Input.get_connected_joypads():
+				if not d in pads:
+					p1_pad = d
+					break
+	bound_pads = [p1_pad] + pads
 	for action in COUCH_ACTIONS:
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
@@ -1966,7 +2144,9 @@ func shake_at(where: Vector3, amount: float) -> void:
 
 func hero_custom() -> Dictionary:
 	## The player's chosen hair and trim colours for the character skin.
-	var c := {"hair": Stats.HERO_HAIR[hero_hair][1]}
+	var c := {"hair": Stats.HERO_HAIR[hero_hair][1], "skin": Stats.HERO_SKINS[hero_skin][1], "body": Stats.HERO_BODIES[hero_body][1], "face": hero_face, "mark": hero_mark}
+	if hero_eye >= 0:
+		c.eye = hero_eye
 	if hero_trim > 0:
 		c.trim = Stats.HERO_TRIM[hero_trim][1]
 	if hero_look > 0 and unlocked():
@@ -2157,6 +2337,8 @@ func menu_tick() -> void:
 				menu_tab = 4
 			elif Input.is_action_just_pressed("menu") and menu_open:
 				menu_open = false
+			elif Input.is_action_just_pressed("menu") and main_menu and not name_editing:
+				main_menu.back()
 			elif not menu_open:
 				if Input.is_action_just_pressed("menu_left"):
 					cycle_difficulty(-1)
@@ -2231,7 +2413,9 @@ func menu_tick() -> void:
 	# Mouse clicks on menu buttons (the HUD records where it drew them). A
 	# gamepad drives the same buttons through its cursor.
 	_pad_nav()
-	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (cursor_shown and Input.is_action_pressed("ui_confirm"))
+	if confirm_block and not Input.is_action_pressed("ui_confirm"):
+		confirm_block = false
+	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (cursor_shown and Input.is_action_pressed("ui_confirm") and not confirm_block)
 	if click and hud and menu_open:
 		# Volume sliders follow the mouse while the button is held.
 		var mp := menu_mouse()
@@ -2248,6 +2432,8 @@ func menu_tick() -> void:
 				_save_settings()
 	if click and not click_was and hud and rebinding == "":
 		var mouse := menu_mouse()
+		if not playing and not menu_open and main_menu and not name_editing:
+			main_menu.tick(true, mouse)
 		for i in hud.rank_buttons.size():
 			if hud.rank_buttons[i].has_point(mouse) and player:
 				player.spend_point(i)
@@ -2308,9 +2494,8 @@ func menu_tick() -> void:
 							else:
 								toast("The Shadowborn look unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"map":
-							if b[2] == 0 or unlocked():
-								map_variant = b[2]
-								_apply_map_variant()
+							if b[2] != 1 or unlocked():
+								select_map(b[2])
 							else:
 								toast("The Moonlit Wildwood unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"name": name_editing = true
@@ -2354,6 +2539,10 @@ func menu_input(event: InputEvent) -> void:
 	## Raw key events from the HUD: typing in chat and rebinding controls.
 	# Remember whether player 1 is on the keyboard or a pad, so keycaps and
 	# hints show the right names.
+	if main_menu and not playing and main_menu.pad_event(event):
+		confirm_block = true   # a joining pad's press is theirs, not a click for player 1
+		lobby_pad_frame = Engine.get_process_frames()
+		return
 	if (event is InputEventJoypadButton or event is InputEventJoypadMotion) and (couch_players == 1 or event.device == local_pad(0)):
 		if event is InputEventJoypadButton and event.pressed or event is InputEventJoypadMotion and absf(event.axis_value) > 0.6:
 			pad_active = true
@@ -2554,11 +2743,21 @@ func _axis_name(axis: int, kind: String) -> String:
 
 # --- Gamepads ----------------------------------------------------------------
 
+const PLAYER_COLORS := [Color(1.0, 1.0, 0.3), Color(0.3, 0.85, 1.0), Color(1.0, 0.45, 0.8), Color(0.6, 1.0, 0.3)]
+
+
+func player_color(local_index: int) -> Color:
+	## Each couch player's colour: their ground ring, outline, name and map arrow.
+	return PLAYER_COLORS[clampi(local_index, 0, PLAYER_COLORS.size() - 1)]
+
+
 func local_pad(local_index: int) -> int:
 	## The gamepad device a local player uses: in couch play players 2-4 hold
 	## pads 0-2 and player 1 the next one; alone, player 1 holds whichever
 	## pad is plugged in first.
 	if couch_players > 1:
+		if bound_pads.size() == couch_players:
+			return bound_pads[maxi(local_index, 0)]
 		return couch_players - 1 if local_index <= 0 else local_index - 1
 	var pads: Array = Input.get_connected_joypads()
 	return pads[0] if not pads.is_empty() else -1
@@ -2723,6 +2922,22 @@ func cycle_difficulty(step: int) -> void:
 	_save_settings()
 
 
+func select_map(index: int) -> void:
+	## Pick a map on the title screen. The Moonlit Wildwood only changes the
+	## light; a map with other ground (Ember Pass) rebuilds the world, so the
+	## scene restarts on the title with the new map saved.
+	var built: String = "volcano" if vmap else "wildwood"
+	var want: String = "volcano" if Stats.MAPS[index][1] == "volcano" else "wildwood"
+	map_variant = index
+	if want != built:
+		_save_settings()
+		if main_menu:
+			reopen_screen = main_menu.screen
+		get_tree().reload_current_scene()
+		return
+	_apply_map_variant()
+
+
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(CONTROLS_PATH)
@@ -2749,6 +2964,13 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "banner_frame", banner_frame)
 	cfg.set_value("settings", "banner_title", banner_title)
 	cfg.set_value("settings", "map_variant", map_variant)
+	cfg.set_value("settings", "hero_skin", hero_skin)
+	cfg.set_value("settings", "hero_face", hero_face)
+	cfg.set_value("settings", "hero_eye", hero_eye)
+	cfg.set_value("settings", "hero_mark", hero_mark)
+	cfg.set_value("settings", "hero_body", hero_body)
+	cfg.set_value("settings", "team_size", team_size)
+	cfg.set_value("settings", "split_screen", split_screen)
 	cfg.set_value("profile", "account_xp", account_xp)
 	cfg.save(CONTROLS_PATH)
 
@@ -2778,7 +3000,7 @@ func _load_controls() -> void:
 		bot_difficulty = diff
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
 	rosters_visible = cfg.get_value("settings", "rosters_shown", false)
-	couch_players = clampi(int(cfg.get_value("settings", "couch_players", 1)), 1, COUCH_MAX)
+	couch_players = 1  # extra players join each session in the Ready Up lobby
 	couch_mode = "coop" if cfg.get_value("settings", "couch_mode", "versus") == "coop" else "versus"
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
@@ -2800,6 +3022,13 @@ func _load_controls() -> void:
 	banner_frame = clampi(cfg.get_value("settings", "banner_frame", 0), 0, Stats.BANNER_FRAMES.size() - 1)
 	banner_title = clampi(cfg.get_value("settings", "banner_title", 0), 0, Stats.BANNER_TITLES.size() - 1)
 	map_variant = clampi(cfg.get_value("settings", "map_variant", 0), 0, Stats.MAPS.size() - 1)
+	hero_skin = clampi(cfg.get_value("settings", "hero_skin", 1), 0, Stats.HERO_SKINS.size() - 1)
+	hero_face = clampi(cfg.get_value("settings", "hero_face", 0), 0, Stats.HERO_FACES.size() - 1)
+	hero_eye = clampi(cfg.get_value("settings", "hero_eye", -1), -1, Stats.HERO_EYES.size() - 1)
+	hero_mark = clampi(cfg.get_value("settings", "hero_mark", 0), 0, Stats.HERO_MARKS.size() - 1)
+	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)
+	team_size = clampi(cfg.get_value("settings", "team_size", TEAM_SIZE), 1, TEAM_SIZE)
+	split_screen = cfg.get_value("settings", "split_screen", false)
 	account_xp = maxi(int(cfg.get_value("profile", "account_xp", 0)), 0)
 	for entry in REBINDABLE:
 		if not cfg.has_section_key("controls", entry[0]):
@@ -2842,10 +3071,13 @@ func _material(color: Color) -> StandardMaterial3D:
 
 # Textured materials (ambientCG, CC0). Triplanar mapping means boxes of any
 # size tile cleanly without UV work. One tile every 1/scale metres.
-func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE) -> StandardMaterial3D:
+func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE, ext: String = "jpg") -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
-	mat.albedo_texture = load("res://assets/textures/%s_color.jpg" % prefix)
-	mat.albedo_color = tint
+	# A swapped texture is already dark and cool, so it takes only a light soot.
+	var dim: Color = Color(0.9, 0.86, 0.84) if tex_swap.has(prefix) else soot
+	prefix = tex_swap.get(prefix, prefix)
+	mat.albedo_texture = load("res://assets/textures/%s_color.%s" % [prefix, ext])
+	mat.albedo_color = tint * dim
 	mat.normal_enabled = true
 	mat.normal_texture = load("res://assets/textures/%s_normal.jpg" % prefix)
 	mat.roughness = 0.85
@@ -2861,7 +3093,17 @@ func _stone(tint: Color = Color.WHITE, scale: float = 0.26) -> StandardMaterial3
 
 
 func _grass() -> StandardMaterial3D:
-	return _pbr("grass", 0.11, Color(0.96, 1.0, 0.9))
+	return _pbr("grass", 0.11)
+
+
+func _stones(loose: bool = false) -> StandardMaterial3D:
+	## Pale flagstones with the meadow showing between them (the paths).
+	## The gaps are cut out of the texture, so the grass below shows through.
+	var name := "path_loose" if loose else "path"
+	var mat := _pbr(name, 0.26 if loose else 0.2, Color.WHITE, "png")
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.5
+	return mat
 
 
 var verge_mat: StandardMaterial3D
@@ -3062,16 +3304,8 @@ func _add_ground_detail() -> void:
 	## stones, leaf litter and plain wildflowers. All MultiMeshes.
 	var r := RandomNumberGenerator.new()
 	r.seed = 1234
-	var flower := SphereMesh.new()
-	flower.radius = 0.1
-	flower.height = 0.16
-	flower.radial_segments = 6
-	flower.rings = 3
-	var tuft := CylinderMesh.new()
-	tuft.top_radius = 0.0
-	tuft.bottom_radius = 0.2
-	tuft.height = 0.42
-	tuft.radial_segments = 5
+	var flower := _petal_mesh()
+	var tuft := _tuft_mesh()
 	var stone := _rock_mesh(77, 0.26, 0.25)
 	var cap := CylinderMesh.new()
 	cap.top_radius = 0.08
@@ -3081,7 +3315,7 @@ func _add_ground_detail() -> void:
 	var leaf := PlaneMesh.new()
 	leaf.size = Vector2(0.34, 0.26)
 	var sets := [
-		["flower", flower, 520, 0.14], ["tuft", tuft, 900, 0.18], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
+		["flower", flower, 1400, 0.4], ["tuft", tuft, 8000, 0.0], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
 	for s in sets:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -3111,11 +3345,14 @@ func _add_ground_detail() -> void:
 			var col: Color
 			match s[0]:
 				"flower":
-					col = [Color(0.98, 0.9, 0.45), Color(0.98, 0.98, 1.0), Color(0.95, 0.55, 0.65), Color(0.6, 0.8, 1.0), Color(0.95, 0.55, 0.25)][r.randi() % 5]
-					if elf_side and r.randf() < 0.35:
-						col = Color(0.5, 0.95, 1.0)  # glowing wildwood bloom
+					# Cartoon blooms: flat five-petal heads tipped towards the camera.
+					basis = Basis(Vector3.RIGHT, deg_to_rad(35.0)) * Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * sc)
+					col = [Color(0.25, 0.45, 1.0), Color(0.25, 0.45, 1.0), Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 1.0), Color(0.95, 0.22, 0.2), Color(1.0, 0.82, 0.2), Color(1.0, 0.55, 0.75)][r.randi() % 7]
+					if elf_side and r.randf() < 0.3:
+						col = Color(0.45, 0.95, 1.0)  # glowing wildwood bloom
 				"tuft":
-					col = Color.from_hsv(0.27 + r.randf_range(-0.03, 0.03), 0.8, r.randf_range(0.28, 0.42))
+					basis = basis.scaled(Vector3.ONE * 1.6)   # lush clumps, as in the target renders
+					col = Color.from_hsv(0.28 + r.randf_range(-0.02, 0.02), 0.8, r.randf_range(0.42, 0.58))
 				"stone":
 					col = Color(0.46, 0.46, 0.44).lerp(Color(0.36, 0.38, 0.36), r.randf())
 					if elf_side and r.randf() < 0.3:
@@ -3133,6 +3370,8 @@ func _add_ground_detail() -> void:
 		var mat := StandardMaterial3D.new()
 		mat.vertex_color_use_as_albedo = true
 		mat.roughness = 0.9
+		if s[0] == "flower" or s[0] == "tuft":
+			mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		if s[0] == "flower" or s[0] == "cap":
 			mat.emission_enabled = true
 			mat.emission = Color(0.3, 0.6, 0.7)
@@ -3140,6 +3379,37 @@ func _add_ground_detail() -> void:
 		inst.material_override = mat
 		inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(inst)
+		if s[0] == "flower":
+			# A golden eye on each bloom and a green stem under it.
+			var eyes := MultiMesh.new()
+			eyes.transform_format = MultiMesh.TRANSFORM_3D
+			var eye := SphereMesh.new()
+			eye.radius = 0.075
+			eye.height = 0.07
+			eye.radial_segments = 6
+			eye.rings = 2
+			eyes.mesh = eye
+			var stems := MultiMesh.new()
+			stems.transform_format = MultiMesh.TRANSFORM_3D
+			var stem := CylinderMesh.new()
+			stem.top_radius = 0.02
+			stem.bottom_radius = 0.025
+			stem.height = 0.4
+			stem.radial_segments = 4
+			stem.rings = 1
+			stems.mesh = stem
+			eyes.instance_count = placed.size()
+			stems.instance_count = placed.size()
+			for i in placed.size():
+				var t := mm.get_instance_transform(i)
+				eyes.set_instance_transform(i, Transform3D(t.basis, t.origin + t.basis.y * 0.02))
+				stems.set_instance_transform(i, Transform3D(Basis.IDENTITY, placed[i] + Vector3(0, 0.2, 0)))
+			for pair in [[eyes, Color(1.0, 0.85, 0.25)], [stems, Color(0.3, 0.6, 0.18)]]:
+				var ei := MultiMeshInstance3D.new()
+				ei.multimesh = pair[0]
+				ei.material_override = _material(pair[1])
+				ei.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				add_child(ei)
 		if s[0] == "cap":
 			# Stems under the caps.
 			var stems := MultiMesh.new()
@@ -3158,6 +3428,42 @@ func _add_ground_detail() -> void:
 			si.material_override = _material(Color(0.9, 0.86, 0.75))
 			si.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(si)
+
+
+func _petal_mesh() -> ArrayMesh:
+	## Five round, flat petals in a ring (one bloom head, tinted per instance).
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in 5:
+		var a := TAU * k / 5.0
+		var c := Vector3(cos(a), 0, sin(a)) * 0.13
+		var segs := 8
+		for j in segs:
+			var a0 := TAU * j / segs
+			var a1 := TAU * (j + 1) / segs
+			st.set_normal(Vector3.UP)
+			st.add_vertex(c + Vector3(0, 0.01, 0))
+			st.set_normal(Vector3.UP)
+			st.add_vertex(c + Vector3(cos(a1), 0, sin(a1)) * 0.105)
+			st.set_normal(Vector3.UP)
+			st.add_vertex(c + Vector3(cos(a0), 0, sin(a0)) * 0.105)
+	return st.commit()
+
+
+func _tuft_mesh() -> ArrayMesh:
+	## A lush clump of seven tapering grass blades leaning outwards.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in 7:
+		var a := TAU * k / 7.0 + 0.4
+		var out := Vector3(cos(a), 0, sin(a))
+		var side := Vector3(-out.z, 0, out.x) * 0.07
+		var tip := out * (0.2 + 0.05 * (k % 3)) + Vector3(0, 0.55 - 0.07 * (k % 4), 0)
+		var n := (out + Vector3.UP * 0.6).normalized()
+		for v in [-side, tip, side, side, tip, -side]:
+			st.set_normal(n)
+			st.add_vertex(v)
+	return st.commit()
 
 
 func _open_ground(p: Vector3) -> bool:
@@ -3198,9 +3504,61 @@ func _open_ground(p: Vector3) -> bool:
 const RESERVED_GROUND := [Vector3(-6.2, 0, -30), Vector3(6.2, 0, 30), Vector3(-30, 0, 22)]
 
 
-func _add_tree(pos: Vector3, big: bool = false) -> void:
+func _near_path(p: Vector3, margin: float) -> bool:
+	## True when p is within margin of the edge of any path or road.
+	for path in map_paths:
+		var a: Vector3 = path[0]
+		var b: Vector3 = path[1]
+		var ab := Vector2(b.x - a.x, b.z - a.z)
+		var t := clampf(Vector2(p.x - a.x, p.z - a.z).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+		var q := Vector2(a.x, a.z) + ab * t
+		if Vector2(p.x, p.z).distance_to(q) < path[2] / 2.0 + margin:
+			return true
+	return false
+
+
+func _tree_spot_ok(pos: Vector3, big: bool) -> bool:
+	## Trees keep clear of each other's crowns, the roads and tracks, the
+	## paved courts before the castle doors, and anything built (walls,
+	## houses, fences), so no canopy pokes through a roof or blocks a way in.
+	var crown := 2.6 if big else 2.1
+	if absf(pos.x) < RIVER_HALF + crown or _flat_dist(pos, Vector3.ZERO) < ISLAND_R + crown:
+		return false
 	for rp in RESERVED_GROUND:
 		if _flat_dist(pos, rp) < 5.5:
+			return false
+	for t in map_trees:
+		if _flat_dist(pos, t) < 3.6:
+			return false
+	if _near_path(pos, 1.2):
+		return false
+	var fxr := CASTLE_X - CASTLE_DEPTH
+	for sx in [-1.0, 1.0]:
+		if _flat_dist(pos, Vector3(sx * (fxr - 4.0), 0, 0)) < 4.4 + crown + 1.0:
+			return false
+	for blk in audit_blocks:
+		var box: AABB = blk[1]
+		if box.size.y < 0.3 or box.end.y < 0.3:
+			continue  # floors, decals and the ground slabs
+		if pos.x > box.position.x - crown and pos.x < box.end.x + crown and pos.z > box.position.z - crown and pos.z < box.end.z + crown:
+			return false
+	return true
+
+
+func _add_tree(pos: Vector3, big: bool = false) -> void:
+	if not _tree_spot_ok(pos, big):
+		# Slide it a few metres to the nearest clear spot, or leave it out.
+		var moved := false
+		for d in [2.5, 4.0]:
+			for k in 8:
+				var q: Vector3 = pos + Vector3(cos(k * TAU / 8.0), 0, sin(k * TAU / 8.0)) * d
+				if absf(q.z) < map_half.y - 1.0 and _tree_spot_ok(q, big):
+					pos = q
+					moved = true
+					break
+			if moved:
+				break
+		if not moved:
 			return
 	map_trees.append(Vector3(pos.x, 1.0 if big else 0.0, pos.z))
 	# Human woodland (east) mixes in KayKit oaks and pines so the two sides
@@ -3292,8 +3650,8 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		# Wildwood palette: pale mint and lavender canopies that glow faintly.
 		var lavender: bool = seed % 4 == 0
 		# (The sun and the crown highlight brighten tops a lot, so these stay dark.)
-		leaf.set_shader_parameter("top_color", Color.from_hsv(0.75, 0.6, 0.45) if lavender else Color.from_hsv(0.42, 0.75, 0.42))
-		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.75, 0.75, 0.15) if lavender else Color.from_hsv(0.45, 0.85, 0.14))
+		leaf.set_shader_parameter("top_color", Color.from_hsv(0.75, 0.55, 0.6) if lavender else Color.from_hsv(0.4, 0.7, 0.6))
+		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.75, 0.75, 0.22) if lavender else Color.from_hsv(0.44, 0.85, 0.22))
 	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.25 if wild else 1.0)
 	var blobs := 6 if big else 4
 	var base_y: float = trunk_h * 0.8
@@ -3349,8 +3707,8 @@ func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool
 	leaf.shader = load("res://assets/shaders/leaf.gdshader")
 	leaf.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	var hue := r.randf_range(-0.02, 0.02)
-	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.38 + hue, 0.75, 0.18))
-	leaf.set_shader_parameter("top_color", Color.from_hsv(0.32 + hue, 0.7, 0.5))
+	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.38 + hue, 0.75, 0.24))
+	leaf.set_shader_parameter("top_color", Color.from_hsv(0.31 + hue, 0.7, 0.64))
 	leaf.set_shader_parameter("height", 1.6)
 	leaf.set_shader_parameter("sway", 0.03)
 	var base_r: float = (1.9 if big else 1.5) * r.randf_range(0.9, 1.1)
@@ -3378,8 +3736,8 @@ func _leaf_material(r: RandomNumberGenerator, autumn: bool) -> ShaderMaterial:
 		mat.set_shader_parameter("bottom_color", Color(0.45, 0.18, 0.05))
 		mat.set_shader_parameter("top_color", Color(0.95, 0.55, 0.15))
 	else:
-		mat.set_shader_parameter("bottom_color", Color.from_hsv(0.34 + hue, 0.8, 0.22))
-		mat.set_shader_parameter("top_color", Color.from_hsv(0.27 + hue, 0.65, r.randf_range(0.5, 0.62)))
+		mat.set_shader_parameter("bottom_color", Color.from_hsv(0.32 + hue, 0.8, 0.32))
+		mat.set_shader_parameter("top_color", Color.from_hsv(0.26 + hue, 0.7, r.randf_range(0.68, 0.8)))
 	mat.set_shader_parameter("height", 2.0)
 	return mat
 
@@ -3413,6 +3771,26 @@ func _rock_mesh(seed: int, radius: float, jitter: float = 0.22) -> ArrayMesh:
 
 
 func _add_bush(pos: Vector3, seed: int) -> void:
+	# Bushes sit beside trees, never inside them: push out past the crown,
+	# then drop any that would land on a path or a building.
+	for pass_i in 2:
+		for t in map_trees:
+			var away := Vector2(pos.x - t.x, pos.z - t.z)
+			var need := (2.6 if t.y > 0.5 else 2.1) + 1.3
+			if away.length() < need:
+				if away.length() < 0.01:
+					away = Vector2(1, 0)
+				away = away.normalized() * need
+				pos = Vector3(t.x + away.x, 0, t.z + away.y)
+	for t in map_trees:
+		if _flat_dist(pos, t) < 3.0:
+			return
+	if _near_path(pos, 0.9):
+		return
+	for blk in audit_blocks:
+		var box: AABB = blk[1]
+		if box.size.y >= 0.3 and box.end.y >= 0.3 and pos.x > box.position.x - 1.2 and pos.x < box.end.x + 1.2 and pos.z > box.position.z - 1.2 and pos.z < box.end.z + 1.2:
+			return
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var leaf := _leaf_material(r, false)
@@ -3635,36 +4013,31 @@ func _add_island() -> void:
 		dais.position = Vector3(0, tier[3], 0)
 		dais.material_override = _ashlar(tier[4])
 		add_child(dais)
+		_add_rosette(Vector3(0, tier[3] + tier[2] / 2.0 + 0.004, 0), tier[0])
+	_add_rosette(Vector3(0, 0.504, 0), ISLAND_R - 0.05)
 	_add_collider(Vector3(0, 1.3, 0), Vector3(1.6, 1.6, 1.6))
 	_add_block(Vector3(0, 1.42, 0), Vector3(1.2, 0.9, 1.2), Color.WHITE, false, _ashlar(Color(0.95, 0.92, 0.86)))
 	_add_block(Vector3(0, 1.9, 0), Vector3(1.4, 0.1, 1.4), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
-	var crown := MeshInstance3D.new()
-	var crown_mesh := CylinderMesh.new()
-	crown_mesh.top_radius = 0.55
-	crown_mesh.bottom_radius = 0.42
-	crown_mesh.height = 0.5
-	crown_mesh.radial_segments = 8
-	crown.mesh = crown_mesh
-	crown.position = Vector3(0, 2.2, 0)
-	var gold := _material(Color(1.0, 0.8, 0.25))
-	gold.metallic = 0.9
-	gold.roughness = 0.25
-	gold.emission_enabled = true
-	gold.emission = Color(1.0, 0.7, 0.2)
-	gold.emission_energy_multiplier = 0.6
-	crown.material_override = gold
-	add_child(crown)
-	for i in 8:
-		var a := TAU * i / 8.0
-		var spike := MeshInstance3D.new()
-		var sm := CylinderMesh.new()
-		sm.top_radius = 0.0
-		sm.bottom_radius = 0.1
-		sm.height = 0.35
-		spike.mesh = sm
-		spike.position = Vector3(cos(a) * 0.5, 2.6, sin(a) * 0.5)
-		spike.material_override = gold
-		add_child(spike)
+	# The shrine fire: an iron brazier on the plinth, burning bright.
+	var bowl := MeshInstance3D.new()
+	var bm := CylinderMesh.new()
+	bm.top_radius = 0.62
+	bm.bottom_radius = 0.34
+	bm.height = 0.4
+	bm.radial_segments = 16
+	bowl.mesh = bm
+	bowl.position = Vector3(0, 2.15, 0)
+	bowl.material_override = _iron()
+	add_child(bowl)
+	var bowl_rim := MeshInstance3D.new()
+	var brm := TorusMesh.new()
+	brm.inner_radius = 0.56
+	brm.outer_radius = 0.68
+	bowl_rim.mesh = brm
+	bowl_rim.position = Vector3(0, 2.35, 0)
+	bowl_rim.material_override = _gold()
+	add_child(bowl_rim)
+	_add_fire(Vector3(0, 2.25, 0), 3.0)
 	var shrine_light := OmniLight3D.new()
 	shrine_light.light_color = Color(1.0, 0.8, 0.4)
 	shrine_light.light_energy = 2.0
@@ -3673,8 +4046,21 @@ func _add_island() -> void:
 	add_child(shrine_light)
 	for i in 4:
 		var a := TAU * i / 4.0 + PI / 4.0
-		_add_torch(Vector3(cos(a) * 4.2, 0.5, sin(a) * 4.2))
-		_prop("dungeon/column", Vector3(cos(a) * 5.0, 0.5, sin(a) * 5.0), 0.9)
+		_add_torch_stand(Vector3(cos(a) * 4.2, 0.5, sin(a) * 4.2), 1.7)
+		# Rustic timber rails round the plaza's rim between the torches.
+		var c := Vector3(cos(a) * 5.4, 0.5, sin(a) * 5.4)
+		var t := Vector3(-sin(a), 0, cos(a))
+		for k in [-1.0, 0.0, 1.0]:
+			_add_block(c + t * k * 1.1 + Vector3(0, 0.45, 0), Vector3(0.16, 0.9, 0.16), Color.WHITE, false, _timber(Color(0.62, 0.46, 0.32)))
+		for h in [0.4, 0.75]:
+			var rail := MeshInstance3D.new()
+			var rm := BoxMesh.new()
+			rm.size = Vector3(2.5, 0.1, 0.08)
+			rail.mesh = rm
+			rail.position = c + Vector3(0, h, 0)
+			rail.rotation.y = a + PI / 2.0
+			rail.material_override = _timber(Color(0.66, 0.5, 0.35))
+			add_child(rail)
 	map_marks.append([Vector3.ZERO, "shrine"])
 	# Steps up from each bank, and a short pier of planks over the water's edge.
 	for sx in [-1.0, 1.0]:
@@ -3688,7 +4074,10 @@ func _add_island() -> void:
 
 func in_channel(p: Vector3) -> bool:
 	## In the river itself: between the banks, off every bridge deck and off
-	## the shrine island. Nothing should ever stand there.
+	## the shrine island. Nothing should ever stand there. On Ember Pass:
+	## anywhere off the plateaus, plazas and bridges (the lava).
+	if vmap:
+		return not vmap.walkable(p)
 	if absf(p.x) >= RIVER_HALF - 0.1 or p.y > 0.3:
 		return false
 	if _flat_dist(p, Vector3.ZERO) < ISLAND_R + 0.4:
@@ -3888,29 +4277,73 @@ func _add_torch(pos: Vector3) -> void:
 	if mossy:
 		_add_lantern(pos)
 		return
-	audit_label = "pole"
-	_add_block(pos + Vector3(0, 0.9, 0), Vector3(0.2, 1.8, 0.2), Color.WHITE, false, _timber(Color(0.6, 0.5, 0.4)))
-	audit_label = ""
-	_add_block(pos + Vector3(0, 0.08, 0), Vector3(0.5, 0.16, 0.5), Color.WHITE, false, _ashlar(Color(0.85, 0.8, 0.72)))
-	_prop("dungeon/torch_lit", pos + Vector3(0, 2.1, 0), 1.5)
-	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.7, 0.35)
-	light.light_energy = 1.6
-	light.omni_range = 7.0
-	light.position = pos + Vector3(0, 2.6, 0)
-	add_child(light)
+	_add_torch_stand(pos, 1.9)
 
 
 func kcx_of(kx: float, bx: float) -> float:
 	return (kx + bx) / 2.0
 
 
+func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
+	## A stone (or bark) alcove against the wall behind a class station, with
+	## a hanging sign naming the class, a drape in its colour and its runes.
+	var color: Color = Stats.ROLES[role].color
+	var wall_z := pos.z - 1.6          # the wall's inner face (north)
+	var top := pos.y + 2.9
+	var stone := _ashlar(Color(0.92, 0.9, 0.86))
+	_add_block(Vector3(pos.x, (pos.y + top) / 2.0, wall_z + 0.15), Vector3(1.8, top - pos.y, 0.3), Color.WHITE, true, _ashlar(Color(0.78, 0.76, 0.74)))
+	for xs in [-1.0, 1.0]:
+		_add_block(Vector3(pos.x + xs * 1.0, (pos.y + top) / 2.0, wall_z + 0.4), Vector3(0.36, top - pos.y, 0.8), Color.WHITE, true, stone)
+		_add_block(Vector3(pos.x + xs * 1.0, pos.y + 0.12, wall_z + 0.42), Vector3(0.5, 0.24, 0.9), Color.WHITE, false, stone)
+	_add_block(Vector3(pos.x, top + 0.15, wall_z + 0.4), Vector3(2.5, 0.34, 0.86), Color.WHITE, false, stone)
+	# A drape in the class colour at the back of the alcove.
+	_add_block(Vector3(pos.x, pos.y + 1.55, wall_z + 0.33), Vector3(1.2, 1.9, 0.04), color, false, _cloth(color.darkened(0.15)))
+	_add_block(Vector3(pos.x, pos.y + 2.5, wall_z + 0.35), Vector3(1.3, 0.08, 0.06), Color.WHITE, false, _gold())
+	# The sign: a timber board on chains above the alcove, class colour behind.
+	var sign_y := top - 0.4   # hung from the lintel, in front of the drape
+	# A bright board in the class colour with a gold frame (Faisal's 12:55 target).
+	_add_block(Vector3(pos.x, sign_y, wall_z + 0.88), Vector3(1.95, 0.52, 0.08), Color.WHITE, false, _gold())
+	var board := _material(color.darkened(0.05))
+	board.emission_enabled = true
+	board.emission = color
+	board.emission_energy_multiplier = 0.25
+	_add_block(Vector3(pos.x, sign_y, wall_z + 0.94), Vector3(1.8, 0.42, 0.08), Color.WHITE, false, board)
+	for xs in [-1.0, 1.0]:
+		_add_block(Vector3(pos.x + xs * 0.98, sign_y, wall_z + 0.96), Vector3(0.08, 0.54, 0.1), Color.WHITE, false, _gold())
+	var label := Label3D.new()
+	label.text = str(Stats.FACTIONS[team].roles[role]).to_upper()
+	label.font_size = 64
+	label.pixel_size = 0.0056
+	label.outline_size = 14
+	label.outline_modulate = color.darkened(0.7)
+	label.modulate = Color(1.0, 0.98, 0.92)
+	label.position = Vector3(pos.x, sign_y, wall_z + 1.0)
+	label.shaded = false
+	add_child(label)
+	_add_runes(pos + Vector3(0, 0.0, 0.1), 1.15, color)
+	# A glowing ring in the class colour around the pad.
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 1.12
+	tm.outer_radius = 1.24
+	tm.rings = 40
+	tm.ring_segments = 6
+	ring.mesh = tm
+	ring.scale = Vector3(1, 0.4, 1)
+	ring.position = pos + Vector3(0, 0.1, 0.1)
+	var glow := _material(color.lightened(0.2))
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.albedo_color = Color(color.lightened(0.35), 1.0) * 1.6
+	ring.material_override = glow
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(ring)
+	_add_light(pos + Vector3(0, 1.8, 0.8), color.lightened(0.4), 0.9, 3.4)
+
+
 func _add_station(team: int, role: int, pos: Vector3) -> void:
 	## A class seal on its pedestal (see seal.gd). The floor pad under it
 	## matches the castle: flagstone for Humans, mossy flagstone for Elves.
 	stations[team][role] = pos
-	var color: Color = Stats.ROLES[role].color
-	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.3), false, _flagstone(Color(0.6, 0.68, 0.55) if team == 0 else Color(0.7, 0.62, 0.5)))
 	var seal := Seal.new()
 	add_child(seal)
 	seal.setup(self, team, role, pos)
@@ -3924,13 +4357,23 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 # from every wall; `--audit` lists anything that still overlaps.
 
 var mossy := false   # while an elven castle is being built: ivy and moss on its stone
+var soot := Color.WHITE   # while Ember Pass's castles are built: darkens every textured surface
+var tex_swap := {}        # ...and swaps textures that clash with the lava light (the Elves' bark and sandstone)
+var ember_castles := false   # Ember Pass: both castles are built of stone (Faisal's reference art), the Elves' mossy
+var grey := false    # while the Humans' castle is being built: grey stone
 
 
 func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	## Castle stone; the elven castle is grown, so its "stone" is living bark.
+	## Castle stone; the elven castle is grown, so its "stone" is living bark,
+	## and the Humans build in cool grey blocks.
+	if mossy and ember_castles:
+		# Grey-green stone with ivy ledges (the reference art), not the sandy blocks.
+		return _pbr("greystone", 0.42, tint * Color(0.62, 0.72, 0.58))
 	if mossy:
 		return _pbr("bark", 0.55, tint * Color(0.72, 0.7, 0.58))
-	return _pbr("stone", 0.42, tint * Color(0.93, 0.9, 0.84))
+	if grey:
+		return _pbr("greystone", 0.42, Color(0.74, 0.76, 0.82).lerp(tint * Color(0.74, 0.76, 0.82), 0.35))
+	return _pbr("stone", 0.42, tint)
 
 
 func _elf_leaf(bright: bool = false) -> StandardMaterial3D:
@@ -3960,8 +4403,8 @@ func _add_lantern(pos: Vector3, height: float = 2.2) -> void:
 	add_child(globe)
 	_add_block(pos + Vector3(0, height + 0.5, 0), Vector3(0.22, 0.08, 0.22), Color.WHITE, false, _gold())
 	var light := OmniLight3D.new()
-	light.light_color = Color(0.55, 1.0, 0.85)
-	light.light_energy = 1.4
+	light.light_color = Color(0.85, 1.0, 0.78)
+	light.light_energy = 0.9
 	light.omni_range = 7.0
 	light.position = pos + Vector3(0, height + 0.4, 0)
 	add_child(light)
@@ -4018,8 +4461,306 @@ func _add_mushrooms(pos: Vector3, seed: int) -> void:
 		add_child(cap)
 
 
+var rosette_mats := {}
+
+
+func _add_rosette(center: Vector3, radius: float, tint: Color = Color.WHITE) -> void:
+	## A round paved disc (rings of flags inside a brick kerb) laid flat on
+	## the ground as a decal: door courts and the shrine.
+	if not rosette_mats.has(tint):
+		var mat := StandardMaterial3D.new()
+		mat.albedo_texture = load("res://assets/textures/rosette_color.png")
+		mat.albedo_color = tint
+		mat.normal_enabled = true
+		mat.normal_texture = load("res://assets/textures/rosette_normal.jpg")
+		mat.roughness = 0.85
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		mat.alpha_scissor_threshold = 0.5
+		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		rosette_mats[tint] = mat
+	var m := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2.ONE * radius * 2.0
+	m.mesh = plane
+	m.material_override = rosette_mats[tint]
+	m.position = center
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(m)
+
+
+
+var emblem_mats := {}
+
+
+func _emblem_mat(emblem: String, glow: Color = Color.BLACK) -> StandardMaterial3D:
+	## An inked heraldic emblem (tools/make_emblems.py) as a cut-out decal.
+	var key := emblem + str(glow)
+	if not emblem_mats.has(key):
+		var mat := StandardMaterial3D.new()
+		mat.albedo_texture = load("res://assets/textures/emblems/%s.png" % emblem)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		mat.alpha_scissor_threshold = 0.4
+		mat.roughness = 0.6
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		if glow != Color.BLACK:
+			mat.emission_enabled = true
+			mat.emission = glow
+			mat.emission_energy_multiplier = 0.6
+		emblem_mats[key] = mat
+	return emblem_mats[key]
+
+
+func _add_emblem(emblem: String, pos: Vector3, out: Vector3, size: float, glow: Color = Color.BLACK) -> void:
+	## An emblem decal standing on a surface that faces `out`.
+	var m := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(size, size)
+	m.mesh = q
+	m.material_override = _emblem_mat(emblem, glow)
+	m.position = pos
+	m.rotation.y = atan2(out.x, out.z)
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(m)
+
+
+func _faction_emblem(team: int, alt: bool = false) -> String:
+	if team == 0:
+		return "moon" if alt else "tree"
+	return "crown" if alt else "lion"
+
+
+func _add_pennant(team: int, pos: Vector3, out: Vector3, width: float = 1.1, height: float = 1.9, alt: bool = false) -> void:
+	## A tall heraldic banner on a wall: a gold rod, team cloth with a gold
+	## hem and a pointed tail, and the faction's beast (or crown) on it.
+	## `pos` is the top centre on the wall face; it hangs out along `out`.
+	var color: Color = Stats.FACTIONS[team].color
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation.y = atan2(out.x, out.z)
+	add_child(n)
+	var rod := MeshInstance3D.new()
+	var rm := CylinderMesh.new()
+	rm.top_radius = 0.045
+	rm.bottom_radius = 0.045
+	rm.height = width + 0.35
+	rod.mesh = rm
+	rod.rotation.z = PI / 2.0
+	rod.position = Vector3(0, 0, 0.12)
+	rod.material_override = _gold()
+	n.add_child(rod)
+	for xs in [-1.0, 1.0]:
+		var knob := MeshInstance3D.new()
+		var km := SphereMesh.new()
+		km.radius = 0.08
+		km.height = 0.16
+		knob.mesh = km
+		knob.position = Vector3(xs * (width / 2.0 + 0.18), 0, 0.12)
+		knob.material_override = _gold()
+		n.add_child(knob)
+	var cloth_mat := _cloth(color.darkened(0.05))
+	var body := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(width, height * 0.8, 0.04)
+	body.mesh = bm
+	body.position = Vector3(0, -height * 0.4, 0.1)
+	body.material_override = cloth_mat
+	n.add_child(body)
+	# The pointed tail.
+	var tail := MeshInstance3D.new()
+	var pm := PrismMesh.new()
+	pm.size = Vector3(width, height * 0.2, 0.04)
+	tail.mesh = pm
+	tail.rotation.z = PI
+	tail.position = Vector3(0, -height * 0.9, 0.1)
+	tail.material_override = cloth_mat
+	n.add_child(tail)
+	# Gold hems down the sides and across the top.
+	for xs in [-1.0, 1.0]:
+		var hem := MeshInstance3D.new()
+		var hm := BoxMesh.new()
+		hm.size = Vector3(0.07, height * 0.8, 0.05)
+		hem.mesh = hm
+		hem.position = Vector3(xs * (width / 2.0 - 0.06), -height * 0.4, 0.11)
+		hem.material_override = _gold()
+		n.add_child(hem)
+	var top := MeshInstance3D.new()
+	var tm := BoxMesh.new()
+	tm.size = Vector3(width, 0.08, 0.05)
+	top.mesh = tm
+	top.position = Vector3(0, -0.06, 0.11)
+	top.material_override = _gold()
+	n.add_child(top)
+	var em := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * width * 0.82
+	em.mesh = q
+	em.material_override = _emblem_mat(_faction_emblem(team, alt))
+	em.position = Vector3(0, -height * 0.42, 0.125)
+	n.add_child(em)
+
+
+func _add_crest(team: int, pos: Vector3, out: Vector3, size: float = 0.8, alt: bool = false) -> void:
+	## A heater shield hung on a wall: team colour, gold rim, emblem.
+	var color: Color = Stats.FACTIONS[team].color
+	var n := Node3D.new()
+	n.position = pos
+	n.rotation.y = atan2(out.x, out.z)
+	add_child(n)
+	var rim := MeshInstance3D.new()
+	var rb := BoxMesh.new()
+	rb.size = Vector3(size, size * 0.62, 0.06)
+	rim.mesh = rb
+	rim.position = Vector3(0, size * 0.18, 0.04)
+	rim.material_override = _gold()
+	n.add_child(rim)
+	var tip := MeshInstance3D.new()
+	var pm := PrismMesh.new()
+	pm.size = Vector3(size, size * 0.5, 0.06)
+	tip.mesh = pm
+	tip.rotation.z = PI
+	tip.position = Vector3(0, -size * 0.38, 0.04)
+	tip.material_override = _gold()
+	n.add_child(tip)
+	var face := MeshInstance3D.new()
+	var fb := BoxMesh.new()
+	fb.size = Vector3(size * 0.86, size * 0.56, 0.06)
+	face.mesh = fb
+	face.position = Vector3(0, size * 0.19, 0.06)
+	face.material_override = _cloth(color)
+	n.add_child(face)
+	var ftip := MeshInstance3D.new()
+	var fp := PrismMesh.new()
+	fp.size = Vector3(size * 0.86, size * 0.42, 0.06)
+	ftip.mesh = fp
+	ftip.rotation.z = PI
+	ftip.position = Vector3(0, -size * 0.3, 0.06)
+	ftip.material_override = _cloth(color)
+	n.add_child(ftip)
+	var em := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * size * 0.62
+	em.mesh = q
+	em.material_override = _emblem_mat(_faction_emblem(team, alt))
+	em.position = Vector3(0, 0.0, 0.1)
+	n.add_child(em)
+
+
+var rune_mats := {}
+
+
+func _add_runes(center: Vector3, radius: float, color: Color) -> MeshInstance3D:
+	## A glowing rune circle on the floor (class pads, the spawn circle).
+	if not rune_mats.has(color):
+		var mat := StandardMaterial3D.new()
+		mat.albedo_texture = load("res://assets/textures/emblems/runes.png")
+		mat.albedo_color = color.lightened(0.25)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		rune_mats[color] = mat
+	# A dark stone disc under the runes so they read on any floor.
+	var disc := MeshInstance3D.new()
+	var dm := CylinderMesh.new()
+	dm.top_radius = radius * 0.98
+	dm.bottom_radius = radius
+	dm.height = 0.08
+	dm.radial_segments = 32
+	disc.mesh = dm
+	disc.position = center + Vector3(0, 0.04, 0)
+	disc.material_override = _pbr("greystone", 0.5, Color(0.55, 0.55, 0.62))
+	add_child(disc)
+	var m := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2.ONE * radius * 2.0
+	m.mesh = plane
+	m.material_override = rune_mats[color]
+	m.position = center + Vector3(0, 0.09, 0)
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(m)
+	return m
+
+
+func _add_fire(pos: Vector3, size: float = 1.0) -> void:
+	## A cartoon flame: an orange teardrop (a ball with a cone on top) round a
+	## yellow one, plus two small licks either side. Unshaded, glowing.
+	var parts := [[0.0, 0.0, 0.15, Color(1.0, 0.45, 0.1)], [0.0, 0.02, 0.09, Color(1.0, 0.9, 0.4)],
+		[0.09, -0.02, 0.07, Color(1.0, 0.55, 0.12)], [-0.08, -0.03, 0.06, Color(1.0, 0.6, 0.15)]]
+	for p in parts:
+		var r: float = p[2] * size
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.albedo_color = p[3]
+		mat.emission_enabled = true    # (unshaded ignores it; kept for the toon pass)
+		mat.emission = p[3]
+		mat.albedo_color = Color(p[3].r * 1.6, p[3].g * 1.6, p[3].b * 1.6)   # HDR: blooms
+		var base := pos + Vector3(p[0] * size, p[1] * size + r, 0.0 if p[2] != 0.09 else 0.1 * size)
+		var ball := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = r
+		sm.height = r * 2.0
+		sm.radial_segments = 10
+		sm.rings = 6
+		ball.mesh = sm
+		ball.position = base
+		ball.material_override = mat
+		ball.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(ball)
+		var tip := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.0
+		cm.bottom_radius = r * 0.98
+		cm.height = r * 2.2
+		cm.radial_segments = 10
+		tip.mesh = cm
+		tip.position = base + Vector3(0, r * 1.1, 0)
+		tip.material_override = mat
+		tip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(tip)
+
+
+
+func _add_banner_pole(team: int, pos: Vector3) -> void:
+	## A timber pole with a crossbar and the faction's banner hanging from it,
+	## facing the camera: they flank each castle door (the target art).
+	audit_label = "pole"
+	_add_block(pos + Vector3(0, 1.75, 0), Vector3(0.2, 3.5, 0.2), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
+	audit_label = ""
+	_add_block(pos + Vector3(0, 0.1, 0), Vector3(0.5, 0.2, 0.5), Color.WHITE, false, _ashlar(Color(0.85, 0.82, 0.78)))
+	_add_block(pos + Vector3(0, 3.35, 0.1), Vector3(1.4, 0.12, 0.12), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
+	_add_block(pos + Vector3(0, 3.62, 0), Vector3(0.16, 0.3, 0.16), Color.WHITE, false, _gold())
+	_add_pennant(team, pos + Vector3(0, 3.28, 0.06), Vector3(0, 0, 1), 1.1, 2.2)
+
+
+func _add_torch_stand(pos: Vector3, height: float = 1.9) -> void:
+	## A tall iron torch stand with a burning bowl (Humans' halls and courts).
+	audit_label = "pole"
+	_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(0.14, height, 0.14), Color.WHITE, false, _iron())
+	audit_label = ""
+	_add_block(pos + Vector3(0, 0.06, 0), Vector3(0.5, 0.12, 0.5), Color.WHITE, false, _iron())
+	var bowl := MeshInstance3D.new()
+	var bm := CylinderMesh.new()
+	bm.top_radius = 0.26
+	bm.bottom_radius = 0.12
+	bm.height = 0.22
+	bowl.mesh = bm
+	bowl.position = pos + Vector3(0, height + 0.1, 0)
+	bowl.material_override = _iron()
+	add_child(bowl)
+	_add_fire(pos + Vector3(0, height + 0.12, 0), 2.0)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.26)
+	light.light_energy = 1.3
+	light.omni_range = 6.5
+	light.omni_attenuation = 1.4
+	light.position = pos + Vector3(0, height + 0.6, 0)
+	add_child(light)
+
 func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	return _pbr("flagstone_moss" if mossy else "flagstone", 0.42, tint * Color(0.95, 0.92, 0.86))
+	if grey:   # the Humans' halls: cooler, darker flags
+		return _pbr("flagstone_grey", 0.25, tint * Color(0.9, 0.9, 0.92))
+	return _pbr("flagstone_moss" if mossy else "flagstone", 0.25, tint)
 
 
 func _timber(tint: Color = Color.WHITE) -> StandardMaterial3D:
@@ -4084,7 +4825,7 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 		var t := -length / 2.0 + (k + 0.5) * length / n
 		var p := Vector3(center.x + t, top + 0.5, center.z) if along_x else Vector3(center.x, top + 0.5, center.z + t)
 		var ms := Vector3(0.6, 0.6, thick) if along_x else Vector3(thick, 0.6, 0.6)
-		if mossy:
+		if mossy and not ember_castles:
 			var tuft := MeshInstance3D.new()
 			tuft.mesh = _rock_mesh(int(p.x * 5 + p.z * 11), 0.45, 0.15)
 			tuft.position = p - Vector3(0, 0.1, 0)
@@ -4099,7 +4840,7 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 	var color: Color = Stats.FACTIONS[team].color
 	_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(width, height, width), Color.WHITE, true, _ashlar())
 	_add_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
-	if mossy:
+	if mossy and not ember_castles:
 		# An elven tree-tower: the trunk carries a glowing canopy instead of a roof,
 		# with a lantern hung beneath it.
 		var r := RandomNumberGenerator.new()
@@ -4262,7 +5003,7 @@ func _add_rug(center: Vector3, size: Vector2, color: Color) -> void:
 	## A woven rug: a dark field with a gold border, an inner band and a pale
 	## medallion in the middle, so it reads as a rug and not a coloured tile.
 	var y := center.y
-	_add_block(Vector3(center.x, y + 0.015, center.z), Vector3(size.x, 0.03, size.y), color, false, _carpet(color.darkened(0.25)))
+	_add_block(Vector3(center.x, y + 0.015, center.z), Vector3(size.x, 0.03, size.y), color, false, _carpet(color.darkened(0.05)))
 	for xs in [-1.0, 1.0]:
 		_add_block(Vector3(center.x + xs * (size.x / 2.0 - 0.1), y + 0.032, center.z), Vector3(0.12, 0.01, size.y), color, false, _gold())
 		_add_block(Vector3(center.x + xs * (size.x / 2.0 - 0.36), y + 0.032, center.z), Vector3(0.06, 0.01, size.y - 0.6), color, false, _cloth(color.lightened(0.35)))
@@ -4322,8 +5063,10 @@ func _add_chandelier(pos: Vector3, elven: bool, shadows: bool = true) -> void:
 	light.shadow_enabled = shadows
 	light.shadow_bias = 0.08
 	if elven:
-		light.light_color = Color(0.6, 1.0, 0.88)
-		light.light_energy = 1.5
+		# Warm lantern light with a hint of green: pure green washed the
+		# elven keep out (2026-10-07 render).
+		light.light_color = Color(0.95, 0.92, 0.7)
+		light.light_energy = 1.3
 	else:
 		light.light_color = Color(1.0, 0.76, 0.42)
 		light.light_energy = 1.7
@@ -4568,10 +5311,10 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	# Floor: dark marble with a pale border (Humans) or a mossy glade floor (Elves).
 	if elven:
 		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _pbr("bark", 0.5, Color(0.7, 0.66, 0.55)))
-		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _pbr("flagstone_moss", 0.8, Color(0.95, 0.95, 0.88)))
+		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _pbr("flagstone_moss", 0.8, Color(0.8, 0.8, 0.72)))
 	else:
 		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _marble(Color(0.55, 0.5, 0.52)))
-		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _marble())
+		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _pbr("flagstone_grey", 0.9, Color(1.0, 0.96, 0.9)))
 	# Walls: side walls, the back wall, and the front wall either side of the doors.
 	var wall_mat := _ashlar()
 	for zs in [-1.0, 1.0]:
@@ -4590,50 +5333,99 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	for zs in [-1.0, 1.0]:
 		_add_block(Vector3(front_x, ROOM_H + 0.08, zs * (hz / 2.0 + ROOM_DOOR_HALF / 2.0)), Vector3(0.7, 0.16, hz - ROOM_DOOR_HALF), Color.WHITE, false, cap)
 	if elven:
-		# Leaf tufts along the grown walls' tops instead of a solid green slab.
+		# Rounded leaf tufts along the grown walls' tops (as on the outer walls),
+		# not boxes, which read as stray squares from above.
+		var tufts := []
 		for k in 7:
-			var t: float = -hz + 0.6 + k * (hz * 2 - 1.2) / 6.0
-			_add_block(Vector3(back_x, ROOM_H + 0.3, t), Vector3(0.9, 0.3, 0.7), Color.WHITE, false, _elf_leaf(k % 2 == 0))
+			tufts.append(Vector3(back_x, ROOM_H + 0.2, -hz + 0.6 + k * (hz * 2 - 1.2) / 6.0))
 		for k in 6:
-			var t: float = front_x + side * (0.5 + k * (depth - 1.0) / 5.0)
 			for zs in [-1.0, 1.0]:
-				_add_block(Vector3(t, ROOM_H + 0.3, zs * hz), Vector3(0.7, 0.3, 0.9), Color.WHITE, false, _elf_leaf(k % 2 == 1))
+				tufts.append(Vector3(front_x + side * (0.5 + k * (depth - 1.0) / 5.0), ROOM_H + 0.2, zs * hz))
+		for k in tufts.size():
+			var tp: Vector3 = tufts[k]
+			var tuft := MeshInstance3D.new()
+			tuft.mesh = _rock_mesh(int(tp.x * 5 + tp.z * 11) + k, 0.42, 0.15)
+			tuft.position = tp
+			tuft.scale = Vector3(1.0, 0.75, 1.0)
+			tuft.material_override = _elf_leaf(k % 3 == 0)
+			add_child(tuft)
 	audit_label = ""
-	# Carpet from the doors to the dais, and the dais itself: two steps.
-	_add_rug(Vector3(throne.x - side * 1.0, 0.07, 0), Vector2(2.6, 2.4), color)
-	_add_block(throne + Vector3(side * 1.5, 0.14, 0), Vector3(3.0, 0.16, 4.8), Color.WHITE, false, _ashlar(Color(0.95, 0.9, 0.8)))
-	_add_block(throne + Vector3(side * 1.8, 0.3, 0), Vector3(2.2, 0.16, 3.8), Color.WHITE, false, _ashlar(Color(0.98, 0.94, 0.86)))
-	_add_block(throne + Vector3(side * 1.8, 0.39, 0), Vector3(1.8, 0.03, 3.0), Color.WHITE, false, _carpet(color))
-	# The throne: a tall velvet-backed seat under a canopy on two posts.
-	_add_block(throne + Vector3(side * 2.1, 0.68, 0), Vector3(1.0, 0.6, 1.3), Color.WHITE, false, _timber(Color(0.55, 0.42, 0.3)) if not elven else _ashlar(Color(0.6, 0.52, 0.4)))
-	_add_block(throne + Vector3(side * 2.5, 1.5, 0), Vector3(0.4, 2.3, 1.6), color, false, _cloth(color.darkened(0.2)))
-	_add_block(throne + Vector3(side * 2.5, 2.7, 0), Vector3(0.5, 0.3, 1.8), Color.WHITE, false, _gold())
+	# A carpet runner from the doors to a round, three-tier dais in the middle
+	# of the room; the crown sits on a cushioned pedestal on top (the
+	# reference renders), with the empty throne against the back wall.
+	_add_rug(Vector3((front_x + throne.x - side * 2.0) / 2.0, 0.07, 0), Vector2(absf(throne.x - side * 2.0 - front_x), 1.9), color)
+	var tier_mat := _ashlar(Color(0.95, 0.92, 0.86))
+	var trim := _gold() if not elven else _elf_leaf(true)
+	for t in 3:
+		var r := 2.2 - t * 0.55
+		var step := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = r
+		cm.bottom_radius = r + 0.05
+		cm.height = 0.1
+		cm.radial_segments = 40
+		step.mesh = cm
+		step.position = throne + Vector3(0, 0.05 + t * 0.1, 0)
+		step.material_override = tier_mat
+		add_child(step)
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = r - 0.05
+		tm.outer_radius = r + 0.02
+		tm.rings = 40
+		tm.ring_segments = 6
+		ring.mesh = tm
+		ring.scale = Vector3(1, 0.35, 1)
+		ring.position = throne + Vector3(0, 0.1 + t * 0.1, 0)
+		ring.material_override = trim
+		add_child(ring)
+	var top := MeshInstance3D.new()
+	var topm := CylinderMesh.new()
+	topm.top_radius = 1.0
+	topm.bottom_radius = 1.0
+	topm.height = 0.02
+	topm.radial_segments = 32
+	top.mesh = topm
+	top.position = throne + Vector3(0, 0.31, 0)
+	top.material_override = _carpet(color.darkened(0.15)) if not elven else _moss()
+	add_child(top)
+	# The pedestal: a carved block with gold bands, the team crest on each
+	# face and a velvet cushion on top.
+	_add_block(throne + Vector3(0, 0.62, 0), Vector3(1.1, 0.62, 1.1), Color.WHITE, false, _ashlar(Color(0.98, 0.96, 0.9)))
+	_add_block(throne + Vector3(0, 0.36, 0), Vector3(1.24, 0.1, 1.24), Color.WHITE, false, trim)
+	_add_block(throne + Vector3(0, 0.95, 0), Vector3(1.24, 0.08, 1.24), Color.WHITE, false, trim)
+	for d in [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]:
+		_add_crest(team, throne + d * 0.56 + Vector3(0, 0.66, 0), d, 0.42, true)
+	_add_block(throne + Vector3(0, 1.08, 0), Vector3(0.95, 0.18, 0.95), Color.WHITE, false, _cloth(color))
 	for zs in [-1.0, 1.0]:
-		_add_block(throne + Vector3(side * 2.2, 0.65, zs * 0.75), Vector3(1.0, 0.5, 0.14), Color.WHITE, false, _gold())
-		_add_block(throne + Vector3(side * 2.9, 1.6, zs * 1.3), Vector3(0.14, 3.2, 0.14), Color.WHITE, false, _gold() if not elven else _ashlar(Color(0.6, 0.52, 0.4)))
-	_add_block(throne + Vector3(side * 2.3, 3.2, 0), Vector3(1.8, 0.08, 2.9), color, false, _cloth(color.darkened(0.1)) if not elven else _elf_leaf(true))
-	_add_block(throne + Vector3(side * 1.45, 3.05, 0), Vector3(0.14, 0.3, 2.9), Color.WHITE, false, _gold())
-	# A glowing window in the back wall, tapestries, torches and guards' finery.
-	var glass := _material(color.lightened(0.5))
-	glass.emission_enabled = true
-	glass.emission = color.lightened(0.3)
-	glass.emission_energy_multiplier = 1.6
+		for xs in [-1.0, 1.0]:
+			# Gold tassels at the cushion's corners.
+			_add_block(throne + Vector3(xs * 0.46, 1.0, zs * 0.46), Vector3(0.08, 0.16, 0.08), Color.WHITE, false, _gold())
+	# The empty throne against the back wall, under a canopy.
+	var seat := throne + Vector3(side * 2.85, 0, 0)
+	_add_block(seat + Vector3(0, 0.3, 0), Vector3(1.0, 0.6, 1.2), Color.WHITE, false, _timber(Color(0.6, 0.45, 0.3)) if not elven else _ashlar(Color(0.6, 0.52, 0.4)))
+	_add_block(seat + Vector3(0, 0.66, 0), Vector3(0.9, 0.12, 1.0), Color.WHITE, false, _cloth(color))
+	_add_block(seat + Vector3(side * 0.42, 1.3, 0), Vector3(0.2, 2.0, 1.2), Color.WHITE, false, _timber(Color(0.6, 0.45, 0.3)) if not elven else _ashlar(Color(0.6, 0.52, 0.4)))
+	_add_block(seat + Vector3(side * 0.3, 1.3, 0), Vector3(0.06, 1.6, 0.9), Color.WHITE, false, _cloth(color.darkened(0.15)))
+	_add_block(seat + Vector3(side * 0.42, 2.35, 0), Vector3(0.26, 0.2, 1.3), Color.WHITE, false, _gold())
 	for zs in [-1.0, 1.0]:
-		_add_block(Vector3(back_x - side * 0.3, 1.5, zs * 2.6), Vector3(0.06, 1.5, 0.9), Color.WHITE, false, glass)
-		_add_block(Vector3(back_x - side * 0.34, 1.5, zs * 2.6), Vector3(0.04, 1.7, 1.1), Color.WHITE, false, _gold())
-		_add_tapestry(team, Vector3(cx - side * 0.6, 0.4, zs * (hz - 0.3)), Vector3(0, 0, -zs), 1.4, 1.7)
-		_add_wall_torch(Vector3(front_x + side * 1.2, 1.5, zs * (hz - 0.3)), Vector3(0, 0, -zs))
-		_add_banner(team, Vector3(front_x - side * 0.4, 0.0, zs * (ROOM_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.6, true)
+		_add_block(seat + Vector3(0, 0.82, zs * 0.56), Vector3(0.9, 0.14, 0.14), Color.WHITE, false, _gold())
+		_add_block(seat + Vector3(side * 0.42, 2.55, zs * 0.5), Vector3(0.16, 0.24, 0.16), Color.WHITE, false, _gold())
+	# Banners, crests, torches and the treasury.
+	for zs in [-1.0, 1.0]:
+		_add_pennant(team, Vector3(cx - side * 0.2, ROOM_H - 0.05, zs * (hz - 0.25)), Vector3(0, 0, -zs), 1.0, 1.8)
+		_add_crest(team, Vector3(back_x - side * 0.27, 1.75, zs * 3.3), Vector3(-side, 0, 0), 0.6, zs > 0.0)
 		if elven:
 			_add_crystal(Vector3(back_x - side * 0.9, 0, zs * (hz - 0.9)), 0.9)
 			_add_mushrooms(Vector3(front_x + side * 0.9, 0, zs * (hz - 0.8)), 61 + int(zs))
 		else:
-			_add_candle_stand(throne + Vector3(-side * 0.4, 0, zs * 2.2))
-			_prop("dungeon/sword_shield", Vector3(back_x - side * 0.3, 1.4, zs * 1.2), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
+			_add_torch_stand(Vector3(front_x + side * 0.7, 0, zs * (hz - 0.7)), 1.7)
+		_add_banner(team, Vector3(front_x - side * 0.4, 0.0, zs * (ROOM_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.6, true)
 	_add_light(Vector3(back_x - side * 0.8, 1.6, 0), color.lightened(0.4), 1.0, 6.0)
-	# The treasury heaped in the back corners.
+	_add_light(throne + Vector3(0, 2.2, 0), Color(1.0, 0.85, 0.5), 1.2, 4.5)
 	_prop("dungeon/chest_gold", Vector3(back_x - side * 0.9, 0, -(hz - 0.8)), 0.7, PI / 2.0 if side < 0.0 else -PI / 2.0)
 	_prop("dungeon/chest", Vector3(back_x - side * 1.0, 0, hz - 0.9), 0.6, PI / 2.0 if side < 0.0 else -PI / 2.0)
+	_prop("dungeon/barrel_small", Vector3(back_x - side * 0.7, 0, -(hz - 2.0)), 0.8)
 	if elven:
 		_add_fireflies(throne + Vector3(0, 0.8, 0))
 
@@ -4655,12 +5447,12 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	var g_w := wz - (ROOM_HALF_Z + 0.35)          # gallery width
 	var back_c := (room_b + side * 0.35 + bx - side * 0.5) / 2.0
 	var back_d := absf((bx - side * 0.5) - (room_b + side * 0.35))
-	var planks := _pbr("wood", 0.55, Color(0.9, 0.82, 0.7)) if not elven else _pbr("wood_dark", 0.5, Color(0.8, 0.85, 0.7))
+	var planks := _pbr("wood", 0.55, Color(0.46, 0.38, 0.34)) if not elven else _pbr("wood_dark", 0.5, Color(0.8, 0.85, 0.7))
 	var wainscot := _pbr("wood_dark", 0.5, Color(0.85, 0.75, 0.62)) if not elven else _moss()
 	# --- Floors -------------------------------------------------------------
 	# Entrance hall: fine flags; great hall: planks; chapel: a dark carpet on
 	# stone (or a mossy glade); chambers: planks under big rugs.
-	_add_block(Vector3(kx + side * 1.8, 0.045, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone_moss" if elven else "flagstone", 0.9, Color(0.92, 0.9, 0.86)))
+	_add_block(Vector3(kx + side * 1.8, 0.045, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone_moss" if elven else "flagstone_grey", 0.9, Color(0.78, 0.8, 0.7) if elven else Color(0.95, 0.95, 0.97)))
 	_add_block(Vector3((room_f + room_b) / 2.0, 0.045, -g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, planks)
 	if elven:
 		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _moss())
@@ -4777,6 +5569,116 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 		_add_fireflies(Vector3(kx + side * 2.0, 0.5, 5.5))
 
 
+func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
+	## The finishing pass on the keep from Faisal's 12:55 target art: chunky
+	## cap stones on the throne room's walls, banners on every face, torches
+	## at its corners, a round royal carpet under the dais and an EXIT sign.
+	var color: Color = Stats.FACTIONS[team].color
+	var elven := team == 0
+	var front_x := throne.x - side * ROOM_FRONT
+	var back_x := throne.x + side * ROOM_BACK
+	var cx := (front_x + back_x) / 2.0
+	var depth := ROOM_FRONT + ROOM_BACK
+	var hz := ROOM_HALF_Z
+	# Chunky, slightly uneven cap stones along the wall tops (Humans); the
+	# Elves' grown walls keep their leaf tufts.
+	if not elven:
+		var r := RandomNumberGenerator.new()
+		r.seed = 4242 + team
+		var runs := []   # [start, end, fixed, along_x]
+		for zs in [-1.0, 1.0]:
+			runs.append([cx - depth / 2.0 - 0.3, cx + depth / 2.0 + 0.3, zs * hz, true])
+			runs.append([ROOM_DOOR_HALF + 0.3, hz + 0.3, front_x, false, zs])
+		runs.append([-hz - 0.3, hz + 0.3, back_x, false])
+		for run in runs:
+			var a: float = minf(run[0], run[1])
+			var b: float = maxf(run[0], run[1])
+			var t := a
+			var k := 0
+			while t < b - 0.2:
+				var l := minf(r.randf_range(0.8, 1.2), b - t)
+				var h := r.randf_range(0.26, 0.38)
+				var tint := Color(0.86, 0.88, 0.95) if k % 2 == 0 else Color(0.72, 0.74, 0.82)
+				var mid := t + l / 2.0
+				var p: Vector3
+				var s: Vector3
+				if run[3]:
+					p = Vector3(mid, ROOM_H + 0.16 + h / 2.0, run[2])
+					s = Vector3(l - 0.06, h, 0.78)
+				else:
+					var zz: float = mid * (run[4] if run.size() > 4 else 1.0)
+					p = Vector3(run[2], ROOM_H + 0.16 + h / 2.0, zz)
+					s = Vector3(0.78, h, l - 0.06)
+				_add_block(p, s, Color.WHITE, false, _ashlar(tint))
+				t += l
+				k += 1
+	# Banners: two either side of the throne on the back wall, two on the
+	# outside of each side wall (they face the galleries and the camera).
+	for zs in [-1.0, 1.0]:
+		_add_pennant(team, Vector3(back_x - side * 0.27, ROOM_H - 0.1, zs * 1.7), Vector3(-side, 0, 0), 0.9, 1.6, zs > 0.0)
+		for xs in [-1.0, 1.0]:
+			_add_pennant(team, Vector3(cx + xs * 1.6, ROOM_H - 0.1, zs * (hz + 0.27)), Vector3(0, 0, zs), 1.0, 1.7, xs > 0.0)
+	# Torches at the throne room's outer corners, and inside at the back (Humans).
+	for zs in [-1.0, 1.0]:
+		_add_torch(Vector3(front_x - side * 0.7, 0, zs * (hz + 0.7)))
+		_add_torch(Vector3(back_x + side * 0.7, 0, zs * (hz + 0.7)))
+		if not elven:
+			_add_torch_stand(Vector3(back_x - side * 0.7, 0, zs * (hz - 0.7)), 1.7)
+			_add_candle_stand(throne + Vector3(side * 2.6, 0, zs * 1.15))
+	# The royal carpet: a round rug in the team colour with two gold rings,
+	# under the dais (it stops short of the doors).
+	var rug_r := 2.6
+	var disc := MeshInstance3D.new()
+	var dm := CylinderMesh.new()
+	dm.top_radius = rug_r
+	dm.bottom_radius = rug_r
+	dm.height = 0.012
+	dm.radial_segments = 48
+	disc.mesh = dm
+	disc.position = throne + Vector3(0, 0.09, 0)
+	disc.material_override = _carpet(color.darkened(0.1)) if not elven else _moss()
+	add_child(disc)
+	for rr in [rug_r - 0.08, rug_r - 0.45]:
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = rr - 0.06
+		tm.outer_radius = rr
+		tm.rings = 48
+		tm.ring_segments = 4
+		ring.mesh = tm
+		ring.scale = Vector3(1, 0.25, 1)
+		ring.position = throne + Vector3(0, 0.1, 0)
+		ring.material_override = _gold() if not elven else _elf_leaf(true)
+		add_child(ring)
+	# An EXIT sign by the keep's archway: a board on a post with an arrow
+	# pointing out to the yard.
+	var sp := Vector3(kx + side * 1.6, 0, KEEP_DOOR_HALF + 1.4)
+	_add_block(sp + Vector3(0, 0.9, 0), Vector3(0.1, 1.8, 0.1), Color.WHITE, false, _timber(Color(0.55, 0.42, 0.3)))
+	_add_block(sp + Vector3(0, 1.75, 0.08), Vector3(1.5, 0.5, 0.08), Color.WHITE, false, _material(Color(0.13, 0.1, 0.08)))
+	_add_block(sp + Vector3(0, 1.75, 0.05), Vector3(1.6, 0.6, 0.06), Color.WHITE, false, _gold())
+	var arrow := MeshInstance3D.new()
+	var pm := PrismMesh.new()
+	pm.size = Vector3(0.3, 0.26, 0.04)
+	arrow.mesh = pm
+	arrow.rotation.z = PI / 2.0 if side > 0.0 else -PI / 2.0
+	arrow.position = sp + Vector3(-side * 0.5, 1.75, 0.14)
+	var amat := _material(Color(1.0, 0.85, 0.4))
+	amat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	arrow.material_override = amat
+	add_child(arrow)
+	_add_block(sp + Vector3(-side * 0.32, 1.75, 0.13), Vector3(0.2, 0.08, 0.02), Color.WHITE, false, amat)
+	var lab := Label3D.new()
+	lab.text = "EXIT"
+	lab.font_size = 64
+	lab.pixel_size = 0.005
+	lab.outline_size = 10
+	lab.outline_modulate = Color(0.05, 0.04, 0.03)
+	lab.modulate = Color(1.0, 0.95, 0.85)
+	lab.shaded = false
+	lab.position = sp + Vector3(side * 0.18, 1.75, 0.14)
+	add_child(lab)
+
+
 func _furnish_cellar(team: int, bx: float, side: float) -> void:
 	## Room lights, shelves and candles in the spawn cellar (no bunks: Faisal 2026-10-07).
 	var color: Color = Stats.FACTIONS[team].color
@@ -4784,10 +5686,10 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 	var hz := CELLAR_HALF_Z
 	# Three warm room lights down the hall (no hanging fixtures: it is open to the sky).
 	for k in 3:
-		var x: float = bx + side * (3.0 + k * 4.2)
+		var x: float = bx + side * (3.5 + k * 5.5)
 		_add_chandelier(Vector3(x, CELLAR_Y + 2.5, 0), elven)
 	# A shelf of supplies by the stairs and candles along the side walls.
-	for zs in [-1.0, 1.0]:
+	for zs in [1.0]:   # the north wall holds the class alcoves
 		if elven:
 			_prop("dungeon/shelves", Vector3(bx + side * 1.4, CELLAR_Y, zs * (hz - 0.5)), 0.7, PI if zs > 0.0 else 0.0)
 			_prop("dungeon/bottle_A_labeled_green", Vector3(bx + side * 1.4, CELLAR_Y + 0.95, zs * (hz - 0.75)), 0.5)
@@ -5076,7 +5978,7 @@ func _build_works(team: int, sx: float) -> void:
 	## Behind the cellar: the Kingdom's mine, the Forest's lumber camp, and
 	## mountains on the horizon.
 	var c := _hex_color(team)
-	var x := sx * 93.0
+	var x := sx * 100.0   # clear of the (bigger) spawn cellar
 	_add_house("mine" if team == 1 else "lumbermill", team, Vector3(x, 0, 14.0), 4.0, -PI / 2.0 * sx, team == 1)
 	if team == 1:
 		_add_house("barracks", team, Vector3(x, 0, -14.0), 3.6, -PI / 2.0 * sx)
@@ -5626,7 +6528,7 @@ func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float) -> voi
 
 func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 	upgrade_pads[team] = pos
-	var color := Color(1.0, 0.8, 0.25)
+	var color := Color(0.75, 0.55, 0.2)
 	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.45), false, _flagstone(Color(0.7, 0.62, 0.5)))
 	var pad := MeshInstance3D.new()
 	var pad_mesh := CylinderMesh.new()
@@ -5636,7 +6538,7 @@ func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 	pad.mesh = pad_mesh
 	var pad_mat := _material(color)
 	pad_mat.emission_enabled = true
-	pad_mat.emission = color * 0.4
+	pad_mat.emission = color * 0.15
 	pad.material_override = pad_mat
 	pad.position = pos + Vector3(0, 0.12, 0)
 	add_child(pad)
@@ -5647,22 +6549,43 @@ func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 	iron.roughness = 0.5
 	_add_block(pos + Vector3(0, 0.8, 0), Vector3(1.0, 0.3, 0.42), Color.WHITE, false, iron)
 	_add_block(pos + Vector3(0.45, 0.82, 0), Vector3(0.3, 0.2, 0.3), Color.WHITE, false, iron)
+	# The workshop behind it (Faisal's 12:55 target): a timber board with
+	# the station's name, a hammer and an axe hung on it, a workbench and casks.
+	var sd := -1.0 if team == 0 else 1.0   # away from the cellar's back wall
+	var back := pos + Vector3(sd * 0.35, 0, -1.5)
+	var wood := _timber(Color(0.66, 0.5, 0.34))
+	for xs in [-1.0, 1.0]:
+		_add_block(back + Vector3(xs * 1.05, 1.0, 0), Vector3(0.14, 2.0, 0.14), Color.WHITE, false, wood)
+	_add_block(back + Vector3(0, 1.25, 0), Vector3(2.0, 1.1, 0.08), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
+	_add_block(back + Vector3(0, 2.0, 0.02), Vector3(2.3, 0.42, 0.12), Color.WHITE, false, wood)
+	_add_block(back + Vector3(0, 2.0, 0.04), Vector3(2.4, 0.5, 0.06), Color.WHITE, false, _gold())
 	var l := Label3D.new()
 	l.text = "UPGRADE STATION"
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	l.no_depth_test = true
-	l.font_size = 22
-	l.pixel_size = 0.012
-	l.outline_size = 8
-	l.modulate = color
-	l.position = pos + Vector3(0, 1.6, 0)
+	l.font_size = 64
+	l.pixel_size = 0.0034
+	l.outline_size = 10
+	l.outline_modulate = Color(0.12, 0.07, 0.03)
+	l.modulate = Color(1.0, 0.86, 0.4)
+	l.shaded = false
+	l.position = back + Vector3(0, 2.0, 0.1)
 	add_child(l)
+	# Tools on the board: a hammer (handle + head) and an axe.
+	_add_block(back + Vector3(-0.45, 1.2, 0.07), Vector3(0.07, 0.7, 0.04), Color.WHITE, false, wood)
+	_add_block(back + Vector3(-0.45, 1.52, 0.08), Vector3(0.3, 0.14, 0.08), Color.WHITE, false, iron)
+	_add_block(back + Vector3(0.45, 1.2, 0.07), Vector3(0.07, 0.7, 0.04), Color.WHITE, false, wood)
+	_add_block(back + Vector3(0.55, 1.45, 0.08), Vector3(0.22, 0.26, 0.05), Color.WHITE, false, iron)
+	_add_block(back + Vector3(0, 1.25, 0.08), Vector3(0.36, 0.36, 0.04), Color.WHITE, false, _gold())
+	_add_block(back + Vector3(sd * 1.75, 0.42, 0.35), Vector3(1.0, 0.08, 0.6), Color.WHITE, false, wood)
+	_add_block(back + Vector3(sd * 1.75, 0.2, 0.35), Vector3(0.9, 0.4, 0.5), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
+	_prop("dungeon/barrel_small", back + Vector3(sd * 2.7, 0, 0.3), 0.75)
+	_prop("dungeon/barrel_small", back + Vector3(sd * 2.8, 0, 1.05), 0.7, 0.6)
 
 
 func _build_castle(team: int) -> void:
 	var side := -1.0 if team == 0 else 1.0
 	var color: Color = Stats.FACTIONS[team].color
 	mossy = team == 0
+	grey = team == 1
 	prop_solid = true
 	var cx := side * CASTLE_X
 	var fx := _front_x(team)                      # outer wall's front, facing the middle
@@ -5673,7 +6596,7 @@ func _build_castle(team: int) -> void:
 	var in_x := fx + side * 0.5                   # the front wall's inner face
 
 	# --- The yard: sandstone flags inside the walls. ---
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone())
+	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(Color(0.8, 0.82, 0.72) if mossy else Color.WHITE))
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
@@ -5684,6 +6607,7 @@ func _build_castle(team: int) -> void:
 		_add_tower(Vector3(fx, 0, zs * (dh + 1.1)), team, side, 2.2, 5.0, false)
 		_add_banner(team, Vector3(fx - side * 1.1, 1.0, zs * (dh + 1.1)), Vector3(-side, 0, 0), 0.6)
 		_add_torch(Vector3(fx - side * 2.0, 0, zs * (dh + 0.6)))
+		_add_banner_pole(team, Vector3(fx - side * 4.6, 0, zs * (dh + 1.9)))
 		# Corner towers.
 		_add_tower(Vector3(fx, 0, zs * hz), team, side)
 		_add_tower(Vector3(bx, 0, zs * hz), team, side)
@@ -5726,7 +6650,7 @@ func _build_castle(team: int) -> void:
 	var khz := KEEP_HALF_Z
 	var kdepth := absf(bx - kx)
 	var kcx := (kx + bx) / 2.0
-	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _pbr("flagstone_moss", 0.75, Color(0.9, 0.9, 0.84)) if mossy else _pbr("stone", 0.7, Color(0.86, 0.84, 0.8)))
+	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _pbr("flagstone_moss", 0.75, Color(0.76, 0.78, 0.68)) if mossy else _pbr("flagstone_grey", 0.7, Color(0.9, 0.9, 0.94)))
 	# Side walls, each with a side door near the back (a second way out of the keep).
 	for zs in [-1.0, 1.0]:
 		_add_wall(Vector3(kx + side * (kdepth - 4.5) / 2.0, KEEP_H / 2.0, zs * khz), Vector3(kdepth - 4.5, KEEP_H, 0.8))
@@ -5750,7 +6674,11 @@ func _build_castle(team: int) -> void:
 	for k in 7:
 		_add_block(Vector3(kx, KEEP_H + 0.7, -KEEP_DOOR_HALF + 0.75 + k * 1.25), Vector3(0.8, 0.6, 0.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# A rug up the yard's lane to the archway, and one from the archway to the throne.
-	_add_rug(Vector3(kx - side * 2.4, 0.025, 0), Vector2(3.6, 5.0), color)  # its top clears the keep floor's (0.05): coplanar tops flicker
+	if ember_castles:
+		# Ember Pass (the reference art): one long runner from the door to the keep.
+		_add_rug(Vector3((fx + kx) / 2.0, 0.025, 0), Vector2(absf(kx - fx) - 2.2, 3.0), color)
+	else:
+		_add_rug(Vector3(kx - side * 2.4, 0.025, 0), Vector2(3.6, 5.0), color)  # its top clears the keep floor's (0.05): coplanar tops flicker
 	_add_rug(Vector3(kx + side * 3.0, 0.05, 0), Vector2(5.0, 2.8), color)
 
 	# The yard stays open: lanterns (Elves) or nothing but the gatehouse
@@ -5761,6 +6689,23 @@ func _build_castle(team: int) -> void:
 	# Banners on the yard side of the gatehouse towers.
 	for zs in [-1.0, 1.0]:
 		_add_banner(team, Vector3(fx + side * 1.1, 0.2, zs * (dh + 1.1)), Vector3(side, 0, 0), 0.6)
+	if ember_castles:
+		# Ember Pass (the reference art): torches (crystals for the Elves) all
+		# along the walls, inside the yard and lane and out on the door front.
+		for zs in [-1.0, 1.0]:
+			var x := kx + side * 1.0
+			while side * (bx - x) > 1.6:
+				_add_wall_torch(Vector3(x, 1.7, zs * (hz - 0.55)), Vector3(0, 0, -zs))
+				x += side * 3.6
+			_add_wall_torch(Vector3(fx + side * 0.55, 1.7, zs * (dh + 4.8)), Vector3(side, 0, 0))
+			_add_wall_torch(Vector3(fx - side * 0.55, 1.9, zs * (dh + 5.2)), Vector3(-side, 0, 0))
+			_add_wall_torch(Vector3(fx - side * 0.55, 1.9, zs * (hz - 2.2)), Vector3(-side, 0, 0))
+			_add_wall_torch(Vector3(kx - side * 0.45, 1.6, zs * (khz - 2.5)), Vector3(-side, 0, 0))
+			# Flames along the rampart and on the corner towers.
+			for z in [dh + 5.5, hz - 2.0]:
+				_add_fire(Vector3(fx - side * 0.9, WALK_Y + 0.9, zs * z), 1.1)
+			_add_fire(Vector3(fx, 5.4 + 2.4, zs * hz), 1.4)
+			_add_fire(Vector3(bx, 5.4 + 2.4, zs * hz), 1.4)
 	# Inside the keep: columns along the side walls, torches, stacked stores at the back.
 	for zs in [-1.0, 1.0]:
 		_add_wall_torch(Vector3(kx + side * 1.2, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
@@ -5792,6 +6737,7 @@ func _build_castle(team: int) -> void:
 	for z in [-(dh + 2.6), dh + 2.6]:
 		cover_points.append(Vector3(fx + side * 1.6, 0, z))
 	_furnish_keep(team, kx, bx, side, throne)
+	_polish_keep(team, kx, side, throne)
 
 	_build_cellar(team, bx, side)
 
@@ -5811,6 +6757,7 @@ func _build_castle(team: int) -> void:
 	m.setup(team, throne, color, MONARCH_TITLES[team])
 	monarchs.append(m)
 	mossy = false
+	grey = false
 	prop_solid = false
 
 
@@ -5832,11 +6779,13 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# Under the castle's back wall: solid below ground except at the stairs.
 		var seg := hz + 0.5 - 1.8
 		_add_block(Vector3(bx, CELLAR_Y / 2.0, zs * (1.8 + seg / 2.0)), Vector3(1, -CELLAR_Y, seg), Color.WHITE, true, _ashlar())
-		# Torches in brackets and banners along the side walls.
-		for k in 4:
-			var tx := bx + side * (1.5 + k * 3.4)
-			_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
-		_add_banner(team, Vector3(bx + side * 8.2, CELLAR_Y - 0.1, zs * (hz - 0.05)), Vector3(0, 0, -zs), 0.7)
+		# Torches and banners along the south wall; the north wall holds the
+		# class alcoves.
+		if zs > 0.0:
+			for k in 5:
+				var tx := bx + side * (1.5 + k * 3.8)
+				_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
+			_add_pennant(team, Vector3(bx + side * 9.0, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0)
 	# The stairs: a straight flight up the middle into the keep.
 	var st := cellar_stairs(team)
 	_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
@@ -5889,7 +6838,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_add_torch(Vector3(bx - side * 0.2, 0, -2.3))
 		_add_torch(Vector3(bx - side * 0.2, 0, 2.3))
 	# The spawn circle at the far end: a glowing team-coloured ring on the floor.
-	var spawn := Vector3(bx + side * 11.6, CELLAR_Y, 0)
+	var spawn := Vector3(bx + side * 14.5, CELLAR_Y, 0)
 	_add_rug(spawn, Vector2(3.4, 7.2), color.darkened(0.15))
 	var ring := MeshInstance3D.new()
 	var rm2 := TorusMesh.new()
@@ -5906,15 +6855,14 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	ring.material_override = ring_mat
 	add_child(ring)
 	_furnish_cellar(team, bx, side)
-	# Class stations either side of the stairs.
-	# Three seals a side, the Rogue's (locked until account level 10) between
-	# the Mage and the Healer.
-	_add_station(team, Role.KNIGHT, Vector3(bx + side * 3.4, CELLAR_Y, -6.8))
-	_add_station(team, Role.ENGINEER, Vector3(bx + side * 6.6, CELLAR_Y, -6.8))
-	_add_station(team, Role.RANGER, Vector3(bx + side * 9.8, CELLAR_Y, -6.8))
-	_add_station(team, Role.MAGE, Vector3(bx + side * 3.4, CELLAR_Y, 6.8))
-	_add_station(team, Role.ROGUE, Vector3(bx + side * 6.6, CELLAR_Y, 6.8))
-	_add_station(team, Role.HEALER, Vector3(bx + side * 9.8, CELLAR_Y, 6.8))
+	# The class room: six alcoves in a row along the north wall, facing the
+	# camera, each with its class's name on a sign, its hat on a pedestal and
+	# a glowing rune circle (the Rogue's is locked until account level 10).
+	var order := [Role.KNIGHT, Role.ENGINEER, Role.RANGER, Role.MAGE, Role.ROGUE, Role.HEALER]
+	for k in order.size():
+		var p := Vector3(bx + side * (2.0 + k * 2.9), CELLAR_Y, -(hz - 1.6))
+		_add_class_alcove(team, order[k], p)
+		_add_station(team, order[k], p)
 	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall.
 	_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
 	var g := Guide.new()
@@ -5987,7 +6935,7 @@ func _add_crystal(pos: Vector3, scale: float) -> void:
 		add_child(c)
 	var light := OmniLight3D.new()
 	light.light_color = Color(0.4, 1.0, 0.8)
-	light.light_energy = 0.9
+	light.light_energy = 0.6
 	light.omni_range = 4.0 * scale
 	light.position = pos + Vector3(0, 0.8, 0)
 	add_child(light)
@@ -6009,6 +6957,11 @@ func apply_graphics() -> void:
 	var vp := get_viewport()
 	vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X, Viewport.MSAA_8X][q]
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if q == 0 else Viewport.SCREEN_SPACE_AA_DISABLED
+	if ink_on:
+		# The ink lines read the depth buffer, which multisampling blurs
+		# away on some drivers: FXAA smooths the lines instead.
+		vp.msaa_3d = Viewport.MSAA_DISABLED
+		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	vp.scaling_3d_scale = 0.8 if q == 0 else 1.0
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 else Viewport.SCALING_3D_MODE_BILINEAR
 	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 8192][q]
@@ -6035,6 +6988,9 @@ func _apply_map_variant() -> void:
 	## Day or the Moonlit Wildwood: sky, sun (or moon), ambient, fog and glow.
 	if world_environment == null:
 		return
+	if vmap:
+		vmap.apply_light()
+		return
 	var dark := night()
 	if dark:
 		sky_material.sky_top_color = Color(0.02, 0.04, 0.1)
@@ -6058,18 +7014,25 @@ func _apply_map_variant() -> void:
 		sky_material.sky_horizon_color = Color(0.85, 0.9, 0.95)
 		sky_material.ground_bottom_color = Color(0.3, 0.4, 0.25)
 		sky_material.ground_horizon_color = Color(0.65, 0.75, 0.6)
-		world_environment.ambient_light_energy = 0.6
-		world_environment.ambient_light_color = Color(0.75, 0.85, 0.8)
-		world_environment.fog_light_color = Color(0.8, 0.88, 0.95)
+		# Late-afternoon storybook light (Faisal's target art, 2026-10-07): a
+		# low warm sun throwing long shadows, cool blue ambient so the shade
+		# reads coloured, and torches and braziers that bloom.
+		world_environment.ambient_light_energy = 0.17
+		world_environment.ambient_light_sky_contribution = 0.25
+		world_environment.ambient_light_color = Color(0.45, 0.55, 0.85)
+		world_environment.fog_light_color = Color(0.95, 0.85, 0.7)
 		world_environment.fog_density = 0.0012
-		world_environment.glow_intensity = 0.45
-		world_environment.glow_hdr_threshold = 1.4
-		world_environment.adjustment_saturation = 1.15
-		world_environment.adjustment_brightness = 0.95
-		sun_light.light_color = Color(1.0, 0.94, 0.82)
-		sun_light.light_energy = 1.15
+		world_environment.glow_intensity = 0.7
+		world_environment.glow_hdr_threshold = 1.0
+		world_environment.adjustment_saturation = 1.22
+		world_environment.adjustment_brightness = 1.0
+		world_environment.adjustment_contrast = 1.1
+		sun_light.light_color = Color(1.0, 0.87, 0.7)
+		sun_light.light_energy = 1.2
+		sun_light.rotation_degrees = Vector3(-36, -38, 0)
+		sun_light.shadow_opacity = 1.0
 		if fill_light:
-			fill_light.light_energy = 0.15
+			fill_light.light_energy = 0.12
 
 
 func _build_world() -> void:
@@ -6088,22 +7051,25 @@ func _build_world() -> void:
 	environment.background_mode = Environment.BG_SKY
 	environment.sky = sky
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	environment.ambient_light_energy = 0.5
-	environment.ambient_light_sky_contribution = 0.6
+	environment.ambient_light_energy = 0.75
+	environment.ambient_light_sky_contribution = 0.5
 	environment.ambient_light_color = Color(0.75, 0.85, 0.8)
 	# Soft contact shadows under props and in corners (Forward+ only).
 	environment.ssao_enabled = true
-	environment.ssao_radius = 1.2
-	environment.ssao_intensity = 1.6
-	environment.ssao_power = 1.3
+	environment.ssao_radius = 1.0
+	environment.ssao_intensity = 1.0
+	environment.ssao_power = 1.1
 	# Light bouncing off lit surfaces into shade (grass green on the walls,
 	# torchlight on the floors): Forward+ only, High and Ultra.
 	environment.ssil_enabled = true
 	environment.ssil_radius = 4.0
 	environment.ssil_intensity = 0.7
 	environment.ssil_normal_rejection = 1.0
-	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
-	environment.tonemap_exposure = 0.8
+	# Filmic keeps the cartoon colours bright and saturated where ACES
+	# darkened and greyed them.
+	environment.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	environment.tonemap_exposure = 0.95
+	environment.tonemap_white = 6.0
 	environment.glow_enabled = true
 	environment.glow_intensity = 0.45
 	environment.glow_bloom = 0.08
@@ -6125,8 +7091,8 @@ func _build_world() -> void:
 	environment.fog_sky_affect = 0.2
 	environment.adjustment_enabled = true
 	environment.adjustment_saturation = 1.2
-	environment.adjustment_contrast = 1.15
-	environment.adjustment_brightness = 0.94
+	environment.adjustment_contrast = 1.05
+	environment.adjustment_brightness = 1.0
 	env.environment = environment
 	world_environment = environment
 	add_child(env)
@@ -6161,6 +7127,9 @@ func _build_world() -> void:
 	fill.light_energy = 0.15
 	add_child(fill)
 
+	if Stats.MAPS[map_variant][1] == "volcano":
+		_build_volcano()
+		return
 	# Ground, in pieces so each castle's spawn cellar can be sunk behind it.
 	var gx := map_half.x + 40.0
 	var gz := map_half.y + 30.0
@@ -6181,21 +7150,22 @@ func _build_world() -> void:
 	# The road: rutted dirt from bridge to door, cobbled aprons at each door,
 	# and grass creeping in at the edges.
 	var fxr := CASTLE_X - CASTLE_DEPTH
-	var road := _pbr("road", 0.2)
-	# The main road: door to door through the shrine, with cobbled aprons.
-	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road)
-	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road)
+	var road := _stones()
+	# The main road: a flagstone path door to door through the shrine, with
+	# paved aprons at the doors.
+	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road, 0.0)
+	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road, 0.0)
 	for sx in [-1.0, 1.0]:
 		_add_block(Vector3(sx * (fxr - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color.WHITE, false, _flagstone(Color(0.96, 0.93, 0.88)))
 		# The Forest Path (north) and the River Path (south): from the road by
 		# the castle door out to the flank bridges, as worn dirt tracks.
-		var dirt := _dirt()
+		var dirt := _stones(true)
 		var nb: float = BRIDGES[0]
 		var sb: float = BRIDGES[2]
-		_add_path(Vector3(sx * (fxr - 4.0), 0, -3.0), Vector3(sx * 30.0, 0, nb - 3.0), 3.4, dirt)
-		_add_path(Vector3(sx * 30.0, 0, nb - 3.0), Vector3(sx * (RIVER_HALF + 1.5), 0, nb), 3.4, dirt)
-		_add_path(Vector3(sx * (fxr - 4.0), 0, 3.0), Vector3(sx * 26.0, 0, sb + 2.0), 3.4, dirt)
-		_add_path(Vector3(sx * 26.0, 0, sb + 2.0), Vector3(sx * (RIVER_HALF + 1.5), 0, sb), 3.4, dirt)
+		_add_path(Vector3(sx * (fxr - 4.0), 0, -3.0), Vector3(sx * 30.0, 0, nb - 3.0), 3.4, dirt, 0.0)
+		_add_path(Vector3(sx * 30.0, 0, nb - 3.0), Vector3(sx * (RIVER_HALF + 1.5), 0, nb), 3.4, dirt, 0.0)
+		_add_path(Vector3(sx * (fxr - 4.0), 0, 3.0), Vector3(sx * 26.0, 0, sb + 2.0), 3.4, dirt, 0.0)
+		_add_path(Vector3(sx * 26.0, 0, sb + 2.0), Vector3(sx * (RIVER_HALF + 1.5), 0, sb), 3.4, dirt, 0.0)
 		# Road dressing: milestones on the verge, signposts at the path
 		# bends and an abandoned cart by the roadside.
 		# (Two milestones a side; the roadside caravan pile was clutter and went.)
@@ -6267,14 +7237,124 @@ func _build_world() -> void:
 		if absf(hx + 10.0) < 42.0:
 			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
 	_build_outskirts()
+	_add_back_forest()
+	_finish_world()
 
+
+func _build_volcano() -> void:
+	## Ember Pass: the same two castles on basalt plateaus over a lava sea,
+	## joined by bridges (scripts/volcano.gd builds everything else).
+	vmap = Volcano.new(self)
+	vmap.build()
+	# Soot-dark castles: the lava's red light turns pale stone, bark and
+	# moss glaring yellow and green.
+	ember_castles = true
+	tex_swap = {"bark": "elfbark", "flagstone_moss": "flagstone_elf"}
+	soot = Color(0.66, 0.68, 0.6)
+	_build_castle(0)
+	soot = Color(0.74, 0.76, 0.86)   # keeps the Humans' grey stone grey under the red light
+	_build_castle(1)
+	soot = Color.WHITE
+	tex_swap = {}
+	ember_castles = false
+	for p in vmap.heal_orb_spots():
+		var orb = HealOrb.new()
+		add_child(orb)
+		orb.setup(self, p)
+		heal_orbs.append(orb)
+	_finish_world()
+
+
+func _finish_world() -> void:
 	_apply_map_variant()
 	camera = Camera3D.new()
-	camera.rotation_degrees = Vector3(-55, 0, 0)
+	camera.rotation_degrees = Vector3(-50, 0, 0)
 	camera.fov = 40.0
 	camera.position = Vector3(0, 40, 26)
 	add_child(camera)
 	camera.make_current()
+	_add_ink()
+
+
+
+func _add_back_forest() -> void:
+	## Thick woods behind each castle and out to the map's ends (Faisal
+	## 2026-10-07: "a surplus of trees"), on a jittered grid. Every spot goes
+	## through the usual tree checks, so roads, buildings, the hamlets,
+	## farms and works stay clear; the spawn cellars are kept open too.
+	var r := RandomNumberGenerator.new()
+	r.seed = 2027
+	var cellar_x1 := CASTLE_X + CASTLE_DEPTH + CELLAR_DEPTH + 3.0
+	for sx in [-1.0, 1.0]:
+		var gx := 46.0
+		while gx < 118.0:
+			var gz := -46.0
+			while gz <= 46.0:
+				var p := Vector3(sx * (gx + r.randf_range(-1.4, 1.4)), 0, gz + r.randf_range(-1.4, 1.4))
+				gz += 4.4
+				var ax := absf(p.x)
+				var az := absf(p.z)
+				if ax < CASTLE_X + CASTLE_DEPTH + 2.0 and az < CASTLE_HALF_Z + 6.0:
+					continue   # the castle and its flanks' lanes
+				if ax < cellar_x1 and az < CELLAR_HALF_Z + 3.0:
+					continue   # the spawn cellar
+				if ax < 70.0 and az < 18.0:
+					continue
+				if ax > 108.0 and az < 34.0:
+					continue   # the mountains
+				_add_tree(p, r.randf() < 0.3)
+			gx += 4.4
+
+
+var ink_on := false
+
+
+func _add_ink() -> void:
+	## Cartoon ink lines: one full-screen pass drawn by every camera (the
+	## shader ignores the quad's place in the world), so split-screen panes
+	## get them too. Needs the depth buffer, so not on the Compatibility
+	## renderer.
+	if RenderingServer.get_rendering_device() == null:
+		return
+	var q := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
+	q.mesh = quad
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assets/shaders/ink_outline.gdshader")
+	mat.render_priority = 100
+	q.material_override = mat
+	q.extra_cull_margin = 16384.0
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(q)
+	ink_on = true
+
+
+func _toonify(node) -> void:
+	## Cel shading: hard-edged light and shadow on every standard material.
+	if not is_instance_valid(node) or not node is GeometryInstance3D:
+		return
+	_toon_mat(node.material_override)
+	if node is MeshInstance3D:
+		for i in node.get_surface_override_material_count():
+			_toon_mat(node.get_surface_override_material(i))
+		if node.mesh:
+			for i in node.mesh.get_surface_count():
+				_toon_mat(node.mesh.surface_get_material(i))
+	elif node is MultiMeshInstance3D and node.multimesh and node.multimesh.mesh:
+		for i in node.multimesh.mesh.get_surface_count():
+			_toon_mat(node.multimesh.mesh.surface_get_material(i))
+
+
+func _toon_mat(m) -> void:
+	if not m is BaseMaterial3D or m.diffuse_mode == BaseMaterial3D.DIFFUSE_TOON:
+		return
+	if m.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED:
+		return
+	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	# Shiny things (gold, glass, water) keep a crisp toon highlight; matte
+	# ones none, so the ground and walls do not get blotchy sun spots.
+	m.specular_mode = BaseMaterial3D.SPECULAR_TOON if m.roughness < 0.6 else BaseMaterial3D.SPECULAR_DISABLED
 
 
 func _build_hud() -> void:
