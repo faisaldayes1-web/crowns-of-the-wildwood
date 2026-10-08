@@ -8,6 +8,7 @@ extends RefCounted
 
 const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
+const Scoreboard = preload("res://scripts/scoreboard.gd")
 
 const WOOD := Color(0.47, 0.29, 0.14)
 const WOOD_DARK := Color(0.27, 0.16, 0.08)
@@ -177,9 +178,8 @@ func draw(h) -> void:
 		h.draw_rect(Rect2(0, 0, sz.x, 40 + i * 26), Color(0.9, 0.55, 0.2, 0.025))
 	_header(h, cx, t)
 	if show_board:
-		# Two team blocks (title, header, a row per fighter) plus the frame.
 		var rows: int = game.units.size()
-		var r := Rect2(cx - 345, 150, 690, minf(2 * 56 + rows * 22 + 2 * 18 + 50, sz.y - 150 - 70))
+		var r := Rect2(cx - 390, 150, 780, minf(Scoreboard.table_height(rows, 30.0) + 44.0, sz.y - 150 - 70))
 		_panel(h, r, "SCOREBOARD")
 		h._draw_scoreboard_table(Rect2(r.position + Vector2(16, 28), Vector2(r.size.x - 32, r.size.y - 40)))
 	else:

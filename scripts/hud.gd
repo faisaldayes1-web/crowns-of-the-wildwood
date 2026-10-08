@@ -8,6 +8,7 @@ extends Control
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
 const Monarch = preload("res://scripts/monarch.gd")
+const Scoreboard = preload("res://scripts/scoreboard.gd")
 const Role = Stats.Role
 
 const INK := Color(0.09, 0.1, 0.15, 0.92)
@@ -1782,79 +1783,12 @@ func _menu_scoreboard(body: Rect2) -> void:
 
 
 func _draw_scoreboard_overlay() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.35))
-	var rect := Rect2(size.x / 2.0 - 400, size.y / 2.0 - 240, 800, 470)
-	_plate(rect, INK, GOLD, 14, 3)
-	_card("logo_elves", Rect2(rect.position + Vector2(16, 6), Vector2(70, 70)))
-	_card("logo_humans", Rect2(rect.position + Vector2(rect.size.x - 86, 6), Vector2(70, 70)))
-	_text(rect.position + Vector2(0, 30), "SCOREBOARD", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
-	var left := maxf(game.time_left, 0.0)
-	_text(rect.position + Vector2(0, 48), "%s %d  ·  %02d:%02d left  ·  %d %s" % [Stats.FACTIONS[0].realm, game.score[0], int(left) / 60, int(left) % 60, game.score[1], Stats.FACTIONS[1].realm], 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	_draw_scoreboard_table(Rect2(rect.position + Vector2(20, 78), Vector2(rect.size.x - 40, rect.size.y - 98)), true)
-	_text(rect.position + Vector2(0, rect.size.y - 10), "Score = kills ×%d, assists ×%d, captures ×%d, hearts healed ×%d, damage ×%d, upgrades ×%d" % [Stats.SCORE_KILL, Stats.SCORE_ASSIST, Stats.SCORE_CAPTURE, Stats.SCORE_HEAL, Stats.SCORE_DAMAGE, Stats.SCORE_UPGRADE], 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	Scoreboard.draw_overlay(self)
 
 
 func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
-	## Both teams, best score first: class, level, score, kills, deaths,
-	## captures, hearts healed, damage and total upgrades. The live (Tab)
-	## version also shows everyone's hearts and respawn timers.
-	var cols := [["PLAYER", 0.0, HORIZONTAL_ALIGNMENT_LEFT], ["CLASS", 150.0, HORIZONTAL_ALIGNMENT_LEFT], ["LV", 250.0, HORIZONTAL_ALIGNMENT_CENTER],
-		["K", 296.0, HORIZONTAL_ALIGNMENT_CENTER], ["D", 336.0, HORIZONTAL_ALIGNMENT_CENTER], ["A", 376.0, HORIZONTAL_ALIGNMENT_CENTER],
-		["CAPS", 420.0, HORIZONTAL_ALIGNMENT_CENTER], ["HEAL", 470.0, HORIZONTAL_ALIGNMENT_CENTER], ["DMG", 520.0, HORIZONTAL_ALIGNMENT_CENTER], ["UPG", 568.0, HORIZONTAL_ALIGNMENT_CENTER], ["SCORE", 614.0, HORIZONTAL_ALIGNMENT_CENTER]]
-	if live:
-		cols = [["PLAYER", 0.0, HORIZONTAL_ALIGNMENT_LEFT], ["CLASS", 122.0, HORIZONTAL_ALIGNMENT_LEFT], ["HEARTS", 220.0, HORIZONTAL_ALIGNMENT_LEFT], ["LV", 312.0, HORIZONTAL_ALIGNMENT_CENTER],
-			["K", 354.0, HORIZONTAL_ALIGNMENT_CENTER], ["D", 392.0, HORIZONTAL_ALIGNMENT_CENTER], ["A", 430.0, HORIZONTAL_ALIGNMENT_CENTER],
-			["CAPS", 472.0, HORIZONTAL_ALIGNMENT_CENTER], ["HEAL", 520.0, HORIZONTAL_ALIGNMENT_CENTER], ["DMG", 568.0, HORIZONTAL_ALIGNMENT_CENTER], ["UPG", 614.0, HORIZONTAL_ALIGNMENT_CENTER], ["SCORE", 664.0, HORIZONTAL_ALIGNMENT_CENTER]]
-	var scale := rect.size.x / (710.0 if live else 660.0)
-	var y := rect.position.y
-	for t in 2:
-		var tc := _team_color(t)
-		var members: Array = game.units.filter(func(u): return u.team == t)
-		members.sort_custom(func(a, b): return game.unit_score(a) > game.unit_score(b))
-		var block := Rect2(Vector2(rect.position.x, y), Vector2(rect.size.x, 30 + 18 + members.size() * 22 + 8))
-		_plate(block, tc.darkened(0.72), tc.darkened(0.1), 8, 1)
-		if not _card("crest_elf" if t == 0 else "crest_human", Rect2(block.position + Vector2(6, 3), Vector2(28, 28))):
-			_icon("crest_forest" if t == 0 else "crest_kingdom", block.position + Vector2(20, 16), 9, Color.WHITE)
-		var kills := 0
-		for u in members:
-			kills += u.kills
-		_text(block.position + Vector2(38, 21), "%s  ·  %s" % [Stats.FACTIONS[t].name.to_upper(), Stats.FACTIONS[t].realm.to_upper()], 13, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-		_text(block.position + Vector2(0, 21), "%d capture%s  ·  %d kills" % [game.score[t], "" if game.score[t] == 1 else "s", kills], 11, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, block.size.x - 12, 2)
-		for c in cols:
-			_text(block.position + Vector2(12 + c[1] * scale, 44), c[0], 9, GREY, c[2], 40 if c[2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
-		for i in members.size():
-			var u = members[i]
-			var ry: float = block.position.y + 52 + i * 22
-			if u.is_player:
-				draw_rect(Rect2(block.position.x + 4, ry - 2, block.size.x - 8, 21), Color(0.45, 0.35, 0.1, 0.5))
-			var col := GOLD if u.is_player else Color.WHITE
-			if u.dead:
-				col = col.darkened(0.4)
-			var values := [u.display_name, u.role_name(), str(u.level), str(u.kills), str(u.deaths), str(u.assists), str(u.captures), str(u.healing), str(u.damage_dealt), str(u.total_upgrades()), str(game.unit_score(u))]
-			var score_col := 10
-			if live:
-				values.insert(2, "")
-				score_col = 11
-				var hx: float = block.position.x + 12 + cols[2][1] * scale
-				if u.dead:
-					_text(Vector2(hx, ry + 13), "back in %d" % ceili(u.respawn_timer), 10, Color(1, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-				else:
-					_hearts(Vector2(hx + 6, ry + 9), u.hearts, 0.3, 13)
-					if u.buff != "" and u.buff_timer > 0.0:
-						_icon(Stats.BLESSING_KINDS[u.buff].icon, Vector2(hx + 70, ry + 9), 5, Color.WHITE)
-				if u.role != Role.BASE:
-					_icon(u.variant().get("icon", _class_icon(u.role)), Vector2(block.position.x + 12 + cols[1][1] * scale - 10, ry + 9), 5, Color.WHITE)
-			if u.is_player:
-				values[0] = values[0] + "  (you)"
-			if u.veteran == 2:
-				values[0] = "☠ " + values[0]
-			elif u.veteran == 1:
-				values[0] = "★ " + values[0]
-			for c in cols.size():
-				_text(Vector2(block.position.x + 12 + cols[c][1] * scale, ry + 13), values[c], 11, col if c != score_col else XP, cols[c][2], 40 if cols[c][2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
-			if u.carrying:
-				_icon("crown", Vector2(block.position.x + 12 + cols[1][1] * scale + _text_width(u.role_name(), 11) + 14, ry + 8), 5, GOLD)
-		y = block.end.y + 10
+	## Drawn by scoreboard.gd (Tab overlay, pause menu tab, end-of-match board).
+	Scoreboard.draw_table(self, rect, live)
 
 
 func _draw_chat() -> void:
