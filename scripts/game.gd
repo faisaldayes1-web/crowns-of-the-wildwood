@@ -5329,14 +5329,22 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	for zs in [-1.0, 1.0]:
 		_add_block(Vector3(front_x, ROOM_H + 0.08, zs * (hz / 2.0 + ROOM_DOOR_HALF / 2.0)), Vector3(0.7, 0.16, hz - ROOM_DOOR_HALF), Color.WHITE, false, cap)
 	if elven:
-		# Leaf tufts along the grown walls' tops instead of a solid green slab.
+		# Rounded leaf tufts along the grown walls' tops (as on the outer walls),
+		# not boxes, which read as stray squares from above.
+		var tufts := []
 		for k in 7:
-			var t: float = -hz + 0.6 + k * (hz * 2 - 1.2) / 6.0
-			_add_block(Vector3(back_x, ROOM_H + 0.3, t), Vector3(0.9, 0.3, 0.7), Color.WHITE, false, _elf_leaf(k % 2 == 0))
+			tufts.append(Vector3(back_x, ROOM_H + 0.2, -hz + 0.6 + k * (hz * 2 - 1.2) / 6.0))
 		for k in 6:
-			var t: float = front_x + side * (0.5 + k * (depth - 1.0) / 5.0)
 			for zs in [-1.0, 1.0]:
-				_add_block(Vector3(t, ROOM_H + 0.3, zs * hz), Vector3(0.7, 0.3, 0.9), Color.WHITE, false, _elf_leaf(k % 2 == 1))
+				tufts.append(Vector3(front_x + side * (0.5 + k * (depth - 1.0) / 5.0), ROOM_H + 0.2, zs * hz))
+		for k in tufts.size():
+			var tp: Vector3 = tufts[k]
+			var tuft := MeshInstance3D.new()
+			tuft.mesh = _rock_mesh(int(tp.x * 5 + tp.z * 11) + k, 0.42, 0.15)
+			tuft.position = tp
+			tuft.scale = Vector3(1.0, 0.75, 1.0)
+			tuft.material_override = _elf_leaf(k % 3 == 0)
+			add_child(tuft)
 	audit_label = ""
 	# A carpet runner from the doors to a round, three-tier dais in the middle
 	# of the room; the crown sits on a cushioned pedestal on top (the
