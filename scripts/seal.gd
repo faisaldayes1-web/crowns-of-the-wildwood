@@ -72,8 +72,8 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	# The hat itself: the class's headgear, floating over the pedestal and
 	# turning slowly (after Fat Princess's hats). Grab it to become the class.
 	seal = Node3D.new()
-	seal.position.y = 1.45
-	seal.scale = Vector3.ONE * 1.5   # big enough to read from the camera
+	seal.position.y = 1.4
+	seal.scale = Vector3.ONE * 1.4   # chunky, but the alcove sign must stay visible
 	add_child(seal)
 	locked = role == Stats.Role.ROGUE and not game.unlocked()
 	_build_hat(seal, elf)
@@ -125,6 +125,7 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	name_label.outline_size = 8
 	name_label.modulate = color.lightened(0.3)
 	name_label.position.y = 0.95
+	name_label.visible = false   # the alcove sign above names the class
 	add_child(name_label)
 
 	prompt = Label3D.new()
@@ -137,6 +138,9 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	prompt.position.y = 2.5
 	prompt.visible = false
 	add_child(prompt)
+	# The whole stand is built a size up so the class choice reads from the
+	# camera at a glance (in_reach measures from the centre, unaffected).
+	scale = Vector3.ONE * 1.1
 
 
 func class_title() -> String:
@@ -167,7 +171,7 @@ func take(u) -> void:
 func _process(delta: float) -> void:
 	t += delta
 	seal.rotation.y += delta * 1.2
-	seal.position.y = 1.55 + sin(t * 2.2 + role) * 0.08
+	seal.position.y = 1.4 + sin(t * 2.2 + role) * 0.06
 	ring.rotation.y -= delta * 0.4
 	var p = game.player
 	if locked and game.unlocked():

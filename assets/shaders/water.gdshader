@@ -4,8 +4,8 @@ render_mode cull_back, depth_draw_opaque, specular_schlick_ggx;
 // a gentle vertex bob, and a soft colour between shallows and depth.
 
 uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
-uniform vec4 shallow : source_color = vec4(0.24, 0.60, 0.90, 1.0);
-uniform vec4 deep : source_color = vec4(0.06, 0.30, 0.74, 1.0);
+uniform vec4 shallow : source_color = vec4(0.42, 0.80, 0.96, 1.0);
+uniform vec4 deep : source_color = vec4(0.16, 0.52, 0.88, 1.0);
 uniform float alpha : hint_range(0.0, 1.0) = 0.94;
 uniform float half_width = 3.3;   // the river's half width: foam laps the banks
 uniform float island_r = 6.6;     // and the shrine island

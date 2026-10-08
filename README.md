@@ -3,6 +3,8 @@
 Elves vs Humans: steal the enemy monarch and carry them to your throne. First to 2 captures wins, or the higher score when the 10 minute clock runs out.
 Real low-poly models and textures (all CC0, see `assets/CREDITS.md`), with every rule and number in plain GDScript.
 
+**The look.** A bright cartoon tabletop: lime meadow in soft cells, pale flagstone paths with grass between the stones, warm sandstone castles with dark ink joints, five-petal flowers, cel-shaded light and ink outlines round everything (a full-screen depth pass, `assets/shaders/ink_outline.gdshader`; Forward+ only, so the outlines switch MSAA to FXAA). The textures are painted by `tools/make_textures.py`.
+
 ## Run it
 
 1. Download Godot 4.3 or newer (Standard version, not .NET) from https://godotengine.org/download
