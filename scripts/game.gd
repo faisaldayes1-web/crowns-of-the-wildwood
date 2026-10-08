@@ -1646,7 +1646,7 @@ func _show_loading(hold: float) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shot") or arg == "--demo" or arg == "--audit":
 			return   # screenshots and headless tests see the game itself
-	if loading_layer:
+	if is_instance_valid(loading_layer):
 		loading_layer.queue_free()
 	loading_layer = CanvasLayer.new()
 	loading_layer.layer = 100
@@ -3030,6 +3030,12 @@ func _save_controls() -> void:
 
 
 func _load_controls() -> void:
+	if OS.has_feature("web"):
+		# Tablets are 4:3: letterbox the 16:9 canvas rather than let the
+		# menus run off the sides. This runs before the saved-settings check
+		# below so a first visit (no saved file yet) gets it too.
+		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+		gfx_quality = mini(gfx_quality, 1)
 	var cfg := ConfigFile.new()
 	if cfg.load(CONTROLS_PATH) != OK:
 		return
@@ -3047,9 +3053,6 @@ func _load_controls() -> void:
 	if OS.has_feature("web"):
 		# Browsers (and tablets) start on Medium at most; Settings can raise it.
 		gfx_quality = mini(gfx_quality, 1)
-		# Tablets are 4:3: letterbox the 16:9 canvas rather than let the
-		# menus run off the sides.
-		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	fullscreen = cfg.get_value("settings", "fullscreen", false)
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
@@ -7200,6 +7203,13 @@ func apply_graphics() -> void:
 	if vp.msaa_3d == Viewport.MSAA_2X:
 		vp.msaa_3d = Viewport.MSAA_4X
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+	if OS.has_feature("web"):
+		# Browsers (an iPad at 2x pixel density): no multisampling and no 3D
+		# scaling, FXAA alone smooths the edges.
+		vp.msaa_3d = Viewport.MSAA_DISABLED
+		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
+		vp.scaling_3d_scale = 1.0
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 	if world_environment:
 		world_environment.ssao_enabled = q >= 1
 		world_environment.ssil_enabled = q >= 2
