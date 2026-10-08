@@ -54,6 +54,7 @@ var damage_dealt := 0   # hearts of damage dealt
 var display_name := ""
 var slow_timer := 0.0       # slowed: half speed
 var stealth_timer := 0.0    # smoke bomb: bots lose you
+var burn_tick := false      # demo log: the hit being taken is a fire-form burn going off
 var fire_form := false      # Ember Pass: our team holds the Fire Objective, so this class fights in FIRE form
 var fire_fx: Node3D         # the FIRE form's flames and glow
 var burn_timer := 0.0       # set alight by a FIRE attack: a heart goes when it runs out (healing puts it out)
@@ -992,8 +993,9 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	if hearts <= 0:
 		if game.demo and attacker and attacker != self:
 			# Balance log: who killed whom, at what in-match level and role.
-			print("KILL t=%d kteam=%d krole=%d klevel=%d kmastery=%d vteam=%d vrole=%d vlevel=%d vmastery=%d" % [game.match_clock(),
-				attacker.team, attacker.role, attacker.level, attacker.total_upgrades(), team, role, level, total_upgrades()])
+			print("KILL t=%d kteam=%d krole=%d klevel=%d kmastery=%d vteam=%d vrole=%d vlevel=%d vmastery=%d kfire=%d burn=%d" % [game.match_clock(),
+				attacker.team, attacker.role, attacker.level, attacker.total_upgrades(), team, role, level, total_upgrades(),
+				int(attacker.fire_form), int(burn_tick)])
 		if is_player:
 			var weapon: String = attacker.attack_stats().attack_name if (attacker and attacker != self and attacker.has_method("attack_stats")) else ""
 			game.on_player_killed(attacker if attacker != self else null, weapon)
@@ -1580,7 +1582,9 @@ func _physics_process(delta: float) -> void:
 		if burn_timer <= 0.0:
 			var by = burn_by if is_instance_valid(burn_by) and burn_by.team != team else null
 			burn_by = null
+			burn_tick = true
 			take_damage(Stats.FIRE_FORM.burn_damage, by)
+			burn_tick = false
 			if dead:
 				return
 	if buff_timer > 0.0:

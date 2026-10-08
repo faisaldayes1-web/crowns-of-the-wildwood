@@ -22,7 +22,7 @@ then `python3 tools/balance/agg.py <tag>`.
 ## 1. Venom Fang slows again
 
 - **When:** 2026-10-08 21:05 UTC
-- **Commit:** _filled in by the next commit_
+- **Commit:** `90af014`
 - **What:** The Assassin Rogue's Venom Fang never slowed anyone. Melee base
   attacks only passed the fire-form burn to the target and dropped every other
   on-hit effect, so the `slow` on the attack did nothing (arrows and spells
@@ -39,4 +39,19 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Tunables:** none changed. Venom Fang `slow` stays 0.8 s (now actually applied;
   slowed units move at ×0.55).
 - **Batches:** the six-seed baselines in entry 2 run with this fix in.
+- **Revert:** `git revert 90af014`
+
+## 2. Fire form shows up in the batch logs
+
+- **When:** 2026-10-08 21:25 UTC
+- **Commit:** _filled in by the next commit_
+- **What:** Logging only, no gameplay change. Demo `KILL` lines now end with
+  `kfire=` (the killer was in Ember Pass fire form) and `burn=` (the killing
+  heart was a fire-form burn going off). `agg.py` prints a "fire form" line:
+  fire-form kills by class, share of all kills, burn finishers, and fire kills
+  on base soldiers. Needed for the Fire form re-check.
+- **Files:** `scripts/unit.gd` (`burn_tick`, KILL line), `tools/balance/agg.py`,
+  `docs/changelog/combat-balance.md`.
+- **Tunables:** none.
+- **Batches:** none needed (log output only); `tools/tests/run.sh` 9/9 pass.
 - **Revert:** `git revert <hash>`

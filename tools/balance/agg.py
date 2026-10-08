@@ -77,6 +77,16 @@ def main(tags):
     lo_beats_hi = sum(1 for k in kills if k["vmastery"] >= 3 and k["kmastery"] == 0)
     hi_beats_lo = sum(1 for k in kills if k["kmastery"] >= 3 and k["vmastery"] == 0)
     print("promoted (3+ points) v fresh (0 points): fresh won %d, promoted won %d" % (lo_beats_hi, hi_beats_lo))
+    # Ember Pass Fire forms: kills by classes in fire form, and burn finishers.
+    if any(k.get("kfire") for k in kills):
+        fire = collections.Counter()
+        for k in kills:
+            if k.get("kfire"):
+                fire[ROLES[k["krole"]]] += 1
+        burns = sum(1 for k in kills if k.get("burn"))
+        fk = sum(fire.values())
+        print("fire form: %d kills (%d%% of all), %d finished by a burn; by class %s; fire kills on base soldiers %d"
+              % (fk, 100 * fk / len(kills), burns, dict(fire), sum(1 for k in kills if k.get("kfire") and k["vrole"] == 0)))
     # When in the match people level: deaths in each third of the match by victim level.
     t3 = collections.defaultdict(collections.Counter)
     for k in kills:
