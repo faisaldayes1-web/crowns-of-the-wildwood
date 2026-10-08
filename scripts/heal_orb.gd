@@ -12,6 +12,7 @@ var t := 0.0
 var light: OmniLight3D
 var ring: MeshInstance3D
 var sparks: CPUParticles3D
+var beam: MeshInstance3D
 var halo: MeshInstance3D   # soft red glow behind the bottle so it stands out from any ground
 
 const RED := Color(1.0, 0.16, 0.2)
@@ -40,11 +41,11 @@ func setup(p_game, pos: Vector3) -> void:
 	ring.mesh = torus
 	ring.position.y = 0.13
 	var rm := StandardMaterial3D.new()
-	rm.albedo_color = Color(PINK, 0.6)
+	rm.albedo_color = Color(1.0, 0.9, 0.75, 0.7)
 	rm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	rm.emission_enabled = true
-	rm.emission = RED
-	rm.emission_energy_multiplier = 1.8
+	rm.emission = Color(1.0, 0.8, 0.6)
+	rm.emission_energy_multiplier = 1.6
 	rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring.material_override = rm
 	add_child(ring)
@@ -150,14 +151,14 @@ func setup(p_game, pos: Vector3) -> void:
 	# The halo: a soft additive glow facing the camera, pulsing gently.
 	halo = MeshInstance3D.new()
 	var quad := QuadMesh.new()
-	quad.size = Vector2(1.9, 1.9)
+	quad.size = Vector2(2.4, 2.4)
 	halo.mesh = quad
 	halo.position.y = 1.0
 	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var grad := Gradient.new()
-	grad.set_color(0, Color(1.0, 0.55, 0.6, 0.85))
+	grad.set_color(0, Color(1.0, 0.85, 0.85, 1.0))
 	grad.set_color(1, Color(1.0, 0.1, 0.15, 0.0))
-	grad.add_point(0.45, Color(1.0, 0.2, 0.25, 0.35))
+	grad.add_point(0.4, Color(1.0, 0.35, 0.4, 0.5))
 	var gtex := GradientTexture2D.new()
 	gtex.gradient = grad
 	gtex.fill = GradientTexture2D.FILL_RADIAL
@@ -174,6 +175,25 @@ func setup(p_game, pos: Vector3) -> void:
 	hm.no_depth_test = false
 	halo.material_override = hm
 	add_child(halo)
+	# A faint shaft of light rising from the slab: the potion shows from afar.
+	beam = MeshInstance3D.new()
+	var shaft := CylinderMesh.new()
+	shaft.top_radius = 0.12
+	shaft.bottom_radius = 0.42
+	shaft.height = 3.2
+	shaft.cap_top = false
+	shaft.cap_bottom = false
+	beam.mesh = shaft
+	beam.position.y = 1.7
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var bm := StandardMaterial3D.new()
+	bm.albedo_color = Color(1.0, 0.75, 0.75, 0.16)
+	bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	bm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	bm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	beam.material_override = bm
+	add_child(beam)
 	light = OmniLight3D.new()
 	light.light_color = Color(1.0, 0.3, 0.35)
 	light.light_energy = 1.4
@@ -191,6 +211,7 @@ func _process(delta: float) -> void:
 			orb.visible = true
 			light.visible = true
 			halo.visible = true
+			beam.visible = true
 			sparks.emitting = true
 			game.spawn_splash(global_position + Vector3(0, 0.6, 0), PINK, 12, 2.0, 0.6, true)
 		else:
@@ -218,6 +239,7 @@ func _process(delta: float) -> void:
 			orb.visible = false
 			light.visible = false
 			halo.visible = false
+			beam.visible = false
 			sparks.emitting = false
 			respawn_timer = Stats.HEAL_ORB_RESPAWN
 			return
