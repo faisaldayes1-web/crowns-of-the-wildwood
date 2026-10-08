@@ -32,11 +32,11 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   class stations drawn, the move stick and the attack pad.
 - **Revert:** `git revert ad2abae`
 
-## 2026-10-08 23:05 UTC · `HASH-PENDING` · Web: no spot-light shadow in the menu hall
+## 2026-10-08 23:05 UTC · `a270b18` · Web: no spot-light shadow in the menu hall
 
 - **What:** the menu hall's key light cast a shadow that WebGL rejects on the Compatibility
   renderer (hundreds of "textures can not be used with multiple targets" console warnings and no
   shadow anyway). The shadow is now off in the browser build only; desktop keeps it.
 - **Files:** `scripts/menu_stage.gd`
 - **Tunables:** none
-- **Revert:** `git revert HASH-PENDING`
+- **Revert:** `git revert a270b18`
