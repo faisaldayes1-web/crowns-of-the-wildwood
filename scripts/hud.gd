@@ -1389,11 +1389,6 @@ func _crest_shield(c: Vector2, w: float, h: float, team: int) -> void:
 	var line: PackedVector2Array = grown.call(1.0)
 	line.append(line[0])
 	draw_polyline(line, Color(0.25, 0.14, 0.03), 2.0)
-	# A small gem on top.
-	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -h / 2.0 - 9), c + Vector2(6, -h / 2.0 - 2), c + Vector2(0, -h / 2.0 + 5), c + Vector2(-6, -h / 2.0 - 2)]),
-		Color(0.3, 0.9, 0.45) if team == 0 else Color(0.9, 0.2, 0.25))
-	draw_polyline(PackedVector2Array([c + Vector2(0, -h / 2.0 - 9), c + Vector2(6, -h / 2.0 - 2), c + Vector2(0, -h / 2.0 + 5), c + Vector2(-6, -h / 2.0 - 2), c + Vector2(0, -h / 2.0 - 9)]),
-		Color(0.25, 0.14, 0.03), 1.5)
 
 
 func _shield_portrait(c: Vector2, w: float, h: float, team: int, role: int, dead: bool) -> void:
@@ -1645,44 +1640,45 @@ func _draw_scoreboard() -> void:
 	if k < 1.0:
 		draw_set_transform(Vector2(cx * (1.0 - k), 0), 0.0, Vector2(k, k))
 	var now := Time.get_ticks_msec() / 1000.0
+	# Laid out like Faisal's UI reference (2026-10-08): two long glossy bands
+	# in thick gold trim running from a big crest shield at each end in under
+	# a scalloped gold clock frame with a crown on top.
+	for t in 2:
+		var band := Rect2(Vector2(cx - 292.0 if t == 0 else cx + 62.0, 12), Vector2(230, 62))
+		_score_band(band, SCORE_BANDS[t])
+		var tx := band.position.x + (24.0 if t == 0 else 0.0)
+		_text(Vector2(tx, 34), Stats.FACTIONS[t].name.to_upper(), 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, band.size.x - 24.0, 3)
+		# Chunky score: a dark maroon outline, then the cream face drawn twice
+		# a pixel apart for weight.
+		var sc := str(game.score[t])
+		draw_string_outline(font, Vector2(tx, 69), sc, HORIZONTAL_ALIGNMENT_CENTER, band.size.x - 24.0, 38, 10, Color(0.22, 0.05, 0.04))
+		draw_string(font, Vector2(tx, 69), sc, HORIZONTAL_ALIGNMENT_CENTER, band.size.x - 24.0, 38, Color(1.0, 0.95, 0.84))
+		draw_string(font, Vector2(tx + 1.0, 69), sc, HORIZONTAL_ALIGNMENT_CENTER, band.size.x - 24.0, 38, Color(1.0, 0.95, 0.84))
 	for t in 2:
 		var dir := -1.0 if t == 0 else 1.0
-		var rect := Rect2(Vector2(cx - 318.0 if t == 0 else cx + 78.0, 14), Vector2(240, 54))
-		# Elves red, Humans blue, as in Faisal's UI reference (2026-10-08).
-		_banner_ribbon(rect, SCORE_BANDS[t], t == 0)
-		var tx := cx - 266.0 if t == 0 else cx + 110.0
-		_text(Vector2(tx, 32), Stats.FACTIONS[t].name.to_upper(), 14, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 156, 3)
-		_text(Vector2(tx, 63), str(game.score[t]), 34, Color(1.0, 0.96, 0.86), HORIZONTAL_ALIGNMENT_CENTER, 156, 7)
-		# The faction crest on a big gold-rimmed heater shield at the outer end.
-		_crest_shield(Vector2(cx + dir * 334.0, 58.0), 70.0, 84.0, t)
-	var clock := Rect2(cx - 88, 10, 176, 74)
-	# Gold scroll curls either side of the clock frame, and twinkles.
-	for side in [-1.0, 1.0]:
-		var cc := Vector2(cx + side * 94.0, 47.0)
-		draw_arc(cc, 9.0, 0, TAU, 18, Color(0.3, 0.17, 0.04), 6.0)
-		draw_arc(cc, 9.0, 0, TAU, 18, BRASS, 3.5)
-		draw_arc(cc + Vector2(0, 0.5), 4.0, 0, TAU, 12, GOLD.lightened(0.2), 2.5)
-	_clock_plate(clock)
-	for j in 4:
-		var sp := Vector2(cx + [-150.0, 140.0, -110.0, 118.0][j], [14.0, 18.0, 82.0, 80.0][j])
+		_crest_shield(Vector2(cx + dir * 310.0, 54.0), 76.0, 94.0, t)
+	var clock := Rect2(cx - 84, 8, 168, 78)
+	_ornate_clock(clock)
+	for j in 6:
+		var sp := Vector2(cx + [-372.0, 362.0, -258.0, 250.0, -150.0, 150.0][j], [22.0, 26.0, 84.0, 82.0, 10.0, 12.0][j])
 		var tw := maxf(0.0, sin(now * 2.5 + j * 1.7))
-		var r := 2.0 + 5.0 * tw
-		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw), 1.5)
-		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw), 1.5)
+		var r := 2.5 + 6.0 * tw
+		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw), 1.6)
+		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw), 1.6)
 	# A gold crown sitting on top of the clock.
-	_crown_glyph(Vector2(cx, 11), 18.0, 0.6)
+	_crown_glyph(Vector2(cx, 9), 20.0, 0.6)
 	var fortify: bool = game.prep_left > 0.0
 	if fortify:
 		# The fortify countdown takes the clock's place; the match clock waits.
 		var pl: float = ceilf(game.prep_left)
 		var pulse: bool = pl <= 5.0 and int(game.prep_left * 2.0) % 2 == 0
-		_text(Vector2(clock.position.x, 40), "FORTIFY", 14, GOLD, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 3)
-		_text(Vector2(clock.position.x, 74), "%d:%02d" % [int(pl) / 60, int(pl) % 60], 34, Color(1, 0.85, 0.5) if pulse else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 5)
+		_text(Vector2(clock.position.x, 42), "FORTIFY", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 3)
+		_text(Vector2(clock.position.x, 75), "%d:%02d" % [int(pl) / 60, int(pl) % 60], 34, Color(1, 0.85, 0.5) if pulse else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 5)
 	else:
 		var left := maxf(game.time_left, 0.0)
 		var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
-		_text(Vector2(clock.position.x, 40), "OVERTIME" if game.overtime else "BATTLE", 14, Color(1, 0.55, 0.4) if game.overtime else GOLD, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 3)
-		_text(Vector2(clock.position.x, 74), "%d:%02d" % [int(left) / 60, int(left) % 60], 34,
+		_text(Vector2(clock.position.x, 42), "OVERTIME" if game.overtime else "BATTLE", 15, Color(1, 0.55, 0.4) if game.overtime else GOLD, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 3)
+		_text(Vector2(clock.position.x, 75), "%d:%02d" % [int(left) / 60, int(left) % 60], 34,
 			Color(1, 0.4, 0.3) if urgent else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 5)
 	var line := ""
 	var ink := Color(0.27, 0.16, 0.06)
@@ -1695,9 +1691,71 @@ func _draw_scoreboard() -> void:
 		line = "Overtime: no respawns. The last team standing or the next capture wins."
 		ink = Color(0.55, 0.1, 0.05)
 	if line != "":
-		_info_banner(Vector2(cx, 106), line, ink)
+		_info_banner(Vector2(cx, 98), line, ink)
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
+
+
+func _score_band(r: Rect2, color: Color) -> void:
+	## A glossy cloth band in thick gold trim: lighter at the top, deep at
+	## the bottom, a sheen line and a dark outline.
+	draw_rect(Rect2(r.position + Vector2(0, 4), r.size), Color(0, 0, 0, 0.35))
+	draw_rect(r.grow(2), Color(0.25, 0.13, 0.03))
+	var pts := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)])
+	draw_polygon(pts, PackedColorArray([color.lightened(0.18), color.lightened(0.18), color.darkened(0.3), color.darkened(0.3)]))
+	draw_rect(Rect2(r.position + Vector2(0, 9), Vector2(r.size.x, r.size.y * 0.22)), Color(1, 1, 1, 0.08))
+	for y in [r.position.y + 3.0, r.end.y - 3.0]:
+		draw_rect(Rect2(Vector2(r.position.x, y - 3.5), Vector2(r.size.x, 7)), Color(0.3, 0.17, 0.04))
+		draw_rect(Rect2(Vector2(r.position.x, y - 2.5), Vector2(r.size.x, 5)), BRASS)
+		draw_rect(Rect2(Vector2(r.position.x, y - 2.5), Vector2(r.size.x, 1.5)), GOLD.lightened(0.4))
+	draw_rect(Rect2(Vector2(r.position.x, r.position.y + 7), Vector2(r.size.x, 1)), Color(0, 0, 0, 0.25))
+
+
+func _ornate_clock(r: Rect2) -> void:
+	## The timer in a scalloped gold frame: a rounded, gently wavy outline in
+	## gold with a dark edge, gold curls on both flanks and a dark inset.
+	var c := r.get_center()
+	var shape := func(a: float, b: float, wave: float) -> PackedVector2Array:
+		var out := PackedVector2Array()
+		for i in 96:
+			var ang := TAU * i / 96.0
+			var cs := cos(ang)
+			var sn := sin(ang)
+			var x := signf(cs) * pow(absf(cs), 0.4) * a
+			var y := signf(sn) * pow(absf(sn), 0.4) * b
+			var k := 1.0 + wave * cos(ang * 8.0)
+			out.append(c + Vector2(x, y) * k)
+		return out
+	var a := r.size.x / 2.0
+	var b := r.size.y / 2.0
+	# Curls on both flanks.
+	for side in [-1.0, 1.0]:
+		var cc := c + Vector2(side * (a + 2.0), 0)
+		draw_circle(cc + Vector2(0, 3), 13.0, Color(0, 0, 0, 0.3))
+		draw_circle(cc, 12.0, Color(0.28, 0.15, 0.03))
+		draw_circle(cc, 10.0, BRASS)
+		draw_arc(cc, 6.0, -PI * 0.5, PI * 1.2, 14, Color(0.4, 0.24, 0.05), 2.5)
+		draw_arc(cc, 9.0, PI * 1.05, PI * 1.7, 10, GOLD.lightened(0.4), 1.5)
+	var sh: PackedVector2Array = shape.call(a + 4.0, b + 4.0, 0.015)
+	for i in sh.size():
+		sh[i] += Vector2(0, 4)
+	draw_colored_polygon(sh, Color(0, 0, 0, 0.4))
+	draw_colored_polygon(shape.call(a + 4.0, b + 4.0, 0.015), Color(0.28, 0.15, 0.03))
+	var gold: PackedVector2Array = shape.call(a + 1.5, b + 1.5, 0.015)
+	var gc := PackedColorArray()
+	for q in gold:
+		gc.append(GOLD.lightened(0.25) if q.y < c.y else BRASS.darkened(0.15))
+	draw_polygon(gold, gc)
+	var hi: PackedVector2Array = shape.call(a - 1.0, b - 1.0, 0.012)
+	hi.append(hi[0])
+	draw_polyline(hi, Color(1, 0.95, 0.7, 0.55), 1.2)
+	draw_colored_polygon(shape.call(a - 7.0, b - 7.0, 0.0), Color(0.3, 0.17, 0.04))
+	var inner: PackedVector2Array = shape.call(a - 9.0, b - 9.0, 0.0)
+	var ic := PackedColorArray()
+	for q in inner:
+		ic.append(Color(0.2, 0.13, 0.09) if q.y < c.y else Color(0.1, 0.07, 0.06))
+	draw_polygon(inner, ic)
+	draw_rect(Rect2(c + Vector2(-a * 0.6, -b * 0.62), Vector2(a * 1.2, 2)), Color(1, 0.9, 0.7, 0.08))
 
 
 func _info_banner(center: Vector2, line: String, ink: Color) -> void:
