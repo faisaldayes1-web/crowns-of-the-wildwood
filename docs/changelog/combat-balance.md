@@ -44,7 +44,7 @@ then `python3 tools/balance/agg.py <tag>`.
 ## 2. Fire form shows up in the batch logs
 
 - **When:** 2026-10-08 21:25 UTC
-- **Commit:** _filled in by the next commit_
+- **Commit:** `341a026`
 - **What:** Logging only, no gameplay change. Demo `KILL` lines now end with
   `kfire=` (the killer was in Ember Pass fire form) and `burn=` (the killing
   heart was a fire-form burn going off). `agg.py` prints a "fire form" line:
@@ -54,4 +54,19 @@ then `python3 tools/balance/agg.py <tag>`.
   `docs/changelog/combat-balance.md`.
 - **Tunables:** none.
 - **Batches:** none needed (log output only); `tools/tests/run.sh` 9/9 pass.
+- **Revert:** `git revert 341a026`
+
+## 3. Wildwood six-seed baseline
+
+- **When:** 2026-10-08 21:28 UTC
+- **Commit:** _filled in by the next commit_
+- **What:** Results only, no gameplay change. Wildwood baseline, seeds
+  1001-1006: Elves 3, Humans 3; captures E5 H6; kills E202 H195; 1 overtime;
+  average 332 s; 0 script errors. Table and class numbers in
+  `docs/balance/baselines-2026-10-08.md`. Ember Pass baseline, the Humans
+  lean fix and the Fire form re-check are paused (Faisal 21:25 UTC: all focus
+  on the iPad build; no further tasks without his input).
+- **Files:** `docs/balance/baselines-2026-10-08.md` (new), `docs/changelog/combat-balance.md`.
+- **Tunables:** none.
+- **Batches:** tag `bwild`, MAP=0, seeds 1001-1006, at `90af014`.
 - **Revert:** `git revert <hash>`
