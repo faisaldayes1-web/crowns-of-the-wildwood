@@ -1118,7 +1118,7 @@ func _volcano_field(c: Vector2, r: float, m: Callable, clip: PackedVector2Array,
 
 func _lava_glow(pt: float) -> Color:
 	## The molten colour under the crust, breathing slowly.
-	return Color(0.75, 0.1, 0.02).lerp(Color(1.0, 0.32, 0.05), 0.35 + 0.25 * sin(pt * 1.3))
+	return Color(0.42, 0.03, 0.02).lerp(Color(0.66, 0.08, 0.03), 0.35 + 0.25 * sin(pt * 1.3))
 
 
 func _lava_plates() -> Array:
@@ -1190,10 +1190,10 @@ func _draw_lava_plates(o: Vector2, ax: Vector2, az: Vector2, keep: Callable, box
 			draw_colored_polygon(piece, col)
 			var loop: PackedVector2Array = piece.duplicate()
 			loop.append(piece[0])
-			draw_polyline(loop, Color(1.0, 0.3, 0.05, 0.35 + 0.15 * sin(pt * 1.3 + shade * 6.0)), 1.0)
+			draw_polyline(loop, Color(0.85, 0.12, 0.03, 0.3 + 0.12 * sin(pt * 1.3 + shade * 6.0)), 1.0)
 		# A glint of heat on some plates.
 		if shade > 0.86:
-			draw_circle(o + ax * cc.x + az * cc.y, maxf(ax.length() * 0.6, 1.0), Color(1.0, 0.45, 0.1, 0.5))
+			draw_circle(o + ax * cc.x + az * cc.y, maxf(ax.length() * 0.6, 1.0), Color(0.8, 0.14, 0.04, 0.45))
 
 
 func _volcano_network(c: Vector2, r: float, m: Callable, clip: PackedVector2Array, sx: float, pt: float, detailed: bool = false) -> void:
@@ -1202,7 +1202,7 @@ func _volcano_network(c: Vector2, r: float, m: Callable, clip: PackedVector2Arra
 	var stone := Color(0.58, 0.5, 0.47)
 	var plank := Color(0.56, 0.35, 0.2)
 	var shadow := Color(0.06, 0.01, 0.01, 0.7)
-	var glow := Color(1.0, 0.25, 0.04, 0.55)
+	var glow := Color(0.75, 0.08, 0.03, 0.55)
 	var drop := Vector2(1.2, 2.2) * (1.8 if detailed else 1.0)
 	var inside := func(q: Vector2) -> bool:
 		return Geometry2D.is_point_in_polygon(q, clip)

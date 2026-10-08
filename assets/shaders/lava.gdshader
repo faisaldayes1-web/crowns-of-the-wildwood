@@ -9,10 +9,10 @@ render_mode cull_disabled;
 
 uniform float drift = 0.03;
 uniform float scale = 0.16;
-uniform float glow = 1.6;
-uniform vec3 core : source_color = vec3(1.0, 0.62, 0.2);      // the hottest crack cores
-uniform vec3 hot : source_color = vec3(0.95, 0.16, 0.03);     // molten rock
-uniform vec3 deep : source_color = vec3(0.38, 0.02, 0.02);    // cooling, deep red
+uniform float glow = 1.45;
+uniform vec3 core : source_color = vec3(1.0, 0.42, 0.12);      // the hottest crack cores
+uniform vec3 hot : source_color = vec3(0.78, 0.07, 0.02);     // molten rock
+uniform vec3 deep : source_color = vec3(0.3, 0.01, 0.015);    // cooling, deep red
 uniform vec3 crust_lo : source_color = vec3(0.025, 0.012, 0.014);
 uniform vec3 crust_hi : source_color = vec3(0.1, 0.035, 0.035);
 uniform float flow = 0.0;   // falls: how fast the pattern pours down (v)
