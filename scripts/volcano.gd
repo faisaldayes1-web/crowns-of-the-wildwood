@@ -574,7 +574,7 @@ func _build_corridor(s: Array) -> void:
 		_box(mid + Vector3(0, -0.36, 0), Vector3(half * 2.0 - 0.3, 0.2, length - 1.0), basalt(Color(0.25, 0.2, 0.2)), yaw)
 		return
 	# Causeway and the grand stair: paved rock with a cliff skirt.
-	var pave: Material = game._flagstone(Color(0.42, 0.35, 0.35))
+	var pave: Material = game._flagstone(Color(0.47, 0.42, 0.4))
 	_box(mid + Vector3(0, -0.04, 0), Vector3(half * 2.0, 0.08, length), pave, yaw)
 	_skirt(mid + Vector3(0, -0.08, 0), Vector3(half * 2.0 + 0.6, absf(LAVA_Y) + 1.5, length), yaw)
 	var kerb: Material = game._ashlar(Color(0.44, 0.36, 0.35))
@@ -617,7 +617,7 @@ func _build_plaza(i: int) -> void:
 	top.bottom_radius = r
 	top.height = 0.1
 	top.radial_segments = 40
-	_mesh(top, c + Vector3(0, -0.05, 0), game._flagstone(Color(0.42, 0.35, 0.35)))
+	_mesh(top, c + Vector3(0, -0.05, 0), game._flagstone(Color(0.47, 0.42, 0.4)))
 	var cliff := CylinderMesh.new()
 	cliff.top_radius = r + 0.5
 	cliff.bottom_radius = r + 1.6
@@ -1309,22 +1309,22 @@ func apply_light() -> void:
 	sky.sky_horizon_color = Color(0.42, 0.05, 0.03)
 	sky.ground_bottom_color = Color(0.04, 0.01, 0.01)
 	sky.ground_horizon_color = Color(0.32, 0.04, 0.02)
-	# Faisal's 2026-10-08 reference: everything bathed in orange from the
-	# lava, rich saturated reds on the stone, crisp warm-edged shadows.
-	env.ambient_light_energy = 0.34
+	# Faisal's 2026-10-08 reference: warm lava light on grey-brown stone (not an
+	# orange wash), dark red sky, crisp warm-edged shadows.
+	env.ambient_light_energy = 0.3
 	env.ambient_light_sky_contribution = 0.15
-	env.ambient_light_color = Color(0.95, 0.5, 0.32)
-	env.fog_light_color = Color(0.32, 0.05, 0.03)
-	env.fog_density = 0.003
-	env.glow_intensity = 0.95
-	env.glow_hdr_threshold = 1.05
-	env.adjustment_saturation = 1.28
-	env.adjustment_brightness = 1.02
-	env.adjustment_contrast = 1.12
-	game.sun_light.light_color = Color(1.0, 0.74, 0.52)
-	game.sun_light.light_energy = 1.05
+	env.ambient_light_color = Color(0.9, 0.64, 0.52)
+	env.fog_light_color = Color(0.3, 0.06, 0.03)
+	env.fog_density = 0.002
+	env.glow_intensity = 0.6
+	env.glow_hdr_threshold = 1.25
+	env.adjustment_saturation = 1.12
+	env.adjustment_brightness = 1.0
+	env.adjustment_contrast = 1.1
+	game.sun_light.light_color = Color(1.0, 0.86, 0.72)
+	game.sun_light.light_energy = 1.1
 	game.sun_light.rotation_degrees = Vector3(-46, -38, 0)
 	if game.fill_light:
 		# The lava lights everything from below and the side.
-		game.fill_light.light_color = Color(1.0, 0.4, 0.14)
-		game.fill_light.light_energy = 0.5
+		game.fill_light.light_color = Color(1.0, 0.5, 0.25)
+		game.fill_light.light_energy = 0.3

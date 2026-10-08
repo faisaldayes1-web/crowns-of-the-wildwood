@@ -224,6 +224,7 @@ var camera: Camera3D
 var hud
 var touch                      # on-screen touch controls (touch.gd), for the web build on tablets
 var touch_active := false      # a finger has touched the screen: aim follows the move stick, not the mouse
+var touch_tap := Vector2(-1, -1)  # where a finger tapped a menu this frame (the click polling below would miss a short tap)
 var message_label: Label
 var banner: Label
 var respawn_label: Label
@@ -1931,6 +1932,8 @@ func camera_for(u) -> Camera3D:
 
 func menu_mouse() -> Vector2:
 	## Where menu clicks land: the gamepad cursor while it is in use, else the mouse.
+	if touch_tap.x >= 0.0:
+		return touch_tap
 	return cursor if cursor_shown else get_viewport().get_mouse_position()
 
 
@@ -2443,7 +2446,7 @@ func menu_tick() -> void:
 	_pad_nav()
 	if confirm_block and not Input.is_action_pressed("ui_confirm"):
 		confirm_block = false
-	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (cursor_shown and Input.is_action_pressed("ui_confirm") and not confirm_block)
+	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or touch_tap.x >= 0.0 or (cursor_shown and Input.is_action_pressed("ui_confirm") and not confirm_block)
 	if click and hud and menu_open:
 		# Volume sliders follow the mouse while the button is held.
 		var mp := menu_mouse()
@@ -2561,6 +2564,7 @@ func menu_tick() -> void:
 				get_tree().paused = false
 			rank_open = false
 	click_was = click
+	touch_tap = Vector2(-1, -1)
 
 
 func menu_input(event: InputEvent) -> void:
@@ -2854,7 +2858,9 @@ func rumble_pad(device: int, weak: float, strong: float, duration: float) -> voi
 
 func _key_name(ev: InputEventKey) -> String:
 	var code: int = ev.physical_keycode if ev.physical_keycode != 0 else ev.keycode
-	return OS.get_keycode_string(DisplayServer.keyboard_get_keycode_from_physical(code) if ev.physical_keycode != 0 else code)
+	if ev.physical_keycode != 0 and not OS.has_feature("web"):   # the web display server cannot map physical keys
+		code = DisplayServer.keyboard_get_keycode_from_physical(code)
+	return OS.get_keycode_string(code)
 
 
 func _short_key(name: String) -> String:
@@ -3041,6 +3047,9 @@ func _load_controls() -> void:
 	if OS.has_feature("web"):
 		# Browsers (and tablets) start on Medium at most; Settings can raise it.
 		gfx_quality = mini(gfx_quality, 1)
+		# Tablets are 4:3: letterbox the 16:9 canvas rather than let the
+		# menus run off the sides.
+		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	fullscreen = cfg.get_value("settings", "fullscreen", false)
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
@@ -3147,7 +3156,7 @@ uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic, re
 uniform sampler2D stones_tex : filter_nearest, repeat_enable;
 uniform float scale = 0.2;
 uniform bool fray = false;
-instance uniform float half_w = 2.0;
+uniform float half_w = 2.0;   // per material: the Compatibility renderer (web) has no instance uniforms
 varying vec3 wpos;
 varying float lz;
 varying vec3 side;
@@ -3305,8 +3314,9 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		var ebox := BoxMesh.new()
 		ebox.size = Vector3(length, 0.01, width + 2.6)
 		e.mesh = ebox
-		e.material_override = mat.get_meta("fray")
-		e.set_instance_shader_parameter("half_w", width / 2.0)
+		var fm: ShaderMaterial = mat.get_meta("fray").duplicate()
+		fm.set_shader_parameter("half_w", width / 2.0)
+		e.material_override = fm
 		e.position = mid + Vector3(0, 0.004, 0)
 		e.rotation.y = rot
 		add_child(e)
