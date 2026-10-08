@@ -85,9 +85,8 @@ static func _team(h, t: int, members: Array, block: Rect2, row_h: float, best: i
 		h._icon("crest_forest" if t == 0 else "crest_kingdom", band.position + Vector2(23, 17), 9, Color.WHITE)
 	h._text(band.position + Vector2(46, 24), Stats.FACTIONS[t].name.to_upper(), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	var name_w: float = h._text_width(Stats.FACTIONS[t].name.to_upper(), 17)
-	h._text(band.position + Vector2(54 + name_w, 23), Stats.FACTIONS[t].realm.to_upper(), 10, tc.lightened(0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	if leading:
-		h._text(band.position + Vector2(112 + name_w, 23), "LEADING", 10, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		h._text(band.position + Vector2(58 + name_w, 23), "LEADING", 10, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var kills := 0
 	for u in members:
 		kills += u.kills
