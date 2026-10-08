@@ -297,6 +297,10 @@ func _ready() -> void:
 			shot_frame = int(arg.trim_prefix("--shot-frame="))
 	if demo:
 		_start_match(0)
+		if "--selftest" in OS.get_cmdline_user_args():  # headless combat checks (tests/combat_test.gd)
+			var t: Node = load("res://tests/combat_test.gd").new()
+			t.game = self
+			add_child(t)
 		return
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--hero="):

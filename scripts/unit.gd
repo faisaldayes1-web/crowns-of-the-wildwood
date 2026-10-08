@@ -1829,6 +1829,12 @@ func _attack(dir: Vector3) -> void:
 	game.sfx.play("punch" if role == Role.BASE else ("swing_heavy" if s.range > 2.5 else "swing"), global_position, -3.0, 0.12)
 	game.spawn_swing(self, dir)
 	var landed := false
+	# On-hit effects of the swing: Venom Fang slows, fire form burns.
+	var effect := {}
+	if s.has("slow"):
+		effect["slow"] = s.slow
+	if s.get("burn", false):
+		effect["burn"] = true
 	for other in game.units:
 		if other.team == team or other.dead:
 			continue
@@ -1837,7 +1843,7 @@ func _attack(dir: Vector3) -> void:
 		# Swings reach people at your own height, not someone up on a wall.
 		if dist <= s.range and absf(other.global_position.y - global_position.y) < 1.5 \
 				and (dist < 0.8 or dir.dot(to / dist) > 0.3):
-			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE, {"burn": true} if s.get("burn", false) else {}) or landed
+			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE, effect) or landed
 	if landed:
 		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
 		if is_player:
