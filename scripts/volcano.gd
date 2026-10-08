@@ -1040,9 +1040,10 @@ func _mouths(i: int) -> Array:
 	return out
 
 
-func _obelisk(at: Vector3, face: Vector3, footing: bool) -> void:
+func _obelisk(at: Vector3, face: Vector3, footing: bool, tall: float = 1.0) -> void:
 	## A black obelisk carved with burning runes, a horned skull on top. Stands
-	## off the walkable ground, on its own rock footing over the lava.
+	## off the walkable ground, on its own rock footing over the lava. tall < 1
+	## makes a squat one for the camera side, where a full one hides the path.
 	var yaw := atan2(face.x, face.z)
 	deco_obelisks.append(at)
 	if footing:
@@ -1057,15 +1058,15 @@ func _obelisk(at: Vector3, face: Vector3, footing: bool) -> void:
 	var shaft := CylinderMesh.new()
 	shaft.top_radius = 0.2
 	shaft.bottom_radius = 0.48
-	shaft.height = 3.2
+	shaft.height = 3.2 * tall
 	shaft.radial_segments = 4
-	_mesh(shaft, at + Vector3(0, 2.1, 0), obs, Vector3(0, yaw + PI / 4.0, 0))
+	_mesh(shaft, at + Vector3(0, 0.5 + 1.6 * tall, 0), obs, Vector3(0, yaw + PI / 4.0, 0))
 	# The rune strip down the face, and its glow on the ground.
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
-	for k in 4:
-		_box(at + fwd * (0.32 - k * 0.045) + Vector3(0, 1.0 + k * 0.6, 0), Vector3(0.22 - k * 0.03, 0.34, 0.05), _glow_mat(Color(1.0, 0.1, 0.03), 2.6), yaw, false)
-	_skull(at + Vector3(0, 3.95, 0), 0.62, yaw)
-	game._add_light(at + fwd * 0.9 + Vector3(0, 1.6, 0), Color(1.0, 0.12, 0.04), 0.9, 4.5)
+	for k in (4 if tall >= 1.0 else 2):
+		_box(at + fwd * (0.32 - k * 0.045) + Vector3(0, 1.0 + k * 0.6 * tall, 0), Vector3(0.22 - k * 0.03, 0.34, 0.05), _glow_mat(Color(1.0, 0.1, 0.03), 2.6), yaw, false)
+	_skull(at + Vector3(0, 0.75 + 3.2 * tall, 0), 0.62, yaw)
+	game._add_light(at + fwd * 0.9 + Vector3(0, 0.6 + tall, 0), Color(1.0, 0.12, 0.04), 0.9, 4.5)
 
 
 func _build_demonic() -> void:
@@ -1077,7 +1078,7 @@ func _build_demonic() -> void:
 	for t in 2:
 		var sx := -1.0 if t == 0 else 1.0
 		for zs in [-1.0, 1.0]:
-			_obelisk(Vector3(sx * (LAND_X - 1.3), 0, zs * 5.3), Vector3(-sx, 0, 0), true)
+			_obelisk(Vector3(sx * (LAND_X - 1.3), 0, zs * 5.3), Vector3(-sx, 0, 0), true, 1.0 if zs < 0.0 else 0.4)
 	# Obelisks on the open rims of the plazas.
 	for i in pos.size():
 		if castle_of(pos[i]) >= 0:
