@@ -13,8 +13,8 @@ uniform float glow = 2.6;
 uniform vec3 core : source_color = vec3(1.0, 0.62, 0.22);      // the hottest crack cores
 uniform vec3 hot : source_color = vec3(1.0, 0.16, 0.02);      // molten rock
 uniform vec3 deep : source_color = vec3(0.3, 0.01, 0.015);    // cooling, deep red
-uniform vec3 crust_lo : source_color = vec3(0.008, 0.006, 0.007);   // near black
-uniform vec3 crust_hi : source_color = vec3(0.04, 0.022, 0.022);
+uniform vec3 crust_lo : source_color = vec3(0.035, 0.002, 0.003);   // blackish dark red
+uniform vec3 crust_hi : source_color = vec3(0.09, 0.006, 0.006);
 uniform float flow = 0.0;   // falls: how fast the pattern pours down (v)
 uniform float pulse = 0.18; // how much the glow breathes
 
@@ -120,6 +120,8 @@ void fragment() {
 	// Only a thin ember line right at the crack's lip; the plates stay black.
 	float lip = 1.0 - smoothstep(0.02, 0.08, edge);
 	vec3 ember = deep * lip * 0.7 * (1.0 - molten);
+	// A faint deep-red smoulder in the crust itself, so it reads dark red, not brown.
+	ember += vec3(0.05, 0.0, 0.003) * (0.6 + 0.4 * heat) * (1.0 - molten);
 	EMISSION = (lava * burn * glow + ember) * breath;
 	NORMAL = mix(n_view, NORMAL, burn);
 	ROUGHNESS = mix(0.7, 0.95, molten);
