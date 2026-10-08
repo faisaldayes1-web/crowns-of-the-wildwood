@@ -48,6 +48,8 @@ var font: Font
 var title_font: Font   # chunky cartoon display face for the big banners (Luckiest Guy, Apache 2.0)
 var logo: Texture2D
 var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
+var skill_art: Dictionary = {}   # hexagon skill tiles and shield faces (assets/ui/skills)
+var next_slot_art := ""          # set just before _slot(): the skill art to draw for it
 var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
@@ -92,6 +94,13 @@ func _ready() -> void:
 		var path := "res://assets/ui/cards/%s.png" % key
 		if ResourceLoader.exists(path):
 			cards[key] = load(path)
+	# Skill tiles and scoreboard shields cut from Faisal's UI reference
+	# (2026-10-08): the hexagon art replaces the drawn tile for the moves it
+	# covers.
+	for key in ["punch", "dodge", "lock_a", "lock_b", "perks", "drop", "shield_elf", "shield_human"]:
+		var path := "res://assets/ui/skills/%s.png" % key
+		if ResourceLoader.exists(path):
+			skill_art[key] = load(path)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
@@ -701,6 +710,51 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		frame = Color(0.45, 0.36, 0.24)
 	var shadow := _hex_pts(hc + Vector2(0, 3), hr + 7.0)
 	draw_colored_polygon(shadow, Color(0, 0, 0, 0.45))
+	var art: String = next_slot_art
+	next_slot_art = ""
+	if art != "" and skill_art.has(art):
+		# The painted hexagon (rim and all) from the reference art: its hex
+		# fills 90% of the picture's height.
+		var th := 2.0 * (hr + 6.0) / 0.9
+		var tex: Texture2D = skill_art[art]
+		var tw := th * tex.get_width() / tex.get_height()
+		draw_texture_rect(tex, Rect2(hc - Vector2(tw, th) / 2.0, Vector2(tw, th)), false,
+			Color.WHITE if (ready or locked) else Color(0.55, 0.55, 0.58))
+	else:
+		_hex_tile(hc, hr, frame, color, locked, ready)
+	if art != "" and skill_art.has(art):
+		pass   # the painted tile carries its own icon
+	elif locked:
+		_padlock(rect.get_center() + Vector2(0, -3), size_px * 0.3, Color(0.58, 0.58, 0.62))
+	elif not _tile_glyph(icon, rect.get_center() + Vector2(0, -4), size_px * 0.3, not ready):
+		_icon(icon, rect.get_center() + Vector2(0, -4), size_px * 0.29, Color.WHITE, not ready)
+	if remaining > 0.0:
+		var frac := clampf(remaining / maxf(total, 0.01), 0.0, 1.0)
+		var top := hc.y - hr
+		var cut := PackedVector2Array([Vector2(hc.x - hr * 2.0, top - 2.0), Vector2(hc.x + hr * 2.0, top - 2.0),
+			Vector2(hc.x + hr * 2.0, top + 2.0 * hr * frac), Vector2(hc.x - hr * 2.0, top + 2.0 * hr * frac)])
+		for poly in Geometry2D.intersect_polygons(_hex_pts(hc, hr - 2.5), cut):
+			draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
+		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
+			16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
+	# The energy cost in the top-left corner, so you can see which moves
+	# are cheap bread-and-butter and which ones to spend sparingly.
+	if cost > 0.0:
+		var tag := Rect2(rect.position + Vector2(2, 2), Vector2(20, 12))
+		draw_rect(tag, Color(0, 0, 0, 0.55))
+		_text(tag.position + Vector2(0, 10), str(int(cost)), 9, cost_color if usable else cost_color.darkened(0.4), HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 0)
+	# Rank pips in the top-right corner.
+	for i in rank:
+		draw_circle(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, GOLD)
+		draw_arc(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, 0, TAU, 10, Color(0.3, 0.2, 0.05), 1.0)
+	_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
+	if label != "":
+		_text(Vector2(rect.position.x - 22, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
+			HORIZONTAL_ALIGNMENT_CENTER, size_px + 44, 3)
+
+
+func _hex_tile(hc: Vector2, hr: float, frame: Color, color: Color, locked: bool, ready: bool) -> void:
+	## The drawn hexagon tile for moves with no painted art.
 	draw_colored_polygon(_hex_pts(hc, hr + 6.0), Color(0.16, 0.09, 0.03))
 	var rim := _hex_pts(hc, hr + 4.0)
 	var rim_cols := PackedColorArray()
@@ -730,34 +784,6 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 	draw_polyline(face_line, Color(0, 0, 0, 0.55), 1.2)
 	var rim_hi := _hex_pts(hc, hr + 3.0)
 	draw_polyline(PackedVector2Array([rim_hi[4], rim_hi[5], rim_hi[0], rim_hi[1]]), Color(1, 0.95, 0.75, 0.6), 1.2)
-	var ic := rect.get_center() + Vector2(0, -4)
-	if locked:
-		_padlock(ic + Vector2(0, 1), size_px * 0.3, Color(0.58, 0.58, 0.62))
-	elif not _tile_glyph(icon, ic, size_px * 0.3, not ready):
-		_icon(icon, ic, size_px * 0.29, Color.WHITE, not ready)
-	if remaining > 0.0:
-		var frac := clampf(remaining / maxf(total, 0.01), 0.0, 1.0)
-		var top := hc.y - hr
-		var cut := PackedVector2Array([Vector2(hc.x - hr * 2.0, top - 2.0), Vector2(hc.x + hr * 2.0, top - 2.0),
-			Vector2(hc.x + hr * 2.0, top + 2.0 * hr * frac), Vector2(hc.x - hr * 2.0, top + 2.0 * hr * frac)])
-		for poly in Geometry2D.intersect_polygons(_hex_pts(hc, hr - 2.5), cut):
-			draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
-		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
-			16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
-	# The energy cost in the top-left corner, so you can see which moves
-	# are cheap bread-and-butter and which ones to spend sparingly.
-	if cost > 0.0:
-		var tag := Rect2(rect.position + Vector2(2, 2), Vector2(20, 12))
-		draw_rect(tag, Color(0, 0, 0, 0.55))
-		_text(tag.position + Vector2(0, 10), str(int(cost)), 9, cost_color if usable else cost_color.darkened(0.4), HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 0)
-	# Rank pips in the top-right corner.
-	for i in rank:
-		draw_circle(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, GOLD)
-		draw_arc(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, 0, TAU, 10, Color(0.3, 0.2, 0.05), 1.0)
-	_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
-	if label != "":
-		_text(Vector2(rect.position.x - 22, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
-			HORIZONTAL_ALIGNMENT_CENTER, size_px + 44, 3)
 
 
 func _hex_pts(c: Vector2, r: float) -> PackedVector2Array:
@@ -1306,6 +1332,9 @@ func _shield_shape(c: Vector2, w: float, h: float) -> PackedVector2Array:
 		pts.append(c + Vector2(-w / 2.0 * (1.0 - pow(t, 1.7)), knee + (h / 2.0 - knee) * t))
 	return pts
 
+const SCORE_BANDS := [Color(0.66, 0.12, 0.11), Color(0.16, 0.3, 0.72)]
+
+
 func _crest_shield(c: Vector2, w: float, h: float, team: int) -> void:
 	## A faction crest on a big heater shield: the crest art's own shield
 	## (stag or lion) cropped in, inside a thick gold rim with a dark edge.
@@ -1322,13 +1351,25 @@ func _crest_shield(c: Vector2, w: float, h: float, team: int) -> void:
 	hi.resize(5)
 	draw_polyline(hi, GOLD.lightened(0.4), 1.5)
 	draw_colored_polygon(grown.call(1.04), Color(0.3, 0.18, 0.04))
-	var tc := _team_color(team)
+	var tc: Color = SCORE_BANDS[team]
 	var cols := PackedColorArray()
 	for q in pts:
 		cols.append(tc.lightened(0.1) if q.y < c.y else tc.darkened(0.35))
 	draw_polygon(pts, cols)
+	var face_key := "shield_elf" if team == 0 else "shield_human"
 	var key := "crest_elf" if team == 0 else "crest_human"
-	if cards.has(key):
+	if skill_art.has(face_key):
+		# The stag on red / lion on blue face from the reference art, its
+		# own rim trimmed off by mapping the shield a little inside it.
+		var ftex: Texture2D = skill_art[face_key]
+		var fuv := PackedVector2Array()
+		var fw := PackedColorArray()
+		for q in pts:
+			var f := (q - c) / Vector2(w, h) + Vector2(0.5, 0.5)
+			fuv.append(Vector2(0.07, 0.06) + f * Vector2(0.86, 0.88))
+			fw.append(Color.WHITE)
+		draw_polygon(pts, fw, fuv, ftex)
+	elif cards.has(key):
 		# The crest art's shield face sits in its middle; map our shield's
 		# box onto that part of the picture.
 		var tex: Texture2D = cards[key]
@@ -1607,13 +1648,13 @@ func _draw_scoreboard() -> void:
 	for t in 2:
 		var dir := -1.0 if t == 0 else 1.0
 		var rect := Rect2(Vector2(cx - 318.0 if t == 0 else cx + 78.0, 14), Vector2(240, 54))
-		var tc := _team_color(t)
-		_banner_ribbon(rect, tc.darkened(0.25), t == 0)
+		# Elves red, Humans blue, as in Faisal's UI reference (2026-10-08).
+		_banner_ribbon(rect, SCORE_BANDS[t], t == 0)
 		var tx := cx - 266.0 if t == 0 else cx + 110.0
 		_text(Vector2(tx, 32), Stats.FACTIONS[t].name.to_upper(), 14, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 156, 3)
-		_text(Vector2(tx, 62), str(game.score[t]), 32, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 156, 6)
+		_text(Vector2(tx, 63), str(game.score[t]), 34, Color(1.0, 0.96, 0.86), HORIZONTAL_ALIGNMENT_CENTER, 156, 7)
 		# The faction crest on a big gold-rimmed heater shield at the outer end.
-		_crest_shield(Vector2(cx + dir * 332.0, 52.0), 60.0, 72.0, t)
+		_crest_shield(Vector2(cx + dir * 334.0, 58.0), 70.0, 84.0, t)
 	var clock := Rect2(cx - 88, 10, 176, 74)
 	# Gold scroll curls either side of the clock frame, and twinkles.
 	for side in [-1.0, 1.0]:
@@ -2453,7 +2494,7 @@ func _status_panel(p, panel: Rect2) -> void:
 	var x0 := panel.position.x + 14.0
 	var row_y := panel.position.y + 16.0
 	for i in Stats.MAX_HEARTS:
-		_big_heart(Vector2(x0 + 22.0 + i * 42.0, row_y), 1.05, i < (0 if p.dead else p.hearts))
+		_big_heart(Vector2(x0 + 24.0 + i * 46.0, row_y), 1.0, i < (0 if p.dead else p.hearts))
 	var bar := Rect2(Vector2(x0 + 4.0, panel.position.y + 38.0), Vector2(Stats.MAX_HEARTS * 42.0 + 60.0, 9.0))
 	if p.dead:
 		var msg := "Down for the rest of overtime" if game.overtime else "Down! Back in %d" % ceili(p.respawn_timer)
@@ -2487,11 +2528,18 @@ func _big_heart(c: Vector2, scale: float, full: bool) -> void:
 	var sh := PackedVector2Array()
 	for q in pts:
 		sh.append(q + Vector2(0, 3))
+	for i in sh.size():
+		sh[i] = c + (sh[i] - c) * 1.26
 	draw_colored_polygon(sh, Color(0, 0, 0, 0.35))
+	# A thick dark maroon border (Faisal 2026-10-08: "more of a border")
+	# with a thin warm rim inside it.
 	var outline := PackedVector2Array()
+	var rim := PackedVector2Array()
 	for q in pts:
-		outline.append(c + (q - c) * 1.12)
-	draw_colored_polygon(outline, Color(0.12, 0.03, 0.04))
+		outline.append(c + (q - c) * 1.26 + Vector2(0, 1.0 * scale))
+		rim.append(c + (q - c) * 1.11)
+	draw_colored_polygon(outline, Color(0.17, 0.03, 0.04))
+	draw_colored_polygon(rim, Color(0.52, 0.12, 0.1) if full else Color(0.33, 0.12, 0.1))
 	if full:
 		var cols := PackedColorArray()
 		for q in pts:
@@ -2592,8 +2640,11 @@ func _ability_strip(p, strip: Rect2) -> void:
 	var alive: bool = not p.dead and p.carrying == null
 	var atk: Dictionary = p.attack_stats()
 	var cost_c: Color = STAMINA if p.energy_kind() == "stamina" else MANA
+	if _attack_icon(p.role, atk) == "fist":
+		next_slot_art = "punch"
 	_slot(Vector2(sx, sy), slot, _attack_icon(p.role, atk), Color(0.86, 0.16, 0.14), _k("attack"), atk.attack_name,
 		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0), false, atk.cost, cost_c)
+	next_slot_art = "dodge"
 	_slot(Vector2(sx + gap, sy), slot, "dodge", Color(0.22, 0.68, 0.18), _k("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
 		alive and p.energy >= Stats.DODGE_COST)
 	for i in 2:
@@ -2603,11 +2654,14 @@ func _ability_strip(p, strip: Rect2) -> void:
 			_slot(at, slot, a.get("icon", a.kind), Stats.ROLES[p.role].color.darkened(0.15), _k("ability_%d" % (i + 1)), a.name,
 				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1), false, a.cost, cost_c)
 		else:
+			next_slot_art = ["lock_a", "lock_b"][i]
 			_slot(at, slot, "", [Color(0.5, 0.3, 0.72), Color(0.62, 0.38, 0.22)][i], _k("ability_%d" % (i + 1)), "Locked", 0.0, 1.0, false)
 	if p.can_block():
 		_slot(Vector2(sx + 4 * gap, sy), slot, "block", Color(0.45, 0.5, 0.6), _k("block"), "Block", 0.0, 1.0, alive and p.energy > 0.0, 0, p.blocking)
 	else:
+		next_slot_art = "perks"
 		_slot(Vector2(sx + 4 * gap, sy), slot, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
+	next_slot_art = "drop"
 	_slot(Vector2(sx + 5 * gap, sy), slot, "crown", Color(0.92, 0.66, 0.16), _k("interact"), "Drop" if p.carrying else "Grab", 0.0, 1.0, not p.dead,
 		0, false, 0.0, STAMINA, p.carrying != null and not p.dead)
 

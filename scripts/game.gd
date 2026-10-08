@@ -6411,12 +6411,27 @@ func _add_crates(pos: Vector3, rot: float) -> void:
 
 func _add_picket_fence(from: Vector3, to: Vector3) -> void:
 	## A run of pointed timber stakes on two rails (decor beside the verges).
+	## Stakes stop short of any tree, so a run that meets a trunk breaks into
+	## pieces either side of it instead of passing through the trunk and
+	## branches.
 	var wood := _timber(Color(0.55, 0.38, 0.24))
 	var d := to - from
 	var n := int(d.length() / 0.32)
 	var ang := atan2(d.x, d.z)
+	var runs: Array = []   # [first stake, last stake] of each unbroken piece
 	for k in n + 1:
 		var p := from + d * (float(k) / maxf(n, 1))
+		var clear := true
+		for t in map_trees:
+			if _flat_dist(p, t) < 2.4:
+				clear = false
+				break
+		if not clear:
+			continue
+		if runs.is_empty() or runs[-1][1] != k - 1:
+			runs.append([k, k])
+		else:
+			runs[-1][1] = k
 		var h := 0.95 + 0.12 * sin(k * 2.3)
 		var stake := MeshInstance3D.new()
 		var sm := BoxMesh.new()
@@ -6434,15 +6449,20 @@ func _add_picket_fence(from: Vector3, to: Vector3) -> void:
 		tip.position = p + Vector3(0, h + 0.09, 0)
 		tip.rotation.y = ang + PI / 2.0
 		add_child(tip)
-	for y in [0.3, 0.7]:
-		var rail := MeshInstance3D.new()
-		var rm := BoxMesh.new()
-		rm.size = Vector3(0.06, 0.08, d.length())
-		rail.mesh = rm
-		rail.material_override = wood
-		rail.position = from + d / 2.0 + Vector3(0, y, 0) - Vector3(sin(ang + PI / 2.0), 0, cos(ang + PI / 2.0)) * 0.06
-		rail.rotation.y = ang
-		add_child(rail)
+	for run in runs:
+		if run[1] <= run[0]:
+			continue
+		var a := from + d * (float(run[0]) / maxf(n, 1))
+		var b := from + d * (float(run[1]) / maxf(n, 1))
+		for y in [0.3, 0.7]:
+			var rail := MeshInstance3D.new()
+			var rm := BoxMesh.new()
+			rm.size = Vector3(0.06, 0.08, (b - a).length())
+			rail.mesh = rm
+			rail.material_override = wood
+			rail.position = (a + b) / 2.0 + Vector3(0, y, 0) - Vector3(sin(ang + PI / 2.0), 0, cos(ang + PI / 2.0)) * 0.06
+			rail.rotation.y = ang
+			add_child(rail)
 
 
 func _add_road_dressing() -> void:
