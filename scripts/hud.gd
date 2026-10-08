@@ -45,6 +45,7 @@ var local_unit = null   # couch play: the local player this HUD belongs to (null
 var pane := false       # couch play: drawn inside one player's pane
 var couch_buttons: Array = []   # title: [rect, "more"|"less"|"mode"]
 var font: Font
+var title_font: Font   # chunky cartoon display face for the big banners (Luckiest Guy, Apache 2.0)
 var logo: Texture2D
 var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
 var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
@@ -72,6 +73,9 @@ var title_buttons: Array = []       # [rect, tab] on the title screen
 
 func _ready() -> void:
 	font = ThemeDB.fallback_font
+	title_font = load("res://assets/fonts/LuckiestGuy-Regular.ttf")
+	if title_font == null:
+		title_font = font
 	logo = load("res://assets/ui/logo.png")
 	# Every painted icon in assets/ui/icons (tools/make_icons.py).
 	var dir := DirAccess.open("res://assets/ui/icons")
@@ -1656,62 +1660,178 @@ var holding_since := -1.0   # when this HUD's player picked the crown up (banner
 
 
 func _draw_holding_banner(p) -> void:
-	## YOU'RE HOLDING THE CROWN: a dark gold-framed banner that pops in when
-	## you pick the crown up and keeps pulsing, a glowing crown with sparkles
-	## at the left, the title and the hint centred, and a shine sweeping
-	## across it (Faisal 2026-10-08).
+	## YOU'RE HOLDING THE CROWN! A tilted royal-blue ribbon with gold trim
+	## and swallowtail ends, the title in a chunky cartoon face (cream over
+	## gold), a crown with rays on top, a parchment scroll with the hint
+	## below, and blue and gold shards bursting out behind it. Pops in when
+	## you pick the crown up, then bobs, twinkles and shines (Faisal
+	## 2026-10-08, his banner image).
 	var now := Time.get_ticks_msec() / 1000.0
 	if holding_since < 0.0:
 		holding_since = now
 	var t := now - holding_since
-	var pop := 1.0 + (0.22 * sin(clampf(t / 0.35, 0.0, 1.0) * PI) if t < 0.35 else 0.0)
-	var s := minf(t / 0.12, 1.0) * pop * (1.0 + 0.02 * sin(now * 5.0))
+	var pop := 1.0 + (0.25 * sin(clampf(t / 0.4, 0.0, 1.0) * PI) if t < 0.4 else 0.0)
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var s := minf(t / 0.14, 1.0) * pop * fit * 0.84 * (1.0 + 0.015 * sin(now * 4.0))
 	var a := clampf(t / 0.15, 0.0, 1.0)
-	var w := 620.0 * s
-	var h := 76.0 * s
-	var rect := Rect2(size.x / 2.0 - w / 2.0, 154.0 - h / 2.0, w, h)   # just under the info banner, clear of the player
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.2, 0.12, 0.05, 0.95 * a)
-	sb.set_corner_radius_all(int(9 * s))
-	sb.set_border_width_all(maxi(1, int(3 * s)))
-	sb.border_color = Color(0.86, 0.66, 0.28, a)
-	sb.shadow_size = 7
-	sb.shadow_color = Color(0, 0, 0, 0.45 * a)
-	sb.shadow_offset = Vector2(0, 3)
-	draw_style_box(sb, rect)
-	var inner := rect.grow(-5.0 * s)
-	draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.45)), Color(1, 0.85, 0.55, 0.06 * a))
-	draw_rect(inner, Color(0.62, 0.44, 0.16, 0.7 * a), false, 1.0)
-	draw_rect(Rect2(rect.position + Vector2(10 * s, 1.5), Vector2(rect.size.x - 20 * s, 1)), Color(1, 0.93, 0.6, 0.6 * a))
-	# The shine: a slanted pale band crossing the plate every two seconds.
-	var sweep := fmod(now * 0.6, 1.3) - 0.15
-	var sx := rect.position.x + sweep * rect.size.x
-	var band := PackedVector2Array()
-	for v in [Vector2(sx, rect.position.y + 4), Vector2(sx + 34, rect.position.y + 4), Vector2(sx + 14, rect.end.y - 4), Vector2(sx - 20, rect.end.y - 4)]:
-		band.append(Vector2(clampf(v.x, rect.position.x + 6, rect.end.x - 6), v.y))
-	draw_colored_polygon(band, Color(1.0, 0.95, 0.7, 0.12 * a))
-	# The crown on the left: a soft glow, twinkling sparkles and a bob.
-	var c := rect.position + Vector2(52 * s, h / 2.0 + sin(now * 4.0) * 2.0 * s)
-	for k in 6:
-		var ang := -PI / 2.0 + (k - 2.5) * 0.5
-		var d := Vector2(cos(ang), sin(ang))
-		var tw := 0.5 + 0.5 * sin(now * 5.0 + k * 1.7)
-		draw_line(c + d * 24.0 * s, c + d * (30.0 + 5.0 * tw) * s, Color(1.0, 0.85, 0.35, (0.35 + 0.4 * tw) * a), 2.0)
-	_crown_glyph(c + Vector2(0, 3 * s), 25.0 * s, 1.0, a)
-	for k in 3:
-		var sp := c + Vector2([-26.0, 24.0, 30.0][k], [-16.0, -20.0, 8.0][k]) * s
-		var tw := maxf(0.0, sin(now * 3.0 + k * 2.1))
-		var r := (2.0 + 3.0 * tw) * s
-		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw * a), 1.5)
-		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw * a), 1.5)
-	var ours: bool = p.carrying.team == p.team
-	if s < 0.3:
+	if s < 0.05:
 		return
-	_text(Vector2(rect.position.x, rect.position.y + 33.0 * s), "YOU'RE HOLDING THE CROWN!", int(24 * s), Color(1.0, 0.9, 0.62, a),
-		HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
-	_text(Vector2(rect.position.x, rect.position.y + 58.0 * s),
-		"Carry it back to your throne!" if ours else "Run it home to your throne room!  Everyone can see you on the map!",
-		int(13 * s), Color(1.0, 0.97, 0.9, a), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
+	var ours: bool = p.carrying.team == p.team
+	draw_set_transform(Vector2(size.x / 2.0, 186.0 * fit + sin(now * 2.2) * 2.0), -0.06 + 0.012 * sin(now * 1.7), Vector2(s, s))
+	var ink := Color(0.12, 0.07, 0.03, a)
+	var gold := Color(1.0, 0.8, 0.22, a)
+	# Burst: shards flying out from behind the ribbon, drifting outwards.
+	for k in 16:
+		var ang := -PI + (k + 0.5) * TAU / 16.0
+		if absf(sin(ang)) > 0.6:
+			continue   # out to the sides: clear of the scoreboard above and the player below
+		var drift := fmod(now * 0.5 + k * 0.37, 1.0)
+		var d := Vector2(cos(ang) * 1.45, sin(ang)) * (150.0 + 40.0 * drift + 18.0 * (k % 3))
+		var dir := d.normalized()
+		var side := Vector2(-dir.y, dir.x)
+		var ln := 16.0 + 10.0 * (k % 2)
+		var wd := 5.0 + 2.0 * ((k + 1) % 3)
+		var col := Color(0.35, 0.8, 1.0, a * (1.0 - drift * 0.7)) if k % 2 == 0 else Color(1.0, 0.86, 0.25, a * (1.0 - drift * 0.7))
+		draw_colored_polygon(PackedVector2Array([d - dir * ln, d + side * wd, d + dir * ln, d - side * wd]), col)
+	# Ribbon geometry: an arch (ends lower than the middle).
+	var half := 215.0
+	var bend := 14.0
+	var top := -66.0
+	var bot := 40.0
+	var edge := func(x: float, y: float) -> Vector2: return Vector2(x, y + bend * pow(x / half, 2.0))
+	# Swallowtail ends behind the band, with a dark fold where they tuck in.
+	for sx in [-1.0, 1.0]:
+		var x0: float = sx * (half - 18.0)
+		var x1: float = sx * (half + 62.0)
+		var tail := PackedVector2Array([edge.call(x0, top + 26.0), edge.call(x1, top + 30.0), edge.call(x1 - sx * 22.0, (top + bot) / 2.0 + 16.0),
+			edge.call(x1, bot + 6.0), edge.call(x0, bot + 2.0)])
+		var tail_out := tail.duplicate()
+		tail_out.append(tail[0])
+		draw_colored_polygon(tail, Color(0.13, 0.3, 0.72, a))
+		draw_colored_polygon(PackedVector2Array([tail[0], tail[1], tail[2], edge.call(x0, (top + bot) / 2.0 + 14.0)]), Color(0.22, 0.45, 0.92, a))
+		draw_polyline(tail_out, ink, 5.0)
+		draw_polyline(tail_out, gold, 2.0)
+		draw_colored_polygon(PackedVector2Array([edge.call(sx * half, bot - 2.0), edge.call(x0, bot + 2.0), edge.call(sx * half, bot + 16.0)]), Color(0.04, 0.08, 0.25, a))
+	# The band: lighter at the top, deep blue at the bottom.
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var n := 16
+	for i in n + 1:
+		var x := lerpf(-half, half, float(i) / n)
+		pts.append(edge.call(x, top))
+		cols.append(Color(0.2, 0.42, 0.9, a))
+	for i in n + 1:
+		var x := lerpf(half, -half, float(i) / n)
+		pts.append(edge.call(x, bot))
+		cols.append(Color(0.05, 0.13, 0.42, a))
+	draw_polygon(pts, cols)
+	# A soft sheen across the upper third, and the shine sweeping over it.
+	var sheen := PackedVector2Array()
+	for i in n + 1:
+		sheen.append(edge.call(lerpf(-half, half, float(i) / n), top + 6.0))
+	for i in n + 1:
+		sheen.append(edge.call(lerpf(half, -half, float(i) / n), top + 30.0))
+	draw_colored_polygon(sheen, Color(0.6, 0.8, 1.0, 0.12 * a))
+	var sweep := (fmod(now * 0.55, 1.6) - 0.3) * 2.0 * half - half
+	if absf(sweep) < half - 30.0:
+		draw_colored_polygon(PackedVector2Array([edge.call(sweep, top + 4.0), edge.call(sweep + 36.0, top + 4.0), edge.call(sweep + 6.0, bot - 4.0), edge.call(sweep - 30.0, bot - 4.0)]),
+			Color(1.0, 1.0, 1.0, 0.1 * a))
+	# Gold trim along both edges over a dark ink line, studs at the ends.
+	for y in [top, bot]:
+		var line := PackedVector2Array()
+		for i in n + 1:
+			line.append(edge.call(lerpf(-half, half, float(i) / n), y))
+		draw_polyline(line, ink, 9.0)
+		draw_polyline(line, gold, 5.0)
+		var hi := PackedVector2Array()
+		for q in line:
+			hi.append(q + Vector2(0, -1.5))
+		draw_polyline(hi, Color(1.0, 0.96, 0.7, 0.8 * a), 1.5)
+	for sx in [-1.0, 1.0]:
+		var side_line := PackedVector2Array([edge.call(sx * half, top), edge.call(sx * half, bot)])
+		draw_polyline(side_line, ink, 9.0)
+		draw_polyline(side_line, gold, 5.0)
+		for y in [top, bot]:
+			draw_circle(edge.call(sx * half, y), 6.0, ink)
+			draw_circle(edge.call(sx * half, y), 4.0, Color(1.0, 0.9, 0.45, a))
+	# Stars either side of the title.
+	for sx in [-1.0, 1.0]:
+		_inked_star(edge.call(sx * (half - 34.0), -20.0), 11.0 + sin(now * 4.0 + sx) * 1.5, gold, ink)
+	# The title: cream first line, big gold second line with an orange
+	# drop and a dark outline, so it reads like a cartoon logo.
+	var w := half * 2.0
+	_title_text(Vector2(-half, -18.0), "YOU'RE HOLDING" if not ours else "BRING IT HOME", 38, Color(1.0, 0.97, 0.88, a), Color(0.55, 0.62, 0.85, a), ink, w)
+	_title_text(Vector2(-half, 30.0), "THE CROWN!", 56, Color(1.0, 0.84, 0.18, a), Color(0.9, 0.42, 0.04, a), ink, w)
+	# The crown on top with its own rays, bobbing.
+	var cc := Vector2(0, top - 22.0 + sin(now * 4.0) * 2.5)
+	for k in 9:
+		var ang := -PI / 2.0 + (k - 4) * 0.32
+		var tw := 0.5 + 0.5 * sin(now * 5.0 + k * 1.3)
+		var d := Vector2(cos(ang), sin(ang))
+		draw_line(cc + d * 40.0, cc + d * (52.0 + 10.0 * tw), Color(1.0, 0.88, 0.35, (0.4 + 0.5 * tw) * a), 3.0)
+	_crown_glyph(cc, 36.0, 1.0, a)
+	# The parchment scroll with the hint, curled at both ends.
+	var hint := "Carry it back to your throne!" if ours else "Run it home to your throne room!"
+	var sw := 340.0
+	var sy := bot + 22.0
+	var scroll := Rect2(-sw / 2.0, sy - 16.0, sw, 34.0)
+	for sx in [-1.0, 1.0]:
+		var ex: float = sx * sw / 2.0
+		draw_colored_polygon(PackedVector2Array([Vector2(ex - sx * 6.0, sy - 14.0), Vector2(ex + sx * 16.0, sy - 10.0), Vector2(ex + sx * 8.0, sy + 2.0),
+			Vector2(ex + sx * 16.0, sy + 16.0), Vector2(ex - sx * 6.0, sy + 18.0)]), Color(0.78, 0.62, 0.38, a))
+	draw_rect(scroll.grow(2.5), ink)
+	draw_rect(scroll, Color(0.98, 0.9, 0.7, a))
+	draw_rect(Rect2(scroll.position, Vector2(scroll.size.x, 9.0)), Color(1.0, 0.98, 0.88, 0.7 * a))
+	draw_rect(Rect2(scroll.position + Vector2(0, scroll.size.y - 6.0), Vector2(scroll.size.x, 6.0)), Color(0.85, 0.7, 0.45, 0.6 * a))
+	for sx in [-1.0, 1.0]:
+		draw_circle(Vector2(sx * sw / 2.0, sy + 1.0), 7.0, ink)
+		draw_circle(Vector2(sx * sw / 2.0, sy + 1.0), 5.0, Color(0.88, 0.72, 0.45, a))
+	var tw2 := _text_width(hint, 17)
+	var hx := -tw2 / 2.0 + 14.0
+	_runner(Vector2(hx - 22.0, sy + 1.0), 10.0, ink)
+	draw_string(font, Vector2(hx, sy + 7.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(0.22, 0.13, 0.06, a))
+	# Twinkles around the whole thing.
+	for k in 5:
+		var sp := Vector2([-260.0, 250.0, -150.0, 170.0, 40.0][k], [-70.0, -60.0, -110.0, -105.0, 80.0][k])
+		var tw := maxf(0.0, sin(now * 3.0 + k * 1.9))
+		var r := 3.0 + 6.0 * tw
+		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.98, 0.8, tw * a), 2.0)
+		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.98, 0.8, tw * a), 2.0)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _title_text(pos: Vector2, text: String, size_px: int, face: Color, drop: Color, ink: Color, width: float) -> void:
+	## Cartoon logo lettering: a thick dark outline, a coloured drop under
+	## the face and a pale highlight on top.
+	var f: Font = title_font if title_font else font
+	draw_string_outline(f, pos + Vector2(0, 4), text, HORIZONTAL_ALIGNMENT_CENTER, width, size_px, 12, ink)
+	draw_string_outline(f, pos, text, HORIZONTAL_ALIGNMENT_CENTER, width, size_px, 10, ink)
+	draw_string(f, pos + Vector2(0, 4), text, HORIZONTAL_ALIGNMENT_CENTER, width, size_px, drop)
+	draw_string(f, pos, text, HORIZONTAL_ALIGNMENT_CENTER, width, size_px, face)
+
+
+func _inked_star(c: Vector2, r: float, col: Color, ink: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 10:
+		var ang := -PI / 2.0 + i * PI / 5.0
+		pts.append(c + Vector2(cos(ang), sin(ang)) * (r if i % 2 == 0 else r * 0.45))
+	var out := pts.duplicate()
+	out.append(pts[0])
+	draw_colored_polygon(pts, col)
+	draw_polyline(out, ink, 2.5)
+
+
+func _runner(c: Vector2, r: float, col: Color) -> void:
+	## A little running figure for the hint line.
+	draw_circle(c + Vector2(0.35, -1.0) * r, 0.28 * r, col)
+	var w := 0.22 * r
+	draw_line(c + Vector2(0.2, -0.65) * r, c + Vector2(-0.15, 0.25) * r, col, w)          # body
+	draw_line(c + Vector2(-0.15, 0.25) * r, c + Vector2(0.45, 0.6) * r, col, w)          # front thigh
+	draw_line(c + Vector2(0.45, 0.6) * r, c + Vector2(0.35, 1.05) * r, col, w)           # front shin
+	draw_line(c + Vector2(-0.15, 0.25) * r, c + Vector2(-0.55, 0.65) * r, col, w)        # back thigh
+	draw_line(c + Vector2(-0.55, 0.65) * r, c + Vector2(-1.0, 0.55) * r, col, w)         # back shin
+	draw_line(c + Vector2(0.12, -0.45) * r, c + Vector2(0.65, -0.1) * r, col, w)         # front arm
+	draw_line(c + Vector2(0.12, -0.45) * r, c + Vector2(-0.45, -0.3) * r, col, w)        # back arm
 
 
 func _draw_stolen_card() -> void:

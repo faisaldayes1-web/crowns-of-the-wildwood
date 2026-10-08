@@ -6992,7 +6992,7 @@ func _apply_map_variant() -> void:
 		# Late-afternoon storybook light (Faisal's target art, 2026-10-07): a
 		# low warm sun throwing long shadows, cool blue ambient so the shade
 		# reads coloured, and torches and braziers that bloom.
-		world_environment.ambient_light_energy = 0.17
+		world_environment.ambient_light_energy = 0.13
 		world_environment.ambient_light_sky_contribution = 0.25
 		world_environment.ambient_light_color = Color(0.45, 0.55, 0.85)
 		world_environment.fog_light_color = Color(0.95, 0.85, 0.7)
@@ -7003,11 +7003,11 @@ func _apply_map_variant() -> void:
 		world_environment.adjustment_brightness = 1.0
 		world_environment.adjustment_contrast = 1.1
 		sun_light.light_color = Color(1.0, 0.87, 0.7)
-		sun_light.light_energy = 1.2
-		sun_light.rotation_degrees = Vector3(-36, -38, 0)
+		sun_light.light_energy = 1.35
+		sun_light.rotation_degrees = Vector3(-38, -32, 0)
 		sun_light.shadow_opacity = 1.0
 		if fill_light:
-			fill_light.light_energy = 0.12
+			fill_light.light_energy = 0.07
 
 
 func _build_world() -> void:
@@ -7032,7 +7032,7 @@ func _build_world() -> void:
 	# Soft contact shadows under props and in corners (Forward+ only).
 	environment.ssao_enabled = true
 	environment.ssao_radius = 1.0
-	environment.ssao_intensity = 1.0
+	environment.ssao_intensity = 1.6
 	environment.ssao_power = 1.1
 	# Light bouncing off lit surfaces into shade (grass green on the walls,
 	# torchlight on the floors): Forward+ only, High and Ultra.
@@ -7086,8 +7086,8 @@ func _build_world() -> void:
 	sun.shadow_enabled = true
 	sun.shadow_bias = 0.03
 	sun.shadow_normal_bias = 1.5
-	sun.shadow_blur = 1.2
-	sun.light_angular_distance = 0.6   # soft, widening contact shadows (PCSS)
+	sun.shadow_blur = 0.3
+	sun.light_angular_distance = 0.0   # crisp, dark cartoon shadows (PCSS softening washed them out)
 	sun.light_volumetric_fog_energy = 1.4
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_split_1 = 0.12
