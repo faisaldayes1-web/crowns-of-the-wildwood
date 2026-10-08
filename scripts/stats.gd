@@ -157,7 +157,7 @@ const TURRET := {"hits": [8, 12, 16], "range": [7.0, 8.0, 9.0], "interval": [1.5
 	"damage": 1, "shot_speed": 34.0, "max_level": 3, "team_max": 6, "place_dist": 1.8, "grounds": 14.0,
 	"door_repair": 12.0}
 const MATCH_TIME := 600.0     # seconds
-const SEAL_REACH := 1.9     # how close you stand to a class seal to grab it with F
+const SEAL_REACH := 2.2     # how close you stand to a class seal to grab it with F
 const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins
 const CAPTURES_TO_WIN := 2
 

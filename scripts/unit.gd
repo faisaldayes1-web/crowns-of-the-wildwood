@@ -105,6 +105,7 @@ var rally_wait := 0.0   # seconds spent holding at the rally point
 var last_role := 0            # the class held when we died
 var stuck_time := 0.0
 var stall_target := Vector3.ZERO   # last _steer_to target (diagnostics)
+var player_ring_mat: StandardMaterial3D   # the ground ring under a local player
 var local_index := -1              # which local (couch) player drives this unit, -1 for bots
 var act_prefix := ""               # input action prefix: "" for player 1, "p2_" ... for couch players
 var has_mouse := true              # player 1 aims with the mouse; the others with the right stick
@@ -124,7 +125,13 @@ var death_timer := 0.0        # the body stays for a moment after dying
 var guard_ring: MeshInstance3D
 var overhead: Node3D
 var label: Label3D
-var heart_mats: Array[StandardMaterial3D] = []
+var hp_bar: Node3D                         # overhead health bar (trough + segments)
+var hp_fill_mat: StandardMaterial3D
+var hp_segs: Array[MeshInstance3D] = []
+const HP_BAR_W := 1.1
+const HP_BAR_H := 0.13
+const HP_BAR_Y := 0.07
+const HP_BAR_GAP := 0.025
 var aim_marker: MeshInstance3D
 var aim_ring: MeshInstance3D
 
@@ -204,6 +211,7 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 		var ring_mat := StandardMaterial3D.new()
 		ring_mat.albedo_color = Color(1, 1, 0.3)
 		ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		player_ring_mat = ring_mat
 		ring.material_override = ring_mat
 		add_child(ring)
 
@@ -234,24 +242,35 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	add_child(overhead)
 	label = Label3D.new()
 	label.no_depth_test = true
-	label.font_size = 26
-	label.pixel_size = 0.012
-	label.outline_size = 8
-	label.position.y = 0.35
+	label.font_size = 32
+	label.pixel_size = 0.0085
+	label.outline_size = 12
+	label.outline_modulate = Color(0.08, 0.06, 0.04)
+	label.render_priority = 5
+	label.outline_render_priority = 4
+	label.position.y = 0.33
 	overhead.add_child(label)
-	for i in Stats.MAX_HEARTS:
-		var heart := MeshInstance3D.new()
-		var quad := QuadMesh.new()
-		quad.size = Vector2(0.24, 0.22)
-		heart.mesh = quad
-		heart.position.x = (i - (Stats.MAX_HEARTS - 1) / 2.0) * 0.3
-		var mat := StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.no_depth_test = true
-		mat.render_priority = 1
-		heart.material_override = mat
-		heart_mats.append(mat)
-		overhead.add_child(heart)
+	# Health bar right under the name: a dark outlined trough, one fill
+	# segment per heart (thin gaps keep "1 hit = 1 heart" readable).
+	hp_bar = Node3D.new()
+	hp_bar.position.y = HP_BAR_Y
+	overhead.add_child(hp_bar)
+	var frame := MeshInstance3D.new()
+	var frame_quad := QuadMesh.new()
+	frame_quad.size = Vector2(HP_BAR_W + 0.04, HP_BAR_H + 0.04)
+	frame.mesh = frame_quad
+	frame.material_override = _overhead_mat(Color(0.05, 0.04, 0.03, 0.95), 1)
+	frame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	hp_bar.add_child(frame)
+	var trough := MeshInstance3D.new()
+	var trough_quad := QuadMesh.new()
+	trough_quad.size = Vector2(HP_BAR_W, HP_BAR_H)
+	trough.mesh = trough_quad
+	trough.position.z = 0.002
+	trough.material_override = _overhead_mat(Color(0.16, 0.14, 0.13, 0.95), 2)
+	trough.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	hp_bar.add_child(trough)
+	hp_fill_mat = _overhead_mat(Color(0.35, 0.85, 0.3), 3)
 	# Veteran marker: a ring over the head, and a beam of light for an Elite so
 	# everyone can see where the bounty is.
 	bounty_ring = MeshInstance3D.new()
@@ -459,17 +478,43 @@ func _apply_side_colors() -> void:
 	if model == null or model.outline == null:
 		return
 	var enemy := is_enemy_of_player()
+	if carrying != null:
+		# The crown carrier shines gold for everyone (Faisal 2026-10-08).
+		model.outline.albedo_color = Color(1.0, 0.78, 0.2)
+		model.outline.grow_amount = 0.05
+		for m in flash_mats:
+			m.emission_enabled = true
+			m.emission = Color(1.0, 0.75, 0.25)
+			m.emission_energy_multiplier = 0.1   # a warm sheen; the outline and rays do the shouting
+		if blob_mat:
+			blob_mat.albedo_color = Color(1.0, 0.75, 0.1, 0.5)
+		return
 	if is_player:
+		for m in flash_mats:
+			m.emission_enabled = false
+	if is_player and game.couch_players > 1:
+		# Couch play: every local player wears their own colour (outline,
+		# ground ring, name over walls) so partners spot each other.
+		model.outline.albedo_color = game.player_color(local_index)
+		model.outline.grow_amount = 0.04
+	elif is_player:
 		model.outline.albedo_color = Color(0.09, 0.07, 0.1)
-		model.outline.grow_amount = 0.022
+		model.outline.grow_amount = 0.028
 	elif highlighted:
 		model.outline.albedo_color = Color(1.0, 0.18, 0.12) if enemy else Color(0.25, 1.0, 0.4)
 		model.outline.grow_amount = 0.045
 	else:
 		model.outline.albedo_color = Color(0.34, 0.05, 0.05) if enemy else Color(0.04, 0.24, 0.09)
-		model.outline.grow_amount = 0.024
+		model.outline.grow_amount = 0.03
 	if blob_mat:
 		blob_mat.albedo_color = Color(0, 0, 0, 0.3) if is_player else (Color(0.7, 0.0, 0.0, 0.4) if enemy else Color(0.0, 0.5, 0.1, 0.35))
+	# A faint glow over the whole body (Faisal 2026-10-07): green for
+	# teammates, an even slighter red for enemies. The player stays as is.
+	if not is_player:
+		for m in flash_mats:
+			m.emission_enabled = true
+			m.emission = Color(1.0, 0.18, 0.12) if enemy else Color(0.25, 1.0, 0.4)
+			m.emission_energy_multiplier = (0.1 if enemy else 0.12) * (2.0 if highlighted else 1.0)
 
 
 func set_highlight(on: bool) -> void:
@@ -499,9 +544,23 @@ func _refresh_overhead() -> void:
 		vet = "BOUNTY · "
 	elif veteran == 1:
 		vet = "VETERAN · "
-	label.text = vet + tag + role_name() + lvl
+	# Every unit wears a tag: the player its own name, allies their faction
+	# and class ("ELF KNIGHT"), enemies just "HOSTILE".
 	if is_player:
+		label.text = vet + tag + role_name() + lvl
+	elif is_enemy_of_player():
+		label.text = vet + "HOSTILE"
+	else:
+		label.text = vet + ally_tag()
+	if is_player and game.couch_players > 1:
+		label.modulate = game.player_color(local_index).lightened(0.3)
+		label.no_depth_test = true   # visible through walls to the other panes
+		if player_ring_mat:
+			player_ring_mat.albedo_color = game.player_color(local_index)
+	elif is_player:
 		label.modulate = Color(1, 1, 0.6)
+		if player_ring_mat:
+			player_ring_mat.albedo_color = game.player_color(maxi(local_index, 0))
 	else:
 		label.modulate = Color(1.0, 0.7, 0.65) if is_enemy_of_player() else Color(0.7, 1.0, 0.75)
 	if veteran == 2:
@@ -511,8 +570,49 @@ func _refresh_overhead() -> void:
 		bounty_ring_mat.albedo_color = (Color(1, 0.3, 0.2) if is_enemy_of_player() else Color(1, 0.85, 0.3)) if veteran == 2 else Color(0.95, 0.75, 0.3)
 		bounty_beam.visible = veteran == 2 and not dead
 		bounty_beam.material_override.albedo_color = Color(1, 0.3, 0.2, 0.3) if is_enemy_of_player() else Color(1, 0.85, 0.3, 0.25)
-	for i in heart_mats.size():
-		heart_mats[i].albedo_color = Color(0.95, 0.15, 0.2) if i < hearts else Color(0.2, 0.2, 0.2)
+	label.visible = not dead
+	_refresh_hp_bar()
+
+
+func ally_tag() -> String:
+	## "ELF KNIGHT", "HUMAN WARDEN"; a plain base unit is just "ELF" / "HUMAN".
+	var faction: String = Stats.FACTIONS[team].roles[Role.BASE].to_upper()
+	return faction if role == Role.BASE else faction + " " + role_name().to_upper()
+
+
+func _overhead_mat(color: Color, priority: int) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA   # so render_priority orders the layers
+	mat.no_depth_test = true   # same as the label: never hidden in a crowd
+	mat.render_priority = priority
+	mat.albedo_color = color
+	return mat
+
+
+func _refresh_hp_bar() -> void:
+	if hp_bar == null:
+		return
+	hp_bar.visible = not dead
+	var total := maxi(max_hearts(), 1)
+	if hp_segs.size() != total:
+		for seg in hp_segs:
+			seg.queue_free()
+		hp_segs.clear()
+		var seg_w := (HP_BAR_W - HP_BAR_GAP * (total + 1)) / total
+		for i in total:
+			var seg := MeshInstance3D.new()
+			var quad := QuadMesh.new()
+			quad.size = Vector2(seg_w, HP_BAR_H - HP_BAR_GAP * 2.0)
+			seg.mesh = quad
+			seg.position = Vector3(-HP_BAR_W / 2.0 + HP_BAR_GAP + seg_w / 2.0 + i * (seg_w + HP_BAR_GAP), 0, 0.004)
+			seg.material_override = hp_fill_mat
+			seg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			hp_bar.add_child(seg)
+			hp_segs.append(seg)
+	hp_fill_mat.albedo_color = Color(0.9, 0.2, 0.17) if (is_enemy_of_player() and not is_player) else Color(0.35, 0.85, 0.3)
+	for i in hp_segs.size():
+		hp_segs[i].visible = i < hearts
 
 
 # --- Experience and ranks ----------------------------------------------------
@@ -1083,6 +1183,7 @@ func _die() -> void:
 	if aim_marker:
 		aim_marker.visible = false
 		aim_ring.visible = false
+	_refresh_overhead()   # hide the name tag and health bar while down
 
 
 func _respawn() -> void:
@@ -1145,8 +1246,14 @@ func bubble_up(duration: float) -> void:
 	bubble_mesh.visible = true
 
 
+var _was_carrying := false
+
+
 func _process(_delta: float) -> void:
 	_animate()
+	if (carrying != null) != _was_carrying:
+		_was_carrying = carrying != null
+		_apply_side_colors()
 	if bubble_mesh and bubble_mesh.visible:
 		bubble_timer -= _delta
 		var k: float = clampf(bubble_timer / 0.3, 0.0, 1.0)
@@ -1154,7 +1261,7 @@ func _process(_delta: float) -> void:
 		if bubble_timer <= 0.0 or dead:
 			bubble_mesh.visible = false
 	if overhead:
-		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + 0.35, 0)
+		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + (1.25 if carrying else 0.35), 0)   # above a worn crown
 	if aim_marker and not dead:
 		aim_marker.global_position = global_position + aim * 1.1 + Vector3(0, 0.08, 0)
 		aim_marker.rotation.y = atan2(-aim.x, -aim.z)
@@ -1438,7 +1545,9 @@ func _update_highlights() -> void:
 
 
 func _clamp_to_map() -> void:
-	position.x = clampf(position.x, -game.map_half.x, game.map_half.x)
+	# The spawn cellars reach past the field's edge (the Healer hat sits at x 87.5).
+	var hx: float = maxf(game.map_half.x, game.CASTLE_X + game.CASTLE_DEPTH + game.CELLAR_DEPTH)
+	position.x = clampf(position.x, -hx, hx)
 	position.z = clampf(position.z, -game.map_half.y, game.map_half.y)
 
 
