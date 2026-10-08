@@ -464,6 +464,20 @@ func _apply_side_colors() -> void:
 	if model == null or model.outline == null:
 		return
 	var enemy := is_enemy_of_player()
+	if carrying != null:
+		# The crown carrier shines gold for everyone (Faisal 2026-10-08).
+		model.outline.albedo_color = Color(1.0, 0.78, 0.2)
+		model.outline.grow_amount = 0.05
+		for m in flash_mats:
+			m.emission_enabled = true
+			m.emission = Color(1.0, 0.75, 0.25)
+			m.emission_energy_multiplier = 0.3
+		if blob_mat:
+			blob_mat.albedo_color = Color(1.0, 0.75, 0.1, 0.5)
+		return
+	if is_player:
+		for m in flash_mats:
+			m.emission_enabled = false
 	if is_player and game.couch_players > 1:
 		# Couch play: every local player wears their own colour (outline,
 		# ground ring, name over walls) so partners spot each other.
@@ -1169,8 +1183,14 @@ func bubble_up(duration: float) -> void:
 	bubble_mesh.visible = true
 
 
+var _was_carrying := false
+
+
 func _process(_delta: float) -> void:
 	_animate()
+	if (carrying != null) != _was_carrying:
+		_was_carrying = carrying != null
+		_apply_side_colors()
 	if bubble_mesh and bubble_mesh.visible:
 		bubble_timer -= _delta
 		var k: float = clampf(bubble_timer / 0.3, 0.0, 1.0)

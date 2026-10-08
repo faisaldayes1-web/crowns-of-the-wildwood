@@ -179,7 +179,11 @@ func _draw() -> void:
 		_draw_kill_banner(_me())
 	if not game.guide_open and not pane:
 		_draw_kill_feed()
-	if game.stolen_timer > 0.0:
+	if _me() and _me().carrying and not _me().dead:
+		_draw_holding_banner(_me())
+	else:
+		holding_since = -1.0
+	if game.stolen_timer > 0.0 and not (_me() and _me().carrying):   # the carrier sees their own banner
 		_draw_stolen_card()
 	elif game.capture_timer > 0.0:
 		_draw_capture_card()
@@ -1549,6 +1553,47 @@ func _draw_side_roster(team: int, origin: Vector2) -> void:
 			_bar(Rect2(rect.position + Vector2(112, 26), Vector2(78, 8)), u.energy / u.energy_max(),
 				MANA if u.energy_kind() == "mana" else STAMINA)
 		row += 1
+
+
+var holding_since := -1.0   # when this HUD's player picked the crown up (banner pop-in)
+
+
+func _draw_holding_banner(p) -> void:
+	## YOU'RE HOLDING THE CROWN: a gold banner that pops in when you pick the
+	## crown up and keeps pulsing, with a bobbing crown in a ring of turning
+	## rays and a shine sweeping across it (Faisal 2026-10-08).
+	var now := Time.get_ticks_msec() / 1000.0
+	if holding_since < 0.0:
+		holding_since = now
+	var t := now - holding_since
+	var pop := 1.0 + (0.22 * sin(clampf(t / 0.35, 0.0, 1.0) * PI) if t < 0.35 else 0.0)
+	var s := minf(t / 0.12, 1.0) * pop * (1.0 + 0.025 * sin(now * 5.0))
+	var a := clampf(t / 0.15, 0.0, 1.0)
+	var w := 500.0 * s
+	var h := 74.0 * s
+	var rect := Rect2(size.x / 2.0 - w / 2.0, 142.0 - h / 2.0, w, h)   # just under the info banner, clear of the player
+	_plate(rect, Color(0.36, 0.22, 0.04, 0.94 * a), Color(1.0, 0.84, 0.3, a), 12, 3)
+	# The shine: a slanted pale band crossing the plate every two seconds.
+	var sweep := fmod(now * 0.6, 1.3) - 0.15
+	var sx := rect.position.x + sweep * rect.size.x
+	var band := PackedVector2Array()
+	for v in [Vector2(sx, rect.position.y + 4), Vector2(sx + 34, rect.position.y + 4), Vector2(sx + 14, rect.end.y - 4), Vector2(sx - 20, rect.end.y - 4)]:
+		band.append(Vector2(clampf(v.x, rect.position.x + 6, rect.end.x - 6), v.y))
+	draw_colored_polygon(band, Color(1.0, 0.95, 0.7, 0.16 * a))
+	# The crown medallion on the left: turning rays behind a bobbing crown.
+	var c := rect.position + Vector2(44 * s, h / 2.0 + sin(now * 4.0) * 3.0)
+	for k in 12:
+		var ang := now * 0.8 + k * TAU / 12.0
+		var d := Vector2(cos(ang), sin(ang))
+		draw_line(c + d * 14.0 * s, c + d * (26.0 + 4.0 * sin(now * 6.0 + k)) * s, Color(1.0, 0.85, 0.35, 0.55 * a), 3.0)
+	draw_circle(c, 17.0 * s, Color(0.25, 0.14, 0.02, a))
+	draw_arc(c, 17.0 * s, 0, TAU, 24, Color(1.0, 0.84, 0.3, a), 2.0)
+	_icon("crown", c, 12.0 * s, Color(1.0, 0.86, 0.3, a))
+	var tx := rect.position.x + 82.0 * s
+	_text(Vector2(tx, rect.position.y + 32.0 * s), "YOU'RE HOLDING THE CROWN!", int(24 * s), Color(1.0, 0.95, 0.75, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	var ours: bool = p.carrying.team == p.team
+	_text(Vector2(tx, rect.position.y + 56.0 * s), "Carry it back to your throne!" if ours else "Run it home to your throne room!  Everyone can see you.",
+		int(13 * s), Color(1.0, 0.9, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _draw_stolen_card() -> void:

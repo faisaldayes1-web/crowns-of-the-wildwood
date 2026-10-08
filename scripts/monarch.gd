@@ -31,6 +31,7 @@ func setup(p_team: int, p_home: Vector3, color: Color, p_title: String) -> void:
 	model.scale = Vector3.ONE * 1.5
 	add_child(model)
 	model.position.y = REST_HEIGHT
+	_build_glow()
 
 	label = Label3D.new()
 	label.text = title.to_upper()
@@ -68,6 +69,13 @@ func go_home() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	model.rotation.y += delta * 0.8
+	# The aura breathes and the beam shimmers; both brighter while carried.
+	var carried := state == State.CARRIED
+	if aura:
+		aura.position.y = model.position.y + 0.3
+		aura.scale = Vector3.ONE * ((1.25 if carried else 1.0) + 0.12 * sin(_t * 4.0))
+		aura_mat.albedo_color.a = (0.5 if carried else 0.35) + 0.12 * sin(_t * 4.0)
+		beam_mat.albedo_color.a = (0.3 if carried else 0.2) + 0.06 * sin(_t * 3.0)
 	match state:
 		State.HOME:
 			model.position.y = REST_HEIGHT + sin(_t * 2.0) * 0.05
@@ -86,6 +94,48 @@ func _process(delta: float) -> void:
 
 
 var _t := 0.0
+var aura: MeshInstance3D
+var aura_mat: StandardMaterial3D
+var beam_mat: StandardMaterial3D
+
+
+func _build_glow() -> void:
+	## A soft gold aura round the crown and a pillar of light above it, so the
+	## crown (and whoever carries it) can be spotted across the map.
+	aura_mat = StandardMaterial3D.new()
+	aura_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	aura_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	aura_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	aura_mat.albedo_color = Color(1.0, 0.75, 0.25, 0.35)
+	aura_mat.cull_mode = BaseMaterial3D.CULL_FRONT   # only the far side: a halo, not a ball
+	aura = MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 1.0
+	sm.height = 2.0
+	sm.radial_segments = 24
+	sm.rings = 12
+	aura.mesh = sm
+	aura.material_override = aura_mat
+	aura.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(aura)
+	beam_mat = StandardMaterial3D.new()
+	beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	beam_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	beam_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	beam_mat.albedo_color = Color(1.0, 0.8, 0.3, 0.2)
+	var beam := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.08
+	cm.bottom_radius = 0.32
+	cm.height = 9.0
+	cm.cap_top = false
+	cm.cap_bottom = false
+	beam.mesh = cm
+	beam.material_override = beam_mat
+	beam.position.y = 2.2 + 4.5
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(beam)
 
 
 func _build_crown(elf: bool) -> Node3D:
@@ -98,7 +148,7 @@ func _build_crown(elf: bool) -> Node3D:
 	gold.roughness = 0.3
 	gold.emission_enabled = true
 	gold.emission = Color(1.0, 0.7, 0.2)
-	gold.emission_energy_multiplier = 0.35
+	gold.emission_energy_multiplier = 0.9   # it glows (Faisal 2026-10-08)
 	var gem := StandardMaterial3D.new()
 	gem.albedo_color = Color(0.2, 0.85, 0.45) if elf else Color(0.2, 0.45, 1.0)
 	gem.emission_enabled = true
@@ -152,8 +202,8 @@ func _build_crown(elf: bool) -> Node3D:
 		root.add_child(g)
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.85, 0.45)
-	light.light_energy = 0.8
-	light.omni_range = 3.0
+	light.light_energy = 1.6
+	light.omni_range = 5.0
 	light.position.y = 0.4
 	root.add_child(light)
 	# Sparkles drifting up off it.

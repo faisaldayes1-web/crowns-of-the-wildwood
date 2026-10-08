@@ -441,6 +441,10 @@ func _debug_hooks() -> void:
 					var thief = units[TEAM_SIZE - 1] if player_team == 1 else units[TEAM_SIZE + 1]
 					monarchs[1 - player_team].pick_up(thief)
 					thief.carrying = monarchs[1 - player_team]
+			if arg == "--debug-carry" and player and monarchs[1 - player_team].state != Monarch.State.CARRIED:
+				# Renders: the player holding the enemy crown.
+				monarchs[1 - player_team].pick_up(player)
+				player.carrying = monarchs[1 - player_team]
 			if arg == "--debug-levelup":
 				levelup_timer = 3.0
 				levelup_level = 2
