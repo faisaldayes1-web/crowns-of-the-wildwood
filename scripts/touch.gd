@@ -61,6 +61,7 @@ func _down(i: int, pos: Vector2) -> void:
 	if game:
 		game.touch_active = true
 	if not _playing():
+		game.touch_tap = pos   # a menu tap: game.menu_tick reads it as a click
 		return
 	var hud = game.hud
 	# The HUD's ability tiles and corner buttons.

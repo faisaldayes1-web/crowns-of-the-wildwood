@@ -9,7 +9,7 @@ render_mode cull_disabled, fog_disabled;   // no red haze over the black crust
 
 uniform float drift = 0.03;
 uniform float scale = 0.16;
-uniform float glow = 3.2;
+uniform float glow = 2.3;
 uniform vec3 core : source_color = vec3(1.0, 0.78, 0.32);      // the hottest crack cores
 uniform vec3 hot : source_color = vec3(1.0, 0.34, 0.04);      // molten rock
 uniform vec3 deep : source_color = vec3(0.45, 0.04, 0.015);    // cooling, deep red
@@ -103,7 +103,7 @@ void fragment() {
 	// Molten where the crust is missing: thin cracks, wider where it runs hot.
 	// Wide open pools where it runs hot (the 2026-10-08 reference: bright
 	// molten rivers with black crust islands), thin cracks elsewhere.
-	float open = smoothstep(0.52, 0.88, heat) * 0.85;
+	float open = smoothstep(0.52, 0.88, heat) * 0.72;
 	float molten = 1.0 - smoothstep(0.02, 0.13 + heat * 0.1, edge);
 	molten = clamp(max(molten, open * (1.0 - h * 0.6)), 0.0, 1.0);
 	if (flow > 0.0) {
