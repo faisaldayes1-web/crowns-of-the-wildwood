@@ -1219,7 +1219,9 @@ func _volcano_network(c: Vector2, r: float, m: Callable, clip: PackedVector2Arra
 			var q := pr.position + Vector2(fmod(k * 0.618034, 1.0), fmod(k * 0.381966 + 0.21, 1.0)) * pr.size
 			if inside.call(q):
 				draw_circle(q, (2.2 if detailed else 1.2) * (0.6 + fmod(k * 0.7548, 1.0)), rock.darkened(0.3) if k % 2 else rock.lightened(0.1))
-		_mm_line(pr.position, Vector2(pr.end.x, pr.position.y), c, r, rock.lightened(0.35), 1.0)
+		# Lit top edge, clipped to the map's frame (the plateau runs past it).
+		for seg in Geometry2D.intersect_polyline_with_polygon(PackedVector2Array([pr.position, Vector2(pr.end.x, pr.position.y)]), clip):
+			draw_polyline(seg, rock.lightened(0.35), 1.0)
 		if t == 0:
 			# The Elves' pines on their side.
 			for k in 7:
