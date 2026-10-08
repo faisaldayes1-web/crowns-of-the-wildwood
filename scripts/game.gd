@@ -6579,7 +6579,11 @@ func _build_castle(team: int) -> void:
 	var in_x := fx + side * 0.5                   # the front wall's inner face
 
 	# --- The yard: sandstone flags inside the walls. ---
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(Color(0.8, 0.82, 0.72) if mossy else Color.WHITE))
+	var yard_tint: Color = Color(0.8, 0.82, 0.72) if mossy else Color.WHITE
+	if vmap:
+		# Ember Pass: soot-darkened flags, or the lava light turns them glaring yellow.
+		yard_tint *= Color(0.5, 0.45, 0.45)
+	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(yard_tint))
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
