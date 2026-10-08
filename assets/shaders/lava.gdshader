@@ -9,12 +9,12 @@ render_mode cull_disabled;
 
 uniform float drift = 0.03;
 uniform float scale = 0.16;
-uniform float glow = 1.45;
-uniform vec3 core : source_color = vec3(1.0, 0.42, 0.12);      // the hottest crack cores
-uniform vec3 hot : source_color = vec3(0.78, 0.07, 0.02);     // molten rock
+uniform float glow = 2.6;
+uniform vec3 core : source_color = vec3(1.0, 0.62, 0.22);      // the hottest crack cores
+uniform vec3 hot : source_color = vec3(1.0, 0.16, 0.02);      // molten rock
 uniform vec3 deep : source_color = vec3(0.3, 0.01, 0.015);    // cooling, deep red
-uniform vec3 crust_lo : source_color = vec3(0.025, 0.012, 0.014);
-uniform vec3 crust_hi : source_color = vec3(0.1, 0.035, 0.035);
+uniform vec3 crust_lo : source_color = vec3(0.008, 0.006, 0.007);   // near black
+uniform vec3 crust_hi : source_color = vec3(0.04, 0.022, 0.022);
 uniform float flow = 0.0;   // falls: how fast the pattern pours down (v)
 uniform float pulse = 0.18; // how much the glow breathes
 
@@ -110,15 +110,16 @@ void fragment() {
 	// A slow breath through the whole sea, offset across it so it rolls.
 	float breath = 1.0 + pulse * sin(TIME * 1.3 + wpos.x * 0.05 + wpos.z * 0.03);
 
-	// Crust: almost black, a few plates rusty, ember-lit at the rims.
+	// Crust: near black, a few plates faintly rusty.
 	vec3 crust = mix(crust_lo, crust_hi, plate * 0.7 + fbm(p * 4.0) * 0.3);
-	float rim = 1.0 - smoothstep(0.02, 0.2, edge);
 	vec3 lava = mix(deep, hot, smoothstep(0.1, 0.7, molten * (0.5 + heat)));
 	lava = mix(lava, core, smoothstep(0.75, 1.0, molten) * smoothstep(0.35, 0.8, heat));
 	ALBEDO = mix(crust, lava * 0.6, molten);
-	vec3 ember = deep * rim * 0.9 * (1.0 - molten);
+	// Only a thin ember line right at the crack's lip; the plates stay black.
+	float lip = 1.0 - smoothstep(0.02, 0.08, edge);
+	vec3 ember = deep * lip * 0.7 * (1.0 - molten);
 	EMISSION = (lava * molten * glow + ember) * breath;
 	NORMAL = mix(n_view, NORMAL, molten);
-	ROUGHNESS = mix(0.55, 0.95, molten);
-	SPECULAR = 0.35 * (1.0 - molten);
+	ROUGHNESS = mix(0.7, 0.95, molten);
+	SPECULAR = 0.12 * (1.0 - molten);
 }
