@@ -3074,7 +3074,7 @@ func _material(color: Color) -> StandardMaterial3D:
 func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE, ext: String = "jpg") -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_texture = load("res://assets/textures/%s_color.%s" % [prefix, ext])
-	mat.albedo_color = tint
+	mat.albedo_color = tint * soot
 	mat.normal_enabled = true
 	mat.normal_texture = load("res://assets/textures/%s_normal.jpg" % prefix)
 	mat.roughness = 0.85
@@ -4354,6 +4354,7 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 # from every wall; `--audit` lists anything that still overlaps.
 
 var mossy := false   # while an elven castle is being built: ivy and moss on its stone
+var soot := Color.WHITE   # while Ember Pass's castles are built: darkens every textured surface
 var grey := false    # while the Humans' castle is being built: grey stone
 
 
@@ -6579,11 +6580,7 @@ func _build_castle(team: int) -> void:
 	var in_x := fx + side * 0.5                   # the front wall's inner face
 
 	# --- The yard: sandstone flags inside the walls. ---
-	var yard_tint: Color = Color(0.8, 0.82, 0.72) if mossy else Color.WHITE
-	if vmap:
-		# Ember Pass: soot-darkened flags, or the lava light turns them glaring yellow.
-		yard_tint *= Color(0.5, 0.45, 0.45)
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(yard_tint))
+	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(Color(0.8, 0.82, 0.72) if mossy else Color.WHITE))
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
@@ -7212,8 +7209,12 @@ func _build_volcano() -> void:
 	## joined by bridges (scripts/volcano.gd builds everything else).
 	vmap = Volcano.new(self)
 	vmap.build()
+	# Soot-dark castles: the lava's red light turns pale stone, bark and
+	# moss glaring yellow and green.
+	soot = Color(0.52, 0.46, 0.44)
 	_build_castle(0)
 	_build_castle(1)
+	soot = Color.WHITE
 	for p in vmap.heal_orb_spots():
 		var orb = HealOrb.new()
 		add_child(orb)

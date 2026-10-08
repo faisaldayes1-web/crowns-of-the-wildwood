@@ -434,12 +434,23 @@ func _build_floor() -> void:
 func _build_lava() -> void:
 	lava_mat = ShaderMaterial.new()
 	lava_mat.shader = load("res://assets/shaders/lava.gdshader")
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(320, 220)
-	plane.subdivide_width = 1
-	plane.subdivide_depth = 1
-	var lava := _mesh(plane, Vector3(0, LAVA_Y, 0), lava_mat, Vector3.ZERO, false)
-	lava.name = "Lava"
+	# One sea in pieces, with a hole over each spawn cellar: their floors sit
+	# below the lava's surface, so a whole plane would flood them.
+	var h0: float = game.CASTLE_X + game.CASTLE_DEPTH - 0.5
+	var h1: float = game.CASTLE_X + game.CASTLE_DEPTH + game.CELLAR_DEPTH + 1.0
+	var hz: float = game.CELLAR_HALF_Z + 1.0
+	var ex := 160.0
+	var ez := 110.0
+	var pieces := [[0.0, 0.0, h0 * 2.0, ez * 2.0]]
+	for sx in [-1.0, 1.0]:
+		pieces.append([sx * (h0 + h1) / 2.0, (hz + ez) / 2.0, h1 - h0, ez - hz])
+		pieces.append([sx * (h0 + h1) / 2.0, -(hz + ez) / 2.0, h1 - h0, ez - hz])
+		pieces.append([sx * (h1 + ex) / 2.0, 0.0, ex - h1, ez * 2.0])
+	for pc in pieces:
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(pc[2], pc[3])
+		var lava := _mesh(plane, Vector3(pc[0], LAVA_Y, pc[1]), lava_mat, Vector3.ZERO, false)
+		lava.name = "Lava"
 	# The lava lights everything from below: a few big warm fills.
 	for p in [Vector3(-14, LAVA_Y + 1.2, 0), Vector3(14, LAVA_Y + 1.2, 0), Vector3(0, LAVA_Y + 1.2, -32), Vector3(0, LAVA_Y + 1.2, 32),
 			Vector3(-30, LAVA_Y + 1.2, 22), Vector3(30, LAVA_Y + 1.2, 22), Vector3(-30, LAVA_Y + 1.2, -22), Vector3(30, LAVA_Y + 1.2, -22)]:
