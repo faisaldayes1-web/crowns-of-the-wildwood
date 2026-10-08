@@ -54,6 +54,11 @@ var damage_dealt := 0   # hearts of damage dealt
 var display_name := ""
 var slow_timer := 0.0       # slowed: half speed
 var stealth_timer := 0.0    # smoke bomb: bots lose you
+var fire_form := false      # Ember Pass: our team holds the Fire Objective, so this class fights in FIRE form
+var fire_fx: Node3D         # the FIRE form's flames and glow
+var burn_timer := 0.0       # set alight by a FIRE attack: a heart goes when it runs out (healing puts it out)
+var burn_cd := 0.0          # can't catch fire again until this runs out
+var burn_by = null          # who lit us, for the credit
 var bash_damage := 1
 var bash_root := 0.0
 var buff := ""              # Blessing of Light in effect
@@ -348,6 +353,19 @@ func stats() -> Dictionary:
 		if not v.is_empty():
 			_stats_cache.merge(v.attack, true)
 			_stats_cache.abilities = v.abilities
+		if fire_form:
+			# FIRE form: the base attack sets enemies alight, the abilities
+			# come cheaper and quicker.
+			_stats_cache.burn = true
+			if _stats_cache.attack == "arrow" or _stats_cache.attack == "spell":
+				_stats_cache.fire = true   # flaming arrows and fire bolts
+			var fired := []
+			for a in _stats_cache.abilities:
+				var b: Dictionary = a.duplicate(true)
+				b.cost = b.cost * Stats.FIRE_FORM.cost_mult
+				b.cooldown = b.cooldown * Stats.FIRE_FORM.cooldown_mult
+				fired.append(b)
+			_stats_cache.abilities = fired
 	return _stats_cache
 
 
@@ -405,7 +423,78 @@ func choose_variant(for_role: int, index: int) -> bool:
 
 func role_name() -> String:
 	var v := variant()
-	return v.name if not v.is_empty() else Stats.FACTIONS[team].roles[role]
+	var n: String = v.name if not v.is_empty() else Stats.FACTIONS[team].roles[role]
+	return "%s %s" % [Stats.FIRE_FORM.prefix, n] if fire_form else n
+
+
+func refresh_fire(announce: bool = true) -> void:
+	## Into (or out of) FIRE form as our team takes (or loses) the Fire
+	## Objective; plain soldiers without a class stay as they are.
+	var want: bool = game.vmap != null and game.vmap.holds_fire(team) and role != Role.BASE and not dead
+	if want == fire_form:
+		return
+	fire_form = want
+	_stats_cache = {}
+	_fire_look()
+	_refresh_overhead()
+	if not announce:
+		return
+	var flame: Color = Stats.FIRE_FORM.flame[team]
+	if fire_form:
+		game.spawn_pillar(global_position, flame, 4.0, 0.8)
+		game.spawn_ring(global_position, 2.0, flame, 0.6)
+		game.spawn_popup(global_position + Vector3(0, 2.4, 0), role_name().to_upper(), flame)
+		if is_player:
+			game.announce("FIRE FORM! You are a %s: your attacks set enemies alight." % role_name())
+	elif is_player:
+		game.toast("Your fire fades: the Fire Objective is lost", Color(1.0, 0.6, 0.35))
+
+
+func _fire_look() -> void:
+	## Flames licking up round a FIRE form fighter, and a warm glow.
+	if fire_fx == null and fire_form:
+		fire_fx = Node3D.new()
+		add_child(fire_fx)
+		var flame: Color = Stats.FIRE_FORM.flame[team]
+		var p := CPUParticles3D.new()
+		p.amount = 22
+		p.lifetime = 0.7
+		p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+		p.emission_ring_radius = 0.45
+		p.emission_ring_inner_radius = 0.2
+		p.emission_ring_height = 0.1
+		p.emission_ring_axis = Vector3.UP
+		p.direction = Vector3.UP
+		p.spread = 12.0
+		p.initial_velocity_min = 1.2
+		p.initial_velocity_max = 2.2
+		p.gravity = Vector3.ZERO
+		p.scale_amount_min = 0.6
+		p.scale_amount_max = 1.0
+		var c := Curve.new()
+		c.add_point(Vector2(0, 1))
+		c.add_point(Vector2(1, 0))
+		p.scale_amount_curve = c
+		var sph := SphereMesh.new()
+		sph.radius = 0.11
+		sph.height = 0.22
+		sph.radial_segments = 6
+		sph.rings = 3
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(flame.r * 1.8, flame.g * 1.6, flame.b * 1.4)
+		sph.material = m
+		p.mesh = sph
+		p.position = Vector3(0, 0.15, 0)
+		fire_fx.add_child(p)
+		var light := OmniLight3D.new()
+		light.light_color = flame
+		light.light_energy = 0.5
+		light.omni_range = 2.6
+		light.position = Vector3(0, 1.0, 0)
+		fire_fx.add_child(light)
+	if fire_fx:
+		fire_fx.visible = fire_form
 
 
 func class_name_plain() -> String:
@@ -442,6 +531,7 @@ func set_role(new_role: int) -> void:
 	model.setup(team, role, variant().get("name", ""), game.hero_custom() if is_player else {}, gear_rank())
 	flash_mats = model.flash_mats
 	_apply_side_colors()
+	refresh_fire(role != Role.BASE)
 	_refresh_overhead()
 
 
@@ -806,6 +896,11 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	if effect.has("root"):
 		root_timer = maxf(root_timer, effect.root)
 		game.spawn_ring(global_position, 0.9, Color(0.6, 0.85, 1.0), 0.4, 0.15)
+	if effect.get("burn", false) and burn_cd <= 0.0 and hearts > 0:
+		burn_timer = Stats.FIRE_FORM.burn_delay
+		burn_cd = Stats.FIRE_FORM.burn_cooldown
+		burn_by = attacker
+		game.spawn_popup(global_position + Vector3(0, 1.6, 0), "BURNING", Color(1.0, 0.55, 0.2))
 	if attacker and attacker != self:
 		attacker.gain_xp(Stats.XP_HIT * amount)
 		attacker.damage_dealt += amount
@@ -864,6 +959,8 @@ func heal(amount: int, healer = null) -> int:
 	if dead:
 		return 0
 	var before := hearts
+	if burn_timer > 0.0 and amount > 0:
+		burn_timer = 0.0   # mended: the fire goes out
 	hearts = mini(hearts + amount, max_hearts())
 	var healed := hearts - before
 	if healed > 0 and home_defense:
@@ -1146,6 +1243,7 @@ func _recoil(dir: Vector3, amount: float) -> void:
 
 func _die() -> void:
 	dead = true
+	burn_timer = 0.0
 	hearts = 0
 	last_role = role
 	if carrying:
@@ -1329,7 +1427,7 @@ func _physics_process(delta: float) -> void:
 
 	# Nobody stands in the river: anyone shoved or blown into the channel
 	# (a knockback over the shrine's rim) is set back on the nearer bank.
-	if game.in_channel(global_position):
+	if game.vmap == null and game.in_channel(global_position):
 		var bank := 1.0 if global_position.x >= 0.0 else -1.0
 		if game.demo:
 			print("RIVER t=%d team%d %s at %s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1)])
@@ -1371,6 +1469,17 @@ func _physics_process(delta: float) -> void:
 	root_timer = maxf(root_timer - delta, 0.0)
 	haste_timer = maxf(haste_timer - delta, 0.0)
 	slow_timer = maxf(slow_timer - delta, 0.0)
+	burn_cd = maxf(burn_cd - delta, 0.0)
+	if burn_timer > 0.0:
+		burn_timer -= delta
+		if Engine.get_physics_frames() % 5 == 0:
+			game.spawn_splash(global_position + Vector3(0, 0.9, 0), Color(1.0, 0.5, 0.15), 3, 1.6, 0.4, true)
+		if burn_timer <= 0.0:
+			var by = burn_by if is_instance_valid(burn_by) and burn_by.team != team else null
+			burn_by = null
+			take_damage(Stats.FIRE_FORM.burn_damage, by)
+			if dead:
+				return
 	if buff_timer > 0.0:
 		buff_timer -= delta
 		if buff == "Regeneration":
@@ -1549,6 +1658,8 @@ func _clamp_to_map() -> void:
 	var hx: float = maxf(game.map_half.x, game.CASTLE_X + game.CASTLE_DEPTH + game.CELLAR_DEPTH)
 	position.x = clampf(position.x, -hx, hx)
 	position.z = clampf(position.z, -game.map_half.y, game.map_half.y)
+	if game.vmap:
+		position = game.vmap.clamp_walk(position)  # Ember Pass: nobody steps into the lava
 
 
 # --- Combat ----------------------------------------------------------------
@@ -1588,7 +1699,7 @@ func _attack(dir: Vector3) -> void:
 		var drain: bool = s.get("drain", false)
 		game.sfx.play("curse" if drain else "bolt", global_position, -6.0 if drain else -3.0, 0.12)
 		game.spawn_shot(self, dir, {"damage": s.damage, "gate_damage": s.gate_damage, "range": s.range,
-			"shot_speed": s.shot_speed, "holy": true, "drain": drain}, Color(0.6, 0.3, 0.9) if drain else Color(1.0, 0.95, 0.6))
+			"shot_speed": s.shot_speed, "holy": true, "drain": drain, "burn": s.get("burn", false)}, Color(0.6, 0.3, 0.9) if drain else Color(1.0, 0.95, 0.6))
 		_recoil(dir, 1.5)
 		return
 	energy -= s.cost
@@ -1623,7 +1734,7 @@ func _attack(dir: Vector3) -> void:
 		# Swings reach people at your own height, not someone up on a wall.
 		if dist <= s.range and absf(other.global_position.y - global_position.y) < 1.5 \
 				and (dist < 0.8 or dir.dot(to / dist) > 0.3):
-			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE) or landed
+			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE, {"burn": true} if s.get("burn", false) else {}) or landed
 	if landed:
 		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
 		if is_player:
@@ -1948,7 +2059,8 @@ func _prep_goal(plan: Dictionary) -> Vector3:
 				return spot
 			return game.wall_post(team, bot_offset.z)
 		Role.KNIGHT, Role.MAGE:
-			spot = Vector3(fx + out * (9.0 if role == Role.KNIGHT else 6.5), 0, zs * (5.0 if role == Role.KNIGHT else 7.5))
+			# (On Ember Pass both stay on the plateau: 9 m out is over the lava.)
+			spot = Vector3(fx + out * (9.0 if role == Role.KNIGHT and game.vmap == null else 6.5), 0, zs * (5.0 if role == Role.KNIGHT else 7.5))
 			if not prep_done:
 				if _flat_to(spot).length() < 0.8 and global_position.y < 1.0:
 					facing = Vector3(out, 0, 0)
@@ -2028,6 +2140,8 @@ func _bot_think(delta: float) -> Dictionary:
 	elif bot_job == "defend":
 		# Spread a little along the wall, not out into the yard clutter.
 		goal = game.defense_post(team, bot_offset.z) + _post_spread()
+	elif bot_job == "fire" and game.vmap:
+		goal = game.vmap.fire_spot(bot_offset)   # Ember Pass: take and hold the Fire Objective
 	elif bless:
 		goal = bless.global_position
 	elif bot_job == "wall":

@@ -18,6 +18,9 @@ const Barricade = preload("res://scripts/barricade.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
+const Volcano = preload("res://scripts/volcano.gd")
+const MainMenu = preload("res://scripts/menu.gd")
+const MenuStage = preload("res://scripts/menu_stage.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -96,6 +99,20 @@ var killer_card := {}           # who killed the player last: {"unit", "weapon"}
 var killer_timer := 0.0
 var hero_look := 0              # Stats.HERO_LOOKS index (1 needs account level 10)
 var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
+static var reopen_screen := ""  # a menu screen to reopen after select_map() reloads the scene
+var vmap = null                 # Ember Pass (the volcano map): its layout, bot routes and Fire Objective; null on the Wildwood
+var hero_skin := 1              # Stats.HERO_SKINS index
+var hero_face := 0              # Stats.HERO_FACES index
+var hero_eye := -1              # Stats.HERO_EYES index (-1: the side's own colour)
+var hero_mark := 0              # Stats.HERO_MARKS index
+var hero_body := 0              # Stats.HERO_BODIES index: the unclassed body's build
+var team_size := TEAM_SIZE      # fighters a side (SELECT MAP's TEAM SIZE); bots fill the gaps
+var split_screen := false       # SELECT MAP's SPLIT SCREEN: extra pads may join in the lobby
+var lobby_sides: Array = []     # READY UP: each local player's side (0 Elves, 1 Humans)
+var join_pads: Array = []       # READY UP: pad device of local players 2-4, in join order
+var p1_pad_device := -1         # the pad player 1 used in the menus (-1: none or unknown)
+var main_menu                   # menu.gd: the title, Select Map, Create Your Character, Ready Up
+var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
@@ -148,6 +165,8 @@ var cursor := Vector2.ZERO      # the gamepad's menu cursor (screen pixels)
 var debug_kill := false
 var cursor_shown := false      # drawn and used instead of the mouse while a pad drives the menus
 var nav_repeat := 0.0          # held D-pad / stick repeat timer
+var confirm_block := false     # a lobby pad's A press: not a cursor click until released
+var lobby_pad_frame := -1      # frame a lobby pad's press was handled (its B is not "back")
 # Quick commands: Z / X / C call the team; bots answer for COMMAND_TIME seconds.
 var team_command := ["", ""]
 var command_timer := [0.0, 0.0]
@@ -249,6 +268,9 @@ func _ready() -> void:
 			cursor = Vector2(119, 238)
 	if "--debug-night" in OS.get_cmdline_user_args():
 		map_variant = 1
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--map="):  # testing: play a given Stats.MAPS index (2 = Ember Pass)
+			map_variant = clampi(int(arg.trim_prefix("--map=")), 0, Stats.MAPS.size() - 1)
 	# Cartoon shading on everything that enters the scene, props and units alike.
 	get_tree().node_added.connect(func(n): _toonify.call_deferred(n))
 	_build_world()
@@ -274,11 +296,39 @@ func _ready() -> void:
 			hero_name = parts[0]
 			hero_hair = int(parts[1]) if parts.size() > 1 else 0
 			hero_trim = int(parts[2]) if parts.size() > 2 else 0
+			hero_body = int(parts[3]) if parts.size() > 3 else hero_body
+			hero_skin = int(parts[4]) if parts.size() > 4 else hero_skin
+			hero_face = int(parts[5]) if parts.size() > 5 else hero_face
+			hero_eye = int(parts[6]) if parts.size() > 6 else hero_eye
+			hero_mark = int(parts[7]) if parts.size() > 7 else hero_mark
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
 		return
 	banner.visible = false
 	sfx.play_music(false)
+	main_menu = MainMenu.new(self)
+	menu_stage = MenuStage.new()
+	add_child(menu_stage)
+	menu_stage.build(self)
+	menu_stage.activate()
+	main_menu.stage = menu_stage
+	if reopen_screen != "":
+		main_menu.go(reopen_screen)
+		reopen_screen = ""
+	for arg in OS.get_cmdline_user_args():
+		# Testing: open a menu screen (title, map, character, lobby) or overlay.
+		if arg.begins_with("--debug-screen="):
+			var scr := arg.trim_prefix("--debug-screen=")
+			if scr in ["credits", "tutorial", "progress"]:
+				main_menu.overlay = scr
+			else:
+				main_menu.go(scr)
+		if arg.begins_with("--debug-char-tab="):
+			main_menu.char_tab = int(arg.trim_prefix("--debug-char-tab="))
+		if arg.begins_with("--debug-lobby="):  # N local players, all ready
+			split_screen = true
+			couch_players = clampi(int(arg.trim_prefix("--debug-lobby=")), 1, COUCH_MAX)
+			main_menu.readied = [true, true, true, true]
 
 
 func _process(delta: float) -> void:
@@ -298,13 +348,16 @@ func _process(delta: float) -> void:
 				_finish(1 - t)
 				break
 	_update_compass()
+	if vmap:
+		vmap.tick(delta)
 	if not playing and not game_over:
 		if name_editing or menu_open:
 			return
-		if Input.is_action_just_pressed("pick_elves"):
-			_start_match(0)
-		elif Input.is_action_just_pressed("pick_humans"):
-			_start_match(1)
+		if main_menu and main_menu.screen == "lobby" and main_menu.overlay == "":
+			# Ready Up: 1 or 2 picks player 1's side and starts.
+			if Input.is_action_just_pressed("pick_elves") or Input.is_action_just_pressed("pick_humans"):
+				lobby_sides[0] = 0 if Input.is_action_just_pressed("pick_elves") else 1
+				main_menu.start()
 		return
 	if game_over:
 		if demo and not "--debug-end" in OS.get_cmdline_user_args():
@@ -435,6 +488,8 @@ func _debug_hooks() -> void:
 				player.global_position = Vector3(fx + side * 0.6, WALK_Y, -(Stats.DOOR_HALF + 3.2))
 				player.facing = Vector3(-side, 0, 0)
 				cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom
+			if arg == "--debug-nohud":  # clean world renders (the menu's map thumbnails)
+				hud.get_parent().visible = false
 			if arg == "--debug-menu":
 				menu_open = true
 				menu_tab = 0
@@ -443,7 +498,7 @@ func _debug_hooks() -> void:
 			if arg == "--debug-stolen":
 				stolen_timer = 3.5
 				if monarchs[1 - player_team].state == Monarch.State.HOME:
-					var thief = units[TEAM_SIZE - 1] if player_team == 1 else units[TEAM_SIZE + 1]
+					var thief = units.filter(func(x): return x.team != player_team)[mini(1, team_size - 1)]
 					monarchs[1 - player_team].pick_up(thief)
 					thief.carrying = monarchs[1 - player_team]
 			if arg == "--debug-levelup":
@@ -468,6 +523,14 @@ func _debug_hooks() -> void:
 				var p := arg.trim_prefix("--debug-at=").split(",")
 				player.position = Vector3(float(p[0]), float(p[2]) if p.size() > 2 else 0.0, float(p[1]))
 				cam_pos = player.position + CAMERA_OFFSET * cam_zoom
+			if arg.begins_with("--debug-fire=") and vmap and not "--debug-fire-early" in OS.get_cmdline_user_args():
+				# Ember Pass: hand the Fire Objective to a team (and give the
+				# player a class so the FIRE form shows).
+				var ft := int(arg.trim_prefix("--debug-fire="))
+				if player.role == Role.BASE:
+					player.set_role(Role.KNIGHT)
+				vmap.fire_progress = -1.0 if ft == 0 else 1.0
+				vmap._set_owner(ft)
 			if arg == "--debug-blessing":
 				spawn_blessing(Vector3(0, 0, 0), "Regeneration")
 				player.apply_blessing("Might")
@@ -487,6 +550,12 @@ func _debug_hooks() -> void:
 				player.choose_variant(Role.KNIGHT, 0)
 				player.kills = 3
 				player.damage_dealt = 7
+		if arg.begins_with("--debug-fire=") and vmap and player and frame == 30 and "--debug-fire-early" in OS.get_cmdline_user_args():
+			# The same, early, so the capture's flash has faded by the shot.
+			if player.role == Role.BASE:
+				player.set_role(Role.KNIGHT)
+			vmap.fire_progress = -1.0 if arg.ends_with("0") else 1.0
+			vmap._set_owner(0 if arg.ends_with("0") else 1)
 		if arg == "--debug-options" and frame == shot_frame - 5 and not playing:
 			menu_open = true
 			menu_tab = 4
@@ -551,6 +620,8 @@ func _demo_summary() -> void:
 	## One line per unit at the end of a bot match, for balance tallies.
 	var w: String = "Draw" if winner_team < 0 else Stats.FACTIONS[winner_team].name
 	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1]])
+	if vmap:
+		print("FIRESTAT held=%d/%d captures=%d/%d" % [int(vmap.fire_held[0]), int(vmap.fire_held[1]), vmap.fire_captures[0], vmap.fire_captures[1]])
 	for u in units:
 		# The class the bot plays all match (its current role resets on death).
 		var cls: String = Stats.FACTIONS[u.team].roles[u.bot_class]
@@ -654,6 +725,8 @@ func turret_spot(team: int, pos: Vector3, builder) -> Vector3:
 	var grounds: bool = (fx - pos.x) * side >= 0.0 and (fx - pos.x) * side < Stats.TURRET.grounds and absf(pos.z) < CASTLE_HALF_Z + 6.0
 	if not (_inside_castle(team, pos) or grounds):
 		return Vector3.INF
+	if vmap and not vmap.walkable(pos, 0.5):
+		return Vector3.INF  # not out over the lava
 	if absf(pos.z) < Stats.DOOR_HALF + 1.3 and absf(pos.x - fx) < 5.0:
 		return Vector3.INF  # keep the door lane clear
 	if pos.y < -0.3:
@@ -773,7 +846,8 @@ func _tick_blessings(delta: float) -> void:
 	if blessing_timer > 0.0 or blessings.size() >= 2:
 		return
 	blessing_timer = randf_range(Stats.BLESSING_INTERVAL[0], Stats.BLESSING_INTERVAL[1])
-	var spot: Vector3 = BLESSING_SPOTS[randi() % BLESSING_SPOTS.size()]
+	var spots: Array = vmap.blessing_spots() if vmap else BLESSING_SPOTS
+	var spot: Vector3 = spots[randi() % spots.size()]
 	var kinds: Array = Stats.BLESSING_KINDS.keys()
 	spawn_blessing(spot, kinds[randi() % kinds.size()])
 
@@ -964,6 +1038,9 @@ func _plan_bots(team: int) -> void:
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1 if overtime else 2, "defend")
 	elif gate_hurt:
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1, "defend")
+	# Ember Pass: win the Fire Objective, then keep a guard on it.
+	if vmap and cmd != "defend":
+		_assign_nearest(bots, vmap.FIRE_POS, vmap.bots_wanted(team), "fire")
 
 
 func command_active(team: int, kind: String) -> bool:
@@ -1238,9 +1315,13 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 			target = ramp.bottom
 		else:
 			return ramp.top
+	# Ember Pass: over the plazas and bridges to the leg that matters; the
+	# castle doors and keeps below still apply.
+	if vmap:
+		target = vmap.route(from, target)
 	# The shrine plinth is solid: a goal on it (or right beside it) means
 	# standing at its foot, on the side we come from.
-	if _flat_dist(target, Vector3.ZERO) < 1.6:
+	if vmap == null and _flat_dist(target, Vector3.ZERO) < 1.6:
 		var away := Vector3(from.x - target.x, 0, from.z - target.z)
 		if away.length() < 0.1:
 			away = Vector3(0, 0, 1)
@@ -1249,7 +1330,7 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 	# Up on the shrine island and leaving it: the steps are at z 0 on each
 	# side (stone rims close the north and south edges), and the plinth sits
 	# in the middle, so go round it on the side we are already on first.
-	var on_island: bool = from.y > 0.3 and _flat_dist(from, Vector3.ZERO) < ISLAND_R + 0.3
+	var on_island: bool = vmap == null and from.y > 0.3 and _flat_dist(from, Vector3.ZERO) < ISLAND_R + 0.3
 	if on_island and _flat_dist(target, Vector3.ZERO) > ISLAND_R + 0.3:
 		var exit_side := 1.0 if target.x > 0.0 else -1.0
 		if from.x * exit_side < -1.2 and absf(from.z) < 1.6:
@@ -1258,7 +1339,7 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 			return Vector3(exit_side * 2.4, 0.5, (1.0 if from.z >= 0.0 else -1.0) * 1.8)
 		return Vector3(exit_side * (ISLAND_R + 3.6), 0.0, 0.0)
 	# The river: cross at the bridge closest to the way, entering it square on.
-	if (from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF):
+	if vmap == null and ((from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF)):
 		var bi := 0
 		var best := 1e9
 		for i in BRIDGES.size():
@@ -1596,20 +1677,43 @@ func _start_match(team: int) -> void:
 			couch_players = clampi(int(arg.trim_prefix("--couch=")), 1, COUCH_MAX)  # testing: split-screen renders
 		if arg.begins_with("--couch-mode="):
 			couch_mode = arg.trim_prefix("--couch-mode=")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--team-size="):
+			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEAM_SIZE)  # testing: smaller sides
+	if menu_stage:
+		# Leave the menus: their hall and models go, the match camera takes over.
+		# Freed now, not queued: a camera left in the viewport would become
+		# current again and render the whole world behind the split panes.
+		menu_stage.free()
+		menu_stage = null
+		if main_menu:
+			main_menu.stage = null
+		camera.make_current()
+	# Each local player's side: from the lobby, else player 1's pick with
+	# the couch rule (versus: 2 and 4 against, co-op: all together).
+	local_sides = []
+	for k in couch_players:
+		if k < lobby_sides.size() and lobby_sides[k] != null and main_menu:
+			local_sides.append(int(lobby_sides[k]))
+		else:
+			local_sides.append(team if (couch_mode == "coop" or k % 2 == 0) else 1 - team)
+	local_sides[0] = team
 	locals = []
 	locals.resize(couch_players)
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
-		for i in TEAM_SIZE:
+		# A side is team_size strong, or bigger if more local players chose it.
+		var count: int = maxi(team_size, local_sides.count(t))
+		for i in count:
 			var u = Unit.new()
 			add_child(u)
 			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 14.5), CELLAR_Y, -4.0 + i * 2.0)
 			var local_k := _local_slot(t, i)
 			var is_player := local_k >= 0 and not demo
 			u.setup(self, t, is_player, spawn)
-			u.bot_class = LINEUP[i][0]
-			u.bot_job = LINEUP[i][1]
-			u.base_job = LINEUP[i][1]
+			u.bot_class = LINEUP[i % LINEUP.size()][0]
+			u.bot_job = LINEUP[i % LINEUP.size()][1]
+			u.base_job = LINEUP[i % LINEUP.size()][1]
 			if is_player:
 				u.local_index = local_k
 				u.act_prefix = "" if local_k == 0 else "p%d_" % (local_k + 1)
@@ -1758,6 +1862,8 @@ func plant_barricade(u) -> bool:
 		why = "Not in the door lane"
 	elif _inside_castle(team, u.global_position) or absf(u.global_position.x) > CASTLE_X - CASTLE_DEPTH - 1.6:
 		why = "Only outside the walls"
+	elif vmap and not vmap.walkable(u.global_position + u.facing * 1.6, 0.4):
+		why = "Not over the lava"
 	if why != "":
 		if u.is_player:
 			toast(why, Color(1.0, 0.8, 0.5))
@@ -1858,8 +1964,10 @@ func _pad_nav() -> void:
 	else:
 		nav_repeat = 0.0
 	cursor = cursor.clamp(Vector2.ZERO, get_viewport().get_visible_rect().size)
-	if Input.is_action_just_pressed("ui_back"):
-		if menu_open:
+	if Input.is_action_just_pressed("ui_back") and Engine.get_process_frames() != lobby_pad_frame:
+		if not playing and not menu_open and main_menu:
+			main_menu.back()
+		elif menu_open:
 			menu_open = false
 			get_tree().paused = false
 			sfx.ui("ui_click", -4.0)
@@ -1904,15 +2012,19 @@ func set_couch(what: String) -> void:
 	_save_settings()
 
 
+var local_sides: Array = []     # each local player's side this match (see _start_match)
+var bound_pads: Array = []      # the pad device each local player holds this match (see _bind_couch_input)
+
+
 func _local_slot(team: int, slot: int) -> int:
 	## Which local player (0-based) takes lineup slot `slot` of `team`, or -1
-	## for a bot. Versus: players 1 and 3 on your side, 2 and 4 against.
-	## Co-op: everyone on your side.
+	## for a bot. Local players fill a side's first slots in player order.
+	var ks := 0
 	for k in couch_players:
-		var kt: int = player_team if (couch_mode == "coop" or k % 2 == 0) else 1 - player_team
-		var ks: int = k if couch_mode == "coop" else k / 2
-		if kt == team and ks == slot:
-			return k
+		if local_sides[k] == team:
+			if ks == slot:
+				return k
+			ks += 1
 	return -1
 
 
@@ -1925,6 +2037,18 @@ func _bind_couch_input() -> void:
 	for k in range(1, couch_players):
 		pads.append(k - 1)
 	var p1_pad: int = couch_players - 1 if couch_players > 1 else -1
+	if join_pads.size() == couch_players - 1 and couch_players > 1:
+		# Players who joined in the lobby keep the pad they joined with;
+		# player 1 keeps theirs (or the first pad nobody took).
+		pads = join_pads.duplicate()
+		p1_pad = p1_pad_device
+		if p1_pad < 0 or p1_pad in pads:
+			p1_pad = -1
+			for d in Input.get_connected_joypads():
+				if not d in pads:
+					p1_pad = d
+					break
+	bound_pads = [p1_pad] + pads
 	for action in COUCH_ACTIONS:
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
@@ -2025,7 +2149,9 @@ func shake_at(where: Vector3, amount: float) -> void:
 
 func hero_custom() -> Dictionary:
 	## The player's chosen hair and trim colours for the character skin.
-	var c := {"hair": Stats.HERO_HAIR[hero_hair][1]}
+	var c := {"hair": Stats.HERO_HAIR[hero_hair][1], "skin": Stats.HERO_SKINS[hero_skin][1], "body": Stats.HERO_BODIES[hero_body][1], "face": hero_face, "mark": hero_mark}
+	if hero_eye >= 0:
+		c.eye = hero_eye
 	if hero_trim > 0:
 		c.trim = Stats.HERO_TRIM[hero_trim][1]
 	if hero_look > 0 and unlocked():
@@ -2216,6 +2342,8 @@ func menu_tick() -> void:
 				menu_tab = 4
 			elif Input.is_action_just_pressed("menu") and menu_open:
 				menu_open = false
+			elif Input.is_action_just_pressed("menu") and main_menu and not name_editing:
+				main_menu.back()
 			elif not menu_open:
 				if Input.is_action_just_pressed("menu_left"):
 					cycle_difficulty(-1)
@@ -2290,7 +2418,9 @@ func menu_tick() -> void:
 	# Mouse clicks on menu buttons (the HUD records where it drew them). A
 	# gamepad drives the same buttons through its cursor.
 	_pad_nav()
-	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (cursor_shown and Input.is_action_pressed("ui_confirm"))
+	if confirm_block and not Input.is_action_pressed("ui_confirm"):
+		confirm_block = false
+	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or (cursor_shown and Input.is_action_pressed("ui_confirm") and not confirm_block)
 	if click and hud and menu_open:
 		# Volume sliders follow the mouse while the button is held.
 		var mp := menu_mouse()
@@ -2307,6 +2437,8 @@ func menu_tick() -> void:
 				_save_settings()
 	if click and not click_was and hud and rebinding == "":
 		var mouse := menu_mouse()
+		if not playing and not menu_open and main_menu and not name_editing:
+			main_menu.tick(true, mouse)
 		for i in hud.rank_buttons.size():
 			if hud.rank_buttons[i].has_point(mouse) and player:
 				player.spend_point(i)
@@ -2367,9 +2499,8 @@ func menu_tick() -> void:
 							else:
 								toast("The Shadowborn look unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"map":
-							if b[2] == 0 or unlocked():
-								map_variant = b[2]
-								_apply_map_variant()
+							if b[2] != 1 or unlocked():
+								select_map(b[2])
 							else:
 								toast("The Moonlit Wildwood unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"name": name_editing = true
@@ -2413,6 +2544,10 @@ func menu_input(event: InputEvent) -> void:
 	## Raw key events from the HUD: typing in chat and rebinding controls.
 	# Remember whether player 1 is on the keyboard or a pad, so keycaps and
 	# hints show the right names.
+	if main_menu and not playing and main_menu.pad_event(event):
+		confirm_block = true   # a joining pad's press is theirs, not a click for player 1
+		lobby_pad_frame = Engine.get_process_frames()
+		return
 	if (event is InputEventJoypadButton or event is InputEventJoypadMotion) and (couch_players == 1 or event.device == local_pad(0)):
 		if event is InputEventJoypadButton and event.pressed or event is InputEventJoypadMotion and absf(event.axis_value) > 0.6:
 			pad_active = true
@@ -2627,6 +2762,8 @@ func local_pad(local_index: int) -> int:
 	## pads 0-2 and player 1 the next one; alone, player 1 holds whichever
 	## pad is plugged in first.
 	if couch_players > 1:
+		if bound_pads.size() == couch_players:
+			return bound_pads[maxi(local_index, 0)]
 		return couch_players - 1 if local_index <= 0 else local_index - 1
 	var pads: Array = Input.get_connected_joypads()
 	return pads[0] if not pads.is_empty() else -1
@@ -2791,6 +2928,22 @@ func cycle_difficulty(step: int) -> void:
 	_save_settings()
 
 
+func select_map(index: int) -> void:
+	## Pick a map on the title screen. The Moonlit Wildwood only changes the
+	## light; a map with other ground (Ember Pass) rebuilds the world, so the
+	## scene restarts on the title with the new map saved.
+	var built: String = "volcano" if vmap else "wildwood"
+	var want: String = "volcano" if Stats.MAPS[index][1] == "volcano" else "wildwood"
+	map_variant = index
+	if want != built:
+		_save_settings()
+		if main_menu:
+			reopen_screen = main_menu.screen
+		get_tree().reload_current_scene()
+		return
+	_apply_map_variant()
+
+
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(CONTROLS_PATH)
@@ -2817,6 +2970,13 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "banner_frame", banner_frame)
 	cfg.set_value("settings", "banner_title", banner_title)
 	cfg.set_value("settings", "map_variant", map_variant)
+	cfg.set_value("settings", "hero_skin", hero_skin)
+	cfg.set_value("settings", "hero_face", hero_face)
+	cfg.set_value("settings", "hero_eye", hero_eye)
+	cfg.set_value("settings", "hero_mark", hero_mark)
+	cfg.set_value("settings", "hero_body", hero_body)
+	cfg.set_value("settings", "team_size", team_size)
+	cfg.set_value("settings", "split_screen", split_screen)
 	cfg.set_value("profile", "account_xp", account_xp)
 	cfg.save(CONTROLS_PATH)
 
@@ -2846,7 +3006,7 @@ func _load_controls() -> void:
 		bot_difficulty = diff
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
 	rosters_visible = cfg.get_value("settings", "rosters_shown", false)
-	couch_players = clampi(int(cfg.get_value("settings", "couch_players", 1)), 1, COUCH_MAX)
+	couch_players = 1  # extra players join each session in the Ready Up lobby
 	couch_mode = "coop" if cfg.get_value("settings", "couch_mode", "versus") == "coop" else "versus"
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
@@ -2868,6 +3028,13 @@ func _load_controls() -> void:
 	banner_frame = clampi(cfg.get_value("settings", "banner_frame", 0), 0, Stats.BANNER_FRAMES.size() - 1)
 	banner_title = clampi(cfg.get_value("settings", "banner_title", 0), 0, Stats.BANNER_TITLES.size() - 1)
 	map_variant = clampi(cfg.get_value("settings", "map_variant", 0), 0, Stats.MAPS.size() - 1)
+	hero_skin = clampi(cfg.get_value("settings", "hero_skin", 1), 0, Stats.HERO_SKINS.size() - 1)
+	hero_face = clampi(cfg.get_value("settings", "hero_face", 0), 0, Stats.HERO_FACES.size() - 1)
+	hero_eye = clampi(cfg.get_value("settings", "hero_eye", -1), -1, Stats.HERO_EYES.size() - 1)
+	hero_mark = clampi(cfg.get_value("settings", "hero_mark", 0), 0, Stats.HERO_MARKS.size() - 1)
+	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)
+	team_size = clampi(cfg.get_value("settings", "team_size", TEAM_SIZE), 1, TEAM_SIZE)
+	split_screen = cfg.get_value("settings", "split_screen", false)
 	account_xp = maxi(int(cfg.get_value("profile", "account_xp", 0)), 0)
 	for entry in REBINDABLE:
 		if not cfg.has_section_key("controls", entry[0]):
@@ -2912,8 +3079,11 @@ func _material(color: Color) -> StandardMaterial3D:
 # size tile cleanly without UV work. One tile every 1/scale metres.
 func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE, ext: String = "jpg") -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
+	# A swapped texture is already dark and cool, so it takes only a light soot.
+	var dim: Color = Color(0.9, 0.86, 0.84) if tex_swap.has(prefix) else soot
+	prefix = tex_swap.get(prefix, prefix)
 	mat.albedo_texture = load("res://assets/textures/%s_color.%s" % [prefix, ext])
-	mat.albedo_color = tint
+	mat.albedo_color = tint * dim
 	mat.normal_enabled = true
 	mat.normal_texture = load("res://assets/textures/%s_normal.jpg" % prefix)
 	mat.roughness = 0.85
@@ -3995,7 +4165,10 @@ func _add_island() -> void:
 
 func in_channel(p: Vector3) -> bool:
 	## In the river itself: between the banks, off every bridge deck and off
-	## the shrine island. Nothing should ever stand there.
+	## the shrine island. Nothing should ever stand there. On Ember Pass:
+	## anywhere off the plateaus, plazas and bridges (the lava).
+	if vmap:
+		return not vmap.walkable(p)
 	if absf(p.x) >= RIVER_HALF - 0.1 or p.y > 0.3:
 		return false
 	if _flat_dist(p, Vector3.ZERO) < ISLAND_R + 0.4:
@@ -4277,6 +4450,8 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 # from every wall; `--audit` lists anything that still overlaps.
 
 var mossy := false   # while an elven castle is being built: ivy and moss on its stone
+var soot := Color.WHITE   # while Ember Pass's castles are built: darkens every textured surface
+var tex_swap := {}        # ...and swaps textures that clash with the lava light (the Elves' bark and sandstone)
 var grey := false    # while the Humans' castle is being built: grey stone
 
 
@@ -5259,14 +5434,22 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	for zs in [-1.0, 1.0]:
 		_add_block(Vector3(front_x, ROOM_H + 0.08, zs * (hz / 2.0 + ROOM_DOOR_HALF / 2.0)), Vector3(0.7, 0.16, hz - ROOM_DOOR_HALF), Color.WHITE, false, cap)
 	if elven:
-		# Leaf tufts along the grown walls' tops instead of a solid green slab.
+		# Rounded leaf tufts along the grown walls' tops (as on the outer walls),
+		# not boxes, which read as stray squares from above.
+		var tufts := []
 		for k in 7:
-			var t: float = -hz + 0.6 + k * (hz * 2 - 1.2) / 6.0
-			_add_block(Vector3(back_x, ROOM_H + 0.3, t), Vector3(0.9, 0.3, 0.7), Color.WHITE, false, _elf_leaf(k % 2 == 0))
+			tufts.append(Vector3(back_x, ROOM_H + 0.2, -hz + 0.6 + k * (hz * 2 - 1.2) / 6.0))
 		for k in 6:
-			var t: float = front_x + side * (0.5 + k * (depth - 1.0) / 5.0)
 			for zs in [-1.0, 1.0]:
-				_add_block(Vector3(t, ROOM_H + 0.3, zs * hz), Vector3(0.7, 0.3, 0.9), Color.WHITE, false, _elf_leaf(k % 2 == 1))
+				tufts.append(Vector3(front_x + side * (0.5 + k * (depth - 1.0) / 5.0), ROOM_H + 0.2, zs * hz))
+		for k in tufts.size():
+			var tp: Vector3 = tufts[k]
+			var tuft := MeshInstance3D.new()
+			tuft.mesh = _rock_mesh(int(tp.x * 5 + tp.z * 11) + k, 0.42, 0.15)
+			tuft.position = tp
+			tuft.scale = Vector3(1.0, 0.75, 1.0)
+			tuft.material_override = _elf_leaf(k % 3 == 0)
+			add_child(tuft)
 	audit_label = ""
 	# A carpet runner from the doors to a round, three-tier dais in the middle
 	# of the room; the crown sits on a cushioned pedestal on top (the
@@ -6987,6 +7170,9 @@ func _apply_map_variant() -> void:
 	## Day or the Moonlit Wildwood: sky, sun (or moon), ambient, fog and glow.
 	if world_environment == null:
 		return
+	if vmap:
+		vmap.apply_light()
+		return
 	var dark := night()
 	if dark:
 		sky_material.sky_top_color = Color(0.02, 0.04, 0.1)
@@ -7123,6 +7309,9 @@ func _build_world() -> void:
 	fill.light_energy = 0.15
 	add_child(fill)
 
+	if Stats.MAPS[map_variant][1] == "volcano":
+		_build_volcano()
+		return
 	# Ground, in pieces so each castle's spawn cellar can be sunk behind it.
 	var gx := map_half.x + 40.0
 	var gz := map_half.y + 30.0
@@ -7228,7 +7417,31 @@ func _build_world() -> void:
 			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
 	_build_outskirts()
 	_add_back_forest()
+	_finish_world()
 
+
+func _build_volcano() -> void:
+	## Ember Pass: the same two castles on basalt plateaus over a lava sea,
+	## joined by bridges (scripts/volcano.gd builds everything else).
+	vmap = Volcano.new(self)
+	vmap.build()
+	# Soot-dark castles: the lava's red light turns pale stone, bark and
+	# moss glaring yellow and green.
+	soot = Color(0.52, 0.46, 0.44)
+	tex_swap = {"bark": "elfbark", "flagstone_moss": "flagstone_elf"}
+	_build_castle(0)
+	_build_castle(1)
+	soot = Color.WHITE
+	tex_swap = {}
+	for p in vmap.heal_orb_spots():
+		var orb = HealOrb.new()
+		add_child(orb)
+		orb.setup(self, p)
+		heal_orbs.append(orb)
+	_finish_world()
+
+
+func _finish_world() -> void:
 	_apply_map_variant()
 	camera = Camera3D.new()
 	camera.rotation_degrees = Vector3(-50, 0, 0)
