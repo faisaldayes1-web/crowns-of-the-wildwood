@@ -471,7 +471,7 @@ func _apply_side_colors() -> void:
 		for m in flash_mats:
 			m.emission_enabled = true
 			m.emission = Color(1.0, 0.75, 0.25)
-			m.emission_energy_multiplier = 0.3
+			m.emission_energy_multiplier = 0.1   # a warm sheen; the outline and rays do the shouting
 		if blob_mat:
 			blob_mat.albedo_color = Color(1.0, 0.75, 0.1, 0.5)
 		return
@@ -540,6 +540,8 @@ func _refresh_overhead() -> void:
 			player_ring_mat.albedo_color = game.player_color(local_index)
 	elif is_player:
 		label.modulate = Color(1, 1, 0.6)
+		if player_ring_mat:
+			player_ring_mat.albedo_color = game.player_color(maxi(local_index, 0))
 	else:
 		label.modulate = Color(1.0, 0.7, 0.65) if is_enemy_of_player() else Color(0.7, 1.0, 0.75)
 	if veteran == 2:
@@ -1198,7 +1200,7 @@ func _process(_delta: float) -> void:
 		if bubble_timer <= 0.0 or dead:
 			bubble_mesh.visible = false
 	if overhead:
-		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + 0.35, 0)
+		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + (1.25 if carrying else 0.35), 0)   # above a worn crown
 	if aim_marker and not dead:
 		aim_marker.global_position = global_position + aim * 1.1 + Vector3(0, 0.08, 0)
 		aim_marker.rotation.y = atan2(-aim.x, -aim.z)

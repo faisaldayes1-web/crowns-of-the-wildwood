@@ -301,28 +301,65 @@ def make_flagstone():
 
 
 def make_stepping_stones(name, cells, seed, drop):
-    """Pale rounded flagstones with grass between them: the paths. The gaps
-    are transparent (alpha) so the meadow shows through; `drop` leaves out
-    that share of stones for the looser side tracks."""
+    """Warm tan rounded cobbles set in dark brown dirt: the paths. Saves an
+    opaque colour map (stones and the dirt between them) and a data map,
+    {name}_stones.png, that the path shader uses to fray the edges into the
+    meadow a whole stone at a time: R and G are the offset from each pixel to
+    the centre of its stone (in UV units, 0.5 = none, +-0.25 full range), B is
+    that stone's own random value and A marks the stones (1) against the
+    joints (0.25: never fully clear, so Godot's default "fix alpha border"
+    import does not overwrite the joints' offsets). `drop` leaves out that
+    share of stones (bare dirt) for the side tracks."""
     f1, f2, ids = voronoi(N, cells, seed)
     r = np.random.default_rng(seed + 1)
     keep = (r.random(cells * cells) >= drop)[ids]
-    inner = ((f2 - f1) > 0.11) & keep
+    inner = ((f2 - f1) > 0.07) & keep
     # Round the corners: blur the polygon and cut it again.
-    soft = wrap_filter(inner.astype(np.float64), ImageFilter.GaussianBlur(9))
+    soft = wrap_filter(inner.astype(np.float64), ImageFilter.GaussianBlur(10))
     stone = soft > 0.5
-    core = wrap_filter(stone.astype(np.float64), ImageFilter.MinFilter(9)) > 0.5
-    lit_core = np.roll(np.roll(core, 5, axis=0), 5, axis=1) & core
+    core = wrap_filter(stone.astype(np.float64), ImageFilter.MinFilter(7)) > 0.5
+    # A soft dome: lighter on the top of each stone, deeper towards its rim,
+    # with the light falling from one side (a cartoon two-tone, softened).
+    dome = wrap_filter(core.astype(np.float64), ImageFilter.GaussianBlur(14))
+    crown = np.clip((f2 - f1) / 0.4, 0, 1) ** 0.6
+    lit = wrap_filter(np.roll(np.roll(core, 9, axis=0), 9, axis=1).astype(np.float64) * core,
+                      ImageFilter.GaussianBlur(6))
     shade = r.random(cells * cells)[ids]
-    fill = lerp(rgb(0.80, 0.83, 0.72), rgb(0.92, 0.93, 0.84), shade[..., None])
-    color = fill * np.where(lit_core, 1.0, 0.86)[..., None]
-    ink = rgb(0.30, 0.38, 0.24)
+    hue = r.random(cells * cells)[ids]
+    # Sandy, tan and a little rosy: a few warm tints, none far apart.
+    sand = rgb(0.90, 0.78, 0.60)
+    tan = rgb(0.82, 0.68, 0.52)
+    rose = rgb(0.86, 0.70, 0.58)
+    base = lerp(tan, sand, shade[..., None])
+    base = lerp(base, rose, (np.clip(hue - 0.65, 0, 1) * 1.6)[..., None])
+    color = base * (0.80 + 0.08 * dome + 0.06 * crown + 0.10 * lit)[..., None]
+    # A thin warm-brown rim round each stone, then dirt in the joints.
+    ink = rgb(0.28, 0.16, 0.08)
     color = np.where(core[..., None], color, ink)
-    grass = rgb(0.42, 0.71, 0.20)
-    color = np.where(stone[..., None], color, grass)
-    alpha = stone.astype(np.float64)
-    height = wrap_filter(core.astype(np.float64), ImageFilter.GaussianBlur(4))
-    save_rgba(name, color, alpha, height, 0.8)
+    mottle = fbm(N, 6, 2, seed + 7)
+    dirt = lerp(rgb(0.33, 0.21, 0.11), rgb(0.39, 0.25, 0.14), mottle[..., None])
+    color = np.where(stone[..., None], color, dirt)
+    height = 0.6 * wrap_filter(core.astype(np.float64), ImageFilter.GaussianBlur(4)) + 0.4 * dome
+    Image.fromarray((np.clip(color, 0, 1) * 255).astype(np.uint8), "RGB").save(f"{OUT}/{name}_color.png")
+    Image.fromarray(normal_map(height, 0.9)).save(f"{OUT}/{name}_normal.jpg", quality=92)
+    # The data map: where each stone's centre is, and its own random value.
+    r2 = np.random.default_rng(seed)
+    off = 0.5 + (r2.random((cells, cells, 2)) - 0.5) * 0.9   # as voronoi() draws them
+    wy, wx = ids // cells, ids % cells
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64) * (cells / N)
+    dx = (wx + off[wy, wx, 0] - xs + cells / 2) % cells - cells / 2
+    dy = (wy + off[wy, wx, 1] - ys + cells / 2) % cells - cells / 2
+    rnd = r.random(cells * cells)[ids]
+    data = np.stack([np.clip(0.5 + dx / cells * 2, 0, 1), np.clip(0.5 + dy / cells * 2, 0, 1),
+                     rnd, np.where(stone, 1.0, 0.25)], axis=-1)
+    Image.fromarray((data * 255 + 0.5).astype(np.uint8), "RGBA").save(f"{OUT}/{name}_stones.png")
+    print("wrote", name)
+
+
+def make_paths():
+    """The main road's cobbles and the looser side tracks."""
+    make_stepping_stones("path", 5, 401, 0.0)
+    make_stepping_stones("path_loose", 5, 402, 0.3)
 
 
 def make_shingle():
@@ -637,8 +674,7 @@ make_shingle()
 make_rock()
 make_dirt()
 make_road()
-make_stepping_stones("path", 5, 401, 0.0)
-make_stepping_stones("path_loose", 5, 402, 0.3)
+make_paths()
 make_rosette()
 make_water_noise()
 make_marble()

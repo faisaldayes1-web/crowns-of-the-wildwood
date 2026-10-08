@@ -71,10 +71,16 @@ func _process(delta: float) -> void:
 	model.rotation.y += delta * 0.8
 	# The aura breathes and the beam shimmers; both brighter while carried.
 	var carried := state == State.CARRIED
+	model.scale = Vector3.ONE * (1.25 if carried else 1.5)
+	if rays:
+		rays.visible = carried
+		rays.rotation.z = _t * 0.6
+		rays_mat.albedo_color = Color(1.2, 1.05, 0.8, 0.8 + 0.15 * sin(_t * 5.0))
+		rays.scale = Vector3.ONE * (1.0 + 0.08 * sin(_t * 3.0))
 	if aura:
 		aura.position.y = model.position.y + 0.3
-		aura.scale = Vector3.ONE * ((1.25 if carried else 1.0) + 0.12 * sin(_t * 4.0))
-		aura_mat.albedo_color.a = (0.5 if carried else 0.35) + 0.12 * sin(_t * 4.0)
+		aura.scale = Vector3.ONE * ((0.9 if carried else 1.0) + 0.12 * sin(_t * 4.0))
+		aura_mat.albedo_color.a = (0.1 if carried else 0.35) + 0.05 * sin(_t * 4.0)
 		beam_mat.albedo_color.a = (0.3 if carried else 0.2) + 0.06 * sin(_t * 3.0)
 	match state:
 		State.HOME:
@@ -82,7 +88,9 @@ func _process(delta: float) -> void:
 		State.CARRIED:
 			model.position.y = 0.0
 			if carrier:
-				global_position = carrier.global_position + Vector3(0, CARRY_HEIGHT, 0)
+				# Worn on the carrier's head (Faisal's 2026-10-08 target art).
+				var top: float = carrier.model.height if carrier.model else CARRY_HEIGHT
+				global_position = carrier.global_position + Vector3(0, top + 0.18, 0)
 		State.DROPPED:
 			model.position.y = DROP_HEIGHT + sin(_t * 3.0) * 0.08
 			var to_home := home - global_position
@@ -97,6 +105,26 @@ var _t := 0.0
 var aura: MeshInstance3D
 var aura_mat: StandardMaterial3D
 var beam_mat: StandardMaterial3D
+var rays: MeshInstance3D
+var rays_mat: StandardMaterial3D
+
+
+func _ray_texture() -> ImageTexture:
+	## A burst of soft golden rays (drawn once in code) for the worn crown.
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var d := Vector2(x - n / 2.0 + 0.5, y - n / 2.0 + 0.5) / (n / 2.0)
+			var r := d.length()
+			if r > 1.0:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+				continue
+			var ang := atan2(d.y, d.x)
+			var spoke := pow(maxf(cos(ang * 7.0), 0.0), 6.0) + 0.5 * pow(maxf(cos(ang * 7.0 + PI), 0.0), 10.0)
+			var a := clampf((spoke * (1.0 - r) * 1.6 + maxf(0.0, 0.5 - r) * 1.2), 0.0, 1.0)
+			img.set_pixel(x, y, Color(1.0, 0.85, 0.4, a))
+	return ImageTexture.create_from_image(img)
 
 
 func _build_glow() -> void:
@@ -136,6 +164,24 @@ func _build_glow() -> void:
 	beam.position.y = 2.2 + 4.5
 	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(beam)
+	# The ray burst behind a worn crown.
+	rays_mat = StandardMaterial3D.new()
+	rays_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	rays_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rays_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	rays_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	rays_mat.albedo_texture = _ray_texture()
+	rays_mat.albedo_color = Color(1, 1, 1, 0.8)
+	rays_mat.no_depth_test = false
+	rays = MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(4.2, 4.2)
+	rays.mesh = q
+	rays.material_override = rays_mat
+	rays.position.y = 0.2
+	rays.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	rays.visible = false
+	add_child(rays)
 
 
 func _build_crown(elf: bool) -> Node3D:

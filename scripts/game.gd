@@ -2612,7 +2612,8 @@ func _axis_name(axis: int, kind: String) -> String:
 
 # --- Gamepads ----------------------------------------------------------------
 
-const PLAYER_COLORS := [Color(1.0, 1.0, 0.3), Color(0.3, 0.85, 1.0), Color(1.0, 0.45, 0.8), Color(0.6, 1.0, 0.3)]
+const PLAYER_COLORS := [Color(0.3, 0.85, 1.0), Color(1.0, 1.0, 0.3),   # P1 cyan like the 2026-10-08 target art
+		 Color(1.0, 0.45, 0.8), Color(0.6, 1.0, 0.3)]
 
 
 func player_color(local_index: int) -> Color:
@@ -2930,13 +2931,71 @@ func _grass() -> StandardMaterial3D:
 	return _pbr("grass", 0.11)
 
 
-func _stones(loose: bool = false) -> StandardMaterial3D:
-	## Pale flagstones with the meadow showing between them (the paths).
-	## The gaps are cut out of the texture, so the grass below shows through.
+const PATH_SHADER := """
+shader_type spatial;
+// Cobbles in dirt, projected straight down in world space. With fray on, the
+// edge of the path frays into the meadow a whole stone at a time: the stones
+// map (tools/make_textures.py) gives each pixel the way to its stone's centre
+// and that stone's own random value, so a stone is kept or dropped by where
+// its centre lies across the path, and the dirt only fills joints between
+// the inner stones; everywhere else the grass below shows through.
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D stones_tex : filter_nearest, repeat_enable;
+uniform float scale = 0.2;
+uniform bool fray = false;
+instance uniform float half_w = 2.0;
+varying vec3 wpos;
+varying float lz;
+varying vec3 side;
+
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	lz = VERTEX.z;
+	side = normalize(MODEL_MATRIX[2].xyz);
+}
+
+void fragment() {
+	vec2 uv = wpos.xz * scale;
+	if (fray) {
+		vec4 s = texture(stones_tex, uv);
+		vec2 to_c = (s.rg - 0.5) * 0.5 / scale;
+		float d = abs(lz + dot(vec3(to_c.x, 0.0, to_c.y), side));
+		float inner = half_w - 0.5;
+		bool kept = s.a > 0.5 ? d < inner + 0.8 * s.b : d < inner;
+		if (!kept) {
+			discard;
+		}
+	}
+	ALBEDO = texture(albedo_tex, uv).rgb;
+	vec3 n = texture(normal_tex, uv).rgb * 2.0 - 1.0;
+	NORMAL = normalize((VIEW_MATRIX * vec4(n.x, n.z, -n.y, 0.0)).xyz);
+	ROUGHNESS = 0.85;
+}
+"""
+
+var path_shader: Shader
+
+
+func _stones(loose: bool = false, fray: bool = false) -> ShaderMaterial:
+	## Warm tan cobbles set in dark brown dirt (the paths). Without fray the
+	## material is opaque, dirt and all: the middle of a path. The frayed one
+	## (see PATH_SHADER) is carried on the middle one as meta "fray", and
+	## _add_path lays it in a wider strip underneath so the edges break up
+	## into single stones in the grass.
+	if path_shader == null:
+		path_shader = Shader.new()
+		path_shader.code = PATH_SHADER
 	var name := "path_loose" if loose else "path"
-	var mat := _pbr(name, 0.26 if loose else 0.2, Color.WHITE, "png")
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	mat.alpha_scissor_threshold = 0.5
+	var mat := ShaderMaterial.new()
+	mat.shader = path_shader
+	mat.set_shader_parameter("albedo_tex", load("res://assets/textures/%s_color.png" % name))
+	mat.set_shader_parameter("normal_tex", load("res://assets/textures/%s_normal.jpg" % name))
+	mat.set_shader_parameter("stones_tex", load("res://assets/textures/%s_stones.png" % name))
+	mat.set_shader_parameter("scale", 0.26 if loose else 0.2)
+	mat.set_shader_parameter("fray", fray)
+	if not fray:
+		mat.set_meta("fray", _stones(loose, true))
 	return mat
 
 
@@ -3029,13 +3088,32 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		v.position = (from + to) / 2.0 + Vector3(0, 0.003, 0)
 		v.rotation.y = atan2(-d.z, d.x)
 		add_child(v)
+	var length := d.length() + width * 0.6
+	var mid := (from + to) / 2.0
+	var rot := atan2(-d.z, d.x)
+	var core_w := width
+	if mat.has_meta("fray"):
+		# Cobbled paths fray into the meadow: an opaque middle (stones in
+		# dirt) over a wider strip that keeps fewer stones the further out
+		# their centres lie (PATH_SHADER). The wide strip sits a hair lower,
+		# so the middle hides it and, where paths cross, a middle wins.
+		core_w = maxf(width - 2.3, 0.6)
+		var e := MeshInstance3D.new()
+		var ebox := BoxMesh.new()
+		ebox.size = Vector3(length, 0.01, width + 2.6)
+		e.mesh = ebox
+		e.material_override = mat.get_meta("fray")
+		e.set_instance_shader_parameter("half_w", width / 2.0)
+		e.position = mid + Vector3(0, 0.004, 0)
+		e.rotation.y = rot
+		add_child(e)
 	var m := MeshInstance3D.new()
 	var box := BoxMesh.new()
-	box.size = Vector3(d.length() + width * 0.6, 0.012, width)
+	box.size = Vector3(length, 0.012, core_w)
 	m.mesh = box
 	m.material_override = mat
-	m.position = (from + to) / 2.0 + Vector3(0, 0.006, 0)
-	m.rotation.y = atan2(-d.z, d.x)
+	m.position = mid + Vector3(0, 0.006, 0)
+	m.rotation.y = rot
 	add_child(m)
 	map_paths.append([from, to, width])
 
@@ -3423,8 +3501,15 @@ func _add_tree(pos: Vector3, big: bool = false) -> void:
 		shape.position.y = 1.5
 		body.add_child(shape)
 		add_child(body)
-		var kind := "hex/tree_single_%s" % ["A", "B"][tree_seed % 2]
-		_prop(kind, pos, (5.2 if big else 4.2) * (0.9 + 0.2 * float(tree_seed % 5) / 4.0), float(tree_seed))
+		# Deep green layered pines: the pack's pale cone and blob read flat
+		# next to the 2026-10-08 target art.
+		var r := RandomNumberGenerator.new()
+		r.seed = tree_seed
+		var tree := Node3D.new()
+		tree.position = pos
+		tree.rotation.y = r.randf() * TAU
+		add_child(tree)
+		_add_pine(tree, r, _pbr("bark", 0.5, Color(0.95, 0.9, 0.85)), big)
 		return
 	_add_tree_grown(pos, big)
 
@@ -3541,21 +3626,22 @@ func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool
 	leaf.shader = load("res://assets/shaders/leaf.gdshader")
 	leaf.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	var hue := r.randf_range(-0.02, 0.02)
-	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.38 + hue, 0.75, 0.24))
-	leaf.set_shader_parameter("top_color", Color.from_hsv(0.31 + hue, 0.7, 0.64))
+	# Deep forest green with lighter tips (the 2026-10-08 target art).
+	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.41 + hue, 0.85, 0.09))
+	leaf.set_shader_parameter("top_color", Color.from_hsv(0.37 + hue, 0.7, 0.28))
 	leaf.set_shader_parameter("height", 1.6)
 	leaf.set_shader_parameter("sway", 0.03)
 	var base_r: float = (1.9 if big else 1.5) * r.randf_range(0.9, 1.1)
-	for i in 3:
+	for i in 4:
 		var cone := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
 		cm.top_radius = 0.0
-		cm.bottom_radius = base_r * (1.0 - 0.25 * i)
-		cm.height = trunk_h * 0.42
-		cm.radial_segments = 8
+		cm.bottom_radius = base_r * (1.05 - 0.22 * i)
+		cm.height = trunk_h * 0.36
+		cm.radial_segments = 9
 		cm.rings = 2
 		cone.mesh = cm
-		cone.position.y = trunk_h * (0.42 + 0.22 * i)
+		cone.position.y = trunk_h * (0.36 + 0.17 * i)
 		cone.rotation.y = r.randf() * TAU
 		cone.material_override = leaf
 		tree.add_child(cone)
@@ -3930,7 +4016,9 @@ func _add_cover() -> void:
 		[Vector3(18, 0, 12), 3.0], [Vector3(30, 0, -5), 3.5], [Vector3(28, 0, 8), 3.0], [Vector3(31, 0, 19), 3.0], [Vector3(17, 0, -20), 3.0]]
 	# Three cover designs cycle across the field: supply stacks, timber
 	# palisades and broken ashlar walls, so the middle reads as a battlefield.
-	var crates := ["hex/crate_A_big", "hex/crate_B_big", "hex/barrel", "hex/crate_A_big", "hex/barrel"]
+	# Timber crates and casks (dungeon pack: dark planks like the 2026-10-08 target art).
+	var crates := ["dungeon/box_large", "dungeon/box_large", "dungeon/barrel_large", "dungeon/box_large", "dungeon/barrel_large"]
+	var crate_scale := {"dungeon/box_large": 0.72, "dungeon/barrel_large": 0.56}
 	for bi in barricades.size():
 		var b: Array = barricades[bi]
 		for m in [1.0, -1.0]:
@@ -3948,9 +4036,9 @@ func _add_cover() -> void:
 					for i in n:
 						var z: float = c.z - length / 2.0 + (i + 0.5) * length / n
 						var pick: int = absi(int(c.x * 3 + z * 5 + i)) % crates.size()
-						_prop(crates[pick], Vector3(c.x, 0, z), 5.2, 0.0)
+						_prop(crates[pick], Vector3(c.x, 0, z), crate_scale[crates[pick]], float(i) * 0.4)
 						if i % 2 == 0:
-							_prop("hex/crate_A_big", Vector3(c.x, 1.05, z), 4.2, 0.0)
+							_prop("dungeon/box_small", Vector3(c.x, 1.1, z), 0.75, 0.5)
 				1:
 					_add_palisade(c, length)
 				2:
@@ -4549,12 +4637,24 @@ func _add_fire(pos: Vector3, size: float = 1.0) -> void:
 func _add_banner_pole(team: int, pos: Vector3) -> void:
 	## A timber pole with a crossbar and the faction's banner hanging from it,
 	## facing the camera: they flank each castle door (the target art).
-	audit_label = "pole"
-	_add_block(pos + Vector3(0, 1.75, 0), Vector3(0.2, 3.5, 0.2), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
-	audit_label = ""
-	_add_block(pos + Vector3(0, 0.1, 0), Vector3(0.5, 0.2, 0.5), Color.WHITE, false, _ashlar(Color(0.85, 0.82, 0.78)))
-	_add_block(pos + Vector3(0, 3.35, 0.1), Vector3(1.4, 0.12, 0.12), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
-	_add_block(pos + Vector3(0, 3.62, 0), Vector3(0.16, 0.3, 0.16), Color.WHITE, false, _gold())
+	# A two-post timber frame (Faisal's 2026-10-08 target art).
+	var wood := _timber(Color(0.5, 0.36, 0.24))
+	for xs in [-0.8, 0.8]:
+		audit_label = "pole"
+		_add_block(pos + Vector3(xs, 1.75, 0), Vector3(0.2, 3.5, 0.2), Color.WHITE, false, wood)
+		audit_label = ""
+		_add_block(pos + Vector3(xs, 0.1, 0), Vector3(0.45, 0.2, 0.45), Color.WHITE, false, _pbr("greystone", 0.5, Color(0.8, 0.8, 0.85)))
+		_add_block(pos + Vector3(xs, 3.6, 0), Vector3(0.26, 0.12, 0.26), Color.WHITE, false, wood)
+	_add_block(pos + Vector3(0, 3.35, 0.0), Vector3(2.0, 0.18, 0.18), Color.WHITE, false, wood)
+	for xs in [-0.55, 0.55]:   # corner braces
+		var brace := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.1, 0.6, 0.1)
+		brace.mesh = bm
+		brace.material_override = wood
+		brace.position = pos + Vector3(xs, 3.05, 0)
+		brace.rotation.z = 0.8 if xs > 0.0 else -0.8
+		add_child(brace)
 	_add_pennant(team, pos + Vector3(0, 3.28, 0.06), Vector3(0, 0, 1), 1.1, 2.2)
 
 
@@ -5623,6 +5723,7 @@ func _build_outskirts() -> void:
 		_build_farm(team, sx)
 		_build_works(team, sx)
 	_add_road_lanterns()
+	_add_road_dressing()
 	_add_river_plants()
 	_add_barrow(Vector3(-30, 0, 22))
 	_add_watermills()
@@ -6276,6 +6377,87 @@ func _add_clouds() -> void:
 		var drift := Vector3(7.0 if i % 2 == 0 else -7.0, 0, 0)
 		tw.tween_property(n, "position", sp[0] + drift, 36.0 + i * 3.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 		tw.tween_property(n, "position", sp[0], 36.0 + i * 3.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _add_stone_brazier(pos: Vector3, lit: bool = true) -> void:
+	## A square grey-stone pillar with a fire bowl on top (the 2026-10-08 target art).
+	var stone := _pbr("greystone", 0.45, Color(0.82, 0.82, 0.88))
+	audit_label = "pole"
+	_add_block(pos + Vector3(0, 0.15, 0), Vector3(0.95, 0.3, 0.95), Color.WHITE, true, stone)
+	_add_block(pos + Vector3(0, 0.75, 0), Vector3(0.7, 0.9, 0.7), Color.WHITE, true, stone)
+	audit_label = ""
+	_add_block(pos + Vector3(0, 1.26, 0), Vector3(0.9, 0.14, 0.9), Color.WHITE, false, stone)
+	var bowl := MeshInstance3D.new()
+	var bm := CylinderMesh.new()
+	bm.top_radius = 0.36
+	bm.bottom_radius = 0.2
+	bm.height = 0.26
+	bowl.mesh = bm
+	bowl.position = pos + Vector3(0, 1.46, 0)
+	bowl.material_override = _iron()
+	add_child(bowl)
+	_add_fire(pos + Vector3(0, 1.52, 0), 2.3)
+	if lit:
+		_add_light(pos + Vector3(0, 2.1, 0), Color(1.0, 0.62, 0.28), 1.3, 6.5)
+
+
+func _add_crates(pos: Vector3, rot: float) -> void:
+	## A stack of crates with a barrel beside it, by the road.
+	_prop("dungeon/crates_stacked", pos, 0.7, rot)
+	_add_blocker(pos, 0.7, 1.5)
+	_prop("dungeon/barrel_large", pos + Vector3(-signf(pos.x) * 1.5, 0, signf(pos.z) * 0.3), 0.6, rot)   # towards the shrine, off the road
+
+
+func _add_picket_fence(from: Vector3, to: Vector3) -> void:
+	## A run of pointed timber stakes on two rails (decor beside the verges).
+	var wood := _timber(Color(0.55, 0.38, 0.24))
+	var d := to - from
+	var n := int(d.length() / 0.32)
+	var ang := atan2(d.x, d.z)
+	for k in n + 1:
+		var p := from + d * (float(k) / maxf(n, 1))
+		var h := 0.95 + 0.12 * sin(k * 2.3)
+		var stake := MeshInstance3D.new()
+		var sm := BoxMesh.new()
+		sm.size = Vector3(0.2, h, 0.08)
+		stake.mesh = sm
+		stake.material_override = wood
+		stake.position = p + Vector3(0, h / 2.0, 0)
+		stake.rotation.y = ang + PI / 2.0
+		add_child(stake)
+		var tip := MeshInstance3D.new()
+		var tm := PrismMesh.new()
+		tm.size = Vector3(0.2, 0.18, 0.08)
+		tip.mesh = tm
+		tip.material_override = wood
+		tip.position = p + Vector3(0, h + 0.09, 0)
+		tip.rotation.y = ang + PI / 2.0
+		add_child(tip)
+	for y in [0.3, 0.7]:
+		var rail := MeshInstance3D.new()
+		var rm := BoxMesh.new()
+		rm.size = Vector3(0.06, 0.08, d.length())
+		rail.mesh = rm
+		rail.material_override = wood
+		rail.position = from + d / 2.0 + Vector3(0, y, 0) - Vector3(sin(ang + PI / 2.0), 0, cos(ang + PI / 2.0)) * 0.06
+		rail.rotation.y = ang
+		add_child(rail)
+
+
+func _add_road_dressing() -> void:
+	## The main road's furniture from the 2026-10-08 target art: stone pillar
+	## braziers in pairs, crates and barrels, picket fences behind the verges
+	## and a banner frame on each side's half. All clear of the road itself.
+	for sx in [-1.0, 1.0]:
+		var team := 0 if sx < 0.0 else 1
+		for x in [18.0, 34.0]:
+			for zs in [-1.0, 1.0]:
+				_add_stone_brazier(Vector3(sx * x, 0, zs * 3.7), zs > 0.0)
+		_add_crates(Vector3(sx * 15.5, 0, 4.9), 0.3 * sx)
+		_add_crates(Vector3(sx * 32.5, 0, -4.9), -0.5 * sx)
+		_add_picket_fence(Vector3(sx * 20.0, 0, 6.6), Vector3(sx * 27.0, 0, 7.4))
+		_add_picket_fence(Vector3(sx * 36.0, 0, -6.8), Vector3(sx * 42.0, 0, -6.2))
+		_add_banner_pole(team, Vector3(sx * 24.0, 0, -5.4))
 
 
 func _add_road_lanterns() -> void:
@@ -6941,7 +7123,7 @@ func _build_world() -> void:
 	# and grass creeping in at the edges.
 	var fxr := CASTLE_X - CASTLE_DEPTH
 	var road := _stones()
-	# The main road: a flagstone path door to door through the shrine, with
+	# The main road: a cobbled path door to door through the shrine, with
 	# paved aprons at the doors.
 	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road, 0.0)
 	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road, 0.0)
@@ -6959,10 +7141,7 @@ func _build_world() -> void:
 		# Road dressing: milestones on the verge, signposts at the path
 		# bends and an abandoned cart by the roadside.
 		# (Two milestones a side; the roadside caravan pile was clutter and went.)
-		for k in 2:
-			var mx: float = 18.0 + 16.0 * k
-			_add_block(Vector3(sx * mx, 0.3, 3.4 if k % 2 == 0 else -3.4), Vector3(0.35, 0.6, 0.35), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
-			_add_block(Vector3(sx * mx, 0.62, 3.4 if k % 2 == 0 else -3.4), Vector3(0.45, 0.06, 0.45), Color.WHITE, false, _ashlar(Color(0.86, 0.82, 0.74)))
+		# (The milestones gave way to the stone braziers in _add_road_dressing.)
 		_add_signpost(Vector3(sx * 31.5, 0, nb - 5.2), -sx)
 		_add_signpost(Vector3(sx * 27.5, 0, sb + 4.3), sx)
 	_add_river()
