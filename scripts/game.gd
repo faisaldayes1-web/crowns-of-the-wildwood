@@ -4359,12 +4359,15 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 var mossy := false   # while an elven castle is being built: ivy and moss on its stone
 var soot := Color.WHITE   # while Ember Pass's castles are built: darkens every textured surface
 var tex_swap := {}        # ...and swaps textures that clash with the lava light (the Elves' bark and sandstone)
+var ember_castles := false   # Ember Pass: both castles are built of stone (Faisal's reference art), the Elves' mossy
 var grey := false    # while the Humans' castle is being built: grey stone
 
 
 func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	## Castle stone; the elven castle is grown, so its "stone" is living bark,
 	## and the Humans build in cool grey blocks.
+	if mossy and ember_castles:
+		return _pbr("stone_moss", 0.42, tint * Color(0.66, 0.7, 0.6))
 	if mossy:
 		return _pbr("bark", 0.55, tint * Color(0.72, 0.7, 0.58))
 	if grey:
@@ -4821,7 +4824,7 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 		var t := -length / 2.0 + (k + 0.5) * length / n
 		var p := Vector3(center.x + t, top + 0.5, center.z) if along_x else Vector3(center.x, top + 0.5, center.z + t)
 		var ms := Vector3(0.6, 0.6, thick) if along_x else Vector3(thick, 0.6, 0.6)
-		if mossy:
+		if mossy and not ember_castles:
 			var tuft := MeshInstance3D.new()
 			tuft.mesh = _rock_mesh(int(p.x * 5 + p.z * 11), 0.45, 0.15)
 			tuft.position = p - Vector3(0, 0.1, 0)
@@ -4836,7 +4839,7 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 	var color: Color = Stats.FACTIONS[team].color
 	_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(width, height, width), Color.WHITE, true, _ashlar())
 	_add_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
-	if mossy:
+	if mossy and not ember_castles:
 		# An elven tree-tower: the trunk carries a glowing canopy instead of a roof,
 		# with a lantern hung beneath it.
 		var r := RandomNumberGenerator.new()
@@ -6670,7 +6673,11 @@ func _build_castle(team: int) -> void:
 	for k in 7:
 		_add_block(Vector3(kx, KEEP_H + 0.7, -KEEP_DOOR_HALF + 0.75 + k * 1.25), Vector3(0.8, 0.6, 0.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# A rug up the yard's lane to the archway, and one from the archway to the throne.
-	_add_rug(Vector3(kx - side * 2.4, 0.025, 0), Vector2(3.6, 5.0), color)  # its top clears the keep floor's (0.05): coplanar tops flicker
+	if ember_castles:
+		# Ember Pass (the reference art): one long runner from the door to the keep.
+		_add_rug(Vector3((fx + kx) / 2.0, 0.025, 0), Vector2(absf(kx - fx) - 2.2, 3.0), color)
+	else:
+		_add_rug(Vector3(kx - side * 2.4, 0.025, 0), Vector2(3.6, 5.0), color)  # its top clears the keep floor's (0.05): coplanar tops flicker
 	_add_rug(Vector3(kx + side * 3.0, 0.05, 0), Vector2(5.0, 2.8), color)
 
 	# The yard stays open: lanterns (Elves) or nothing but the gatehouse
@@ -6681,6 +6688,18 @@ func _build_castle(team: int) -> void:
 	# Banners on the yard side of the gatehouse towers.
 	for zs in [-1.0, 1.0]:
 		_add_banner(team, Vector3(fx + side * 1.1, 0.2, zs * (dh + 1.1)), Vector3(side, 0, 0), 0.6)
+	if ember_castles:
+		# Ember Pass (the reference art): torches (crystals for the Elves) all
+		# along the walls, inside the yard and lane and out on the door front.
+		for zs in [-1.0, 1.0]:
+			var x := kx + side * 1.0
+			while side * (bx - x) > 1.6:
+				_add_wall_torch(Vector3(x, 1.7, zs * (hz - 0.55)), Vector3(0, 0, -zs))
+				x += side * 3.6
+			_add_wall_torch(Vector3(fx + side * 0.55, 1.7, zs * (dh + 4.8)), Vector3(side, 0, 0))
+			_add_wall_torch(Vector3(fx - side * 0.55, 1.9, zs * (dh + 5.2)), Vector3(-side, 0, 0))
+			_add_wall_torch(Vector3(fx - side * 0.55, 1.9, zs * (hz - 2.2)), Vector3(-side, 0, 0))
+			_add_wall_torch(Vector3(kx - side * 0.45, 1.6, zs * (khz - 2.5)), Vector3(-side, 0, 0))
 	# Inside the keep: columns along the side walls, torches, stacked stores at the back.
 	for zs in [-1.0, 1.0]:
 		_add_wall_torch(Vector3(kx + side * 1.2, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
@@ -7223,12 +7242,15 @@ func _build_volcano() -> void:
 	vmap.build()
 	# Soot-dark castles: the lava's red light turns pale stone, bark and
 	# moss glaring yellow and green.
-	soot = Color(0.52, 0.46, 0.44)
+	ember_castles = true
 	tex_swap = {"bark": "elfbark", "flagstone_moss": "flagstone_elf"}
+	soot = Color(0.56, 0.56, 0.5)
 	_build_castle(0)
+	soot = Color(0.5, 0.52, 0.58)   # keeps the Humans' grey stone grey under the red light
 	_build_castle(1)
 	soot = Color.WHITE
 	tex_swap = {}
+	ember_castles = false
 	for p in vmap.heal_orb_spots():
 		var orb = HealOrb.new()
 		add_child(orb)
