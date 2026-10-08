@@ -4367,7 +4367,8 @@ func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	## Castle stone; the elven castle is grown, so its "stone" is living bark,
 	## and the Humans build in cool grey blocks.
 	if mossy and ember_castles:
-		return _pbr("stone_moss", 0.42, tint * Color(0.66, 0.7, 0.6))
+		# Grey-green stone with ivy ledges (the reference art), not the sandy blocks.
+		return _pbr("greystone", 0.42, tint * Color(0.62, 0.72, 0.58))
 	if mossy:
 		return _pbr("bark", 0.55, tint * Color(0.72, 0.7, 0.58))
 	if grey:
@@ -6700,6 +6701,11 @@ func _build_castle(team: int) -> void:
 			_add_wall_torch(Vector3(fx - side * 0.55, 1.9, zs * (dh + 5.2)), Vector3(-side, 0, 0))
 			_add_wall_torch(Vector3(fx - side * 0.55, 1.9, zs * (hz - 2.2)), Vector3(-side, 0, 0))
 			_add_wall_torch(Vector3(kx - side * 0.45, 1.6, zs * (khz - 2.5)), Vector3(-side, 0, 0))
+			# Flames along the rampart and on the corner towers.
+			for z in [dh + 5.5, hz - 2.0]:
+				_add_fire(Vector3(fx - side * 0.9, WALK_Y + 0.9, zs * z), 1.1)
+			_add_fire(Vector3(fx, 5.4 + 2.4, zs * hz), 1.4)
+			_add_fire(Vector3(bx, 5.4 + 2.4, zs * hz), 1.4)
 	# Inside the keep: columns along the side walls, torches, stacked stores at the back.
 	for zs in [-1.0, 1.0]:
 		_add_wall_torch(Vector3(kx + side * 1.2, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
@@ -7244,9 +7250,9 @@ func _build_volcano() -> void:
 	# moss glaring yellow and green.
 	ember_castles = true
 	tex_swap = {"bark": "elfbark", "flagstone_moss": "flagstone_elf"}
-	soot = Color(0.56, 0.56, 0.5)
+	soot = Color(0.66, 0.68, 0.6)
 	_build_castle(0)
-	soot = Color(0.5, 0.52, 0.58)   # keeps the Humans' grey stone grey under the red light
+	soot = Color(0.74, 0.76, 0.86)   # keeps the Humans' grey stone grey under the red light
 	_build_castle(1)
 	soot = Color.WHITE
 	tex_swap = {}
