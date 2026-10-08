@@ -12,3 +12,5 @@ All of these are CC0 (public domain). Credit is appreciated by the authors but n
 - `assets/ui/logo.png` is the game's own logo, and `assets/ui/cards/` (faction logos, crests and class portraits) is the game's own card art, both supplied by the project owner.
 - **Luckiest Guy** font by Astigmatic (Brian J. Bonislawsky), from Google Fonts — Apache License 2.0 (`assets/fonts/LICENSE-LuckiestGuy.txt`). `assets/fonts/LuckiestGuy-Regular.ttf`, used for the big cartoon banner titles.
 - `assets/ui/skills/` (hexagon skill tiles and the scoreboard shield faces) are cut from UI reference art supplied by the project owner.
+- **Lilita One** font by Juan Montoreano, from Google Fonts — SIL Open Font License 1.1 (`assets/fonts/OFL-LilitaOne.txt`). `assets/fonts/LilitaOne-Regular.ttf`, used for the top bar text.
+- `assets/ui/topbar/topbar.png` (the match top bar: banners, crest shields, clock frame, parchment strip) is cut from the owner's UI reference art by `tools/make_topbar.py`, with its text painted out.

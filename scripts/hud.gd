@@ -45,6 +45,8 @@ var local_unit = null   # couch play: the local player this HUD belongs to (null
 var pane := false       # couch play: drawn inside one player's pane
 var couch_buttons: Array = []   # title: [rect, "more"|"less"|"mode"]
 var font: Font
+var bar_font: Font     # round bold face for the top bar (Lilita One, OFL)
+var topbar_tex: Texture2D   # the top bar art (tools/make_topbar.py)
 var title_font: Font   # chunky cartoon display face for the big banners (Luckiest Guy, Apache 2.0)
 var logo: Texture2D
 var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
@@ -76,6 +78,9 @@ var title_buttons: Array = []       # [rect, tab] on the title screen
 func _ready() -> void:
 	font = ThemeDB.fallback_font
 	title_font = load("res://assets/fonts/LuckiestGuy-Regular.ttf")
+	bar_font = load("res://assets/fonts/LilitaOne-Regular.ttf")
+	if ResourceLoader.exists("res://assets/ui/topbar/topbar.png"):
+		topbar_tex = load("res://assets/ui/topbar/topbar.png")
 	if title_font == null:
 		title_font = font
 	logo = load("res://assets/ui/logo.png")
@@ -1640,48 +1645,49 @@ func _draw_scoreboard() -> void:
 	if k < 1.0:
 		draw_set_transform(Vector2(cx * (1.0 - k), 0), 0.0, Vector2(k, k))
 	var now := Time.get_ticks_msec() / 1000.0
-	# Laid out like Faisal's UI reference (2026-10-08): two long glossy bands
-	# in thick gold trim running from a big crest shield at each end in under
-	# a scalloped gold clock frame with a crown on top.
+	# The bar itself is Faisal's UI reference art (2026-10-08) with its text
+	# painted out (tools/make_topbar.py): banners, crest shields, the gold
+	# clock frame with its crown and the parchment strip. The live text goes
+	# on top in a round bold face.
+	var tf: Font = bar_font if bar_font else font
+	var ink := Color(0.2, 0.07, 0.04)
+	if topbar_tex:
+		var sc := 0.4969   # reference pixels -> HUD units
+		var tsz := topbar_tex.get_size() * sc
+		draw_texture_rect(topbar_tex, Rect2(Vector2(cx - tsz.x / 2.0, 0), tsz), false)
+	else:
+		for t in 2:
+			_score_band(Rect2(Vector2(cx - 292.0 if t == 0 else cx + 62.0, 12), Vector2(230, 62)), SCORE_BANDS[t])
+			_crest_shield(Vector2(cx + (-1.0 if t == 0 else 1.0) * 310.0, 54.0), 76.0, 94.0, t)
+		_ornate_clock(Rect2(cx - 84, 8, 168, 78))
+		_crown_glyph(Vector2(cx, 9), 20.0, 0.6)
 	for t in 2:
-		var band := Rect2(Vector2(cx - 292.0 if t == 0 else cx + 62.0, 12), Vector2(230, 62))
-		_score_band(band, SCORE_BANDS[t])
-		var tx := band.position.x + (24.0 if t == 0 else 0.0)
-		_text(Vector2(tx, 34), Stats.FACTIONS[t].name.to_upper(), 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, band.size.x - 24.0, 3)
-		# Chunky score: a dark maroon outline, then the cream face drawn twice
-		# a pixel apart for weight.
-		var sc := str(game.score[t])
-		draw_string_outline(font, Vector2(tx, 69), sc, HORIZONTAL_ALIGNMENT_CENTER, band.size.x - 24.0, 38, 10, Color(0.22, 0.05, 0.04))
-		draw_string(font, Vector2(tx, 69), sc, HORIZONTAL_ALIGNMENT_CENTER, band.size.x - 24.0, 38, Color(1.0, 0.95, 0.84))
-		draw_string(font, Vector2(tx + 1.0, 69), sc, HORIZONTAL_ALIGNMENT_CENTER, band.size.x - 24.0, 38, Color(1.0, 0.95, 0.84))
-	for t in 2:
-		var dir := -1.0 if t == 0 else 1.0
-		_crest_shield(Vector2(cx + dir * 310.0, 54.0), 76.0, 94.0, t)
-	var clock := Rect2(cx - 84, 8, 168, 78)
-	_ornate_clock(clock)
-	for j in 6:
-		var sp := Vector2(cx + [-372.0, 362.0, -258.0, 250.0, -150.0, 150.0][j], [22.0, 26.0, 84.0, 82.0, 10.0, 12.0][j])
+		var mid := cx + (-157.0 if t == 0 else 159.0)
+		_bar_text(Vector2(mid, 31), Stats.FACTIONS[t].name.to_upper(), tf, 17, Color(1.0, 0.95, 0.86), ink, 6)
+		_bar_text(Vector2(mid, 61), str(game.score[t]), tf, 38, Color(1.0, 0.95, 0.84), ink, 10)
+	# Twinkles round the shields, on top of the art's own.
+	for j in 4:
+		var sp := Vector2(cx + [-372.0, 362.0, -262.0, 262.0][j], [22.0, 26.0, 84.0, 82.0][j])
 		var tw := maxf(0.0, sin(now * 2.5 + j * 1.7))
 		var r := 2.5 + 6.0 * tw
 		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw), 1.6)
 		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw), 1.6)
-	# A gold crown sitting on top of the clock.
-	_crown_glyph(Vector2(cx, 9), 20.0, 0.6)
 	var fortify: bool = game.prep_left > 0.0
+	var clock_x := cx + 3.0
 	if fortify:
 		# The fortify countdown takes the clock's place; the match clock waits.
 		var pl: float = ceilf(game.prep_left)
 		var pulse: bool = pl <= 5.0 and int(game.prep_left * 2.0) % 2 == 0
-		_text(Vector2(clock.position.x, 42), "FORTIFY", 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 3)
-		_text(Vector2(clock.position.x, 75), "%d:%02d" % [int(pl) / 60, int(pl) % 60], 34, Color(1, 0.85, 0.5) if pulse else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 5)
+		_bar_text(Vector2(clock_x, 42), "FORTIFY", tf, 18, Color(1.0, 0.78, 0.32), ink, 4)
+		_bar_text(Vector2(clock_x, 70), "%d:%02d" % [int(pl) / 60, int(pl) % 60], tf, 38, Color(1, 0.85, 0.5) if pulse else Color(1.0, 0.97, 0.92), ink, 5)
 	else:
 		var left := maxf(game.time_left, 0.0)
 		var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
-		_text(Vector2(clock.position.x, 42), "OVERTIME" if game.overtime else "BATTLE", 15, Color(1, 0.55, 0.4) if game.overtime else GOLD, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 3)
-		_text(Vector2(clock.position.x, 75), "%d:%02d" % [int(left) / 60, int(left) % 60], 34,
-			Color(1, 0.4, 0.3) if urgent else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, clock.size.x, 5)
-	var line := ""
-	var ink := Color(0.27, 0.16, 0.06)
+		_bar_text(Vector2(clock_x, 42), "OVERTIME" if game.overtime else "BATTLE", tf, 18, Color(1, 0.55, 0.4) if game.overtime else Color(1.0, 0.78, 0.32), ink, 4)
+		_bar_text(Vector2(clock_x, 70), "%d:%02d" % [int(left) / 60, int(left) % 60], tf, 38,
+			Color(1, 0.4, 0.3) if urgent else Color(1.0, 0.97, 0.92), ink, 5)
+	var line := "Steal their crown and carry it home to your throne room."
+	var line_ink := Color(0.33, 0.2, 0.08)
 	if fortify:
 		line = "Build turrets, set traps and raise barricades (%s) before the barrier falls." % _k("interact")
 		var kits: int = game.barricades_left[_my_team()]
@@ -1689,11 +1695,25 @@ func _draw_scoreboard() -> void:
 			line += "  %d kit%s left." % [kits, "" if kits == 1 else "s"]
 	elif game.overtime:
 		line = "Overtime: no respawns. The last team standing or the next capture wins."
-		ink = Color(0.55, 0.1, 0.05)
-	if line != "":
-		_info_banner(Vector2(cx, 98), line, ink)
+		line_ink = Color(0.55, 0.1, 0.05)
+	if topbar_tex:
+		# On the art's own parchment strip, right of its "i" medallion.
+		var fs := 13 if _text_width(line, 13) < 490.0 else 12
+		_text(Vector2(cx - 231.0, 98.5), line, fs, line_ink, HORIZONTAL_ALIGNMENT_CENTER, 499.0, 0)
+	else:
+		_info_banner(Vector2(cx, 98), line, line_ink)
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
+
+
+func _bar_text(c: Vector2, text: String, f: Font, fs: int, face: Color, ink: Color, outline: int) -> void:
+	## Centred on c.x with its baseline at c.y: a dark outline, a soft drop
+	## shadow, then the face.
+	var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var pos := Vector2(c.x - w / 2.0, c.y)
+	draw_string_outline(f, pos + Vector2(0, 2), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, outline, Color(0, 0, 0, 0.35))
+	draw_string_outline(f, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, outline, ink)
+	draw_string(f, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, face)
 
 
 func _score_band(r: Rect2, color: Color) -> void:
