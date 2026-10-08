@@ -101,7 +101,7 @@ void fragment() {
 	vec3 n_view = normalize(NORMAL + (TANGENT * -dh.x + BINORMAL * dh.y) * 6.0);
 
 	// Molten where the crust is missing: thin cracks, wider where it runs hot.
-	float open = smoothstep(0.62, 0.92, heat) * 0.6;
+	float open = smoothstep(0.7, 0.95, heat) * 0.5;
 	float molten = 1.0 - smoothstep(0.015, 0.1 + heat * 0.06, edge);
 	molten = clamp(max(molten, open * (1.0 - h * 0.6)), 0.0, 1.0);
 	if (flow > 0.0) {
@@ -114,12 +114,14 @@ void fragment() {
 	vec3 crust = mix(crust_lo, crust_hi, plate * 0.7 + fbm(p * 4.0) * 0.3);
 	vec3 lava = mix(deep, hot, smoothstep(0.1, 0.7, molten * (0.5 + heat)));
 	lava = mix(lava, core, smoothstep(0.75, 1.0, molten) * smoothstep(0.35, 0.8, heat));
-	ALBEDO = mix(crust, lava * 0.6, molten);
+	// Glow falls off steeply from the crack, so the crust around it stays black.
+	float burn = molten * molten;
+	ALBEDO = mix(crust, lava * 0.6, burn);
 	// Only a thin ember line right at the crack's lip; the plates stay black.
 	float lip = 1.0 - smoothstep(0.02, 0.08, edge);
 	vec3 ember = deep * lip * 0.7 * (1.0 - molten);
-	EMISSION = (lava * molten * glow + ember) * breath;
-	NORMAL = mix(n_view, NORMAL, molten);
+	EMISSION = (lava * burn * glow + ember) * breath;
+	NORMAL = mix(n_view, NORMAL, burn);
 	ROUGHNESS = mix(0.7, 0.95, molten);
 	SPECULAR = 0.12 * (1.0 - molten);
 }
