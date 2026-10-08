@@ -15,6 +15,7 @@ const Blessing = preload("res://scripts/blessing.gd")
 const Vault = preload("res://scripts/vault.gd")
 const Guide = preload("res://scripts/guide.gd")
 const Barricade = preload("res://scripts/barricade.gd")
+const MatchSummary = preload("res://scripts/match_summary.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
@@ -117,6 +118,7 @@ var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
 var match_xp := 0               # the player's XP earned this match, over every life
+var summary = null              # the end-of-match screen (match_summary.gd), made when the match ends
 var last_match_gain := 0        # what the last match added (end screen)
 var level_before := 1           # account level before the last match (end screen)
 var name_editing := false
@@ -364,8 +366,14 @@ func _process(delta: float) -> void:
 			print("Match over: Elves %d, Humans %d" % [score[0], score[1]])
 			_demo_summary()
 			get_tree().quit()
+		if Input.is_action_just_pressed("scoreboard") and summary:
+			summary.show_board = not summary.show_board
 		if Input.is_action_just_pressed("restart"):
-			get_tree().reload_current_scene()
+			# The first press skips the tally; once it has played, go on.
+			if summary and not summary.done():
+				summary.skip()
+			else:
+				get_tree().reload_current_scene()
 		return
 
 	if prep_left > 0.0:
@@ -589,7 +597,7 @@ func _score_capture(carrier, m) -> void:
 	carrier.carrying = null
 	m.go_home()
 	score[carrier.team] += 1
-	carrier.gain_xp(Stats.XP_CAPTURE)
+	carrier.gain_xp(Stats.XP_CAPTURE, "crown")
 	spawn_splash(thrones[carrier.team] + Vector3(0, 1, 0), Color(1.0, 0.85, 0.3), 50, 6.0, 1.2, true)
 	spawn_pillar(thrones[carrier.team], Color(1.0, 0.85, 0.3), 7.0, 1.4)
 	spawn_ring(thrones[carrier.team], 6.0, Color(1.0, 0.9, 0.5), 0.8)
@@ -661,7 +669,9 @@ func _finish(winner: int) -> void:
 		outcome = "VICTORY!" if winner == player_team else "DEFEAT"
 		line = "The %s win %d to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
 	winner_team = winner
-	announce(line)
+	chat_system(line)   # the summary screen carries the result; no banner over it
+	if message_label:
+		message_label.text = ""
 	_bank_match_xp(winner)
 	sfx.play_ambience(false)
 	if winner < 0:
@@ -699,7 +709,7 @@ func try_interact(u) -> void:
 			return
 		m.pick_up(u)
 		u.carrying = m
-		u.gain_xp(Stats.XP_GRAB)
+		u.gain_xp(Stats.XP_GRAB, "crown")
 		stolen_timer = 3.5
 		sfx.play("crown_grab", u.global_position)
 		if u.team != player_team:
@@ -890,7 +900,7 @@ func bounty_claimed(killer, victim) -> void:
 	## An Elite Veteran fell: the killer's whole team is blessed and the killer paid.
 	announce("BOUNTY CLAIMED! %s slew the Elite Veteran %s: the %s gain %s!" % [killer.display_name, victim.display_name, Stats.FACTIONS[killer.team].name, Stats.BOUNTY_BUFF])
 	chat_system("%s claimed the bounty on %s (+%d XP, %s for the team)." % [killer.display_name, victim.display_name, Stats.BOUNTY_XP, Stats.BOUNTY_BUFF])
-	killer.gain_xp(Stats.BOUNTY_XP)
+	killer.gain_xp(Stats.BOUNTY_XP, "takedowns")
 	spawn_pillar(victim.global_position, Color(1.0, 0.85, 0.3), 9.0, 1.6)
 	spawn_ring(victim.global_position, 5.0, Color(1.0, 0.85, 0.3), 1.0)
 	for u in units:
@@ -2197,17 +2207,21 @@ func night() -> bool:
 
 
 func _bank_match_xp(winner: int) -> void:
-	## The match is over: the player's XP goes on the account.
+	## The match is over: the player's XP, the result bonus and any accolades
+	## go on the account. The summary screen plays the bar filling up.
+	summary = MatchSummary.new()
+	summary.capture(self, player, winner)
 	if demo:
 		return
 	var bonus: int = Stats.MATCH_BONUS.draw if winner < 0 else (Stats.MATCH_BONUS.win if winner == player_team else Stats.MATCH_BONUS.loss)
 	level_before = account_level()
-	last_match_gain = match_xp + bonus
+	var xp_was := account_xp
+	last_match_gain = match_xp + bonus + summary.bonus_xp()
 	account_xp += last_match_gain
+	summary.set_account(xp_was, account_xp)
 	_save_settings()
 	var now := account_level()
 	if now > level_before:
-		sfx.ui("level_up")
 		if now >= Stats.UNLOCK_LEVEL and level_before < Stats.UNLOCK_LEVEL:
 			chat_system("Account level %d: the Rogue, the Shadowborn look and the Moonlit Wildwood are unlocked!" % now)
 
