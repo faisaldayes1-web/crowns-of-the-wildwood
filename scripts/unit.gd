@@ -125,7 +125,13 @@ var death_timer := 0.0        # the body stays for a moment after dying
 var guard_ring: MeshInstance3D
 var overhead: Node3D
 var label: Label3D
-var heart_mats: Array[StandardMaterial3D] = []
+var hp_bar: Node3D                         # overhead health bar (trough + segments)
+var hp_fill_mat: StandardMaterial3D
+var hp_segs: Array[MeshInstance3D] = []
+const HP_BAR_W := 1.1
+const HP_BAR_H := 0.13
+const HP_BAR_Y := 0.07
+const HP_BAR_GAP := 0.025
 var aim_marker: MeshInstance3D
 var aim_ring: MeshInstance3D
 
@@ -236,27 +242,35 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	add_child(overhead)
 	label = Label3D.new()
 	label.no_depth_test = true
-	label.font_size = 30
+	label.font_size = 32
 	label.pixel_size = 0.0085
 	label.outline_size = 12
 	label.outline_modulate = Color(0.08, 0.06, 0.04)
-	label.render_priority = 3
-	label.outline_render_priority = 2
-	label.position.y = 0.3
+	label.render_priority = 5
+	label.outline_render_priority = 4
+	label.position.y = 0.33
 	overhead.add_child(label)
-	for i in Stats.MAX_HEARTS:
-		var heart := MeshInstance3D.new()
-		var quad := QuadMesh.new()
-		quad.size = Vector2(0.19, 0.17)
-		heart.mesh = quad
-		heart.position.x = (i - (Stats.MAX_HEARTS - 1) / 2.0) * 0.22
-		var mat := StandardMaterial3D.new()
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.no_depth_test = true
-		mat.render_priority = 1
-		heart.material_override = mat
-		heart_mats.append(mat)
-		overhead.add_child(heart)
+	# Health bar right under the name: a dark outlined trough, one fill
+	# segment per heart (thin gaps keep "1 hit = 1 heart" readable).
+	hp_bar = Node3D.new()
+	hp_bar.position.y = HP_BAR_Y
+	overhead.add_child(hp_bar)
+	var frame := MeshInstance3D.new()
+	var frame_quad := QuadMesh.new()
+	frame_quad.size = Vector2(HP_BAR_W + 0.04, HP_BAR_H + 0.04)
+	frame.mesh = frame_quad
+	frame.material_override = _overhead_mat(Color(0.05, 0.04, 0.03, 0.95), 1)
+	frame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	hp_bar.add_child(frame)
+	var trough := MeshInstance3D.new()
+	var trough_quad := QuadMesh.new()
+	trough_quad.size = Vector2(HP_BAR_W, HP_BAR_H)
+	trough.mesh = trough_quad
+	trough.position.z = 0.002
+	trough.material_override = _overhead_mat(Color(0.16, 0.14, 0.13, 0.95), 2)
+	trough.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	hp_bar.add_child(trough)
+	hp_fill_mat = _overhead_mat(Color(0.35, 0.85, 0.3), 3)
 	# Veteran marker: a ring over the head, and a beam of light for an Elite so
 	# everyone can see where the bounty is.
 	bounty_ring = MeshInstance3D.new()
@@ -530,9 +544,14 @@ func _refresh_overhead() -> void:
 		vet = "BOUNTY · "
 	elif veteran == 1:
 		vet = "VETERAN · "
-	# Only the player's own name (and a veteran's warning) floats overhead;
-	# everyone else shows just their hearts, so crowds stay readable.
-	label.text = vet + tag + role_name() + lvl if (is_player or veteran >= 1) else ""
+	# Every unit wears a tag: the player its own name, allies their faction
+	# and class ("ELF KNIGHT"), enemies just "HOSTILE".
+	if is_player:
+		label.text = vet + tag + role_name() + lvl
+	elif is_enemy_of_player():
+		label.text = vet + "HOSTILE"
+	else:
+		label.text = vet + ally_tag()
 	if is_player and game.couch_players > 1:
 		label.modulate = game.player_color(local_index).lightened(0.3)
 		label.no_depth_test = true   # visible through walls to the other panes
@@ -551,8 +570,49 @@ func _refresh_overhead() -> void:
 		bounty_ring_mat.albedo_color = (Color(1, 0.3, 0.2) if is_enemy_of_player() else Color(1, 0.85, 0.3)) if veteran == 2 else Color(0.95, 0.75, 0.3)
 		bounty_beam.visible = veteran == 2 and not dead
 		bounty_beam.material_override.albedo_color = Color(1, 0.3, 0.2, 0.3) if is_enemy_of_player() else Color(1, 0.85, 0.3, 0.25)
-	for i in heart_mats.size():
-		heart_mats[i].albedo_color = Color(0.95, 0.15, 0.2) if i < hearts else Color(0.2, 0.2, 0.2)
+	label.visible = not dead
+	_refresh_hp_bar()
+
+
+func ally_tag() -> String:
+	## "ELF KNIGHT", "HUMAN WARDEN"; a plain base unit is just "ELF" / "HUMAN".
+	var faction: String = Stats.FACTIONS[team].roles[Role.BASE].to_upper()
+	return faction if role == Role.BASE else faction + " " + role_name().to_upper()
+
+
+func _overhead_mat(color: Color, priority: int) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA   # so render_priority orders the layers
+	mat.no_depth_test = true   # same as the label: never hidden in a crowd
+	mat.render_priority = priority
+	mat.albedo_color = color
+	return mat
+
+
+func _refresh_hp_bar() -> void:
+	if hp_bar == null:
+		return
+	hp_bar.visible = not dead
+	var total := maxi(max_hearts(), 1)
+	if hp_segs.size() != total:
+		for seg in hp_segs:
+			seg.queue_free()
+		hp_segs.clear()
+		var seg_w := (HP_BAR_W - HP_BAR_GAP * (total + 1)) / total
+		for i in total:
+			var seg := MeshInstance3D.new()
+			var quad := QuadMesh.new()
+			quad.size = Vector2(seg_w, HP_BAR_H - HP_BAR_GAP * 2.0)
+			seg.mesh = quad
+			seg.position = Vector3(-HP_BAR_W / 2.0 + HP_BAR_GAP + seg_w / 2.0 + i * (seg_w + HP_BAR_GAP), 0, 0.004)
+			seg.material_override = hp_fill_mat
+			seg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			hp_bar.add_child(seg)
+			hp_segs.append(seg)
+	hp_fill_mat.albedo_color = Color(0.9, 0.2, 0.17) if (is_enemy_of_player() and not is_player) else Color(0.35, 0.85, 0.3)
+	for i in hp_segs.size():
+		hp_segs[i].visible = i < hearts
 
 
 # --- Experience and ranks ----------------------------------------------------
@@ -1123,6 +1183,7 @@ func _die() -> void:
 	if aim_marker:
 		aim_marker.visible = false
 		aim_ring.visible = false
+	_refresh_overhead()   # hide the name tag and health bar while down
 
 
 func _respawn() -> void:

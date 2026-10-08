@@ -381,6 +381,11 @@ func _debug_hooks() -> void:
 				title_tab = int(arg.trim_prefix("--debug-title-tab="))
 			if arg.begins_with("--debug-xp="):
 				account_xp = int(arg.trim_prefix("--debug-xp="))
+		if frame == shot_frame - 50 and player and arg == "--debug-carry" and monarchs[1 - player_team].state != Monarch.State.CARRIED:
+			# Renders: the player holding the enemy crown, picked up 50 frames
+			# before the shot so the pickup banner has popped in.
+			monarchs[1 - player_team].pick_up(player)
+			player.carrying = monarchs[1 - player_team]
 		if frame == shot_frame - 5 and player:
 			if arg == "--debug-killed":
 				# The kill screen: a bot's banner over the player's death.
@@ -441,10 +446,6 @@ func _debug_hooks() -> void:
 					var thief = units[TEAM_SIZE - 1] if player_team == 1 else units[TEAM_SIZE + 1]
 					monarchs[1 - player_team].pick_up(thief)
 					thief.carrying = monarchs[1 - player_team]
-			if arg == "--debug-carry" and player and monarchs[1 - player_team].state != Monarch.State.CARRIED:
-				# Renders: the player holding the enemy crown.
-				monarchs[1 - player_team].pick_up(player)
-				player.carrying = monarchs[1 - player_team]
 			if arg == "--debug-levelup":
 				levelup_timer = 3.0
 				levelup_level = 2
