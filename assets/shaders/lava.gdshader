@@ -5,7 +5,7 @@ shader_type spatial;
 // bevelled so the plates read as solid slabs. The whole sea breathes with a
 // slow pulse, like something alive underneath. World-space, so any plane
 // (and the falls) lines up seamlessly.
-render_mode cull_disabled;
+render_mode cull_disabled, fog_disabled;   // no red haze over the black crust
 
 uniform float drift = 0.03;
 uniform float scale = 0.16;

@@ -1263,7 +1263,7 @@ func apply_light() -> void:
 	env.fog_light_color = Color(0.32, 0.05, 0.03)
 	env.fog_density = 0.004
 	env.glow_intensity = 0.65
-	env.glow_hdr_threshold = 1.0
+	env.glow_hdr_threshold = 1.2   # bloom only on the hottest cracks, not across the crust
 	env.adjustment_saturation = 1.05
 	env.adjustment_brightness = 1.0
 	env.adjustment_contrast = 1.12
