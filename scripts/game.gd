@@ -3073,8 +3073,11 @@ func _material(color: Color) -> StandardMaterial3D:
 # size tile cleanly without UV work. One tile every 1/scale metres.
 func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE, ext: String = "jpg") -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
+	# A swapped texture is already dark and cool, so it takes only a light soot.
+	var dim: Color = Color(0.9, 0.86, 0.84) if tex_swap.has(prefix) else soot
+	prefix = tex_swap.get(prefix, prefix)
 	mat.albedo_texture = load("res://assets/textures/%s_color.%s" % [prefix, ext])
-	mat.albedo_color = tint * soot
+	mat.albedo_color = tint * dim
 	mat.normal_enabled = true
 	mat.normal_texture = load("res://assets/textures/%s_normal.jpg" % prefix)
 	mat.roughness = 0.85
@@ -4355,6 +4358,7 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 
 var mossy := false   # while an elven castle is being built: ivy and moss on its stone
 var soot := Color.WHITE   # while Ember Pass's castles are built: darkens every textured surface
+var tex_swap := {}        # ...and swaps textures that clash with the lava light (the Elves' bark and sandstone)
 var grey := false    # while the Humans' castle is being built: grey stone
 
 
@@ -7212,9 +7216,11 @@ func _build_volcano() -> void:
 	# Soot-dark castles: the lava's red light turns pale stone, bark and
 	# moss glaring yellow and green.
 	soot = Color(0.52, 0.46, 0.44)
+	tex_swap = {"bark": "elfbark", "flagstone_moss": "flagstone_elf"}
 	_build_castle(0)
 	_build_castle(1)
 	soot = Color.WHITE
+	tex_swap = {}
 	for p in vmap.heal_orb_spots():
 		var orb = HealOrb.new()
 		add_child(orb)

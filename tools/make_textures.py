@@ -622,6 +622,49 @@ def make_greystone():
     save("greystone", color, height, 1.2)
 
 
+def make_elfbark():
+    """Elven castle walls on Ember Pass: broad, smooth bark plates in a cool
+    grey-brown with thin fissures and a little lichen, so a wall reads as one
+    grown surface instead of busy stripes under the lava's red light."""
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    warp = fbm(N, 3, 3, 141)
+    # Plates: wide vertical bands (8 per tile) whose edges wander gently.
+    band = (xs / N * 8.0 + (warp - 0.5) * 1.2 + (fbm(N, 6, 2, 142) - 0.5) * 0.25) % 1.0
+    edge = np.minimum(band, 1.0 - band)
+    fissure = np.clip((0.06 - edge) / 0.06, 0, 1)
+    plate = np.clip(edge * 5.0, 0, 1)
+    grain = fbm(N, 24, 3, 143)
+    h = 0.75 * plate + 0.25 * grain
+    light = rgb(0.50, 0.44, 0.38)
+    mid = rgb(0.38, 0.33, 0.29)
+    color = lerp(mid, light, np.clip(grain * 1.4 - 0.3, 0, 1)[..., None] * plate[..., None])
+    color = lerp(color, rgb(0.13, 0.10, 0.09), fissure[..., None] * 0.85)
+    lichen = np.clip((fbm(N, 7, 3, 144) - 0.62) * 5, 0, 1) * plate
+    color = lerp(color, rgb(0.36, 0.48, 0.40), lichen[..., None] * 0.45)
+    save("elfbark", color, h, 2.0)
+
+
+def make_flagstone_elf():
+    """Elven yard flags for Ember Pass: cool slate-green tiles with moss in
+    the joints (the sandstone flags glare yellow in the lava's light)."""
+    r = np.random.default_rng(19)
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    cw = N / 4
+    u = (xs % cw) / cw
+    v = (ys % cw) / cw
+    d = np.minimum(np.minimum(u, 1 - u), np.minimum(v, 1 - v)) * cw
+    height = np.clip((d - 5) / 4, 0, 1)
+    ids = (np.floor(ys / cw) * 100 + np.floor(xs / cw)).astype(int)
+    shade = r.random(int(ids.max()) + 1)[ids]
+    color = lerp(rgb(0.42, 0.46, 0.43), rgb(0.56, 0.60, 0.55), (0.3 + 0.7 * shade)[..., None])
+    color = lerp(color, color * 0.9, fbm(N, 10, 3, 191)[..., None])
+    lit = ((u < 0.06) | (v < 0.06)) & (u < 0.94) & (v < 0.94)
+    color = lerp(color, rgb(0.68, 0.72, 0.66), (lit * height)[..., None] * 0.4)
+    moss = np.clip((1 - height) * 1.4 + (fbm(N, 6, 3, 192) - 0.65) * 2.0, 0, 1)
+    color = lerp(color, rgb(0.20, 0.36, 0.22), np.clip(moss, 0, 1)[..., None] * 0.8)
+    save("flagstone_elf", color, height, 1.0)
+
+
 import sys
 if len(sys.argv) > 1:   # e.g. python3 tools/make_textures.py make_greystone
     for fn in sys.argv[1:]:
