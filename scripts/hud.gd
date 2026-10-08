@@ -64,6 +64,8 @@ var reset_button := Rect2()
 var volume_sliders: Array = []   # [rect, "sound" | "music"] in the settings tab
 var toggle_buttons: Array = []   # [rect, setting key] in the settings tab
 var slot_prev: Dictionary = {}   # ability slot cooldowns last frame, for the ready flash
+var touch_rects: Array = []      # [rect, action] for the ability tiles and corner buttons (touch.gd)
+var hud_scale := 1.0             # the player panel's shrink factor in narrow panes
 var slot_flash: Dictionary = {}  # ability slot -> seconds of ready flash left
 var options_button := Rect2()
 var close_button := Rect2()
@@ -168,6 +170,8 @@ func _draw() -> void:
 	options_button = Rect2()
 	close_button = Rect2()
 	quit_button = Rect2()
+	if not pane:
+		touch_rects = []
 	difficulty_buttons = []
 	guide_buttons = []
 	chat_buttons = []
@@ -2042,6 +2046,7 @@ func _draw_scoreboard() -> void:
 	if topbar_tex:
 		# On the art's own parchment strip, right of its "i" medallion.
 		var fs := 13 if _text_width(line, 13) < 490.0 else 12
+		_bang_medallion(Vector2(cx - 254.0, 94.0))
 		_text(Vector2(cx - 231.0, 98.5), line, fs, line_ink, HORIZONTAL_ALIGNMENT_CENTER, 499.0, 0)
 	else:
 		_info_banner(Vector2(cx, 98), line, line_ink)
@@ -2161,15 +2166,19 @@ func _info_banner(center: Vector2, line: String, ink: Color) -> void:
 		cb.border_color = Color(0.35, 0.2, 0.04)
 		draw_style_box(cb, cap)
 		draw_rect(Rect2(cap.position + Vector2(2, 3), Vector2(2, cap.size.y - 6)), Color(1, 0.95, 0.7, 0.6))
-	# The "i" medallion.
-	var ic := Vector2(rect.position.x + 24, center.y)
-	draw_circle(ic + Vector2(0, 1), 10.5, Color(0, 0, 0, 0.25))
-	draw_circle(ic, 10, Color(0.5, 0.33, 0.12))
-	draw_circle(ic, 8.5, Color(0.33, 0.2, 0.07))
-	draw_arc(ic, 9.2, PI * 1.1, PI * 1.9, 10, Color(1, 0.85, 0.5, 0.5), 1.0)
-	draw_circle(ic + Vector2(0, -4.2), 1.5, CREAM)
-	draw_rect(Rect2(ic + Vector2(-1.3, -1.5), Vector2(2.6, 7.0)), CREAM)
+	_bang_medallion(Vector2(rect.position.x + 24, center.y))
 	_text(Vector2(rect.position.x + 40, center.y + 4.5), line, fs, ink, HORIZONTAL_ALIGNMENT_CENTER, w - 54, 0)
+
+
+func _bang_medallion(ic: Vector2) -> void:
+	## The "!" medallion on the objective banner: a dark round plate in a
+	## bronze rim with a cream exclamation mark.
+	draw_circle(ic + Vector2(0, 1), 11.5, Color(0, 0, 0, 0.3))
+	draw_circle(ic, 11, Color(0.5, 0.33, 0.12))
+	draw_circle(ic, 9.5, Color(0.16, 0.12, 0.1))
+	draw_arc(ic, 10.2, PI * 1.1, PI * 1.9, 10, Color(1, 0.85, 0.5, 0.5), 1.0)
+	draw_rect(Rect2(ic + Vector2(-1.5, -6.5), Vector2(3.0, 7.5)), CREAM)
+	draw_circle(ic + Vector2(0, 4.2), 1.8, CREAM)
 
 
 func _draw_roster(team: int, origin: Vector2, compact: bool = false) -> void:
@@ -2800,6 +2809,7 @@ func _draw_player_panel(p) -> void:
 	## ability strip on its own gold-framed board; the map, bag and menu
 	## buttons in the corner. All of it shrinks together in narrow panes.
 	var k := minf(1.0, size.x / 1280.0)
+	hud_scale = k
 	var W := size.x / k
 	var H := size.y / k
 	if k < 1.0:
@@ -2923,17 +2933,21 @@ func _status_panel(p, panel: Rect2) -> void:
 	## a slim stamina (or mana) bar and the gold experience bar under them.
 	## No backing panel: it all sits straight on the world.
 	var x0 := panel.position.x + 14.0
-	var row_y := panel.position.y + 16.0
+	var row_y := panel.position.y + 8.0
 	for i in Stats.MAX_HEARTS:
 		_big_heart(Vector2(x0 + 24.0 + i * 46.0, row_y), 1.0, i < (0 if p.dead else p.hearts))
-	var bar := Rect2(Vector2(x0 + 4.0, panel.position.y + 38.0), Vector2(Stats.MAX_HEARTS * 42.0 + 60.0, 9.0))
+	# The two bars share a bronze-framed dark block (the 2026-10-08
+	# reference): the energy bar with its numbers, the experience bar under.
+	var bar := Rect2(Vector2(x0 + 4.0, panel.position.y + 30.0), Vector2(Stats.MAX_HEARTS * 42.0 + 90.0, 18.0))
+	_dark_frame(Rect2(bar.position - Vector2(4, 4), Vector2(bar.size.x + 8, 48)), 6)
 	if p.dead:
 		var msg := "Down for the rest of overtime" if game.overtime else "Down! Back in %d" % ceili(p.respawn_timer)
-		_text(Vector2(bar.position.x, bar.end.y + 1.0), msg, 13, Color(1, 0.7, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		_text(Vector2(bar.position.x, bar.position.y + 14.0), msg, 12, Color(1, 0.7, 0.6), HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 3)
 	else:
 		var is_mana: bool = p.energy_kind() == "mana"
-		_meter(bar, p.energy / p.energy_max(), (MANA if is_mana else STAMINA).darkened(0.1))
-	_draw_xp_bar(p, Rect2(Vector2(x0 + 4.0, panel.position.y + 52.0), Vector2(bar.size.x + 30.0, 20.0)))
+		_meter(bar, p.energy / p.energy_max(), (MANA if is_mana else STAMINA).darkened(0.05))
+		_text(Vector2(bar.position.x, bar.position.y + 14.0), "%d/%d" % [roundi(p.energy), roundi(p.energy_max())], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 3)
+	_draw_xp_bar(p, Rect2(Vector2(x0 + 4.0, panel.position.y + 52.0), Vector2(bar.size.x, 18.0)))
 	var name_tag := ""
 	if p.local_index > 0:
 		name_tag = "PLAYER %d" % (p.local_index + 1)
@@ -3068,6 +3082,10 @@ func _ability_strip(p, strip: Rect2) -> void:
 	var gap := 72.0
 	var sx := strip.get_center().x - (5.0 * gap + slot) / 2.0
 	var sy := strip.position.y + 20.0
+	if not pane:
+		var acts := ["attack", "dodge", "ability_1", "ability_2", "block" if p.can_block() else "rank_menu", "interact"]
+		for i in 6:
+			touch_rects.append([Rect2(Vector2(sx + i * gap, sy) * hud_scale, Vector2(slot, slot + 22.0) * hud_scale), acts[i]])
 	var alive: bool = not p.dead and p.carrying == null
 	var atk: Dictionary = p.attack_stats()
 	var cost_c: Color = STAMINA if p.energy_kind() == "stamina" else MANA
@@ -3106,6 +3124,8 @@ func _corner_buttons(origin: Vector2) -> void:
 	var keys := [_k("menu"), "" if pad else "I", _k("scoreboard")]
 	for i in 3:
 		var r := Rect2(origin + Vector2(i * 50.0, 0), Vector2(42, 42))
+		if not pane:
+			touch_rects.append([Rect2(r.position * hud_scale, r.size * hud_scale), ["menu", "", "scoreboard"][i]])
 		_plate(r.grow(3), Color(0.06, 0.04, 0.03), Color(0.03, 0.02, 0.01), 8, 1)
 		var fb := StyleBoxFlat.new()
 		fb.bg_color = Color(0.2, 0.13, 0.08)

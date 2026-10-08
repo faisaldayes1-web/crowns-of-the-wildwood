@@ -116,6 +116,10 @@ var last_role := 0            # the class held when we died
 var stuck_time := 0.0
 var stall_target := Vector3.ZERO   # last _steer_to target (diagnostics)
 var player_ring_mat: StandardMaterial3D   # the ground ring under a local player
+var side_ring: MeshInstance3D          # the team ring under every unit, and its glow halo
+var side_glow: MeshInstance3D
+var side_ring_mat: StandardMaterial3D
+var side_glow_mat: StandardMaterial3D
 var local_index := -1              # which local (couch) player drives this unit, -1 for bots
 var act_prefix := ""               # input action prefix: "" for player 1, "p2_" ... for couch players
 var has_mouse := true              # player 1 aims with the mouse; the others with the right stick
@@ -211,19 +215,37 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	guard_ring.visible = false
 	add_child(guard_ring)
 
+	# A ground ring under everyone (Faisal's 2026-10-08 reference): the
+	# player's yellow, allies cyan, enemies red, each with a soft glow halo.
+	side_ring = MeshInstance3D.new()
+	var ring_mesh := TorusMesh.new()
+	ring_mesh.inner_radius = 0.58
+	ring_mesh.outer_radius = 0.74
+	side_ring.mesh = ring_mesh
+	side_ring.position.y = 0.05
+	side_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	side_ring_mat = StandardMaterial3D.new()
+	side_ring_mat.albedo_color = Color(1, 1, 0.3)
+	side_ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	side_ring.material_override = side_ring_mat
+	add_child(side_ring)
+	side_glow = MeshInstance3D.new()
+	var glow_mesh := TorusMesh.new()
+	glow_mesh.inner_radius = 0.42
+	glow_mesh.outer_radius = 1.02
+	glow_mesh.rings = 6
+	side_glow.mesh = glow_mesh
+	side_glow.position.y = 0.04
+	side_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	side_glow_mat = StandardMaterial3D.new()
+	side_glow_mat.albedo_color = Color(1, 1, 0.3, 0.22)
+	side_glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	side_glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	side_glow_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	side_glow.material_override = side_glow_mat
+	add_child(side_glow)
 	if is_player:
-		var ring := MeshInstance3D.new()
-		var ring_mesh := TorusMesh.new()
-		ring_mesh.inner_radius = 0.6
-		ring_mesh.outer_radius = 0.8
-		ring.mesh = ring_mesh
-		ring.position.y = 0.05
-		var ring_mat := StandardMaterial3D.new()
-		ring_mat.albedo_color = Color(1, 1, 0.3)
-		ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		player_ring_mat = ring_mat
-		ring.material_override = ring_mat
-		add_child(ring)
+		player_ring_mat = side_ring_mat
 
 		# A pointer on the ground showing where you aim, and a ring at the cursor.
 		aim_marker = MeshInstance3D.new()
@@ -583,6 +605,7 @@ func _apply_side_colors() -> void:
 			m.emission_energy_multiplier = 0.1   # a warm sheen; the outline and rays do the shouting
 		if blob_mat:
 			blob_mat.albedo_color = Color(1.0, 0.75, 0.1, 0.5)
+		_refresh_side_ring(enemy)
 		return
 	if is_player:
 		for m in flash_mats:
@@ -603,6 +626,7 @@ func _apply_side_colors() -> void:
 		model.outline.grow_amount = 0.03
 	if blob_mat:
 		blob_mat.albedo_color = Color(0, 0, 0, 0.3) if is_player else (Color(0.7, 0.0, 0.0, 0.4) if enemy else Color(0.0, 0.5, 0.1, 0.35))
+	_refresh_side_ring(enemy)
 	# A faint glow over the whole body (Faisal 2026-10-07): green for
 	# teammates, an even slighter red for enemies. The player stays as is.
 	if not is_player:
@@ -610,6 +634,23 @@ func _apply_side_colors() -> void:
 			m.emission_enabled = true
 			m.emission = Color(1.0, 0.18, 0.12) if enemy else Color(0.25, 1.0, 0.4)
 			m.emission_energy_multiplier = (0.1 if enemy else 0.12) * (2.0 if highlighted else 1.0)
+
+
+func _refresh_side_ring(enemy: bool) -> void:
+	## The ring and halo on the ground: a local player's own colour (yellow
+	## for a lone player), cyan for allies, red for enemies; gold while
+	## carrying the crown.
+	if side_ring_mat == null:
+		return
+	var col := Color(1.0, 0.95, 0.3)
+	if carrying != null:
+		col = Color(1.0, 0.8, 0.2)
+	elif is_player:
+		col = game.player_color(local_index) if game.couch_players > 1 else Color(1.0, 0.95, 0.3)
+	else:
+		col = Color(1.0, 0.3, 0.2) if enemy else Color(0.35, 0.85, 1.0)
+	side_ring_mat.albedo_color = col
+	side_glow_mat.albedo_color = Color(col.r, col.g, col.b, 0.3 if (is_player or highlighted) else 0.2)
 
 
 func set_highlight(on: bool) -> void:
@@ -666,6 +707,9 @@ func _refresh_overhead() -> void:
 		bounty_beam.visible = veteran == 2 and not dead
 		bounty_beam.material_override.albedo_color = Color(1, 0.3, 0.2, 0.3) if is_enemy_of_player() else Color(1, 0.85, 0.3, 0.25)
 	label.visible = not dead
+	if side_ring:
+		side_ring.visible = not dead
+		side_glow.visible = not dead
 	_refresh_hp_bar()
 
 
@@ -1421,7 +1465,7 @@ func _update_player_aim(move: Vector3) -> void:
 	var cam: Camera3D = game.camera_for(self)
 	var mouse: Vector2 = cam.get_viewport().get_mouse_position() if has_mouse else last_mouse
 	var stick := Input.get_vector(_a("aim_left"), _a("aim_right"), _a("aim_up"), _a("aim_down"))
-	if stick.length() > 0.3:
+	if stick.length() > 0.3 or game.touch_active:
 		aim_mode = "stick"
 	elif has_mouse and mouse != last_mouse:
 		aim_mode = "mouse"
@@ -1430,8 +1474,13 @@ func _update_player_aim(move: Vector3) -> void:
 		"stick":
 			if stick.length() > 0.3:
 				aim = Vector3(stick.x, 0, stick.y).normalized()
-			elif move.length() > 0.05:
-				aim = move.normalized()
+			else:
+				# Touch play: with no aim drag, face the nearest enemy in reach.
+				var auto := _auto_aim() if game.touch_active else Vector3.ZERO
+				if auto != Vector3.ZERO:
+					aim = auto
+				elif move.length() > 0.05:
+					aim = move.normalized()
 			aim_point = global_position + aim * 6.0
 		"mouse":
 			var plane := Plane(Vector3.UP, global_position.y + 1.0)
@@ -1446,6 +1495,22 @@ func _update_player_aim(move: Vector3) -> void:
 			if move.length() > 0.05:
 				aim = move.normalized()
 			aim_point = global_position + aim * 6.0
+
+
+func _auto_aim() -> Vector3:
+	## The direction to the nearest living enemy within a few metres, or zero.
+	var best := 7.0
+	var dir := Vector3.ZERO
+	for u in game.units:
+		if u == self or u.team == team or u.dead:
+			continue
+		var to: Vector3 = u.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d < best and d > 0.1:
+			best = d
+			dir = to / d
+	return dir
 
 
 func _physics_process(delta: float) -> void:

@@ -9,12 +9,12 @@ render_mode cull_disabled, fog_disabled;   // no red haze over the black crust
 
 uniform float drift = 0.03;
 uniform float scale = 0.16;
-uniform float glow = 2.6;
-uniform vec3 core : source_color = vec3(1.0, 0.62, 0.22);      // the hottest crack cores
-uniform vec3 hot : source_color = vec3(1.0, 0.16, 0.02);      // molten rock
-uniform vec3 deep : source_color = vec3(0.3, 0.01, 0.015);    // cooling, deep red
+uniform float glow = 3.2;
+uniform vec3 core : source_color = vec3(1.0, 0.78, 0.32);      // the hottest crack cores
+uniform vec3 hot : source_color = vec3(1.0, 0.34, 0.04);      // molten rock
+uniform vec3 deep : source_color = vec3(0.45, 0.04, 0.015);    // cooling, deep red
 uniform vec3 crust_lo : source_color = vec3(0.008, 0.006, 0.007);   // near black
-uniform vec3 crust_hi : source_color = vec3(0.04, 0.022, 0.022);
+uniform vec3 crust_hi : source_color = vec3(0.06, 0.03, 0.028);
 uniform float flow = 0.0;   // falls: how fast the pattern pours down (v)
 uniform float pulse = 0.18; // how much the glow breathes
 
@@ -101,8 +101,10 @@ void fragment() {
 	vec3 n_view = normalize(NORMAL + (TANGENT * -dh.x + BINORMAL * dh.y) * 6.0);
 
 	// Molten where the crust is missing: thin cracks, wider where it runs hot.
-	float open = smoothstep(0.7, 0.95, heat) * 0.5;
-	float molten = 1.0 - smoothstep(0.015, 0.1 + heat * 0.06, edge);
+	// Wide open pools where it runs hot (the 2026-10-08 reference: bright
+	// molten rivers with black crust islands), thin cracks elsewhere.
+	float open = smoothstep(0.52, 0.88, heat) * 0.85;
+	float molten = 1.0 - smoothstep(0.02, 0.13 + heat * 0.1, edge);
 	molten = clamp(max(molten, open * (1.0 - h * 0.6)), 0.0, 1.0);
 	if (flow > 0.0) {
 		molten = clamp(molten + 0.3, 0.0, 1.0);
@@ -116,7 +118,7 @@ void fragment() {
 	lava = mix(lava, core, smoothstep(0.75, 1.0, molten) * smoothstep(0.35, 0.8, heat));
 	// Glow falls off steeply from the crack, so the crust around it stays black.
 	float burn = molten * molten;
-	ALBEDO = mix(crust, lava * 0.6, burn);
+	ALBEDO = mix(crust, lava * 0.7, burn);
 	// Only a thin ember line right at the crack's lip; the plates stay black.
 	float lip = 1.0 - smoothstep(0.02, 0.08, edge);
 	vec3 ember = deep * lip * 0.7 * (1.0 - molten);

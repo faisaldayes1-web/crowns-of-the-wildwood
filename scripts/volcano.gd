@@ -562,13 +562,14 @@ func _build_corridor(s: Array) -> void:
 			if k % 4 == 0 and k > 0 and k < n:
 				for sd in [-1.0, 1.0]:
 					_hell_torch(at + side * sd * (half + 0.12) + Vector3(0, 0.0, 0), 1.6)
-		# The rails themselves.
+		# The rails: heavy iron chains draped post to post (the 2026-10-08
+		# reference), a low timber rail under them.
 		var start: Vector3 = a + dir * (rad[s[0]] - 0.3)
 		var end: Vector3 = b - dir * (rad[s[1]] - 0.3)
 		var rl: float = _flat(start, end)
 		for sd in [-1.0, 1.0]:
-			_box((start + end) / 2.0 + side * sd * (half + 0.12) + Vector3(0, 1.08, 0), Vector3(0.12, 0.12, rl), timber, yaw)
 			_box((start + end) / 2.0 + side * sd * (half + 0.12) + Vector3(0, 0.6, 0), Vector3(0.08, 0.08, rl), timber, yaw)
+			_chain(start + side * sd * (half + 0.12) + Vector3(0, 1.08, 0), end + side * sd * (half + 0.12) + Vector3(0, 1.08, 0), 2.6, 0.16)
 		# Chains hanging under the deck edge, a lick of glow from below.
 		_box(mid + Vector3(0, -0.36, 0), Vector3(half * 2.0 - 0.3, 0.2, length - 1.0), basalt(Color(0.25, 0.2, 0.2)), yaw)
 		return
@@ -586,6 +587,8 @@ func _build_corridor(s: Array) -> void:
 	# Low parapets with merlons, torches on every fourth.
 	for sd in [-1.0, 1.0]:
 		_box(cm + side * sd * (half + 0.15) + Vector3(0, 0.25, 0), Vector3(0.4, 0.5, cl), kerb, yaw)
+		if kind == "causeway":
+			_chain(start + side * sd * (half + 0.15) + Vector3(0, 0.95, 0), end + side * sd * (half + 0.15) + Vector3(0, 0.95, 0), 3.2, 0.14)
 		var n := int(cl / 1.6)
 		for k in n:
 			var at: Vector3 = start + dir * ((k + 0.5) * cl / n)
@@ -942,6 +945,55 @@ func _build_embers() -> void:
 
 # --- The demonic dressing ------------------------------------------------------
 
+var chain_mat: StandardMaterial3D
+
+
+func _chain(a: Vector3, b: Vector3, span: float, sag: float) -> void:
+	## A run of heavy iron chain from a to b, hung between posts every
+	## `span` metres and sagging `sag` in the middle of each: one MultiMesh
+	## of torus links, every other link turned on its side.
+	var length := _flat(a, b)
+	if length < 0.5:
+		return
+	var dir := (b - a) / length
+	var step := 0.26
+	var count := int(length / step)
+	if count < 2:
+		return
+	if chain_mat == null:
+		chain_mat = StandardMaterial3D.new()
+		chain_mat.albedo_color = Color(0.17, 0.15, 0.16)
+		chain_mat.metallic = 0.75
+		chain_mat.roughness = 0.45
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	var link := TorusMesh.new()
+	link.inner_radius = 0.06
+	link.outer_radius = 0.13
+	link.rings = 10
+	link.ring_segments = 6
+	mm.mesh = link
+	mm.instance_count = count
+	var yaw := atan2(dir.x, dir.z)
+	var posts := maxi(1, int(round(length / span)))
+	for k in count:
+		var d := (k + 0.5) * step
+		var along := fmod(d, length / posts) / (length / posts)
+		var drop := sag * sin(along * PI)
+		var at := a + dir * d + Vector3(0, -drop, 0)
+		# Links lie along the chain; every other one stands on edge.
+		var stretch := Basis.from_scale(Vector3(1.0, 1.0, 1.5))
+		var basis := Basis(Vector3.UP, yaw) * stretch
+		if k % 2 == 1:
+			basis = Basis(Vector3.UP, yaw) * Basis(Vector3.FORWARD, PI / 2.0) * stretch
+		mm.set_instance_transform(k, Transform3D(basis, at))
+	var inst := MultiMeshInstance3D.new()
+	inst.multimesh = mm
+	inst.material_override = chain_mat
+	inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	game.add_child(inst)
+
+
 func _glow_mat(col: Color, energy: float) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = col * 0.4
@@ -1257,19 +1309,22 @@ func apply_light() -> void:
 	sky.sky_horizon_color = Color(0.42, 0.05, 0.03)
 	sky.ground_bottom_color = Color(0.04, 0.01, 0.01)
 	sky.ground_horizon_color = Color(0.32, 0.04, 0.02)
-	env.ambient_light_energy = 0.22
-	env.ambient_light_sky_contribution = 0.2
-	env.ambient_light_color = Color(0.6, 0.44, 0.47)
+	# Faisal's 2026-10-08 reference: everything bathed in orange from the
+	# lava, rich saturated reds on the stone, crisp warm-edged shadows.
+	env.ambient_light_energy = 0.34
+	env.ambient_light_sky_contribution = 0.15
+	env.ambient_light_color = Color(0.95, 0.5, 0.32)
 	env.fog_light_color = Color(0.32, 0.05, 0.03)
-	env.fog_density = 0.004
-	env.glow_intensity = 0.65
-	env.glow_hdr_threshold = 1.2   # bloom only on the hottest cracks, not across the crust
-	env.adjustment_saturation = 1.05
-	env.adjustment_brightness = 1.0
+	env.fog_density = 0.003
+	env.glow_intensity = 0.95
+	env.glow_hdr_threshold = 1.05
+	env.adjustment_saturation = 1.28
+	env.adjustment_brightness = 1.02
 	env.adjustment_contrast = 1.12
-	game.sun_light.light_color = Color(1.0, 0.6, 0.5)
-	game.sun_light.light_energy = 0.9
-	game.sun_light.rotation_degrees = Vector3(-42, -38, 0)
+	game.sun_light.light_color = Color(1.0, 0.74, 0.52)
+	game.sun_light.light_energy = 1.05
+	game.sun_light.rotation_degrees = Vector3(-46, -38, 0)
 	if game.fill_light:
-		game.fill_light.light_color = Color(1.0, 0.22, 0.12)
-		game.fill_light.light_energy = 0.2
+		# The lava lights everything from below and the side.
+		game.fill_light.light_color = Color(1.0, 0.4, 0.14)
+		game.fill_light.light_energy = 0.5

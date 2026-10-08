@@ -9,6 +9,7 @@ const Monarch = preload("res://scripts/monarch.gd")
 const Projectile = preload("res://scripts/projectile.gd")
 const Gate = preload("res://scripts/gate.gd")
 const Hud = preload("res://scripts/hud.gd")
+const Touch = preload("res://scripts/touch.gd")
 const HealOrb = preload("res://scripts/heal_orb.gd")
 const Trap = preload("res://scripts/trap.gd")
 const Blessing = preload("res://scripts/blessing.gd")
@@ -117,6 +118,9 @@ var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
+var account_gold := 0           # match rewards (Stats.MATCH_GOLD / MATCH_SHARDS), spent in a later shop
+var account_shards := 0
+var account_chests := 0
 var match_xp := 0               # the player's XP earned this match, over every life
 var summary = null              # the end-of-match screen (match_summary.gd), made when the match ends
 var last_match_gain := 0        # what the last match added (end screen)
@@ -218,6 +222,8 @@ const COUCH_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "aim_
 
 var camera: Camera3D
 var hud
+var touch                      # on-screen touch controls (touch.gd), for the web build on tablets
+var touch_active := false      # a finger has touched the screen: aim follows the move stick, not the mouse
 var message_label: Label
 var banner: Label
 var respawn_label: Label
@@ -2218,6 +2224,9 @@ func _bank_match_xp(winner: int) -> void:
 	var xp_was := account_xp
 	last_match_gain = match_xp + bonus + summary.bonus_xp()
 	account_xp += last_match_gain
+	account_gold += summary.reward_gold
+	account_shards += summary.reward_shards
+	account_chests += 1
 	summary.set_account(xp_was, account_xp)
 	_save_settings()
 	var now := account_level()
@@ -2992,6 +3001,9 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "team_size", team_size)
 	cfg.set_value("settings", "split_screen", split_screen)
 	cfg.set_value("profile", "account_xp", account_xp)
+	cfg.set_value("profile", "account_gold", account_gold)
+	cfg.set_value("profile", "account_shards", account_shards)
+	cfg.set_value("profile", "account_chests", account_chests)
 	cfg.save(CONTROLS_PATH)
 
 
@@ -3026,6 +3038,9 @@ func _load_controls() -> void:
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", false)
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
+	if OS.has_feature("web"):
+		# Browsers (and tablets) start on Medium at most; Settings can raise it.
+		gfx_quality = mini(gfx_quality, 1)
 	fullscreen = cfg.get_value("settings", "fullscreen", false)
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
@@ -3050,6 +3065,9 @@ func _load_controls() -> void:
 	team_size = clampi(cfg.get_value("settings", "team_size", TEAM_SIZE), 1, TEAM_SIZE)
 	split_screen = cfg.get_value("settings", "split_screen", false)
 	account_xp = maxi(int(cfg.get_value("profile", "account_xp", 0)), 0)
+	account_gold = maxi(int(cfg.get_value("profile", "account_gold", 0)), 0)
+	account_shards = maxi(int(cfg.get_value("profile", "account_shards", 0)), 0)
+	account_chests = maxi(int(cfg.get_value("profile", "account_chests", 0)), 0)
 	for entry in REBINDABLE:
 		if not cfg.has_section_key("controls", entry[0]):
 			continue
@@ -7563,6 +7581,9 @@ func _build_hud() -> void:
 	hud = Hud.new()
 	hud.game = self
 	layer.add_child(hud)
+	touch = Touch.new()
+	touch.game = self
+	layer.add_child(touch)
 
 	message_label = Label.new()
 	message_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
