@@ -495,7 +495,7 @@ Revert: `git revert b4c6aa2`
 
 ## 2026-10-09 — Elf base overhaul to the reference (Faisal's 03:30 / 03:34 brief): graphics, architecture, materials, pedestal, stations, workshop
 
-Commit: `PENDING`
+Commit: `7e37f9f`
 
 Faisal (03:30): "keep using the render as a reference, can you improve the graphics"; (03:34) the
 nine-point overhaul brief (shapes/proportions, open the base, replace the noisy green materials,
@@ -541,5 +541,5 @@ seed-5 bot matches: doors 169/200, then 172/198 at 60 s on the final state (raid
 room reachable). Renders: `elf-base-overhaul-*.png` (debug and in-play cameras) and the
 `compare-*-overhaul.png` side-by-sides in game/groups/ui-art/.
 
-Revert: `git revert PENDING` then `python3 tools/make_textures.py make_hedge make_stone make_flagstone`
+Revert: `git revert 7e37f9f` then `python3 tools/make_textures.py make_hedge make_stone make_flagstone`
 is NOT needed (the textures are committed; the revert restores them).
