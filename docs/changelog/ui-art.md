@@ -580,7 +580,7 @@ Commit: `c5afec8`. Scope: ONLY the Wildwood Elves' class-selection courtyard (th
   angular distance 1.2 → 0.8; SSAO radius 1.3 → 1.1, intensity 2.6 → 3.2.
 
 Files: `scripts/game.gd`, `scripts/seal.gd`, `tools/make_textures.py`,
-`assets/textures/pavers_{color,normal}.jpg` (+ .import), `docs/changelog/ui-art.md`.
+`assets/textures/pavers_{color,normal}.jpg` `docs/changelog/ui-art.md`.
 
 Tested: `--check-only` (game.gd, seal.gd); `--audit` 1 overlap (the pre-existing pines), 262
 props; seed-5 90 s match (Elves on the floor, out by 30 s); Ember Pass `--map=2` still builds the
