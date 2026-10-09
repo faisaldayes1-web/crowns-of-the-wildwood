@@ -171,7 +171,7 @@ then `python3 tools/balance/agg.py <tag>`.
 
 - **When:** 2026-10-09 10:05 UTC (Faisal 2026-10-09 09:14: "change the game to
   strictly 4v4 for now")
-- **Commit:** _filled in by the next commit_
+- **Commit:** `0c1cd37`
 - **What:** Every match is 4 Elves against 4 Humans, players and bots
   together; bots take every seat a player leaves empty. Couch split-screen
   (1-4 players) no longer grows a side past 4 (it used to be the bigger of the
@@ -191,4 +191,4 @@ then `python3 tools/balance/agg.py <tag>`.
   Humans 1; Ember Pass (`t4ember`) Elves 1, Humans 1; 4 units a side in every
   STAT block; captures E4 H4, kills E63 H55, doors broken 1-3 a match, average
   223 s, 0 script errors. `tools/tests/run.sh` 22/22.
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert 0c1cd37`
