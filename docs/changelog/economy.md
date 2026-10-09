@@ -2,6 +2,20 @@
 
 Branch `group/economy-whmjnc`, draft PR #13. Newest entry first. Format: [README.md](README.md).
 
+### 2026-10-09 21:30 UTC · `b13fe48`, `e920dee`, `a63d7b1` · Repair / upgrade button and resource monitor (Faisal 20:41)
+
+- **What:** Standing at your door, a turret pad or your class's hat machine now brings up a card above the ability board: what it does, the door's or turret's health bar, the price in wood and ore (red when the base is short), and a big button (REPAIR, RAISE, UPGRADE, BUILD, PUT ON). Click or tap it, or press interact. When it can't be bought the button says why (NEED 1 ORE, UNDER SIEGE, FULL HEALTH, MAX LEVEL). The resource monitor under the minimap is now a BASE STOCK panel with big wood and ore numbers that flash when they change, and three ON YOUR BACK slots. The floating door and pad prompts are gone (the card replaces them). A left click on the button doesn't swing your weapon.
+- **Files:** scripts/economy.gd (`offer`, `draw_action_card`, `draw_counter`, `mouse_on_button`, `_input`, `--econ-shot=upgrade`, 3 new self-test checks), scripts/hud.gd (one hook after `_draw_world_prompt`), scripts/unit.gd (attack ignores a click on the button)
+- **Tunables:** none.
+- **Tested:** `--econ-test` 20/20 on this branch and on a local merge with release/v0.4.0-alpha; renders of the card and monitor.
+- **Revert:** `git revert a63d7b1 e920dee b13fe48`
+
+### 2026-10-09 21:20 UTC · `40cdd34` · A downed soldier drops the load
+
+- **What:** With Downed & Revive, a soldier is knocked down instead of dying; a load on their back now spills there too, and a downed soldier can't pick one up.
+- **Files:** scripts/economy.gd (`_tick_cargo`, `_tick_drops`, self-test)
+- **Revert:** `git revert 40cdd34`
+
 ### 2026-10-09 13:40 UTC · `eedf86f`, `8c9766b`, `29d5c26`, `8faa929` · Bots stop stalling matches with the economy
 
 - **What:** The first six-seed batch with the economy had every match end 0-0 in overtime (no captures; without it: 11 captures, none in overtime). Two causes, found by switching parts off one at a time: the gathering bot was taken off the assault for the whole match (one of only three attackers), and bot teams topped their door up from anywhere, even mid-siege. Now: nobody can mend a door while the enemy is at it (the prompt says UNDER SIEGE: NO MENDING); a mend adds 35 instead of 50; all-bot teams mend only below 100 and at most every 45 s; the Engineer bot is the gatherer, and with no Engineer (4v4) an attacker gathers only until the team's first two hat upgrades.
