@@ -119,7 +119,7 @@ Revert: `git revert 731b6e5`, then regenerate the textures as above.
 
 ## 2026-10-09 — visual overhaul, pass 2: Elf keep walls, yard, blossoms; chunky faceted Elves; death screen
 
-Commit: `PENDING`
+Commit: `ece3b24`
 
 What changed:
 - **Elf keep interior**: the untinted elven "stone" (keep walls, throne room, pillars) is now the
@@ -158,4 +158,4 @@ Renders: `world-elf-castle-pass2.png`, `world-courtyard-pass2.png`, `characters-
 `death-screen-before/after.png` (before = the old SLAIN BY card from `art/` pass-1 era is not
 available; the previous build's card is described above).
 
-Revert: `git revert PENDING`
+Revert: `git revert ece3b24`
