@@ -614,7 +614,7 @@ Revert: `git revert 70f43e1`.
 
 ## 2026-10-09 — Elf crown room: Faisal's circled clutter removed (08:17 annotated screenshot)
 
-Commit: `HASH_PENDING`. Elf side only; merged World & Maps first (their Human clutter removal,
+Commit: `3a57415`. Elf side only; merged World & Maps first (their Human clutter removal,
 path z-fight fix, road fences).
 
 - Removed the timber corner posts on the Elf crown room ("random clipping into wall") and the
@@ -628,4 +628,4 @@ Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `-
 overlap (pre-existing pines), 250 props; seed-5 90 s match doors 102/36 at 60 s.
 Renders: `elf-crown-room-declutter-after.png` in game/groups/ui-art/.
 
-Revert: `git revert HASH_PENDING`.
+Revert: `git revert 3a57415`.
