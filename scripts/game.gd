@@ -7251,9 +7251,10 @@ func _build_world() -> void:
 			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
 	_build_outskirts()
 	_add_back_forest()
-	economy = Economy.new()
-	add_child(economy)
-	economy.build(self)
+	if not "--no-economy" in OS.get_cmdline_user_args():   # testing: a match without wood and ore (balance baselines)
+		economy = Economy.new()
+		add_child(economy)
+		economy.build(self)
 
 	_apply_map_variant()
 	camera = Camera3D.new()
