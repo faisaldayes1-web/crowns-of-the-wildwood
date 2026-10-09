@@ -279,6 +279,11 @@ func fix_door(team: int, by) -> bool:
 		bought[team].rebuild += 1
 		game.announce("The %s door has been raised again." % Stats.FACTIONS[team].name)
 	elif job == "repair":
+		if _door_pressed(team):
+			if by and by.is_player:
+				game.toast("No mending while the enemy is at the door", Color(1.0, 0.6, 0.5))
+				game.sfx.ui("ui_deny", -6.0)
+			return false
 		if not _spend(team, E.repair_wood, E.repair_ore):
 			if by and by.is_player:
 				game.toast("Mending the door costs %s. %s." % [_cost_text(E.repair_wood, E.repair_ore), _short(team, E.repair_wood, E.repair_ore)], Color(1.0, 0.8, 0.5))
@@ -613,7 +618,7 @@ func _bot_spend(team: int) -> void:
 	var gate = game.gates[team]
 	if job == "rebuild" and not _door_pressed(team) and gate.rebuild_timer > 8.0 and fix_door(team, steward):
 		return
-	if job == "repair" and gate.hp <= Stats.GATE_HITS - E.repair_hits and fix_door(team, steward):
+	if job == "repair" and gate.hp <= E.bot_repair_below and fix_door(team, steward):
 		return
 	var reserve_w: int = E.bot_reserve_wood if not upgraded[team].is_empty() else 0
 	var reserve_o: int = E.bot_reserve_ore if not upgraded[team].is_empty() else 0
@@ -745,6 +750,8 @@ func _door_prompt(team: int) -> String:
 				return "UNDER SIEGE: THE DOOR CAN'T GO UP"
 			return "[%s]  RAISE THE DOOR  %s" % [_k(), _cost_text(E.rebuild_wood, E.rebuild_ore)]
 		"repair":
+			if _door_pressed(team):
+				return "UNDER SIEGE: NO MENDING"
 			return "[%s]  MEND THE DOOR +%d  %s" % [_k(), E.repair_hits, _cost_text(E.repair_wood, E.repair_ore)]
 	return ""
 

@@ -533,6 +533,7 @@ const ECONOMY := {
 	"pad_reach": 1.8,        # how close to a turret pad you stand to buy or tend a turret
 	"bot_gatherers": 1,      # bots per team that gather (two while the team pool is empty)
 	"bot_reserve_wood": 2, "bot_reserve_ore": 1,   # all-bot teams keep this back for a door repair
+	"bot_repair_below": 120,   # all-bot teams mend their door only once it is down to this (no mending under siege)
 }
 
 # The extra move a class gets from its upgraded hat (key G, pad left stick
