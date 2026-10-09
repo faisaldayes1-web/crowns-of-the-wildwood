@@ -825,3 +825,8 @@ Files: `scripts/hud.gd`, `scripts/game.gd`, `tools/options_menu_test.gd`,
 (1 known pine overlap).
 
 Revert: `git revert fd1bcbf`.
+
+Follow-up `543029f`: the downed-skip check waits for the outcome (up to 600 frames) instead of a fixed
+frame count, since physics ticks lag process frames headlessly. On the combined alpha
+(release/v0.4.0-alpha + this branch): options_menu_test, menu_flow_test, store_menu_test all
+0 failures. Revert: `git revert 543029f`.
