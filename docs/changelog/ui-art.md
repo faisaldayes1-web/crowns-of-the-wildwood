@@ -776,7 +776,7 @@ Revert: `git revert cc73516`.
 
 ## 2026-10-09 — Menu render fixes
 
-Commit: `HASH`. From the first renders of the boards: the Settings page fits the board in a
+Commit: `a904271`. From the first renders of the boards: the Settings page fits the board in a
 match and at the title (gap (h − 442) / 4, title body 594 − 130); switch labels shrink to fit
 beside the switch; team-call and Controls keycaps named X / Y / A / B stay keyboard keys (new
 `keyboard` flag on `_keycap`; they drew as pad buttons); on the skill rows the level badge and
@@ -788,4 +788,4 @@ side locks are round and behind the ear.
 Files: `scripts/hud.gd`, `scripts/character_model.gd`, `docs/changelog/ui-art.md`. Tested:
 `--check-only`; `tools/options_menu_test.gd` 0 failures.
 
-Revert: `git revert HASH`.
+Revert: `git revert a904271`.
