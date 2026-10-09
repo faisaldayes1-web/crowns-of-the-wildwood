@@ -664,7 +664,7 @@ Revert: `git revert 0afd162`.
 
 ## 2026-10-09 — Elf courtyard: upgrade station faces the spawn, banners face the castle wall (Faisal 08:35)
 
-Commit: `PENDING`. New `_turn_since(c0, a0, pivot, yaw)` turns everything a builder just added
+Commit: `bcdae1e`. New `_turn_since(c0, a0, pivot, yaw)` turns everything a builder just added
 (children and audit boxes) about a pivot. `_add_upgrade_pad` and `_add_banner_pole` take an
 optional `yaw` (default 0 = unchanged, so the Humans, Ember Pass and door banners are untouched).
 - Upgrade Station (Wildwood Elves): moved from (bx − 1.6, 0, −4.0) to (bx − 2.8, 0, −3.4) and
@@ -677,4 +677,4 @@ optional `yaw` (default 0 = unchanged, so the Humans, Ember Pass and door banner
 Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1 overlap
 (pre-existing pines), 245 props; seed-5 120 s match: Human gate 32 at 90 s, crown taken by 120 s.
 
-Revert: `git revert PENDING`.
+Revert: `git revert bcdae1e`.
