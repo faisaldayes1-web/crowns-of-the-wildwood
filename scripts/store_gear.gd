@@ -47,12 +47,13 @@ static func tint_metal(img: Image, cells: Dictionary, target: Color) -> void:
 				for x in range(x0, x0 + cw):
 					var p := img.get_pixel(x, y)
 					var v := clampf(p.v * (0.55 + target.v * 0.6), 0.0, 1.0)
-					img.set_pixel(x, y, Color.from_hsv(target.h, target.s * 0.8, v, p.a))
+					var tinted := Color.from_hsv(target.h, target.s * 0.75, v, p.a)
+					img.set_pixel(x, y, p.lerp(tinted, 0.8))
 
 
 static func skin_weapon(mat: StandardMaterial3D, look: Array) -> void:
 	var col: Color = look[1]
-	mat.albedo_color = mat.albedo_color * Color(col.r * 1.3, col.g * 1.3, col.b * 1.3)
+	mat.albedo_color = mat.albedo_color * Color(col.r * 1.15, col.g * 1.15, col.b * 1.15)
 	mat.metallic = 0.45
 	mat.roughness = 0.4
 	if float(look[2]) > 0.0:

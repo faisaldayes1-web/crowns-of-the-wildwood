@@ -392,18 +392,43 @@ func thumb(r: Rect2, kind: String, i: int) -> void:
 		"cape":
 			_cape_glyph(c, rad, i, col)
 		"weapon":
-			h.draw_circle(c, rad, Color(0.05, 0.05, 0.08, 0.6))
-			h._icon("sword", c, rad * 0.34, col.lightened(0.15))
 			var glow: float = Stats.WEAPON_SKINS[i][2]
 			if glow > 0.0:
-				h.draw_arc(c, rad - 2, 0, TAU, 32, Color(col, 0.7), 3.0)
+				h.draw_circle(c, rad, Color(col, 0.25))
+			_sword_glyph(c, rad, col)
 		"outfit":
-			h.draw_circle(c, rad, Color(0.05, 0.05, 0.08, 0.6))
-			h._icon("guard", c, rad * 0.34, col.lightened(0.1))
+			_plate_glyph(c, rad, col)
 		_:
 			h.draw_circle(c, rad, Color(0.05, 0.04, 0.03))
 			h.draw_circle(c, rad - 3, col)
 			h.draw_circle(c + Vector2(-rad * 0.3, -rad * 0.3), rad * 0.22, Color(1, 1, 1, 0.3))
+
+
+func _sword_glyph(c: Vector2, rad: float, col: Color) -> void:
+	## A sword at a slant in the skin's metal.
+	var ink := Color(0.08, 0.06, 0.05)
+	var d := Vector2(0.7, -0.7)
+	var n := Vector2(0.7, 0.7)
+	var tip := c + d * rad * 1.0
+	var base := c - d * rad * 0.35
+	var blade := PackedVector2Array([base + n * rad * 0.13, tip + n * rad * 0.03, tip + d * rad * 0.12, tip - n * rad * 0.03, base - n * rad * 0.13])
+	h.draw_colored_polygon(blade, col)
+	h.draw_polyline(blade + PackedVector2Array([blade[0]]), ink, 1.5)
+	h.draw_line(c - d * rad * 0.1 + n * rad * 0.42, c - d * rad * 0.1 - n * rad * 0.42, col.darkened(0.35), rad * 0.16)
+	h.draw_line(c - d * rad * 0.45, c - d * rad * 0.85, Color(0.45, 0.28, 0.14), rad * 0.13)
+	h.draw_circle(c - d * rad * 0.9, rad * 0.1, col.darkened(0.2))
+
+
+func _plate_glyph(c: Vector2, rad: float, col: Color) -> void:
+	## A breastplate in the tint.
+	var ink := Color(0.08, 0.06, 0.05)
+	var p := PackedVector2Array([c + Vector2(-rad * 0.75, -rad * 0.7), c + Vector2(-rad * 0.3, -rad * 0.8), c + Vector2(0, -rad * 0.55),
+		c + Vector2(rad * 0.3, -rad * 0.8), c + Vector2(rad * 0.75, -rad * 0.7), c + Vector2(rad * 0.62, rad * 0.35),
+		c + Vector2(0, rad * 0.85), c + Vector2(-rad * 0.62, rad * 0.35)])
+	h.draw_colored_polygon(p, col)
+	h.draw_polyline(p + PackedVector2Array([p[0]]), ink, 1.5)
+	h.draw_line(c + Vector2(0, -rad * 0.5), c + Vector2(0, rad * 0.75), col.darkened(0.3), 2.0)
+	h.draw_colored_polygon(PackedVector2Array([c + Vector2(-rad * 0.5, -rad * 0.5), c + Vector2(-rad * 0.15, -rad * 0.45), c + Vector2(-rad * 0.3, rad * 0.2)]), Color(1, 1, 1, 0.25))
 
 
 func _hat_glyph(c: Vector2, rad: float, i: int, col: Color) -> void:

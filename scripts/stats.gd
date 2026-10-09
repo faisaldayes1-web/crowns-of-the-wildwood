@@ -135,8 +135,8 @@ const HERO_OUTFITS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.8
 	["Crimson", Color(0.8, 0.2, 0.2), 0.0], ["Gilded", Color(1.0, 0.8, 0.3), 0.0], ["Frost", Color(0.65, 0.88, 1.0), 0.25],
 	["Obsidian", Color(0.28, 0.22, 0.36), 0.15]]
 const WEAPON_SKINS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.85, 0.55, 0.3), 0.0], ["Wildwood", Color(0.45, 0.8, 0.4), 0.0],
-	["Gilded", Color(1.0, 0.82, 0.3), 0.0], ["Frostbite", Color(0.6, 0.9, 1.0), 0.6], ["Ember", Color(1.0, 0.5, 0.15), 0.8],
-	["Shadow", Color(0.45, 0.3, 0.7), 0.6]]
+	["Gilded", Color(1.0, 0.82, 0.3), 0.0], ["Frostbite", Color(0.6, 0.9, 1.0), 0.3], ["Ember", Color(1.0, 0.5, 0.15), 0.35],
+	["Shadow", Color(0.45, 0.3, 0.7), 0.3]]
 # Rarities: [name, colour, price in gold, chest weight].
 const RARITIES := {"common": ["Common", Color(0.78, 0.8, 0.82), 300, 60], "rare": ["Rare", Color(0.35, 0.65, 1.0), 600, 28],
 	"epic": ["Epic", Color(0.72, 0.4, 1.0), 1200, 10], "legendary": ["Legendary", Color(1.0, 0.7, 0.2), 2500, 2]}

@@ -322,6 +322,18 @@ func _ready() -> void:
 			hero_eye = int(parts[6]) if parts.size() > 6 else hero_eye
 			hero_hair_style = int(parts[7]) if parts.size() > 7 else hero_hair_style
 			hero_mark = int(parts[7]) if parts.size() > 7 else hero_mark
+	for arg in OS.get_cmdline_user_args():
+		# Testing the STORE: --debug-gold=N, --debug-chests=N, --debug-own=kind:i,kind:i
+		# (owned and worn). Run renders with their own XDG_DATA_HOME: these save.
+		if arg.begins_with("--debug-gold="):
+			account_gold = int(arg.trim_prefix("--debug-gold="))
+		if arg.begins_with("--debug-chests="):
+			account_chests = int(arg.trim_prefix("--debug-chests="))
+		if arg.begins_with("--debug-own="):
+			for pair in arg.trim_prefix("--debug-own=").split(","):
+				var kv := pair.split(":")
+				owned_items.append(Store.key(kv[0], int(kv[1])))
+				Store.equip(self, kv[0], int(kv[1]))
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
 		return
@@ -352,18 +364,8 @@ func _ready() -> void:
 			main_menu.preview_role = int(arg.trim_prefix("--debug-preview-role="))
 		if arg.begins_with("--debug-char-tab="):
 			main_menu.char_tab = int(arg.trim_prefix("--debug-char-tab="))
-		# Testing the STORE: --debug-gold=N, --debug-chests=N, --debug-own=kind:i,kind:i
-		# (owned and worn), --debug-store=kind:i (open on an item), --debug-store-buy,
-		# --debug-store-chest. Run renders with their own XDG_DATA_HOME: these save.
-		if arg.begins_with("--debug-gold="):
-			account_gold = int(arg.trim_prefix("--debug-gold="))
-		if arg.begins_with("--debug-chests="):
-			account_chests = int(arg.trim_prefix("--debug-chests="))
-		if arg.begins_with("--debug-own="):
-			for pair in arg.trim_prefix("--debug-own=").split(","):
-				var kv := pair.split(":")
-				owned_items.append(Store.key(kv[0], int(kv[1])))
-				Store.equip(self, kv[0], int(kv[1]))
+		# Testing the STORE (with the wallet flags above): --debug-store=kind:i
+		# (open on an item), --debug-store-buy, --debug-store-chest.
 		if arg.begins_with("--debug-store="):
 			var kv := arg.trim_prefix("--debug-store=").split(":")
 			main_menu.open_store(kv[0], int(kv[1]) if kv.size() > 1 else -1)
