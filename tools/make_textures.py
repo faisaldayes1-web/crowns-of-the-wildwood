@@ -158,15 +158,17 @@ def make_stone():
     height, shade = brick_layout(rows=rows, cols=cols, mortar=6, bevel=5)
     ys = np.mgrid[0:N, 0:N][0].astype(np.float64)
     v = (ys % (N / rows)) / (N / rows)
-    light = rgb(0.98, 0.87, 0.62)
-    deep = rgb(0.88, 0.72, 0.48)
+    # Cream sandstone (graphics pass, 2026-10-09): the old blocks were deep
+    # yellow and glared under the warm sun; the joints are a softer tan.
+    light = rgb(0.97, 0.92, 0.78)
+    deep = rgb(0.87, 0.79, 0.62)
     color = lerp(deep, light, (0.3 + 0.7 * shade)[..., None])
-    color = color * (1.04 - 0.1 * v)[..., None]
+    color = color * (1.03 - 0.08 * v)[..., None]
     top = np.clip(1 - np.abs(v - 0.07) / 0.05, 0, 1) * height
-    color = lerp(color, rgb(1.0, 0.95, 0.80), (top * 0.6)[..., None])
+    color = lerp(color, rgb(1.0, 0.98, 0.90), (top * 0.5)[..., None])
     bottom = np.clip((v - 0.86) / 0.08, 0, 1) * height
-    color = lerp(color, deep * 0.82, (bottom * 0.5)[..., None])
-    ink = rgb(0.40, 0.27, 0.17)
+    color = lerp(color, deep * 0.84, (bottom * 0.45)[..., None])
+    ink = rgb(0.52, 0.42, 0.30)
     color = lerp(ink, color, np.clip(height * 1.6, 0, 1)[..., None])
     h = height
     save("stone", color, h, 1.2)
@@ -268,30 +270,33 @@ def make_flagstone():
     one bottom-right, and an odd tile in a deeper shade."""
     r = np.random.default_rng(9)
     ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
-    cells = 4
+    # Big paving blocks with softened edges and restrained seams (Faisal's
+    # overhaul brief, 2026-10-09: was four hard-edged tiles with ink joints).
+    cells = 3
     cw = N / cells
     col = np.floor(xs / cw)
     row = np.floor(ys / cw)
     u = (xs % cw) / cw
     v = (ys % cw) / cw
     d = np.minimum(np.minimum(u, 1 - u), np.minimum(v, 1 - v)) * cw
-    height = np.clip((d - 5) / 4, 0, 1)
+    height = np.clip((d - 4) / 14, 0, 1)
     ids = (row * 100 + col).astype(int)
     shade = r.random(int(ids.max()) + 1)[ids]
     odd = (r.random(int(ids.max()) + 1) > 0.8)[ids]
     # Cream sandstone, barely yellow, with a pale tan grout (Faisal's Elf
     # base target, 2026-10-08): the old flags were deep yellow and read
     # green under the castle lights.
-    light = rgb(0.96, 0.90, 0.74)
-    dark = rgb(0.88, 0.80, 0.63)
+    light = rgb(0.96, 0.91, 0.78)
+    dark = rgb(0.89, 0.82, 0.66)
     color = lerp(dark, light, (0.3 + 0.7 * shade)[..., None])
-    color = lerp(color, rgb(0.82, 0.73, 0.56), odd[..., None] * 0.6)
-    lit = ((u < 0.06) | (v < 0.06)) & (u < 0.94) & (v < 0.94)
-    dim = (u > 0.95) | (v > 0.95)
-    color = lerp(color, rgb(1.0, 0.98, 0.9), (lit * height)[..., None] * 0.5)
-    color = lerp(color, dark * 0.86, (dim * height)[..., None] * 0.5)
-    joint = rgb(0.58, 0.48, 0.35)
-    color = lerp(joint, color, np.clip(height * 1.5, 0, 1)[..., None])
+    color = lerp(color, rgb(0.86, 0.78, 0.62), odd[..., None] * 0.35)
+    color = lerp(color, color * 0.96, (fbm(N, 6, 2, 97))[..., None] * 0.5)
+    lit = ((u < 0.05) | (v < 0.05)) & (u < 0.95) & (v < 0.95)
+    dim = (u > 0.96) | (v > 0.96)
+    color = lerp(color, rgb(1.0, 0.98, 0.92), (lit * height)[..., None] * 0.35)
+    color = lerp(color, dark * 0.9, (dim * height)[..., None] * 0.35)
+    joint = rgb(0.74, 0.66, 0.52)
+    color = lerp(joint, color, np.clip(height * 1.3, 0, 1)[..., None])
     save("flagstone", color, np.clip(height, 0, 1), 1.0)
     # Elven yard: the same flags, greener and grown over at the joints.
     moss = np.clip((1 - height) * 1.3 + (fbm(N, 6, 3, 95) - 0.62) * 2.5, 0, 1) * (fbm(N, 3, 2, 96) > 0.5)
@@ -646,24 +651,42 @@ def make_wood_dark():
 
 os.makedirs(OUT, exist_ok=True)
 def make_hedge():
-    """Trimmed hedge: a dense mass of small leaf clumps in two close greens,
-    lighter where a clump catches the light, with soft dark gaps between
-    them (the Elf base target's box hedges, 2026-10-08)."""
-    f1, f2, ids = voronoi(N, 16, 77)
+    """Trimmed hedge: hundreds of overlapping, puffy leaf clumps (round
+    discs, each shaded like a little dome lit from the upper-left, with a
+    soft shadow under its lower-right edge) in three close greens. No cell
+    seams: the Elf base target's hedges are soft masses of foliage, not
+    tiles (graphics pass 2026-10-09)."""
     r = np.random.default_rng(78)
-    shade = r.random(16 * 16)[ids]
-    broad = fbm(N, 3, 2, 79)
-    deep = rgb(0.16, 0.42, 0.12)
-    mid = rgb(0.27, 0.58, 0.16)
-    light = rgb(0.40, 0.72, 0.20)
-    color = lerp(deep, mid, (0.4 + 0.6 * shade)[..., None])
-    color = lerp(color, light, np.clip((broad - 0.45) * 2.5, 0, 1)[..., None] * 0.5)
-    gap = np.clip(1 - (f2 - f1) / 0.12, 0, 1)
-    color = lerp(color, deep * 0.6, (gap ** 2)[..., None] * 0.8)
-    dome = np.clip((f2 - f1) / 0.35, 0, 1)
-    color = color * (0.85 + 0.25 * dome)[..., None]
-    h = 0.3 + 0.7 * dome
-    save("hedge", np.clip(color, 0, 1), np.clip(h, 0, 1), 1.2)
+    color = np.tile(rgb(0.14, 0.34, 0.12), (N, N, 1))
+    height = np.zeros((N, N))
+    deep = rgb(0.16, 0.40, 0.14)
+    mid = rgb(0.27, 0.55, 0.19)
+    light = rgb(0.48, 0.72, 0.28)
+    count = 520
+    for i in range(count):
+        cx, cy = r.random(2) * N
+        rad = r.uniform(0.045, 0.085) * N
+        tone = r.random()
+        base = lerp(deep, mid, tone) if tone < 0.7 else lerp(mid, light, (tone - 0.7) / 0.3)
+        m = int(rad * 1.6) + 2
+        x0, y0 = int(cx) - m, int(cy) - m
+        ys, xs = np.mgrid[y0:y0 + 2 * m, x0:x0 + 2 * m].astype(np.float64)
+        d = np.hypot(xs - cx, ys - cy) / rad
+        inside = d < 1.0
+        dome = np.sqrt(np.clip(1 - d * d, 0, 1))
+        # Lit towards the upper-left of the clump, darker at its rim.
+        lit = np.clip(0.55 - 0.5 * ((xs - cx) + (ys - cy)) / rad, 0, 1)
+        shade = 0.72 + 0.5 * lit * dome
+        col = base[None, None, :] * shade[..., None]
+        col = lerp(col, light[None, None, :] * 1.05, (np.clip(lit - 0.6, 0, 1) * dome * 0.6)[..., None])
+        # Soft shadow just outside the lower-right edge.
+        sh = np.clip(1 - (d - 1.0) / 0.35, 0, 1) * (d >= 1.0) * np.clip(0.3 + 0.7 * ((xs - cx) + (ys - cy)) / rad, 0, 1)
+        yi = ys.astype(int) % N
+        xi = xs.astype(int) % N
+        color[yi, xi] = lerp(color[yi, xi], color[yi, xi] * 0.55, (sh * 0.7)[..., None])
+        color[yi[inside], xi[inside]] = col[inside]
+        height[yi[inside], xi[inside]] = 0.3 + 0.7 * dome[inside]
+    save("hedge", np.clip(color, 0, 1), np.clip(height, 0, 1), 1.6)
 
 
 def make_greystone():

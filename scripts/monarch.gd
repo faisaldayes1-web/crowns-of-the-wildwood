@@ -79,9 +79,11 @@ func _process(delta: float) -> void:
 		rays.scale = Vector3.ONE * (1.0 + 0.08 * sin(_t * 3.0))
 	if aura:
 		aura.position.y = model.position.y + 0.3
-		aura.scale = Vector3.ONE * ((0.9 if carried else 1.0) + 0.12 * sin(_t * 4.0))
-		aura_mat.albedo_color.a = (0.1 if carried else 0.35) + 0.05 * sin(_t * 4.0)
-		beam_mat.albedo_color.a = (0.3 if carried else 0.2) + 0.06 * sin(_t * 3.0)
+		# At rest the aura is a modest halo, not a mass (Faisal 2026-10-09:
+		# the crown must stay a readable object on its pedestal).
+		aura.scale = Vector3.ONE * ((0.9 if carried else 0.7) + 0.08 * sin(_t * 4.0))
+		aura_mat.albedo_color.a = (0.1 if carried else 0.2) + 0.04 * sin(_t * 4.0)
+		beam_mat.albedo_color.a = (0.3 if carried else 0.12) + 0.05 * sin(_t * 3.0)
 	match state:
 		State.HOME:
 			model.position.y = REST_HEIGHT + sin(_t * 2.0) * 0.05
@@ -194,7 +196,7 @@ func _build_crown(elf: bool) -> Node3D:
 	gold.roughness = 0.3
 	gold.emission_enabled = true
 	gold.emission = Color(1.0, 0.7, 0.2)
-	gold.emission_energy_multiplier = 0.9   # it glows (Faisal 2026-10-08)
+	gold.emission_energy_multiplier = 0.5   # it glows (Faisal 2026-10-08), restrained 2026-10-09 so it reads as an object, not a yellow mass
 	var gem := StandardMaterial3D.new()
 	gem.albedo_color = Color(0.2, 0.85, 0.45) if elf else Color(0.2, 0.45, 1.0)
 	gem.emission_enabled = true
