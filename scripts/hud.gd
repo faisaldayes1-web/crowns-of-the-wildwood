@@ -52,6 +52,7 @@ var title_font: Font   # chunky cartoon display face for the big banners (Luckie
 var logo: Texture2D
 var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
 var skill_art: Dictionary = {}   # hexagon skill tiles and shield faces (assets/ui/skills)
+var touch_ui := false            # touch-screen layout: big thumb buttons, no keycaps (see _touch_cluster)
 var next_slot_art := ""          # set just before _slot(): the skill art to draw for it
 var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
@@ -178,6 +179,7 @@ func _click_end(at: Vector2) -> void:
 func _draw() -> void:
 	if game == null:
 		return
+	touch_ui = game.touch_active and not pane
 	if bake_mode != "":
 		_draw_bake()
 		return
@@ -799,10 +801,15 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 	next_slot_art = ""
 	if _st():
 		_slot_face(rect, size_px, icon, color, hc, hr, frame, art, locked, ready)
-		_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
-		if label != "":
-			_text(Vector2(rect.position.x - 22, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
-				HORIZONTAL_ALIGNMENT_CENTER, size_px + 44, 3)
+		if touch_ui:
+			if label != "":
+				_text(Vector2(rect.position.x - 30, rect.end.y + size_px * 0.12 + 16), label, 13, CREAM if ready else Color(0.62, 0.58, 0.52),
+					HORIZONTAL_ALIGNMENT_CENTER, size_px + 60, 4)
+		else:
+			_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
+			if label != "":
+				_text(Vector2(rect.position.x - 22, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
+					HORIZONTAL_ALIGNMENT_CENTER, size_px + 44, 3)
 	if not _lv():
 		return
 	if remaining > 0.0:
@@ -813,8 +820,8 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		for poly in Geometry2D.intersect_polygons(_hex_pts(hc, hr - 2.5), cut):
 			draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
 		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
-			16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
-		if panel_pass == "live":
+			int(16 * maxf(1.0, size_px / 60.0)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
+		if panel_pass == "live" and not touch_ui:
 			# The keycap sits over the shade, as when it was all drawn live.
 			_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
 	# The energy cost in the top-left corner, so you can see which moves
@@ -1237,6 +1244,22 @@ func _layer(name: String, rect: Rect2, key: Variant, mode: String, args: Array) 
 	lr.size = rect.size
 	lr.visible = true
 	return true
+
+
+func button_rects() -> Array:
+	## Every button drawn this frame (menus included), for snapping a touch
+	## that lands just outside one (touch.gd).
+	var out := []
+	for r in [reset_button, options_button, close_button, quit_button]:
+		if r.has_area():
+			out.append(r)
+	for list in [couch_buttons, rank_buttons, variant_buttons, tab_buttons, bind_buttons, toggle_buttons, difficulty_buttons,
+			guide_buttons, chat_buttons, hero_buttons, faction_buttons, title_buttons, menu_buttons]:
+		for e in list:
+			var r = e[0] if e is Array else e
+			if r is Rect2 and r.has_area():
+				out.append(r)
+	return out
 
 
 func _st() -> bool:
@@ -3123,7 +3146,7 @@ func _draw_player_panel(p) -> void:
 		# baked layers (the bottom row, the right-hand column); this pass
 		# then paints just the bars, cooldowns and numbers over them.
 		var key := _panel_key(p)
-		var bottom := Rect2(0, size.y - 180.0 * k, size.x, 180.0 * k)
+		var bottom := Rect2(0, size.y - (400.0 if touch_ui else 180.0) * k, size.x, (400.0 if touch_ui else 180.0) * k)
 		var right := Rect2(size.x - 130.0 * k, 0, 130.0 * k, 340.0 * k)
 		panel_pass = ""
 		if _layer("panel_bottom", bottom, key, "panel", [p]) and _layer("panel_right", right, key, "panel", [p]):
@@ -3132,6 +3155,15 @@ func _draw_player_panel(p) -> void:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
 	var panel := Rect2(Vector2(116, H - 100), Vector2(430, 66))
 	_status_panel(p, panel)
+	if touch_ui:
+		_touch_cluster(p, W, H)
+		if _lv():
+			_status_tags(p, panel)
+		if k < 1.0:
+			draw_set_transform(Vector2.ZERO)
+		if bake_mode == "":
+			panel_pass = ""
+		return
 	_right_buttons(p, W)
 	var buttons_w := 3.0 * 42.0 + 2.0 * 8.0
 	var bx := W - 22.0 - buttons_w
@@ -3143,6 +3175,31 @@ func _draw_player_panel(p) -> void:
 		draw_set_transform(Vector2.ZERO)
 	if bake_mode == "":
 		panel_pass = ""
+
+
+func _touch_cluster(p, W: float, H: float) -> void:
+	## Touch screens (the iPad): the moves as big tiles in an arc under the
+	## right thumb, attack the largest in the corner, and a round pause
+	## button top-right. Drag from the attack tile to aim (touch.gd).
+	var big := 118.0
+	var mid := 80.0
+	var centres := [Vector2(W - 120, H - 128), Vector2(W - 282, H - 70), Vector2(W - 292, H - 200),
+		Vector2(W - 212, H - 310), Vector2(W - 82, H - 318), Vector2(W - 420, H - 66)]
+	var sizes := [big, mid, mid, mid, mid, 70.0]
+	var at := []
+	for i in 6:
+		at.append(centres[i] - Vector2(sizes[i], sizes[i]) / 2.0)
+	_move_slots(p, at, sizes)
+	# Pause (the map is its first tab).
+	var pc := Vector2(W - 52, 52)
+	if not pane:
+		touch_rects.append([Rect2((pc - Vector2(44, 44)) * hud_scale, Vector2(88, 88) * hud_scale), "menu"])
+	_ring_button(pc, 30.0)
+	if _st():
+		for j in 3:
+			var y := pc.y - 9.0 + j * 9.0
+			draw_line(Vector2(pc.x - 13, y + 1), Vector2(pc.x + 13, y + 1), Color(0, 0, 0, 0.5), 4.5)
+			draw_line(Vector2(pc.x - 13, y), Vector2(pc.x + 13, y), Color(0.95, 0.85, 0.6), 4.0)
 
 
 func _panel_key(p) -> Array:
@@ -3164,7 +3221,7 @@ func _panel_key(p) -> Array:
 	var keys := []
 	for act in ["attack", "dodge", "ability_1", "ability_2", "block", "rank_menu", "interact", "menu", "scoreboard"]:
 		keys.append(_k(act))
-	return [size, _bake_scale(), p.team, p.role, p.dead, p.hearts, p.level, p.local_index, game.hero_name,
+	return [touch_ui, size, _bake_scale(), p.team, p.role, p.dead, p.hearts, p.level, p.local_index, game.hero_name,
 		p.carrying != null, game.barricades_left[p.team], game.on_pad(local_unit), slots, keys, skill_art.size()]
 
 
@@ -3439,36 +3496,46 @@ func _strip_slots(p, strip: Rect2) -> void:
 	var gap := 72.0
 	var sx := strip.get_center().x - (5.0 * gap + slot) / 2.0
 	var sy := strip.position.y + 20.0
+	var at := []
+	for i in 6:
+		at.append(Vector2(sx + i * gap, sy))
+	_move_slots(p, at, [slot, slot, slot, slot, slot, slot])
+
+
+func _move_slots(p, at: Array, sz: Array) -> void:
+	## The six move slots (attack, dodge, Q, E, perks or block, grab) at
+	## these top-left corners and sizes.
+	var abil: Array = p.abilities()
 	if not pane:
 		var acts := ["attack", "dodge", "ability_1", "ability_2", "block" if p.can_block() else "rank_menu", "interact"]
 		for i in 6:
-			touch_rects.append([Rect2(Vector2(sx + i * gap, sy) * hud_scale, Vector2(slot, slot + 22.0) * hud_scale), acts[i]])
+			var r := Rect2(at[i] * hud_scale, Vector2(sz[i], sz[i] + (0.0 if touch_ui else 22.0)) * hud_scale)
+			touch_rects.append([r.grow(sz[i] * 0.12 * hud_scale) if touch_ui else r, acts[i]])
 	var alive: bool = not p.dead and p.carrying == null
 	var atk: Dictionary = p.attack_stats()
 	var cost_c: Color = STAMINA if p.energy_kind() == "stamina" else MANA
 	if _attack_icon(p.role, atk) == "fist":
 		next_slot_art = "punch"
-	_slot(Vector2(sx, sy), slot, _attack_icon(p.role, atk), Color(0.86, 0.16, 0.14), _k("attack"), atk.attack_name,
+	_slot(at[0], sz[0], _attack_icon(p.role, atk), Color(0.86, 0.16, 0.14), _k("attack"), atk.attack_name,
 		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0), false, atk.cost, cost_c)
 	next_slot_art = "dodge"
-	_slot(Vector2(sx + gap, sy), slot, "dodge", Color(0.22, 0.68, 0.18), _k("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
+	_slot(at[1], sz[1], "dodge", Color(0.22, 0.68, 0.18), _k("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
 		alive and p.energy >= Stats.DODGE_COST)
 	for i in 2:
-		var at := Vector2(sx + (i + 2) * gap, sy)
 		if i < abil.size():
 			var a: Dictionary = p.ability(i)
-			_slot(at, slot, a.get("icon", a.kind), Stats.ROLES[p.role].color.darkened(0.15), _k("ability_%d" % (i + 1)), a.name,
+			_slot(at[i + 2], sz[i + 2], a.get("icon", a.kind), Stats.ROLES[p.role].color.darkened(0.15), _k("ability_%d" % (i + 1)), a.name,
 				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1), false, a.cost, cost_c)
 		else:
 			next_slot_art = ["lock_a", "lock_b"][i]
-			_slot(at, slot, "", [Color(0.5, 0.3, 0.72), Color(0.62, 0.38, 0.22)][i], _k("ability_%d" % (i + 1)), "Locked", 0.0, 1.0, false)
+			_slot(at[i + 2], sz[i + 2], "", [Color(0.5, 0.3, 0.72), Color(0.62, 0.38, 0.22)][i], _k("ability_%d" % (i + 1)), "Locked", 0.0, 1.0, false)
 	if p.can_block():
-		_slot(Vector2(sx + 4 * gap, sy), slot, "block", Color(0.45, 0.5, 0.6), _k("block"), "Block", 0.0, 1.0, alive and p.energy > 0.0, 0, p.blocking)
+		_slot(at[4], sz[4], "block", Color(0.45, 0.5, 0.6), _k("block"), "Block", 0.0, 1.0, alive and p.energy > 0.0, 0, p.blocking)
 	else:
 		next_slot_art = "perks"
-		_slot(Vector2(sx + 4 * gap, sy), slot, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
+		_slot(at[4], sz[4], "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
 	next_slot_art = "drop"
-	_slot(Vector2(sx + 5 * gap, sy), slot, "crown", Color(0.92, 0.66, 0.16), _k("interact"), "Drop" if p.carrying else "Grab", 0.0, 1.0, not p.dead,
+	_slot(at[5], sz[5], "crown", Color(0.92, 0.66, 0.16), _k("interact"), "Drop" if p.carrying else "Grab", 0.0, 1.0, not p.dead,
 		0, false, 0.0, STAMINA, p.carrying != null and not p.dead)
 
 

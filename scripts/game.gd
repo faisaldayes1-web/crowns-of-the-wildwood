@@ -7250,12 +7250,12 @@ func apply_graphics() -> void:
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	if OS.has_feature("web"):
 		# Browsers (an iPad at 2x pixel density): no multisampling; the 3D
-		# view renders at half the canvas size (one pixel per screen point, a
-		# quarter of the fill) and FXAA smooths it, while the HUD stays at full
-		# density.
+		# view renders at three quarters of the canvas size (half looked
+		# blurry on the iPad: Faisal 2026-10-09 "low textures") and FXAA
+		# smooths it, while the HUD stays at full density.
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
-		vp.scaling_3d_scale = 0.5
+		vp.scaling_3d_scale = 0.75
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		# One 2048 shadow map covers the single cascade the web sun uses, read
 		# with one tap (the soft filters cost a kernel per pixel).
