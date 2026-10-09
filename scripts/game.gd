@@ -224,13 +224,30 @@ var chat_log: Array = []       # {who, text, color, time, team}
 var rebinding := ""            # action waiting for a new key in the Controls menu
 var swallow_frame := -1        # frame on which a key was eaten by chat / rebinding
 var bot_chat_timer := 18.0
+# Online play (scripts/net.gd, the "Net" autoload): the host runs the match,
+# a client's units are puppets that follow the host's snapshots.
+var net: Node                   # the Net autoload (null if the project runs without it)
+var net_client := false         # this instance joined someone else's game
+var net_ready := false          # client: the host's world is built, waiting for a slot
+var ip_editing := false         # the title screen's host address field has the keyboard
+var net_ip := "127.0.0.1"
+var net_test := false           # --net-test: the headless two-instance smoke test
+var net_test_log := {}
+var net_slot := Vector2i(-1, -1)  # client: the (team, lineup slot) the host gave us
 
 
 func _ready() -> void:
 	randomize()
+	var fixed_seed := false
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="):
 			seed(int(arg.trim_prefix("--seed=")))
+			fixed_seed = true
+	net = get_node_or_null("/root/Net")
+	if net:
+		net.game = self
+		net_client = net.is_client()
+		net_test = "--net-test" in OS.get_cmdline_user_args()
 	_setup_input()
 	sfx = Sfx.new()
 	add_child(sfx)
@@ -248,7 +265,15 @@ func _ready() -> void:
 			cursor = Vector2(119, 238)
 	if "--debug-night" in OS.get_cmdline_user_args():
 		map_variant = 1
+	if net_client and net.map_variant >= 0:
+		map_variant = net.map_variant   # the host's map
+	# Every instance in an online game builds the same world from the host's
+	# seed (trees, rocks and props carry colliders). --seed keeps its old meaning.
+	if net and not fixed_seed:
+		seed(net.world_seed)
 	_build_world()
+	if net and not fixed_seed:
+		randomize()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--gfx="):  # testing: render at a given preset (0-3)
 			gfx_quality = clampi(int(arg.trim_prefix("--gfx=")), 0, 3)
@@ -276,6 +301,33 @@ func _ready() -> void:
 		return
 	banner.visible = false
 	sfx.play_music(false)
+	if net:
+		_net_ready_hooks()
+
+
+func _exit_tree() -> void:
+	if net and net.game == self:
+		net.game = null
+
+
+func _net_ready_hooks() -> void:
+	## Online start-up: a client that has the host's world tells the host it
+	## is ready; --host / --join start a connection from the command line.
+	if net_client:
+		net_ready = true
+		net.client_ready()
+		if not net.pending_start.is_empty():
+			net_start_client(net.pending_start)
+		return
+	if net.online() or net.cli_done:
+		return  # the host came back to the title after a match: keep hosting
+	net.cli_done = true
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--host" or arg.begins_with("--host="):
+			net.host(int(arg.trim_prefix("--host=")) if "=" in arg else net.DEFAULT_PORT)
+		elif arg.begins_with("--join="):
+			var parts := arg.trim_prefix("--join=").split(":")
+			net.join(parts[0], int(parts[1]) if parts.size() > 1 else net.DEFAULT_PORT)
 
 
 func _process(delta: float) -> void:
@@ -287,7 +339,7 @@ func _process(delta: float) -> void:
 	_ui_sounds()
 	for t in 2:
 		command_timer[t] = maxf(command_timer[t] - delta, 0.0)
-	if playing and overtime and not game_over:
+	if playing and overtime and not game_over and not net_client:
 		# Sudden death: a team with nobody left standing loses.
 		for t in 2:
 			if units.filter(func(u): return u.team == t and not u.dead).is_empty():
@@ -295,8 +347,10 @@ func _process(delta: float) -> void:
 				_finish(1 - t)
 				break
 	_update_compass()
+	if net_test:
+		_net_test_tick(delta)
 	if not playing and not game_over:
-		if name_editing or menu_open:
+		if name_editing or ip_editing or menu_open or net_client:
 			return
 		if Input.is_action_just_pressed("pick_elves"):
 			_start_match(0)
@@ -310,6 +364,15 @@ func _process(delta: float) -> void:
 			get_tree().quit()
 		if Input.is_action_just_pressed("restart"):
 			get_tree().reload_current_scene()
+		return
+
+	if net_client:
+		# The host runs the match: only the camera, the HUD timers and the
+		# fortify horn (when the snapshot's clock says so) run here.
+		if prep_left <= 0.0 and is_instance_valid(barrier):
+			_begin_battle()
+		_update_camera(delta)
+		_tick_ui_timers(delta)
 		return
 
 	if prep_left > 0.0:
@@ -343,6 +406,10 @@ func _process(delta: float) -> void:
 			print("   turret team%d L%d hp=%d %s" % [t.team, t.level, t.hp, t.global_position.snapped(Vector3.ONE * 0.1)])
 		for u in units:
 			print("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
+	_tick_ui_timers(delta)
+
+
+func _tick_ui_timers(delta: float) -> void:
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
 	killer_timer = maxf(killer_timer - delta, 0.0)
 	capture_timer = maxf(capture_timer - delta, 0.0)
@@ -919,7 +986,7 @@ func _plan_bots(team: int) -> void:
 	var theirs = monarchs[1 - team]
 	var bots := []
 	for u in units:
-		if u.team == team and not u.dead and not u.is_player:
+		if u.team == team and not u.dead and not u.is_player and u.remote_peer == 0:
 			u.bot_job = u.base_job
 			u.job_target = Vector3.INF
 			bots.append(u)
@@ -983,6 +1050,8 @@ func call_command(kind: String) -> void:
 func quit_to_title() -> void:
 	## Leave the match for the main menu (the scene restarts on the title).
 	get_tree().paused = false
+	if net:
+		net.leave()
 	get_tree().reload_current_scene()
 
 
@@ -1532,6 +1601,8 @@ func _flat_dist(a: Vector3, b: Vector3) -> float:
 
 func _start_match(team: int) -> void:
 	player_team = team
+	if net and net.online():
+		couch_players = 1   # couch and online together come later (docs/online-plan.md, N4)
 	winner_team = -1
 	banner.visible = false
 	for arg in OS.get_cmdline_user_args():
@@ -1601,6 +1672,8 @@ func _start_match(team: int) -> void:
 			key_label("rank_menu"), key_label("scoreboard"), key_label("chat")])
 	if prep_left > 0.0:
 		announce("FORTIFY! Build turrets, set traps and raise barricades (%s) before the barrier falls." % key_label("interact"))
+	if net and net.is_host():
+		net.on_match_started()
 
 
 func in_prep() -> bool:
@@ -1845,10 +1918,149 @@ func set_couch(what: String) -> void:
 	_save_settings()
 
 
+# --- Online play -------------------------------------------------------------
+
+func net_free_slot() -> int:
+	## Host: the unit index a joiner takes: a bot's slot, first on the other
+	## side from the host, then alternating sides (versus by default).
+	var counts := [0, 0]
+	for u in units:
+		if u.is_player or u.remote_peer > 0:
+			counts[u.team] += 1
+	var order: Array = [1 - player_team, player_team] if counts[1 - player_team] <= counts[player_team] else [player_team, 1 - player_team]
+	for t in order:
+		for i in TEAM_SIZE:
+			var u = units[t * TEAM_SIZE + i]
+			if not u.is_player and u.remote_peer == 0:
+				return t * TEAM_SIZE + i
+	return -1
+
+
+func net_claim_unit(idx: int, peer_id: int, peer_name: String) -> void:
+	## Host: a joiner takes over a bot. It keeps its place, hearts and class.
+	var u = units[idx]
+	u.remote_peer = peer_id
+	u.net_input = {}
+	u.net_seen = {}
+	u.display_name = peer_name if peer_name != "" else "Player %d" % (idx + 1)
+	u._refresh_overhead()
+	chat_system("%s joined the %s." % [u.display_name, Stats.FACTIONS[u.team].name])
+
+
+func net_release_unit(idx: int) -> void:
+	## Host: a joiner left; a bot takes their unit back.
+	if idx < 0 or idx >= units.size():
+		return
+	var u = units[idx]
+	chat_system("%s left the game; a bot takes over." % u.display_name)
+	u.remote_peer = 0
+	u.net_input = {}
+	u.display_name = Stats.BOT_NAMES[u.team][(idx % TEAM_SIZE) % Stats.BOT_NAMES[u.team].size()]
+	u._refresh_overhead()
+
+
+func net_start_client(start: Dictionary) -> void:
+	## Client: the host gave us a slot; build the match around it.
+	if playing:
+		return
+	net_slot = Vector2i(start.team, start.slot)
+	if start.map != map_variant:
+		map_variant = start.map
+		_apply_map_variant()
+	_start_match(start.team)
+	var names: Array = start.names
+	for i in mini(names.size(), units.size()):
+		if units[i] != player:
+			units[i].display_name = names[i]
+			units[i]._refresh_overhead()
+	net.pending_start = {}
+
+
+func net_build_snapshot() -> Dictionary:
+	## Host: everything a client draws, 20 times a second.
+	var us: Array = []
+	for u in units:
+		us.append([u.global_position, u.rotation.y, u.hearts, u.energy, u.dead, u.role, u.respawn_timer,
+			u.level, u.kills, u.deaths, u.carrying != null, u.xp, u.points, u.display_name])
+	var ms: Array = []
+	for m in monarchs:
+		ms.append([m.state, m.global_position, m.rotation.y, units.find(m.carrier) if m.carrier else -1])
+	var gs: Array = []
+	for g in gates:
+		gs.append([g.hp, g.broken])
+	var vs: Array = []
+	for v in vaults:
+		vs.append([v.hp, v.open])
+	return {"units": us, "monarchs": ms, "gates": gs, "vaults": vs, "score": score, "time": time_left,
+		"prep": prep_left, "overtime": overtime, "over": game_over, "winner": winner_team}
+
+
+func net_apply_snapshot(d: Dictionary) -> void:
+	## Client: take the host's state. Units glide to their new spots in
+	## unit.gd (_net_puppet); everything else is set as it comes.
+	var us: Array = d.units
+	for i in mini(us.size(), units.size()):
+		units[i].net_apply(us[i])
+	var ms: Array = d.monarchs
+	for i in mini(ms.size(), monarchs.size()):
+		var m = monarchs[i]
+		m.state = ms[i][0]
+		m.carrier = units[ms[i][3]] if ms[i][3] >= 0 else null
+		if m.carrier == null:
+			m.global_position = ms[i][1]
+			m.rotation.y = ms[i][2]
+	var gs: Array = d.gates
+	for i in mini(gs.size(), gates.size()):
+		if gates[i].hp != gs[i][0] or gates[i].broken != gs[i][1]:
+			gates[i].hp = gs[i][0]
+			gates[i].broken = gs[i][1]
+			gates[i].shape.disabled = gates[i].broken
+			gates[i]._refresh()
+	var vs: Array = d.vaults
+	for i in mini(vs.size(), vaults.size()):
+		if vaults[i].hp != vs[i][0] or vaults[i].open != vs[i][1]:
+			vaults[i].hp = vs[i][0]
+			vaults[i].open = vs[i][1]
+			vaults[i]._refresh()
+	for t in 2:
+		if d.score[t] > score[t]:
+			capture_team = t
+			capture_timer = 3.0
+	score = d.score.duplicate()
+	time_left = d.time
+	prep_left = d.prep
+	overtime = d.overtime
+	if d.over and not game_over:
+		_finish(d.winner)
+
+
+func net_button(what: String) -> void:
+	## Title screen ONLINE row: HOST / STOP, JOIN / LEAVE and the address field.
+	sfx.ui("ui_click")
+	match what:
+		"host":
+			if net.is_host():
+				net.leave()
+			else:
+				net.host()
+		"join":
+			if net.is_client():
+				net.leave()
+				get_tree().reload_current_scene()   # back to our own world
+			else:
+				var parts := net_ip.strip_edges().split(":")
+				net.join(parts[0], int(parts[1]) if parts.size() > 1 else net.DEFAULT_PORT)
+		"ip":
+			ip_editing = true
+			swallow_frame = Engine.get_process_frames()
+
+
 func _local_slot(team: int, slot: int) -> int:
 	## Which local player (0-based) takes lineup slot `slot` of `team`, or -1
 	## for a bot. Versus: players 1 and 3 on your side, 2 and 4 against.
 	## Co-op: everyone on your side.
+	if net_client:
+		return 0 if team == net_slot.x and slot == net_slot.y else -1
 	for k in couch_players:
 		var kt: int = player_team if (couch_mode == "coop" or k % 2 == 0) else 1 - player_team
 		var ks: int = k if couch_mode == "coop" else k / 2
@@ -2151,7 +2363,7 @@ func menu_tick() -> void:
 	var eaten: bool = Engine.get_process_frames() == swallow_frame
 	if not playing:
 		# Title screen: the options menu (controls, classes), bot difficulty.
-		if not eaten and rebinding == "":
+		if not eaten and rebinding == "" and not ip_editing:
 			if Input.is_action_just_pressed("options") and not menu_open:
 				menu_open = true
 				menu_tab = 4
@@ -2174,7 +2386,7 @@ func menu_tick() -> void:
 		if Input.is_action_just_pressed("menu") and not eaten and rebinding == "" and not guide_open:
 			menu_open = not menu_open
 			rank_open = false
-			get_tree().paused = menu_open
+			get_tree().paused = menu_open and not (net and net.online())  # an online match never pauses
 		scoreboard_open = (Input.is_action_pressed("scoreboard") or debug_score) and not menu_open and not rank_open
 		if menu_open:
 			if Input.is_action_just_pressed("quit_match") and rebinding == "":
@@ -2322,9 +2534,13 @@ func menu_tick() -> void:
 			for b in hud.faction_buttons:
 				if b[0].has_point(mouse) and not was_editing:
 					_start_match(b[1])
+			ip_editing = false
 			for b in hud.couch_buttons:
 				if b[0].has_point(mouse):
-					set_couch(b[1])
+					if b[1] in ["host", "join", "ip"]:
+						net_button(b[1])
+					else:
+						set_couch(b[1])
 		for b in hud.guide_buttons:
 			if b[0].has_point(mouse):
 				if b[1] == "next":
@@ -2388,6 +2604,18 @@ func menu_input(event: InputEvent) -> void:
 				var ch := char(event.unicode)
 				if event.unicode >= 32 and hero_name.length() < Stats.HERO_NAME_MAX and ch.strip_edges() != "" or ch == " ":
 					hero_name += ch
+		return
+	if ip_editing and event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE:
+				ip_editing = false
+				swallow_frame = Engine.get_process_frames()
+			KEY_BACKSPACE:
+				net_ip = net_ip.left(maxi(net_ip.length() - 1, 0))
+			_:
+				var ch := char(event.unicode)
+				if event.unicode >= 32 and net_ip.length() < 40 and (ch.is_valid_int() or ch in [".", ":"] or ch.to_lower() in "abcdefghijklmnopqrstuvwxyz-"):
+					net_ip += ch
 		return
 	if chat_open and event is InputEventKey and event.pressed:
 		match event.keycode:
@@ -6395,3 +6623,74 @@ func _add_action(action: StringName, keys: Array, buttons: Array, axis: int = -1
 		var mb := InputEventMouseButton.new()
 		mb.button_index = button
 		InputMap.action_add_event(action, mb)
+
+
+# --- Online smoke test (tools/net_smoke.sh) -----------------------------------
+
+func _net_test_tick(delta: float) -> void:
+	## --net-test: the host starts a match as soon as a joiner is ready; then
+	## both sides walk their player for 1.5 s and check that everyone moved
+	## on both screens. Prints NETTEST PASS / FAIL and quits.
+	var L := net_test_log
+	if L.get("done", false):
+		return
+	L.clock = L.get("clock", 0.0) + delta
+	if L.clock > 150.0:
+		_net_test_end(false, "timed out (connected=%s playing=%s snapshots=%d)" % [net.online(), playing, net.snapshot_count])
+		return
+	if not playing:
+		if net.is_host() and net.ready_peers.size() >= 1:
+			_start_match(0)
+		return
+	if net_client and net.snapshot_count == 0:
+		return
+	L.t = L.get("t", 0.0) + delta
+	var t: float = L.t
+	if not L.has("start"):
+		L.start = units.map(func(u): return u.global_position)
+		L.remote = units.map(func(u): return u.remote_peer > 0).find(true)
+		print("NETTEST %s: match running, my unit is team %d slot %d" % ["client" if net_client else "host", player.team, units.find(player) % TEAM_SIZE])
+	if t > 1.0 and not L.has("pressed"):
+		L.pressed = true
+		Input.action_press("move_down")
+	if t > 2.5 and not L.has("released"):
+		L.released = true
+		Input.action_release("move_down")
+	if t > (9.0 if net_client else 7.0):  # the host checks first, while the joiner is still in
+		var moved := func(i: int) -> float:
+			var a: Vector3 = L.start[i]
+			var b: Vector3 = units[i].global_position
+			return Vector2(b.x - a.x, b.z - a.z).length()
+		var me: int = units.find(player)
+		var checks := {}
+		checks["own unit moved"] = moved.call(me)
+		var bot_best := 0.0
+		for i in units.size():
+			if not units[i].is_player and units[i].remote_peer == 0 and i != 0:
+				bot_best = maxf(bot_best, moved.call(i))
+		checks["a bot moved"] = bot_best
+		if net_client:
+			checks["host player moved"] = moved.call(0)   # the host plays team 0 slot 0
+		else:
+			var remote: int = L.remote
+			checks["joiner's unit moved"] = moved.call(remote) if remote >= 0 else 0.0
+		var ok := true
+		for k in checks:
+			print("NETTEST %s: %s %.2f m" % ["client" if net_client else "host", k, checks[k]])
+			if checks[k] < 2.0:
+				ok = false
+		_net_test_end(ok, "snapshots=%d" % net.snapshot_count if net_client else "peers=%d" % net.peer_count())
+
+
+func _net_test_end(ok: bool, info: String) -> void:
+	if net_test_log.get("done", false):
+		return
+	net_test_log.done = true
+	print("NETTEST %s %s: %s" % ["client" if net_client else "host", "PASS" if ok else "FAIL", info])
+	if net.is_host():
+		# Keep hosting until the joiner has finished its own checks and left.
+		var waited := 0.0
+		while net.peer_count() > 0 and waited < 20.0:
+			await get_tree().create_timer(0.25).timeout
+			waited += 0.25
+	get_tree().quit(0 if ok else 1)

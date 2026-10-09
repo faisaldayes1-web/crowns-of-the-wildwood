@@ -157,6 +157,8 @@ func _process(delta: float) -> void:
 	ring.rotation.y += delta * 0.5
 	ring.material_override.albedo_color.a = 0.45 + 0.2 * sin(t * 4.0)
 	light.light_energy = 1.0 + 0.3 * sin(t * 4.0)
+	if game.net_client:
+		return  # online: the host hands out potions
 	for u in game.units:
 		if u.dead or u.hearts >= Stats.MAX_HEARTS:
 			continue

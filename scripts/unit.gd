@@ -108,6 +108,13 @@ var stall_target := Vector3.ZERO   # last _steer_to target (diagnostics)
 var local_index := -1              # which local (couch) player drives this unit, -1 for bots
 var act_prefix := ""               # input action prefix: "" for player 1, "p2_" ... for couch players
 var has_mouse := true              # player 1 aims with the mouse; the others with the right stick
+# Online (scripts/net.gd). Host: a joiner drives this unit through net_input.
+# Client: every unit is a puppet gliding to the host's snapshot (net_pos).
+var remote_peer := 0               # host: the joiner's peer id, 0 for a local player or a bot
+var net_input := {}                # host: the joiner's latest {move, aim, attack, block, counts}
+var net_seen := {}                 # host: tap counts already acted on
+var net_pos := Vector3.INF         # client: where the host says we are
+var net_rot := 0.0
 var avoid_dir := Vector3.ZERO      # look-ahead detour we are committed to
 var avoid_timer := 0.0
 var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
@@ -1208,6 +1215,9 @@ func _update_player_aim(move: Vector3) -> void:
 func _physics_process(delta: float) -> void:
 	if game == null or not game.playing:
 		return
+	if game.net_client:
+		_net_puppet(delta)
+		return
 	if dead:
 		if death_timer > 0.0:
 			death_timer -= delta
@@ -1348,6 +1358,32 @@ func _physics_process(delta: float) -> void:
 				try_dodge(move)
 		if dodge_timer > 0.0 or bash_timer > 0.0:
 			return
+	elif remote_peer > 0:
+		# A joiner's unit: their stick, aim and buttons, sent from their game.
+		var inp: Dictionary = net_input
+		if not inp.is_empty():
+			var stick: Vector2 = inp.move
+			move = Vector3(stick.x, 0, stick.y)
+			var to: Vector3 = inp.aim
+			to.y = 0.0
+			if to.length() > 0.05:
+				aim = to.normalized()
+			aim_point = global_position + aim * 6.0
+			wants_attack = inp.attack
+			wants_block = inp.block
+			var counts: Dictionary = inp.counts
+			for k in counts:
+				if counts[k] == net_seen.get(k, counts[k]):
+					net_seen[k] = counts[k]
+					continue
+				net_seen[k] = counts[k]
+				match k:
+					"interact": game.try_interact(self)
+					"ability_1": use_ability(0, aim)
+					"ability_2": use_ability(1, aim)
+					"dodge": try_dodge(move)
+			if dodge_timer > 0.0 or bash_timer > 0.0:
+				return
 	else:
 		plan = _bot_think(delta)
 		move = plan.move
@@ -1386,7 +1422,7 @@ func _physics_process(delta: float) -> void:
 
 	# The player always faces where they aim; bots face where they walk, or
 	# whatever they are attacking.
-	if is_player:
+	if is_player or remote_peer > 0:
 		facing = aim
 	elif (wants_attack or blocking) and aim.length() > 0.05:
 		facing = aim.normalized()
@@ -1420,6 +1456,65 @@ func _physics_process(delta: float) -> void:
 		_attack(aim)
 	if plan.has("ability"):
 		use_ability(plan.ability, plan.aim)
+
+
+func net_apply(d: Array) -> void:
+	## Client: one unit's line of the host's snapshot.
+	net_pos = d[0]
+	net_rot = d[1]
+	if d[5] != role:
+		set_role(d[5])
+	hearts = d[2]
+	energy = d[3]
+	respawn_timer = d[6]
+	level = d[7]
+	kills = d[8]
+	deaths = d[9]
+	carrying = game.monarchs[1 - team] if d[10] else null
+	xp = d[11]
+	points = d[12]
+	if d[13] != display_name and not is_player:
+		display_name = d[13]
+		_refresh_overhead()
+	if d[4] != dead:
+		dead = d[4]
+		if dead:
+			model.die()
+			death_timer = 1.1
+			if aim_marker:
+				aim_marker.visible = false
+				aim_ring.visible = false
+		else:
+			model.revive()
+			visible = true
+			global_position = net_pos
+			if aim_marker:
+				aim_marker.visible = true
+
+
+func _net_puppet(delta: float) -> void:
+	## Client: glide to the host's latest position and facing. Our own unit
+	## still works out its aim here, which is sent to the host as input.
+	if dead:
+		if death_timer > 0.0:
+			death_timer -= delta
+			if death_timer <= 0.0:
+				visible = false
+		return
+	if is_player:
+		var stick := Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+		_update_player_aim(Vector3(stick.x, 0, stick.y))
+	if carry_fx:
+		carry_fx.visible = carrying != null
+	if net_pos == Vector3.INF:
+		return
+	var before := global_position
+	if global_position.distance_to(net_pos) > 4.0:
+		global_position = net_pos   # a respawn or a blink: jump
+	else:
+		global_position = global_position.lerp(net_pos, minf(1.0, delta * 15.0))
+	velocity = (global_position - before) / maxf(delta, 0.001)
+	rotation.y = atan2(-aim.x, -aim.z) if is_player else lerp_angle(rotation.y, net_rot, minf(1.0, delta * 15.0))
 
 
 func _update_highlights() -> void:

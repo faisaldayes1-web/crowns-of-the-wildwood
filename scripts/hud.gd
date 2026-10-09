@@ -2121,6 +2121,8 @@ func _draw_title() -> void:
 		_: _draw_title_play(panel)
 	options_button = Rect2(tx, ty + 3 * 78, 190, 64)
 	var foot := "Press 1 or 2 (or click a side) to play  ·  Esc never quits by accident"
+	if game.net and game.net.status != "":
+		foot = game.net.status + ("  ·  press 1 or 2 to start the match" if game.net.is_host() else "")
 	if game.cursor_shown:
 		foot = "D-pad or stick moves the pointer  ·  %s picks  ·  %s backs out  ·  bumpers switch tabs" % [_k("ui_confirm"), _k("ui_back")]
 	elif game.couch_players > 1:
@@ -2179,7 +2181,26 @@ func _draw_title_play(panel: Rect2) -> void:
 		_chunky(b, Color(0.55, 0.4, 0.12) if on else Color(0.25, 0.22, 0.3), on, b.has_point(_mouse()))
 		_text(b.position + Vector2(0, 21), name.to_upper(), 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 		difficulty_buttons.append([b, name])
-	_text(Vector2(left + 360, dy + 20), Stats.BOT_TUNING[game.bot_difficulty].desc, 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(left + 50, dy + 42), Stats.BOT_TUNING[game.bot_difficulty].desc, 9, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# Online, under COUCH: host a game, or type the host's address and join.
+	var net = game.net
+	if net:
+		_text(Vector2(cxr, dy + 14), "ONLINE", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var host_b := Rect2(cxr + 56, dy, 70, 30)
+		var join_b := Rect2(cxr + 132, dy, 60, 30)
+		var ip_b := Rect2(cxr + 198, dy, 124, 30)
+		var hosting: bool = net.is_host()
+		var joined: bool = net.is_client()
+		_chunky(host_b, Color(0.2, 0.45, 0.6) if not hosting else Color(0.55, 0.3, 0.2), hosting, host_b.has_point(_mouse()))
+		_text(host_b.position + Vector2(0, 20), "STOP" if hosting else "HOST", 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, host_b.size.x, 2)
+		_chunky(join_b, Color(0.2, 0.5, 0.35) if not joined else Color(0.55, 0.3, 0.2), joined, join_b.has_point(_mouse()))
+		_text(join_b.position + Vector2(0, 20), "LEAVE" if joined else "JOIN", 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, join_b.size.x, 2)
+		_plate(ip_b, Color(0.05, 0.06, 0.1, 0.9), GOLD if game.ip_editing else GOLD_DARK, 6, 2)
+		var ip_text: String = game.net_ip + ("|" if game.ip_editing and int(Time.get_ticks_msec() / 400) % 2 == 0 else "")
+		_text(ip_b.position + Vector2(8, 20), ip_text, 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+		couch_buttons.append([host_b, "host"])
+		couch_buttons.append([join_b, "join"])
+		couch_buttons.append([ip_b, "ip"])
 	# The match card: how a round goes, as chunky tags.
 	var ty := dy + 50
 	_text(Vector2(left, ty + 14), "MATCH", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
