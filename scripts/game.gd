@@ -7573,19 +7573,21 @@ func _dress_elf_yard(team: int, fx: float, kx: float, side: float, hz: float) ->
 	## and off the stair routes.
 	var lane_x := (fx + side * 1.6 + kx - side * 0.4) / 2.0
 	var lane_len := absf(kx - side * 0.4 - (fx + side * 1.6))
-	_add_block(Vector3(lane_x, 0.015, 0), Vector3(lane_len, 0.02, 3.6), Color.WHITE, false, _pbr("cobble", 0.55, Color(0.92, 0.88, 0.8)))
+	# (The lane and lawns sit 2 cm above the yard flags: 5 mm coplanar with
+	# them they depth-fought and showed in patches, pass B render.)
+	_add_block(Vector3(lane_x, 0.03, 0), Vector3(lane_len, 0.02, 3.6), Color.WHITE, false, _pbr("cobble", 0.55, Color(0.82, 0.8, 0.74)))
 	var grass := _pbr("grass", 0.35, Color(0.92, 1.0, 0.86))
 	grass.roughness = 1.0
 	for zs in [-1.0, 1.0]:
 		var z0 := 2.6
 		var z1 := hz - 1.3
-		_add_block(Vector3(lane_x, 0.012, zs * (z0 + z1) / 2.0), Vector3(lane_len - 1.0, 0.024, z1 - z0), Color.WHITE, false, grass)
+		_add_block(Vector3(lane_x, 0.03, zs * (z0 + z1) / 2.0), Vector3(lane_len - 1.0, 0.02, z1 - z0), Color.WHITE, false, grass)
 		_add_flower_bed(Vector3(kx - side * 3.2, 0, zs * 4.4), Vector2(1.1, 2.0), 410 + int(zs))
 		_add_flower_bed(Vector3(fx + side * 4.0, 0, zs * 4.6), Vector2(1.1, 1.8), 420 + int(zs))
 		_add_bush(Vector3(fx + side * 2.4, 0, zs * 5.6), 81 + int(zs))
 		_add_tree_grown(Vector3(kx - side * 2.6, 0, zs * (hz - 4.2)))
 		_add_stone_brazier(Vector3(kx - side * 1.9, 0, zs * 3.4))
-	_add_emblem_decal(Vector3(lane_x, 0.04, 0), 2.2, team)
+	_add_emblem_decal(Vector3(lane_x, 0.06, 0), 2.2, team)
 
 
 func _dress_human_castle(team: int, fx: float, kx: float, side: float, dh: float) -> void:
