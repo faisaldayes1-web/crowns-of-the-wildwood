@@ -4,6 +4,7 @@ extends Node3D
 ## so it can be swapped for real art later without changing the rules.
 
 const Stats = preload("res://scripts/stats.gd")
+const SaveFile = preload("res://scripts/save_file.gd")
 const Unit = preload("res://scripts/unit.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Projectile = preload("res://scripts/projectile.gd")
@@ -123,6 +124,7 @@ var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
+var saved_at := -1.0          # when the save was last written (seconds since start)
 var account_gold := 0           # match rewards (Stats.MATCH_GOLD / MATCH_SHARDS), spent in the STORE (store.gd)
 var account_shards := 0
 var account_chests := 0         # unopened Match Chests (opened in the STORE)
@@ -2364,6 +2366,7 @@ func _bank_match_xp(winner: int) -> void:
 	account_chests += 1
 	summary.set_account(xp_was, account_xp)
 	_save_settings()
+	toast("Progress saved", Color(0.6, 1.0, 0.55))
 	var now := account_level()
 	if now > level_before:
 		if now >= Stats.UNLOCK_LEVEL and level_before < Stats.UNLOCK_LEVEL:
@@ -3132,9 +3135,59 @@ func select_map(index: int) -> void:
 	_apply_map_variant()
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and not demo:
+		_save_settings()   # closing the window keeps everything
+
+
+func export_progress() -> String:
+	## The account as a code to carry to another device (see save_file.gd).
+	## On the web it also downloads as a text file and is shown to copy; on
+	## desktop it goes on the clipboard.
+	_save_settings()
+	var cfg := ConfigFile.new()
+	SaveFile.read(cfg, CONTROLS_PATH)
+	var code := SaveFile.export_code(cfg)
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(code.to_utf8_buffer(), "crowns-progress.txt", "text/plain")
+		JavaScriptBridge.eval("window.prompt('Your progress code (also downloaded as crowns-progress.txt). Copy it, then IMPORT it on the other device:', %s)" % JSON.stringify(code), true)
+	elif DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		DisplayServer.clipboard_set(code)
+	toast("Progress code copied" if not OS.has_feature("web") else "Progress code ready", Color(0.6, 1.0, 0.55))
+	return code
+
+
+func import_progress(code: String = "") -> bool:
+	## Restores an exported code (asks for it when none is given). The save
+	## it replaces is kept as controls.cfg.before-import.
+	if code == "":
+		if OS.has_feature("web"):
+			var got = JavaScriptBridge.eval("window.prompt('Paste your progress code:', '') || ''", true)
+			code = str(got) if got != null else ""
+		elif DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+			code = DisplayServer.clipboard_get()
+	if code.strip_edges() == "":
+		toast("Copy a progress code first, then press IMPORT", Color(1.0, 0.75, 0.5))
+		return false
+	var data := SaveFile.parse_code(code)
+	if data.is_empty():
+		toast("That is not a whole progress code", Color(1.0, 0.6, 0.5))
+		return false
+	_save_settings()
+	DirAccess.copy_absolute(CONTROLS_PATH, CONTROLS_PATH + ".before-import")
+	var cfg := ConfigFile.new()
+	SaveFile.read(cfg, CONTROLS_PATH)
+	SaveFile.apply_code(cfg, data)
+	SaveFile.write(cfg, CONTROLS_PATH)
+	_load_controls()
+	_save_settings()
+	toast("Progress restored: level %d, %d gold" % [account_level(), account_gold], Color(0.6, 1.0, 0.55))
+	return true
+
+
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
-	cfg.load(CONTROLS_PATH)
+	SaveFile.read(cfg, CONTROLS_PATH)
 	cfg.set_value("settings", "bot_difficulty", bot_difficulty)
 	cfg.set_value("settings", "sound_volume", sfx.sound_volume)
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
@@ -3175,12 +3228,13 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "hero_cape", hero_cape)
 	cfg.set_value("settings", "hero_outfit", hero_outfit)
 	cfg.set_value("settings", "hero_weapon", hero_weapon)
-	cfg.save(CONTROLS_PATH)
+	if SaveFile.write(cfg, CONTROLS_PATH) == OK:
+		saved_at = Time.get_ticks_msec() / 1000.0
 
 
 func _save_controls() -> void:
 	var cfg := ConfigFile.new()
-	cfg.load(CONTROLS_PATH)
+	SaveFile.read(cfg, CONTROLS_PATH)
 	for entry in REBINDABLE:
 		var list: Array = []
 		for ev in InputMap.action_get_events(entry[0]):
@@ -3191,12 +3245,12 @@ func _save_controls() -> void:
 			elif ev is InputEventJoypadButton:
 				list.append({"t": "pad", "c": ev.button_index})
 		cfg.set_value("controls", entry[0], list)
-	cfg.save(CONTROLS_PATH)
+	SaveFile.write(cfg, CONTROLS_PATH)
 
 
 func _load_controls() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(CONTROLS_PATH) != OK:
+	if SaveFile.read(cfg, CONTROLS_PATH) != OK:
 		return
 	var diff: String = cfg.get_value("settings", "bot_difficulty", "Normal")
 	if diff in Stats.BOT_DIFFICULTIES:
@@ -3274,7 +3328,12 @@ func _reset_controls() -> void:
 		if InputMap.has_action(entry[0]):
 			InputMap.erase_action(entry[0])
 	_setup_input()
-	DirAccess.remove_absolute(CONTROLS_PATH)
+	# Only the key bindings go back to default: the file also holds the
+	# settings and the account's progress (this used to delete it all).
+	var cfg := ConfigFile.new()
+	if SaveFile.read(cfg, CONTROLS_PATH) == OK and cfg.has_section("controls"):
+		cfg.erase_section("controls")
+		SaveFile.write(cfg, CONTROLS_PATH)
 	rebinding = ""
 
 

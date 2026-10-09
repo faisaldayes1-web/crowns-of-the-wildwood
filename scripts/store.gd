@@ -247,8 +247,8 @@ func draw(hud, stage, team: int) -> void:
 		stage.hero_spin = want if instant_turn else lerpf(stage.hero_spin, want, minf(h.get_process_delta_time() * 5.0, 1.0))
 	menu.plaque(632, 22, "STORE", 420)
 	menu.icon("crown", Vector2(632, 20), 46)
-	_wallet(Rect2(1012, 24, 240, 62))
-	_chests(Rect2(28, 24, 300, 62))
+	_wallet(Rect2(1012, 14, 240, 58))
+	_chests(Rect2(28, 14, 300, 58))
 	# Tabs down the left, like Create Your Character's.
 	h._ivy(Vector2(52, 128 + TABS.size() * 62 - 6), Vector2(0, -1), TABS.size() * 62.0 - 14.0, 41)
 	for i in TABS.size():
@@ -271,8 +271,8 @@ func draw(hud, stage, team: int) -> void:
 		menu.ttext(rr.position + Vector2(62, rr.size.y / 2.0 + 7), TABS[i][0], 19, Color(1.0, 0.92, 0.65) if sel else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		var have := items_in(i).filter(func(it): return owns(game, it[0], it[1])).size()
 		h._text(Vector2(rr.end.x - 96, rr.position.y + rr.size.y / 2.0 + 5), "%d/%d" % [have, items_in(i).size()], 11, Color(0.85, 0.82, 0.72), HORIZONTAL_ALIGNMENT_RIGHT, 60, 2)
-	_grid(Rect2(832, 110, 430, 480))
-	_detail(Rect2(832, 600, 430, 110))
+	_grid(Rect2(832, 122, 430, 452))
+	_detail(Rect2(832, 586, 430, 106))
 	menu.wood_button(Rect2(60, 652, 160, 52), "BACK", "back", null, "", 20)
 	if flash > 0.0:
 		_purchased()
@@ -301,8 +301,8 @@ func _wallet(r: Rect2) -> void:
 	menu.slate(r)
 	var pulse := clampf(flash / 2.0, 0.0, 1.0)
 	h._icon("coin", r.position + Vector2(34, r.size.y / 2.0), 11.0 + 2.0 * pulse, Color.WHITE)
-	menu.ttext(Vector2(r.position.x + 62, r.position.y + 38), "%d" % game.account_gold, 30, Color(1.0, 0.85, 0.35).lerp(Color.WHITE, pulse), HORIZONTAL_ALIGNMENT_LEFT, -1, 6)
-	h._text(Vector2(r.position.x + 62, r.position.y + 54), "GOLD  ·  +%d to +%d a match" % [Stats.MATCH_GOLD.loss, Stats.MATCH_GOLD.win], 10, Color(0.88, 0.85, 0.75), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	menu.ttext(Vector2(r.position.x + 62, r.position.y + 35), "%d" % game.account_gold, 28, Color(1.0, 0.85, 0.35).lerp(Color.WHITE, pulse), HORIZONTAL_ALIGNMENT_LEFT, -1, 6)
+	h._text(Vector2(r.position.x + 62, r.position.y + 50), "GOLD  ·  +%d-%d a match" % [Stats.MATCH_GOLD.loss, Stats.MATCH_GOLD.win], 10, Color(0.88, 0.85, 0.75), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _chests(r: Rect2) -> void:
@@ -310,8 +310,8 @@ func _chests(r: Rect2) -> void:
 	var n: int = game.account_chests
 	var bob := sin(Time.get_ticks_msec() / 260.0) * 2.0 if n > 0 else 0.0
 	h._icon("chest", r.position + Vector2(36, r.size.y / 2.0 + bob), 11.0, Color.WHITE, n == 0)
-	menu.ttext(Vector2(r.position.x + 66, r.position.y + 30), "MATCH CHESTS", 16, Color(1.0, 0.92, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	h._text(Vector2(r.position.x + 66, r.position.y + 50), "x%d  ·  one per match" % n, 12, Color(0.9, 0.88, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	menu.ttext(Vector2(r.position.x + 66, r.position.y + 28), "MATCH CHESTS", 16, Color(1.0, 0.92, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	h._text(Vector2(r.position.x + 66, r.position.y + 47), "x%d  ·  one per match" % n, 12, Color(0.9, 0.88, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var b := Rect2(r.end.x - 92, r.position.y + 12, 80, r.size.y - 24)
 	var ov: bool = menu.button(b, "store_chest") and n > 0
 	menu.nine("btn_green" if n > 0 else "btn_green_off", b.grow(2) if ov else b, 48, 20, 48, 20)
@@ -530,18 +530,20 @@ func _detail(r: Rect2) -> void:
 		"cape": note = "Hangs on every class, in your cape dye."
 		"trim": note = "Dyes your cape, sash and scarf."
 	h._text(Vector2(r.position.x + 20, r.position.y + 76), note, 11, Color(0.85, 0.83, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var b := Rect2(r.end.x - 196, r.position.y + 20, 180, 62)
+	# Kept inside the card with a margin: the green button's arrows reach
+	# past its rect.
+	var b := Rect2(r.end.x - 202, r.position.y + 22, 170, 54)
 	var have := owns(game, kind, i)
 	if not have:
 		var cost := price(pick)
 		var can: bool = game.account_gold >= cost
 		var ov: bool = menu.button(b, "store_buy") and can
 		menu.nine("btn_green" if can else "btn_green_off", b.grow(3) if ov else b, 48, 20, 48, 20, Color(1.12, 1.12, 1.12) if ov else Color.WHITE)
-		menu.ttext(Vector2(b.position.x + 38, b.position.y + 40), "BUY", 24, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
-		h._icon("coin", Vector2(b.position.x + 106, b.position.y + 31), 4.5, Color.WHITE)
-		menu.ttext(Vector2(b.position.x + 118, b.position.y + 39), "%d" % cost, 19, Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		menu.ttext(Vector2(b.position.x + 38, b.position.y + 36), "BUY", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+		h._icon("coin", Vector2(b.position.x + 100, b.position.y + 27), 4.5, Color.WHITE)
+		menu.ttext(Vector2(b.position.x + 112, b.position.y + 35), "%d" % cost, 18, Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		if not can:
-			h._text(Vector2(b.position.x, b.end.y + 14), "Need %d more gold" % (cost - game.account_gold), 11, Color(1.0, 0.7, 0.6), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+			h._text(Vector2(b.position.x, b.end.y + 13), "Need %d more gold" % (cost - game.account_gold), 11, Color(1.0, 0.7, 0.6), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 	elif equipped(game, kind) != i:
 		menu.wood_button(b, "EQUIP", "store_equip", null, "", 22)
 	else:
@@ -550,7 +552,7 @@ func _detail(r: Rect2) -> void:
 			menu.wood_button(b, "TAKE OFF", "store_unequip", null, "", 20)
 		else:
 			menu.option_box(b, true, false)
-			menu.ttext(Vector2(b.position.x, b.position.y + 40), "EQUIPPED", 20, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 4)
+			menu.ttext(Vector2(b.position.x, b.position.y + 36), "EQUIPPED", 20, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 4)
 	h._text(Vector2(r.position.x + 20, r.end.y - 12), "Also in Create Your Character once owned", 10, Color(0.7, 0.68, 0.62), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 

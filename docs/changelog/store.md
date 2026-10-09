@@ -110,3 +110,51 @@ What changed:
 Files: `scripts/store.gd`, `tools/render_store_icons.gd` (new), `assets/ui/store/` (new).
 
 Undo: `git revert bedc7be`
+
+## 2026-10-09 — store fits the screen (Faisal's circled gold box and BUY button)
+
+Commit: `149effe`
+
+What changed (all in `scripts/store.gd`, positions in the 1280×720 canvas):
+- Gold box: Rect2(1012, 24, 240, 62) → (1012, 14, 240, 58); subtitle "GOLD · +200 to +300 a match" →
+  "GOLD · +200-300 a match" (it ran past the box's edge). Match Chests box moved up the same way.
+- Card panel: (832, 110, 430, 480) → (832, 122, 430, 452), so its HAIR/HATS plaque no longer touches the
+  gold box.
+- Detail card: (832, 600, 430, 110) → (832, 586, 430, 106); it now ends 28 px above the screen's bottom.
+- BUY / EQUIP button: (end − 196, +20, 180×62) → (end − 202, +22, 170×54), so the green button's arrows
+  stay inside the card.
+
+Undo: `git revert 149effe`
+
+## 2026-10-09 — saved progress: safe saves, a reset bug, export/import codes
+
+Commit: `d40c3c4`
+
+Faisal 11:46: "add a way to save progress for the leveling".
+
+What changed:
+- **Bug fixed:** RESET TO DEFAULT on the Controls tab deleted the whole save file, so it wiped the
+  account level, XP, gold, chests and store items along with the key bindings. It now resets only the
+  `[controls]` section.
+- **Safe saves** (`scripts/save_file.gd`): the save is written to `controls.cfg.tmp`, read back, the old
+  save is kept as `controls.cfg.bak`, then the new one replaces it. A save that will not load (cut off
+  by a crash or power loss) falls back to the `.bak`.
+- Also saves when the window is closed and on EXIT; a "Progress saved" notice after each match.
+  (It already saved after every match, purchase and change; a match quit halfway still earns nothing.)
+- **PROGRESS screen** (title, account chip): a SAVED PROGRESS row with EXPORT CODE and IMPORT CODE. The
+  code (~550 characters, `CROWNS1-…`, with a checksum) holds the account (level XP, gold, shards,
+  chests, store items) and the hero/banner looks, not the device's settings or controls. On the web
+  EXPORT downloads `crowns-progress.txt` and shows the code to copy, and IMPORT asks for it to be
+  pasted; on desktop they use the clipboard. IMPORT replaces the account and keeps the old save as
+  `controls.cfg.before-import`.
+- Checked in the web build (Chromium, Playwright): the save is still there after the browser is
+  closed and reopened, EXPORT downloads the code, and IMPORT on another browser profile brought in
+  level 7 / 9876 gold.
+
+Tests: new `tools/save_test.gd` (17 checks: restart, damaged save, reset keeps progress, codes, an
+altered code is refused); `tools/options_menu_test.gd` taps EXPORT CODE / IMPORT CODE.
+
+Files: `scripts/save_file.gd` (new), `scripts/game.gd`, `scripts/menu.gd`, `tools/save_test.gd` (new),
+`tools/options_menu_test.gd`.
+
+Undo: `git revert d40c3c4`

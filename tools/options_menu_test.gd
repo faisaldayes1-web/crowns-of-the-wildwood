@@ -116,6 +116,20 @@ func _init() -> void:
 	for id in ["credits", "progress"]:
 		await tap(ids.get(id, Rect2()))
 		check(m.overlay == id, "%s opens" % id.to_upper())
+		if id == "progress":
+			# SAVED PROGRESS: EXPORT saves and makes a code; IMPORT with an
+			# empty clipboard changes nothing.
+			await frames()
+			var pb := {}
+			for b in hud.menu_buttons:
+				pb[b[1]] = b[0]
+			check(pb.has("progress_export") and pb.has("progress_import"), "PROGRESS has EXPORT CODE and IMPORT CODE")
+			var xp_was: int = game.account_xp
+			game.saved_at = -1.0
+			await tap(pb.get("progress_export", Rect2()))
+			check(game.saved_at >= 0.0, "EXPORT CODE saves the progress")
+			await tap(pb.get("progress_import", Rect2()))
+			check(game.account_xp == xp_was and m.overlay == "progress", "IMPORT CODE with no code keeps the progress")
 		m.overlay = ""
 		await frames()
 	await tap(ids.get("exit", Rect2()))
