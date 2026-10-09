@@ -166,3 +166,29 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Capture:** `-- --play --fxshow --fxwall` (Compatibility renderer); in
   project files `game/combat-feel/shots-stop-at-door-*`.
 - **Revert:** `git revert d53d4e0`
+
+## 6. Strictly 4v4
+
+- **When:** 2026-10-09 10:05 UTC (Faisal 2026-10-09 09:14: "change the game to
+  strictly 4v4 for now")
+- **Commit:** _filled in by the next commit_
+- **What:** Every match is 4 Elves against 4 Humans, players and bots
+  together; bots take every seat a player leaves empty. Couch split-screen
+  (1-4 players) no longer grows a side past 4 (it used to be the bigger of the
+  team size and the local players on that side). An older saved team size is
+  ignored. SELECT MAP's TEAM SIZE row is now one fixed "4v4" box ("Bots fill
+  any empty seats"); the 1v1-5v5 choices are gone. The bot lineup is the
+  first four of `LINEUP`: Knight, Ranger, Mage, Healer (the Engineer, 5th,
+  no longer appears as a bot, so bots build no turrets). `--team-size=` stays
+  as a testing flag (1-4). The online branch (PR #6) sizes teams from
+  `TEAM_SIZE` too, so it follows this once merged.
+- **Files:** `scripts/game.gd` (`TEAM_SIZE`, `team_size`, match setup, settings
+  load), `scripts/menu.gd` (TEAM SIZE row, `team_size` action),
+  `docs/changelog/combat-balance.md`.
+- **Tunables:** `TEAM_SIZE` 5 → 4 (game.gd); default `team_size` 5 → 4,
+  menu choice 1-5 → fixed 4.
+- **Batches:** full bot matches, seeds 31-32: Wildwood (`t4wild`) Elves 1,
+  Humans 1; Ember Pass (`t4ember`) Elves 1, Humans 1; 4 units a side in every
+  STAT block; captures E4 H4, kills E63 H55, doors broken 1-3 a match, average
+  223 s, 0 script errors. `tools/tests/run.sh` 22/22.
+- **Revert:** `git revert <hash>`

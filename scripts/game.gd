@@ -26,7 +26,7 @@ const MainMenu = preload("res://scripts/menu.gd")
 const MenuStage = preload("res://scripts/menu_stage.gd")
 const Role = Stats.Role
 
-const TEAM_SIZE := 5
+const TEAM_SIZE := 4          # strictly 4v4 for now (Faisal 2026-10-09): players and bots together
 const CAPTURES_TO_WIN := Stats.CAPTURES_TO_WIN
 # Each bot's class and job, in spawn order. The player takes the first slot.
 const LINEUP := [
@@ -109,7 +109,7 @@ var hero_face := 0              # Stats.HERO_FACES index
 var hero_eye := -1              # Stats.HERO_EYES index (-1: the side's own colour)
 var hero_mark := 0              # Stats.HERO_MARKS index
 var hero_body := 0              # Stats.HERO_BODIES index: the unclassed body's build
-var team_size := TEAM_SIZE      # fighters a side (SELECT MAP's TEAM SIZE); bots fill the gaps
+var team_size := TEAM_SIZE      # fighters a side; fixed at TEAM_SIZE for now, bots fill the gaps
 var split_screen := false       # SELECT MAP's SPLIT SCREEN: extra pads may join in the lobby
 var lobby_sides: Array = []     # READY UP: each local player's side (0 Elves, 1 Humans)
 var join_pads: Array = []       # READY UP: pad device of local players 2-4, in join order
@@ -1666,8 +1666,10 @@ func _start_match(team: int) -> void:
 	locals.resize(couch_players)
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
-		# A side is team_size strong, or bigger if more local players chose it.
-		var count: int = maxi(team_size, local_sides.count(t))
+		# Strictly team_size a side (4v4): local players take seats, bots
+		# fill the rest. More locals on one side than seats can't happen
+		# (COUCH_MAX is 4), but never field more than team_size.
+		var count: int = team_size
 		for i in count:
 			var u = Unit.new()
 			add_child(u)
@@ -3012,7 +3014,7 @@ func _load_controls() -> void:
 	hero_eye = clampi(cfg.get_value("settings", "hero_eye", -1), -1, Stats.HERO_EYES.size() - 1)
 	hero_mark = clampi(cfg.get_value("settings", "hero_mark", 0), 0, Stats.HERO_MARKS.size() - 1)
 	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)
-	team_size = clampi(cfg.get_value("settings", "team_size", TEAM_SIZE), 1, TEAM_SIZE)
+	team_size = TEAM_SIZE   # 4v4 only for now: an older saved team size is ignored
 	split_screen = cfg.get_value("settings", "split_screen", false)
 	account_xp = maxi(int(cfg.get_value("profile", "account_xp", 0)), 0)
 	account_gold = maxi(int(cfg.get_value("profile", "account_gold", 0)), 0)

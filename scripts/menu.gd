@@ -324,12 +324,12 @@ func _draw_map() -> void:
 	slate(gm)
 	ttext(Vector2(gm.position.x, gm.position.y + 32), "GAME MODE", 22, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_CENTER, gm.size.x, 5)
 	label(gm.position + Vector2(24, 62), "TEAM SIZE", 13)
-	for n in range(1, 6):
-		var r := Rect2(gm.position.x + 22 + (n - 1) * 96, gm.position.y + 74, 84, 50)
-		var on: bool = game.team_size == n
-		var ov := button(r, "team_size", n)
-		option_box(r, on, ov, Color(1.0, 0.8, 0.25))
-		ttext(Vector2(r.position.x, r.position.y + 33), "%dv%d" % [n, n], 21, Color.WHITE if on else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+	# Matches are strictly 4v4 for now (Faisal 2026-10-09): one fixed box,
+	# nothing to pick; bots fill the seats players leave empty.
+	var tr := Rect2(gm.position.x + 22, gm.position.y + 74, 120, 50)
+	option_box(tr, true, false, Color(1.0, 0.8, 0.25))
+	ttext(Vector2(tr.position.x, tr.position.y + 33), "%dv%d" % [game.TEAM_SIZE, game.TEAM_SIZE], 21, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tr.size.x, 4)
+	h._text(Vector2(tr.end.x + 16, tr.position.y + 31), "Bots fill any empty seats", 13, Color(0.85, 0.85, 0.82), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	label(gm.position + Vector2(24, 160), "SPLIT SCREEN", 13)
 	icon("gamepad", gm.position + Vector2(56, 206), 50)
 	h._text(gm.position + Vector2(90, 212), "-", 16, Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -923,8 +923,7 @@ func _press(id: String, arg) -> void:
 			game.bot_difficulty = str(arg)
 			game._save_settings()
 		"team_size":
-			game.team_size = int(arg)
-			game._save_settings()
+			pass   # fixed at 4v4 for now
 		"split":
 			game.split_screen = bool(arg)
 			if not game.split_screen:
