@@ -288,7 +288,7 @@ Revert: `git revert -m 1 5304307`.
 
 ## 2026-10-09 — Elf base pass A: the Wildwood Elf base toward Faisal's reference (palette, class stalls, runners, courtyard stores, altar court, light)
 
-Commit: `PENDING`
+Commit: `bbfabb6`
 
 Faisal (02:01): "its not just textures and small flowers but the overall design of the base and
 roads and quality. Make it look exactly like the reference." References: `game/reference-renders/
@@ -331,4 +331,4 @@ added); 300/600-frame headless bot matches with no script errors.
 Renders: `elf-base-passA-castle.png`, `elf-base-passA-courtyard.png`, `elf-base-passA-throne.png`
 and `compare-elf-base-reference-vs-passA.png`.
 
-Revert: `git revert PENDING`
+Revert: `git revert bbfabb6`
