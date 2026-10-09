@@ -7,7 +7,15 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 11:45 UTC · `(stamped by the next entry)` · Faisal's 11:28-11:30 notes: Human upgrade station, boulders off paths, Elf gate banners, shrine rims and steps
+### 2026-10-09 12:25 UTC · `(stamped by the next entry)` · Field cover: stone wall stubs instead of timber palisades
+
+- **What:** coordinator's 11:27 sweep for stray fences, after Faisal's "did you fix the random fence issues". The overview renders showed half the field cover as timber palisades, which read as random fences in the grass, e.g. above the brazier by the Human gate. All field cover is now broken ashlar wall stubs (the other half of the cycle already was). Colliders, sizes and positions are unchanged, so cover and balance are as before. The road lanterns are now point-mirrored like the cover, so the Elf post no longer stands in a stub.
+- **Files:** scripts/game.gd (`_add_cover`, `_add_road_lanterns`)
+- **Tunables:** none
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 11:45 UTC · `ff95556` · Faisal's 11:28-11:30 notes: Human upgrade station, boulders off paths, Elf gate banners, shrine rims and steps
 
 - **What:**
   - **Human upgrade station** (11:28: "clipped into the wall… face it the other way… take out the orange circle"): it moves off the side wall to (bx + 3.2, −4.6) and turns to face the spawn circle. The gold pad, its flagstone and the block anvil are replaced by the small anvil, as on the Elves' station.

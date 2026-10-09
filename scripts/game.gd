@@ -4573,9 +4573,11 @@ func _add_cover() -> void:
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
 			cover_points.append(Vector3(c.x, 0, c.z))
 			cover_boxes.append(AABB(Vector3(c.x - 0.5, 0, c.z - length / 2.0), Vector3(1.0, 1.2, length)))
-			# Supply stacks on the road itself (an abandoned caravan); palisades
-			# and broken walls alternate across the field.
-			var kind: int = 0 if absf(c.z) < 3.0 else 1 + (bi % 2)
+			# Supply stacks on the road itself (an abandoned caravan); broken
+			# ashlar walls across the field. (No timber palisades: they read
+			# as stray fences, Faisal 11:27 "did you fix the random fence
+			# issues". The cover and its collider are unchanged.)
+			var kind: int = 0 if absf(c.z) < 3.0 else 2
 			match kind:
 				0:
 					var n := int(length / 1.15)
@@ -7586,7 +7588,7 @@ func _add_road_lanterns() -> void:
 	for sx in [-1.0, 1.0]:
 		for k in 2:   # (the third post, by the gates, stood with a stray fence: Faisal 08:16)
 			var x: float = sx * (10.0 + k * 16.0)
-			var z: float = 3.9 if k % 2 == 1 else -3.9
+			var z: float = (3.9 if k % 2 == 1 else -3.9) * sx   # point-mirrored like the cover, so no post meets a wall stub
 			_prop("halloween/post_lantern", Vector3(x, 0, z), 0.75, PI / 2.0 if z > 0.0 else -PI / 2.0)
 			_add_light(Vector3(x, 2.4, z), Color(1.0, 0.75, 0.4), 1.0, 6.5)
 	# Benches to sit on by the shrine island's bridges.
