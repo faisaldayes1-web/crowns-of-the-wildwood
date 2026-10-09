@@ -3098,6 +3098,15 @@ func _bot_think(delta: float) -> Dictionary:
 			plan.attack = plan.attack or energy >= s.cost
 			return plan
 	if enemy and enemy.downed:
+		# Bots don't leave a post or a crown run to finish a body: wall and
+		# door guards only finish one at their feet, raiders one in their path.
+		var body_d := _flat_to(enemy.global_position).length()
+		var running: bool = gearing_up or (bot_job == "attack" and mine.state == Monarch.State.HOME)
+		if (holding_wall or bot_job == "defend") and body_d > Stats.REVIVE_RANGE:
+			enemy = null
+		elif running and body_d > 3.0:
+			enemy = null
+	if enemy and enemy.downed:
 		# A downed enemy: walk up and do the finisher instead of swinging.
 		var to_body := _flat_to(enemy.global_position)
 		plan.aim = to_body.normalized() if to_body.length() > 0.05 else facing
