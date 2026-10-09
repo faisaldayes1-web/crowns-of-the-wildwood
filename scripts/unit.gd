@@ -21,6 +21,8 @@ var hearts := Stats.MAX_HEARTS
 var energy := 100.0
 var dead := false
 var respawn_timer := 0.0
+var respawn_total := 0.0     # what the timer started from this death (the HUD's countdown ring)
+var fell_level := 1          # the level you died at (the death screen says what was lost)
 var attack_timer := 0.0
 var flash_timer := 0.0
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
@@ -1163,8 +1165,11 @@ func _die() -> void:
 	death_timer = 1.1
 	model.die()
 	respawn_timer = minf(Stats.RESPAWN_TIME + Stats.RESPAWN_PER_LEVEL * (level - 1), Stats.RESPAWN_MAX)
+	respawn_total = respawn_timer
+	fell_level = level
 	if is_player and level > 1:
-		game.announce("You fell at level %d: ranks lost, back in %d seconds." % [level, int(respawn_timer)])
+		# (The HUD's death screen carries this; the chat log keeps the line.)
+		game.chat_system("You fell at level %d: ranks lost, back in %d seconds." % [level, int(respawn_timer)])
 	if veteran > 0:
 		game.chat_system("%s's streak of %d ends." % [display_name, streak])
 	streak = 0

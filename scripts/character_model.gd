@@ -98,7 +98,9 @@ static func config(team: int, role: int, variant: String = "", rank: int = 1) ->
 					c.attacks = ["Spellcast_Shoot"]
 					c.hat = false
 				_:
-					c.scene = "rogue"
+					# Villagers: elves in the hooded tunic (the reference's
+					# green hood), humans bare-headed.
+					c.scene = "rogue_hooded" if team == 0 else "rogue"
 					c.skin = "rogue"
 					c.show = []
 					c.idle = "Unarmed_Idle"
@@ -127,7 +129,14 @@ const CELLS := {
 	"healer": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)]},
 }
 static var custom_cache := {}
+static var flat_cache := {}   # mesh resource path -> faceted copy (see _flat_mesh)
 var model_root: Node3D
+
+# Chunky proportions (Faisal's character reference, 2026-10-09): a big head,
+# oversized mitten hands and big boots. The animations only drive bone
+# position and rotation, so a pose scale on these bones sticks. The hand
+# slots are scaled back so weapons keep their size.
+const CHUNKY := {"head": 1.22, "hand.l": 1.3, "hand.r": 1.3, "handslot.l": 0.8, "handslot.r": 0.8, "foot.l": 1.25, "foot.r": 1.25}
 
 
 static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictionary) -> Texture2D:
@@ -208,11 +217,13 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 		if cape and variant == "" and role != Role.BASE:
 			cape.visible = rank >= 3 or custom.has("look")
 
-	# Team colour skin on every mesh.
+	# Team colour skin on every mesh, on faceted (flat-shaded) copies of the
+	# meshes so the low-poly angles read crisp, like the reference art.
 	var skin: Texture2D = load("res://assets/characters/skins/%s_%s.png" % [c.skin, "elf" if team == 0 else "human"])
 	skin = customised_skin(skin, c.skin, custom)
 	flash_mats = []
 	for mesh in _meshes(inst):
+		mesh.mesh = _flat_mesh(mesh.mesh)
 		for i in mesh.get_surface_override_material_count():
 			var mat: Material = mesh.get_active_material(i)
 			if mat is StandardMaterial3D:
@@ -233,6 +244,10 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 				flash_mats.append(dup)
 
 	if skeleton:
+		for bone in CHUNKY:
+			var bi: int = skeleton.find_bone(bone)
+			if bi >= 0:
+				skeleton.set_bone_pose_scale(bi, Vector3.ONE * CHUNKY[bone])
 		if c.ears:
 			_add_ears(team)
 		if c.crown:
@@ -617,6 +632,28 @@ func _add_rank_flair(team: int, role: int, rank: int) -> void:
 					head.add_child(gem)
 
 
+static func _flat_mesh(mesh: Mesh) -> Mesh:
+	## A copy of the mesh with every triangle's own normal (no smoothing), so
+	## the facets catch the light one by one; bones and weights come along.
+	## Cached per source mesh, since every unit shares the same few models.
+	if mesh == null:
+		return mesh
+	var key := mesh.resource_path if mesh.resource_path != "" else str(mesh.get_instance_id())
+	if flat_cache.has(key):
+		return flat_cache[key]
+	var out := ArrayMesh.new()
+	for s in mesh.get_surface_count():
+		var st := SurfaceTool.new()
+		st.create_from(mesh, s)
+		st.deindex()
+		st.generate_normals()
+		st.generate_tangents()
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
+		out.surface_set_material(s, mesh.surface_get_material(s))
+	flat_cache[key] = out
+	return out
+
+
 func _meshes(node: Node) -> Array:
 	var out := []
 	if node is MeshInstance3D:
@@ -645,7 +682,7 @@ func _add_ears(team: int) -> void:
 		cone.height = 0.42
 		ear.mesh = cone
 		ear.material_override = skin_mat
-		ear.position = Vector3(side * 0.5, 0.25, 0.0)
+		ear.position = Vector3(side * 0.46, 0.22, 0.0)
 		ear.rotation.z = -side * (PI / 2.0 - 0.35)
 		att.add_child(ear)
 

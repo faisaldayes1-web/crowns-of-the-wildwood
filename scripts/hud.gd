@@ -199,8 +199,8 @@ func _draw() -> void:
 	if _me() and not game.guide_open:
 		_draw_world_prompt()
 		_draw_player_panel(_me())
-	if game.killer_timer > 0.0 and _me() and _me().dead and not game.killer_card.is_empty():
-		_draw_killer_card()
+	if _me() and _me().dead and not game.demo:
+		_draw_death_screen(_me())
 	if _me() and not _me().kill_banner.is_empty():
 		_draw_kill_banner(_me())
 	if not game.guide_open and not pane:
@@ -3711,16 +3711,70 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 	_text(badge + Vector2(-14, 11), "LV", 6, tc, HORIZONTAL_ALIGNMENT_CENTER, 28, 1)
 
 
-func _draw_killer_card() -> void:
-	## "KILLED BY": the killer's banner drops in over the field while you are down.
+func _draw_death_screen(p) -> void:
+	## You are down: the field dims and greys out, a crimson ribbon says YOU
+	## FELL, a laurel medallion counts the respawn down with a gold ring
+	## draining round it, a parchment line says what happens next, and the
+	## killer's banner hangs under it (Faisal 2026-10-09: the died/respawn
+	## screen in the HUD's own style, timer always visible).
+	var now := Time.get_ticks_msec() / 1000.0
+	var since: float = clampf(maxf(p.respawn_total - p.respawn_timer, 0.0), 0.0, 10.0)
+	var a := clampf(since / 0.4, 0.0, 1.0)
+	# The field: a dark red-grey wash with a heavy vignette.
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.08, 0.04, 0.05, 0.42 * a))
+	_vignette(Color(0.25, 0.03, 0.04, 0.55 * a))
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var pop := 1.0 + (0.2 * sin(clampf(since / 0.35, 0.0, 1.0) * PI) if since < 0.35 else 0.0)
+	var s := minf(since / 0.12, 1.0) * pop * fit * 0.82
+	if s < 0.05:
+		return
+	draw_set_transform(Vector2(size.x / 2.0, 150.0 * fit), 0.0, Vector2(s, s))
+	var ink := Color(0.12, 0.05, 0.03, a)
+	var half := 170.0
+	_cloth_ribbon(half, -44.0, 30.0, Color(0.78, 0.16, 0.14, a), Color(0.38, 0.05, 0.06, a), a, now)
+	for sx in [-1.0, 1.0]:
+		_inked_star(Vector2(sx * (half - 30.0), -8.0), 9.0, Color(1.0, 0.8, 0.22, a), ink)
+	_title_text(Vector2(-half, 18.0), "YOU FELL", 46, Color(1.0, 0.95, 0.9, a), Color(0.55, 0.08, 0.08, a), ink, half * 2.0)
+	# The countdown medallion: a laurel wreath round a dark disc, the gold
+	# ring draining as the timer runs, the seconds in the round face.
+	var mc := Vector2(0, 118.0)
+	var total: float = maxf(p.respawn_total, 0.1)
+	var frac: float = clampf(p.respawn_timer / total, 0.0, 1.0)
+	_laurel(mc + Vector2(0, 12), -1.0, 1.0, 54.0, 46.0)
+	_laurel(mc + Vector2(0, 12), 1.0, 1.0, 54.0, 46.0)
+	draw_circle(mc + Vector2(0, 3), 46.0, Color(0, 0, 0, 0.4 * a))
+	draw_circle(mc, 44.0, Color(0.35, 0.2, 0.04, a))
+	draw_circle(mc, 40.0, Color(0.16, 0.1, 0.08, a))
+	draw_arc(mc, 36.0, -PI / 2.0, -PI / 2.0 + TAU, 48, Color(0.3, 0.2, 0.12, a), 6.0)
+	if frac > 0.005:
+		draw_arc(mc, 36.0, -PI / 2.0, -PI / 2.0 + TAU * frac, 48, Color(1.0, 0.8, 0.22, a), 6.0, true)
+	draw_circle(mc, 30.0, Color(0.1, 0.06, 0.05, a))
+	_arc_polygon(mc, 29.0, PI, TAU, Color(1, 0.9, 0.7, 0.05 * a))
+	var secs := ceili(p.respawn_timer)
+	var msg := "OVERTIME" if game.overtime else str(secs)
+	_bar_text(mc + Vector2(0, (8.0 if game.overtime else 13.0)), msg, bar_font if bar_font else font, 12 if game.overtime else 34, CREAM, Color(0.2, 0.1, 0.02), 3)
+	_bar_text(Vector2(0, 62.0), "DOWN FOR THE REST OF OVERTIME" if game.overtime else "RESPAWNING IN", bar_font if bar_font else font, 14, Color(1.0, 0.85, 0.6, a), Color(0.2, 0.08, 0.02, a), 3)
+	var hint := "Back at your castle cellar" + ("  ·  ranks lost from level %d" % p.fell_level if p.fell_level > 1 else "")
+	if game.overtime:
+		hint = "No respawns in overtime: cheer your team on"
+	_scroll_hint(192.0, maxf(_text_width(hint, 15) + 56.0, 300.0), hint, a)
+	_twinkles(now, a * 0.6, [Vector2(-200, -60), Vector2(196, -56), Vector2(-120, 100), Vector2(126, 104)])
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	# The killer's banner, "SLAIN BY", drops in under the scroll.
+	if game.killer_timer > 0.0 and not game.killer_card.is_empty():
+		_draw_killer_card(150.0 * fit + 222.0 * s)
+
+
+func _draw_killer_card(top_y: float = 160.0) -> void:
+	## "SLAIN BY": the killer's banner drops in over the field while you are down.
 	var k = game.killer_card.get("unit")
 	if k == null or not is_instance_valid(k):
 		return
 	var cx := size.x / 2.0
 	var slide: float = clampf((6.0 - game.killer_timer) * 4.0, 0.0, 1.0)
-	var y: float = 160.0 - (1.0 - slide) * 60.0
+	var y: float = top_y + 16.0 - (1.0 - slide) * 40.0
 	var rect := Rect2(cx - 170, y, 340, 70)
-	_text(Vector2(cx - 170, y - 16), "KILLED BY", 13, Color(1.0, 0.5, 0.45), HORIZONTAL_ALIGNMENT_CENTER, 340, 3)
+	_bar_text(Vector2(cx, y - 8), "SLAIN BY", bar_font if bar_font else font, 14, Color(1.0, 0.5, 0.45), Color(0.2, 0.05, 0.02), 3)
 	_draw_banner(rect, game.banner_for(k), game.killer_card.get("weapon", ""))
 
 
@@ -4307,7 +4361,9 @@ func _draw_class_banner(p) -> void:
 	var rc: Color = Stats.ROLES[role].color
 	var light := Color(rc.r * 0.75 + 0.1, rc.g * 0.75 + 0.1, rc.b * 0.75 + 0.1, a)
 	var deep := Color(rc.r * 0.3, rc.g * 0.3, rc.b * 0.3, a)
-	draw_set_transform(Vector2(size.x / 2.0, 186.0 * fit + sin(now * 2.2) * 2.0 - (1.0 - fade) * 30.0), 0.04 - 0.012 * sin(now * 1.7), Vector2(s, s))
+	# (Sits a little lower than the crown banner so the class tile on top
+	# clears the objective line.)
+	draw_set_transform(Vector2(size.x / 2.0, 214.0 * fit + sin(now * 2.2) * 2.0 - (1.0 - fade) * 30.0), 0.04 - 0.012 * sin(now * 1.7), Vector2(s, s))
 	var ink := Color(0.12, 0.07, 0.03, a)
 	# Shards in the class colour and gold flying out behind the ribbon.
 	for k in 14:
@@ -4329,7 +4385,7 @@ func _draw_class_banner(p) -> void:
 	_title_text(Vector2(-half, -16.0), "YOU ARE NOW", 30, Color(1.0, 0.97, 0.88, a), Color(deep.r, deep.g, deep.b, a), ink, half * 2.0)
 	_title_text(Vector2(-half, 28.0), p.role_name().to_upper(), 44, Color(1.0, 0.84, 0.18, a), Color(0.9, 0.42, 0.04, a), ink, half * 2.0)
 	# The class on a glossy hex tile above the ribbon, in its colour.
-	var hc := Vector2(0, -92.0 + sin(now * 4.0) * 2.0)
+	var hc := Vector2(0, -88.0 + sin(now * 4.0) * 2.0)
 	for i in 3:
 		draw_circle(hc, 44.0 - i * 9.0, Color(rc.r, rc.g, rc.b, 0.08 * a))
 	_hex_tile(hc, 30.0, Color(0.35, 0.2, 0.04, a), Color(rc.r * 0.7, rc.g * 0.7, rc.b * 0.7, a), false, true)

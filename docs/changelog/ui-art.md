@@ -114,3 +114,48 @@ path stones per tile 5 → 4.
 Renders: `world-courtyard-before/after.png`, `world-elf-castle-before/after.png` beside the references.
 
 Revert: `git revert 731b6e5`, then regenerate the textures as above.
+
+---
+
+## 2026-10-09 — visual overhaul, pass 2: Elf keep walls, yard, blossoms; chunky faceted Elves; death screen
+
+Commit: `PENDING`
+
+What changed:
+- **Elf keep interior**: the untinted elven "stone" (keep walls, throne room, pillars) is now the
+  same trimmed hedge as the outer walls instead of bark, so the base interior reads as the green,
+  grown hall of the interior target; tinted pieces (caps, stairs, posts) stay bark. The Elf yard
+  flags are near-white cream (0.97, 0.96, 0.9) instead of a green-grey tint (0.8, 0.82, 0.72).
+- **Flowers**: bloom emission is a faint neutral lift (0.5, 0.5, 0.45 @ 0.18) instead of teal
+  (0.3, 0.6, 0.7 @ 0.25), so the daisies are white, not blue. Pink blossom trees are one wild tree
+  in eight instead of one in four.
+- **Elf character look** (Faisal's create-character reference, 2026-10-09): every unit's meshes are
+  rebuilt faceted (flat-shaded, each triangle with its own normal) so the low-poly angles read
+  crisp; a bone pose scale makes the head bigger (1.22), the hands oversized mittens (1.3) and the
+  boots big (1.25), with the hand slots scaled back (0.8) so weapons keep their size; Elf villagers
+  wear the hooded tunic model (humans stay bare-headed); the pointed ears sit a little closer in.
+  No gameplay numbers changed (hit shapes are unchanged; the scale is visual only).
+- **Death screen** (new, replaces the plain "SLAIN BY" card): a dark red wash with vignette, a
+  crimson ribbon reading YOU FELL, a laurel medallion whose gold ring drains with the respawn
+  timer and shows the seconds (or OVERTIME), "RESPAWNING IN" under it, a parchment line "Back at
+  your castle cellar · ranks lost from level N", and the killer card below titled SLAIN BY in the
+  HUD face. The respawn countdown stays visible the whole time. The "You fell at level" announce
+  moved from the centre banner to the chat log so it does not fight the screen.
+- The class pick-up ribbon sits 28 px lower so the class tile clears the objective line.
+
+Files touched: `scripts/game.gd` (`_ashlar`, `_build_castle` yard flags, `_add_ground_detail`
+emission, `_add_tree_grown`), `scripts/character_model.gd` (`CHUNKY`, `_flat_mesh`, `flat_cache`,
+villager scene, ear offset), `scripts/unit.gd` (`respawn_total`, `fell_level`, announce →
+chat), `scripts/hud.gd` (`_draw_death_screen`, `_draw_killer_card` title, banner offset),
+`docs/changelog/ui-art.md`.
+
+Tunables (old → new): Elf yard flag tint (0.8, 0.82, 0.72) → (0.97, 0.96, 0.9); bloom emission
+(0.3, 0.6, 0.7) @ 0.25 → (0.5, 0.5, 0.45) @ 0.18; blossom trees 1 in 4 → 1 in 8; bone scales
+head 1.0 → 1.22, hands 1.0 → 1.3, hand slots 1.0 → 0.8, feet 1.0 → 1.25; ears x 0.5 → 0.46,
+y 0.25 → 0.22; class banner y 186 → 214. Respawn times unchanged.
+
+Renders: `world-elf-castle-pass2.png`, `world-courtyard-pass2.png`, `characters-after.png`,
+`death-screen-before/after.png` (before = the old SLAIN BY card from `art/` pass-1 era is not
+available; the previous build's card is described above).
+
+Revert: `git revert PENDING`

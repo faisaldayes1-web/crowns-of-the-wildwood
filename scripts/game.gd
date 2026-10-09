@@ -3302,9 +3302,11 @@ func _add_ground_detail() -> void:
 		if s[0] == "flower" or s[0] == "tuft":
 			mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		if s[0] == "flower" or s[0] == "cap":
+			# A faint neutral lift so blooms stay bright in shade; the old
+			# teal emission turned the white daisies blue.
 			mat.emission_enabled = true
-			mat.emission = Color(0.3, 0.6, 0.7)
-			mat.emission_energy_multiplier = 0.25
+			mat.emission = Color(0.5, 0.5, 0.45)
+			mat.emission_energy_multiplier = 0.18
 		inst.material_override = mat
 		inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(inst)
@@ -3584,7 +3586,7 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 	var wild: bool = pos.x < -8.0
 	if wild and seed % 2 == 0:
 		# Wildwood palette: pale mint and lavender canopies that glow faintly.
-		var lavender: bool = seed % 4 == 0
+		var lavender: bool = seed % 8 == 0   # one blossom tree in eight, like the courtyard target
 		# (The sun and the crown highlight brighten tops a lot, so these stay dark.)
 		# Pink blossom (the courtyard target's cherry) or deep wildwood green.
 		leaf.set_shader_parameter("top_color", Color.from_hsv(0.9, 0.5, 0.78) if lavender else Color.from_hsv(0.38, 0.75, 0.5))
@@ -4309,6 +4311,10 @@ func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	## Castle stone; the elven castle is grown, so its "stone" is living bark,
 	## and the Humans build in cool grey blocks.
 	if mossy:
+		# Plain (untinted) elven "stone" is a trimmed hedge: keep walls, the
+		# throne room and pillars; tinted pieces (caps, stairs, posts) stay bark.
+		if tint == Color.WHITE:
+			return _hedge()
 		return _pbr("bark", 0.55, tint * Color(0.72, 0.7, 0.58))
 	if grey:
 		return _pbr("greystone", 0.42, Color(0.74, 0.76, 0.82).lerp(tint * Color(0.74, 0.76, 0.82), 0.35))
@@ -6645,7 +6651,7 @@ func _build_castle(team: int) -> void:
 	var in_x := fx + side * 0.5                   # the front wall's inner face
 
 	# --- The yard: sandstone flags inside the walls. ---
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(Color(0.8, 0.82, 0.72) if mossy else Color.WHITE))
+	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(Color(0.97, 0.96, 0.9) if mossy else Color.WHITE))
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
