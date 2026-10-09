@@ -61,6 +61,10 @@ var buff_timer := 0.0
 var regen_tick := 0.0
 var highlighted := false     # under the local player's aim
 var streak := 0              # kills without dying
+var best_streak := 0         # longest streak this match (end-of-match summary)
+var peak_level := 1          # highest in-match level reached in any life
+var xp_sources := {}         # this match's XP by source: combat, takedowns, crown, siege, support
+var giant_kills := 0         # kills on enemies two or more levels above you
 var kill_banner := {}        # the HUD's KILL card for a local player: {victim, role, team, streak, time}
 var spawn_protect := 0.0     # seconds of spawn protection left
 var home_defense := false    # inside our own castle: the defender bonus
@@ -80,6 +84,7 @@ var xp := 0
 var level := 1
 var points := 0
 var ranks := {}             # role -> [attack, q, e, vigor]
+var spent: Array = []       # [role, track] per rank point, oldest first, so a fall takes the newest back
 var variants := {}          # role -> chosen variant index, kept for the whole match
 var mastery := {}           # role -> rank points spent over the match (total upgrades)
 var _stats_cache := {}
@@ -635,6 +640,7 @@ func spend_point(track: int) -> bool:
 		ranks[role] = [0, 0, 0, 0]
 	ranks[role][track] += 1
 	points -= 1
+	spent.append([role, track])
 	var old_rank := gear_rank()
 	mastery[role] = mastery.get(role, 0) + 1
 	if gear_rank() != old_rank:
@@ -667,16 +673,18 @@ func track_name(track: int) -> String:
 	return "Vigor"
 
 
-func gain_xp(amount: int) -> void:
+func gain_xp(amount: int, source: String = "combat") -> void:
 	if dead or amount <= 0:
 		return
 	xp += amount
+	xp_sources[source] = xp_sources.get(source, 0) + amount
 	if is_player:
 		game.match_xp += amount
 	var new_level := Stats.level_for_xp(xp)
 	if new_level > level:
 		points += new_level - level
 		level = new_level
+		peak_level = maxi(peak_level, level)
 		_refresh_overhead()
 		game.spawn_pillar(global_position, Color(1.0, 0.9, 0.4), 4.5, 1.0)
 		game.spawn_ring(global_position, 2.2, Color(1.0, 0.9, 0.4), 0.6)
@@ -688,6 +696,24 @@ func gain_xp(amount: int) -> void:
 			game.levelup_level = level
 		else:
 			_bot_spend()
+
+
+func _lose_levels(n: int) -> void:
+	## A fall: drop n levels, and the rank points they gave (unspent ones
+	## first, then the most recently bought ranks). Class mastery and
+	## promotions are kept.
+	var to := maxi(level - n, 1)
+	var lost := level - to
+	level = to
+	xp = Stats.xp_span(level)[0]
+	var from_pool := mini(points, lost)
+	points -= from_pool
+	lost -= from_pool
+	while lost > 0 and not spent.is_empty():
+		var last: Array = spent.pop_back()
+		if ranks.has(last[0]) and ranks[last[0]][last[1]] > 0:
+			ranks[last[0]][last[1]] -= 1
+		lost -= 1
 
 
 func _bot_spend() -> void:
@@ -715,8 +741,13 @@ func ranked(a: Dictionary, track: int) -> Dictionary:
 	var out := a.duplicate()
 	out.cooldown = a.cooldown * (1.0 - Stats.RANK_COOLDOWN_CUT * r)
 	out.cost = a.cost * (1.0 - Stats.RANK_COST_CUT * r)
+	# The base attack's reach stays put at every rank (it made ranked bows
+	# out-range everyone); ranks make it quicker and cheaper instead.
+	var grows: Array = ["distance", "radius", "duration", "haste", "splash", "heal_radius", "root"]
+	if track != 0:
+		grows.append("range")
 	if r >= 2:
-		for key in ["distance", "radius", "duration", "haste", "splash", "heal_radius", "root", "range"]:
+		for key in grows:
 			if a.has(key):
 				out[key] = a[key] * (1.0 + Stats.RANK_EFFECT_BOOST)
 		if a.has("arrows"):
@@ -729,13 +760,16 @@ func ranked(a: Dictionary, track: int) -> Dictionary:
 		if a.has("gate_damage"):
 			out.gate_damage = a.gate_damage + 1
 		for key in ["distance", "radius", "splash", "heal_radius", "range"]:
-			if a.has(key):
+			if a.has(key) and key in grows:
 				out[key] = a[key] * (1.0 + Stats.RANK_EFFECT_BOOST * 1.5)
 	return out
 
 
 func attack_stats() -> Dictionary:
 	var s := ranked(stats(), 0)
+	if s.attack == "arrow" or s.attack == "spell":
+		s = s.duplicate()
+		s.cooldown = s.cooldown * Stats.RANGED_ATTACK_SLOW
 	if buff == "Might" and buff_timer > 0.0:
 		s = s.duplicate()
 		s.damage = s.damage + 1
@@ -817,19 +851,26 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		game.shake(0.35)
 		game.rumble(self, 0.3, 0.8 if hearts <= 1 else 0.6, 0.22)
 	if hearts <= 0:
+		if game.demo and attacker and attacker != self:
+			# Balance log: who killed whom, at what in-match level and role.
+			print("KILL t=%d kteam=%d krole=%d klevel=%d kmastery=%d vteam=%d vrole=%d vlevel=%d vmastery=%d" % [game.match_clock(),
+				attacker.team, attacker.role, attacker.level, attacker.total_upgrades(), team, role, level, total_upgrades()])
 		if is_player:
 			var weapon: String = attacker.attack_stats().attack_name if (attacker and attacker != self and attacker.has_method("attack_stats")) else ""
 			game.on_player_killed(attacker if attacker != self else null, weapon)
 		if attacker and attacker != self:
-			attacker.gain_xp(Stats.XP_KILL)
+			if level - attacker.level >= 2:
+				attacker.giant_kills += 1
+			attacker.gain_xp(Stats.XP_KILL + Stats.XP_UPSET * maxi(level - attacker.level, 0), "takedowns")
 			attacker.kills += 1
 			attacker.streak += 1
+			attacker.best_streak = maxi(attacker.best_streak, attacker.streak)
 			# Assists for everyone else who hit us recently.
 			var now_s := Time.get_ticks_msec() / 1000.0
 			for h in recent_hitters:
 				if is_instance_valid(h) and h != attacker and h.team == attacker.team and now_s - recent_hitters[h] < Stats.ASSIST_WINDOW:
 					h.assists += 1
-					h.gain_xp(Stats.XP_ASSIST)
+					h.gain_xp(Stats.XP_ASSIST, "takedowns")
 			recent_hitters = {}
 			# A kill feeds the next move: energy back and every cooldown cut.
 			attacker.energy = minf(attacker.energy + Stats.KILL_ENERGY, attacker.energy_max())
@@ -877,7 +918,7 @@ func heal(amount: int, healer = null) -> int:
 		game.spawn_splash(global_position + Vector3(0, 0.4, 0), Color(0.4, 1.0, 0.5), 12, 2.0, 0.9, true)
 		game.spawn_popup(global_position + Vector3(0, 2.0, 0), "+%d" % healed, Color(0.4, 1.0, 0.5))
 		if healer and healer != self:
-			healer.gain_xp(Stats.XP_HEAL * healed)
+			healer.gain_xp(Stats.XP_HEAL * healed, "support")
 			healer.healing += healed
 	return healed
 
@@ -1154,8 +1195,7 @@ func _die() -> void:
 	death_timer = 1.1
 	model.die()
 	respawn_timer = minf(Stats.RESPAWN_TIME + Stats.RESPAWN_PER_LEVEL * (level - 1), Stats.RESPAWN_MAX)
-	if is_player and level > 1:
-		game.announce("You fell at level %d: ranks lost, back in %d seconds." % [level, int(respawn_timer)])
+	var fell_from := level
 	if veteran > 0:
 		game.chat_system("%s's streak of %d ends." % [display_name, streak])
 	streak = 0
@@ -1172,11 +1212,9 @@ func _die() -> void:
 	stealth_timer = 0.0
 	slow_timer = 0.0
 	overhead.visible = true
-	# Experience is per life.
-	xp = 0
-	level = 1
-	points = 0
-	ranks = {}
+	_lose_levels(Stats.DEATH_LEVEL_LOSS)
+	if is_player and fell_from > 1:
+		game.announce("You fell at level %d: down to level %d, back in %d seconds." % [fell_from, level, int(respawn_timer)])
 	game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.3, 0.3, 0.35), 18, 3.0, 0.8)
 	game.spawn_ring(global_position, 1.4, Color(0.6, 0.2, 0.2), 0.5)
 	game.sfx.play("death", global_position, 0.0, 0.1)
