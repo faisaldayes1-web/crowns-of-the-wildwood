@@ -14,3 +14,4 @@ All of these are CC0 (public domain). Credit is appreciated by the authors but n
 - `assets/ui/skills/` (hexagon skill tiles and the scoreboard shield faces) are cut from UI reference art supplied by the project owner.
 - **Lilita One** font by Juan Montoreano, from Google Fonts — SIL Open Font License 1.1 (`assets/fonts/OFL-LilitaOne.txt`). `assets/fonts/LilitaOne-Regular.ttf`, used for the top bar text.
 - `assets/ui/topbar/topbar.png` (the match top bar: banners, crest shields, clock frame, parchment strip) is cut from the owner's UI reference art by `tools/make_topbar.py`, with its text painted out.
+- **Lilita One** (the menu lettering) by Juan Montoreano — SIL Open Font License 1.1, `assets/ui/fonts/` (licence text beside it). The menu frames, buttons, icons and map card art in `assets/ui/menu/` are drawn by `tools/make_menu_art.py` from this game's own renders.

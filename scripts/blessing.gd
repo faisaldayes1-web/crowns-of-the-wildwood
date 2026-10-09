@@ -149,6 +149,8 @@ func _process(delta: float) -> void:
 	var fade: float = clampf(life / 4.0, 0.0, 1.0)
 	pillar.material_override.albedo_color = Color(color, (0.14 + 0.06 * sin(t * 4.0)) * fade)
 	light.light_energy = 2.0 * fade
+	if game.net_client:
+		return   # online: the host hands out blessings
 	for u in game.units:
 		if u.dead or u.carrying:
 			continue

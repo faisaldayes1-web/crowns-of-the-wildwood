@@ -17,6 +17,14 @@ var wall: MeshInstance3D
 var wall_mat: StandardMaterial3D
 var rubble: MeshInstance3D
 var label: Label3D
+# An overhead health bar instead of a number (Faisal 08:21): a dark frame,
+# a dark track and a fill that shrinks from the right, green to red.
+var bar_fill: MeshInstance3D
+var bar_fill_mesh: QuadMesh
+var bar_fill_mat: StandardMaterial3D
+var bar_nodes: Array = []
+const BAR_W := 2.6
+const BAR_H := 0.26
 var base_color := Color(0.45, 0.3, 0.18)
 
 
@@ -101,6 +109,12 @@ func setup(p_game, p_team: int, x: float) -> void:
 	label.outline_modulate = Color(0.08, 0.06, 0.04)
 	label.position.y = size.y / 2.0 + 1.8
 	add_child(label)
+	var bar_y: float = size.y / 2.0 + 1.8
+	_bar_quad(Vector2(BAR_W + 0.12, BAR_H + 0.12), Color(0.08, 0.06, 0.04), 10, bar_y)
+	_bar_quad(Vector2(BAR_W, BAR_H), Color(0.22, 0.12, 0.1), 11, bar_y)
+	bar_fill = _bar_quad(Vector2(BAR_W, BAR_H), Color(0.3, 0.85, 0.3), 12, bar_y)
+	bar_fill_mesh = bar_fill.mesh
+	bar_fill_mat = bar_fill.material_override
 	_refresh()
 
 
@@ -141,8 +155,30 @@ func collapse() -> void:
 	_refresh()
 
 
+func _bar_quad(sz: Vector2, col: Color, prio: int, y: float) -> MeshInstance3D:
+	var q := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = sz
+	q.mesh = qm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.no_depth_test = true
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.render_priority = prio
+	m.albedo_color = col
+	q.material_override = m
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	q.position.y = y
+	add_child(q)
+	bar_nodes.append(q)
+	return q
+
+
 func _refresh() -> void:
 	wall.visible = not broken
+	for q in bar_nodes:
+		q.visible = not broken
 	rubble.visible = broken
 	if broken and rebuild_timer == INF:
 		label.text = "Door down for overtime"
@@ -152,12 +188,17 @@ func _refresh() -> void:
 		label.text = ("Door broken: under siege (%d)" if pressed else "Door broken: rebuilding in %d") % ceili(rebuild_timer)
 		label.modulate = Color(1, 0.35, 0.3) if pressed else Color(1, 0.5, 0.4)
 	else:
-		label.text = "Door %d / %d" % [hp, Stats.GATE_HITS]
-		label.modulate = Color(1, 1, 1)
+		label.text = ""
+		var f: float = clampf(float(hp) / Stats.GATE_HITS, 0.0, 1.0)
+		bar_fill_mesh.size.x = maxf(BAR_W * f, 0.001)
+		bar_fill_mesh.center_offset.x = -BAR_W * (1.0 - f) / 2.0
+		bar_fill_mat.albedo_color = Color(0.9, 0.25, 0.2).lerp(Color(0.3, 0.85, 0.3), f)
 		wall_mat.albedo_color = base_color.darkened(0.5 * (1.0 - float(hp) / Stats.GATE_HITS))
 
 
 func _process(delta: float) -> void:
+	if game.net_client:
+		return   # online: the host rebuilds doors
 	if not broken:
 		return
 	# A siege holds the breach: the rebuild only counts down while no enemy is

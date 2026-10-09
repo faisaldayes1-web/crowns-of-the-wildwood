@@ -71,6 +71,9 @@ func _db(volume: float) -> float:
 func play(name: String, pos: Vector3, db: float = 0.0, jitter: float = 0.08) -> void:
 	## A sound at a place in the world. Repeats of the same clip within 40 ms
 	## merge into one so a volley of hits is not a wall of noise.
+	var net = get_node_or_null("/root/Net")
+	if net and not name.begins_with("step"):   # footsteps are made on each screen (unit._net_puppet)
+		net.rec("sfx", "play", [name, pos, db, jitter])
 	if not enabled or not streams.has(name):
 		return
 	if listener and listener.global_position.distance_to(pos) > HEAR_RANGE:

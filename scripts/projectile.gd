@@ -9,6 +9,7 @@ extends Node3D
 const Stats = preload("res://scripts/stats.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Barricade = preload("res://scripts/barricade.gd")
+const Fx = preload("res://scripts/fx.gd")
 
 const HIT_RADIUS := 0.7
 const FLIGHT_HEIGHT := 1.1   # how high above the feet a shot flies
@@ -24,6 +25,7 @@ var fall_speed := 0.0
 var speed := 30.0
 var query_mask := 1
 var from_turret := false   # a turret bolt (for the demo tallies)
+var inert := false         # online, on a joiner's screen: only flies; the host's game decides the hits
 var owner_unit = null      # who fired it, for experience
 var fire := false
 var holy := false
@@ -53,6 +55,25 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 		effect["slow"] = stats.slow
 	if stats.has("root"):
 		effect["root"] = stats.root
+	if stats.get("burn", false):
+		effect["burn"] = true
+	# Which hit effect the shot makes (scripts/fx.gd KINDS).
+	if fire:
+		effect["fx"] = "fire"
+	elif frost:
+		effect["fx"] = "frost"
+	elif drain:
+		effect["fx"] = "dark"
+	elif stats.get("nature", false) or stats.get("thorn", false):
+		effect["fx"] = "nature"
+	elif holy:
+		effect["fx"] = "holy"
+	elif splash > 0.0 or stats.get("attack", "") == "spell":
+		effect["fx"] = "arcane"
+	elif stats.has("slow"):
+		effect["fx"] = "venom"
+	else:
+		effect["fx"] = "heavy" if damage >= 2 else "arrow"
 	color = p_color
 	life = stats.range / speed
 	position = from + Vector3(0, FLIGHT_HEIGHT, 0)
@@ -60,9 +81,23 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 	if position.y > FLIGHT_HEIGHT + 0.5:
 		fall_speed = (position.y - FLIGHT_HEIGHT) / (stats.range * 0.8 / speed)
 	# The world, plus the enemy door (layer 4 = human door, layer 3 = elf door).
-	query_mask = 1 | (8 if team == 0 else 4)
+	# The world and BOTH teams' doors, gates and sanctuary wards (layers 3
+	# and 4): nothing flies through a wall or a door, your own included.
+	# Only from up on a rampart can you shoot over a wall.
+	query_mask = 1 | 4 | 8
 	rotation.y = atan2(-direction.x, -direction.z)
-	if fire:
+	# A skill's own look (scripts/skill_fx.gd shot()); nature spells are thorns.
+	var look: String = stats.get("look", "")
+	if look == "" and stats.get("nature", false):
+		look = "thorn"
+	if look == "thorn":
+		_build_thorn(splash >= 2.5)
+	elif look == "star":
+		_build_arrow()
+		_build_star()
+	elif look == "moon":
+		_build_holy(Color(0.8, 0.9, 1.0))
+	elif fire:
 		_build_fireball()
 	elif splash > 0.0:
 		_build_arcane()
@@ -190,7 +225,7 @@ func _build_fireball() -> void:
 	_light(Color(1.0, 0.6, 0.2), 2.5, 7.0)
 
 
-func _build_holy() -> void:
+func _build_holy(c: Color = Color(1.0, 0.97, 0.75)) -> void:
 	var streak := MeshInstance3D.new()
 	var cap := CapsuleMesh.new()
 	cap.radius = 0.12
@@ -198,10 +233,88 @@ func _build_holy() -> void:
 	cap.radial_segments = 8
 	streak.mesh = cap
 	streak.rotation.x = PI / 2.0
-	streak.material_override = _glow(Color(1.0, 0.97, 0.75), 3.5)
+	streak.material_override = _glow(c, 3.5)
 	add_child(streak)
-	_trail(Color(1.0, 0.95, 0.6), 10, 0.3, 0.07)
-	_light(Color(1.0, 0.95, 0.6), 1.2, 4.0)
+	_trail(c.lerp(Color(1.0, 0.95, 0.6), 0.3), 10, 0.3, 0.07)
+	_light(c, 1.2, 4.0)
+
+
+func _build_thorn(seed: bool) -> void:
+	## Thorn Bolt: a glowing green thorned dart with green streaks behind it.
+	## Bramble Burst (seed): a thorny seed-ball that spins as it flies.
+	var green := Color(0.45, 0.95, 0.35)
+	var thorn_mat := _glow(Color(0.35, 0.7, 0.25), 1.6)
+	var spike := CylinderMesh.new()
+	spike.top_radius = 0.0
+	spike.bottom_radius = 0.045
+	spike.height = 0.2
+	spike.radial_segments = 4
+	if seed:
+		spin = Node3D.new()
+		add_child(spin)
+		var core := _sphere(0.3, _glow(Color(0.25, 0.55, 0.18), 1.4))
+		core.reparent(spin)
+		_sphere(0.18, _glow(Color(0.75, 1.0, 0.5), 3.0))
+		for i in 14:
+			var t := MeshInstance3D.new()
+			t.mesh = spike
+			t.material_override = thorn_mat
+			var n := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized()
+			t.transform = Transform3D(Basis.looking_at(n, Vector3.UP if absf(n.y) < 0.95 else Vector3.RIGHT), n * 0.33)
+			t.rotate_object_local(Vector3.RIGHT, -PI / 2.0)
+			t.scale = Vector3.ONE * 1.6
+			spin.add_child(t)
+		_trail(Color(0.4, 0.85, 0.3), 14, 0.5, 0.1)
+		_trail(Color(0.3, 0.55, 0.2), 6, 0.8, 0.12, -2.0)   # falling leaves
+		_light(green, 1.6, 5.0)
+		return
+	var shaft := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.07, 0.07, 0.8)
+	shaft.mesh = box
+	shaft.material_override = _glow(green, 2.4)
+	add_child(shaft)
+	var tip := MeshInstance3D.new()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.09
+	cone.height = 0.28
+	tip.mesh = cone
+	tip.rotation.x = -PI / 2.0
+	tip.position.z = -0.52
+	tip.material_override = _glow(Color(0.8, 1.0, 0.6), 3.0)
+	add_child(tip)
+	for i in 6:
+		var t := MeshInstance3D.new()
+		t.mesh = spike
+		t.material_override = thorn_mat
+		var side := 1.0 if i % 2 == 0 else -1.0
+		t.position = Vector3(side * 0.05, 0.0 if i % 4 < 2 else 0.04, -0.25 + i * 0.1)
+		t.rotation = Vector3(0.0, 0.0, -side * 1.1) + Vector3(0.5, 0, 0)
+		add_child(t)
+	# Green streaks behind it.
+	var streak := MeshInstance3D.new()
+	var cap := CapsuleMesh.new()
+	cap.radius = 0.06
+	cap.height = 1.4
+	cap.radial_segments = 6
+	streak.mesh = cap
+	streak.rotation.x = PI / 2.0
+	streak.position.z = 0.7
+	var sm := _glow(Color(0.4, 1.0, 0.35), 2.0)
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	sm.albedo_color = Color(0.4, 1.0, 0.35, 0.45)
+	streak.material_override = sm
+	add_child(streak)
+	_trail(Color(0.45, 1.0, 0.35), 12, 0.3, 0.06)
+	_light(green, 1.0, 3.5)
+
+
+func _build_star() -> void:
+	## Starfall: silver arrows with a glittering tail.
+	_sphere(0.08, _glow(Color(0.9, 0.95, 1.0), 4.0), Vector3(0, 0, -0.5))
+	_trail(Color(0.8, 0.9, 1.0), 12, 0.35, 0.06)
 
 
 func _process(delta: float) -> void:
@@ -217,7 +330,17 @@ func _physics_process(delta: float) -> void:
 
 	# Anything solid in the way stops the shot. The enemy door takes damage.
 	var ray := PhysicsRayQueryParameters3D.create(before, after, query_mask)
+	ray.hit_from_inside = true
 	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	# Our own turrets share our door layer, but shots fly past them.
+	while hit and hit.collider is Turret and hit.collider.team == team:
+		var skip := ray.exclude
+		skip.append(hit.rid)
+		ray.exclude = skip
+		hit = get_world_3d().direct_space_state.intersect_ray(ray)
+	if hit and inert:
+		queue_free()   # the impact effects come from the host
+		return
 	if hit:
 		global_position = hit.position
 		var gate = game.gates[1 - team]
@@ -240,7 +363,17 @@ func _physics_process(delta: float) -> void:
 		return
 	life -= delta
 	if life <= 0.0:
+		if inert:
+			queue_free()
+			return
 		_burst()
+		return
+	if inert:
+		for unit in game.units:
+			if unit.team != team and not unit.dead and not pierce and _flat(unit.global_position - global_position) < HIT_RADIUS \
+					and absf(global_position.y - (unit.global_position.y + 1.0)) < 1.5:
+				queue_free()
+				return
 		return
 
 	for unit in game.units:
@@ -266,34 +399,40 @@ func _physics_process(delta: float) -> void:
 			return
 
 
+func _clear_to(target: Vector3) -> bool:
+	## Nothing solid (walls, doors, wards) between the blast and `target`.
+	## The ray starts a little back along the flight, off the face it hit.
+	var from := global_position - direction * 0.3
+	var ray := PhysicsRayQueryParameters3D.create(from, target, query_mask)
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	return hit.is_empty() or hit.collider is Turret
+
+
 func _burst() -> void:
 	if splash > 0.0:
-		# Magic rains down on everyone near the impact, walls or no walls.
+		# The blast reaches everyone near the impact that it can see: a wall
+		# or a door between the blast and someone shields them.
 		for unit in game.units:
 			if unit.team == team or unit.dead:
 				continue
 			var offset: Vector3 = unit.global_position - global_position
 			offset.y = 0.0
-			if offset.length() < splash and not unit.is_protected():
+			if offset.length() < splash and not unit.is_protected() and _clear_to(unit.global_position + Vector3(0, 1.0, 0)):
 				unit.take_damage(damage, owner_unit, global_position, Stats.KNOCK_SPLASH, effect)
 		for t in game.turrets.duplicate():
 			if t.team != team and game._flat_dist(t.global_position, global_position) < splash + 0.5:
 				t.take_hit(damage, owner_unit)
 		var ground := Vector3(global_position.x, 0.0, global_position.z)
+		Fx.of(game).blast(global_position, splash, effect.fx)
 		game.sfx.play("explosion" if fire and splash > 2.5 else ("frost" if frost else "bolt_hit"), global_position, 0.0 if splash > 2.5 else -5.0, 0.12)
+		# The burst itself is drawn by Fx.blast above; the light and shake stay.
 		if fire:
-			game.spawn_ring(ground, splash, Color(1.0, 0.6, 0.2), 0.45, 0.2)
-			game.spawn_splash(global_position, Color(1.0, 0.6, 0.15), 40, 9.0, 0.7)
-			game.spawn_splash(global_position + Vector3(0, 0.5, 0), Color(0.25, 0.22, 0.2), 16, 2.5, 1.2, true)
 			game.spawn_flash(ground, Color(1.0, 0.6, 0.2), 6.0, 0.4)
 			game.shake_at(global_position, 0.5)
 		elif frost:
-			game.spawn_ring(ground, splash, color, 0.5, 0.25)
-			game.spawn_splash(global_position, Color(0.85, 0.95, 1.0), 30, 5.0, 0.8, true)
 			game.spawn_flash(ground, color, 4.0, 0.35)
+			game.shake_at(global_position, 0.25)
 		else:
-			game.spawn_ring(ground, splash, color, 0.35, 0.2)
-			game.spawn_splash(global_position, color, 14, 4.0, 0.4)
 			game.spawn_flash(ground, color, 2.5, 0.25)
 	elif holy:
 		game.spawn_splash(global_position, color, 10, 3.0, 0.3)
@@ -302,3 +441,7 @@ func _burst() -> void:
 		game.sfx.play("arrow_hit", global_position, -6.0, 0.15)
 		game.spawn_splash(global_position, Color(0.9, 0.85, 0.7), 6, 2.5, 0.3)
 	queue_free()
+
+
+func _flat(v: Vector3) -> float:
+	return Vector2(v.x, v.z).length()

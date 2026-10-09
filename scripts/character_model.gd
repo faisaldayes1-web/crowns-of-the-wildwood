@@ -6,6 +6,9 @@ extends Node3D
 
 const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
+const Face = preload("res://scripts/face.gd")
+const OutfitFlair = preload("res://scripts/outfit_flair.gd")
+const StoreGear = preload("res://scripts/store_gear.gd")
 
 const SCENES := {
 	"knight": "res://assets/characters/Knight.glb",
@@ -98,7 +101,9 @@ static func config(team: int, role: int, variant: String = "", rank: int = 1) ->
 					c.attacks = ["Spellcast_Shoot"]
 					c.hat = false
 				_:
-					c.scene = "rogue"
+					# Villagers: elves in the hooded tunic (the reference's
+					# green hood), humans bare-headed.
+					c.scene = "rogue_hooded" if team == 0 else "rogue"
 					c.skin = "rogue"
 					c.show = []
 					c.idle = "Unarmed_Idle"
@@ -121,13 +126,21 @@ static func config(team: int, role: int, variant: String = "", rank: int = 1) ->
 # Cells (col, row) of the 8x4 palette grid that hold each skin's hair and
 # trim (cape / sash), per base model. Mirrors tools/recolor_skins.py.
 const CELLS := {
-	"knight": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)]},
-	"rogue": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)]},
-	"mage": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)]},
-	"healer": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)]},
+	"knight": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
+	"rogue": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
+	"mage": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)], "skin": [Vector2i(0, 0)]},
+	"healer": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)], "skin": [Vector2i(0, 0)]},
+	"barbarian": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
 }
 static var custom_cache := {}
+static var flat_cache := {}   # mesh resource path -> faceted copy (see _flat_mesh)
 var model_root: Node3D
+
+# Chunky proportions (Faisal's character reference, 2026-10-09): a big head,
+# oversized mitten hands and big boots. The animations only drive bone
+# position and rotation, so a pose scale on these bones sticks. The hand
+# slots are scaled back so weapons keep their size.
+const CHUNKY := {"head": 1.22, "hand.l": 1.3, "hand.r": 1.3, "handslot.l": 0.8, "handslot.r": 0.8, "foot.l": 1.25, "foot.r": 1.25}
 
 
 static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictionary) -> Texture2D:
@@ -135,7 +148,8 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 	## the palette cells (keeping each cell's shading gradient). Cached.
 	if custom.is_empty() or not CELLS.has(skin_name):
 		return skin
-	var key := "%s|%s|%s" % [skin.resource_path, custom.get("hair", Color.TRANSPARENT).to_html(), custom.get("trim", Color.TRANSPARENT).to_html()]
+	var key := "%s|%s|%s|%s|%d" % [skin.resource_path, custom.get("hair", Color.TRANSPARENT).to_html(), custom.get("trim", Color.TRANSPARENT).to_html(),
+		custom.get("skin", Color.TRANSPARENT).to_html(), int(custom.get("outfit", 0))]
 	if custom_cache.has(key):
 		return custom_cache[key]
 	var img: Image = skin.get_image()
@@ -146,7 +160,7 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 		img.decompress()
 	var cw: int = img.get_width() / 8
 	var ch: int = img.get_height() / 4
-	for part in ["hair", "trim"]:
+	for part in ["hair", "trim", "skin"]:
 		if not custom.has(part):
 			continue
 		var target: Color = custom[part]
@@ -162,6 +176,8 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 					var p := img.get_pixel(x, y)
 					var v := minf(target.v * (p.v / vmax) * 1.15, 1.0)
 					img.set_pixel(x, y, Color.from_hsv(target.h, target.s, v, p.a))
+	if int(custom.get("outfit", 0)) > 0:
+		StoreGear.tint_metal(img, CELLS[skin_name], Stats.HERO_OUTFITS[int(custom.outfit)][1])
 	var out := ImageTexture.create_from_image(img)
 	custom_cache[key] = out
 	return out
@@ -171,6 +187,12 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	for child in get_children():
 		child.queue_free()
 	var c := config(team, role, variant, rank)
+	if role == Role.BASE and variant == "" and custom.has("body") and SCENES.has(custom.body):
+		# The player's chosen build for the unclassed body, bare-headed.
+		c.scene = custom.body
+		c.skin = custom.body
+		c.hat = false
+		c.bare = true
 	var inst: Node3D = load(SCENES[c.scene]).instantiate()
 	add_child(inst)
 	model_root = inst
@@ -200,7 +222,7 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	if not c.hat:
 		for name in ["Mage_Hat", "Barbarian_Hat", "Knight_Helmet"]:
 			var hat := inst.find_child(name, true, false)
-			if hat and (c.scene != "knight" or variant != ""):
+			if hat and (c.scene != "knight" or variant != "" or c.get("bare", false)):
 				hat.visible = false
 	# Capes are earned: Knights and Rangers wear one from rank 3 (promotions always do).
 	for name in ["Knight_Cape", "Rogue_Cape"]:
@@ -208,17 +230,27 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 		if cape and variant == "" and role != Role.BASE:
 			cape.visible = rank >= 3 or custom.has("look")
 
-	# Team colour skin on every mesh.
+	# Team colour skin on every mesh, on faceted (flat-shaded) copies of the
+	# meshes so the low-poly angles read crisp, like the reference art.
 	var skin: Texture2D = load("res://assets/characters/skins/%s_%s.png" % [c.skin, "elf" if team == 0 else "human"])
+	var plain_skin: Texture2D = skin
 	skin = customised_skin(skin, c.skin, custom)
+	# Weapons keep their own metal (a STORE weapon skin recolours them; the
+	# armour tint does not).
+	var weapon_skin: Texture2D = customised_skin(plain_skin, c.skin, StoreGear.without_outfit(custom)) if custom.has("outfit") else skin
+	var weapon_look: Array = Stats.WEAPON_SKINS[int(custom.get("weapon", 0))]
 	flash_mats = []
 	for mesh in _meshes(inst):
+		var held := StoreGear.in_gear(mesh, inst, ALL_GEAR)
+		mesh.mesh = _flat_mesh(mesh.mesh)
 		for i in mesh.get_surface_override_material_count():
 			var mat: Material = mesh.get_active_material(i)
 			if mat is StandardMaterial3D:
 				var dup: StandardMaterial3D = mat.duplicate()
-				dup.albedo_texture = skin
+				dup.albedo_texture = weapon_skin if held else skin
 				dup.albedo_color = tint * custom.get("look", Color.WHITE)
+				if held and weapon_look[1].a > 0.0:
+					StoreGear.skin_weapon(dup, weapon_look)
 				dup.rim_enabled = true
 				dup.rim = 0.35
 				dup.rim_tint = 0.6
@@ -233,11 +265,24 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 				flash_mats.append(dup)
 
 	if skeleton:
+		for bone in CHUNKY:
+			var bi: int = skeleton.find_bone(bone)
+			if bi >= 0:
+				skeleton.set_bone_pose_scale(bi, Vector3.ONE * CHUNKY[bone])
+		_add_face(inst, c.scene, team, role, custom, skin)
 		if c.ears:
-			_add_ears(team)
+			_add_ears(team, custom.get("skin", Color(0.97, 0.84, 0.72)))
+		if int(custom.get("hair_style", 0)) > 0 and variant == "":
+			_add_hair_style(int(custom.hair_style), custom.get("hair", Face.hair_color(skin)))
 		if c.crown:
 			_add_crown()
 	_add_class_flair(role, variant)
+	var cloth: Color = custom.get("trim", Stats.FACTIONS[team].color.darkened(0.1))
+	if skeleton and variant == "" and custom.get("cape", "") != "scarf":
+		OutfitFlair.dress(skeleton, role, cloth, outline)
+	if skeleton and (custom.has("hat") or custom.has("cape")):
+		# STORE gear: a hat on the bare unclassed head, a cape or scarf on every class.
+		StoreGear.dress(self, inst, skeleton, custom, cloth, outline, c.get("bare", false))
 	if variant == "" or Stats.VARIANTS.has(role):
 		_add_rank_flair(team, role, rank)
 	if variant == "":
@@ -617,6 +662,31 @@ func _add_rank_flair(team: int, role: int, rank: int) -> void:
 					head.add_child(gem)
 
 
+static func _flat_mesh(mesh: Mesh) -> Mesh:
+	## A copy of the mesh with every triangle's own normal (no smoothing), so
+	## the facets catch the light one by one; bones and weights come along.
+	## Cached per source mesh, since every unit shares the same few models.
+	if mesh == null:
+		return mesh
+	var key := mesh.resource_path if mesh.resource_path != "" else str(mesh.get_instance_id())
+	if flat_cache.has(key):
+		return flat_cache[key]
+	var out := ArrayMesh.new()
+	for s in mesh.get_surface_count():
+		var st := SurfaceTool.new()
+		st.create_from(mesh, s)
+		st.deindex()
+		st.generate_normals()
+		st.generate_tangents()
+		# Re-index (vertices with different normals stay separate, so the
+		# facets survive); Face.clean_head needs an index array.
+		st.index()
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
+		out.surface_set_material(s, mesh.surface_get_material(s))
+	flat_cache[key] = out
+	return out
+
+
 func _meshes(node: Node) -> Array:
 	var out := []
 	if node is MeshInstance3D:
@@ -626,6 +696,27 @@ func _meshes(node: Node) -> Array:
 	return out
 
 
+func _add_face(inst: Node3D, scene: String, team: int, role: int, custom: Dictionary, skin: Texture2D) -> void:
+	## Anime eyes, brows and mouth over the head (scripts/face.gd); the
+	## model's dot eyes are painted out of the head's skin.
+	var head: MeshInstance3D = null
+	for m in _meshes(inst):
+		if "_Head" in str(m.name):
+			head = m
+	if head == null:
+		return
+	head.mesh = Face.clean_head(head.mesh)
+	for i in head.get_surface_override_material_count():
+		var mat = head.get_surface_override_material(i)
+		if mat is StandardMaterial3D:
+			mat.albedo_texture = Face.no_eyes(mat.albedo_texture)
+	var face = Face.new()
+	var brow: Color = custom.get("hair", Face.hair_color(skin))
+	var iris: String = Stats.HERO_EYES[int(custom.eye)][2] if custom.has("eye") else ""
+	var mark: String = Stats.HERO_MARKS[int(custom.get("mark", 0))][1]
+	face.build(skeleton, scene, team, int(custom.get("face", Face.default_style(role))), brow.darkened(0.3), iris, mark)
+
+
 func _attach_to_head() -> BoneAttachment3D:
 	var att := BoneAttachment3D.new()
 	att.bone_name = "head"
@@ -633,10 +724,10 @@ func _attach_to_head() -> BoneAttachment3D:
 	return att
 
 
-func _add_ears(team: int) -> void:
+func _add_ears(team: int, skin_color: Color = Color(0.97, 0.84, 0.72)) -> void:
 	var att := _attach_to_head()
 	var skin_mat := StandardMaterial3D.new()
-	skin_mat.albedo_color = Color(0.97, 0.84, 0.72)
+	skin_mat.albedo_color = skin_color
 	for side in [-1.0, 1.0]:
 		var ear := MeshInstance3D.new()
 		var cone := CylinderMesh.new()
@@ -645,9 +736,82 @@ func _add_ears(team: int) -> void:
 		cone.height = 0.42
 		ear.mesh = cone
 		ear.material_override = skin_mat
-		ear.position = Vector3(side * 0.5, 0.25, 0.0)
+		ear.position = Vector3(side * 0.46, 0.22, 0.0)
 		ear.rotation.z = -side * (PI / 2.0 - 0.35)
 		att.add_child(ear)
+
+
+func _hair_piece(parent: Node3D, mesh: Mesh, pos: Vector3, rot: Vector3, mat: Material, scl: Vector3 = Vector3.ONE) -> void:
+	var m := MeshInstance3D.new()
+	m.mesh = _flat_mesh(mesh)
+	m.material_override = mat
+	m.position = pos
+	m.rotation = rot
+	m.scale = scl
+	parent.add_child(m)
+
+
+static func _cyl(top: float, bottom: float, h: float, seg: int = 6) -> CylinderMesh:
+	var m := CylinderMesh.new()
+	m.top_radius = top
+	m.bottom_radius = bottom
+	m.height = h
+	m.radial_segments = seg
+	m.rings = 1
+	return m
+
+
+static func _ball(r: float, seg: int = 7) -> SphereMesh:
+	var m := SphereMesh.new()
+	m.radius = r
+	m.height = r * 2.0
+	m.radial_segments = seg
+	m.rings = 4
+	return m
+
+
+func _add_hair_style(style: int, color: Color) -> void:
+	## Modelled hair styles beyond the model's own cut (Stats.HERO_HAIR_STYLES,
+	## Faisal 09:14 2026-10-09 "add more hairstyles"): chunky faceted pieces
+	## on the head bone, kept to the back and sides so they still show under
+	## every class hat and helmet. Head-bone space (measured from the KayKit
+	## heads): +z is the face, the head and its own hair span about
+	## x -0.55..0.55, y -0.08..0.95, z -0.52..0.52, so every piece sits on or
+	## outside that box.
+	var head := _attach_to_head()
+	var hair := StandardMaterial3D.new()
+	hair.albedo_color = color
+	hair.roughness = 0.8
+	hair.rim_enabled = true
+	hair.rim = 0.3
+	hair.next_pass = outline
+	var tie := StandardMaterial3D.new()
+	tie.albedo_color = color.darkened(0.55)
+	tie.next_pass = outline
+	match style:
+		1:  # Ponytail: a knot high on the back of the head and a tail in three tapering lengths.
+			_hair_piece(head, _ball(0.16, 6), Vector3(0, 0.72, -0.54), Vector3.ZERO, hair)
+			_hair_piece(head, _cyl(0.11, 0.11, 0.08, 6), Vector3(0, 0.66, -0.66), Vector3(-1.2, 0, 0), tie)
+			_hair_piece(head, _cyl(0.15, 0.12, 0.36, 6), Vector3(0, 0.48, -0.76), Vector3(-0.45, 0, 0), hair)
+			_hair_piece(head, _cyl(0.12, 0.08, 0.34, 6), Vector3(0, 0.16, -0.84), Vector3(-0.12, 0, 0), hair)
+			_hair_piece(head, _cyl(0.08, 0.0, 0.26, 5), Vector3(0, -0.12, -0.82), Vector3(0.2, 0, 0), hair)
+		2:  # Long: a fan of five locks over the back down past the shoulders and a lock either side of the face.
+			for i in range(-2, 3):
+				var lx := i * 0.2
+				_hair_piece(head, _cyl(0.13, 0.08, 0.95, 5), Vector3(lx, 0.2, -0.56 + absf(lx) * 0.12), Vector3(-0.1, 0, i * 0.07), hair)
+			for side in [-1.0, 1.0]:
+				# Behind the ear, round and tapering (a flat slab read as a board in front of the face).
+				_hair_piece(head, _cyl(0.1, 0.05, 0.7, 7), Vector3(side * 0.6, 0.18, -0.12), Vector3(0.08, 0, side * 0.05), hair)
+		3:  # Braids: two plaits of chunky beads down the sides, each with a tie and a tuft.
+			for side in [-1.0, 1.0]:
+				for k in 4:
+					var r := 0.13 - k * 0.012
+					_hair_piece(head, _ball(r, 6), Vector3(side * (0.6 - k * 0.01), 0.36 - k * 0.19, 0.12), Vector3(0, k * 0.6, 0), hair, Vector3(1.0, 0.85, 1.0))
+				_hair_piece(head, _cyl(0.07, 0.07, 0.07, 6), Vector3(side * 0.57, -0.36, 0.12), Vector3.ZERO, tie)
+				_hair_piece(head, _cyl(0.03, 0.1, 0.2, 5), Vector3(side * 0.57, -0.5, 0.12), Vector3(PI, 0, 0), hair)
+		4:  # Bun: a big knot on top at the back of the head with a band round its base.
+			_hair_piece(head, _ball(0.28, 7), Vector3(0, 1.02, -0.3), Vector3(0.4, 0, 0), hair, Vector3(1.0, 0.85, 1.0))
+			_hair_piece(head, _cyl(0.2, 0.23, 0.08, 7), Vector3(0, 0.9, -0.24), Vector3(-0.5, 0, 0), tie)
 
 
 func _add_crown() -> void:
@@ -704,6 +868,12 @@ func play_loop(name: String) -> void:
 
 
 func play_once(name: String, speed: float = 1.0) -> void:
+	var n = _net_open("play_once", [self, name, speed])
+	_x_play_once(name, speed)
+	_net_close(n)
+
+
+func _x_play_once(name: String, speed: float = 1.0) -> void:
 	## A one-shot action (attack, dodge, hit). Locomotion resumes after it.
 	if anim == null or not anim.has_animation(name):
 		return
@@ -713,18 +883,36 @@ func play_once(name: String, speed: float = 1.0) -> void:
 
 
 func attack() -> void:
+	var n = _net_open("attack", [self])
+	_x_attack()
+	_net_close(n)
+
+
+func _x_attack() -> void:
 	if attack_anims.is_empty():
 		return
 	play_once(attack_anims[randi() % attack_anims.size()], 1.6)
 
 
 func hold(name: String) -> void:
+	var n = _net_open("hold", [self, name])
+	_x_hold(name)
+	_net_close(n)
+
+
+func _x_hold(name: String) -> void:
 	## Keep a loop (Blocking, Spellcasting) until release().
 	held = name
 	play_loop(name)
 
 
 func release() -> void:
+	var n = _net_open("release", [self])
+	_x_release()
+	_net_close(n)
+
+
+func _x_release() -> void:
 	held = ""
 	current = ""
 
@@ -735,6 +923,40 @@ func die() -> void:
 	if anim and anim.has_animation("Death_A"):
 		current = "Death_A"
 		anim.play("Death_A", 0.05, 1.3)
+
+
+func go_down() -> void:
+	var n = _net_open("go_down", [self])
+	_x_go_down()
+	_net_close(n)
+
+
+func _x_go_down() -> void:
+	## Downed: drop to the ground and lie there until revived or dead.
+	held = ""
+	busy_until = _now() + 9999.0
+	if anim and anim.has_animation("Lie_Down"):
+		current = "Lie_Down"
+		anim.play("Lie_Down", 0.05, 1.6)
+		anim.queue("Lie_Idle")
+
+
+func stand_up() -> void:
+	var n = _net_open("stand_up", [self])
+	_x_stand_up()
+	_net_close(n)
+
+
+func _x_stand_up() -> void:
+	## Revived: get back up, then normal locomotion.
+	held = ""
+	if anim and anim.has_animation("Lie_StandUp"):
+		current = "Lie_StandUp"
+		anim.play("Lie_StandUp", 0.05, 1.6)
+		busy_until = _now() + anim.get_animation("Lie_StandUp").length / 1.6
+	else:
+		busy_until = 0.0
+		current = ""
 
 
 func revive() -> void:
@@ -752,3 +974,18 @@ func update_locomotion(moving: bool) -> void:
 		play_loop(held)
 		return
 	play_loop(move_anim if moving else idle_anim)
+
+
+# --- Online: mirror animations to the joiners (scripts/net.gd) ---------------
+
+func _net_open(method: String, args: Array):
+	var n = get_node_or_null("/root/Net")
+	if n:
+		n.rec("model", method, args)
+		n.depth += 1
+	return n
+
+
+func _net_close(n) -> void:
+	if n:
+		n.depth -= 1
