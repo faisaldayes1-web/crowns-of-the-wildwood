@@ -111,6 +111,7 @@ func _on_peer_connected(id: int) -> void:
 	if not is_host():
 		return
 	print("NET peer %d connected" % id)
+	_relax_timeout(id)
 	status = "Hosting on port %d · %d joined" % [port, peer_count()]
 	_welcome.rpc_id(id, world_seed, game.map_variant if game else 0)
 
@@ -126,7 +127,18 @@ func _on_peer_disconnected(id: int) -> void:
 	status = "Hosting on port %d · %d joined" % [port, peer_count()]
 
 
+func _relax_timeout(id: int) -> void:
+	## Starting a match builds a lot in one frame (seconds on a slow machine
+	## or a tablet); ENet's default 5 s timeout would drop the link meanwhile.
+	var mp = multiplayer.multiplayer_peer
+	if mp is ENetMultiplayerPeer:
+		var p: ENetPacketPeer = mp.get_peer(id)
+		if p:
+			p.set_timeout(64, 20000, 60000)
+
+
 func _on_connected() -> void:
+	_relax_timeout(1)
 	status = "Connected to %s · loading the host's world" % host_ip
 	print("NET connected to host")
 

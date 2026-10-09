@@ -104,39 +104,127 @@ def brick_layout(rows, cols, mortar, bevel, jitter_seed=1):
     return height, shade
 
 
+def voronoi(size, cells, seed, jitter=0.9):
+    """Tileable Voronoi: distance to the nearest and second-nearest seed (in
+    cell units) and the id of the nearest cell, one jittered seed per cell."""
+    r = np.random.default_rng(seed)
+    off = 0.5 + (r.random((cells, cells, 2)) - 0.5) * jitter
+    ys, xs = np.mgrid[0:size, 0:size].astype(np.float64) * (cells / size)
+    cx = np.floor(xs).astype(int)
+    cy = np.floor(ys).astype(int)
+    f1 = np.full((size, size), 9.0)
+    f2 = np.full((size, size), 9.0)
+    ids = np.zeros((size, size), dtype=int)
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            nx = cx + dx
+            ny = cy + dy
+            wx = nx % cells
+            wy = ny % cells
+            px = nx + off[wy, wx, 0]
+            py = ny + off[wy, wx, 1]
+            d = np.hypot(xs - px, ys - py)
+            closer = d < f1
+            f2 = np.where(closer, f1, np.minimum(f2, d))
+            ids = np.where(closer, wy * cells + wx, ids)
+            f1 = np.where(closer, d, f1)
+    return f1, f2, ids
+
+
+def wrap_filter(mask, filt):
+    """Runs a PIL filter on a tileable 0..1 image without seams at the edges."""
+    pad = N // 8
+    big = np.pad(mask, pad, mode="wrap")
+    img = Image.fromarray((np.clip(big, 0, 1) * 255).astype(np.uint8)).filter(filt)
+    return np.asarray(img).astype(np.float64)[pad:-pad, pad:-pad] / 255.0
+
+
+def save_rgba(name, color, alpha, height, strength=1.0):
+    rgba = np.concatenate([np.clip(color, 0, 1), alpha[..., None]], axis=-1)
+    Image.fromarray((rgba * 255).astype(np.uint8), "RGBA").save(f"{OUT}/{name}_color.png")
+    Image.fromarray(normal_map(height, strength)).save(f"{OUT}/{name}_normal.jpg", quality=92)
+    print("wrote", name)
+
+
+# The cartoon look (Fat Princess-style brief, 2026-10-07): flat, saturated
+# fills, a dark ink line round every block, tile and stone, and a soft light
+# edge along the top of each so they read as chunky and hand-painted.
+
 def make_stone():
-    """Cream sandstone ashlar: big clean blocks with soft bevels and a warm
-    mortar line, the castle stone in the renders (both castles use it).
-    Also saves stone_moss: the same blocks with moss in the joints and ivy
-    for the elven castle."""
-    height, shade = brick_layout(rows=6, cols=4, mortar=5, bevel=22)
-    grain = fbm(N, 12, 4, 11)
-    chips = fbm(N, 64, 2, 12)
-    h = height * (0.9 + 0.1 * grain) - 0.05 * (chips > 0.78) * height
-    light = rgb(0.93, 0.87, 0.74)
-    mid = rgb(0.84, 0.76, 0.60)
-    deep = rgb(0.76, 0.66, 0.50)
-    color = lerp(deep, light, (0.35 + 0.65 * shade)[..., None])
-    color = lerp(color, mid, np.clip(grain * 0.8, 0, 1)[..., None] * 0.5)
-    mortar = rgb(0.62, 0.53, 0.40)
-    color = lerp(mortar, color, np.clip(height * 1.4, 0, 1)[..., None])
-    # A faint painted highlight along each block's top edge.
+    """Warm sandstone castle blocks: big, flat-filled, each its own shade,
+    with a dark ink joint, a sunny top edge and a shaded bottom edge.
+    Also saves stone_moss (moss in the joints and ivy) and cobble."""
+    rows, cols = 5, 3
+    height, shade = brick_layout(rows=rows, cols=cols, mortar=6, bevel=5)
     ys = np.mgrid[0:N, 0:N][0].astype(np.float64)
-    row_v = (ys % (N / 6)) / (N / 6)
-    top_edge = np.clip(1 - np.abs(row_v - 0.12) / 0.08, 0, 1) * height
-    color = lerp(color, rgb(0.98, 0.94, 0.84), (top_edge * 0.35)[..., None])
-    # Weathering: a few chipped corners and faint water stains.
-    stain = np.clip((fbm(N, 5, 3, 14) - 0.55) * 4, 0, 1) * height
-    color = lerp(color, rgb(0.70, 0.62, 0.48), (stain * 0.35)[..., None])
-    save("stone", color, h, 2.0)
-    # Mossy variant: moss creeping out of the joints and ivy patches.
+    v = (ys % (N / rows)) / (N / rows)
+    # Cream sandstone (graphics pass, 2026-10-09): the old blocks were deep
+    # yellow and glared under the warm sun; the joints are a softer tan.
+    light = rgb(0.97, 0.92, 0.78)
+    deep = rgb(0.87, 0.79, 0.62)
+    color = lerp(deep, light, (0.3 + 0.7 * shade)[..., None])
+    color = color * (1.03 - 0.08 * v)[..., None]
+    top = np.clip(1 - np.abs(v - 0.07) / 0.05, 0, 1) * height
+    color = lerp(color, rgb(1.0, 0.98, 0.90), (top * 0.5)[..., None])
+    bottom = np.clip((v - 0.86) / 0.08, 0, 1) * height
+    color = lerp(color, deep * 0.84, (bottom * 0.45)[..., None])
+    ink = rgb(0.52, 0.42, 0.30)
+    color = lerp(ink, color, np.clip(height * 1.6, 0, 1)[..., None])
+    h = height
+    save("stone", color, h, 1.2)
     moss_mask = np.clip((1 - height) * 1.2 + (fbm(N, 7, 3, 15) - 0.6) * 2.0, 0, 1) * (fbm(N, 4, 2, 16) > 0.55)
-    mossy = lerp(color, rgb(0.40, 0.58, 0.28), np.clip(moss_mask * 0.6, 0, 1)[..., None])
+    mossy = lerp(color, rgb(0.42, 0.66, 0.24), np.clip(moss_mask * 0.7, 0, 1)[..., None])
     ivy = (fbm(N, 10, 3, 17) > 0.74) & (fbm(N, 3, 2, 18) > 0.58)
-    leaf_tone = lerp(rgb(0.30, 0.50, 0.22), rgb(0.52, 0.72, 0.30), fbm(N, 40, 2, 19)[..., None])
+    leaf_tone = lerp(rgb(0.34, 0.60, 0.20), rgb(0.55, 0.80, 0.28), (fbm(N, 40, 2, 19) > 0.5)[..., None])
     mossy = lerp(mossy, leaf_tone, ivy[..., None] * 0.95)
-    h_moss = h + 0.08 * ivy
-    save("stone_moss", mossy, np.clip(h_moss, 0, 1), 2.0)
+    save("stone_moss", mossy, np.clip(h + 0.08 * ivy, 0, 1), 1.2)
+    make_flagstone()
+
+
+def make_rosette():
+    """A round paved disc: rings of sandstone flags laid around a centre
+    stone, each flag about the same length, ink joints, and a darker brick
+    kerb round the edge. Transparent outside the circle; used as a decal at
+    the castle door aprons and on the shrine."""
+    r = np.random.default_rng(23)
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    cx = (xs - N / 2 + 0.5) / (N / 2)
+    cy = (ys - N / 2 + 0.5) / (N / 2)
+    rad = np.hypot(cx, cy)
+    ang = (np.arctan2(cy, cx) + np.pi) / (2 * np.pi)
+    kerb_in = 0.9
+    ring_w = kerb_in / 6.5
+    ring = np.floor(rad / ring_w)
+    rv = (rad / ring_w) - ring
+    segs = np.maximum(1, np.round(2 * np.pi * (ring + 0.5) * ring_w / 0.2)).astype(int)
+    segs = np.where(ring == 0, 1, segs)
+    off = (ring % 2) * 0.5
+    seg_pos = (ang * segs + off) % segs
+    sid = np.floor(seg_pos)
+    su = seg_pos - sid
+    px = N / 2 * ring_w   # pixels per ring width
+    arc = 2 * np.pi * np.maximum(rad, 1e-3) / segs * (N / 2)
+    d = np.minimum(np.minimum(rv, 1 - rv) * px, np.minimum(su, 1 - su) * arc)
+    d = np.where(ring == 0, (ring_w - rad) * N / 2, d)
+    flag = np.clip((d - 3.5) / 3.5, 0, 1)
+    ids = (ring * 997 + sid).astype(int)
+    shade = r.random(int(ids.max()) + 1)[ids]
+    light = rgb(0.98, 0.86, 0.58)
+    dark = rgb(0.90, 0.75, 0.48)
+    color = lerp(dark, light, (0.3 + 0.7 * shade)[..., None])
+    alt = (ring % 2 == 1)
+    color = lerp(color, rgb(0.86, 0.70, 0.45), alt[..., None] * 0.35)
+    joint = rgb(0.46, 0.33, 0.21)
+    color = lerp(joint, color, flag[..., None])
+    # Brick kerb: short dark-red bricks round the rim.
+    kerb = (rad >= kerb_in) & (rad < 0.995)
+    kseg = (ang * 64) % 1.0
+    kd = np.minimum(np.minimum(rad - kerb_in, 0.995 - rad) * N / 2, np.minimum(kseg, 1 - kseg) * 2 * np.pi * rad / 64 * N / 2)
+    brick = lerp(rgb(0.62, 0.36, 0.24), rgb(0.74, 0.46, 0.30), r.random(64)[(ang * 64).astype(int) % 64][..., None])
+    brick = lerp(joint, brick, np.clip((kd - 3.0) / 3.0, 0, 1)[..., None])
+    color = np.where(kerb[..., None], brick, color)
+    alpha = np.clip((0.995 - rad) * N / 2, 0, 1)
+    save_rgba("rosette", color, alpha, np.where(kerb, 1.0, flag) * alpha, 1.0)
 
 
 def make_cobble():
@@ -177,40 +265,111 @@ def make_cobble():
 
 
 def make_flagstone():
-    """Square sandstone flags in a slightly jittered grid: the courtyard and
-    keep floors in the renders."""
+    """Courtyard flags: metre-square sandstone tiles (four to a tile of the
+    texture) with an ink joint, a light bevel on the top-left edges, a darker
+    one bottom-right, and an odd tile in a deeper shade."""
     r = np.random.default_rng(9)
     ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
-    cells = 6
+    # Big paving blocks with softened edges and restrained seams (Faisal's
+    # overhaul brief, 2026-10-09: was four hard-edged tiles with ink joints).
+    cells = 3
     cw = N / cells
     col = np.floor(xs / cw)
     row = np.floor(ys / cw)
     u = (xs % cw) / cw
     v = (ys % cw) / cw
     d = np.minimum(np.minimum(u, 1 - u), np.minimum(v, 1 - v)) * cw
-    gap = 4 + 3 * fbm(N, 24, 2, 91)
-    height = np.clip((d - gap) / 14, 0, 1)
-    height = height * height * (3 - 2 * height)
+    height = np.clip((d - 4) / 14, 0, 1)
     ids = (row * 100 + col).astype(int)
     shade = r.random(int(ids.max()) + 1)[ids]
-    grain = fbm(N, 20, 3, 92)
-    wear = fbm(N, 4, 3, 93)
-    light = rgb(0.90, 0.80, 0.62)
-    dark = rgb(0.74, 0.62, 0.45)
-    color = lerp(dark, light, (0.25 + 0.75 * shade)[..., None]) * (0.92 + 0.16 * grain)[..., None]
-    color = lerp(color, rgb(0.70, 0.60, 0.46), np.clip((wear - 0.55) * 3, 0, 1)[..., None] * 0.5)
-    joint = rgb(0.60, 0.50, 0.37)
-    color = lerp(joint, color, np.clip(height * 1.4, 0, 1)[..., None])
-    # Cracks across a few tiles and worn, darker patches where feet pass.
-    ridge = fbm(N, 9, 3, 94)
-    crack = (np.abs(ridge - 0.5) < 0.004) & (r.random(int(ids.max()) + 1)[ids] > 0.88)
-    color = lerp(color, rgb(0.56, 0.47, 0.34), crack[..., None] * 0.7)
-    h = height * (0.92 + 0.08 * grain) - 0.15 * crack
-    save("flagstone", color, np.clip(h, 0, 1), 1.4)
-    # Mossy variant for the elven yard: moss in the joints and on worn tiles.
+    odd = (r.random(int(ids.max()) + 1) > 0.8)[ids]
+    # Cream sandstone, barely yellow, with a pale tan grout (Faisal's Elf
+    # base target, 2026-10-08): the old flags were deep yellow and read
+    # green under the castle lights.
+    light = rgb(0.96, 0.91, 0.78)
+    dark = rgb(0.89, 0.82, 0.66)
+    color = lerp(dark, light, (0.3 + 0.7 * shade)[..., None])
+    color = lerp(color, rgb(0.86, 0.78, 0.62), odd[..., None] * 0.35)
+    color = lerp(color, color * 0.96, (fbm(N, 6, 2, 97))[..., None] * 0.5)
+    lit = ((u < 0.05) | (v < 0.05)) & (u < 0.95) & (v < 0.95)
+    dim = (u > 0.96) | (v > 0.96)
+    color = lerp(color, rgb(1.0, 0.98, 0.92), (lit * height)[..., None] * 0.35)
+    color = lerp(color, dark * 0.9, (dim * height)[..., None] * 0.35)
+    joint = rgb(0.74, 0.66, 0.52)
+    color = lerp(joint, color, np.clip(height * 1.3, 0, 1)[..., None])
+    save("flagstone", color, np.clip(height, 0, 1), 1.0)
+    # Elven yard: the same flags, greener and grown over at the joints.
     moss = np.clip((1 - height) * 1.3 + (fbm(N, 6, 3, 95) - 0.62) * 2.5, 0, 1) * (fbm(N, 3, 2, 96) > 0.5)
-    mossy = lerp(color, rgb(0.42, 0.60, 0.30), np.clip(moss * 0.6, 0, 1)[..., None])
-    save("flagstone_moss", mossy, np.clip(h, 0, 1), 1.4)
+    mossy = lerp(color * rgb(0.98, 1.0, 0.94), rgb(0.42, 0.68, 0.26), np.clip(moss * 0.55, 0, 1)[..., None])
+    save("flagstone_moss", mossy, np.clip(height, 0, 1), 1.0)
+    # The Humans' halls: the same flags in a cool, worn grey-beige.
+    lum = color.mean(axis=-1, keepdims=True)
+    grey = lerp(lum * rgb(0.92, 0.90, 0.86), color, 0.18)
+    save("flagstone_grey", grey, np.clip(height, 0, 1), 1.0)
+
+
+def make_stepping_stones(name, cells, seed, drop):
+    """Warm tan rounded cobbles set in dark brown dirt: the paths. Saves an
+    opaque colour map (stones and the dirt between them) and a data map,
+    {name}_stones.png, that the path shader uses to fray the edges into the
+    meadow a whole stone at a time: R and G are the offset from each pixel to
+    the centre of its stone (in UV units, 0.5 = none, +-0.25 full range), B is
+    that stone's own random value and A marks the stones (1) against the
+    joints (0.25: never fully clear, so Godot's default "fix alpha border"
+    import does not overwrite the joints' offsets). `drop` leaves out that
+    share of stones (bare dirt) for the side tracks."""
+    f1, f2, ids = voronoi(N, cells, seed)
+    r = np.random.default_rng(seed + 1)
+    keep = (r.random(cells * cells) >= drop)[ids]
+    inner = ((f2 - f1) > 0.1) & keep
+    # Round the corners: blur the polygon and cut it again. Fat, pebble-round
+    # stones with narrow joints (Faisal's courtyard target, 2026-10-08).
+    soft = wrap_filter(inner.astype(np.float64), ImageFilter.GaussianBlur(12))
+    stone = soft > 0.5
+    core = wrap_filter(stone.astype(np.float64), ImageFilter.MinFilter(7)) > 0.5
+    # A soft dome: lighter on the top of each stone, deeper towards its rim,
+    # with the light falling from one side (a cartoon two-tone, softened).
+    dome = wrap_filter(core.astype(np.float64), ImageFilter.GaussianBlur(14))
+    crown = np.clip((f2 - f1) / 0.4, 0, 1) ** 0.6
+    lit = wrap_filter(np.roll(np.roll(core, 9, axis=0), 9, axis=1).astype(np.float64) * core,
+                      ImageFilter.GaussianBlur(6))
+    shade = r.random(cells * cells)[ids]
+    hue = r.random(cells * cells)[ids]
+    # Sandy, tan and a little rosy: a few warm tints, none far apart.
+    sand = rgb(0.93, 0.84, 0.68)
+    tan = rgb(0.84, 0.73, 0.57)
+    rose = rgb(0.88, 0.74, 0.62)
+    base = lerp(tan, sand, shade[..., None])
+    base = lerp(base, rose, (np.clip(hue - 0.65, 0, 1) * 1.6)[..., None])
+    color = base * (0.82 + 0.08 * dome + 0.06 * crown + 0.12 * lit)[..., None]
+    # A thin warm-brown rim round each stone, then packed earth in the joints
+    # (lighter than before: the old dark dirt made the paths read as mud).
+    ink = rgb(0.40, 0.26, 0.14)
+    color = np.where(core[..., None], color, ink)
+    mottle = fbm(N, 6, 2, seed + 7)
+    dirt = lerp(rgb(0.46, 0.32, 0.19), rgb(0.54, 0.39, 0.24), mottle[..., None])
+    color = np.where(stone[..., None], color, dirt)
+    height = 0.6 * wrap_filter(core.astype(np.float64), ImageFilter.GaussianBlur(4)) + 0.4 * dome
+    Image.fromarray((np.clip(color, 0, 1) * 255).astype(np.uint8), "RGB").save(f"{OUT}/{name}_color.png")
+    Image.fromarray(normal_map(height, 0.9)).save(f"{OUT}/{name}_normal.jpg", quality=92)
+    # The data map: where each stone's centre is, and its own random value.
+    r2 = np.random.default_rng(seed)
+    off = 0.5 + (r2.random((cells, cells, 2)) - 0.5) * 0.9   # as voronoi() draws them
+    wy, wx = ids // cells, ids % cells
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64) * (cells / N)
+    dx = (wx + off[wy, wx, 0] - xs + cells / 2) % cells - cells / 2
+    dy = (wy + off[wy, wx, 1] - ys + cells / 2) % cells - cells / 2
+    rnd = r.random(cells * cells)[ids]
+    data = np.stack([np.clip(0.5 + dx / cells * 2, 0, 1), np.clip(0.5 + dy / cells * 2, 0, 1),
+                     rnd, np.where(stone, 1.0, 0.25)], axis=-1)
+    Image.fromarray((data * 255 + 0.5).astype(np.uint8), "RGBA").save(f"{OUT}/{name}_stones.png")
+    print("wrote", name)
+
+
+def make_paths():
+    """The main road's cobbles and the looser side tracks."""
+    make_stepping_stones("path", 4, 401, 0.0)
+    make_stepping_stones("path_loose", 4, 402, 0.3)
 
 
 def make_shingle():
@@ -309,27 +468,23 @@ def make_bark():
 
 
 def make_grass():
-    """A painted meadow: three soft greens in broad brushy clumps, a few
-    darker blade tufts and a fine even nap. Low contrast, nothing that reads
-    as a repeating mark, and nothing directional (the mapping is triplanar)."""
-    broad = fbm(N, 3, 3, 59)
-    clumps = fbm(N, 10, 3, 51)
-    tufts = np.clip((fbm(N, 26, 2, 57) - 0.60) * 6.0, 0, 1)
-    nap = fbm(N, 48, 2, 52)
-    # Posterise the clumps a little so they read as brush strokes, then blend
-    # most of the smooth version back so the steps stay soft.
-    cont = np.clip((clumps - 0.5) * 2.2 + 0.5, 0, 1)
-    band = np.floor(cont * 3.0) / 3.0
-    strokes = band * 0.35 + cont * 0.65
-    deep = rgb(0.30, 0.52, 0.20)
-    mid = rgb(0.40, 0.64, 0.25)
-    bright = rgb(0.52, 0.74, 0.30)
-    color = lerp(deep, mid, strokes[..., None])
-    color = lerp(color, bright, np.clip(broad * 1.2 - 0.3, 0, 1)[..., None] * 0.6)
-    color = lerp(color, deep * 0.85, tufts[..., None] * 0.6)
-    color = color * (0.95 + 0.10 * nap)[..., None]
-    h = 0.45 * strokes + 0.3 * nap + 0.25 * tufts
-    save("grass", np.clip(color, 0, 1), np.clip(h, 0, 1), 0.3)
+    """Bright cartoon meadow: big soft cells of lime in a few close shades,
+    each outlined by a faint darker seam, under broad lighter swathes. Flat
+    and calm so flowers, units and paths read on top of it."""
+    f1, f2, ids = voronoi(N, 5, 59)
+    r = np.random.default_rng(58)
+    shade = r.random(25)[ids]
+    broad = fbm(N, 2, 2, 60)
+    # Deep saturated meadow green with lighter swathes (Faisal's courtyard
+    # target, 2026-10-08): less lime than before, so the flowers pop.
+    base = rgb(0.30, 0.60, 0.15)
+    light = rgb(0.42, 0.74, 0.20)
+    color = lerp(base, light, (shade * 0.5)[..., None])
+    color = lerp(color, light * 1.05, np.clip((broad - 0.5) * 3.0, 0, 1)[..., None] * 0.4)
+    seam = np.clip(1 - (f2 - f1) / 0.05, 0, 1)
+    color = lerp(color, base * 0.86, seam[..., None] * 0.35)
+    h = 0.5 + 0.5 * np.clip((f2 - f1) * 4, 0, 1)
+    save("grass", np.clip(color, 0, 1), np.clip(h, 0, 1), 0.15)
 
 
 def make_dirt():
@@ -495,6 +650,166 @@ def make_wood_dark():
 
 
 os.makedirs(OUT, exist_ok=True)
+def make_hedge():
+    """Trimmed hedge: hundreds of overlapping, puffy leaf clumps (round
+    discs, each shaded like a little dome lit from the upper-left, with a
+    soft shadow under its lower-right edge) in three close greens. No cell
+    seams: the Elf base target's hedges are soft masses of foliage, not
+    tiles (graphics pass 2026-10-09)."""
+    r = np.random.default_rng(78)
+    color = np.tile(rgb(0.14, 0.34, 0.12), (N, N, 1))
+    height = np.zeros((N, N))
+    deep = rgb(0.16, 0.40, 0.14)
+    mid = rgb(0.27, 0.55, 0.19)
+    light = rgb(0.48, 0.72, 0.28)
+    count = 520
+    for i in range(count):
+        cx, cy = r.random(2) * N
+        rad = r.uniform(0.045, 0.085) * N
+        tone = r.random()
+        base = lerp(deep, mid, tone) if tone < 0.7 else lerp(mid, light, (tone - 0.7) / 0.3)
+        m = int(rad * 1.6) + 2
+        x0, y0 = int(cx) - m, int(cy) - m
+        ys, xs = np.mgrid[y0:y0 + 2 * m, x0:x0 + 2 * m].astype(np.float64)
+        d = np.hypot(xs - cx, ys - cy) / rad
+        inside = d < 1.0
+        dome = np.sqrt(np.clip(1 - d * d, 0, 1))
+        # Lit towards the upper-left of the clump, darker at its rim.
+        lit = np.clip(0.55 - 0.5 * ((xs - cx) + (ys - cy)) / rad, 0, 1)
+        shade = 0.72 + 0.5 * lit * dome
+        col = base[None, None, :] * shade[..., None]
+        col = lerp(col, light[None, None, :] * 1.05, (np.clip(lit - 0.6, 0, 1) * dome * 0.6)[..., None])
+        # Soft shadow just outside the lower-right edge.
+        sh = np.clip(1 - (d - 1.0) / 0.35, 0, 1) * (d >= 1.0) * np.clip(0.3 + 0.7 * ((xs - cx) + (ys - cy)) / rad, 0, 1)
+        yi = ys.astype(int) % N
+        xi = xs.astype(int) % N
+        color[yi, xi] = lerp(color[yi, xi], color[yi, xi] * 0.55, (sh * 0.7)[..., None])
+        color[yi[inside], xi[inside]] = col[inside]
+        height[yi[inside], xi[inside]] = 0.3 + 0.7 * dome[inside]
+    save("hedge", np.clip(color, 0, 1), np.clip(height, 0, 1), 1.6)
+
+
+def make_greystone():
+    """Cool grey castle blocks for the Humans' halls and curtain walls: big,
+    flat-filled, each its own shade of blue-grey, with ink joints and a pale
+    top edge, like the sandstone but colder."""
+    rows, cols = 5, 3
+    height, shade = brick_layout(rows=rows, cols=cols, mortar=6, bevel=5)
+    ys = np.mgrid[0:N, 0:N][0].astype(np.float64)
+    v = (ys % (N / rows)) / (N / rows)
+    light = rgb(0.74, 0.76, 0.80)
+    deep = rgb(0.52, 0.55, 0.60)
+    color = lerp(deep, light, (0.25 + 0.75 * shade)[..., None])
+    color = color * (1.04 - 0.1 * v)[..., None]
+    top = np.clip(1 - np.abs(v - 0.07) / 0.05, 0, 1) * height
+    color = lerp(color, rgb(0.86, 0.88, 0.90), (top * 0.6)[..., None])
+    bottom = np.clip((v - 0.86) / 0.08, 0, 1) * height
+    color = lerp(color, deep * 0.8, (bottom * 0.5)[..., None])
+    ink = rgb(0.18, 0.18, 0.22)
+    color = lerp(ink, color, np.clip(height * 1.6, 0, 1)[..., None])
+    save("greystone", color, height, 1.2)
+
+
+def make_elfbark():
+    """Elven castle walls on Ember Pass: broad, smooth bark plates in a cool
+    grey-brown with thin fissures and a little lichen, so a wall reads as one
+    grown surface instead of busy stripes under the lava's red light."""
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    warp = fbm(N, 3, 3, 141)
+    # Plates: wide vertical bands (8 per tile) whose edges wander gently.
+    band = (xs / N * 8.0 + (warp - 0.5) * 1.2 + (fbm(N, 6, 2, 142) - 0.5) * 0.25) % 1.0
+    edge = np.minimum(band, 1.0 - band)
+    fissure = np.clip((0.06 - edge) / 0.06, 0, 1)
+    plate = np.clip(edge * 5.0, 0, 1)
+    grain = fbm(N, 24, 3, 143)
+    h = 0.75 * plate + 0.25 * grain
+    light = rgb(0.50, 0.44, 0.38)
+    mid = rgb(0.38, 0.33, 0.29)
+    color = lerp(mid, light, np.clip(grain * 1.4 - 0.3, 0, 1)[..., None] * plate[..., None])
+    color = lerp(color, rgb(0.13, 0.10, 0.09), fissure[..., None] * 0.85)
+    lichen = np.clip((fbm(N, 7, 3, 144) - 0.62) * 5, 0, 1) * plate
+    color = lerp(color, rgb(0.36, 0.48, 0.40), lichen[..., None] * 0.45)
+    save("elfbark", color, h, 2.0)
+
+
+def make_flagstone_elf():
+    """Elven yard flags for Ember Pass: cool slate-green tiles with moss in
+    the joints (the sandstone flags glare yellow in the lava's light)."""
+    r = np.random.default_rng(19)
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    cw = N / 4
+    u = (xs % cw) / cw
+    v = (ys % cw) / cw
+    d = np.minimum(np.minimum(u, 1 - u), np.minimum(v, 1 - v)) * cw
+    height = np.clip((d - 5) / 4, 0, 1)
+    ids = (np.floor(ys / cw) * 100 + np.floor(xs / cw)).astype(int)
+    shade = r.random(int(ids.max()) + 1)[ids]
+    color = lerp(rgb(0.42, 0.46, 0.43), rgb(0.56, 0.60, 0.55), (0.3 + 0.7 * shade)[..., None])
+    color = lerp(color, color * 0.9, fbm(N, 10, 3, 191)[..., None])
+    lit = ((u < 0.06) | (v < 0.06)) & (u < 0.94) & (v < 0.94)
+    color = lerp(color, rgb(0.68, 0.72, 0.66), (lit * height)[..., None] * 0.4)
+    moss = np.clip((1 - height) * 1.4 + (fbm(N, 6, 3, 192) - 0.65) * 2.0, 0, 1)
+    color = lerp(color, rgb(0.20, 0.36, 0.22), np.clip(moss, 0, 1)[..., None] * 0.8)
+    save("flagstone_elf", color, height, 1.0)
+
+
+def make_pavers():
+    """The open courtyard's paving (Faisal's 2026-10-09 courtyard brief): big
+    warm cream sandstone slabs in three staggered courses, each slab its own
+    width, corners rounded, edges softly bevelled, gentle colour variation
+    and a narrow tan joint, so the floor reads as laid stone and not as a
+    grid drawn across a plane. Tileable; one tile is about 4.5 m."""
+    r = np.random.default_rng(23)
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    rows = 3
+    row_h = N / rows
+    row = np.floor(ys / row_h).astype(int)
+    height = np.zeros((N, N))
+    ids = np.zeros((N, N), int)
+    rad = 14.0
+    for ri in range(rows):
+        ncols = [3, 4, 3][ri]
+        cuts = np.linspace(0, N, ncols + 1)
+        cuts[1:-1] += r.uniform(-0.14, 0.14, ncols - 1) * (N / ncols)
+        offset = r.uniform(0, N)
+        x = (xs + offset) % N
+        col = np.clip(np.searchsorted(cuts, x, side="right") - 1, 0, ncols - 1)
+        left = cuts[col]
+        right = cuts[col + 1]
+        top = ri * row_h
+        bottom = (ri + 1) * row_h
+        du = np.minimum(x - left, right - x)
+        dv = np.minimum(ys - top, bottom - ys)
+        qx = np.maximum(rad - du, 0)
+        qy = np.maximum(rad - dv, 0)
+        d = np.where((du < rad) & (dv < rad), rad - np.sqrt(qx * qx + qy * qy), np.minimum(du, dv))
+        h = np.clip((d - 3.0) / 10.0, 0, 1)
+        h = h * h * (3 - 2 * h)
+        mask = row == ri
+        height[mask] = h[mask]
+        ids[mask] = (ri * 10 + col)[mask]
+    shade = r.random(int(ids.max()) + 1)[ids]
+    light = rgb(0.96, 0.90, 0.76)
+    dark = rgb(0.88, 0.80, 0.64)
+    color = lerp(dark, light, (0.25 + 0.75 * shade)[..., None])
+    color = lerp(color, color * rgb(0.97, 0.94, 0.88), fbm(N, 4, 3, 44)[..., None] * 0.6)
+    color = lerp(color, color * 0.95, fbm(N, 14, 2, 45)[..., None] * 0.3)
+    dy, dx = np.gradient(height)
+    lit = np.clip(-(dx + dy) * 10, 0, 1)
+    dim = np.clip((dx + dy) * 10, 0, 1)
+    color = lerp(color, rgb(1.0, 0.97, 0.9), lit[..., None] * 0.35)
+    color = lerp(color, dark * 0.82, dim[..., None] * 0.35)
+    joint = rgb(0.76, 0.68, 0.54)
+    color = lerp(joint, color, np.clip(height * 1.2, 0, 1)[..., None])
+    save("pavers", color, height, 0.8)
+
+
+import sys
+if len(sys.argv) > 1:   # e.g. python3 tools/make_textures.py make_greystone
+    for fn in sys.argv[1:]:
+        globals()[fn]()
+    sys.exit(0)
+
 make_stone()
 make_cobble()
 make_wood()
@@ -504,9 +819,13 @@ make_shingle()
 make_rock()
 make_dirt()
 make_road()
+make_paths()
+make_rosette()
 make_water_noise()
 make_marble()
 make_carpet()
 make_sand()
 make_moss()
 make_wood_dark()
+make_greystone()
+make_hedge()

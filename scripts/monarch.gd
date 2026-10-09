@@ -1,13 +1,16 @@
 extends Node3D
-## A team's monarch. Sits on the throne until an enemy grabs them, rides on the
-## carrier's shoulders, and walks back home on their own if dropped.
+## A team's crown. Rests on its cushioned pedestal in the throne room until an
+## enemy grabs it, rides high over the carrier's head, and floats back home on
+## its own if dropped. (It was a king or queen until 2026-10-07; the class
+## keeps its old name so the rest of the game needn't change.)
 
 enum State { HOME, CARRIED, DROPPED }
 
-const CharacterModel = preload("res://scripts/character_model.gd")
 
 const WALK_HOME_SPEED := 1.5
-const CARRY_HEIGHT := 1.9
+const CARRY_HEIGHT := 2.3
+const REST_HEIGHT := 1.2      # on the pedestal's cushion
+const DROP_HEIGHT := 0.7
 
 var team := 0
 var state := State.HOME
@@ -15,6 +18,7 @@ var carrier = null
 var home := Vector3.ZERO
 var title := ""
 var model
+var label: Label3D
 
 
 func setup(p_team: int, p_home: Vector3, color: Color, p_title: String) -> void:
@@ -23,57 +27,251 @@ func setup(p_team: int, p_home: Vector3, color: Color, p_title: String) -> void:
 	title = p_title
 	position = home
 
-	model = CharacterModel.new()
+	model = _build_crown(team == 0)
+	model.scale = Vector3.ONE * 1.5
 	add_child(model)
-	model.setup(team, 0, "queen" if team == 0 else "king")
+	model.position.y = REST_HEIGHT
+	_build_glow()
 
-	var label := Label3D.new()
-	label.text = title
+	label = Label3D.new()
+	label.text = title.to_upper()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.no_depth_test = true
-	label.font_size = 40
-	label.pixel_size = 0.012
-	label.outline_size = 10
+	label.font_size = 34
+	label.pixel_size = 0.009
+	label.outline_size = 12
+	label.outline_modulate = Color(0.08, 0.06, 0.04)
 	label.modulate = Color(1.0, 0.9, 0.4)
-	label.position.y = 2.6
+	label.position.y = 3.1
 	add_child(label)
 
 
 func pick_up(unit) -> void:
+	label.visible = false
 	state = State.CARRIED
 	carrier = unit
 
 
 func drop_at(where: Vector3) -> void:
+	label.visible = true
 	state = State.DROPPED
 	carrier = null
 	global_position = Vector3(where.x, 0.0, where.z)
 
 
 func go_home() -> void:
+	label.visible = true
 	state = State.HOME
 	carrier = null
 	global_position = home
 
 
 func _process(delta: float) -> void:
+	_t += delta
+	model.rotation.y += delta * 0.8
+	# The aura breathes and the beam shimmers; both brighter while carried.
+	var carried := state == State.CARRIED
+	model.scale = Vector3.ONE * (1.25 if carried else 1.5)
+	if rays:
+		rays.visible = carried
+		rays.rotation.z = _t * 0.6
+		rays_mat.albedo_color = Color(1.2, 1.05, 0.8, 0.8 + 0.15 * sin(_t * 5.0))
+		rays.scale = Vector3.ONE * (1.0 + 0.08 * sin(_t * 3.0))
+	if aura:
+		aura.position.y = model.position.y + 0.3
+		# At rest the aura is a modest halo, not a mass (Faisal 2026-10-09:
+		# the crown must stay a readable object on its pedestal).
+		aura.scale = Vector3.ONE * ((0.9 if carried else 0.7) + 0.08 * sin(_t * 4.0))
+		aura_mat.albedo_color.a = (0.1 if carried else 0.2) + 0.04 * sin(_t * 4.0)
+		beam_mat.albedo_color.a = (0.3 if carried else 0.12) + 0.05 * sin(_t * 3.0)
 	match state:
 		State.HOME:
-			model.update_locomotion(false)
+			model.position.y = REST_HEIGHT + sin(_t * 2.0) * 0.05
 		State.CARRIED:
+			model.position.y = 0.0
 			if carrier:
-				global_position = carrier.global_position + Vector3(0, CARRY_HEIGHT, 0)
-				rotation.y = carrier.rotation.y
-			model.hold("Sit_Floor_Idle")
-			model.update_locomotion(false)
+				# Worn on the carrier's head (Faisal's 2026-10-08 target art).
+				var top: float = carrier.model.height if carrier.model else CARRY_HEIGHT
+				global_position = carrier.global_position + Vector3(0, top + 0.18, 0)
 		State.DROPPED:
-			model.release()
-			model.update_locomotion(true)
+			model.position.y = DROP_HEIGHT + sin(_t * 3.0) * 0.08
 			var to_home := home - global_position
 			to_home.y = 0.0
 			if to_home.length() < 0.2:
 				go_home()
 			else:
-				var step := to_home.normalized()
-				global_position += step * WALK_HOME_SPEED * delta
-				rotation.y = atan2(-step.x, -step.z)
+				global_position += to_home.normalized() * WALK_HOME_SPEED * delta
+
+
+var _t := 0.0
+var aura: MeshInstance3D
+var aura_mat: StandardMaterial3D
+var beam_mat: StandardMaterial3D
+var rays: MeshInstance3D
+var rays_mat: StandardMaterial3D
+
+
+func _ray_texture() -> ImageTexture:
+	## A burst of soft golden rays (drawn once in code) for the worn crown.
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var d := Vector2(x - n / 2.0 + 0.5, y - n / 2.0 + 0.5) / (n / 2.0)
+			var r := d.length()
+			if r > 1.0:
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
+				continue
+			var ang := atan2(d.y, d.x)
+			var spoke := pow(maxf(cos(ang * 7.0), 0.0), 6.0) + 0.5 * pow(maxf(cos(ang * 7.0 + PI), 0.0), 10.0)
+			var a := clampf((spoke * (1.0 - r) * 1.6 + maxf(0.0, 0.5 - r) * 1.2), 0.0, 1.0)
+			img.set_pixel(x, y, Color(1.0, 0.85, 0.4, a))
+	return ImageTexture.create_from_image(img)
+
+
+func _build_glow() -> void:
+	## A soft gold aura round the crown and a pillar of light above it, so the
+	## crown (and whoever carries it) can be spotted across the map.
+	aura_mat = StandardMaterial3D.new()
+	aura_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	aura_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	aura_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	aura_mat.albedo_color = Color(1.0, 0.75, 0.25, 0.35)
+	aura_mat.cull_mode = BaseMaterial3D.CULL_FRONT   # only the far side: a halo, not a ball
+	aura = MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 1.0
+	sm.height = 2.0
+	sm.radial_segments = 24
+	sm.rings = 12
+	aura.mesh = sm
+	aura.material_override = aura_mat
+	aura.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(aura)
+	beam_mat = StandardMaterial3D.new()
+	beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	beam_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	beam_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	beam_mat.albedo_color = Color(1.0, 0.8, 0.3, 0.2)
+	var beam := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.08
+	cm.bottom_radius = 0.32
+	cm.height = 9.0
+	cm.cap_top = false
+	cm.cap_bottom = false
+	beam.mesh = cm
+	beam.material_override = beam_mat
+	beam.position.y = 2.2 + 4.5
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(beam)
+	# The ray burst behind a worn crown.
+	rays_mat = StandardMaterial3D.new()
+	rays_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	rays_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	rays_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	rays_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	rays_mat.albedo_texture = _ray_texture()
+	rays_mat.albedo_color = Color(1, 1, 1, 0.8)
+	rays_mat.no_depth_test = false
+	rays = MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(4.2, 4.2)
+	rays.mesh = q
+	rays.material_override = rays_mat
+	rays.position.y = 0.2
+	rays.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	rays.visible = false
+	add_child(rays)
+
+
+func _build_crown(elf: bool) -> Node3D:
+	## A chunky cartoon crown: a gold band with five points, ball tips and
+	## gems (emerald for the Elves, sapphire for the Humans), and a glow.
+	var root := Node3D.new()
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(1.0, 0.78, 0.25)
+	gold.metallic = 0.85
+	gold.roughness = 0.3
+	gold.emission_enabled = true
+	gold.emission = Color(1.0, 0.7, 0.2)
+	gold.emission_energy_multiplier = 0.5   # it glows (Faisal 2026-10-08), restrained 2026-10-09 so it reads as an object, not a yellow mass
+	var gem := StandardMaterial3D.new()
+	gem.albedo_color = Color(0.2, 0.85, 0.45) if elf else Color(0.2, 0.45, 1.0)
+	gem.emission_enabled = true
+	gem.emission = gem.albedo_color
+	gem.emission_energy_multiplier = 0.8
+	var band := MeshInstance3D.new()
+	var bm := CylinderMesh.new()
+	bm.top_radius = 0.42
+	bm.bottom_radius = 0.38
+	bm.height = 0.22
+	bm.radial_segments = 20
+	band.mesh = bm
+	band.material_override = gold
+	root.add_child(band)
+	var rim := MeshInstance3D.new()
+	var rm := TorusMesh.new()
+	rm.inner_radius = 0.36
+	rm.outer_radius = 0.45
+	rim.mesh = rm
+	rim.position.y = -0.1
+	rim.material_override = gold
+	root.add_child(rim)
+	for k in 5:
+		var a := k * TAU / 5.0
+		var out := Vector3(cos(a), 0, sin(a))
+		var spike := MeshInstance3D.new()
+		var pm := PrismMesh.new()
+		pm.size = Vector3(0.3, 0.36, 0.08)
+		spike.mesh = pm
+		spike.position = out * 0.4 + Vector3(0, 0.28, 0)
+		spike.rotation.y = -a + PI / 2.0
+		spike.material_override = gold
+		root.add_child(spike)
+		var ball := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.06
+		sm.height = 0.12
+		ball.mesh = sm
+		ball.position = out * 0.4 + Vector3(0, 0.48, 0)
+		ball.material_override = gold
+		root.add_child(ball)
+		var g := MeshInstance3D.new()
+		var gm := SphereMesh.new()
+		gm.radius = 0.055
+		gm.height = 0.11
+		g.mesh = gm
+		g.scale = Vector3(1, 1, 0.5)
+		g.position = out * 0.43
+		g.rotation.y = -a + PI / 2.0
+		g.material_override = gem
+		root.add_child(g)
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.85, 0.45)
+	light.light_energy = 1.6
+	light.omni_range = 5.0
+	light.position.y = 0.4
+	root.add_child(light)
+	# Sparkles drifting up off it.
+	var p := CPUParticles3D.new()
+	p.amount = 10
+	p.lifetime = 1.6
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.5
+	p.direction = Vector3.UP
+	p.spread = 30.0
+	p.initial_velocity_min = 0.2
+	p.initial_velocity_max = 0.5
+	p.gravity = Vector3.ZERO
+	var dot := SphereMesh.new()
+	dot.radius = 0.03
+	dot.height = 0.06
+	var dm := StandardMaterial3D.new()
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dm.albedo_color = Color(1.0, 0.95, 0.6)
+	dot.material = dm
+	p.mesh = dot
+	root.add_child(p)
+	return root
