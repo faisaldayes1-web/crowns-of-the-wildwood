@@ -4507,32 +4507,130 @@ func kcx_of(kx: float, bx: float) -> float:
 	return (kx + bx) / 2.0
 
 
+func _add_elf_class_stall(team: int, role: int, pos: Vector3, wall_z: float, top: float, sign_y: float) -> void:
+	## The Elves' class station as in Faisal's base interior reference: a
+	## timber frame with a dark hanging name board, a green banner with the
+	## class icon under it, a hedge behind and a hexagonal timber platform on
+	## the floor under the pedestal.
+	var wood := _timber(Color(0.5, 0.36, 0.24))
+	var dark := _timber(Color(0.3, 0.2, 0.12))
+	var team_color: Color = Stats.FACTIONS[team].color
+	_add_hedge_run(Vector3(pos.x - 1.0, pos.y, wall_z + 0.5), Vector3(pos.x + 1.0, pos.y, wall_z + 0.5), 0.5, int(absf(pos.x) * 7.0) + role)
+	for xs in [-1.0, 1.0]:
+		audit_label = "pole"
+		_add_block(Vector3(pos.x + xs * 1.1, (pos.y + top) / 2.0, wall_z + 1.0), Vector3(0.22, top - pos.y, 0.22), Color.WHITE, false, wood)
+		audit_label = ""
+		_add_block(Vector3(pos.x + xs * 1.1, pos.y + 0.08, wall_z + 1.0), Vector3(0.4, 0.16, 0.4), Color.WHITE, false, _ashlar(Color(0.9, 0.88, 0.84)))
+	_add_block(Vector3(pos.x, top + 0.05, wall_z + 1.0), Vector3(2.6, 0.2, 0.28), Color.WHITE, false, wood)
+	# The name board on two short chains.
+	for xs in [-0.7, 0.7]:
+		_add_block(Vector3(pos.x + xs, top - 0.12, wall_z + 1.0), Vector3(0.04, 0.16, 0.04), Color.WHITE, false, _iron())
+	_add_block(Vector3(pos.x, sign_y, wall_z + 1.0), Vector3(1.9, 0.5, 0.1), Color.WHITE, false, dark)
+	_add_block(Vector3(pos.x, sign_y, wall_z + 1.04), Vector3(1.9, 0.5, 0.02), Color.WHITE, false, _timber(Color(0.36, 0.26, 0.16)))
+	# The banner: team cloth with a gold hem, the class icon on it.
+	_add_block(Vector3(pos.x, sign_y - 0.9, wall_z + 1.0), Vector3(1.4, 1.2, 0.05), Color.WHITE, false, _cloth(team_color.darkened(0.05)))
+	_add_block(Vector3(pos.x, sign_y - 0.33, wall_z + 1.0), Vector3(1.5, 0.07, 0.07), Color.WHITE, false, _gold())
+	var em := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * 0.8
+	em.mesh = q
+	em.material_override = _icon_mat(_class_icon_name(role))
+	em.position = Vector3(pos.x, sign_y - 0.9, wall_z + 1.04)
+	add_child(em)
+	# The hex platform under the pedestal.
+	var hexp := MeshInstance3D.new()
+	var hm := CylinderMesh.new()
+	hm.top_radius = 1.35
+	hm.bottom_radius = 1.4
+	hm.height = 0.06
+	hm.radial_segments = 6
+	hexp.mesh = hm
+	hexp.position = pos + Vector3(0, 0.03, 0.1)
+	hexp.rotation.y = PI / 6.0
+	hexp.material_override = _timber(Color(0.66, 0.48, 0.3))
+	add_child(hexp)
+	var rim := MeshInstance3D.new()
+	var rmm := CylinderMesh.new()
+	rmm.top_radius = 1.42
+	rmm.bottom_radius = 1.42
+	rmm.height = 0.03
+	rmm.radial_segments = 6
+	rim.mesh = rmm
+	rim.position = pos + Vector3(0, 0.015, 0.1)
+	rim.rotation.y = PI / 6.0
+	rim.material_override = dark
+	add_child(rim)
+
+
+var icon_mats := {}
+
+
+func _icon_mat(name: String) -> StandardMaterial3D:
+	## A HUD icon (assets/ui/icons) as a cut-out decal on a banner or sign.
+	if not icon_mats.has(name):
+		var mat := StandardMaterial3D.new()
+		mat.albedo_texture = load("res://assets/ui/icons/%s.png" % name)
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		mat.alpha_scissor_threshold = 0.4
+		mat.roughness = 0.7
+		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+		icon_mats[name] = mat
+	return icon_mats[name]
+
+
+func _class_icon_name(role: int) -> String:
+	match role:
+		Role.KNIGHT: return "class_knight"
+		Role.RANGER: return "class_ranger"
+		Role.MAGE: return "class_mage"
+		Role.HEALER: return "class_healer"
+		Role.ENGINEER: return "class_engineer"
+		Role.ROGUE: return "class_rogue"
+	return "class_elf"
+
+
+func _add_emblem_decal(pos: Vector3, size: float, team: int) -> void:
+	## The faction's beast laid flat on a rug or floor (the reference's stag runners).
+	var m := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * size
+	m.mesh = q
+	m.material_override = _emblem_mat(_faction_emblem(team))
+	m.position = pos
+	m.rotation_degrees = Vector3(-90, 0, 0)
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(m)
+
+
 func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 	## A stone (or bark) alcove against the wall behind a class station, with
 	## a hanging sign naming the class, a drape in its colour and its runes.
 	var color: Color = Stats.ROLES[role].color
 	var wall_z := pos.z - 1.6          # the wall's inner face (north)
 	var top := pos.y + 2.9
-	var stone := _ashlar(Color(0.92, 0.9, 0.86))
-	_add_block(Vector3(pos.x, (pos.y + top) / 2.0, wall_z + 0.15), Vector3(1.8, top - pos.y, 0.3), Color.WHITE, true, _ashlar(Color(0.78, 0.76, 0.74)))
-	for xs in [-1.0, 1.0]:
-		_add_block(Vector3(pos.x + xs * 1.0, (pos.y + top) / 2.0, wall_z + 0.4), Vector3(0.36, top - pos.y, 0.8), Color.WHITE, true, stone)
-		_add_block(Vector3(pos.x + xs * 1.0, pos.y + 0.12, wall_z + 0.42), Vector3(0.5, 0.24, 0.9), Color.WHITE, false, stone)
-	_add_block(Vector3(pos.x, top + 0.15, wall_z + 0.4), Vector3(2.5, 0.34, 0.86), Color.WHITE, false, stone)
-	# A drape in the class colour at the back of the alcove.
-	_add_block(Vector3(pos.x, pos.y + 1.55, wall_z + 0.33), Vector3(1.2, 1.9, 0.04), color, false, _cloth(color.darkened(0.15)))
-	_add_block(Vector3(pos.x, pos.y + 2.5, wall_z + 0.35), Vector3(1.3, 0.08, 0.06), Color.WHITE, false, _gold())
-	# The sign: a timber board on chains above the alcove, class colour behind.
 	var sign_y := top - 0.4   # hung from the lintel, in front of the drape
-	# A bright board in the class colour with a gold frame (Faisal's 12:55 target).
-	_add_block(Vector3(pos.x, sign_y, wall_z + 0.88), Vector3(1.95, 0.52, 0.08), Color.WHITE, false, _gold())
-	var board := _material(color.darkened(0.05))
-	board.emission_enabled = true
-	board.emission = color
-	board.emission_energy_multiplier = 0.25
-	_add_block(Vector3(pos.x, sign_y, wall_z + 0.94), Vector3(1.8, 0.42, 0.08), Color.WHITE, false, board)
-	for xs in [-1.0, 1.0]:
-		_add_block(Vector3(pos.x + xs * 0.98, sign_y, wall_z + 0.96), Vector3(0.08, 0.54, 0.1), Color.WHITE, false, _gold())
+	if team == 0:
+		_add_elf_class_stall(team, role, pos, wall_z, top, sign_y)
+	else:
+		var stone := _ashlar(Color(0.92, 0.9, 0.86))
+		_add_block(Vector3(pos.x, (pos.y + top) / 2.0, wall_z + 0.15), Vector3(1.8, top - pos.y, 0.3), Color.WHITE, true, _ashlar(Color(0.78, 0.76, 0.74)))
+		for xs in [-1.0, 1.0]:
+			_add_block(Vector3(pos.x + xs * 1.0, (pos.y + top) / 2.0, wall_z + 0.4), Vector3(0.36, top - pos.y, 0.8), Color.WHITE, true, stone)
+			_add_block(Vector3(pos.x + xs * 1.0, pos.y + 0.12, wall_z + 0.42), Vector3(0.5, 0.24, 0.9), Color.WHITE, false, stone)
+		_add_block(Vector3(pos.x, top + 0.15, wall_z + 0.4), Vector3(2.5, 0.34, 0.86), Color.WHITE, false, stone)
+		# A drape in the class colour at the back of the alcove.
+		_add_block(Vector3(pos.x, pos.y + 1.55, wall_z + 0.33), Vector3(1.2, 1.9, 0.04), color, false, _cloth(color.darkened(0.15)))
+		_add_block(Vector3(pos.x, pos.y + 2.5, wall_z + 0.35), Vector3(1.3, 0.08, 0.06), Color.WHITE, false, _gold())
+		# The sign: a bright board in the class colour with a gold frame (Faisal's 12:55 target).
+		_add_block(Vector3(pos.x, sign_y, wall_z + 0.88), Vector3(1.95, 0.52, 0.08), Color.WHITE, false, _gold())
+		var board := _material(color.darkened(0.05))
+		board.emission_enabled = true
+		board.emission = color
+		board.emission_energy_multiplier = 0.25
+		_add_block(Vector3(pos.x, sign_y, wall_z + 0.94), Vector3(1.8, 0.42, 0.08), Color.WHITE, false, board)
+		for xs in [-1.0, 1.0]:
+			_add_block(Vector3(pos.x + xs * 0.98, sign_y, wall_z + 0.96), Vector3(0.08, 0.54, 0.1), Color.WHITE, false, _gold())
 	var label := Label3D.new()
 	label.text = str(Stats.FACTIONS[team].roles[role]).to_upper()
 	label.font_size = 64
@@ -4586,7 +4684,7 @@ var elf_castle := false  # while the Elf castle itself is built: warm living woo
 # moon-blue crystal light; green stays for the team cloth and the canopies.
 const ELF_BARK := Color(0.8, 0.62, 0.47)       # was Color(0.72, 0.7, 0.58), olive
 const ELF_MOONSTONE := Color(0.84, 0.87, 0.95)  # pale blue-white stone
-const ELF_GLOW := Color(0.62, 0.8, 1.0)        # crystal/lantern light, was Color(0.55, 1.0, 0.85)
+const ELF_GLOW := Color(0.6, 1.0, 0.72)        # crystal light: the reference's green crystals (was moon-blue 0.62, 0.8, 1.0)
 var soot := Color.WHITE   # while Ember Pass's castles are built: darkens every textured surface
 var tex_swap := {}        # ...and swaps textures that clash with the lava light (the Elves' bark and sandstone)
 var grey := false    # while the Humans' castle is being built: grey stone
@@ -4604,11 +4702,12 @@ func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	## Castle stone; the elven castle is grown, so its "stone" is living bark,
 	## and the Humans build in cool grey blocks.
 	if elf_castle:
-		# Trim pieces (any tinted call: cornices, merlons, pillars' caps) are
-		# moonstone; the walls themselves are warm heartwood.
+		# Faisal's Elf base reference (2026-10-08): the walls are trimmed
+		# hedge, every trim piece (cornices, stairs, caps, posts) cream
+		# sandstone like the Humans' but warmer.
 		if tint != Color.WHITE:
-			return _moonstone(tint)
-		return _pbr("bark", 0.55, ELF_BARK)
+			return _pbr("stone", 0.42, tint * Color(1.0, 0.97, 0.9))
+		return _hedge()
 	if mossy:
 		# Plain (untinted) elven "stone" is a trimmed hedge: keep walls, the
 		# throne room and pillars; tinted pieces (caps, stairs, posts) stay bark.
@@ -4622,22 +4721,18 @@ func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 
 func _moonstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	## Pale, faintly lustrous elven moonstone: the cream marble cooled to blue-white.
+	# (Since 2026-10-09 this is cream sandstone marble, the reference's pale
+	# warm stone, not blue-white; the name stays for the callers.)
 	var lum := clampf((tint.r + tint.g + tint.b) / 3.0, 0.5, 1.0)
-	var m := _pbr("marble", 0.35, ELF_MOONSTONE * lum)
-	m.roughness = 0.4
+	var m := _pbr("marble", 0.35, Color(0.96, 0.93, 0.86) * lum)
+	m.roughness = 0.45
 	return m
 
 
 func _moon_silver() -> StandardMaterial3D:
-	## Elven inlay (dais rings, pedestal bands): silver with a soft moon glow,
-	## in place of the green leaf trim.
-	var m := _material(Color(0.78, 0.84, 0.96))
-	m.metallic = 0.6
-	m.roughness = 0.3
-	m.emission_enabled = true
-	m.emission = ELF_GLOW
-	m.emission_energy_multiplier = 0.35
-	return m
+	## Elven inlay (dais rings, pedestal bands): gold, as in the reference's
+	## gold-trimmed altar (was silver with a moon glow).
+	return _gold()
 
 
 var hedge_tops := false   # while the Elf courtyard is built: its walls are topped with hedge, not merlons
@@ -5263,8 +5358,8 @@ func _add_torch_stand(pos: Vector3, height: float = 1.9) -> void:
 func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	if grey:   # the Humans' halls: cooler, darker flags
 		return _pbr("flagstone_grey", 0.25, tint * Color(0.9, 0.9, 0.92))
-	if elf_castle:   # pale moonstone flags
-		return _pbr("flagstone", 0.25, ELF_MOONSTONE * 0.92)
+	if elf_castle:   # cream sandstone squares (the reference's base floor)
+		return _pbr("flagstone", 0.25, Color(0.97, 0.96, 0.9) * tint)
 	return _pbr("flagstone_moss" if mossy else "flagstone", 0.25, tint)
 
 
@@ -5833,8 +5928,10 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	audit_label = "vault"
 	# Floor: dark marble with a pale border (Humans) or a mossy glade floor (Elves).
 	if elven:
-		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _pbr("wood_dark", 0.5, Color(0.9, 0.74, 0.6)))
-		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _moonstone(Color(0.9, 0.9, 0.9)))
+		# Cream sandstone squares with a hedge-green border strip (the
+		# reference's altar court), rug arms added below.
+		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _pbr("moss", 0.5, Color(0.7, 0.85, 0.55)))
+		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _flagstone())
 	else:
 		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _marble(Color(0.55, 0.5, 0.52)))
 		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _pbr("flagstone_grey", 0.9, Color(1.0, 0.96, 0.9)))
@@ -5847,7 +5944,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		# Door posts and the lintel over the doors.
 		_add_block(Vector3(front_x, (ROOM_H + 0.3) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.7, ROOM_H + 0.3, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)))
 	_add_block(Vector3(back_x, ROOM_H / 2.0, 0), Vector3(0.5, ROOM_H, hz * 2 + 0.5), Color.WHITE, true, wall_mat)
-	_add_block(Vector3(front_x, ROOM_H - 0.2, 0), Vector3(0.7, 0.4, ROOM_DOOR_HALF * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)) if not elven else _moonstone())
+	_add_block(Vector3(front_x, ROOM_H - 0.2, 0), Vector3(0.7, 0.4, ROOM_DOOR_HALF * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
 	# A cornice (or vine ledge) along every wall top.
 	var cap := _ashlar(Color(0.92, 0.88, 0.8))
 	for zs in [-1.0, 1.0]:
@@ -5860,6 +5957,13 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	# of the room; the crown sits on a cushioned pedestal on top (the
 	# reference renders), with the empty throne against the back wall.
 	_add_rug(Vector3((front_x + throne.x - side * 2.0) / 2.0, 0.07, 0), Vector2(absf(throne.x - side * 2.0 - front_x), 1.9), color)
+	if elven:
+		# Rug arms out to the side walls and the back, each with the stag,
+		# like the green stag runners round the reference's altar.
+		for zs in [-1.0, 1.0]:
+			_add_rug(Vector3(throne.x, 0.07, zs * (hz / 2.0 + 1.5)), Vector2(1.6, hz - 3.0), color)
+			_add_emblem_decal(Vector3(throne.x, 0.075, zs * (hz / 2.0 + 1.5)), 1.1, team)
+		_add_emblem_decal(Vector3((front_x + throne.x - side * 2.0) / 2.0, 0.075, 0), 1.3, team)
 	var tier_mat := _ashlar(Color(0.95, 0.92, 0.86))
 	var trim := _gold() if not elven else _moon_silver()
 	for t in 3:
@@ -6197,7 +6301,7 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 			_prop("dungeon/shelves", Vector3(bx + side * 1.4, CELLAR_Y, zs * (hz - 0.5)), 0.7, PI if zs > 0.0 else 0.0)
 			_prop("dungeon/bottle_A_labeled_brown", Vector3(bx + side * 1.4, CELLAR_Y + 0.95, zs * (hz - 0.75)), 0.5)
 		if elven:
-			_add_mushrooms(Vector3(bx + side * 6.6, CELLAR_Y, zs * (hz - 0.6)), 51 + int(zs))
+			_add_mushrooms(Vector3(bx + side * 4.9, CELLAR_Y, zs * (hz - 0.6)), 51 + int(zs))
 		else:
 			_add_candle_stand(Vector3(bx + side * 6.6, CELLAR_Y, zs * (hz - 0.6)))
 
@@ -7357,6 +7461,31 @@ func _build_castle(team: int) -> void:
 	prop_solid = false
 
 
+func _dress_elf_courtyard(team: int, bx: float, side: float) -> void:
+	## The Elves' courtyard dressing from Faisal's base interior reference
+	## (2026-10-08): green stag runners from the spawn circle to the stairs and
+	## along the class row, a planning table and a stocked shelf by the south
+	## wall, and a wildwood tree growing in the corner. Nothing here is solid
+	## except the tree's trunk, so every lane stays open.
+	var color: Color = Stats.FACTIONS[team].color
+	var hz := CELLAR_HALF_Z
+	# The runner from the spawn circle to the foot of the stairs, stag in the middle.
+	_add_rug(Vector3(bx + side * 9.7, CELLAR_Y + 0.03, 0), Vector2(5.0, 2.6), color)
+	_add_emblem_decal(Vector3(bx + side * 9.7, CELLAR_Y + 0.072, 0), 1.6, team)
+	# A long runner in front of the class row.
+	_add_rug(Vector3(bx + side * 9.25, CELLAR_Y + 0.03, -(hz - 3.95)), Vector2(15.4, 1.5), color.darkened(0.1))
+	for k in 3:
+		_add_emblem_decal(Vector3(bx + side * (3.5 + k * 5.75), CELLAR_Y + 0.072, -(hz - 3.95)), 1.0, team)
+	# Stores by the south wall: a shelf of potions and a map table.
+	_prop("furniture/shelf_B_large_decorated", Vector3(bx + side * 8.6, CELLAR_Y, hz - 0.7), BITS_SCALE, PI)
+	_prop("dungeon/bottle_A_labeled_green", Vector3(bx + side * 8.3, CELLAR_Y + 0.95, hz - 0.85), 0.5)
+	_prop("kitchen/table_round_A_decorated", Vector3(bx + side * 12.6, CELLAR_Y, hz - 3.6), BITS_SCALE, 0.3)
+	# A wildwood tree in the south-east corner, its canopy over the hedge.
+	_add_tree_grown(Vector3(bx + side * 6.6, CELLAR_Y, hz - 1.7))
+	_add_bush(Vector3(bx + side * 0.9, CELLAR_Y, -(hz - 0.9)), 73)
+	_add_bush(Vector3(bx + side * 17.6, CELLAR_Y, hz - 0.9), 74)
+
+
 func _build_cellar(team: int, bx: float, side: float) -> void:
 	## The spawn cellar: a sunken stone hall behind the keep with the class
 	## stations in it (Fat Princess hat machines, our way) and a flight of
@@ -7477,6 +7606,8 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	ring.material_override = ring_mat
 	add_child(ring)
 	_furnish_cellar(team, bx, side)
+	if team == 0:
+		_dress_elf_courtyard(team, bx, side)
 	# The class room: six alcoves in a row along the north wall, facing the
 	# camera, each with its class's name on a sign, its hat on a pedestal and
 	# a glowing rune circle (the Rogue's is locked until account level 10).
@@ -7654,7 +7785,7 @@ func _apply_map_variant() -> void:
 		# Late-afternoon storybook light (Faisal's target art, 2026-10-07): a
 		# low warm sun throwing long shadows, cool blue ambient so the shade
 		# reads coloured, and torches and braziers that bloom.
-		world_environment.ambient_light_energy = 0.16
+		world_environment.ambient_light_energy = 0.19
 		world_environment.ambient_light_sky_contribution = 0.25
 		world_environment.ambient_light_color = Color(0.45, 0.55, 0.85)
 		world_environment.fog_light_color = Color(0.95, 0.85, 0.7)
@@ -7694,7 +7825,7 @@ func _build_world() -> void:
 	# Soft contact shadows under props and in corners (Forward+ only).
 	environment.ssao_enabled = true
 	environment.ssao_radius = 1.0
-	environment.ssao_intensity = 1.6
+	environment.ssao_intensity = 2.0
 	environment.ssao_power = 1.1
 	# Light bouncing off lit surfaces into shade (grass green on the walls,
 	# torchlight on the floors): Forward+ only, High and Ultra.
@@ -7727,8 +7858,8 @@ func _build_world() -> void:
 	environment.fog_density = 0.0012
 	environment.fog_sky_affect = 0.2
 	environment.adjustment_enabled = true
-	environment.adjustment_saturation = 1.2
-	environment.adjustment_contrast = 1.05
+	environment.adjustment_saturation = 1.25
+	environment.adjustment_contrast = 1.1
 	environment.adjustment_brightness = 1.0
 	env.environment = environment
 	world_environment = environment

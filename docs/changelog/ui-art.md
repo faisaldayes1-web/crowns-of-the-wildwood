@@ -283,3 +283,52 @@ Tested: `--check-only` on game/hud/unit/scoreboard/menu/volcano; 400-frame headl
 with no script errors.
 
 Revert: `git revert -m 1 5304307`.
+
+---
+
+## 2026-10-09 — Elf base pass A: the Wildwood Elf base toward Faisal's reference (palette, class stalls, runners, courtyard stores, altar court, light)
+
+Commit: `PENDING`
+
+Faisal (02:01): "its not just textures and small flowers but the overall design of the base and
+roads and quality. Make it look exactly like the reference." References: `game/reference-renders/
+elf-base-interior-target-2026-10-08.png`, `elf-courtyard-target-2026-10-08.png`,
+`elf-base-layout-target-2026-10-09.jpeg`. This group now owns the Wildwood Elf base (see the merge
+entry above); nothing here touches the Human base, Ember Pass or roads.
+
+What changed (Elf base only, `elf_castle` / team 0 branches):
+- **Palette back to the reference**: Elf walls are trimmed hedge (untinted `_ashlar` under
+  `elf_castle`), trims are cream sandstone (not moonstone or heartwood); `_moonstone()` is now
+  cream sandstone marble (0.96, 0.93, 0.86) for every caller; `_moon_silver()` is gold; Elf floors
+  are cream sandstone squares (0.97, 0.96, 0.9); `ELF_GLOW` crystals are green (0.6, 1.0, 0.72)
+  instead of moon-blue.
+- **Class stations** (`_add_elf_class_stall`): each Elf station is a timber frame with a dark
+  hanging name board on chains, a green banner with the class icon under it, a hedge behind, and a
+  hexagonal timber platform under the pedestal, as in the interior reference. The Humans keep the
+  stone alcoves.
+- **Courtyard** (`_dress_elf_courtyard`): green stag runners from the spawn circle to the stairs
+  and along the class row (new `_add_emblem_decal` lays the faction beast on a rug), a stocked
+  potion shelf and a round map table by the south wall, a wildwood tree in the corner, bushes in two
+  corners; the mushrooms moved from x 6.6 to 4.9 to clear the tree.
+- **Crown room**: the Elf floor is cream sandstone inside a hedge-green border, with green stag
+  runners out to the side walls and the back around the crystal altar; the timber lintel replaces
+  the moonstone one.
+- **Light and ink** (both maps, art layer): ambient 0.16 → 0.19, SSAO intensity 1.6 → 2.0,
+  saturation 1.2 → 1.25, contrast 1.05 → 1.1, ink line thickness 1.4 → 1.6.
+
+Files touched: `scripts/game.gd` (`_ashlar`, `_flagstone`, `_moonstone`, `_moon_silver`, `ELF_GLOW`,
+`_build_throne_room`, `_add_class_alcove`, new `_add_elf_class_stall`, `_icon_mat`, `_class_icon_name`,
+`_add_emblem_decal`, `_dress_elf_courtyard`, `_furnish_cellar`, `_build_cellar`, environment and day
+light), `assets/shaders/ink_outline.gdshader`, `docs/changelog/ui-art.md`.
+
+Tunables (old → new): ambient 0.16 → 0.19; ssao_intensity 1.6 → 2.0; saturation 1.2 → 1.25;
+contrast 1.05 → 1.1; ink thickness 1.4 → 1.6; ELF_GLOW (0.62, 0.8, 1.0) → (0.6, 1.0, 0.72).
+No gameplay numbers changed; station, spawn and lane positions unchanged.
+
+Tested: `--check-only`; `--audit` 1 overlap on the Wildwood (the same pine pair as before, none
+added); 300/600-frame headless bot matches with no script errors.
+
+Renders: `elf-base-passA-castle.png`, `elf-base-passA-courtyard.png`, `elf-base-passA-throne.png`
+and `compare-elf-base-reference-vs-passA.png`.
+
+Revert: `git revert PENDING`
