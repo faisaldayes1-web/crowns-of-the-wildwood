@@ -246,8 +246,12 @@ func _init() -> void:
 		await frames(40)
 		check(p.downed and not p.dead, "downed: losing the last heart downs you")
 		Input.action_press("interact")
-		var hold: float = load("res://scripts/stats.gd").get_script_constant_map().get("DOWNED_SKIP_HOLD", 2.0)
-		await frames(int(hold * 60.0) + 40)
+		# Physics ticks run behind process frames headlessly: wait on the
+		# outcome (well past DOWNED_SKIP_HOLD) rather than a frame count.
+		for i in 600:
+			if p.dead:
+				break
+			await frames(1)
 		Input.action_release("interact")
 		check(p.dead, "downed: holding the skip button respawns you")
 		await frames(5)
