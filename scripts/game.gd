@@ -243,6 +243,7 @@ var menu_open := false
 var rank_open := false
 var menu_tab := 0
 var shake_amount := 0.0
+var cam_kick := Vector3.ZERO     # directional jolt (kick_cam), springs back to zero
 var cam_pos := Vector3.ZERO
 var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
 var click_was := false
@@ -1871,6 +1872,8 @@ func _update_camera(delta: float) -> void:
 	sfx.set_listener(player.global_position)
 	shake_amount = move_toward(shake_amount, 0.0, delta * 1.6)
 	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amount * 0.35
+	cam_kick = cam_kick.lerp(Vector3.ZERO, clampf(delta * 10.0, 0.0, 1.0))
+	jolt += cam_kick
 	if couch_active:
 		# One camera a pane, each on its own player.
 		for pane in panes:
@@ -2118,6 +2121,17 @@ func shake(amount: float) -> void:
 	if not screen_shake:
 		return
 	shake_amount = maxf(shake_amount, amount)
+
+
+func kick_cam(dir: Vector3, amount: float) -> void:
+	## A directional camera jolt (getting hit, landing a blow) that springs
+	## back, on top of the random shake. Honours the screen shake setting.
+	if not screen_shake:
+		return
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	cam_kick = (cam_kick + dir.normalized() * amount).limit_length(0.5)
 
 
 func shake_at(where: Vector3, amount: float) -> void:

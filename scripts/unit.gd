@@ -27,6 +27,8 @@ var attack_timer := 0.0
 var flash_timer := 0.0
 const FLASH_TIME := 0.22     # hit flash: white for the first frames, then red, easing back
 var hitstop_timer := 0.0
+const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits for its cooldown
+var input_buffer := [0.0, 0.0, 0.0]  # ability 1, ability 2, dodge
 var swing_flip := false     # alternate the slash arc left/right    # hit stop: the model's animation holds for a beat (looks only)
 var status_fx := {}         # looping aura emitters by kind (Fx.status_emitter)
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
@@ -1018,6 +1020,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		if attacker and attacker != self:
 			if attacker.is_player:
 				game.shake(0.28)
+				game.kick_cam(global_position - attacker.global_position, 0.22)
 				attacker._hitstop(0.1)
 			if level - attacker.level >= 2:
 				attacker.giant_kills += 1
@@ -1053,8 +1056,17 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		_die()
 		return true
 	_refresh_overhead()
-	if model and model._now() >= model.busy_until:
-		model.play_once("Hit_A", 1.5)
+	if model and (model._now() >= model.busy_until or amount >= 2) and dodge_timer <= 0.0:
+		# A flinch, from whichever side the blow came; a heavy blow cuts into
+		# whatever the body was doing and lifts it off its feet a little.
+		var side: float = facing.cross(Vector3.UP).dot(push)
+		model.play_once("Hit_B" if side > 0.0 else "Hit_A", 1.5 if amount < 2 else 1.8)
+		if amount >= 2:
+			var tw: Tween = model.create_tween()
+			tw.tween_property(model, "position:y", 0.3, 0.09).set_ease(Tween.EASE_OUT)
+			tw.tween_property(model, "position:y", 0.0, 0.14).set_ease(Tween.EASE_IN)
+	if is_player:
+		game.kick_cam(push, 0.18 if amount < 2 else 0.3)   # the view jolts the way the blow pushed
 	# Bots roll sideways away from whatever just hit them, half the time.
 	if not is_player and dodge_ready() and randf() < 0.5 * game.bot_tuning().react:
 		try_dodge(facing.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0))
@@ -1456,12 +1468,36 @@ func _die() -> void:
 	_lose_levels(Stats.DEATH_LEVEL_LOSS)
 	if is_player and fell_from > 1:
 		game.announce("You fell at level %d: down to level %d, back in %d seconds." % [fell_from, level, int(respawn_timer)])
+	_death_fling()
 	Fx.of(game).death(global_position, Stats.FACTIONS[team].color)
 	game.sfx.play("death", global_position, 0.0, 0.1)
 	if aim_marker:
 		aim_marker.visible = false
 		aim_ring.visible = false
 	_refresh_overhead()   # hide the name tag and health bar while down
+
+
+func _death_fling() -> void:
+	## The killing blow throws the body back: a short arc the way it was hit,
+	## landing as the fall plays. Looks only (the unit itself stays put);
+	## the model is reset on revive.
+	if model == null:
+		return
+	var push := last_hit_dir
+	push.y = 0.0
+	if push.length() < 0.05:
+		return
+	var local: Vector3 = global_transform.basis.inverse() * (push.normalized() * 1.1)
+	local.y = 0.0
+	var tw: Tween = model.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(model, "position:x", local.x, 0.32).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(model, "position:z", local.z, 0.32).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(model, "position:y", 0.45, 0.14).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_property(model, "position:y", 0.0, 0.16).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(func():
+		if is_instance_valid(game):
+			Fx.of(game).burst(model.global_position + Vector3(0, 0.15, 0), Color(0.6, 0.55, 0.45), 8, 2.0, 0.7, Fx.STYLE_SMOKE, Vector3.UP, 70.0, 0.8))
 
 
 func _respawn() -> void:
@@ -1763,11 +1799,24 @@ func _physics_process(delta: float) -> void:
 			wants_block = Input.is_action_pressed(_a("block"))
 			if Input.is_action_just_pressed(_a("interact")):
 				game.try_interact(self)
+			# A press just before a skill or the dodge is ready still counts:
+			# it waits up to INPUT_BUFFER seconds and fires the moment it can.
 			if Input.is_action_just_pressed(_a("ability_1")):
-				use_ability(0, aim)
+				input_buffer[0] = INPUT_BUFFER
 			if Input.is_action_just_pressed(_a("ability_2")):
-				use_ability(1, aim)
+				input_buffer[1] = INPUT_BUFFER
 			if Input.is_action_just_pressed(_a("dodge")):
+				input_buffer[2] = INPUT_BUFFER
+		for i in 2:
+			if input_buffer[i] > 0.0:
+				input_buffer[i] -= delta
+				if ability_ready(i):
+					input_buffer[i] = 0.0
+					use_ability(i, aim)
+		if input_buffer[2] > 0.0:
+			input_buffer[2] -= delta
+			if dodge_ready():
+				input_buffer[2] = 0.0
 				try_dodge(move)
 		if dodge_timer > 0.0 or bash_timer > 0.0:
 			return
@@ -1959,6 +2008,7 @@ func _attack(dir: Vector3) -> void:
 		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
 		if is_player:
 			game.shake(0.12)
+			game.kick_cam(dir, 0.12)   # the view leans into the blow
 			game.rumble(self, 0.35, 0.15, 0.1)
 	# Swings from the ground also chip away at the enemy door.
 	var vault = game.vaults[1 - team]

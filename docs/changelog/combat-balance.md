@@ -285,3 +285,34 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Tunables:** none.
 - **Checks:** `tools/tests/run.sh` 27/27.
 - **Revert:** `git revert e80690e`
+
+## 10. Hit reactions, camera kick, death fling, buffered skill and dodge presses
+
+- **When:** 2026-10-09 12:50 UTC (Faisal 2026-10-09 11:33 "begin upgrading the
+  combat and icons and general game feel"; coordinator: hit weight,
+  responsiveness, enemy reactions, death and knockback feel, camera punch)
+- **Commit:** filled in by the next commit
+- **What:**
+  - Flinches come from the side the blow landed on (Hit_A or Hit_B). A heavy
+    blow (2+ hearts) cuts into whatever the body was doing and lifts it off its
+    feet a little.
+  - Camera kick: the view jolts the way you were pushed when you are hit,
+    leans into the blow when your swing lands, and kicks toward the victim on
+    a kill, then springs back. It is off when screen shake is off in Settings.
+  - Death fling: the killing blow throws the body back about a metre in a
+    short arc and it lands in a puff of dust as it falls. The unit itself
+    doesn't move; the model is reset on respawn.
+  - Responsiveness: a skill or dodge pressed up to 0.25 s before it is ready
+    (cooldown or energy) now fires the moment it can, instead of being lost.
+    Players only, so bot batches are unaffected.
+- **Files:** `scripts/unit.gd` (`take_damage` flinch + kick, `_death_fling`,
+  `input_buffer`/`INPUT_BUFFER`, kick on landed swings and kills),
+  `scripts/game.gd` (`kick_cam`, `cam_kick` in `_update_camera`),
+  `scripts/character_model.gd` (`revive` resets the model transform),
+  `tests/combat_test.gd` (death fling and reset checks).
+- **Tunables:** new `INPUT_BUFFER` 0.25 s (unit.gd); kick sizes 0.12 (landed
+  swing), 0.18 / 0.3 (hit / heavy hit), 0.22 (kill), springs back at 10/s,
+  capped at 0.5.
+- **Checks:** `tools/tests/run.sh` 29/29; an Ember Pass bot match with 0 script
+  errors. No batch: nothing a bot does changes.
+- **Revert:** `git revert <hash>`

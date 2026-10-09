@@ -772,6 +772,9 @@ func die() -> void:
 
 
 func revive() -> void:
+	position = Vector3.ZERO   # undo the death fling and any skill motion
+	rotation = Vector3.ZERO
+	scale = Vector3.ONE
 	busy_until = 0.0
 	held = ""
 	current = ""

@@ -136,6 +136,9 @@ func _run() -> void:
 	# whiff, and rapid retries (bots at a locked vault) don't stack effects.
 	await _grab()
 
+	# 10. The killing blow throws the body back, and it stands up straight on respawn.
+	await _death_fling()
+
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
 
@@ -292,3 +295,18 @@ func _grab() -> void:
 	_check(once > before and fx.get_child_count() <= once + 3, "grab_feedback_once", "fx %d -> %d -> %d" % [before, once, fx.get_child_count()])
 	await _frames(40)
 	_check(u.model.scale.distance_to(Vector3.ONE) < 0.01 and u.model.rotation.length() < 0.01, "grab_body_restored")
+
+
+func _death_fling() -> void:
+	var a = _first(0)
+	var v = _first(1)
+	a.global_position = Vector3(-20, 0, 3)
+	_stage(a, v)
+	v.model.process_mode = Node.PROCESS_MODE_ALWAYS
+	v.hearts = 1
+	v.take_damage(1, a, a.global_position, 6.0, {"fx": "heavy"})
+	await _frames(25)
+	var flung: float = Vector2(v.model.position.x, v.model.position.z).length()
+	_check(v.dead and flung > 0.5, "death_fling", "dead=%s flung=%.2f" % [v.dead, flung])
+	v.model.revive()
+	_check(v.model.position.length() < 0.01, "death_fling_reset")
