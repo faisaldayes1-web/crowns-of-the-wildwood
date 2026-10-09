@@ -166,6 +166,8 @@ func take(u) -> void:
 	game.spawn_splash(u.global_position + Vector3(0, 1.0, 0), color, 22, 3.5, 0.6, true)
 	if u == game.player:
 		game.announce("You put on the %s's hat. You are now a %s." % [class_title(), u.role_name()])
+	if u.is_player:
+		u.class_banner = u.CLASS_BANNER_TIME
 
 
 func _process(delta: float) -> void:

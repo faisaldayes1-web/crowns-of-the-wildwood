@@ -279,20 +279,23 @@ def make_flagstone():
     ids = (row * 100 + col).astype(int)
     shade = r.random(int(ids.max()) + 1)[ids]
     odd = (r.random(int(ids.max()) + 1) > 0.8)[ids]
-    light = rgb(0.98, 0.86, 0.58)
-    dark = rgb(0.91, 0.76, 0.49)
+    # Cream sandstone, barely yellow, with a pale tan grout (Faisal's Elf
+    # base target, 2026-10-08): the old flags were deep yellow and read
+    # green under the castle lights.
+    light = rgb(0.96, 0.90, 0.74)
+    dark = rgb(0.88, 0.80, 0.63)
     color = lerp(dark, light, (0.3 + 0.7 * shade)[..., None])
-    color = lerp(color, rgb(0.84, 0.68, 0.44), odd[..., None] * 0.7)
+    color = lerp(color, rgb(0.82, 0.73, 0.56), odd[..., None] * 0.6)
     lit = ((u < 0.06) | (v < 0.06)) & (u < 0.94) & (v < 0.94)
     dim = (u > 0.95) | (v > 0.95)
-    color = lerp(color, rgb(1.0, 0.95, 0.78), (lit * height)[..., None] * 0.55)
-    color = lerp(color, dark * 0.85, (dim * height)[..., None] * 0.5)
-    joint = rgb(0.46, 0.33, 0.21)
+    color = lerp(color, rgb(1.0, 0.98, 0.9), (lit * height)[..., None] * 0.5)
+    color = lerp(color, dark * 0.86, (dim * height)[..., None] * 0.5)
+    joint = rgb(0.58, 0.48, 0.35)
     color = lerp(joint, color, np.clip(height * 1.5, 0, 1)[..., None])
     save("flagstone", color, np.clip(height, 0, 1), 1.0)
     # Elven yard: the same flags, greener and grown over at the joints.
     moss = np.clip((1 - height) * 1.3 + (fbm(N, 6, 3, 95) - 0.62) * 2.5, 0, 1) * (fbm(N, 3, 2, 96) > 0.5)
-    mossy = lerp(color * rgb(0.96, 1.0, 0.9), rgb(0.42, 0.68, 0.26), np.clip(moss * 0.75, 0, 1)[..., None])
+    mossy = lerp(color * rgb(0.98, 1.0, 0.94), rgb(0.42, 0.68, 0.26), np.clip(moss * 0.55, 0, 1)[..., None])
     save("flagstone_moss", mossy, np.clip(height, 0, 1), 1.0)
     # The Humans' halls: the same flags in a cool, worn grey-beige.
     lum = color.mean(axis=-1, keepdims=True)
@@ -313,9 +316,10 @@ def make_stepping_stones(name, cells, seed, drop):
     f1, f2, ids = voronoi(N, cells, seed)
     r = np.random.default_rng(seed + 1)
     keep = (r.random(cells * cells) >= drop)[ids]
-    inner = ((f2 - f1) > 0.07) & keep
-    # Round the corners: blur the polygon and cut it again.
-    soft = wrap_filter(inner.astype(np.float64), ImageFilter.GaussianBlur(10))
+    inner = ((f2 - f1) > 0.1) & keep
+    # Round the corners: blur the polygon and cut it again. Fat, pebble-round
+    # stones with narrow joints (Faisal's courtyard target, 2026-10-08).
+    soft = wrap_filter(inner.astype(np.float64), ImageFilter.GaussianBlur(12))
     stone = soft > 0.5
     core = wrap_filter(stone.astype(np.float64), ImageFilter.MinFilter(7)) > 0.5
     # A soft dome: lighter on the top of each stone, deeper towards its rim,
@@ -327,17 +331,18 @@ def make_stepping_stones(name, cells, seed, drop):
     shade = r.random(cells * cells)[ids]
     hue = r.random(cells * cells)[ids]
     # Sandy, tan and a little rosy: a few warm tints, none far apart.
-    sand = rgb(0.90, 0.78, 0.60)
-    tan = rgb(0.82, 0.68, 0.52)
-    rose = rgb(0.86, 0.70, 0.58)
+    sand = rgb(0.93, 0.84, 0.68)
+    tan = rgb(0.84, 0.73, 0.57)
+    rose = rgb(0.88, 0.74, 0.62)
     base = lerp(tan, sand, shade[..., None])
     base = lerp(base, rose, (np.clip(hue - 0.65, 0, 1) * 1.6)[..., None])
-    color = base * (0.80 + 0.08 * dome + 0.06 * crown + 0.10 * lit)[..., None]
-    # A thin warm-brown rim round each stone, then dirt in the joints.
-    ink = rgb(0.28, 0.16, 0.08)
+    color = base * (0.82 + 0.08 * dome + 0.06 * crown + 0.12 * lit)[..., None]
+    # A thin warm-brown rim round each stone, then packed earth in the joints
+    # (lighter than before: the old dark dirt made the paths read as mud).
+    ink = rgb(0.40, 0.26, 0.14)
     color = np.where(core[..., None], color, ink)
     mottle = fbm(N, 6, 2, seed + 7)
-    dirt = lerp(rgb(0.33, 0.21, 0.11), rgb(0.39, 0.25, 0.14), mottle[..., None])
+    dirt = lerp(rgb(0.46, 0.32, 0.19), rgb(0.54, 0.39, 0.24), mottle[..., None])
     color = np.where(stone[..., None], color, dirt)
     height = 0.6 * wrap_filter(core.astype(np.float64), ImageFilter.GaussianBlur(4)) + 0.4 * dome
     Image.fromarray((np.clip(color, 0, 1) * 255).astype(np.uint8), "RGB").save(f"{OUT}/{name}_color.png")
@@ -358,8 +363,8 @@ def make_stepping_stones(name, cells, seed, drop):
 
 def make_paths():
     """The main road's cobbles and the looser side tracks."""
-    make_stepping_stones("path", 5, 401, 0.0)
-    make_stepping_stones("path_loose", 5, 402, 0.3)
+    make_stepping_stones("path", 4, 401, 0.0)
+    make_stepping_stones("path_loose", 4, 402, 0.3)
 
 
 def make_shingle():
@@ -465,12 +470,14 @@ def make_grass():
     r = np.random.default_rng(58)
     shade = r.random(25)[ids]
     broad = fbm(N, 2, 2, 60)
-    base = rgb(0.40, 0.69, 0.19)
-    light = rgb(0.50, 0.79, 0.25)
-    color = lerp(base, light, (shade * 0.55)[..., None])
-    color = lerp(color, light * 1.04, np.clip((broad - 0.5) * 3.0, 0, 1)[..., None] * 0.45)
+    # Deep saturated meadow green with lighter swathes (Faisal's courtyard
+    # target, 2026-10-08): less lime than before, so the flowers pop.
+    base = rgb(0.30, 0.60, 0.15)
+    light = rgb(0.42, 0.74, 0.20)
+    color = lerp(base, light, (shade * 0.5)[..., None])
+    color = lerp(color, light * 1.05, np.clip((broad - 0.5) * 3.0, 0, 1)[..., None] * 0.4)
     seam = np.clip(1 - (f2 - f1) / 0.05, 0, 1)
-    color = lerp(color, base * 0.88, seam[..., None] * 0.4)
+    color = lerp(color, base * 0.86, seam[..., None] * 0.35)
     h = 0.5 + 0.5 * np.clip((f2 - f1) * 4, 0, 1)
     save("grass", np.clip(color, 0, 1), np.clip(h, 0, 1), 0.15)
 
@@ -638,6 +645,27 @@ def make_wood_dark():
 
 
 os.makedirs(OUT, exist_ok=True)
+def make_hedge():
+    """Trimmed hedge: a dense mass of small leaf clumps in two close greens,
+    lighter where a clump catches the light, with soft dark gaps between
+    them (the Elf base target's box hedges, 2026-10-08)."""
+    f1, f2, ids = voronoi(N, 16, 77)
+    r = np.random.default_rng(78)
+    shade = r.random(16 * 16)[ids]
+    broad = fbm(N, 3, 2, 79)
+    deep = rgb(0.16, 0.42, 0.12)
+    mid = rgb(0.27, 0.58, 0.16)
+    light = rgb(0.40, 0.72, 0.20)
+    color = lerp(deep, mid, (0.4 + 0.6 * shade)[..., None])
+    color = lerp(color, light, np.clip((broad - 0.45) * 2.5, 0, 1)[..., None] * 0.5)
+    gap = np.clip(1 - (f2 - f1) / 0.12, 0, 1)
+    color = lerp(color, deep * 0.6, (gap ** 2)[..., None] * 0.8)
+    dome = np.clip((f2 - f1) / 0.35, 0, 1)
+    color = color * (0.85 + 0.25 * dome)[..., None]
+    h = 0.3 + 0.7 * dome
+    save("hedge", np.clip(color, 0, 1), np.clip(h, 0, 1), 1.2)
+
+
 def make_greystone():
     """Cool grey castle blocks for the Humans' halls and curtain walls: big,
     flat-filled, each its own shade of blue-grey, with ink joints and a pale
@@ -683,3 +711,4 @@ make_sand()
 make_moss()
 make_wood_dark()
 make_greystone()
+make_hedge()
