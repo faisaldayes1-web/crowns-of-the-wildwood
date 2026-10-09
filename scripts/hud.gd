@@ -2750,53 +2750,6 @@ func _ring_button(c: Vector2, r: float, hot: float = 0.0) -> void:
 	draw_arc(c, r - 1, 0, TAU, 32, Color(0.62, 0.44, 0.16, 0.6), 1.0)
 
 
-func _count_badge(c: Vector2, n: int) -> void:
-	## A small cream square with a number: the kits left.
-	var r := Rect2(c - Vector2(9, 9), Vector2(18, 18))
-	_plate(r, CREAM, Color(0.35, 0.22, 0.08), 4, 2)
-	_text(r.position + Vector2(0, 14), str(n), 13, Color(0.15, 0.1, 0.06), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 0)
-
-
-func _chest_glyph(c: Vector2, s: float) -> void:
-	## A leather kit case with a brass clasp (s ≈ half its width).
-	var body := Rect2(c + Vector2(-s, -0.45 * s), Vector2(2.0 * s, 1.3 * s))
-	draw_arc(c + Vector2(0, -0.45 * s), 0.38 * s, PI, TAU, 12, Color(0.32, 0.18, 0.06), 0.16 * s)
-	_plate(body, Color(0.72, 0.45, 0.2), Color(0.3, 0.16, 0.05), int(0.25 * s), 2)
-	draw_rect(Rect2(body.position + Vector2(2, 2), Vector2(body.size.x - 4, body.size.y * 0.42)), Color(0.85, 0.58, 0.3))
-	draw_line(body.position + Vector2(2, body.size.y * 0.45), Vector2(body.end.x - 2, body.position.y + body.size.y * 0.45), Color(0.3, 0.16, 0.05), 1.5)
-	var clasp := Rect2(c + Vector2(-0.22 * s, -0.05 * s), Vector2(0.44 * s, 0.4 * s))
-	draw_rect(clasp, GOLD)
-	draw_rect(clasp, Color(0.35, 0.2, 0.04), false, 1.2)
-	draw_circle(clasp.get_center(), 0.06 * s + 0.5, Color(0.35, 0.2, 0.04))
-
-
-func _right_buttons(p, W: float) -> void:
-	## The right-edge column: CROWN (glowing while you carry one), KITS with
-	## the fortify kits left on a badge, and the map on M.
-	var x := W - 50.0
-	var r := 26.0
-	var carrying: bool = p.carrying != null and not p.dead
-	var now := Time.get_ticks_msec() / 1000.0
-	var ys := [62.0, 166.0, 270.0]
-	# CROWN
-	var hot := (0.7 + 0.3 * sin(now * 4.0)) if carrying else 0.0
-	_ring_button(Vector2(x, ys[0]), r, hot)
-	_crown_glyph(Vector2(x, ys[0] + 3), r * 0.66, 1.0 if carrying else 0.0)
-	_text(Vector2(x - 40, ys[0] + r + 20), "CROWN", 14, Color(1.0, 0.95, 0.82), HORIZONTAL_ALIGNMENT_CENTER, 80, 5)
-	# KITS
-	_ring_button(Vector2(x, ys[1]), r)
-	_chest_glyph(Vector2(x, ys[1] + 1), r * 0.6)
-	var kits: int = game.barricades_left[p.team]
-	if kits > 0:
-		_count_badge(Vector2(x + r * 0.85, ys[1] + r * 0.75), kits)
-	_text(Vector2(x - 40, ys[1] + r + 20), "KITS", 14, Color(1.0, 0.95, 0.82), HORIZONTAL_ALIGNMENT_CENTER, 80, 5)
-	# MAP
-	_ring_button(Vector2(x, ys[2]), r)
-	_map_glyph(Vector2(x, ys[2]), 1.25)
-	# No key of its own: the map is the pause menu's first tab.
-	_text(Vector2(x - 40, ys[2] + r + 20), "MAP", 14, Color(1.0, 0.95, 0.82), HORIZONTAL_ALIGNMENT_CENTER, 80, 5)
-
-
 func _draw_player_panel(p) -> void:
 	## The bottom row, laid out like the HUD target (2026-10-07): bottom-left
 	## a gold-trimmed level shield on a compact dark panel (hearts and the
@@ -2811,7 +2764,8 @@ func _draw_player_panel(p) -> void:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
 	var panel := Rect2(Vector2(116, H - 100), Vector2(430, 66))
 	_status_panel(p, panel)
-	_right_buttons(p, W)
+	# (No CROWN / KITS / MAP column on the right edge: "useless", Faisal
+	# 09:03 2026-10-09. Kits left show in the FORTIFY prompt; the map is the pause menu's first tab.)
 	var buttons_w := 3.0 * 42.0 + 2.0 * 8.0
 	var bx := W - 22.0 - buttons_w
 	_corner_buttons(Vector2(bx, H - 89))

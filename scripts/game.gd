@@ -4627,21 +4627,10 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 	if team == 0 and cellar_floor(team) >= 0.0:
 		# The open courtyard (Wildwood): designed stations under the pavilion,
 		# their name boards on its posts; the hat's own ring is the only glow.
+		# The class name is on the station's sign (Faisal 09:06 2026-10-09:
+		# the light floor label read poorly; "it should have been above it in
+		# the sign").
 		_add_elf_class_station(team, role, pos)
-		# The class name stands just in front of the station's base, where
-		# the game camera always sees it (on the pavilion's board it was cut
-		# off by the top of the screen: Faisal 08:18 2026-10-09).
-		var name := Label3D.new()
-		name.text = str(Stats.FACTIONS[team].roles[role]).to_upper()
-		name.font_size = 64
-		name.pixel_size = 0.0048
-		name.outline_size = 14
-		name.outline_modulate = Color(0.1, 0.07, 0.04)
-		name.modulate = Color(1.0, 0.97, 0.9)
-		name.position = Vector3(pos.x, pos.y + 0.3, pos.z + 1.35)
-		name.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		name.shaded = false
-		add_child(name)
 		return
 	if team == 0:
 		_add_elf_class_stall(team, role, pos, wall_z, top, sign_y)
@@ -7428,33 +7417,38 @@ func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float) -> voi
 	audit_blocks.append(["fence", AABB(pos - Vector3(fs.x / 2.0, 0, fs.z / 2.0), fs)])
 
 
-func _add_upgrade_pad(team: int, pos: Vector3, yaw: float = 0.0) -> void:
+func _add_upgrade_pad(team: int, pos: Vector3, yaw: float = 0.0, small_anvil: bool = false) -> void:
 	## `yaw` turns the station and its workshop about the pad (0 = the anvil
-	## and board facing +z).
+	## and board facing +z). `small_anvil` drops the gold pad, its flagstone
+	## and the block anvil for a small modelled anvil with a hammer on it.
 	upgrade_pads[team] = pos
 	var c0 := get_child_count()
 	var a0 := audit_blocks.size()
-	var color := Color(0.75, 0.55, 0.2)
-	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.45), false, _flagstone(Color(0.7, 0.62, 0.5)))
-	var pad := MeshInstance3D.new()
-	var pad_mesh := CylinderMesh.new()
-	pad_mesh.top_radius = STATION_RADIUS
-	pad_mesh.bottom_radius = STATION_RADIUS
-	pad_mesh.height = 0.06
-	pad.mesh = pad_mesh
-	var pad_mat := _material(color)
-	pad_mat.emission_enabled = true
-	pad_mat.emission = color * 0.15
-	pad.material_override = pad_mat
-	pad.position = pos + Vector3(0, 0.12, 0)
-	add_child(pad)
-	# An anvil on a timber block, like the upgrade station in the renders.
-	_add_block(pos + Vector3(0, 0.4, 0), Vector3(0.7, 0.5, 0.7), Color.WHITE, false, _timber(Color(0.75, 0.65, 0.55)))
 	var iron := _material(Color(0.3, 0.31, 0.35))
 	iron.metallic = 0.6
 	iron.roughness = 0.5
-	_add_block(pos + Vector3(0, 0.8, 0), Vector3(1.0, 0.3, 0.42), Color.WHITE, false, iron)
-	_add_block(pos + Vector3(0.45, 0.82, 0), Vector3(0.3, 0.2, 0.3), Color.WHITE, false, iron)
+	if small_anvil:
+		_add_small_anvil(pos)
+	else:
+		var color := Color(0.75, 0.55, 0.2)
+		_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.45), false, _flagstone(Color(0.7, 0.62, 0.5)))
+		var pad := MeshInstance3D.new()
+		var pad_mesh := CylinderMesh.new()
+		pad_mesh.top_radius = STATION_RADIUS
+		pad_mesh.bottom_radius = STATION_RADIUS
+		pad_mesh.height = 0.06
+		pad.mesh = pad_mesh
+		var pad_mat := _material(color)
+		pad_mat.emission_enabled = true
+		pad_mat.emission = color * 0.15
+		pad.material_override = pad_mat
+		pad.position = pos + Vector3(0, 0.12, 0)
+		add_child(pad)
+		# An anvil on a timber block, like the upgrade station in the renders.
+		_add_block(pos + Vector3(0, 0.4, 0), Vector3(0.7, 0.5, 0.7), Color.WHITE, false, _timber(Color(0.75, 0.65, 0.55)))
+		_add_block(pos + Vector3(0, 0.8, 0), Vector3(1.0, 0.3, 0.42), Color.WHITE, false, iron)
+		_add_block(pos + Vector3(0.45, 0.82, 0), Vector3(0.3, 0.2, 0.3), Color.WHITE, false, iron)
+
 	# The workshop behind it (Faisal's 12:55 target): a timber board with
 	# the station's name, a hammer and an axe hung on it, a workbench and casks.
 	var sd := -1.0 if team == 0 else 1.0   # away from the cellar's back wall
@@ -7487,6 +7481,38 @@ func _add_upgrade_pad(team: int, pos: Vector3, yaw: float = 0.0) -> void:
 	_prop("dungeon/barrel_small", back + Vector3(sd * (2.85 if yaw != 0.0 else 2.8), 0, 1.3 if yaw != 0.0 else 1.05), 0.7, 0.6)
 	if yaw != 0.0:
 		_turn_since(c0, a0, pos, yaw)
+
+
+func _add_small_anvil(pos: Vector3) -> void:
+	## A small smith's anvil standing on the paving (stepped foot, waist,
+	## face, heel and a pointed horn toward +x) with a hammer laid on its
+	## face, handle toward +z (Faisal 09:03 2026-10-09).
+	var iron := _material(Color(0.24, 0.25, 0.28))
+	iron.metallic = 0.7
+	iron.roughness = 0.42
+	var s := 1.25
+	_add_block(pos + Vector3(0, 0.06, 0) * s, Vector3(0.56, 0.12, 0.4) * s, Color.WHITE, false, iron)
+	_add_block(pos + Vector3(0, 0.15, 0) * s, Vector3(0.42, 0.06, 0.3) * s, Color.WHITE, false, iron)
+	_add_block(pos + Vector3(0, 0.26, 0) * s, Vector3(0.26, 0.16, 0.2) * s, Color.WHITE, false, iron)
+	_add_block(pos + Vector3(0, 0.4, 0) * s, Vector3(0.6, 0.13, 0.28) * s, Color.WHITE, false, iron)
+	_add_block(pos + Vector3(-0.36, 0.42, 0) * s, Vector3(0.12, 0.09, 0.2) * s, Color.WHITE, false, iron)
+	var horn := MeshInstance3D.new()
+	var hm := CylinderMesh.new()
+	hm.top_radius = 0.0
+	hm.bottom_radius = 0.08 * s
+	hm.height = 0.3 * s
+	hm.radial_segments = 8
+	horn.mesh = hm
+	horn.material_override = iron
+	horn.position = pos + Vector3(0.44, 0.41, 0) * s
+	horn.rotation.z = -PI / 2.0   # tip toward +x
+	add_child(horn)
+	# The hammer: an iron head on the face, its timber handle running forward.
+	var steel := _material(Color(0.5, 0.52, 0.56))
+	steel.metallic = 0.8
+	steel.roughness = 0.35
+	_add_block(pos + Vector3(-0.08, 0.515, -0.02) * s, Vector3(0.2, 0.09, 0.1) * s, Color.WHITE, false, steel)
+	_add_block(pos + Vector3(-0.08, 0.5, 0.16) * s, Vector3(0.045, 0.045, 0.34) * s, Color.WHITE, false, _timber(Color(0.55, 0.38, 0.24)))
 
 
 func _box_at(pos: Vector3, size: Vector3, mat: Material, rot: Vector3 = Vector3.ZERO) -> void:
@@ -7923,125 +7949,12 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 		_add_block(p + Vector3(0, 0.76, 0), Vector3(0.8, 0.12, 0.8), Color.WHITE, false, _ashlar(Color(0.96, 0.94, 0.9)))
 
 
-func _add_elf_station_canopy(bx: float, side: float, hz: float) -> void:
-	## The pavilion over the class row (the reference's green awning): seven
-	## thick timber posts with shaped caps along the row's back edge, a taller
-	## seven behind the fence, beams between them and an emerald canvas that
-	## sags a little in every bay, rising to the back so the camera sees the
-	## stations, their boards and the gold-trimmed valance under its edge.
-	var zf := -(hz - 0.2)    # the front posts, just behind the stations
-	var zb := -(hz + 1.8)    # the back posts, beyond the fence
-	var hf := 3.4
-	var hb := 4.0
-	var wood := _timber(Color(0.42, 0.28, 0.17))
-	var cap := _timber(Color(0.52, 0.36, 0.2))
-	var xs: Array = []
-	for k in 7:
-		xs.append(bx + side * (9.0 + (k - 3.0) * 2.85))
-	for x in xs:
-		for row in [[zf, hf], [zb, hb]]:
-			var z: float = row[0]
-			var h: float = row[1]
-			audit_label = "pole"
-			_add_block(Vector3(x, h / 2.0, z), Vector3(0.36, h, 0.36), Color.WHITE, false, wood)
-			audit_label = ""
-			_add_block(Vector3(x, 0.12, z), Vector3(0.6, 0.24, 0.6), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.82)))
-			_add_block(Vector3(x, h + 0.06, z), Vector3(0.54, 0.12, 0.54), Color.WHITE, false, cap)
-			var tip := MeshInstance3D.new()
-			var tm := CylinderMesh.new()
-			tm.top_radius = 0.0
-			tm.bottom_radius = 0.3
-			tm.height = 0.3
-			tm.radial_segments = 4
-			tip.mesh = tm
-			tip.position = Vector3(x, h + 0.27, z)
-			tip.rotation.y = PI / 4.0
-			tip.material_override = cap
-			add_child(tip)
-		# A rafter from the front post to the back one.
-		var mid := Vector3(x, (hf + hb) / 2.0 - 0.1, (zf + zb) / 2.0)
-		_box_at(mid, Vector3(0.22, 0.22, absf(zb - zf) + 0.3), wood, Vector3(atan2(hb - hf, absf(zb - zf)), 0, 0))
-	var length: float = absf(xs[-1] - xs[0]) + 0.6
-	var cx: float = (xs[0] + xs[-1]) / 2.0
-	_add_block(Vector3(cx, hf - 0.15, zf), Vector3(length, 0.3, 0.3), Color.WHITE, false, wood)
-	_add_block(Vector3(cx, hb - 0.15, zb), Vector3(length, 0.3, 0.3), Color.WHITE, false, wood)
-	# The canvas: a strip over the bays, sagging between posts and rafters.
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var nx := 48
-	var nz := 4
-	var x0: float = minf(xs[0], xs[-1]) - 0.3
-	var x1: float = maxf(xs[0], xs[-1]) + 0.3
-	var bay := 2.85
-	var pts: Array = []
-	for i in nx + 1:
-		var x: float = x0 + (x1 - x0) * i / nx
-		var u: float = fposmod(x - xs[0], bay) / bay
-		var col: Array = []
-		for j in nz + 1:
-			var t: float = float(j) / nz
-			var z: float = zf + (zb - zf) * t
-			var y: float = lerpf(hf, hb, t) + 0.1 - 0.2 * sin(PI * u) * (0.6 + 0.4 * sin(PI * t)) - 0.06 * sin(PI * t)
-			col.append(Vector3(x, y, z))
-		pts.append(col)
-	for i in nx:
-		for j in nz:
-			var a: Vector3 = pts[i][j]
-			var b: Vector3 = pts[i + 1][j]
-			var c: Vector3 = pts[i + 1][j + 1]
-			var d: Vector3 = pts[i][j + 1]
-			for tri in [[a, b, c], [a, c, d]]:
-				for v in tri:
-					st.add_vertex(v)
-	st.generate_normals()
-	var cloth := _cloth(Color(0.13, 0.46, 0.26))
-	cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var canvas := MeshInstance3D.new()
-	canvas.mesh = st.commit()
-	canvas.material_override = cloth
-	add_child(canvas)
-	# The valance: a scalloped hem under the front edge, with a gold band.
-	var vs := SurfaceTool.new()
-	vs.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var gs := SurfaceTool.new()
-	gs.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in nx:
-		var a: Vector3 = pts[i][0]
-		var b: Vector3 = pts[i + 1][0]
-		var da: float = 0.26 + 0.14 * absf(sin(PI * (a.x - x0) / 0.7))
-		var db: float = 0.26 + 0.14 * absf(sin(PI * (b.x - x0) / 0.7))
-		var a2 := a - Vector3(0, da, 0)
-		var b2 := b - Vector3(0, db, 0)
-		for tri in [[a, b, b2], [a, b2, a2]]:
-			for v in tri:
-				vs.add_vertex(v + Vector3(0, 0, 0.02))
-		var g1 := a - Vector3(0, 0.08, 0)
-		var g2 := b - Vector3(0, 0.08, 0)
-		for tri in [[a, b, g2], [a, g2, g1]]:
-			for v in tri:
-				gs.add_vertex(v + Vector3(0, 0, 0.03))
-	vs.generate_normals()
-	gs.generate_normals()
-	var hem := MeshInstance3D.new()
-	hem.mesh = vs.commit()
-	var hem_mat := _cloth(Color(0.1, 0.38, 0.22))
-	hem_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	hem.material_override = hem_mat
-	add_child(hem)
-	var band := MeshInstance3D.new()
-	band.mesh = gs.commit()
-	var gold := _gold()
-	gold.cull_mode = BaseMaterial3D.CULL_DISABLED
-	band.material_override = gold
-	add_child(band)
-
-
 func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	## One class station of the open courtyard (Faisal's 2026-10-09 brief): an
 	## octagonal sandstone slab, a bevelled second tier and a bronze band under
-	## the hat's pedestal (seal.gd adds the pedestal, ring and hat), and on the
-	## pavilion post line behind it a thick timber name board on chains over
-	## an emerald panel with the class emblem in a soft glow of its colour.
+	## the hat's pedestal (seal.gd adds the pedestal, ring and hat), and behind
+	## it a sign on two timber posts: an emerald panel with the class emblem in
+	## a soft glow of its colour and the class name in gold below it.
 	var accent: Color = Stats.ROLES[role].color
 	var sand := _ashlar(Color(0.95, 0.92, 0.86))
 	var sand2 := _ashlar(Color(0.9, 0.86, 0.78))
@@ -8083,21 +7996,36 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	var zb := pos.z - 1.8
 	var dark := _timber(Color(0.26, 0.17, 0.1))
 	var mid := _timber(Color(0.4, 0.27, 0.16))
-	# (No name board on the posts since 08:18 2026-10-09: the name sits in
-	# front of the base; `dark`/`mid` stay for the panel's frame.)
+	# The sign stands on two timber posts of its own: emerald cloth in a dark
+	# frame, the class emblem above and the class NAME below it in bold gold
+	# on dark (Faisal 09:06 2026-10-09).
+	for xs in [-0.86, 0.86]:
+		_add_block(Vector3(pos.x + xs, pos.y + 1.3, zb - 0.04), Vector3(0.12, 2.6, 0.12), Color.WHITE, false, mid)
+		_add_block(Vector3(pos.x + xs, pos.y + 2.64, zb - 0.04), Vector3(0.18, 0.08, 0.18), Color.WHITE, false, _gold())
 	_add_block(Vector3(pos.x, pos.y + 1.95, zb - 0.02), Vector3(1.62, 1.07, 0.04), Color.WHITE, false, dark)
-	_add_block(Vector3(pos.x, pos.y + 2.5, zb), Vector3(0.05, 0.1, 0.05), Color.WHITE, false, mid)
 	_add_block(Vector3(pos.x, pos.y + 1.95, zb), Vector3(1.5, 0.95, 0.06), Color.WHITE, false, _cloth(Color(0.12, 0.44, 0.25)))
 	for yy in [1.5, 2.4]:
 		_add_block(Vector3(pos.x, pos.y + yy, zb + 0.01), Vector3(1.56, 0.07, 0.08), Color.WHITE, false, _gold())
+	# The name plate: a dark strip across the panel's lower third.
+	_add_block(Vector3(pos.x, pos.y + 1.68, zb + 0.04), Vector3(1.44, 0.3, 0.03), Color.WHITE, false, dark)
+	var name := Label3D.new()
+	name.text = str(Stats.FACTIONS[team].roles[role]).to_upper()
+	name.font_size = 64
+	name.pixel_size = 0.0036
+	name.outline_size = 10
+	name.outline_modulate = Color(0.08, 0.05, 0.02)
+	name.modulate = Color(1.0, 0.82, 0.32)
+	name.position = Vector3(pos.x, pos.y + 1.68, zb + 0.065)
+	name.shaded = false
+	add_child(name)
 	var disc := MeshInstance3D.new()
 	var dm := CylinderMesh.new()
-	dm.top_radius = 0.42
-	dm.bottom_radius = 0.42
+	dm.top_radius = 0.3
+	dm.bottom_radius = 0.3
 	dm.height = 0.02
 	dm.radial_segments = 24
 	disc.mesh = dm
-	disc.position = Vector3(pos.x, pos.y + 1.95, zb + 0.045)
+	disc.position = Vector3(pos.x, pos.y + 2.08, zb + 0.045)
 	disc.rotation.x = PI / 2.0
 	var glow := _material(accent.darkened(0.25))
 	glow.emission_enabled = true
@@ -8108,10 +8036,10 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	add_child(disc)
 	var em := MeshInstance3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2.ONE * 0.74
+	q.size = Vector2.ONE * 0.54
 	em.mesh = q
 	em.material_override = _icon_mat(_class_icon_name(role))
-	em.position = Vector3(pos.x, pos.y + 1.95, zb + 0.07)
+	em.position = Vector3(pos.x, pos.y + 2.08, zb + 0.07)
 	add_child(em)
 
 
@@ -8390,7 +8318,9 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		var xs: Array = []
 		for k in order.size():
 			xs.append(bx + side * (9.0 + (k - 2.5) * 2.85))
-		_add_elf_station_canopy(bx, side, hz)
+		# (No pavilion canopy: from the game camera its canvas showed only as
+		# green slivers under the top bar, "this is bugged what is this green
+		# stuff", Faisal 09:06 2026-10-09. Each sign stands on its own posts.)
 		for k in order.size():
 			var p := Vector3(xs[k], fy, -(hz - 2.0))
 			_add_class_alcove(team, order[k], p)
@@ -8413,7 +8343,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# spawning in").
 		var up := Vector3(bx + side * 2.8, fy, -3.4)
 		var to_spawn := Vector3(bx + side * 14.5, fy, 0) - up
-		_add_upgrade_pad(team, up, atan2(to_spawn.x, to_spawn.z))
+		_add_upgrade_pad(team, up, atan2(to_spawn.x, to_spawn.z), true)
 	elif team == 0:
 		_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
 	if team == 0 and not open:

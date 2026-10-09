@@ -678,3 +678,30 @@ Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `-
 (pre-existing pines), 245 props; seed-5 120 s match: Human gate 32 at 90 s, crown taken by 120 s.
 
 Revert: `git revert bcdae1e`.
+
+## 2026-10-09 — HUD right column removed; Elf courtyard anvil, Guide bubble, names on signs, no canopy (Faisal 09:03-09:06)
+
+Commit: `PENDING`.
+- **HUD** (`scripts/hud.gd`): the CROWN / KITS / MAP ring buttons down the top-right edge are gone
+  ("useless"); `_right_buttons`, `_count_badge` and `_chest_glyph` deleted. Kits left still show in
+  the FORTIFY prompt; the map is the pause menu's first tab.
+- **Upgrade Station** (Wildwood Elves): `_add_upgrade_pad(..., small_anvil = true)` drops the gold
+  pad disc, its flagstone square and the timber-block anvil for `_add_small_anvil()`: a modelled
+  anvil (stepped foot, waist, face, heel, cone horn; ×1.25) with a hammer on its face. The perk
+  menu still opens within 1.3 m of the same spot. Humans keep the old pad.
+- **Wildwood Guide** (`scripts/guide.gd`): the rotating floating lines (they clipped through the
+  castle wall) and the gold marker cone are replaced by a white "..." speech bubble (Sprite3D,
+  billboard, no depth test, texture drawn once in `_bubble_texture()`) that bobs over its head;
+  it speaks only in the conversation panel when you interact. `AMBIENT` removed; `BUBBLE_RANGE`
+  13 → 16 m so the whole courtyard sees it.
+- **Class names**: the light billboard name in front of each station is gone; each sign now
+  stands on two timber posts of its own with the emblem higher (disc r 0.42 → 0.30, icon 0.74 →
+  0.54, y 1.95 → 2.08) and the class name in gold on a dark plate across its lower third.
+- **Pavilion canopy removed** (`_add_elf_station_canopy` deleted): from the game camera its canvas
+  showed only as green slivers under the top bar ("what is this green stuff").
+
+Files: `scripts/game.gd`, `scripts/hud.gd`, `scripts/guide.gd`, `docs/changelog/ui-art.md`.
+Tested: `--check-only` (game, hud, guide); `--audit` 1 overlap (pre-existing pines), 245 props;
+seed-5 120 s match: Human gate down and crown taken by 120 s.
+
+Revert: `git revert PENDING`.
