@@ -167,6 +167,10 @@ func _music_stream(name: String) -> AudioStream:
 
 func _music_player(name: String) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
+	if OS.has_feature("web"):
+		# Web defaults to sample playback, which cannot play the layered battle
+		# stream (AudioStreamSynchronized): it stayed silent in Safari and Chrome.
+		p.playback_type = AudioServer.PLAYBACK_TYPE_STREAM
 	p.bus = "Music"
 	if name != "":
 		p.stream = _music_stream(name)
