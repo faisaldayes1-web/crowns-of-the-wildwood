@@ -196,6 +196,7 @@ var tab := 0
 var pick: Array = []         # the item on show: [kind, index, rarity]
 var flash := 0.0             # gold flash after a purchase
 var reveal: Array = []       # a chest just opened: [item or [], time opened]
+var icons := {}              # item icon textures by path (null when there is none)
 var instant_turn := "--shot-frame=" in " ".join(OS.get_cmdline_user_args())   # renders: no easing
 
 
@@ -352,9 +353,17 @@ func _card(r: Rect2, it: Array) -> void:
 	h.draw_style_box(sb, r)
 	# A rarity strip along the top edge.
 	h.draw_rect(Rect2(r.position + Vector2(6, 4), Vector2(r.size.x - 12, 4)), rar[1])
-	thumb(Rect2(r.position.x + r.size.x / 2.0 - 30, r.position.y + 12, 60, r.size.y * 0.42), kind, i)
-	h._text(Vector2(r.position.x + 4, r.position.y + r.size.y * 0.42 + 30), item_name(kind, i).to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, 2)
-	var by := r.end.y - 10
+	# The item's picture fills the card above its name and price, over a
+	# soft glow in the rarity colour.
+	var side := minf(r.size.x - 16.0, r.size.y - 40.0)
+	var pic := Rect2(r.position.x + (r.size.x - side) / 2.0, r.position.y + 9, side, side)
+	if icon_tex(kind, i):
+		var gc := pic.get_center()
+		for k in 6:
+			h.draw_circle(gc, side * (0.5 - k * 0.07), Color(rar[1], 0.05 + k * 0.025))
+	thumb(pic, kind, i)
+	h._text(Vector2(r.position.x + 4, r.end.y - 22), item_name(kind, i).to_upper(), 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, 2)
+	var by := r.end.y - 7
 	if worn:
 		h._icon("check", Vector2(r.position.x + r.size.x / 2.0 - 36, by - 5), 4.0, Color(0.5, 1.0, 0.45))
 		h._text(Vector2(r.position.x, by), "EQUIPPED", 11, Color(0.55, 1.0, 0.45), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
@@ -368,8 +377,22 @@ func _card(r: Rect2, it: Array) -> void:
 		h._text(Vector2(cx - tw / 2.0 + 3, by), p, 13, Color(1.0, 0.85, 0.35) if game.account_gold >= price(it) else Color(0.85, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
+func icon_tex(kind: String, i: int) -> Texture2D:
+	## The item rendered on the real model (tools/render_store_icons.gd), or null.
+	var path := "res://assets/ui/store/%s_%d.png" % [kind, i]
+	if not icons.has(path):
+		icons[path] = load(path) if ResourceLoader.exists(path) else null
+	return icons[path]
+
+
 func thumb(r: Rect2, kind: String, i: int) -> void:
-	## A small picture of a choice: a dyed disc, a banner piece, a hat or cape outline.
+	## A picture of a choice: the item rendered on the hero when it is big
+	## enough to read, else a dyed disc, a banner piece or a drawn outline.
+	var tx := icon_tex(kind, i) if minf(r.size.x, r.size.y) >= 48.0 else null
+	if tx:
+		var sq := minf(r.size.x, r.size.y)
+		h.draw_texture_rect(tx, Rect2(r.get_center() - Vector2(sq, sq) / 2.0, Vector2(sq, sq)), false)
+		return
 	var c := r.get_center()
 	var rad := minf(r.size.x, r.size.y) / 2.0
 	var col := swatch_color(kind, i)
@@ -567,7 +590,7 @@ func _draw_reveal() -> void:
 		menu.ttext(Vector2(card.position.x, card.end.y - 60), "+%d GOLD" % Stats.CHEST_GOLD, 26, Color(1.0, 0.85, 0.35), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 5)
 		h._text(Vector2(card.position.x, card.end.y - 32), "You own everything in the store!", 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
 	else:
-		thumb(Rect2(c.x - 70, c.y - 80, 140, 110), it[0], it[1])
+		thumb(Rect2(c.x - 75, c.y - 98, 150, 150), it[0], it[1])
 		menu.ttext(Vector2(card.position.x, card.end.y - 70), item_name(it[0], it[1]).to_upper(), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 5)
 		h._text(Vector2(card.position.x, card.end.y - 46), "%s  ·  %s" % [Stats.RARITIES[it[2]][0].to_upper(), KIND_LABEL[it[0]]], 13, col.lightened(0.2), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
 		h._text(Vector2(card.position.x, card.end.y - 22), "Added to your collection: tap to try it on", 11, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
