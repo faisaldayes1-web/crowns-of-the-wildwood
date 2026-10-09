@@ -7,13 +7,21 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 03:35 UTC · `(stamped by the next entry)` · One cobble style map-wide: the Forest and River paths
+### 2026-10-09 03:45 UTC · `62e1c2b` · Merge UI & Art's Elf base pass A
+
+- **What:** Merged `group/ui-art-z3px4x` at `d1528f5` (UI & Art now owns the Wildwood Elf base end to end: hedge walls, cream sandstone, timber class stalls, stag runners, altar court, stronger light and ink) so this branch's renders show both groups' work together. One conflict: both groups added a function at the same spot in `scripts/game.gd` (`_dress_human_castle` / `_dress_elf_courtyard`); both kept.
+- **Files:** everything UI & Art's branch carried (23 files); hand-merged `scripts/game.gd`.
+- **Tunables:** none of ours. (UI & Art's map-wide light/ink values are in their log, docs/changelog/ui-art.md.)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 30 s bot matches on both maps.
+- **Revert:** `git revert -m 1 62e1c2b`
+
+### 2026-10-09 03:35 UTC · `835cc71` · One cobble style map-wide: the Forest and River paths
 
 - **What:** The two flank approach routes to each castle (the Forest Path to the north bridge, the River Path to the south bridge) were loose stones in dirt; they are now laid in the same tan cobbles as the main road, fraying into the meadow at the edges, so every road on the Wildwood matches the courtyard reference. Widths and bends are unchanged (the bots' lanes are the same).
 - **Files:** scripts/game.gd (`_build_world`, flank paths)
 - **Tunables:** flank path material `_stones(true)` (loose) → `_stones()`
 - **Tested:** `--check-only`; `--audit` Wildwood 1 (unchanged)
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert 835cc71`
 
 ### 2026-10-09 03:25 UTC · `84766ad` · Human base identity: stone lions, ballistae, parade ground, drill yard
 
