@@ -164,7 +164,7 @@ Revert: `git revert ece3b24`
 
 ## 2026-10-09 — pause map fits its panel; promotion announce moved to chat
 
-Commit: `PENDING`
+Commit: `e05dd11`
 
 What changed:
 - **Pause menu MAP tab**: the valley map keeps its 58:26 shape but is sized to leave room for the
@@ -179,4 +179,4 @@ Files touched: `scripts/hud.gd` (`_menu_overview`, `_draw_map`), `scripts/unit.g
 
 Renders: `menu-pause-before.png` → `menu-pause-after.png`.
 
-Revert: `git revert PENDING`
+Revert: `git revert e05dd11`
