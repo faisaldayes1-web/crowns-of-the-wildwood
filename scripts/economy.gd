@@ -38,6 +38,7 @@ var pads: Array = [[], []]          # turret pads per team: [{pos, label}]
 var door_labels: Array = [null, null]
 var seal_labels := [{}, {}]
 var seal_marks := [{}, {}]          # the gold trim an upgraded machine wears
+var depot_signs: Array = [null, null]
 var spend_timer := 0.0
 var hint_given := [false, false]
 # Match report (--demo): what each team gathered and bought.
@@ -684,6 +685,8 @@ func _process(_delta: float) -> void:
 				text = _seal_prompt(team, role, p)
 			l.text = text
 			l.visible = text != ""
+		if depot_signs[team]:
+			depot_signs[team].visible = live and p.team == team and carried(p) > 0
 		var dl: Label3D = door_labels[team]
 		var dtext := ""
 		if live and p.team == team and _by_door(p):
@@ -725,13 +728,13 @@ func _seal_prompt(team: int, role: int, p) -> String:
 	var a: Dictionary = Stats.hat_upgrade(team, role)
 	if is_upgraded(team, role):
 		if p.role == role and not p.hat_upgraded:
-			return "[%s]  TAKE THE UPGRADED HAT  (+ %s)" % [_k(), a.get("name", "")]
+			return "[%s]  NEW HAT  + %s" % [_k(), a.get("name", "")]
 		if p.role == role:
 			return ""
-		return "UPGRADED  · + %s" % a.get("name", "")
+		return "+ %s" % a.get("name", "")
 	if p.role == role:
-		return "[%s]  UPGRADE THE MACHINE  %s  (team: %d · %d)" % [_k(), _cost_text(E.hat_wood, E.hat_ore), wood[team], ore[team]]
-	return "Upgrade: %s  · + %s" % [_cost_text(E.hat_wood, E.hat_ore), a.get("name", "")]
+		return "[%s]  UPGRADE  %s" % [_k(), _cost_text(E.hat_wood, E.hat_ore)]
+	return ""
 
 
 func _door_prompt(team: int) -> String:
@@ -903,7 +906,7 @@ func _build_depot(team: int) -> void:
 	## lanes stay clear).
 	var side := -1.0 if team == 0 else 1.0
 	var fx: float = game._front_x(team)
-	var pos := Vector3(fx + side * 3.4, 0, -7.4)
+	var pos := Vector3(fx + side * 3.8, 0, -7.2)
 	depots[team] = pos
 	var root := Node3D.new()
 	add_child(root)
@@ -977,7 +980,9 @@ func _build_depot(team: int) -> void:
 	sign.outline_size = 8
 	sign.modulate = Color(1.0, 0.92, 0.7)
 	sign.position = Vector3(0, 2.5, 0)
+	sign.visible = false   # shown to a player carrying a load (see _process)
 	root.add_child(sign)
+	depot_signs[team] = sign
 	_refresh_pile(team)
 
 
@@ -1026,7 +1031,8 @@ func _build_door_label(team: int) -> void:
 
 func _build_seal_label(team: int, role: int) -> void:
 	var seal = game.seals[team][role]
-	seal_labels[team][role] = _prompt_label(seal.global_position + Vector3(0, 3.25, 0), 26)
+	# On the floor in front of the pedestal, clear of the alcove's class sign.
+	seal_labels[team][role] = _prompt_label(seal.global_position + Vector3(0, 0.3, 1.9), 24)
 
 
 func _mark_seal(team: int, role: int) -> void:
@@ -1312,8 +1318,8 @@ func _shot_tick() -> void:
 				_put(p, depots[team] + Vector3(-side * 1.6, 0.1, 1.0))
 		"hat":
 			if left == 200:
-				wood[team] = 12
-				ore[team] = 9
+				wood[team] = 14
+				ore[team] = 13
 				p.set_role(Role.KNIGHT)
 				var seal = game.seals[team][Role.KNIGHT]
 				_put(p, seal.global_position + Vector3(0.4, 0.1, 1.5))
