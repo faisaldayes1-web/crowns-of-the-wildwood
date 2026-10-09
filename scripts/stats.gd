@@ -524,7 +524,7 @@ const ECONOMY := {
 	"depot_radius": 2.6,     # walk into the storehouse ring to drop everything you carry
 	"drop_life": 40.0,       # seconds a dead soldier's dropped load stays on the ground
 	"hat_wood": 5, "hat_ore": 5,          # upgrade one class's hat machine (Faisal's price)
-	"repair_wood": 2, "repair_ore": 1, "repair_hits": 50,     # mend your door by 50 hits
+	"repair_wood": 2, "repair_ore": 1, "repair_hits": 35,     # mend your door by 35 hits
 	"rebuild_wood": 4, "rebuild_ore": 2, "rebuild_hits": 100, # raise a broken door at once (not under siege)
 	"turret_wood": 3, "turret_ore": 3,    # a base turret on an empty turret pad
 	"turret_up_wood": 2, "turret_up_ore": 2,   # raise a base turret a level (up to 3)
@@ -533,7 +533,7 @@ const ECONOMY := {
 	"pad_reach": 1.8,        # how close to a turret pad you stand to buy or tend a turret
 	"bot_gatherers": 1,      # bots per team that gather (two while the team pool is empty)
 	"bot_reserve_wood": 2, "bot_reserve_ore": 1,   # all-bot teams keep this back for a door repair
-	"bot_repair_below": 120,   # all-bot teams mend their door only once it is down to this (no mending under siege)
+	"bot_repair_below": 100,   # all-bot teams mend their door only once it is down to this (no mending under siege)
 }
 
 # The extra move a class gets from its upgraded hat (key G, pad left stick
