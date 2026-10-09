@@ -453,3 +453,40 @@ of both keeps by t=30 s, doors 110/198 at t=60 s (were 200/200 for 600 s before)
 Files touched: `scripts/game.gd` (`_polish_keep`), `docs/changelog/ui-art.md`.
 
 Revert: `git revert b678241` (brings the 0-0 matches back)
+
+---
+
+## 2026-10-09 — Merge World & Maps (f95a3ea): their raider fix supersedes ours
+
+World & Maps fixed the same trap on their branch (47c7d81) by turning the four corner fire pillars back
+into non-solid `_add_torch` torches, the pre-merge look. Merged their branch and took their torches
+over our moved braziers (conflict in `_polish_keep`), keeping our terrace heights (`fy`/`throne.y`)
+on the throne-room banner, light and pennants; their removal of the Human stone lions inside the
+throne room's doors is taken as is. Seed-5 match after the merge: doors 120/200 at t=60 s, no script
+errors, audit unchanged. Reverting our own fix commit above is no longer needed (its lines are gone).
+
+---
+
+## 2026-10-09 — Merge World & Maps (965ecd3): `_polish_keep` split, Elves keep the moved fire pillars
+
+Their merge of our branch resolved `_polish_keep` as: Elves get our archway/back-wall stone fire
+pillars, Humans keep plain corner torches (their props hold those wall spots). Taken as is so both
+branches read the same; our terrace heights (`fy`/`throne.y`) are intact. Seed-5 match after the
+merge: doors 200/176 at t=60 s (Elves raiding), no script errors.
+
+---
+
+## 2026-10-09 — Elf courtyard: hidden south-wall flower beds moved into view
+
+Commit: `b4c6aa2`
+
+World & Maps found that the game camera looks over the south (+z) wall of the sunken courtyard and
+the wall's top hides the first ~2.5 m of floor behind it, so the three Elf flower beds at z = hz−1.4
+(pass A) were never seen in play. Now one bed at z = hz−2.9 by the west end; the two further along
+are dropped (the lawn, its own bed and the round table already dress that visible strip).
+
+Files touched: `scripts/game.gd` (`_build_cellar`, team 0 beds), `docs/changelog/ui-art.md`.
+Tunables (old → new): Elf courtyard beds at x 3.4/11.0/14.4, z hz−1.4 → one bed at x 3.4, z hz−2.9.
+Tested: `--check-only`; `--audit` unchanged (1 pre-existing pine overlap).
+
+Revert: `git revert b4c6aa2`

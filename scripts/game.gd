@@ -7755,8 +7755,12 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 			# Flower beds and stores along the south wall (the courtyard reference);
 			# the Humans drill here instead: an armoury rack, targets and dummies.
 			if team == 0:
-				for bxo in [3.4, 11.0, 14.4]:
-					_add_flower_bed(Vector3(bx + side * bxo, CELLAR_Y, zs * (hz - 1.4)), Vector2(2.0, 1.1), 300 + int(bxo))
+				# One bed, 2.9 m off the south wall: the game camera looks over
+				# that wall and its top hides the first ~2.5 m of floor behind it
+				# (World & Maps' finding), so the beds that hugged it at hz-1.4
+				# were never seen in play; the lawn and table further along
+				# already dress the visible strip.
+				_add_flower_bed(Vector3(bx + side * 3.4, CELLAR_Y, zs * (hz - 2.9)), Vector2(2.0, 1.1), 303)
 			else:
 				# Set 3 m off the wall: the game camera looks over the south
 				# wall's top, which hides the first ~2.5 m of floor behind it.
