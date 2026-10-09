@@ -71,4 +71,4 @@ after on the same seeds.
 
 ## Revert
 
-`git revert <hash>` (the commit that adds this file and the `stats.gd` changes).
+`git revert b25c80f` (the commit that adds this file and the `stats.gd` changes).
