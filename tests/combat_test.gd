@@ -37,6 +37,13 @@ func _first(team: int):
 	return null
 
 
+func _finish(u) -> void:
+	## With Downed & Revive merged, a last heart knocks a unit down first:
+	## finish it off so death checks still see a death.
+	if u.get("downed"):
+		u._die()
+
+
 func _stage(attacker, victim) -> void:
 	## Victim one metre in front of the attacker, at the same height, with
 	## nothing (protection, armour pool, dodge, shield) between them.
@@ -111,6 +118,7 @@ func _run() -> void:
 	_stage(attacker, victim)
 	victim.hearts = 1
 	attacker._attack(Vector3(1, 0, 0))
+	_finish(victim)
 	_check(victim.dead and victim.slow_timer == 0.0, "slow_cleared_on_death", "dead=%s slow_timer=%.2f" % [victim.dead, victim.slow_timer])
 
 	# 6. Effects clean up after themselves: one-shots free within ~2 s.
@@ -305,6 +313,7 @@ func _death_fling() -> void:
 	v.model.process_mode = Node.PROCESS_MODE_ALWAYS
 	v.hearts = 1
 	v.take_damage(1, a, a.global_position, 6.0, {"fx": "heavy"})
+	_finish(v)
 	await _frames(25)
 	var flung: float = Vector2(v.model.position.x, v.model.position.z).length()
 	_check(v.dead and flung > 0.5, "death_fling", "dead=%s flung=%.2f" % [v.dead, flung])
