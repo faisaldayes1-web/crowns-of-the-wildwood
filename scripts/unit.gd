@@ -21,6 +21,8 @@ var hearts := Stats.MAX_HEARTS
 var energy := 100.0
 var dead := false
 var respawn_timer := 0.0
+var respawn_total := 0.0     # what the timer started from this death (the HUD's countdown ring)
+var fell_level := 1          # the level you died at (the death screen says what was lost)
 var attack_timer := 0.0
 var flash_timer := 0.0
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
@@ -71,6 +73,8 @@ var peak_level := 1          # highest in-match level reached in any life
 var xp_sources := {}         # this match's XP by source: combat, takedowns, crown, siege, support
 var giant_kills := 0         # kills on enemies two or more levels above you
 var kill_banner := {}        # the HUD's KILL card for a local player: {victim, role, team, streak, time}
+var class_banner := 0.0        # seconds the "YOU ARE NOW <class>" banner has left (players only)
+const CLASS_BANNER_TIME := 3.0
 var spawn_protect := 0.0     # seconds of spawn protection left
 var home_defense := false    # inside our own castle: the defender bonus
 var home_timer := 0.0
@@ -442,7 +446,13 @@ func choose_variant(for_role: int, index: int) -> bool:
 		game.spawn_flash(global_position, gold, 4.0, 0.5)
 		game.spawn_popup(global_position + Vector3(0, 2.4, 0), role_name().to_upper(), gold)
 		if is_player:
-			game.announce("You are now a %s!" % role_name())
+			# (The rank-up flourish says PROMOTED! with the variant name; the
+			# chat log keeps the line.)
+			game.chat_system("You are now a %s!" % role_name())
+			# The rank-up flourish, saying PROMOTED! with the new name.
+			game.levelup_timer = 3.2
+			game.levelup_level = level
+			game.levelup_text = role_name()
 		else:
 			game.chat_system("%s became a %s." % [display_name, role_name()])
 	return true
@@ -826,8 +836,11 @@ func gain_xp(amount: int, source: String = "combat") -> void:
 		game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
 		if is_player:
 			game.sfx.ui("level_up", -2.0)
+			# A brighter burst at your feet to go with the RANK UP! flourish.
+			game.spawn_flash(global_position + Vector3(0, 1.0, 0), Color(1.0, 0.9, 0.4), 5.0, 0.5)
 			game.levelup_timer = 3.2
 			game.levelup_level = level
+			game.levelup_text = ""
 		else:
 			_bot_spend()
 
@@ -1337,6 +1350,8 @@ func _die() -> void:
 	death_timer = 1.1
 	model.die()
 	respawn_timer = minf(Stats.RESPAWN_TIME + Stats.RESPAWN_PER_LEVEL * (level - 1), Stats.RESPAWN_MAX)
+	respawn_total = respawn_timer
+	fell_level = level
 	var fell_from := level
 	if veteran > 0:
 		game.chat_system("%s's streak of %d ends." % [display_name, streak])
@@ -1356,7 +1371,8 @@ func _die() -> void:
 	overhead.visible = true
 	_lose_levels(Stats.DEATH_LEVEL_LOSS)
 	if is_player and fell_from > 1:
-		game.announce("You fell at level %d: down to level %d, back in %d seconds." % [fell_from, level, int(respawn_timer)])
+		# (The HUD death screen carries this; the chat log keeps the line.)
+		game.chat_system("You fell at level %d: down to level %d, back in %d seconds." % [fell_from, level, int(respawn_timer)])
 	game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.3, 0.3, 0.35), 18, 3.0, 0.8)
 	game.spawn_ring(global_position, 1.4, Color(0.6, 0.2, 0.2), 0.5)
 	game.sfx.play("death", global_position, 0.0, 0.1)
@@ -1431,6 +1447,7 @@ var _was_carrying := false
 
 func _process(_delta: float) -> void:
 	_animate()
+	class_banner = maxf(class_banner - _delta, 0.0)
 	if (carrying != null) != _was_carrying:
 		_was_carrying = carrying != null
 		_apply_side_colors()

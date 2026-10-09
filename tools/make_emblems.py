@@ -127,6 +127,39 @@ def tree():
     finish(m, (196, 240, 150), (90, 170, 80), "tree")
 
 
+def stag():
+    """The Elves' stag head, front on, with wide branching antlers (the top
+    bar's shield and Faisal's base banners, 2026-10-08), in gold."""
+    m = canvas()
+    d = ImageDraw.Draw(m)
+    # Head: a long face with a rounded muzzle, cheeks and two ears.
+    d.polygon([pt(40, 46), pt(60, 46), pt(63, 62), pt(57, 84), pt(43, 84), pt(37, 62)], fill=255)
+    blob(d, 50, 48, 13, 10)
+    blob(d, 50, 84, 8, 6)
+    d.polygon([pt(38, 50), pt(26, 42), pt(30, 54)], fill=255)
+    d.polygon([pt(62, 50), pt(74, 42), pt(70, 54)], fill=255)
+    # Antlers: a main beam curving up and out each side with three tines.
+    for sx in (-1, 1):
+        def q(x, y):
+            return (50 + sx * x, y)
+        thick(d, [q(6, 44), q(12, 34), q(20, 22), q(30, 12), q(38, 8)], 4.2)
+        thick(d, [q(13, 33), q(10, 22), q(12, 14)], 3.2)
+        thick(d, [q(21, 22), q(24, 12), q(30, 6)], 3.0)
+        thick(d, [q(28, 14), q(36, 16), q(42, 20)], 2.8)
+        for x, y in ((12, 14), (30, 6), (42, 20), (38, 8)):
+            blob(d, 50 + sx * x, y, 2.2)
+    m2 = m.copy()
+    e = ImageDraw.Draw(m2)
+    # Eyes and nostrils knocked out.
+    for x in (44, 56):
+        a, b = pt(x - 2.4, 60), pt(x + 2.4, 65)
+        e.ellipse([a, b], fill=0)
+    for x in (47, 53):
+        a, b = pt(x - 1.4, 82), pt(x + 1.4, 85)
+        e.ellipse([a, b], fill=0)
+    finish(m2, (250, 206, 72), (196, 130, 30), "stag")
+
+
 def moon():
     m = canvas()
     d = ImageDraw.Draw(m)
@@ -197,5 +230,6 @@ def runes():
 lion()
 crown()
 tree()
+stag()
 moon()
 runes()
