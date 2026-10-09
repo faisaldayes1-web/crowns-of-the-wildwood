@@ -10,6 +10,7 @@ Each developer group keeps its own log here, one file per group (the group creat
 | Online & Platforms | `group/online-platforms-*` | [online-platforms.md](online-platforms.md) |
 | Downed & Revive | `group/downed-revive-*` | [downed-revive.md](downed-revive.md) |
 | Integration & Release | `group/integration-release-*` | [integration-release.md](integration-release.md) |
+| Economy | `group/economy-*` | [economy.md](economy.md) |
 
 Releases (merges into `main` and version tags) are logged project-wide in [../CHANGELOG.md](../CHANGELOG.md) by the Integration & Release group.
 
