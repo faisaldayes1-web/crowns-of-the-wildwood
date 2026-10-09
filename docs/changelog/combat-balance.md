@@ -212,6 +212,52 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Tunables:** `DODGE_COOLDOWN` 2.0 → 4.0 s; basic attack cost per class
   7-16 → 0 (`BASE_ATTACK_COST` 0.0; table values kept but overridden);
   Punch `cooldown` 0.6 → 0.72 s (Punch table cost stays 8, unused).
-- **Batches:** six Wildwood seeds 41-46 before (`t4base`, at 643ecde) and
-  after (`t4free`): results added when they finish.
+- **Batches:** six Wildwood seeds 41-46, 4v4, before (`t4base`, at 0c1cd37)
+  and after (`t4free`, at d0e572e):
+  - before: Elves 5, Humans 1; caps E11 H2; kills E169 H114; avg 394 s.
+  - after: Elves 4, Humans 2; caps E8 H5; kills E150 H106; avg 395 s.
+  - 0 script errors in both. Match length unchanged; the Elf lean is a little
+    smaller, within six-seed noise. (A first `t4base` run used a worktree with
+    no imported assets and was thrown away.)
 - **Revert:** `git revert d0e572e`
+
+## 8. Every skill gets its own cast animation and particles; Fae Step dash
+
+- **When:** 2026-10-09 11:30 UTC (Faisal 2026-10-09 09:17 "for the fae step add
+  animations and unique animations for each skill. add particle effects. If
+  there is no reference present for how the skills should look then change it")
+- **Commit:** filled in by the next commit
+- **What:** All 50 abilities (both sides' kits and every promotion) now play
+  their own body animation and their own particles when cast, on top of what
+  the ability already drew. Looks only: no damage, cooldown, cost, reach or
+  timing changed.
+  - Reference followed (`game/reference-renders/skills-upgrades-target-2026-10-09.png`):
+    Fae Step is a violet dash that leaves running afterimages along the path,
+    violet streaks and sparkles, and the mage springs back into shape where
+    they land. Thorn Bolt is now a glowing green thorned dart with a green
+    streak (it was a purple orb). Bramble Burst is a spinning thorny seed-ball
+    (it was drawn as a fireball) that bursts into a ring of brambles out of the
+    ground.
+  - No reference, designed to fit each side: Elves are leaf, bark, fae violet
+    and moonlight (Wind Dash leaf-green afterimages and leaves, Barkskin bark
+    chips and a green shell, Starfall a wheel of stars and silver arrows, Vine
+    Snare, Spirit Bloom flowers opening round the healer, Lunar Lance a silver
+    lance, Thorn Totem brambles, Tend petals). Humans are steel and holy light
+    (Shield Bash lunge and sparks, Shield Wall a steel shell, Bulwark gold,
+    Heavy Bolt recoil and muzzle sparks, Blessing gold swirl, rays and falling
+    feathers, Holy Bubble rays, Smite rays, hammer sparks for turrets). Shared
+    promotions get their own too (Cleave body spin, Inferno, Ice Burst, Snipe
+    tracer, Shadow Step and Backstab shadow afterimages, Vanish, Curse spiral).
+- **Files:** `scripts/skill_fx.gd` (new: per-skill animation table and looks),
+  `scripts/fx.gd` (new pieces: `petals`, `swirl`, `afterimage`,
+  `trail_ghosts`, `thorns`, `dome`, `rays`; nature blasts grow brambles),
+  `scripts/unit.gd` (`use_ability` calls `SkillFx.cast`/`land`; the ability
+  body moved to `_ability_effect` unchanged; Bramble Burst no longer flagged
+  fire for looks; nature spell colour), `scripts/projectile.gd` (`look`:
+  thorn, star, moon), `tests/combat_test.gd` (casts every ability on both
+  sides and checks the body returns to shape and effects clean up),
+  `tests/fx_showcase.gd` (`--skills=<class>` and `--at=x,z` capture mode).
+- **Tunables:** none.
+- **Checks:** `tools/tests/run.sh` 25/25; a 150 s Wildwood bot match with 0
+  script errors.
+- **Revert:** `git revert <hash>`

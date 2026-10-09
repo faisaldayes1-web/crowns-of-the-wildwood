@@ -381,6 +381,9 @@ func blast(where: Vector3, radius: float, kind: String) -> void:
 		"nature":
 			burst(where, Color(0.35, 0.75, 0.25), int(8 + radius * 3), 5.0, 0.8, STYLE_SHARD)
 			scorch(ground, radius * 0.7, Color(0.15, 0.3, 0.1, 0.5), 2.5)
+			# Brambles burst out of the ground round the impact.
+			thorns(ground, radius * 0.75, Color(0.3, 0.6, 0.2), int(6 + radius * 2.5), 0.9 if big else 0.6, 1.2 if big else 0.6)
+			petals(where, Color(0.4, 0.85, 0.3), int(4 + radius * 2), 3.0, 1.2)
 		"dark":
 			burst(where, Color(0.6, 0.25, 0.85), int(8 + radius * 3), 3.0, 0.9, STYLE_MOTE)
 			burst(where, Color(0.25, 0.1, 0.35), 5, 1.5, 1.0, STYLE_SMOKE, Vector3.UP, 80.0, 1.1)
@@ -519,3 +522,184 @@ func status_emitter(host: Node3D, kind: String) -> CPUParticles3D:
 	p.color_ramp = ramp
 	host.add_child(p)
 	return p
+
+
+# --- Skill building blocks (used by skill_fx.gd) -------------------------------
+
+const STYLE_PETAL := 4    # flat flakes that flutter down slowly (leaves, petals, feathers)
+
+
+func petals(where: Vector3, color: Color, count: int, speed: float = 3.0, life: float = 1.4, up: float = 1.0) -> void:
+	## Leaves, petals or feathers: flat flakes thrown up that tumble and drift down.
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.85
+	p.amount = count
+	p.lifetime = life
+	p.local_coords = false
+	p.direction = Vector3.UP
+	p.spread = 70.0
+	p.initial_velocity_min = speed * 0.4 * up
+	p.initial_velocity_max = speed * up
+	p.gravity = Vector3(0, -2.2, 0)
+	p.damping_min = 1.5
+	p.damping_max = 3.0
+	p.angular_velocity_min = -300.0
+	p.angular_velocity_max = 300.0
+	p.particle_flag_rotate_y = true
+	var leaf := QuadMesh.new()
+	leaf.size = Vector2(0.18, 0.1)
+	p.mesh = leaf
+	p.mesh.material = _mat("soft", false, BaseMaterial3D.BILLBOARD_DISABLED)
+	p.scale_amount_min = 0.8
+	p.scale_amount_max = 1.5
+	var ramp := Gradient.new()
+	ramp.offsets = PackedFloat32Array([0.0, 0.7, 1.0])
+	ramp.colors = PackedColorArray([color.lightened(0.25), color, Color(color, 0)])
+	p.color_ramp = ramp
+	add_child(p)
+	p.global_position = where
+	p.emitting = true
+	get_tree().create_timer(life + 0.4).timeout.connect(p.queue_free)
+
+
+func swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, rise: float = 2.5, life: float = 0.9,
+		glow: bool = true) -> void:
+	## Light spiralling up round a unit (casts, buffs). Follows the unit.
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 0.2
+	p.amount = count
+	p.lifetime = life
+	p.local_coords = true
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3.UP
+	p.emission_ring_radius = radius
+	p.emission_ring_inner_radius = radius * 0.8
+	p.emission_ring_height = 0.1
+	p.direction = Vector3.UP
+	p.spread = 5.0
+	p.initial_velocity_min = rise * 0.7
+	p.initial_velocity_max = rise
+	p.gravity = Vector3.ZERO
+	p.tangential_accel_min = 9.0
+	p.tangential_accel_max = 12.0
+	p.radial_accel_min = -1.5
+	p.radial_accel_max = -0.5
+	p.mesh = _quad
+	p.material_override = _mat("soft", glow, BaseMaterial3D.BILLBOARD_PARTICLES)
+	p.scale_amount_min = 0.2
+	p.scale_amount_max = 0.4
+	var ramp := Gradient.new()
+	ramp.colors = PackedColorArray([Color(1, 1, 1, 0.9).lerp(color, 0.4), Color(color, 0)])
+	p.color_ramp = ramp
+	host.add_child(p)
+	p.position = Vector3(0, 0.15, 0)
+	p.emitting = true
+	get_tree().create_timer(life + 0.5).timeout.connect(p.queue_free)
+
+
+func afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
+	## A see-through copy of the body in its current pose that fades where it
+	## stood: dashes and blinks leave a trail of these.
+	if model == null or not is_instance_valid(model):
+		return
+	var ghost: Node3D = model.duplicate(0)
+	for n in ghost.find_children("*", "AnimationPlayer", true, false):
+		n.queue_free()
+	for n in ghost.find_children("*", "Label3D", true, false):
+		n.queue_free()
+	for n in ghost.find_children("*", "GPUParticles3D", true, false) + ghost.find_children("*", "CPUParticles3D", true, false) + ghost.find_children("*", "Light3D", true, false):
+		n.queue_free()
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# Mixed, not added: additive ghosts blow out to white on sunlit grass.
+	m.albedo_color = Color(color, 0.6 * color.a)
+	m.disable_receive_shadows = true
+	for mi in ghost.find_children("*", "MeshInstance3D", true, false):
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(ghost)
+	ghost.global_transform = model.global_transform
+	var tw := ghost.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(m, "albedo_color:a", 0.0, life).set_ease(Tween.EASE_IN)
+	tw.tween_property(ghost, "scale", ghost.scale * 1.06, life)
+	tw.chain().tween_callback(ghost.queue_free)
+
+
+func trail_ghosts(model: Node3D, color: Color, count: int = 4, every: float = 0.05, life: float = 0.35) -> void:
+	## A run of afterimages left behind while the body moves (dashes).
+	for i in count:
+		get_tree().create_timer(every * i).timeout.connect(func(): afterimage(model, color, life))
+
+
+func thorns(where: Vector3, radius: float, color: Color, count: int = 12, life: float = 1.0, height: float = 1.1) -> void:
+	## A ring of thorny spikes that burst out of the ground and sink back.
+	var root := Node3D.new()
+	add_child(root)
+	root.global_position = where
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.emission_enabled = true
+	m.emission = color.lightened(0.2)
+	m.emission_energy_multiplier = 0.6
+	m.roughness = 0.8
+	var spike := CylinderMesh.new()
+	spike.top_radius = 0.0
+	spike.bottom_radius = 0.13
+	spike.height = height
+	spike.radial_segments = 5
+	spike.rings = 1
+	for i in count:
+		var a := TAU * i / count + randf_range(-0.15, 0.15)
+		for k in 2:
+			var s := MeshInstance3D.new()
+			s.mesh = spike
+			s.material_override = m
+			var r := radius * (1.0 if k == 0 else randf_range(0.45, 0.8))
+			s.position = Vector3(cos(a) * r, -height * 0.6, sin(a) * r)
+			s.rotation = Vector3(randf_range(-0.5, 0.5), randf() * TAU, randf_range(-0.5, 0.5))
+			s.scale = Vector3.ONE * randf_range(0.7, 1.2) * (1.0 if k == 0 else 0.75)
+			root.add_child(s)
+			var tw := s.create_tween()
+			tw.tween_property(s, "position:y", height * 0.35, 0.12).set_delay(randf() * 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_interval(life * 0.6)
+			tw.tween_property(s, "position:y", -height * 0.7, life * 0.3).set_ease(Tween.EASE_IN)
+	get_tree().create_timer(life + 0.4).timeout.connect(root.queue_free)
+
+
+func dome(host: Node3D, radius: float, color: Color, life: float = 0.5) -> void:
+	## A shell of light that snaps up round a unit and fades (shields, wards).
+	var d := MeshInstance3D.new()
+	var sph := SphereMesh.new()
+	sph.radius = 1.0
+	sph.height = 2.0
+	sph.radial_segments = 20
+	sph.rings = 10
+	d.mesh = sph
+	d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = Color(color, 0.22)
+	m.rim_enabled = false
+	d.material_override = m
+	host.add_child(d)
+	d.position = Vector3(0, 0.9, 0)
+	d.scale = Vector3.ONE * radius * 0.3
+	var tw := d.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(d, "scale", Vector3(radius, radius * 0.85, radius), life * 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(m, "albedo_color:a", 0.0, life).set_delay(life * 0.3)
+	tw.chain().tween_callback(d.queue_free)
+
+
+func rays(where: Vector3, color: Color, count: int = 8, length: float = 3.0, life: float = 0.4) -> void:
+	## Beams of light flaring out from a point (holy flashes).
+	for i in count:
+		var a := TAU * i / count + randf() * 0.3
+		var dir := Vector3(cos(a), randf_range(0.1, 0.6), sin(a)).normalized()
+		beam(where, where + dir * length * randf_range(0.6, 1.0), color, life, 0.09)

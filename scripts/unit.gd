@@ -9,6 +9,7 @@ const Turret = preload("res://scripts/turret.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
 const Fx = preload("res://scripts/fx.gd")
+const SkillFx = preload("res://scripts/skill_fx.gd")
 const Role = Stats.Role
 
 const GRAVITY := 20.0
@@ -1144,21 +1145,6 @@ func use_ability(i: int, dir: Vector3) -> void:
 		"shot": "bow", "cleave": "fireball" if a.get("fire", false) else "swing_heavy", "smoke": "blink", "curse": "curse", "bubble": "blessing"}
 	if ability_sound.has(a.kind):
 		game.sfx.play(ability_sound[a.kind], global_position, -1.0, 0.08)
-	match a.kind:
-		"bash": model.play_once("1H_Melee_Attack_Stab", 1.6)
-		"guard": model.hold("Blocking")
-		"bubble": model.play_once("Spellcast_Raise", 1.6)
-		"volley": model.play_once("2H_Ranged_Shoot", 1.2)
-		"trap": model.play_once("Interact", 1.5)
-		"fireball": model.play_once("Spellcast_Long", 1.4)
-		"blink": model.play_once("Spellcast_Raise", 2.0)
-		"blessing": model.play_once("Spellcast_Long", 1.2)
-		"smite": model.play_once("Spellcast_Shoot", 1.6)
-		"shot": model.play_once("2H_Ranged_Shoot", 1.2)
-		"cleave": model.play_once("2H_Melee_Attack_Spin" if role == Role.KNIGHT else "Spellcast_Long", 1.4)
-		"smoke": model.play_once("Interact", 1.8)
-		"curse": model.play_once("Spellcast_Raise", 1.5)
-		"turret", "upgrade", "overclock": model.play_once("Interact", 1.6)
 	rotation.y = atan2(-facing.x, -facing.z)
 	# A rune circle under every spell as it leaves the hands.
 	var cast_color := {"fireball": Color(0.6, 0.85, 1.0) if a.get("frost", false) else (Color(0.5, 0.9, 0.35) if a.get("nature", false) else Color(1.0, 0.55, 0.15)),
@@ -1166,6 +1152,14 @@ func use_ability(i: int, dir: Vector3) -> void:
 		"curse": Color(0.6, 0.25, 0.85), "bubble": Color(1.0, 0.95, 0.65), "blink": Color(0.7, 0.45, 1.0), "guard": Color(0.55, 0.8, 1.0)}
 	if cast_color.has(a.kind):
 		Fx.of(game).cast(self, cast_color[a.kind], 1.0 if a.kind != "blessing" else 1.6)
+	# Each skill's own body animation and particles (scripts/skill_fx.gd).
+	SkillFx.cast(self, a, dir)
+	var cast_from := global_position
+	_ability_effect(a, dir, turret_pos, tune_target)
+	SkillFx.land(self, a, dir, cast_from)
+
+
+func _ability_effect(a: Dictionary, dir: Vector3, turret_pos: Vector3, tune_target) -> void:
 	match a.kind:
 		"turret":
 			_prune_turrets()
@@ -1236,10 +1230,11 @@ func use_ability(i: int, dir: Vector3) -> void:
 			game.spawn_flash(global_position + Vector3(0, 1, 0), Color(1.0, 0.95, 0.6), 3.0, 0.4)
 			game.spawn_splash(global_position + Vector3(0, 1.2, 0), Color(1.0, 0.95, 0.7), 24, 4.0, 0.8, true)
 		"volley":
+			var look: Array = SkillFx.shot(self, a, Color(0.95, 0.9, 0.7))
 			for k in a.arrows:
 				var ang: float = deg_to_rad(a.spread) * (float(k) / (a.arrows - 1) - 0.5)
 				game.spawn_shot(self, dir.rotated(Vector3.UP, ang),
-					{"damage": a.damage, "gate_damage": 1, "range": a.range, "shot_speed": a.shot_speed}, Color(0.95, 0.9, 0.7))
+					{"damage": a.damage, "gate_damage": 1, "range": a.range, "shot_speed": a.shot_speed, "look": look[1]}, look[0])
 			game.spawn_splash(global_position + dir * 0.8 + Vector3(0, 1.1, 0), Color(0.95, 0.9, 0.7), 8, 3.0, 0.25)
 			_recoil(dir, 3.0)
 		"trap":
@@ -1247,12 +1242,14 @@ func use_ability(i: int, dir: Vector3) -> void:
 				game.spawn_trap(self, global_position + dir * (1.5 + k * 1.5), a)
 		"fireball":
 			var frost: bool = a.get("frost", false)
+			var nature: bool = a.get("nature", false)
 			var ball := {"damage": a.damage, "gate_damage": 4, "range": a.range, "splash": a.splash, "shot_speed": a.shot_speed,
-				"fire": not frost, "frost": frost}
+				"fire": not frost and not nature, "frost": frost, "nature": nature, "look": "thorn" if nature else ""}
 			if a.has("root"):
 				ball.root = a.root
-			game.spawn_shot(self, dir, ball, Color(0.6, 0.85, 1.0) if frost else Color(1.0, 0.5, 0.1))
-			game.spawn_flash(global_position + dir, Color(0.6, 0.85, 1.0) if frost else Color(1.0, 0.55, 0.15), 3.0, 0.3)
+			var ball_color := Color(0.6, 0.85, 1.0) if frost else (SkillFx.LEAF if nature else Color(1.0, 0.5, 0.1))
+			game.spawn_shot(self, dir, ball, ball_color)
+			game.spawn_flash(global_position + dir, ball_color, 3.0, 0.3)
 			_recoil(dir, 3.5)
 		"blink":
 			var from := global_position + Vector3(0, 0.9, 0)
@@ -1295,12 +1292,15 @@ func use_ability(i: int, dir: Vector3) -> void:
 				"shot_speed": a.shot_speed, "holy": true, "splash": a.get("splash", 0.0)}
 			if a.has("slow"):
 				bolt["slow"] = a.slow
+			var look: Array = SkillFx.shot(self, a, bolt_color)
+			bolt["look"] = look[1]
+			bolt_color = look[0] if not dark else bolt_color
 			game.spawn_shot(self, dir, bolt, bolt_color)
 			game.spawn_flash(global_position + dir, bolt_color, 2.0, 0.25)
 			_recoil(dir, 2.0)
 		"shot":
 			game.spawn_shot(self, dir, {"damage": a.damage, "gate_damage": a.get("gate_damage", 1), "range": a.range,
-				"shot_speed": a.shot_speed, "pierce": a.get("pierce", false)}, Color(0.95, 0.9, 0.7))
+				"shot_speed": a.shot_speed, "pierce": a.get("pierce", false)}, SkillFx.shot(self, a, Color(0.95, 0.9, 0.7))[0])
 			game.spawn_splash(global_position + dir * 0.8 + Vector3(0, 1.1, 0), Color(0.95, 0.9, 0.7), 8, 3.0, 0.25)
 			_recoil(dir, 3.0 if a.damage < 2 else 5.0)
 		"cleave":
@@ -1924,6 +1924,8 @@ func _attack(dir: Vector3) -> void:
 			spell_color = Color(1.0, 0.5, 0.1)
 		elif s.get("frost", false):
 			spell_color = Color(0.6, 0.85, 1.0)
+		elif s.get("nature", false):
+			spell_color = SkillFx.LEAF
 		game.spawn_shot(self, dir, s, spell_color)
 		game.sfx.play("bolt", global_position, -2.0, 0.12)
 		_recoil(dir, 2.0)

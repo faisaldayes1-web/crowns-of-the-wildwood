@@ -7,6 +7,9 @@ extends Node
 ## With --fxwall as well: arrows and a fireball fired at the Human front wall
 ## and door from outside, and a defender's arrow at its own door from inside;
 ## every shot stops on the wall or door and the defender inside is unhurt.
+## With --skills=<Knight|Ranger|Mage|Healer|Rogue> instead: that class on each
+## side casts both of its abilities, Elf first, then Human, at stand-ins
+## (one capture per class for the skill looks).
 
 const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
@@ -37,6 +40,11 @@ func _physics_process(delta: float) -> void:
 		u.knockback = Vector3.ZERO
 		if u.hearts < 2:
 			u.hearts = 4
+	for k in awake.size():
+		if awake[k] > 0.0:
+			awake[k] -= delta
+			if awake[k] <= 0.0 and casters.size() == 2 and not casters[k].is_player:
+				casters[k].process_mode = Node.PROCESS_MODE_DISABLED
 	while not events.is_empty() and t >= events[0][0]:
 		var e: Array = events.pop_front()
 		call(e[1])
@@ -46,6 +54,13 @@ func _stage() -> void:
 	if "--fxwall" in OS.get_cmdline_user_args():
 		_stage_wall()
 		return
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--at="):
+			center = Vector3(float(arg.get_slice("=", 1).get_slice(",", 0)), 0, float(arg.get_slice("=", 1).get_slice(",", 1)))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--skills="):
+			_stage_skills(arg.get_slice("=", 1))
+			return
 	var p = game.player
 	p.global_position = center
 	game.cam_zoom = 0.6   # closer than play, so the effects read in captures
@@ -230,3 +245,108 @@ func _defender_door() -> void:
 	d.facing = dir.normalized()
 	d.rotation.y = atan2(-d.facing.x, -d.facing.z)
 	d._attack(d.facing)
+
+
+# --- Skill looks per class (--skills=<class>) --------------------------------
+
+var casters: Array = []     # [elf, human]
+var caster_spots: Array = []
+var awake: Array = [0.0, 0.0]   # seconds a caster runs freely (dashes move over frames)
+
+
+func _stage_skills(cls: String) -> void:
+	var role: int = {"knight": Role.KNIGHT, "ranger": Role.RANGER, "mage": Role.MAGE, "healer": Role.HEALER,
+		"rogue": Role.ROGUE, "engineer": Role.ENGINEER}.get(cls.to_lower(), Role.KNIGHT)
+	var p = game.player
+	game.cam_zoom = 0.72
+	game.cam_lock = center + Vector3(0, 0, 0.6)
+	game.cam_pos = game.cam_lock + game.CAMERA_OFFSET * game.cam_zoom
+	var elf_c = p
+	var human_c = null
+	var elf_d = null
+	var human_d = null
+	for u in game.units:
+		if u == p:
+			continue
+		if u.team == p.team and elf_d == null:
+			elf_d = u
+		elif u.team != p.team and human_c == null:
+			human_c = u
+		elif u.team != p.team and human_d == null:
+			human_d = u
+		else:
+			u.process_mode = Node.PROCESS_MODE_DISABLED
+			u.global_position = Vector3(200, -50, 200)
+	casters = [elf_c, human_c]
+	caster_spots = [center + Vector3(-4.0, 0, -1.4), center + Vector3(4.0, 0, 2.2)]
+	for i in 2:
+		var c = casters[i]
+		c.set_role(role)
+		c.spawn_protect = 0.0
+		c.home_defense = false
+		c.global_position = caster_spots[i]
+	human_c.process_mode = Node.PROCESS_MODE_DISABLED
+	# Stand-ins to take the hits: an Elf in front of the Human and the other way round.
+	_place(human_d, Role.KNIGHT, center + Vector3(2.0, 0, -1.4))
+	_place(elf_d, Role.KNIGHT, center + Vector3(-2.0, 0, 2.2))
+	for d in [human_d, elf_d]:
+		d.process_mode = Node.PROCESS_MODE_DISABLED
+		d.hearts = 2   # hurt, so heals show
+	for u in [human_c, human_d, elf_d]:
+		u.model.process_mode = Node.PROCESS_MODE_ALWAYS   # keep animating while pinned
+	events = [[0.4, "_elf_q"], [1.9, "_elf_e"], [3.4, "_human_q"], [4.9, "_human_e"]]
+	_clear_stage(7.0)
+
+
+func _clear_stage(r: float) -> void:
+	## Hide trees, rocks and props right round the stage so the casts read
+	## (capture only; nothing solid is changed).
+	for v in game.find_children("*", "GeometryInstance3D", true, false):
+		var n: Node = v
+		var skip := false
+		while n != null and n != game:
+			if n in game.units or n.name == "Fx":
+				skip = true
+				break
+			n = n.get_parent()
+		if skip:
+			continue
+		var box: AABB = v.get_aabb()
+		var size: float = (box.size * v.global_transform.basis.get_scale()).length()
+		var at: Vector3 = v.global_transform * box.get_center()
+		if size < 9.0 and Vector2(at.x - center.x, at.z - center.z).length() < r and at.y > 0.15:
+			v.visible = false
+
+
+func _skill(side: int, i: int) -> void:
+	var c = casters[side]
+	c.global_position = caster_spots[side]
+	c.velocity = Vector3.ZERO
+	c.energy = c.energy_max()
+	c.ability_timers = [0.0, 0.0]
+	c.guard_timer = 0.0
+	c.stealth_timer = 0.0
+	var dir := Vector3(1, 0, 0) if side == 0 else Vector3(-1, 0, 0)
+	c.facing = dir
+	c.process_mode = Node.PROCESS_MODE_INHERIT
+	awake[side] = 0.5
+	c.use_ability(i, dir)
+	var a: Dictionary = c.ability(i)
+	game.spawn_popup(c.global_position + Vector3(0, 2.6, 0), "%s  %s" % ["ELF" if side == 0 else "HUMAN", a.name.to_upper()],
+		Color(0.7, 1.0, 0.6) if side == 0 else Color(1.0, 0.9, 0.55))
+
+
+func _elf_q() -> void:
+	_skill(0, 0)
+
+
+func _elf_e() -> void:
+	_skill(0, 1)
+
+
+func _human_q() -> void:
+	_skill(1, 0)
+
+
+func _human_e() -> void:
+	_skill(1, 1)

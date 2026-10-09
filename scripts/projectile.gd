@@ -85,7 +85,18 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 	# Only from up on a rampart can you shoot over a wall.
 	query_mask = 1 | 4 | 8
 	rotation.y = atan2(-direction.x, -direction.z)
-	if fire:
+	# A skill's own look (scripts/skill_fx.gd shot()); nature spells are thorns.
+	var look: String = stats.get("look", "")
+	if look == "" and stats.get("nature", false):
+		look = "thorn"
+	if look == "thorn":
+		_build_thorn(splash >= 2.5)
+	elif look == "star":
+		_build_arrow()
+		_build_star()
+	elif look == "moon":
+		_build_holy(Color(0.8, 0.9, 1.0))
+	elif fire:
 		_build_fireball()
 	elif splash > 0.0:
 		_build_arcane()
@@ -213,7 +224,7 @@ func _build_fireball() -> void:
 	_light(Color(1.0, 0.6, 0.2), 2.5, 7.0)
 
 
-func _build_holy() -> void:
+func _build_holy(c: Color = Color(1.0, 0.97, 0.75)) -> void:
 	var streak := MeshInstance3D.new()
 	var cap := CapsuleMesh.new()
 	cap.radius = 0.12
@@ -221,10 +232,88 @@ func _build_holy() -> void:
 	cap.radial_segments = 8
 	streak.mesh = cap
 	streak.rotation.x = PI / 2.0
-	streak.material_override = _glow(Color(1.0, 0.97, 0.75), 3.5)
+	streak.material_override = _glow(c, 3.5)
 	add_child(streak)
-	_trail(Color(1.0, 0.95, 0.6), 10, 0.3, 0.07)
-	_light(Color(1.0, 0.95, 0.6), 1.2, 4.0)
+	_trail(c.lerp(Color(1.0, 0.95, 0.6), 0.3), 10, 0.3, 0.07)
+	_light(c, 1.2, 4.0)
+
+
+func _build_thorn(seed: bool) -> void:
+	## Thorn Bolt: a glowing green thorned dart with green streaks behind it.
+	## Bramble Burst (seed): a thorny seed-ball that spins as it flies.
+	var green := Color(0.45, 0.95, 0.35)
+	var thorn_mat := _glow(Color(0.35, 0.7, 0.25), 1.6)
+	var spike := CylinderMesh.new()
+	spike.top_radius = 0.0
+	spike.bottom_radius = 0.045
+	spike.height = 0.2
+	spike.radial_segments = 4
+	if seed:
+		spin = Node3D.new()
+		add_child(spin)
+		var core := _sphere(0.3, _glow(Color(0.25, 0.55, 0.18), 1.4))
+		core.reparent(spin)
+		_sphere(0.18, _glow(Color(0.75, 1.0, 0.5), 3.0))
+		for i in 14:
+			var t := MeshInstance3D.new()
+			t.mesh = spike
+			t.material_override = thorn_mat
+			var n := Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)).normalized()
+			t.transform = Transform3D(Basis.looking_at(n, Vector3.UP if absf(n.y) < 0.95 else Vector3.RIGHT), n * 0.33)
+			t.rotate_object_local(Vector3.RIGHT, -PI / 2.0)
+			t.scale = Vector3.ONE * 1.6
+			spin.add_child(t)
+		_trail(Color(0.4, 0.85, 0.3), 14, 0.5, 0.1)
+		_trail(Color(0.3, 0.55, 0.2), 6, 0.8, 0.12, -2.0)   # falling leaves
+		_light(green, 1.6, 5.0)
+		return
+	var shaft := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(0.07, 0.07, 0.8)
+	shaft.mesh = box
+	shaft.material_override = _glow(green, 2.4)
+	add_child(shaft)
+	var tip := MeshInstance3D.new()
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.0
+	cone.bottom_radius = 0.09
+	cone.height = 0.28
+	tip.mesh = cone
+	tip.rotation.x = -PI / 2.0
+	tip.position.z = -0.52
+	tip.material_override = _glow(Color(0.8, 1.0, 0.6), 3.0)
+	add_child(tip)
+	for i in 6:
+		var t := MeshInstance3D.new()
+		t.mesh = spike
+		t.material_override = thorn_mat
+		var side := 1.0 if i % 2 == 0 else -1.0
+		t.position = Vector3(side * 0.05, 0.0 if i % 4 < 2 else 0.04, -0.25 + i * 0.1)
+		t.rotation = Vector3(0.0, 0.0, -side * 1.1) + Vector3(0.5, 0, 0)
+		add_child(t)
+	# Green streaks behind it.
+	var streak := MeshInstance3D.new()
+	var cap := CapsuleMesh.new()
+	cap.radius = 0.06
+	cap.height = 1.4
+	cap.radial_segments = 6
+	streak.mesh = cap
+	streak.rotation.x = PI / 2.0
+	streak.position.z = 0.7
+	var sm := _glow(Color(0.4, 1.0, 0.35), 2.0)
+	sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	sm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	sm.albedo_color = Color(0.4, 1.0, 0.35, 0.45)
+	streak.material_override = sm
+	add_child(streak)
+	_trail(Color(0.45, 1.0, 0.35), 12, 0.3, 0.06)
+	_light(green, 1.0, 3.5)
+
+
+func _build_star() -> void:
+	## Starfall: silver arrows with a glittering tail.
+	_sphere(0.08, _glow(Color(0.9, 0.95, 1.0), 4.0), Vector3(0, 0, -0.5))
+	_trail(Color(0.8, 0.9, 1.0), 12, 0.35, 0.06)
 
 
 func _process(delta: float) -> void:

@@ -128,6 +128,10 @@ func _run() -> void:
 	await _wall_shots()
 	await _rampart_and_splash()
 
+	# 8. Every ability on both sides (plain kit and both promotions) casts
+	# with its own look, and the body is back to its normal shape after.
+	await _all_skills()
+
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
 
@@ -225,3 +229,46 @@ func _rampart_and_splash() -> void:
 	await _frames(40)
 	_check(outside.hearts == outside.max_hearts() - 1, "splash_hits_outside_wall", "hearts=%d" % outside.hearts)
 	_check(inside.hearts == inside.max_hearts(), "splash_blocked_by_wall", "hearts=%d" % inside.hearts)
+
+
+func _all_skills() -> void:
+	var fx: Node = game.get_node("Fx")
+	var cast := 0
+	var bent := []
+	for team in [0, 1]:
+		var u = _first(team)
+		if u == null:
+			_check(false, "skills_team%d" % team, "no unit")
+			continue
+		for r in Stats.ROLES:
+			if r == Role.BASE:
+				continue
+			for v in [-1, 0, 1]:
+				u.set_role(r)
+				if v < 0:
+					u.variants.erase(r)
+				elif Stats.VARIANTS.has(r) and v < Stats.VARIANTS[r].size():
+					u.variants[r] = v
+				else:
+					continue
+				u._stats_cache = {}
+				for i in u.abilities().size():
+					u.global_position = Vector3(-20, 0, 3)
+					u.energy = 9999.0
+					u.ability_timers = [0.0, 0.0]
+					u.hearts = u.max_hearts()
+					u.model.process_mode = Node.PROCESS_MODE_ALWAYS   # let its tweens play
+					u.use_ability(i, Vector3(1, 0, 0))
+					cast += 1
+					await _frames(25)
+					if u.model.scale.distance_to(Vector3.ONE) > 0.01 or u.model.position.length() > 0.01 or u.model.rotation.length() > 0.01:
+						bent.append(u.ability(i).name)
+					u.guard_timer = 0.0
+					u.bubble_timer = 0.0
+					u.stealth_timer = 0.0
+		u.variants.erase(u.role)
+	print("skills cast=%d" % cast)
+	_check(cast >= 40, "skills_all_cast", "cast=%d" % cast)
+	_check(bent.is_empty(), "skills_body_restored", str(bent))
+	await _frames(240)
+	_check(fx.get_child_count() < 40, "skills_fx_cleanup", "children=%d" % fx.get_child_count())
