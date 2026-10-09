@@ -11,6 +11,7 @@ extends RefCounted
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
 const Face = preload("res://scripts/face.gd")
+const Store = preload("res://scripts/store.gd")
 const Role = Stats.Role
 
 # Map cards: [title, thumbnail, Stats.MAPS index or -1 for coming soon].
@@ -33,7 +34,7 @@ const CREDITS := [
 var game
 var h                        # the HUD this frame (all drawing goes through it)
 var stage                    # menu_stage.gd
-var screen := "title"        # title, map, character, lobby
+var screen := "title"        # title, map, character, lobby, store
 var overlay := ""            # "", "credits", "tutorial", "progress"
 var map_first := 0           # leftmost map card shown
 var map_pick := 0            # selected card (MAP_CARDS index)
@@ -48,10 +49,12 @@ var join_pads: Array = []    # lobby: the pad device of local players 2-4, in jo
 var p1_pad := -1             # the pad player 1 last used in the menus
 var font_title: Font
 var tex := {}
+var store                    # store.gd: the STORE screen
 
 
 func _init(g) -> void:
 	game = g
+	store = Store.new(g, self)
 	font_title = load("res://assets/ui/fonts/LilitaOne-Regular.ttf")
 	var dir := DirAccess.open("res://assets/ui/menu")
 	if dir:
@@ -203,6 +206,7 @@ func draw(hud) -> void:
 		"map": _draw_map()
 		"character": _draw_character()
 		"lobby": _draw_lobby()
+		"store": store.draw(h, stage, preview_team)
 		_: _draw_title()
 	if overlay != "":
 		h.draw_rect(Rect2(Vector2.ZERO, h.size), Color(0, 0, 0, 0.55))
@@ -225,6 +229,8 @@ const BG_W := 1672.0
 const BG_PLAY := Rect2(18, 322, 380, 80)
 const BG_ITEMS := [Rect2(38, 415, 340, 63), Rect2(38, 493, 340, 63), Rect2(38, 572, 340, 63), Rect2(38, 651, 340, 63), Rect2(38, 730, 340, 65)]
 const BG_CHIP := Rect2(1385, 20, 265, 70)
+const BG_STORE := Rect2(38, 809, 340, 63)    # under the painted column: drawn, not painted
+const BG_PURSE := Rect2(1385, 98, 265, 50)   # under the account chip
 
 
 func _bg_rect(r: Rect2) -> Rect2:
@@ -258,6 +264,25 @@ func _draw_title() -> void:
 		var r := _bg_rect(BG_ITEMS[i])
 		if button(r, ids[i]):
 			_bg_hover(r.grow(-2), 8)
+	# STORE: a plank like the painted ones, under EXIT, and the gold purse
+	# under the account chip (both open the store).
+	var sr := _bg_rect(BG_STORE)
+	var sov := button(sr, "store")
+	nine("btn_wood_hi" if sov else "btn_wood", sr, 20, 20, 20, 20)
+	if sov:
+		_bg_hover(sr.grow(-2), 8)
+	# Laid out like the painted planks: the icon at the left, the word from ~29%.
+	h._icon("coin", sr.position + Vector2(sr.size.x * 0.12, sr.size.y / 2.0), sr.size.y * 0.2, Color.WHITE)
+	ttext(Vector2(sr.position.x + sr.size.x * 0.29, sr.position.y + sr.size.y * 0.68), "STORE", int(sr.size.y * 0.5), Color(1, 0.97, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	if game.account_chests > 0:
+		var badge := Vector2(sr.end.x - sr.size.y * 0.95, sr.get_center().y)
+		h._icon("chest", badge, sr.size.y * 0.17, Color.WHITE)
+		ttext(badge + Vector2(sr.size.y * 0.3, sr.size.y * 0.2), "x%d" % game.account_chests, int(sr.size.y * 0.36), Color(1.0, 0.9, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	var purse := _bg_rect(BG_PURSE)
+	var pov := button(purse, "store")
+	slate(purse.grow(2) if pov else purse)
+	h._icon("coin", purse.position + Vector2(purse.size.y / 2.0 + 4, purse.size.y / 2.0), purse.size.y * 0.16, Color.WHITE)
+	ttext(Vector2(purse.position.x + purse.size.y + 8, purse.position.y + purse.size.y * 0.62), "%d GOLD" % game.account_gold, int(purse.size.y * 0.42), Color(1.0, 0.86, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	if exit_armed > 0.0:
 		var r := _bg_rect(BG_ITEMS[4])
 		var tip := Rect2(r.end.x + 10, r.position.y + 6, 190, r.size.y - 12)
@@ -524,8 +549,10 @@ func _tab_appearance(panel: Rect2) -> void:
 			icon("lock", r.end - Vector2(8, 8), 15)
 	y += step
 	_row_label(panel, y, "Hair Color")
-	for i in Stats.HERO_HAIR.size():
-		var c := Vector2(_row_x(panel, i, Stats.HERO_HAIR.size(), 36) + 18, y)
+	var hairs: Array = range(Stats.HERO_HAIR.size()).filter(func(i): return Store.owns(game, "hair", i))
+	for k in hairs.size():
+		var i: int = hairs[k]
+		var c := Vector2(_row_x(panel, k, hairs.size(), 36) + 18, y)
 		_dot(c, Stats.HERO_HAIR[i][1], game.hero_hair == i, "hair", i)
 	y += step
 	_row_label(panel, y, "Face Style")
@@ -600,17 +627,28 @@ func _tab_hair(panel: Rect2) -> void:
 	var y := panel.position.y + 86
 	label(Vector2(panel.position.x + 26, y), "HAIR COLOUR  ·  %s" % Stats.HERO_HAIR[game.hero_hair][0], 15)
 	for i in Stats.HERO_HAIR.size():
-		var c := Vector2(panel.position.x + 60 + (i % 3) * 120, y + 50 + (i / 3) * 84)
-		var r := Rect2(c - Vector2(34, 34), Vector2(68, 68))
+		var c := Vector2(panel.position.x + 62 + (i % 4) * 102, y + 46 + (i / 4) * 78)
+		var r := Rect2(c - Vector2(30, 30), Vector2(60, 60))
 		var on: bool = game.hero_hair == i
+		var have := Store.owns(game, "hair", i)
 		var ov := button(r, "hair", i)
-		h.draw_circle(c, 35 if on else 32, Color(1.0, 0.8, 0.3) if on else (Color(0.9, 0.8, 0.6) if ov else Color(0.1, 0.08, 0.06)))
-		h.draw_circle(c, 29, Stats.HERO_HAIR[i][1])
-		h.draw_circle(c + Vector2(-9, -9), 7, Color(1, 1, 1, 0.3))
-		h._text(Vector2(c.x - 50, c.y + 50), Stats.HERO_HAIR[i][0].to_upper(), 11, Color.WHITE if on else Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	label(Vector2(panel.position.x + 26, y + 252), "HAIR STYLE", 15)
-	icon("lock", Vector2(panel.position.x + 140, y + 247), 22)
-	h._paragraph(Vector2(panel.position.x + 26, y + 276), "One style per body for now: new cuts arrive with the character art update.", 12, Color(0.8, 0.8, 0.76), panel.size.x - 52, 15.0)
+		h.draw_circle(c, 31 if on else 28, Color(1.0, 0.8, 0.3) if on else (Color(0.9, 0.8, 0.6) if ov else Color(0.1, 0.08, 0.06)))
+		h.draw_circle(c, 25, Stats.HERO_HAIR[i][1] if have else Stats.HERO_HAIR[i][1].darkened(0.45))
+		h.draw_circle(c + Vector2(-8, -8), 6, Color(1, 1, 1, 0.3))
+		if not have:
+			_price_tag(c + Vector2(0, 2), "hair", i)
+		h._text(Vector2(c.x - 50, c.y + 44), Stats.HERO_HAIR[i][0].to_upper(), 11, Color.WHITE if on else Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
+	label(Vector2(panel.position.x + 26, y + 262), "HAIR STYLE", 15)
+	icon("lock", Vector2(panel.position.x + 140, y + 257), 22)
+	h._paragraph(Vector2(panel.position.x + 26, y + 286), "One style per body for now: new cuts arrive with the character art update. Locked colours are in the STORE.", 12, Color(0.8, 0.8, 0.76), panel.size.x - 52, 15.0)
+
+
+func _price_tag(c: Vector2, kind: String, i: int) -> void:
+	## A lock and the STORE price over a choice not owned yet.
+	icon("lock", c + Vector2(0, -6), 20)
+	var p := "%d" % Store.price(Store.item_for(kind, i))
+	h._icon("coin", c + Vector2(-h._text_width(p, 10) / 2.0 - 6, 11), 2.6, Color.WHITE)
+	h._text(Vector2(c.x - 30, c.y + 15), p, 10, Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, 66, 2)
 
 
 func face_thumb(r: Rect2, i: int) -> void:
@@ -636,40 +674,60 @@ func _tab_face(panel: Rect2) -> void:
 
 
 func _tab_armor(panel: Rect2) -> void:
-	var y := panel.position.y + 86
+	var y := panel.position.y + 74
 	label(Vector2(panel.position.x + 26, y), "LOOK", 15)
 	for i in Stats.HERO_LOOKS.size():
-		var r := Rect2(panel.position.x + 26 + i * 204, y + 14, 192, 64)
+		var r := Rect2(panel.position.x + 26 + i * 204, y + 10, 192, 56)
 		var locked: bool = i > 0 and not game.unlocked()
 		var on: bool = game.hero_look == i
 		var ov := button(r, "look", i)
 		option_box(r, on, ov, Color(1.0, 0.8, 0.25) if i == 0 else Color(0.75, 0.5, 1.0))
-		ttext(Vector2(r.position.x, r.position.y + 30), Stats.HERO_LOOKS[i][0].to_upper(), 19, Color.WHITE if not locked else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-		h._text(Vector2(r.position.x, r.position.y + 50), "Team colours" if i == 0 else ("LEVEL %d" % Stats.UNLOCK_LEVEL if locked else "Dusk armour, violet glow, a cape"), 10, Color(0.85, 0.85, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+		ttext(Vector2(r.position.x, r.position.y + 27), Stats.HERO_LOOKS[i][0].to_upper(), 19, Color.WHITE if not locked else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+		h._text(Vector2(r.position.x, r.position.y + 45), "Team colours" if i == 0 else ("LEVEL %d" % Stats.UNLOCK_LEVEL if locked else "Dusk armour, violet glow, a cape"), 10, Color(0.85, 0.85, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 		if locked:
 			icon("lock", r.position + Vector2(r.size.x - 18, 16), 22)
-	y += 110
-	label(Vector2(panel.position.x + 26, y), "GEAR RANK  ·  preview what promotions earn", 15)
+	# STORE gear: what you own is worn on a click, the rest opens the store.
+	y += 84
+	for row in [["ARMOUR TINT", "outfit"], ["HAT  ·  no class hat on", "hat"], ["CAPE & SCARF", "cape"], ["WEAPON SKIN", "weapon"]]:
+		label(Vector2(panel.position.x + 26, y), row[0], 13)
+		var kind: String = row[1]
+		var n: int = Store.table(kind).size()
+		for i in n:
+			var r := Rect2(panel.position.x + 26 + i * minf(52.0, (panel.size.x - 52 - 44) / maxf(n - 1, 1)), y + 8, 44, 38)
+			var have := Store.owns(game, kind, i)
+			var on: bool = Store.equipped(game, kind) == i
+			var ov := button(r, "gear", [kind, i])
+			option_box(r, on, ov, Color(1.0, 0.8, 0.25))
+			if i == 0:
+				h.draw_line(r.get_center() + Vector2(-8, -8), r.get_center() + Vector2(8, 8), Color(0.8, 0.78, 0.74), 2.5)
+			else:
+				store.h = h
+				store.thumb(r.grow(-5), kind, i)
+			if not have:
+				h.draw_rect(r.grow(-2), Color(0, 0, 0, 0.45))
+				icon("lock", r.end - Vector2(9, 9), 16)
+		y += 60
+	label(Vector2(panel.position.x + 26, y), "GEAR RANK  ·  preview what promotions earn", 13)
 	for k in 4:
-		var r := Rect2(panel.position.x + 26 + k * 102, y + 14, 92, 54)
+		var r := Rect2(panel.position.x + 26 + k * 102, y + 8, 92, 40)
 		var ov := button(r, "rank", k + 1)
 		option_box(r, preview_rank == k + 1, ov, Color(1.0, 0.8, 0.25))
-		ttext(Vector2(r.position.x, r.position.y + 36), "RANK %d" % (k + 1), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-	h._paragraph(Vector2(panel.position.x + 26, y + 98), "Every class steps up its gear as you rank it in a match: better shields, capes from rank 3, glowing trims at rank 4. Pick a class under APPEARANCE > Preview to see its gear.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
+		ttext(Vector2(r.position.x, r.position.y + 28), "RANK %d" % (k + 1), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
 
 
 func _tab_colors(panel: Rect2) -> void:
 	var y := panel.position.y + 86
 	label(Vector2(panel.position.x + 26, y), "TRIM  ·  %s" % Stats.HERO_TRIM[game.hero_trim][0], 15)
 	for i in Stats.HERO_TRIM.size():
-		var c := Vector2(panel.position.x + 70 + (i % 3) * 120, y + 56 + (i / 3) * 92)
-		var r := Rect2(c - Vector2(40, 34), Vector2(80, 68))
-		var col: Color = Stats.HERO_TRIM[i][1]
-		if col.a == 0.0:
-			col = Stats.FACTIONS[preview_team].color
-		swatch(r, col, game.hero_trim == i, "trim", i)
-		h._text(Vector2(c.x - 50, c.y + 52), Stats.HERO_TRIM[i][0].to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	h._paragraph(Vector2(panel.position.x + 26, y + 270), "Trim colours your cape and sash on every class. TEAM keeps your side's colour.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
+		var c := Vector2(panel.position.x + 62 + (i % 4) * 102, y + 50 + (i / 4) * 86)
+		var r := Rect2(c - Vector2(36, 30), Vector2(72, 60))
+		var col: Color = Store.swatch_color("trim", i, preview_team)
+		var have := Store.owns(game, "trim", i)
+		swatch(r, col if have else col.darkened(0.45), game.hero_trim == i, "trim", i)
+		if not have:
+			_price_tag(c + Vector2(0, 2), "trim", i)
+		h._text(Vector2(c.x - 50, c.y + 46), Stats.HERO_TRIM[i][0].to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
+	h._paragraph(Vector2(panel.position.x + 26, y + 272), "Trim colours your cape and sash on every class. TEAM keeps your side's colour. Locked dyes are in the STORE.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
 
 
 func _tab_emblem(panel: Rect2) -> void:
@@ -892,16 +950,37 @@ func tick(clicked: bool, mouse: Vector2) -> void:
 	## Called by game.menu_tick on every fresh click (mouse or pad confirm).
 	if not clicked or h == null:
 		return
+	if screen == "store" and not store.reveal.is_empty() and overlay == "":
+		store.press("store_reveal_close", null)
+		return
 	for b in h.menu_buttons:
 		if b[0].has_point(mouse):
 			_press(b[1], b[2])
 			return
 
 
+func open_store(kind: String = "", i: int = -1) -> void:
+	store.show(kind, i)
+	go("store")
+
+
 func _press(id: String, arg) -> void:
 	game.sfx.ui("ui_click", -4.0)
+	if id.begins_with("store_"):
+		store.press(id, arg)
+		return
 	match id:
 		"play": go("map")
+		"store": open_store()
+		"gear":
+			# A store item choice in Create Your Character: wear it if owned,
+			# else open the store on it.
+			if Store.owns(game, arg[0], arg[1]):
+				Store.equip(game, arg[0], arg[1])
+				if arg[0] == "hat" or arg[0] == "cape":
+					preview_role = Role.BASE
+			else:
+				open_store(arg[0], arg[1])
 		"customize": go("character")
 		"settings":
 			game.menu_open = true
@@ -974,6 +1053,8 @@ func _press(id: String, arg) -> void:
 			if preview_role == Role.KNIGHT:
 				preview_role = Role.BASE
 			game._save_settings()
+		"hair", "trim" when not Store.owns(game, id, int(arg)):
+			open_store(id, int(arg))
 		"hair":
 			game.hero_hair = int(arg)
 			if preview_role == Role.KNIGHT:

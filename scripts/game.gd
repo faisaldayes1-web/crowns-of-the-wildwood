@@ -9,6 +9,7 @@ const Monarch = preload("res://scripts/monarch.gd")
 const Projectile = preload("res://scripts/projectile.gd")
 const Gate = preload("res://scripts/gate.gd")
 const Hud = preload("res://scripts/hud.gd")
+const Store = preload("res://scripts/store.gd")
 const Touch = preload("res://scripts/touch.gd")
 const HealOrb = preload("res://scripts/heal_orb.gd")
 const Trap = preload("res://scripts/trap.gd")
@@ -118,9 +119,14 @@ var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
-var account_gold := 0           # match rewards (Stats.MATCH_GOLD / MATCH_SHARDS), spent in a later shop
+var account_gold := 0           # match rewards (Stats.MATCH_GOLD / MATCH_SHARDS), spent in the STORE (store.gd)
 var account_shards := 0
-var account_chests := 0
+var account_chests := 0         # unopened Match Chests (opened in the STORE)
+var owned_items: Array = []     # STORE items bought or found in chests: "kind:index" keys (Store.key)
+var hero_hat := 0               # Stats.HERO_HATS index (worn with no class hat on)
+var hero_cape := 0              # Stats.HERO_CAPES index
+var hero_outfit := 0            # Stats.HERO_OUTFITS index: armour tint
+var hero_weapon := 0            # Stats.WEAPON_SKINS index
 var match_xp := 0               # the player's XP earned this match, over every life
 var summary = null              # the end-of-match screen (match_summary.gd), made when the match ends
 var last_match_gain := 0        # what the last match added (end screen)
@@ -337,6 +343,25 @@ func _ready() -> void:
 			main_menu.preview_team = int(arg.trim_prefix("--debug-preview-team="))
 		if arg.begins_with("--debug-char-tab="):
 			main_menu.char_tab = int(arg.trim_prefix("--debug-char-tab="))
+		# Testing the STORE: --debug-gold=N, --debug-chests=N, --debug-own=kind:i,kind:i
+		# (owned and worn), --debug-store=kind:i (open on an item), --debug-store-buy,
+		# --debug-store-chest. Run renders with their own XDG_DATA_HOME: these save.
+		if arg.begins_with("--debug-gold="):
+			account_gold = int(arg.trim_prefix("--debug-gold="))
+		if arg.begins_with("--debug-chests="):
+			account_chests = int(arg.trim_prefix("--debug-chests="))
+		if arg.begins_with("--debug-own="):
+			for pair in arg.trim_prefix("--debug-own=").split(","):
+				var kv := pair.split(":")
+				owned_items.append(Store.key(kv[0], int(kv[1])))
+				Store.equip(self, kv[0], int(kv[1]))
+		if arg.begins_with("--debug-store="):
+			var kv := arg.trim_prefix("--debug-store=").split(":")
+			main_menu.open_store(kv[0], int(kv[1]) if kv.size() > 1 else -1)
+		if arg == "--debug-store-buy":
+			main_menu.store.press("store_buy", null)
+		if arg == "--debug-store-chest":
+			main_menu.store.press("store_chest", null)
 		if arg.begins_with("--debug-lobby="):  # N local players, all ready
 			split_screen = true
 			couch_players = clampi(int(arg.trim_prefix("--debug-lobby=")), 1, COUCH_MAX)
@@ -2195,6 +2220,15 @@ func hero_custom() -> Dictionary:
 		c.trim = Stats.HERO_TRIM[hero_trim][1]
 	if hero_look > 0 and unlocked():
 		c.look = Stats.HERO_LOOKS[hero_look][1]
+	# STORE cosmetics (looks only, no stats).
+	if hero_hat > 0:
+		c.hat = Stats.HERO_HATS[hero_hat][1]
+	if hero_cape > 0:
+		c.cape = Stats.HERO_CAPES[hero_cape][1]
+	if hero_outfit > 0:
+		c.outfit = hero_outfit
+	if hero_weapon > 0:
+		c.weapon = hero_weapon
 	return c
 
 
@@ -2521,6 +2555,8 @@ func menu_tick() -> void:
 			for b in hud.hero_buttons:
 				if b[0].has_point(mouse):
 					match b[1]:
+						"hair", "trim", "banner_bg", "banner_emblem", "banner_frame" when not Store.owns(self, b[1], b[2]):
+							Store.locked_toast(self, b[1], b[2])
 						"hair": hero_hair = b[2]
 						"trim": hero_trim = b[2]
 						"banner_bg": banner_bg = b[2]
@@ -3030,6 +3066,11 @@ func _save_settings() -> void:
 	cfg.set_value("profile", "account_gold", account_gold)
 	cfg.set_value("profile", "account_shards", account_shards)
 	cfg.set_value("profile", "account_chests", account_chests)
+	cfg.set_value("profile", "owned_items", owned_items)
+	cfg.set_value("settings", "hero_hat", hero_hat)
+	cfg.set_value("settings", "hero_cape", hero_cape)
+	cfg.set_value("settings", "hero_outfit", hero_outfit)
+	cfg.set_value("settings", "hero_weapon", hero_weapon)
 	cfg.save(CONTROLS_PATH)
 
 
@@ -3097,6 +3138,13 @@ func _load_controls() -> void:
 	account_gold = maxi(int(cfg.get_value("profile", "account_gold", 0)), 0)
 	account_shards = maxi(int(cfg.get_value("profile", "account_shards", 0)), 0)
 	account_chests = maxi(int(cfg.get_value("profile", "account_chests", 0)), 0)
+	var owned = cfg.get_value("profile", "owned_items", [])
+	owned_items = Array(owned) if owned is Array or owned is PackedStringArray else []
+	hero_hat = clampi(int(cfg.get_value("settings", "hero_hat", 0)), 0, Stats.HERO_HATS.size() - 1)
+	hero_cape = clampi(int(cfg.get_value("settings", "hero_cape", 0)), 0, Stats.HERO_CAPES.size() - 1)
+	hero_outfit = clampi(int(cfg.get_value("settings", "hero_outfit", 0)), 0, Stats.HERO_OUTFITS.size() - 1)
+	hero_weapon = clampi(int(cfg.get_value("settings", "hero_weapon", 0)), 0, Stats.WEAPON_SKINS.size() - 1)
+	Store.drop_unowned(self)   # a save edited by hand cannot wear what was never bought
 	for entry in REBINDABLE:
 		if not cfg.has_section_key("controls", entry[0]):
 			continue

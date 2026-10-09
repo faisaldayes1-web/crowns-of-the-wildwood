@@ -29,10 +29,18 @@ const BOUNTY_BUFF := "Might"
 # how often bots fire abilities, react scales dodging and blocking, sight
 # scales how far they notice enemies, chase is how far they go after a bounty.
 # Hero customizer: hair and trim (cape / sash) colours the player can pick.
+# The first HERO_HAIR_FREE / HERO_TRIM_FREE entries are everyone's; the
+# rest are bought in the STORE (STORE_ITEMS below).
 const HERO_HAIR := [["Blond", Color(0.93, 0.8, 0.4)], ["Brown", Color(0.4, 0.25, 0.12)], ["Black", Color(0.12, 0.1, 0.12)],
-	["Red", Color(0.75, 0.2, 0.1)], ["Silver", Color(0.85, 0.85, 0.9)], ["Moss", Color(0.35, 0.6, 0.3)]]
+	["Red", Color(0.75, 0.2, 0.1)], ["Silver", Color(0.85, 0.85, 0.9)], ["Moss", Color(0.35, 0.6, 0.3)],
+	["Copper", Color(0.85, 0.42, 0.16)], ["Rose", Color(0.95, 0.5, 0.65)], ["Midnight", Color(0.16, 0.22, 0.55)],
+	["Frost", Color(0.7, 0.9, 1.0)], ["Violet", Color(0.55, 0.3, 0.85)], ["Ember", Color(1.0, 0.55, 0.12)]]
+const HERO_HAIR_FREE := 6
 const HERO_TRIM := [["Team", Color.TRANSPARENT], ["Crimson", Color(0.7, 0.12, 0.15)], ["Violet", Color(0.5, 0.25, 0.7)],
-	["Teal", Color(0.15, 0.6, 0.6)], ["Gold", Color(0.9, 0.72, 0.2)], ["Night", Color(0.12, 0.12, 0.18)]]
+	["Teal", Color(0.15, 0.6, 0.6)], ["Gold", Color(0.9, 0.72, 0.2)], ["Night", Color(0.12, 0.12, 0.18)],
+	["Emerald", Color(0.1, 0.62, 0.3)], ["Sunset", Color(0.95, 0.45, 0.15)], ["Ivory", Color(0.92, 0.88, 0.76)],
+	["Sky", Color(0.35, 0.65, 0.95)], ["Rose", Color(0.85, 0.35, 0.55)], ["Royal", Color(0.35, 0.1, 0.5)]]
+const HERO_TRIM_FREE := 6
 const HERO_NAME_MAX := 12
 # Hero looks: Classic, and the Shadowborn look unlocked at account level 10
 # (a dusk tint, violet rim light and a cape on every class).
@@ -75,14 +83,21 @@ const FIRE_FORM := {"burn_delay": 2.0, "burn_cooldown": 6.0, "burn_damage": 1, "
 
 # Player banners (the calling card the enemy sees when you kill them, and
 # that you edit on the HERO tab): a background, an emblem, a frame and a title.
+# Entries from BANNER_*_FREE on are bought in the STORE.
 const BANNER_BACKGROUNDS := [["Forest", Color(0.12, 0.4, 0.22), Color(0.3, 0.7, 0.35), "plain"], ["Kingdom", Color(0.12, 0.2, 0.5), Color(0.3, 0.45, 0.9), "plain"],
 	["Ember", Color(0.45, 0.12, 0.08), Color(0.95, 0.5, 0.15), "rays"], ["Dusk", Color(0.2, 0.1, 0.35), Color(0.6, 0.3, 0.8), "diamonds"],
 	["Stripes", Color(0.15, 0.15, 0.2), Color(0.85, 0.7, 0.25), "stripes"], ["Vines", Color(0.08, 0.25, 0.15), Color(0.45, 0.8, 0.4), "leaves"],
-	["Frost", Color(0.15, 0.3, 0.45), Color(0.7, 0.9, 1.0), "diamonds"], ["Royal", Color(0.35, 0.05, 0.12), Color(0.95, 0.78, 0.3), "rays"]]
+	["Frost", Color(0.15, 0.3, 0.45), Color(0.7, 0.9, 1.0), "diamonds"], ["Royal", Color(0.35, 0.05, 0.12), Color(0.95, 0.78, 0.3), "rays"],
+	["Sunrise", Color(0.6, 0.25, 0.1), Color(1.0, 0.8, 0.35), "rays"], ["Starlight", Color(0.06, 0.08, 0.2), Color(0.85, 0.85, 1.0), "diamonds"]]
+const BANNER_BG_FREE := 8
 const BANNER_EMBLEMS := ["crown", "class_knight", "class_ranger", "class_mage", "class_healer", "class_engineer", "crest_forest", "crest_kingdom",
-	"fireball", "guard", "vigor", "trap", "blessing", "class_rogue"]   # the last needs the level-10 unlock
+	"fireball", "guard", "vigor", "trap", "blessing", "class_rogue",   # class_rogue needs the level-10 unlock
+	"moon", "frost", "bramble", "skull"]
+const BANNER_EMBLEM_FREE := 14
 const BANNER_FRAMES := [["Plain", Color(0.15, 0.12, 0.18)], ["Gold", Color(0.95, 0.78, 0.3)], ["Iron", Color(0.6, 0.62, 0.68)],
-	["Vine", Color(0.4, 0.75, 0.35)], ["Royal", Color(0.9, 0.4, 0.7)]]   # Royal needs the level-10 unlock
+	["Vine", Color(0.4, 0.75, 0.35)], ["Royal", Color(0.9, 0.4, 0.7)],   # Royal needs the level-10 unlock
+	["Ember", Color(1.0, 0.45, 0.12)], ["Frost", Color(0.65, 0.9, 1.0)], ["Obsidian", Color(0.35, 0.2, 0.5)]]
+const BANNER_FRAME_FREE := 5
 # Banner titles: [needed account level, title].
 const BANNER_TITLES := [[1, "Recruit"], [1, "Door Breaker"], [2, "Crown Thief"], [3, "Militia"], [4, "Trapper"], [5, "Soldier"], [6, "Duelist"],
 	[8, "Veteran"], [10, "Champion"], [10, "Shadowborn"], [15, "Warlord"], [20, "Crownbreaker"], [30, "Legend"]]
@@ -100,6 +115,42 @@ const MATCH_BONUS := {"win": 300, "draw": 150, "loss": 100}
 # shop that spends them is a later milestone).
 const MATCH_GOLD := {"win": 300, "draw": 250, "loss": 200}
 const MATCH_SHARDS := {"win": 25, "draw": 20, "loss": 15}
+
+# --- Store (cosmetic only: nothing here changes a fight) ---------------------
+# Gear the STORE sells beyond colours. Index 0 of each is the free default.
+# Hats are worn by the unclassed body (no class hat on); capes and scarves
+# hang on every class in the trim colour; armour tints recolour the metal
+# plates; weapon skins recolour the held weapons. Colour TRANSPARENT = none.
+const HERO_HATS := [["None", ""], ["Feathered Cap", "cap"], ["Straw Hat", "straw"], ["Leaf Circlet", "circlet"],
+	["Flower Crown", "flowers"], ["Wizard Hat", "wizard"], ["Horned Helm", "horns"], ["Golden Circlet", "gold"]]
+const HERO_CAPES := [["None", ""], ["Long Scarf", "scarf"], ["Traveller's Cape", "cape"], ["Leaf Cloak", "leaf"],
+	["Royal Mantle", "royal"], ["Ember Mantle", "ember"]]
+# [name, metal colour, glow energy]
+const HERO_OUTFITS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.8, 0.5, 0.25), 0.0], ["Verdant", Color(0.35, 0.7, 0.4), 0.0],
+	["Crimson", Color(0.8, 0.2, 0.2), 0.0], ["Gilded", Color(1.0, 0.8, 0.3), 0.0], ["Frost", Color(0.65, 0.88, 1.0), 0.25],
+	["Obsidian", Color(0.28, 0.22, 0.36), 0.15]]
+const WEAPON_SKINS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.85, 0.55, 0.3), 0.0], ["Wildwood", Color(0.45, 0.8, 0.4), 0.0],
+	["Gilded", Color(1.0, 0.82, 0.3), 0.0], ["Frostbite", Color(0.6, 0.9, 1.0), 0.6], ["Ember", Color(1.0, 0.5, 0.15), 0.8],
+	["Shadow", Color(0.45, 0.3, 0.7), 0.6]]
+# Rarities: [name, colour, price in gold, chest weight].
+const RARITIES := {"common": ["Common", Color(0.78, 0.8, 0.82), 300, 60], "rare": ["Rare", Color(0.35, 0.65, 1.0), 600, 28],
+	"epic": ["Epic", Color(0.72, 0.4, 1.0), 1200, 10], "legendary": ["Legendary", Color(1.0, 0.7, 0.2), 2500, 2]}
+# What the STORE sells: [kind, index into that kind's table, rarity]. Kinds:
+# hair (HERO_HAIR), trim (HERO_TRIM), outfit, hat, cape, weapon, banner_bg,
+# banner_emblem, banner_frame. Prices come from the rarity.
+const STORE_ITEMS := [
+	["hair", 6, "common"], ["hair", 7, "common"], ["hair", 8, "rare"], ["hair", 9, "rare"], ["hair", 10, "epic"], ["hair", 11, "epic"],
+	["outfit", 1, "common"], ["outfit", 2, "common"], ["outfit", 3, "rare"], ["outfit", 4, "epic"], ["outfit", 5, "epic"], ["outfit", 6, "legendary"],
+	["cape", 1, "common"], ["cape", 2, "rare"], ["cape", 3, "rare"], ["cape", 4, "epic"], ["cape", 5, "legendary"],
+	["trim", 6, "common"], ["trim", 7, "common"], ["trim", 8, "common"], ["trim", 9, "rare"], ["trim", 10, "rare"], ["trim", 11, "epic"],
+	["hat", 1, "common"], ["hat", 2, "common"], ["hat", 3, "rare"], ["hat", 4, "rare"], ["hat", 5, "epic"], ["hat", 6, "epic"], ["hat", 7, "legendary"],
+	["weapon", 1, "common"], ["weapon", 2, "rare"], ["weapon", 3, "rare"], ["weapon", 4, "epic"], ["weapon", 5, "epic"], ["weapon", 6, "legendary"],
+	["banner_bg", 8, "rare"], ["banner_bg", 9, "epic"],
+	["banner_emblem", 14, "common"], ["banner_emblem", 15, "common"], ["banner_emblem", 16, "rare"], ["banner_emblem", 17, "rare"],
+	["banner_frame", 5, "rare"], ["banner_frame", 6, "rare"], ["banner_frame", 7, "epic"]]
+# Opening a Match Chest gives one item you do not own yet, picked by rarity
+# weight; with everything owned it pays CHEST_GOLD instead.
+const CHEST_GOLD := 150
 # Accolades on the end-of-match screen, each worth account XP. need is the
 # threshold (hearts healed, siege XP, kills in one life, assists, kills).
 const ACCOLADES := [

@@ -8,6 +8,7 @@ const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
 const Face = preload("res://scripts/face.gd")
 const OutfitFlair = preload("res://scripts/outfit_flair.gd")
+const StoreGear = preload("res://scripts/store_gear.gd")
 
 const SCENES := {
 	"knight": "res://assets/characters/Knight.glb",
@@ -147,8 +148,8 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 	## the palette cells (keeping each cell's shading gradient). Cached.
 	if custom.is_empty() or not CELLS.has(skin_name):
 		return skin
-	var key := "%s|%s|%s|%s" % [skin.resource_path, custom.get("hair", Color.TRANSPARENT).to_html(), custom.get("trim", Color.TRANSPARENT).to_html(),
-		custom.get("skin", Color.TRANSPARENT).to_html()]
+	var key := "%s|%s|%s|%s|%d" % [skin.resource_path, custom.get("hair", Color.TRANSPARENT).to_html(), custom.get("trim", Color.TRANSPARENT).to_html(),
+		custom.get("skin", Color.TRANSPARENT).to_html(), int(custom.get("outfit", 0))]
 	if custom_cache.has(key):
 		return custom_cache[key]
 	var img: Image = skin.get_image()
@@ -175,6 +176,8 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 					var p := img.get_pixel(x, y)
 					var v := minf(target.v * (p.v / vmax) * 1.15, 1.0)
 					img.set_pixel(x, y, Color.from_hsv(target.h, target.s, v, p.a))
+	if int(custom.get("outfit", 0)) > 0:
+		StoreGear.tint_metal(img, CELLS[skin_name], Stats.HERO_OUTFITS[int(custom.outfit)][1])
 	var out := ImageTexture.create_from_image(img)
 	custom_cache[key] = out
 	return out
@@ -230,16 +233,24 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	# Team colour skin on every mesh, on faceted (flat-shaded) copies of the
 	# meshes so the low-poly angles read crisp, like the reference art.
 	var skin: Texture2D = load("res://assets/characters/skins/%s_%s.png" % [c.skin, "elf" if team == 0 else "human"])
+	var plain_skin: Texture2D = skin
 	skin = customised_skin(skin, c.skin, custom)
+	# Weapons keep their own metal (a STORE weapon skin recolours them; the
+	# armour tint does not).
+	var weapon_skin: Texture2D = customised_skin(plain_skin, c.skin, StoreGear.without_outfit(custom)) if custom.has("outfit") else skin
+	var weapon_look: Array = Stats.WEAPON_SKINS[int(custom.get("weapon", 0))]
 	flash_mats = []
 	for mesh in _meshes(inst):
+		var held := StoreGear.in_gear(mesh, inst, ALL_GEAR)
 		mesh.mesh = _flat_mesh(mesh.mesh)
 		for i in mesh.get_surface_override_material_count():
 			var mat: Material = mesh.get_active_material(i)
 			if mat is StandardMaterial3D:
 				var dup: StandardMaterial3D = mat.duplicate()
-				dup.albedo_texture = skin
+				dup.albedo_texture = weapon_skin if held else skin
 				dup.albedo_color = tint * custom.get("look", Color.WHITE)
+				if held and weapon_look[1].a > 0.0:
+					StoreGear.skin_weapon(dup, weapon_look)
 				dup.rim_enabled = true
 				dup.rim = 0.35
 				dup.rim_tint = 0.6
@@ -264,8 +275,12 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 		if c.crown:
 			_add_crown()
 	_add_class_flair(role, variant)
-	if skeleton and variant == "":
-		OutfitFlair.dress(skeleton, role, custom.get("trim", Stats.FACTIONS[team].color.darkened(0.1)), outline)
+	var cloth: Color = custom.get("trim", Stats.FACTIONS[team].color.darkened(0.1))
+	if skeleton and variant == "" and custom.get("cape", "") != "scarf":
+		OutfitFlair.dress(skeleton, role, cloth, outline)
+	if skeleton and (custom.has("hat") or custom.has("cape")):
+		# STORE gear: a hat on the bare unclassed head, a cape or scarf on every class.
+		StoreGear.dress(self, inst, skeleton, custom, cloth, outline, c.get("bare", false))
 	if variant == "" or Stats.VARIANTS.has(role):
 		_add_rank_flair(team, role, rank)
 	if variant == "":

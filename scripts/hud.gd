@@ -9,6 +9,7 @@ const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Scoreboard = preload("res://scripts/scoreboard.gd")
+const Store = preload("res://scripts/store.gd")
 const Role = Stats.Role
 
 const INK := Color(0.09, 0.1, 0.15, 0.92)
@@ -4138,22 +4139,32 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 	for i in Stats.BANNER_BACKGROUNDS.size():
 		var b := Rect2(origin.x + 76 + i * (sw + 3), y - 11, sw, 18)
 		var bg: Array = Stats.BANNER_BACKGROUNDS[i]
-		_plate(b, bg[2].lerp(bg[1], 0.4), GOLD if i == game.banner_bg else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_bg else 1)
+		var have: bool = Store.owns(game, "banner_bg", i)
+		_plate(b, bg[2].lerp(bg[1], 0.4).darkened(0.0 if have else 0.5), GOLD if i == game.banner_bg else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_bg else 1)
+		if not have:
+			_store_lock(b)
 		hero_buttons.append([b, "banner_bg", i])
 	y += 26
 	_text(Vector2(origin.x, y), "EMBLEM", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var per_row := ceili(Stats.BANNER_EMBLEMS.size() / 2.0)
 	for i in Stats.BANNER_EMBLEMS.size():
-		var b := Rect2(origin.x + 76 + (i % 7) * (sw + 3), y - 11 + (i / 7) * 22, sw, 18)
+		var b := Rect2(origin.x + 76 + (i % per_row) * (sw + 3), y - 11 + (i / per_row) * 22, sw, 18)
 		var locked: bool = Stats.BANNER_EMBLEMS[i] == "class_rogue" and not game.unlocked()
+		var have: bool = Store.owns(game, "banner_emblem", i)
 		_plate(b, INK_LIGHT if not locked else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_emblem else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_emblem else 1)
-		_icon(Stats.BANNER_EMBLEMS[i], b.get_center(), 5, Color.WHITE, locked)
+		_icon(Stats.BANNER_EMBLEMS[i], b.get_center(), 5, Color.WHITE, locked or not have)
+		if not have:
+			_store_lock(b)
 		hero_buttons.append([b, "banner_emblem", i])
 	y += 48
 	_text(Vector2(origin.x, y), "FRAME", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in Stats.BANNER_FRAMES.size():
 		var b := Rect2(origin.x + 76 + i * (sw + 3), y - 11, sw, 18)
 		var locked: bool = Stats.BANNER_FRAMES[i][0] == "Royal" and not game.unlocked()
-		_plate(b, Stats.BANNER_FRAMES[i][1] if not locked else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_frame else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_frame else 1)
+		var have: bool = Store.owns(game, "banner_frame", i)
+		_plate(b, Stats.BANNER_FRAMES[i][1].darkened(0.0 if have else 0.5) if not locked else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_frame else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_frame else 1)
+		if not have:
+			_store_lock(b)
 		hero_buttons.append([b, "banner_frame", i])
 	y += 26
 	_text(Vector2(origin.x, y), "TITLE", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -4171,6 +4182,12 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 		_text(b.position + Vector2(0, 13), t[1].to_upper(), 8, Color.WHITE if have else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
 		hero_buttons.append([b, "banner_title", i])
 		tx += tw + 4
+
+
+func _store_lock(b: Rect2) -> void:
+	## A banner piece sold in the STORE and not owned yet: a coin in the corner.
+	draw_rect(b.grow(-1), Color(0, 0, 0, 0.35))
+	_icon("coin", b.end - Vector2(5, 5), 2.2, Color.WHITE)
 
 
 func _draw_nameplate(rect: Rect2) -> void:
