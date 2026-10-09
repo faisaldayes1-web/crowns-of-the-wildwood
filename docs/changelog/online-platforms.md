@@ -19,7 +19,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tunables:** none
 - **Revert:** `git revert 7953c44`
 
-## 2026-10-09 01:50 UTC · `HASH-PENDING` · ENet host / join, step one
+## 2026-10-09 01:50 UTC · `2133d77` · ENet host / join, step one
 
 - **What:** online play over direct IP. New **ONLINE** row on the title screen (HOST / STOP,
   JOIN / LEAVE, and a box for the host's address). The host runs the whole match; a joiner's game
@@ -38,4 +38,4 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tunables (new, in `scripts/net.gd`):** `DEFAULT_PORT` 24560, `MAX_CLIENTS` 8,
   `SNAPSHOT_EVERY` 3 physics frames (20 Hz). Bot difficulty text on the title moved under the
   BOTS buttons (was to their right) to make room for the ONLINE row.
-- **Revert:** `git revert HASH-PENDING`
+- **Revert:** `git revert 2133d77`
