@@ -7464,9 +7464,12 @@ func _debug_downed_hooks(frame: int) -> void:
 	## downed teammate).
 	var args := OS.get_cmdline_user_args()
 	var which := ""
+	var strike := "--debug-finish-strike" in args
 	for k in ["--debug-downed", "--debug-revive", "--debug-healer-revive", "--debug-finish"]:
 		if k in args:
 			which = k
+	if strike:
+		which = "--debug-finish"   # the same set-up, held long enough that the blow lands on the shot
 	if which == "" or player == null:
 		return
 	var spot := Vector3(-14, 0, 0) if player_team == 0 else Vector3(14, 0, 0)
@@ -7510,7 +7513,7 @@ func _debug_downed_hooks(frame: int) -> void:
 	if frame == shot_frame - 70 and which == "--debug-healer-revive":
 		Input.action_press("interact")
 	if which == "--debug-finish":
-		if frame == shot_frame - 28:
+		if frame == shot_frame - (74 if strike else 28):
 			Input.action_press("interact")
 		return
 	if frame > shot_frame - 150 and frame < shot_frame:

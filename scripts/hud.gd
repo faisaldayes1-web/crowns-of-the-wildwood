@@ -2182,7 +2182,12 @@ func _draw_kill_feed() -> void:
 		draw_rect(Rect2(x - kw - vw - 62, y - 9, kw + vw + 68, 18), Color(0.05, 0.05, 0.08, 0.45 * a))
 		_text(Vector2(x - vw, y - 7), k.victim, 11, vc, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_icon(_class_icon(k.vrole), Vector2(x - vw - 10, y), 6, vc)
-		_icon("sword", Vector2(x - vw - 28, y), 6, Color(1.0, 0.85, 0.3, a))
+		if k.get("finish", false):
+			# A finisher: crossed red blades instead of the sword.
+			for sg in [-1.0, 1.0]:
+				draw_line(Vector2(x - vw - 28, y) + Vector2(-5 * sg, -5), Vector2(x - vw - 28, y) + Vector2(5 * sg, 5), Color(1.0, 0.3, 0.25, a), 2.5)
+		else:
+			_icon("sword", Vector2(x - vw - 28, y), 6, Color(1.0, 0.85, 0.3, a))
 		_text(Vector2(x - vw - 46 - kw, y - 7), k.killer, 11, kc, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_icon(_class_icon(k.krole), Vector2(x - vw - 56 - kw, y), 6, kc)
 		y += 20.0
@@ -2201,6 +2206,7 @@ func _draw_kill_banner(p) -> void:
 	var streak: int = p.kill_banner.streak
 	var title := "KILL!"
 	var sub_color := Color(1.0, 0.9, 0.6, a)
+	var finish: bool = p.kill_banner.get("finish", false)
 	match streak:
 		2: title = "DOUBLE KILL!"
 		3: title = "TRIPLE KILL!"
@@ -2209,6 +2215,8 @@ func _draw_kill_banner(p) -> void:
 			if streak >= 5:
 				title = "RAMPAGE  x%d" % streak
 				sub_color = Color(1.0, 0.6, 0.4, a)
+	if finish:
+		title = "FINISHED!"
 	var w: float = (300.0 + maxf(_text_width(title, 26) - 120.0, 0.0)) * scale_k
 	var rect := Rect2(size.x / 2.0 - w / 2.0, 120 - (1.0 - pop) * 24.0, w, 66 * scale_k)
 	# The burst behind the card.
@@ -2216,7 +2224,7 @@ func _draw_kill_banner(p) -> void:
 	_plate(rect, Color(0.42, 0.08, 0.08, 0.94 * a), Color(1.0, 0.85, 0.3, a), 12, 3)
 	_class_card(rect.position + Vector2(36 * scale_k, rect.size.y / 2.0), 22 * scale_k, p.kill_banner.team, p.kill_banner.role_id, true)
 	_text(rect.position + Vector2(68 * scale_k, 30 * scale_k), title, int(26 * scale_k), Color(1.0, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	_text(rect.position + Vector2(68 * scale_k, 50 * scale_k), "%s the %s  ·  +%d XP" % [p.kill_banner.victim, p.kill_banner.role, Stats.XP_KILL], int(12 * scale_k), sub_color, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(rect.position + Vector2(68 * scale_k, 50 * scale_k), "%s the %s  ·  +%d XP" % [p.kill_banner.victim, p.kill_banner.role, Stats.XP_FINISH if finish else Stats.XP_KILL], int(12 * scale_k), sub_color, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_icon("sword", rect.end - Vector2(30 * scale_k, rect.size.y / 2.0), 12 * scale_k, Color(1.0, 0.85, 0.3, a))
 
 
@@ -3706,7 +3714,7 @@ func _draw_killer_card() -> void:
 	var slide: float = clampf((6.0 - game.killer_timer) * 4.0, 0.0, 1.0)
 	var y: float = 160.0 - (1.0 - slide) * 60.0
 	var rect := Rect2(cx - 170, y, 340, 70)
-	_text(Vector2(cx - 170, y - 16), "KILLED BY", 13, Color(1.0, 0.5, 0.45), HORIZONTAL_ALIGNMENT_CENTER, 340, 3)
+	_text(Vector2(cx - 170, y - 16), "FINISHED BY" if game.killer_card.get("finished", false) else "KILLED BY", 13, Color(1.0, 0.5, 0.45), HORIZONTAL_ALIGNMENT_CENTER, 340, 3)
 	_draw_banner(rect, game.banner_for(k), game.killer_card.get("weapon", ""))
 
 
@@ -4005,8 +4013,13 @@ func _draw_downed_screen(p) -> void:
 	var since: float = maxf(p.downed_total - p.downed_timer, 0.0)
 	var reviving: bool = p.being_revived()
 	var healer: bool = reviving and p.revive_by and p.revive_by.role == Stats.Role.HEALER
+	var finisher = p.finished_by()
+	if finisher:
+		reviving = false
 	var a := clampf(since / 0.25, 0.0, 1.0) if not reviving else 1.0
-	if not reviving:
+	if finisher:
+		_vignette(Color(0.85, 0.02, 0.02, 0.5 + 0.2 * sin(now * 14.0)))
+	elif not reviving:
 		_vignette(Color(0.7, 0.05, 0.05, (0.22 + 0.1 * sin(now * 4.0)) * a))
 	else:
 		_vignette(Color(0.3, 0.8, 0.35, 0.25) if healer else Color(0.9, 0.7, 0.2, 0.22))
@@ -4020,7 +4033,8 @@ func _draw_downed_screen(p) -> void:
 	if sc < 0.05:
 		return
 	var cy := size.y * 0.6   # under the body, which sits at screen centre
-	draw_set_transform(Vector2(size.x / 2.0, cy), -0.045, Vector2(sc, sc))
+	var jitter := Vector2(randf_range(-3.0, 3.0), randf_range(-2.0, 2.0)) if finisher else Vector2.ZERO
+	draw_set_transform(Vector2(size.x / 2.0, cy) + jitter, -0.045, Vector2(sc, sc))
 	_paint_splash(Vector2(0, -8), 250.0, 62.0, Color(0.62, 0.05, 0.06, 0.92 * a), Color(0.85, 0.12, 0.1, 0.9 * a))
 	# YOU'RE (white) DOWNED! (gold), one line in the cartoon face.
 	var f: Font = title_font if title_font else font
@@ -4032,6 +4046,8 @@ func _draw_downed_screen(p) -> void:
 	_cartoon_word(Vector2(x0, 18), "YOU'RE ", f, fs, Color(1, 0.98, 0.94, a), Color(0.75, 0.72, 0.7, a), ink)
 	_cartoon_word(Vector2(x0 + w1, 18), "DOWNED!", f, fs, Color(1.0, 0.82, 0.2, a), Color(0.85, 0.45, 0.05, a), ink)
 	var sub := "%s is reviving you!" % p.revive_by.display_name if reviving else "You can still be revived by a teammate!"
+	if finisher:
+		sub = "%s is finishing you!" % finisher.display_name
 	_text(Vector2(-260, 50), sub, 16, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_CENTER, 520, 5)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 	# Revive in N...: the bar drains as you bleed out, and fills (gold, or
@@ -4041,11 +4057,16 @@ func _draw_downed_screen(p) -> void:
 	_plate(pr, Color(0.1, 0.07, 0.06, 0.93 * a), Color(0.45, 0.32, 0.16, a), 8, 2)
 	draw_rect(Rect2(pr.position + Vector2(3, 3), Vector2(pr.size.x - 6, 2)), Color(1, 1, 1, 0.08 * a))
 	var label := ("Reviving... %d%%" % roundi(p.revive_progress * 100.0)) if reviving else "Revive in %d..." % ceili(p.downed_timer)
+	if finisher:
+		label = "BEING FINISHED!"
 	_text(Vector2(pr.position.x, pr.position.y + 27.0 * fit), label, int(19 * fit), Color(1, 0.97, 0.9, a), HORIZONTAL_ALIGNMENT_CENTER, pr.size.x, 3)
 	var br := Rect2(pr.position + Vector2(18, 40) * fit, Vector2(pr.size.x - 36.0 * fit, 16.0 * fit))
 	_plate(br, Color(0.04, 0.03, 0.03, a), Color(0.62, 0.5, 0.36, a), 7, 1)
 	var frac: float = p.revive_progress if reviving else clampf(p.downed_timer / maxf(p.downed_total, 0.1), 0.0, 1.0)
 	var fill := Color(0.4, 0.95, 0.5) if healer else (Color(1.0, 0.8, 0.25) if reviving else Color(0.9, 0.2, 0.22))
+	if finisher:
+		frac = 1.0 - clampf(finisher.finish_progress, 0.0, 1.0) if finisher.finishing <= 0.0 else 0.0
+		fill = Color(1.0, 0.15 + 0.2 * sin(now * 14.0), 0.1)
 	var inner := br.grow(-3)
 	if frac > 0.0:
 		var fr := Rect2(inner.position, Vector2(inner.size.x * frac, inner.size.y))
@@ -4204,21 +4225,44 @@ func _draw_revive_prompt(me, mate, cam: Camera3D) -> void:
 
 
 func _draw_finish_prompt(me, foe, cam: Camera3D) -> void:
-	## Standing over a downed enemy: "HOLD [F] FINISH NAME" in red, filling
-	## while it is held (greyed during the first moments after they fall).
-	var at: Vector3 = foe.global_position + Vector3(0, 2.0, 0)
+	## Standing over a downed enemy: a crimson execution plate over the body
+	## with the key in a ring that fills while it is held. During the grace
+	## after they fall the ring counts down in grey ("FINISH IN 1.2").
+	var at: Vector3 = foe.global_position + Vector3(0, 2.3, 0)
 	if cam.is_position_behind(at):
 		return
+	var now := Time.get_ticks_msec() / 1000.0
 	var sp: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at)
 	var ready: bool = me.can_finish(foe)
-	var text: String = ("FINISH " if ready else "WAIT · FINISH ") + foe.display_name.to_upper()
+	var holding: bool = me.finish_target == foe and me.finish_progress > 0.0
+	var prog: float = clampf(me.finish_progress, 0.0, 1.0) if holding else 0.0
+	var wait: float = maxf(Stats.DOWNED_GRACE - (foe.downed_total - foe.downed_timer), 0.0)
+	var pulse := 0.5 + 0.5 * sin(now * 8.0)
+	var title := "FINISH" if ready else "FINISH IN %.1f" % wait
+	var w := maxf(_text_width(title, 18), _text_width(foe.display_name.to_upper(), 11)) + 92.0
+	var r := Rect2(sp - Vector2(w / 2.0 - 18.0, 22), Vector2(w, 44))
+	# The plate: dark crimson with a bright rim that throbs while held.
+	draw_rect(Rect2(r.position + Vector2(0, 4), r.size), Color(0, 0, 0, 0.35))
+	_plate(r, Color(0.28, 0.04, 0.04, 0.94) if ready else Color(0.16, 0.1, 0.1, 0.9),
+		Color(1.0, 0.35 + 0.25 * pulse * prog, 0.25, 1.0) if ready else Color(0.45, 0.38, 0.36, 0.9), 9, 2)
+	if holding:
+		draw_rect(Rect2(r.position + Vector2(40, 4), Vector2((r.size.x - 44) * prog, r.size.y - 8)), Color(0.9, 0.15, 0.1, 0.45))
+	_text(Vector2(r.position.x + 52, r.position.y + 22), title, 18, Color(1.0, 0.9, 0.8) if ready else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	_text(Vector2(r.position.x + 52, r.position.y + 37), foe.display_name.to_upper() + "  ·  HOLD", 11, Color(1.0, 0.6, 0.5) if ready else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# The key in a ring at the left end: the ring fills with the hold, or
+	# drains grey through the grace.
+	var kc := Vector2(r.position.x, r.get_center().y)
+	draw_circle(kc, 25.0, Color(0.12, 0.03, 0.03))
+	draw_arc(kc, 21.0, 0, TAU, 32, Color(0.35, 0.12, 0.1), 5.0)
+	if ready and prog > 0.0:
+		draw_arc(kc, 21.0, -PI / 2.0, -PI / 2.0 + TAU * prog, 32, Color(1.0, 0.3, 0.2), 5.0, true)
+	elif not ready:
+		draw_arc(kc, 21.0, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - wait / Stats.DOWNED_GRACE), 32, Color(0.6, 0.55, 0.55), 5.0, true)
 	var k := _k("interact")
-	var kw := maxf(20.0, _text_width(k, 11) + 10.0)
-	var w := _text_width(text, 13) + kw + 32.0
-	var r := Rect2(sp - Vector2(w / 2.0, 14), Vector2(w, 28))
-	_plate(r, Color(0.12, 0.04, 0.04, 0.92), Color(1.0, 0.35, 0.3, 0.9) if ready else Color(0.5, 0.4, 0.4, 0.8), 7, 1)
-	if me.finish_target == foe and me.finish_progress > 0.0:
-		draw_rect(Rect2(r.position + Vector2(3, 3), Vector2((r.size.x - 6) * clampf(me.finish_progress, 0.0, 1.0), r.size.y - 6)), Color(0.9, 0.2, 0.15, 0.55))
-	var tx := r.position.x + 11.0
-	_keycap(Vector2(tx + kw / 2.0, sp.y), k, kw)
-	_text(Vector2(tx + kw + 8.0, sp.y + 5.0), text, 13, Color(1.0, 0.9, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_keycap(kc, k, maxf(20.0, _text_width(k, 11) + 10.0))
+	# Crossed blades over the plate's right end.
+	var bc := Vector2(r.end.x - 20.0, r.get_center().y)
+	for sgn in [-1.0, 1.0]:
+		var d := Vector2(sgn * 0.7, -0.7)
+		draw_line(bc - d * 12.0, bc + d * 12.0, Color(0.1, 0.02, 0.02), 6.0)
+		draw_line(bc - d * 12.0, bc + d * 12.0, Color(0.92, 0.9, 0.85) if ready else GREY, 3.0)
