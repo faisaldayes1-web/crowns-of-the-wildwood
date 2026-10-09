@@ -7,13 +7,27 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 02:10 UTC · `(merge: hash stamped by the next entry)` · Bring in the combined build with Ember Pass
+### 2026-10-09 02:40 UTC · `(stamped by the next entry)` · Base remaster: Wildbloom courtyard, crystal crown altar, Human stone counterpart
+
+- **What:** Both castles follow Faisal's five-zone sheet (spawn area → courtyard → outer defence → main gate → inner castle and crown room), on both maps, without moving any lane the bots use.
+  - **Courtyard (the spawn hall behind the keep):** the Elves' walls are now topped with trimmed hedge instead of merlons; a cobbled lane runs from the spawn circle to the stairs; three raised flower beds, a crate stack and a cask line the south wall; stag pennants hang between the wall crystals; four stone fire pillars ring the spawn circle with two banner poles behind it; a timber palisade runs round the outside of the Elf courtyard (Wildwood only). The Humans get the same lane, beds (in stone kerbs), stores, fire pillars and lion banner poles, with their grey stone walls kept.
+  - **Spawn area:** the spawn circle sits on a glowing rune disc in the team colour (it was a rug).
+  - **Crown room:** the Elves' pedestal and cushion are gone; the crown rests on a green crystal cluster on a moonstone plinth, flanked by a pair of gold antlers, inside a trimmed hedge ring with blooms (open towards the doors), with a stag crest on the back wall and no empty throne. The Humans keep the carved pedestal, velvet cushion and throne, and gain a ring of short stone pillars with gold caps and lion pennants. Both throne rooms get stone fire pillars at their four outer corners (they were lantern/torch stands).
+  - **Main gate:** a tall faction pennant hangs on the outer face of each gatehouse tower (it was a small shield banner).
+  - **Ember Pass:** the same structure; hedges become dark basalt rubble and the flower beds hold glowing embers; no palisade (lava).
+- **Files:** scripts/game.gd (new `_hedge_mat`, `_add_hedge_blob`, `_add_hedge_run`, `_add_hedge_ring`, `_add_flower_bed`, `_add_antler`, `_add_crown_altar`, `_add_dais_ring`, `hedge_tops` flag; `_add_wall`, `_build_throne_room`, `_polish_keep`, `_build_cellar`, `_build_castle`)
+- **Tunables:** none in stats.gd. Layout: spawn-ring fire pillars at x +12/+17 m behind the back wall, z ±3.6; banner poles at x +17.2, z ±6.2; hedge ring radius 2.85 (gap 52° towards the doors); Human pillar ring radius 2.9 (gap 50°)
+- **Gameplay, unchanged (for Faisal to decide, see the thread):** the class stations, upgrade station and NPC guide stay downstairs in the protected spawn hall as before; the sheet draws the courtyard upstairs and the spawn area as a separate protected zone. Nothing is solid in the new dressing except the fire pillars and the crate stack, so the capture circle, the stairs lane and the class row are untouched.
+- **Tested:** `--check-only`; `--audit` 63 overlaps on Wildwood (same as before the change), 16 on Ember Pass; 30 s headless bot match on each map with no script errors (see the next entry if that changed). Renders: `game/groups/world-maps/base-*-before.png` / `base-*-after.png`
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 02:10 UTC · `b5e89e4` · Bring in the combined build with Ember Pass
 
 - **What:** Merged the combined branch (`e5ba404`: PRs #1–#4, the web/iPad build work) into the group branch so the base remaster covers both maps. Two conflicts in `scripts/game.gd`: the Elf keep palette flags now sit beside Ember Pass's `soot`/`tex_swap` (both kept); the Elf throne room keeps its clean moonstone cornice (no leaf tufts) from the palette commit.
 - **Files:** everything the combined branch carried; hand-merged `scripts/game.gd`.
 - **Tunables:** none
 - **Tested:** `--check-only` compiles; `--audit` baseline re-run below with the remaster.
-- **Revert:** `git revert -m 1 <merge hash>`
+- **Revert:** `git revert -m 1 b5e89e4`
 
 ### 2026-10-09 01:50 UTC · `d5b4301` · River: clustered lily pads with water lilies, stone fire pillars at the bridges
 
