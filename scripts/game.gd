@@ -5435,15 +5435,9 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 		var t := -length / 2.0 + (k + 0.5) * length / n
 		var p := Vector3(center.x + t, top + 0.5, center.z) if along_x else Vector3(center.x, top + 0.5, center.z + t)
 		var ms := Vector3(0.6, 0.6, thick) if along_x else Vector3(thick, 0.6, 0.6)
-		if elf_castle and k % 3 != 0:
-			# Rounded moonstone merlons, with a leaf tuft every third one.
-			var cap := MeshInstance3D.new()
-			cap.mesh = _rock_mesh(int(p.x * 5 + p.z * 11), 0.36, 0.08)
-			cap.position = p - Vector3(0, 0.12, 0)
-			cap.scale = Vector3(1.0, 0.8, 1.0)
-			cap.material_override = _moonstone()
-			add_child(cap)
-		elif mossy:
+		if mossy:
+			# Leaf tufts along the hedge top (the cream moonstone caps read
+			# as white balls from above, 2026-10-09 render).
 			var tuft := MeshInstance3D.new()
 			tuft.mesh = _rock_mesh(int(p.x * 5 + p.z * 11), 0.45, 0.15)
 			tuft.position = p - Vector3(0, 0.1, 0)
@@ -5962,8 +5956,8 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		# like the green stag runners round the reference's altar.
 		for zs in [-1.0, 1.0]:
 			_add_rug(Vector3(throne.x, 0.07, zs * (hz / 2.0 + 1.5)), Vector2(1.6, hz - 3.0), color)
-			_add_emblem_decal(Vector3(throne.x, 0.075, zs * (hz / 2.0 + 1.5)), 1.1, team)
-		_add_emblem_decal(Vector3((front_x + throne.x - side * 2.0) / 2.0, 0.075, 0), 1.3, team)
+			_add_emblem_decal(Vector3(throne.x, 0.15, zs * (hz / 2.0 + 1.5)), 1.1, team)
+		_add_emblem_decal(Vector3((front_x + throne.x - side * 2.0) / 2.0, 0.15, 0), 1.3, team)
 	var tier_mat := _ashlar(Color(0.95, 0.92, 0.86))
 	var trim := _gold() if not elven else _moon_silver()
 	for t in 3:
@@ -7402,6 +7396,7 @@ func _build_castle(team: int) -> void:
 	if team == 0:
 		_add_lantern(Vector3(kcx - side * 6.5, 0, hz - 1.4))
 		_add_lantern(Vector3(kcx - side * 6.5, 0, -(hz - 1.4)))
+		_dress_elf_yard(team, fx, kx, side, hz)
 	# Banners on the yard side of the gatehouse towers.
 	for zs in [-1.0, 1.0]:
 		_add_banner(team, Vector3(fx + side * 1.1, 0.2, zs * (dh + 1.1)), Vector3(side, 0, 0), 0.6)
@@ -7461,6 +7456,29 @@ func _build_castle(team: int) -> void:
 	prop_solid = false
 
 
+func _dress_elf_yard(team: int, fx: float, kx: float, side: float, hz: float) -> void:
+	## The Elf yard between the gate and the keep, from the courtyard
+	## reference: a cobbled lane up the middle, grass with flower beds either
+	## side of it, a wildwood tree in each corner and stone fire pillars at
+	## the keep's arch. Only the trees are solid, and they sit off the lane
+	## and off the stair routes.
+	var lane_x := (fx + side * 1.6 + kx - side * 0.4) / 2.0
+	var lane_len := absf(kx - side * 0.4 - (fx + side * 1.6))
+	_add_block(Vector3(lane_x, 0.015, 0), Vector3(lane_len, 0.02, 3.6), Color.WHITE, false, _pbr("cobble", 0.55, Color(0.92, 0.88, 0.8)))
+	var grass := _pbr("grass", 0.35, Color(0.92, 1.0, 0.86))
+	grass.roughness = 1.0
+	for zs in [-1.0, 1.0]:
+		var z0 := 2.6
+		var z1 := hz - 1.3
+		_add_block(Vector3(lane_x, 0.012, zs * (z0 + z1) / 2.0), Vector3(lane_len - 1.0, 0.024, z1 - z0), Color.WHITE, false, grass)
+		_add_flower_bed(Vector3(kx - side * 3.2, 0, zs * 4.4), Vector2(1.1, 2.0), 410 + int(zs))
+		_add_flower_bed(Vector3(fx + side * 4.0, 0, zs * 4.6), Vector2(1.1, 1.8), 420 + int(zs))
+		_add_bush(Vector3(fx + side * 2.4, 0, zs * 5.6), 81 + int(zs))
+		_add_tree_grown(Vector3(kx - side * 2.6, 0, zs * (hz - 4.2)))
+		_add_stone_brazier(Vector3(kx - side * 1.9, 0, zs * 3.4))
+	_add_emblem_decal(Vector3(lane_x, 0.04, 0), 2.2, team)
+
+
 func _dress_elf_courtyard(team: int, bx: float, side: float) -> void:
 	## The Elves' courtyard dressing from Faisal's base interior reference
 	## (2026-10-08): green stag runners from the spawn circle to the stairs and
@@ -7471,15 +7489,20 @@ func _dress_elf_courtyard(team: int, bx: float, side: float) -> void:
 	var hz := CELLAR_HALF_Z
 	# The runner from the spawn circle to the foot of the stairs, stag in the middle.
 	_add_rug(Vector3(bx + side * 9.7, CELLAR_Y + 0.03, 0), Vector2(5.0, 2.6), color)
-	_add_emblem_decal(Vector3(bx + side * 9.7, CELLAR_Y + 0.072, 0), 1.6, team)
+	_add_emblem_decal(Vector3(bx + side * 9.7, CELLAR_Y + 0.11, 0), 1.6, team)
 	# A long runner in front of the class row.
 	_add_rug(Vector3(bx + side * 9.25, CELLAR_Y + 0.03, -(hz - 3.95)), Vector2(15.4, 1.5), color.darkened(0.1))
 	for k in 3:
-		_add_emblem_decal(Vector3(bx + side * (3.5 + k * 5.75), CELLAR_Y + 0.072, -(hz - 3.95)), 1.0, team)
+		_add_emblem_decal(Vector3(bx + side * (3.5 + k * 5.75), CELLAR_Y + 0.11, -(hz - 3.95)), 1.0, team)
 	# Stores by the south wall: a shelf of potions and a map table.
 	_prop("furniture/shelf_B_large_decorated", Vector3(bx + side * 8.6, CELLAR_Y, hz - 0.7), BITS_SCALE, PI)
 	_prop("dungeon/bottle_A_labeled_green", Vector3(bx + side * 8.3, CELLAR_Y + 0.95, hz - 0.85), 0.5)
-	_prop("kitchen/table_round_A_decorated", Vector3(bx + side * 12.6, CELLAR_Y, hz - 3.6), BITS_SCALE, 0.3)
+	_prop("kitchen/table_round_A_decorated", Vector3(bx + side * 10.4, CELLAR_Y, hz - 3.6), BITS_SCALE, 0.3)
+	# Grass with blooms beside the spawn circle (the reference's lawn).
+	var grass := _pbr("grass", 0.35, Color(0.92, 1.0, 0.86))
+	grass.roughness = 1.0
+	_add_block(Vector3(bx + side * 14.3, CELLAR_Y + 0.006, 7.3), Vector3(5.6, 0.012, 2.4), Color.WHITE, false, grass)
+	_add_flower_bed(Vector3(bx + side * 14.3, CELLAR_Y, 7.3), Vector2(1.6, 0.9), 430)
 	# A wildwood tree in the south-east corner, its canopy over the hedge.
 	_add_tree_grown(Vector3(bx + side * 6.6, CELLAR_Y, hz - 1.7))
 	_add_bush(Vector3(bx + side * 0.9, CELLAR_Y, -(hz - 0.9)), 73)
