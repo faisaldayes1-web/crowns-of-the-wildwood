@@ -632,7 +632,7 @@ Revert: `git revert 3a57415`.
 
 ## 2026-10-09 — Elf class courtyard: Faisal's circled notes (08:18 annotated screenshot)
 
-Commit: `HASH_PENDING`. Merged World & Maps first (their grove replacing the camp west of the
+Commit: `8caeef4`. Merged World & Maps first (their grove replacing the camp west of the
 courtyard fence, his note 4).
 
 - **"Names of classes are clipping"**: the names sat on boards along the pavilion's top edge,
@@ -649,4 +649,4 @@ courtyard fence, his note 4).
 Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1
 overlap (pre-existing pines), 245 props; seed-5 90 s match doors 171/0 at 60 s.
 
-Revert: `git revert HASH_PENDING`.
+Revert: `git revert 8caeef4`.
