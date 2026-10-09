@@ -7,7 +7,15 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 08:30 UTC · `(stamped by the next entry)` · Trees behind the Elf courtyard too (Faisal 08:18)
+### 2026-10-09 08:35 UTC · `(stamped by the next entry)` · Elf gate banner frames off the road (Faisal 08:19)
+
+- **What:** Faisal, on the Elf gate: "move signs to appropriate place? not middle of ground blocking road". The two stag banner frames stood on the cobbles where the Forest and River Paths leave the road (fx − 4.6, ±(DOOR_HALF + 1.9)); they now stand against the front wall beside the gatehouse towers. The fence and the rock he circled on the same shot went in bc6323f.
+- **Files:** scripts/game.gd (`_build_castle`)
+- **Tunables:** Elf gate banner frames (fx − 4.6, ±5.4) → (fx − 1.4, ±7.5)
+- **Tested:** `--check-only`; `--audit` Wildwood 1
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 08:30 UTC · `6e2c0bc` · Trees behind the Elf courtyard too (Faisal 08:18)
 
 - **What:** Faisal, on the Elf class courtyard: "Flush this area out with trees so its not visible". The Elves' camp beyond the courtyard fence (campfire, crate, pallet, sack, bucket, wheelbarrow, tent, flag) is replaced by the same eight-tree stand as the Humans', mirrored. His other three notes on that shot (class name boards clipping, the upgrade station facing the wrong way, the green planting-bed boxes) went to UI & Art, whose base it is.
 - **Files:** scripts/game.gd (`_build_works`)

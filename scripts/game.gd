@@ -7622,7 +7622,9 @@ func _build_castle(team: int) -> void:
 		_add_pennant(team, Vector3(fx - side * 1.12, 4.4, zs * (dh + 1.1)), Vector3(-side, 0, 0), 1.3, 2.8, zs > 0.0)
 		_add_torch(Vector3(fx - side * 2.0, 0, zs * (dh + 0.6)))
 		if team == 0:   # (the Humans' gate keeps its lions and tower pennants only: Faisal 06:00, "cluttered")
-			_add_banner_pole(team, Vector3(fx - side * 4.6, 0, zs * (dh + 1.9)))
+			# Against the wall beside the gatehouse, off the road and the
+			# path mouths (Faisal 08:19: "not middle of ground blocking road").
+			_add_banner_pole(team, Vector3(fx - side * 1.4, 0, zs * (dh + 4.0)))
 		# Corner towers.
 		_add_tower(Vector3(fx, 0, zs * hz), team, side)
 		_add_tower(Vector3(bx, 0, zs * hz), team, side)
