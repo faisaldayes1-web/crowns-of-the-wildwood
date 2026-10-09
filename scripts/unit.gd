@@ -906,7 +906,8 @@ func ranked(a: Dictionary, track: int) -> Dictionary:
 
 
 func attack_stats() -> Dictionary:
-	var s := ranked(stats(), 0)
+	var s := ranked(stats(), 0).duplicate()
+	s.cost = Stats.BASE_ATTACK_COST   # basic attacks are free; cooldowns pace them
 	if s.attack == "arrow" or s.attack == "spell":
 		s = s.duplicate()
 		s.cooldown = s.cooldown * Stats.RANGED_ATTACK_SLOW

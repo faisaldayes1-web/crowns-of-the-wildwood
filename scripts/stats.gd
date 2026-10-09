@@ -158,8 +158,13 @@ const CARRY_SPEED_MULT := 0.8
 
 const DODGE_TIME := 0.25      # seconds the dash lasts; nothing can hit you during it
 const DODGE_SPEED_MULT := 3.2 # dash speed as a multiple of run speed
-const DODGE_COOLDOWN := 2.0   # seconds until the next dodge is ready
+const DODGE_COOLDOWN := 4.0   # seconds until the next dodge is ready (2.0 → 4.0, Faisal 2026-10-09)
 const DODGE_COST := 10.0      # stamina (or mana) a dodge spends
+# Basic attacks (every class's left-click: Punch, Sword Strike, arrows, bolts,
+# Mend) cost nothing (Faisal 2026-10-09: "the basic attack shouldn't drain
+# your stamina or magika"). The per-class "cost" values in ROLES, FACTION_KITS
+# and VARIANTS (7-16) are kept for reference but overridden by this.
+const BASE_ATTACK_COST := 0.0
 
 const BLOCK_COST := 18.0      # stamina a blocked hit costs the blocker
 const BLOCK_DRAIN := 4.0      # stamina per second while the shield is up
@@ -267,7 +272,7 @@ const KNOCK_SPLASH := 8.0
 #   use_ability), cooldown is in seconds, cost comes out of the class's energy.
 const ROLES := {
 	Role.BASE: {"attack": "melee", "attack_name": "Punch", "attack_desc": "A quick jab. Find a class station!",
-		"damage": 1, "gate_damage": 1, "range": 1.7, "cooldown": 0.6,
+		"damage": 1, "gate_damage": 1, "range": 1.7, "cooldown": 0.72,   # 0.6 → 0.72 (Faisal 2026-10-09)
 		"energy": "stamina", "cost": 8, "speed": 1.0,
 		"color": Color(0.85, 0.8, 0.7), "abilities": []},
 	Role.KNIGHT: {"attack": "melee", "attack_name": "Sword Strike", "attack_desc": "A wide swing that also chips at doors.",

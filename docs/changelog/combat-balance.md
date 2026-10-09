@@ -192,3 +192,26 @@ then `python3 tools/balance/agg.py <tag>`.
   STAT block; captures E4 H4, kills E63 H55, doors broken 1-3 a match, average
   223 s, 0 script errors. `tools/tests/run.sh` 22/22.
 - **Revert:** `git revert 0c1cd37`
+
+## 7. Longer dodge cooldown, free basic attacks, slower punch
+
+- **When:** 2026-10-09 10:15 UTC (Faisal 2026-10-09 09:14 "the dodge needs more
+  of a cooldown"; 09:15 "the stamina for punch needs to be more and there needs
+  to be slightly more of a cooldown"; 09:16 "the basic attack shouldn't drain
+  your stamina or magika")
+- **Commit:** _filled in by the next commit_
+- **What:** The dodge waits twice as long between uses (the HUD's dodge slot
+  already shows the cooldown). Every class's basic attack (Punch, Sword
+  Strike, arrows, bolts, Mend, every variant) now costs no stamina or mana;
+  cooldowns alone pace it. The later "shouldn't drain" message overrides the
+  punch costing more; asked Faisal whether the bare-handed punch should cost
+  stamina after all. The punch's cooldown is a little longer.
+- **Files:** `scripts/stats.gd` (`DODGE_COOLDOWN`, new `BASE_ATTACK_COST`,
+  Punch cooldown), `scripts/unit.gd` (`attack_stats` applies
+  `BASE_ATTACK_COST`), `docs/changelog/combat-balance.md`.
+- **Tunables:** `DODGE_COOLDOWN` 2.0 → 4.0 s; basic attack cost per class
+  7-16 → 0 (`BASE_ATTACK_COST` 0.0; table values kept but overridden);
+  Punch `cooldown` 0.6 → 0.72 s (Punch table cost stays 8, unused).
+- **Batches:** six Wildwood seeds 41-46 before (`t4base`, at 643ecde) and
+  after (`t4free`): results added when they finish.
+- **Revert:** `git revert <hash>`
