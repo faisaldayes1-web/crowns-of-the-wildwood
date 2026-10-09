@@ -71,12 +71,24 @@ func _run() -> void:
 	_check(victim.hearts == victim.max_hearts() - 1, "venom_fang_hits", "hearts=%d" % victim.hearts)
 	_check(is_equal_approx(victim.slow_timer, s.slow), "venom_fang_slows", "slow_timer=%.2f want %.2f" % [victim.slow_timer, s.slow])
 
+	# Hit feel: the hit drew effects, the victim flashes, its animation holds.
+	var fx: Node = game.get_node_or_null("Fx")
+	_check(fx != null and fx.get_child_count() > 0, "fx_hit_drawn", "fx children=%d" % (fx.get_child_count() if fx else -1))
+	_check(victim.flash_timer > 0.0, "fx_hit_flash", "flash_timer=%.2f" % victim.flash_timer)
+	_check(victim.hitstop_timer > 0.0 and victim.model.anim.speed_scale == 0.0, "fx_hitstop_on",
+		"hitstop=%.2f speed=%.2f" % [victim.hitstop_timer, victim.model.anim.speed_scale])
+
 	# 2. The slow wears off on its own clock: still on at half time, gone after.
 	victim.process_mode = Node.PROCESS_MODE_INHERIT
 	await _frames(int(s.slow * 60.0 * 0.5))
 	_check(victim.slow_timer > 0.0, "venom_fang_slow_lasts", "slow_timer=%.2f" % victim.slow_timer)
+	_check(victim.status_fx.has("slow") and victim.status_fx.slow.emitting, "fx_slow_aura_on")
+	_check(victim.model.anim.speed_scale == 1.0, "fx_hitstop_ends", "speed=%.2f" % victim.model.anim.speed_scale)
+	_check(victim.flash_timer == 0.0 and victim.flash_mats.all(func(m): return m.albedo_color == victim.model.tint),
+		"fx_flash_ends", "flash_timer=%.2f" % victim.flash_timer)
 	await _frames(int(s.slow * 60.0 * 0.5) + 6)
 	_check(victim.slow_timer == 0.0, "venom_fang_slow_expires", "slow_timer=%.2f" % victim.slow_timer)
+	_check(not victim.status_fx.slow.emitting, "fx_slow_aura_off")
 	victim.process_mode = Node.PROCESS_MODE_DISABLED
 
 	# 3. A second cut refreshes the slow rather than stacking it.
@@ -99,6 +111,15 @@ func _run() -> void:
 	victim.hearts = 1
 	attacker._attack(Vector3(1, 0, 0))
 	_check(victim.dead and victim.slow_timer == 0.0, "slow_cleared_on_death", "dead=%s slow_timer=%.2f" % [victim.dead, victim.slow_timer])
+
+	# 6. Effects clean up after themselves: one-shots free within ~2 s.
+	var before: int = fx.get_child_count()
+	for i in 20:
+		fx.blast(attacker.global_position, 3.0, ["fire", "frost", "nature", "dark", "arcane"][i % 5])
+		fx.heal_on(attacker, 2, victim)
+	_check(fx.get_child_count() > before, "fx_blast_heal_drawn")
+	await _frames(240)
+	_check(fx.get_child_count() <= before, "fx_cleanup", "children %d -> %d" % [before, fx.get_child_count()])
 
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)

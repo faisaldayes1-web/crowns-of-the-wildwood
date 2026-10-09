@@ -59,7 +59,7 @@ then `python3 tools/balance/agg.py <tag>`.
 ## 3. Wildwood six-seed baseline
 
 - **When:** 2026-10-08 21:28 UTC
-- **Commit:** _filled in by the next commit_
+- **Commit:** `1155cfd`
 - **What:** Results only, no gameplay change. Wildwood baseline, seeds
   1001-1006: Elves 3, Humans 3; captures E5 H6; kills E202 H195; 1 overtime;
   average 332 s; 0 script errors. Table and class numbers in
@@ -69,4 +69,63 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Files:** `docs/balance/baselines-2026-10-08.md` (new), `docs/changelog/combat-balance.md`.
 - **Tunables:** none.
 - **Batches:** tag `bwild`, MAP=0, seeds 1001-1006, at `90af014`.
+- **Revert:** `git revert 1155cfd`
+
+## 4. Combat feel: hit effects, slash arcs, spell blasts, heals, auras
+
+- **When:** 2026-10-09 00:25 UTC (Faisal 2026-10-08 23:58: particle effects,
+  colour on hit, healing/spell/splash effects, better combat feel)
+- **Commit:** _filled in by the next commit_
+- **What:** Looks only; no balance number changed and the bot brain, movement
+  and timers are untouched.
+  - New `scripts/fx.gd`: one effects node under the game. Soft glowing motes,
+    spark streaks, smoke puffs and tumbling chips (CPU particles), plus flares,
+    ground shockwave rings, glows, spell runes, scorch marks and heal beams,
+    all from generated gradient textures. Works the same in the Compatibility
+    renderer the iPad web build uses.
+  - Every landed hit: a flare and sparks thrown away from the attacker, styled
+    by what hit (sword, fists, Venom Fang, arrow, arcane, fire, frost, holy,
+    dark, nature, heavy blows), a white-hot rim flash then a red tint easing
+    back (was a flat red for 0.15 s), a squash-and-spring on the body, and a
+    short hit stop (the animation holds 0.07 s, 0.11 s for two hearts; the
+    attacker's holds 0.06 s when a swing lands). Blocks throw blue sparks;
+    armour glances flash.
+  - Melee swings draw a crescent slash that sweeps across the aim and
+    alternates sides (was a flat white box for 0.12 s); heavy weapons get a
+    wider, longer arc. Wind Dash/Charge/Backstab leave a streak and an arc;
+    Cleave draws a full spin.
+  - Area hits (Fireball, Ice Burst, Bramble Burst, splash bolts) draw
+    `Fx.blast`: flare, shockwave ring, sparks, embers/ice shards/leaves/motes,
+    smoke and a scorch mark that fades over a few seconds. Fire and frost
+    blasts shake the camera nearby.
+  - Spells leave a spinning rune circle under the caster (Fireball, Smite,
+    Blessing, Curse, Holy Bubble, Blink, guard abilities like Barkskin).
+  - Heals: green glow on the ground, rising motes, floating "+" crosses and a
+    thread of light from the healer.
+  - Status auras while they last: green venom drips (slowed), light rising
+    round the feet (rooted), wind streaks (haste), blue motes (guard).
+  - Falls: dust puff, team-coloured sparks, a wisp rising.
+  - When you kill someone the camera kicks (0.28) and your swing holds a beat.
+  - "SLOWED" pops once when the slow starts, not on every cut that refreshes it.
+  - `game.spawn_splash`, `spawn_ring`, `spawn_burst` and `spawn_swing` now draw
+    through `fx.gd`, so older effects (doors, turrets, potions, traps) get the
+    softer look too.
+- **Shared files touched:** `scripts/game.gd` (the four `spawn_*` bodies above,
+  a `const Fx` line, and a `--fxshow` hook next to `--play`). No scene,
+  material, shader or texture files changed.
+- **Files:** `scripts/fx.gd` (new), `scripts/unit.gd`, `scripts/projectile.gd`,
+  `scripts/game.gd`, `tests/combat_test.gd` (9 new checks: hit drawn, flash on
+  and off, hit stop on and off, slow aura on and off, blasts and heals drawn,
+  effects freed within 4 s), `tests/fx_showcase.gd` (new, scripted effects
+  run for captures), `docs/changelog/combat-balance.md`.
+  Also merges `claude/project-thread-hu6d1n` e5ba404 (web build tweaks) into
+  this branch first (merge commit 770376c).
+- **Tunables:** none in `scripts/stats.gd`. New look-only constants in
+  `unit.gd`: `FLASH_TIME` 0.22 s (old flash 0.15 s).
+- **Checks:** `tools/tests/run.sh` 18/18 pass. 120 s bot matches on Wildwood
+  and Ember Pass (seed 7): no script errors (one existing Ember Pass HUD
+  "Invalid polygon data" engine error, not from this change).
+- **Capture:** `godot --path . --rendering-driver opengl3 --fixed-fps 30
+  --write-movie out.png --quit-after 175 -- --play --fxshow --shot-frame=99999`
+  (Compatibility renderer); results in project files `game/combat-feel/`.
 - **Revert:** `git revert <hash>`

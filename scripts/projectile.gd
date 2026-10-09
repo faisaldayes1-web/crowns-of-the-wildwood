@@ -9,6 +9,7 @@ extends Node3D
 const Stats = preload("res://scripts/stats.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Barricade = preload("res://scripts/barricade.gd")
+const Fx = preload("res://scripts/fx.gd")
 
 const HIT_RADIUS := 0.7
 const FLIGHT_HEIGHT := 1.1   # how high above the feet a shot flies
@@ -55,6 +56,23 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 		effect["root"] = stats.root
 	if stats.get("burn", false):
 		effect["burn"] = true
+	# Which hit effect the shot makes (scripts/fx.gd KINDS).
+	if fire:
+		effect["fx"] = "fire"
+	elif frost:
+		effect["fx"] = "frost"
+	elif drain:
+		effect["fx"] = "dark"
+	elif stats.get("nature", false) or stats.get("thorn", false):
+		effect["fx"] = "nature"
+	elif holy:
+		effect["fx"] = "holy"
+	elif splash > 0.0 or stats.get("attack", "") == "spell":
+		effect["fx"] = "arcane"
+	elif stats.has("slow"):
+		effect["fx"] = "venom"
+	else:
+		effect["fx"] = "heavy" if damage >= 2 else "arrow"
 	color = p_color
 	life = stats.range / speed
 	position = from + Vector3(0, FLIGHT_HEIGHT, 0)
@@ -282,20 +300,16 @@ func _burst() -> void:
 			if t.team != team and game._flat_dist(t.global_position, global_position) < splash + 0.5:
 				t.take_hit(damage, owner_unit)
 		var ground := Vector3(global_position.x, 0.0, global_position.z)
+		Fx.of(game).blast(global_position, splash, effect.fx)
 		game.sfx.play("explosion" if fire and splash > 2.5 else ("frost" if frost else "bolt_hit"), global_position, 0.0 if splash > 2.5 else -5.0, 0.12)
+		# The burst itself is drawn by Fx.blast above; the light and shake stay.
 		if fire:
-			game.spawn_ring(ground, splash, Color(1.0, 0.6, 0.2), 0.45, 0.2)
-			game.spawn_splash(global_position, Color(1.0, 0.6, 0.15), 40, 9.0, 0.7)
-			game.spawn_splash(global_position + Vector3(0, 0.5, 0), Color(0.25, 0.22, 0.2), 16, 2.5, 1.2, true)
 			game.spawn_flash(ground, Color(1.0, 0.6, 0.2), 6.0, 0.4)
 			game.shake_at(global_position, 0.5)
 		elif frost:
-			game.spawn_ring(ground, splash, color, 0.5, 0.25)
-			game.spawn_splash(global_position, Color(0.85, 0.95, 1.0), 30, 5.0, 0.8, true)
 			game.spawn_flash(ground, color, 4.0, 0.35)
+			game.shake_at(global_position, 0.25)
 		else:
-			game.spawn_ring(ground, splash, color, 0.35, 0.2)
-			game.spawn_splash(global_position, color, 14, 4.0, 0.4)
 			game.spawn_flash(ground, color, 2.5, 0.25)
 	elif holy:
 		game.spawn_splash(global_position, color, 10, 3.0, 0.3)

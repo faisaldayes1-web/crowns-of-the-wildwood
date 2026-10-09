@@ -7,6 +7,7 @@ const Stats = preload("res://scripts/stats.gd")
 const Unit = preload("res://scripts/unit.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Projectile = preload("res://scripts/projectile.gd")
+const Fx = preload("res://scripts/fx.gd")
 const Gate = preload("res://scripts/gate.gd")
 const Hud = preload("res://scripts/hud.gd")
 const Touch = preload("res://scripts/touch.gd")
@@ -316,6 +317,10 @@ func _ready() -> void:
 			hero_mark = int(parts[7]) if parts.size() > 7 else hero_mark
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
+		if "--fxshow" in OS.get_cmdline_user_args():  # combat effects showcase (tests/fx_showcase.gd)
+			var show: Node = load("res://tests/fx_showcase.gd").new()
+			show.game = self
+			add_child(show)
 		return
 	banner.visible = false
 	sfx.play_music(false)
@@ -1469,56 +1474,20 @@ func spawn_trap(u, pos: Vector3, a: Dictionary) -> void:
 
 
 func spawn_burst(where: Vector3, radius: float, color: Color) -> void:
-	var ring := MeshInstance3D.new()
-	var disc := CylinderMesh.new()
-	disc.top_radius = radius
-	disc.bottom_radius = radius
-	disc.height = 0.05
-	ring.mesh = disc
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(color, 0.45)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ring.material_override = mat
-	add_child(ring)
-	ring.global_position = Vector3(where.x, where.y + 0.15, where.z)
-	get_tree().create_timer(0.25).timeout.connect(ring.queue_free)
+	## A soft flash of colour on the ground (scripts/fx.gd).
+	Fx.of(self).ground_glow(where, radius, color, 0.35)
 
 
 func spawn_splash(where: Vector3, color: Color, count: int, speed: float, life: float, rise: bool = false) -> void:
-	## A one-shot spray of little bits: sparks, splinters, motes.
-	var p := CPUParticles3D.new()
-	p.one_shot = true
-	p.explosiveness = 1.0
-	p.amount = count
-	p.lifetime = life
-	p.direction = Vector3.UP
-	p.spread = 180.0 if not rise else 50.0
-	p.initial_velocity_min = speed * 0.4
-	p.initial_velocity_max = speed
-	p.gravity = Vector3(0, 2.5, 0) if rise else Vector3(0, -14.0, 0)
-	p.damping_min = 1.0
-	p.damping_max = 3.0
-	p.scale_amount_min = 0.6
-	p.scale_amount_max = 1.2
-	var box := BoxMesh.new()
-	box.size = Vector3(0.14, 0.14, 0.14)
-	p.mesh = box
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.emission_enabled = true
-	mat.emission = color
-	mat.emission_energy_multiplier = 0.8
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	p.mesh.material = mat
-	var fade := Gradient.new()
-	fade.set_color(0, Color(1, 1, 1, 1))
-	fade.set_color(1, Color(1, 1, 1, 0))
-	p.color_ramp = fade
-	add_child(p)
-	p.global_position = where
-	p.emitting = true
-	get_tree().create_timer(life + 0.3).timeout.connect(p.queue_free)
+	## A one-shot spray of little bits: sparks, splinters, motes, smoke.
+	## Drawn by scripts/fx.gd: rising sprays are soft glowing motes (grey
+	## ones are smoke), the rest tumbling chips.
+	var fx: Node = Fx.of(self)
+	if rise:
+		var grey := color.s < 0.2 and color.v < 0.7
+		fx.burst(where, color, count if not grey else maxi(count / 3, 4), speed, life, fx.STYLE_SMOKE if grey else fx.STYLE_MOTE, Vector3.UP, 50.0)
+	else:
+		fx.burst(where, color, count, speed, life, fx.STYLE_SHARD)
 
 
 func spawn_popup(where: Vector3, text: String, color: Color) -> void:
@@ -1543,30 +1512,8 @@ func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 
 
 func spawn_ring(where: Vector3, radius: float, color: Color, duration: float = 0.5, thickness: float = 0.12) -> void:
-	## A ring that expands outward and fades: shockwaves, heals, blessings.
-	var ring := MeshInstance3D.new()
-	var torus := TorusMesh.new()
-	torus.inner_radius = 1.0 - thickness
-	torus.outer_radius = 1.0
-	torus.rings = 32
-	torus.ring_segments = 6
-	ring.mesh = torus
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.emission_enabled = true
-	mat.emission = color
-	mat.emission_energy_multiplier = 1.5
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ring.material_override = mat
-	add_child(ring)
-	ring.global_position = where + Vector3(0, 0.12, 0)
-	ring.scale = Vector3(0.2, 0.2, 0.2)
-	var tw := create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(ring, "scale", Vector3(radius, 1.0, radius), duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(mat, "albedo_color:a", 0.0, duration).set_delay(duration * 0.3)
-	tw.chain().tween_callback(ring.queue_free)
+	## A ring that races outward and fades: shockwaves, heals, blessings.
+	Fx.of(self).ground_ring(where, radius, color, duration)
 
 
 func spawn_pillar(where: Vector3, color: Color, height: float = 4.0, duration: float = 0.9) -> void:
@@ -1612,19 +1559,7 @@ func spawn_flash(where: Vector3, color: Color, energy: float = 3.0, duration: fl
 
 
 func spawn_swing(u, aim: Vector3) -> void:
-	var swing := MeshInstance3D.new()
-	var slab := BoxMesh.new()
-	slab.size = Vector3(1.6, 0.05, 0.7)
-	swing.mesh = slab
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1, 1, 1, 0.5)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	swing.material_override = mat
-	add_child(swing)
-	swing.global_position = u.global_position + aim * 1.1 + Vector3(0, 1.0, 0)
-	swing.rotation.y = atan2(-aim.x, -aim.z)
-	get_tree().create_timer(0.12).timeout.connect(swing.queue_free)
+	Fx.of(self).slash(u.global_position, aim, Color(1, 1, 1))
 
 
 func announce(text: String) -> void:
