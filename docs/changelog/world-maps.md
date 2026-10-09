@@ -7,7 +7,20 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 11:35 UTC · `(stamped by the next entry)` · No crate piles by the road; merge UI & Art to 86cbac7
+### 2026-10-09 11:45 UTC · `(stamped by the next entry)` · Faisal's 11:28-11:30 notes: Human upgrade station, boulders off paths, Elf gate banners, shrine rims and steps
+
+- **What:**
+  - **Human upgrade station** (11:28: "clipped into the wall… face it the other way… take out the orange circle"): it moves off the side wall to (bx + 3.2, −4.6) and turns to face the spawn circle. The gold pad, its flagstone and the block anvil are replaced by the small anvil, as on the Elves' station.
+  - **Boulders** (11:29: "move this rock out of the road"): each field boulder now steps away from the road until it clears every path by 2.4 m. If there's no clear spot within 6 m, it is left out. The boulder on the Forest Path by each gate went from z ±10 to ±16. The pair at (±13, ∓18) is dropped.
+  - **Elf gate banner frames** (11:29: "facing towards the road and not clipping into the building"): they now stand 3.4 m out from the wall at z ±7.1, clear of the gatehouse, and face the road.
+  - **Shrine rims** (11:30: "looks off put"): the two straight walls across the round plaza become 20 short flagstone stones following the plateau's curve, with the same height and collision.
+  - **Shrine steps** (11:30: textures "all over the place"): the steps are now the plaza's flagstone instead of small ashlar bricks.
+- **Files:** scripts/game.gd (`_build_cellar`, `_add_cover`, `_build_castle`, `_add_river`, `_add_island`)
+- **Tunables:** Human upgrade station (bx+1.1, −5.0) → (bx+3.2, −4.6), facing spawn, small anvil; shrine rim straight 7.6 m wall → 2 × 10 segments r 5.75, ±40.5°; Elf gate banner frames (fx+1.4, ±7.5, yaw 0) → (fx+3.4, ±7.1, facing z = 0)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0 (no bot matches: Faisal 09:07 asked for renders only)
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 11:35 UTC · `424385b` · No crate piles by the road; merge UI & Art to 86cbac7
 
 - **What:** Faisal 11:27, "did you fix the random fence issues and missing textures?". The crate-and-barrel piles beside the main road (two a side, one by each gate) are gone; by the Human gate the pile read as a stray fence. The road keeps its braziers, lanterns and banner frame. Also merges `origin/group/ui-art-z3px4x` (Elf courtyard facing and anvil, nameplates, menus).
 - **Files:** scripts/game.gd (`_add_road_dressing`; merge)
