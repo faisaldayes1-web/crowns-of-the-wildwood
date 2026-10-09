@@ -180,3 +180,21 @@ Files touched: `scripts/hud.gd` (`_menu_overview`, `_draw_map`), `scripts/unit.g
 Renders: `menu-pause-before.png` → `menu-pause-after.png`.
 
 Revert: `git revert e05dd11`
+
+---
+
+## 2026-10-09 — death screen: old "You fell!" label switched off
+
+Commit: `PENDING`
+
+What changed: the plain yellow "You fell! / Respawning in N" label (`game.respawn_label`) stayed
+on over the new death screen; it is now kept hidden, the HUD screen carries the countdown. The
+`--debug-killed` render flag kills the player 45 frames before the shot instead of 5 so the
+screen has faded in (gameplay fade-in unchanged at 0.4 s).
+
+Files touched: `scripts/game.gd` (`_update_respawn_timer`, debug flag timing),
+`docs/changelog/ui-art.md`. No tunables changed.
+
+Renders: `death-screen-after.png`.
+
+Revert: `git revert PENDING`

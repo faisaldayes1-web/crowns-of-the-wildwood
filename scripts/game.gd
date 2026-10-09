@@ -387,9 +387,10 @@ func _debug_hooks() -> void:
 			# before the shot so the pickup banner has popped in.
 			monarchs[1 - player_team].pick_up(player)
 			player.carrying = monarchs[1 - player_team]
-		if frame == shot_frame - 5 and player:
+		if frame == shot_frame - 45 and player:
 			if arg == "--debug-killed":
-				# The kill screen: a bot's banner over the player's death.
+				# The kill screen: a bot's banner over the player's death
+				# (45 frames early so the death screen has faded fully in).
 				player.global_position = Vector3(-20, 0, 3)
 				player.spawn_protect = 0.0
 				player.home_defense = false
@@ -852,11 +853,9 @@ func nearest_orb(pos: Vector3, radius: float):
 
 
 func _update_respawn_timer() -> void:
-	if player and player.dead:
-		respawn_label.text = "You fell!\nRespawning in %d" % ceili(player.respawn_timer)
-		respawn_label.visible = true
-	else:
-		respawn_label.visible = false
+	# The HUD's death screen (hud._draw_death_screen) carries the countdown
+	# now; the plain label stays off so the two do not stack.
+	respawn_label.visible = false
 
 
 # --- Castles and routing -----------------------------------------------------
