@@ -3787,32 +3787,36 @@ func _add_river() -> void:
 	bud_mat.emission_enabled = true
 	bud_mat.emission = Color(0.6, 0.25, 0.4)
 	bud_mat.emission_energy_multiplier = 0.4
-	for i in 34:
-		var pz := lr.randf_range(-map_half.y + 1.0, map_half.y - 1.0)
-		if _near_bridge(pz, 1.2):
+	# Clusters of notched pads (the 2026-10-08 target art) hug the banks,
+	# two shades of green, some with a pink or white water lily.
+	var pad_mats := [pad_mat, _material(Color(0.28, 0.56, 0.26)), _material(Color(0.44, 0.72, 0.34))]
+	var white_mat := _material(Color(0.98, 0.95, 0.88))
+	white_mat.emission_enabled = true
+	white_mat.emission = Color(0.4, 0.38, 0.32)
+	white_mat.emission_energy_multiplier = 0.3
+	var placed := 0
+	var tries := 0
+	while placed < LILY_CLUSTERS and tries < 200:
+		tries += 1
+		var cz := lr.randf_range(-map_half.y + 1.0, map_half.y - 1.0)
+		if _near_bridge(cz, 2.0):
 			continue
-		var pad := MeshInstance3D.new()
-		var pm := CylinderMesh.new()
-		pm.top_radius = lr.randf_range(0.3, 0.48)
-		pm.bottom_radius = pm.top_radius
-		pm.height = 0.05
-		pm.radial_segments = 9
-		pad.mesh = pm
-		pad.position = Vector3(lr.randf_range(-RIVER_HALF + 0.6, RIVER_HALF - 0.6), 0.075, pz)
-		pad.rotation.y = lr.randf() * TAU
-		pad.material_override = pad_mat
-		add_child(pad)
-		if i % 3 == 0:
-			var bud := MeshInstance3D.new()
-			var bm := SphereMesh.new()
-			bm.radius = 0.11
-			bm.height = 0.2
-			bm.radial_segments = 6
-			bm.rings = 3
-			bud.mesh = bm
-			bud.position = Vector3(0, 0.1, 0)
-			bud.material_override = bud_mat
-			pad.add_child(bud)
+		var bank := -1.0 if lr.randf() < 0.5 else 1.0
+		var cx := bank * lr.randf_range(RIVER_HALF - 1.5, RIVER_HALF - 0.75)
+		placed += 1
+		for j in lr.randi_range(2, 4):
+			var pr := lr.randf_range(0.42, 0.78) * (1.0 if j == 0 else 0.8)
+			var off := Vector3(lr.randf_range(-0.9, 0.9), 0, lr.randf_range(-1.1, 1.1)) if j > 0 else Vector3.ZERO
+			var pp := Vector3(cx, 0.07 + j * 0.004, cz) + off
+			pp.x = clampf(pp.x, -RIVER_HALF + 0.35 + pr * 0.6, RIVER_HALF - 0.35 - pr * 0.6)
+			var pad := MeshInstance3D.new()
+			pad.mesh = _lily_pad_mesh(pr)
+			pad.position = pp
+			pad.rotation.y = lr.randf() * TAU
+			pad.material_override = pad_mats[(placed + j) % 3]
+			add_child(pad)
+			if j == 0 and placed % 2 == 0:
+				_add_water_lily(pp + Vector3(0, 0.03, 0), bud_mat if placed % 4 == 0 else white_mat, lr.randf() * TAU)
 	# Banks: a stone kerb of warm grey blocks along the water's edge (like the
 	# render's stacked-block banks), a pebbly strip behind it and a few boulders.
 	var kerb := _pbr("rock", 0.45, Color(0.92, 0.9, 0.86))
@@ -3870,11 +3874,65 @@ func _add_river() -> void:
 			var rz: float = bz + zs * (half + 0.12)
 			_add_railing(Vector3(-deck_len / 2.0 + 0.2, 0.1, rz), Vector3(deck_len / 2.0 - 0.2, 0.1, rz))
 			_add_collider(Vector3(0, 0.6, rz), Vector3(deck_len, 1.2, 0.2))
-		# Lanterns on the big bridge's abutments.
-		if half > 2.5:
-			for xs in [-1.0, 1.0]:
-				for zs in [-1.0, 1.0]:
-					_add_torch(Vector3(xs * (deck_len / 2.0 + 0.35), 0.42, bz + zs * (half + 0.3)))
+		# Stone pier pillars with fire bowls at all four corners (the target art);
+		# they replace the big bridge's torch stands. They stand on the bank
+		# just outside the railings, clear of the deck.
+		for xs in [-1.0, 1.0]:
+			for zs in [-1.0, 1.0]:
+				_add_stone_brazier(Vector3(xs * (deck_len / 2.0 + 0.6), 0.0, bz + zs * (half + 0.75)), zs > 0.0)
+
+
+const LILY_CLUSTERS := 22   # pad clusters on the Wildwood river (was 34 single small discs)
+
+
+func _lily_pad_mesh(radius: float) -> ArrayMesh:
+	## A flat lily pad: a disc with the classic wedge notch cut out, and a
+	## slightly raised rim so the ink outline reads.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var segs := 14
+	var notch := 0.55   # radians missing
+	var a0 := notch / 2.0
+	var span := TAU - notch
+	for k in segs:
+		var t0 := a0 + span * k / segs
+		var t1 := a0 + span * (k + 1) / segs
+		st.set_normal(Vector3.UP)
+		st.add_vertex(Vector3(0, 0.02, 0))
+		st.set_normal(Vector3.UP)
+		st.add_vertex(Vector3(cos(t1), 0.0, sin(t1)) * radius + Vector3(0, 0.025, 0))
+		st.set_normal(Vector3.UP)
+		st.add_vertex(Vector3(cos(t0), 0.0, sin(t0)) * radius + Vector3(0, 0.025, 0))
+	return st.commit()
+
+
+func _add_water_lily(pos: Vector3, petal: Material, rot: float) -> void:
+	## A small cup of pointed petals with a golden heart, sitting on a pad.
+	var flower := Node3D.new()
+	flower.position = pos
+	flower.rotation.y = rot
+	add_child(flower)
+	for k in 6:
+		var leaf := MeshInstance3D.new()
+		var pm := PrismMesh.new()
+		pm.size = Vector3(0.12, 0.22, 0.03)
+		leaf.mesh = pm
+		var a := TAU * k / 6.0
+		leaf.position = Vector3(cos(a) * 0.07, 0.09, sin(a) * 0.07)
+		leaf.rotation = Vector3(0, -a + PI / 2.0, 0)
+		leaf.rotate_object_local(Vector3.RIGHT, -0.5)
+		leaf.material_override = petal
+		flower.add_child(leaf)
+	var heart := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.05
+	sm.height = 0.08
+	sm.radial_segments = 6
+	sm.rings = 3
+	heart.mesh = sm
+	heart.position = Vector3(0, 0.08, 0)
+	heart.material_override = _gold()
+	flower.add_child(heart)
 
 
 func _add_bank_wall(sx: float, z0: float, z1: float, y: float, h: float) -> void:

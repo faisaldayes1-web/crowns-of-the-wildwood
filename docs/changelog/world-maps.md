@@ -52,3 +52,22 @@ commits newest-first, or close the PR.
 - **Renders:** `game/groups/world-maps/elf-keep-before.png` / `elf-keep-after.png`
 - **Depends on:** PR #1 (the branch base); nothing in Ember Pass or the HUD.
 - **Revert:** `git revert <hash>` (one commit, self-contained)
+
+## 2026-10-09 01:50 UTC: river lily pads and bridge pillars
+
+- **Previous entry's commit:** `fdac26f` (Elf keep palette) → `git revert fdac26f`
+- **Commit:** "River: clustered notched lily pads with water lilies, stone fire pillars at the bridges" (hash in the next entry's header / the PR's commit list)
+- **What:** the 34 small single lily discs scattered down the whole channel are now
+  22 clusters of 2–4 notched pads (the classic wedge cut-out, two greens) hugging the
+  banks, half of them carrying a pink or white water lily with a gold heart (the
+  2026-10-08 target art). The two flank bridges get a square stone pillar with a fire
+  bowl at each of their four corners on the banks (replacing the torch stands that only
+  the big bridge had); they stand outside the railings, clear of the deck and the bots'
+  bridge lane.
+- **Files:** `scripts/game.gd` (`_add_river`, new `_lily_pad_mesh`, `_add_water_lily`,
+  `LILY_CLUSTERS`).
+- **Tunables (old → new):** lily discs `34` singles → `LILY_CLUSTERS = 22` clusters;
+  pad radius `0.3–0.48` → `0.42–0.78` (×0.8 for the satellites); bridge lights: torch
+  stands on the big bridge only → `_add_stone_brazier` at all four corners of both bridges.
+- **Renders:** `game/groups/world-maps/river-before.png` / `river-after.png`
+- **Revert:** `git revert <hash>`
