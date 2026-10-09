@@ -52,7 +52,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tunables:** `threaded_cull_minimum_instances` 1000000 → (web only) 100000000
 - **Revert:** `git revert -m 1 7efb455`
 
-## 2026-10-09 04:50 UTC · `HASH-PENDING` · iPad web build runs faster: a quarter of the draw calls, baked HUD art
+## 2026-10-09 04:50 UTC · `3e1aea7` · iPad web build runs faster: a quarter of the draw calls, baked HUD art
 
 - **What:** Faisal: "it feels very laggy still" on the iPad. Measured in an iPad-emulating Chromium,
   a match frame issued ~10,200 WebGL draw calls, two thirds of them shadow passes (the sun's four
@@ -89,5 +89,5 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   10,249 → ~2,750 (shadow pass 6,500 → 1,150, HUD 1,400 → 345, 3D ~1,000 → ~650), the software
   renderer's frame time 3.4 s → 0.7 s, screenshots of the minimap, frame and panel unchanged to
   the eye, no new console errors. Not yet measured on a real iPad.
-- **Revert:** `git revert HASH-PENDING` (restores the old shadows, per-frame HUD drawing and
+- **Revert:** `git revert 3e1aea7` (restores the old shadows, per-frame HUD drawing and
   full-density 3D on the web)
