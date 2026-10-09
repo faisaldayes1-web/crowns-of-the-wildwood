@@ -588,3 +588,26 @@ sunken Elf cellar; full seed-7 match: Elves 2-0 at 137 s (captures work). Render
 `compare-elf-courtyard-reference-vs-rebuild.png` in game/groups/ui-art/.
 
 Revert: `git revert c5afec8`.
+
+## 2026-10-09 — Elf base decluttered, one paving stone throughout (Faisal 06:00: "both sides equally cluttered… front textures not uniform")
+
+Commit: `HASH_PENDING`. Elf side only (the Humans' side is World & Maps'); no map-wide pass.
+
+- **One paving**: the yard, the keep floor, both galleries and the crown-room floor now use the
+  courtyard's `_pavers()` (were cream flagstone, moonstone-tinted flagstone at 0.75, flagstone,
+  flagstone), so the base reads as one stone from the gate to the crown. The door apron outside
+  the gate and the road are shared map code (World & Maps) and unchanged.
+- **Yard decluttered** (`_dress_elf_yard`, `_build_castle`): removed the cobble lane, the two
+  lawns, four flower beds, two bushes by the gate, two lanterns, the two rampart fire pillars,
+  the hedge runs along the outside of the front wall, and the four bushes against the walls.
+  Kept: the two corner trees, the two fire pillars at the keep's arch, the four turret pads, the
+  gate torches, banner frames and tower pennants. Both teams now lay one runner with the faction
+  emblem from the gate to the archway (the Elves had a short rug at the arch plus a decal on the
+  lane).
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1 overlap
+(the pre-existing pines), 261 props; seed-5 90 s match (doors falling, see entry text).
+Renders: `elf-front-declutter-before.png` / `-after.png` and `compare-elf-front-before-vs-after.png`
+in game/groups/ui-art/.
+
+Revert: `git revert HASH_PENDING`.

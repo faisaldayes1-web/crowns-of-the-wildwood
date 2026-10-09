@@ -6037,7 +6037,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		# Cream sandstone squares with a hedge-green border strip (the
 		# reference's altar court), rug arms added below.
 		_add_block(Vector3(cx, fy + 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _pbr("moss", 0.5, Color(0.7, 0.85, 0.55)))
-		_add_block(Vector3(cx, fy + 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _flagstone())
+		_add_block(Vector3(cx, fy + 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _pavers() if elven else _flagstone())
 	else:
 		_add_block(Vector3(cx, fy + 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _marble(Color(0.55, 0.5, 0.52)))
 		_add_block(Vector3(cx, fy + 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _pbr("flagstone_grey", 0.9, Color(1.0, 0.96, 0.9)))
@@ -6197,9 +6197,9 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	# Entrance hall: fine flags; great hall: planks; chapel: a dark carpet on
 	# stone (or a mossy glade); chambers: planks under big rugs.
 	_add_block(Vector3(kx + side * 1.8, 0.045, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone" if elven else "flagstone_grey", 0.9, ELF_MOONSTONE * 0.88 if elven else Color(0.95, 0.95, 0.97)))
-	_add_block(Vector3((room_f + room_b) / 2.0, 0.045, -g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _flagstone() if elven else planks)
+	_add_block(Vector3((room_f + room_b) / 2.0, 0.045, -g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pavers() if elven else planks)
 	if elven:
-		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _flagstone())
+		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pavers() if elven else _flagstone())
 	else:
 		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pbr("carpet", 1.1, Color(0.3, 0.3, 0.5)))
 	_add_block(Vector3(back_c, 0.045, 0), Vector3(back_d, 0.03, wz * 2), Color.WHITE, false, planks)
@@ -7597,7 +7597,9 @@ func _build_castle(team: int) -> void:
 	var in_x := fx + side * 0.5                   # the front wall's inner face
 
 	# --- The yard: sandstone flags inside the walls. ---
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(Color(0.97, 0.96, 0.9) if mossy else Color.WHITE))
+	# (The Elves' base is paved in one stone everywhere, yard to crown room:
+	# Faisal 06:00 2026-10-09, "the front textures are not even uniform".)
+	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _pavers() if mossy else _flagstone())
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
@@ -7654,7 +7656,7 @@ func _build_castle(team: int) -> void:
 	var khz := KEEP_HALF_Z
 	var kdepth := absf(bx - kx)
 	var kcx := (kx + bx) / 2.0
-	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _pbr("flagstone", 0.75, ELF_MOONSTONE * 0.88) if mossy else _pbr("flagstone_grey", 0.7, Color(0.9, 0.9, 0.94)))
+	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _pavers() if mossy else _pbr("flagstone_grey", 0.7, Color(0.9, 0.9, 0.94)))
 	# Side walls, each with a side door near the back (a second way out of the keep).
 	# The Elves' keep is an open court (Faisal's 2026-10-09 brief): its side
 	# walls are a waist-high sandstone parapet with hedge on top, so the
@@ -7685,12 +7687,11 @@ func _build_castle(team: int) -> void:
 	for k in 7:
 		_add_block(Vector3(kx, KEEP_H + 0.7, -KEEP_DOOR_HALF + 0.75 + k * 1.25), Vector3(0.8, 0.6, 0.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# A rug up the yard's lane to the archway, and one from the archway to the throne.
-	if team == 0:
-		_add_rug(Vector3(kx - side * 2.4, 0.025, 0), Vector2(3.6, 5.0), color)  # its top clears the keep floor's (0.05): coplanar tops flicker
-	else:
-		# The Humans' parade ground: one long royal runner from the gate to the archway.
-		_add_rug(Vector3((in_x + kx) / 2.0, 0.025, 0), Vector2(absf(kx - in_x) - 0.5, 3.4), color)
-		_add_emblem_decal(Vector3((in_x + kx) / 2.0, 0.072, 0), 2.2, team)
+	# One runner from the gate to the archway on both sides: the route reads
+	# at a glance and nothing else lies on the yard (the Elves had a cobble
+	# lane, lawns and beds here until Faisal's 06:00 2026-10-09 "cluttered").
+	_add_rug(Vector3((in_x + kx) / 2.0, 0.025, 0), Vector2(absf(kx - in_x) - 0.5, 3.4), color)
+	_add_emblem_decal(Vector3((in_x + kx) / 2.0, 0.072, 0), 2.2, team)
 	if team != 0:   # (the Elves' stairs up to the crown room take its place)
 		_add_rug(Vector3(kx + side * 3.0, 0.05, 0), Vector2(5.0, 2.8), color)
 		_add_emblem_decal(Vector3(kx + side * 1.6, 0.097, 0), 1.7, team)
@@ -7698,8 +7699,6 @@ func _build_castle(team: int) -> void:
 	# The yard stays open: lanterns (Elves) or nothing but the gatehouse
 	# banners (Humans). Faisal: the base was too busy.
 	if team == 0:
-		_add_lantern(Vector3(kcx - side * 6.5, 0, hz - 1.4))
-		_add_lantern(Vector3(kcx - side * 6.5, 0, -(hz - 1.4)))
 		_dress_elf_yard(team, fx, kx, side, hz)
 	# Banners on the yard side of the gatehouse towers.
 	for zs in [-1.0, 1.0]:
@@ -7708,11 +7707,10 @@ func _build_castle(team: int) -> void:
 	for zs in [-1.0, 1.0]:
 		if team == 0 or zs < 0.0:
 			_add_wall_torch(Vector3(kx + side * 1.2, kh - 0.5 if team == 0 else 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
-	# Faction flavour: elves grow greenery against their walls, humans post iron braziers.
+	# Faction flavour: the Humans post iron braziers (the Elves' walls stay
+	# clean: no bushes against them since 06:00 2026-10-09).
 	if team == 0:
-		for zs in [-1.0, 1.0]:
-			_add_bush(Vector3(fx - side * 2.3, 0, zs * (hz + 1.4)), int(zs) + 9)
-			_add_bush(Vector3(kx - side * 1.2, 0, zs * (khz + 1.5)), int(zs) + 11)
+		pass
 	else:
 		for zs in [-1.0, 1.0]:
 			_add_torch(Vector3(kx - side * 1.3, 0, zs * (khz - 0.6)))
@@ -7762,33 +7760,16 @@ func _build_castle(team: int) -> void:
 
 
 func _dress_elf_yard(team: int, fx: float, kx: float, side: float, hz: float) -> void:
-	## The Elf yard between the gate and the keep, from the courtyard
-	## reference: a cobbled lane up the middle, grass with flower beds either
-	## side of it, a wildwood tree in each corner and stone fire pillars at
-	## the keep's arch. Only the trees are solid, and they sit off the lane
-	## and off the stair routes.
-	var lane_x := (fx + side * 1.6 + kx - side * 0.4) / 2.0
-	var lane_len := absf(kx - side * 0.4 - (fx + side * 1.6))
-	# (The lane and lawns sit 2 cm above the yard flags: 5 mm coplanar with
-	# them they depth-fought and showed in patches, pass B render.)
-	_add_block(Vector3(lane_x, 0.03, 0), Vector3(lane_len, 0.02, 3.6), Color.WHITE, false, _pbr("cobble", 0.55, Color(0.82, 0.8, 0.74)))
-	var grass := _pbr("grass", 0.35, Color(0.92, 1.0, 0.86))
-	grass.roughness = 1.0
+	## The Elf yard between the gate and the keep: one runner up the middle
+	## (laid by `_build_castle`), a wildwood tree in each back corner, stone
+	## fire pillars at the keep's arch and the marked turret spots. Nothing
+	## else: the cobble lane, lawns, flower beds, bushes, lanterns, rampart
+	## fire pillars and the hedge along the front wall were cut on Faisal's
+	## 06:00 2026-10-09 "both sides equally cluttered". Only the trees are
+	## solid, off the lane and the stair routes.
 	for zs in [-1.0, 1.0]:
-		var z0 := 2.6
-		var z1 := hz - 1.3
-		_add_block(Vector3(lane_x, 0.03, zs * (z0 + z1) / 2.0), Vector3(lane_len - 1.0, 0.02, z1 - z0), Color.WHITE, false, grass)
-		_add_flower_bed(Vector3(kx - side * 3.2, 0, zs * 4.4), Vector2(1.1, 2.0), 410 + int(zs))
-		_add_flower_bed(Vector3(fx + side * 4.0, 0, zs * 4.6), Vector2(1.1, 1.8), 420 + int(zs))
-		_add_bush(Vector3(fx + side * 2.4, 0, zs * 5.6), 81 + int(zs))
 		_add_tree_grown(Vector3(kx - side * 2.6, 0, zs * (hz - 4.2)))
 		_add_stone_brazier(Vector3(kx - side * 1.9, 0, zs * 3.4))
-		# Fire pillars on the rampart deck (the layout sheet's outer defence),
-		# on its outer half, clear of the archer posts, turret spots and stair tops.
-		_add_stone_brazier(Vector3(fx - side * 0.5, WALK_Y, zs * (hz - 2.0)))
-		# A trimmed hedge along the outside foot of the front wall, gate to corner.
-		_add_hedge_run(Vector3(fx - side * 2.1, 0, zs * (Stats.DOOR_HALF + 3.4)), Vector3(fx - side * 2.1, 0, zs * (hz - 0.9)), 0.55, 500 + int(zs))
-	_add_emblem_decal(Vector3(lane_x, 0.06, 0), 2.2, team)
 	# Turret pads where the Engineers build (the sheet's outer-defence turrets).
 	for spot in turret_spots(team):
 		_add_turret_pad(spot)
