@@ -785,7 +785,8 @@ func _add_hair_style(style: int, color: Color) -> void:
 				var lx := i * 0.2
 				_hair_piece(head, _cyl(0.13, 0.08, 0.95, 5), Vector3(lx, 0.2, -0.56 + absf(lx) * 0.12), Vector3(-0.1, 0, i * 0.07), hair)
 			for side in [-1.0, 1.0]:
-				_hair_piece(head, _cyl(0.11, 0.06, 0.75, 5), Vector3(side * 0.58, 0.2, 0.14), Vector3(0, 0, side * 0.06), hair)
+				# Behind the ear, round and tapering (a flat slab read as a board in front of the face).
+				_hair_piece(head, _cyl(0.1, 0.05, 0.7, 7), Vector3(side * 0.6, 0.18, -0.12), Vector3(0.08, 0, side * 0.05), hair)
 		3:  # Braids: two plaits of chunky beads down the sides, each with a tie and a tuft.
 			for side in [-1.0, 1.0]:
 				for k in 4:

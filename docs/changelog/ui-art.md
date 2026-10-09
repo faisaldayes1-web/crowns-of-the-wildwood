@@ -773,3 +773,19 @@ Files: `scripts/hud.gd`, `scripts/game.gd`, `scripts/character_model.gd`, `scrip
 `tools/menu_flow_test.gd`; `--audit` 1 overlap (pre-existing pines); seed-5 bot match.
 
 Revert: `git revert cc73516`.
+
+## 2026-10-09 — Menu render fixes
+
+Commit: `HASH`. From the first renders of the boards: the Settings page fits the board in a
+match and at the title (gap (h − 442) / 4, title body 594 − 130); switch labels shrink to fit
+beside the switch; team-call and Controls keycaps named X / Y / A / B stay keyboard keys (new
+`keyboard` flag on `_keycap`; they drew as pad buttons); on the skill rows the level badge and
+pips moved under the art strip with "Next:" above them, the description wraps clear of the art,
+the "1 pt" cost sits beside the + button (it sat under the key number); CLASS UPGRADES rows show
+pips and x/3 on the name line so the promotion names no longer run into them; the Long style's
+side locks are round and behind the ear.
+
+Files: `scripts/hud.gd`, `scripts/character_model.gd`, `docs/changelog/ui-art.md`. Tested:
+`--check-only`; `tools/options_menu_test.gd` 0 failures.
+
+Revert: `git revert HASH`.
