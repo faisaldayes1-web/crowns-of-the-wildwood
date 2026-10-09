@@ -27,6 +27,7 @@ var attack_timer := 0.0
 var flash_timer := 0.0
 const FLASH_TIME := 0.22     # hit flash: white for the first frames, then red, easing back
 var hitstop_timer := 0.0
+var heartbeat_timer := 0.0
 const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits for its cooldown
 var input_buffer := [0.0, 0.0, 0.0]  # ability 1, ability 2, dodge
 var swing_flip := false     # alternate the slash arc left/right    # hit stop: the model's animation holds for a beat (looks only)
@@ -1005,6 +1006,12 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		recent_hitters[attacker] = Time.get_ticks_msec() / 1000.0
 	game.spawn_popup(global_position + Vector3(0, 2.0, 0), "-%d" % amount, Color(1, 0.35, 0.3))
 	game.sfx.play("hurt", global_position, -4.0 if not is_player else 0.0, 0.15)
+	# Weight in the sound too: a crunch under heavy blows, a crackle under spells.
+	var hk := _hit_kind(attacker, effect)
+	if amount >= 2 or hk == "heavy":
+		game.sfx.play("hit_heavy", global_position, -2.0 if amount >= 2 else -7.0, 0.1)
+	elif hk in ["arcane", "frost", "holy", "dark", "nature", "fire"]:
+		game.sfx.play("hit_magic", global_position, -6.0, 0.12)
 	if is_player:
 		game.shake(0.35)
 		game.rumble(self, 0.3, 0.8 if hearts <= 1 else 0.6, 0.22)
@@ -1021,6 +1028,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			if attacker.is_player:
 				game.shake(0.28)
 				game.kick_cam(global_position - attacker.global_position, 0.22)
+				game.sfx.ui("kill", -4.0)
 				attacker._hitstop(0.1)
 			if level - attacker.level >= 2:
 				attacker.giant_kills += 1
@@ -1736,6 +1744,14 @@ func _physics_process(delta: float) -> void:
 			game.spawn_splash(global_position + Vector3(0, 0.9, 0), Color(0.55, 0.55, 0.6), 4, 1.2, 0.9, true)
 		overhead.visible = stealth_timer <= 0.0 or is_player
 	bot_block_timer = maxf(bot_block_timer - delta, 0.0)
+	if is_player and hearts == 1:
+		# Your last heart: a heartbeat you can hear, quickening nothing else.
+		heartbeat_timer -= delta
+		if heartbeat_timer <= 0.0:
+			heartbeat_timer = 0.95
+			game.sfx.ui("heartbeat", -9.0)
+	else:
+		heartbeat_timer = 0.0
 	if guard_timer > 0.0:
 		guard_timer -= delta
 		if guard_timer <= 0.0:
