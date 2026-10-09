@@ -427,3 +427,29 @@ investigation, see the next entry).
 Renders: `elf-base-passD-throne.png`, `elf-base-passD-castle.png`.
 
 Revert: `git revert d2bf681`
+
+---
+
+## 2026-10-09 — Fix: bot raiders trapped behind the crown room in both keeps (0-0 matches)
+
+Commit: `PENDING`
+
+What was wrong: since the World & Maps merge (5304307) every headless bot match ended 0-0 with no
+gate damage. Both teams' raiders came up the spawn stairs, headed for the gate straight through the
+throne room's back wall (the route gives the gate, not the gallery corner, from there), slid along
+the wall as designed, and ran into the new solid stone fire pillar standing 8 cm off the room's
+outer corner, which closed the corner between wall and gallery. They oscillated there for the whole
+match. Traced with a per-bot probe print and a solid-box dump behind the room; main (799a873) and
+this branch before the merge (ece3b24) were fine.
+
+Fix (shared `_polish_keep`, both teams): the four fire pillars moved off the room's corners to the
+keep's archway wall (`kx + side*1.0, ±(KEEP_DOOR_HALF+2.4)`) and the keep's back wall
+(`bx - side*1.0, ±(ROOM_HALF_Z+0.85)`), where nothing routes. No routing code touched (World & Maps
+owns it; told them).
+
+Tested: `--check-only`; `--audit` unchanged (1 pre-existing pine overlap); seed-5 match: raiders out
+of both keeps by t=30 s, doors 110/198 at t=60 s (were 200/200 for 600 s before).
+
+Files touched: `scripts/game.gd` (`_polish_keep`), `docs/changelog/ui-art.md`.
+
+Revert: `git revert PENDING` (brings the 0-0 matches back)

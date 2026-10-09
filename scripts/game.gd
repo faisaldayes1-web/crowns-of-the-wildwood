@@ -6237,10 +6237,14 @@ func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
 		_add_pennant(team, Vector3(back_x - side * 0.27, ROOM_H - 0.1 + throne.y, zs * 1.7), Vector3(-side, 0, 0), 0.9, 1.6, zs > 0.0)
 		for xs in [-1.0, 1.0]:
 			_add_pennant(team, Vector3(cx + xs * 1.6, ROOM_H - 0.1 + throne.y, zs * (hz + 0.27)), Vector3(0, 0, zs), 1.0, 1.7, xs > 0.0)
-	# Torches at the throne room's outer corners, and inside at the back (Humans).
+	# Fire pillars by the keep's archway and against its back wall, and
+	# inside at the back (Humans). They used to stand at the throne room's
+	# outer corners, where the solid pillar closed the gap between the wall
+	# and the gallery: raiders leaving the stairs slid along the room's back
+	# wall into that corner and never got out (both keeps, 0-0 matches).
 	for zs in [-1.0, 1.0]:
-		_add_stone_brazier(Vector3(front_x - side * 0.8, 0, zs * (hz + 0.85)))
-		_add_stone_brazier(Vector3(back_x + side * 0.8, 0, zs * (hz + 0.85)))
+		_add_stone_brazier(Vector3(kx + side * 1.0, 0, zs * (KEEP_DOOR_HALF + 2.4)))
+		_add_stone_brazier(Vector3(side * (CASTLE_X + CASTLE_DEPTH) - side * 1.0, 0, zs * (hz + 0.85)))
 		if not elven:
 			_add_torch_stand(Vector3(back_x - side * 0.7, 0, zs * (hz - 0.7)), 1.7)
 			_add_candle_stand(throne + Vector3(side * 2.6, 0, zs * 1.15))
