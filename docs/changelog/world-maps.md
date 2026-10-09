@@ -7,13 +7,21 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 02:55 UTC · `(stamped by the next entry)` · Clipping audit: 63 overlaps down to 1
+### 2026-10-09 03:25 UTC · `(stamped by the next entry)` · Human base identity: stone lions, ballistae, parade ground, drill yard
+
+- **What:** The Humans' castle now reads as its own faction against the Elves' hedge-and-crystal sanctuary (Faisal 00:14: "the bases should really feel more unique"), on both maps. **Main gate:** two stone lions sit on plinths outside the gate, a lion crest hangs on the parapet over it, and a timber ballista stands on each gatehouse tower (the sheet's outer-defence turrets, decorative). **Courtyard (the yard):** one long royal runner from the gate to the keep's archway, flanked by two pairs of stone pillars with gold caps, lion crests and blue pennants (a parade ground). **Inner castle:** a pair of lions guards the sanctuary ward at the top of the spawn stairs, and a smaller pair flanks the Crown Vault doors. **Spawn area (the barracks yard):** a blue runner from the spawn circle to the stairs (the Elves keep cobbles); the south wall is a drill yard instead of flower beds: a weapon rack, an archery target, two straw sparring dummies and two lion crests between the torches. **Ember Pass:** the Elves' courtyard walls and crown-altar ring are trimmed hedge there too (they were basalt rubble), so the Elf base reads as a green oasis on the ash, matching Faisal's courtyard targets; the Human changes above apply on Ember Pass as well.
+- **Files:** scripts/game.gd (new `_box_at`, `_add_stone_lion`, `_add_ballista`, `_add_training_dummy`, `_dress_human_castle`; Human branches in `_build_castle`, `_build_cellar`, `_build_throne_room`; `_hedge_mat`)
+- **Tunables:** none in stats.gd. Layout (Human yard): pillars at x in+3.0 / in+6.6, z ±6.7; gate lions at x fx−2.5, z ±6.7; ward lions at x bx−2.0, z ±2.45 (scale 0.8); vault lions at front−1.35, z ±2.3 (scale 0.72). Nothing new sits on a lane: gate→archway (|z| < 3.5), yard→rampart stairs (z ±9.5), spawn lane (|z| < 1.6).
+- **Tested:** `--check-only`; `--audit` Wildwood 1 (unchanged), Ember Pass 0; 30 s headless bot matches on both maps with no script errors. Renders: `game/groups/world-maps/human-*-after.png`
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 02:55 UTC · `ed70e0a` · Clipping audit: 63 overlaps down to 1
 
 - **What:** Every prop that cut into a wall, a building, a fence or another prop on the Wildwood is moved or placed smarter. Rocks on the river bank keep clear of the mills; the bank reeds stand on the cobble strip instead of inside the stone kerb; the mills sit 0.6 m further up the bank; field rocks avoid trees, ruins, crates, fences and landmarks, and their companion stone sits beside instead of inside them; the road crates' cask stands clear of the stack; the shrine benches moved off the fence posts; the barrow's gravestones, lantern and candles stand clear of the crypt; the boulder by the east road moved 2.5 m south so its pebbles miss the crates; big trees keep 5.4 m between trunks and all trees keep clear of placed props; the spawn hall's first wall crystal/torch (it sat over the shelves) is gone. The audit itself now ignores a prop's own walk-around blocker, furniture standing inside the throne room, and bottles on shelves (all by design).
 - **Files:** scripts/game.gd (`_audit_clipping`, `_add_river`, `_add_river_plants`, `_add_watermills`, `_add_field_rocks`, `_add_crates`, `_add_road_lanterns`, `_add_barrow`, `_add_boulder`, `_add_cover` boulder list, `_tree_spot_ok`, `_build_cellar`)
 - **Tunables:** bank-rock mill exclusion |z|−25.5 > 5.5 → |z|−30 > 5.5; reeds x RIVER_HALF+0.5 → +1.3; mills x RIVER_HALF+3.2 → +3.8; field rocks |z| ≥ 6 → ≥ 7.5, tree clearance 2.5 → 2.8 (3.8 big), companion offset (0.9, 0.5) → (1.7, 1.0); road cask offset 1.5 → 1.75; bench (ISLAND_R+4.5, 4.2) → (ISLAND_R+3.2, 4.6); big-tree spacing 3.6 → 5.4; boulder (33, −8) → (33, −10.5)
 - **Tested:** `--audit` Wildwood 63 → 1 (two pine crowns touching by 22 cm at (62.7, −32.4), left as natural foliage); Ember Pass 16 → 0 real (the 6 "vault" lines were furniture inside the throne room, now excluded)
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert ed70e0a`
 
 ### 2026-10-09 02:40 UTC · `1eb78a4` · Base remaster: Wildbloom courtyard, crystal crown altar, Human stone counterpart
 
@@ -27,7 +35,7 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 - **Tunables:** none in stats.gd. Layout: spawn-ring fire pillars at x +12/+17 m behind the back wall, z ±3.6; banner poles at x +17.2, z ±6.2; hedge ring radius 2.85 (gap 52° towards the doors); Human pillar ring radius 2.9 (gap 50°)
 - **Gameplay, unchanged (for Faisal to decide, see the thread):** the class stations, upgrade station and NPC guide stay downstairs in the protected spawn hall as before; the sheet draws the courtyard upstairs and the spawn area as a separate protected zone. Nothing is solid in the new dressing except the fire pillars and the crate stack, so the capture circle, the stairs lane and the class row are untouched.
 - **Tested:** `--check-only`; `--audit` 63 overlaps on Wildwood (same as before the change), 16 on Ember Pass; 30 s headless bot match on each map with no script errors (see the next entry if that changed). Renders: `game/groups/world-maps/base-*-before.png` / `base-*-after.png`
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert 1eb78a4`
 
 ### 2026-10-09 02:10 UTC · `b5e89e4` · Bring in the combined build with Ember Pass
 
