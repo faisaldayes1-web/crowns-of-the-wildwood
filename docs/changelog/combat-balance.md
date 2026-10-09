@@ -334,3 +334,21 @@ then `python3 tools/balance/agg.py <tag>`.
   heavy-weapon hits, crackle -6 dB, kill -4 dB, heartbeat -9 dB every 0.95 s).
 - **Checks:** `tools/tests/run.sh` 29/29.
 - **Revert:** `git revert 007a834`
+
+## 12. Balance patch 1
+
+- **When:** 2026-10-09 13:55 UTC (Faisal 2026-10-09 11:38 "lets start building
+  balance patches with test runs as well")
+- **Commit:** `b25c80f`
+- **What:** Five tunables, measured before and after on 12 seeds across both
+  maps on the combined build; full write-up in `docs/balance/patch-1.md`.
+  Also `a1bc130`: agg.py prints melee/ranged/support K/D and downed/revive
+  rates, and the death tests finish off a downed unit.
+- **Files:** `scripts/stats.gd`, `docs/balance/patch-1.md`.
+- **Tunables:** Humans `regen_mult` 1.06 → 1.15; Knight `speed` 1.06 → 1.10;
+  Warden `range` 2.0 → 2.2; Human Crossbow `cooldown` 0.75 → 0.68; Elf Grove
+  Mend `heal_radius` 6.0 → 5.0.
+- **Batches:** p1w0/p1w1 Wildwood 51-56: Humans 4-2 → Elves 5-1; p1e0/p1e1
+  Ember Pass 51-56: Elves 5-1 → 3-3. Human melee K/D 0.39-0.51 → 0.70-0.83,
+  Elf support 2.1-2.9 → 0.8-1.3.
+- **Revert:** `git revert b25c80f`
