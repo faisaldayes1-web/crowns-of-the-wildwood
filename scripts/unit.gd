@@ -401,7 +401,9 @@ func choose_variant(for_role: int, index: int) -> bool:
 		game.spawn_flash(global_position, gold, 4.0, 0.5)
 		game.spawn_popup(global_position + Vector3(0, 2.4, 0), role_name().to_upper(), gold)
 		if is_player:
-			game.announce("You are now a %s!" % role_name())
+			# (The rank-up flourish says PROMOTED! with the variant name; the
+			# chat log keeps the line.)
+			game.chat_system("You are now a %s!" % role_name())
 			# The rank-up flourish, saying PROMOTED! with the new name.
 			game.levelup_timer = 3.2
 			game.levelup_level = level

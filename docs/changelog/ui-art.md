@@ -159,3 +159,24 @@ Renders: `world-elf-castle-pass2.png`, `world-courtyard-pass2.png`, `characters-
 available; the previous build's card is described above).
 
 Revert: `git revert ece3b24`
+
+---
+
+## 2026-10-09 — pause map fits its panel; promotion announce moved to chat
+
+Commit: `PENDING`
+
+What changed:
+- **Pause menu MAP tab**: the valley map keeps its 58:26 shape but is sized to leave room for the
+  legend and the quest line inside the panel (the second legend row and the quest line used to sit
+  under the MAIN MENU footer). Wildwood trees past the valley's edge are no longer drawn outside
+  the map frame (they were scattered over the whole panel).
+- **Promotion**: the centre "You are now a Vanguard!" announce no longer doubles the PROMOTED!
+  flourish; the line goes to the chat log instead.
+
+Files touched: `scripts/hud.gd` (`_menu_overview`, `_draw_map`), `scripts/unit.gd` (`choose_variant`),
+`docs/changelog/ui-art.md`. No tunables changed.
+
+Renders: `menu-pause-before.png` → `menu-pause-after.png`.
+
+Revert: `git revert PENDING`

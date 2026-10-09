@@ -2893,6 +2893,10 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 	# Forest.
 	for t in game.map_trees:
 		var r: float = (2.6 if t.y > 0.5 else 1.8) * sx
+		# The wildwood runs past the valley's edge; only trees inside the
+		# map's own frame are drawn.
+		if not inner.grow(-r).has_point(m.call(t)):
+			continue
 		if detailed:
 			draw_circle(m.call(t) + Vector2(1, 1), r, Color(0, 0, 0, 0.2))
 		draw_circle(m.call(t), r, LEAF.darkened(0.25 if t.y > 0.5 else 0.1))
@@ -3143,7 +3147,11 @@ func _draw_game_menu() -> void:
 
 func _menu_overview(body: Rect2) -> void:
 	_bar_text(Vector2(body.get_center().x, body.position.y + 16), "THE WILDWOOD VALLEY", bar_font if bar_font else font, 16, CREAM, Color(0.2, 0.1, 0.02), 3)
-	var map_rect := Rect2(body.position + Vector2(0, 26), Vector2(body.size.x, body.size.x * 26.0 / 58.0))
+	# The map keeps the valley's 58:26 shape but leaves room for the legend
+	# and the quest line below it inside the panel.
+	var map_h: float = minf(body.size.x * 26.0 / 58.0, body.size.y - 26.0 - 78.0)
+	var map_w: float = map_h * 58.0 / 26.0
+	var map_rect := Rect2(body.position + Vector2((body.size.x - map_w) / 2.0, 26), Vector2(map_w, map_h))
 	_draw_map(map_rect, true)
 	var y := map_rect.end.y + 22
 	var legend := [["Yellow ring: you", Color(1, 1, 0.3)], ["Red: enemies seen by your team", Color(1.0, 0.25, 0.2)], ["Red dots: potions", Color(1.0, 0.35, 0.4)], ["Gold stars: blessings", GOLD],
