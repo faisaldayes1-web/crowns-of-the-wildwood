@@ -1197,10 +1197,10 @@ func offer(p) -> Dictionary:
 		if is_upgraded(team, role):
 			if p.role == role and not p.hat_upgraded:
 				return _offer("NEW %s HAT" % cname.to_upper(), "Puts %s on G" % a.get("name", ""), 0, 0, "PUT ON", true, "", Vector2.ZERO)
-			return _offer("%s HAT MACHINE" % cname.to_upper(), "Upgraded: every %s hat has %s on G" % [cname, a.get("name", "")], 0, 0, "UPGRADED", false, "DONE", Vector2.ZERO)
+			return _offer("%s HAT MACHINE" % cname.to_upper(), "Upgraded: %ss get %s (G)" % [cname, a.get("name", "")], 0, 0, "UPGRADED", false, "DONE", Vector2.ZERO)
 		if p.role != role:
 			return {}   # the hat itself is on offer here (the world prompt)
-		return _offer("UPGRADE THE %s HAT" % cname.to_upper(), "Every %s on your team gains %s on G" % [cname, a.get("name", "")],
+		return _offer("UPGRADE THE %s HAT" % cname.to_upper(), "Your team's %ss all get %s (G)" % [cname, a.get("name", "")],
 			E.hat_wood, E.hat_ore, "UPGRADE", can_afford(team, E.hat_wood, E.hat_ore), _need(team, E.hat_wood, E.hat_ore), Vector2.ZERO)
 	if _by_door(p):
 		var gate = game.gates[team]
@@ -1263,11 +1263,11 @@ func draw_action_card(hud, me) -> void:
 	var touch: bool = hud.get("touch_ui") == true
 	var W: float = hud.size.x
 	var H: float = hud.size.y
-	var card := Rect2(Vector2(W / 2.0 - 250.0, H - (470.0 if touch else 236.0)), Vector2(500, 104))
+	var card := Rect2(Vector2(W / 2.0 - 280.0, H - (480.0 if touch else 268.0)), Vector2(560, 104))
 	hud._plate(card, Color(0.08, 0.06, 0.04, 0.93), Color(0.78, 0.58, 0.24), 10, 2)
 	var x := card.position.x + 18.0
 	hud._text(Vector2(x, card.position.y + 30), o.title, 18, Color(1.0, 0.84, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-	hud._text(Vector2(x, card.position.y + 52), o.detail, 13, Color(0.93, 0.9, 0.82), HORIZONTAL_ALIGNMENT_LEFT, 300, 2)
+	hud._text(Vector2(x, card.position.y + 52), o.detail, 13, Color(0.93, 0.9, 0.82), HORIZONTAL_ALIGNMENT_LEFT, 360, 2)
 	var row_y := card.position.y + 78.0
 	if o.bar != Vector2.ZERO:
 		# Health bar (the door's or the turret's) under the detail line.
