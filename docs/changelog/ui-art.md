@@ -185,7 +185,7 @@ Revert: `git revert e05dd11`
 
 ## 2026-10-09 — death screen: old "You fell!" label switched off
 
-Commit: `PENDING`
+Commit: `b259ad8`
 
 What changed: the plain yellow "You fell! / Respawning in N" label (`game.respawn_label`) stayed
 on over the new death screen; it is now kept hidden, the HUD screen carries the countdown. The
@@ -197,4 +197,4 @@ Files touched: `scripts/game.gd` (`_update_respawn_timer`, debug flag timing),
 
 Renders: `death-screen-after.png`.
 
-Revert: `git revert PENDING`
+Revert: `git revert b259ad8`
