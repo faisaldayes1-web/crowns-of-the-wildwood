@@ -221,7 +221,7 @@ merge PR #2 first and retarget this PR).
 
 ## 2026-10-09 — create-your-character screen toward the reference; faceted heads kept
 
-Commit: `PENDING`
+Commit: `027f43b`
 
 Faisal's reference (project files): `game/reference-renders/create-character-target-2026-10-09.png`.
 PR #2 already had the screen's bones (throne room stage, left category list Appearance / Hair /
@@ -251,4 +251,4 @@ Tunables (old → new): hall ambient (0.5, 0.44, 0.42) @ 0.45 → (0.62, 0.5, 0.
 
 Renders: `create-character-before.png` (PR #2 as merged, Human) → `create-character-after.png` (Elf).
 
-Revert: `git revert PENDING`
+Revert: `git revert 027f43b`
