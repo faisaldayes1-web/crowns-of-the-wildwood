@@ -37,8 +37,41 @@ const HERO_NAME_MAX := 12
 # Hero looks: Classic, and the Shadowborn look unlocked at account level 10
 # (a dusk tint, violet rim light and a cape on every class).
 const HERO_LOOKS := [["Classic", Color.TRANSPARENT], ["Shadowborn", Color(0.5, 0.42, 0.62)]]
+# Skin tones and the unclassed body's build (Create Your Character). The
+# build is the base model you spawn as; a class's own body replaces it.
+const HERO_SKINS := [["Fair", Color(0.98, 0.85, 0.74)], ["Light", Color(0.96, 0.75, 0.61)], ["Tan", Color(0.84, 0.62, 0.45)],
+	["Brown", Color(0.62, 0.42, 0.28)], ["Deep", Color(0.4, 0.26, 0.18)]]
+const HERO_BODIES := [["Slim", "rogue"], ["Sturdy", "knight"], ["Broad", "barbarian"]]
+# Face styles (scripts/face.gd, tools/make_faces.py): [name, blurb].
+const HERO_FACES := [["Bold", "Steady eyes, set brows"], ["Bright", "Wide eyes and a big grin"], ["Fierce", "Narrowed eyes, a smirk"], ["Gentle", "Soft eyes, a small smile"],
+	["Noble", "Calm eyes, a faint smile"], ["Sly", "Heavy lids, a crooked grin"]]
+# Eye colours: [name, swatch, texture suffix]. Humans default to brown, Elves to green.
+const HERO_EYES := [["Brown", Color(0.4, 0.22, 0.1), "brown"], ["Blue", Color(0.2, 0.4, 0.85), "blue"], ["Green", Color(0.2, 0.55, 0.25), "green"],
+	["Grey", Color(0.5, 0.52, 0.56), "grey"], ["Amber", Color(0.9, 0.62, 0.15), "amber"], ["Red", Color(0.75, 0.15, 0.15), "red"]]
+# Facial markings: [name, texture suffix ("" = none)].
+const HERO_MARKS := [["None", ""], ["Scar", "scar"], ["Claws", "claws"], ["Freckles", "freckles"], ["War Paint", "paint"]]
 # Maps: the Wildwood by day, and the moonlit night variant unlocked at level 10.
-const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"]]
+# Ember Pass is the volcano map (castles on basalt plateaus over lava, joined
+# by bridges, and the Fire Objective in the middle); open to everyone.
+const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"], ["Ember Pass", "volcano"]]
+
+# Ember Pass's Fire Objective: stand in the ring to capture it (alone it
+# takes capture_time seconds, each extra teammate adds extra_rate, counted up
+# to max_count); both sides inside freezes it; taking it from the other team
+# first burns it back to neutral. Left alone it settles back toward its
+# holder (or neutral) at `settle` times the capture rate. Bots send bots_take
+# to win it and keep bots_hold on it once it is theirs, one more while enemies
+# stand on it. (2 / 1 starved the raids: three draws in four test matches.)
+const FIRE_POINT := {"radius": 7.0, "capture_time": 8.0, "extra_rate": 0.5, "max_count": 3, "settle": 0.25,
+	"bots_take": 1, "bots_hold": 0}
+# FIRE form: while a team holds the Fire Objective every one of its classes
+# (and promotions) fights as its FIRE variant: the base attack sets enemies
+# alight (one more heart lost burn_delay seconds later, unless a healer mends
+# them first; a target only catches fire once every burn_cooldown seconds),
+# and abilities cost and cool down by the multipliers. It fades the moment
+# the point is lost. flame: the aura colour, Elves then Humans.
+const FIRE_FORM := {"burn_delay": 2.0, "burn_cooldown": 6.0, "burn_damage": 1, "cost_mult": 0.85, "cooldown_mult": 0.85,
+	"prefix": "Fire", "flame": [Color(1.0, 0.78, 0.28), Color(1.0, 0.42, 0.12)]}
 
 # Player banners (the calling card the enemy sees when you kill them, and
 # that you edit on the HERO tab): a background, an emblem, a frame and a title.
@@ -63,14 +96,18 @@ const ACCOUNT_XP_STEP := 150
 const ACCOUNT_MAX_LEVEL := 50
 const UNLOCK_LEVEL := 10
 const MATCH_BONUS := {"win": 300, "draw": 150, "loss": 100}
+# Match rewards shown on the summary screen and banked on the account (the
+# shop that spends them is a later milestone).
+const MATCH_GOLD := {"win": 300, "draw": 250, "loss": 200}
+const MATCH_SHARDS := {"win": 25, "draw": 20, "loss": 15}
 # Accolades on the end-of-match screen, each worth account XP. need is the
 # threshold (hearts healed, siege XP, kills in one life, assists, kills).
 const ACCOLADES := [
 	{"key": "crown", "name": "Crown Thief", "desc": "Carried the enemy crown home.", "xp": 100, "icon": "crown"},
-	{"key": "slayer", "name": "Giant Slayer", "desc": "Felled an enemy two levels above you.", "xp": 40, "icon": "sword"},
-	{"key": "streak", "name": "Unstoppable", "desc": "Five kills in a single life.", "need": 5, "xp": 50, "icon": "might"},
+	{"key": "slayer", "name": "Giant Slayer", "desc": "Felled an enemy two levels above you.", "xp": 40, "icon": "vanguard"},
+	{"key": "streak", "name": "Unstoppable", "desc": "Five kills in a single life.", "need": 5, "xp": 50, "icon": "takedown"},
 	{"key": "untouchable", "name": "Untouchable", "desc": "Three or more kills and never fell.", "need": 3, "xp": 50, "icon": "block"},
-	{"key": "top", "name": "Top Blade", "desc": "The most kills in the match.", "need": 3, "xp": 40, "icon": "dagger"},
+	{"key": "top", "name": "Top Blade", "desc": "The most kills in the match.", "need": 3, "xp": 40, "icon": "vanguard"},
 	{"key": "medic", "name": "Field Medic", "desc": "Healed twelve hearts on teammates.", "need": 12, "xp": 40, "icon": "mend"},
 	{"key": "breaker", "name": "Siege Breaker", "desc": "Battered enemy doors, turrets and the vault.", "need": 40, "xp": 40, "icon": "hammer"},
 	{"key": "wingman", "name": "Wingman", "desc": "Six or more assists.", "need": 6, "xp": 30, "icon": "guard"},
@@ -121,8 +158,13 @@ const CARRY_SPEED_MULT := 0.8
 
 const DODGE_TIME := 0.25      # seconds the dash lasts; nothing can hit you during it
 const DODGE_SPEED_MULT := 3.2 # dash speed as a multiple of run speed
-const DODGE_COOLDOWN := 2.0   # seconds until the next dodge is ready
+const DODGE_COOLDOWN := 4.0   # seconds until the next dodge is ready (2.0 → 4.0, Faisal 2026-10-09)
 const DODGE_COST := 10.0      # stamina (or mana) a dodge spends
+# Basic attacks (every class's left-click: Punch, Sword Strike, arrows, bolts,
+# Mend) cost nothing (Faisal 2026-10-09: "the basic attack shouldn't drain
+# your stamina or magika"). The per-class "cost" values in ROLES, FACTION_KITS
+# and VARIANTS (7-16) are kept for reference but overridden by this.
+const BASE_ATTACK_COST := 0.0
 
 const BLOCK_COST := 18.0      # stamina a blocked hit costs the blocker
 const BLOCK_DRAIN := 4.0      # stamina per second while the shield is up
@@ -230,7 +272,7 @@ const KNOCK_SPLASH := 8.0
 #   use_ability), cooldown is in seconds, cost comes out of the class's energy.
 const ROLES := {
 	Role.BASE: {"attack": "melee", "attack_name": "Punch", "attack_desc": "A quick jab. Find a class station!",
-		"damage": 1, "gate_damage": 1, "range": 1.7, "cooldown": 0.6,
+		"damage": 1, "gate_damage": 1, "range": 1.7, "cooldown": 0.72,   # 0.6 → 0.72 (Faisal 2026-10-09)
 		"energy": "stamina", "cost": 8, "speed": 1.0,
 		"color": Color(0.85, 0.8, 0.7), "abilities": []},
 	Role.KNIGHT: {"attack": "melee", "attack_name": "Sword Strike", "attack_desc": "A wide swing that also chips at doors.",
