@@ -11,7 +11,9 @@ Waiting to release, in this order:
 | PR | What | Planned tag | Status |
 | --- | --- | --- | --- |
 | [#6](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/6) | Online & Platforms group | patch or minor | draft, off main |
-| [#7](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/7) | World & Maps group | patch or minor | draft, was stacked on #1 (now in main): retarget to main |
+| [#7](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/7) | World & Maps group | patch or minor | draft, retargeted to main after #1 merged |
+| [#10](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/10) | UI & Art group | patch or minor | draft, off main |
+| [#9](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/9) | iPad web build | patch | draft, off main |
 | [#2](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/2) | Main menu rebuilt to match the mockup | not scheduled | needed before #4, which already contains it |
 | [#4](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/4) | Ember Pass volcano map, Fire Objective, Fire classes | v0.4.0 | held until the Volcano map and Current build showcase threads finish |
 | [#8](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/8) | Combat & Balance group | patch or minor | built on #1-#4 combined: after #4 |
