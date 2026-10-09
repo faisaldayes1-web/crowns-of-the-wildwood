@@ -1340,6 +1340,12 @@ func _hit_while_downed(attacker) -> bool:
 		attacker.gain_xp(Stats.XP_FINISH, "takedowns")
 		if attacker.is_player:
 			game.spawn_popup(global_position + Vector3(0, 1.6, 0), "FINISHED", Color(1, 0.4, 0.3))
+		# The finisher shows in the kill feed too (the down already counted
+		# as the kill for whoever knocked us down).
+		game.kill_feed.append({"killer": attacker.display_name, "kteam": attacker.team, "krole": attacker.role,
+			"victim": display_name, "vteam": team, "vrole": role, "time": Time.get_ticks_msec() / 1000.0, "finish": true})
+		if game.kill_feed.size() > 6:
+			game.kill_feed.pop_front()
 	if game.demo:
 		print("FINISH t=%d team%d %s by=%s" % [game.match_clock(), team, role_name(), attacker.role_name() if attacker else "trap"])
 	_die()
@@ -1389,6 +1395,51 @@ func _tick_revive(t, delta: float) -> void:
 	if t.revive_progress >= 1.0:
 		t._revive(self)
 		revive_target = null
+
+
+var finish_target = null      # (enemy side) the downed enemy we are finishing with a hold
+var finish_progress := 0.0
+var finish_frame := -10
+
+
+func finish_candidate():
+	## A downed enemy close enough to finish with a hold of interact, or null.
+	if dead or downed or carrying:
+		return null
+	var best = null
+	var best_d := Stats.REVIVE_RANGE
+	for other in game.units:
+		if other.team == team or not other.downed:
+			continue
+		var d := _flat_to(other.global_position).length()
+		if d <= best_d:
+			best_d = d
+			best = other
+	return best
+
+
+func can_finish(t) -> bool:
+	return t.downed and t.downed_total - t.downed_timer >= Stats.DOWNED_GRACE
+
+
+func _tick_finish(t, delta: float) -> void:
+	## Hold interact over a downed enemy: a deliberate finisher.
+	if finish_target != t:
+		finish_progress = 0.0
+	finish_target = t
+	finish_frame = Engine.get_physics_frames()
+	if not can_finish(t):
+		return
+	finish_progress += delta / Stats.FINISH_HOLD
+	facing = _flat_to(t.global_position).normalized() if _flat_to(t.global_position).length() > 0.1 else facing
+	rotation.y = atan2(-facing.x, -facing.z)
+	if finish_progress >= 1.0:
+		finish_progress = 0.0
+		finish_target = null
+		if model:
+			model.attack()
+		game.spawn_splash(t.global_position + Vector3(0, 0.5, 0), Color(1.0, 0.3, 0.25), 16, 3.0, 0.5)
+		t._hit_while_downed(self)
 
 
 func _revive(by) -> void:
@@ -1591,7 +1642,7 @@ func _build_down_fx() -> void:
 func _update_down_fx() -> void:
 	if down_fx == null:
 		return
-	down_cross.visible = downed
+	down_cross.visible = false   # the HUD's dizzy swirl and stars mark the body (Faisal's downed render)
 	down_bar.visible = downed
 	if not downed:
 		return
@@ -1758,6 +1809,9 @@ func _physics_process(delta: float) -> void:
 		return
 	revive_protect = maxf(revive_protect - delta, 0.0)
 	revive_target = null
+	if finish_target and Engine.get_physics_frames() - finish_frame > 2:
+		finish_target = null
+		finish_progress = 0.0
 	if downed:
 		_downed_process(delta)
 		return
@@ -1883,8 +1937,13 @@ func _physics_process(delta: float) -> void:
 			# Hold interact over a downed teammate to revive them; otherwise
 			# interact grabs, drops and talks as before.
 			var rv = revive_candidate()
+			var fv = finish_candidate() if rv == null else null
 			if rv and Input.is_action_pressed(_a("interact")):
 				_tick_revive(rv, delta)
+				move = Vector3.ZERO
+				wants_attack = false
+			elif fv and Input.is_action_pressed(_a("interact")):
+				_tick_finish(fv, delta)
 				move = Vector3.ZERO
 				wants_attack = false
 			elif Input.is_action_just_pressed(_a("interact")):

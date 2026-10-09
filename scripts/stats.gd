@@ -24,6 +24,7 @@ const RESPAWN_MAX := 13.0
 # hands the lost levels back. Overtime is sudden death: no downed state.
 const DOWNED_TIME := 15.0          # seconds before a downed player bleeds out
 const DOWNED_GRACE := 2.0         # seconds after going down before a hit can finish you (stray swings and splash pass over)
+const FINISH_HOLD := 0.8          # an enemy holds interact this long over a downed player to finish them
 const DOWNED_CRAWL := 0.22         # crawl speed, as a share of walking speed
 const DOWNED_SKIP_HOLD := 1.0      # hold interact this long to give up and respawn
 const REVIVE_TIME := 4.0           # seconds a teammate holds interact to revive
