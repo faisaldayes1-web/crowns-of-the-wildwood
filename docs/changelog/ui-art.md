@@ -705,3 +705,15 @@ Tested: `--check-only` (game, hud, guide); `--audit` 1 overlap (pre-existing pin
 seed-5 120 s match: Human gate down and crown taken by 120 s.
 
 Revert: `git revert dc20ff6`.
+
+## 2026-10-09 — Enemy nameplates show faction and class, not "HOSTILE" (Faisal 09:13)
+
+Commit: `PENDING`. `unit._refresh_overhead()` was the only place the word was set: enemies now
+wear the same tag as allies, `ally_tag()` ("ELF HEALER", "HUMAN KNIGHT"), still tinted red for
+foes and green for friends. A unit with no class yet reads "ELF SOLDIER" / "HUMAN SOLDIER"
+(was a bare "ELF" / "HUMAN" for allies).
+
+Files: `scripts/unit.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; 30 s seed-5 match,
+no script errors.
+
+Revert: `git revert PENDING`.
