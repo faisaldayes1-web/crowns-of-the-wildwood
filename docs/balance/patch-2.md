@@ -73,4 +73,4 @@ Human Crossbow (14 m) and kited on the faster Elf legs (6.3 against 6.0).
 
 ## Revert
 
-`git revert <patch 2 commit>` (see docs/changelog/combat-balance.md entry 15).
+`git revert 82aaeb1`

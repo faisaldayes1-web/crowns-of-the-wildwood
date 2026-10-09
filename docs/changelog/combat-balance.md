@@ -383,3 +383,18 @@ then `python3 tools/balance/agg.py <tag>`.
   (all new).
 - **Checks:** `tools/tests/run.sh` 29/29.
 - **Revert:** `git revert caf51fe`
+
+## 15. Balance patch 2
+
+- **When:** 2026-10-09 (Faisal 11:39 "test out the balance with 3v3, 4v4, and
+  5v5"; Integration: Elves won all 4 alpha bot matches)
+- **Commit:** `82aaeb1`
+- **What:** Fixes the Elf lean on the merged alpha build; full write-up and
+  team-size comparison in `docs/balance/patch-2.md`.
+- **Files:** `scripts/stats.gd`, `docs/balance/patch-2.md`.
+- **Tunables:** Elves `speed` 6.3 → 6.15; Human Crossbow `range` 14 → 16,
+  `shot_speed` 36 → 42.
+- **Batches:** seeds 61-66, both maps, 3v3/4v4/5v5 (72 matches): Elves 27-9 →
+  Humans 18, Elves 17, 1 draw. 4v4: 10-2 → 7-5 (Ember Pass 6-0 → 3-3). 4v4
+  plays best; 3v3 Wildwood stalls into overtime.
+- **Revert:** `git revert 82aaeb1`
