@@ -291,7 +291,7 @@ then `python3 tools/balance/agg.py <tag>`.
 - **When:** 2026-10-09 12:50 UTC (Faisal 2026-10-09 11:33 "begin upgrading the
   combat and icons and general game feel"; coordinator: hit weight,
   responsiveness, enemy reactions, death and knockback feel, camera punch)
-- **Commit:** filled in by the next commit
+- **Commit:** `24d9aa9`
 - **What:**
   - Flinches come from the side the blow landed on (Hit_A or Hit_B). A heavy
     blow (2+ hearts) cuts into whatever the body was doing and lifts it off its
@@ -315,4 +315,4 @@ then `python3 tools/balance/agg.py <tag>`.
   capped at 0.5.
 - **Checks:** `tools/tests/run.sh` 29/29; an Ember Pass bot match with 0 script
   errors. No batch: nothing a bot does changes.
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert 24d9aa9`
