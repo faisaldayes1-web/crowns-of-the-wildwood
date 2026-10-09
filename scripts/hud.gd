@@ -715,11 +715,12 @@ func _attack_icon(role: int, s: Dictionary = {}) -> String:
 const PS_GLYPHS := {"Cross": Color(0.45, 0.62, 0.95), "Circle": Color(0.95, 0.4, 0.4), "Square": Color(0.95, 0.55, 0.8), "Triangle": Color(0.4, 0.85, 0.6)}
 const XBOX_GLYPHS := {"A": Color(0.35, 0.75, 0.3), "B": Color(0.9, 0.3, 0.25), "X": Color(0.3, 0.55, 0.95), "Y": Color(0.95, 0.8, 0.2)}
 
-func _keycap(center: Vector2, key: String, w: float = 30.0, dark: bool = false) -> void:
+func _keycap(center: Vector2, key: String, w: float = 30.0, dark: bool = false, keyboard: bool = false) -> void:
 	## A cream keycap for keys and mouse buttons (a dark one for locked
 	## slots); PlayStation face buttons are drawn as the shapes on the pad,
-	## Xbox face buttons as coloured letters on a dark button.
-	if PS_GLYPHS.has(key):
+	## Xbox face buttons as coloured letters on a dark button. `keyboard`
+	## keeps a key named X, Y, A or B a plain keycap.
+	if PS_GLYPHS.has(key) and not keyboard:
 		var c: Color = PS_GLYPHS[key]
 		draw_circle(center, 10.5, Color(0.12, 0.12, 0.15))
 		draw_arc(center, 10.5, 0, TAU, 24, Color(0.45, 0.45, 0.5), 1.0)
@@ -734,7 +735,7 @@ func _keycap(center: Vector2, key: String, w: float = 30.0, dark: bool = false) 
 			"Triangle":
 				draw_polyline(PackedVector2Array([center + Vector2(0, -5.5), center + Vector2(5.5, 4), center + Vector2(-5.5, 4), center + Vector2(0, -5.5)]), c, 2.0)
 		return
-	if XBOX_GLYPHS.has(key):
+	if XBOX_GLYPHS.has(key) and not keyboard:
 		draw_circle(center, 10.5, Color(0.12, 0.12, 0.15))
 		draw_arc(center, 10.5, 0, TAU, 24, Color(0.45, 0.45, 0.5), 1.0)
 		_text(center + Vector2(-10.5, 5), key, 12, XBOX_GLYPHS[key], HORIZONTAL_ALIGNMENT_CENTER, 21, 0)
@@ -3572,15 +3573,15 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 				desc = str(abil[t - 1].get("desc", "")) if available else ("Pick a class at the stations to learn one." if view == Role.BASE else "")
 		var tx := tile.end.x + 10.0
 		_text(Vector2(tx, row.position.y + 20), name, 17, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-		_paragraph(Vector2(tx, row.position.y + 34), desc, 10, Color(0.86, 0.86, 0.82) if available else GREY, 300.0 - tx + row.position.x + 60.0, 11.0)
+		_paragraph(Vector2(tx, row.position.y + 34), desc, 10, Color(0.86, 0.86, 0.82) if available else GREY, art.position.x - tx - 8.0, 11.0)
 		if available:
-			var lv := Rect2(tx, row.end.y - 17, 30, 13)
+			var lv := Rect2(art.position.x + 8, row.end.y - 17, 30, 13)
 			_plate(lv, Color(0.2, 0.15, 0.06), GOLD_DARK, 3, 1)
 			_text(Vector2(lv.position.x, lv.end.y - 2), "LV %d" % r, 9, GOLD, HORIZONTAL_ALIGNMENT_CENTER, lv.size.x, 1)
 			for k in Stats.MAX_RANK:
-				var pip := Rect2(lv.end.x + 6 + k * 24, lv.position.y + 2, 20, 9)
+				var pip := Rect2(lv.end.x + 5 + k * 20, lv.position.y + 2, 16, 9)
 				_plate(pip, tint if k < r else Color(0.12, 0.13, 0.15), tint.darkened(0.25) if k < r else Color(0.4, 0.37, 0.3), 4, 1)
-			_text(Vector2(art.position.x + 8, art.end.y - 4), _rank_desc_for(p, view, t, r), 9, GOLD if not maxed else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(Vector2(art.position.x + 8, art.position.y + 14), _rank_desc_for(p, view, t, r), 9, GOLD if not maxed else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		# Cost and the + button.
 		var bs := minf(row.size.y - 26.0, 40.0)
 		var btn := Rect2(row.end.x - bs - 12.0, row.end.y - bs - 6.0, bs, bs)
@@ -3787,7 +3788,7 @@ func _draw_game_menu() -> void:
 func _menu_body() -> Rect2:
 	## The open tab's page area, between the tab row and the foot buttons.
 	var R := _menu_rect()
-	return Rect2(R.position + Vector2(18, 96), Vector2(R.size.x - 36, R.size.y - (150.0 if game.playing else 124.0)))
+	return Rect2(R.position + Vector2(18, 96), Vector2(R.size.x - 36, R.size.y - (150.0 if game.playing else 130.0)))
 
 
 func _menu_icon(name: String) -> Texture2D:
@@ -4111,7 +4112,7 @@ func _menu_controls(body: Rect2) -> void:
 		_plate(row, Color(0.45, 0.34, 0.1, 0.5 + 0.4 * pulse) if hot else (Color(0.16, 0.17, 0.21) if hover else Color(0.11, 0.12, 0.15)), GOLD if hot else Color(0.26, 0.26, 0.3), 6, 1)
 		_text(row.position + Vector2(14, 23), names.get(action, action), 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		var key_text: String = "PRESS A KEY…" if hot else game.binding_text(action, "key")
-		_keycap(Vector2(kx, row.get_center().y), key_text, 130)
+		_keycap(Vector2(kx, row.get_center().y), key_text, 130, false, true)
 		_keycap(Vector2(px, row.get_center().y), game.binding_text(action, "pad", pad_kind), 96)
 		bind_buttons.append([row, action])
 	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), "Click a row, then press the key, mouse button or gamepad button you want; Esc cancels. Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points.",
@@ -4129,7 +4130,7 @@ func _menu_settings(body: Rect2) -> void:
 	var x := body.position.x
 	var w := body.size.x
 	var y := body.position.y
-	var gap := clampf((body.size.y - 410.0) / 5.0, 2.0, 12.0)
+	var gap := clampf((body.size.y - 442.0) / 4.0, 0.0, 10.0)
 	# AUDIO.
 	y = _opt_section(Vector2(x, y), w, "AUDIO", "leaf", 40.0)
 	var half := (w - 34.0) / 2.0
@@ -4181,7 +4182,7 @@ func _menu_settings(body: Rect2) -> void:
 		[_k("cmd_help"), "TO ME!", "The two nearest bots come to where you called."]]
 	for i in calls.size():
 		var cy: float = y + 10 + i * 20
-		_keycap(Vector2(x + 52, cy), calls[i][0], 30)
+		_keycap(Vector2(x + 52, cy), calls[i][0], 30, false, not game.on_pad(local_unit))
 		_text(Vector2(x + 82, cy + 6), calls[i][1], 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(Vector2(x + 210, cy + 5), calls[i][2], 12, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		if i < 2:
@@ -4333,8 +4334,11 @@ func _toggle(rect: Rect2, label: String, on: bool, key: String) -> void:
 	if rect.has_point(_mouse()):
 		draw_rect(rect.grow(-2), Color(1, 1, 1, 0.04))
 	_opt_glyph(key, rect.position + Vector2(22, rect.size.y / 2.0), GOLD)
-	var fs := 13 if _text_width(label, 13) < rect.size.x - 104 else 11
-	_text(rect.position + Vector2(42, rect.size.y / 2.0 + 5), label, fs, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var lx := 50.0 if key == "numbers" else 42.0
+	var fs := 13
+	while fs > 9 and _text_width(label, fs) > rect.size.x - lx - 58.0:
+		fs -= 1
+	_text(rect.position + Vector2(lx, rect.size.y / 2.0 + 5), label, fs, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var pill := Rect2(rect.end - Vector2(52, rect.size.y / 2.0 + 11), Vector2(42, 22))
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.28, 0.7, 0.22) if on else Color(0.2, 0.2, 0.24)
