@@ -15,6 +15,35 @@ const RESPAWN_TIME := 7.0
 const RESPAWN_PER_LEVEL := 1.0  # dying hurts more the higher you were: extra seconds per level
 const RESPAWN_MAX := 13.0
 
+# Downed and revive (Faisal 2026-10-09): losing your last heart knocks you
+# down instead of killing you. You crawl, can't fight, and bleed out after
+# DOWNED_TIME; an enemy hit finishes you; holding interact skips straight to
+# the respawn. A teammate standing over you and holding interact revives
+# you; a Healer does it faster and from further away (the Healer perk).
+# Going down already counts as the kill (feed, XP, levels lost); a revive
+# hands the lost levels back. Overtime is sudden death: no downed state.
+const DOWNED_TIME := 15.0          # seconds before a downed player bleeds out
+const DOWNED_GRACE := 2.0         # seconds after going down before a hit can finish you (stray swings and splash pass over)
+const FINISH_HOLD := 0.8          # an enemy holds interact this long over a downed player to finish them
+const FINISH_ANIM := 0.8          # the finisher move: the finisher is locked in place this long
+const FINISH_IMPACT := 0.38       # ...and the blow lands this far into it
+const DOWNED_CRAWL := 0.22         # crawl speed, as a share of walking speed
+const DOWNED_SKIP_HOLD := 1.0      # hold interact this long to give up and respawn
+const REVIVE_TIME := 4.0           # seconds a teammate holds interact to revive
+const REVIVE_RANGE := 1.8          # how close a teammate must stand
+const HEALER_REVIVE_TIME := 1.5    # Healer perk: faster...
+const HEALER_REVIVE_RANGE := 3.0   # ...and from further away
+const REVIVE_HEARTS := 2           # hearts a revived player gets back (of 4)
+const REVIVE_PROTECT := 1.0        # seconds of invulnerability while standing up
+const XP_REVIVE := 30              # XP for the reviver ("support")
+const XP_FINISH := 10              # XP for finishing off a downed enemy
+const SCORE_REVIVE := 8            # scoreboard points per revive
+const BOT_REVIVE_SEEK := 14.0      # bots go to revive a downed ally this close...
+const BOT_HEALER_REVIVE_SEEK := 20.0  # ...Healers from this far
+const BOT_DOWNED_TARGET_PENALTY := 8.0  # bots treat a downed enemy as this many metres further away than a standing one
+const BOT_FINISH_RANGE := 4.0      # bots only go for a downed enemy this close
+const BOT_DOWNED_GIVE_UP := 3.0    # a downed bot with no ally in BOT_REVIVE_SEEK * 2 skips after this many seconds
+
 # Veterans: kill streaks without dying. A Veteran is announced and marked;
 # an Elite Veteran carries a bounty: revealed to the enemy, slightly tougher,
 # and worth a team-wide reward to whoever brings them down.
