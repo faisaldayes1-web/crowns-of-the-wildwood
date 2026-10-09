@@ -717,3 +717,59 @@ Files: `scripts/unit.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; 30
 no script errors.
 
 Revert: `git revert f3ec838`.
+
+## 2026-10-09 — Crown banners, Upgrades / Paused / Options boards, hair styles, menu test (Faisal 09:14-09:39)
+
+Commit: `HASH`. References: `game/reference-renders/pause-upgrades-tab-target-2026-10-09.png`
+(Upgrades tab and the perk screen), `pause-tabs-sheet-target-2026-10-09.png` (the other pause
+tabs), `pause-map-target-2026-10-09.png` (Map tab), `options-menu-target-2026-10-09.png`
+(Options / Settings).
+
+- **Crown banners** (09:19, 09:26): the "enemy has your crown" / "your team lost the crown"
+  moments now use the same cloth ribbon as picking the crown up (`hud._draw_crown_ribbon`,
+  palettes RIBBON_BLUE / RED / GREEN / DUSK; `game.crown_event_note(kind, team)` from pickup and
+  `drop_monarch`, 4 s). The old stolen card and info banner are gone, so only the banner shows
+  (the steal `announce` is chat-only now). `--debug-stolen` steals the player's own crown;
+  `--debug-crown-lost` drops it.
+- **Top bar** (09:25): the parchment strip with "Steal their crown and carry it home…" is cut from
+  the top-bar art at load; the phase line shows only for fortify, overtime or the Ember Pass fire.
+- **One board for the menus** (`_menu_rect` 1030×594 at y 104, was 980×500 / 1040×584;
+  `_menu_board`, `_menu_body`): PAUSED, OPTIONS and UPGRADES share the frame, plaque and leafy
+  corners; LEAVE MATCH / key hint / RESUME sit inside its foot.
+- **UPGRADES** (`_upgrades_page`): left card with portrait, faction and class, LV badge and XP,
+  STATS (THIS LIFE) from the live unit (hearts, stamina or mana, attack damage, movement speed,
+  cooldown reduction, K/D, captures, match score, total upgrades); centre "<CLASS> SKILLS" tab plus
+  icon tabs for the other classes, four skill rows (tile, name, description, LV badge and pips,
+  art strip with the next rank, "1 pt" and the + button), PROMOTION with both variant cards and
+  the skills each brings; right CLASS UPGRADES list (each class, its two promotions, points
+  spent x/3, click to view). The pause menu's UPGRADES tab draws this page (it used to close the
+  menu and open a separate screen); the perk key and the Upgrade Station open the same board
+  titled UPGRADES without pausing. The locked "GLOBAL UPGRADES" row is gone (the Economy group adds
+  its own). Costs stay "1 pt": the reference's gold numbers are placeholders.
+- **Settings tab** (Options reference): AUDIO sliders, DISPLAY switches (icon, label, green
+  switch), Fullscreen, Graphics Quality as four buttons (was one button that cycled), BOTS three
+  buttons with skulls and the level's description, TEAM CALLS, GAMEPAD (Rumble, Button Names with
+  ◀ ▶: the left arrow now steps back). New **AUDIO** tab (id 6): big sound and music sliders and
+  a test sound. OPTIONS opens on SETTINGS (was CONTROLS); its tabs are Settings, Controls,
+  Classes, Audio.
+- **Controls tab**: action groups on the left (Movement, Combat, Interaction, Team Calls,
+  Interface), the open group's rows with keyboard and gamepad keys, RESET TO DEFAULT.
+- **Classes tab**: CHOOSE YOUR CLASS cards (portrait, three traits, attack and skill icons). SELECT
+  puts the class on while you stand in your own spawn courtyard (it calls the station's own
+  `seal.take`); elsewhere the button reads AT STATIONS, and at the title the cards are info only.
+- **Hair styles 1-4 are real** (09:14): Ponytail, Long, Braids, Bun modelled on the head bone
+  (`character_model._add_hair_style`), sized from the measured head (±0.55 wide, 0.95 tall);
+  picked on the character screen (`hero_hair_style`, saved), `Stats.HERO_HAIR_STYLES`.
+- **Bug fixed**: starting a match after the start-up loading screen had faded raised "queue_free
+  on a previously freed instance" in `_show_loading`, so the match's loading screen never showed.
+- **Test**: `tools/options_menu_test.gd` taps (through `touch_tap`, like a click) every title
+  button, every character-screen swatch, every OPTIONS and PAUSED tab, switch, quality and bot
+  button, both sliders, a key rebind and reset, map zoom, + buttons, class list, promotion cards,
+  SELECT, RESUME, X, and LEAVE MATCH twice; it checks each setting changed and was saved.
+
+Files: `scripts/hud.gd`, `scripts/game.gd`, `scripts/character_model.gd`, `scripts/menu.gd`,
+`scripts/menu_stage.gd`, `scripts/stats.gd`, `tools/options_menu_test.gd`,
+`docs/changelog/ui-art.md`. Tested: `--check-only`; `tools/options_menu_test.gd` 0 failures;
+`tools/menu_flow_test.gd`; `--audit` 1 overlap (pre-existing pines); seed-5 bot match.
+
+Revert: `git revert HASH`.
