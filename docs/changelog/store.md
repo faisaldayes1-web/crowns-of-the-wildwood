@@ -89,3 +89,24 @@ What changed:
 Files: `scripts/store.gd`, `scripts/store_gear.gd`, `scripts/stats.gd`, `scripts/game.gd`.
 
 Undo: `git revert 855b259`
+
+## 2026-10-09 — store icons rendered from the real hero model
+
+Commit: `bedc7be` (after merging `origin/group/ui-art-z3px4x`)
+
+What changed:
+- 53 new item icons in `assets/ui/store/<kind>_<index>.png` (256×256, transparent): every hat, hair
+  style and hair colour on the hero's head, every cape and cape dye from behind, every armour tint on a
+  Knight, every weapon skin on the Knight's sword and shield. They are renders of the same models the
+  game uses, so the icon shows exactly what you buy.
+- Store cards draw the icon large (most of the card) over a soft glow in the rarity colour, with the
+  name and price underneath; the chest reveal card shows it bigger too. Small swatches (Create Your
+  Character rows) and banner pieces keep the drawn glyphs.
+- Re-render after changing a model: `xvfb-run -a -s "-screen 0 1280x1280x24" godot --path .
+  --rendering-driver vulkan --resolution 768x768 --script tools/render_store_icons.gd [-- --only=hat]`
+  then `godot --headless --path . --import`. A hand-painted PNG dropped in under the same name replaces
+  a render.
+
+Files: `scripts/store.gd`, `tools/render_store_icons.gd` (new), `assets/ui/store/` (new).
+
+Undo: `git revert bedc7be`
