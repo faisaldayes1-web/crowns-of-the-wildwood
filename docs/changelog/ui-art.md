@@ -198,3 +198,21 @@ Files touched: `scripts/game.gd` (`_update_respawn_timer`, debug flag timing),
 Renders: `death-screen-after.png`.
 
 Revert: `git revert b259ad8`
+
+---
+
+## 2026-10-09 — merged PR #2's main menu (create-your-character screen) into this branch
+
+Commit: `75cd987` (merge commit, no squash)
+
+Why: Faisal's 00:24 ask is the create-your-character screen and the Elf look. That screen lives in
+PR #2's branch (`claude/project-thread-lndv4w`: scripts/menu.gd, menu_stage.gd, the throne-room
+stage, Lilita One menu art), so this branch now carries PR #2 and the character-screen polish
+lands on top of it. Conflicts resolved: `scripts/game.gd` sun shadows keep this branch's crisp
+cartoon shadows (shadow_blur 0.3, no PCSS) over PR #2's soft 1.0; `scripts/character_model.gd`
+keeps both the chunky bone scales and PR #2's `_add_face`; `assets/CREDITS.md` keeps both lists.
+Also in this commit's follow-up: the pause map leaves 100 px (was 78) under it so the quest line
+clears the footer.
+
+Revert: `git revert -m 1 75cd987` (drops PR #2 from this branch again; Integration should instead
+merge PR #2 first and retarget this PR).

@@ -3156,7 +3156,7 @@ func _menu_overview(body: Rect2) -> void:
 	_bar_text(Vector2(body.get_center().x, body.position.y + 16), "THE WILDWOOD VALLEY", bar_font if bar_font else font, 16, CREAM, Color(0.2, 0.1, 0.02), 3)
 	# The map keeps the valley's 58:26 shape but leaves room for the legend
 	# and the quest line below it inside the panel.
-	var map_h: float = minf(body.size.x * 26.0 / 58.0, body.size.y - 26.0 - 78.0)
+	var map_h: float = minf(body.size.x * 26.0 / 58.0, body.size.y - 26.0 - 100.0)
 	var map_w: float = map_h * 58.0 / 26.0
 	var map_rect := Rect2(body.position + Vector2((body.size.x - map_w) / 2.0, 26), Vector2(map_w, map_h))
 	_draw_map(map_rect, true)
