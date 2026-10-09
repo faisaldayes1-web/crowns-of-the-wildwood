@@ -792,7 +792,7 @@ Revert: `git revert a904271`.
 
 ## 2026-10-09 — Icon upgrade pass (Faisal 11:33 "upgrading the ... icons")
 
-Commit: `HASH`. `tools/make_icons.py` gets a finishing pass (`finish()`) used by every icon it
+Commit: `758af0c`. `tools/make_icons.py` gets a finishing pass (`finish()`) used by every icon it
 and `tools/make_summary_icons.py` draw: colours +25 % saturation / +6 % brightness, light from
 the top and shade toward the bottom, a rim light on the top-left edges, a thick ink sticker
 outline and a soft drop shadow; the glow fades out before the canvas edge (no square halo).
@@ -805,4 +805,4 @@ Files: `tools/make_icons.py`, `assets/ui/icons/*.png`, `scripts/hud.gd`,
 `docs/changelog/ui-art.md`. Tested: `--import`; `tools/options_menu_test.gd` 0 failures;
 renders of the HUD and Classes tab. Sheet: game/groups/ui-art/icons/upgraded-icons-sheet.png.
 
-Revert: `git revert HASH`.
+Revert: `git revert 758af0c`.
