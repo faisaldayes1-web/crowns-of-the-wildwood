@@ -7,6 +7,14 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
+### 2026-10-09 05:15 UTC · `6ccf861` · Merge UI & Art's courtyard-bed move
+
+- **What:** Merged `group/ui-art-z3px4x` at `e4c6c24` (their Elf flower beds moved off the hidden south-wall strip; their merge of our 965ecd3 with the agreed `_polish_keep` split). Clean merge, nothing of ours changed.
+- **Files:** scripts/game.gd, docs/changelog/ui-art.md (theirs)
+- **Tunables:** none of ours
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches on both maps (figures in the next entry)
+- **Revert:** `git revert -m 1 6ccf861`
+
 ### 2026-10-09 05:05 UTC · `4b8f815` · Lions that read as lions; the drill yard moved into view
 
 - **What:** From the game camera (steep, from the south) the grey block lions read as rubble, so the stone lion is now cream stone with a gold disc mane and gold collar, and the gate pair is a third bigger. The barracks' drill yard (weapon rack, archery target, two sparring dummies) stood against the south wall, where the game camera never sees it: the camera looks over that wall's top, which hides the first ~2.5 m of floor behind it (the Elves' flower beds on the same wall are hidden the same way, told UI & Art). The drill yard now stands 3 m off the wall, in view; the two lion crests on that wall are gone (same reason).
