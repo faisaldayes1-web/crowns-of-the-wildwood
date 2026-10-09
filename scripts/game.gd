@@ -3239,7 +3239,7 @@ func _add_ground_detail() -> void:
 	var leaf := PlaneMesh.new()
 	leaf.size = Vector2(0.34, 0.26)
 	var sets := [
-		["flower", flower, 1400, 0.4], ["tuft", tuft, 8000, 0.0], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
+		["flower", flower, 3200, 0.4], ["tuft", tuft, 9000, 0.0], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
 	for s in sets:
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -3271,12 +3271,17 @@ func _add_ground_detail() -> void:
 				"flower":
 					# Cartoon blooms: flat five-petal heads tipped towards the camera.
 					basis = Basis(Vector3.RIGHT, deg_to_rad(35.0)) * Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * sc)
-					col = [Color(0.25, 0.45, 1.0), Color(0.25, 0.45, 1.0), Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 1.0), Color(0.95, 0.22, 0.2), Color(1.0, 0.82, 0.2), Color(1.0, 0.55, 0.75)][r.randi() % 7]
-					if elf_side and r.randf() < 0.3:
+					# Mostly daisies, then cornflower blue and buttercup yellow, a
+					# few pink and red (Faisal's courtyard target, 2026-10-08).
+					col = [Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 1.0), Color(0.3, 0.5, 1.0), Color(0.3, 0.5, 1.0), Color(0.3, 0.5, 1.0),
+						Color(1.0, 0.85, 0.2), Color(1.0, 0.85, 0.2), Color(1.0, 0.55, 0.75), Color(0.95, 0.22, 0.2)][r.randi() % 11]
+					if elf_side and r.randf() < 0.12:
 						col = Color(0.45, 0.95, 1.0)  # glowing wildwood bloom
 				"tuft":
-					basis = basis.scaled(Vector3.ONE * 1.6)   # lush clumps, as in the target renders
-					col = Color.from_hsv(0.28 + r.randf_range(-0.02, 0.02), 0.8, r.randf_range(0.42, 0.58))
+					# Shorter, denser clumps in the meadow's own green, so the
+					# ground reads as lush turf rather than spiky blades.
+					basis = basis.scaled(Vector3(1.4, 1.0, 1.4))
+					col = Color.from_hsv(0.3 + r.randf_range(-0.02, 0.02), 0.85, r.randf_range(0.36, 0.5))
 				"stone":
 					col = Color(0.46, 0.46, 0.44).lerp(Color(0.36, 0.38, 0.36), r.randf())
 					if elf_side and r.randf() < 0.3:
@@ -3581,8 +3586,9 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		# Wildwood palette: pale mint and lavender canopies that glow faintly.
 		var lavender: bool = seed % 4 == 0
 		# (The sun and the crown highlight brighten tops a lot, so these stay dark.)
-		leaf.set_shader_parameter("top_color", Color.from_hsv(0.75, 0.55, 0.6) if lavender else Color.from_hsv(0.4, 0.7, 0.6))
-		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.75, 0.75, 0.22) if lavender else Color.from_hsv(0.44, 0.85, 0.22))
+		# Pink blossom (the courtyard target's cherry) or deep wildwood green.
+		leaf.set_shader_parameter("top_color", Color.from_hsv(0.9, 0.5, 0.78) if lavender else Color.from_hsv(0.38, 0.75, 0.5))
+		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.88, 0.7, 0.32) if lavender else Color.from_hsv(0.42, 0.85, 0.18))
 	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.25 if wild else 1.0)
 	var blobs := 6 if big else 4
 	var base_y: float = trunk_h * 0.8
@@ -4291,6 +4297,14 @@ var mossy := false   # while an elven castle is being built: ivy and moss on its
 var grey := false    # while the Humans' castle is being built: grey stone
 
 
+func _hedge(bright: bool = false) -> StandardMaterial3D:
+	## Trimmed box hedge (tools/make_textures.py make_hedge): the elven
+	## castle's walls are living hedges, like Faisal's Elf base target.
+	var m := _pbr("hedge", 0.4, Color(1.08, 1.08, 1.0) if bright else Color.WHITE)
+	m.roughness = 0.95
+	return m
+
+
 func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	## Castle stone; the elven castle is grown, so its "stone" is living bark,
 	## and the Humans build in cool grey blocks.
@@ -4328,8 +4342,9 @@ func _add_lantern(pos: Vector3, height: float = 2.2) -> void:
 	add_child(globe)
 	_add_block(pos + Vector3(0, height + 0.5, 0), Vector3(0.22, 0.08, 0.22), Color.WHITE, false, _gold())
 	var light := OmniLight3D.new()
-	light.light_color = Color(0.85, 1.0, 0.78)
-	light.light_energy = 0.9
+	# Warm lamplight: the old pale green lit the whole yard green (2026-10-08 target).
+	light.light_color = Color(1.0, 0.85, 0.6)
+	light.light_energy = 0.8
 	light.omni_range = 7.0
 	light.position = pos + Vector3(0, height + 0.4, 0)
 	add_child(light)
@@ -4451,7 +4466,9 @@ func _add_emblem(emblem: String, pos: Vector3, out: Vector3, size: float, glow: 
 
 func _faction_emblem(team: int, alt: bool = false) -> String:
 	if team == 0:
-		return "moon" if alt else "tree"
+		# The stag (the top bar's shield) on the main banners, the great tree
+		# on the alternates (Faisal's base target, 2026-10-08).
+		return "tree" if alt else "stag"
 	return "crown" if alt else "lion"
 
 
@@ -4745,14 +4762,15 @@ func _gold() -> StandardMaterial3D:
 
 func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	## A solid ashlar wall with a cornice and merlons along its long axis.
-	_add_block(center, size, Color.WHITE, true, _ashlar())
+	## The elven castle's walls are trimmed hedges instead (2026-10-08 target).
+	_add_block(center, size, Color.WHITE, true, _hedge() if mossy else _ashlar())
 	var top := center.y + size.y / 2.0
 	var along_x := size.x >= size.z
 	var length := size.x if along_x else size.z
 	var thick := size.z if along_x else size.x
 	if mossy:
-		# Grown walls: a vine ledge along the top and leaf tufts instead of merlons.
-		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _elf_leaf())
+		# Hedge walls: a lighter clipped top and leaf tufts instead of merlons.
+		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _hedge(true))
 	else:
 		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
 	if not merlons:
@@ -4808,9 +4826,9 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 		globe.position = pos + Vector3(-side * (width / 2.0 + 0.4), height - 0.6, 0)
 		add_child(globe)
 		var light := OmniLight3D.new()
-		light.light_color = Color(0.55, 1.0, 0.85)
-		light.light_energy = 1.2
-		light.omni_range = 7.0
+		light.light_color = Color(0.7, 1.0, 0.85)
+		light.light_energy = 0.7
+		light.omni_range = 6.0
 		light.position = globe.position
 		add_child(light)
 		if flag:
@@ -4921,8 +4939,8 @@ func _add_wall_torch(pos: Vector3, out: Vector3) -> void:
 	if mossy:
 		_add_crystal(pos + out * 0.35 - Vector3(0, 1.0, 0), 0.55)
 		var cl := OmniLight3D.new()
-		cl.light_color = Color(0.55, 1.0, 0.85)
-		cl.light_energy = 1.1
+		cl.light_color = Color(0.7, 1.0, 0.85)
+		cl.light_energy = 0.6
 		cl.omni_range = 6.0
 		cl.position = pos + out * 0.8 + Vector3(0, 0.4, 0)
 		add_child(cl)
@@ -7024,7 +7042,7 @@ func _apply_map_variant() -> void:
 		# Late-afternoon storybook light (Faisal's target art, 2026-10-07): a
 		# low warm sun throwing long shadows, cool blue ambient so the shade
 		# reads coloured, and torches and braziers that bloom.
-		world_environment.ambient_light_energy = 0.13
+		world_environment.ambient_light_energy = 0.16
 		world_environment.ambient_light_sky_contribution = 0.25
 		world_environment.ambient_light_color = Color(0.45, 0.55, 0.85)
 		world_environment.fog_light_color = Color(0.95, 0.85, 0.7)
@@ -7034,8 +7052,8 @@ func _apply_map_variant() -> void:
 		world_environment.adjustment_saturation = 1.22
 		world_environment.adjustment_brightness = 1.0
 		world_environment.adjustment_contrast = 1.1
-		sun_light.light_color = Color(1.0, 0.87, 0.7)
-		sun_light.light_energy = 1.35
+		sun_light.light_color = Color(1.0, 0.9, 0.74)
+		sun_light.light_energy = 1.45
 		sun_light.rotation_degrees = Vector3(-38, -32, 0)
 		sun_light.shadow_opacity = 1.0
 		if fill_light:

@@ -19,7 +19,7 @@ Integration notes:
 
 ## 2026-10-09 — pause menu, Settings and Tab panel in the HUD style; class pick-up banner; rank-up flourish
 
-Commit: `(hash filled in below)`
+Commit: `3c2d934`
 
 What changed:
 - **Pause menu / Options**: the navy plate is now the HUD's leather-black frame in a brass rim with gold
@@ -63,4 +63,54 @@ Renders: `menu-pause-before/after.png`, `menu-settings-before/after.png`,
 `tab-panel-before/after.png`, `class-banner-after.png`, `rankup-after.png`,
 `promoted-after.png`.
 
-Revert: `git revert <hash>` (filled in below once committed).
+Revert: `git revert 3c2d934`
+
+---
+
+## 2026-10-09 — visual overhaul, pass 1: ground, flowers, trees, Elf castle hedges and lamps
+
+Commit: `(stamped by the docs commit right after)`
+
+Faisal's references (project files, game/reference-renders/): `elf-base-interior-target-2026-10-08.png`,
+`elf-courtyard-target-2026-10-08.png`; `ember-pass-current-2026-10-08.jpeg` is the current build for
+contrast. Art layer only: no base layout, geometry or station positions changed (World & Maps owns
+those), and no HUD/UI change.
+
+What changed:
+- **Meadow grass** (`tools/make_textures.py make_grass`): deeper, more saturated green, less lime, so
+  the flowers and units read on top of it.
+- **Cobble paths** (`make_stepping_stones`): 4 stones per tile instead of 5 (bigger), rounder, cream
+  and tan instead of orange-tan, and the joints are packed earth (lighter) instead of dark mud.
+- **Courtyard flags** (`make_flagstone`): cream sandstone squares with a pale tan grout instead of
+  deep yellow with a dark brown joint; the mossy (Elf) and grey (Human) variants follow.
+- **Flowers**: 3200 blooms instead of 1400, mostly white daisies, then cornflower blue and
+  buttercup yellow, a few pink/red; fewer glowing elf blooms (12% instead of 30% on the elf side).
+  Grass tufts: 9000 instead of 8000, shorter (scale 1.4/1.0/1.4 instead of 1.6 all round) and in the
+  meadow's own green.
+- **Trees**: the lavender wildwood canopies are now pink blossom (hue 0.9) like the courtyard
+  target's cherry; the mint ones a deeper green.
+- **Elf castle walls** are trimmed box hedges (new `_hedge()` material, `make_hedge` texture) instead
+  of bark, with a lighter clipped top; leaf tufts stay instead of merlons.
+- **Elf castle lights**: lanterns are warm lamplight (1.0, 0.85, 0.6 @ 0.8) instead of pale green
+  (0.85, 1.0, 0.78 @ 0.9); tower globes and wall crystals are softer teal (0.7, 1.0, 0.85 @ 0.7 and
+  0.6 instead of 0.55, 1.0, 0.85 @ 1.2 and 1.1), so the yard no longer reads green.
+- **Day light**: ambient 0.13 → 0.16; sun (1.0, 0.87, 0.7) @ 1.35 → (1.0, 0.9, 0.74) @ 1.45.
+- **Stag emblem**: `tools/make_emblems.py stag()` draws the Elves' stag head in gold (matches the top
+  bar's shield); Elf banners and crests use it (`_faction_emblem(0)` → "stag"; the great tree is now
+  the alternate, the moon is unused).
+
+Files touched: `tools/make_textures.py`, `tools/make_emblems.py`, `scripts/game.gd` (`_add_ground_detail`,
+`_add_tree_grown`, `_add_lantern`, `_add_tower`, `_add_wall_torch`, `_add_wall`, `_hedge`, `_faction_emblem`,
+day lighting in `_apply_time_of_day`), regenerated `assets/textures/{grass,flagstone*,path*}` plus new
+`assets/textures/hedge_*` and `assets/textures/emblems/stag.png`. Regenerate with
+`python3 tools/make_textures.py make_grass make_flagstone make_paths make_hedge` and
+`python3 tools/make_emblems.py`, then `godot --headless --path . --import`.
+
+Tunables (old → new): flowers 1400 → 3200; tufts 8000 → 9000, tuft scale 1.6 → (1.4, 1.0, 1.4); elf
+bloom share 0.3 → 0.12; ambient_light_energy 0.13 → 0.16; sun 1.35 → 1.45; lantern light
+(0.85,1.0,0.78)@0.9 → (1.0,0.85,0.6)@0.8; tower globe light 1.2 → 0.7; wall crystal light 1.1 → 0.6;
+path stones per tile 5 → 4.
+
+Renders: `world-courtyard-before/after.png`, `world-elf-castle-before/after.png` beside the references.
+
+Revert: `git revert <hash>` (stamped by the docs commit right after), then regenerate the textures as above.
