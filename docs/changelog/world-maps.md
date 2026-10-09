@@ -7,6 +7,14 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
+### 2026-10-09 04:45 UTC · `965ecd3` · Merge UI & Art's Elf pass D and their raider fix
+
+- **What:** Merged `group/ui-art-z3px4x` at `d52a8e1`. UI & Art had found the same corner-pillar trap (their b678241) and moved the four pillars to the keep's archway wall and back wall; this branch had turned them into torches (47c7d81). Resolution in `_polish_keep`: Elves get UI & Art's fire pillars, Humans keep plain corner torches, because the Human keep already has iron braziers at the archway and a weapon rack and shelf on the back wall where those pillars would stand. Also took their Elf pass D (crown room terrace with stairs, turret pads, hedge line outside the Elf front wall); the vault-door lions stay removed.
+- **Files:** scripts/game.gd (hand-merged `_polish_keep`, `_build_throne_room`), docs/changelog/ui-art.md (theirs)
+- **Tunables:** none of ours
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches on both maps (figures in the next entry)
+- **Revert:** `git revert -m 1 965ecd3`
+
 ### 2026-10-09 04:30 UTC · `47c7d81` · Bot routing fix: both teams were stuck behind the throne room
 
 - **What:** Since the base remaster (`1eb78a4`) the bots of both teams never left their keeps: the four stone fire pillars at the throne room's outer corners were solid and sat exactly on the gallery-corner waypoints that `_around_throne_room` sends everyone through, so a 5 min bot match ended 0-0 with both gates untouched (the 30 s checks only saw bots still choosing classes). The corner pillars are torches again (as before the remaster). Three of this morning's Human props were also on or beside bot lanes and moved: the lions guarding the sanctuary ward now stand tight against the keep's back wall either side of the opening (they replace the two torches there), the parade-ground pillars moved up by the gatehouse (x in+2.0 / in+3.5, z ±6.2) off the yard-to-rampart diagonal and the Engineers' turret pads, and the pair of lions flanking the vault doors is gone (it sat on the entrance-hall lane). The Humans' wall-hung gold sword and shield moved 0.55 m along the back wall to clear a lion.

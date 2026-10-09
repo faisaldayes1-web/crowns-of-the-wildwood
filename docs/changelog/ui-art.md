@@ -464,3 +464,12 @@ over our moved braziers (conflict in `_polish_keep`), keeping our terrace height
 on the throne-room banner, light and pennants; their removal of the Human stone lions inside the
 throne room's doors is taken as is. Seed-5 match after the merge: doors 120/200 at t=60 s, no script
 errors, audit unchanged. Reverting our own fix commit above is no longer needed (its lines are gone).
+
+---
+
+## 2026-10-09 — Merge World & Maps (965ecd3): `_polish_keep` split, Elves keep the moved fire pillars
+
+Their merge of our branch resolved `_polish_keep` as: Elves get our archway/back-wall stone fire
+pillars, Humans keep plain corner torches (their props hold those wall spots). Taken as is so both
+branches read the same; our terrace heights (`fy`/`throne.y`) are intact. Seed-5 match after the
+merge: doors 200/176 at t=60 s (Elves raiding), no script errors.
