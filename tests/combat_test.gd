@@ -37,6 +37,13 @@ func _first(team: int):
 	return null
 
 
+func _finish(u) -> void:
+	## With Downed & Revive merged, a last heart knocks a unit down first:
+	## finish it off so death checks still see a death.
+	if u.get("downed"):
+		u._die()
+
+
 func _stage(attacker, victim) -> void:
 	## Victim one metre in front of the attacker, at the same height, with
 	## nothing (protection, armour pool, dodge, shield) between them.
@@ -111,6 +118,7 @@ func _run() -> void:
 	_stage(attacker, victim)
 	victim.hearts = 1
 	attacker._attack(Vector3(1, 0, 0))
+	_finish(victim)
 	_check(victim.dead and victim.slow_timer == 0.0, "slow_cleared_on_death", "dead=%s slow_timer=%.2f" % [victim.dead, victim.slow_timer])
 
 	# 6. Effects clean up after themselves: one-shots free within ~2 s.
@@ -131,6 +139,13 @@ func _run() -> void:
 	# 8. Every ability on both sides (plain kit and both promotions) casts
 	# with its own look, and the body is back to its normal shape after.
 	await _all_skills()
+
+	# 9. Grab (F / RB): every press reaches out and answers with a pop or a
+	# whiff, and rapid retries (bots at a locked vault) don't stack effects.
+	await _grab()
+
+	# 10. The killing blow throws the body back, and it stands up straight on respawn.
+	await _death_fling()
 
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
@@ -272,3 +287,35 @@ func _all_skills() -> void:
 	_check(bent.is_empty(), "skills_body_restored", str(bent))
 	await _frames(240)
 	_check(fx.get_child_count() < 40, "skills_fx_cleanup", "children=%d" % fx.get_child_count())
+
+
+func _grab() -> void:
+	var fx: Node = game.get_node("Fx")
+	var u = _first(0)
+	u.global_position = Vector3(-20, 0, 3)
+	u.model.process_mode = Node.PROCESS_MODE_ALWAYS
+	u.set_meta("grab_ms", -100000)
+	var before: int = fx.get_child_count()
+	game.try_interact(u)
+	var once: int = fx.get_child_count()
+	for i in 10:
+		game.try_interact(u)
+	_check(once > before and fx.get_child_count() <= once + 3, "grab_feedback_once", "fx %d -> %d -> %d" % [before, once, fx.get_child_count()])
+	await _frames(40)
+	_check(u.model.scale.distance_to(Vector3.ONE) < 0.01 and u.model.rotation.length() < 0.01, "grab_body_restored")
+
+
+func _death_fling() -> void:
+	var a = _first(0)
+	var v = _first(1)
+	a.global_position = Vector3(-20, 0, 3)
+	_stage(a, v)
+	v.model.process_mode = Node.PROCESS_MODE_ALWAYS
+	v.hearts = 1
+	v.take_damage(1, a, a.global_position, 6.0, {"fx": "heavy"})
+	_finish(v)
+	await _frames(25)
+	var flung: float = Vector2(v.model.position.x, v.model.position.z).length()
+	_check(v.dead and flung > 0.5, "death_fling", "dead=%s flung=%.2f" % [v.dead, flung])
+	v.model.revive()
+	_check(v.model.position.length() < 0.01, "death_fling_reset")

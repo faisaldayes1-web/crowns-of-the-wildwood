@@ -8,6 +8,7 @@ const Unit = preload("res://scripts/unit.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Projectile = preload("res://scripts/projectile.gd")
 const Fx = preload("res://scripts/fx.gd")
+const SkillFx = preload("res://scripts/skill_fx.gd")
 const Gate = preload("res://scripts/gate.gd")
 const Hud = preload("res://scripts/hud.gd")
 const Store = preload("res://scripts/store.gd")
@@ -259,6 +260,7 @@ var menu_open := false
 var rank_open := false
 var menu_tab := 0
 var shake_amount := 0.0
+var cam_kick := Vector3.ZERO     # directional jolt (kick_cam), springs back to zero
 var cam_pos := Vector3.ZERO
 var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
 var click_was := false
@@ -820,11 +822,15 @@ func _finish(winner: int) -> void:
 func try_interact(u) -> void:
 	if u.dead or u.downed:
 		return
+	# Every press reaches out; the result below answers it with a pop
+	# (SkillFx.grab_hit) or a whiff (SkillFx.grab_miss). Looks only.
+	SkillFx.grab(u)
 	if u.carrying:
 		drop_monarch(u)
 		return
 	if u.is_player and guides[u.team] and guides[u.team].in_reach(u):
 		guide_toggle()
+		SkillFx.grab_hit(u, guides[u.team].global_position + Vector3(0, 1.6, 0), Color(0.6, 1.0, 0.6))
 		return
 	if economy and economy.try_interact(u):
 		return   # gathering, hat machine upgrades, door repairs, turret pads
@@ -833,19 +839,26 @@ func try_interact(u) -> void:
 		if seal.in_reach(u):
 			if u.role == role:
 				toast("You already carry the %s's seal" % seal.class_title(), Color(1.0, 0.8, 0.5))
+				SkillFx.grab_miss(u)
 			else:
 				seal.take(u)
+				SkillFx.grab_hit(u, seal.global_position + Vector3(0, 1.2, 0))
 			return
 	if prep_left > 0.0:
 		# The fortify phase: F raises a barricade.
-		plant_barricade(u)
+		if plant_barricade(u):
+			SkillFx.grab_hit(u, SkillFx.grab_point(u), Color(0.85, 0.65, 0.4))
+		else:
+			SkillFx.grab_miss(u)
 		return
 	var m = monarchs[1 - u.team]
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
 		if m.state == Monarch.State.HOME and vaults[1 - u.team].is_locked():
 			if u.is_player:
 				toast("The Crown Vault is locked: break the lock first", Color(1.0, 0.8, 0.5))
+			SkillFx.grab_miss(u)
 			return
+		SkillFx.grab_hit(u, m.global_position + Vector3(0, 1.0, 0), Color(1.0, 0.85, 0.3), true)
 		m.pick_up(u)
 		u.carrying = m
 		u.gain_xp(Stats.XP_GRAB, "crown")
@@ -865,6 +878,8 @@ func try_interact(u) -> void:
 		chat_system("%s grabbed the %s!" % [u.display_name, m.title])
 		_banter(1 - u.team, "ours_taken")
 		_banter(u.team, "carrying", u)
+		return
+	SkillFx.grab_miss(u)
 
 
 # --- Turrets ------------------------------------------------------------------
@@ -2002,6 +2017,8 @@ func _update_camera(delta: float) -> void:
 	sfx.set_listener(player.global_position)
 	shake_amount = move_toward(shake_amount, 0.0, delta * 1.6)
 	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amount * 0.35
+	cam_kick = cam_kick.lerp(Vector3.ZERO, clampf(delta * 10.0, 0.0, 1.0))
+	jolt += cam_kick
 	if couch_active:
 		# One camera a pane, each on its own player.
 		for pane in panes:
@@ -2249,6 +2266,17 @@ func shake(amount: float) -> void:
 	if not screen_shake:
 		return
 	shake_amount = maxf(shake_amount, amount)
+
+
+func kick_cam(dir: Vector3, amount: float) -> void:
+	## A directional camera jolt (getting hit, landing a blow) that springs
+	## back, on top of the random shake. Honours the screen shake setting.
+	if not screen_shake:
+		return
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	cam_kick = (cam_kick + dir.normalized() * amount).limit_length(0.5)
 
 
 func shake_at(where: Vector3, amount: float) -> void:
