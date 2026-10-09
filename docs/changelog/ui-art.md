@@ -390,3 +390,40 @@ clean.
 Renders: `elf-base-passC-courtyard.png`, `elf-base-passC-throne.png`, `elf-base-passC-castle.png`.
 
 Revert: `git revert ae919cd`
+
+---
+
+## 2026-10-09 — Elf base pass D: the crown room upstairs, turret pads, hedge line (layout sheet)
+
+Commit: `PENDING`
+
+What changed (Elf base only; the Human side is untouched):
+- **Crown room upstairs**: the Elves' crown room now stands on a sandstone terrace 0.9 m above the
+  keep floor (`ROOM_RAISE`), with a wide flight of stairs between timber cheek walls from the keep
+  hall up to the vault doors; its hedge walls, posts, cornice, rugs, decals, crests, crystals and
+  chests all ride the terrace. The keep's arch-to-throne rug is Humans-only now (the stairs take its
+  place). The throne/crown position is `thrones[0] = (-63.5, 0.9, 0)`; scoring is a flat distance so
+  captures are unaffected, and the bots' throne-room routing box already spans the height.
+- **Turret spots** (the sheet's outer-defence turrets): a round sandstone pad with a gold ring at each
+  of `turret_spots(0)` (two on the rampart, two in the yard), new `_add_turret_pad`.
+- **Fence line**: a trimmed hedge run along the outside foot of the front wall from the gate approach
+  to each corner (decor, not solid); the yard-side bush there was dropped. The rampart fire pillars
+  moved out to z ±10 so they clear the turret spots.
+- Shared code touched, no-op for the Humans: `vault.gd` places the doors at `throne.y`;
+  `_polish_keep` pennants add `throne.y`.
+
+Files touched: `scripts/game.gd` (`ROOM_RAISE`, `_build_castle`, `_build_throne_room`,
+`_polish_keep`, `_dress_elf_yard`, `_add_turret_pad`), `scripts/vault.gd`, `docs/changelog/ui-art.md`.
+
+Tunables (old → new): `ROOM_RAISE` new 0.9 (Elves; 0 keeps the old ground-level room); rampart fire
+pillars z ±(DOOR_HALF+4.6) → ±(CASTLE_HALF_Z−2.0).
+
+Tested: `--check-only` on game.gd and vault.gd; `--audit` 1 overlap (the pre-existing pine pair);
+headless bot matches (seed 3, 200 s; seed 5, full length) with no script errors. The full match
+ended 0-0 with both teams' raiders idling in their own keeps behind the crown room from t=30 s;
+the same seed on the pass C commit (ae919cd) does exactly the same, so it is not this pass (under
+investigation, see the next entry).
+
+Renders: `elf-base-passD-throne.png`, `elf-base-passD-castle.png`.
+
+Revert: `git revert PENDING`
