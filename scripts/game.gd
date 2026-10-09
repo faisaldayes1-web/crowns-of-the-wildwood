@@ -7262,11 +7262,11 @@ func apply_graphics() -> void:
 		RenderingServer.directional_shadow_atlas_set_size(2048, true)
 		RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
 		vp.positional_shadow_atlas_size = 1024
-		# The sun keeps its shadow in a browser (without it the world looked
-		# flat: Faisal 2026-10-09 "ugly"), but only things taller than 1.6 m
-		# cast one (_trim_web_shadows) and only within 40 m of the camera.
+		# Low in a browser drops the sun's shadow: the shadow map redraws
+		# every caster (about 1,150 WebGL draws) and the sun lights each
+		# object in a second pass. Medium brings both back.
 		if sun_light:
-			sun_light.shadow_enabled = true
+			sun_light.shadow_enabled = q >= 1
 	if world_environment:
 		world_environment.ssao_enabled = q >= 1
 		world_environment.ssil_enabled = q >= 2
@@ -7422,7 +7422,7 @@ func _build_world() -> void:
 		# cascades (each cascade redraws every caster: thousands of WebGL
 		# draw calls a frame on the iPad). The camera sees about 45 m.
 		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-		sun.directional_shadow_max_distance = 40.0
+		sun.directional_shadow_max_distance = 50.0
 	add_child(sun)
 	# A cool fill from the other side so shadows are not black.
 	var fill := DirectionalLight3D.new()
@@ -7588,7 +7588,7 @@ func _trim_web_shadows() -> void:
 		if n.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF or n.mesh == null:
 			continue
 		var ext: Vector3 = n.mesh.get_aabb().size * n.global_transform.basis.get_scale()
-		if maxf(ext.x, maxf(ext.y, ext.z)) < 1.6:
+		if maxf(ext.x, maxf(ext.y, ext.z)) < 0.8:
 			n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			trimmed += 1
 	if perf_log:
