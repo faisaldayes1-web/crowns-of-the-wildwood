@@ -789,3 +789,44 @@ Files: `scripts/hud.gd`, `scripts/character_model.gd`, `docs/changelog/ui-art.md
 `--check-only`; `tools/options_menu_test.gd` 0 failures.
 
 Revert: `git revert a904271`.
+
+## 2026-10-09 — Icon upgrade pass (Faisal 11:33 "upgrading the ... icons")
+
+Commit: `758af0c`. `tools/make_icons.py` gets a finishing pass (`finish()`) used by every icon it
+and `tools/make_summary_icons.py` draw: colours +25 % saturation / +6 % brightness, light from
+the top and shade toward the bottom, a rim light on the top-left edges, a thick ink sticker
+outline and a soft drop shadow; the glow fades out before the canvas edge (no square halo).
+Output 128 → 256 px (all 72 in `assets/ui/icons`, reimported). The HUD draws them by rect, so
+sizes on screen are unchanged. Faisal's own painted versions replace these by file name when
+he sends them. Also: Classes-tab SELECT on pale classes (Knight, Healer) gets a darker fill so
+its white text reads.
+
+Files: `tools/make_icons.py`, `assets/ui/icons/*.png`, `scripts/hud.gd`,
+`docs/changelog/ui-art.md`. Tested: `--import`; `tools/options_menu_test.gd` 0 failures;
+renders of the HUD and Classes tab. Sheet: game/groups/ui-art/icons/upgraded-icons-sheet.png.
+
+Revert: `git revert 758af0c`.
+
+## 2026-10-09 — Every HUD button works (Faisal 11:39 "ALL the settings and buttons work")
+
+Commit: `fd1bcbf`. Broken → fixed:
+- The HUD corner "bag" button (I key) did nothing → removed (`_bag_glyph` gone); the corner now
+  shows map + scoreboard only, shifted 50 px.
+- The map / scoreboard corner buttons only answered the keys → a click or tap opens the pause
+  menu on MAP (tab 0) or SCOREBOARD (tab 3) (`hud.corner_buttons`, click handler in game.gd).
+- The end-of-match summary's SCOREBOARD and CONTINUE ignored touch taps (iPad) → the game_over
+  block passes `touch_tap` to `hud._click_end`.
+Test coverage: `tools/options_menu_test.gd` now also checks the corner buttons, every touch
+ability tile, the downed skip (hold interact; only where the build has Downed & Revive) and both
+summary buttons; `tools/menu_flow_test.gd` accepts the fixed 4v4 team size.
+
+Files: `scripts/hud.gd`, `scripts/game.gd`, `tools/options_menu_test.gd`,
+`tools/menu_flow_test.gd`. Tested: options_menu_test and menu_flow_test 0 failures; `--audit`
+(1 known pine overlap).
+
+Revert: `git revert fd1bcbf`.
+
+Follow-up `543029f`: the downed-skip check waits for the outcome (up to 600 frames) instead of a fixed
+frame count, since physics ticks lag process frames headlessly. On the combined alpha
+(release/v0.4.0-alpha + this branch): options_menu_test, menu_flow_test, store_menu_test all
+0 failures. Revert: `git revert 543029f`.

@@ -227,6 +227,41 @@ func _init() -> void:
 	check(hud.rank_buttons.size() == 4 and hud.close_button.size.x > 0.0, "the perk key opens the UPGRADES board")
 	await tap(hud.close_button)
 	check(not game.rank_open, "its X closes it")
+	# The HUD corner squares: the map opens the pause menu, the list the scoreboard tab.
+	check(hud.corner_buttons.size() == 2, "HUD corner: two buttons (map, scoreboard; the dead bag is gone)")
+	for want in [["menu", 0], ["scoreboard", 3]]:
+		await tap(find(hud.corner_buttons, want[0]))
+		check(game.menu_open and game.menu_tab == want[1], "HUD corner: %s opens the pause menu on tab %d" % want)
+		game.menu_open = false
+		game.get_tree().paused = false
+		await frames()
+	# Touch: every ability tile and corner square presses its action.
+	var tiles: Array = hud.touch_rects.duplicate()
+	check(tiles.size() >= 6, "touch: the HUD lists its tiles (%d)" % tiles.size())
+	for e in tiles:
+		if e[1] in ["menu", "scoreboard", "rank_menu", "interact"]:
+			continue   # these open screens or grab; checked above
+		game.touch._down(7, e[0].get_center())
+		var act: String = game.touch.held.get(7, "")
+		check(act != "" and Input.is_action_pressed(act), "touch: the %s tile presses %s" % [e[1], act])
+		game.touch._up(7)
+		await frames()
+	# Downed (when the build has it): hold interact to skip to the respawn.
+	if "downed" in p and p.has_method("_go_down") and p.downed_enabled():
+		p._go_down(null)
+		await frames(40)
+		check(p.downed and not p.dead, "downed: losing the last heart downs you")
+		Input.action_press("interact")
+		# Physics ticks run behind process frames headlessly: wait on the
+		# outcome (well past DOWNED_SKIP_HOLD) rather than a frame count.
+		for i in 600:
+			if p.dead:
+				break
+			await frames(1)
+		Input.action_release("interact")
+		check(p.dead, "downed: holding the skip button respawns you")
+		await frames(5)
+	# LEAVE MATCH twice goes back to the title.
 	game.menu_open = true
 	game.menu_tab = 0
 	await frames()
@@ -234,6 +269,32 @@ func _init() -> void:
 	await tap(hud.quit_button)
 	await frames(3)
 	check(not is_instance_valid(game) or not game.playing, "LEAVE MATCH clicked twice goes back to the title")
+	# The end-of-match summary's two buttons (taps reach them too, for the iPad).
+	await frames(5)
+	game = current_scene
+	hud = game.hud
+	hud.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	hud.size = Vector2(1280, 720)
+	m = game.main_menu
+	m._press("play", null)
+	m._press("to_lobby", null)
+	m.start()
+	await frames(10)
+	game._finish(0)
+	await frames(10)
+	var sm = game.summary
+	check(sm != null, "the match ends on the summary")
+	if sm:
+		var shown: bool = sm.show_board
+		await tap(sm.board_rect)
+		check(sm.show_board != shown, "summary: SCOREBOARD switches the view")
+		await tap(sm.board_rect)
+		if not sm.done():
+			await tap(sm.continue_rect)
+			check(sm.done(), "summary: the first CONTINUE skips the tally")
+		await tap(sm.continue_rect)
+		await frames(3)
+		check(not is_instance_valid(game) or not game.game_over, "summary: CONTINUE goes back to the title")
 
 	if backup.is_empty():
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))

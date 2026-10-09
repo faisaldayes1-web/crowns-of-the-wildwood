@@ -1,9 +1,9 @@
 """Draws the HUD icon set with PIL: ability, action, class and faction icons
 in a painted style (gradient fills, dark outlines, a soft glow), on
-transparent 128x128 PNGs. Run from the project root:
+transparent 256x256 PNGs (drawn at 512 and scaled down). Run from the project root:
     python3 tools/make_icons.py
 """
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 import math, os
 
 OUT = "assets/ui/icons"
@@ -91,11 +91,58 @@ def shine(img):
     return out
 
 
+def finish(img):
+    """The 2026-10-09 upgrade (Faisal: "upgrade the icons"): give every icon
+    volume and a chunky cartoon read like the game's painted skill tiles. Light
+    from the top-left, shade toward the bottom-right, a bright rim along the
+    lit edges, a thick ink sticker outline and a soft drop shadow."""
+    a = img.split()[3]
+    rgb = ImageEnhance.Brightness(ImageEnhance.Color(img.convert("RGB")).enhance(1.25)).enhance(1.06)
+    img = Image.merge("RGBA", (*rgb.split(), a))
+    solid = a.point(lambda v: 255 if v > 40 else 0)
+    # Shading: lighten the top, darken the bottom, clipped to the shape.
+    shade = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shade)
+    for y in range(N):
+        t = y / (N - 1)
+        if t < 0.45:
+            sd.line([(0, y), (N, y)], fill=(255, 250, 225, int(55 * (0.45 - t) / 0.45)))
+        else:
+            sd.line([(0, y), (N, y)], fill=(30, 10, 50, int(55 * (t - 0.45) / 0.55)))
+    shade.putalpha(Image.composite(shade.split()[3], Image.new("L", img.size, 0), solid))
+    img = Image.alpha_composite(img, shade)
+    # Rim light along the top-left edges.
+    off = 5 * SS
+    shifted = Image.new("L", img.size, 0)
+    shifted.paste(solid, (off, off))
+    rim = Image.composite(solid, Image.new("L", img.size, 0), shifted.point(lambda v: 255 - v))
+    rim = rim.filter(ImageFilter.GaussianBlur(1.2 * SS)).point(lambda v: int(v * 0.55))
+    rim_layer = Image.new("RGBA", img.size, (255, 255, 240, 0))
+    rim_layer.putalpha(Image.composite(rim, Image.new("L", img.size, 0), solid))
+    img = Image.alpha_composite(img, rim_layer)
+    # Sticker outline and drop shadow behind the shape.
+    fat = a.filter(ImageFilter.MaxFilter(4 * SS + 1)).point(lambda v: 255 if v > 30 else 0)
+    ink = Image.new("RGBA", img.size, INK + (0,))
+    ink.putalpha(fat.filter(ImageFilter.GaussianBlur(0.6 * SS)))
+    shadow = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    sh = Image.new("L", img.size, 0)
+    sh.paste(fat, (0, 3 * SS))
+    shadow.putalpha(sh.filter(ImageFilter.GaussianBlur(3 * SS)).point(lambda v: int(v * 0.45)))
+    base = Image.alpha_composite(shadow, ink)
+    return Image.alpha_composite(base, img)
+
+
 def save(img, name, halo=None):
+    img = finish(img)
     if halo:
-        img = glow(img, halo)
+        img = glow(img, halo, 14, 0.8)
     img = shine(img)
-    img.resize((128, 128), Image.LANCZOS).save(f"{OUT}/{name}.png")
+    # Fade the halo out before the canvas edge so no square edge shows.
+    edge = Image.new("L", img.size, 0)
+    ImageDraw.Draw(edge).rounded_rectangle([10 * SS, 10 * SS, N - 10 * SS, N - 10 * SS], 40 * SS, fill=255)
+    edge = edge.filter(ImageFilter.GaussianBlur(7 * SS))
+    img.putalpha(Image.composite(img.split()[3], Image.new("L", img.size, 0), edge))
+    img.resize((256, 256), Image.LANCZOS).save(f"{OUT}/{name}.png")
     print("wrote", name)
 
 

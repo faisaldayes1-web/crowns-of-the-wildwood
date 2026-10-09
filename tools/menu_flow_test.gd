@@ -29,8 +29,11 @@ func _init() -> void:
 	check(m.map_pick == 0, "a coming-soon map cannot be picked")
 	m._press("difficulty", "Hard")
 	check(game.bot_difficulty == "Hard", "HARDCORE sets the Hard bots")
+	# The live game may be fixed at 4v4 (no team size buttons); then the
+	# press does nothing and the checks below expect the fixed size.
 	m._press("team_size", 2)
-	check(game.team_size == 2, "TEAM SIZE 2v2")
+	var size: int = game.team_size
+	check(size == 2 or size == 4, "TEAM SIZE is 2v2, or fixed at 4v4 (got %d)" % size)
 	m._press("to_lobby", null)
 	check(m.screen == "lobby", "START MATCH opens READY UP")
 	var slots: Array = m.lobby_slots()
@@ -48,7 +51,7 @@ func _init() -> void:
 	for i in 3:
 		await process_frame
 	check(game.playing, "the match starts once everyone is ready")
-	check(game.units.size() == 4, "2v2 spawns four fighters (got %d)" % game.units.size())
+	check(game.units.size() == size * 2, "%dv%d spawns %d fighters (got %d)" % [size, size, size * 2, game.units.size()])
 	check(game.player.team == 1 and game.locals[1].team == 0, "players 1 and 2 are on the sides they picked")
 	check(game.local_pad(1) == 3, "player 2 keeps the pad they joined with")
 	check(game.menu_stage == null, "the menu stage is gone")

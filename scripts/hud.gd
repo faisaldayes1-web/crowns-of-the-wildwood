@@ -68,6 +68,7 @@ var resume_button := Rect2()       # pause menu: RESUME
 var group_buttons: Array = []      # [rect, index] Controls tab action groups
 var controls_group := 0            # the Controls tab's open group
 var class_buttons: Array = []      # [rect, role] Classes tab SELECT
+var corner_buttons: Array = []     # [rect, "menu" | "scoreboard"] the HUD corner squares (mouse clicks)
 var menu_tex: Dictionary = {}      # assets/ui/menu art used by the pause menu
 var variant_buttons: Array = []   # [rect, role, index]
 var tab_buttons: Array = []
@@ -234,6 +235,7 @@ func _draw() -> void:
 	resume_button = Rect2()
 	group_buttons = []
 	class_buttons = []
+	corner_buttons = []
 	bind_buttons = []
 	reset_button = Rect2()
 	volume_sliders = []
@@ -3524,16 +3526,17 @@ func _move_slots(p, at: Array, sz: Array) -> void:
 
 
 func _corner_buttons(origin: Vector2) -> void:
-	## Map, bag and menu: three small gold-rimmed squares in the corner with
-	## an icon drawn in code and the key under each. The map opens the pause
-	## menu (its first tab is the map) and the list holds up the scoreboard;
-	## the bag is decoration until there is an inventory.
-	var pad: bool = game.on_pad(local_unit)
-	var keys := [_k("menu"), "" if pad else "I", _k("scoreboard")]
-	for i in 3:
-		var r := Rect2(origin + Vector2(i * 50.0, 0), Vector2(42, 42))
+	## Map and scoreboard: two small gold-rimmed squares in the corner with an
+	## icon drawn in code and the key under each. Click or tap the map for the
+	## pause menu (its first tab is the map), the list for the scoreboard tab.
+	## (The bag between them did nothing and is gone, 2026-10-09.)
+	var keys := [_k("menu"), _k("scoreboard")]
+	var ids := ["menu", "scoreboard"]
+	for i in 2:
+		var r := Rect2(origin + Vector2(50.0 + i * 50.0, 0), Vector2(42, 42))
 		if not pane:
-			touch_rects.append([Rect2(r.position * hud_scale, r.size * hud_scale), ["menu", "", "scoreboard"][i]])
+			touch_rects.append([Rect2(r.position * hud_scale, r.size * hud_scale), ids[i]])
+			corner_buttons.append([r, ids[i]])
 		if not _st():
 			continue
 		_plate(r.grow(3), Color(0.06, 0.04, 0.03), Color(0.03, 0.02, 0.01), 8, 1)
@@ -3548,8 +3551,7 @@ func _corner_buttons(origin: Vector2) -> void:
 		var c := r.get_center() + Vector2(0, -3)
 		match i:
 			0: _map_glyph(c)
-			1: _bag_glyph(c)
-			2:
+			1:
 				for j in 3:
 					var y := c.y - 7.0 + j * 7.0
 					draw_line(Vector2(c.x - 10, y + 1), Vector2(c.x + 10, y + 1), Color(0, 0, 0, 0.5), 3.5)
@@ -3570,17 +3572,6 @@ func _map_glyph(c: Vector2, k: float = 1.0) -> void:
 	draw_polyline(outline, Color(0.35, 0.22, 0.08), 1.5 * k)
 	draw_polyline(PackedVector2Array([c + Vector2(-8, 5) * k, c + Vector2(-3, 0) * k, c + Vector2(2, 3) * k, c + Vector2(7, -4) * k]), Color(0.75, 0.2, 0.15), 1.4 * k)
 	draw_circle(c + Vector2(7, -5) * k, 2.4 * k, RED)
-
-
-func _bag_glyph(c: Vector2) -> void:
-	## A leather satchel with a flap and a brass buckle.
-	draw_arc(c + Vector2(0, -6), 6.0, PI, TAU, 10, Color(0.35, 0.2, 0.08), 2.5)
-	var body := Rect2(c + Vector2(-11, -6), Vector2(22, 18))
-	_plate(body, Color(0.62, 0.4, 0.2), Color(0.3, 0.17, 0.06), 5, 1)
-	draw_colored_polygon(PackedVector2Array([c + Vector2(-11, -5), c + Vector2(11, -5), c + Vector2(9, 3), c + Vector2(-9, 3)]), Color(0.72, 0.48, 0.25))
-	draw_line(c + Vector2(-9, 3), c + Vector2(9, 3), Color(0.3, 0.17, 0.06), 1.2)
-	draw_rect(Rect2(c + Vector2(-2.5, 1), Vector2(5, 5)), BRASS)
-	draw_rect(Rect2(c + Vector2(-2.5, 1), Vector2(5, 5)), Color(0.35, 0.2, 0.04), false, 1.0)
 
 
 func _hide_world_prompts() -> void:
@@ -4529,7 +4520,8 @@ func _menu_classes(body: Rect2) -> void:
 		var btn := Rect2(card.position.x + 8, card.end.y - 40, cw - 16, 32)
 		var label := "YOUR CLASS" if mine else ("LOCKED" if locked else ("SELECT" if near else "AT STATIONS"))
 		var live: bool = near and not mine and not locked
-		_plate(btn, col.darkened(0.15) if live else Color(0.18, 0.18, 0.2), col.lightened(0.3) if live else (GOLD if mine else Color(0.3, 0.3, 0.32)), 6, 2)
+		var fill: Color = col.darkened(0.15 if col.get_luminance() < 0.55 else 0.45)   # pale classes keep white text readable
+		_plate(btn, fill if live else Color(0.18, 0.18, 0.2), col.lightened(0.3) if live else (GOLD if mine else Color(0.3, 0.3, 0.32)), 6, 2)
 		if live:
 			draw_rect(Rect2(btn.position + Vector2(3, 3), Vector2(btn.size.x - 6, 10)), Color(1, 1, 1, 0.18))
 		_text(Vector2(btn.position.x, btn.end.y - 10), label, 14 if live or mine else 11, Color.WHITE if live else (GOLD if mine else GREY), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x, 3)
