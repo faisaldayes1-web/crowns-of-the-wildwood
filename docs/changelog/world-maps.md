@@ -7,6 +7,14 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
+### 2026-10-09 04:55 UTC · `742471f` · Merge UI & Art's open Elf courtyard (c5afec8)
+
+- **What:** Merge of `origin/group/ui-art-z3px4x` (the Wildwood Elf class courtyard rebuilt at ground level: `cellar_floor(team)`, `_in_cellar` now bounded in x and tested against that floor, the barricade rule uses `_in_cellar`, day light grade changed). Two conflicts in `scripts/game.gd` in `_build_cellar`, resolved so their `open` courtyard branch (stations under the pavilion, Upgrade Station in the south-east corner, Guide by the passage) and the Humans' sunken hall with its workshop corner (south-west) and Guide (north-west) each keep their own branch; the Human and both Ember Pass cellars take the old path unchanged.
+- **Files:** scripts/game.gd (merge), plus their files (assets/textures/pavers_color.jpg, tools/make_textures.py, docs/changelog/ui-art.md)
+- **Tunables:** none of ours
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches: Wildwood doors 130/32 at 90 s, 0/0 at 150 s; Ember Pass unseeded run stayed 200/199 to 150 s, so re-run with `--seed=5` on this merge (doors 154/200 at 90 s, 154/155 at 120 s, Elves capture at 147 s, no bot holding position in any snapshot) and on the pre-merge commit f0b7e09 (128/200 at 90 s, 0/200 at 120 s): same behaviour, the quiet run was variance
+- **Revert:** `git revert -m 1 742471f`
+
 ### 2026-10-09 04:00 UTC · `a24e1aa` · Merge UI & Art's Elf overhaul (7e37f9f) so both bases share light, materials and wall heights
 
 - **What:** Merge of `origin/group/ui-art-z3px4x` (their Elf base overhaul: soft wrapped shading, blurred shadows, day grade, finer ink lines, regenerated stone/flagstone/hedge textures, layered crown pedestal, waist-high Elf parapets). Eight conflicts in `scripts/game.gd`, all resolved so each faction keeps its own rule: `_add_wall` keeps the Human plinth and their `hedge_tops or mossy` hedge row; the crown room's side walls use their `wall_h`/`wall_t` for the Elves and `_room_wall_h` for the Humans; the keep's side walls use their `kh` (1.4 for Elves) with the Human south wall at 1.3; pennants, torches, tapestries and the keep torch follow the same split; the Upgrade Station keeps their Elf workshop corner (north-west) and the Human one (south-west).
