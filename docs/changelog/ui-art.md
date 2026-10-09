@@ -453,3 +453,14 @@ of both keeps by t=30 s, doors 110/198 at t=60 s (were 200/200 for 600 s before)
 Files touched: `scripts/game.gd` (`_polish_keep`), `docs/changelog/ui-art.md`.
 
 Revert: `git revert b678241` (brings the 0-0 matches back)
+
+---
+
+## 2026-10-09 — Merge World & Maps (f95a3ea): their raider fix supersedes ours
+
+World & Maps fixed the same trap on their branch (47c7d81) by turning the four corner fire pillars back
+into non-solid `_add_torch` torches, the pre-merge look. Merged their branch and took their torches
+over our moved braziers (conflict in `_polish_keep`), keeping our terrace heights (`fy`/`throne.y`)
+on the throne-room banner, light and pennants; their removal of the Human stone lions inside the
+throne room's doors is taken as is. Seed-5 match after the merge: doors 120/200 at t=60 s, no script
+errors, audit unchanged. Reverting our own fix commit above is no longer needed (its lines are gone).
