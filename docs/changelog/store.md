@@ -76,7 +76,7 @@ Undo: `git revert -m 1 78fa3c0` (keeps the store, drops UI & Art's merge and the
 
 ## 2026-10-09 — clearer weapon and armour cards; softer tints and glows
 
-Commit: _pending_
+Commit: `855b259`
 
 What changed:
 - Weapon cards draw a sword in the skin's metal and armour cards a breastplate in the tint (the small
@@ -87,3 +87,5 @@ What changed:
   with `--play`), `--debug-store=kind:i`, `--debug-store-buy`, `--debug-store-chest`.
 
 Files: `scripts/store.gd`, `scripts/store_gear.gd`, `scripts/stats.gd`, `scripts/game.gd`.
+
+Undo: `git revert 855b259`
