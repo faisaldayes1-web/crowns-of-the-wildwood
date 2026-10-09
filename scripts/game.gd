@@ -4624,14 +4624,17 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 		# The open courtyard (Wildwood): designed stations under the pavilion,
 		# their name boards on its posts; the hat's own ring is the only glow.
 		_add_elf_class_station(team, role, pos)
+		# The class name stands just in front of the station's base, where
+		# the game camera always sees it (on the pavilion's board it was cut
+		# off by the top of the screen: Faisal 08:18 2026-10-09).
 		var name := Label3D.new()
 		name.text = str(Stats.FACTIONS[team].roles[role]).to_upper()
-		name.font_size = 76
-		name.pixel_size = 0.0052
+		name.font_size = 64
+		name.pixel_size = 0.0048
 		name.outline_size = 14
 		name.outline_modulate = Color(0.1, 0.07, 0.04)
 		name.modulate = Color(1.0, 0.97, 0.9)
-		name.position = Vector3(pos.x, pos.y + 2.72, pos.z - 1.8 + 0.12)
+		name.position = Vector3(pos.x, pos.y + 0.3, pos.z + 1.35)
 		name.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		name.shaded = false
 		add_child(name)
@@ -8037,10 +8040,10 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	var zb := pos.z - 1.8
 	var dark := _timber(Color(0.26, 0.17, 0.1))
 	var mid := _timber(Color(0.4, 0.27, 0.16))
-	_add_block(Vector3(pos.x, pos.y + 2.7, zb), Vector3(2.3, 0.6, 0.14), Color.WHITE, false, dark)
-	_add_block(Vector3(pos.x, pos.y + 2.7, zb + 0.075), Vector3(2.14, 0.46, 0.02), Color.WHITE, false, mid)
-	for xs in [-0.85, 0.85]:
-		_add_block(Vector3(pos.x + xs, pos.y + 3.12, zb), Vector3(0.05, 0.26, 0.05), Color.WHITE, false, _iron())
+	# (No name board on the posts since 08:18 2026-10-09: the name sits in
+	# front of the base; `dark`/`mid` stay for the panel's frame.)
+	_add_block(Vector3(pos.x, pos.y + 1.95, zb - 0.02), Vector3(1.62, 1.07, 0.04), Color.WHITE, false, dark)
+	_add_block(Vector3(pos.x, pos.y + 2.5, zb), Vector3(0.05, 0.1, 0.05), Color.WHITE, false, mid)
 	_add_block(Vector3(pos.x, pos.y + 1.95, zb), Vector3(1.5, 0.95, 0.06), Color.WHITE, false, _cloth(Color(0.12, 0.44, 0.25)))
 	for yy in [1.5, 2.4]:
 		_add_block(Vector3(pos.x, pos.y + yy, zb + 0.01), Vector3(1.56, 0.07, 0.08), Color.WHITE, false, _gold())
@@ -8156,22 +8159,12 @@ func _dress_elf_open_courtyard(team: int, bx: float, side: float) -> void:
 	# Runners: spawn circle to the passage, and the length of the class row.
 	_add_rug(Vector3(bx + side * 7.0, 0.03, 0), Vector2(10.4, 2.6), color)
 	_add_emblem_decal(Vector3(bx + side * 7.0, 0.11, 0), 1.7, team)
-	_add_rug(Vector3(bx + side * 9.0, 0.03, -(hz - 4.6)), Vector2(16.2, 1.6), color.darkened(0.08))
+	_add_rug(Vector3(bx + side * 10.6, 0.03, -(hz - 4.6)), Vector2(13.0, 1.6), color.darkened(0.08))
 	for k in 3:
-		_add_emblem_decal(Vector3(bx + side * (3.3 + k * 5.7), 0.11, -(hz - 4.6)), 1.1, team)
-	# Lawn and beds along the south fence, west of the workshop.
-	var grass := _pbr("grass", 0.35, Color(0.88, 1.0, 0.82))
-	grass.roughness = 1.0
-	_add_block(Vector3(bx + side * 13.2, 0.006, hz - 1.65), Vector3(9.6, 0.012, 2.5), Color.WHITE, false, grass)
-	_add_planting_bed(Vector3(bx + side * 10.6, 0, hz - 1.75), Vector2(2.4, 1.2), 303)
-	_add_planting_bed(Vector3(bx + side * 15.8, 0, hz - 1.75), Vector2(2.4, 1.2), 304)
-	# The workshop corner: stores by the Upgrade Station, against the fence.
-	_prop("dungeon/shelves", Vector3(bx + side * 1.6, 0, hz - 0.95), 0.7, PI)
-	_prop("dungeon/bottle_A_labeled_green", Vector3(bx + side * 1.75, 0.95, hz - 1.2), 0.5)
-	_prop("dungeon/bottle_B_green", Vector3(bx + side * 1.4, 0.95, hz - 1.15), 0.5)
-	_prop("dungeon/crates_stacked", Vector3(bx + side * 6.6, 0, hz - 1.5), 0.65, 0.3)
-	_add_blocker(Vector3(bx + side * 6.6, 0, hz - 1.5), 0.65, 1.5)
-	_prop("dungeon/barrel_large", Vector3(bx + side * 5.2, 0, hz - 1.0), 0.7)
+		_add_emblem_decal(Vector3(bx + side * (6.0 + k * 4.6), 0.11, -(hz - 4.6)), 1.1, team)
+	# (No lawn, planting beds or loose stores along the south fence: "random
+	# green texture box?", Faisal 08:18 2026-10-09. The Upgrade Station
+	# carries its own bench and casks.)
 	# Trees with layered crowns outside the fence, bushes between them.
 	for k in 4:
 		_add_canopy_tree(Vector3(bx + side * (2.6 + k * 4.9), 0, hz + 2.7), 700 + k, 1.0 + 0.12 * (k % 2))
@@ -8367,7 +8360,10 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	# corner by the castle wall and the Guide stands by the passage. (The
 	# Humans' station and workshop corner are in their own branch below.)
 	if open:
-		_add_upgrade_pad(team, Vector3(bx + side * 3.4, fy, 7.4))
+		# By the class row's near end, its board backing onto the row and the
+		# anvil facing the room ("wrong way", Faisal 08:18 2026-10-09: it sat
+		# in the far corner by the exit).
+		_add_upgrade_pad(team, Vector3(bx + side * 1.6, fy, -4.0))
 	elif team == 0:
 		_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
 	if team == 0 and not open:
@@ -8388,7 +8384,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	var g := Guide.new()
 	add_child(g)
 	if open:
-		g.setup(self, team, Vector3(bx + side * 1.8, fy, -4.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
+		g.setup(self, team, Vector3(bx + side * 1.3, fy, 5.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
 	else:
 		g.setup(self, team, Vector3(bx + side * 1.3, CELLAR_Y, 5.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
 	guides[team] = g
