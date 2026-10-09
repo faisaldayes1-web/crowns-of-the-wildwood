@@ -4525,8 +4525,8 @@ func _add_elf_class_stall(team: int, role: int, pos: Vector3, wall_z: float, top
 	# The name board on two short chains.
 	for xs in [-0.7, 0.7]:
 		_add_block(Vector3(pos.x + xs, top - 0.12, wall_z + 1.0), Vector3(0.04, 0.16, 0.04), Color.WHITE, false, _iron())
-	_add_block(Vector3(pos.x, sign_y, wall_z + 1.0), Vector3(1.9, 0.5, 0.1), Color.WHITE, false, dark)
-	_add_block(Vector3(pos.x, sign_y, wall_z + 1.04), Vector3(1.9, 0.5, 0.02), Color.WHITE, false, _timber(Color(0.36, 0.26, 0.16)))
+	_add_block(Vector3(pos.x, sign_y, wall_z + 1.0), Vector3(2.2, 0.62, 0.1), Color.WHITE, false, dark)
+	_add_block(Vector3(pos.x, sign_y, wall_z + 1.04), Vector3(2.1, 0.54, 0.02), Color.WHITE, false, _timber(Color(0.36, 0.26, 0.16)))
 	# The banner: team cloth with a gold hem, the class icon on it.
 	_add_block(Vector3(pos.x, sign_y - 0.9, wall_z + 1.0), Vector3(1.4, 1.2, 0.05), Color.WHITE, false, _cloth(team_color.darkened(0.05)))
 	_add_block(Vector3(pos.x, sign_y - 0.33, wall_z + 1.0), Vector3(1.5, 0.07, 0.07), Color.WHITE, false, _gold())
@@ -4639,6 +4639,12 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 	label.outline_modulate = color.darkened(0.7)
 	label.modulate = Color(1.0, 0.98, 0.92)
 	label.position = Vector3(pos.x, sign_y, wall_z + 1.0)
+	if team == 0:
+		# In front of the Elves' timber board and turned to the camera, so
+		# the name reads from the top-down view (it hid inside the board).
+		label.position = Vector3(pos.x, sign_y + 0.05, wall_z + 1.08)
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		label.font_size = 72
 	label.shaded = false
 	add_child(label)
 	_add_runes(pos + Vector3(0, 0.0, 0.1), 1.15, color)
@@ -4916,7 +4922,7 @@ func _add_crown_altar(team: int, throne: Vector3, side: float) -> void:
 			_add_antler(throne + Vector3(0, 0.66, zs * 0.42), Vector3(0, 0, zs), _gold(), 1.15)
 		var light := OmniLight3D.new()
 		light.light_color = Color(0.45, 1.0, 0.6)
-		light.light_energy = 1.4
+		light.light_energy = 0.9   # was 1.4: with the crown's own light it washed the altar out
 		light.omni_range = 6.0
 		light.position = throne + Vector3(0, 1.6, 0)
 		add_child(light)
@@ -5934,8 +5940,13 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		_add_block(Vector3(cx, ROOM_H / 2.0, zs * hz), Vector3(depth + 0.5, ROOM_H, 0.5), Color.WHITE, true, wall_mat)
 		var seg := hz - ROOM_DOOR_HALF - 0.3
 		_add_block(Vector3(front_x, ROOM_H / 2.0, zs * (ROOM_DOOR_HALF + 0.3 + seg / 2.0)), Vector3(0.5, ROOM_H, seg), Color.WHITE, true, wall_mat)
-		# Door posts and the lintel over the doors.
-		_add_block(Vector3(front_x, (ROOM_H + 0.3) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.7, ROOM_H + 0.3, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)))
+		# Door posts and the lintel over the doors (timber for the Elves).
+		_add_block(Vector3(front_x, (ROOM_H + 0.3) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.7, ROOM_H + 0.3, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)) if not elven else _timber(Color(0.5, 0.36, 0.24)))
+		if elven:
+			# Timber posts at the hedge walls' corners (the reference's framed hedges).
+			for xx in [front_x, back_x]:
+				_add_block(Vector3(xx, (ROOM_H + 0.4) / 2.0, zs * hz), Vector3(0.6, ROOM_H + 0.4, 0.6), Color.WHITE, true, _timber(Color(0.5, 0.36, 0.24)))
+				_add_block(Vector3(xx, ROOM_H + 0.45, zs * hz), Vector3(0.75, 0.12, 0.75), Color.WHITE, false, _timber(Color(0.36, 0.26, 0.16)))
 	_add_block(Vector3(back_x, ROOM_H / 2.0, 0), Vector3(0.5, ROOM_H, hz * 2 + 0.5), Color.WHITE, true, wall_mat)
 	_add_block(Vector3(front_x, ROOM_H - 0.2, 0), Vector3(0.7, 0.4, ROOM_DOOR_HALF * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
 	# A cornice (or vine ledge) along every wall top.
@@ -6020,7 +6031,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 			_add_stone_lion(Vector3(front_x - side * 1.35, 0, zs * (ROOM_DOOR_HALF + 1.1)), Vector3(-side, 0, 0), 0.72)
 		_add_banner(team, Vector3(front_x - side * 0.4, 0.0, zs * (ROOM_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.6, true)
 	_add_light(Vector3(back_x - side * 0.8, 1.6, 0), color.lightened(0.4), 1.0, 6.0)
-	_add_light(throne + Vector3(0, 2.2, 0), Color(1.0, 0.85, 0.5), 1.2, 4.5)
+	_add_light(throne + Vector3(0, 2.2, 0), Color(1.0, 0.85, 0.5), 1.2 if not elven else 0.6, 4.5)
 	_prop("dungeon/chest_gold", Vector3(back_x - side * 0.9, 0, -(hz - 0.8)), 0.7, PI / 2.0 if side < 0.0 else -PI / 2.0)
 	_prop("dungeon/chest", Vector3(back_x - side * 1.0, 0, hz - 0.9), 0.6, PI / 2.0 if side < 0.0 else -PI / 2.0)
 	_prop("dungeon/barrel_small", Vector3(back_x - side * 0.7, 0, -(hz - 2.0)), 0.8)
@@ -7587,6 +7598,9 @@ func _dress_elf_yard(team: int, fx: float, kx: float, side: float, hz: float) ->
 		_add_bush(Vector3(fx + side * 2.4, 0, zs * 5.6), 81 + int(zs))
 		_add_tree_grown(Vector3(kx - side * 2.6, 0, zs * (hz - 4.2)))
 		_add_stone_brazier(Vector3(kx - side * 1.9, 0, zs * 3.4))
+		# Fire pillars on the rampart deck (the layout sheet's outer defence),
+		# on its outer half, clear of the archer posts and the stair tops.
+		_add_stone_brazier(Vector3(fx - side * 0.5, WALK_Y, zs * (Stats.DOOR_HALF + 4.6)))
 	_add_emblem_decal(Vector3(lane_x, 0.06, 0), 2.2, team)
 
 

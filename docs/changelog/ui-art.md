@@ -360,3 +360,33 @@ Tested: `--check-only`; `--audit` 1 overlap on the Wildwood (the pre-existing pi
 Renders: `elf-base-passB-castle.png`, `elf-base-passB-courtyard.png`, `elf-base-passA-throne.png`.
 
 Revert: `git revert PENDING` (and `git revert -m 1 0b12837` for the merge).
+
+---
+
+## 2026-10-09 — Elf base pass C: readable station boards, framed crown-room hedges, softer crown glow, rampart fire pillars
+
+Commit: `PENDING`
+
+What changed (Elf base only):
+- **Class station boards**: the timber name board is 2.2 × 0.62 (was 1.9 × 0.5) and the class name
+  now sits in front of it, turned to the camera (billboard, font 72), so it reads from the top-down
+  view; in pass A it was inside the board and invisible.
+- **Crown room**: timber door posts and timber corner posts with caps frame the hedge walls (the
+  reference's framed hedges); the crown's room light is 0.6 (was 1.2) and the altar's green light
+  0.9 (was 1.4), so the crystal altar is no longer washed out.
+- **Outer defence**: a stone fire pillar on the outer half of the rampart deck either side of the
+  gatehouse (the layout sheet's upper-level defence), clear of the archer posts and stair tops.
+- **Yard lane** (fb9c9f7, before this entry): lane and lawns lifted 2 cm above the yard flags so
+  they no longer show in patches; the cobble tint cooled to (0.82, 0.8, 0.74).
+
+Files touched: `scripts/game.gd` (`_add_elf_class_stall`, `_add_class_alcove` label,
+`_build_throne_room`, `_add_crown_altar`, `_dress_elf_yard`), `docs/changelog/ui-art.md`.
+
+Tunables (old → new): crown room light 1.2 → 0.6 (Elves); altar light 1.4 → 0.9.
+
+Tested: `--check-only`; `--audit` 1 overlap (the pre-existing pine pair); 600-frame headless match
+clean.
+
+Renders: `elf-base-passC-courtyard.png`, `elf-base-passC-throne.png`, `elf-base-passC-castle.png`.
+
+Revert: `git revert PENDING`
