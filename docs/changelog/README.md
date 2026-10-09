@@ -9,6 +9,7 @@ Each developer group keeps its own log here, one file per group (the group creat
 | Combat & Balance | `group/combat-balance-*` | [combat-balance.md](combat-balance.md) |
 | Online & Platforms | `group/online-platforms-*` | [online-platforms.md](online-platforms.md) |
 | Integration & Release | `group/integration-release-*` | [integration-release.md](integration-release.md) |
+| Economy | `group/economy-*` | [economy.md](economy.md) |
 
 Releases (merges into `main` and version tags) are logged project-wide in [../CHANGELOG.md](../CHANGELOG.md) by the Integration & Release group.
 

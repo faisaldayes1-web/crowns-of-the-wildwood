@@ -19,6 +19,7 @@ const MatchSummary = preload("res://scripts/match_summary.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
+const Economy = preload("res://scripts/economy.gd")
 const Role = Stats.Role
 
 const TEAM_SIZE := 5
@@ -61,7 +62,7 @@ const BANK_LAYER := 16        # river banks block walkers, not shots
 const MONARCH_TITLES := ["Elven Crown", "Human Crown"]
 const CONTROLS_PATH := "user://controls.cfg"
 # Actions the player can rebind in the Controls menu (and what to call them).
-const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"],
+const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"], ["ability_3", "Upgraded hat move"],
 	["dodge", "Dodge"], ["interact", "Grab / drop"], ["rank_menu", "Perks & ranks"], ["scoreboard", "Scoreboard (hold)"],
 	["chat", "Chat"], ["chat_toggle", "Show / hide chat"], ["roster_toggle", "Show / hide team rosters"], ["menu", "Pause menu"], ["move_up", "Move up"], ["move_down", "Move down"],
 	["move_left", "Move left"], ["move_right", "Move right"], ["cmd_attack", "Call: Attack!"], ["cmd_defend", "Call: Defend!"],
@@ -135,6 +136,7 @@ var kill_feed: Array = []       # recent kills for the HUD's feed: {killer, ktea
 var prep_left := 0.0            # seconds left in the fortify phase (0 = the battle is on)
 var barrier: Node3D
 var turrets: Array = []       # every standing Engineer turret, both teams
+var economy = null            # wood, ore and what they buy (economy.gd)
 # Quality of life settings (saved with the controls).
 var screen_shake := true
 var damage_numbers := true
@@ -195,7 +197,7 @@ var split_layer: CanvasLayer
 var rank_player = null          # whose perk menu is open
 const COUCH_MAX := 4
 const COUCH_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "aim_left", "aim_right", "aim_up", "aim_down",
-	"attack", "block", "ability_1", "ability_2", "dodge", "interact", "rank_menu", "rank_1", "rank_2", "rank_3", "rank_4", "rank_5", "rank_6"]
+	"attack", "block", "ability_1", "ability_2", "ability_3", "dodge", "interact", "rank_menu", "rank_1", "rank_2", "rank_3", "rank_4", "rank_5", "rank_6"]
 
 var camera: Camera3D
 var hud
@@ -567,6 +569,8 @@ func _demo_summary() -> void:
 			cls = Stats.VARIANTS[u.bot_class][vi].name
 		print("STAT team=%d class=%s kills=%d deaths=%d assists=%d dmg=%d heal=%d caps=%d level=%d" % [u.team, cls.replace(" ", ""),
 			u.kills, u.deaths, u.assists, u.damage_dealt, u.healing, u.captures, u.level])
+	if economy:
+		economy.print_summary()
 
 
 func _end_on_time() -> void:
@@ -618,6 +622,8 @@ func try_interact(u) -> void:
 	if u.is_player and guides[u.team] and guides[u.team].in_reach(u):
 		guide_toggle()
 		return
+	if economy and economy.try_interact(u):
+		return   # gathering, hat machine upgrades, door repairs, turret pads
 	for role in seals[u.team]:
 		var seal = seals[u.team][role]
 		if seal.in_reach(u):
@@ -748,7 +754,8 @@ func _check_stations() -> void:
 			# Bots only use the seal for the class they were assigned.
 			if role != u.bot_class:
 				continue
-			if u.role != role and _flat_dist(u.global_position, stations[u.team][role]) < STATION_RADIUS:
+			var new_hat: bool = u.role == role and economy != null and economy.bot_wants_new_hat(u)   # an upgraded machine's hat
+			if (u.role != role or new_hat) and _flat_dist(u.global_position, stations[u.team][role]) < STATION_RADIUS:
 				u.set_role(role)
 				sfx.play("station", u.global_position)
 				if u == player:
@@ -974,6 +981,8 @@ func _plan_bots(team: int) -> void:
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1 if overtime else 2, "defend")
 	elif gate_hurt:
 		_assign_nearest(bots, Vector3(side * CASTLE_X, 0, 0), 1, "defend")
+	if economy:
+		economy.plan_gatherers(team, bots)
 
 
 func command_active(team: int, kind: String) -> bool:
@@ -7242,6 +7251,9 @@ func _build_world() -> void:
 			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
 	_build_outskirts()
 	_add_back_forest()
+	economy = Economy.new()
+	add_child(economy)
+	economy.build(self)
 
 	_apply_map_variant()
 	camera = Camera3D.new()
@@ -7393,6 +7405,7 @@ func _setup_input() -> void:
 	_add_action("block", [KEY_SHIFT, KEY_K], [JOY_BUTTON_LEFT_SHOULDER], JOY_AXIS_TRIGGER_LEFT, 1.0, [MOUSE_BUTTON_RIGHT])
 	_add_action("ability_1", [KEY_Q], [JOY_BUTTON_X])
 	_add_action("ability_2", [KEY_E], [JOY_BUTTON_Y])
+	_add_action("ability_3", [KEY_G], [JOY_BUTTON_LEFT_STICK])   # the upgraded hat's move (economy.gd)
 	_add_action("dodge", [KEY_SPACE, KEY_L], [JOY_BUTTON_B])
 	_add_action("interact", [KEY_F], [JOY_BUTTON_RIGHT_SHOULDER])
 	_add_action("rank_menu", [KEY_R], [JOY_BUTTON_RIGHT_STICK])

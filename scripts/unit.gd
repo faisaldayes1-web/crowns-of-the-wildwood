@@ -24,7 +24,8 @@ var respawn_timer := 0.0
 var attack_timer := 0.0
 var flash_timer := 0.0
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
-var ability_timers := [0.0, 0.0]
+var ability_timers := [0.0, 0.0, 0.0]   # Q, E, and G (the upgraded hat's move)
+var hat_upgraded := false   # wearing a hat from an upgraded hat machine (economy.gd): a third move on G
 var dodge_timer := 0.0      # time left in the current dash
 var dodge_cooldown := 0.0   # time until the next dodge is ready
 var dodge_dir := Vector3.ZERO
@@ -353,6 +354,8 @@ func stats() -> Dictionary:
 		if not v.is_empty():
 			_stats_cache.merge(v.attack, true)
 			_stats_cache.abilities = v.abilities
+		if hat_upgraded and not Stats.hat_upgrade(team, role).is_empty():
+			_stats_cache.abilities = _stats_cache.abilities + [Stats.hat_upgrade(team, role)]
 	return _stats_cache
 
 
@@ -389,7 +392,7 @@ func choose_variant(for_role: int, index: int) -> bool:
 	game.sfx.play("promote", global_position, 0.0 if is_player else -6.0)
 	if for_role == role:
 		_stats_cache = {}
-		ability_timers = [0.0, 0.0]
+		ability_timers = [0.0, 0.0, 0.0]
 		blocking = false
 		model.setup(team, role, variant().name, game.hero_custom() if is_player else {}, gear_rank())
 		flash_mats = model.flash_mats
@@ -436,9 +439,11 @@ func abilities() -> Array:
 
 func set_role(new_role: int) -> void:
 	role = new_role
+	# A hat from an upgraded machine carries the class's extra move (economy.gd).
+	hat_upgraded = new_role != Role.BASE and game.economy != null and game.economy.is_upgraded(team, new_role)
 	hearts = max_hearts()
 	energy = energy_max()
-	ability_timers = [0.0, 0.0]
+	ability_timers = [0.0, 0.0, 0.0]
 	blocking = false
 	_stats_cache = {}
 	if model == null:
@@ -777,7 +782,8 @@ func attack_stats() -> Dictionary:
 
 
 func ability(i: int) -> Dictionary:
-	return ranked(abilities()[i], i + 1)
+	# The hat move (i == 2) has no rank track of its own.
+	return ranked(abilities()[i], i + 1) if i < 2 else abilities()[i]
 
 
 func vigor_speed() -> float:
@@ -1137,7 +1143,7 @@ func use_ability(i: int, dir: Vector3) -> void:
 		"cleave":
 			# A spin (or a fan of fire) that hits everyone around (or in front).
 			var fire: bool = a.get("fire", false)
-			var c := Color(1.0, 0.55, 0.15) if fire else Color(0.85, 0.9, 1.0)
+			var c: Color = Color(1.0, 0.55, 0.15) if fire else a.get("color", Color(0.85, 0.9, 1.0))
 			var landed := false
 			for other in game.units:
 				if other.team == team or other.dead:
@@ -1168,7 +1174,7 @@ func use_ability(i: int, dir: Vector3) -> void:
 			game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.5, 0.5, 0.55), 40, 3.0, 1.6, true)
 			game.spawn_ring(global_position, 2.0, Color(0.6, 0.6, 0.65), 0.5, 0.3)
 		"curse":
-			var purple := Color(0.6, 0.25, 0.85)
+			var purple: Color = a.get("color", Color(0.6, 0.25, 0.85))
 			for other in game.units:
 				if other.team != team and not other.dead and _flat_to(other.global_position).length() <= a.radius:
 					other.take_damage(a.damage, self, global_position, 3.0, {"slow": a.slow})
@@ -1489,6 +1495,8 @@ func _physics_process(delta: float) -> void:
 				use_ability(0, aim)
 			if Input.is_action_just_pressed(_a("ability_2")):
 				use_ability(1, aim)
+			if Input.is_action_just_pressed(_a("ability_3")):
+				use_ability(2, aim)
 			if Input.is_action_just_pressed(_a("dodge")):
 				try_dodge(move)
 		if dodge_timer > 0.0 or bash_timer > 0.0:
@@ -1871,6 +1879,8 @@ func _bot_aim(to: Vector3) -> Vector3:
 
 func _bot_pick_ability(dist: float) -> int:
 	## Which ability (0 or 1) a bot wants to use on an enemy this far away, or -1.
+	if game.economy and game.economy.bot_hat_pick(self, dist):
+		return 2   # the upgraded hat's move (economy.gd)
 	for i in 2:
 		if i < abilities().size() and ability_ready(i):
 			var a: Dictionary = abilities()[i]
@@ -2041,7 +2051,7 @@ func _bot_think(delta: float) -> Dictionary:
 	var priority_target = null
 	var holding_wall := false
 	# Fresh spawns always grab their class first; the stations sit by the spawn.
-	var gearing_up: bool = role == Role.BASE and bot_class != Role.BASE
+	var gearing_up: bool = (role == Role.BASE and bot_class != Role.BASE) or (game.economy != null and game.economy.bot_wants_new_hat(self))
 	var orb = game.nearest_orb(global_position, 14.0) if hearts <= 2 and not carrying else null
 	var bless = game.nearest_blessing(global_position, 16.0) if not carrying and buff == "" else null
 	if carrying:
@@ -2066,6 +2076,8 @@ func _bot_think(delta: float) -> Dictionary:
 	elif bot_job == "defend":
 		# Spread a little along the wall, not out into the yard clutter.
 		goal = game.defense_post(team, bot_offset.z) + _post_spread()
+	elif bot_job == "gather" and game.economy:
+		goal = game.economy.bot_goal(self, plan)   # wood and ore (economy.gd)
 	elif bless:
 		goal = bless.global_position
 	elif bot_job == "wall":
