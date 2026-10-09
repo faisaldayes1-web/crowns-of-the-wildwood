@@ -546,7 +546,7 @@ is NOT needed (the textures are committed; the revert restores them).
 
 ## 2026-10-09 — Elf class-selection courtyard rebuilt as an open garden (Faisal's 04:08 brief)
 
-Commit: `HASH_PENDING`. Scope: ONLY the Wildwood Elves' class-selection courtyard (the former
+Commit: `c5afec8`. Scope: ONLY the Wildwood Elves' class-selection courtyard (the former
 "cellar" behind the Elf keep); the Human cellar and both Ember Pass cellars are untouched.
 
 - **Ground level, not sunken**: new `cellar_floor(team)` returns 0.0 for the Wildwood Elves
@@ -584,7 +584,7 @@ Files: `scripts/game.gd`, `scripts/seal.gd`, `tools/make_textures.py`,
 
 Tested: `--check-only` (game.gd, seal.gd); `--audit` 1 overlap (the pre-existing pines), 262
 props; seed-5 90 s match (Elves on the floor, out by 30 s); Ember Pass `--map=2` still builds the
-sunken Elf cellar; full seed-7 match: see below. Renders: `elf-courtyard-rebuild-*.png` and
+sunken Elf cellar; full seed-7 match: Elves 2-0 at 137 s (captures work). Renders: `elf-courtyard-rebuild-*.png` and
 `compare-elf-courtyard-reference-vs-rebuild.png` in game/groups/ui-art/.
 
-Revert: `git revert HASH_PENDING`.
+Revert: `git revert c5afec8`.
