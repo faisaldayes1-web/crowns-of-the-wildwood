@@ -337,7 +337,7 @@ Revert: `git revert bbfabb6`
 
 ## 2026-10-09 — Elf base pass B: cobbled yard lane with lawns, trees and fire pillars; leaf wall tops; courtyard lawn; stag decals fixed
 
-Commit: `PENDING` (then merge `0b12837` of World & Maps' 8fb3a0e: Human identity, cobbled flank paths)
+Commit: `f5d39ef` (then merge `0b12837` of World & Maps' 8fb3a0e: Human identity, cobbled flank paths)
 
 What changed (Elf base only):
 - **Yard** (`_dress_elf_yard`, courtyard reference): a cobbled lane from the gate to the keep's arch
