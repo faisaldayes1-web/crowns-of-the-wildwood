@@ -132,6 +132,10 @@ func _run() -> void:
 	# with its own look, and the body is back to its normal shape after.
 	await _all_skills()
 
+	# 9. Grab (F / RB): every press reaches out and answers with a pop or a
+	# whiff, and rapid retries (bots at a locked vault) don't stack effects.
+	await _grab()
+
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
 
@@ -272,3 +276,19 @@ func _all_skills() -> void:
 	_check(bent.is_empty(), "skills_body_restored", str(bent))
 	await _frames(240)
 	_check(fx.get_child_count() < 40, "skills_fx_cleanup", "children=%d" % fx.get_child_count())
+
+
+func _grab() -> void:
+	var fx: Node = game.get_node("Fx")
+	var u = _first(0)
+	u.global_position = Vector3(-20, 0, 3)
+	u.model.process_mode = Node.PROCESS_MODE_ALWAYS
+	u.set_meta("grab_ms", -100000)
+	var before: int = fx.get_child_count()
+	game.try_interact(u)
+	var once: int = fx.get_child_count()
+	for i in 10:
+		game.try_interact(u)
+	_check(once > before and fx.get_child_count() <= once + 3, "grab_feedback_once", "fx %d -> %d -> %d" % [before, once, fx.get_child_count()])
+	await _frames(40)
+	_check(u.model.scale.distance_to(Vector3.ONE) < 0.01 and u.model.rotation.length() < 0.01, "grab_body_restored")

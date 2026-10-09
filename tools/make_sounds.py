@@ -237,6 +237,10 @@ def sounds():
     s["ui_open"] = seq(click(0.015, 3000) * 0.6, chime(880, 0.2, 0.3) * 0.4, gap=0.0)
     s["ui_close"] = seq(click(0.015, 3000) * 0.6, chime(660, 0.2, 0.3) * 0.4, gap=0.0)
     s["ui_deny"] = tone(180, 0.16, "square", 0.002, 0.1, 0.0, 0.04, (1.0, 0.4)) * 0.3
+    # Grab / interact: a quick hand whoosh; a soft pop and chime when it takes hold.
+    s["grab"] = mix(whoosh(0.12, 600, 2400, False) * 0.5, at(click(0.02, 3500) * 0.9, 0.07, 0.4), at(thump(220, 0.08, 0.02) * 0.6, 0.07, 0.4),
+                    at(chime(1568, 0.25, 0.3) * 0.35, 0.09, 0.4))
+    s["grab_miss"] = whoosh(0.14, 500, 1800, False) * 0.45
     s["station"] = mix(seq(click(0.03, 2000), click(0.03, 2000), gap=0.06), at(chime(1046, 0.5, 0.5), 0.1, 0.6), at(whoosh(0.3, 300, 2000, False) * 0.6, 0.05, 0.6))
     s["match_start"] = mix(seq(tone(392, 0.2, "tri", 0.005, 0.05, 0.8, 0.05, (1.0, 0.5)), tone(523, 0.2, "tri", 0.005, 0.05, 0.8, 0.05, (1.0, 0.5)), tone(784, 0.8, "tri", 0.005, 0.1, 0.7, 0.3, (1.0, 0.5))),
                            thump(65, 0.6, 0.2))

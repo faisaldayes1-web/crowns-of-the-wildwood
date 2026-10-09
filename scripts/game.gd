@@ -8,6 +8,7 @@ const Unit = preload("res://scripts/unit.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Projectile = preload("res://scripts/projectile.gd")
 const Fx = preload("res://scripts/fx.gd")
+const SkillFx = preload("res://scripts/skill_fx.gd")
 const Gate = preload("res://scripts/gate.gd")
 const Hud = preload("res://scripts/hud.gd")
 const Touch = preload("res://scripts/touch.gd")
@@ -707,30 +708,41 @@ func _finish(winner: int) -> void:
 func try_interact(u) -> void:
 	if u.dead:
 		return
+	# Every press reaches out; the result below answers it with a pop
+	# (SkillFx.grab_hit) or a whiff (SkillFx.grab_miss). Looks only.
+	SkillFx.grab(u)
 	if u.carrying:
 		drop_monarch(u)
 		return
 	if u.is_player and guides[u.team] and guides[u.team].in_reach(u):
 		guide_toggle()
+		SkillFx.grab_hit(u, guides[u.team].global_position + Vector3(0, 1.6, 0), Color(0.6, 1.0, 0.6))
 		return
 	for role in seals[u.team]:
 		var seal = seals[u.team][role]
 		if seal.in_reach(u):
 			if u.role == role:
 				toast("You already carry the %s's seal" % seal.class_title(), Color(1.0, 0.8, 0.5))
+				SkillFx.grab_miss(u)
 			else:
 				seal.take(u)
+				SkillFx.grab_hit(u, seal.global_position + Vector3(0, 1.2, 0))
 			return
 	if prep_left > 0.0:
 		# The fortify phase: F raises a barricade.
-		plant_barricade(u)
+		if plant_barricade(u):
+			SkillFx.grab_hit(u, SkillFx.grab_point(u), Color(0.85, 0.65, 0.4))
+		else:
+			SkillFx.grab_miss(u)
 		return
 	var m = monarchs[1 - u.team]
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
 		if m.state == Monarch.State.HOME and vaults[1 - u.team].is_locked():
 			if u.is_player:
 				toast("The Crown Vault is locked: break the lock first", Color(1.0, 0.8, 0.5))
+			SkillFx.grab_miss(u)
 			return
+		SkillFx.grab_hit(u, m.global_position + Vector3(0, 1.0, 0), Color(1.0, 0.85, 0.3), true)
 		m.pick_up(u)
 		u.carrying = m
 		u.gain_xp(Stats.XP_GRAB, "crown")
@@ -746,6 +758,8 @@ func try_interact(u) -> void:
 		chat_system("%s grabbed the %s!" % [u.display_name, m.title])
 		_banter(1 - u.team, "ours_taken")
 		_banter(u.team, "carrying", u)
+		return
+	SkillFx.grab_miss(u)
 
 
 # --- Turrets ------------------------------------------------------------------
