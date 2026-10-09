@@ -7,6 +7,16 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
+### 2026-10-09 06:20 UTC · `(stamped by the next entry)` · Human base decluttered, one paving from road to yard (Faisal 06:00)
+
+- **What:** Faisal, 06:00: "Both sides of everything are equally cluttered and now the front textures are not even uniform."
+  - **One paving:** the flagstone apron laid over the cobbles at each castle door went, so the cobble road runs straight to the gate (both sides); the Human yard is paved in the same big slabs as the Elf court (`pavers`, cool-tinted) instead of the metre tile grid; the ground scatter (flowers, tufts, stones) now keeps an 8 m band of plain lawn before each castle instead of 2 m.
+  - **Less on the Human base:** gone are the two ballistae, the four crested parade pillars, the gate's two banner frames, the two standing torches at the archway, the two braziers in the entrance hall, the four torches at the crown room's outer corners, the inner pair of fire pillars by the spawn circle, the archery target, the second dummy and the crate-and-barrel pile in the spawn hall. Kept: the gate lions and crest, tower pennants, the runners, the archway banners and wall torches, the crown room's four stands, one pair of fire pillars, the rack and one dummy, the workshop corner.
+- **Files:** scripts/game.gd (`_build_world` road, `_open_ground`, `_build_castle`, `_dress_human_castle`, `_furnish_keep`, `_polish_keep`, `_build_cellar`)
+- **Tunables:** scatter clear band before the castles 2 m → 8 m (`_open_ground`); Human yard floor `_flagstone` (0.25) → `_pbr("pavers", 0.22, 0.9 grey)`
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches (figures below). Renders: `game/groups/world-maps/human-*-declutter.png`
+- **Revert:** `git revert <hash>`
+
 ### 2026-10-09 04:55 UTC · `742471f` · Merge UI & Art's open Elf courtyard (c5afec8)
 
 - **What:** Merge of `origin/group/ui-art-z3px4x` (the Wildwood Elf class courtyard rebuilt at ground level: `cellar_floor(team)`, `_in_cellar` now bounded in x and tested against that floor, the barricade rule uses `_in_cellar`, day light grade changed). Two conflicts in `scripts/game.gd` in `_build_cellar`, resolved so their `open` courtyard branch (stations under the pavilion, Upgrade Station in the south-east corner, Guide by the passage) and the Humans' sunken hall with its workshop corner (south-west) and Guide (north-west) each keep their own branch; the Human and both Ember Pass cellars take the old path unchanged.

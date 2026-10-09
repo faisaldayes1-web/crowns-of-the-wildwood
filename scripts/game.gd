@@ -3629,8 +3629,8 @@ func _open_ground(p: Vector3) -> bool:
 	## the island, the castles and their yards, and not inside a tree trunk.
 	if absf(p.x) < RIVER_HALF + 1.4 or _flat_dist(p, Vector3.ZERO) < ISLAND_R + 1.5:
 		return false
-	if absf(p.x) > CASTLE_X - CASTLE_DEPTH - 2.0:
-		return false
+	if absf(p.x) > CASTLE_X - CASTLE_DEPTH - 8.0:
+		return false   # a clear band of lawn before each castle (no flower litter up to the gate)
 	for bz in BRIDGES:
 		if absf(p.z - bz) < 4.5 and absf(p.x) < RIVER_HALF + 4.0:
 			return false
@@ -6313,8 +6313,6 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 				_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 0.5, zs * wz), ins, 1.2, 1.7)
 			_add_wall_torch(Vector3(room_f - side * 0.2, 0.9 if elven else 1.6, zs * (wz - 0.05)), ins)
 			_add_wall_torch(Vector3(room_b + side * 1.5, 1.6, zs * (wz - 0.05)), ins)
-		if not elven:
-			_add_brazier(Vector3(kx + side * 0.9, 0, zs * (wz - 0.8)))
 	if elven:
 		_add_fireflies(Vector3(kx + side * 2.0, 0.5, 5.5))
 
@@ -6383,9 +6381,8 @@ func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
 		if elven:
 			_add_stone_brazier(Vector3(kx + side * 1.0, 0, zs * (KEEP_DOOR_HALF + 2.4)))
 			_add_stone_brazier(Vector3(side * (CASTLE_X + CASTLE_DEPTH) - side * 1.0, 0, zs * (hz + 0.85)))
-		else:
-			_add_torch(Vector3(front_x - side * 0.8, 0, zs * (hz + 0.85)))
-			_add_torch(Vector3(back_x + side * 0.8, 0, zs * (hz + 0.85)))
+		# (The Humans' four torches at the room's outer corners went with the
+		# declutter of 2026-10-09 06:00: the room's own stands light it.)
 		if not elven:
 			_add_torch_stand(Vector3(back_x - side * 0.7, 0, zs * (hz - 0.7)), 1.7)
 			_add_candle_stand(throne + Vector3(side * 2.6, 0, zs * 1.15))
@@ -7597,7 +7594,9 @@ func _build_castle(team: int) -> void:
 	var in_x := fx + side * 0.5                   # the front wall's inner face
 
 	# --- The yard: sandstone flags inside the walls. ---
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(Color(0.97, 0.96, 0.9) if mossy else Color.WHITE))
+	# The Humans' yard is paved in the same big slabs as the Elf court (one
+	# paving style per base, no tile grid; Faisal 2026-10-09 06:00).
+	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(Color(0.97, 0.96, 0.9)) if mossy else _pbr("pavers", 0.22, Color(0.9, 0.9, 0.9)))
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
@@ -7611,7 +7610,8 @@ func _build_castle(team: int) -> void:
 		_add_tower(Vector3(fx, 0, zs * (dh + 1.1)), team, side, 2.2, 5.0, false)
 		_add_pennant(team, Vector3(fx - side * 1.12, 4.4, zs * (dh + 1.1)), Vector3(-side, 0, 0), 1.3, 2.8, zs > 0.0)
 		_add_torch(Vector3(fx - side * 2.0, 0, zs * (dh + 0.6)))
-		_add_banner_pole(team, Vector3(fx - side * 4.6, 0, zs * (dh + 1.9)))
+		if team == 0:   # (the Humans' gate keeps its lions and tower pennants only: Faisal 06:00, "cluttered")
+			_add_banner_pole(team, Vector3(fx - side * 4.6, 0, zs * (dh + 1.9)))
 		# Corner towers.
 		_add_tower(Vector3(fx, 0, zs * hz), team, side)
 		_add_tower(Vector3(bx, 0, zs * hz), team, side)
@@ -7714,8 +7714,8 @@ func _build_castle(team: int) -> void:
 			_add_bush(Vector3(fx - side * 2.3, 0, zs * (hz + 1.4)), int(zs) + 9)
 			_add_bush(Vector3(kx - side * 1.2, 0, zs * (khz + 1.5)), int(zs) + 11)
 	else:
-		for zs in [-1.0, 1.0]:
-			_add_torch(Vector3(kx - side * 1.3, 0, zs * (khz - 0.6)))
+		# (The two standing torches by the archway went: it has its wall
+		# torches and banners already.)
 		_dress_human_castle(team, fx, kx, side, dh)
 
 	# The throne room: a walled hall at the heart of the keep with the
@@ -7825,16 +7825,11 @@ func _dress_human_castle(team: int, fx: float, kx: float, side: float, dh: float
 	## towers (the Wildbloom sheet's outer-defense turrets) and crested
 	## pillar banners down the parade ground. All of it keeps off the lanes
 	## (gate to archway, yard to the rampart stairs).
-	var in_x := fx + side * 0.5
+	# (The ballistae on the gatehouse and the four crested parade pillars
+	# went: Faisal 2026-10-09 06:00, "both sides equally cluttered". The yard
+	# is the runner, the gatehouse banners and nothing else.)
 	for zs in [-1.0, 1.0]:
 		_add_stone_lion(Vector3(fx - side * 2.6, 0, zs * (dh + 3.3)), Vector3(-side, 0, 0), 1.3)
-		_add_ballista(Vector3(fx, 5.3, zs * (dh + 1.1)), Vector3(-side, 0, 0))
-		for px in [2.0, 3.5]:   # by the gatehouse: off the door lane, the stairs diagonal and the turret pads
-			var pp := Vector3(in_x + side * px, 0, zs * (dh + 2.7))
-			_add_block(pp + Vector3(0, 1.25, 0), Vector3(0.5, 2.5, 0.5), Color.WHITE, true, _ashlar(Color(0.86, 0.86, 0.9)))
-			_add_block(pp + Vector3(0, 2.6, 0), Vector3(0.7, 0.2, 0.7), Color.WHITE, false, _gold())
-			_add_crest(team, pp + Vector3(-side * 0.26, 1.7, 0), Vector3(-side, 0, 0), 0.5)
-			_add_pennant(team, pp + Vector3(0, 2.5, zs * 0.26), Vector3(0, 0, zs), 0.7, 1.4, px > 3.0)
 	_add_crest(team, Vector3(fx - side * 1.21, WALK_Y + 0.3, 0), Vector3(-side, 0, 0), 1.0)
 
 
@@ -8289,18 +8284,20 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 			else:
 				# Set 3 m off the wall: the game camera looks over the south
 				# wall's top, which hides the first ~2.5 m of floor behind it.
+				# (Thinned 2026-10-09 06:00: the rack and one dummy; the target,
+				# second dummy and the crate pile by the circle went.)
 				_prop("hex/weaponrack", Vector3(bx + side * 6.4, CELLAR_Y, zs * (hz - 3.2)), 4.0, 0.0)
-				_prop("hex/target", Vector3(bx + side * 9.6, CELLAR_Y, zs * (hz - 3.3)), 3.2, 0.0)
-				_add_training_dummy(Vector3(bx + side * 12.4, CELLAR_Y, zs * (hz - 3.3)), 0.4)
-				_add_training_dummy(Vector3(bx + side * 14.0, CELLAR_Y, zs * (hz - 3.6)), -0.3)
-			_prop("dungeon/crates_stacked", Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 0.3 * side)
-			_add_blocker(Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 1.5)
-			_prop("dungeon/barrel_large", Vector3(bx + side * 17.2, CELLAR_Y, zs * (hz - 4.6)), 0.8)
+				_add_training_dummy(Vector3(bx + side * 9.8, CELLAR_Y, zs * (hz - 3.3)), 0.4)
+			if team == 0:
+				_prop("dungeon/crates_stacked", Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 0.3 * side)
+				_add_blocker(Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 1.5)
+				_prop("dungeon/barrel_large", Vector3(bx + side * 17.2, CELLAR_Y, zs * (hz - 4.6)), 0.8)
 	# Stone fire pillars round the spawn circle (both factions: the reference's
 	# torches on stone pillars) and the faction's banners on poles behind it.
 	for zs in [-1.0, 1.0]:
 		for pxo in [12.0, 17.0]:
-			_add_stone_brazier(Vector3(bx + side * pxo, fy, zs * 3.6))
+			if team == 0 or pxo > 15.0:   # the Humans keep one pair, by the circle
+				_add_stone_brazier(Vector3(bx + side * pxo, fy, zs * 3.6))
 		_add_banner_pole(team, Vector3(bx + side * 17.2, fy, zs * 6.2))
 	# The stairs: a straight flight up the middle into the keep. The open
 	# courtyard is level with the keep, so a threshold strip marks the way in.
@@ -8748,7 +8745,9 @@ func _build_world() -> void:
 	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road, 0.0)
 	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road, 0.0)
 	for sx in [-1.0, 1.0]:
-		_add_block(Vector3(sx * (fxr - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color.WHITE, false, _flagstone(Color(0.96, 0.93, 0.88)))
+		# (The flagstone apron over the cobbles at each door went: one paving
+		# from the bridge to the gate; Faisal 2026-10-09 06:00, "the front
+		# textures are not even uniform".)
 		# The Forest Path (north) and the River Path (south): from the road by
 		# the castle door out to the flank bridges, cobbled like the main road
 		# (they were loose stones in dirt: one cobble style map-wide, the
