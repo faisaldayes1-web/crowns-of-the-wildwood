@@ -4647,6 +4647,27 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 		label.font_size = 72
 	label.shaded = false
 	add_child(label)
+	if team != 0:
+		# The class icon on a gold roundel over the drape (the brief's "clear symbols").
+		var disc := MeshInstance3D.new()
+		var dmesh := CylinderMesh.new()
+		dmesh.top_radius = 0.42
+		dmesh.bottom_radius = 0.42
+		dmesh.height = 0.05
+		dmesh.radial_segments = 20
+		disc.mesh = dmesh
+		disc.rotation.x = PI / 2.0
+		disc.position = Vector3(pos.x, pos.y + 1.62, wall_z + 0.36)
+		disc.material_override = _gold()
+		add_child(disc)
+		var icon := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(0.62, 0.62)
+		icon.mesh = q
+		icon.material_override = _icon_mat(_class_icon_name(role))
+		icon.position = Vector3(pos.x, pos.y + 1.62, wall_z + 0.4)
+		icon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(icon)
 	_add_runes(pos + Vector3(0, 0.0, 0.1), 1.15, color)
 	# A glowing ring in the class colour around the pad.
 	var ring := MeshInstance3D.new()
@@ -5419,6 +5440,12 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	var along_x := size.x >= size.z
 	var length := size.x if along_x else size.z
 	var thick := size.z if along_x else size.x
+	if grey and size.y >= WALL_H - 0.01:
+		# The Humans' walls (Faisal's 03:34 brief: chunky stonework, not plain
+		# boxes): a darker plinth course round the foot of the outer and
+		# courtyard walls (the keep's walls have furniture against them)...
+		var foot := center.y - size.y / 2.0
+		_add_block(Vector3(center.x, foot + 0.2, center.z), Vector3(size.x + 0.36, 0.4, size.z + 0.36), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
 	if hedge_tops:
 		# The Elf courtyard's walls are topped with trimmed hedge (the reference).
 		var hn := maxi(int(length / 0.75), 1)
@@ -5431,6 +5458,10 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	if mossy:
 		# Hedge walls: a lighter clipped top and leaf tufts instead of merlons.
 		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _hedge(true))
+	elif grey:
+		# ...and a thick, pale cornice with a bevel line under it.
+		_add_block(Vector3(center.x, top + 0.15, center.z), Vector3(size.x + 0.24, 0.3, size.z + 0.24), Color.WHITE, false, _ashlar(Color(0.9, 0.9, 0.94)))
+		_add_block(Vector3(center.x, top - 0.06, center.z), Vector3(size.x + 0.12, 0.12, size.z + 0.12), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
 	else:
 		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
 	if not merlons:
@@ -5457,6 +5488,10 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 	var color: Color = Stats.FACTIONS[team].color
 	_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(width, height, width), Color.WHITE, true, _ashlar())
 	_add_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+	if grey:
+		# The Humans' towers stand on a chunky plinth with a string course.
+		_add_block(pos + Vector3(0, 0.25, 0), Vector3(width + 0.5, 0.5, width + 0.5), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
+		_add_block(pos + Vector3(0, height * 0.55, 0), Vector3(width + 0.2, 0.16, width + 0.2), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
 	if mossy:
 		# An elven tree-tower: the trunk carries a glowing canopy instead of a roof,
 		# with a lantern hung beneath it.
@@ -5915,6 +5950,13 @@ const ROOM_H := 2.3
 const ROOM_DOOR_HALF := 1.2
 const ROOM_RAISE := 0.9     # the Elves' crown room floor sits this far up on a terrace (the sheet's upstairs)
 
+func _room_wall_h(team: int, zs: float) -> float:
+	## The throne room's wall height on the z side `zs`: the Humans' camera-
+	## facing (+z) wall is a waist-high balustrade (Faisal's 03:34 brief:
+	## open up the crown room), every other wall is full height.
+	return 1.1 if (team == 1 and zs > 0.0) else ROOM_H
+
+
 func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -> void:
 	## Walls, floor, dais and finery of the throne room. Stone and velvet for
 	## the Humans; living bark, moss and crystal for the Elves. The doorway
@@ -5947,7 +5989,10 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	# Walls: side walls, the back wall, and the front wall either side of the doors.
 	var wall_mat := _ashlar()
 	for zs in [-1.0, 1.0]:
-		_add_block(Vector3(cx, (ROOM_H + fy) / 2.0, zs * hz), Vector3(depth + 0.5, ROOM_H + fy, 0.5), Color.WHITE, true, wall_mat)
+		# The Humans' camera-facing wall is a waist-high balustrade: the crown,
+		# its dais and anyone in the room stay visible from the game camera.
+		var wh: float = _room_wall_h(team, zs) + fy
+		_add_block(Vector3(cx, wh / 2.0, zs * hz), Vector3(depth + 0.5, wh, 0.5), Color.WHITE, true, wall_mat)
 		var seg := hz - ROOM_DOOR_HALF - 0.3
 		_add_block(Vector3(front_x, (ROOM_H + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.3 + seg / 2.0)), Vector3(0.5, ROOM_H + fy, seg), Color.WHITE, true, wall_mat)
 		# Door posts and the lintel over the doors (timber for the Elves).
@@ -5962,7 +6007,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	# A cornice (or vine ledge) along every wall top.
 	var cap := _ashlar(Color(0.92, 0.88, 0.8))
 	for zs in [-1.0, 1.0]:
-		_add_block(Vector3(cx, ROOM_H + 0.08 + fy, zs * hz), Vector3(depth + 0.7, 0.16, 0.7), Color.WHITE, false, cap)
+		_add_block(Vector3(cx, _room_wall_h(team, zs) + 0.08 + fy, zs * hz), Vector3(depth + 0.7, 0.16, 0.7), Color.WHITE, false, cap)
 	_add_block(Vector3(back_x, ROOM_H + 0.08 + fy, 0), Vector3(0.7, 0.16, hz * 2 + 0.7), Color.WHITE, false, cap)
 	for zs in [-1.0, 1.0]:
 		_add_block(Vector3(front_x, ROOM_H + 0.08 + fy, zs * (hz / 2.0 + ROOM_DOOR_HALF / 2.0)), Vector3(0.7, 0.16, hz - ROOM_DOOR_HALF), Color.WHITE, false, cap)
@@ -6031,7 +6076,8 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		_add_crest(team, Vector3(back_x - side * 0.27, 1.5 + fy, 0), Vector3(-side, 0, 0), 0.9)
 	# Banners, crests, torches and the treasury.
 	for zs in [-1.0, 1.0]:
-		_add_pennant(team, Vector3(cx - side * 0.2, ROOM_H - 0.05 + fy, zs * (hz - 0.25)), Vector3(0, 0, -zs), 1.0, 1.8)
+		if _room_wall_h(team, zs) == ROOM_H:
+			_add_pennant(team, Vector3(cx - side * 0.2, ROOM_H - 0.05 + fy, zs * (hz - 0.25)), Vector3(0, 0, -zs), 1.0, 1.8)
 		_add_crest(team, Vector3(back_x - side * 0.27, 1.75 + fy, zs * 3.3), Vector3(-side, 0, 0), 0.6, zs > 0.0)
 		if elven:
 			_add_crystal(Vector3(back_x - side * 0.9, fy, zs * (hz - 0.9)), 0.9)
@@ -6150,8 +6196,11 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 		glass.emission_enabled = true
 		glass.emission = Color(1.0, 0.85, 0.4)
 		glass.emission_energy_multiplier = 1.5
-		_add_block(Vector3(altar.x, 1.7, wz - 0.12), Vector3(1.0, 1.2, 0.06), Color.WHITE, false, glass)
-		_add_block(Vector3(altar.x, 1.7, wz - 0.14), Vector3(1.2, 1.4, 0.04), Color.WHITE, false, _gold())
+		# (The glowing window hung on the camera-facing wall, which is now a
+		# low balustrade for the Humans: the glass is a lit panel on the altar's
+		# back instead.)
+		_add_block(Vector3(altar.x, 0.72, wz - 0.42), Vector3(1.0, 0.5, 0.05), Color.WHITE, false, glass)
+		_add_block(Vector3(altar.x, 0.72, wz - 0.4), Vector3(1.15, 0.62, 0.04), Color.WHITE, false, _gold())
 		_add_light(altar + Vector3(0, 1.6, -0.6), Color(1.0, 0.85, 0.5), 1.0, 6.0)
 		_add_block(altar + Vector3(0, 0.02, -1.4), Vector3(1.8, 0.02, 0.8), Color.WHITE, false, _cloth(color.darkened(0.2)))
 		_add_candle_stand(Vector3(room_b - side * 0.6, 0, wz - 0.6))
@@ -6172,15 +6221,17 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	# The armoury.
 	_prop("hex/weaponrack", Vector3(bw + side * 0.15, 0, 5.2), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	_prop("dungeon/sword_shield_gold" if not elven else "dungeon/sword_shield", Vector3(bx - side * 0.62, 1.4, 3.2 if elven else 3.75), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
-	_prop("dungeon/sword_shield", Vector3(room_b + side * 1.6, 1.5, wz - 0.1), 0.9, 0.0)
+	if elven:   # (the Humans' camera-facing keep wall is waist high: nothing hangs on it)
+		_prop("dungeon/sword_shield", Vector3(room_b + side * 1.6, 1.5, wz - 0.1), 0.9, 0.0)
 	_add_rug(Vector3(back_c, 0.06, 4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color.darkened(0.2))
 	# Tapestries and torches along the galleries, braziers for the Humans.
 	for zs in [-1.0, 1.0]:
 		var ins := Vector3(0, 0, -zs)
-		_add_tapestry(team, Vector3(kx + side * 1.6, 0.5, zs * wz), ins, 1.5, 1.9)
-		_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 0.5, zs * wz), ins, 1.2, 1.7)
-		_add_wall_torch(Vector3(room_f - side * 0.2, 1.6, zs * (wz - 0.05)), ins)
-		_add_wall_torch(Vector3(room_b + side * 1.5, 1.6, zs * (wz - 0.05)), ins)
+		if elven or zs < 0.0:   # (the Humans' camera-facing keep wall is waist high: nothing hangs on it)
+			_add_tapestry(team, Vector3(kx + side * 1.6, 0.5, zs * wz), ins, 1.5, 1.9)
+			_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 0.5, zs * wz), ins, 1.2, 1.7)
+			_add_wall_torch(Vector3(room_f - side * 0.2, 1.6, zs * (wz - 0.05)), ins)
+			_add_wall_torch(Vector3(room_b + side * 1.5, 1.6, zs * (wz - 0.05)), ins)
 		if not elven:
 			_add_brazier(Vector3(kx + side * 0.9, 0, zs * (wz - 0.8)))
 	if elven:
@@ -6203,11 +6254,11 @@ func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
 	if not elven:
 		var r := RandomNumberGenerator.new()
 		r.seed = 4242 + team
-		var runs := []   # [start, end, fixed, along_x]
+		var runs := []   # [start, end, fixed, along_x, z sign, wall top]
 		for zs in [-1.0, 1.0]:
-			runs.append([cx - depth / 2.0 - 0.3, cx + depth / 2.0 + 0.3, zs * hz, true])
-			runs.append([ROOM_DOOR_HALF + 0.3, hz + 0.3, front_x, false, zs])
-		runs.append([-hz - 0.3, hz + 0.3, back_x, false])
+			runs.append([cx - depth / 2.0 - 0.3, cx + depth / 2.0 + 0.3, zs * hz, true, 1.0, _room_wall_h(team, zs)])
+			runs.append([ROOM_DOOR_HALF + 0.3, hz + 0.3, front_x, false, zs, ROOM_H])
+		runs.append([-hz - 0.3, hz + 0.3, back_x, false, 1.0, ROOM_H])
 		for run in runs:
 			var a: float = minf(run[0], run[1])
 			var b: float = maxf(run[0], run[1])
@@ -6220,12 +6271,13 @@ func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
 				var mid := t + l / 2.0
 				var p: Vector3
 				var s: Vector3
+				var top_y: float = run[5] + 0.16 + throne.y
 				if run[3]:
-					p = Vector3(mid, ROOM_H + 0.16 + h / 2.0, run[2])
+					p = Vector3(mid, top_y + h / 2.0, run[2])
 					s = Vector3(l - 0.06, h, 0.78)
 				else:
-					var zz: float = mid * (run[4] if run.size() > 4 else 1.0)
-					p = Vector3(run[2], ROOM_H + 0.16 + h / 2.0, zz)
+					var zz: float = mid * run[4]
+					p = Vector3(run[2], top_y + h / 2.0, zz)
 					s = Vector3(0.78, h, l - 0.06)
 				_add_block(p, s, Color.WHITE, false, _ashlar(tint))
 				t += l
@@ -6235,7 +6287,8 @@ func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
 	for zs in [-1.0, 1.0]:
 		_add_pennant(team, Vector3(back_x - side * 0.27, ROOM_H - 0.1 + throne.y, zs * 1.7), Vector3(-side, 0, 0), 0.9, 1.6, zs > 0.0)
 		for xs in [-1.0, 1.0]:
-			_add_pennant(team, Vector3(cx + xs * 1.6, ROOM_H - 0.1 + throne.y, zs * (hz + 0.27)), Vector3(0, 0, zs), 1.0, 1.7, xs > 0.0)
+			if _room_wall_h(team, zs) == ROOM_H:
+				_add_pennant(team, Vector3(cx + xs * 1.6, ROOM_H - 0.1 + throne.y, zs * (hz + 0.27)), Vector3(0, 0, zs), 1.0, 1.7, xs > 0.0)
 	# Fire pillars by the keep's archway and against its back wall (Elves;
 	# UI & Art), plain torches at the room's outer corners (Humans: their iron
 	# braziers, weapon rack and shelf already hold those wall spots). Both
@@ -7464,7 +7517,10 @@ func _build_castle(team: int) -> void:
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
 	for zs in [-1.0, 1.0]:
 		_add_wall(Vector3(fx, WALL_H / 2.0, zs * (dh + 2.2 + seg / 2.0)), Vector3(1, WALL_H, seg), false)
-		_add_wall(Vector3(cx, WALL_H / 2.0, zs * hz), Vector3(CASTLE_DEPTH * 2 + 1, WALL_H, 1))
+		# The Humans' camera-facing side wall is a low parapet, so the yard
+		# reads as an open courtyard from the game camera (Faisal's 03:34 brief).
+		var wh: float = 1.5 if (team == 1 and zs > 0.0) else WALL_H
+		_add_wall(Vector3(cx, wh / 2.0, zs * hz), Vector3(CASTLE_DEPTH * 2 + 1, wh, 1))
 		# The gatehouse: a tower either side of the door.
 		_add_tower(Vector3(fx, 0, zs * (dh + 1.1)), team, side, 2.2, 5.0, false)
 		_add_pennant(team, Vector3(fx - side * 1.12, 4.4, zs * (dh + 1.1)), Vector3(-side, 0, 0), 1.3, 2.8, zs > 0.0)
@@ -7515,9 +7571,11 @@ func _build_castle(team: int) -> void:
 	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _pbr("flagstone", 0.75, ELF_MOONSTONE * 0.88) if mossy else _pbr("flagstone_grey", 0.7, Color(0.9, 0.9, 0.94)))
 	# Side walls, each with a side door near the back (a second way out of the keep).
 	for zs in [-1.0, 1.0]:
-		_add_wall(Vector3(kx + side * (kdepth - 4.5) / 2.0, KEEP_H / 2.0, zs * khz), Vector3(kdepth - 4.5, KEEP_H, 0.8))
-		_add_wall(Vector3(bx - side * 0.75, KEEP_H / 2.0, zs * khz), Vector3(1.5, KEEP_H, 0.8), false)
-		_add_block(Vector3(bx - side * 3.0, KEEP_H - 0.3, zs * khz), Vector3(3.0, 0.6, 0.9), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))  # lintel
+		var kh: float = 1.3 if (team == 1 and zs > 0.0) else KEEP_H   # the Humans' camera-facing wall is a low one
+		_add_wall(Vector3(kx + side * (kdepth - 4.5) / 2.0, kh / 2.0, zs * khz), Vector3(kdepth - 4.5, kh, 0.8))
+		_add_wall(Vector3(bx - side * 0.75, kh / 2.0, zs * khz), Vector3(1.5, kh, 0.8), false)
+		if kh == KEEP_H:
+			_add_block(Vector3(bx - side * 3.0, KEEP_H - 0.3, zs * khz), Vector3(3.0, 0.6, 0.9), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))  # lintel
 	var kseg := khz - KEEP_DOOR_HALF
 	var kzc := KEEP_DOOR_HALF + kseg / 2.0
 	for zs in [-1.0, 1.0]:
@@ -7541,8 +7599,10 @@ func _build_castle(team: int) -> void:
 	else:
 		# The Humans' parade ground: one long royal runner from the gate to the archway.
 		_add_rug(Vector3((in_x + kx) / 2.0, 0.025, 0), Vector2(absf(kx - in_x) - 0.5, 3.4), color)
+		_add_emblem_decal(Vector3((in_x + kx) / 2.0, 0.072, 0), 2.2, team)
 	if team != 0:   # (the Elves' stairs up to the crown room take its place)
 		_add_rug(Vector3(kx + side * 3.0, 0.05, 0), Vector2(5.0, 2.8), color)
+		_add_emblem_decal(Vector3(kx + side * 1.6, 0.097, 0), 1.7, team)
 
 	# The yard stays open: lanterns (Elves) or nothing but the gatehouse
 	# banners (Humans). Faisal: the base was too busy.
@@ -7555,7 +7615,8 @@ func _build_castle(team: int) -> void:
 		_add_banner(team, Vector3(fx + side * 1.1, 0.2, zs * (dh + 1.1)), Vector3(side, 0, 0), 0.6)
 	# Inside the keep: columns along the side walls, torches, stacked stores at the back.
 	for zs in [-1.0, 1.0]:
-		_add_wall_torch(Vector3(kx + side * 1.2, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
+		if team == 0 or zs < 0.0:
+			_add_wall_torch(Vector3(kx + side * 1.2, 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
 	# Faction flavour: elves grow greenery against their walls, humans post iron braziers.
 	if team == 0:
 		for zs in [-1.0, 1.0]:
@@ -7740,6 +7801,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_add_block(Vector3(bx + side * 10.4, CELLAR_Y + 0.012, 0), Vector3(3.8, 0.024, 3.2), Color.WHITE, false, _pbr("cobble", 0.55, Color(0.9, 0.86, 0.78)))
 	else:
 		_add_rug(Vector3(bx + side * 10.6, CELLAR_Y + 0.012, 0), Vector2(4.2, 2.6), color)
+		_add_emblem_decal(Vector3(bx + side * 10.6, CELLAR_Y + 0.06, 0), 1.7, team)
 	for zs in [-1.0, 1.0]:
 		# Under the castle's back wall: solid below ground except at the stairs.
 		var seg := hz + 0.5 - 1.8
@@ -7764,7 +7826,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 			else:
 				# Set 3 m off the wall: the game camera looks over the south
 				# wall's top, which hides the first ~2.5 m of floor behind it.
-				_prop("hex/weaponrack", Vector3(bx + side * 4.0, CELLAR_Y, zs * (hz - 3.2)), 4.0, 0.0)
+				_prop("hex/weaponrack", Vector3(bx + side * 6.4, CELLAR_Y, zs * (hz - 3.2)), 4.0, 0.0)
 				_prop("hex/target", Vector3(bx + side * 9.6, CELLAR_Y, zs * (hz - 3.3)), 3.2, 0.0)
 				_add_training_dummy(Vector3(bx + side * 12.4, CELLAR_Y, zs * (hz - 3.3)), 0.4)
 				_add_training_dummy(Vector3(bx + side * 14.0, CELLAR_Y, zs * (hz - 3.6)), -0.3)
@@ -7867,10 +7929,20 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_add_class_alcove(team, order[k], p)
 		_add_station(team, order[k], p)
 	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall.
-	_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
+	if team == 0:
+		_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
+	else:
+		# The Humans' workshop is one corner: the anvil station with its
+		# board, a stocked shelf, crates and a cask round it (the south-west
+		# corner, in the strip the camera sees).
+		_add_upgrade_pad(team, Vector3(bx + side * 1.4, CELLAR_Y, 5.2))
+		_prop("furniture/shelf_B_large_decorated", Vector3(bx + side * 1.1, CELLAR_Y, 7.9), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
+		_prop("dungeon/crates_stacked", Vector3(bx + side * 3.2, CELLAR_Y, 7.9), 0.6, 0.4 * side)
+		_add_blocker(Vector3(bx + side * 3.2, CELLAR_Y, 7.9), 0.6, 1.4)
+		_prop("dungeon/barrel_small", Vector3(bx + side * 4.4, CELLAR_Y, 7.5), 0.75)
 	var g := Guide.new()
 	add_child(g)
-	g.setup(self, team, Vector3(bx + side * 1.3, CELLAR_Y, 5.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
+	g.setup(self, team, Vector3(bx + side * 1.3, CELLAR_Y, 5.2 if team == 0 else -5.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
 	guides[team] = g
 
 

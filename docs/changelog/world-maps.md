@@ -7,12 +7,25 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
+### 2026-10-09 05:45 UTC · `(stamped by the next entry)` · Human base opened up and made chunky (Faisal's 03:34 brief, Human side)
+
+- **What:** The Human base on both maps follows the new visual brief, faction-flavoured (grey ashlar, dark timber, blue cloth with gold, lion).
+  - **Open courtyard:** the camera-facing (south) walls are lowered so the game camera sees in: the yard's south outer wall is a 1.5 m parapet (was 3 m), the keep's south wall a 1.3 m wall (was 2.6 m, its side door keeps no lintel), and the crown room's south wall a 1.1 m balustrade (was 2.3 m), so the crown, its dais and anyone in the room stay visible. All of them keep their colliders; the vault doors, capture ring, stairs and lanes are untouched. Things that hung on those walls above the new height are gone or moved: the keep's south tapestries, wall torches and hung shield, the chapel's stained-glass window (now a lit gold panel on the altar's back), the crown room's south pennants.
+  - **Chunky stonework:** every full-height Human wall (outer ring, courtyard) stands on a darker plinth course; every Human wall carries a thick pale cornice with a dark bevel line under it; the towers get a plinth and a string course.
+  - **Fitted runners with the lion:** the yard runner, the keep's arch-to-throne rug and the spawn hall runner each carry the lion emblem.
+  - **Class stations:** each Human alcove shows its class icon on a gold roundel over the drape.
+  - **Workshop corner:** the upgrade station moved to the spawn hall's south-west corner with a stocked shelf, crates and a cask round it; the Guide takes the north-west corner; the weapon rack moved along to make room.
+- **Files:** scripts/game.gd (new `_room_wall_h`; `_build_castle`, `_build_throne_room`, `_polish_keep`, `_add_wall`, `_add_tower`, `_add_class_alcove` Human branch, `_build_cellar`, `_furnish_keep` Human branches)
+- **Tunables:** Human south walls: yard WALL_H 3.0 → 1.5, keep KEEP_H 2.6 → 1.3, crown room ROOM_H 2.3 → 1.1 (`_room_wall_h`); plinth 0.4 high, +0.18 a side; cornice 0.3 high, +0.12 a side; upgrade pad (bx+1.1, −5.0) → (bx+1.4, +5.2), Guide z 5.2 → −5.2, weapon rack x bx+4.0 → bx+6.4
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches: Wildwood doors 0/198 at 120 s (151/198 at 150 s after a rebuild), Ember Pass doors 181/0 at 120 s, Elves score 1-0 at 150 s. Renders: `game/groups/world-maps/human-*.png`
+- **Revert:** `git revert <hash>`
+
 ### 2026-10-09 05:15 UTC · `6ccf861` · Merge UI & Art's courtyard-bed move
 
 - **What:** Merged `group/ui-art-z3px4x` at `e4c6c24` (their Elf flower beds moved off the hidden south-wall strip; their merge of our 965ecd3 with the agreed `_polish_keep` split). Clean merge, nothing of ours changed.
 - **Files:** scripts/game.gd, docs/changelog/ui-art.md (theirs)
 - **Tunables:** none of ours
-- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches on both maps (figures in the next entry)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches: Wildwood doors 29/113 at 150 s, Ember Pass 178/106
 - **Revert:** `git revert -m 1 6ccf861`
 
 ### 2026-10-09 05:05 UTC · `4b8f815` · Lions that read as lions; the drill yard moved into view
