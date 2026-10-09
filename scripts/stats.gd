@@ -363,7 +363,7 @@ const ROLES := {
 		"color": Color(0.85, 0.8, 0.7), "abilities": []},
 	Role.KNIGHT: {"attack": "melee", "attack_name": "Sword Strike", "attack_desc": "A wide swing that also chips at doors.",
 		"damage": 1, "gate_damage": 2, "range": 2.2, "cooldown": 0.55,
-		"energy": "stamina", "cost": 8, "speed": 1.06, "block": true, "armour": 0.34,
+		"energy": "stamina", "cost": 8, "speed": 1.10, "block": true, "armour": 0.34,   # speed 1.06 → 1.10 (patch 1)
 		"color": Color(0.8, 0.8, 0.85), "abilities": [
 			{"name": "Shield Bash", "key": "Q", "kind": "bash", "cooldown": 4, "cost": 35.0,
 				"damage": 2, "distance": 4.0, "desc": "Charge forward: two hearts to everyone in the way, and a shove."},
@@ -437,7 +437,7 @@ const VARIANTS := {
 		{"name": "Warden", "icon": "warden", "tint": Color(0.78, 0.84, 1.0), "show": ["1H_Sword", "Rectangle_Shield"],
 			"desc": "Tower shield defence: a slam that pins enemies down and a bulwark that shields nearby teammates too.",
 			"attack": {"attack_name": "Mace", "attack_desc": "A short, heavy blow that batters doors.",
-				"range": 2.0, "cooldown": 0.55, "gate_damage": 3},
+				"range": 2.2, "cooldown": 0.55, "gate_damage": 3},   # range 2.0 → 2.2 (patch 1)
 			"abilities": [
 				{"name": "Shield Slam", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "distance": 3.5, "root": 1.2, "desc": "A short charge for two hearts that pins everyone it hits in place."},
@@ -563,7 +563,7 @@ const FACTION_KITS := {
 				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4, "cost": 30.0,
 					"distance": 7.5, "desc": "Step along the fae paths, further than any blink."}]},
 		Role.HEALER: {
-			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 6.0, "cooldown": 0.7, "cost": 16.0},
+			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 5.0, "cooldown": 0.7, "cost": 16.0},
 			"abilities": [
 				{"name": "Spirit Bloom", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 8, "cost": 60.0,
 					"heal": 2, "radius": 8.0, "haste": 4.0, "desc": "Heal every teammate nearby two hearts and quicken them."},
@@ -580,7 +580,7 @@ const FACTION_KITS := {
 	1: {
 		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Heavy plate turns about every third hit.", "armour": 0.37}},
 		Role.RANGER: {
-			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 14.0, "cooldown": 0.75, "cost": 10, "shot_speed": 36.0},
+			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 14.0, "cooldown": 0.68, "cost": 10, "shot_speed": 36.0},
 			"abilities": [
 				{"name": "Heavy Bolt", "key": "Q", "kind": "shot", "icon": "snipe", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "range": 16.0, "shot_speed": 50.0, "desc": "A wound-up bolt that takes two hearts."},
@@ -618,7 +618,7 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 const FACTIONS := [
 	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.3, "regen_mult": 1.0,
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
-	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.06,
+	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.15,   # 1.06 → 1.15 (patch 1: basic attacks went free, so faster regen is worth less)
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 ]
 
