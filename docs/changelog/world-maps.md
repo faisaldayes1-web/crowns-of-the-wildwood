@@ -7,6 +7,14 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
+### 2026-10-09 04:00 UTC · `(fast-forward)` · Take UI & Art's Elf passes C/D
+
+- **What:** `group/ui-art-z3px4x` at `b08d25d` already contained our `8fb3a0e`, so this branch fast-forwarded onto it (no merge commit): Elf crown room raised 0.9 on a terrace with stairs, hedge run outside the Elf front wall, turret pads. Nothing of ours changed. Checked for our scope: the Elf gate, wall ring and courtyard footprint are unchanged, so the approach routes and bridges still meet them; the raised throne is below the 2 m rampart threshold in `_route_leg`, so bot routing needs no change.
+- **Files:** scripts/game.gd, docs/changelog/ui-art.md (theirs).
+- **Tunables:** none of ours.
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 30 s bot matches on both maps with no script errors; a 5 min Wildwood bot match to see crowns scored at the raised Elf throne (result in the next entry).
+- **Revert:** their commits, listed in docs/changelog/ui-art.md (`git revert <hash>` each), or `git reset --hard 8fb3a0e` on a fresh branch.
+
 ### 2026-10-09 03:45 UTC · `62e1c2b` · Merge UI & Art's Elf base pass A
 
 - **What:** Merged `group/ui-art-z3px4x` at `d1528f5` (UI & Art now owns the Wildwood Elf base end to end: hedge walls, cream sandstone, timber class stalls, stag runners, altar court, stronger light and ink) so this branch's renders show both groups' work together. One conflict: both groups added a function at the same spot in `scripts/game.gd` (`_dress_human_castle` / `_dress_elf_courtyard`); both kept.
