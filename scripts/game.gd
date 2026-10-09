@@ -92,6 +92,7 @@ var rosters_visible := false      # N shows the side team rosters (off by defaul
 # Hero customizer (title screen): name, hair and trim colour.
 var hero_name := ""
 var hero_hair := 0
+var hero_hair_style := 0         # Stats.HERO_HAIR_STYLES index
 var hero_trim := 0
 var title_tab := 0              # main menu tab: 0 Play, 1 Hero, 2 Progress
 var banner_bg := 0              # player banner: Stats.BANNER_BACKGROUNDS index
@@ -151,6 +152,9 @@ var gates: Array = []
 var vaults: Array = []
 var toasts: Array = []        # [{text, color, time}] small HUD notices
 var stolen_timer := 0.0       # the CROWN STOLEN banner
+var crown_event := ""         # "taken" / "dropped": the crown ribbon the HUD shows everyone else
+var crown_event_team := -1    # the team of whoever took or dropped the crown
+var crown_event_timer := 0.0  # counts down from the ribbon's time on screen
 var capture_timer := 0.0      # the CAPTURE! banner
 var capture_team := 0
 var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} at +z]
@@ -316,6 +320,7 @@ func _ready() -> void:
 			hero_skin = int(parts[4]) if parts.size() > 4 else hero_skin
 			hero_face = int(parts[5]) if parts.size() > 5 else hero_face
 			hero_eye = int(parts[6]) if parts.size() > 6 else hero_eye
+			hero_hair_style = int(parts[7]) if parts.size() > 7 else hero_hair_style
 			hero_mark = int(parts[7]) if parts.size() > 7 else hero_mark
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
@@ -341,6 +346,10 @@ func _ready() -> void:
 				main_menu.go(scr)
 		if arg.begins_with("--debug-preview-team="):  # renders: the hero's side on the character screen
 			main_menu.preview_team = int(arg.trim_prefix("--debug-preview-team="))
+		if arg.begins_with("--debug-hair-style="):  # renders: a hair style without saving it
+			hero_hair_style = clampi(int(arg.trim_prefix("--debug-hair-style=")), 0, Stats.HERO_HAIR_STYLES.size() - 1)
+		if arg.begins_with("--debug-preview-role="):  # renders: the hero in a class's gear
+			main_menu.preview_role = int(arg.trim_prefix("--debug-preview-role="))
 		if arg.begins_with("--debug-char-tab="):
 			main_menu.char_tab = int(arg.trim_prefix("--debug-char-tab="))
 		# Testing the STORE: --debug-gold=N, --debug-chests=N, --debug-own=kind:i,kind:i
@@ -443,6 +452,7 @@ func _process(delta: float) -> void:
 		for u in units:
 			print("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
+	crown_event_timer = maxf(crown_event_timer - delta, 0.0)
 	killer_timer = maxf(killer_timer - delta, 0.0)
 	capture_timer = maxf(capture_timer - delta, 0.0)
 	levelup_timer = maxf(levelup_timer - delta, 0.0)
@@ -537,18 +547,30 @@ func _debug_hooks() -> void:
 			if arg == "--debug-menu":
 				menu_open = true
 				menu_tab = 0
+			if arg.begins_with("--debug-map-zoom="):
+				hud.map_zoom = float(arg.trim_prefix("--debug-map-zoom="))
 			if arg.begins_with("--debug-tab="):
 				menu_tab = int(arg.trim_prefix("--debug-tab="))
 			if arg == "--debug-stolen":
 				stolen_timer = 3.5
-				if monarchs[1 - player_team].state == Monarch.State.HOME:
+				if monarchs[player_team].state == Monarch.State.HOME:
 					var thief = units.filter(func(x): return x.team != player_team)[mini(1, team_size - 1)]
-					monarchs[1 - player_team].pick_up(thief)
-					thief.carrying = monarchs[1 - player_team]
+					monarchs[player_team].pick_up(thief)
+					thief.carrying = monarchs[player_team]
+					crown_event_note("taken", thief.team)
+			if arg == "--debug-crown-lost":  # renders: an ally dropping the enemy crown
+				var ally = units.filter(func(x): return x.team == player_team and not x.is_player)[0]
+				monarchs[1 - player_team].pick_up(ally)
+				ally.carrying = monarchs[1 - player_team]
+				drop_monarch(ally)
 			if arg == "--debug-levelup":
 				levelup_timer = 3.0
 				levelup_level = 2
 				levelup_text = ""
+			if arg.begins_with("--debug-role="):  # renders: play a class from the start
+				player.set_role(int(arg.trim_prefix("--debug-role=")))
+				player.ranks[player.role] = [1, 2, 0, 1]
+				player.mastery[player.role] = 2
 			if arg == "--debug-class":
 				# Renders: the class pick-up banner, as if the Knight's hat was just taken.
 				player.set_role(Role.KNIGHT)
@@ -612,7 +634,7 @@ func _debug_hooks() -> void:
 			vmap._set_owner(0 if arg.ends_with("0") else 1)
 		if arg == "--debug-options" and frame == shot_frame - 5 and not playing:
 			menu_open = true
-			menu_tab = 4
+			menu_tab = 5
 		if arg.begins_with("--shot=") and frame == shot_frame:
 			get_viewport().get_texture().get_image().save_png(arg.trim_prefix("--shot="))
 		if arg == "--debug-end" and playing and frame == shot_frame - 60:
@@ -757,10 +779,14 @@ func try_interact(u) -> void:
 		u.carrying = m
 		u.gain_xp(Stats.XP_GRAB, "crown")
 		stolen_timer = 3.5
+		crown_event_note("taken", u.team)
 		sfx.play("crown_grab", u.global_position)
 		if u.team != player_team:
 			sfx.ui("stolen", -4.0)
-		announce("CROWN STOLEN! The %s has been taken by the %s!" % [m.title, Stats.FACTIONS[u.team].name])
+		# The crown ribbon (hud._draw_crown_event) is the only on-screen notice;
+		# the centre caption repeated it (Faisal 09:26 2026-10-09). The chat log
+		# keeps a line.
+		chat_system("CROWN STOLEN! The %s has been taken by the %s!" % [m.title, Stats.FACTIONS[u.team].name])
 		spawn_pillar(u.global_position, Color(1.0, 0.85, 0.3), 7.0, 1.2)
 		spawn_flash(u.global_position + Vector3(0, 1.5, 0), Color(1.0, 0.85, 0.3), 4.0, 0.5)
 		shake_at(u.global_position, 0.5)
@@ -855,6 +881,16 @@ func drop_monarch(u) -> void:
 	u.carrying = null
 	m.drop_at(u.global_position)
 	sfx.play("crown_drop", u.global_position)
+	crown_event_note("dropped", u.team)
+
+
+func crown_event_note(kind: String, team: int) -> void:
+	## Raise the crown ribbon (hud._draw_crown_event) for everyone but the
+	## unit it happened to: "taken" when a crown is picked up, "dropped" when
+	## its carrier lets it go or falls.
+	crown_event = kind
+	crown_event_team = team
+	crown_event_timer = 3.6
 
 
 func _check_stations() -> void:
@@ -1145,8 +1181,15 @@ func toggle_setting(key: String) -> void:
 			if rumble_on:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
 		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
+		"pad_style_prev": pad_style = {"auto": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
+		"test_sound":
+			sfx.ui("ui_confirm", 0.0)
+			return
 		"gfx":
 			gfx_quality = (gfx_quality + 1) % GFX_NAMES.size()
+			apply_graphics()
+		"gfx_0", "gfx_1", "gfx_2", "gfx_3":
+			gfx_quality = int(key.trim_prefix("gfx_"))
 			apply_graphics()
 		"fullscreen":
 			fullscreen = not fullscreen
@@ -1691,7 +1734,7 @@ func _show_loading(hold: float) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shot") or arg == "--demo" or arg == "--audit":
 			return   # screenshots and headless tests see the game itself
-	if loading_layer:
+	if is_instance_valid(loading_layer):   # the last one frees itself after its fade
 		loading_layer.queue_free()
 	loading_layer = CanvasLayer.new()
 	loading_layer.layer = 100
@@ -2213,7 +2256,8 @@ func shake_at(where: Vector3, amount: float) -> void:
 
 func hero_custom() -> Dictionary:
 	## The player's chosen hair and trim colours for the character skin.
-	var c := {"hair": Stats.HERO_HAIR[hero_hair][1], "skin": Stats.HERO_SKINS[hero_skin][1], "body": Stats.HERO_BODIES[hero_body][1], "face": hero_face, "mark": hero_mark}
+	var c := {"hair": Stats.HERO_HAIR[hero_hair][1], "skin": Stats.HERO_SKINS[hero_skin][1], "body": Stats.HERO_BODIES[hero_body][1], "face": hero_face, "mark": hero_mark,
+		"hair_style": hero_hair_style}
 	if hero_eye >= 0:
 		c.eye = hero_eye
 	if hero_trim > 0:
@@ -2405,7 +2449,7 @@ func _rank_pressed() -> bool:
 
 func menu_tabs() -> Array:
 	## Which menu tabs make sense now: at the title only Classes and Controls.
-	return [1, 4, 5] if not playing else [0, 3, 1, 2, 4, 5]
+	return [5, 4, 1, 6] if not playing else [0, 3, 1, 2, 4, 5]
 
 
 func menu_tick() -> void:
@@ -2419,7 +2463,7 @@ func menu_tick() -> void:
 		if not eaten and rebinding == "":
 			if Input.is_action_just_pressed("options") and not menu_open:
 				menu_open = true
-				menu_tab = 4
+				menu_tab = 5
 			elif Input.is_action_just_pressed("menu") and menu_open:
 				menu_open = false
 			elif Input.is_action_just_pressed("menu") and main_menu and not name_editing:
@@ -2525,9 +2569,21 @@ func menu_tick() -> void:
 		for b in hud.variant_buttons:
 			if b[0].has_point(mouse) and player:
 				player.choose_variant(b[1], b[2])
+		for b in hud.rank_tab_buttons:
+			if b[0].has_point(mouse):
+				hud.rank_view = -1 if player and b[1] == player.role else b[1]
 		for i in hud.tab_buttons.size():
 			if hud.tab_buttons[i].has_point(mouse):
 				menu_tab = hud.tab_ids[i]
+		for b in hud.group_buttons:
+			if b[0].has_point(mouse):
+				hud.controls_group = b[1]
+				sfx.ui("ui_click", -6.0)
+		for b in hud.class_buttons:
+			if b[0].has_point(mouse) and player and seals[player.team].has(b[1]):
+				seals[player.team][b[1]].take(player)
+				menu_open = false
+				get_tree().paused = false
 		for b in hud.bind_buttons:
 			if b[0].has_point(mouse):
 				rebinding = b[1]
@@ -2544,7 +2600,7 @@ func menu_tick() -> void:
 				toggle_setting(b[1])
 		if hud.options_button.has_point(mouse) and not playing:
 			menu_open = true
-			menu_tab = 4
+			menu_tab = 5
 		if not playing and not menu_open:
 			for b in hud.title_buttons:
 				if b[0].has_point(mouse) and b[1] < 3:
@@ -2608,6 +2664,13 @@ func menu_tick() -> void:
 		for b in hud.chat_buttons:
 			if b[0].has_point(mouse):
 				chat_tab = int(b[1])
+		if hud.resume_button.has_point(mouse) and menu_open:
+			menu_open = false
+			get_tree().paused = false
+		for b in hud.zoom_buttons:
+			if b[0].has_point(mouse) and menu_open:
+				hud.map_zoom = clampf(hud.map_zoom + 0.5 * b[1], 1.0, 3.0)
+				sfx.ui("ui_click", -6.0)
 		if hud.quit_button.has_point(mouse) and menu_open:
 			if quit_armed > 0.0:
 				quit_to_title()
@@ -3057,6 +3120,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "map_variant", map_variant)
 	cfg.set_value("settings", "hero_skin", hero_skin)
 	cfg.set_value("settings", "hero_face", hero_face)
+	cfg.set_value("settings", "hero_hair_style", hero_hair_style)
 	cfg.set_value("settings", "hero_eye", hero_eye)
 	cfg.set_value("settings", "hero_mark", hero_mark)
 	cfg.set_value("settings", "hero_body", hero_body)
@@ -3129,6 +3193,7 @@ func _load_controls() -> void:
 	map_variant = clampi(cfg.get_value("settings", "map_variant", 0), 0, Stats.MAPS.size() - 1)
 	hero_skin = clampi(cfg.get_value("settings", "hero_skin", 1), 0, Stats.HERO_SKINS.size() - 1)
 	hero_face = clampi(cfg.get_value("settings", "hero_face", 0), 0, Stats.HERO_FACES.size() - 1)
+	hero_hair_style = clampi(cfg.get_value("settings", "hero_hair_style", 0), 0, Stats.HERO_HAIR_STYLES.size() - 1)
 	hero_eye = clampi(cfg.get_value("settings", "hero_eye", -1), -1, Stats.HERO_EYES.size() - 1)
 	hero_mark = clampi(cfg.get_value("settings", "hero_mark", 0), 0, Stats.HERO_MARKS.size() - 1)
 	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)

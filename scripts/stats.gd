@@ -36,6 +36,11 @@ const HERO_HAIR := [["Blond", Color(0.93, 0.8, 0.4)], ["Brown", Color(0.4, 0.25,
 	["Copper", Color(0.85, 0.42, 0.16)], ["Rose", Color(0.95, 0.5, 0.65)], ["Midnight", Color(0.16, 0.22, 0.55)],
 	["Frost", Color(0.7, 0.9, 1.0)], ["Violet", Color(0.55, 0.3, 0.85)], ["Ember", Color(1.0, 0.55, 0.12)]]
 const HERO_HAIR_FREE := 6
+# Hair styles (Create Your Character): the model's own cut, then the modelled
+# styles character_model._add_hair_style adds on the head bone. The first
+# HERO_HAIR_STYLE_FREE are everyone's; the rest are sold in the STORE.
+const HERO_HAIR_STYLES := ["Classic", "Ponytail", "Long", "Braids", "Bun"]
+const HERO_HAIR_STYLE_FREE := 2
 const HERO_TRIM := [["Team", Color.TRANSPARENT], ["Crimson", Color(0.7, 0.12, 0.15)], ["Violet", Color(0.5, 0.25, 0.7)],
 	["Teal", Color(0.15, 0.6, 0.6)], ["Gold", Color(0.9, 0.72, 0.2)], ["Night", Color(0.12, 0.12, 0.18)],
 	["Emerald", Color(0.1, 0.62, 0.3)], ["Sunset", Color(0.95, 0.45, 0.15)], ["Ivory", Color(0.92, 0.88, 0.76)],
@@ -136,9 +141,10 @@ const WEAPON_SKINS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.8
 const RARITIES := {"common": ["Common", Color(0.78, 0.8, 0.82), 300, 60], "rare": ["Rare", Color(0.35, 0.65, 1.0), 600, 28],
 	"epic": ["Epic", Color(0.72, 0.4, 1.0), 1200, 10], "legendary": ["Legendary", Color(1.0, 0.7, 0.2), 2500, 2]}
 # What the STORE sells: [kind, index into that kind's table, rarity]. Kinds:
-# hair (HERO_HAIR), trim (HERO_TRIM), outfit, hat, cape, weapon, banner_bg,
+# hair (HERO_HAIR), hair_style (HERO_HAIR_STYLES), trim (HERO_TRIM), outfit, hat, cape, weapon, banner_bg,
 # banner_emblem, banner_frame. Prices come from the rarity.
 const STORE_ITEMS := [
+	["hair_style", 2, "common"], ["hair_style", 3, "rare"], ["hair_style", 4, "rare"],
 	["hair", 6, "common"], ["hair", 7, "common"], ["hair", 8, "rare"], ["hair", 9, "rare"], ["hair", 10, "epic"], ["hair", 11, "epic"],
 	["outfit", 1, "common"], ["outfit", 2, "common"], ["outfit", 3, "rare"], ["outfit", 4, "epic"], ["outfit", 5, "epic"], ["outfit", 6, "legendary"],
 	["cape", 1, "common"], ["cape", 2, "rare"], ["cape", 3, "rare"], ["cape", 4, "epic"], ["cape", 5, "legendary"],

@@ -15,6 +15,7 @@ const Role = Stats.Role
 # Kind -> [the game variable that wears it, the Stats table, free entries below this index].
 const KINDS := {
 	"hair": ["hero_hair", "HERO_HAIR", Stats.HERO_HAIR_FREE],
+	"hair_style": ["hero_hair_style", "HERO_HAIR_STYLES", Stats.HERO_HAIR_STYLE_FREE],
 	"trim": ["hero_trim", "HERO_TRIM", Stats.HERO_TRIM_FREE],
 	"outfit": ["hero_outfit", "HERO_OUTFITS", 1],
 	"hat": ["hero_hat", "HERO_HATS", 1],
@@ -25,7 +26,7 @@ const KINDS := {
 	"banner_frame": ["banner_frame", "BANNER_FRAMES", Stats.BANNER_FRAME_FREE],
 }
 # The store's tabs: [title, menu icon, kinds shown, preview class].
-const TABS := [["HAIR", "hair", ["hair"], Role.BASE], ["ARMOUR", "tunic", ["outfit"], Role.BASE],
+const TABS := [["HAIR", "hair", ["hair_style", "hair"], Role.BASE], ["ARMOUR", "tunic", ["outfit"], Role.BASE],
 	["CAPES & DYES", "palette", ["cape", "trim"], Role.BASE], ["HATS", "crown", ["hat"], Role.BASE],
 	["WEAPONS", "swords", ["weapon"], Role.KNIGHT], ["BANNERS", "emblem", ["banner_bg", "banner_emblem", "banner_frame"], Role.BASE]]
 # Swatch colours for the gear with no colour of its own (hats, capes).
@@ -33,7 +34,7 @@ const HAT_SWATCH := [Color(0.3, 0.3, 0.34), Color(0.75, 0.2, 0.18), Color(0.86, 
 	Color(0.95, 0.55, 0.7), Color(0.32, 0.22, 0.62), Color(0.62, 0.65, 0.7), Color(1.0, 0.8, 0.28)]
 const CAPE_SWATCH := [Color(0.3, 0.3, 0.34), Color(0.8, 0.3, 0.25), Color(0.5, 0.36, 0.22), Color(0.3, 0.62, 0.28),
 	Color(0.62, 0.1, 0.16), Color(1.0, 0.5, 0.15)]
-const KIND_LABEL := {"hair": "Hair Colour", "trim": "Cape Dye", "outfit": "Armour Tint", "hat": "Hat", "cape": "Cape",
+const KIND_LABEL := {"hair": "Hair Colour", "hair_style": "Hair Style", "trim": "Cape Dye", "outfit": "Armour Tint", "hat": "Hat", "cape": "Cape",
 	"weapon": "Weapon Skin", "banner_bg": "Banner Background", "banner_emblem": "Banner Emblem", "banner_frame": "Banner Frame"}
 
 
@@ -64,6 +65,7 @@ static func owns(game, kind: String, i: int) -> bool:
 static func table(kind: String) -> Array:
 	match kind:
 		"hair": return Stats.HERO_HAIR
+		"hair_style": return Stats.HERO_HAIR_STYLES
 		"trim": return Stats.HERO_TRIM
 		"outfit": return Stats.HERO_OUTFITS
 		"hat": return Stats.HERO_HATS
@@ -77,7 +79,7 @@ static func table(kind: String) -> Array:
 
 static func item_name(kind: String, i: int) -> String:
 	var row = table(kind)[i]
-	if kind == "banner_emblem":
+	if row is String:
 		return String(row).replace("_", " ").capitalize()
 	return String(row[0])
 
@@ -169,6 +171,7 @@ static func wear(custom: Dictionary, kind: String, i: int) -> Dictionary:
 	var c := custom.duplicate()
 	match kind:
 		"hair": c.hair = Stats.HERO_HAIR[i][1]
+		"hair_style": c.hair_style = i
 		"trim":
 			if i == 0:
 				c.erase("trim")
@@ -381,6 +384,9 @@ func thumb(r: Rect2, kind: String, i: int) -> void:
 			h.draw_circle(c, rad, Color(0.05, 0.05, 0.08, 0.8))
 			h.draw_arc(c, rad, 0, TAU, 32, Color(1.0, 0.8, 0.3), 2.0)
 			h._icon(Stats.BANNER_EMBLEMS[i], c, rad * 0.32, Color.WHITE)
+		"hair_style":
+			menu.h = h
+			menu.hair_thumb(c + Vector2(0, rad * 0.1), i, rad / 13.0)
 		"hat":
 			_hat_glyph(c, rad, i, col)
 		"cape":

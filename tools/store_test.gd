@@ -14,6 +14,7 @@ class FakeGame:
 	var account_chests := 0
 	var owned_items: Array = []
 	var hero_hair := 0
+	var hero_hair_style := 0
 	var hero_trim := 0
 	var hero_outfit := 0
 	var hero_hat := 0

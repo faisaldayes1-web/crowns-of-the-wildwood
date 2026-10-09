@@ -40,7 +40,7 @@ const ROPE := Color(0.66, 0.48, 0.28)
 const SPRIG := Color(0.4, 0.68, 0.26)
 const LEAF_GREEN := Color(0.36, 0.66, 0.2)
 
-const TABS := ["MAP", "CLASSES", "UPGRADES", "SCOREBOARD", "CONTROLS", "SETTINGS"]
+const TABS := ["MAP", "CLASSES", "UPGRADES", "SCOREBOARD", "CONTROLS", "SETTINGS", "AUDIO"]
 
 var game
 var local_unit = null   # couch play: the local player this HUD belongs to (null = the main player)
@@ -57,6 +57,17 @@ var next_slot_art := ""          # set just before _slot(): the skill art to dra
 var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
+var rank_tab_buttons: Array = []   # [rect, role] class tabs on the skills screen
+var rank_view := -1                # the class the skills screen shows (-1 = your own)
+var map_only := false              # a clipped copy of the HUD that only draws the pause menu's map
+var map_view = null                # that copy (created the first time the pause map shows)
+var map_zoom := 1.0                # pause map zoom (1 = the whole valley)
+var zoom_buttons: Array = []       # [rect, +1 / -1] on the pause map
+var resume_button := Rect2()       # pause menu: RESUME
+var group_buttons: Array = []      # [rect, index] Controls tab action groups
+var controls_group := 0            # the Controls tab's open group
+var class_buttons: Array = []      # [rect, role] Classes tab SELECT
+var menu_tex: Dictionary = {}      # assets/ui/menu art used by the pause menu
 var variant_buttons: Array = []   # [rect, role, index]
 var tab_buttons: Array = []
 var tab_ids: Array = []
@@ -87,6 +98,15 @@ func _ready() -> void:
 	bar_font = load("res://assets/fonts/LilitaOne-Regular.ttf")
 	if ResourceLoader.exists("res://assets/ui/topbar/topbar.png"):
 		topbar_tex = load("res://assets/ui/topbar/topbar.png")
+		# No parchment strip under the bar (Faisal 09:25 2026-10-09: "take
+		# out the steal their crown ... banner"): clear it between the crests.
+		var img: Image = topbar_tex.get_image()
+		if img:
+			if img.is_compressed():
+				img.decompress()
+			img.convert(Image.FORMAT_RGBA8)
+			img.fill_rect(Rect2i(176, 163, img.get_width() - 352, img.get_height() - 163), Color(0, 0, 0, 0))
+			topbar_tex = ImageTexture.create_from_image(img)
 	if title_font == null:
 		title_font = font
 	logo = load("res://assets/ui/logo.png")
@@ -117,6 +137,17 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if map_only:
+		queue_redraw()
+		return
+	if map_view:
+		var show_map: bool = game != null and game.playing and game.menu_open and game.menu_tab == 0
+		map_view.visible = show_map
+		if show_map:
+			var vp := _pause_map_rect()
+			map_view.position = vp.position
+			map_view.size = vp.size
+			map_view.map_zoom = map_zoom
 	if game:
 		var me = _me() if game.playing else null
 		if me and me.carrying and not me.dead:
@@ -160,10 +191,18 @@ func _click_end(at: Vector2) -> void:
 func _draw() -> void:
 	if game == null:
 		return
+	if map_only:
+		_draw_zoomed_map()
+		return
 	rank_buttons = []
 	variant_buttons = []
+	rank_tab_buttons = []
 	tab_buttons = []
 	tab_ids = []
+	zoom_buttons = []
+	resume_button = Rect2()
+	group_buttons = []
+	class_buttons = []
 	bind_buttons = []
 	reset_button = Rect2()
 	volume_sliders = []
@@ -242,8 +281,8 @@ func _draw() -> void:
 		_draw_kill_feed()
 	if _me() and _me().carrying and not _me().dead:
 		_draw_holding_banner(_me())
-	if game.stolen_timer > 0.0 and not (_me() and _me().carrying):   # the carrier sees their own banner
-		_draw_stolen_card()
+	if game.crown_event_timer > 0.0 and not (_me() and _me().carrying):   # the carrier sees their own banner
+		_draw_crown_event()
 	elif game.capture_timer > 0.0:
 		_draw_capture_card()
 	elif game.levelup_timer > 0.0:
@@ -281,13 +320,15 @@ func nav_rects() -> Array:
 	## Every button drawn this frame, for the gamepad cursor to jump between.
 	var out: Array = []
 	for list in [menu_buttons, title_buttons, faction_buttons, hero_buttons, couch_buttons, tab_buttons, bind_buttons,
-			difficulty_buttons, toggle_buttons, guide_buttons, chat_buttons, variant_buttons, volume_sliders]:
+			difficulty_buttons, toggle_buttons, guide_buttons, chat_buttons, variant_buttons, volume_sliders, group_buttons, class_buttons]:
 		for b in list:
 			if b[0].size.x > 0.0:
 				out.append(b[0])
 	for r in rank_buttons:
 		if r.size.x > 0.0:
 			out.append(r)
+	for b in rank_tab_buttons:
+		out.append(b[0])
 	for r in [options_button, close_button, reset_button, quit_button]:
 		if r.size.x > 0.0:
 			out.append(r)
@@ -2036,7 +2077,10 @@ func _draw_scoreboard() -> void:
 		_bar_text(Vector2(clock_x, 42), "OVERTIME" if game.overtime else "BATTLE", tf, 18, Color(1, 0.55, 0.4) if game.overtime else Color(1.0, 0.78, 0.32), ink, 4)
 		_bar_text(Vector2(clock_x, 70), "%d:%02d" % [int(left) / 60, int(left) % 60], tf, 38,
 			Color(1, 0.4, 0.3) if urgent else Color(1.0, 0.97, 0.92), ink, 5)
-	var line := "Steal their crown and carry it home to your throne room."
+	# The phase line only when there is news (fortify, overtime, the Ember
+	# Pass fire), as outlined text: the parchment and its standing "steal
+	# their crown" line are gone (Faisal 09:25 2026-10-09).
+	var line := ""
 	var line_ink := Color(0.33, 0.2, 0.08)
 	if fortify:
 		line = "Build turrets, set traps and raise barricades (%s) before the barrier falls." % _k("interact")
@@ -2050,13 +2094,9 @@ func _draw_scoreboard() -> void:
 	if not fire.is_empty() and fire.text != "":
 		line = fire.text
 		line_ink = fire.color
-	if topbar_tex:
-		# On the art's own parchment strip, right of its "i" medallion.
-		var fs := 13 if _text_width(line, 13) < 490.0 else 12
-		_bang_medallion(Vector2(cx - 254.0, 94.0))
-		_text(Vector2(cx - 231.0, 98.5), line, fs, line_ink, HORIZONTAL_ALIGNMENT_CENTER, 499.0, 0)
-	else:
-		_info_banner(Vector2(cx, 98), line, line_ink)
+	if line != "":
+		var fs := 14 if _text_width(line, 14) < 520.0 else 12
+		_text(Vector2(cx - 260.0, 100.0), line, fs, line_ink.lerp(Color(1.0, 0.95, 0.82), 0.85), HORIZONTAL_ALIGNMENT_CENTER, 520.0, 4)
 	if not fire.is_empty() and line == fire.text:
 		# Ember Pass: the Fire Objective's flame beside the strip, and the
 		# capture filling along its foot.
@@ -2143,51 +2183,6 @@ func _ornate_clock(r: Rect2) -> void:
 	draw_rect(Rect2(c + Vector2(-a * 0.6, -b * 0.62), Vector2(a * 1.2, 2)), Color(1, 0.9, 0.7, 0.08))
 
 
-func _info_banner(center: Vector2, line: String, ink: Color) -> void:
-	## The objective line under the scoreboard: a parchment banner in a thin
-	## gold frame with a round "i" medallion on the left and short gold end
-	## caps, the text in sentence case.
-	var fs := 12
-	var w := maxf(_text_width(line, fs) + 74.0, 440.0)
-	var rect := Rect2(center - Vector2(w / 2.0, 14), Vector2(w, 28))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.95, 0.88, 0.7)
-	sb.set_corner_radius_all(4)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(0.55, 0.38, 0.14)
-	sb.shadow_size = 5
-	sb.shadow_color = Color(0, 0, 0, 0.4)
-	sb.shadow_offset = Vector2(0, 2)
-	draw_style_box(sb, rect)
-	var inner := rect.grow(-3)
-	draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.4)), Color(1, 1, 0.95, 0.35))
-	draw_rect(Rect2(Vector2(inner.position.x, inner.end.y - 6), Vector2(inner.size.x, 6)), Color(0.6, 0.42, 0.16, 0.16))
-	draw_rect(rect.grow(-4), Color(0.72, 0.53, 0.22, 0.55), false, 1.0)
-	# Gold end caps, like the rolled ends of a scroll.
-	for x in [rect.position.x, rect.end.x]:
-		var cap := Rect2(Vector2(x - 5, rect.position.y - 3), Vector2(10, rect.size.y + 6))
-		var cb := StyleBoxFlat.new()
-		cb.bg_color = BRASS
-		cb.set_corner_radius_all(4)
-		cb.set_border_width_all(1)
-		cb.border_color = Color(0.35, 0.2, 0.04)
-		draw_style_box(cb, cap)
-		draw_rect(Rect2(cap.position + Vector2(2, 3), Vector2(2, cap.size.y - 6)), Color(1, 0.95, 0.7, 0.6))
-	_bang_medallion(Vector2(rect.position.x + 24, center.y))
-	_text(Vector2(rect.position.x + 40, center.y + 4.5), line, fs, ink, HORIZONTAL_ALIGNMENT_CENTER, w - 54, 0)
-
-
-func _bang_medallion(ic: Vector2) -> void:
-	## The "!" medallion on the objective banner: a dark round plate in a
-	## bronze rim with a cream exclamation mark.
-	draw_circle(ic + Vector2(0, 1), 11.5, Color(0, 0, 0, 0.3))
-	draw_circle(ic, 11, Color(0.5, 0.33, 0.12))
-	draw_circle(ic, 9.5, Color(0.16, 0.12, 0.1))
-	draw_arc(ic, 10.2, PI * 1.1, PI * 1.9, 10, Color(1, 0.85, 0.5, 0.5), 1.0)
-	draw_rect(Rect2(ic + Vector2(-1.5, -6.5), Vector2(3.0, 7.5)), CREAM)
-	draw_circle(ic + Vector2(0, 4.2), 1.8, CREAM)
-
-
 func _draw_roster(team: int, origin: Vector2, compact: bool = false) -> void:
 	var tc := _team_color(team)
 	if compact:
@@ -2270,6 +2265,35 @@ const HOLD_BANNER_TIME := 3.6   # seconds the pickup banner stays up
 
 
 func _draw_holding_banner(p) -> void:
+	var ours: bool = p.carrying.team == p.team
+	_draw_crown_ribbon(maxf(holding_since, 0.0), "YOU PICKED UP", "THE CROWN!",
+		"Carry it back to your throne!" if ours else "Run it home to your throne room!", RIBBON_BLUE)
+
+
+# Ribbon colours: band top, band bottom, tail, tail highlight, fold, sheen/shards.
+const RIBBON_BLUE := [Color(0.2, 0.42, 0.9), Color(0.05, 0.13, 0.42), Color(0.13, 0.3, 0.72), Color(0.22, 0.45, 0.92), Color(0.04, 0.08, 0.25), Color(0.35, 0.8, 1.0)]
+const RIBBON_RED := [Color(0.85, 0.2, 0.16), Color(0.36, 0.04, 0.04), Color(0.62, 0.1, 0.08), Color(0.86, 0.24, 0.18), Color(0.2, 0.02, 0.02), Color(1.0, 0.45, 0.3)]
+const RIBBON_GREEN := [Color(0.22, 0.66, 0.32), Color(0.04, 0.26, 0.1), Color(0.12, 0.45, 0.2), Color(0.26, 0.7, 0.36), Color(0.02, 0.14, 0.05), Color(0.5, 1.0, 0.55)]
+const RIBBON_DUSK := [Color(0.42, 0.36, 0.5), Color(0.14, 0.1, 0.2), Color(0.3, 0.25, 0.38), Color(0.45, 0.4, 0.55), Color(0.08, 0.05, 0.12), Color(0.75, 0.65, 0.95)]
+
+
+func _draw_crown_event() -> void:
+	## The crown ribbon for everyone the event did not happen to (Faisal
+	## 09:19 2026-10-09: "your team lost the crown or the enemy team has the
+	## crown", like the pickup banner): the same ribbon, lettering, timing and
+	## pop as YOU PICKED UP THE CROWN!, worded and coloured for the news.
+	var mine: bool = game.crown_event_team == _my_team()
+	var lines: Array
+	if game.crown_event == "taken":
+		lines = ["YOUR TEAM HAS", "THE CROWN!", "Escort the carrier home!", RIBBON_GREEN] if mine \
+			else ["THE ENEMY HAS", "YOUR CROWN!", "Stop the thief before they get home!", RIBBON_RED]
+	else:
+		lines = ["YOUR TEAM LOST", "THE CROWN!", "It's on the ground: grab it back!", RIBBON_DUSK] if mine \
+			else ["THEY DROPPED", "YOUR CROWN!", "Pick it up and carry it home!", RIBBON_GREEN]
+	_draw_crown_ribbon(HOLD_BANNER_TIME - game.crown_event_timer, lines[0], lines[1], lines[2], lines[3])
+
+
+func _draw_crown_ribbon(t: float, line1: String, line2: String, hint: String, pal: Array) -> void:
 	## YOU PICKED UP THE CROWN! A tilted royal-blue ribbon with gold trim
 	## and swallowtail ends, the title in a chunky cartoon face (cream over
 	## gold), a crown with rays on top, a parchment scroll with the hint
@@ -2279,7 +2303,6 @@ func _draw_holding_banner(p) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	# Counted in _process (frame time, not the wall clock), so a slow frame
 	# or a headless render still shows the whole pop.
-	var t := maxf(holding_since, 0.0)
 	# Only when you first pick it up (Faisal 2026-10-08 07:09): it pops in,
 	# holds for a few seconds, then lifts away; the glowing CROWN button and
 	# the Drop tile keep reminding you after that.
@@ -2293,7 +2316,6 @@ func _draw_holding_banner(p) -> void:
 	s *= 0.9 + 0.1 * fade
 	if s < 0.05:
 		return
-	var ours: bool = p.carrying.team == p.team
 	draw_set_transform(Vector2(size.x / 2.0, 186.0 * fit + sin(now * 2.2) * 2.0 - (1.0 - fade) * 30.0), -0.06 + 0.012 * sin(now * 1.7), Vector2(s, s))
 	var ink := Color(0.12, 0.07, 0.03, a)
 	var gold := Color(1.0, 0.8, 0.22, a)
@@ -2308,7 +2330,7 @@ func _draw_holding_banner(p) -> void:
 		var side := Vector2(-dir.y, dir.x)
 		var ln := 16.0 + 10.0 * (k % 2)
 		var wd := 5.0 + 2.0 * ((k + 1) % 3)
-		var col := Color(0.35, 0.8, 1.0, a * (1.0 - drift * 0.7)) if k % 2 == 0 else Color(1.0, 0.86, 0.25, a * (1.0 - drift * 0.7))
+		var col := Color(pal[5], a * (1.0 - drift * 0.7)) if k % 2 == 0 else Color(1.0, 0.86, 0.25, a * (1.0 - drift * 0.7))
 		draw_colored_polygon(PackedVector2Array([d - dir * ln, d + side * wd, d + dir * ln, d - side * wd]), col)
 	# Ribbon geometry: an arch (ends lower than the middle).
 	var half := 215.0
@@ -2324,11 +2346,11 @@ func _draw_holding_banner(p) -> void:
 			edge.call(x1, bot + 6.0), edge.call(x0, bot + 2.0)])
 		var tail_out := tail.duplicate()
 		tail_out.append(tail[0])
-		draw_colored_polygon(tail, Color(0.13, 0.3, 0.72, a))
-		draw_colored_polygon(PackedVector2Array([tail[0], tail[1], tail[2], edge.call(x0, (top + bot) / 2.0 + 14.0)]), Color(0.22, 0.45, 0.92, a))
+		draw_colored_polygon(tail, Color(pal[2], a))
+		draw_colored_polygon(PackedVector2Array([tail[0], tail[1], tail[2], edge.call(x0, (top + bot) / 2.0 + 14.0)]), Color(pal[3], a))
 		draw_polyline(tail_out, ink, 5.0)
 		draw_polyline(tail_out, gold, 2.0)
-		draw_colored_polygon(PackedVector2Array([edge.call(sx * half, bot - 2.0), edge.call(x0, bot + 2.0), edge.call(sx * half, bot + 16.0)]), Color(0.04, 0.08, 0.25, a))
+		draw_colored_polygon(PackedVector2Array([edge.call(sx * half, bot - 2.0), edge.call(x0, bot + 2.0), edge.call(sx * half, bot + 16.0)]), Color(pal[4], a))
 	# The band: lighter at the top, deep blue at the bottom.
 	var pts := PackedVector2Array()
 	var cols := PackedColorArray()
@@ -2336,11 +2358,11 @@ func _draw_holding_banner(p) -> void:
 	for i in n + 1:
 		var x := lerpf(-half, half, float(i) / n)
 		pts.append(edge.call(x, top))
-		cols.append(Color(0.2, 0.42, 0.9, a))
+		cols.append(Color(pal[0], a))
 	for i in n + 1:
 		var x := lerpf(half, -half, float(i) / n)
 		pts.append(edge.call(x, bot))
-		cols.append(Color(0.05, 0.13, 0.42, a))
+		cols.append(Color(pal[1], a))
 	draw_polygon(pts, cols)
 	# A soft sheen across the upper third, and the shine sweeping over it.
 	var sheen := PackedVector2Array()
@@ -2348,7 +2370,7 @@ func _draw_holding_banner(p) -> void:
 		sheen.append(edge.call(lerpf(-half, half, float(i) / n), top + 6.0))
 	for i in n + 1:
 		sheen.append(edge.call(lerpf(half, -half, float(i) / n), top + 30.0))
-	draw_colored_polygon(sheen, Color(0.6, 0.8, 1.0, 0.12 * a))
+	draw_colored_polygon(sheen, Color(pal[5].lerp(Color.WHITE, 0.5), 0.12 * a))
 	var sweep := (fmod(now * 0.55, 1.6) - 0.3) * 2.0 * half - half
 	if absf(sweep) < half - 30.0:
 		draw_colored_polygon(PackedVector2Array([edge.call(sweep, top + 4.0), edge.call(sweep + 36.0, top + 4.0), edge.call(sweep + 6.0, bot - 4.0), edge.call(sweep - 30.0, bot - 4.0)]),
@@ -2377,8 +2399,8 @@ func _draw_holding_banner(p) -> void:
 	# The title: cream first line, big gold second line with an orange
 	# drop and a dark outline, so it reads like a cartoon logo.
 	var w := half * 2.0
-	_title_text(Vector2(-half, -18.0), "YOU PICKED UP", 38, Color(1.0, 0.97, 0.88, a), Color(0.55, 0.62, 0.85, a), ink, w)
-	_title_text(Vector2(-half, 30.0), "THE CROWN!", 56, Color(1.0, 0.84, 0.18, a), Color(0.9, 0.42, 0.04, a), ink, w)
+	_title_text(Vector2(-half, -18.0), line1, 38, Color(1.0, 0.97, 0.88, a), Color(pal[0].lerp(Color(0.6, 0.6, 0.6), 0.5), a), ink, w)
+	_title_text(Vector2(-half, 30.0), line2, 56, Color(1.0, 0.84, 0.18, a), Color(0.9, 0.42, 0.04, a), ink, w)
 	# The crown on top with its own rays, bobbing.
 	var cc := Vector2(0, top - 22.0 + sin(now * 4.0) * 2.5)
 	for k in 9:
@@ -2388,7 +2410,6 @@ func _draw_holding_banner(p) -> void:
 		draw_line(cc + d * 40.0, cc + d * (52.0 + 10.0 * tw), Color(1.0, 0.88, 0.35, (0.4 + 0.5 * tw) * a), 3.0)
 	_crown_glyph(cc, 36.0, 1.0, a)
 	# The parchment scroll with the hint, curled at both ends.
-	var hint := "Carry it back to your throne!" if ours else "Run it home to your throne room!"
 	var sw := 340.0
 	var sy := bot + 22.0
 	var scroll := Rect2(-sw / 2.0, sy - 16.0, sw, 34.0)
@@ -2449,26 +2470,6 @@ func _runner(c: Vector2, r: float, col: Color) -> void:
 	draw_line(c + Vector2(-0.55, 0.65) * r, c + Vector2(-1.0, 0.55) * r, col, w)         # back shin
 	draw_line(c + Vector2(0.12, -0.45) * r, c + Vector2(0.65, -0.1) * r, col, w)         # front arm
 	draw_line(c + Vector2(0.12, -0.45) * r, c + Vector2(-0.45, -0.3) * r, col, w)        # back arm
-
-
-func _draw_stolen_card() -> void:
-	## CROWN STOLEN! A red card under the clock with the thief and a minimap
-	## inset that shows where they are.
-	var a := clampf(game.stolen_timer / 0.5, 0.0, 1.0)
-	var pulse := 1.0 + 0.015 * sin(Time.get_ticks_msec() / 70.0)
-	var rect := Rect2(size.x / 2.0 - 230 * pulse, 106, 460 * pulse, 78)
-	_plate(rect, Color(0.55, 0.1, 0.08, 0.95 * a), Color(1.0, 0.82, 0.3, a), 12, 3)
-	_icon("crown", rect.position + Vector2(34, 36), 16, Color(1, 0.85, 0.3, a))
-	_text(rect.position + Vector2(64, 32), "CROWN STOLEN!", 24, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	var thief = null
-	for m in game.monarchs:
-		if m.state == Monarch.State.CARRIED and m.carrier:
-			thief = m.carrier
-	if thief:
-		var line: String = "%s (%s) has stolen the Crown! %s" % [thief.role_name(), Stats.FACTIONS[thief.team].name,
-			"Stop them!" if thief.team != _my_team() else "Get them home!"]
-		_text(rect.position + Vector2(64, 56), line, 12, Color(1, 0.9, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_draw_map(Rect2(rect.end.x - 118, rect.position.y + 8, 108, 62), false)
 
 
 func _draw_capture_card() -> void:
@@ -3363,137 +3364,563 @@ func _draw_map_castles(rect: Rect2, m: Callable, sx: float, sz: float, fx: float
 			_crown(c + Vector2(0, -r - 4), 0.35 if not detailed else 0.6)
 
 
-func _rank_desc(p, track: int) -> String:
-	var r: int = p.rank(track)
-	if track == 3:
-		if r >= Stats.MAX_RANK:
-			return "Fully ranked"
-		return "Next: +%d%% speed, +%d %s, +%d%% regen" % [int(Stats.VIGOR_SPEED * 100), int(Stats.VIGOR_ENERGY),
-			p.energy_kind(), int(Stats.VIGOR_REGEN * 100)]
-	var next := r + 1
-	match next:
-		1: return "Next: %d%% faster cooldown, %d%% cheaper" % [int(Stats.RANK_COOLDOWN_CUT * 100), int(Stats.RANK_COST_CUT * 100)]
-		2: return "Next: bigger effect (range, radius, duration)"
-		3: return "Next: one more heart of damage or healing"
-	return "Fully ranked"
+func _menu_rect() -> Rect2:
+	## The board shared by the pause menu and the UPGRADES screen (Faisal's
+	## 09:37 2026-10-09 references: game/reference-renders/
+	## pause-upgrades-tab-target-2026-10-09.png and pause-tabs-sheet-target-
+	## 2026-10-09.png): wide and tall, its plaque tucked under the top bar.
+	return Rect2(size.x / 2.0 - 515.0, 104.0, 1030.0, 594.0)
+
+
+func _menu_board(R: Rect2, title: String, now: float) -> void:
+	## The dark framed board with leafy corners, the close X and a wooden
+	## title plaque.
+	var ink := Color(0.1, 0.06, 0.03)
+	_plate(R.grow(6), WOOD_DARK, GOLD_DARK, 18, 3)
+	_plate(R, Color(0.06, 0.07, 0.07, 0.97), Color(0.3, 0.2, 0.08), 14, 2)
+	_board_vines(R, now)
+	_close(R)
+	var cx := R.get_center().x
+	var pw := maxf(300.0, _text_width(title, 36) + 90.0)
+	var plq := Rect2(cx - pw / 2.0, R.position.y - 32.0, pw, 60.0)
+	_plate(plq, Color(0.22, 0.12, 0.05), GOLD, 12, 3)
+	_plate(plq.grow(-6), Color(0.14, 0.08, 0.04), GOLD_DARK, 9, 1)
+	for sx in [-1.0, 1.0]:
+		_leaf_cluster(Vector2(cx + sx * (pw / 2.0 + 6.0), plq.position.y + 30.0), sx, now)
+	_title_text(Vector2(plq.position.x, plq.position.y + 45.0), title, 36, CREAM, Color(0.55, 0.5, 0.42), ink, plq.size.x)
 
 
 func _draw_rank_menu(p) -> void:
-	var has_variants: bool = Stats.VARIANTS.has(p.role)
-	var h := 494.0 if has_variants else 356.0
-	var rect := Rect2(size.x / 2.0 - 290, size.y / 2.0 - h / 2.0 - 20, 580, h)
-	_plate(rect, INK, GOLD, 14, 3)
-	_close(rect)
-	_text(rect.position + Vector2(0, 32), "SKILLS AND RANKS", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
-	var pts_text := "%d point%s to spend" % [p.points, "" if p.points == 1 else "s"] if p.points > 0 else "no points yet: earn experience"
-	_text(rect.position + Vector2(0, 54), "Level %d  ·  %s" % [p.level, pts_text], 13, GOLD if p.points > 0 else CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	var track_icons := [_attack_icon(p.role, p.stats()), "", "", "vigor"]
-	for i in 2:
-		if i < p.abilities().size():
-			track_icons[i + 1] = p.abilities()[i].get("icon", p.abilities()[i].kind)
-	var cls_color: Color = Stats.ROLES[p.role].color.lightened(0.3)
-	for t in 4:
-		var row := Rect2(rect.position + Vector2(16, 70 + t * 64), Vector2(rect.size.x - 32, 58))
-		var available: bool = p.track_available(t)
-		var maxed: bool = p.rank(t) >= Stats.MAX_RANK
-		var can: bool = available and p.points > 0 and not maxed
-		_plate(row, INK_LIGHT if available else Color(0.12, 0.12, 0.15, 0.9), GOLD if can else (GOLD_DARK if available else Color(0.3, 0.3, 0.3)), 8, 1)
-		# A framed icon square on the left.
-		var box := Rect2(row.position + Vector2(8, 7), Vector2(44, 44))
-		_plate(box, Color(0.08, 0.08, 0.12, 0.95), GOLD_DARK if available else Color(0.3, 0.3, 0.3), 7, 1)
-		if available:
-			_icon(track_icons[t], box.get_center(), 13, cls_color if t < 3 else XP)
-		var name: String = p.track_name(t) if available else "No %s ability yet" % ["", "Q", "E", ""][t]
-		_text(row.position + Vector2(64, 21), name, 15, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-		# Rank as three segments beside the name, the next rank's effect below.
-		for k in Stats.MAX_RANK:
-			var seg := Rect2(row.position + Vector2(64 + k * 30, 28), Vector2(26, 8))
-			var sb := StyleBoxFlat.new()
-			sb.bg_color = GOLD if k < p.rank(t) else Color(0.2, 0.2, 0.25)
-			sb.set_corner_radius_all(3)
-			sb.border_color = GOLD_DARK if available else Color(0.3, 0.3, 0.3)
-			sb.set_border_width_all(1)
-			draw_style_box(sb, seg)
-		_text(row.position + Vector2(160, 36), ("Rank %d / %d" % [p.rank(t), Stats.MAX_RANK]) if available else "", 10, GOLD if maxed else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		if available:
-			_text(row.position + Vector2(64, 51), _rank_desc(p, t), 10, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		# One button with its number key inside it.
-		var button := Rect2(row.end.x - 128, row.position.y + 13, 116, 32)
-		_plate(button, Color(0.2, 0.5, 0.25, 0.95) if can else Color(0.2, 0.2, 0.22, 0.9), GOLD if can else Color(0.35, 0.35, 0.4), 7, 1)
-		var label := "RANK UP" if not maxed else "MAXED"
-		if available and not maxed:
-			_keycap(button.position + Vector2(20, 16), str(t + 1), 22)
-			_text(button.position + Vector2(36, 21), label, 12, Color.WHITE if can else GREY, HORIZONTAL_ALIGNMENT_CENTER, button.size.x - 40, 2)
+	## UPGRADES, opened with the perk key or at the Upgrade Station: the same
+	## board and page as the pause menu's UPGRADES tab, without the tab row
+	## and without pausing the match.
+	var R := _menu_rect()
+	var now := Time.get_ticks_msec() / 1000.0
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.35))
+	_menu_board(R, "UPGRADES", now)
+	_upgrades_page(p, Rect2(R.position + Vector2(18, 46), Vector2(R.size.x - 36, R.size.y - 86)), now)
+	var hint := ("D-pad spends a point  ·  %s / %s pick a promotion  ·  %s closes  ·  a fall costs 2 levels" % [_k("rank_5"), _k("rank_6"), _k("rank_menu")]) if game.on_pad(local_unit) \
+		else ("1-4 or + spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  a fall costs 2 levels" % _k("rank_menu"))
+	_text(Vector2(R.position.x, R.end.y - 14), hint, 11, Color(0.8, 0.74, 0.6), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
+
+
+func _upgrades_page(p, B: Rect2, now: float) -> void:
+	## The UPGRADES page: your character card with this life's stats on the
+	## left, the viewed class's skills and its two promotions in the middle,
+	## and every class's upgrade progress on the right (click one to view it).
+	## Points always go into the class you are playing.
+	var view: int = p.role if rank_view < 0 else rank_view
+	_upgrades_card(p, Rect2(B.position, Vector2(228, B.size.y)))
+	_upgrades_skills(p, view, Rect2(B.position + Vector2(240, 0), Vector2(500, B.size.y)), now)
+	_upgrades_classes(p, view, Rect2(B.position + Vector2(752, 0), Vector2(B.size.x - 752, B.size.y)))
+
+
+func _upgrades_card(p, L: Rect2) -> void:
+	## Portrait, faction and class, level and XP, then STATS (THIS LIFE).
+	var team: int = p.team
+	var col: Color = Stats.ROLES[p.role].color if p.role != Role.BASE else Color(0.75, 0.6, 0.35)
+	var ph := clampf(L.size.y - 262.0, 150.0, 230.0)
+	var art := Rect2(L.position, Vector2(L.size.x, ph))
+	_plate(art.grow(2), Color(0.04, 0.06, 0.05), Color(0.35, 0.5, 0.25), 10, 2)
+	if not _card(_card_key(team, p.role), art.grow(-2), false):
+		_plate(art.grow(-2), Stats.FACTIONS[team].color.darkened(0.6), Stats.FACTIONS[team].color.darkened(0.3), 8, 0)
+		_icon(_class_icon(p.role), art.get_center() + Vector2(0, -20), 40, col.lightened(0.3))
+	draw_polygon(PackedVector2Array([art.position + Vector2(2, ph * 0.5), art.position + Vector2(L.size.x - 2, ph * 0.5), art.end - Vector2(2, 2), art.position + Vector2(2, ph - 2)]),
+		PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0, 0, 0, 0.88), Color(0, 0, 0, 0.88)]))
+	var faction: String = "ELF" if team == 0 else "HUMAN"
+	_text(Vector2(art.position.x, art.end.y - 32), faction, 26, CREAM, HORIZONTAL_ALIGNMENT_CENTER, art.size.x, 5)
+	var cname: String = "SOLDIER" if p.role == Role.BASE else str(p.role_name()).to_upper()
+	_text(Vector2(art.position.x, art.end.y - 10), cname, 16, col.lightened(0.35), HORIZONTAL_ALIGNMENT_CENTER, art.size.x, 4)
+	# Level badge and XP bar.
+	var ly := art.end.y + 10.0
+	var badge := Vector2(L.position.x + 20, ly + 14)
+	draw_circle(badge, 19.0, Color(0.1, 0.06, 0.03))
+	draw_circle(badge, 17.0, GOLD_DARK)
+	draw_circle(badge, 14.0, Color(0.16, 0.1, 0.04))
+	_text(Vector2(badge.x - 20, badge.y + 6), "LV%d" % p.level, 14, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 40, 3)
+	var span: Array = Stats.xp_span(p.level)
+	var bar := Rect2(L.position.x + 44, ly + 4, L.size.x - 46, 20)
+	_plate(bar, Color(0.04, 0.05, 0.06), GOLD_DARK, 6, 1)
+	if span[1] > 0:
+		var fr := clampf(float(p.xp - span[0]) / float(maxi(span[1] - span[0], 1)), 0.0, 1.0)
+		if fr > 0.0:
+			_plate(Rect2(bar.position + Vector2(2, 2), Vector2((bar.size.x - 4) * fr, bar.size.y - 4)), STAMINA, STAMINA.darkened(0.35), 4, 0)
+	_text(Vector2(bar.position.x, bar.end.y - 5), ("%d / %d XP" % [p.xp, span[1]]) if span[1] > 0 else "MAX LEVEL", 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 2)
+	# STATS (THIS LIFE).
+	var S := Rect2(L.position.x, ly + 36, L.size.x, L.end.y - ly - 36)
+	_plate(S, Color(0.07, 0.08, 0.1, 0.97), Color(0.28, 0.27, 0.24), 9, 1)
+	_text(S.position + Vector2(10, 20), "STATS", 15, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	_text(S.position + Vector2(10 + _text_width("STATS ", 15), 20), "(THIS LIFE)", 12, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var mana: bool = p.energy_kind() == "mana"
+	var atk: Dictionary = p.attack_stats()
+	var cdr := 0.0
+	var n_abil: int = p.abilities().size()
+	if n_abil > 0:
+		for i in n_abil:
+			cdr += Stats.RANK_COOLDOWN_CUT * p.rank(i + 1)
+		cdr /= n_abil
+	var speed: float = float(p.stats().get("speed", 1.0)) * p.vigor_speed()
+	var rows := [
+		["vigor", HEART, "Hearts", "%d / %d" % [p.hearts, p.max_hearts()]],
+		["shard" if mana else "smite", MANA if mana else STAMINA, "Mana" if mana else "Stamina", "%d / %d" % [int(p.energy), int(p.energy_max())]],
+		["sword", Color(0.95, 0.45, 0.35), "Attack Damage", "%d heart%s" % [int(atk.get("damage", 1)), "" if int(atk.get("damage", 1)) == 1 else "s"]],
+		["dodge", Color(0.95, 0.75, 0.3), "Movement Speed", "%d%%" % roundi(speed * 100.0)],
+		["clock", Color(0.7, 0.55, 1.0), "Cooldown Reduction", "%d%%" % roundi(cdr * 100.0)],
+	]
+	var rh := clampf((S.size.y - 40.0) / 9.0, 16.0, 22.0)
+	var y := S.position.y + 30.0
+	for i in rows.size():
+		var r: Array = rows[i]
+		if i % 2 == 0:
+			draw_rect(Rect2(S.position.x + 4, y, S.size.x - 8, rh), Color(1, 1, 1, 0.03))
+		_icon(r[0], Vector2(S.position.x + 18, y + rh / 2.0), 6.5, r[1])
+		_text(Vector2(S.position.x + 32, y + rh - 5), r[2], 12, Color(0.9, 0.9, 0.88), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(S.position.x, y + rh - 5), r[3], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, S.size.x - 10, 2)
+		y += rh
+	y += 4.0
+	draw_line(Vector2(S.position.x + 8, y), Vector2(S.end.x - 8, y), Color(0.3, 0.28, 0.24), 1.0)
+	y += 2.0
+	var tallies := [["Kills / Deaths", "%d / %d" % [p.kills, p.deaths]], ["Captures", str(p.captures)],
+		["Match Score", str(game.unit_score(p))], ["Total Upgrades", str(p.total_upgrades())]]
+	for t in tallies:
+		_text(Vector2(S.position.x + 12, y + rh - 5), t[0], 12, Color(0.86, 0.86, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(S.position.x, y + rh - 5), t[1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, S.size.x - 10, 2)
+		y += rh
+
+
+func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
+	## The class tabs (the viewed class wide, "<CLASS> SKILLS"), the four skill
+	## rows with their + buttons, then PROMOTION with the two variant cards.
+	var ink := Color(0.1, 0.06, 0.03)
+	var own: bool = view == p.role
+	var team: int = p.team
+	var kit: Dictionary = Stats.kit(team, view)
+	var hi: Color = (Stats.ROLES[view].color if view != Role.BASE else Color(0.75, 0.6, 0.35)).lightened(0.35)
+	# Tabs: the viewed class first and wide, the others as icon tabs.
+	var roles: Array = [view]
+	for r in [Role.RANGER, Role.MAGE, Role.KNIGHT, Role.HEALER, Role.ENGINEER, Role.ROGUE]:
+		if r != view:
+			roles.append(r)
+	var wide := 200.0
+	var small := (C.size.x - wide - (roles.size() - 1) * 6.0) / (roles.size() - 1)
+	var x := C.position.x
+	for i in roles.size():
+		var role: int = roles[i]
+		var w := wide if i == 0 else small
+		var tr := Rect2(x, C.position.y, w, 36)
+		x += w + 6.0
+		var sel := i == 0
+		var rc: Color = Stats.ROLES[role].color if role != Role.BASE else Color(0.75, 0.6, 0.35)
+		var hover := tr.has_point(_mouse())
+		_plate(tr, Color(0.1, 0.24, 0.12, 0.98) if sel else (Color(0.15, 0.16, 0.19, 0.97) if hover else Color(0.1, 0.11, 0.14, 0.96)),
+			Color(0.5, 1.0, 0.45) if sel else Color(0.32, 0.3, 0.26), 8, 2 if sel else 1)
+		if sel:
+			draw_rect(Rect2(tr.position + Vector2(4, 4), Vector2(tr.size.x - 8, 10)), Color(0.6, 1.0, 0.5, 0.12))
+			_icon(_class_icon(role), tr.position + Vector2(22, 18), 10, rc.lightened(0.4))
+			var nm: String = ("SOLDIER" if role == Role.BASE else str(Stats.FACTIONS[team].roles[role]).to_upper()) + " SKILLS"
+			_text(Vector2(tr.position.x + 38, tr.position.y + 24), nm, 15, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 		else:
-			_text(button.position + Vector2(0, 21), label if available else "", 12, GOLD if maxed else GREY, HORIZONTAL_ALIGNMENT_CENTER, button.size.x, 2)
-		rank_buttons.append(button if can else Rect2())
-	if has_variants:
-		_promotion(p, Rect2(rect.position + Vector2(16, 70 + 4 * 64), Vector2(rect.size.x - 32, 124)))
-	_text(rect.position + Vector2(0, rect.size.y - 12), ("D-pad spends a point  ·  %s / %s pick a promotion  ·  %s closes  ·  a fall costs 2 levels" % [_k("rank_5"), _k("rank_6"), _k("rank_menu")]) if game.on_pad(local_unit) else ("1-4 or click spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  a fall costs 2 levels" % _k("rank_menu")), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+			_icon(_class_icon(role), tr.get_center(), 10, rc.lightened(0.3) if hover or role == p.role else rc.darkened(0.15))
+		if role == p.role and not sel:
+			draw_circle(tr.position + Vector2(tr.size.x - 8, 8), 3.5, Color(0.5, 1.0, 0.45))
+		rank_tab_buttons.append([tr, role])
+	# Skill rows: attack, Q, E, vigor.
+	var promo_h := 104.0
+	var top := C.position.y + 44.0
+	var rh := floorf((C.end.y - promo_h - 24.0 - top) / 4.0)
+	var ranks: Array = p.ranks.get(view, [0, 0, 0, 0])
+	var abil: Array = p.abilities() if own else kit.get("abilities", [])
+	for t in 4:
+		var row := Rect2(C.position.x, top + t * rh, C.size.x, rh - 6.0)
+		var available: bool = t == 0 or t == 3 or t - 1 < abil.size()
+		var r: int = ranks[t]
+		var maxed: bool = r >= Stats.MAX_RANK
+		var can: bool = own and available and p.points > 0 and not maxed and not p.dead
+		var icon: String = _attack_icon(view, p.stats() if own else kit) if t == 0 else ("vigor" if t == 3 else (abil[t - 1].get("icon", abil[t - 1].kind) if available else "lock"))
+		var tint := (hi if t < 3 else HEART.lightened(0.2)) if available else GREY
+		_plate(row, Color(0.05, 0.06, 0.07, 0.96), tint.darkened(0.4) if available else Color(0.25, 0.25, 0.28), 9, 2)
+		# The art strip: the skill's colour washing in with its emblem large
+		# and faint and a few streaks drifting through.
+		var art := Rect2(row.position.x + 290.0, row.position.y + 3.0, row.size.x - 400.0, row.size.y - 6.0)
+		if available:
+			var wash := PackedVector2Array([art.position, art.position + Vector2(art.size.x, 0), art.end, art.position + Vector2(0, art.size.y)])
+			draw_polygon(wash, PackedColorArray([Color(tint, 0.0), Color(tint, 0.38), Color(tint, 0.38), Color(tint, 0.0)]))
+			for k in 5:
+				var f := fmod(now * (0.25 + k * 0.05) + k * 0.31, 1.0)
+				var sy := art.position.y + 8.0 + k * (art.size.y - 16.0) / 4.0
+				var sx := art.position.x + 20.0 + f * (art.size.x - 40.0)
+				draw_line(Vector2(sx, sy), Vector2(sx + 20.0 + k * 3.0, sy - 5.0), Color(tint.lightened(0.5), 0.5 * sin(f * PI)), 2.0)
+			_icon(icon, art.position + Vector2(art.size.x - 40.0, art.size.y / 2.0), minf(22.0, art.size.y * 0.36), Color(tint.lightened(0.3), 0.55))
+		# Icon tile.
+		var ts := minf(row.size.y - 12.0, 54.0)
+		var tile := Rect2(row.position + Vector2(6, (row.size.y - ts) / 2.0), Vector2(ts, ts))
+		_plate(tile, tint.darkened(0.6) if available else Color(0.12, 0.12, 0.14), tint if available else Color(0.35, 0.35, 0.38), 8, 2)
+		draw_rect(Rect2(tile.position + Vector2(4, 4), Vector2(ts - 8, ts * 0.3)), Color(1, 1, 1, 0.08))
+		_icon(icon, tile.get_center(), ts * 0.33, Color.WHITE if available else GREY, not available)
+		# Name, description, level badge and pips.
+		var name: String
+		var desc: String
+		match t:
+			0:
+				name = p.track_name(0) if own else str(kit.get("attack_name", "Attack"))
+				desc = str((p.stats() if own else kit).get("attack_desc", ""))
+			3:
+				name = "Vigor"
+				desc = "More speed, a bigger %s bar and faster regeneration." % ("mana" if kit.get("energy", "stamina") == "mana" else "stamina")
+			_:
+				name = str(abil[t - 1].name) if available else "No %s skill yet" % ["", "Q", "E"][t]
+				desc = str(abil[t - 1].get("desc", "")) if available else ("Pick a class at the stations to learn one." if view == Role.BASE else "")
+		var tx := tile.end.x + 10.0
+		_text(Vector2(tx, row.position.y + 20), name, 17, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		_paragraph(Vector2(tx, row.position.y + 34), desc, 10, Color(0.86, 0.86, 0.82) if available else GREY, 300.0 - tx + row.position.x + 60.0, 11.0)
+		if available:
+			var lv := Rect2(tx, row.end.y - 17, 30, 13)
+			_plate(lv, Color(0.2, 0.15, 0.06), GOLD_DARK, 3, 1)
+			_text(Vector2(lv.position.x, lv.end.y - 2), "LV %d" % r, 9, GOLD, HORIZONTAL_ALIGNMENT_CENTER, lv.size.x, 1)
+			for k in Stats.MAX_RANK:
+				var pip := Rect2(lv.end.x + 6 + k * 24, lv.position.y + 2, 20, 9)
+				_plate(pip, tint if k < r else Color(0.12, 0.13, 0.15), tint.darkened(0.25) if k < r else Color(0.4, 0.37, 0.3), 4, 1)
+			_text(Vector2(art.position.x + 8, art.end.y - 4), _rank_desc_for(p, view, t, r), 9, GOLD if not maxed else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		# Cost and the + button.
+		var bs := minf(row.size.y - 26.0, 40.0)
+		var btn := Rect2(row.end.x - bs - 12.0, row.end.y - bs - 6.0, bs, bs)
+		if available and not maxed:
+			var coin := Vector2(btn.position.x - 44.0, btn.get_center().y)
+			draw_circle(coin, 6.0, ink)
+			draw_circle(coin, 4.5, XP)
+			_text(Vector2(coin.x + 9, coin.y + 5), "1 pt", 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_plate(btn, Color(1.0, 0.78, 0.25) if can else Color(0.3, 0.29, 0.27), Color(0.4, 0.22, 0.04) if can else Color(0.2, 0.2, 0.2), 8, 2)
+			draw_rect(Rect2(btn.position + Vector2(4, 4), Vector2(btn.size.x - 8, bs * 0.25)), Color(1, 1, 1, 0.25 if can else 0.06))
+			var pc := btn.get_center()
+			var pcol := Color(0.36, 0.2, 0.04) if can else Color(0.5, 0.5, 0.5)
+			var arm := bs * 0.26
+			draw_line(pc + Vector2(-arm, 0), pc + Vector2(arm, 0), pcol, 5.0)
+			draw_line(pc + Vector2(0, -arm), pc + Vector2(0, arm), pcol, 5.0)
+			if own:
+				_keycap(btn.position, str(t + 1), 15)
+		elif available:
+			_text(Vector2(btn.position.x - 10, btn.get_center().y + 6), "MAX", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER, btn.size.x + 20, 3)
+		rank_buttons.append(btn if can else Rect2())
+	_promotion_cards(p, view, Rect2(C.position.x, C.end.y - promo_h - 22.0, C.size.x, promo_h + 22.0))
 
 
-func _promotion(p, rect: Rect2) -> void:
-	## The two variants of the player's class: pick one once enough rank
-	## points have been spent in the class over the match.
-	var role: int = p.role
-	var unlocked: bool = p.variant_unlocked(role)
-	var spent: int = p.mastery.get(role, 0)
-	_text(rect.position + Vector2(0, 12), "PROMOTION", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var status := "Unlocked: choose a path" if unlocked else "Spend %d more point%s in this class to unlock (%d / %d, kept across lives)" % [
-		Stats.VARIANT_UNLOCK - spent, "" if Stats.VARIANT_UNLOCK - spent == 1 else "s", spent, Stats.VARIANT_UNLOCK]
-	_text(rect.position + Vector2(90, 12), status, 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var w := (rect.size.x - 10) / 2.0
+func _promotion_cards(p, view: int, P: Rect2) -> void:
+	## PROMOTION: the class's two variants side by side, each with its icon,
+	## what it does and the skills it brings; locked until enough points are
+	## spent in the class, then pick with 5 / 6 or a click.
+	var spent: int = p.mastery.get(view, 0)
+	var has: bool = Stats.VARIANTS.has(view)
+	var unlocked: bool = has and p.variant_unlocked(view)
+	_text(Vector2(P.position.x + 4, P.position.y + 15), "PROMOTION", 16, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	var sub := "(PICK A CLASS AT THE STATIONS FIRST)"
+	if has:
+		var left := Stats.VARIANT_UNLOCK - spent
+		var cls := str(Stats.FACTIONS[p.team].roles[view]).to_upper()
+		sub = "(UNLOCKED: CHOOSE A PATH)" if unlocked else "(SPEND %d MORE POINT%s IN %s)" % [left, "" if left == 1 else "S", cls]
+	_text(Vector2(P.position.x + 12 + _text_width("PROMOTION", 16), P.position.y + 15), sub, 11, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	if not has:
+		return
+	var cw := (P.size.x - 10.0) / 2.0
 	for i in 2:
-		var v: Dictionary = Stats.VARIANTS[role][i]
-		var card := Rect2(rect.position + Vector2(i * (w + 10), 20), Vector2(w, rect.size.y - 20))
-		var chosen: bool = p.variants.get(role, -1) == i
-		_plate(card, Color(0.3, 0.26, 0.12, 0.98) if chosen else (INK_LIGHT if unlocked else Color(0.12, 0.12, 0.15, 0.9)),
-			GOLD if chosen else (GOLD_DARK if unlocked else Color(0.3, 0.3, 0.3)), 8, 2 if chosen else 1)
-		_icon(v.icon, card.position + Vector2(24, 22), 12, Color.WHITE, not unlocked)
-		_text(card.position + Vector2(48, 22), v.name.to_upper(), 14, GOLD if chosen else (Color.WHITE if unlocked else GREY), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-		var tag := "CHOSEN" if chosen else ("%s: pick" % str(i + 5) if unlocked else "LOCKED")
-		_text(card.position + Vector2(0, 22), tag, 10, GOLD if chosen else GREY, HORIZONTAL_ALIGNMENT_RIGHT, card.size.x - 10, 2)
-		_paragraph(card.position + Vector2(10, 48), v.desc, 10, Color(0.85, 0.85, 0.85) if unlocked else GREY, card.size.x - 20, 12.0)
-		var moves := "%s  ·  Q %s  ·  E %s" % [v.attack.get("attack_name", Stats.kit(_my_team(), role).attack_name), v.abilities[0].name, v.abilities[1].name]
-		_text(card.position + Vector2(10, card.size.y - 8), moves, 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		if unlocked and not chosen and not p.dead:
-			variant_buttons.append([card, role, i])
+		var v: Dictionary = Stats.VARIANTS[view][i]
+		var e := Rect2(P.position.x + i * (cw + 10.0), P.position.y + 22.0, cw, P.size.y - 22.0)
+		var chosen: bool = p.variants.get(view, -1) == i
+		_plate(e, Color(0.26, 0.21, 0.08, 0.98) if chosen else (Color(0.1, 0.15, 0.1, 0.97) if unlocked else Color(0.08, 0.09, 0.11, 0.96)),
+			GOLD if chosen else (Color(0.45, 0.8, 0.35) if unlocked else Color(0.3, 0.3, 0.32)), 8, 2 if chosen else 1)
+		var ib := Rect2(e.position + Vector2(8, 8), Vector2(44, 44))
+		var vt: Color = v.get("tint", Color.WHITE)
+		_plate(ib, vt.darkened(0.7), vt.darkened(0.2) if unlocked else Color(0.35, 0.35, 0.38), 7, 2)
+		_icon(v.icon, ib.get_center(), 14, Color.WHITE, not unlocked)
+		_text(e.position + Vector2(60, 24), str(v.name).to_upper(), 16, GOLD if chosen else (Color.WHITE if unlocked else Color(0.85, 0.85, 0.85)), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		if chosen:
+			_text(e.position + Vector2(0, 22), "CHOSEN", 10, GOLD, HORIZONTAL_ALIGNMENT_RIGHT, e.size.x - 10, 2)
+		elif unlocked:
+			_text(e.position + Vector2(0, 22), "%d: PICK" % (i + 5), 10, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_RIGHT, e.size.x - 10, 2)
+		else:
+			_padlock(e.position + Vector2(e.size.x - 16, 16), 9.0, GREY)
+		_paragraph(e.position + Vector2(60, 38), str(v.desc), 9, Color(0.85, 0.85, 0.82) if unlocked else Color(0.7, 0.7, 0.7), e.size.x - 68, 10.0)
+		draw_line(Vector2(e.position.x + 8, e.end.y - 22), Vector2(e.end.x - 8, e.end.y - 22), Color(0.3, 0.3, 0.28), 1.0)
+		var names: Array = [str(v.get("attack", {}).get("attack_name", Stats.kit(p.team, view).get("attack_name", "")))]
+		for a in v.abilities:
+			names.append(str(a.name))
+		_text(Vector2(e.position.x, e.end.y - 7), "  ·  ".join(names), 10, Color(0.88, 0.86, 0.78), HORIZONTAL_ALIGNMENT_CENTER, e.size.x, 2)
+		if unlocked and not chosen and not p.dead and view == p.role:
+			variant_buttons.append([e, view, i])
+
+
+func _upgrades_classes(p, view: int, Rr: Rect2) -> void:
+	## CLASS UPGRADES: each class with its two promotions and the points spent
+	## in it this match (3 unlocks the promotion); click one to view it.
+	_plate(Rr, Color(0.07, 0.08, 0.1, 0.97), Color(0.3, 0.28, 0.24), 10, 1)
+	_text(Rr.position + Vector2(12, 26), "CLASS UPGRADES", 19, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	_paragraph(Rr.position + Vector2(12, 44), "Rank points spent per class this match. 3 unlocks its promotion.", 10, Color(0.85, 0.85, 0.82), Rr.size.x - 24, 12.0)
+	var roles: Array = [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
+	var top := Rr.position.y + 72.0
+	var rh := (Rr.end.y - 6.0 - top) / roles.size()
+	for i in roles.size():
+		var role: int = roles[i]
+		var row := Rect2(Rr.position.x + 6, top + i * rh, Rr.size.x - 12, rh - 6.0)
+		var sel: bool = role == view
+		var hover := row.has_point(_mouse())
+		var rc: Color = Stats.ROLES[role].color
+		_plate(row, Color(0.1, 0.2, 0.11, 0.98) if sel else (Color(0.14, 0.15, 0.18) if hover else Color(0.1, 0.11, 0.13, 0.96)),
+			Color(0.5, 1.0, 0.45) if sel else Color(0.3, 0.29, 0.26), 8, 2 if sel else 1)
+		var ts := minf(row.size.y - 10.0, 40.0)
+		var tile := Rect2(row.position + Vector2(5, (row.size.y - ts) / 2.0), Vector2(ts, ts))
+		_plate(tile, rc.darkened(0.65), rc.darkened(0.15), 7, 2)
+		_icon(_class_icon(role), tile.get_center(), ts * 0.3, rc.lightened(0.35))
+		var tx := tile.end.x + 8.0
+		var cls := str(Stats.FACTIONS[p.team].roles[role]).to_upper()
+		var ny := row.position.y + row.size.y * 0.42
+		_text(Vector2(tx, ny), cls, 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		if Stats.VARIANTS.has(role):
+			var vn := "%s or %s" % [Stats.VARIANTS[role][0].name, Stats.VARIANTS[role][1].name]
+			_text(Vector2(tx, ny + 15), vn, 9 if _text_width(vn, 9) < row.end.x - tx - 24 else 8, Color(0.82, 0.82, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var m: int = mini(p.mastery.get(role, 0), Stats.VARIANT_UNLOCK)
+		for k in Stats.VARIANT_UNLOCK:
+			var c := Vector2(row.end.x - 86 + k * 13, ny - 5)
+			draw_circle(c, 5.0, Color(0.1, 0.07, 0.03))
+			draw_circle(c, 4.0, GOLD if k < m else Color(0.18, 0.17, 0.16))
+		_text(Vector2(row.end.x - 50, ny), "%d/%d" % [m, Stats.VARIANT_UNLOCK], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 30, 2)
+		var ch := Vector2(row.end.x - 10, row.get_center().y)
+		draw_polyline(PackedVector2Array([ch + Vector2(-4, -7), ch + Vector2(3, 0), ch + Vector2(-4, 7)]), CREAM if sel or hover else GREY, 2.5)
+		if role == p.role:
+			draw_circle(row.position + Vector2(row.size.x - 8, 8), 3.5, Color(0.5, 1.0, 0.45))
+		rank_tab_buttons.append([row, role])
+
+
+func _rank_desc_for(p, view: int, t: int, r: int) -> String:
+	## The next rank's effect for track t of class `view`, short enough for
+	## the skill row's art strip.
+	if r >= Stats.MAX_RANK:
+		return "Fully ranked"
+	if t == 3:
+		return "Next: +%d%% speed, +%d %s" % [int(Stats.VIGOR_SPEED * 100), int(Stats.VIGOR_ENERGY), "energy"]
+	match r + 1:
+		1: return "Next: -%d%% cooldown and cost" % int(Stats.RANK_COOLDOWN_CUT * 100)
+		2: return "Next: bigger range and radius"
+		3: return "Next: wider, heals a heart more"
+	return ""
+
+
+func _board_vines(r: Rect2, now: float) -> void:
+	## Leafy vines on the board's corners, like the reference's frame.
+	for c in [r.position, Vector2(r.end.x, r.position.y), Vector2(r.position.x, r.end.y), r.end]:
+		var sx := 1.0 if c.x < r.get_center().x else -1.0
+		var sy := 1.0 if c.y < r.get_center().y else -1.0
+		for k in 5:
+			var a := Vector2(sx * (8.0 + k * 13.0), sy * (2.0 + (k % 2) * 6.0))
+			_leaf(c + a, 9.0 - k * 0.8, (0.6 + k * 0.4) * sx, now + k)
+			var b := Vector2(sx * (2.0 + (k % 2) * 6.0), sy * (8.0 + k * 13.0))
+			_leaf(c + b, 9.0 - k * 0.8, (1.2 + k * 0.4) * sy, now + k * 1.7)
+
+
+func _leaf_cluster(c: Vector2, sx: float, now: float) -> void:
+	for k in 4:
+		_leaf(c + Vector2(sx * k * 9.0, (k % 2) * 10.0 - 6.0), 11.0 - k, sx * (0.4 + k * 0.5), now + k)
+
+
+func _leaf(c: Vector2, s: float, ang: float, ph: float) -> void:
+	var sway := 0.06 * sin(ph * 1.3)
+	var d := Vector2(cos(ang + sway), sin(ang + sway))
+	var n := Vector2(-d.y, d.x)
+	var pts := PackedVector2Array([c - d * s, c + n * s * 0.45, c + d * s, c - n * s * 0.45])
+	draw_colored_polygon(pts, Color(0.22, 0.52, 0.2))
+	draw_polyline(PackedVector2Array([pts[0], pts[1], pts[2], pts[3], pts[0]]), Color(0.06, 0.16, 0.05), 1.2)
+	draw_line(c - d * s * 0.8, c + d * s * 0.8, Color(0.45, 0.75, 0.35), 1.0)
 
 
 # --- Game menu ---------------------------------------------------------------
 
 func _draw_game_menu() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0.05, 0.03, 0.02, 0.5))
-	var rect := Rect2(size.x / 2.0 - 390, size.y / 2.0 - 244, 780, 500)
+	## PAUSED (Faisal's reference, 2026-10-09:
+	## game/reference-renders/pause-map-target-2026-10-09.png): a dark framed
+	## board under a wooden title plaque, a row of six big tabs with icons,
+	## the open tab's page, and LEAVE MATCH / RESUME along the foot. Before a
+	## match the same board is OPTIONS with its three tabs.
 	var in_match: bool = game.playing
-	_menu_panel(rect, "PAUSED" if in_match else "OPTIONS")
-	_close(rect)
-	# Tabs (only Classes and Controls before a match).
+	var cx := size.x / 2.0
+	var now := Time.get_ticks_msec() / 1000.0
+	var ink := Color(0.1, 0.06, 0.03)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.03, 0.02, 0.55))
+	var R := _menu_rect()
+	_menu_board(R, "PAUSED" if in_match else "OPTIONS", now)
+	# Tabs.
 	var ids: Array = game.menu_tabs()
-	var tw := minf(140.0, (rect.size.x - 40.0 - (ids.size() - 1) * 6.0) / ids.size())
-	var x0: float = rect.position.x + (rect.size.x - ids.size() * (tw + 6)) / 2.0
+	var tw := (R.size.x - 40.0 - (ids.size() - 1) * 8.0) / ids.size()
 	for i in ids.size():
-		var tab := Rect2(Vector2(x0 + i * (tw + 6), rect.position.y + 40), Vector2(tw, 32))
-		_menu_tab(tab, TABS[ids[i]], game.menu_tab == ids[i])
+		var tab := Rect2(Vector2(R.position.x + 20.0 + i * (tw + 8.0), R.position.y + 40.0), Vector2(tw, 46.0))
+		var on: bool = game.menu_tab == ids[i]
+		_plate(tab, Color(0.22, 0.16, 0.06, 0.98) if on else Color(0.1, 0.11, 0.13, 0.97), GOLD if on else Color(0.3, 0.28, 0.24), 9, 3 if on else 1)
+		if on:
+			draw_rect(Rect2(tab.position + Vector2(4, 4), Vector2(tab.size.x - 8, 12)), Color(1.0, 0.85, 0.4, 0.12))
+		var label: String = TABS[ids[i]]
+		var lw := _text_width(label, 15)
+		var ix := tab.get_center().x - (lw + 34.0) / 2.0
+		_tab_glyph(ids[i], Vector2(ix + 12.0, tab.get_center().y), GOLD if on else CREAM)
+		_text(Vector2(ix + 32.0, tab.get_center().y + 6.0), label, 15, GOLD if on else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 		tab_buttons.append(tab)
 		tab_ids.append(ids[i])
-	draw_line(Vector2(rect.position.x + 20, rect.position.y + 82), Vector2(rect.end.x - 20, rect.position.y + 82), Color(0.3, 0.17, 0.04), 3.0)
-	draw_line(Vector2(rect.position.x + 20, rect.position.y + 82), Vector2(rect.end.x - 20, rect.position.y + 82), BRASS_DIM, 1.2)
-	var body := Rect2(rect.position + Vector2(24, 92), Vector2(rect.size.x - 48, rect.size.y - 130))
+	var body := _menu_body()
 	match game.menu_tab:
-		0: _menu_overview(body)
+		0: _menu_map_page(body, now)
 		1: _menu_classes(body)
-		2: _menu_my_class(body)
+		2:
+			if _me():
+				_upgrades_page(_me(), body, now)
 		5: _menu_settings(body)
 		3: _menu_scoreboard(body)
 		4: _menu_controls(body)
-	var footer := "Esc / Start resumes  ·  ← → switch tabs" if in_match else "Esc closes  ·  ← → switch tabs"
-	_text(rect.position + Vector2(0, rect.size.y - 12), footer, 11, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+		6: _menu_audio(body)
+	# The foot: LEAVE MATCH (click twice), the key hint and RESUME.
 	if in_match and not game.demo:
-		# Back to the main menu: click (or Cross/A on it) twice to confirm.
-		quit_button = Rect2(rect.position + Vector2(18, rect.size.y - 36), Vector2(176, 28))
+		quit_button = Rect2(R.position + Vector2(18, R.size.y - 46), Vector2(230, 38))
 		var arm: bool = game.quit_armed > 0.0
-		_hud_button(quit_button, "SURE? CLICK AGAIN" if arm else "MAIN MENU", 13, arm, true)
+		_big_button(quit_button, "SURE? CLICK AGAIN" if arm else "LEAVE MATCH", Color(0.62, 0.12, 0.08), Color(0.85, 0.3, 0.18), "exit")
+	if in_match:
+		resume_button = Rect2(R.end.x - 18 - 230, R.end.y - 46, 230, 38)
+		_big_button(resume_button, "RESUME", Color(0.1, 0.24, 0.62), Color(0.3, 0.5, 0.95), "play")
+	var footer := "Esc / Start resumes   |   ← → switch tabs" if in_match else "Esc closes   |   ← → switch tabs"
+	_text(Vector2(R.position.x, R.end.y - 20), footer, 12, Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
+
+
+func _menu_body() -> Rect2:
+	## The open tab's page area, between the tab row and the foot buttons.
+	var R := _menu_rect()
+	return Rect2(R.position + Vector2(18, 96), Vector2(R.size.x - 36, R.size.y - (150.0 if game.playing else 124.0)))
+
+
+func _menu_icon(name: String) -> Texture2D:
+	if not menu_tex.has(name):
+		var path := "res://assets/ui/menu/%s.png" % name
+		menu_tex[name] = load(path) if ResourceLoader.exists(path) else null
+	return menu_tex[name]
+
+
+func _tab_glyph(id: int, c: Vector2, col: Color) -> void:
+	## The pause tabs' icons: a map pin, the classes' swords, the upgrade
+	## arrow, a trophy, a gamepad and a gear.
+	if id == 6:
+		_opt_glyph("sound", c, col)
+		return
+	var art: String = ["", "icon_swords", "", "icon_trophy", "icon_gamepad", "icon_gear"][id]
+	var tex := _menu_icon(art) if art != "" else null
+	if tex:
+		draw_texture_rect(tex, Rect2(c - Vector2(13, 13), Vector2(26, 26)), false, col)
+		return
+	if id == 2:
+		_icon("upgrade", c, 10, col)
+		return
+	# Map pin.
+	draw_circle(c + Vector2(0, -4), 8.0, Color(0.1, 0.06, 0.03))
+	draw_colored_polygon(PackedVector2Array([c + Vector2(-7, -1), c + Vector2(7, -1), c + Vector2(0, 11)]), Color(0.1, 0.06, 0.03))
+	draw_circle(c + Vector2(0, -4), 6.5, col)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(-5.5, -1), c + Vector2(5.5, -1), c + Vector2(0, 9)]), col)
+	draw_circle(c + Vector2(0, -4), 2.6, Color(0.1, 0.06, 0.03))
+
+
+func _big_button(r: Rect2, label: String, fill: Color, edge: Color, glyph: String) -> void:
+	var hover := r.has_point(_mouse())
+	_plate(r, fill.lightened(0.12) if hover else fill, edge, 7, 2)
+	draw_rect(Rect2(r.position + Vector2(3, 3), Vector2(r.size.x - 6, r.size.y * 0.4)), Color(1, 1, 1, 0.1))
+	var gc := r.position + Vector2(28, r.size.y / 2.0)
+	if glyph == "play":
+		draw_colored_polygon(PackedVector2Array([gc + Vector2(-8, -11), gc + Vector2(12, 0), gc + Vector2(-8, 11)]), Color(1.0, 0.8, 0.25))
+	else:
+		var tex := _menu_icon("icon_exit")
+		if tex:
+			draw_texture_rect(tex, Rect2(gc - Vector2(12, 12), Vector2(24, 24)), false, Color(1.0, 0.8, 0.3))
+	_text(Vector2(r.position.x + 44, r.get_center().y + 7), label, 18, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 56, 3)
+
+
+func _pause_map_rect() -> Rect2:
+	## Where the pause menu's map view sits (it is drawn by a clipped copy of
+	## this HUD so it can zoom without spilling over the board).
+	var body := _menu_body()
+	return Rect2(body.position + Vector2(4, 34), Vector2(700, body.size.y - 80))
+
+
+func _menu_map_page(body: Rect2, now: float) -> void:
+	## The Map tab: THE WILDWOOD VALLEY (or Ember Pass) in a big zoomable view
+	## with a compass, - / + and the DEFENDING HOME tag, and beside it a card
+	## with the map's picture, the legend and the objective.
+	var vp := _pause_map_rect()
+	var title := "EMBER PASS" if game.vmap else "THE WILDWOOD VALLEY"
+	_icon("crest_forest", Vector2(vp.position.x + 10, body.position.y + 13), 8, LEAF)
+	_text(Vector2(vp.position.x + 26, body.position.y + 21), title, 18, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	_plate(vp.grow(4), Color(0.05, 0.06, 0.05), Color(0.3, 0.42, 0.22), 10, 2)
+	if map_view == null:
+		map_view = (load("res://scripts/hud.gd") as GDScript).new()
+		map_view.map_only = true
+		map_view.game = game
+		map_view.local_unit = local_unit
+		map_view.clip_contents = true
+		map_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		map_view.visible = false
+		add_child(map_view)
+	# The view's own child draws over this HUD, so - / + and the status tag
+	# sit just under it rather than on it.
+	var mz := Rect2(vp.position + Vector2(10, vp.size.y + 10), Vector2(30, 28))
+	for k in 2:
+		var b := Rect2(mz.position + Vector2(k * 38, 0), mz.size)
+		_plate(b, Color(0.12, 0.12, 0.14), Color(0.55, 0.5, 0.4), 6, 2)
+		draw_line(b.get_center() + Vector2(-7, 0), b.get_center() + Vector2(7, 0), CREAM, 3.0)
+		if k == 1:
+			draw_line(b.get_center() + Vector2(0, -7), b.get_center() + Vector2(0, 7), CREAM, 3.0)
+		zoom_buttons.append([b, -1 if k == 0 else 1])
+	_text(Vector2(mz.position.x + 82, mz.end.y - 9), "ZOOM  ×%.1f" % map_zoom, 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_home_pill(Rect2(vp.get_center().x - 95, vp.end.y + 8, 190, 30), _my_team())
+	# The side card.
+	var card := Rect2(vp.end.x + 16, body.position.y, body.end.x - vp.end.x - 16, body.size.y + 4)
+	_plate(card, Color(0.08, 0.09, 0.1, 0.97), Color(0.3, 0.28, 0.22), 10, 2)
+	var pic := Rect2(card.position + Vector2(8, 8), Vector2(card.size.x - 16, 72))
+	var thumb := _menu_icon("map_ember" if game.vmap else "map_wildwood")
+	_plate(pic.grow(2), Color(0.04, 0.05, 0.05), GOLD_DARK, 6, 1)
+	if thumb:
+		var ts := thumb.get_size()
+		var src_h := ts.x * pic.size.y / pic.size.x
+		draw_texture_rect_region(thumb, pic, Rect2(0, (ts.y - src_h) / 2.0, ts.x, src_h))
+	_text(Vector2(card.position.x, pic.end.y + 20), title, 13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 3)
+	var keys := [["you", "You"], ["ally", "Teammate"], ["enemy", "Enemy in sight"], ["veteran", "Elite bounty"], ["turret", "Turret"],
+		["door", "Door (broken)"], ["potion", "Healing potion"], ["spawn", "Spawn cellar"], ["crown", "Crown vault"]]
+	if game.vmap:
+		keys = [["you", "You"], ["enemy", "Enemy in sight"], ["fire", "Fire Objective"], ["turret", "Turret"], ["door", "Door (broken)"],
+			["potion", "Healing potion"], ["spawn", "Spawn cellar"], ["lava", "Lava (deadly)"]]
+	var ly := pic.end.y + 40.0
+	for i in keys.size():
+		_legend_icon(keys[i][0], Vector2(card.position.x + 20, ly + i * 18.0 - 4.0), now)
+		_text(Vector2(card.position.x + 34, ly + i * 18.0), keys[i][1], 11, Color(0.9, 0.9, 0.88), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# Objective.
+	var obj := Rect2(card.position.x + 8, card.end.y - 64, card.size.x - 16, 56)
+	_plate(obj, Color(0.2, 0.15, 0.06, 0.97), GOLD_DARK, 7, 1)
+	_crown_glyph(obj.position + Vector2(20, 26), 13.0, 1.0)
+	_text(obj.position + Vector2(40, 18), "OBJECTIVE", 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var line := "Hold the Fire Objective, then steal their crown and carry it home." if game.vmap else "Steal their crown and carry it home to your throne room."
+	_paragraph(obj.position + Vector2(40, 33), line, 10, Color(0.9, 0.88, 0.82), obj.size.x - 48, 12.0)
+
+
+func _draw_zoomed_map() -> void:
+	## (map_only copy) The valley at map_zoom, centred on this player's
+	## position (or the middle at 1×), clipped to this control by clip_contents.
+	var w := size.x * map_zoom
+	var h := size.y * map_zoom
+	var focus := Vector2(0.5, 0.5)
+	var me = _me()
+	if me and map_zoom > 1.01:
+		var hx: float = maxf(game.map_half.x, game.CASTLE_X + game.CASTLE_DEPTH + game.CELLAR_DEPTH + 1.0)
+		focus = Vector2((me.global_position.x + hx) / (2.0 * hx), (me.global_position.z + game.map_half.y) / (2.0 * game.map_half.y))
+	var pos := size / 2.0 - Vector2(w, h) * focus
+	pos.x = clampf(pos.x, size.x - w, 0.0)
+	pos.y = clampf(pos.y, size.y - h, 0.0)
+	_draw_map(Rect2(pos, Vector2(w, h)), true)
+	# Compass rose in the top-left corner.
+	var c := Vector2(30, 34)
+	for k in 4:
+		var d := Vector2.from_angle(-PI / 2.0 + k * PI / 2.0)
+		var n := Vector2(-d.y, d.x)
+		draw_colored_polygon(PackedVector2Array([c + d * 18.0, c + n * 4.0, c - n * 4.0]), Color(1.0, 0.92, 0.7) if k == 0 else Color(0.85, 0.8, 0.65))
+	draw_circle(c, 3.0, Color(0.3, 0.2, 0.08))
+	_text(Vector2(c.x - 10, c.y - 21), "N", 12, Color(1.0, 0.95, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 20, 3)
 
 
 func _menu_overview(body: Rect2) -> void:
@@ -3535,6 +3962,11 @@ func _legend_icon(kind: String, q: Vector2, pt: float) -> void:
 		"enemy":
 			draw_circle(q, 4.5, Color(1.0, 0.25, 0.2))
 			draw_arc(q, 4.5, 0, TAU, 12, Color(0, 0, 0, 0.6), 1.0)
+		"ally":
+			draw_circle(q, 4.5, Color(0.3, 1.0, 0.45))
+			draw_arc(q, 4.5, 0, TAU, 12, Color(0, 0, 0, 0.6), 1.0)
+		"crown":
+			_crown_glyph(q, 7.0, 1.0)
 		"veteran":
 			draw_circle(q, 3.5, Color(1.0, 0.25, 0.2))
 			draw_arc(q, 6.0 + sin(pt * 5.0), 0, TAU, 16, Color(1, 0.3, 0.2), 1.6)
@@ -3577,137 +4009,203 @@ func _legend_icon(kind: String, q: Vector2, pt: float) -> void:
 
 
 func _menu_classes(body: Rect2) -> void:
+	## CHOOSE YOUR CLASS (the tab sheet reference): a tall card per class with
+	## its portrait, what it is good at, its attack and two skills, and a
+	## SELECT button. Classes are put on at the stations, so SELECT works
+	## while you are in your own spawn courtyard; elsewhere it says so.
 	var team: int = _my_team()
-	var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
-	var cw := (body.size.x - 5 * 8) / 6.0
+	var me = _me()
+	var near: bool = me != null and not me.dead and game.playing and game._in_cellar(me.team, me.global_position)
+	_title_text(Vector2(body.position.x, body.position.y + 22), "CHOOSE YOUR CLASS", 24, GOLD, Color(0.55, 0.32, 0.06), Color(0.1, 0.06, 0.03), body.size.x)
+	var roles := [Role.RANGER, Role.MAGE, Role.KNIGHT, Role.HEALER, Role.ENGINEER, Role.ROGUE]
+	var traits := {Role.RANGER: ["High mobility", "Ranged attacks", "Traps & utility"], Role.MAGE: ["Area damage", "Crowd control", "Elemental spells"],
+		Role.KNIGHT: ["High defence", "Melee combat", "Frontline tank"], Role.HEALER: ["Heals allies", "Buffs & support", "Keeps the team alive"],
+		Role.ENGINEER: ["Deploys turrets", "Wrecks doors", "Area control"], Role.ROGUE: ["Fast strikes", "Smoke & stealth", "Hunts carriers"]}
+	var cw := (body.size.x - 5 * 10.0) / 6.0
 	for i in roles.size():
 		var role: int = roles[i]
 		var s: Dictionary = Stats.kit(team, role)
-		var card := Rect2(body.position + Vector2(i * (cw + 8), 0), Vector2(cw, body.size.y))
-		var mine: bool = _me() and _me().role == role
-		_leather(card, 10, mine, GOLD if mine else BRASS_DIM)
-		if not _card(_card_key(team, role), Rect2(card.position + Vector2(8, 6), Vector2(cw - 16, 80)), false):
-			_portrait(card.position + Vector2(cw / 2.0, 44), 26, team, role)
-		_icon(_class_icon(role), card.position + Vector2(cw - 20, 18), 9, Color.WHITE)
-		_bar_text(Vector2(card.get_center().x, card.position.y + 94), Stats.FACTIONS[team].roles[role].to_upper(), bar_font if bar_font else font, 15, GOLD, Color(0.2, 0.1, 0.02), 3)
-		_text(card.position + Vector2(0, 108), ("uses %s" % s.energy).to_upper(), 10, MANA if s.energy == "mana" else STAMINA, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
-		var y := 128.0
-		var entries := [["LMB", s.attack_name, s.attack_desc, _attack_icon(role)]]
+		var col: Color = s.color
+		var card := Rect2(body.position + Vector2(i * (cw + 10), 36), Vector2(cw, body.size.y - 36))
+		var mine: bool = me != null and me.role == role
+		var locked: bool = role == Role.ROGUE and not game.unlocked()
+		var hover := card.has_point(_mouse())
+		_plate(card.grow(2 if hover else 0), col.darkened(0.72), GOLD if mine else col.darkened(0.2), 10, 3 if mine else 2)
+		draw_rect(Rect2(card.position + Vector2(3, 3), Vector2(cw - 6, 50)), Color(col, 0.18))
+		_icon(_class_icon(role), card.position + Vector2(cw / 2.0, 22), 11, col.lightened(0.4))
+		var nm: String = str(Stats.FACTIONS[team].roles[role]).to_upper()
+		_text(Vector2(card.position.x, card.position.y + 52), nm, 17 if _text_width(nm, 17) < cw - 8 else 14, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cw, 4)
+		var art := Rect2(card.position + Vector2(6, 60), Vector2(cw - 12, card.size.y - 214))
+		if not _card(_card_key(team, role), art, false, locked):
+			_plate(art, col.darkened(0.6), col.darkened(0.35), 6, 1)
+			_portrait(art.get_center(), minf(art.size.x, art.size.y) * 0.32, team, role)
+		var ty := art.end.y + 16.0
+		for t in traits[role]:
+			_text(Vector2(card.position.x, ty), t, 11, Color(0.92, 0.92, 0.88), HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
+			ty += 14.0
+		# Attack and the two skills.
+		var kit_icons: Array = [_attack_icon(role, s)]
 		for a in s.abilities:
-			entries.append([a.key, a.name, a.desc, a.get("icon", a.kind)])
-		if s.get("block", false):
-			entries.append(["RMB", "Block", "Hold to stop hits from the front with your shield.", "block"])
-		for e in entries:
-			_icon(e[3], card.position + Vector2(20, y + 2), 8, s.color.lightened(0.3))
-			_keycap(card.position + Vector2(cw - 26, y + 2), e[0], 34 if e[0].length() > 2 else 24)
-			_text(card.position + Vector2(36, y + 6), e[1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-			y += 14.0
-			y += _paragraph(card.position + Vector2(12, y + 10), e[2], 10, Color(0.8, 0.8, 0.8), cw - 24, 12.0) + 10.0
-		if Stats.VARIANTS.has(role):
-			var vs: Array = Stats.VARIANTS[role]
-			_icon(vs[0].icon, card.position + Vector2(cw / 2.0 - 54, card.size.y - 30), 6, Color.WHITE)
-			_icon(vs[1].icon, card.position + Vector2(cw / 2.0 + 54, card.size.y - 30), 6, Color.WHITE)
-			_text(card.position + Vector2(0, card.size.y - 26), "%s  or  %s" % [vs[0].name, vs[1].name], 10, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
-		if mine:
-			_text(card.position + Vector2(0, card.size.y - 10), "YOUR CLASS", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
-		else:
-			_text(card.position + Vector2(0, card.size.y - 10), "promotions", 9, GREY, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
+			kit_icons.append(a.get("icon", a.kind))
+		var iw := 32.0
+		var ix := card.get_center().x - (kit_icons.size() * (iw + 6) - 6) / 2.0
+		for k in kit_icons.size():
+			var tile := Rect2(ix + k * (iw + 6), ty + 2, iw, iw)
+			_plate(tile, col.darkened(0.55), col.lightened(0.1), 6, 1)
+			_icon(kit_icons[k], tile.get_center(), 10, Color.WHITE)
+		var btn := Rect2(card.position.x + 8, card.end.y - 40, cw - 16, 32)
+		var label := "YOUR CLASS" if mine else ("LOCKED" if locked else ("SELECT" if near else "AT STATIONS"))
+		var live: bool = near and not mine and not locked
+		_plate(btn, col.darkened(0.15) if live else Color(0.18, 0.18, 0.2), col.lightened(0.3) if live else (GOLD if mine else Color(0.3, 0.3, 0.32)), 6, 2)
+		if live:
+			draw_rect(Rect2(btn.position + Vector2(3, 3), Vector2(btn.size.x - 6, 10)), Color(1, 1, 1, 0.18))
+		_text(Vector2(btn.position.x, btn.end.y - 10), label, 14 if live or mine else 11, Color.WHITE if live else (GOLD if mine else GREY), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x, 3)
+		if live:
+			class_buttons.append([btn, role])
+	if game.playing and not near:
+		_text(Vector2(body.position.x, body.end.y + 12), "Put a class on at the stations in your spawn courtyard; SELECT works from here while you stand in it.", 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+
+
+const CONTROL_GROUPS := [
+	["MOVEMENT", "dodge", ["move_up", "move_down", "move_left", "move_right", "dodge"]],
+	["COMBAT", "sword", ["attack", "block", "ability_1", "ability_2"]],
+	["INTERACTION", "upgrade", ["interact", "rank_menu"]],
+	["TEAM CALLS", "flag", ["cmd_attack", "cmd_defend", "cmd_help"]],
+	["INTERFACE", "rank", ["scoreboard", "chat", "chat_toggle", "roster_toggle", "menu"]],
+]
 
 
 func _menu_controls(body: Rect2) -> void:
-	## Every action with its keyboard/mouse and gamepad bindings. Click a
-	## binding and press the new key or button; Esc cancels.
-	var half := body.size.x / 2.0
-	var per_col := ceili(game.REBINDABLE.size() / 2.0)
+	## CONTROLS (the tab sheet reference): the action groups down the left,
+	## the open group's bindings on the right with the keyboard / mouse and
+	## gamepad keys. Click a binding, then press the new key or button; Esc
+	## cancels. Changes are saved at once.
 	var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 120.0)
 	var pad_kind: String = game.pad_kind(game.local_pad(0))
-	for c in 2:
-		var x: float = body.position.x + c * half
-		_bar_text(Vector2(x + 34, body.position.y + 14), "ACTION", bar_font if bar_font else font, 11, GOLD, Color(0.2, 0.1, 0.02), 2)
-		_bar_text(Vector2(x + 210, body.position.y + 14), "KEYBOARD / MOUSE", bar_font if bar_font else font, 11, GOLD, Color(0.2, 0.1, 0.02), 2)
-		_bar_text(Vector2(x + 322, body.position.y + 14), "DUALSENSE" if pad_kind == "ps" else "GAMEPAD", bar_font if bar_font else font, 11, GOLD, Color(0.2, 0.1, 0.02), 2)
-		for k in per_col:
-			var i: int = c * per_col + k
-			if i >= game.REBINDABLE.size():
-				break
-			var action: String = game.REBINDABLE[i][0]
-			var y: float = body.position.y + 40 + k * 29
-			var row := Rect2(Vector2(x + 4, y - 14), Vector2(half - 14, 27))
-			var hot: bool = game.rebinding == action
-			if hot:
-				_parchment(row, 6, pulse > 1.0)
-			else:
-				_leather(row, 6, k % 2 == 0)
-			_text(Vector2(x + 14, y + 4), game.REBINDABLE[i][1], 11, INK_TEXT if hot else Color(0.92, 0.88, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 0 if hot else 2)
-			var key_text: String = "PRESS A KEY…" if hot else game.binding_text(action, "key")
-			_keycap(Vector2(x + 210, y), key_text, 124)
-			_keycap(Vector2(x + 326, y), game.binding_text(action, "pad", pad_kind), 86)
-			bind_buttons.append([row, action])
-	reset_button = Rect2(body.end - Vector2(160, 32), Vector2(150, 26))
-	_hud_button(reset_button, "RESET TO DEFAULTS", 12, false, true)
-	_text(body.position + Vector2(0, body.size.y - 22), "Click a row, then press the key, mouse button or gamepad button you want. Esc cancels. Bindings are saved.",
-		11, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, body.size.y - 8), "Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points, Backspace quits a match. PS5 and Xbox pads work as they are; the Settings tab picks the button names.",
-		11, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	controls_group = clampi(controls_group, 0, CONTROL_GROUPS.size() - 1)
+	var L := Rect2(body.position, Vector2(220, body.size.y - 46))
+	for i in CONTROL_GROUPS.size():
+		var b := Rect2(L.position + Vector2(0, i * 44), Vector2(L.size.x, 38))
+		var on := i == controls_group
+		var hover := b.has_point(_mouse())
+		_plate(b, Color(0.5, 0.36, 0.08) if on else (Color(0.18, 0.2, 0.25) if hover else Color(0.12, 0.13, 0.17)), GOLD if on else Color(0.36, 0.34, 0.38), 7, 2 if on else 1)
+		_icon(CONTROL_GROUPS[i][1], b.position + Vector2(22, 19), 8, CREAM)
+		_text(b.position + Vector2(42, 25), CONTROL_GROUPS[i][0], 15, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		group_buttons.append([b, i])
+	var R := Rect2(body.position + Vector2(232, 0), Vector2(body.size.x - 232, body.size.y - 46))
+	_plate(R, Color(0.07, 0.08, 0.1, 0.97), Color(0.42, 0.3, 0.1), 9, 1)
+	_text(R.position + Vector2(16, 26), CONTROL_GROUPS[controls_group][0], 17, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	var kx := R.end.x - 330.0
+	var px := R.end.x - 120.0
+	_text(Vector2(kx - 70, R.position.y + 26), "KEYBOARD / MOUSE", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 140, 2)
+	_text(Vector2(px - 60, R.position.y + 26), "DUALSENSE" if pad_kind == "ps" else "GAMEPAD", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
+	var names := {}
+	for e in game.REBINDABLE:
+		names[e[0]] = e[1]
+	var actions: Array = CONTROL_GROUPS[controls_group][2]
+	for k in actions.size():
+		var action: String = actions[k]
+		var row := Rect2(R.position.x + 10, R.position.y + 40 + k * 40, R.size.x - 20, 34)
+		var hot: bool = game.rebinding == action
+		var hover := row.has_point(_mouse())
+		_plate(row, Color(0.45, 0.34, 0.1, 0.5 + 0.4 * pulse) if hot else (Color(0.16, 0.17, 0.21) if hover else Color(0.11, 0.12, 0.15)), GOLD if hot else Color(0.26, 0.26, 0.3), 6, 1)
+		_text(row.position + Vector2(14, 23), names.get(action, action), 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var key_text: String = "PRESS A KEY…" if hot else game.binding_text(action, "key")
+		_keycap(Vector2(kx, row.get_center().y), key_text, 130)
+		_keycap(Vector2(px, row.get_center().y), game.binding_text(action, "pad", pad_kind), 96)
+		bind_buttons.append([row, action])
+	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), "Click a row, then press the key, mouse button or gamepad button you want; Esc cancels. Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points.",
+		11, Color(0.72, 0.72, 0.78), R.size.x - 32, 13.0)
+	reset_button = Rect2(body.position.x + 232 + (R.size.x - 220) / 2.0, body.end.y - 38, 220, 34)
+	_opt_button(reset_button, "RESET TO DEFAULT", false)
+	_text(Vector2(body.position.x, body.end.y - 14), "Saved as you change them", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, 220, 2)
 
 
 func _menu_settings(body: Rect2) -> void:
-	## Sound, display toggles, bot difficulty and the team calls. Everything
-	## here is saved.
+	## SETTINGS (Faisal's options reference, 2026-10-09:
+	## game/reference-renders/options-menu-target-2026-10-09.png): AUDIO
+	## sliders, DISPLAY switches and the graphics quality, BOTS with what the
+	## level means, the TEAM CALLS and the GAMEPAD row. Everything is saved.
 	var x := body.position.x
+	var w := body.size.x
 	var y := body.position.y
-	# Sound and music sliders: click or drag.
-	_section(Vector2(x + 10, y + 22), "SOUND", 0.0)
-	_section(Vector2(x + 330, y + 22), "MUSIC", 0.0)
+	var gap := clampf((body.size.y - 410.0) / 5.0, 2.0, 12.0)
+	# AUDIO.
+	y = _opt_section(Vector2(x, y), w, "AUDIO", "leaf", 40.0)
+	var half := (w - 34.0) / 2.0
 	for i in 2:
-		var slider := Rect2(Vector2(x + 80 + i * 320, y + 8), Vector2(190, 18))
+		var card := Rect2(x + 12 + i * (half + 10), y, half, 36)
+		_opt_slot(card)
 		var value: float = game.sfx.sound_volume if i == 0 else game.sfx.music_volume
-		_slider(slider, value, STAMINA.darkened(0.1) if i == 0 else MANA)
-		_text(slider.end + Vector2(10, -4), "%d%%" % roundi(value * 100), 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		volume_sliders.append([slider, "sound" if i == 0 else "music"])
-	# Display toggles.
-	_section(Vector2(x + 10, y + 66), "DISPLAY", body.size.x - 10)
-	var toggles := [["Shake", game.screen_shake, "shake"], ["Numbers", game.damage_numbers, "numbers"],
-		["FPS", game.show_fps, "fps"], ["Chat log", game.chat_visible, "chat"], ["Rosters", game.rosters_visible, "rosters"],
-		["Fullscreen", game.fullscreen, "fullscreen"]]
-	var tw: float = minf(136.0, (body.end.x - x - 10.0 - 7.0 * toggles.size()) / (toggles.size() + 1))
+		_opt_glyph("sound" if i == 0 else "music", card.position + Vector2(22, 18), GOLD)
+		_text(card.position + Vector2(42, 24), "Sound Volume" if i == 0 else "Music Volume", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var sl := Rect2(card.position + Vector2(160, 10), Vector2(card.size.x - 220, 16))
+		_slider(sl, value, STAMINA.darkened(0.05) if i == 0 else MANA)
+		_text(Vector2(sl.end.x + 8, card.position.y + 24), "%d%%" % roundi(value * 100), 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		volume_sliders.append([sl, "sound" if i == 0 else "music"])
+	y += 36 + gap
+	# DISPLAY: five switches, then fullscreen and the graphics quality.
+	y = _opt_section(Vector2(x, y), w, "DISPLAY", "leaf", 82.0)
+	var toggles := [["Screen Shake", game.screen_shake, "shake"], ["Damage Numbers", game.damage_numbers, "numbers"],
+		["FPS Counter", game.show_fps, "fps"], ["Chat Log", game.chat_visible, "chat"], ["Player Rosters", game.rosters_visible, "rosters"]]
+	var tw := (w - 24.0 - 4 * 8.0) / 5.0
 	for i in toggles.size():
-		_toggle(Rect2(Vector2(x + 10 + i * (tw + 7), y + 76), Vector2(tw, 34)), toggles[i][0], toggles[i][1], toggles[i][2])
-	# The graphics preset: click to cycle Low, Medium, High, Ultra.
-	var gfx := Rect2(Vector2(x + 10 + toggles.size() * (tw + 7), y + 76), Vector2(tw, 34))
-	_leather(gfx, 8, true, GOLD if game.gfx_quality >= 2 else BRASS_DIM)
-	_text(gfx.position + Vector2(0, 13), "GRAPHICS", 8, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_CENTER, gfx.size.x, 1)
-	_bar_text(Vector2(gfx.get_center().x, gfx.position.y + 29), game.GFX_NAMES[game.gfx_quality], bar_font if bar_font else font, 12, CREAM, Color(0.05, 0.03, 0.02, 0.8), 2)
-	toggle_buttons.append([gfx, "gfx"])
-	_text(Vector2(x + 10, y + 120), "%s and %s also toggle the chat log and the rosters in a match." % [_k("chat_toggle"), _k("roster_toggle")], 10, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	# Bot difficulty: click, or Left/Right on the title screen.
-	_section(Vector2(x + 10, y + 150), "BOTS", 0.0)
+		_toggle(Rect2(x + 12 + i * (tw + 8), y, tw, 36), toggles[i][0], toggles[i][1], toggles[i][2])
+	_toggle(Rect2(x + 12, y + 44, tw, 36), "Fullscreen", game.fullscreen, "fullscreen")
+	var gq := Rect2(x + 20 + tw, y + 44, w - 32 - tw, 36)
+	_opt_slot(gq)
+	_opt_glyph("gfx", gq.position + Vector2(22, 18), GOLD)
+	_text(gq.position + Vector2(42, 24), "Graphics Quality", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var qw: float = (gq.size.x - 190.0 - 3 * 8.0) / game.GFX_NAMES.size()
+	for i in game.GFX_NAMES.size():
+		var b := Rect2(gq.position.x + 182 + i * (qw + 8), gq.position.y + 5, qw, 26)
+		_opt_button(b, game.GFX_NAMES[i], game.gfx_quality == i)
+		toggle_buttons.append([b, "gfx_%d" % i])
+	y += 82 + gap
+	# BOTS.
+	y = _opt_section(Vector2(x, y), w, "BOTS", "leaf", 38.0)
+	var skulls := [Color(0.92, 0.9, 0.85), Color(1.0, 0.78, 0.25), Color(0.9, 0.25, 0.2)]
 	for i in Stats.BOT_DIFFICULTIES.size():
 		var name: String = Stats.BOT_DIFFICULTIES[i]
-		var b := Rect2(Vector2(x + 70 + i * 96, y + 134), Vector2(90, 26))
-		_hud_button(b, name.to_upper(), 12, game.bot_difficulty == name)
+		var b := Rect2(x + 12 + i * 186, y + 2, 178, 34)
+		_opt_button(b, name.to_upper(), game.bot_difficulty == name, skulls[i % skulls.size()])
 		difficulty_buttons.append([b, name])
-	_text(Vector2(x + 370, y + 150), Stats.BOT_TUNING[game.bot_difficulty].desc, 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	# Team calls.
-	_section(Vector2(x + 10, y + 194), "TEAM CALLS", body.size.x - 10)
-	var calls := [[_k("cmd_attack"), "ATTACK!", "everyone pushes the enemy door now, no waiting at the rally"],
-		[_k("cmd_defend"), "DEFEND!", "three bots come home to hold the castle"],
-		[_k("cmd_help"), "TO ME!", "the two nearest bots come to where you called"]]
+	var desc := Rect2(x + 12 + 3 * 186, y + 2, w - 24 - 3 * 186, 34)
+	_opt_slot(desc)
+	_text(desc.position + Vector2(14, 23), Stats.BOT_TUNING[game.bot_difficulty].desc, 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, desc.size.x - 20, 2)
+	y += 38 + gap
+	# TEAM CALLS.
+	y = _opt_section(Vector2(x, y), w, "TEAM CALLS", "horn", 76.0)
+	var calls := [[_k("cmd_attack"), "ATTACK!", "Everyone pushes the enemy door now, no waiting at the rally."],
+		[_k("cmd_defend"), "DEFEND!", "Three bots come home to hold the castle."],
+		[_k("cmd_help"), "TO ME!", "The two nearest bots come to where you called."]]
 	for i in calls.size():
-		var cy: float = y + 212 + i * 26
-		_keycap(Vector2(x + 34, cy - 4), calls[i][0], 40)
-		_bar_text(Vector2(x + 66 + _bar_width(calls[i][1], 13) / 2.0, cy + 4), calls[i][1], bar_font if bar_font else font, 13, CREAM, Color(0.2, 0.1, 0.02), 2)
-		_text(Vector2(x + 150, cy + 4), calls[i][2], 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(Vector2(x + 10, y + 284), "Bots follow a call for %d seconds; rebind the keys in Controls." % int(Stats.COMMAND_TIME), 11, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	# Gamepad: rumble, button names and what is plugged in.
-	_section(Vector2(x + 10, y + 314), "GAMEPAD", body.size.x - 10)
-	_toggle(Rect2(Vector2(x + 10, y + 324), Vector2(136, 34)), "Rumble", game.rumble_on, "rumble")
+		var cy: float = y + 10 + i * 20
+		_keycap(Vector2(x + 52, cy), calls[i][0], 30)
+		_text(Vector2(x + 82, cy + 6), calls[i][1], 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(x + 210, cy + 5), calls[i][2], 12, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		if i < 2:
+			draw_line(Vector2(x + 30, cy + 10), Vector2(x + w - 30, cy + 10), Color(1, 1, 1, 0.06), 1.0)
+	_text(Vector2(x + 30, y + 72), "Bots follow a call for %d seconds: rebind the keys in the Controls tab." % int(Stats.COMMAND_TIME), 11, Color(0.68, 0.7, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	y += 76 + gap
+	# GAMEPAD.
+	y = _opt_section(Vector2(x, y), w, "GAMEPAD", "horn", 40.0)
+	_toggle(Rect2(x + 12, y + 2, 210, 36), "Rumble", game.rumble_on, "rumble")
 	var style_names := {"auto": "AUTO", "xbox": "XBOX", "ps": "PLAYSTATION"}
-	var style := Rect2(Vector2(x + 156, y + 324), Vector2(150, 34))
-	_leather(style, 8, true)
-	_text(style.position + Vector2(0, 13), "BUTTON NAMES", 8, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_CENTER, style.size.x, 1)
-	_bar_text(Vector2(style.get_center().x, style.position.y + 29), style_names[game.pad_style], bar_font if bar_font else font, 12, CREAM, Color(0.05, 0.03, 0.02, 0.8), 2)
-	toggle_buttons.append([style, "pad_style"])
+	var style := Rect2(x + 232, y + 2, 300, 36)
+	_opt_slot(style)
+	_text(style.position + Vector2(14, 23), "Button Names", 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var pick := Rect2(style.position + Vector2(118, 4), Vector2(174, 28))
+	_opt_button(pick, style_names[game.pad_style], true)
+	var la := Rect2(pick.position, Vector2(30, pick.size.y))
+	var ra := Rect2(pick.end.x - 30, pick.position.y, 30, pick.size.y)
+	for k in 2:
+		var c := (la if k == 0 else ra).get_center()
+		var s := -1.0 if k == 0 else 1.0
+		draw_colored_polygon(PackedVector2Array([c + Vector2(4 * s, 0), c + Vector2(-3 * s, -6), c + Vector2(-3 * s, 6)]), Color(0.36, 0.2, 0.04))
+	toggle_buttons.append([la, "pad_style_prev"])
+	toggle_buttons.append([Rect2(la.end.x, pick.position.y, pick.size.x - 60, pick.size.y), "pad_style"])
+	toggle_buttons.append([ra, "pad_style"])
 	var pads: Array = Input.get_connected_joypads()
 	var plugged := "No gamepad connected. DualSense (PS5), DualShock and Xbox pads work over USB or Bluetooth; plug one in and press any button."
 	if not pads.is_empty():
@@ -3715,25 +4213,140 @@ func _menu_settings(body: Rect2) -> void:
 		for d in pads:
 			names.append(game.pad_title(d))
 		plugged = "Connected: " + ", ".join(names) + ((". Player 1 holds the %s." % game.pad_title(game.local_pad(0))) if game.couch_players > 1 else ". Press any button on it to switch the hints to its names.")
-	_paragraph(Vector2(x + 320, y + 332), plugged + " Settings are saved.", 10, CREAM, body.end.x - x - 330, 12.0)
+	_paragraph(Vector2(x + 548, y + 12), plugged + " Settings are saved automatically.", 10, CREAM, w - 566, 12.0)
+
+
+func _menu_audio(body: Rect2) -> void:
+	## AUDIO: the two volumes as big sliders, and a test sound.
+	var x := body.position.x
+	var w := body.size.x
+	var y := _opt_section(body.position, w, "AUDIO", "leaf", 170.0)
+	for i in 2:
+		var card := Rect2(x + 12, y + 6 + i * 56, w - 24, 46)
+		_opt_slot(card)
+		var value: float = game.sfx.sound_volume if i == 0 else game.sfx.music_volume
+		_opt_glyph("sound" if i == 0 else "music", card.position + Vector2(26, 23), GOLD)
+		_text(card.position + Vector2(52, 29), "Sound Effects" if i == 0 else "Music", 17, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		var sl := Rect2(card.position + Vector2(220, 13), Vector2(card.size.x - 310, 20))
+		_slider(sl, value, STAMINA.darkened(0.05) if i == 0 else MANA)
+		_text(Vector2(sl.end.x + 14, card.position.y + 30), "%d%%" % roundi(value * 100), 17, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		volume_sliders.append([sl, "sound" if i == 0 else "music"])
+	var test := Rect2(x + 12, y + 122, 220, 36)
+	_opt_button(test, "PLAY A TEST SOUND", false)
+	toggle_buttons.append([test, "test_sound"])
+	_text(Vector2(x + 250, y + 146), "Drag or click a bar to set it. Volumes are saved and apply at once.", 12, Color(0.75, 0.75, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _opt_section(pos: Vector2, w: float, label: String, glyph: String, h: float) -> float:
+	## A section of the options board: a dark panel with a leaf medallion and
+	## a wooden ribbon carrying the heading. Returns where the content starts.
+	var panel := Rect2(pos + Vector2(0, 12), Vector2(w, h + 22))
+	_plate(panel, Color(0.08, 0.09, 0.12, 0.96), Color(0.42, 0.3, 0.1), 9, 1)
+	var rib := PackedVector2Array([pos + Vector2(14, 0), pos + Vector2(210, 0), pos + Vector2(226, 13), pos + Vector2(210, 26), pos + Vector2(14, 26)])
+	draw_colored_polygon(rib, Color(0.4, 0.23, 0.1))
+	draw_polyline(PackedVector2Array([rib[0], rib[1], rib[2], rib[3], rib[4]]), Color(0.18, 0.09, 0.03), 2.0)
+	draw_line(pos + Vector2(16, 3), pos + Vector2(208, 3), Color(1, 0.8, 0.5, 0.18), 2.0)
+	var mc := pos + Vector2(14, 13)
+	draw_circle(mc, 15.0, Color(0.1, 0.06, 0.03))
+	draw_circle(mc, 13.0, Color(0.25, 0.58, 0.22) if glyph == "leaf" else Color(0.22, 0.5, 0.2))
+	draw_circle(mc + Vector2(-3, -4), 5.0, Color(1, 1, 1, 0.12))
+	if glyph == "horn":
+		draw_colored_polygon(PackedVector2Array([mc + Vector2(-7, -3), mc + Vector2(6, -8), mc + Vector2(6, 8), mc + Vector2(-7, 3)]), CREAM)
+	else:
+		_leaf(mc, 7.0, -0.9, 0.0)
+	_text(pos + Vector2(36, 21), label, 18, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	return pos.y + 34.0
+
+
+func _opt_slot(r: Rect2) -> void:
+	_plate(r, Color(0.12, 0.13, 0.17, 0.98), Color(0.5, 0.38, 0.14), 7, 1)
+	draw_rect(Rect2(r.position + Vector2(3, 3), Vector2(r.size.x - 6, r.size.y * 0.3)), Color(1, 1, 1, 0.04))
+
+
+func _opt_button(r: Rect2, label: String, on: bool, skull := Color(0, 0, 0, 0)) -> void:
+	## A dark button that lights gold when chosen (graphics quality, bots).
+	var hover := r.has_point(_mouse())
+	_plate(r, Color(0.5, 0.36, 0.08) if on else (Color(0.2, 0.22, 0.28) if hover else Color(0.14, 0.16, 0.21)), GOLD if on else Color(0.38, 0.36, 0.42), 6, 2 if on else 1)
+	if on:
+		draw_rect(Rect2(r.position + Vector2(3, 3), Vector2(r.size.x - 6, r.size.y * 0.35)), Color(1, 0.9, 0.5, 0.18))
+	var lw := _text_width(label, 14)
+	var lx := r.get_center().x - lw / 2.0
+	if skull.a > 0.0:
+		lx += 14.0
+		var sc := Vector2(lx - 20, r.get_center().y)
+		draw_circle(sc + Vector2(0, -1), 8.0, Color(0.1, 0.06, 0.03))
+		draw_circle(sc + Vector2(0, -1), 6.8, skull)
+		draw_rect(Rect2(sc + Vector2(-4, 3), Vector2(8, 5)), skull)
+		draw_circle(sc + Vector2(-2.6, -1.5), 1.8, Color(0.1, 0.06, 0.03))
+		draw_circle(sc + Vector2(2.6, -1.5), 1.8, Color(0.1, 0.06, 0.03))
+	_text(Vector2(lx, r.get_center().y + 5), label, 14, Color(1.0, 0.95, 0.8) if on else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+
+
+func _opt_glyph(kind: String, c: Vector2, col: Color) -> void:
+	## Small icons for the options rows.
+	var ink := Color(0.1, 0.06, 0.03)
+	match kind:
+		"sound":
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-9, -4), c + Vector2(-4, -4), c + Vector2(2, -10), c + Vector2(2, 10), c + Vector2(-4, 4), c + Vector2(-9, 4)]), col)
+			draw_arc(c + Vector2(3, 0), 6.0, -0.9, 0.9, 8, col, 2.0)
+			draw_arc(c + Vector2(3, 0), 10.0, -0.9, 0.9, 10, col, 2.0)
+		"music":
+			draw_line(c + Vector2(-2, 6), c + Vector2(-2, -9), col, 2.5)
+			draw_line(c + Vector2(7, 4), c + Vector2(7, -11), col, 2.5)
+			draw_line(c + Vector2(-2, -9), c + Vector2(7, -11), col, 4.0)
+			draw_circle(c + Vector2(-5, 7), 4.0, col)
+			draw_circle(c + Vector2(4, 5), 4.0, col)
+		"gfx":
+			_plate(Rect2(c - Vector2(11, 8), Vector2(22, 16)), Color(0.2, 0.4, 0.7), col, 3, 2)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-8, 6), c + Vector2(-2, -2), c + Vector2(3, 4), c + Vector2(6, 1), c + Vector2(9, 6)]), Color(0.35, 0.7, 0.3))
+			draw_circle(c + Vector2(5, -4), 2.0, col)
+		"shake":
+			_crown_glyph(c, 9.0)
+		"numbers":
+			_text(c + Vector2(-14, 7), "123", 17, col, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		"fps":
+			_plate(Rect2(c - Vector2(14, 8), Vector2(28, 16)), Color(0.3, 0.2, 0.05), col, 3, 1)
+			_text(c + Vector2(-13, 5), "FPS", 11, col, HORIZONTAL_ALIGNMENT_CENTER, 26, 0)
+		"chat":
+			_plate(Rect2(c - Vector2(11, 9), Vector2(22, 14)), col, ink, 6, 1)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-5, 4), c + Vector2(-8, 10), c + Vector2(1, 4)]), col)
+			for k in 3:
+				draw_circle(c + Vector2(-5 + k * 5, -2), 1.4, ink)
+		"rosters":
+			for k in 3:
+				var o := Vector2(-8 + k * 8, 0 if k == 1 else 2)
+				draw_circle(c + o + Vector2(0, -5), 3.5, CREAM)
+				draw_colored_polygon(PackedVector2Array([c + o + Vector2(-5, 8), c + o + Vector2(-4, 1), c + o + Vector2(4, 1), c + o + Vector2(5, 8)]), CREAM)
+		"fullscreen":
+			_plate(Rect2(c - Vector2(11, 9), Vector2(22, 15)), Color(0.08, 0.1, 0.14), CREAM, 2, 2)
+			draw_line(c + Vector2(0, 6), c + Vector2(0, 10), CREAM, 2.0)
+			draw_line(c + Vector2(-6, 10), c + Vector2(6, 10), CREAM, 2.0)
+		"rumble":
+			var pad := _menu_icon("icon_gamepad")
+			if pad:
+				draw_texture_rect(pad, Rect2(c - Vector2(12, 12), Vector2(24, 24)), false, CREAM)
 
 
 func _toggle(rect: Rect2, label: String, on: bool, key: String) -> void:
-	## A labelled on/off switch; recorded for mouse clicks.
-	_leather(rect, 8, on, GOLD if on else BRASS_DIM)
-	_text(rect.position + Vector2(10, 21), label, 10, CREAM if on else Color(0.7, 0.64, 0.52), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var pill := Rect2(rect.end - Vector2(38, 25), Vector2(30, 16))
+	## A labelled switch with its icon; recorded for mouse clicks.
+	_opt_slot(rect)
+	if rect.has_point(_mouse()):
+		draw_rect(rect.grow(-2), Color(1, 1, 1, 0.04))
+	_opt_glyph(key, rect.position + Vector2(22, rect.size.y / 2.0), GOLD)
+	var fs := 13 if _text_width(label, 13) < rect.size.x - 104 else 11
+	_text(rect.position + Vector2(42, rect.size.y / 2.0 + 5), label, fs, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var pill := Rect2(rect.end - Vector2(52, rect.size.y / 2.0 + 11), Vector2(42, 22))
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.36, 0.62, 0.22) if on else Color(0.22, 0.18, 0.16)
-	sb.set_corner_radius_all(8)
+	sb.bg_color = Color(0.28, 0.7, 0.22) if on else Color(0.2, 0.2, 0.24)
+	sb.set_corner_radius_all(11)
 	sb.set_border_width_all(2)
-	sb.border_color = Color(0.3, 0.17, 0.04)
+	sb.border_color = Color(0.08, 0.1, 0.06)
 	draw_style_box(sb, pill)
 	if on:
-		draw_rect(Rect2(pill.position + Vector2(4, 3), Vector2(pill.size.x - 8, 3)), Color(1, 1, 1, 0.25))
-	var kc := pill.position + Vector2(pill.size.x - 8 if on else 8, 8)
-	draw_circle(kc, 6.0, Color(0.35, 0.2, 0.04))
-	draw_circle(kc, 4.5, GOLD if on else Color(0.75, 0.68, 0.55))
+		draw_rect(Rect2(pill.position + Vector2(6, 3), Vector2(pill.size.x - 12, 4)), Color(1, 1, 1, 0.25))
+	var kc := pill.position + Vector2(pill.size.x - 11 if on else 11, 11)
+	draw_circle(kc + Vector2(0, 1), 9.0, Color(0, 0, 0, 0.35))
+	draw_circle(kc, 8.5, Color(0.96, 0.95, 0.9))
 	toggle_buttons.append([rect, key])
 
 
@@ -3769,106 +4382,6 @@ func _vignette(c: Color) -> void:
 		var d := w * i
 		var col := Color(c.r, c.g, c.b, c.a * (1.0 - float(i) / n))
 		draw_rect(Rect2(d + w / 2.0, d + w / 2.0, size.x - 2.0 * d - w, size.y - 2.0 * d - w), col, false, w + 0.5)
-
-
-func _menu_my_class(body: Rect2) -> void:
-	## The player's class, this life's ranks and the class's promotion paths.
-	var p = _me()
-	if p == null:
-		_text(body.position + Vector2(0, body.size.y / 2.0), "Start a match to see your class.", 14, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
-		return
-	# Left: who you are.
-	var left := Rect2(body.position, Vector2(230, body.size.y))
-	_leather(left, 10)
-	if not _card(_card_key(p.team, p.role), Rect2(left.position + Vector2(10, 6), Vector2(210, 100)), false, p.dead):
-		_portrait(left.position + Vector2(115, 54), 34, p.team, p.role, p.dead)
-	if p.role != Role.BASE:
-		_icon(p.variant().get("icon", _class_icon(p.role)), left.position + Vector2(196, 26), 11, Color.WHITE)
-	_bar_text(Vector2(left.get_center().x, left.position.y + 116), p.role_name().to_upper(), bar_font if bar_font else font, 18, GOLD, Color(0.2, 0.1, 0.02), 3)
-	var sub: String = Stats.FACTIONS[p.team].name if p.variant().is_empty() else "%s %s" % [Stats.FACTIONS[p.team].name, p.class_name_plain()]
-	_text(left.position + Vector2(0, 130), sub.to_upper(), 10, _team_color(p.team).lightened(0.4), HORIZONTAL_ALIGNMENT_CENTER, left.size.x, 2)
-	var s: Dictionary = p.stats()
-	var facts := [["Level", "%d  (%d XP this life)" % [p.level, p.xp]], ["Points to spend", str(p.points)],
-		["Energy", ("%s %d / %d" % [s.energy, int(p.energy), int(p.energy_max())]).capitalize()],
-		["Hearts", "%d / %d" % [p.hearts, Stats.MAX_HEARTS]], ["Kills / deaths", "%d / %d" % [p.kills, p.deaths]],
-		["Captures", str(p.captures)], ["Match score", str(game.unit_score(p))], ["Total upgrades", str(p.total_upgrades())]]
-	for i in facts.size():
-		var y: float = left.position.y + 156 + i * 20
-		_text(Vector2(left.position.x + 14, y), facts[i][0], 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_text(Vector2(left.position.x, y), facts[i][1], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, left.size.x - 14, 2)
-	if p.role == Role.BASE:
-		_paragraph(left.position + Vector2(14, 328), "You are a villager. Grab a class hat in your cellar (press %s beside it) to pick a class." % _k("interact"), 10, CREAM, left.size.x - 28, 12.0)
-	else:
-		_text(left.position + Vector2(14, 332), s.attack_name, 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_paragraph(left.position + Vector2(14, 348), s.attack_desc, 10, Color(0.8, 0.8, 0.8), left.size.x - 28, 12.0)
-	# Middle: this life's ranks.
-	var mid := Rect2(body.position + Vector2(240, 0), Vector2(220, body.size.y))
-	_leather(mid, 10)
-	_bar_text(Vector2(mid.get_center().x, mid.position.y + 22), "RANKS THIS LIFE", bar_font if bar_font else font, 13, GOLD, Color(0.2, 0.1, 0.02), 2)
-	var track_icons := [_attack_icon(p.role, s), "", "", "vigor"]
-	for i in 2:
-		if i < p.abilities().size():
-			track_icons[i + 1] = p.abilities()[i].get("icon", p.abilities()[i].kind)
-	for t in 4:
-		var y: float = mid.position.y + 50 + t * 58
-		var available: bool = p.track_available(t)
-		if available:
-			_icon(track_icons[t], Vector2(mid.position.x + 28, y + 10), 11, Color.WHITE)
-		_text(Vector2(mid.position.x + 52, y + 6), p.track_name(t) if available else "No %s ability yet" % ["", "Q", "E", ""][t], 12, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		for k in Stats.MAX_RANK:
-			var c := Vector2(mid.position.x + 58 + k * 16, y + 22)
-			draw_circle(c, 5.5, GOLD if k < p.rank(t) else Color(0.2, 0.2, 0.25))
-			draw_arc(c, 5.5, 0, TAU, 12, GOLD_DARK, 1.0)
-		if available:
-			_text(Vector2(mid.position.x + 110, y + 26), "rank %d / %d" % [p.rank(t), Stats.MAX_RANK], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_paragraph(mid.position + Vector2(14, mid.size.y - 70), "Each level gives a point. Ranks cut cooldowns and costs, then widen the effect, then add a heart. Experience resets when you die.", 10, Color(0.8, 0.8, 0.8), mid.size.x - 28, 12.0)
-	_text(mid.position + Vector2(0, mid.size.y - 10), "%s opens the perk menu" % _k("rank_menu"), 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, mid.size.x, 2)
-	# Right: promotions, for this class or all of them.
-	var right := Rect2(body.position + Vector2(470, 0), Vector2(body.size.x - 470, body.size.y))
-	_leather(right, 10)
-	if Stats.VARIANTS.has(p.role):
-		_bar_text(Vector2(right.get_center().x, right.position.y + 22), "PROMOTION", bar_font if bar_font else font, 13, GOLD, Color(0.2, 0.1, 0.02), 2)
-		var spent: int = p.mastery.get(p.role, 0)
-		var unlocked: bool = p.variant_unlocked(p.role)
-		_text(right.position + Vector2(0, 36), ("%d / %d points spent in this class  ·  unlocked" if unlocked else "%d / %d points spent in this class  ·  locked") % [spent, Stats.VARIANT_UNLOCK], 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
-		for i in 2:
-			var v: Dictionary = Stats.VARIANTS[p.role][i]
-			var card := Rect2(right.position + Vector2(10, 48 + i * 158), Vector2(right.size.x - 20, 150))
-			var chosen: bool = p.variants.get(p.role, -1) == i
-			_leather(card, 8, chosen, GOLD if chosen else (BRASS_DIM if unlocked else Color(0.3, 0.25, 0.2)))
-			_icon(v.icon, card.position + Vector2(26, 24), 12, Color.WHITE, not unlocked)
-			_text(card.position + Vector2(54, 24), v.name.to_upper(), 14, GOLD if chosen else (Color.WHITE if unlocked else GREY), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-			_text(card.position + Vector2(0, 24), "CHOSEN" if chosen else ("available" if unlocked else "locked"), 10, GOLD if chosen else GREY, HORIZONTAL_ALIGNMENT_RIGHT, card.size.x - 10, 2)
-			var y: float = 50.0 + _paragraph(card.position + Vector2(10, 50), v.desc, 10, Color(0.85, 0.85, 0.85) if unlocked else GREY, card.size.x - 20, 12.0)
-			var moves := [[_k("attack"), v.attack.get("attack_name", Stats.kit(p.team, p.role).attack_name)], [_k("ability_1"), v.abilities[0].name], [_k("ability_2"), v.abilities[1].name]]
-			for m in moves.size():
-				_keycap(card.position + Vector2(28, y + 14 + m * 19), moves[m][0], 34)
-				_text(card.position + Vector2(52, y + 18 + m * 19), moves[m][1], 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-			if unlocked and not chosen and not p.dead:
-				var button := Rect2(card.end - Vector2(96, 30), Vector2(86, 22))
-				_hud_button(button, "CHOOSE", 11, true)
-				variant_buttons.append([button, p.role, i])
-	else:
-		_bar_text(Vector2(right.get_center().x, right.position.y + 22), "TOTAL UPGRADES", bar_font if bar_font else font, 13, GOLD, Color(0.2, 0.1, 0.02), 2)
-		_text(right.position + Vector2(0, 38), "Rank points spent per class this match. Three in a class unlock its two promotions.", 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
-		var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
-		for i in roles.size():
-			var role: int = roles[i]
-			var row := Rect2(right.position + Vector2(10, 52 + i * 52), Vector2(right.size.x - 20, 48))
-			_leather(row, 8, true)
-			_icon(_class_icon(role), row.position + Vector2(26, 24), 11, Color.WHITE)
-			var spent: int = p.mastery.get(role, 0)
-			_text(row.position + Vector2(50, 20), Stats.FACTIONS[p.team].roles[role].to_upper(), 13, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-			_text(row.position + Vector2(0, 20), "%d / %d points" % [spent, Stats.VARIANT_UNLOCK], 10, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 12, 2)
-			var vs: Array = Stats.VARIANTS[role]
-			var chosen: int = p.variants.get(role, -1)
-			var line := "%s  or  %s" % [vs[0].name, vs[1].name]
-			if chosen >= 0:
-				line = "Promoted: %s" % vs[chosen].name
-			elif p.variant_unlocked(role):
-				line = "Unlocked: choose in the perk menu as a %s" % Stats.FACTIONS[p.team].roles[role]
-			_text(row.position + Vector2(50, 36), line, 10, GOLD if chosen >= 0 else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-			_bar(Rect2(row.position + Vector2(50, 43), Vector2(row.size.x - 70, 7)), float(spent) / Stats.VARIANT_UNLOCK, XP)
 
 
 func _menu_scoreboard(body: Rect2) -> void:
