@@ -7464,7 +7464,7 @@ func _debug_downed_hooks(frame: int) -> void:
 	## downed teammate).
 	var args := OS.get_cmdline_user_args()
 	var which := ""
-	for k in ["--debug-downed", "--debug-revive", "--debug-healer-revive"]:
+	for k in ["--debug-downed", "--debug-revive", "--debug-healer-revive", "--debug-finish"]:
 		if k in args:
 			which = k
 	if which == "" or player == null:
@@ -7484,6 +7484,15 @@ func _debug_downed_hooks(frame: int) -> void:
 		player.global_position = spot
 		player.spawn_protect = 0.0
 		player.home_defense = false
+		if which == "--debug-finish":
+			# The player (a Knight) standing over a downed enemy, finishing them.
+			player.set_role(Unit.Role.KNIGHT)
+			foe.set_role(Unit.Role.RANGER)
+			foe.global_position = spot + Vector3(1.4, 0, 0.4)
+			foe.spawn_protect = 0.0
+			foe.home_defense = false
+			foe.take_damage(foe.hearts, player, player.global_position)
+			return
 		if which == "--debug-healer-revive":
 			player.set_role(Unit.Role.HEALER)
 			ally.global_position = spot + Vector3(1.6, 0, 0.6)
@@ -7500,5 +7509,9 @@ func _debug_downed_hooks(frame: int) -> void:
 		foe.global_position = away
 	if frame == shot_frame - 70 and which == "--debug-healer-revive":
 		Input.action_press("interact")
+	if which == "--debug-finish":
+		if frame == shot_frame - 28:
+			Input.action_press("interact")
+		return
 	if frame > shot_frame - 150 and frame < shot_frame:
 		foe.global_position = away   # keep the enemy that downed them out of the shot
