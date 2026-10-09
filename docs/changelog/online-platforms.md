@@ -166,7 +166,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tunables:** ENet peer timeout limit 32 / min 5000 ms / max 30000 ms (Godot defaults) → 64 / 20000 ms / 60000 ms
 - **Revert:** `git revert -m 1 8fc8fa2` (undoes the merge and the timeout change)
 
-## 2026-10-09 12:00 UTC · `HASH-PENDING` · Room relay: online play that works in a browser
+## 2026-10-09 12:00 UTC · `9a786cf` · Room relay: online play that works in a browser
 
 - **What:** browsers (the iPad web build) cannot open ENet's UDP links, so online play can now go
   through a small WebSocket relay. New `server/relay.js` (Node, one dependency `ws` 8.18.0, plus a
@@ -183,4 +183,42 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tunables (new):** relay `PORT` 8787, `MAX_PEERS` 8 joiners per room, `MAX_ROOMS` 500, packet cap
   64 KB; game `Net.DEFAULT_RELAY` `ws://127.0.0.1:8787` (set `online/relay_url` in
   `project.godot` once the relay is hosted)
+- **Revert:** `git revert 9a786cf`
+
+## 2026-10-09 12:55 UTC · `HASH-PENDING` · Online N2: joiners see and do everything
+
+- **What:** a joiner's game now shows the whole fight, not only people moving, and a joiner can
+  do everything a local player can.
+  - **Controls:** a joiner's unit runs the same code as a local player (`unit._stick/_held/_tap`
+    read either the devices or the joiner's network input), so revive, finisher, give up when
+    downed, R ability (ability_3), grabbing, hats, economy interactions and dodge all work. Menus
+    on the host no longer block a joiner's controls.
+  - **Effects, animations, sounds:** the host records every effect (`fx.gd`, `skill_fx.gd`),
+    model animation (`character_model.gd`), 3D sound (`sfx.play`, except footsteps, which each
+    screen makes itself), popup, pillar, flash, screen shake and hit flash, and sends them
+    reliably once a frame; joiners replay them. Nested effects are recorded once (`Net.depth`).
+  - **Projectiles:** arrows, spells and turret bolts fly on joiners' screens (inert copies; the
+    host decides hits and its impact effects come across).
+  - **Turrets, traps, blessings, planted barricades:** built on joiners' screens with a net id,
+    updated (health, level) and removed from the snapshot; joiners arriving mid-match get the
+    ones already standing.
+  - **Snapshot additions:** downed state, bleed-out and revive bars, kill feed, economy (team
+    wood and ore, upgraded hat machines, what each soldier carries, tree and ore stocks), health
+    potions, barricade health, the Ember Pass fire point.
+  - **Messages:** announcements are global or personal (`announce(text, to)`); personal ones (hat
+    taken, potion, blessing, fire form, barricade raised, revive toasts) reach only that player.
+    KILL! card, "killed by" card and crown ribbons reach joiners. Chat from a joiner goes through
+    the host; team chat only reaches that team.
+  - **Looks:** class variants, gear rank and each player's own hero colours show on every screen.
+  - **Inert copies on joiners' screens:** turrets, traps, blessings, potions, barricades, doors,
+    vaults, economy, resource regrowth and the fire point only act on the host.
+  - **Smoke test:** now also has the joiner swing and chat, runs 40 s of match, and requires
+    effects, animations, sounds, shots, looks and the chat line to arrive. Passes over ENet and the
+    relay (ENet: 421 events in 40 s, relay: 524).
+- **Files:** `scripts/net.gd`, `scripts/game.gd`, `scripts/unit.gd`, `scripts/fx.gd`,
+  `scripts/skill_fx.gd`, `scripts/character_model.gd`, `scripts/sfx.gd`, `scripts/projectile.gd`,
+  `scripts/turret.gd`, `scripts/trap.gd`, `scripts/blessing.gd`, `scripts/barricade.gd`,
+  `scripts/gate.gd`, `scripts/vault.gd`, `scripts/economy.gd`, `scripts/resource_node.gd`,
+  `scripts/volcano.gd`, `scripts/heal_orb.gd`, `scripts/seal.gd`
+- **Tunables:** none (gameplay numbers unchanged)
 - **Revert:** `git revert HASH-PENDING`

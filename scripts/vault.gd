@@ -156,7 +156,7 @@ func _process(delta: float) -> void:
 		leaves[i].rotation.y = door_angle * side * (1.0 if i == 0 else -1.0)
 	if glow_light:
 		glow_light.light_energy = 1.2 + (0.6 * sin(Time.get_ticks_msec() / 200.0) if open else 0.0)
-	if not open:
+	if not open or game.net_client:
 		return
 	relock_timer -= delta
 	if relock_timer <= 0.0 and not game.enemy_inside_keep(team) and game.monarchs[team].state == 0:

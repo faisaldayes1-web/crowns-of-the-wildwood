@@ -644,7 +644,7 @@ func print_summary() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if game == null or not game.playing or game.game_over:
+	if game == null or not game.playing or game.game_over or game.net_client:
 		return
 	if "--econ-test" in OS.get_cmdline_user_args():
 		_test_tick()

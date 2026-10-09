@@ -34,13 +34,31 @@ var pending_start := {}        # client: {team, slot, map} from the host, kept u
 var snapshot := {}             # client: the latest snapshot from the host
 var snapshot_count := 0        # client: snapshots received (smoke test)
 var welcomed := false          # client: the host's welcome came in (the scene reloads once on it)
-var input_counts := {"interact": 0, "ability_1": 0, "ability_2": 0, "dodge": 0}
+const HELD_ACTIONS := ["attack", "block", "interact"]
+var input_counts := {"interact": 0, "ability_1": 0, "ability_2": 0, "ability_3": 0, "dodge": 0}
 var game                       # the running game.gd, registered by its _ready
 var cli_done := false          # --host / --join from the command line were handled (once per run)
 var peer_names := {}           # host: peer id -> the hero name that joiner chose
+var peer_looks := {}           # host: peer id -> that joiner's hero colours and hair
 var relay_url := DEFAULT_RELAY
 var room_code := ""            # the room this game is in (relay rooms only)
 var relay: RelayPeer           # while a room is being created or joined
+# Host: effects, sounds, animations and messages recorded this frame for the
+# joiners (rec), sent reliably at the end of the physics frame.
+var depth := 0                 # >0 inside an effect that is already recorded
+var mute := 0                  # >0 while building something the joiners build themselves
+var _out: Array = []           # [peer id or 0 for everyone, target, method, args]
+var events_in := 0             # client: events replayed (smoke test)
+var events_by := {}            # client: replayed events by kind (smoke test)
+const REPLAY := {
+	"fx": ["burst", "flare", "ground_ring", "ground_glow", "rune", "scorch", "beam", "slash", "hit", "blast",
+		"heal_on", "cast", "death", "petals", "swirl", "afterimage", "trail_ghosts", "thorns", "dome", "rays"],
+	"skill": ["animate", "cast", "land"],
+	"model": ["play_once", "attack", "hold", "release", "go_down", "stand_up"],
+	"sfx": ["play"],
+	"game": ["spawn_popup", "spawn_pillar", "spawn_flash", "shake_at", "announce", "toast", "chat_add",
+		"net_shot", "net_spawn", "net_flash", "net_kill_banner", "net_look", "crown_event_note", "on_player_killed"],
+}
 
 
 func _ready() -> void:
@@ -171,6 +189,7 @@ func leave() -> void:
 	ready_peers = []
 	assigned = {}
 	pending_start = {}
+	_early = []
 	snapshot = {}
 	welcomed = false
 	map_variant = -1
@@ -272,9 +291,10 @@ func _snapshot(data: Dictionary) -> void:
 # --- Client -> host -----------------------------------------------------------
 
 @rpc("any_peer", "call_remote", "reliable")
-func _client_ready(hero_name: String) -> void:
+func _client_ready(hero_name: String, look: Dictionary) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	peer_names[id] = hero_name.strip_edges().left(16)
+	peer_looks[id] = look
 	if not ready_peers.has(id):
 		ready_peers.append(id)
 	print("NET peer %d ready" % id)
@@ -283,18 +303,160 @@ func _client_ready(hero_name: String) -> void:
 
 
 @rpc("any_peer", "call_remote", "unreliable_ordered")
-func _input_state(move: Vector2, aim: Vector3, attack: bool, block: bool, counts: Dictionary) -> void:
+func _input_state(move: Vector2, aim: Vector3, held: Array, counts: Dictionary) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if not is_host() or not game or not assigned.has(id):
 		return
 	var u = game.units[assigned[id]]
-	u.net_input = {"move": move.limit_length(1.0), "aim": aim, "attack": attack, "block": block, "counts": counts}
+	u.net_input = {"move": move.limit_length(1.0), "aim": aim, "held": held, "counts": counts}
+
+
+func send_chat(text: String, team_only: bool) -> void:
+	_chat.rpc_id(1, text.left(90), team_only)
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _chat(text: String, team_only: bool) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_host() or not game or not assigned.has(id):
+		return
+	var u = game.units[assigned[id]]
+	game.chat_add(u.display_name, text.strip_edges().left(90), game._team_color(u.team), team_only, u.role, u.team)
 
 
 func client_ready() -> void:
 	## The client's game has built the host's world.
 	if is_client() and welcomed:
-		_client_ready.rpc_id(1, game.hero_name if game else "")
+		_client_ready.rpc_id(1, game.hero_name if game else "", game.hero_custom() if game else {})
+
+
+# --- Host -> client: events ----------------------------------------------------
+
+func rec(target: String, method: String, args: Array, to_unit = null, to_team: int = -1) -> void:
+	## Host: queue one effect / sound / animation / message for the joiners.
+	## `to_unit` makes it personal: only that unit's player sees it (nobody
+	## online when it is the host's own unit or a bot).
+	if mode != Mode.HOST or assigned.is_empty() or depth > 0 or mute > 0 or not game:
+		return
+	var to := 0
+	if to_unit != null:
+		if not is_instance_valid(to_unit) or to_unit.get("remote_peer") == null or to_unit.remote_peer <= 0:
+			return
+		to = to_unit.remote_peer
+	var enc: Array = []
+	for a in args:
+		var e = _enc(a)
+		if e is Dictionary and e.has("?"):
+			return   # refers to something the joiners cannot find: skip the effect
+		enc.append(e)
+	if target == "model" and not (enc[0] is Dictionary and enc[0].has("m")):
+		return
+	_out.append([to, target, method, enc, to_team])
+
+
+func _enc(v):
+	if v is Object:
+		if not is_instance_valid(v):
+			return {"?": 1}
+		var i: int = game.units.find(v)
+		if i >= 0:
+			return {"u": i}
+		i = game.monarchs.find(v)
+		if i >= 0:
+			return {"k": i}
+		# A unit's character model, or a node on a unit.
+		var n: Node = v if v is Node else null
+		while n:
+			i = game.units.find(n)
+			if i >= 0:
+				return {"m": i} if v != n else {"u": i}
+			n = n.get_parent()
+		return {"?": 1}
+	if v is Callable or v is Signal or v is RID:
+		return null
+	if v is Dictionary:
+		var d := {}
+		for k in v:
+			var e = _enc(v[k])
+			if not (e is Dictionary and e.has("?")):
+				d[k] = e
+		return d
+	if v is Array:
+		var a: Array = []
+		for x in v:
+			a.append(_enc(x))
+		return a
+	return v
+
+
+func _dec(v):
+	if v is Dictionary:
+		if v.size() == 1:
+			if v.has("u"):
+				return game.units[v.u] if v.u < game.units.size() else null
+			if v.has("m"):
+				return game.units[v.m].model if v.m < game.units.size() else null
+			if v.has("k"):
+				return game.monarchs[v.k] if v.k < game.monarchs.size() else null
+		var d := {}
+		for k in v:
+			d[k] = _dec(v[k])
+		return d
+	if v is Array:
+		return v.map(func(x): return _dec(x))
+	return v
+
+
+func _flush_events() -> void:
+	if _out.is_empty():
+		return
+	for id in assigned:
+		var batch: Array = []
+		var team: int = game.units[assigned[id]].team
+		for e in _out:
+			if (e[0] == 0 or e[0] == id) and (e[4] < 0 or e[4] == team):
+				batch.append([e[1], e[2], e[3]])
+		if not batch.is_empty():
+			_events.rpc_id(id, batch)
+	_out = []
+
+
+var _early: Array = []         # client: events that came before our match began
+
+
+func replay_early() -> void:
+	var held := _early
+	_early = []
+	for b in held:
+		_events(b)
+
+
+@rpc("authority", "call_remote", "reliable")
+func _events(batch: Array) -> void:
+	if not game or not game.playing and not game.game_over:
+		if _early.size() < 200:
+			_early.append(batch)   # e.g. the turrets already standing when we join mid-match
+		return
+	for e in batch:
+		var target: String = e[0]
+		var method: String = e[1]
+		if not REPLAY.has(target) or not method in REPLAY[target]:
+			continue
+		var args: Array = _dec(e[2])
+		if args.has(null) and target != "game":
+			continue
+		events_in += 1
+		var key := (target + "." + method) if target == "game" else target
+		events_by[key] = events_by.get(key, 0) + 1
+		match target:
+			"fx": game.Fx.of(game).callv(method, args)
+			"skill": game.SkillFx.callv(method, args)
+			"sfx": game.sfx.callv(method, args)
+			"game": game.callv(method, args)
+			"model":
+				var m = args.pop_front()
+				if m:
+					m.callv(method, args)
 
 
 # --- Host: seats and snapshots ------------------------------------------------
@@ -312,9 +474,15 @@ func _seat(id: int) -> void:
 		print("NET no free slot for peer %d" % id)
 		return
 	assigned[id] = idx
-	game.net_claim_unit(idx, id, peer_names.get(id, ""))
+	game.net_claim_unit(idx, id, peer_names.get(id, ""), peer_looks.get(id, {}))
 	var names: Array = game.units.map(func(u): return u.display_name)
-	_match_start.rpc_id(id, idx / game.TEAM_SIZE, idx % game.TEAM_SIZE, game.map_variant, names)
+	_match_start.rpc_id(id, idx / game.team_size, idx % game.team_size, game.map_variant, names)
+	# Everything already in the match: looks (sent again to everyone) and
+	# the turrets, traps and blessings standing now (joiners skip repeats).
+	for u in game.units:
+		u.net_look_sent = []
+	for e in game.net_entity_list():
+		rec("game", "net_spawn", e)
 
 
 func _physics_process(_delta: float) -> void:
@@ -324,6 +492,8 @@ func _physics_process(_delta: float) -> void:
 		var data: Dictionary = game.net_build_snapshot()
 		for id in assigned:
 			_snapshot.rpc_id(id, data)
+	if is_host():
+		_flush_events()
 	elif is_client() and game.player and game.playing:
 		_send_input()
 
@@ -331,13 +501,13 @@ func _physics_process(_delta: float) -> void:
 func _send_input() -> void:
 	var p = game.player
 	var move := Vector2.ZERO
-	var attack := false
-	var block := false
+	var held: Array = []
 	if not game.menu_blocks_input(p):
 		move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
-		attack = Input.is_action_pressed("attack")
-		block = Input.is_action_pressed("block")
+		for k in HELD_ACTIONS:
+			if Input.is_action_pressed(k):
+				held.append(k)
 		for k in input_counts:
 			if Input.is_action_just_pressed(k):
 				input_counts[k] += 1
-	_input_state.rpc_id(1, move, p.aim, attack, block, input_counts.duplicate())
+	_input_state.rpc_id(1, move, p.aim, held, input_counts.duplicate())

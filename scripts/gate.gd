@@ -197,6 +197,8 @@ func _refresh() -> void:
 
 
 func _process(delta: float) -> void:
+	if game.net_client:
+		return   # online: the host rebuilds doors
 	if not broken:
 		return
 	# A siege holds the breach: the rebuild only counts down while no enemy is
