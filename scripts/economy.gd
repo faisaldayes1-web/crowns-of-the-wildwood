@@ -434,7 +434,7 @@ func _tick_cargo() -> void:
 		var c: Dictionary = cargo[u]
 		if c.wood + c.ore <= 0:
 			continue
-		if u.dead:
+		if u.dead or u.get("downed") == true:   # (downed: the Downed & Revive group's knocked-out state)
 			_drop_load(u)
 			continue
 		var d: Vector3 = depots[u.team]
@@ -479,7 +479,7 @@ func _tick_drops(delta: float) -> void:
 			continue
 		node.rotation.y += delta * 0.8
 		for u in game.units:
-			if u.dead or u.carrying:
+			if u.dead or u.carrying or u.get("downed") == true:
 				continue
 			if game._flat_dist(u.global_position, node.global_position) > 1.3 or absf(u.global_position.y - node.global_position.y) > 1.2:
 				continue
@@ -1461,7 +1461,7 @@ func _test_tick() -> void:
 			p.take_damage(p.hearts + 2)
 			test_wait = 5
 		9:
-			_check(p.dead and carried(p) == 0 and drops.size() == 1, "a fallen soldier drops the load")
+			_check((p.dead or p.get("downed") == true) and carried(p) == 0 and drops.size() == 1, "a fallen soldier drops the load")
 			if drops.is_empty():
 				print("ECONTEST DONE: %d failed" % test_fails)
 				get_tree().quit()
