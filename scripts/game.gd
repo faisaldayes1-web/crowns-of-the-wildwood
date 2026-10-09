@@ -3430,13 +3430,7 @@ func _add_boulder(pos: Vector3) -> void:
 	mesh.scale = Vector3(1.0, 0.85, 1.15)
 	mesh.material_override = _pbr("rock", 0.45)
 	body.add_child(mesh)
-	# A mossy cap.
-	var moss := MeshInstance3D.new()
-	moss.mesh = _rock_mesh(absi(int(pos.x * 31 + pos.z * 17)) + 3, 1.0)
-	moss.position.y = 1.05
-	moss.scale = Vector3(1.0, 0.35, 1.1)
-	moss.material_override = _pbr("grass", 0.4, Color(0.55, 0.8, 0.4))
-	body.add_child(moss)
+	# (No mossy cap: it poked through the rock as flat green patches, Faisal 08:20.)
 	add_child(body)
 	# A few pebbles around the base.
 	for i in 3:
@@ -4292,7 +4286,9 @@ func _add_island() -> void:
 			rm.size = Vector3(2.5, 0.1, 0.08)
 			rail.mesh = rm
 			rail.position = c + Vector3(0, h, 0)
-			rail.rotation.y = a + PI / 2.0
+			# Along the rim's tangent, so the rails follow the circle instead of
+			# cutting across it (Faisal 08:19: "fences are the wrong way").
+			rail.rotation.y = -(a + PI / 2.0)
 			rail.material_override = _timber(Color(0.66, 0.5, 0.35))
 			add_child(rail)
 	map_marks.append([Vector3.ZERO, "shrine"])
@@ -6576,7 +6572,7 @@ func _build_outskirts() -> void:
 	_add_road_dressing()
 	_add_river_plants()
 	_add_barrow(Vector3(-30, 0, 22))
-	_add_watermills()
+	# (No watermills: Faisal 08:20, "random useless building".)
 	_add_field_rocks()
 	_add_clouds()
 	_add_ground_patches()

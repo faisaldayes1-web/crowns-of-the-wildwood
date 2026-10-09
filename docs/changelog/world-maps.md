@@ -7,7 +7,18 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 08:35 UTC · `(stamped by the next entry)` · Elf gate banner frames off the road (Faisal 08:19)
+### 2026-10-09 08:40 UTC · `(stamped by the next entry)` · Shrine rails follow the circle; no moss caps, no watermills (Faisal 08:19-08:20)
+
+- **What:** Faisal on the bridge shots: "fences are the wrong way" / "clipping of circle" (middle bridge), "rocks have random green clipping on them" (north bridge), "random useless building and random green shrubs on rock textures" (south bridge).
+  - **Shrine rails:** the rails were turned across the plaza rim; they now run along its tangent, between their posts.
+  - **Boulders:** the grass-textured moss cap poked through each boulder as flat green patches; removed (all 22 field boulders).
+  - **Watermills:** both mills (building, wheel, sacks, crate, lamp, minimap icon) removed.
+- **Files:** scripts/game.gd (`_add_island`, `_add_boulder`, `_build_world` call to `_add_watermills`)
+- **Tunables:** rail rotation.y a + π/2 → −(a + π/2)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 08:35 UTC · `cd33bbd` · Elf gate banner frames off the road (Faisal 08:19)
 
 - **What:** Faisal, on the Elf gate: "move signs to appropriate place? not middle of ground blocking road". The two stag banner frames stood on the cobbles where the Forest and River Paths leave the road (fx − 4.6, ±(DOOR_HALF + 1.9)); they now stand against the front wall beside the gatehouse towers. The fence and the rock he circled on the same shot went in bc6323f.
 - **Files:** scripts/game.gd (`_build_castle`)
@@ -34,7 +45,7 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
   - The Elf crown room notes went to UI & Art (their base).
 - **Files:** scripts/game.gd (`_build_cellar`, `_add_upgrade_pad` call, `_build_throne_room`, `_polish_keep`, `_furnish_keep`, `_build_works`, `_add_road_dressing`, `_add_road_lanterns`, `_add_field_rocks`, `_add_path`)
 - **Tunables:** path heights: frayed strip y 0.004 → 0.004 + 0.001·(n mod 4), core 0.006 → 0.010 + 0.001·(n mod 4)
-- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches (figures in the next entry)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches seed 5: Wildwood doors 82/180 at 90 s, 56/0 at 150 s; Ember Pass 200/0 at 120 s, score 1-0 at 150 s
 - **Revert:** `git revert <hash>`
 
 ### 2026-10-09 06:10 UTC · `e839de0` · Merge UI & Art's Elf declutter (70f43e1)
