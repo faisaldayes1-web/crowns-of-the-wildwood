@@ -75,7 +75,7 @@ then `python3 tools/balance/agg.py <tag>`.
 
 - **When:** 2026-10-09 00:25 UTC (Faisal 2026-10-08 23:58: particle effects,
   colour on hit, healing/spell/splash effects, better combat feel)
-- **Commit:** _filled in by the next commit_
+- **Commit:** `6356f8f`
 - **What:** Looks only; no balance number changed and the bot brain, movement
   and timers are untouched.
   - New `scripts/fx.gd`: one effects node under the game. Soft glowing motes,
@@ -128,4 +128,4 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Capture:** `godot --path . --rendering-driver opengl3 --fixed-fps 30
   --write-movie out.png --quit-after 175 -- --play --fxshow --shot-frame=99999`
   (Compatibility renderer); results in project files `game/combat-feel/`.
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert 6356f8f`
