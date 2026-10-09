@@ -352,3 +352,34 @@ then `python3 tools/balance/agg.py <tag>`.
   Ember Pass 51-56: Elves 5-1 → 3-3. Human melee K/D 0.39-0.51 → 0.70-0.83,
   Elf support 2.1-2.9 → 0.8-1.3.
 - **Revert:** `git revert b25c80f`
+
+## 13. Team-size test flag
+
+- **When:** 2026-10-09 (Faisal 11:39 "test out the balance with 3v3, 4v4, and 5v5")
+- **Commit:** `50b2835`
+- **What:** `--team-size=N` now accepts 1-6 a side for balance batches; the live
+  game stays strictly 4v4 (`TEAM_SIZE`). `runbatch.sh` passes it with `TEAM=n`.
+  agg.py adds a "first door broken / bot stalls per match" line.
+- **Files:** `scripts/game.gd` (`TEST_TEAM_MAX`), `tools/balance/runbatch.sh`,
+  `tools/balance/agg.py`.
+- **Tunables:** `TEST_TEAM_MAX` 6 (new, test only).
+- **Revert:** `git revert 50b2835`
+
+## 14. Fluid combat
+
+- **When:** 2026-10-09 (Faisal 11:39 "Make the combat feel better and more fluid")
+- **Commit:** `caf51fe`
+- **What:** An attack pressed a little early (during a swing or dodge) is
+  remembered for 0.2 s and fires as soon as it can, so mashing never drops
+  swings. After a swing the body goes back to running after 55% of the swing
+  instead of waiting for the whole animation, blended over 0.18 s, so moving
+  while attacking no longer stops and starts. Flinches hand back to running
+  halfway through. Looks and input timing only; damage and cooldowns unchanged.
+  Clips: project files `game/combat-feel/fluid/` (before, after, side by side).
+- **Files:** `scripts/unit.gd` (`ATTACK_BUFFER`, `attack_buffer`, flinch
+  recover), `scripts/character_model.gd` (`ATTACK_RECOVER`, `RUN_BLEND`,
+  `recover_at`, `play_once(..., recover)`), `tests/fx_showcase.gd` (`--fluid`).
+- **Tunables:** `ATTACK_BUFFER` 0.2 s, `ATTACK_RECOVER` 0.55, `RUN_BLEND` 0.18 s
+  (all new).
+- **Checks:** `tools/tests/run.sh` 29/29.
+- **Revert:** `git revert caf51fe`
