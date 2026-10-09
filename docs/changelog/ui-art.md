@@ -478,7 +478,7 @@ merge: doors 200/176 at t=60 s (Elves raiding), no script errors.
 
 ## 2026-10-09 — Elf courtyard: hidden south-wall flower beds moved into view
 
-Commit: `PENDING`
+Commit: `b4c6aa2`
 
 World & Maps found that the game camera looks over the south (+z) wall of the sunken courtyard and
 the wall's top hides the first ~2.5 m of floor behind it, so the three Elf flower beds at z = hz−1.4
@@ -489,4 +489,4 @@ Files touched: `scripts/game.gd` (`_build_cellar`, team 0 beds), `docs/changelog
 Tunables (old → new): Elf courtyard beds at x 3.4/11.0/14.4, z hz−1.4 → one bed at x 3.4, z hz−2.9.
 Tested: `--check-only`; `--audit` unchanged (1 pre-existing pine overlap).
 
-Revert: `git revert PENDING`
+Revert: `git revert b4c6aa2`
