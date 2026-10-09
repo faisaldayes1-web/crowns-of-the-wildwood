@@ -124,3 +124,11 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   1.0 M → 0.4 M, software-renderer frame time −25 %, HUD identical to the eye apart from the
   "FPS" number, no console errors. Not yet measured on a real iPad.
 - **Revert:** `git revert e9fcddf`
+
+## 2026-10-09 12:10 UTC · `20b0c0b` · Touch-first HUD on the iPad, sharper 3D
+
+- **Why:** Faisal (11:38): the iPad build "felt low textures and very laggy"; wants bigger icons and a mobile game UI.
+- **What:** On a touch screen the six moves become big painted tiles in an arc under the right thumb (attack 118 px in the corner, others 80 px), with no keycaps. The attack tile doubles as the aim pad: hold it to swing and drag to aim. A round pause button sits top-right; CROWN/KITS/MAP and the corner buttons are hidden, and the map stays in the pause menu. The move stick is bigger: 95 px range (was 70), with a larger knob and rest ring. A menu tap up to 24 px outside a button counts as a tap on it. Web 3D resolution goes from 0.5 to 0.75 of the canvas, and anisotropic filtering goes back from 4 to 8. Desktop HUD unchanged.
+- **Files:** `scripts/hud.gd`, `scripts/touch.gd`, `scripts/game.gd`, `project.godot`
+- **Tested:** `--check-only`; exported build in Chromium with iPad UA + touch, screenshot of the new layout, WebGL draws per frame ~1,110 (unchanged), no new console errors. Not measured on a real iPad.
+- **Revert:** `git revert 20b0c0b`
