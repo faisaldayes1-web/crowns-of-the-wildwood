@@ -265,6 +265,14 @@ func _ready() -> void:
 	sfx = Sfx.new()
 	add_child(sfx)
 	_load_controls()
+	if OS.has_feature("web"):
+		# Browsers (and tablets) start on Medium at most; Settings can raise
+		# it. (Here, not in _load_controls: a fresh browser has no settings
+		# file and that returns early.)
+		gfx_quality = mini(gfx_quality, 1)
+		# Tablets are 4:3: letterbox the 16:9 canvas rather than let the
+		# menus run off the sides.
+		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	sfx.set_listener(Vector3.ZERO)
 	Input.joy_connection_changed.connect(_on_pad_changed)
 	for arg in OS.get_cmdline_user_args():
@@ -2983,12 +2991,6 @@ func _load_controls() -> void:
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", false)
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
-	if OS.has_feature("web"):
-		# Browsers (and tablets) start on Medium at most; Settings can raise it.
-		gfx_quality = mini(gfx_quality, 1)
-		# Tablets are 4:3: letterbox the 16:9 canvas rather than let the
-		# menus run off the sides.
-		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	fullscreen = cfg.get_value("settings", "fullscreen", false)
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
