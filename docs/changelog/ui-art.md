@@ -591,7 +591,7 @@ Revert: `git revert c5afec8`.
 
 ## 2026-10-09 — Elf base decluttered, one paving stone throughout (Faisal 06:00: "both sides equally cluttered… front textures not uniform")
 
-Commit: `HASH_PENDING`. Elf side only (the Humans' side is World & Maps'); no map-wide pass.
+Commit: `70f43e1`. Elf side only (the Humans' side is World & Maps'); no map-wide pass.
 
 - **One paving**: the yard, the keep floor, both galleries and the crown-room floor now use the
   courtyard's `_pavers()` (were cream flagstone, moonstone-tinted flagstone at 0.75, flagstone,
@@ -606,8 +606,8 @@ Commit: `HASH_PENDING`. Elf side only (the Humans' side is World & Maps'); no ma
   lane).
 
 Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1 overlap
-(the pre-existing pines), 261 props; seed-5 90 s match (doors falling, see entry text).
+(the pre-existing pines), 261 props; seed-5 90 s match: doors 118/110 at 60 s.
 Renders: `elf-front-declutter-before.png` / `-after.png` and `compare-elf-front-before-vs-after.png`
 in game/groups/ui-art/.
 
-Revert: `git revert HASH_PENDING`.
+Revert: `git revert 70f43e1`.
