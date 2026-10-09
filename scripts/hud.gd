@@ -73,6 +73,7 @@ var chat_buttons: Array = []        # [rect, tab index]
 var hero_buttons: Array = []        # [rect, "hair" | "trim" | "name", index]
 var faction_buttons: Array = []     # [rect, team]
 var title_buttons: Array = []       # [rect, tab] on the title screen
+var menu_buttons: Array = []        # [rect, id, arg] drawn by the main menu (menu.gd)
 
 
 func _ready() -> void:
@@ -158,10 +159,16 @@ func _draw() -> void:
 	faction_buttons = []
 	title_buttons = []
 	couch_buttons = []
+	menu_buttons = []
 	if not game.playing and not game.game_over:
 		_draw_title()
 		if game.menu_open:
+			menu_buttons = []   # the pause/settings panel covers the menu: only its buttons count
+			hero_buttons = []
 			_draw_game_menu()
+		_draw_toasts()
+		if game.cursor_shown:
+			_draw_cursor()
 		return
 	if game.couch_active and not pane:
 		# Split screen: the panes draw their own players; this HUD, over the
@@ -245,7 +252,7 @@ func _mouse() -> Vector2:
 func nav_rects() -> Array:
 	## Every button drawn this frame, for the gamepad cursor to jump between.
 	var out: Array = []
-	for list in [title_buttons, faction_buttons, hero_buttons, couch_buttons, tab_buttons, bind_buttons,
+	for list in [menu_buttons, title_buttons, faction_buttons, hero_buttons, couch_buttons, tab_buttons, bind_buttons,
 			difficulty_buttons, toggle_buttons, guide_buttons, chat_buttons, variant_buttons, volume_sliders]:
 		for b in list:
 			if b[0].size.x > 0.0:
@@ -3857,9 +3864,12 @@ func _draw_nameplate(rect: Rect2) -> void:
 
 
 func _draw_title() -> void:
-	## The main menu: a bright, chunky Fall Guys style front end over the
-	## live world. A nameplate top-left, big tab buttons down the left, and
-	## the chosen tab's panel on the right.
+	## The main menu (title, Select Map, Create Your Character, Ready Up) is
+	## laid out and handled in menu.gd and drawn through this HUD. What
+	## follows is the earlier tabbed front end, kept only as a fallback.
+	if game.main_menu:
+		game.main_menu.draw(self)
+		return
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.03, 0.07, 0.1, 0.62))
 	var cx := size.x / 2.0
 	_draw_logo(Rect2(cx - 200, 2, 400, 160))
