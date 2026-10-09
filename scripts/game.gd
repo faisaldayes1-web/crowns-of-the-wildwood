@@ -7483,7 +7483,8 @@ func _debug_downed_hooks(frame: int) -> void:
 	if ally == null or foe == null:
 		return
 	var away := Vector3(0, 0, -40)
-	if frame == shot_frame - 150:
+	var lead := 220 if strike else 150   # the strike shot needs the grace, the hold and the swing to play out
+	if frame == shot_frame - lead:
 		player.global_position = spot
 		player.spawn_protect = 0.0
 		player.home_defense = false
@@ -7513,8 +7514,8 @@ func _debug_downed_hooks(frame: int) -> void:
 	if frame == shot_frame - 70 and which == "--debug-healer-revive":
 		Input.action_press("interact")
 	if which == "--debug-finish":
-		if frame == shot_frame - (74 if strike else 28):
+		if frame == shot_frame - (100 if strike else 28):
 			Input.action_press("interact")
 		return
-	if frame > shot_frame - 150 and frame < shot_frame:
+	if frame > shot_frame - lead and frame < shot_frame:
 		foe.global_position = away   # keep the enemy that downed them out of the shot
