@@ -128,6 +128,7 @@ var side_glow: MeshInstance3D
 var side_ring_mat: StandardMaterial3D
 var side_glow_mat: StandardMaterial3D
 var local_index := -1              # which local (couch) player drives this unit, -1 for bots
+var _bot_plan: Dictionary = {}     # browsers: the last plan, repeated on alternate ticks
 var act_prefix := ""               # input action prefix: "" for player 1, "p2_" ... for couch players
 var has_mouse := true              # player 1 aims with the mouse; the others with the right stick
 var avoid_dir := Vector3.ZERO      # look-ahead detour we are committed to
@@ -1772,7 +1773,16 @@ func _physics_process(delta: float) -> void:
 		if dodge_timer > 0.0 or bash_timer > 0.0:
 			return
 	else:
-		plan = _bot_think(delta)
+		if OS.has_feature("web") and not _bot_plan.is_empty() and (Engine.get_physics_frames() + get_index()) % 2 == 1:
+			# Browsers run on one slow thread: bots think every other physics
+			# tick and repeat the last plan's move and attack in between (not a
+			# one-off ability). Half the bot AI cost; a 16 ms slower reaction.
+			plan = _bot_plan
+			_bot_plan = {}
+		else:
+			plan = _bot_think(delta)
+			_bot_plan = plan.duplicate()
+			_bot_plan.erase("ability")
 		move = plan.move
 		wants_attack = plan.attack
 		wants_block = plan.get("block", false)
