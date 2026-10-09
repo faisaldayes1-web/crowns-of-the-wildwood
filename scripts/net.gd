@@ -423,12 +423,15 @@ func _flush_events() -> void:
 		for e in _out:
 			if (e[0] == 0 or e[0] == id) and (e[4] < 0 or e[4] == team):
 				batch.append([e[1], e[2], e[3]])
-		if not batch.is_empty():
-			_events.rpc_id(id, batch)
+		# In slices: a slow frame (a tablet building the match) can gather
+		# hundreds of events, and one packet must stay small for the relay.
+		for i in range(0, batch.size(), EVENT_SLICE):
+			_events.rpc_id(id, batch.slice(i, i + EVENT_SLICE))
 	_out = []
 
 
 var _early: Array = []         # client: events that came before our match began
+const EVENT_SLICE := 96        # events per packet
 
 
 func replay_early() -> void:

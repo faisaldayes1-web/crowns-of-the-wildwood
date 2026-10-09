@@ -30,7 +30,7 @@ const { WebSocketServer } = require("ws");
 const PORT = parseInt(process.env.PORT || "8787", 10);
 const MAX_PEERS = parseInt(process.env.MAX_PEERS || "8", 10);       // joiners per room
 const MAX_ROOMS = parseInt(process.env.MAX_ROOMS || "500", 10);
-const MAX_PACKET = 64 * 1024;
+const MAX_PACKET = +(process.env.MAX_PACKET || 1024 * 1024);   // one game packet (a big first snapshot fits)
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O, 1/I
 
 const rooms = new Map(); // code -> { host: ws, peers: Map<id, ws>, next: int }
@@ -89,6 +89,7 @@ wss.on("connection", (ws) => {
   ws.on("pong", () => (ws.alive = true));
 
   ws.on("message", (data, isBinary) => {
+    ws.alive = true;   // anything it sends proves the link is alive
     if (!isBinary) {
       let msg;
       try {
@@ -139,14 +140,21 @@ wss.on("connection", (ws) => {
     }
   });
 
-  ws.on("close", () => leave(ws));
+  ws.on("close", (code, reason) => {
+    if (ws.room) log(`room ${ws.room}: peer ${ws.id} closed (${code}${reason && reason.length ? " " + reason : ""})`);
+    leave(ws);
+  });
   ws.on("error", () => leave(ws));
 });
 
-// Drop dead connections (a tablet that went to sleep) every 20 s.
+// Drop dead connections (a tablet that went to sleep): a ping every 20 s,
+// and a link that misses MISSED_PINGS in a row is closed. Lenient on purpose:
+// a browser busy building a match reads nothing (so answers no ping) for a while.
+const MISSED_PINGS = +(process.env.MISSED_PINGS || 4);
 setInterval(() => {
   for (const ws of wss.clients) {
-    if (!ws.alive) {
+    ws.missed = ws.alive ? 0 : (ws.missed || 0) + 1;
+    if (ws.missed >= MISSED_PINGS) {
       ws.terminate();
       continue;
     }

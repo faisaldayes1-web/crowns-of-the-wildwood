@@ -95,6 +95,7 @@ const LEFT_BIG = [370, 463];        // CREATE ROOM, then CHOOSE MAP
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const key = (ch) => { const i = CODE_CHARS.indexOf(ch); return [714 + (i % 8) * 56, 263 + Math.floor(i / 8) * 48]; };
 const JOIN = [983, 467];
+const DELETE = [754, 467];
 const MAP_START = [640, 655];
 const LOBBY_START = [1028, 680];
 
@@ -103,17 +104,28 @@ async function uiTest() {
   const joiner = await open("ui-joiner", []);
   await until(host, /NET ready/, 180000);
   await until(joiner, /NET ready/, 180000);
-  await host.page.waitForTimeout(6000);
-  await tap(host, ...ONLINE_PLANK, "ONLINE");
-  await tap(host, ...LEFT_BIG, "CREATE ROOM");
-  const code = (await until(host, /NET room \w+ created/, 30000)).match(/room (\w+)/)[1];
+  // A software-rendered page can still be busy after the title is up and
+  // drop a tap, so each step is retried until its result shows in the log.
+  let code = null;
+  for (let i = 0; i < 4 && !code; i++) {
+    await host.page.waitForTimeout(6000);
+    await tap(host, ...ONLINE_PLANK, "ONLINE");
+    await tap(host, ...LEFT_BIG, "CREATE ROOM");
+    code = await until(host, /NET room \w+ created/, 30000).then((l) => l.match(/room (\w+)/)[1], () => null);
+  }
+  if (!code) throw new Error("ui-host: CREATE ROOM never made a room");
   console.log("room code", code);
   await shot(host, "1-room");
-  await tap(joiner, ...ONLINE_PLANK, "ONLINE");
-  for (const ch of code) await tap(joiner, ...key(ch), ch);
-  await shot(joiner, "1-code");
-  await tap(joiner, ...JOIN, "JOIN");
-  await until(joiner, /NET welcomed/, 30000);
+  let joined = false;
+  for (let i = 0; i < 4 && !joined; i++) {
+    await tap(joiner, ...ONLINE_PLANK, "ONLINE");
+    for (let k = 0; k < 4; k++) await tap(joiner, ...DELETE, "DELETE");
+    for (const ch of code) await tap(joiner, ...key(ch), ch);
+    await shot(joiner, "1-code");
+    await tap(joiner, ...JOIN, "JOIN");
+    joined = await until(joiner, /NET welcomed/, 30000).then(() => true, () => false);
+  }
+  if (!joined) throw new Error("ui-joiner: JOIN never reached the host");
   await until(host, /NET peer \d+ ready/, 180000);
   await joiner.page.waitForTimeout(2000);
   await shot(joiner, "2-waiting");
@@ -132,7 +144,7 @@ async function uiTest() {
   }
   await shot(joiner, "3-match");
   await shot(host, "3-match");
-  const errs = [...host.log, ...joiner.log].filter((l) => /SCRIPT ERROR|PAGEERROR/.test(l));
+  const errs = [...host.log, ...joiner.log].filter((l) => /SCRIPT ERROR|PAGEERROR|NET host closed|NET peer \d+ left/.test(l));
   await host.browser.close();
   await joiner.browser.close();
   if (errs.length) throw new Error("ui: errors:\n" + errs.slice(0, 10).join("\n"));
@@ -153,7 +165,7 @@ async function gameplayTest() {
 
 (async () => {
   console.log("web net test: logs and screenshots in", OUT);
-  const relay = spawn("node", [path.join(__dirname, "..", "server", "relay.js")], { env: { ...process.env, PORT: String(RELAY_PORT) }, stdio: "ignore" });
+  const relay = spawn("node", [path.join(__dirname, "..", "server", "relay.js")], { env: { ...process.env, PORT: String(RELAY_PORT) }, stdio: ["ignore", fs.openSync(path.join(OUT, "relay.log"), "a"), "inherit"] });
   const server = serve();
   let ok = true;
   for (const t of (process.env.ONLY ? [process.env.ONLY] : ["ui", "gameplay"])) {

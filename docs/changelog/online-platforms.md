@@ -223,7 +223,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tunables:** none (gameplay numbers unchanged)
 - **Revert:** `git revert 5bedad8`
 
-## 2026-10-09 13:00 UTC · `HASH-PENDING` · ONLINE screen: create a room, join by code
+## 2026-10-09 13:00 UTC · `3ba3c1b` · ONLINE screen: create a room, join by code
 
 - **What:** online play is now reachable from the menus, by touch, so it works on an iPad.
   - **Title:** the STORE plank under EXIT is now two half planks, **STORE** and **ONLINE** (a
@@ -246,4 +246,21 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Files:** `scripts/menu.gd`, `scripts/menu_stage.gd`, `scripts/game.gd`, `scripts/net.gd`,
   `tools/web_net_test.js`, `README.md`, `docs/online-plan.md`
 - **Tunables:** none
+- **Revert:** `git revert 3ba3c1b`
+
+## 2026-10-09 14:30 UTC · `HASH-PENDING` · Browser links survive a slow match start
+
+- **What:** in the two-browser test the joiner got its seat and then dropped. A page busy
+  building the match reads nothing for a while, so it misses the relay's pings and its first
+  packets after that frame are large.
+  - **Relay:** a link is closed only after 4 missed pings in a row (about 80 s; was 1, so 20-40 s),
+    and any message counts as a sign of life. Packets up to 1 MB (was 64 KB). Each closed link is
+    logged with its close code.
+  - **Host:** effect events go out in slices of 96 per packet instead of one packet per frame.
+  - `RelayPeer` reports a 1 MB packet limit to match.
+  - `tools/web_net_test.js`: the UI test now fails if either side drops; it retries a tap whose
+    result does not show (a busy page can miss one); the relay's log is kept with the test's.
+- **Files:** `server/relay.js`, `scripts/net.gd`, `scripts/relay_peer.gd`, `tools/web_net_test.js`
+- **Tunables:** relay `MAX_PACKET` 64 KB → 1 MB, relay `MISSED_PINGS` 1 → 4 (both env vars),
+  `Net.EVENT_SLICE` = 96 (new)
 - **Revert:** `git revert HASH-PENDING`

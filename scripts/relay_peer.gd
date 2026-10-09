@@ -148,7 +148,7 @@ func _get_packet_channel() -> int:
 
 
 func _get_max_packet_size() -> int:
-	return 60000
+	return 1000000   # the relay takes up to 1 MB per packet
 
 
 func _set_transfer_mode(mode: TransferMode) -> void:
