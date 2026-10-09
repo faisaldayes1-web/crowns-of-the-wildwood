@@ -199,7 +199,7 @@ then `python3 tools/balance/agg.py <tag>`.
   of a cooldown"; 09:15 "the stamina for punch needs to be more and there needs
   to be slightly more of a cooldown"; 09:16 "the basic attack shouldn't drain
   your stamina or magika")
-- **Commit:** _filled in by the next commit_
+- **Commit:** `d0e572e`
 - **What:** The dodge waits twice as long between uses (the HUD's dodge slot
   already shows the cooldown). Every class's basic attack (Punch, Sword
   Strike, arrows, bolts, Mend, every variant) now costs no stamina or mana;
@@ -214,4 +214,4 @@ then `python3 tools/balance/agg.py <tag>`.
   Punch `cooldown` 0.6 → 0.72 s (Punch table cost stays 8, unused).
 - **Batches:** six Wildwood seeds 41-46 before (`t4base`, at 643ecde) and
   after (`t4free`): results added when they finish.
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert d0e572e`
