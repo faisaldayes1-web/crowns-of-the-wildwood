@@ -978,7 +978,27 @@ func _draw_tutorial() -> void:
 
 func _draw_progress() -> void:
 	var body := _overlay_frame("PROGRESS")
-	h._draw_title_progress(body.grow(10))
+	var panel := body.grow(10)
+	h._draw_title_progress(panel)
+	# SAVED PROGRESS: it saves itself; the code moves it to another device.
+	var lx := panel.position.x + 30
+	var y := panel.position.y + 446
+	h._text(Vector2(lx, y), "SAVED PROGRESS", 12, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var ago := "" if game.saved_at < 0.0 else "  Last saved %s." % _ago(Time.get_ticks_msec() / 1000.0 - game.saved_at)
+	h._text(Vector2(lx, y + 16), "Your level, XP, gold, chests and store items save by themselves after every match and purchase.%s" % ago, 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	h._text(Vector2(lx, y + 30), "To play on another device (iPad and PC): EXPORT here, then IMPORT the code there.", 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	var bw := 200.0
+	wood_button(Rect2(lx, y + 40, bw, 36), "EXPORT CODE", "progress_export", null, "", 16)
+	wood_button(Rect2(lx + bw + 16, y + 40, bw, 36), "IMPORT CODE", "progress_import", null, "", 16)
+	h._text(Vector2(lx + 2 * bw + 34, y + 63), "Import copies the code from the clipboard" if not OS.has_feature("web") else "Import asks you to paste the code", 10, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+
+
+func _ago(t: float) -> String:
+	if t < 60.0:
+		return "just now"
+	if t < 3600.0:
+		return "%d min ago" % int(t / 60.0)
+	return "%d h ago" % int(t / 3600.0)
 
 
 # --- Input ------------------------------------------------------------------------------
@@ -1026,9 +1046,12 @@ func _press(id: String, arg) -> void:
 		"credits": overlay = "credits"
 		"progress": overlay = "progress"
 		"close": overlay = ""
+		"progress_export": game.export_progress()
+		"progress_import": game.import_progress()
 		"topic": tutorial_topic = int(arg)
 		"exit":
 			if exit_armed > 0.0:
+				game._save_settings()
 				game.get_tree().quit()
 			exit_armed = 3.0
 		"back": back()
