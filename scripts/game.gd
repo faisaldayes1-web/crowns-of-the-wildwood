@@ -7905,8 +7905,10 @@ func _build_world() -> void:
 	for sx in [-1.0, 1.0]:
 		_add_block(Vector3(sx * (fxr - 2.5), 0.008, 0), Vector3(7, 0.01, 10), Color.WHITE, false, _flagstone(Color(0.96, 0.93, 0.88)))
 		# The Forest Path (north) and the River Path (south): from the road by
-		# the castle door out to the flank bridges, as worn dirt tracks.
-		var dirt := _stones(true)
+		# the castle door out to the flank bridges, cobbled like the main road
+		# (they were loose stones in dirt: one cobble style map-wide, the
+		# courtyard reference).
+		var dirt := _stones()
 		var nb: float = BRIDGES[0]
 		var sb: float = BRIDGES[2]
 		_add_path(Vector3(sx * (fxr - 4.0), 0, -3.0), Vector3(sx * 30.0, 0, nb - 3.0), 3.4, dirt, 0.0)

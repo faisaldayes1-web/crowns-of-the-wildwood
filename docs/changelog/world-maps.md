@@ -7,13 +7,21 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 03:25 UTC · `(stamped by the next entry)` · Human base identity: stone lions, ballistae, parade ground, drill yard
+### 2026-10-09 03:35 UTC · `(stamped by the next entry)` · One cobble style map-wide: the Forest and River paths
+
+- **What:** The two flank approach routes to each castle (the Forest Path to the north bridge, the River Path to the south bridge) were loose stones in dirt; they are now laid in the same tan cobbles as the main road, fraying into the meadow at the edges, so every road on the Wildwood matches the courtyard reference. Widths and bends are unchanged (the bots' lanes are the same).
+- **Files:** scripts/game.gd (`_build_world`, flank paths)
+- **Tunables:** flank path material `_stones(true)` (loose) → `_stones()`
+- **Tested:** `--check-only`; `--audit` Wildwood 1 (unchanged)
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 03:25 UTC · `84766ad` · Human base identity: stone lions, ballistae, parade ground, drill yard
 
 - **What:** The Humans' castle now reads as its own faction against the Elves' hedge-and-crystal sanctuary (Faisal 00:14: "the bases should really feel more unique"), on both maps. **Main gate:** two stone lions sit on plinths outside the gate, a lion crest hangs on the parapet over it, and a timber ballista stands on each gatehouse tower (the sheet's outer-defence turrets, decorative). **Courtyard (the yard):** one long royal runner from the gate to the keep's archway, flanked by two pairs of stone pillars with gold caps, lion crests and blue pennants (a parade ground). **Inner castle:** a pair of lions guards the sanctuary ward at the top of the spawn stairs, and a smaller pair flanks the Crown Vault doors. **Spawn area (the barracks yard):** a blue runner from the spawn circle to the stairs (the Elves keep cobbles); the south wall is a drill yard instead of flower beds: a weapon rack, an archery target, two straw sparring dummies and two lion crests between the torches. **Ember Pass:** the Elves' courtyard walls and crown-altar ring are trimmed hedge there too (they were basalt rubble), so the Elf base reads as a green oasis on the ash, matching Faisal's courtyard targets; the Human changes above apply on Ember Pass as well.
 - **Files:** scripts/game.gd (new `_box_at`, `_add_stone_lion`, `_add_ballista`, `_add_training_dummy`, `_dress_human_castle`; Human branches in `_build_castle`, `_build_cellar`, `_build_throne_room`; `_hedge_mat`)
 - **Tunables:** none in stats.gd. Layout (Human yard): pillars at x in+3.0 / in+6.6, z ±6.7; gate lions at x fx−2.5, z ±6.7; ward lions at x bx−2.0, z ±2.45 (scale 0.8); vault lions at front−1.35, z ±2.3 (scale 0.72). Nothing new sits on a lane: gate→archway (|z| < 3.5), yard→rampart stairs (z ±9.5), spawn lane (|z| < 1.6).
 - **Tested:** `--check-only`; `--audit` Wildwood 1 (unchanged), Ember Pass 0; 30 s headless bot matches on both maps with no script errors. Renders: `game/groups/world-maps/human-*-after.png`
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert 84766ad`
 
 ### 2026-10-09 02:55 UTC · `ed70e0a` · Clipping audit: 63 overlaps down to 1
 
