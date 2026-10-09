@@ -28,6 +28,8 @@ var flash_timer := 0.0
 const FLASH_TIME := 0.22     # hit flash: white for the first frames, then red, easing back
 var hitstop_timer := 0.0
 var heartbeat_timer := 0.0
+const ATTACK_BUFFER := 0.2         # seconds a tapped attack waits for the swing cooldown
+var attack_buffer := 0.0
 const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits for its cooldown
 var input_buffer := [0.0, 0.0, 0.0]  # ability 1, ability 2, dodge
 var swing_flip := false     # alternate the slash arc left/right    # hit stop: the model's animation holds for a beat (looks only)
@@ -1068,7 +1070,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		# A flinch, from whichever side the blow came; a heavy blow cuts into
 		# whatever the body was doing and lifts it off its feet a little.
 		var side: float = facing.cross(Vector3.UP).dot(push)
-		model.play_once("Hit_B" if side > 0.0 else "Hit_A", 1.5 if amount < 2 else 1.8)
+		model.play_once("Hit_B" if side > 0.0 else "Hit_A", 1.5 if amount < 2 else 1.8, 0.5)
 		if amount >= 2:
 			var tw: Tween = model.create_tween()
 			tw.tween_property(model, "position:y", 0.3, 0.09).set_ease(Tween.EASE_OUT)
@@ -1811,7 +1813,11 @@ func _physics_process(delta: float) -> void:
 		_update_player_aim(move)
 		_update_highlights()
 		if not game.menu_blocks_input(self):
-			wants_attack = Input.is_action_pressed(_a("attack"))
+			# Held attack keeps swinging; a tap during the cooldown is kept for
+			# a moment and swings as soon as it can (no lost clicks).
+			if Input.is_action_just_pressed(_a("attack")):
+				attack_buffer = ATTACK_BUFFER
+			wants_attack = Input.is_action_pressed(_a("attack")) or attack_buffer > 0.0
 			wants_block = Input.is_action_pressed(_a("block"))
 			if Input.is_action_just_pressed(_a("interact")):
 				game.try_interact(self)
@@ -1904,7 +1910,9 @@ func _physics_process(delta: float) -> void:
 		real.y = 0.0
 		stuck_time = stuck_time + delta if real.length() < speed * 0.3 else 0.0
 
+	attack_buffer = maxf(attack_buffer - delta, 0.0)
 	if wants_attack and not blocking and carrying == null and attack_timer <= 0.0:
+		attack_buffer = 0.0
 		_attack(aim)
 	if plan.has("ability"):
 		use_ability(plan.ability, plan.aim)
