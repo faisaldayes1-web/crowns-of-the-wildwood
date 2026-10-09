@@ -209,6 +209,7 @@ var seals := [{}, {}]
 var message_timer := 0.0
 # Run with "-- --demo" to watch bots play each other (used for testing).
 var demo := false
+var no_downed := false   # --no-downed: losing your last heart kills outright (balance comparisons)
 var shot_frame := 900
 # Menus. The game menu (Esc) pauses; the rank menu (Tab) is an overlay.
 var menu_open := false
@@ -264,6 +265,7 @@ func _ready() -> void:
 		get_tree().quit()
 		return
 	demo = "--demo" in OS.get_cmdline_user_args()
+	no_downed = "--no-downed" in OS.get_cmdline_user_args()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shot-frame="):
 			shot_frame = int(arg.trim_prefix("--shot-frame="))
@@ -383,6 +385,7 @@ func _debug_hooks() -> void:
 	## Testing aids: "--shot=<png>" saves a screenshot at frame --shot-frame
 	## (default 900); "--debug-end" ends the match a second before that.
 	var frame := Engine.get_process_frames()
+	_debug_downed_hooks(frame)
 	for arg in OS.get_cmdline_user_args():
 		if frame == shot_frame - 5:
 			if arg.begins_with("--debug-title-tab="):
@@ -565,8 +568,8 @@ func _demo_summary() -> void:
 		var vi: int = u.variants.get(u.bot_class, -1)
 		if vi >= 0:
 			cls = Stats.VARIANTS[u.bot_class][vi].name
-		print("STAT team=%d class=%s kills=%d deaths=%d assists=%d dmg=%d heal=%d caps=%d level=%d" % [u.team, cls.replace(" ", ""),
-			u.kills, u.deaths, u.assists, u.damage_dealt, u.healing, u.captures, u.level])
+		print("STAT team=%d class=%s kills=%d deaths=%d assists=%d dmg=%d heal=%d caps=%d level=%d revives=%d revived=%d" % [u.team, cls.replace(" ", ""),
+			u.kills, u.deaths, u.assists, u.damage_dealt, u.healing, u.captures, u.level, u.revives, u.times_revived])
 
 
 func _end_on_time() -> void:
@@ -610,7 +613,7 @@ func _finish(winner: int) -> void:
 
 
 func try_interact(u) -> void:
-	if u.dead:
+	if u.dead or u.downed:
 		return
 	if u.carrying:
 		drop_monarch(u)
@@ -1137,7 +1140,7 @@ func nearest_cover(pos: Vector3, radius: float) -> Vector3:
 func enemies_near(team: int, pos: Vector3, radius: float) -> int:
 	var n := 0
 	for u in units:
-		if u.team != team and not u.dead and _flat_dist(u.global_position, pos) < radius:
+		if u.team != team and not u.dead and not u.downed and _flat_dist(u.global_position, pos) < radius:
 			n += 1
 	return n
 
@@ -1164,7 +1167,7 @@ func raiders_near(team: int, pos: Vector3, radius: float) -> int:
 func allies_near(team: int, pos: Vector3, radius: float) -> int:
 	var n := 0
 	for u in units:
-		if u.team == team and not u.dead and _flat_dist(u.global_position, pos) < radius:
+		if u.team == team and not u.dead and not u.downed and _flat_dist(u.global_position, pos) < radius:
 			n += 1
 	return n
 
@@ -2558,7 +2561,7 @@ func _idle_banter() -> void:
 
 func unit_score(u) -> int:
 	return u.kills * Stats.SCORE_KILL + u.assists * Stats.SCORE_ASSIST + u.captures * Stats.SCORE_CAPTURE + u.healing * Stats.SCORE_HEAL \
-		+ u.damage_dealt * Stats.SCORE_DAMAGE + u.total_upgrades() * Stats.SCORE_UPGRADE
+		+ u.damage_dealt * Stats.SCORE_DAMAGE + u.total_upgrades() * Stats.SCORE_UPGRADE + u.revives * Stats.SCORE_REVIVE
 
 
 # --- Control bindings --------------------------------------------------------
@@ -7452,3 +7455,66 @@ func _add_action(action: StringName, keys: Array, buttons: Array, axis: int = -1
 		var mb := InputEventMouseButton.new()
 		mb.button_index = button
 		InputMap.action_add_event(action, mb)
+
+
+func _debug_downed_hooks(frame: int) -> void:
+	## Renders for the downed state: "--debug-downed" (the player down, a
+	## teammate on the way), "--debug-revive" (a teammate reviving the
+	## player), "--debug-healer-revive" (the player, a Healer, reviving a
+	## downed teammate).
+	var args := OS.get_cmdline_user_args()
+	var which := ""
+	var strike := "--debug-finish-strike" in args
+	for k in ["--debug-downed", "--debug-revive", "--debug-healer-revive", "--debug-finish"]:
+		if k in args:
+			which = k
+	if strike:
+		which = "--debug-finish"   # the same set-up, held long enough that the blow lands on the shot
+	if which == "" or player == null:
+		return
+	var spot := Vector3(-14, 0, 0) if player_team == 0 else Vector3(14, 0, 0)
+	var ally = null
+	var foe = null
+	for u in units:
+		if u != player and u.team == player_team and ally == null:
+			ally = u
+		if u.team != player_team and foe == null:
+			foe = u
+	if ally == null or foe == null:
+		return
+	var away := Vector3(0, 0, -40)
+	if frame == shot_frame - 150:
+		player.global_position = spot
+		player.spawn_protect = 0.0
+		player.home_defense = false
+		if which == "--debug-finish":
+			# The player (a Knight) standing over a downed enemy, finishing them.
+			player.set_role(Unit.Role.KNIGHT)
+			foe.set_role(Unit.Role.RANGER)
+			foe.global_position = spot + Vector3(1.4, 0, 0.4)
+			foe.spawn_protect = 0.0
+			foe.home_defense = false
+			foe.take_damage(foe.hearts, player, player.global_position)
+			return
+		if which == "--debug-healer-revive":
+			player.set_role(Unit.Role.HEALER)
+			ally.global_position = spot + Vector3(1.6, 0, 0.6)
+			ally.set_role(Unit.Role.RANGER)
+			ally.spawn_protect = 0.0
+			ally.home_defense = false
+			ally.take_damage(ally.hearts, foe, ally.global_position + Vector3(2, 0, 0))
+		else:
+			player.set_role(Unit.Role.RANGER)
+			player.take_damage(player.hearts, foe, player.global_position + Vector3(2, 0, 0))
+			player.downed_timer = 9.4
+			ally.set_role(Unit.Role.KNIGHT)
+			ally.global_position = spot + (Vector3(1.2, 0, 0.5) if which == "--debug-revive" else Vector3(10.0, 0, -12.0))
+		foe.global_position = away
+	if frame == shot_frame - 70 and which == "--debug-healer-revive":
+		Input.action_press("interact")
+	if which == "--debug-finish":
+		if frame == shot_frame - (74 if strike else 28):
+			Input.action_press("interact")
+		return
+	if frame > shot_frame - 150 and frame < shot_frame:
+		foe.global_position = away   # keep the enemy that downed them out of the shot

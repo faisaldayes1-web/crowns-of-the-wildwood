@@ -21,6 +21,21 @@ var hearts := Stats.MAX_HEARTS
 var energy := 100.0
 var dead := false
 var respawn_timer := 0.0
+# Downed (see stats.gd DOWNED_TIME): on the ground, not dead. Teammates can
+# revive; an enemy hit, bleeding out or skipping makes it a real death.
+var downed := false
+var downed_timer := 0.0       # bleed-out seconds left
+var downed_total := 0.0
+var downed_by = null          # who knocked us down (kill credit already given)
+var skip_hold := 0.0          # seconds interact has been held to skip
+var revive_progress := 0.0    # 0..1, filled by whoever is reviving us
+var revive_by = null          # the teammate reviving us this frame
+var revive_target = null      # (reviver side) the downed teammate we are reviving
+var revive_protect := 0.0     # invulnerable while standing back up
+var down_snapshot := {}       # levels, xp and ranks before the fall, handed back on a revive
+var revives := 0              # teammates this unit revived this match
+var times_revived := 0
+var bot_down_wait := 0.0      # a downed bot alone: seconds before it skips
 var attack_timer := 0.0
 var flash_timer := 0.0
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
@@ -575,7 +590,7 @@ func _refresh_overhead() -> void:
 		bounty_ring_mat.albedo_color = (Color(1, 0.3, 0.2) if is_enemy_of_player() else Color(1, 0.85, 0.3)) if veteran == 2 else Color(0.95, 0.75, 0.3)
 		bounty_beam.visible = veteran == 2 and not dead
 		bounty_beam.material_override.albedo_color = Color(1, 0.3, 0.2, 0.3) if is_enemy_of_player() else Color(1, 0.85, 0.3, 0.25)
-	label.visible = not dead
+	label.visible = not dead and not downed   # the downed body carries the swirl and the revive bar instead
 	_refresh_hp_bar()
 
 
@@ -598,7 +613,7 @@ func _overhead_mat(color: Color, priority: int) -> StandardMaterial3D:
 func _refresh_hp_bar() -> void:
 	if hp_bar == null:
 		return
-	hp_bar.visible = not dead
+	hp_bar.visible = not dead and not downed
 	var total := maxi(max_hearts(), 1)
 	if hp_segs.size() != total:
 		for seg in hp_segs:
@@ -674,7 +689,7 @@ func track_name(track: int) -> String:
 
 
 func gain_xp(amount: int, source: String = "combat") -> void:
-	if dead or amount <= 0:
+	if dead or downed or amount <= 0:
 		return
 	xp += amount
 	xp_sources[source] = xp_sources.get(source, 0) + amount
@@ -790,8 +805,12 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	## Returns true if the hit landed. `from` is where the hit came from, for
 	## knockback and for the shield: a raised shield stops hits from the front.
 	## `effect` can carry slow / root seconds.
-	if dead or dodge_timer > 0.0 or guard_timer > 0.0:
-		return false  # mid-dodge or behind the shield wall: untouchable
+	if dead:
+		return false
+	if downed:
+		return _hit_while_downed(attacker)
+	if dodge_timer > 0.0 or guard_timer > 0.0 or revive_protect > 0.0:
+		return false  # mid-dodge, behind the shield wall or standing up from a revive: untouchable
 	if is_protected():
 		if attacker and attacker.is_player:
 			game.spawn_popup(global_position + Vector3(0, 2.0, 0), "PROTECTED", Color(0.7, 0.9, 1.0))
@@ -890,7 +909,10 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 				game.bounty_claimed(attacker, self)
 			attacker._check_veteran()
 		game.chat_kill(attacker, self)
-		_die()
+		if downed_enabled():
+			_go_down(attacker)   # the kill is credited; a revive can still undo the fall
+		else:
+			_die()
 		return true
 	_refresh_overhead()
 	if model and model._now() >= model.busy_until:
@@ -902,7 +924,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 
 
 func heal(amount: int, healer = null) -> int:
-	if dead:
+	if dead or downed:
 		return 0
 	var before := hearts
 	hearts = mini(hearts + amount, max_hearts())
@@ -1186,23 +1208,47 @@ func _recoil(dir: Vector3, amount: float) -> void:
 
 
 func _die() -> void:
+	# A downed unit dying (finished off, bled out, skipped) already paid for
+	# the fall when it went down: only the body and the timer are left.
+	var was_down := downed
+	var timer_level: int = down_snapshot.get("level", level) if was_down else level
+	if was_down:
+		_end_downed()
+	executed_by = null
 	dead = true
 	hearts = 0
+	shape.disabled = true
+	death_timer = 1.6 if was_down else 1.1
+	if not was_down:
+		model.die()   # a finished body is already on the ground: it just stays down
+	respawn_timer = minf(Stats.RESPAWN_TIME + Stats.RESPAWN_PER_LEVEL * (timer_level - 1), Stats.RESPAWN_MAX)
+	var fell_from := level
+	if not was_down:
+		_fall()
+	velocity = Vector3.ZERO
+	if is_player and fell_from > 1 and not was_down:
+		game.announce("You fell at level %d: down to level %d, back in %d seconds." % [fell_from, level, int(respawn_timer)])
+	game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.3, 0.3, 0.35), 18, 3.0, 0.8)
+	game.spawn_ring(global_position, 1.4, Color(0.6, 0.2, 0.2), 0.5)
+	game.sfx.play("death", global_position, 0.0, 0.1)
+	if aim_marker:
+		aim_marker.visible = false
+		aim_ring.visible = false
+	_refresh_overhead()   # hide the name tag and health bar while down
+
+
+func _fall() -> void:
+	## What losing your last heart costs, whether you die or go down: the
+	## crown drops, streaks end, the death counts and levels are lost.
 	last_role = role
 	if carrying:
 		game.drop_monarch(self)
-	shape.disabled = true
-	death_timer = 1.1
-	model.die()
-	respawn_timer = minf(Stats.RESPAWN_TIME + Stats.RESPAWN_PER_LEVEL * (level - 1), Stats.RESPAWN_MAX)
-	var fell_from := level
 	if veteran > 0:
 		game.chat_system("%s's streak of %d ends." % [display_name, streak])
 	streak = 0
 	veteran = 0
 	buff = ""
 	buff_timer = 0.0
-	velocity = Vector3.ZERO
 	guard_timer = 0.0
 	blocking = false
 	guard_ring.visible = false
@@ -1213,15 +1259,516 @@ func _die() -> void:
 	slow_timer = 0.0
 	overhead.visible = true
 	_lose_levels(Stats.DEATH_LEVEL_LOSS)
-	if is_player and fell_from > 1:
-		game.announce("You fell at level %d: down to level %d, back in %d seconds." % [fell_from, level, int(respawn_timer)])
-	game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.3, 0.3, 0.35), 18, 3.0, 0.8)
-	game.spawn_ring(global_position, 1.4, Color(0.6, 0.2, 0.2), 0.5)
-	game.sfx.play("death", global_position, 0.0, 0.1)
+
+
+# --- Downed and revive -------------------------------------------------------
+# Losing your last heart knocks you down (stats.gd DOWNED_TIME). The fall is
+# paid at once (_fall: kill credit, crown dropped, levels lost); a revive
+# hands the levels back, and anything else ends in the usual _die().
+
+var down_fx: Node3D           # ground ring under a downed unit
+var down_ring: MeshInstance3D
+var down_ring_mat: StandardMaterial3D
+var down_cross: Node3D        # green cross over the body (on the overhead)
+var down_cross_mat: StandardMaterial3D
+var down_bar: Node3D          # bleed-out (red, draining) / revive (gold, filling)
+var down_bar_fill: MeshInstance3D
+var down_bar_mat: StandardMaterial3D
+var revive_frame := -10       # physics frame a teammate last worked on us
+
+
+func downed_enabled() -> bool:
+	## Overtime is sudden death; --no-downed turns the feature off for
+	## before/after balance batches.
+	return Stats.DOWNED_TIME > 0.0 and not game.overtime and not game.no_downed
+
+
+func _go_down(attacker) -> void:
+	down_snapshot = {"level": level, "xp": xp, "points": points, "ranks": ranks.duplicate(true), "spent": spent.duplicate(true)}
+	_fall()
+	downed = true
+	hearts = 0
+	downed_total = Stats.DOWNED_TIME
+	downed_timer = downed_total
+	downed_by = attacker
+	skip_hold = 0.0
+	revive_progress = 0.0
+	revive_by = null
+	revive_target = null
+	bot_down_wait = 0.0
+	velocity = Vector3.ZERO
+	knockback = Vector3.ZERO
+	dodge_timer = 0.0
+	bash_timer = 0.0
+	model.go_down()
+	_build_down_fx()
+	down_fx.visible = true
+	game.spawn_splash(global_position + Vector3(0, 0.6, 0), Color(0.3, 0.3, 0.35), 14, 2.5, 0.7)
+	game.spawn_ring(global_position, 1.2, Color(0.9, 0.3, 0.25), 0.45)
+	game.sfx.play("death", global_position, -4.0, 0.1)
 	if aim_marker:
 		aim_marker.visible = false
 		aim_ring.visible = false
-	_refresh_overhead()   # hide the name tag and health bar while down
+	if game.demo:
+		var mate = _nearest_standing_ally()
+		print("DOWN t=%d team%d %s ally=%.0f foes=%d" % [game.match_clock(), team, role_name(), _flat_to(mate.global_position).length() if mate else 99.0, game.enemies_near(team, global_position, 6.0)])
+	_refresh_overhead()
+
+
+func _end_downed() -> void:
+	downed = false
+	downed_timer = 0.0
+	downed_by = null
+	skip_hold = 0.0
+	revive_progress = 0.0
+	revive_by = null
+	down_snapshot = {}
+	if down_fx:
+		down_fx.visible = false
+	if down_cross:
+		down_cross.visible = false
+		down_bar.visible = false
+
+
+func _hit_while_downed(attacker, finisher: bool = false) -> bool:
+	## Any enemy hit (or a trap) finishes a downed unit off; `finisher` is
+	## the deliberate move landing (no grace check: the hold already waited).
+	if attacker != null and (attacker == self or attacker.team == team):
+		return false
+	if not finisher and downed_total - downed_timer < Stats.DOWNED_GRACE:
+		return false
+	if executed_by and is_instance_valid(executed_by) and executed_by != attacker:
+		return false   # someone else's finisher is already coming down
+	_finish_fx(attacker)
+	if is_player:
+		game.killer_card = {"unit": attacker, "weapon": "a finisher", "finished": true} if attacker else {}
+		game.killer_timer = 6.0
+	if attacker:
+		attacker.gain_xp(Stats.XP_FINISH, "takedowns")
+		if attacker.is_player:
+			attacker.kill_banner = {"victim": display_name, "role": role_name(), "team": team, "role_id": role,
+				"streak": 0, "time": Time.get_ticks_msec() / 1000.0, "finish": true}
+		# The finisher shows in the kill feed too (the down already counted
+		# as the kill for whoever knocked us down).
+		game.kill_feed.append({"killer": attacker.display_name, "kteam": attacker.team, "krole": attacker.role,
+			"victim": display_name, "vteam": team, "vrole": role, "time": Time.get_ticks_msec() / 1000.0, "finish": true})
+		if game.kill_feed.size() > 6:
+			game.kill_feed.pop_front()
+	if game.demo:
+		print("FINISH t=%d team%d %s by=%s" % [game.match_clock(), team, role_name(), attacker.role_name() if attacker else "trap"])
+	_die()
+	return true
+
+
+func revive_time() -> float:
+	return Stats.HEALER_REVIVE_TIME if role == Role.HEALER else Stats.REVIVE_TIME
+
+
+func revive_reach() -> float:
+	return Stats.HEALER_REVIVE_RANGE if role == Role.HEALER else Stats.REVIVE_RANGE
+
+
+func finished_by():
+	## The enemy finishing us right now (holding over us, or mid-move), or null.
+	if executed_by and is_instance_valid(executed_by):
+		return executed_by
+	for other in game.units:
+		if other.team != team and other.finish_target == self and other.finish_progress > 0.0 \
+				and Engine.get_physics_frames() - other.finish_frame <= 2:
+			return other
+	return null
+
+
+func being_revived() -> bool:
+	return downed and revive_by != null and Engine.get_physics_frames() - revive_frame <= 2
+
+
+func revive_candidate():
+	## The downed teammate this unit could revive right now, or null.
+	if dead or downed or carrying:
+		return null
+	var best = null
+	var best_d := revive_reach()
+	for other in game.units:
+		if other == self or other.team != team or not other.downed or other.executed_by != null:
+			continue
+		var d := _flat_to(other.global_position).length()
+		if d <= best_d:
+			best_d = d
+			best = other
+	return best
+
+
+func _tick_revive(t, delta: float) -> void:
+	## Hold interact over a downed teammate: fill their revive bar.
+	revive_target = t
+	t.revive_by = self
+	t.revive_frame = Engine.get_physics_frames()
+	t.revive_progress += delta / revive_time()
+	facing = _flat_to(t.global_position).normalized() if _flat_to(t.global_position).length() > 0.1 else facing
+	rotation.y = atan2(-facing.x, -facing.z)
+	if model and model._now() >= model.busy_until:
+		model.play_once("Spellcast_Long" if role == Role.HEALER else "Interact", 1.0)
+	if Engine.get_physics_frames() % 10 == 0:
+		game.spawn_splash(t.global_position + Vector3(0, 0.5, 0), Color(0.5, 1.0, 0.55) if role == Role.HEALER else Color(1.0, 0.85, 0.4), 3, 1.2, 0.6, true)
+	if t.revive_progress >= 1.0:
+		t._revive(self)
+		revive_target = null
+
+
+var finish_target = null      # (enemy side) the downed enemy we are finishing with a hold
+var finish_progress := 0.0
+var finish_frame := -10
+
+
+func finish_candidate():
+	## A downed enemy close enough to finish with a hold of interact, or null.
+	if dead or downed or carrying:
+		return null
+	var best = null
+	var best_d := Stats.REVIVE_RANGE
+	for other in game.units:
+		if other.team == team or not other.downed or other.executed_by != null:
+			continue
+		var d := _flat_to(other.global_position).length()
+		if d <= best_d:
+			best_d = d
+			best = other
+	return best
+
+
+func can_finish(t) -> bool:
+	return t.downed and t.downed_total - t.downed_timer >= Stats.DOWNED_GRACE
+
+
+func _tick_finish(t, delta: float) -> void:
+	## Hold interact over a downed enemy: a deliberate finisher.
+	if finish_target != t:
+		finish_progress = 0.0
+	finish_target = t
+	finish_frame = Engine.get_physics_frames()
+	if not can_finish(t):
+		return
+	finish_progress += delta / Stats.FINISH_HOLD
+	facing = _flat_to(t.global_position).normalized() if _flat_to(t.global_position).length() > 0.1 else facing
+	rotation.y = atan2(-facing.x, -facing.z)
+	# Wind-up: weapon raised over the body while the hold fills.
+	if model and model._now() >= model.busy_until:
+		model.play_once(_finisher_anims()[0], 0.9)
+	if Engine.get_physics_frames() % 8 == 0:
+		game.spawn_splash(t.global_position + Vector3(0, 0.4, 0), Color(0.9, 0.2, 0.15), 2, 1.0, 0.5, true)
+	if finish_progress >= 1.0:
+		finish_progress = 0.0
+		finish_target = null
+		_start_finisher(t)
+
+
+# --- Finishers ----------------------------------------------------------------
+# A finisher is a short locked move: the finisher steps in and strikes with
+# a class-specific heavy blow (FINISH_ANIM seconds), the blow lands at
+# FINISH_IMPACT, and the downed body is finished with a burst. While it plays
+# the body can't be revived or crawl away.
+
+var finishing := 0.0          # seconds left in our finisher move
+var finish_victim = null
+var finish_struck := false
+var executed_by = null        # (victim side) the enemy finishing us
+
+
+func _finisher_anims() -> Array:
+	## [wind-up, strike] for this class.
+	match role:
+		Role.RANGER:
+			return ["2H_Ranged_Aiming", "2H_Ranged_Shoot"]
+		Role.MAGE:
+			return ["Spellcast_Raise", "Spellcast_Shoot"]
+		Role.HEALER:
+			return ["Spellcast_Raise", "Spellcast_Long"]
+		Role.ROGUE:
+			return ["Dualwield_Melee_Attack_Chop", "Dualwield_Melee_Attack_Stab"]
+		_:
+			return ["2H_Melee_Idle", "2H_Melee_Attack_Chop"]
+
+
+func _start_finisher(t) -> void:
+	finishing = Stats.FINISH_ANIM
+	finish_victim = t
+	finish_struck = false
+	t.executed_by = self
+	t.revive_progress = 0.0
+	velocity = Vector3.ZERO
+	if model:
+		model.play_once(_finisher_anims()[1], 1.15)
+	game.sfx.play("swing_heavy", global_position, -2.0, 0.1)
+	game.spawn_swing(self, _flat_to(t.global_position).normalized())
+	if is_player:
+		game.rumble(self, 0.2, 0.4, 0.15)
+
+
+func _finisher_process(delta: float) -> void:
+	## Locked in the finisher: face the body, lunge a little, strike on cue.
+	var t = finish_victim
+	finishing -= delta
+	if t and is_instance_valid(t) and t.downed:
+		var to := _flat_to(t.global_position)
+		if to.length() > 0.1:
+			facing = to.normalized()
+			rotation.y = atan2(-facing.x, -facing.z)
+		var lunge: float = 3.0 if (Stats.FINISH_ANIM - finishing) < Stats.FINISH_IMPACT and to.length() > 1.0 else 0.0
+		velocity = Vector3(facing.x * lunge, 0.0 if is_on_floor() else velocity.y - GRAVITY * delta, facing.z * lunge)
+		move_and_slide()
+		if not finish_struck and Stats.FINISH_ANIM - finishing >= Stats.FINISH_IMPACT:
+			finish_struck = true
+			t._hit_while_downed(self, true)
+	elif not finish_struck:
+		finishing = 0.0   # the body was revived or is gone: the move is wasted
+	if finishing <= 0.0:
+		finishing = 0.0
+		if t and is_instance_valid(t) and t.executed_by == self:
+			t.executed_by = null
+		finish_victim = null
+
+
+func _finish_fx(attacker) -> void:
+	## The blow lands: a red burst, a shock ring, a dark pillar, a shake.
+	var p := global_position
+	game.spawn_burst(p + Vector3(0, 0.05, 0), 2.2, Color(0.85, 0.12, 0.1))
+	game.spawn_ring(p, 2.6, Color(1.0, 0.35, 0.2), 0.45, 0.1)
+	game.spawn_splash(p + Vector3(0, 0.5, 0), Color(0.95, 0.2, 0.15), 26, 5.0, 0.6)
+	game.spawn_splash(p + Vector3(0, 0.7, 0), Color(1.0, 0.85, 0.4), 12, 4.0, 0.5, true)
+	game.spawn_pillar(p, Color(0.6, 0.08, 0.08), 3.0, 0.6)
+	game.spawn_popup(p + Vector3(0, 2.0, 0), "FINISHED!", Color(1.0, 0.35, 0.25))
+	game.sfx.play("smite", p, 0.0, 0.1)
+	game.sfx.play("hit_flesh", p, -2.0, 0.1)
+	game.shake_at(p, 0.55)
+	if attacker:
+		game.rumble(attacker, 0.5, 0.9, 0.25)
+	game.rumble(self, 0.6, 1.0, 0.35)
+
+
+func _revive(by) -> void:
+	var snap := down_snapshot
+	_end_downed()
+	if not snap.is_empty():
+		# The fall is undone: levels, XP and ranks come back.
+		level = snap.level
+		xp = snap.xp
+		points = snap.points
+		ranks = snap.ranks
+		spent = snap.spent
+	hearts = mini(Stats.REVIVE_HEARTS, max_hearts())
+	energy = maxf(energy, energy_max() * 0.5)
+	revive_protect = Stats.REVIVE_PROTECT
+	times_revived += 1
+	model.stand_up()
+	if aim_marker:
+		aim_marker.visible = true
+	var healer: bool = by and by.role == Role.HEALER
+	if by:
+		by.revives += 1
+		by.gain_xp(Stats.XP_REVIVE, "support")
+	var col := Color(0.45, 1.0, 0.55) if healer else Color(1.0, 0.85, 0.4)
+	game.spawn_pillar(global_position, col, 3.5, 0.8)
+	game.spawn_ring(global_position, 1.8, col, 0.5)
+	game.spawn_splash(global_position + Vector3(0, 0.6, 0), col, 20, 3.0, 0.8, true)
+	game.spawn_popup(global_position + Vector3(0, 2.2, 0), "REVIVED", col)
+	game.sfx.play("respawn", global_position, -4.0)
+	if is_player:
+		game.toast("REVIVED BY %s" % (by.display_name.to_upper() if by else "A TEAMMATE"), col)
+	if by and by.is_player:
+		game.toast("YOU REVIVED %s" % display_name.to_upper(), col)
+	if game.demo:
+		print("REVIVE t=%d team%d %s by=%s healer=%s" % [game.match_clock(), team, role_name(), by.role_name() if by else "?", healer])
+	_refresh_overhead()
+
+
+func _downed_process(delta: float) -> void:
+	## A downed unit's frame: bleed out (paused while a teammate works on
+	## us), skip, crawl.
+	if executed_by and is_instance_valid(executed_by) and executed_by.finishing > 0.0:
+		return   # a finisher is landing: no crawling, skipping or reviving now
+	executed_by = null
+	var helped := being_revived()
+	if not helped:
+		revive_by = null
+		revive_progress = maxf(revive_progress - delta / Stats.REVIVE_TIME, 0.0)
+		downed_timer -= delta
+	if downed_timer <= 0.0:
+		if game.demo:
+			print("BLEEDOUT t=%d team%d %s" % [game.match_clock(), team, role_name()])
+		_die()
+		return
+	var move := Vector3.ZERO
+	if is_player:
+		if not game.menu_blocks_input(self):
+			var stick := Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+			move = Vector3(stick.x, 0, stick.y)
+			# Hold interact to give up and respawn (not from a press held
+			# over from before the fall).
+			if Input.is_action_pressed(_a("interact")) and downed_total - downed_timer > 0.4:
+				skip_hold += delta
+			else:
+				skip_hold = 0.0
+			if skip_hold >= Stats.DOWNED_SKIP_HOLD:
+				if game.demo:
+					print("SKIP t=%d team%d %s" % [game.match_clock(), team, role_name()])
+				_die()
+				return
+	else:
+		# A bot waits for help while a teammate is near enough to come;
+		# alone, it skips to the respawn.
+		var ally = _nearest_standing_ally()
+		if ally == null or _flat_to(ally.global_position).length() > Stats.BOT_HEALER_REVIVE_SEEK:
+			bot_down_wait += delta
+			if bot_down_wait >= Stats.BOT_DOWNED_GIVE_UP:
+				if game.demo:
+					print("SKIP t=%d team%d %s" % [game.match_clock(), team, role_name()])
+				_die()
+				return
+		else:
+			bot_down_wait = 0.0
+	if helped:
+		move = Vector3.ZERO
+	var speed: float = Stats.FACTIONS[team].speed * stats().speed * Stats.DOWNED_CRAWL
+	if move.length() > 0.05:
+		facing = move.normalized()
+		rotation.y = atan2(-facing.x, -facing.z)
+	velocity.x = move.x * speed
+	velocity.z = move.z * speed
+	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
+	move_and_slide()
+	_clamp_to_map()
+	if game.in_channel(global_position):
+		var bank := 1.0 if global_position.x >= 0.0 else -1.0
+		global_position.x = bank * (game.RIVER_HALF + 0.9)
+
+
+func _nearest_standing_ally():
+	var best = null
+	var best_d := 1e9
+	for other in game.units:
+		if other == self or other.team != team or other.dead or other.downed:
+			continue
+		var d := _flat_to(other.global_position).length()
+		if d < best_d:
+			best_d = d
+			best = other
+	return best
+
+
+func _bot_revive_goal(mine):
+	## The downed teammate this bot should go and revive, or null: close
+	## enough (Healers look further), safe enough, and nothing more urgent.
+	if carrying:
+		return null
+	if mine.state != Monarch.State.HOME and bot_job == "recover":
+		return null
+	var seek: float = Stats.BOT_HEALER_REVIVE_SEEK if role == Role.HEALER else Stats.BOT_REVIVE_SEEK
+	var best = null
+	var best_d := seek
+	for other in game.units:
+		if other == self or other.team != team or not other.downed:
+			continue
+		var d := _flat_to(other.global_position).length()
+		if d >= best_d:
+			continue
+		# Safe: not more enemies than friends round the body (Healers and
+		# whoever is already reviving keep going).
+		var foes: int = game.enemies_near(team, other.global_position, 6.0)
+		if foes > 0 and role != Role.HEALER and other.revive_by != self:
+			continue
+		if foes > game.allies_near(team, other.global_position, 6.0):
+			continue
+		# One reviver per body, unless this one is a Healer.
+		if other.revive_by != null and other.revive_by != self and other.being_revived() and role != Role.HEALER:
+			continue
+		best_d = d
+		best = other
+	return best
+
+
+func _build_down_fx() -> void:
+	if down_fx:
+		return
+	down_fx = Node3D.new()
+	down_fx.top_level = true
+	add_child(down_fx)
+	down_ring = MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.95
+	tm.outer_radius = 1.08
+	tm.rings = 32
+	down_ring.mesh = tm
+	down_ring_mat = StandardMaterial3D.new()
+	down_ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	down_ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	down_ring_mat.albedo_color = Color(0.95, 0.3, 0.25, 0.8)
+	down_ring.material_override = down_ring_mat
+	down_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	down_fx.add_child(down_ring)
+	# A green cross over the body, on the camera-facing overhead.
+	down_cross = Node3D.new()
+	down_cross.position.y = 0.62
+	overhead.add_child(down_cross)
+	var plate := MeshInstance3D.new()
+	var disc := QuadMesh.new()
+	disc.size = Vector2(0.5, 0.5)
+	plate.mesh = disc
+	plate.material_override = _overhead_mat(Color(0.06, 0.08, 0.05, 0.9), 6)
+	down_cross.add_child(plate)
+	down_cross_mat = _overhead_mat(Color(0.4, 1.0, 0.45), 7)
+	for sz in [Vector2(0.36, 0.11), Vector2(0.11, 0.36)]:
+		var bar := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = sz
+		bar.mesh = q
+		bar.position.z = 0.003
+		bar.material_override = down_cross_mat
+		down_cross.add_child(bar)
+	# The bar under it: red draining while bleeding out, gold filling while
+	# a teammate revives.
+	down_bar = Node3D.new()
+	down_bar.position.y = HP_BAR_Y
+	overhead.add_child(down_bar)
+	var trough := MeshInstance3D.new()
+	var tq := QuadMesh.new()
+	tq.size = Vector2(HP_BAR_W + 0.04, HP_BAR_H + 0.04)
+	trough.mesh = tq
+	trough.material_override = _overhead_mat(Color(0.05, 0.04, 0.03, 0.95), 6)
+	down_bar.add_child(trough)
+	down_bar_fill = MeshInstance3D.new()
+	var fq := QuadMesh.new()
+	fq.size = Vector2(HP_BAR_W, HP_BAR_H)
+	down_bar_fill.mesh = fq
+	down_bar_fill.position.z = 0.003
+	down_bar_mat = _overhead_mat(Color(0.9, 0.2, 0.17), 7)
+	down_bar_fill.material_override = down_bar_mat
+	down_bar.add_child(down_bar_fill)
+
+
+func _update_down_fx() -> void:
+	if down_fx == null:
+		return
+	down_cross.visible = false   # the HUD's dizzy swirl and stars mark the body (Faisal's downed render)
+	down_bar.visible = downed
+	if not downed:
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	var reviving := being_revived()
+	var frac: float = revive_progress if reviving or revive_progress > 0.02 else clampf(downed_timer / maxf(downed_total, 0.1), 0.0, 1.0)
+	var col := Color(1.0, 0.82, 0.3) if (reviving or revive_progress > 0.02) else Color(0.92, 0.22, 0.18)
+	if reviving and revive_by and revive_by.role == Role.HEALER:
+		col = Color(0.45, 1.0, 0.55)
+	down_bar_mat.albedo_color = col
+	down_bar_fill.scale.x = maxf(frac, 0.001)
+	down_bar_fill.position.x = -HP_BAR_W * (1.0 - frac) / 2.0
+	down_fx.global_position = global_position + Vector3(0, 0.06, 0)
+	var pulse := 0.5 + 0.5 * sin(now * (9.0 if reviving else 5.0))
+	down_ring.scale = Vector3.ONE * (0.55 + 0.45 * (revive_progress if reviving else frac))
+	down_ring_mat.albedo_color = Color(col.r, col.g, col.b, 0.5 + 0.35 * pulse)
+	down_cross_mat.albedo_color = Color(0.4, 1.0, 0.45).lerp(Color(1, 1, 1), 0.35 * pulse)
+	down_cross.scale = Vector3.ONE * (1.0 + 0.08 * pulse)
+
 
 
 func _respawn() -> void:
@@ -1300,6 +1847,9 @@ func _process(_delta: float) -> void:
 			bubble_mesh.visible = false
 	if overhead:
 		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + (1.25 if carrying else 0.35), 0)   # above a worn crown
+		if downed:
+			overhead.global_position.y = global_position.y + 1.3   # over the body on the ground
+	_update_down_fx()
 	if aim_marker and not dead:
 		aim_marker.global_position = global_position + aim * 1.1 + Vector3(0, 0.08, 0)
 		aim_marker.rotation.y = atan2(-aim.x, -aim.z)
@@ -1308,7 +1858,7 @@ func _process(_delta: float) -> void:
 
 
 func _animate() -> void:
-	if model == null or dead:
+	if model == null or dead or downed:
 		return
 	var planar := Vector2(velocity.x, velocity.z).length()
 	model.update_locomotion(planar > 0.6)
@@ -1363,6 +1913,17 @@ func _physics_process(delta: float) -> void:
 		respawn_timer -= delta
 		if respawn_timer <= 0.0:
 			_respawn()
+		return
+	revive_protect = maxf(revive_protect - delta, 0.0)
+	revive_target = null
+	if finish_target and Engine.get_physics_frames() - finish_frame > 2:
+		finish_target = null
+		finish_progress = 0.0
+	if downed:
+		_downed_process(delta)
+		return
+	if finishing > 0.0:
+		_finisher_process(delta)
 		return
 
 	# Nobody stands in the river: anyone shoved or blown into the channel
@@ -1483,7 +2044,19 @@ func _physics_process(delta: float) -> void:
 		if not game.menu_blocks_input(self):
 			wants_attack = Input.is_action_pressed(_a("attack"))
 			wants_block = Input.is_action_pressed(_a("block"))
-			if Input.is_action_just_pressed(_a("interact")):
+			# Hold interact over a downed teammate to revive them; otherwise
+			# interact grabs, drops and talks as before.
+			var rv = revive_candidate()
+			var fv = finish_candidate() if rv == null else null
+			if rv and Input.is_action_pressed(_a("interact")):
+				_tick_revive(rv, delta)
+				move = Vector3.ZERO
+				wants_attack = false
+			elif fv and Input.is_action_pressed(_a("interact")):
+				_tick_finish(fv, delta)
+				move = Vector3.ZERO
+				wants_attack = false
+			elif Input.is_action_just_pressed(_a("interact")):
 				game.try_interact(self)
 			if Input.is_action_just_pressed(_a("ability_1")):
 				use_ability(0, aim)
@@ -1499,6 +2072,16 @@ func _physics_process(delta: float) -> void:
 		wants_attack = plan.attack
 		wants_block = plan.get("block", false)
 		aim = plan.aim
+		if plan.has("finish") and is_instance_valid(plan.finish) and plan.finish.downed:
+			_tick_finish(plan.finish, delta)
+			if finishing > 0.0:
+				return
+			move = Vector3.ZERO
+			wants_attack = false
+		if plan.has("revive") and is_instance_valid(plan.revive) and plan.revive.downed:
+			_tick_revive(plan.revive, delta)
+			move = Vector3.ZERO
+			wants_attack = false
 		if game.demo:
 			# Diagnostics: a bot that wants to move but has not for 12 s.
 			stall_clock += delta
@@ -1595,7 +2178,7 @@ func _injured_allies_near(radius: float = -1.0) -> Array:
 	var hurt := []
 	var reach: float = attack_stats().get("heal_radius", 0.0) if radius < 0.0 else radius
 	for other in game.units:
-		if other.team == team and not other.dead and other.hearts < other.max_hearts() \
+		if other.team == team and not other.dead and not other.downed and other.hearts < other.max_hearts() \
 				and _flat_to(other.global_position).length() <= reach:
 			hurt.append(other)
 	return hurt
@@ -1784,14 +2367,19 @@ func _steer_to(target: Vector3) -> Vector3:
 func _nearest_enemy(radius: float):
 	## The closest living enemy within `radius` that we can actually see:
 	## walls and doors hide people, so nobody stands shooting at stone.
+	## Anyone still standing comes first: a downed enemy ranks as if it lay
+	## BOT_DOWNED_TARGET_PENALTY further away, so bots finish it afterwards.
 	var best = null
-	var best_dist := radius
+	var best_score := INF
 	for other in game.units:
 		if other.team == team or other.dead or other.stealth_timer > 0.0:
 			continue
 		var d := _flat_to(other.global_position).length()
-		if d < best_dist and _can_see(other):
-			best_dist = d
+		if other.downed and d > Stats.BOT_FINISH_RANGE:
+			continue   # nobody snipes a body from across the field: walk up to finish it
+		var sc: float = d + (Stats.BOT_DOWNED_TARGET_PENALTY if other.downed else 0.0)
+		if d < radius and sc < best_score and _can_see(other):
+			best_score = sc
 			best = other
 	return best
 
@@ -1839,7 +2427,7 @@ func _heal_focus():
 	var best = null
 	var best_score := -1.0
 	for other in game.units:
-		if other == self or other.team != team or other.dead:
+		if other == self or other.team != team or other.dead or other.downed:
 			continue
 		var d := _flat_to(other.global_position).length()
 		var sc := 0.0
@@ -2036,6 +2624,17 @@ func _bot_think(delta: float) -> Dictionary:
 			and _flat_to(theirs.global_position).length() < PICKUP_RANGE:
 		game.try_interact(self)
 
+	# A downed teammate close by and safe enough: go and pick them up.
+	var downed_mate = _bot_revive_goal(mine)
+	if downed_mate:
+		var to_mate := _flat_to(downed_mate.global_position)
+		if to_mate.length() <= revive_reach() * 0.85:
+			plan.revive = downed_mate
+			plan.aim = to_mate.normalized() if to_mate.length() > 0.05 else facing
+		else:
+			plan.move = _steer_to(game.route_point(global_position, downed_mate.global_position))
+		return plan
+
 	# Choose where to go.
 	var goal: Vector3
 	var priority_target = null
@@ -2163,6 +2762,15 @@ func _bot_think(delta: float) -> Dictionary:
 			plan.aim = -away
 			plan.attack = plan.attack or energy >= s.cost
 			return plan
+	if enemy and enemy.downed:
+		# A downed enemy: walk up and do the finisher instead of swinging.
+		var to_body := _flat_to(enemy.global_position)
+		plan.aim = to_body.normalized() if to_body.length() > 0.05 else facing
+		if to_body.length() <= Stats.REVIVE_RANGE * 0.8:
+			plan.finish = enemy
+		else:
+			plan.move = _steer_to(game.route_point(global_position, enemy.global_position))
+		return plan
 	if enemy:
 		var to := _flat_to(enemy.global_position)
 		var in_range: bool = to.length() <= s.range * 0.9
