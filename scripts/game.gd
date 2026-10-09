@@ -3418,8 +3418,14 @@ func _add_boulder(pos: Vector3) -> void:
 	# A few pebbles around the base.
 	for i in 3:
 		var ang := TAU * i / 3.0 + pos.x
-		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][absi(int(pos.x * 7 + pos.z) + i) % 5],
-			pos + Vector3(cos(ang) * 1.7, 0, sin(ang) * 1.7), 4.0, ang)
+		var pp := pos + Vector3(cos(ang) * 1.7, 0, sin(ang) * 1.7)
+		var reserved := false
+		for rp in RESERVED_GROUND:
+			if _flat_dist(pp, rp) < 6.0:
+				reserved = true   # the barrow's fence and the mills stand there later
+		if reserved:
+			continue
+		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][absi(int(pos.x * 7 + pos.z) + i) % 5], pp, 4.0, ang)
 
 
 func _add_ground_detail() -> void:
@@ -3653,7 +3659,11 @@ func _tree_spot_ok(pos: Vector3, big: bool) -> bool:
 		if _flat_dist(pos, rp) < 5.5:
 			return false
 	for t in map_trees:
-		if _flat_dist(pos, t) < 3.6:
+		if _flat_dist(pos, t) < (5.4 if (big or t.y > 0.5) else 3.6):
+			return false
+	for ap in audit_props:
+		var q: Vector3 = ap[1].position
+		if absf(q.z) < 38.0 and Vector2(q.x - pos.x, q.z - pos.z).length() < crown + 0.9:
 			return false
 	if _near_path(pos, 1.2):
 		return false
@@ -4040,7 +4050,7 @@ func _add_river() -> void:
 			if not _near_bridge(z, 0.5):
 				var kh: float = 0.32 + 0.14 * fmod(absf(z) * 3.7, 1.0)
 				_add_block(Vector3(sx * (RIVER_HALF + 0.38), kh / 2.0 - 0.06, z + 0.55), Vector3(0.76, kh, 1.0), Color.WHITE, false, kerb)
-			if k % 4 == 1 and not _near_bridge(z, 2.5) and absf(absf(z) - 25.5) > 5.5 and absf(z) < 34.0:
+			if k % 4 == 1 and not _near_bridge(z, 2.5) and absf(absf(z) - 30.0) > 5.5 and absf(z) < 34.0:
 				_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][k % 5], Vector3(sx * (RIVER_HALF + 2.0 + fmod(z * 7.3, 1.0) * 0.4), 0, z), 2.5, z)
 			k += 1
 			z += 1.2
@@ -4317,7 +4327,7 @@ func _add_cover() -> void:
 					_add_palisade(c, length)
 				2:
 					_add_wall_stub(c, length)
-	var boulders := [Vector3(9, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -8), Vector3(38, 0, 10),
+	var boulders := [Vector3(9, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -10.5), Vector3(38, 0, 10),
 		Vector3(8, 0, 28), Vector3(17, 0, 25), Vector3(14, 0, -36), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(40, 0, 24)]
 	for p in boulders:
 		_add_boulder(p)
@@ -6805,7 +6815,7 @@ func _add_watermills() -> void:
 	for sx in [-1.0, 1.0]:
 		var team := 0 if sx < 0.0 else 1
 		var z: float = sx * 30.0
-		var pos := Vector3(sx * (RIVER_HALF + 3.2), 0, z)
+		var pos := Vector3(sx * (RIVER_HALF + 3.8), 0, z)
 		var mill := _prop("hex/building_watermill_%s" % _hex_color(team), pos, 3.4, -PI / 2.0 if sx > 0.0 else PI / 2.0)
 		if mill != null:
 			# The pack's wheel hides under the floor; ours turns in the river.
@@ -6881,22 +6891,35 @@ func _add_field_rocks() -> void:
 		tries += 1
 		var x := r.randf_range(-40.0, 40.0)
 		var z := r.randf_range(-33.0, 33.0)
-		if absf(x) < RIVER_HALF + 4.0 or absf(z) < 6.0:
+		if absf(x) < RIVER_HALF + 4.0 or absf(z) < 7.5:
 			continue
 		if Vector2(x, z).distance_to(Vector2(-30.0, 22.0)) < 9.0:
+			continue
+		# Clear of anything already standing (ruins, crates, fences, benches)
+		# and of the landmarks.
+		var crowded := false
+		for ap in audit_props:
+			var q: Vector3 = ap[1].position
+			if Vector2(q.x - x, q.z - z).length() < 3.0:
+				crowded = true
+				break
+		for mark in map_marks:
+			if Vector2(mark[0].x - x, mark[0].z - z).length() < 6.0:
+				crowded = true
+		if crowded:
 			continue
 		if absf(absf(z) - 30.0) < 6.0 and absf(x) < RIVER_HALF + 8.0:
 			continue   # the watermills
 		var near_tree := false
 		for t in map_trees:
-			if Vector2(t.x, t.z).distance_to(Vector2(x, z)) < 2.5:
+			if Vector2(t.x, t.z).distance_to(Vector2(x, z)) < (3.8 if t.y > 0.5 else 2.8):
 				near_tree = true
 				break
 		if near_tree:
 			continue
 		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][r.randi() % 5], Vector3(x, 0, z), r.randf_range(2.2, 3.4), r.randf() * TAU)
 		if r.randf() < 0.4:
-			_prop("hex/rock_single_%s" % ["A", "B"][r.randi() % 2], Vector3(x + 0.9, 0, z + 0.5), 1.8, r.randf() * TAU)
+			_prop("hex/rock_single_%s" % ["A", "B"][r.randi() % 2], Vector3(x + 1.7, 0, z + 1.0), 1.8, r.randf() * TAU)
 		placed += 1
 
 
@@ -6945,7 +6968,7 @@ func _add_crates(pos: Vector3, rot: float) -> void:
 	## A stack of crates with a barrel beside it, by the road.
 	_prop("dungeon/crates_stacked", pos, 0.7, rot)
 	_add_blocker(pos, 0.7, 1.5)
-	_prop("dungeon/barrel_large", pos + Vector3(-signf(pos.x) * 1.5, 0, signf(pos.z) * 0.3), 0.6, rot)   # towards the shrine, off the road
+	_prop("dungeon/barrel_large", pos + Vector3(-signf(pos.x) * 1.75, 0, signf(pos.z) * 0.3), 0.6, rot)   # towards the shrine, off the road
 
 
 func _add_picket_fence(from: Vector3, to: Vector3) -> void:
@@ -7030,7 +7053,7 @@ func _add_road_lanterns() -> void:
 			_add_light(Vector3(x, 2.4, z), Color(1.0, 0.75, 0.4), 1.0, 6.5)
 	# Benches to sit on by the shrine island's bridges.
 	for sx in [-1.0, 1.0]:
-		_prop("halloween/bench", Vector3(sx * (ISLAND_R + 4.5), 0, 4.2), BITS_SCALE, PI if sx > 0.0 else 0.0)
+		_prop("halloween/bench", Vector3(sx * (ISLAND_R + 3.2), 0, 4.6), BITS_SCALE, PI if sx > 0.0 else 0.0)
 
 
 func _add_river_plants() -> void:
@@ -7039,7 +7062,7 @@ func _add_river_plants() -> void:
 	r.seed = 404
 	var z := -map_half.y + 3.0
 	while z < map_half.y - 3.0:
-		var blocked := absf(z) < ISLAND_R + 2.5
+		var blocked := absf(z) < ISLAND_R + 2.5 or absf(absf(z) - 30.0) < 5.0   # the island, the mills
 		for b in BRIDGES:
 			if absf(z - b) < 3.8:
 				blocked = true
@@ -7048,7 +7071,7 @@ func _add_river_plants() -> void:
 				if r.randf() < 0.7:
 					_prop("hex/waterlily_%s" % ["A", "B"][r.randi() % 2], Vector3(sx * (RIVER_HALF - 1.0) + r.randf_range(-0.4, 0.4), 0.04, z + r.randf_range(-1.0, 1.0)), 4.0, r.randf() * TAU)
 				if r.randf() < 0.6:
-					_prop("hex/waterplant_%s" % ["A", "B", "C"][r.randi() % 3], Vector3(sx * (RIVER_HALF + 0.5), 0.0, z + r.randf_range(-1.2, 1.2)), 4.0, r.randf() * TAU)
+					_prop("hex/waterplant_%s" % ["A", "B", "C"][r.randi() % 3], Vector3(sx * (RIVER_HALF + 1.3), 0.0, z + r.randf_range(-1.2, 1.2)), 4.0, r.randf() * TAU)
 		z += 4.5
 
 
@@ -7059,16 +7082,16 @@ func _add_barrow(pos: Vector3) -> void:
 	_prop("halloween/crypt", pos, 0.55, PI * 0.9)
 	_add_blocker(pos, 1.7)
 	_prop("halloween/floor_dirt", pos + Vector3(0, 0.01, 2.6), 1.0, 0.0)
-	var stones := [["gravestone", Vector3(-2.6, 0, 1.4), 0.4], ["grave_A", Vector3(2.4, 0, 1.0), -0.5], ["gravemarker_A", Vector3(-1.6, 0, 3.2), 0.2],
-		["gravemarker_B", Vector3(1.8, 0, 3.4), -0.3], ["grave_B", Vector3(-3.4, 0, -1.2), 1.2], ["bone_A", Vector3(0.6, 0, 3.0), 0.9]]
+	var stones := [["gravestone", Vector3(-3.6, 0, 1.6), 0.4], ["grave_A", Vector3(3.5, 0, 1.2), -0.5], ["gravemarker_A", Vector3(-1.6, 0, 3.4), 0.2],
+		["gravemarker_B", Vector3(1.8, 0, 3.6), -0.3], ["grave_B", Vector3(-3.8, 0, -1.2), 1.2], ["bone_A", Vector3(0.6, 0, 3.2), 0.9]]
 	for st in stones:
 		_prop("halloween/%s" % st[0], pos + st[1], 0.7, st[2])
 	_prop("halloween/tree_dead_large_decorated", pos + Vector3(3.8, 0, -2.4), 0.9, 0.7)
 	_add_blocker(pos + Vector3(3.8, 0, -2.4), 0.5)
-	_prop("halloween/lantern_standing", pos + Vector3(-1.2, 0, 2.2), 0.8)
-	_add_light(pos + Vector3(-1.2, 1.0, 2.2), Color(0.55, 1.0, 0.8), 1.1, 6.0)
-	_prop("halloween/candle_triple", pos + Vector3(1.4, 0, 2.0), 0.6)
-	_add_light(pos + Vector3(1.4, 0.6, 2.0), Color(1.0, 0.7, 0.35), 0.7, 3.5)
+	_prop("halloween/lantern_standing", pos + Vector3(-1.4, 0, 3.0), 0.8)
+	_add_light(pos + Vector3(-1.4, 1.0, 3.0), Color(0.55, 1.0, 0.8), 1.1, 6.0)
+	_prop("halloween/candle_triple", pos + Vector3(1.6, 0, 2.9), 0.6)
+	_add_light(pos + Vector3(1.6, 0.6, 2.9), Color(1.0, 0.7, 0.35), 0.7, 3.5)
 	_prop("halloween/fence_broken", pos + Vector3(-2.6, 0, 4.2), 0.7, 0.0)
 	_prop("halloween/fence", pos + Vector3(2.6, 0, 4.2), 0.7, 0.0)
 	_add_fireflies(pos + Vector3(0, 0.6, 1.5))
@@ -7328,7 +7351,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# Torches and banners along the south wall; the north wall holds the
 		# class alcoves.
 		if zs > 0.0:
-			for k in 5:
+			for k in range(1, 5):   # (k = 0 sat right over the shelves)
 				var tx := bx + side * (1.5 + k * 3.8)
 				_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
 			for px in [5.3, 9.0, 12.9]:
@@ -7458,6 +7481,8 @@ func _audit_clipping() -> void:
 	var count := 0
 	for i in items.size():
 		for j in range(i + 1, items.size()):
+			if items[i][0].contains("bottle") or items[j][0].contains("bottle"):
+				continue  # bottles stand on shelves by design
 			var pen := _penetration(items[i][1], items[j][1])
 			if pen > 0.15:
 				print("CLIP prop/prop %s <-> %s : %.2f at %s" % [items[i][0], items[j][0], pen, items[i][1].get_center().snapped(Vector3(0.1, 0.1, 0.1))])
@@ -7468,6 +7493,11 @@ func _audit_clipping() -> void:
 				continue  # the ground
 			if b[0] == "pole":
 				continue  # torch handles sit inside their posts by design
+			var pc: Vector3 = items[i][1].get_center()
+			if b[0] == "building" and Vector2(pc.x - bb.get_center().x, pc.z - bb.get_center().z).length() < 1.2:
+				continue  # a prop's own walk-around blocker
+			if b[0] == "vault" and bb.grow(0.4).encloses(items[i][1]):
+				continue  # furniture standing inside the throne room
 			var pen := _penetration(items[i][1], bb)
 			if pen > 0.15:
 				print("CLIP prop/%s %s : %.2f at %s (block %s %s)" % [b[0], items[i][0], pen, items[i][1].get_center().snapped(Vector3(0.1, 0.1, 0.1)), bb.position.snapped(Vector3(0.1, 0.1, 0.1)), bb.size.snapped(Vector3(0.1, 0.1, 0.1))])

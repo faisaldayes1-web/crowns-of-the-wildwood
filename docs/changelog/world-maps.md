@@ -7,7 +7,15 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 02:40 UTC · `(stamped by the next entry)` · Base remaster: Wildbloom courtyard, crystal crown altar, Human stone counterpart
+### 2026-10-09 02:55 UTC · `(stamped by the next entry)` · Clipping audit: 63 overlaps down to 1
+
+- **What:** Every prop that cut into a wall, a building, a fence or another prop on the Wildwood is moved or placed smarter. Rocks on the river bank keep clear of the mills; the bank reeds stand on the cobble strip instead of inside the stone kerb; the mills sit 0.6 m further up the bank; field rocks avoid trees, ruins, crates, fences and landmarks, and their companion stone sits beside instead of inside them; the road crates' cask stands clear of the stack; the shrine benches moved off the fence posts; the barrow's gravestones, lantern and candles stand clear of the crypt; the boulder by the east road moved 2.5 m south so its pebbles miss the crates; big trees keep 5.4 m between trunks and all trees keep clear of placed props; the spawn hall's first wall crystal/torch (it sat over the shelves) is gone. The audit itself now ignores a prop's own walk-around blocker, furniture standing inside the throne room, and bottles on shelves (all by design).
+- **Files:** scripts/game.gd (`_audit_clipping`, `_add_river`, `_add_river_plants`, `_add_watermills`, `_add_field_rocks`, `_add_crates`, `_add_road_lanterns`, `_add_barrow`, `_add_boulder`, `_add_cover` boulder list, `_tree_spot_ok`, `_build_cellar`)
+- **Tunables:** bank-rock mill exclusion |z|−25.5 > 5.5 → |z|−30 > 5.5; reeds x RIVER_HALF+0.5 → +1.3; mills x RIVER_HALF+3.2 → +3.8; field rocks |z| ≥ 6 → ≥ 7.5, tree clearance 2.5 → 2.8 (3.8 big), companion offset (0.9, 0.5) → (1.7, 1.0); road cask offset 1.5 → 1.75; bench (ISLAND_R+4.5, 4.2) → (ISLAND_R+3.2, 4.6); big-tree spacing 3.6 → 5.4; boulder (33, −8) → (33, −10.5)
+- **Tested:** `--audit` Wildwood 63 → 1 (two pine crowns touching by 22 cm at (62.7, −32.4), left as natural foliage); Ember Pass 16 → 0 real (the 6 "vault" lines were furniture inside the throne room, now excluded)
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 02:40 UTC · `1eb78a4` · Base remaster: Wildbloom courtyard, crystal crown altar, Human stone counterpart
 
 - **What:** Both castles follow Faisal's five-zone sheet (spawn area → courtyard → outer defence → main gate → inner castle and crown room), on both maps, without moving any lane the bots use.
   - **Courtyard (the spawn hall behind the keep):** the Elves' walls are now topped with trimmed hedge instead of merlons; a cobbled lane runs from the spawn circle to the stairs; three raised flower beds, a crate stack and a cask line the south wall; stag pennants hang between the wall crystals; four stone fire pillars ring the spawn circle with two banner poles behind it; a timber palisade runs round the outside of the Elf courtyard (Wildwood only). The Humans get the same lane, beds (in stone kerbs), stores, fire pillars and lion banner poles, with their grey stone walls kept.
