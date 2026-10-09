@@ -969,17 +969,25 @@ func _inside_keep(team: int, p: Vector3) -> bool:
 	return (p.x - kx) * side > 0.0 and (bx - p.x) * side > 0.0 and absf(p.z) < KEEP_HALF_Z + 0.5
 
 
+func cellar_floor(team: int) -> float:
+	## The spawn courtyard's floor height. The Wildwood Elves' courtyard is an
+	## open garden at ground level (Faisal's 2026-10-09 courtyard brief); the
+	## Humans' and both Ember Pass courtyards are still sunken cellars.
+	return 0.0 if team == 0 and vmap == null else CELLAR_Y
+
+
 func _in_cellar(team: int, p: Vector3) -> bool:
 	var side := -1.0 if team == 0 else 1.0
 	var bx := side * (CASTLE_X + CASTLE_DEPTH)
-	return (p.x - bx) * side > -0.8 and absf(p.z) < CELLAR_HALF_Z + 0.5 and p.y < -0.3
+	var depth: float = (p.x - bx) * side
+	return depth > -0.8 and depth < CELLAR_DEPTH + 1.0 and absf(p.z) < CELLAR_HALF_Z + 0.5 and p.y < cellar_floor(team) + 2.0
 
 
 func cellar_stairs(team: int) -> Array:
 	## [bottom, top] of the stairs from the cellar up into the keep.
 	var side := -1.0 if team == 0 else 1.0
 	var bx := side * (CASTLE_X + CASTLE_DEPTH)
-	return [Vector3(bx + side * 8.6, CELLAR_Y, 0), Vector3(bx - side * 1.6, 0.0, 0)]
+	return [Vector3(bx + side * 8.6, cellar_floor(team), 0), Vector3(bx - side * 1.6, 0.0, 0)]
 
 
 func _inside_castle(team: int, p: Vector3) -> bool:
@@ -1314,18 +1322,18 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 			if behind > -1.0 and behind < 1.3:
 				return st[0]  # near the foot of the stairs: step across to the lane
 			if behind >= 1.3:
-				return Vector3(st[0].x + side * 0.3, CELLAR_Y, from.z)  # walk straight back to the foot first
+				return Vector3(st[0].x + side * 0.3, cellar_floor(c), from.z)  # walk straight back to the foot first
 			# Up by the hats, ahead of the foot: the low walls flanking the
 			# stairs end short of the foot, so get out past their ends before
 			# stepping across, or the end post catches the diagonal.
-			return Vector3(st[0].x + side * 0.3, CELLAR_Y, signf(from.z) * 3.2)
+			return Vector3(st[0].x + side * 0.3, cellar_floor(c), signf(from.z) * 3.2)
 		# Crossing the cellar from one row of hats to the other: the low walls
 		# along the stairs are in the way, so go round behind their foot first.
 		if _in_cellar(c, from) and _in_cellar(c, to) and from.z * to.z < 0.0 and absf(from.z) > 1.0 and absf(to.z) > 1.0:
 			var st := cellar_stairs(c)
 			var side := -1.0 if c == 0 else 1.0
 			if (from.x - st[0].x) * side < -1.2:
-				return Vector3(st[0].x + side * 0.3, CELLAR_Y, from.z)
+				return Vector3(st[0].x + side * 0.3, cellar_floor(c), from.z)
 		# On the stairs lane (between its low walls, or just off their foot)
 		# and heading for a hat beside it: clear the walls' end first, well
 		# out to the hat's side, or the end post catches the diagonal.
@@ -1336,7 +1344,7 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 			var lane_lo: float = minf(bx + side * 8.4, bx - side * 0.8)
 			var lane_hi: float = maxf(bx + side * 8.4, bx - side * 0.8)
 			if from.x > lane_lo and from.x < lane_hi:
-				return Vector3(st[0].x + side * 0.3, CELLAR_Y, signf(to.z) * 3.2)
+				return Vector3(st[0].x + side * 0.3, cellar_floor(c), signf(to.z) * 3.2)
 	if to.y > 2.0 and from.y < WALK_Y - 0.2:
 		var c := 0 if to.x < 0.0 else 1
 		var ramp: Dictionary = ramps[c][0] if to.z < 0.0 else ramps[c][1]
@@ -1736,7 +1744,7 @@ func _start_match(team: int) -> void:
 		for i in count:
 			var u = Unit.new()
 			add_child(u)
-			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 14.5), CELLAR_Y, -4.0 + i * 2.0)
+			var spawn := Vector3(side * (CASTLE_X + CASTLE_DEPTH + 14.5), cellar_floor(t), -4.0 + i * 2.0)
 			var local_k := _local_slot(t, i)
 			var is_player := local_k >= 0 and not demo
 			u.setup(self, t, is_player, spawn)
@@ -1883,7 +1891,7 @@ func plant_barricade(u) -> bool:
 	var why := ""
 	if barricades_left[team] <= 0:
 		why = "No barricade kits left"
-	elif u.global_position.y < -0.3:
+	elif _in_cellar(team, u.global_position):
 		why = "Not in the cellar"
 	elif u.global_position.x * side < RIVER_HALF + 3.0:
 		why = "Only on your own side of the river"
@@ -4613,6 +4621,22 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 	var wall_z := pos.z - 1.6          # the wall's inner face (north)
 	var top := pos.y + 2.9
 	var sign_y := top - 0.4   # hung from the lintel, in front of the drape
+	if team == 0 and cellar_floor(team) >= 0.0:
+		# The open courtyard (Wildwood): designed stations under the pavilion,
+		# their name boards on its posts; the hat's own ring is the only glow.
+		_add_elf_class_station(team, role, pos)
+		var name := Label3D.new()
+		name.text = str(Stats.FACTIONS[team].roles[role]).to_upper()
+		name.font_size = 76
+		name.pixel_size = 0.0052
+		name.outline_size = 14
+		name.outline_modulate = Color(0.1, 0.07, 0.04)
+		name.modulate = Color(1.0, 0.97, 0.9)
+		name.position = Vector3(pos.x, pos.y + 2.72, pos.z - 1.8 + 0.12)
+		name.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		name.shaded = false
+		add_child(name)
+		return
 	if team == 0:
 		_add_elf_class_stall(team, role, pos, wall_z, top, sign_y)
 	else:
@@ -6370,10 +6394,13 @@ func _furnish_cellar(team: int, bx: float, side: float) -> void:
 	var color: Color = Stats.FACTIONS[team].color
 	var elven := team == 0
 	var hz := CELLAR_HALF_Z
+	var fy := cellar_floor(team)
 	# Three warm room lights down the hall (no hanging fixtures: it is open to the sky).
 	for k in 3:
 		var x: float = bx + side * (3.5 + k * 5.5)
-		_add_chandelier(Vector3(x, CELLAR_Y + 2.5, 0), elven)
+		_add_chandelier(Vector3(x, fy + 2.5, 0), elven)
+	if fy >= 0.0:
+		return   # the open courtyard's stores are grouped by its workshop
 	# A shelf of supplies by the stairs and candles along the side walls.
 	for zs in [1.0]:   # the north wall holds the class alcoves
 		if elven:
@@ -7765,31 +7792,403 @@ func _dress_elf_courtyard(team: int, bx: float, side: float) -> void:
 	_add_bush(Vector3(bx + side * 17.6, CELLAR_Y, hz - 0.9), 74)
 
 
+func _pavers() -> StandardMaterial3D:
+	## The open courtyard's floor: big cream sandstone slabs, softly bevelled
+	## (tools/make_textures.py make_pavers), one tile every 4.5 m.
+	return _pbr("pavers", 0.22, Color(1.0, 0.98, 0.94))
+
+
+func _add_invisible_wall(pos: Vector3, size: Vector3) -> void:
+	## A collider with no mesh: keeps units (and shots, which fly at 1.1 m)
+	## out where the visible edge is only a low fence.
+	var body := StaticBody3D.new()
+	body.position = pos
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	add_child(body)
+
+
+func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
+	## The open courtyard's edge (Faisal's 2026-10-09 brief: low stone borders
+	## and timber fencing, not walls): a sandstone kerb with a picket fence on
+	## it round three sides, the castle's back wall being the fourth, and an
+	## unseen wall above the fence so nothing walks or shoots in. The kerb
+	## hides only a hand's width of floor from the camera, where the old
+	## 3.3 m hedge wall hid the first 2.5 m.
+	var ox := bx + side * (CELLAR_DEPTH + 0.5)
+	var kerb := _ashlar(Color(0.93, 0.9, 0.84))
+	var lines := [
+		[Vector3(bx + side * 0.5, 0, -(hz + 0.5)), Vector3(ox, 0, -(hz + 0.5))],
+		[Vector3(bx + side * 0.5, 0, hz + 0.5), Vector3(ox, 0, hz + 0.5)],
+		[Vector3(ox, 0, -(hz + 0.5)), Vector3(ox, 0, hz + 0.5)]]
+	for ln in lines:
+		var a: Vector3 = ln[0]
+		var b: Vector3 = ln[1]
+		var c := (a + b) / 2.0
+		var along_x := absf(b.x - a.x) > absf(b.z - a.z)
+		var length := absf(b.x - a.x) if along_x else absf(b.z - a.z)
+		var size := Vector3(length + 0.5, 0.3, 0.5) if along_x else Vector3(0.5, 0.3, length + 0.5)
+		_add_block(Vector3(c.x, 0.15, c.z), size, Color.WHITE, true, kerb)
+		_add_invisible_wall(Vector3(c.x, 1.0, c.z), Vector3(size.x, 1.4, size.z))
+		_add_picket_fence(a + Vector3(0, 0.3, 0), b + Vector3(0, 0.3, 0))
+	# Kerb posts at the three outer corners.
+	for p in [Vector3(ox, 0, -(hz + 0.5)), Vector3(ox, 0, hz + 0.5)]:
+		_add_block(p + Vector3(0, 0.35, 0), Vector3(0.7, 0.7, 0.7), Color.WHITE, false, kerb)
+		_add_block(p + Vector3(0, 0.76, 0), Vector3(0.8, 0.12, 0.8), Color.WHITE, false, _ashlar(Color(0.96, 0.94, 0.9)))
+
+
+func _add_elf_station_canopy(bx: float, side: float, hz: float) -> void:
+	## The pavilion over the class row (the reference's green awning): seven
+	## thick timber posts with shaped caps along the row's back edge, a taller
+	## seven behind the fence, beams between them and an emerald canvas that
+	## sags a little in every bay, rising to the back so the camera sees the
+	## stations, their boards and the gold-trimmed valance under its edge.
+	var zf := -(hz - 0.2)    # the front posts, just behind the stations
+	var zb := -(hz + 1.8)    # the back posts, beyond the fence
+	var hf := 3.4
+	var hb := 4.0
+	var wood := _timber(Color(0.42, 0.28, 0.17))
+	var cap := _timber(Color(0.52, 0.36, 0.2))
+	var xs: Array = []
+	for k in 7:
+		xs.append(bx + side * (9.0 + (k - 3.0) * 2.85))
+	for x in xs:
+		for row in [[zf, hf], [zb, hb]]:
+			var z: float = row[0]
+			var h: float = row[1]
+			audit_label = "pole"
+			_add_block(Vector3(x, h / 2.0, z), Vector3(0.36, h, 0.36), Color.WHITE, false, wood)
+			audit_label = ""
+			_add_block(Vector3(x, 0.12, z), Vector3(0.6, 0.24, 0.6), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.82)))
+			_add_block(Vector3(x, h + 0.06, z), Vector3(0.54, 0.12, 0.54), Color.WHITE, false, cap)
+			var tip := MeshInstance3D.new()
+			var tm := CylinderMesh.new()
+			tm.top_radius = 0.0
+			tm.bottom_radius = 0.3
+			tm.height = 0.3
+			tm.radial_segments = 4
+			tip.mesh = tm
+			tip.position = Vector3(x, h + 0.27, z)
+			tip.rotation.y = PI / 4.0
+			tip.material_override = cap
+			add_child(tip)
+		# A rafter from the front post to the back one.
+		var mid := Vector3(x, (hf + hb) / 2.0 - 0.1, (zf + zb) / 2.0)
+		_box_at(mid, Vector3(0.22, 0.22, absf(zb - zf) + 0.3), wood, Vector3(atan2(hb - hf, absf(zb - zf)), 0, 0))
+	var length: float = absf(xs[-1] - xs[0]) + 0.6
+	var cx: float = (xs[0] + xs[-1]) / 2.0
+	_add_block(Vector3(cx, hf - 0.15, zf), Vector3(length, 0.3, 0.3), Color.WHITE, false, wood)
+	_add_block(Vector3(cx, hb - 0.15, zb), Vector3(length, 0.3, 0.3), Color.WHITE, false, wood)
+	# The canvas: a strip over the bays, sagging between posts and rafters.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var nx := 48
+	var nz := 4
+	var x0: float = minf(xs[0], xs[-1]) - 0.3
+	var x1: float = maxf(xs[0], xs[-1]) + 0.3
+	var bay := 2.85
+	var pts: Array = []
+	for i in nx + 1:
+		var x: float = x0 + (x1 - x0) * i / nx
+		var u: float = fposmod(x - xs[0], bay) / bay
+		var col: Array = []
+		for j in nz + 1:
+			var t: float = float(j) / nz
+			var z: float = zf + (zb - zf) * t
+			var y: float = lerpf(hf, hb, t) + 0.1 - 0.2 * sin(PI * u) * (0.6 + 0.4 * sin(PI * t)) - 0.06 * sin(PI * t)
+			col.append(Vector3(x, y, z))
+		pts.append(col)
+	for i in nx:
+		for j in nz:
+			var a: Vector3 = pts[i][j]
+			var b: Vector3 = pts[i + 1][j]
+			var c: Vector3 = pts[i + 1][j + 1]
+			var d: Vector3 = pts[i][j + 1]
+			for tri in [[a, b, c], [a, c, d]]:
+				for v in tri:
+					st.add_vertex(v)
+	st.generate_normals()
+	var cloth := _cloth(Color(0.13, 0.46, 0.26))
+	cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var canvas := MeshInstance3D.new()
+	canvas.mesh = st.commit()
+	canvas.material_override = cloth
+	add_child(canvas)
+	# The valance: a scalloped hem under the front edge, with a gold band.
+	var vs := SurfaceTool.new()
+	vs.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var gs := SurfaceTool.new()
+	gs.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in nx:
+		var a: Vector3 = pts[i][0]
+		var b: Vector3 = pts[i + 1][0]
+		var da: float = 0.26 + 0.14 * absf(sin(PI * (a.x - x0) / 0.7))
+		var db: float = 0.26 + 0.14 * absf(sin(PI * (b.x - x0) / 0.7))
+		var a2 := a - Vector3(0, da, 0)
+		var b2 := b - Vector3(0, db, 0)
+		for tri in [[a, b, b2], [a, b2, a2]]:
+			for v in tri:
+				vs.add_vertex(v + Vector3(0, 0, 0.02))
+		var g1 := a - Vector3(0, 0.08, 0)
+		var g2 := b - Vector3(0, 0.08, 0)
+		for tri in [[a, b, g2], [a, g2, g1]]:
+			for v in tri:
+				gs.add_vertex(v + Vector3(0, 0, 0.03))
+	vs.generate_normals()
+	gs.generate_normals()
+	var hem := MeshInstance3D.new()
+	hem.mesh = vs.commit()
+	var hem_mat := _cloth(Color(0.1, 0.38, 0.22))
+	hem_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	hem.material_override = hem_mat
+	add_child(hem)
+	var band := MeshInstance3D.new()
+	band.mesh = gs.commit()
+	var gold := _gold()
+	gold.cull_mode = BaseMaterial3D.CULL_DISABLED
+	band.material_override = gold
+	add_child(band)
+
+
+func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
+	## One class station of the open courtyard (Faisal's 2026-10-09 brief): an
+	## octagonal sandstone slab, a bevelled second tier and a bronze band under
+	## the hat's pedestal (seal.gd adds the pedestal, ring and hat), and on the
+	## pavilion post line behind it a thick timber name board on chains over
+	## an emerald panel with the class emblem in a soft glow of its colour.
+	var accent: Color = Stats.ROLES[role].color
+	var sand := _ashlar(Color(0.95, 0.92, 0.86))
+	var sand2 := _ashlar(Color(0.9, 0.86, 0.78))
+	var bronze := _material(Color(0.7, 0.5, 0.26))
+	bronze.metallic = 0.6
+	bronze.roughness = 0.4
+	var slab := MeshInstance3D.new()
+	var sm := CylinderMesh.new()
+	sm.top_radius = 1.06
+	sm.bottom_radius = 1.16
+	sm.height = 0.14
+	sm.radial_segments = 8
+	slab.mesh = sm
+	slab.position = pos + Vector3(0, 0.07, 0)
+	slab.rotation.y = PI / 8.0
+	slab.material_override = sand2
+	add_child(slab)
+	var tier := MeshInstance3D.new()
+	var tm := CylinderMesh.new()
+	tm.top_radius = 0.7
+	tm.bottom_radius = 0.8
+	tm.height = 0.1
+	tm.radial_segments = 8
+	tier.mesh = tm
+	tier.position = pos + Vector3(0, 0.19, 0)
+	tier.rotation.y = PI / 8.0
+	tier.material_override = sand
+	add_child(tier)
+	var band := MeshInstance3D.new()
+	var bm := TorusMesh.new()
+	bm.inner_radius = 0.44
+	bm.outer_radius = 0.56
+	bm.rings = 24
+	band.mesh = bm
+	band.position = pos + Vector3(0, 0.26, 0)
+	band.material_override = bronze
+	add_child(band)
+	# The board and panel on the post line behind the station.
+	var zb := pos.z - 1.8
+	var dark := _timber(Color(0.26, 0.17, 0.1))
+	var mid := _timber(Color(0.4, 0.27, 0.16))
+	_add_block(Vector3(pos.x, pos.y + 2.7, zb), Vector3(2.3, 0.6, 0.14), Color.WHITE, false, dark)
+	_add_block(Vector3(pos.x, pos.y + 2.7, zb + 0.075), Vector3(2.14, 0.46, 0.02), Color.WHITE, false, mid)
+	for xs in [-0.85, 0.85]:
+		_add_block(Vector3(pos.x + xs, pos.y + 3.12, zb), Vector3(0.05, 0.26, 0.05), Color.WHITE, false, _iron())
+	_add_block(Vector3(pos.x, pos.y + 1.95, zb), Vector3(1.5, 0.95, 0.06), Color.WHITE, false, _cloth(Color(0.12, 0.44, 0.25)))
+	for yy in [1.5, 2.4]:
+		_add_block(Vector3(pos.x, pos.y + yy, zb + 0.01), Vector3(1.56, 0.07, 0.08), Color.WHITE, false, _gold())
+	var disc := MeshInstance3D.new()
+	var dm := CylinderMesh.new()
+	dm.top_radius = 0.42
+	dm.bottom_radius = 0.42
+	dm.height = 0.02
+	dm.radial_segments = 24
+	disc.mesh = dm
+	disc.position = Vector3(pos.x, pos.y + 1.95, zb + 0.045)
+	disc.rotation.x = PI / 2.0
+	var glow := _material(accent.darkened(0.25))
+	glow.emission_enabled = true
+	glow.emission = accent
+	glow.emission_energy_multiplier = 0.55
+	disc.material_override = glow
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(disc)
+	var em := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * 0.74
+	em.mesh = q
+	em.material_override = _icon_mat(_class_icon_name(role))
+	em.position = Vector3(pos.x, pos.y + 1.95, zb + 0.07)
+	add_child(em)
+
+
+func _add_canopy_tree(pos: Vector3, seed: int, k: float = 1.0) -> void:
+	## A garden tree with a layered crown (the courtyard reference's round,
+	## clustered canopies): a thick tapered trunk and three tiers of leaf
+	## clumps stepping in as they rise, cool deep green below, warm on top.
+	var body := StaticBody3D.new()
+	body.position = pos
+	var shape := CollisionShape3D.new()
+	var cyl := CylinderShape3D.new()
+	cyl.radius = 0.45
+	cyl.height = 3.0
+	shape.shape = cyl
+	shape.position.y = 1.5
+	body.add_child(shape)
+	add_child(body)
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var tree := Node3D.new()
+	tree.position = pos
+	tree.rotation.y = r.randf() * TAU
+	add_child(tree)
+	var trunk := MeshInstance3D.new()
+	var tmesh := CylinderMesh.new()
+	tmesh.top_radius = 0.22 * k
+	tmesh.bottom_radius = 0.44 * k
+	tmesh.height = 2.3 * k
+	tmesh.radial_segments = 8
+	trunk.mesh = tmesh
+	trunk.position.y = 1.15 * k
+	trunk.material_override = _pbr("bark", 0.5, Color(0.85, 0.74, 0.62))
+	tree.add_child(trunk)
+	var hue := r.randf_range(-0.02, 0.02)
+	var leaf := _leaf_material(r, false)
+	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.45 + hue, 0.85, 0.16))
+	leaf.set_shader_parameter("top_color", Color.from_hsv(0.33 + hue, 0.74, 0.42))
+	leaf.set_shader_parameter("height", 2.2 * k)
+	var tiers := [[1.85, 1.7, 5], [2.75, 1.3, 4], [3.5, 0.9, 1]]   # tier height, radius, clumps
+	var n_i := 0
+	for tier in tiers:
+		var ty: float = tier[0] * k
+		var tr: float = tier[1] * k
+		var n: int = tier[2]
+		for i in n:
+			var ang := TAU * i / n + r.randf() * 0.5
+			var spread: float = 0.0 if n == 1 else tr * 0.55
+			var rr: float = tr * (0.72 if n > 1 else 1.0) * r.randf_range(0.9, 1.1)
+			var blob := MeshInstance3D.new()
+			blob.mesh = _rock_mesh(seed + n_i * 13, rr, 0.1)
+			blob.position = Vector3(cos(ang) * spread, ty + r.randf_range(-0.1, 0.1) * k, sin(ang) * spread)
+			blob.scale = Vector3(1.0, 0.8, 1.0)
+			blob.material_override = leaf
+			tree.add_child(blob)
+			n_i += 1
+
+
+func _add_planting_bed(pos: Vector3, size: Vector2, seed: int) -> void:
+	## A kerbed bed of dark soil with a few rounded leaf clusters and blooms
+	## (the courtyard reference's planting), nothing loose around it.
+	_add_flower_bed(pos, size, seed)
+	var r := RandomNumberGenerator.new()
+	r.seed = seed + 99
+	var leaf := _leaf_material(r, false)
+	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.42, 0.8, 0.22))
+	leaf.set_shader_parameter("top_color", Color.from_hsv(0.32, 0.7, 0.48))
+	leaf.set_shader_parameter("height", 0.8)
+	for i in 3:
+		var q := pos + Vector3(r.randf_range(-size.x / 2.0 + 0.45, size.x / 2.0 - 0.45), 0.2, r.randf_range(-size.y / 2.0 + 0.3, size.y / 2.0 - 0.3))
+		var blob := MeshInstance3D.new()
+		var rr := r.randf_range(0.26, 0.38)
+		blob.mesh = _rock_mesh(seed + i * 5, rr, 0.18)
+		blob.position = q + Vector3(0, rr * 0.5, 0)
+		blob.scale = Vector3(1.0, 0.75, 1.0)
+		blob.material_override = leaf
+		add_child(blob)
+
+
+func _dress_elf_open_courtyard(team: int, bx: float, side: float) -> void:
+	## The open courtyard's garden (Faisal's 2026-10-09 brief, after the
+	## courtyard reference): one runner from the spawn circle to the castle
+	## passage and one along the class row, lawn and planting beds along the
+	## south fence, the workshop grouped by the Upgrade Station, trees with
+	## layered crowns and clipped bushes framing the fence from outside, and
+	## nothing loose in the middle.
+	var color: Color = Stats.FACTIONS[team].color
+	var hz := CELLAR_HALF_Z
+	# Runners: spawn circle to the passage, and the length of the class row.
+	_add_rug(Vector3(bx + side * 7.0, 0.03, 0), Vector2(10.4, 2.6), color)
+	_add_emblem_decal(Vector3(bx + side * 7.0, 0.11, 0), 1.7, team)
+	_add_rug(Vector3(bx + side * 9.0, 0.03, -(hz - 4.6)), Vector2(16.2, 1.6), color.darkened(0.08))
+	for k in 3:
+		_add_emblem_decal(Vector3(bx + side * (3.3 + k * 5.7), 0.11, -(hz - 4.6)), 1.1, team)
+	# Lawn and beds along the south fence, west of the workshop.
+	var grass := _pbr("grass", 0.35, Color(0.88, 1.0, 0.82))
+	grass.roughness = 1.0
+	_add_block(Vector3(bx + side * 13.2, 0.006, hz - 1.65), Vector3(9.6, 0.012, 2.5), Color.WHITE, false, grass)
+	_add_planting_bed(Vector3(bx + side * 10.6, 0, hz - 1.75), Vector2(2.4, 1.2), 303)
+	_add_planting_bed(Vector3(bx + side * 15.8, 0, hz - 1.75), Vector2(2.4, 1.2), 304)
+	# The workshop corner: stores by the Upgrade Station, against the fence.
+	_prop("dungeon/shelves", Vector3(bx + side * 1.6, 0, hz - 0.95), 0.7, PI)
+	_prop("dungeon/bottle_A_labeled_green", Vector3(bx + side * 1.75, 0.95, hz - 1.2), 0.5)
+	_prop("dungeon/bottle_B_green", Vector3(bx + side * 1.4, 0.95, hz - 1.15), 0.5)
+	_prop("dungeon/crates_stacked", Vector3(bx + side * 6.6, 0, hz - 1.5), 0.65, 0.3)
+	_add_blocker(Vector3(bx + side * 6.6, 0, hz - 1.5), 0.65, 1.5)
+	_prop("dungeon/barrel_large", Vector3(bx + side * 5.2, 0, hz - 1.0), 0.7)
+	# Trees with layered crowns outside the fence, bushes between them.
+	for k in 4:
+		_add_canopy_tree(Vector3(bx + side * (2.6 + k * 4.9), 0, hz + 2.7), 700 + k, 1.0 + 0.12 * (k % 2))
+	for k in 3:
+		_add_canopy_tree(Vector3(bx + side * (4.2 + k * 5.4), 0, -(hz + 3.6)), 710 + k, 0.95)
+	for zs in [-1.0, 1.0]:
+		_add_canopy_tree(Vector3(bx + side * (CELLAR_DEPTH + 2.8), 0, zs * 8.6), 720 + int(zs), 1.05)
+	for k in 3:
+		_add_hedge_blob(Vector3(bx + side * (5.1 + k * 4.9), 0, hz + 1.5), 0.62, 730 + k)
+		_add_hedge_blob(Vector3(bx + side * (5.7 + k * 4.9), 0, hz + 2.1), 0.45, 740 + k)
+	for zs in [-1.0, 1.0]:
+		_add_hedge_blob(Vector3(bx + side * (CELLAR_DEPTH + 1.6), 0, zs * 3.6), 0.6, 750 + int(zs))
+		_add_hedge_blob(Vector3(bx + side * (CELLAR_DEPTH + 2.2), 0, zs * 4.6), 0.42, 760 + int(zs))
+
+
 func _build_cellar(team: int, bx: float, side: float) -> void:
 	## The spawn cellar: a sunken stone hall behind the keep with the class
 	## stations in it (Fat Princess hat machines, our way) and a flight of
 	## stairs up through the back wall into the keep. Its parapet keeps the
 	## field out, so the only way in from outside is still the front door.
+	## The Wildwood Elves' courtyard is the exception (Faisal's 2026-10-09
+	## courtyard brief): an open garden at ground level (`cellar_floor`)
+	## fenced on three sides, its class stations in a row under a pavilion.
 	var color: Color = Stats.FACTIONS[team].color
 	var cx := bx + side * (CELLAR_DEPTH / 2.0)
 	var hz := CELLAR_HALF_Z
+	var fy := cellar_floor(team)
+	var open := fy >= 0.0
 	var top := 0.9
 	var wall_h := top - CELLAR_Y
 	var wall_y := CELLAR_Y + wall_h / 2.0
-	_add_block(Vector3(cx, CELLAR_Y - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), Color.WHITE, true, _flagstone(Color(0.9, 0.86, 0.8)))
-	# The Elves' courtyard is walled in trimmed hedge (the Wildbloom reference).
-	hedge_tops = team == 0
-	_add_wall(Vector3(bx + side * (CELLAR_DEPTH + 0.5), wall_y, 0), Vector3(1, wall_h, hz * 2 + 1))
-	for zs in [-1.0, 1.0]:
-		_add_wall(Vector3(cx, wall_y, zs * (hz + 0.5)), Vector3(CELLAR_DEPTH + 2.0, wall_h, 1))
-	hedge_tops = false
+	if open:
+		_add_block(Vector3(cx, fy - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), Color.WHITE, true, _pavers())
+		_add_elf_courtyard_fence(bx, side, hz)
+	else:
+		_add_block(Vector3(cx, CELLAR_Y - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), Color.WHITE, true, _flagstone(Color(0.9, 0.86, 0.8)))
+		# The Elves' courtyard is walled in trimmed hedge (the Wildbloom reference).
+		hedge_tops = team == 0
+		_add_wall(Vector3(bx + side * (CELLAR_DEPTH + 0.5), wall_y, 0), Vector3(1, wall_h, hz * 2 + 1))
+		for zs in [-1.0, 1.0]:
+			_add_wall(Vector3(cx, wall_y, zs * (hz + 0.5)), Vector3(CELLAR_DEPTH + 2.0, wall_h, 1))
+		hedge_tops = false
 	# A cobbled lane from the spawn circle to the foot of the stairs (Elves);
-	# the Humans roll out a royal runner.
-	if team == 0:
+	# the Humans roll out a royal runner. The open courtyard's runner is laid
+	# with the rest of its garden.
+	if open:
+		pass
+	elif team == 0:
 		_add_block(Vector3(bx + side * 10.4, CELLAR_Y + 0.012, 0), Vector3(3.8, 0.024, 3.2), Color.WHITE, false, _pbr("cobble", 0.55, Color(0.9, 0.86, 0.78)))
 	else:
 		_add_rug(Vector3(bx + side * 10.6, CELLAR_Y + 0.012, 0), Vector2(4.2, 2.6), color)
 	for zs in [-1.0, 1.0]:
+		if open:
+			break   # no walls to hang anything on
 		# Under the castle's back wall: solid below ground except at the stairs.
 		var seg := hz + 0.5 - 1.8
 		_add_block(Vector3(bx, CELLAR_Y / 2.0, zs * (1.8 + seg / 2.0)), Vector3(1, -CELLAR_Y, seg), Color.WHITE, true, _ashlar())
@@ -7824,21 +8223,21 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	# torches on stone pillars) and the faction's banners on poles behind it.
 	for zs in [-1.0, 1.0]:
 		for pxo in [12.0, 17.0]:
-			_add_stone_brazier(Vector3(bx + side * pxo, CELLAR_Y, zs * 3.6))
-		_add_banner_pole(team, Vector3(bx + side * 17.2, CELLAR_Y, zs * 6.2))
-	if team == 0 and vmap == null:
-		# A timber palisade round the outside of the Elves' courtyard.
-		var ox := bx + side * (CELLAR_DEPTH + 2.6)
-		var oz := hz + 2.4
-		_add_picket_fence(Vector3(bx + side * 0.5, 0, -oz), Vector3(ox, 0, -oz))
-		_add_picket_fence(Vector3(bx + side * 0.5, 0, oz), Vector3(ox, 0, oz))
-		_add_picket_fence(Vector3(ox, 0, -oz), Vector3(ox, 0, oz))
-	# The stairs: a straight flight up the middle into the keep.
+			_add_stone_brazier(Vector3(bx + side * pxo, fy, zs * 3.6))
+		_add_banner_pole(team, Vector3(bx + side * 17.2, fy, zs * 6.2))
+	# The stairs: a straight flight up the middle into the keep. The open
+	# courtyard is level with the keep, so a threshold strip marks the way in.
 	var st := cellar_stairs(team)
-	_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
-	for zs in [-1.0, 1.0]:
-		# Low walls along the raised part of the stairs (the foot is open).
-		_add_block(Vector3(bx + side * 3.0, CELLAR_Y + 0.6, zs * 1.9), Vector3(7.6, 1.2, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)))
+	if open:
+		# The ground has a gap under the old stairs' top (x 69..70.5 on the
+		# lane): a solid paved sill fills it, with the threshold strip on top.
+		_add_block(Vector3(bx - side * 0.9, -0.05, 0), Vector3(3.4, 0.1, 3.8), Color.WHITE, true, _pavers())
+		_add_block(Vector3(bx + side * 1.0, 0.02, 0), Vector3(1.8, 0.04, 3.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
+	else:
+		_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
+		for zs in [-1.0, 1.0]:
+			# Low walls along the raised part of the stairs (the foot is open).
+			_add_block(Vector3(bx + side * 3.0, CELLAR_Y + 0.6, zs * 1.9), Vector3(7.6, 1.2, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)))
 	# The sanctuary barrier at the top of the stairs: the enemy team can't pass
 	# it and nothing they fire gets through. Elves raise a wall of green
 	# light, Humans a ward of blue light.
@@ -7888,7 +8287,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		for zs in [-1.0, 1.0]:
 			_add_stone_lion(Vector3(bx - side * 0.7, 0, zs * 2.4), Vector3(-side, 0, 0), 0.8)
 	# The spawn circle at the far end: a glowing team-coloured ring on the floor.
-	var spawn := Vector3(bx + side * 14.5, CELLAR_Y, 0)
+	var spawn := Vector3(bx + side * 14.5, fy, 0)
 	_add_runes(spawn, 2.1, color)
 	var ring := MeshInstance3D.new()
 	var rm2 := TorusMesh.new()
@@ -7905,19 +8304,38 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	ring.material_override = ring_mat
 	add_child(ring)
 	_furnish_cellar(team, bx, side)
-	if team == 0:
+	if open:
+		_dress_elf_open_courtyard(team, bx, side)
+	elif team == 0:
 		_dress_elf_courtyard(team, bx, side)
 	# The class room: six alcoves in a row along the north wall, facing the
 	# camera, each with its class's name on a sign, its hat on a pedestal and
 	# a glowing rune circle (the Rogue's is locked until account level 10).
+	# In the open courtyard the row stands under a pavilion along the north
+	# fence, the stations centred on the courtyard and a clear stride apart.
 	var order := [Role.KNIGHT, Role.ENGINEER, Role.RANGER, Role.MAGE, Role.ROGUE, Role.HEALER]
-	for k in order.size():
-		var p := Vector3(bx + side * (2.0 + k * 2.9), CELLAR_Y, -(hz - 1.6))
-		_add_class_alcove(team, order[k], p)
-		_add_station(team, order[k], p)
-	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall.
-	_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
-	if team == 0:
+	if open:
+		var xs: Array = []
+		for k in order.size():
+			xs.append(bx + side * (9.0 + (k - 2.5) * 2.85))
+		_add_elf_station_canopy(bx, side, hz)
+		for k in order.size():
+			var p := Vector3(xs[k], fy, -(hz - 2.0))
+			_add_class_alcove(team, order[k], p)
+			_add_station(team, order[k], p)
+	else:
+		for k in order.size():
+			var p := Vector3(bx + side * (2.0 + k * 2.9), CELLAR_Y, -(hz - 1.6))
+			_add_class_alcove(team, order[k], p)
+			_add_station(team, order[k], p)
+	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall;
+	# in the open courtyard the station and its workshop take the south-east
+	# corner by the castle wall and the Guide stands by the passage.
+	if open:
+		_add_upgrade_pad(team, Vector3(bx + side * 3.4, fy, 7.4))
+	else:
+		_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
+	if team == 0 and not open:
 		# The workshop corner round the Upgrade Station: shelves of supplies
 		# against the west wall, crates and a barrel (the brief's grouped
 		# workshop props; off the stairs lane and the class row).
@@ -7928,7 +8346,10 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_prop("dungeon/barrel_large", Vector3(bx + side * 2.7, CELLAR_Y, -7.6), 0.7)
 	var g := Guide.new()
 	add_child(g)
-	g.setup(self, team, Vector3(bx + side * 1.3, CELLAR_Y, 5.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
+	if open:
+		g.setup(self, team, Vector3(bx + side * 1.8, fy, -4.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
+	else:
+		g.setup(self, team, Vector3(bx + side * 1.3, CELLAR_Y, 5.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
 	guides[team] = g
 
 
@@ -8096,22 +8517,25 @@ func _apply_map_variant() -> void:
 		# Graphics pass 2026-10-09 (to the Elf base renders): a little more
 		# ambient so the shade is coloured, not black; a slightly higher,
 		# softer sun with blurred shadow edges; less neon saturation.
-		world_environment.ambient_light_energy = 0.27
+		# Courtyard pass (2026-10-09, Faisal): less ambient so shaded faces
+		# stay visibly darker than lit ones, a slightly stronger sun and
+		# firmer shadow edges, so posts, beds and stations sit on the ground.
+		world_environment.ambient_light_energy = 0.21
 		world_environment.ambient_light_sky_contribution = 0.3
 		world_environment.ambient_light_color = Color(0.5, 0.6, 0.85)
 		world_environment.fog_light_color = Color(0.95, 0.85, 0.7)
 		world_environment.fog_density = 0.0012
 		world_environment.glow_intensity = 0.6
 		world_environment.glow_hdr_threshold = 1.05
-		world_environment.adjustment_saturation = 1.12
+		world_environment.adjustment_saturation = 1.08
 		world_environment.adjustment_brightness = 1.0
-		world_environment.adjustment_contrast = 1.06
+		world_environment.adjustment_contrast = 1.08
 		sun_light.light_color = Color(1.0, 0.92, 0.78)
-		sun_light.light_energy = 1.3
-		sun_light.rotation_degrees = Vector3(-44, -32, 0)
-		sun_light.shadow_opacity = 0.9
-		sun_light.light_angular_distance = 1.2
-		sun_light.shadow_blur = 1.2
+		sun_light.light_energy = 1.42
+		sun_light.rotation_degrees = Vector3(-46, -32, 0)
+		sun_light.shadow_opacity = 0.92
+		sun_light.light_angular_distance = 0.8
+		sun_light.shadow_blur = 0.8
 		if fill_light:
 			fill_light.light_energy = 0.07
 
@@ -8137,8 +8561,8 @@ func _build_world() -> void:
 	environment.ambient_light_color = Color(0.75, 0.85, 0.8)
 	# Soft contact shadows under props and in corners (Forward+ only).
 	environment.ssao_enabled = true
-	environment.ssao_radius = 1.3
-	environment.ssao_intensity = 2.6
+	environment.ssao_radius = 1.1
+	environment.ssao_intensity = 3.2
 	environment.ssao_power = 1.2
 	# Light bouncing off lit surfaces into shade (grass green on the walls,
 	# torchlight on the floors): Forward+ only, High and Ultra.

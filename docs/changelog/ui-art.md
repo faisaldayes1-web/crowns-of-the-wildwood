@@ -543,3 +543,48 @@ room reachable). Renders: `elf-base-overhaul-*.png` (debug and in-play cameras) 
 
 Revert: `git revert 7e37f9f` then `python3 tools/make_textures.py make_hedge make_stone make_flagstone`
 is NOT needed (the textures are committed; the revert restores them).
+
+## 2026-10-09 — Elf class-selection courtyard rebuilt as an open garden (Faisal's 04:08 brief)
+
+Commit: `HASH_PENDING`. Scope: ONLY the Wildwood Elves' class-selection courtyard (the former
+"cellar" behind the Elf keep); the Human cellar and both Ember Pass cellars are untouched.
+
+- **Ground level, not sunken**: new `cellar_floor(team)` returns 0.0 for the Wildwood Elves
+  (−2.4 everywhere else). `_in_cellar` now bounds the courtyard in x as well (depth < 19 m) and
+  tests `y < floor + 2`, so spawn protection, "defending home", the projectile sanctuary rule and
+  the barricade rule ("Not in the cellar", now via `_in_cellar`) behave as before on every map.
+  `cellar_stairs`, `_route_leg` and unit spawns use `cellar_floor`. Bots route out through the
+  castle passage as before (seed-5 match: all five Elves out by 30 s, hats taken).
+- **Composition** (`_build_cellar` open branch, `_add_elf_courtyard_fence`,
+  `_dress_elf_open_courtyard`): the 3.3 m hedge walls are gone; the edge is a 0.3 m sandstone kerb
+  with a timber picket fence on it round three sides, plus an unseen 1.4 m collider so nothing
+  walks or shoots in (sight ray 1.0 m, shots 1.1 m). A solid paved sill fills the ground gap under
+  the old stairs' top. One stag runner from the spawn circle to the passage, one along the class
+  row; lawn with two planting beds along the south fence; the workshop (Upgrade Station board,
+  bench, barrels, shelves, crates) grouped in the south-east corner; the Guide by the passage;
+  nothing loose in the middle. Eight trees with layered crowns (`_add_canopy_tree`) and clipped
+  bushes frame the fence from outside.
+- **Stations** (`_add_elf_class_station`, `_add_elf_station_canopy`, `seal.gd`): six stations
+  centred on the courtyard 2.85 m apart under a pavilion: seven 0.36 m timber posts with capped
+  tips in front and seven taller behind the fence, beams and rafters, an emerald canvas that sags
+  per bay, rising to the back, with a scalloped hem and gold band. Each station: octagonal
+  sandstone slab, bevelled second tier, bronze band, carved cream pedestal with a gold cap
+  (`seal.gd`, `lift` 0.2 m) and the class hat; behind it a thick dark name board on iron chains
+  over an emerald panel with gold hems, a soft disc of the class colour and the class emblem. The
+  alcove runes, second ring and light are dropped for these stations; the hat's own ring is
+  smaller (0.8–0.96) and quieter (alpha 0.45, emission 0.8).
+- **Materials**: new `pavers` texture (`tools/make_textures.py make_pavers`): staggered cream
+  sandstone slabs with rounded corners and soft bevels, one tile per 4.5 m (`_pavers()`).
+- **Lighting** (`_apply_map_variant` day): ambient 0.27 → 0.21, saturation 1.12 → 1.08, contrast
+  1.06 → 1.08, sun 1.3 → 1.42 at −46° (was −44°), shadow opacity 0.9 → 0.92, shadow blur and
+  angular distance 1.2 → 0.8; SSAO radius 1.3 → 1.1, intensity 2.6 → 3.2.
+
+Files: `scripts/game.gd`, `scripts/seal.gd`, `tools/make_textures.py`,
+`assets/textures/pavers_{color,normal}.jpg` (+ .import), `docs/changelog/ui-art.md`.
+
+Tested: `--check-only` (game.gd, seal.gd); `--audit` 1 overlap (the pre-existing pines), 262
+props; seed-5 90 s match (Elves on the floor, out by 30 s); Ember Pass `--map=2` still builds the
+sunken Elf cellar; full seed-7 match: see below. Renders: `elf-courtyard-rebuild-*.png` and
+`compare-elf-courtyard-reference-vs-rebuild.png` in game/groups/ui-art/.
+
+Revert: `git revert HASH_PENDING`.
