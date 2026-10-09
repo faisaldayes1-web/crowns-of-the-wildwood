@@ -31,6 +31,8 @@ def main(tags):
     lengths, overtime, errors = [], 0, 0
     kills = []
     down = collections.defaultdict(collections.Counter)   # event -> team -> count
+    first_door = []   # seconds until the first door of the match broke
+    stalls = 0
     for f in files:
         text = open(f, errors="replace").read()
         errors += text.count("SCRIPT ERROR")
@@ -44,6 +46,9 @@ def main(tags):
         caps[0] += int(a); caps[1] += int(b)
         lengths.append(int(r["t"]))
         overtime += r["overtime"] == "true"
+        doors = [int(m) for m in re.findall(r"^Door broken: \w+ t=(\d+)", text, re.M)]
+        first_door.append(min(doors) if doors else None)
+        stalls += text.count("\nSTALL ")
         for l in text.splitlines():
             if l.startswith("STAT"):
                 d = kv(l)
@@ -64,6 +69,9 @@ def main(tags):
     n = len(lengths)
     print("matches %d  wins %s  caps E%d H%d  kills E%d H%d  overtime %d  avg length %ds  script errors %d"
           % (n, dict(wins), caps[0], caps[1], tkills[0], tkills[1], overtime, sum(lengths) / max(n, 1), errors))
+    broke = [d for d in first_door if d is not None]
+    print("first door broken: %d of %d matches, avg at %ds;  bot stalls per match %.1f"
+          % (len(broke), n, sum(broke) / max(len(broke), 1), stalls / max(n, 1)))
     print("\n%-16s %4s %6s %6s %6s %6s %6s %5s" % ("class", "n", "K/m", "D/m", "A/m", "dmg/m", "heal/m", "K/D"))
     for (t, c), v in sorted(cls.items()):
         m = max(v["n"], 1)
