@@ -7,6 +7,20 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
+### 2026-10-09 08:25 UTC · `(stamped by the next entry)` · Faisal's circled fixes: Human base, roads (08:13-08:16)
+
+- **What:** Faisal circled clipping and out-of-place items on the screenshots of 06:47.
+  - **Upgrade station** faced the wrong way (south-west corner, its board's back to the room): back at (bx+1.1, −5.0) like the Elves', board against the class row, anvil facing the room; the Guide returns to the south-west; the extra shelf, crates and cask went.
+  - **Human crown room:** the four torch stands, the two candle stands by the dais, the two chests and the cask went; the keg and cheese crate in the room's front corner and the cabinet at its back corner went. Left: crown, dais, rug, throne, crest.
+  - **Human spawn hall:** both banner frames and both fire pillars by the spawn circle, the rack and dummy, and the low walls along the stairs (also gone from the Ember Pass Elf cellar, same code path).
+  - **Trees** behind the Human spawn hall where the camp was (campfire, tent, flag, crate, pallet, sack, bucket, wheelbarrow): eight trees.
+  - **Roads:** the two picket fences beside the main road on each side, and the third lantern post by each gate, went; field rocks keep 2.2 m off every path and 3 m off potions; each path's layers sit 1 mm above the previous path's (four steps), and every core above every frayed strip, which ends the green speckle where paths overlap.
+  - The Elf crown room notes went to UI & Art (their base).
+- **Files:** scripts/game.gd (`_build_cellar`, `_add_upgrade_pad` call, `_build_throne_room`, `_polish_keep`, `_furnish_keep`, `_build_works`, `_add_road_dressing`, `_add_road_lanterns`, `_add_field_rocks`, `_add_path`)
+- **Tunables:** path heights: frayed strip y 0.004 → 0.004 + 0.001·(n mod 4), core 0.006 → 0.010 + 0.001·(n mod 4)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches (figures in the next entry)
+- **Revert:** `git revert <hash>`
+
 ### 2026-10-09 06:10 UTC · `e839de0` · Merge UI & Art's Elf declutter (70f43e1)
 
 - **What:** Merge of `origin/group/ui-art-z3px4x` (Elf yard, keep, galleries and crown room floors on `_pavers()`; Elf yard clutter removed; one emblem runner gate-to-archway for both teams, from the Human runner code, now shared). One conflict (the yard floor line in `_build_castle`): resolved so the Elves get `_pavers()` and the Humans the same slabs cool-tinted.

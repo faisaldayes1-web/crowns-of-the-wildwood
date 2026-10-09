@@ -3337,7 +3337,10 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		var fm: ShaderMaterial = mat.get_meta("fray").duplicate()
 		fm.set_shader_parameter("half_w", width / 2.0)
 		e.material_override = fm
-		e.position = mid + Vector3(0, 0.004, 0)
+		# Each path sits a millimetre above the one before (four steps), so
+		# where two paths' frayed strips overlap they don't z-fight into a
+		# green speckle (Faisal 2026-10-09 08:16, "what is this texture bug?").
+		e.position = mid + Vector3(0, 0.004 + 0.001 * float(map_paths.size() % 4), 0)
 		e.rotation.y = rot
 		add_child(e)
 	var m := MeshInstance3D.new()
@@ -3345,7 +3348,7 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 	box.size = Vector3(length, 0.012, core_w)
 	m.mesh = box
 	m.material_override = mat
-	m.position = mid + Vector3(0, 0.006, 0)
+	m.position = mid + Vector3(0, 0.010 + 0.001 * float(map_paths.size() % 4), 0)   # every core above every frayed strip
 	m.rotation.y = rot
 	add_child(m)
 	map_paths.append([from, to, width])
@@ -6158,14 +6161,14 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		if elven:
 			_add_crystal(Vector3(back_x - side * 0.9, fy, zs * (hz - 0.9)), 0.9)
 			_add_mushrooms(Vector3(front_x + side * 0.9, fy, zs * (hz - 0.8)), 61 + int(zs))
-		else:
-			_add_torch_stand(Vector3(front_x + side * 0.7, 0, zs * (hz - 0.7)), 1.7)
+		# (The Humans' torch stands in the room's corners went (Faisal 2026-10-09 08:14, circled as clipping or out of place).)
 		_add_banner(team, Vector3(front_x - side * 0.4, fy, zs * (ROOM_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.6, true)
 	_add_light(Vector3(back_x - side * 0.8, 1.6 + fy, 0), color.lightened(0.4), 1.0, 6.0)
 	_add_light(throne + Vector3(0, 2.2, 0), Color(1.0, 0.85, 0.5), 1.2 if not elven else 0.3, 4.5)
-	_prop("dungeon/chest_gold", Vector3(back_x - side * 0.9, fy, -(hz - 0.8)), 0.7, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	_prop("dungeon/chest", Vector3(back_x - side * 1.0, fy, hz - 0.9), 0.6, PI / 2.0 if side < 0.0 else -PI / 2.0)
-	_prop("dungeon/barrel_small", Vector3(back_x - side * 0.7, fy, -(hz - 2.0)), 0.8)
+	if elven:   # (the Humans' chests and cask against the walls went (Faisal 2026-10-09 08:14, circled as clipping or out of place))
+		_prop("dungeon/chest_gold", Vector3(back_x - side * 0.9, fy, -(hz - 0.8)), 0.7, PI / 2.0 if side < 0.0 else -PI / 2.0)
+		_prop("dungeon/chest", Vector3(back_x - side * 1.0, fy, hz - 0.9), 0.6, PI / 2.0 if side < 0.0 else -PI / 2.0)
+		_prop("dungeon/barrel_small", Vector3(back_x - side * 0.7, fy, -(hz - 2.0)), 0.8)
 	if elven:
 		_add_fireflies(throne + Vector3(0, 0.8, 0))
 		# Stag banner frames at the court's back corners (the reference's
@@ -6237,8 +6240,9 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	audit_label = ""
 	_add_flame(hearth + Vector3(0, 0.35, 0.3), 0.22, Color(1.0, 0.6, 0.2) if not elven else ELF_GLOW)
 	_add_light(hearth + Vector3(0, 0.9, 1.0), Color(1.0, 0.7, 0.4) if not elven else ELF_GLOW, 1.4, 7.0)
-	_prop("dungeon/keg", Vector3(room_f + side * 0.4, 0, -(wz - 0.5)), 0.55, 0.3)
-	_prop("kitchen/crate_cheese" if not elven else "kitchen/crate_carrots", Vector3(room_f - side * 1.0, 0, -(wz - 0.55)), BITS_SCALE * 0.9, 0.4)
+	if elven:   # (the Humans' keg and cheese crate in the crown room's corner went (Faisal 2026-10-09 08:14, circled as clipping or out of place))
+		_prop("dungeon/keg", Vector3(room_f + side * 0.4, 0, -(wz - 0.5)), 0.55, 0.3)
+		_prop("kitchen/crate_carrots", Vector3(room_f - side * 1.0, 0, -(wz - 0.55)), BITS_SCALE * 0.9, 0.4)
 	# --- The chapel (Humans) or the moon shrine (Elves) (z > 0). ---
 	if elven:
 		# A still pool of moonlight ringed with stones, a shrine stone and crystals.
@@ -6295,7 +6299,7 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 		_add_mushrooms(Vector3(bw, 0, -2.9), 75)
 	else:
 		_prop("furniture/shelf_B_large_decorated", Vector3(bw - side * 0.1, 0, -4.1), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
-		_prop("furniture/cabinet_medium_decorated", Vector3(room_b + side * 0.9, 0, -(wz - 0.45)), BITS_SCALE, PI)
+		# (Its cabinet by the crown room's back corner went (Faisal 2026-10-09 08:14, circled as clipping or out of place).)
 		_prop("furniture/pictureframe_large_A", Vector3(bx - side * 0.62, 1.6, -2.6), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	_add_rug(Vector3(back_c, 0.06, -4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color)
 	# The armoury.
@@ -6383,9 +6387,8 @@ func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
 			_add_stone_brazier(Vector3(side * (CASTLE_X + CASTLE_DEPTH) - side * 1.0, 0, zs * (hz + 0.85)))
 		# (The Humans' four torches at the room's outer corners went with the
 		# declutter of 2026-10-09 06:00: the room's own stands light it.)
-		if not elven:
-			_add_torch_stand(Vector3(back_x - side * 0.7, 0, zs * (hz - 0.7)), 1.7)
-			_add_candle_stand(throne + Vector3(side * 2.6, 0, zs * 1.15))
+		# (The Humans' back torch stands and the candle stands by the dais
+		# went (Faisal 2026-10-09 08:14, circled as clipping or out of place): the crown and its dais stand alone.)
 	# The royal carpet: a round rug in the team colour with two gold rings,
 	# under the dais (it stops short of the doors).
 	var rug_r := 2.6
@@ -6751,20 +6754,27 @@ func _build_works(team: int, sx: float) -> void:
 		_add_treehouse(Vector3(x, 0, -14.0), 53, 1.08)
 	for k in 3:
 		_prop("hex/resource_%s" % ["stone" if team == 1 else "lumber"], Vector3(x - sx * 5.0, 0, 9.5 + k * 2.4), 4.0, float(k) * 0.7)
-	_prop("hex/tent", Vector3(x - sx * 4.0, 0, -8.5), 4.0, 0.4 * sx)
-	_prop("hex/flag_%s" % c, Vector3(x - sx * 6.0, 0, -11.5), 4.0)
+	if team == 0:   # (the Humans' tent and flag gave way to the trees)
+		_prop("hex/tent", Vector3(x - sx * 4.0, 0, -8.5), 4.0, 0.4 * sx)
+		_prop("hex/flag_%s" % c, Vector3(x - sx * 6.0, 0, -11.5), 4.0)
 	_prop("hex/trees_%s_large" % ["A" if team == 0 else "B"], Vector3(x - sx * 2.0, 0, 22.0), 4.4, 1.0)
 	_prop("hex/trees_%s_large" % ["B" if team == 0 else "A"], Vector3(x + sx * 4.0, 0, -22.0), 4.4, 2.0)
 	for zs in [-1.0, 1.0]:
 		_prop("hex/mountain_%s_grass_trees" % ["A", "B", "C"][int(zs + 1.0 + (0.0 if sx < 0.0 else 1.0)) % 3], Vector3(sx * 112.0, -0.3, zs * 26.0), 10.0, sx * zs)
 	_prop("hex/mountain_B_grass", Vector3(sx * 116.0, -0.3, 0.0), 10.0, sx)
-	# The camp between the two buildings: a fire, a second tent, stores.
-	_add_campfire(Vector3(x - sx * 6.5, 0, -3.0))
-	_prop("hex/crate_long_A", Vector3(x - sx * 8.5, 0, -6.0), 4.0, 0.3)
-	_prop("hex/pallet", Vector3(x - sx * 8.0, 0, 3.5), 4.0)
-	_prop("hex/sack", Vector3(x - sx * 8.2, 0, 3.6), 3.6, 0.5)
-	_prop("hex/bucket_water", Vector3(x - sx * 5.0, 0, -0.6), 4.0)
-	_prop("hex/wheelbarrow", Vector3(x - sx * 3.0, 0, 6.5), 4.0, 2.2 * sx)
+	if team == 1:
+		# Behind the Humans' spawn hall: a stand of trees where the camp was
+		# (Faisal 2026-10-09 08:13, "put trees in this area").
+		for tp in [Vector3(92.5, 0, -9.0), Vector3(94.0, 0, -3.5), Vector3(92.5, 0, 2.0), Vector3(94.0, 0, 7.5), Vector3(97.5, 0, -6.0), Vector3(97.5, 0, 0.5), Vector3(97.0, 0, 6.0), Vector3(92.0, 0, 11.5)]:
+			_add_tree(tp, int(tp.z) % 2 == 0)
+	else:
+		# The camp between the two buildings: a fire, a second tent, stores.
+		_add_campfire(Vector3(x - sx * 6.5, 0, -3.0))
+		_prop("hex/crate_long_A", Vector3(x - sx * 8.5, 0, -6.0), 4.0, 0.3)
+		_prop("hex/pallet", Vector3(x - sx * 8.0, 0, 3.5), 4.0)
+		_prop("hex/sack", Vector3(x - sx * 8.2, 0, 3.6), 3.6, 0.5)
+		_prop("hex/bucket_water", Vector3(x - sx * 5.0, 0, -0.6), 4.0)
+		_prop("hex/wheelbarrow", Vector3(x - sx * 3.0, 0, 6.5), 4.0, 2.2 * sx)
 	if team == 1:
 		# Kingdom: drill yard by the barracks and a half-built wall.
 		_prop("hex/weaponrack", Vector3(x + sx * 4.5, 0, -9.0), 4.0, PI / 2.0)
@@ -7214,6 +7224,16 @@ func _add_field_rocks() -> void:
 				break
 		if near_tree:
 			continue
+		# Off the cobbled paths and the potions too (Faisal 08:16: a rock
+		# clipped the Forest Path by the Humans' gate).
+		if _near_path(Vector3(x, 0, z), 2.2):
+			continue
+		var near_orb := false
+		for orb in heal_orbs:
+			if _flat_dist(Vector3(x, 0, z), orb.global_position) < 3.0:
+				near_orb = true
+		if near_orb:
+			continue
 		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][r.randi() % 5], Vector3(x, 0, z), r.randf_range(2.2, 3.4), r.randf() * TAU)
 		if r.randf() < 0.4:
 			_prop("hex/rock_single_%s" % ["A", "B"][r.randi() % 2], Vector3(x + 1.7, 0, z + 1.0), 1.8, r.randf() * TAU)
@@ -7335,15 +7355,15 @@ func _add_road_dressing() -> void:
 				_add_stone_brazier(Vector3(sx * x, 0, zs * 3.7), zs > 0.0)
 		_add_crates(Vector3(sx * 15.5, 0, 4.9), 0.3 * sx)
 		_add_crates(Vector3(sx * 32.5, 0, -4.9), -0.5 * sx)
-		_add_picket_fence(Vector3(sx * 20.0, 0, 6.6), Vector3(sx * 27.0, 0, 7.4))
-		_add_picket_fence(Vector3(sx * 36.0, 0, -6.8), Vector3(sx * 42.0, 0, -6.2))
+		# (The two picket fences by the road went: Faisal 08:16, "random fence
+		# not even on road".)
 		_add_banner_pole(team, Vector3(sx * 24.0, 0, -5.4))
 
 
 func _add_road_lanterns() -> void:
 	## Lantern posts along the main road, lit day and night.
 	for sx in [-1.0, 1.0]:
-		for k in 3:
+		for k in 2:   # (the third post, by the gates, stood with a stray fence: Faisal 08:16)
 			var x: float = sx * (10.0 + k * 16.0)
 			var z: float = 3.9 if k % 2 == 1 else -3.9
 			_prop("halloween/post_lantern", Vector3(x, 0, z), 0.75, PI / 2.0 if z > 0.0 else -PI / 2.0)
@@ -8261,24 +8281,19 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 				# were never seen in play; the lawn and table further along
 				# already dress the visible strip.
 				_add_flower_bed(Vector3(bx + side * 3.4, CELLAR_Y, zs * (hz - 2.9)), Vector2(2.0, 1.1), 303)
-			else:
-				# Set 3 m off the wall: the game camera looks over the south
-				# wall's top, which hides the first ~2.5 m of floor behind it.
-				# (Thinned 2026-10-09 06:00: the rack and one dummy; the target,
-				# second dummy and the crate pile by the circle went.)
-				_prop("hex/weaponrack", Vector3(bx + side * 6.4, CELLAR_Y, zs * (hz - 3.2)), 4.0, 0.0)
-				_add_training_dummy(Vector3(bx + side * 9.8, CELLAR_Y, zs * (hz - 3.3)), 0.4)
+			# (The Humans' drill corner, rack and dummy, went (Faisal 2026-10-09 08:14, circled as clipping or out of place).)
 			if team == 0:
 				_prop("dungeon/crates_stacked", Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 0.3 * side)
 				_add_blocker(Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 1.5)
 				_prop("dungeon/barrel_large", Vector3(bx + side * 17.2, CELLAR_Y, zs * (hz - 4.6)), 0.8)
 	# Stone fire pillars round the spawn circle (both factions: the reference's
 	# torches on stone pillars) and the faction's banners on poles behind it.
-	for zs in [-1.0, 1.0]:
-		for pxo in [12.0, 17.0]:
-			if team == 0 or pxo > 15.0:   # the Humans keep one pair, by the circle
+	# (The Humans' spawn hall keeps none of them (Faisal 2026-10-09 08:14, circled as clipping or out of place).)
+	if team == 0:
+		for zs in [-1.0, 1.0]:
+			for pxo in [12.0, 17.0]:
 				_add_stone_brazier(Vector3(bx + side * pxo, fy, zs * 3.6))
-		_add_banner_pole(team, Vector3(bx + side * 17.2, fy, zs * 6.2))
+			_add_banner_pole(team, Vector3(bx + side * 17.2, fy, zs * 6.2))
 	# The stairs: a straight flight up the middle into the keep. The open
 	# courtyard is level with the keep, so a threshold strip marks the way in.
 	var st := cellar_stairs(team)
@@ -8289,9 +8304,8 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_add_block(Vector3(bx + side * 1.0, 0.02, 0), Vector3(1.8, 0.04, 3.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	else:
 		_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
-		for zs in [-1.0, 1.0]:
-			# Low walls along the raised part of the stairs (the foot is open).
-			_add_block(Vector3(bx + side * 3.0, CELLAR_Y + 0.6, zs * 1.9), Vector3(7.6, 1.2, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)))
+		# (The low walls along the stairs went (Faisal 2026-10-09 08:14, circled as clipping or out of place): from the camera they
+		# read as loose slabs cutting through the steps.)
 	# The sanctuary barrier at the top of the stairs: the enemy team can't pass
 	# it and nothing they fire gets through. Elves raise a wall of green
 	# light, Humans a ward of blue light.
@@ -8400,20 +8414,17 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_prop("dungeon/crates_stacked", Vector3(bx + side * 1.0, CELLAR_Y, -2.9), 0.6, 0.2)
 		_prop("dungeon/barrel_large", Vector3(bx + side * 2.7, CELLAR_Y, -7.6), 0.7)
 	elif team != 0:
-		# The Humans' workshop is one corner: the anvil station with its
-		# board, a stocked shelf, crates and a cask round it (the south-west
-		# corner, in the strip the camera sees).
-		_add_upgrade_pad(team, Vector3(bx + side * 1.4, CELLAR_Y, 5.2))
-		_prop("furniture/shelf_B_large_decorated", Vector3(bx + side * 1.1, CELLAR_Y, 7.9), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
-		_prop("dungeon/crates_stacked", Vector3(bx + side * 3.2, CELLAR_Y, 7.9), 0.6, 0.4 * side)
-		_add_blocker(Vector3(bx + side * 3.2, CELLAR_Y, 7.9), 0.6, 1.4)
-		_prop("dungeon/barrel_small", Vector3(bx + side * 4.4, CELLAR_Y, 7.5), 0.75)
+		# The Humans' station stands like the Elves' did: its board backs onto
+		# the class row and faces the room, the anvil in front of it (Faisal
+		# 08:13: in the south-west corner it faced the wrong way, its back to
+		# the room). Its own workbench and casks dress it; nothing else added.
+		_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
 	var g := Guide.new()
 	add_child(g)
 	if open:
 		g.setup(self, team, Vector3(bx + side * 1.8, fy, -4.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
 	else:
-		g.setup(self, team, Vector3(bx + side * 1.3, CELLAR_Y, 5.2 if team == 0 else -5.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
+		g.setup(self, team, Vector3(bx + side * 1.3, CELLAR_Y, 5.2), PI / 2.0 if side < 0.0 else -PI / 2.0)
 	guides[team] = g
 
 
