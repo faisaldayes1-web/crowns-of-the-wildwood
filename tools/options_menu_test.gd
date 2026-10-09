@@ -229,16 +229,26 @@ func _init() -> void:
 		game.menu_open = false
 		game.get_tree().paused = false
 		await frames()
-	# Touch: every ability tile and corner square presses its action.
+	# Touch: every ability tile and corner square presses its action. The
+	# first touch switches the HUD to its touch layout, so switch first and
+	# read the tiles that layout draws.
+	game.touch_active = true
+	game.touch.active = true
+	await frames(3)
 	var tiles: Array = hud.touch_rects.duplicate()
 	check(tiles.size() >= 6, "touch: the HUD lists its tiles (%d)" % tiles.size())
 	for e in tiles:
 		if e[1] in ["menu", "scoreboard", "rank_menu", "interact"]:
 			continue   # these open screens or grab; checked above
 		game.touch._down(7, e[0].get_center())
+		# The attack tile is also the aim pad (aim_id) on the touch layout.
 		var act: String = game.touch.held.get(7, "")
+		if act == "" and game.touch.get("aim_id") == 7:
+			act = String(game.touch._prefix()) + "attack" if game.touch.has_method("_prefix") else "attack"
 		check(act != "" and Input.is_action_pressed(act), "touch: the %s tile presses %s" % [e[1], act])
 		game.touch._up(7)
+		if act != "":
+			Input.action_release(act)
 		await frames()
 	# Downed (when the build has it): hold interact to skip to the respawn.
 	if "downed" in p and p.has_method("_go_down") and p.downed_enabled():
