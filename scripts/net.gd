@@ -1,6 +1,9 @@
 extends Node
-## Online play over ENet (direct IP), host-authoritative. An autoload
-## ("Net"), so the connection survives the scene reloads between matches.
+## Online play, host-authoritative. An autoload ("Net"), so the connection
+## survives the scene reloads between matches. Two transports carry the same
+## RPCs: rooms through the WebSocket relay (server/relay.js; works in the
+## browser and on the desktop, joined with a 4-letter code) and ENet direct IP
+## (desktop and LAN; the smoke test uses both).
 ##
 ## The host runs the whole game as offline play does; a joiner's unit is
 ## driven by the inputs that joiner sends (net_input), and 20 times a second
@@ -11,6 +14,11 @@ extends Node
 const DEFAULT_PORT := 24560
 const MAX_CLIENTS := 8
 const SNAPSHOT_EVERY := 3      # physics frames between snapshots (60 / 3 = 20 Hz)
+const RelayPeer = preload("res://scripts/relay_peer.gd")
+# Where the room relay runs. Set online/relay_url in project.godot once it is
+# hosted (a browser page served over https needs a wss:// address); --relay=URL
+# overrides it for tests.
+const DEFAULT_RELAY := "ws://127.0.0.1:8787"
 
 enum Mode { OFFLINE, HOST, CLIENT }
 
@@ -30,6 +38,9 @@ var input_counts := {"interact": 0, "ability_1": 0, "ability_2": 0, "dodge": 0}
 var game                       # the running game.gd, registered by its _ready
 var cli_done := false          # --host / --join from the command line were handled (once per run)
 var peer_names := {}           # host: peer id -> the hero name that joiner chose
+var relay_url := DEFAULT_RELAY
+var room_code := ""            # the room this game is in (relay rooms only)
+var relay: RelayPeer           # while a room is being created or joined
 
 
 func _ready() -> void:
@@ -40,6 +51,67 @@ func _ready() -> void:
 	multiplayer.connected_to_server.connect(_on_connected)
 	multiplayer.connection_failed.connect(_on_connection_failed)
 	multiplayer.server_disconnected.connect(_on_server_disconnected)
+	relay_url = str(ProjectSettings.get_setting("online/relay_url", DEFAULT_RELAY))
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--relay="):
+			relay_url = arg.trim_prefix("--relay=")
+
+
+func _process(_delta: float) -> void:
+	# A room being set up: poll the relay link ourselves until the relay
+	# answers, then hand it to the multiplayer API.
+	if relay and not attached_relay():
+		relay.poll()
+		if relay.get_connection_status() == MultiplayerPeer.CONNECTION_CONNECTED:
+			multiplayer.multiplayer_peer = relay
+			relay.attached = true
+			room_code = relay.code
+			if is_host():
+				status = "Room %s · waiting for players" % room_code
+				print("NET room %s created" % room_code)
+				for arg in OS.get_cmdline_user_args():
+					if arg.begins_with("--room-file="):   # tests: hand the code to the joiner
+						var f := FileAccess.open(arg.trim_prefix("--room-file="), FileAccess.WRITE)
+						if f:
+							f.store_string(room_code)
+			else:
+				status = "Joined room %s · loading the host's world" % room_code
+				print("NET joined room %s" % room_code)
+		elif relay.get_connection_status() == MultiplayerPeer.CONNECTION_DISCONNECTED:
+			if not status.begins_with("Online:"):
+				status = "Could not reach the online server"
+			print("NET relay failed: ", status)
+			relay = null
+			mode = Mode.OFFLINE
+
+
+func attached_relay() -> bool:
+	return relay != null and relay.attached
+
+
+func create_room(url: String = "") -> void:
+	## Host a game in a new relay room; the code shows on the title screen.
+	_open_relay(url, "create", Mode.HOST)
+
+
+func join_room(code: String, url: String = "") -> void:
+	_open_relay(url, code.strip_edges().to_upper(), Mode.CLIENT)
+
+
+func _open_relay(url: String, want: String, as_mode: Mode) -> void:
+	leave()
+	relay = RelayPeer.new()
+	relay.relay_error.connect(func(msg): status = "Online: " + msg)
+	var target := url if url != "" else relay_url
+	if relay.open(target, want) != OK:
+		status = "Could not reach the online server"
+		relay = null
+		return
+	mode = as_mode
+	welcomed = false
+	host_ip = "room " + want
+	status = "Creating a room ..." if want == "create" else "Joining room %s ..." % want
+	print("NET relay %s: %s" % [target, want])
 
 
 func online() -> bool:
@@ -90,6 +162,10 @@ func join(ip: String, p_port: int = DEFAULT_PORT) -> bool:
 func leave() -> void:
 	if multiplayer.multiplayer_peer and not multiplayer.multiplayer_peer is OfflineMultiplayerPeer:
 		multiplayer.multiplayer_peer.close()
+	if relay and not relay.attached:
+		relay.close()
+	relay = null
+	room_code = ""
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	mode = Mode.OFFLINE
 	ready_peers = []
@@ -112,7 +188,7 @@ func _on_peer_connected(id: int) -> void:
 		return
 	print("NET peer %d connected" % id)
 	_relax_timeout(id)
-	status = "Hosting on port %d · %d joined" % [port, peer_count()]
+	status = _host_line()
 	_welcome.rpc_id(id, world_seed, game.map_variant if game else 0)
 
 
@@ -124,7 +200,12 @@ func _on_peer_disconnected(id: int) -> void:
 	if assigned.has(id) and game:
 		game.net_release_unit(assigned[id])
 	assigned.erase(id)
-	status = "Hosting on port %d · %d joined" % [port, peer_count()]
+	status = _host_line()
+
+
+func _host_line() -> String:
+	var where := ("Room %s" % room_code) if room_code != "" else ("Hosting on port %d" % port)
+	return "%s · %d joined" % [where, peer_count()]
 
 
 func _relax_timeout(id: int) -> void:

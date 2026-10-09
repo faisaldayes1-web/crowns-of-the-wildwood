@@ -1,0 +1,10 @@
+{
+  "name": "crowns-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Room relay for Crowns of the Wildwood online play (browser and desktop)",
+  "main": "relay.js",
+  "scripts": { "start": "node relay.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "8.18.0" }
+}

@@ -460,6 +460,18 @@ func _net_ready_hooks() -> void:
 		elif arg.begins_with("--join="):
 			var parts := arg.trim_prefix("--join=").split(":")
 			net.join(parts[0], int(parts[1]) if parts.size() > 1 else net.DEFAULT_PORT)
+		elif arg == "--room-create":
+			net.create_room()
+		elif arg.begins_with("--room-join="):
+			var code := arg.trim_prefix("--room-join=")
+			if code.begins_with("@"):   # tests: wait for the host to write its code to this file
+				var path := code.substr(1)
+				for i in 600:
+					if FileAccess.file_exists(path) and FileAccess.get_file_as_string(path).strip_edges() != "":
+						break
+					await get_tree().create_timer(0.1).timeout
+				code = FileAccess.get_file_as_string(path).strip_edges()
+			net.join_room(code)
 
 
 func _process(delta: float) -> void:

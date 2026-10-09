@@ -155,7 +155,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   "FPS" number, no console errors. Not yet measured on a real iPad.
 - **Revert:** `git revert e9fcddf`
 
-## 2026-10-09 12:05 UTC · `HASH-PENDING` · Online group catches up with the v0.4.0 alpha
+## 2026-10-09 12:05 UTC · `8fc8fa2` · Online group catches up with the v0.4.0 alpha
 
 - **What:** merged `release/v0.4.0-alpha` (new menus, downed and revive, economy, store, strict
   4v4, iPad web fixes) into the Online & Platforms branch so online play is built against the
@@ -164,4 +164,23 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   match start that takes several seconds to build no longer drops the joiner. Smoke test passes.
 - **Files:** merge of `release/v0.4.0-alpha`; `scripts/net.gd` (`_relax_timeout`)
 - **Tunables:** ENet peer timeout limit 32 / min 5000 ms / max 30000 ms (Godot defaults) → 64 / 20000 ms / 60000 ms
-- **Revert:** `git revert -m 1 HASH-PENDING` (undoes the merge and the timeout change)
+- **Revert:** `git revert -m 1 8fc8fa2` (undoes the merge and the timeout change)
+
+## 2026-10-09 12:00 UTC · `HASH-PENDING` · Room relay: online play that works in a browser
+
+- **What:** browsers (the iPad web build) cannot open ENet's UDP links, so online play can now go
+  through a small WebSocket relay. New `server/relay.js` (Node, one dependency `ws` 8.18.0, plus a
+  `Dockerfile`): CREATE gives a 4-letter room code (no 0/O/1/I), JOIN with the code; the relay
+  only forwards packets (joiners to the host, the host to any joiner), pings every 20 s to drop
+  dead links, and answers `GET /` with a health line. New `scripts/relay_peer.gd`, a
+  `MultiplayerPeerExtension` over one WebSocket, so the game's existing RPCs run on it unchanged.
+  `Net.create_room()` / `Net.join_room(code)`; command line `--relay=URL`, `--room-create`,
+  `--room-join=CODE`. `tools/net_smoke.sh` now runs the host/join test over both ENet and the
+  relay (it starts the relay itself); both pass.
+- **Files:** `server/relay.js`, `server/package.json`, `server/package-lock.json`, `server/Dockerfile`,
+  `server/.gitignore` (new), `scripts/relay_peer.gd` (new), `scripts/net.gd`, `scripts/game.gd`,
+  `tools/net_smoke.sh`
+- **Tunables (new):** relay `PORT` 8787, `MAX_PEERS` 8 joiners per room, `MAX_ROOMS` 500, packet cap
+  64 KB; game `Net.DEFAULT_RELAY` `ws://127.0.0.1:8787` (set `online/relay_url` in
+  `project.godot` once the relay is hosted)
+- **Revert:** `git revert HASH-PENDING`
