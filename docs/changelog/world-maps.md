@@ -7,13 +7,13 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 04:30 UTC · `(stamped by the next entry)` · Bot routing fix: both teams were stuck behind the throne room
+### 2026-10-09 04:30 UTC · `47c7d81` · Bot routing fix: both teams were stuck behind the throne room
 
 - **What:** Since the base remaster (`1eb78a4`) the bots of both teams never left their keeps: the four stone fire pillars at the throne room's outer corners were solid and sat exactly on the gallery-corner waypoints that `_around_throne_room` sends everyone through, so a 5 min bot match ended 0-0 with both gates untouched (the 30 s checks only saw bots still choosing classes). The corner pillars are torches again (as before the remaster). Three of this morning's Human props were also on or beside bot lanes and moved: the lions guarding the sanctuary ward now stand tight against the keep's back wall either side of the opening (they replace the two torches there), the parade-ground pillars moved up by the gatehouse (x in+2.0 / in+3.5, z ±6.2) off the yard-to-rampart diagonal and the Engineers' turret pads, and the pair of lions flanking the vault doors is gone (it sat on the entrance-hall lane). The Humans' wall-hung gold sword and shield moved 0.55 m along the back wall to clear a lion.
 - **Files:** scripts/game.gd (`_polish_keep`, `_build_cellar` Human ward, `_build_throne_room`, `_dress_human_castle`, `_furnish_keep` Human branch)
 - **Tunables:** none in stats.gd. Throne-room corner lights `_add_stone_brazier` → `_add_torch` (both teams, both maps); ward lions (bx−2.0, ±2.45) → (bx−0.7, ±2.4); yard pillars x in+3.0/6.6, z ±6.7 → x in+2.0/3.5, z ±6.2; Human back-wall shield z 3.2 → 3.75
-- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches: Wildwood doors 126 / 0 at 120 s and Elves score 1-0 at 150 s (the crown reaches UI & Art's raised Elf throne); Ember Pass figures in the next entry. The before/after comparison that found it: `b5e89e4` doors 24/0 at 150 s vs `8fb3a0e` 200/200.
-- **Revert:** `git revert <hash>` (brings the stuck bots back)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches: Wildwood doors 126 / 0 at 120 s and Elves score 1-0 at 150 s (the crown reaches UI & Art's raised Elf throne); Ember Pass doors 197 / 168 at 150 s (both teams out and attacking; the bigger map takes longer). The before/after comparison that found it: `b5e89e4` doors 24/0 at 150 s vs `8fb3a0e` 200/200.
+- **Revert:** `git revert 47c7d81` (brings the stuck bots back)
 
 ### 2026-10-09 04:00 UTC · `(fast-forward)` · Take UI & Art's Elf passes C/D
 
