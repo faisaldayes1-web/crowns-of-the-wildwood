@@ -252,3 +252,34 @@ Tunables (old → new): hall ambient (0.5, 0.44, 0.42) @ 0.45 → (0.62, 0.5, 0.
 Renders: `create-character-before.png` (PR #2 as merged, Human) → `create-character-after.png` (Elf).
 
 Revert: `git revert 027f43b`
+
+---
+
+## 2026-10-09 — merged World & Maps' branch (base remaster, combined PRs #1-#4, web build); scope: this group now owns the Wildwood Elf base
+
+Commit: `5304307` (merge commit, no squash)
+
+Why: Faisal (02:01) wants the Elf base's design, roads and build quality to match his reference,
+not only the surfaces; the coordinator moved the whole Wildwood Elf base (layout, geometry, crown
+room, class stations, courtyard paths, props, materials, lighting) to this group. World & Maps'
+branch carries the combined build (PRs #1-#4, the web build) and their base remaster
+(`1eb78a4`, `ed70e0a`), so it was merged in to build on. Agreed split (cross-session message to
+World & Maps 02:05): this group edits the `mossy` / `elf_castle` / team 0 branches of
+`_build_castle`, `_build_cellar`, `_furnish_cellar`, `_furnish_keep`, `_build_throne_room`,
+`_polish_keep`, the Elf materials and a new `_build_elf_base`; World & Maps keeps the Human base,
+Ember Pass, roads, bridges, routing and the clipping audit; shared helpers stay untouched.
+
+Conflicts resolved: Elf lantern / tower globe / wall crystal lights keep this branch's warm and
+soft colours (their moon-blue `ELF_GLOW` at 1.1-1.2 was brighter and colder than the reference);
+hedge wall tops keep the clipped hedge block plus their `hedge_tops` courtyard blobs; the Elf
+yard keeps cream flags; `hud.gd` takes their `scoreboard.gd` / `match_summary.gd` split and the
+new keyed map legend while keeping this branch's menu style helpers (the Tab panel frame now
+comes from `Scoreboard.draw_overlay`, so the leather/band styling must be ported into
+`scripts/scoreboard.gd` next); `unit.gd` keeps `respawn_total` / `fell_level` and their
+"down to level N" line (sent to chat, not the centre banner, so it does not fight the death
+screen).
+
+Tested: `--check-only` on game/hud/unit/scoreboard/menu/volcano; 400-frame headless bot match
+with no script errors.
+
+Revert: `git revert -m 1 5304307`.
