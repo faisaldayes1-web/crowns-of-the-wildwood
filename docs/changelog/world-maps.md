@@ -7,7 +7,50 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 08:35 UTC · `(stamped by the next entry)` · Elf gate banner frames off the road (Faisal 08:19)
+### 2026-10-09 11:45 UTC · `(stamped by the next entry)` · Faisal's 11:28-11:30 notes: Human upgrade station, boulders off paths, Elf gate banners, shrine rims and steps
+
+- **What:**
+  - **Human upgrade station** (11:28: "clipped into the wall… face it the other way… take out the orange circle"): it moves off the side wall to (bx + 3.2, −4.6) and turns to face the spawn circle. The gold pad, its flagstone and the block anvil are replaced by the small anvil, as on the Elves' station.
+  - **Boulders** (11:29: "move this rock out of the road"): each field boulder now steps away from the road until it clears every path by 2.4 m. If there's no clear spot within 6 m, it is left out. The boulder on the Forest Path by each gate went from z ±10 to ±16. The pair at (±13, ∓18) is dropped.
+  - **Elf gate banner frames** (11:29: "facing towards the road and not clipping into the building"): they now stand 3.4 m out from the wall at z ±7.1, clear of the gatehouse, and face the road.
+  - **Shrine rims** (11:30: "looks off put"): the two straight walls across the round plaza become 20 short flagstone stones following the plateau's curve, with the same height and collision.
+  - **Shrine steps** (11:30: textures "all over the place"): the steps are now the plaza's flagstone instead of small ashlar bricks.
+- **Files:** scripts/game.gd (`_build_cellar`, `_add_cover`, `_build_castle`, `_add_river`, `_add_island`)
+- **Tunables:** Human upgrade station (bx+1.1, −5.0) → (bx+3.2, −4.6), facing spawn, small anvil; shrine rim straight 7.6 m wall → 2 × 10 segments r 5.75, ±40.5°; Elf gate banner frames (fx+1.4, ±7.5, yaw 0) → (fx+3.4, ±7.1, facing z = 0)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0 (no bot matches: Faisal 09:07 asked for renders only)
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 11:35 UTC · `424385b` · No crate piles by the road; merge UI & Art to 86cbac7
+
+- **What:** Faisal 11:27, "did you fix the random fence issues and missing textures?". The crate-and-barrel piles beside the main road (two a side, one by each gate) are gone; by the Human gate the pile read as a stray fence. The road keeps its braziers, lanterns and banner frame. Also merges `origin/group/ui-art-z3px4x` (Elf courtyard facing and anvil, nameplates, menus).
+- **Files:** scripts/game.gd (`_add_road_dressing`; merge)
+- **Tunables:** none
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 08:45 UTC · `7dc2a01` · Door health bar; Elf towers lose their canopy blobs; merge UI & Art 9e60e8a
+
+- **What:**
+  - **Door health:** Faisal 08:21, "for the door healths add a health bar not a number". Over each castle door, the "Door 200 / 200" text is replaced by a billboard bar: a dark frame, a dark track, and a fill that shrinks from the right and shades from green to red. When the door is broken, the bar hides and the old text returns ("rebuilding in N" / "under siege").
+  - **Elf towers:** Faisal 08:21 at the Elf gate, "what are these giant blobs of what? why are they inside the building". The leafy canopy blobs on every mossy tower are gone. Elf towers get the green shingle roof (no merlons) and keep their lantern.
+  - **Merge:** `origin/group/ui-art-z3px4x` (Elf crown room declutter).
+- **Files:** scripts/gate.gd (`setup`, `_bar_quad`, `_refresh`), scripts/game.gd (`_add_tower`; merge)
+- **Tunables:** door bar 2.6 × 0.26 m, 1.8 m above the door
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0
+- **Revert:** `git revert <hash>` (the merge: `git revert -m 1 <merge hash>`)
+
+### 2026-10-09 08:40 UTC · `9b9be54` · Shrine rails follow the circle; no moss caps, no watermills (Faisal 08:19-08:20)
+
+- **What:** Faisal on the bridge shots: "fences are the wrong way" / "clipping of circle" (middle bridge), "rocks have random green clipping on them" (north bridge), "random useless building and random green shrubs on rock textures" (south bridge).
+  - **Shrine rails:** the rails were turned across the plaza rim; they now run along its tangent, between their posts.
+  - **Boulders:** the grass-textured moss cap poked through each boulder as flat green patches; removed (all 22 field boulders).
+  - **Watermills:** both mills (building, wheel, sacks, crate, lamp, minimap icon) removed.
+- **Files:** scripts/game.gd (`_add_island`, `_add_boulder`, `_build_world` call to `_add_watermills`)
+- **Tunables:** rail rotation.y a + π/2 → −(a + π/2)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 08:35 UTC · `cd33bbd` · Elf gate banner frames off the road (Faisal 08:19)
 
 - **What:** Faisal, on the Elf gate: "move signs to appropriate place? not middle of ground blocking road". The two stag banner frames stood on the cobbles where the Forest and River Paths leave the road (fx − 4.6, ±(DOOR_HALF + 1.9)); they now stand against the front wall beside the gatehouse towers. The fence and the rock he circled on the same shot went in bc6323f.
 - **Files:** scripts/game.gd (`_build_castle`)
@@ -34,7 +77,7 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
   - The Elf crown room notes went to UI & Art (their base).
 - **Files:** scripts/game.gd (`_build_cellar`, `_add_upgrade_pad` call, `_build_throne_room`, `_polish_keep`, `_furnish_keep`, `_build_works`, `_add_road_dressing`, `_add_road_lanterns`, `_add_field_rocks`, `_add_path`)
 - **Tunables:** path heights: frayed strip y 0.004 → 0.004 + 0.001·(n mod 4), core 0.006 → 0.010 + 0.001·(n mod 4)
-- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches (figures in the next entry)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches seed 5: Wildwood doors 82/180 at 90 s, 56/0 at 150 s; Ember Pass 200/0 at 120 s, score 1-0 at 150 s
 - **Revert:** `git revert <hash>`
 
 ### 2026-10-09 06:10 UTC · `e839de0` · Merge UI & Art's Elf declutter (70f43e1)

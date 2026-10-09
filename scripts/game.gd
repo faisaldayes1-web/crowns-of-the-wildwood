@@ -3529,13 +3529,7 @@ func _add_boulder(pos: Vector3) -> void:
 	mesh.scale = Vector3(1.0, 0.85, 1.15)
 	mesh.material_override = _pbr("rock", 0.45)
 	body.add_child(mesh)
-	# A mossy cap.
-	var moss := MeshInstance3D.new()
-	moss.mesh = _rock_mesh(absi(int(pos.x * 31 + pos.z * 17)) + 3, 1.0)
-	moss.position.y = 1.05
-	moss.scale = Vector3(1.0, 0.35, 1.1)
-	moss.material_override = _pbr("grass", 0.4, Color(0.55, 0.8, 0.4))
-	body.add_child(moss)
+	# (No mossy cap: it poked through the rock as flat green patches, Faisal 08:20.)
 	add_child(body)
 	# A few pebbles around the base.
 	for i in 3:
@@ -4203,9 +4197,30 @@ func _add_river() -> void:
 	_add_island()
 	# Low stone rims on the island's north and south edges so nobody walks
 	# off the shrine into the river channel (there is no way back up).
+	# They follow the plateau's curve in short stones of the plaza's own
+	# flagstone (Faisal 11:30: the straight walls across the round plaza
+	# "look off put").
+	var rim_mat := _flagstone(Color(0.93, 0.89, 0.82))
+	var rim_r := ISLAND_R - 0.25
 	for zs in [-1.0, 1.0]:
-		var rz: float = zs * (ISLAND_R - 0.3)
-		_add_wall(Vector3(0, 0.75, rz), Vector3(RIVER_HALF * 2 + 1.6, 0.5, 0.5), false)
+		for k in 10:
+			var phi := deg_to_rad(-40.5 + 9.0 * k)
+			var c := Vector3(rim_r * sin(phi), 0.75, zs * rim_r * cos(phi))
+			var seg := StaticBody3D.new()
+			seg.position = c
+			seg.rotation.y = zs * phi
+			var cs := CollisionShape3D.new()
+			var bs := BoxShape3D.new()
+			bs.size = Vector3(0.96, 0.5, 0.45)
+			cs.shape = bs
+			seg.add_child(cs)
+			var mi := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(0.96, 0.5, 0.45)
+			mi.mesh = bm
+			mi.material_override = rim_mat
+			seg.add_child(mi)
+			add_child(seg)
 	# Bridges: a plank deck with rails and posts.
 	for i in BRIDGES.size():
 		if i == 1:
@@ -4391,7 +4406,9 @@ func _add_island() -> void:
 			rm.size = Vector3(2.5, 0.1, 0.08)
 			rail.mesh = rm
 			rail.position = c + Vector3(0, h, 0)
-			rail.rotation.y = a + PI / 2.0
+			# Along the rim's tangent, so the rails follow the circle instead of
+			# cutting across it (Faisal 08:19: "fences are the wrong way").
+			rail.rotation.y = -(a + PI / 2.0)
 			rail.material_override = _timber(Color(0.66, 0.5, 0.35))
 			add_child(rail)
 	map_marks.append([Vector3.ZERO, "shrine"])
@@ -4399,7 +4416,9 @@ func _add_island() -> void:
 	for sx in [-1.0, 1.0]:
 		var foot := Vector3(sx * (ISLAND_R + 3.2), 0.0, 0)
 		var head := Vector3(sx * (ISLAND_R - 0.4), 0.5, 0)
-		_add_stairs(foot, head, 4.0, _ashlar(Color(0.95, 0.92, 0.86)), 1.0)
+		# The plaza's flagstone, not small ashlar bricks, so road, steps and
+		# plaza read as one surface (Faisal 11:30: "all over the place").
+		_add_stairs(foot, head, 4.0, _flagstone(Color(0.96, 0.93, 0.88)), 1.0)
 		_add_railing(foot + Vector3(0, 0, -1.92), head + Vector3(0, 0, -1.92))
 		_add_torch(Vector3(sx * (ISLAND_R + 3.6), 0, -2.6))
 		_add_torch(Vector3(sx * (ISLAND_R + 3.6), 0, 2.6))
@@ -4461,7 +4480,17 @@ func _add_cover() -> void:
 					_add_wall_stub(c, length)
 	var boulders := [Vector3(9, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -10.5), Vector3(38, 0, 10),
 		Vector3(8, 0, 28), Vector3(17, 0, 25), Vector3(14, 0, -36), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(40, 0, 24)]
-	for p in boulders:
+	for p0 in boulders:
+		# Off the cobbled paths (Faisal 11:29: "move this rock out of the
+		# road", the boulder on the Forest Path by the Elf gate): step it
+		# away from the road until it clears every path.
+		var p: Vector3 = p0
+		var k := 0
+		while _near_path(p, 2.4) and k < 12:
+			p.z += 1.0 if p.z >= 0.0 else -1.0
+			k += 1
+		if _near_path(p, 2.4) or absf(p.z - p0.z) > 6.0:
+			continue   # no clear spot near its own: leave it out
 		_add_boulder(p)
 		_add_boulder(-p)
 		cover_points.append(p)
@@ -5659,23 +5688,9 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 		_add_block(pos + Vector3(0, 0.25, 0), Vector3(width + 0.5, 0.5, width + 0.5), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
 		_add_block(pos + Vector3(0, height * 0.55, 0), Vector3(width + 0.2, 0.16, width + 0.2), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
 	if mossy:
-		# An elven tree-tower: the trunk carries a glowing canopy instead of a roof,
-		# with a lantern hung beneath it.
-		var r := RandomNumberGenerator.new()
-		r.seed = int(pos.x * 3 + pos.z * 17)
-		var canopy := _leaf_material(r, false)
-		canopy.set_shader_parameter("top_color", Color.from_hsv(0.42, 0.7, 0.4))
-		canopy.set_shader_parameter("bottom_color", Color.from_hsv(0.45, 0.85, 0.14))
-		for i in 4:
-			var blob := MeshInstance3D.new()
-			var rr: float = width * (0.8 if i == 0 else r.randf_range(0.45, 0.6))
-			blob.mesh = _rock_mesh(r.randi(), rr, 0.12)
-			var a := TAU * i / 4.0 + 0.6
-			var spread: float = 0.0 if i == 0 else width * 0.45
-			blob.position = pos + Vector3(cos(a) * spread, height + 0.9 + (0.5 if i == 0 else r.randf_range(-0.2, 0.5)), sin(a) * spread)
-			blob.scale = Vector3(1.0, 0.8, 1.0)
-			blob.material_override = canopy
-			add_child(blob)
+		# An elven tower: a lantern hung under a green shingle roof. (The leafy
+		# canopy blobs it wore read as "giant blobs inside the building" from
+		# the camera, Faisal 08:21.)
 		var globe := MeshInstance3D.new()
 		var sph := SphereMesh.new()
 		sph.radius = 0.22
@@ -5694,11 +5709,10 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 		light.omni_range = 6.0
 		light.position = globe.position
 		add_child(light)
-		if flag:
-			_add_flag(pos + Vector3(0, height + 2.6, 0), team, side)
-		return
 	for xs in [-1.0, 1.0]:
 		for zs in [-1.0, 1.0]:
+			if mossy:
+				continue
 			_add_block(pos + Vector3(xs * (width / 2.0), height + 0.6, zs * (width / 2.0)), Vector3(0.5, 0.6, 0.5), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# The roof: a pyramid in the team colour with a gold cap.
 	var roof := MeshInstance3D.new()
@@ -6678,7 +6692,7 @@ func _build_outskirts() -> void:
 	_add_road_dressing()
 	_add_river_plants()
 	_add_barrow(Vector3(-30, 0, 22))
-	_add_watermills()
+	# (No watermills: Faisal 08:20, "random useless building".)
 	_add_field_rocks()
 	_add_clouds()
 	_add_ground_patches()
@@ -7449,8 +7463,8 @@ func _add_road_dressing() -> void:
 		for x in [18.0, 34.0]:
 			for zs in [-1.0, 1.0]:
 				_add_stone_brazier(Vector3(sx * x, 0, zs * 3.7), zs > 0.0)
-		_add_crates(Vector3(sx * 15.5, 0, 4.9), 0.3 * sx)
-		_add_crates(Vector3(sx * 32.5, 0, -4.9), -0.5 * sx)
+		# (No crate-and-barrel piles by the road: Faisal 11:27, "did you fix the
+		# random fence issues", the pile by the Human gate read as a stray fence.)
 		# (The two picket fences by the road went: Faisal 08:16, "random fence
 		# not even on road".)
 		_add_banner_pole(team, Vector3(sx * 24.0, 0, -5.4))
@@ -7773,7 +7787,11 @@ func _build_castle(team: int) -> void:
 		if team == 0:   # (the Humans' gate keeps its lions and tower pennants only: Faisal 06:00, "cluttered")
 			# Against the wall beside the gatehouse, off the road and the
 			# path mouths (Faisal 08:19: "not middle of ground blocking road").
-			_add_banner_pole(team, Vector3(fx - side * 1.4, 0, zs * (dh + 4.0)))
+			# Out from the wall (clear of the gatehouse towers and lamps) and
+			# turned to face the road (Faisal 11:29: "facing towards the road
+			# and not clipping into the building").
+			var bp := Vector3(fx - side * 3.4, 0, zs * (dh + 3.6))
+			_add_banner_pole(team, bp, PI if zs > 0.0 else 0.0)
 		# Corner towers.
 		_add_tower(Vector3(fx, 0, zs * hz), team, side)
 		_add_tower(Vector3(bx, 0, zs * hz), team, side)
@@ -8464,7 +8482,13 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# the class row and faces the room, the anvil in front of it (Faisal
 		# 08:13: in the south-west corner it faced the wrong way, its back to
 		# the room). Its own workbench and casks dress it; nothing else added.
-		_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
+		# Off the side wall and turned to face the spawn circle, with the small
+		# anvil instead of the gold pad, like the Elves' (Faisal 11:28: "this
+		# is clipped into the wall and also face it the other way and take out
+		# the orange circle with it").
+		var hup := Vector3(bx + side * 3.2, CELLAR_Y, -4.6)
+		var h_to_spawn := Vector3(bx + side * 14.5, CELLAR_Y, 0) - hup
+		_add_upgrade_pad(team, hup, atan2(h_to_spawn.x, h_to_spawn.z), true)
 	var g := Guide.new()
 	add_child(g)
 	if open:
