@@ -226,7 +226,7 @@ then `python3 tools/balance/agg.py <tag>`.
 - **When:** 2026-10-09 11:30 UTC (Faisal 2026-10-09 09:17 "for the fae step add
   animations and unique animations for each skill. add particle effects. If
   there is no reference present for how the skills should look then change it")
-- **Commit:** filled in by the next commit
+- **Commit:** `c4e5054`
 - **What:** All 50 abilities (both sides' kits and every promotion) now play
   their own body animation and their own particles when cast, on top of what
   the ability already drew. Looks only: no damage, cooldown, cost, reach or
@@ -260,4 +260,4 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Tunables:** none.
 - **Checks:** `tools/tests/run.sh` 25/25; a 150 s Wildwood bot match with 0
   script errors.
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert c4e5054`
