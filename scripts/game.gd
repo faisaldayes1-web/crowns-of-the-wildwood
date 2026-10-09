@@ -414,6 +414,10 @@ func _process(delta: float) -> void:
 			get_tree().quit()
 		if Input.is_action_just_pressed("scoreboard") and summary:
 			summary.show_board = not summary.show_board
+		if touch_tap.x >= 0.0 and summary and hud:
+			# A finger on the summary's buttons (a mouse click goes through hud._input).
+			hud._click_end(touch_tap)
+			touch_tap = Vector2(-1, -1)
 		if Input.is_action_just_pressed("restart"):
 			# The first press skips the tally; once it has played, go on.
 			if summary and not summary.done():
@@ -2577,6 +2581,12 @@ func menu_tick() -> void:
 		for i in hud.tab_buttons.size():
 			if hud.tab_buttons[i].has_point(mouse):
 				menu_tab = hud.tab_ids[i]
+		for b in hud.corner_buttons:
+			if b[0].has_point(mouse) and playing and not menu_open and not rank_open:
+				menu_open = true
+				menu_tab = 0 if b[1] == "menu" else 3
+				get_tree().paused = true
+				sfx.ui("ui_click", -4.0)
 		for b in hud.group_buttons:
 			if b[0].has_point(mouse):
 				hud.controls_group = b[1]
