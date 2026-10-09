@@ -7,7 +7,7 @@ render_mode unshaded, blend_mix, depth_draw_never, depth_test_disabled, cull_dis
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 uniform vec4 ink : source_color = vec4(0.09, 0.07, 0.06, 1.0);
-uniform float thickness = 1.4;   // bolder cartoon lines (Faisal 2026-10-07 21:14)
+uniform float thickness = 1.25;  // the reference's lines are fine and dark (graphics pass 2026-10-09; was 1.6)
 uniform float threshold = 0.010;   // relative change in inverse depth that starts a line
 uniform float softness = 0.03;     // how quickly a line goes from faint to full
 uniform float strength = 1.0;
