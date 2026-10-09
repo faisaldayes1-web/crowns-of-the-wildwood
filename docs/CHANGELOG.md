@@ -29,7 +29,7 @@ git push origin --tags
 
 - **PR:** [#3](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/3) · **Merge:** `d49bb86` · **Marker:** `release/v0.3.1`
 - **What:** End-of-match summary screen with accolades (replaces the live HUD at match end); new scoreboard with score first, then K, D, A, caps, damage; falling now costs 2 levels instead of all of them; extra XP for killing higher-level enemies; base attack reach no longer grows with rank; bows and staves 15% slower; class retune; batch balance tools in `tools/balance/`.
-- **Tunables:** `DEATH_LEVEL_LOSS` new, 2 (was: back to level 1) · `XP_UPSET` new, 15 · `RANGED_ATTACK_SLOW` new, 1.15 · Human `regen_mult` 1.12 → 1.06 · Knight plate armour 0.40 → 0.37 · Siegewright Sledge armour 0.25 → 0.3 · a drain ability cost 27 → 21 · Ranger armour 0.2 and a Rogue-type attack armour 0.42 added. Full list: `git diff 799a873 d49bb86 -- scripts/stats.gd`.
+- **Tunables:** `DEATH_LEVEL_LOSS` new, 2 (was: back to level 1) · `XP_UPSET` new, 15 · `RANGED_ATTACK_SLOW` new, 1.15 · Human `regen_mult` 1.12 → 1.06 · Knight plate armour 0.40 → 0.37 · Siegewright Sledge armour 0.25 → 0.3 · Dark Priest Drain Bolt cost 27 → 21 · Engineer base armour 0.2 added · Knight Vanguard attack armour 0.42 added. Full list: `git diff 799a873 d49bb86 -- scripts/stats.gd`.
 - **Conflict resolved:** `scripts/hud.gd` scoreboard, kept #3's `Scoreboard.draw_overlay` / `draw_table` over #1's inline table (merge `a3f2436` on the PR branch).
 - **Tested:** headless import with no script errors; 6-minute bot match ran clean (Humans led 1-0); scoreboard rendered at 1080p in the new HUD style.
 - **Revert:** `git revert -m 1 d49bb86`
