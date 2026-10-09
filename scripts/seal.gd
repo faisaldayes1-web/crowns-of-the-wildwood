@@ -15,6 +15,7 @@ var prompt: Label3D
 var t := 0.0
 var near := false
 var locked := false
+var lift := 0.0   # the pedestal stands on a stone base in the open courtyard
 
 
 func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
@@ -24,6 +25,12 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	position = pos
 	var color: Color = Stats.ROLES[role].color
 	var elf := team == 0
+	# The open courtyard's stations (the Wildwood Elves, 2026-10-09): the
+	# pedestal is carved cream sandstone with a gold cap and stands on the
+	# station's layered stone base (game.gd _add_elf_class_station).
+	var open: bool = elf and game.cellar_floor(p_team) >= 0.0
+	if open:
+		lift = 0.24
 
 	# The pedestal: a bark stump for the Elves, a stone plinth for the Humans.
 	var ped := MeshInstance3D.new()
@@ -32,39 +39,48 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	cyl.bottom_radius = 0.5 if elf else 0.44
 	cyl.height = 0.8
 	cyl.radial_segments = 10 if elf else 8
+	if open:
+		cyl.top_radius = 0.34
+		cyl.bottom_radius = 0.42
+		cyl.radial_segments = 8
 	ped.mesh = cyl
-	ped.position.y = 0.4
-	ped.material_override = game._pbr("bark", 0.6, Color(0.8, 0.76, 0.62)) if elf else game._pbr("stone", 0.5, Color(0.9, 0.86, 0.78))
+	ped.position.y = 0.4 + lift
+	ped.material_override = game._ashlar(Color(0.95, 0.92, 0.86)) if open else (game._pbr("bark", 0.6, Color(0.8, 0.76, 0.62)) if elf else game._pbr("stone", 0.5, Color(0.9, 0.86, 0.78)))
 	add_child(ped)
 	var cap := MeshInstance3D.new()
 	var cap_mesh := CylinderMesh.new()
 	cap_mesh.top_radius = 0.5
 	cap_mesh.bottom_radius = 0.46
 	cap_mesh.height = 0.08
+	if open:
+		cap_mesh.top_radius = 0.42
+		cap_mesh.bottom_radius = 0.38
+		cap_mesh.radial_segments = 8
 	cap.mesh = cap_mesh
-	cap.position.y = 0.84
-	var cap_mat: StandardMaterial3D = game._material(Color(0.5, 0.78, 0.6) if elf else Color(0.95, 0.78, 0.3))
-	cap_mat.metallic = 0.2 if elf else 0.7
-	cap_mat.roughness = 0.6 if elf else 0.35
-	cap_mat.emission_enabled = elf
+	cap.position.y = 0.84 + lift
+	var cap_mat: StandardMaterial3D = game._material(Color(0.5, 0.78, 0.6) if elf and not open else Color(0.95, 0.78, 0.3))
+	cap_mat.metallic = 0.2 if elf and not open else 0.7
+	cap_mat.roughness = 0.6 if elf and not open else 0.35
+	cap_mat.emission_enabled = elf and not open
 	cap_mat.emission = Color(0.3, 0.7, 0.5)
 	cap_mat.emission_energy_multiplier = 0.3
 	cap.material_override = cap_mat
 	add_child(cap)
 
-	# A soft class-colour glow on the floor around the pedestal.
+	# A soft class-colour glow on the floor around the pedestal (on the stone
+	# base's outer step in the open courtyard, and quieter there).
 	ring = MeshInstance3D.new()
 	var torus := TorusMesh.new()
-	torus.inner_radius = 0.95
-	torus.outer_radius = 1.15
+	torus.inner_radius = 0.8 if open else 0.95
+	torus.outer_radius = 0.96 if open else 1.15
 	ring.mesh = torus
-	ring.position.y = 0.06
+	ring.position.y = 0.13 if open else 0.06
 	var rm := StandardMaterial3D.new()
-	rm.albedo_color = Color(color, 0.55)
+	rm.albedo_color = Color(color, 0.45 if open else 0.55)
 	rm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	rm.emission_enabled = true
 	rm.emission = color
-	rm.emission_energy_multiplier = 1.2
+	rm.emission_energy_multiplier = 0.8 if open else 1.2
 	rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring.material_override = rm
 	add_child(ring)
@@ -72,7 +88,7 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	# The hat itself: the class's headgear, floating over the pedestal and
 	# turning slowly (after Fat Princess's hats). Grab it to become the class.
 	seal = Node3D.new()
-	seal.position.y = 1.4
+	seal.position.y = 1.4 + lift
 	seal.scale = Vector3.ONE * 1.4   # chunky, but the alcove sign must stay visible
 	add_child(seal)
 	locked = role == Stats.Role.ROGUE and not game.unlocked()
@@ -106,14 +122,14 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	smesh.material = sm
 	sparks.mesh = smesh
-	sparks.position.y = 1.4
+	sparks.position.y = 1.4 + lift
 	add_child(sparks)
 
 	light = OmniLight3D.new()
 	light.light_color = color
 	light.light_energy = 0.9
 	light.omni_range = 4.0
-	light.position.y = 1.6
+	light.position.y = 1.6 + lift
 	add_child(light)
 
 	var name_label := Label3D.new()
@@ -173,7 +189,7 @@ func take(u) -> void:
 func _process(delta: float) -> void:
 	t += delta
 	seal.rotation.y += delta * 1.2
-	seal.position.y = 1.4 + sin(t * 2.2 + role) * 0.06
+	seal.position.y = 1.4 + lift + sin(t * 2.2 + role) * 0.06
 	ring.rotation.y -= delta * 0.4
 	var p = game.player
 	if locked and game.unlocked():

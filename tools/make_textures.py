@@ -753,6 +753,57 @@ def make_flagstone_elf():
     save("flagstone_elf", color, height, 1.0)
 
 
+def make_pavers():
+    """The open courtyard's paving (Faisal's 2026-10-09 courtyard brief): big
+    warm cream sandstone slabs in three staggered courses, each slab its own
+    width, corners rounded, edges softly bevelled, gentle colour variation
+    and a narrow tan joint, so the floor reads as laid stone and not as a
+    grid drawn across a plane. Tileable; one tile is about 4.5 m."""
+    r = np.random.default_rng(23)
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    rows = 3
+    row_h = N / rows
+    row = np.floor(ys / row_h).astype(int)
+    height = np.zeros((N, N))
+    ids = np.zeros((N, N), int)
+    rad = 14.0
+    for ri in range(rows):
+        ncols = [3, 4, 3][ri]
+        cuts = np.linspace(0, N, ncols + 1)
+        cuts[1:-1] += r.uniform(-0.14, 0.14, ncols - 1) * (N / ncols)
+        offset = r.uniform(0, N)
+        x = (xs + offset) % N
+        col = np.clip(np.searchsorted(cuts, x, side="right") - 1, 0, ncols - 1)
+        left = cuts[col]
+        right = cuts[col + 1]
+        top = ri * row_h
+        bottom = (ri + 1) * row_h
+        du = np.minimum(x - left, right - x)
+        dv = np.minimum(ys - top, bottom - ys)
+        qx = np.maximum(rad - du, 0)
+        qy = np.maximum(rad - dv, 0)
+        d = np.where((du < rad) & (dv < rad), rad - np.sqrt(qx * qx + qy * qy), np.minimum(du, dv))
+        h = np.clip((d - 3.0) / 10.0, 0, 1)
+        h = h * h * (3 - 2 * h)
+        mask = row == ri
+        height[mask] = h[mask]
+        ids[mask] = (ri * 10 + col)[mask]
+    shade = r.random(int(ids.max()) + 1)[ids]
+    light = rgb(0.96, 0.90, 0.76)
+    dark = rgb(0.88, 0.80, 0.64)
+    color = lerp(dark, light, (0.25 + 0.75 * shade)[..., None])
+    color = lerp(color, color * rgb(0.97, 0.94, 0.88), fbm(N, 4, 3, 44)[..., None] * 0.6)
+    color = lerp(color, color * 0.95, fbm(N, 14, 2, 45)[..., None] * 0.3)
+    dy, dx = np.gradient(height)
+    lit = np.clip(-(dx + dy) * 10, 0, 1)
+    dim = np.clip((dx + dy) * 10, 0, 1)
+    color = lerp(color, rgb(1.0, 0.97, 0.9), lit[..., None] * 0.35)
+    color = lerp(color, dark * 0.82, dim[..., None] * 0.35)
+    joint = rgb(0.76, 0.68, 0.54)
+    color = lerp(joint, color, np.clip(height * 1.2, 0, 1)[..., None])
+    save("pavers", color, height, 0.8)
+
+
 import sys
 if len(sys.argv) > 1:   # e.g. python3 tools/make_textures.py make_greystone
     for fn in sys.argv[1:]:
