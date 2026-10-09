@@ -221,6 +221,8 @@ func _draw() -> void:
 	if _me() and not game.guide_open:
 		_draw_world_prompt()
 		_draw_player_panel(_me())
+	if _me() and _me().downed:
+		_draw_downed_screen(_me())
 	if game.killer_timer > 0.0 and _me() and _me().dead and not game.killer_card.is_empty():
 		_draw_killer_card()
 	if _me() and not _me().kill_banner.is_empty():
@@ -1257,6 +1259,11 @@ func _minimap_field(c: Vector2, r: float) -> void:
 			draw_arc(q, ur + 3.0 + 1.5 * sin(pt * 5.0), 0, TAU, 16, Color(1, 0.3, 0.2) if enemy else GOLD, 2.0)
 		elif u.veteran == 1:
 			draw_arc(q, ur + 2.0, 0, TAU, 12, Color(0.95, 0.75, 0.3), 1.5)
+		if u.downed and not enemy:
+			# A downed teammate: a pulsing green cross to run to.
+			draw_arc(q, ur + 4.0 + 2.0 * sin(pt * 6.0), 0, TAU, 16, Color(0.45, 1.0, 0.55, 0.8), 1.5)
+			_cross_glyph(q, ur + 2.5, Color(0.45, 1.0, 0.55), Color(0.05, 0.15, 0.05))
+			continue
 		draw_circle(q, ur, Color(1.0, 0.25, 0.2) if enemy else Color(0.3, 1.0, 0.45))
 		draw_arc(q, ur, 0, TAU, 12, Color(0, 0, 0, 0.65), 1.0)
 		if u.carrying:
@@ -2849,6 +2856,12 @@ func _draw_world_prompt() -> void:
 	var at := Vector3.INF
 	var key := true
 	var gd = game.guides[me.team]
+	var mate = me.revive_candidate() if not me.downed else null
+	if me.downed:
+		return
+	if mate:
+		_draw_revive_prompt(me, mate, cam)
+		return
 	if me.carrying == null and gd and gd.in_reach(me):
 		text = "TALK"
 		at = gd.global_position + Vector3(0, 2.4, 0)
@@ -3030,6 +3043,10 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		elif u.veteran == 1:
 			draw_arc(c, r + 2.0, 0, TAU, 12, Color(0.95, 0.75, 0.3), 1.5)
 		var dot := Color(1.0, 0.25, 0.2) if enemy else Color(0.3, 1.0, 0.45)
+		if u.downed and not enemy:
+			draw_arc(c, r + 4.0 + 2.0 * sin(pt * 6.0), 0, TAU, 16, Color(0.45, 1.0, 0.55, 0.8), 1.5)
+			_cross_glyph(c, r + 2.5, Color(0.45, 1.0, 0.55), Color(0.05, 0.15, 0.05))
+			continue
 		draw_circle(c, r, dot)
 		draw_arc(c, r, 0, TAU, 12, Color(0, 0, 0, 0.6), 1.0)
 		if u.carrying:
@@ -3965,3 +3982,139 @@ func _draw_end() -> void:
 	## The end-of-match screen lives in match_summary.gd.
 	if game.summary:
 		game.summary.draw(self)
+
+
+# --- Downed and revive ---------------------------------------------------------
+# Built on the death screen's look (crimson cloth ribbon, laurel medallion,
+# gold ring): DOWNED, the bleed-out draining round the medallion, the
+# nearest teammate's distance with an arrow toward them, and the hold-to-
+# respawn bar. While a teammate works on you the ring turns gold (green for
+# a Healer) and fills instead.
+
+func _draw_downed_screen(p) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	var since: float = maxf(p.downed_total - p.downed_timer, 0.0)
+	var reviving: bool = p.being_revived()
+	var healer: bool = reviving and p.revive_by and p.revive_by.role == Stats.Role.HEALER
+	var a := clampf(since / 0.3, 0.0, 1.0) if not reviving else 1.0
+	var beat := 0.5 + 0.5 * sin(now * (3.0 + 4.0 * (1.0 - p.downed_timer / maxf(p.downed_total, 0.1))))
+	# The field stays visible (you watch for help coming), edged in a slow
+	# red pulse that speeds up as you bleed out.
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.1, 0.03, 0.03, 0.18 * a))
+	if reviving:
+		_vignette(Color(0.3, 0.8, 0.35, 0.3) if healer else Color(0.9, 0.7, 0.2, 0.28))
+	else:
+		_vignette(Color(0.7, 0.05, 0.05, (0.35 + 0.2 * beat) * a))
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var pop := 1.0 + (0.18 * sin(clampf(since / 0.3, 0.0, 1.0) * PI) if since < 0.3 else 0.0)
+	var sc := minf(since / 0.12, 1.0) * pop * fit * 0.82
+	if sc < 0.05:
+		return
+	draw_set_transform(Vector2(size.x / 2.0, 120.0 * fit), 0.0, Vector2(sc, sc))
+	var ink := Color(0.12, 0.05, 0.03, a)
+	var half := 170.0
+	var cloth := Color(0.2, 0.55, 0.25, a) if healer else (Color(0.85, 0.6, 0.12, a) if reviving else Color(0.78, 0.16, 0.14, a))
+	_banner_ribbon(Rect2(-half, -44.0, half * 2.0, 64.0), cloth, true)
+	_banner_ribbon(Rect2(-half, -44.0, half * 2.0, 64.0), cloth, false)
+	for sx in [-1.0, 1.0]:
+		_inked_star(Vector2(sx * (half - 30.0), -12.0), 9.0, Color(1.0, 0.8, 0.22, a), ink)
+	_title_text(Vector2(-half, 6.0), "REVIVING" if reviving else "DOWNED", 42, Color(1.0, 0.95, 0.9, a), cloth.darkened(0.45), ink, half * 2.0)
+	# The medallion: the gold ring drains with the bleed-out; while someone
+	# revives you it fills instead.
+	var mc := Vector2(0, 100.0)
+	_laurel(mc + Vector2(0, 12), -1.0, 1.0, 54.0, 46.0)
+	_laurel(mc + Vector2(0, 12), 1.0, 1.0, 54.0, 46.0)
+	draw_circle(mc + Vector2(0, 3), 46.0, Color(0, 0, 0, 0.4 * a))
+	draw_circle(mc, 44.0, Color(0.35, 0.2, 0.04, a))
+	draw_circle(mc, 40.0, Color(0.16, 0.1, 0.08, a))
+	draw_arc(mc, 36.0, -PI / 2.0, -PI / 2.0 + TAU, 48, Color(0.3, 0.2, 0.12, a), 6.0)
+	var frac: float = p.revive_progress if reviving else clampf(p.downed_timer / maxf(p.downed_total, 0.1), 0.0, 1.0)
+	var ring := Color(0.45, 1.0, 0.55, a) if healer else (Color(1.0, 0.8, 0.22, a) if reviving else Color(0.95, 0.28, 0.2, a))
+	if frac > 0.005:
+		draw_arc(mc, 36.0, -PI / 2.0, -PI / 2.0 + TAU * frac, 48, ring, 6.0, true)
+	draw_circle(mc, 30.0, Color(0.1, 0.06, 0.05, a))
+	var f: Font = bar_font if bar_font else font
+	if reviving:
+		_cross_glyph(mc + Vector2(0, -2), 15.0, ring, ink)
+	else:
+		_bar_text(mc + Vector2(0, 13.0), str(ceili(p.downed_timer)), f, 34, CREAM, Color(0.2, 0.1, 0.02), 3)
+	var sub := ""
+	if reviving:
+		sub = "%s IS REVIVING YOU" % p.revive_by.display_name.to_upper()
+	else:
+		sub = "BLEEDING OUT"
+	_bar_text(Vector2(0, 168.0), sub, f, 14, Color(1.0, 0.85, 0.6, a), Color(0.2, 0.08, 0.02, a), 3)
+	# The nearest teammate: how far, and an arrow round the medallion
+	# pointing their way on screen.
+	var ally = p._nearest_standing_ally()
+	var line := "NO TEAMMATES LEFT STANDING"
+	if ally:
+		var dist: float = game._flat_dist(p.global_position, ally.global_position)
+		line = "NEAREST ALLY  %d m" % roundi(dist)
+		var cam := get_viewport().get_camera_3d()
+		if cam and dist > 1.0 and not reviving:
+			var c0: Vector2 = cam.unproject_position(p.global_position)
+			var c1: Vector2 = cam.unproject_position(ally.global_position)
+			var dir := (c1 - c0).normalized()
+			if dir.length() > 0.1:
+				var tip := mc + dir * 62.0
+				var side := Vector2(-dir.y, dir.x)
+				var tri := PackedVector2Array([tip + dir * 10.0, tip - dir * 6.0 + side * 9.0, tip - dir * 6.0 - side * 9.0])
+				draw_colored_polygon(tri, Color(0.45, 1.0, 0.55, a))
+				tri.append(tri[0])
+				draw_polyline(tri, ink, 2.0)
+	var lw := maxf(_text_width(line, 14) + 48.0, 240.0)
+	var lr := Rect2(-lw / 2.0, 180.0, lw, 28.0)
+	_plate(lr, Color(0.1, 0.07, 0.05, 0.9 * a), Color(0.55, 0.4, 0.15, a), 8, 1)
+	_text(lr.position + Vector2(0, 19), line, 14, Color(0.6, 1.0, 0.65, a) if ally else Color(1.0, 0.6, 0.5, a), HORIZONTAL_ALIGNMENT_CENTER, lw, 2)
+	# Hold to skip: a key and a bar that fills while it is held.
+	if not reviving:
+		var k := _k("interact")
+		var hint := "HOLD        TO RESPAWN"
+		var hw := _text_width(hint, 14) + 40.0
+		var hr := Rect2(-hw / 2.0, 216.0, hw, 30.0)
+		_plate(hr, Color(0.07, 0.07, 0.1, 0.88 * a), Color(0.55, 0.5, 0.42, 0.8 * a), 8, 1)
+		var hold: float = clampf(p.skip_hold / Stats.DOWNED_SKIP_HOLD, 0.0, 1.0)
+		if hold > 0.0:
+			draw_rect(Rect2(hr.position + Vector2(3, 3), Vector2((hr.size.x - 6) * hold, hr.size.y - 6)), Color(0.85, 0.3, 0.2, 0.55))
+		_text(hr.position + Vector2(0, 20), hint, 14, CREAM, HORIZONTAL_ALIGNMENT_CENTER, hw, 2)
+		var kx := hr.position.x + hw / 2.0 - _text_width(hint, 14) / 2.0 + _text_width("HOLD ", 14) + 14.0
+		_keycap(Vector2(kx, hr.position.y + 15.0), k, maxf(20.0, _text_width(k, 11) + 10.0))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	if game.killer_timer > 0.0 and not game.killer_card.is_empty():
+		_draw_killer_card()
+
+
+func _cross_glyph(c: Vector2, r: float, col: Color, ink: Color) -> void:
+	## A chunky plus sign with a dark outline (the revive mark).
+	var t := r * 0.36
+	var pts := PackedVector2Array([c + Vector2(-t, -r), c + Vector2(t, -r), c + Vector2(t, -t), c + Vector2(r, -t),
+		c + Vector2(r, t), c + Vector2(t, t), c + Vector2(t, r), c + Vector2(-t, r), c + Vector2(-t, t),
+		c + Vector2(-r, t), c + Vector2(-r, -t), c + Vector2(-t, -t)])
+	draw_colored_polygon(pts, col)
+	pts.append(pts[0])
+	draw_polyline(pts, ink, 2.0)
+
+
+func _draw_revive_prompt(me, mate, cam: Camera3D) -> void:
+	## Standing over a downed teammate: "HOLD [F] REVIVE NAME", with the
+	## progress filling the pill while it is held.
+	var at: Vector3 = mate.global_position + Vector3(0, 2.0, 0)
+	if cam.is_position_behind(at):
+		return
+	var sp: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at)
+	var healer: bool = me.role == Stats.Role.HEALER
+	var text: String = ("REVIVING " if me.revive_target == mate else "HOLD  ·  REVIVE ") + mate.display_name.to_upper()
+	if healer:
+		text += "  (HEALER: FAST)"
+	var k := _k("interact")
+	var kw := maxf(20.0, _text_width(k, 11) + 10.0)
+	var w := _text_width(text, 13) + kw + 32.0
+	var r := Rect2(sp - Vector2(w / 2.0, 14), Vector2(w, 28))
+	_plate(r, Color(0.07, 0.07, 0.1, 0.9), Color(0.45, 1.0, 0.55, 0.9) if healer else Color(1.0, 0.8, 0.3, 0.9), 7, 1)
+	if mate.revive_progress > 0.0:
+		draw_rect(Rect2(r.position + Vector2(3, 3), Vector2((r.size.x - 6) * clampf(mate.revive_progress, 0.0, 1.0), r.size.y - 6)),
+			Color(0.3, 0.85, 0.4, 0.5) if healer else Color(0.95, 0.7, 0.2, 0.5))
+	var tx := r.position.x + 11.0
+	_keycap(Vector2(tx + kw / 2.0, sp.y), k, kw)
+	_text(Vector2(tx + kw + 8.0, sp.y + 5.0), text, 13, Color(0.97, 0.95, 0.88), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)

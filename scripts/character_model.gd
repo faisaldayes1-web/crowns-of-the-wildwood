@@ -737,6 +737,28 @@ func die() -> void:
 		anim.play("Death_A", 0.05, 1.3)
 
 
+func go_down() -> void:
+	## Downed: drop to the ground and lie there until revived or dead.
+	held = ""
+	busy_until = _now() + 9999.0
+	if anim and anim.has_animation("Lie_Down"):
+		current = "Lie_Down"
+		anim.play("Lie_Down", 0.05, 1.6)
+		anim.queue("Lie_Idle")
+
+
+func stand_up() -> void:
+	## Revived: get back up, then normal locomotion.
+	held = ""
+	if anim and anim.has_animation("Lie_StandUp"):
+		current = "Lie_StandUp"
+		anim.play("Lie_StandUp", 0.05, 1.6)
+		busy_until = _now() + anim.get_animation("Lie_StandUp").length / 1.6
+	else:
+		busy_until = 0.0
+		current = ""
+
+
 func revive() -> void:
 	busy_until = 0.0
 	held = ""
