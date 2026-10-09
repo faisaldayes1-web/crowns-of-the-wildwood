@@ -6028,7 +6028,6 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 			_add_mushrooms(Vector3(front_x + side * 0.9, 0, zs * (hz - 0.8)), 61 + int(zs))
 		else:
 			_add_torch_stand(Vector3(front_x + side * 0.7, 0, zs * (hz - 0.7)), 1.7)
-			_add_stone_lion(Vector3(front_x - side * 1.35, 0, zs * (ROOM_DOOR_HALF + 1.1)), Vector3(-side, 0, 0), 0.72)
 		_add_banner(team, Vector3(front_x - side * 0.4, 0.0, zs * (ROOM_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.6, true)
 	_add_light(Vector3(back_x - side * 0.8, 1.6, 0), color.lightened(0.4), 1.0, 6.0)
 	_add_light(throne + Vector3(0, 2.2, 0), Color(1.0, 0.85, 0.5), 1.2 if not elven else 0.6, 4.5)
@@ -6162,7 +6161,7 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	_add_rug(Vector3(back_c, 0.06, -4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color)
 	# The armoury.
 	_prop("hex/weaponrack", Vector3(bw + side * 0.15, 0, 5.2), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
-	_prop("dungeon/sword_shield_gold" if not elven else "dungeon/sword_shield", Vector3(bx - side * 0.62, 1.4, 3.2), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
+	_prop("dungeon/sword_shield_gold" if not elven else "dungeon/sword_shield", Vector3(bx - side * 0.62, 1.4, 3.2 if elven else 3.75), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	_prop("dungeon/sword_shield", Vector3(room_b + side * 1.6, 1.5, wz - 0.1), 0.9, 0.0)
 	_add_rug(Vector3(back_c, 0.06, 4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color.darkened(0.2))
 	# Tapestries and torches along the galleries, braziers for the Humans.
@@ -6227,10 +6226,12 @@ func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
 		_add_pennant(team, Vector3(back_x - side * 0.27, ROOM_H - 0.1, zs * 1.7), Vector3(-side, 0, 0), 0.9, 1.6, zs > 0.0)
 		for xs in [-1.0, 1.0]:
 			_add_pennant(team, Vector3(cx + xs * 1.6, ROOM_H - 0.1, zs * (hz + 0.27)), Vector3(0, 0, zs), 1.0, 1.7, xs > 0.0)
-	# Torches at the throne room's outer corners, and inside at the back (Humans).
+	# Torches at the throne room's outer corners, and inside at the back
+	# (Humans). (They were stone fire pillars for a while: solid, and right on
+	# the bots' gallery-corner waypoints, so both teams stuck behind the room.)
 	for zs in [-1.0, 1.0]:
-		_add_stone_brazier(Vector3(front_x - side * 0.8, 0, zs * (hz + 0.85)))
-		_add_stone_brazier(Vector3(back_x + side * 0.8, 0, zs * (hz + 0.85)))
+		_add_torch(Vector3(front_x - side * 0.8, 0, zs * (hz + 0.85)))
+		_add_torch(Vector3(back_x + side * 0.8, 0, zs * (hz + 0.85)))
 		if not elven:
 			_add_torch_stand(Vector3(back_x - side * 0.7, 0, zs * (hz - 0.7)), 1.7)
 			_add_candle_stand(throne + Vector3(side * 2.6, 0, zs * 1.15))
@@ -7614,12 +7615,12 @@ func _dress_human_castle(team: int, fx: float, kx: float, side: float, dh: float
 	for zs in [-1.0, 1.0]:
 		_add_stone_lion(Vector3(fx - side * 2.5, 0, zs * (dh + 3.2)), Vector3(-side, 0, 0))
 		_add_ballista(Vector3(fx, 5.3, zs * (dh + 1.1)), Vector3(-side, 0, 0))
-		for px in [3.0, 6.6]:
-			var pp := Vector3(in_x + side * px, 0, zs * (dh + 3.2))
+		for px in [2.0, 3.5]:   # by the gatehouse: off the door lane, the stairs diagonal and the turret pads
+			var pp := Vector3(in_x + side * px, 0, zs * (dh + 2.7))
 			_add_block(pp + Vector3(0, 1.25, 0), Vector3(0.5, 2.5, 0.5), Color.WHITE, true, _ashlar(Color(0.86, 0.86, 0.9)))
 			_add_block(pp + Vector3(0, 2.6, 0), Vector3(0.7, 0.2, 0.7), Color.WHITE, false, _gold())
 			_add_crest(team, pp + Vector3(-side * 0.26, 1.7, 0), Vector3(-side, 0, 0), 0.5)
-			_add_pennant(team, pp + Vector3(0, 2.5, zs * 0.26), Vector3(0, 0, zs), 0.7, 1.4, px > 5.0)
+			_add_pennant(team, pp + Vector3(0, 2.5, zs * 0.26), Vector3(0, 0, zs), 0.7, 1.4, px > 3.0)
 	_add_crest(team, Vector3(fx - side * 1.21, WALK_Y + 0.3, 0), Vector3(-side, 0, 0), 1.0)
 
 
@@ -7766,10 +7767,11 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		field.material_override = fm
 		field.position = Vector3(bx, 1.45, 0)
 		add_child(field)
-		_add_torch(Vector3(bx - side * 0.2, 0, -2.3))
-		_add_torch(Vector3(bx - side * 0.2, 0, 2.3))
+		# Two stone lions guard the way down instead of torches: tight against
+		# the back wall either side of the opening, clear of the diagonal from
+		# the stairs' top to the galleries' back corners and of the wall art.
 		for zs in [-1.0, 1.0]:
-			_add_stone_lion(Vector3(bx - side * 2.0, 0, zs * 2.45), Vector3(-side, 0, 0), 0.8)
+			_add_stone_lion(Vector3(bx - side * 0.7, 0, zs * 2.4), Vector3(-side, 0, 0), 0.8)
 	# The spawn circle at the far end: a glowing team-coloured ring on the floor.
 	var spawn := Vector3(bx + side * 14.5, CELLAR_Y, 0)
 	_add_runes(spawn, 2.1, color)
