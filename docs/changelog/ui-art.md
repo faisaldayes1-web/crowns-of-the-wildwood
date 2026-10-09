@@ -661,3 +661,20 @@ Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `-
 245 props; seed-5 90 s match doors 163/14 at 60 s.
 
 Revert: `git revert 0afd162`.
+
+## 2026-10-09 — Elf courtyard: upgrade station faces the spawn, banners face the castle wall (Faisal 08:35)
+
+Commit: `PENDING`. New `_turn_since(c0, a0, pivot, yaw)` turns everything a builder just added
+(children and audit boxes) about a pivot. `_add_upgrade_pad` and `_add_banner_pole` take an
+optional `yaw` (default 0 = unchanged, so the Humans, Ember Pass and door banners are untouched).
+- Upgrade Station (Wildwood Elves): moved from (bx − 1.6, 0, −4.0) to (bx − 2.8, 0, −3.4) and
+  turned to face the spawn circle (yaw ≈ −74°): anvil toward the spawning players, board and
+  workbench backing onto the castle wall. Its second cask sits 0.25 m further out (they touched
+  once turned).
+- Stag banners by the spawn circle (bx − 17.2, z ±6.2): turned 90° so their backs are to the west
+  fence and they face across the courtyard to the castle wall.
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1 overlap
+(pre-existing pines), 245 props; seed-5 120 s match: Human gate 32 at 90 s, crown taken by 120 s.
+
+Revert: `git revert PENDING`.

@@ -5392,9 +5392,12 @@ func _add_fire(pos: Vector3, size: float = 1.0) -> void:
 
 
 
-func _add_banner_pole(team: int, pos: Vector3) -> void:
+func _add_banner_pole(team: int, pos: Vector3, yaw: float = 0.0) -> void:
 	## A timber pole with a crossbar and the faction's banner hanging from it,
 	## facing the camera: they flank each castle door (the target art).
+	## `yaw` turns the whole frame about its foot (0 = facing +z).
+	var c0 := get_child_count()
+	var a0 := audit_blocks.size()
 	# A two-post timber frame (Faisal's 2026-10-08 target art).
 	var wood := _timber(Color(0.5, 0.36, 0.24))
 	for xs in [-0.8, 0.8]:
@@ -5414,6 +5417,20 @@ func _add_banner_pole(team: int, pos: Vector3) -> void:
 		brace.rotation.z = 0.8 if xs > 0.0 else -0.8
 		add_child(brace)
 	_add_pennant(team, pos + Vector3(0, 3.28, 0.06), Vector3(0, 0, 1), 1.1, 2.2)
+	if yaw != 0.0:
+		_turn_since(c0, a0, pos, yaw)
+
+
+func _turn_since(c0: int, a0: int, pivot: Vector3, yaw: float) -> void:
+	## Turns every child added since index `c0` (and the audit boxes since
+	## `a0`) by `yaw` about `pivot`, so an axis-aligned build can face any way.
+	var t := Transform3D(Basis(Vector3.UP, yaw), pivot) * Transform3D(Basis.IDENTITY, -pivot)
+	for i in range(c0, get_child_count()):
+		var n := get_child(i)
+		if n is Node3D:
+			n.transform = t * n.transform
+	for i in range(a0, audit_blocks.size()):
+		audit_blocks[i][1] = t * (audit_blocks[i][1] as AABB)
 
 
 func _add_torch_stand(pos: Vector3, height: float = 1.9) -> void:
@@ -7411,8 +7428,12 @@ func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float) -> voi
 	audit_blocks.append(["fence", AABB(pos - Vector3(fs.x / 2.0, 0, fs.z / 2.0), fs)])
 
 
-func _add_upgrade_pad(team: int, pos: Vector3) -> void:
+func _add_upgrade_pad(team: int, pos: Vector3, yaw: float = 0.0) -> void:
+	## `yaw` turns the station and its workshop about the pad (0 = the anvil
+	## and board facing +z).
 	upgrade_pads[team] = pos
+	var c0 := get_child_count()
+	var a0 := audit_blocks.size()
 	var color := Color(0.75, 0.55, 0.2)
 	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.45), false, _flagstone(Color(0.7, 0.62, 0.5)))
 	var pad := MeshInstance3D.new()
@@ -7463,7 +7484,9 @@ func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 	_add_block(back + Vector3(sd * 1.75, 0.42, 0.35), Vector3(1.0, 0.08, 0.6), Color.WHITE, false, wood)
 	_add_block(back + Vector3(sd * 1.75, 0.2, 0.35), Vector3(0.9, 0.4, 0.5), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
 	_prop("dungeon/barrel_small", back + Vector3(sd * 2.7, 0, 0.3), 0.75)
-	_prop("dungeon/barrel_small", back + Vector3(sd * 2.8, 0, 1.05), 0.7, 0.6)
+	_prop("dungeon/barrel_small", back + Vector3(sd * (2.85 if yaw != 0.0 else 2.8), 0, 1.3 if yaw != 0.0 else 1.05), 0.7, 0.6)
+	if yaw != 0.0:
+		_turn_since(c0, a0, pos, yaw)
 
 
 func _box_at(pos: Vector3, size: Vector3, mat: Material, rot: Vector3 = Vector3.ZERO) -> void:
@@ -8272,7 +8295,9 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		for zs in [-1.0, 1.0]:
 			for pxo in [12.0, 17.0]:
 				_add_stone_brazier(Vector3(bx + side * pxo, fy, zs * 3.6))
-			_add_banner_pole(team, Vector3(bx + side * 17.2, fy, zs * 6.2))
+			# Open courtyard: back to the west fence, facing across the yard to
+			# the castle wall (Faisal 08:35 2026-10-09).
+			_add_banner_pole(team, Vector3(bx + side * 17.2, fy, zs * 6.2), atan2(-side, 0.0) if open else 0.0)
 	# The stairs: a straight flight up the middle into the keep. The open
 	# courtyard is level with the keep, so a threshold strip marks the way in.
 	var st := cellar_stairs(team)
@@ -8383,7 +8408,12 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# By the class row's near end, its board backing onto the row and the
 		# anvil facing the room ("wrong way", Faisal 08:18 2026-10-09: it sat
 		# in the far corner by the exit).
-		_add_upgrade_pad(team, Vector3(bx + side * 1.6, fy, -4.0))
+		# Turned to face the spawn circle, its board backing onto the castle
+		# wall (Faisal 08:35 2026-10-09: "make it face toward the players
+		# spawning in").
+		var up := Vector3(bx + side * 2.8, fy, -3.4)
+		var to_spawn := Vector3(bx + side * 14.5, fy, 0) - up
+		_add_upgrade_pad(team, up, atan2(to_spawn.x, to_spawn.z))
 	elif team == 0:
 		_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
 	if team == 0 and not open:
