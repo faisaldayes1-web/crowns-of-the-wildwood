@@ -6747,27 +6747,17 @@ func _build_works(team: int, sx: float) -> void:
 		_add_treehouse(Vector3(x, 0, -14.0), 53, 1.08)
 	for k in 3:
 		_prop("hex/resource_%s" % ["stone" if team == 1 else "lumber"], Vector3(x - sx * 5.0, 0, 9.5 + k * 2.4), 4.0, float(k) * 0.7)
-	if team == 0:   # (the Humans' tent and flag gave way to the trees)
-		_prop("hex/tent", Vector3(x - sx * 4.0, 0, -8.5), 4.0, 0.4 * sx)
-		_prop("hex/flag_%s" % c, Vector3(x - sx * 6.0, 0, -11.5), 4.0)
+	# (The tent and flag gave way to the trees.)
 	_prop("hex/trees_%s_large" % ["A" if team == 0 else "B"], Vector3(x - sx * 2.0, 0, 22.0), 4.4, 1.0)
 	_prop("hex/trees_%s_large" % ["B" if team == 0 else "A"], Vector3(x + sx * 4.0, 0, -22.0), 4.4, 2.0)
 	for zs in [-1.0, 1.0]:
 		_prop("hex/mountain_%s_grass_trees" % ["A", "B", "C"][int(zs + 1.0 + (0.0 if sx < 0.0 else 1.0)) % 3], Vector3(sx * 112.0, -0.3, zs * 26.0), 10.0, sx * zs)
 	_prop("hex/mountain_B_grass", Vector3(sx * 116.0, -0.3, 0.0), 10.0, sx)
-	if team == 1:
-		# Behind the Humans' spawn hall: a stand of trees where the camp was
-		# (Faisal 2026-10-09 08:13, "put trees in this area").
-		for tp in [Vector3(92.5, 0, -9.0), Vector3(94.0, 0, -3.5), Vector3(92.5, 0, 2.0), Vector3(94.0, 0, 7.5), Vector3(97.5, 0, -6.0), Vector3(97.5, 0, 0.5), Vector3(97.0, 0, 6.0), Vector3(92.0, 0, 11.5)]:
-			_add_tree(tp, int(tp.z) % 2 == 0)
-	else:
-		# The camp between the two buildings: a fire, a second tent, stores.
-		_add_campfire(Vector3(x - sx * 6.5, 0, -3.0))
-		_prop("hex/crate_long_A", Vector3(x - sx * 8.5, 0, -6.0), 4.0, 0.3)
-		_prop("hex/pallet", Vector3(x - sx * 8.0, 0, 3.5), 4.0)
-		_prop("hex/sack", Vector3(x - sx * 8.2, 0, 3.6), 3.6, 0.5)
-		_prop("hex/bucket_water", Vector3(x - sx * 5.0, 0, -0.6), 4.0)
-		_prop("hex/wheelbarrow", Vector3(x - sx * 3.0, 0, 6.5), 4.0, 2.2 * sx)
+	# Behind each spawn courtyard: a stand of trees where the camp was, so
+	# the ground beyond the wall reads as woodland, not a busy yard (Faisal
+	# 2026-10-09 08:13 Humans, 08:18 Elves: "flush this area out with trees").
+	for tp in [Vector3(92.5, 0, -9.0), Vector3(94.0, 0, -3.5), Vector3(92.5, 0, 2.0), Vector3(94.0, 0, 7.5), Vector3(97.5, 0, -6.0), Vector3(97.5, 0, 0.5), Vector3(97.0, 0, 6.0), Vector3(92.0, 0, 11.5)]:
+		_add_tree(Vector3(sx * tp.x, 0, tp.z), int(tp.z) % 2 == 0)
 	if team == 1:
 		# Kingdom: drill yard by the barracks and a half-built wall.
 		_prop("hex/weaponrack", Vector3(x + sx * 4.5, 0, -9.0), 4.0, PI / 2.0)
@@ -7625,7 +7615,9 @@ func _build_castle(team: int) -> void:
 		_add_pennant(team, Vector3(fx - side * 1.12, 4.4, zs * (dh + 1.1)), Vector3(-side, 0, 0), 1.3, 2.8, zs > 0.0)
 		_add_torch(Vector3(fx - side * 2.0, 0, zs * (dh + 0.6)))
 		if team == 0:   # (the Humans' gate keeps its lions and tower pennants only: Faisal 06:00, "cluttered")
-			_add_banner_pole(team, Vector3(fx - side * 4.6, 0, zs * (dh + 1.9)))
+			# Against the wall beside the gatehouse, off the road and the
+			# path mouths (Faisal 08:19: "not middle of ground blocking road").
+			_add_banner_pole(team, Vector3(fx - side * 1.4, 0, zs * (dh + 4.0)))
 		# Corner towers.
 		_add_tower(Vector3(fx, 0, zs * hz), team, side)
 		_add_tower(Vector3(bx, 0, zs * hz), team, side)
