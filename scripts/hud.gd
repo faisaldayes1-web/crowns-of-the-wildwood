@@ -222,6 +222,8 @@ func _draw() -> void:
 	_draw_toasts()
 	if _me() and not game.guide_open:
 		_draw_world_prompt()
+		if game.economy:
+			game.economy.draw_action_card(self, _me())   # repair / upgrade / turret button (economy.gd)
 		_draw_player_panel(_me())
 	if game.killer_timer > 0.0 and _me() and _me().dead and not game.killer_card.is_empty():
 		_draw_killer_card()

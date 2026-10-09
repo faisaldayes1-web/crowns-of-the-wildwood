@@ -697,16 +697,16 @@ func _process(_delta: float) -> void:
 			var l: Label3D = seal_labels[team][role]
 			var seal = game.seals[team][role]
 			var text := ""
-			if live and p.team == team and seal.in_reach(p) and not seal.locked:
-				text = _seal_prompt(team, role, p)
+			if live and p.team == team and seal.in_reach(p) and not seal.locked and p.role != role:
+				text = _seal_prompt(team, role, p)   # "+ move" on an upgraded machine (the HUD card covers your own class)
 			l.text = text
 			l.visible = text != ""
 		if depot_signs[team]:
 			depot_signs[team].visible = live and p.team == team and carried(p) > 0
 		var dl: Label3D = door_labels[team]
 		var dtext := ""
-		if live and p.team == team and _by_door(p):
-			dtext = _door_prompt(team)
+		if live and p.team == team and _by_door(p) and game.hud == null:
+			dtext = _door_prompt(team)   # (the HUD's action card shows this)
 		dl.text = dtext
 		dl.visible = dtext != ""
 		for pad in pads[team]:
@@ -714,7 +714,7 @@ func _process(_delta: float) -> void:
 			var ptext := ""
 			if live and p.team == team:
 				var off: Vector3 = p.global_position - pad.pos
-				if absf(off.y) < 1.2 and Vector2(off.x, off.z).length() < Stats.ECONOMY.pad_reach:
+				if absf(off.y) < 1.2 and Vector2(off.x, off.z).length() < Stats.ECONOMY.pad_reach and game.hud == null:
 					ptext = _pad_prompt(team, pad.pos)
 			pl.text = ptext
 			pl.visible = ptext != ""
@@ -1104,36 +1104,230 @@ func _mark_seal(team: int, role: int) -> void:
 
 # --- HUD (called from hud.gd while it draws) ---------------------------------------
 
+func _wood_icon(hud, c: Vector2, r: float) -> void:
+	## A log end: bark ring, pale wood, growth ring.
+	hud.draw_circle(c, r, Color(0.45, 0.3, 0.16))
+	hud.draw_circle(c, r * 0.72, Color(0.86, 0.68, 0.42))
+	hud.draw_arc(c, r * 0.4, 0, TAU, 12, Color(0.6, 0.42, 0.22), maxf(1.0, r * 0.13))
+
+
+func _ore_icon(hud, c: Vector2, r: float) -> void:
+	## A gold nugget.
+	var k := r / 9.0
+	var nug := PackedVector2Array([c + Vector2(-8, 3) * k, c + Vector2(-4, -7) * k, c + Vector2(5, -8) * k,
+		c + Vector2(9, 1) * k, c + Vector2(3, 8) * k, c + Vector2(-5, 7) * k])
+	hud.draw_colored_polygon(nug, Color(0.95, 0.68, 0.25))
+	hud.draw_polyline(nug + PackedVector2Array([nug[0]]), Color(0.45, 0.28, 0.08), maxf(1.0, 1.5 * k))
+	hud.draw_line(c + Vector2(-3, -3) * k, c + Vector2(3, -5) * k, Color(1.0, 0.95, 0.7), maxf(1.0, 2.0 * k))
+
+
+var _shown := [{"wood": 0, "ore": 0}, {"wood": 0, "ore": 0}]   # the stock the monitor last showed, per team
+var _pulse := [{"wood": 0.0, "ore": 0.0}, {"wood": 0.0, "ore": 0.0}]   # when each number last changed (ms)
+
+
 func draw_counter(hud, me) -> void:
-	## The team's wood and ore under the minimap, and what you carry.
+	## The resource monitor under the minimap: your base's stock of wood and
+	## ore (a number flashes when it changes) and the three carry slots on
+	## your back.
 	if me == null:
 		return
 	var team: int = me.team
+	var now := float(Time.get_ticks_msec())
+	for kind in ["wood", "ore"]:
+		var v: int = wood[team] if kind == "wood" else ore[team]
+		if v != _shown[team][kind]:
+			_shown[team][kind] = v
+			_pulse[team][kind] = now
 	var narrow: bool = hud._narrow()
 	var at := Vector2(30, 182) if narrow else Vector2(44, 238)
-	var rect := Rect2(at, Vector2(160, 30))
+	var rect := Rect2(at, Vector2(196, 96))
 	hud._plate(rect, Color(0.07, 0.05, 0.03, 0.88), Color(0.62, 0.46, 0.2), 8, 2)
-	# Wood: a log end. Ore: a gold nugget.
-	var lc := rect.position + Vector2(18, 15)
-	hud.draw_circle(lc, 9.0, Color(0.45, 0.3, 0.16))
-	hud.draw_circle(lc, 6.5, Color(0.86, 0.68, 0.42))
-	hud.draw_arc(lc, 3.5, 0, TAU, 12, Color(0.6, 0.42, 0.22), 1.2)
-	hud._text(rect.position + Vector2(32, 21), str(wood[team]), 16, Color(1.0, 0.95, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-	var oc := rect.position + Vector2(92, 15)
-	var nug := PackedVector2Array([oc + Vector2(-8, 3), oc + Vector2(-4, -7), oc + Vector2(5, -8), oc + Vector2(9, 1), oc + Vector2(3, 8), oc + Vector2(-5, 7)])
-	hud.draw_colored_polygon(nug, Color(0.95, 0.68, 0.25))
-	hud.draw_polyline(nug + PackedVector2Array([nug[0]]), Color(0.45, 0.28, 0.08), 1.5)
-	hud.draw_line(oc + Vector2(-3, -3), oc + Vector2(3, -5), Color(1.0, 0.95, 0.7), 2.0)
-	hud._text(rect.position + Vector2(106, 21), str(ore[team]), 16, Color(1.0, 0.95, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-	var c: Dictionary = cargo_of(me)
-	if c.wood + c.ore > 0 and not me.dead:
-		var bits := []
-		if c.wood > 0:
-			bits.append("%d wood" % c.wood)
-		if c.ore > 0:
-			bits.append("%d ore" % c.ore)
-		hud._text(rect.position + Vector2(4, 46), "CARRYING %s  (%d / %d)" % [" + ".join(bits).to_upper(), c.wood + c.ore, Stats.ECONOMY.carry_max],
-			11, Color(1.0, 0.88, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	hud._text(rect.position + Vector2(12, 18), "BASE STOCK", 11, Color(0.95, 0.78, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var cols := [["wood", 14.0], ["ore", 104.0]]
+	for col in cols:
+		var kind: String = col[0]
+		var x: float = col[1]
+		var c := rect.position + Vector2(x + 13, 42)
+		if kind == "wood":
+			_wood_icon(hud, c, 11.0)
+		else:
+			_ore_icon(hud, c, 11.0)
+		var flash := clampf(1.0 - (now - _pulse[team][kind]) / 700.0, 0.0, 1.0)
+		var tc := Color(1.0, 0.95, 0.85).lerp(Color(1.0, 0.82, 0.3), flash)
+		var v: int = wood[team] if kind == "wood" else ore[team]
+		hud._text(rect.position + Vector2(x + 30, 51), str(v), 22 + int(round(flash * 4.0)), tc, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	hud.draw_rect(Rect2(rect.position + Vector2(10, 62), Vector2(rect.size.x - 20, 1)), Color(0.62, 0.46, 0.2, 0.6))
+	# On your back: three slots, filled wood first, then ore.
+	var cg: Dictionary = cargo_of(me)
+	var n: int = cg.wood + cg.ore
+	var cap: int = Stats.ECONOMY.carry_max
+	hud._text(rect.position + Vector2(12, 84), "ON YOUR BACK", 10, Color(0.85, 0.8, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in cap:
+		var sr := Rect2(rect.position + Vector2(104 + i * 26, 68), Vector2(22, 22))
+		hud.draw_rect(sr, Color(0.0, 0.0, 0.0, 0.45))
+		hud.draw_rect(sr, Color(0.62, 0.46, 0.2, 0.9 if i < n else 0.45), false, 1.0)
+		if i < cg.wood:
+			_wood_icon(hud, sr.get_center(), 8.0)
+		elif i < n:
+			_ore_icon(hud, sr.get_center(), 8.0)
+	if n >= cap and not me.dead:
+		hud._text(rect.position + Vector2(4, 112), "FULL: TAKE IT TO THE STOREHOUSE", 11, Color(1.0, 0.85, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+
+
+# --- Action card (HUD): the button for repairs, upgrades and turrets ---------------
+
+var card_button := Rect2()   # this frame's card button in HUD coordinates (mouse clicks), empty when none
+var card_ok := false
+
+
+func offer(p) -> Dictionary:
+	## What the interact key buys where the player stands: {title, detail,
+	## wood, ore, verb, ok, reason, bar (Vector2 hp/max or ZERO)}. Empty
+	## when there is nothing to buy here.
+	if p == null or not is_instance_valid(p) or p.dead or p.carrying:
+		return {}
+	var E: Dictionary = Stats.ECONOMY
+	var team: int = p.team
+	for role in game.seals[team]:
+		var seal = game.seals[team][role]
+		if not seal.in_reach(p) or seal.locked:
+			continue
+		var a: Dictionary = Stats.hat_upgrade(team, role)
+		var cname: String = seal.class_title()
+		if is_upgraded(team, role):
+			if p.role == role and not p.hat_upgraded:
+				return _offer("NEW %s HAT" % cname.to_upper(), "Puts %s on G" % a.get("name", ""), 0, 0, "PUT ON", true, "", Vector2.ZERO)
+			return _offer("%s HAT MACHINE" % cname.to_upper(), "Upgraded: every %s hat has %s on G" % [cname, a.get("name", "")], 0, 0, "UPGRADED", false, "DONE", Vector2.ZERO)
+		if p.role != role:
+			return {}   # the hat itself is on offer here (the world prompt)
+		return _offer("UPGRADE THE %s HAT" % cname.to_upper(), "Every %s on your team gains %s on G" % [cname, a.get("name", "")],
+			E.hat_wood, E.hat_ore, "UPGRADE", can_afford(team, E.hat_wood, E.hat_ore), _need(team, E.hat_wood, E.hat_ore), Vector2.ZERO)
+	if _by_door(p):
+		var gate = game.gates[team]
+		var hp := Vector2(0.0 if gate.broken else float(gate.hp), float(Stats.GATE_HITS))
+		match _door_work(team):
+			"rebuild":
+				var pressed := _door_pressed(team)
+				return _offer("RAISE THE DOOR", "It comes back with %d of %d" % [mini(E.rebuild_hits, Stats.GATE_HITS), Stats.GATE_HITS],
+					E.rebuild_wood, E.rebuild_ore, "RAISE", not pressed and can_afford(team, E.rebuild_wood, E.rebuild_ore),
+					"UNDER SIEGE" if pressed else _need(team, E.rebuild_wood, E.rebuild_ore), hp)
+			"repair":
+				var pressed := _door_pressed(team)
+				return _offer("REPAIR THE DOOR", "+%d door health" % E.repair_hits, E.repair_wood, E.repair_ore, "REPAIR",
+					not pressed and can_afford(team, E.repair_wood, E.repair_ore),
+					"UNDER SIEGE" if pressed else _need(team, E.repair_wood, E.repair_ore), hp)
+		if gate.broken:
+			return _offer("THE DOOR IS DOWN", "No raising it in overtime", 0, 0, "RAISE", false, "OVERTIME", hp)
+		return _offer("YOUR DOOR", "Not a scratch on it", E.repair_wood, E.repair_ore, "REPAIR", false, "FULL HEALTH", hp)
+	var pad := _pad_in_reach(p)
+	if not pad.is_empty():
+		var t = _turret_on(team, pad.pos)
+		if t == null:
+			return _offer("BUILD A TURRET", "Shoots enemies near your castle", E.turret_wood, E.turret_ore, "BUILD",
+				can_afford(team, E.turret_wood, E.turret_ore), _need(team, E.turret_wood, E.turret_ore), Vector2.ZERO)
+		var hp := Vector2(float(t.hp), float(t.max_hp()))
+		if t.hp < t.max_hp():
+			return _offer("REPAIR THE TURRET", "Back to full health", E.turret_fix_wood, E.turret_fix_ore, "REPAIR",
+				can_afford(team, E.turret_fix_wood, E.turret_fix_ore), _need(team, E.turret_fix_wood, E.turret_fix_ore), hp)
+		if t.level < Stats.TURRET.max_level:
+			return _offer("UPGRADE THE TURRET", "Level %d to level %d" % [t.level, t.level + 1], E.turret_up_wood, E.turret_up_ore, "UPGRADE",
+				can_afford(team, E.turret_up_wood, E.turret_up_ore), _need(team, E.turret_up_wood, E.turret_up_ore), hp)
+		return _offer("TURRET", "Level %d, the highest" % t.level, 0, 0, "UPGRADE", false, "MAX LEVEL", hp)
+	return {}
+
+
+func _offer(title: String, detail: String, w: int, o: int, verb: String, ok: bool, reason: String, bar: Vector2) -> Dictionary:
+	return {"title": title, "detail": detail, "wood": w, "ore": o, "verb": verb, "ok": ok, "reason": reason, "bar": bar}
+
+
+func _need(team: int, w: int, o: int) -> String:
+	## "NEED 2 WOOD · 1 ORE" on a greyed button.
+	var parts := []
+	if wood[team] < w:
+		parts.append("%d WOOD" % (w - wood[team]))
+	if ore[team] < o:
+		parts.append("%d ORE" % (o - ore[team]))
+	return "" if parts.is_empty() else "NEED " + " · ".join(parts)
+
+
+func draw_action_card(hud, me) -> void:
+	## A card above the ability board while you stand at your door, a turret
+	## pad or your class's hat machine: what it does, the price against the
+	## base stock, and a button (click or tap it, or press interact).
+	card_button = Rect2()
+	if me == null or game.menu_open or game.guide_open:
+		return
+	var o := offer(me)
+	if o.is_empty():
+		return
+	var touch: bool = hud.get("touch_ui") == true
+	var W: float = hud.size.x
+	var H: float = hud.size.y
+	var card := Rect2(Vector2(W / 2.0 - 250.0, H - (470.0 if touch else 236.0)), Vector2(500, 104))
+	hud._plate(card, Color(0.08, 0.06, 0.04, 0.93), Color(0.78, 0.58, 0.24), 10, 2)
+	var x := card.position.x + 18.0
+	hud._text(Vector2(x, card.position.y + 30), o.title, 18, Color(1.0, 0.84, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	hud._text(Vector2(x, card.position.y + 52), o.detail, 13, Color(0.93, 0.9, 0.82), HORIZONTAL_ALIGNMENT_LEFT, 300, 2)
+	var row_y := card.position.y + 78.0
+	if o.bar != Vector2.ZERO:
+		# Health bar (the door's or the turret's) under the detail line.
+		var br := Rect2(Vector2(x, row_y - 7), Vector2(150, 12))
+		hud.draw_rect(br, Color(0, 0, 0, 0.6))
+		var f := clampf(o.bar.x / maxf(o.bar.y, 1.0), 0.0, 1.0)
+		hud.draw_rect(Rect2(br.position, Vector2(br.size.x * f, br.size.y)), Color(0.85, 0.25, 0.2).lerp(Color(0.45, 0.85, 0.3), f))
+		hud.draw_rect(br, Color(0.78, 0.58, 0.24, 0.8), false, 1.0)
+		hud._text(br.position + Vector2(158, 11), "%d / %d" % [int(o.bar.x), int(o.bar.y)], 12, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		x += 230.0
+	if o.wood + o.ore > 0:
+		# Price chips, red when the base stock is short.
+		for kind in ["wood", "ore"]:
+			var need: int = o[kind]
+			if need <= 0:
+				continue
+			var have: int = wood[me.team] if kind == "wood" else ore[me.team]
+			var c := Vector2(x + 9, row_y)
+			if kind == "wood":
+				_wood_icon(hud, c, 9.0)
+			else:
+				_ore_icon(hud, c, 9.0)
+			hud._text(Vector2(x + 22, row_y + 6), "%d" % need, 16, Color(1.0, 0.95, 0.85) if have >= need else Color(1.0, 0.45, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+			x += 56.0
+	# The button.
+	var bw := 150.0
+	var btn := Rect2(Vector2(card.end.x - bw - 14.0, card.position.y + 22.0), Vector2(bw, 60))
+	var hover: bool = btn.has_point(hud.get_local_mouse_position()) and not touch
+	var fill := Color(0.55, 0.38, 0.1) if o.ok else Color(0.22, 0.2, 0.18)
+	if hover and o.ok:
+		fill = fill.lightened(0.15)
+	hud._plate(btn, fill, Color(1.0, 0.82, 0.35) if o.ok else Color(0.45, 0.42, 0.38), 8, 2)
+	var label: String = o.verb if o.ok or o.reason == "" else o.reason
+	var lsize := 17 if label.length() <= 10 else 12
+	if o.ok and not touch:
+		hud._keycap(btn.position + Vector2(22, 30), hud._k("interact"), 26.0)
+		hud._text(btn.position + Vector2(40, 36), label, lsize, Color(1.0, 0.97, 0.88), HORIZONTAL_ALIGNMENT_CENTER, bw - 44.0, 3)
+	else:
+		hud._text(btn.position + Vector2(4, 36), label, lsize, Color(1.0, 0.97, 0.88) if o.ok else Color(0.75, 0.72, 0.68), HORIZONTAL_ALIGNMENT_CENTER, bw - 8.0, 3)
+	card_button = btn
+	card_ok = o.ok
+	if touch and hud.get("touch_rects") != null:
+		hud.touch_rects.append([btn, "interact"])   # a tap presses interact (touch.gd)
+
+
+func mouse_on_button() -> bool:
+	## The mouse is over the card's button: a left click there buys, not swings.
+	var hud = game.hud
+	return hud != null and card_button.has_area() and card_button.has_point(hud.get_local_mouse_position())
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and mouse_on_button():
+		var p = game.player
+		if p and is_instance_valid(p) and not p.dead:
+			if card_ok:
+				game.try_interact(p)
+			else:
+				game.sfx.ui("ui_deny", -6.0)
+		get_viewport().set_input_as_handled()
 
 
 func draw_hat_slot(hud, p, strip: Rect2) -> void:
@@ -1208,6 +1402,7 @@ func _test_tick() -> void:
 			_put(p, seal.global_position + Vector3(0, 0.2, 1.2))
 			test_wait = 10
 		4:
+			_check(offer(p).get("verb") == "UPGRADE" and offer(p).ok, "the action card offers the hat upgrade (%s)" % offer(p).get("title", "none"))
 			game.try_interact(p)
 			_check(is_upgraded(team, Role.KNIGHT) and wood[team] == 15 and ore[team] == 15, "F at the hat machine upgrades it for 5 wood and 5 ore")
 			_check(p.hat_upgraded and p.abilities().size() == 3, "the upgraded hat adds a third move (%s)" % (p.abilities()[2].name if p.abilities().size() > 2 else "none"))
@@ -1227,6 +1422,7 @@ func _test_tick() -> void:
 			_put(p, gate.global_position * Vector3(1, 0, 1) + Vector3(side * 1.5, 0.1, 0.5))
 			test_wait = 10
 		5:
+			_check(offer(p).get("verb") == "REPAIR" and offer(p).ok and offer(p).bar.x == 120.0, "the action card offers the door repair (%s)" % offer(p).get("title", "none"))
 			game.try_interact(p)
 			var gate = game.gates[team]
 			_check(gate.hp == 120 + Stats.ECONOMY.repair_hits and wood[team] == 13 and ore[team] == 14, "F by the door mends it (+%d, hp %d)" % [Stats.ECONOMY.repair_hits, gate.hp])
@@ -1241,6 +1437,7 @@ func _test_tick() -> void:
 			_put(p, pad.pos + Vector3(0, 0.1, 0.6 * side))
 			test_wait = 10
 		7:
+			_check(offer(p).get("verb") == "BUILD", "the action card offers a turret (%s)" % offer(p).get("title", "none"))
 			var pad: Dictionary = pads[team][2]
 			var before: int = wood[team]
 			game.try_interact(p)
@@ -1334,7 +1531,7 @@ func _shot_tick() -> void:
 				game.cam_lock = depots[team] + Vector3(-side * 2.0, 0, 2.5)
 			if left == 25:
 				_put(p, depots[team] + Vector3(-side * 1.6, 0.1, 1.0))
-		"hat":
+		"hat", "upgrade":
 			if left == 200:
 				wood[team] = 14
 				ore[team] = 13
@@ -1343,8 +1540,8 @@ func _shot_tick() -> void:
 				_put(p, seal.global_position + Vector3(0.4, 0.1, 1.5))
 				game.cam_pos = p.global_position + game.CAMERA_OFFSET * game.cam_zoom
 				upgrade_hat(team, Role.RANGER, p)
-			if left == 45:
-				game.try_interact(p)
+			if left == 45 and scene == "hat":
+				game.try_interact(p)   # ("upgrade" stops before the key: the card's UPGRADE button shows)
 		"repair":
 			if left == 200:
 				wood[team] = 9
