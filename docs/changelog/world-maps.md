@@ -7,7 +7,18 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 08:40 UTC · `(stamped by the next entry)` · Shrine rails follow the circle; no moss caps, no watermills (Faisal 08:19-08:20)
+### 2026-10-09 08:45 UTC · `(stamped by the next entry)` · Door health bar; Elf towers lose their canopy blobs; merge UI & Art 9e60e8a
+
+- **What:**
+  - **Door health:** Faisal 08:21, "for the door healths add a health bar not a number". Over each castle door, the "Door 200 / 200" text is replaced by a billboard bar: a dark frame, a dark track, and a fill that shrinks from the right and shades from green to red. When the door is broken, the bar hides and the old text returns ("rebuilding in N" / "under siege").
+  - **Elf towers:** Faisal 08:21 at the Elf gate, "what are these giant blobs of what? why are they inside the building". The leafy canopy blobs on every mossy tower are gone. Elf towers get the green shingle roof (no merlons) and keep their lantern.
+  - **Merge:** `origin/group/ui-art-z3px4x` (Elf crown room declutter).
+- **Files:** scripts/gate.gd (`setup`, `_bar_quad`, `_refresh`), scripts/game.gd (`_add_tower`; merge)
+- **Tunables:** door bar 2.6 × 0.26 m, 1.8 m above the door
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0
+- **Revert:** `git revert <hash>` (the merge: `git revert -m 1 <merge hash>`)
+
+### 2026-10-09 08:40 UTC · `9b9be54` · Shrine rails follow the circle; no moss caps, no watermills (Faisal 08:19-08:20)
 
 - **What:** Faisal on the bridge shots: "fences are the wrong way" / "clipping of circle" (middle bridge), "rocks have random green clipping on them" (north bridge), "random useless building and random green shrubs on rock textures" (south bridge).
   - **Shrine rails:** the rails were turned across the plaza rim; they now run along its tangent, between their posts.

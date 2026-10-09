@@ -5547,23 +5547,9 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 		_add_block(pos + Vector3(0, 0.25, 0), Vector3(width + 0.5, 0.5, width + 0.5), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
 		_add_block(pos + Vector3(0, height * 0.55, 0), Vector3(width + 0.2, 0.16, width + 0.2), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
 	if mossy:
-		# An elven tree-tower: the trunk carries a glowing canopy instead of a roof,
-		# with a lantern hung beneath it.
-		var r := RandomNumberGenerator.new()
-		r.seed = int(pos.x * 3 + pos.z * 17)
-		var canopy := _leaf_material(r, false)
-		canopy.set_shader_parameter("top_color", Color.from_hsv(0.42, 0.7, 0.4))
-		canopy.set_shader_parameter("bottom_color", Color.from_hsv(0.45, 0.85, 0.14))
-		for i in 4:
-			var blob := MeshInstance3D.new()
-			var rr: float = width * (0.8 if i == 0 else r.randf_range(0.45, 0.6))
-			blob.mesh = _rock_mesh(r.randi(), rr, 0.12)
-			var a := TAU * i / 4.0 + 0.6
-			var spread: float = 0.0 if i == 0 else width * 0.45
-			blob.position = pos + Vector3(cos(a) * spread, height + 0.9 + (0.5 if i == 0 else r.randf_range(-0.2, 0.5)), sin(a) * spread)
-			blob.scale = Vector3(1.0, 0.8, 1.0)
-			blob.material_override = canopy
-			add_child(blob)
+		# An elven tower: a lantern hung under a green shingle roof. (The leafy
+		# canopy blobs it wore read as "giant blobs inside the building" from
+		# the camera, Faisal 08:21.)
 		var globe := MeshInstance3D.new()
 		var sph := SphereMesh.new()
 		sph.radius = 0.22
@@ -5582,11 +5568,10 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 		light.omni_range = 6.0
 		light.position = globe.position
 		add_child(light)
-		if flag:
-			_add_flag(pos + Vector3(0, height + 2.6, 0), team, side)
-		return
 	for xs in [-1.0, 1.0]:
 		for zs in [-1.0, 1.0]:
+			if mossy:
+				continue
 			_add_block(pos + Vector3(xs * (width / 2.0), height + 0.6, zs * (width / 2.0)), Vector3(0.5, 0.6, 0.5), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# The roof: a pyramid in the team colour with a gold cap.
 	var roof := MeshInstance3D.new()
