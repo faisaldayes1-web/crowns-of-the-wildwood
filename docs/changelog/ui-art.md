@@ -830,3 +830,13 @@ Follow-up `543029f`: the downed-skip check waits for the outcome (up to 600 fram
 frame count, since physics ticks lag process frames headlessly. On the combined alpha
 (release/v0.4.0-alpha + this branch): options_menu_test, menu_flow_test, store_menu_test all
 0 failures. Revert: `git revert 543029f`.
+
+## 2026-10-09 — Button test follows the iPad touch layout
+
+Commit: `7be12a4`. On release/v0.4.0-alpha (with the iPad touch-first HUD) two touch checks failed
+because the first touch switches the HUD to its touch cluster and the attack tile became the aim
+pad. The test now turns touch mode on first, reads that layout's tiles and accepts `aim_id` for
+attack. Game behaviour unchanged. Tested: options_menu_test 0 failures on this branch and on
+release/v0.4.0-alpha 3a17242. Files: `tools/options_menu_test.gd`.
+
+Revert: `git revert 7be12a4`.
