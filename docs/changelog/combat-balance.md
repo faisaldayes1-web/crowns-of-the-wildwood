@@ -320,7 +320,7 @@ then `python3 tools/balance/agg.py <tag>`.
 ## 11. Hit sounds with weight; kill sting; last-heart heartbeat
 
 - **When:** 2026-10-09 13:05 UTC (same standing task as entry 10)
-- **Commit:** filled in by the next commit
+- **Commit:** `007a834`
 - **What:** Landed blows now sound like what hit you. Heavy blows (2+ hearts,
   or a heavy weapon) add a deep crunch under the hurt sound. Spells (arcane,
   frost, holy, dark, nature, fire) add a crackle. Your own kills play a short
@@ -333,4 +333,4 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Tunables:** none (volumes: crunch -2 dB on 2-heart hits / -7 dB on light
   heavy-weapon hits, crackle -6 dB, kill -4 dB, heartbeat -9 dB every 0.95 s).
 - **Checks:** `tools/tests/run.sh` 29/29.
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert 007a834`
