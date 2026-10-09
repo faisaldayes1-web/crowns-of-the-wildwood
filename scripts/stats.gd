@@ -580,7 +580,7 @@ const FACTION_KITS := {
 	1: {
 		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Heavy plate turns about every third hit.", "armour": 0.37}},
 		Role.RANGER: {
-			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 14.0, "cooldown": 0.68, "cost": 10, "shot_speed": 36.0},
+			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 16.0, "cooldown": 0.68, "cost": 10, "shot_speed": 42.0},
 			"abilities": [
 				{"name": "Heavy Bolt", "key": "Q", "kind": "shot", "icon": "snipe", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "range": 16.0, "shot_speed": 50.0, "desc": "A wound-up bolt that takes two hearts."},
@@ -616,7 +616,7 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 # (Regen limits attack rate, so it is worth more than it looks: 1.3 made the
 # Humans win three of every four bot matches; 1.12 was still winning two of three once raids rallied and escorted, so 1.06.)
 const FACTIONS := [
-	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.3, "regen_mult": 1.0,
+	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.15, "regen_mult": 1.0,   # 6.3 → 6.15 (patch 2: still the quicker side, less kiting edge)
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.15,   # 1.06 → 1.15 (patch 1: basic attacks went free, so faster regen is worth less)
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},

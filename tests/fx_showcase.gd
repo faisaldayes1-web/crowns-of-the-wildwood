@@ -12,6 +12,8 @@ extends Node
 ## (one capture per class for the skill looks).
 ## With --grab: the player grabs a class seal (pop), grabs at nothing (whiff)
 ## twice (whiffs).
+## With --fluid: the player Knight runs while swinging, taps attack fast, and
+## turns: for before/after clips of the combat flow.
 
 const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
@@ -59,6 +61,9 @@ func _stage() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--at="):
 			center = Vector3(float(arg.get_slice("=", 1).get_slice(",", 0)), 0, float(arg.get_slice("=", 1).get_slice(",", 1)))
+	if "--fluid" in OS.get_cmdline_user_args():
+		_stage_fluid()
+		return
 	if "--grab" in OS.get_cmdline_user_args():
 		_stage_grab()
 		return
@@ -396,3 +401,51 @@ func _grab_air() -> void:
 	p.global_position.z += 1.6   # step back from the seal: nothing in reach
 	_face(p, p.global_position + Vector3(0, 0, 1))
 	game.try_interact(p)
+
+
+# --- Fluid combat (--fluid) -----------------------------------------------------
+
+func _stage_fluid() -> void:
+	var p = game.player
+	center = Vector3(-11, 0, 13)
+	p.global_position = center + Vector3(-5, 0, 2.2)
+	p.spawn_protect = 0.0
+	p.set_role(Role.KNIGHT)
+	p.aim_mode = "stick"
+	game.cam_zoom = 0.6
+	var dummies := []
+	for u in game.units:
+		if u == p:
+			continue
+		if u.team != p.team and dummies.size() < 3:
+			dummies.append(u)
+			continue
+		u.process_mode = Node.PROCESS_MODE_DISABLED
+		u.global_position = Vector3(200, -50, 200)
+	var at := [Vector3(-2.2, 0, 2.5), Vector3(0.6, 0, 1.9), Vector3(2.8, 0, 2.6)]
+	for i in dummies.size():
+		_place(dummies[i], Role.BASE, center + at[i])
+		dummies[i].process_mode = Node.PROCESS_MODE_DISABLED
+		dummies[i].model.process_mode = Node.PROCESS_MODE_ALWAYS
+	events = [[0.3, "_run_right"], [2.2, "_stop"], [2.3, "_tap"], [2.45, "_tap"], [2.6, "_tap"], [2.75, "_tap"],
+		[3.3, "_run_left"], [5.0, "_stop"]]
+
+
+func _run_right() -> void:
+	Input.action_press("move_right")
+	Input.action_press("attack")
+
+
+func _run_left() -> void:
+	Input.action_press("move_left")
+	Input.action_press("attack")
+
+
+func _stop() -> void:
+	for a in ["move_right", "move_left", "attack"]:
+		Input.action_release(a)
+
+
+func _tap() -> void:
+	Input.action_press("attack")
+	get_tree().create_timer(0.05).timeout.connect(func(): Input.action_release("attack"))

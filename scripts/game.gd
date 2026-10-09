@@ -30,6 +30,7 @@ const MenuStage = preload("res://scripts/menu_stage.gd")
 const Economy = preload("res://scripts/economy.gd")
 const Role = Stats.Role
 
+const TEST_TEAM_MAX := 6     # --team-size=N cap for balance batches only
 const TEAM_SIZE := 4          # strictly 4v4 for now (Faisal 2026-10-09): players and bots together
 const CAPTURES_TO_WIN := Stats.CAPTURES_TO_WIN
 # Each bot's class and job, in spawn order. The player takes the first slot.
@@ -1805,7 +1806,7 @@ func _start_match(team: int) -> void:
 			couch_mode = arg.trim_prefix("--couch-mode=")
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--team-size="):
-			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEAM_SIZE)  # testing: smaller sides
+			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEST_TEAM_MAX)  # testing only (batches): 3v3 / 5v5; the live game stays TEAM_SIZE
 	if menu_stage:
 		# Leave the menus: their hall and models go, the match camera takes over.
 		# Freed now, not queued: a camera left in the viewport would become
