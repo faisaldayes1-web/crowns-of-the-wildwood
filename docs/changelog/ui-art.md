@@ -395,7 +395,7 @@ Revert: `git revert ae919cd`
 
 ## 2026-10-09 — Elf base pass D: the crown room upstairs, turret pads, hedge line (layout sheet)
 
-Commit: `PENDING`
+Commit: `d2bf681`
 
 What changed (Elf base only; the Human side is untouched):
 - **Crown room upstairs**: the Elves' crown room now stands on a sandstone terrace 0.9 m above the
@@ -426,4 +426,4 @@ investigation, see the next entry).
 
 Renders: `elf-base-passD-throne.png`, `elf-base-passD-castle.png`.
 
-Revert: `git revert PENDING`
+Revert: `git revert d2bf681`
