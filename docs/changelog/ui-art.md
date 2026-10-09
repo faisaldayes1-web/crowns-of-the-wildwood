@@ -332,3 +332,31 @@ Renders: `elf-base-passA-castle.png`, `elf-base-passA-courtyard.png`, `elf-base-
 and `compare-elf-base-reference-vs-passA.png`.
 
 Revert: `git revert bbfabb6`
+
+---
+
+## 2026-10-09 — Elf base pass B: cobbled yard lane with lawns, trees and fire pillars; leaf wall tops; courtyard lawn; stag decals fixed
+
+Commit: `PENDING` (then merge `0b12837` of World & Maps' 8fb3a0e: Human identity, cobbled flank paths)
+
+What changed (Elf base only):
+- **Yard** (`_dress_elf_yard`, courtyard reference): a cobbled lane from the gate to the keep's arch
+  with the stag at its middle, lawns with raised flower beds and bushes either side, a wildwood tree
+  in each inner corner (off the lane and the rampart-stair routes), and a stone fire pillar either
+  side of the arch.
+- **Wall tops**: every Elf merlon is a leaf tuft again; the cream caps from the moonstone pass read
+  as white balls from above in the pass A render.
+- **Courtyard**: a lawn with a flower bed beside the spawn circle's south side; the map table moved
+  from x 12.6 to 10.4 so it clears that bed (audit clean on the Elf side).
+- **Stag decals** on the runners sit 5-8 cm above the rug (0.11 / 0.15) instead of 6 mm: they were
+  depth-fighting the rug and did not show.
+
+Files touched: `scripts/game.gd` (`_build_castle` team 0 hook, new `_dress_elf_yard`, `_add_wall`,
+`_dress_elf_courtyard`, `_build_throne_room`), `docs/changelog/ui-art.md`. No tunables.
+
+Tested: `--check-only`; `--audit` 1 overlap on the Wildwood (the pre-existing pine pair);
+900-frame headless bot match clean; after the merge a 300-frame match clean.
+
+Renders: `elf-base-passB-castle.png`, `elf-base-passB-courtyard.png`, `elf-base-passA-throne.png`.
+
+Revert: `git revert PENDING` (and `git revert -m 1 0b12837` for the merge).
