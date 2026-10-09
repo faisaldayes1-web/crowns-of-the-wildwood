@@ -264,6 +264,14 @@ func _ready() -> void:
 	sfx = Sfx.new()
 	add_child(sfx)
 	_load_controls()
+	if OS.has_feature("web"):
+		# Browsers (and tablets) start on Medium at most; Settings can raise
+		# it. (Here, not in _load_controls: a fresh browser has no settings
+		# file and that returns early.)
+		gfx_quality = mini(gfx_quality, 1)
+		# Tablets are 4:3: letterbox the 16:9 canvas rather than let the
+		# menus run off the sides.
+		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	sfx.set_listener(Vector3.ZERO)
 	Input.joy_connection_changed.connect(_on_pad_changed)
 	for arg in OS.get_cmdline_user_args():
@@ -3030,12 +3038,6 @@ func _save_controls() -> void:
 
 
 func _load_controls() -> void:
-	if OS.has_feature("web"):
-		# Tablets are 4:3: letterbox the 16:9 canvas rather than let the
-		# menus run off the sides. This runs before the saved-settings check
-		# below so a first visit (no saved file yet) gets it too.
-		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
-		gfx_quality = mini(gfx_quality, 1)
 	var cfg := ConfigFile.new()
 	if cfg.load(CONTROLS_PATH) != OK:
 		return

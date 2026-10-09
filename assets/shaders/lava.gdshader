@@ -9,8 +9,8 @@ render_mode cull_disabled, fog_disabled;   // no red haze over the black crust
 
 uniform float drift = 0.03;
 uniform float scale = 0.16;
-uniform float glow = 2.3;
-uniform vec3 core : source_color = vec3(1.0, 0.78, 0.32);      // the hottest crack cores
+uniform float glow = 2.0;
+uniform vec3 core : source_color = vec3(1.0, 0.66, 0.24);      // the hottest crack cores
 uniform vec3 hot : source_color = vec3(1.0, 0.34, 0.04);      // molten rock
 uniform vec3 deep : source_color = vec3(0.45, 0.04, 0.015);    // cooling, deep red
 uniform vec3 crust_lo : source_color = vec3(0.008, 0.006, 0.007);   // near black

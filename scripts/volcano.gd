@@ -574,7 +574,7 @@ func _build_corridor(s: Array) -> void:
 		_box(mid + Vector3(0, -0.36, 0), Vector3(half * 2.0 - 0.3, 0.2, length - 1.0), basalt(Color(0.25, 0.2, 0.2)), yaw)
 		return
 	# Causeway and the grand stair: paved rock with a cliff skirt.
-	var pave: Material = game._flagstone(Color(0.47, 0.42, 0.4))
+	var pave: Material = game._flagstone(Color(0.45, 0.42, 0.42))
 	_box(mid + Vector3(0, -0.04, 0), Vector3(half * 2.0, 0.08, length), pave, yaw)
 	_skirt(mid + Vector3(0, -0.08, 0), Vector3(half * 2.0 + 0.6, absf(LAVA_Y) + 1.5, length), yaw)
 	var kerb: Material = game._ashlar(Color(0.44, 0.36, 0.35))
@@ -617,7 +617,7 @@ func _build_plaza(i: int) -> void:
 	top.bottom_radius = r
 	top.height = 0.1
 	top.radial_segments = 40
-	_mesh(top, c + Vector3(0, -0.05, 0), game._flagstone(Color(0.47, 0.42, 0.4)))
+	_mesh(top, c + Vector3(0, -0.05, 0), game._flagstone(Color(0.45, 0.42, 0.42)))
 	var cliff := CylinderMesh.new()
 	cliff.top_radius = r + 0.5
 	cliff.bottom_radius = r + 1.6

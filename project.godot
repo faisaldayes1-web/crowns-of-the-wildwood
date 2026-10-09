@@ -27,10 +27,6 @@ window/dpi/allow_hidpi=true
 
 [rendering]
 
-limits/spatial_indexer/threaded_cull_minimum_instances=1000000
-; Web builds run without threads and the engine's threaded scene culling
-; then draws nothing (every mesh vanished, only the sky showed on 2026-10-08).
-; Culling on the main thread keeps the world visible in the browser.
 anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/use_debanding=true
 textures/default_filters/anisotropic_filtering_level=8
@@ -40,3 +36,4 @@ lights_and_shadows/positional_shadow/soft_shadow_filter_quality=3
 environment/ssao/quality=3
 environment/ssil/quality=2
 environment/glow/upscale_mode=1
+limits/spatial_indexer/threaded_cull_minimum_instances.web=100000000
