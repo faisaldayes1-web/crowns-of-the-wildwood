@@ -4056,7 +4056,8 @@ func _menu_classes(body: Rect2) -> void:
 		var btn := Rect2(card.position.x + 8, card.end.y - 40, cw - 16, 32)
 		var label := "YOUR CLASS" if mine else ("LOCKED" if locked else ("SELECT" if near else "AT STATIONS"))
 		var live: bool = near and not mine and not locked
-		_plate(btn, col.darkened(0.15) if live else Color(0.18, 0.18, 0.2), col.lightened(0.3) if live else (GOLD if mine else Color(0.3, 0.3, 0.32)), 6, 2)
+		var fill: Color = col.darkened(0.15 if col.get_luminance() < 0.55 else 0.45)   # pale classes keep white text readable
+		_plate(btn, fill if live else Color(0.18, 0.18, 0.2), col.lightened(0.3) if live else (GOLD if mine else Color(0.3, 0.3, 0.32)), 6, 2)
 		if live:
 			draw_rect(Rect2(btn.position + Vector2(3, 3), Vector2(btn.size.x - 6, 10)), Color(1, 1, 1, 0.18))
 		_text(Vector2(btn.position.x, btn.end.y - 10), label, 14 if live or mine else 11, Color.WHITE if live else (GOLD if mine else GREY), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x, 3)

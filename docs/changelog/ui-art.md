@@ -789,3 +789,20 @@ Files: `scripts/hud.gd`, `scripts/character_model.gd`, `docs/changelog/ui-art.md
 `--check-only`; `tools/options_menu_test.gd` 0 failures.
 
 Revert: `git revert a904271`.
+
+## 2026-10-09 — Icon upgrade pass (Faisal 11:33 "upgrading the ... icons")
+
+Commit: `HASH`. `tools/make_icons.py` gets a finishing pass (`finish()`) used by every icon it
+and `tools/make_summary_icons.py` draw: colours +25 % saturation / +6 % brightness, light from
+the top and shade toward the bottom, a rim light on the top-left edges, a thick ink sticker
+outline and a soft drop shadow; the glow fades out before the canvas edge (no square halo).
+Output 128 → 256 px (all 72 in `assets/ui/icons`, reimported). The HUD draws them by rect, so
+sizes on screen are unchanged. Faisal's own painted versions replace these by file name when
+he sends them. Also: Classes-tab SELECT on pale classes (Knight, Healer) gets a darker fill so
+its white text reads.
+
+Files: `tools/make_icons.py`, `assets/ui/icons/*.png`, `scripts/hud.gd`,
+`docs/changelog/ui-art.md`. Tested: `--import`; `tools/options_menu_test.gd` 0 failures;
+renders of the HUD and Classes tab. Sheet: game/groups/ui-art/icons/upgraded-icons-sheet.png.
+
+Revert: `git revert HASH`.
