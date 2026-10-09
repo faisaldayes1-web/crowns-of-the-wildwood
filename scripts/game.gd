@@ -4277,17 +4277,50 @@ func _add_station(team: int, role: int, pos: Vector3) -> void:
 # from every wall; `--audit` lists anything that still overlaps.
 
 var mossy := false   # while an elven castle is being built: ivy and moss on its stone
+var elf_castle := false  # while the Elf castle itself is built: warm living wood + moonstone, not moss
+# The Elf keep's palette (World & Maps, 2026-10-08): it read as a flat green
+# wash, so the castle is now warm heartwood with pale moonstone trim and
+# moon-blue crystal light; green stays for the team cloth and the canopies.
+const ELF_BARK := Color(0.8, 0.62, 0.47)       # was Color(0.72, 0.7, 0.58), olive
+const ELF_MOONSTONE := Color(0.84, 0.87, 0.95)  # pale blue-white stone
+const ELF_GLOW := Color(0.62, 0.8, 1.0)        # crystal/lantern light, was Color(0.55, 1.0, 0.85)
 var grey := false    # while the Humans' castle is being built: grey stone
 
 
 func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	## Castle stone; the elven castle is grown, so its "stone" is living bark,
 	## and the Humans build in cool grey blocks.
+	if elf_castle:
+		# Trim pieces (any tinted call: cornices, merlons, pillars' caps) are
+		# moonstone; the walls themselves are warm heartwood.
+		if tint != Color.WHITE:
+			return _moonstone(tint)
+		return _pbr("bark", 0.55, ELF_BARK)
 	if mossy:
 		return _pbr("bark", 0.55, tint * Color(0.72, 0.7, 0.58))
 	if grey:
 		return _pbr("greystone", 0.42, Color(0.74, 0.76, 0.82).lerp(tint * Color(0.74, 0.76, 0.82), 0.35))
 	return _pbr("stone", 0.42, tint)
+
+
+func _moonstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
+	## Pale, faintly lustrous elven moonstone: the cream marble cooled to blue-white.
+	var lum := clampf((tint.r + tint.g + tint.b) / 3.0, 0.5, 1.0)
+	var m := _pbr("marble", 0.35, ELF_MOONSTONE * lum)
+	m.roughness = 0.4
+	return m
+
+
+func _moon_silver() -> StandardMaterial3D:
+	## Elven inlay (dais rings, pedestal bands): silver with a soft moon glow,
+	## in place of the green leaf trim.
+	var m := _material(Color(0.78, 0.84, 0.96))
+	m.metallic = 0.6
+	m.roughness = 0.3
+	m.emission_enabled = true
+	m.emission = ELF_GLOW
+	m.emission_energy_multiplier = 0.35
+	return m
 
 
 func _elf_leaf(bright: bool = false) -> StandardMaterial3D:
@@ -4308,16 +4341,16 @@ func _add_lantern(pos: Vector3, height: float = 2.2) -> void:
 	sph.radius = 0.26
 	sph.height = 0.52
 	globe.mesh = sph
-	var gm := _material(Color(0.7, 1.0, 0.9))
+	var gm := _material(Color(0.82, 0.9, 1.0))
 	gm.emission_enabled = true
-	gm.emission = Color(0.45, 0.95, 0.8)
+	gm.emission = ELF_GLOW
 	gm.emission_energy_multiplier = 2.2
 	globe.material_override = gm
 	globe.position = pos + Vector3(0, height + 0.2, 0)
 	add_child(globe)
 	_add_block(pos + Vector3(0, height + 0.5, 0), Vector3(0.22, 0.08, 0.22), Color.WHITE, false, _gold())
 	var light := OmniLight3D.new()
-	light.light_color = Color(0.85, 1.0, 0.78)
+	light.light_color = Color(0.85, 0.92, 1.0)
 	light.light_energy = 0.9
 	light.omni_range = 7.0
 	light.position = pos + Vector3(0, height + 0.4, 0)
@@ -4333,7 +4366,7 @@ func _add_trunk_pillar(pos: Vector3, height: float) -> void:
 	cyl.height = height
 	trunk.mesh = cyl
 	trunk.position = pos + Vector3(0, height / 2.0, 0)
-	trunk.material_override = _pbr("bark", 0.6, Color(0.8, 0.76, 0.62))
+	trunk.material_override = _pbr("bark", 0.6, ELF_BARK * 1.05)
 	add_child(trunk)
 	for i in 3:
 		var tuft := MeshInstance3D.new()
@@ -4686,6 +4719,8 @@ func _add_torch_stand(pos: Vector3, height: float = 1.9) -> void:
 func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	if grey:   # the Humans' halls: cooler, darker flags
 		return _pbr("flagstone_grey", 0.25, tint * Color(0.9, 0.9, 0.92))
+	if elf_castle:   # pale moonstone flags
+		return _pbr("flagstone", 0.25, ELF_MOONSTONE * 0.92)
 	return _pbr("flagstone_moss" if mossy else "flagstone", 0.25, tint)
 
 
@@ -4739,7 +4774,10 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	var along_x := size.x >= size.z
 	var length := size.x if along_x else size.z
 	var thick := size.z if along_x else size.x
-	if mossy:
+	if elf_castle:
+		# Moonstone coping on the heartwood walls (it was a green vine ledge).
+		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _moonstone())
+	elif mossy:
 		# Grown walls: a vine ledge along the top and leaf tufts instead of merlons.
 		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _elf_leaf())
 	else:
@@ -4751,7 +4789,15 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 		var t := -length / 2.0 + (k + 0.5) * length / n
 		var p := Vector3(center.x + t, top + 0.5, center.z) if along_x else Vector3(center.x, top + 0.5, center.z + t)
 		var ms := Vector3(0.6, 0.6, thick) if along_x else Vector3(thick, 0.6, 0.6)
-		if mossy:
+		if elf_castle and k % 3 != 0:
+			# Rounded moonstone merlons, with a leaf tuft every third one.
+			var cap := MeshInstance3D.new()
+			cap.mesh = _rock_mesh(int(p.x * 5 + p.z * 11), 0.36, 0.08)
+			cap.position = p - Vector3(0, 0.12, 0)
+			cap.scale = Vector3(1.0, 0.8, 1.0)
+			cap.material_override = _moonstone()
+			add_child(cap)
+		elif mossy:
 			var tuft := MeshInstance3D.new()
 			tuft.mesh = _rock_mesh(int(p.x * 5 + p.z * 11), 0.45, 0.15)
 			tuft.position = p - Vector3(0, 0.1, 0)
@@ -4789,15 +4835,15 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 		sph.radius = 0.22
 		sph.height = 0.44
 		globe.mesh = sph
-		var gm := _material(Color(0.7, 1.0, 0.9))
+		var gm := _material(Color(0.82, 0.9, 1.0))
 		gm.emission_enabled = true
-		gm.emission = Color(0.45, 0.95, 0.8)
+		gm.emission = ELF_GLOW
 		gm.emission_energy_multiplier = 2.0
 		globe.material_override = gm
 		globe.position = pos + Vector3(-side * (width / 2.0 + 0.4), height - 0.6, 0)
 		add_child(globe)
 		var light := OmniLight3D.new()
-		light.light_color = Color(0.55, 1.0, 0.85)
+		light.light_color = ELF_GLOW
 		light.light_energy = 1.2
 		light.omni_range = 7.0
 		light.position = globe.position
@@ -4910,7 +4956,7 @@ func _add_wall_torch(pos: Vector3, out: Vector3) -> void:
 	if mossy:
 		_add_crystal(pos + out * 0.35 - Vector3(0, 1.0, 0), 0.55)
 		var cl := OmniLight3D.new()
-		cl.light_color = Color(0.55, 1.0, 0.85)
+		cl.light_color = ELF_GLOW
 		cl.light_energy = 1.1
 		cl.omni_range = 6.0
 		cl.position = pos + out * 0.8 + Vector3(0, 0.4, 0)
@@ -4991,7 +5037,7 @@ func _add_chandelier(pos: Vector3, elven: bool, shadows: bool = true) -> void:
 	if elven:
 		# Warm lantern light with a hint of green: pure green washed the
 		# elven keep out (2026-10-07 render).
-		light.light_color = Color(0.95, 0.92, 0.7)
+		light.light_color = Color(0.96, 0.92, 0.86)   # was Color(0.95, 0.92, 0.7): warm lamp, no green cast
 		light.light_energy = 1.3
 	else:
 		light.light_color = Color(1.0, 0.76, 0.42)
@@ -5236,8 +5282,8 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	audit_label = "vault"
 	# Floor: dark marble with a pale border (Humans) or a mossy glade floor (Elves).
 	if elven:
-		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _pbr("bark", 0.5, Color(0.7, 0.66, 0.55)))
-		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _pbr("flagstone_moss", 0.8, Color(0.8, 0.8, 0.72)))
+		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _pbr("wood_dark", 0.5, Color(0.9, 0.74, 0.6)))
+		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _moonstone(Color(0.9, 0.9, 0.9)))
 	else:
 		_add_block(Vector3(cx, 0.05, 0), Vector3(depth, 0.04, hz * 2), Color.WHITE, false, _marble(Color(0.55, 0.5, 0.52)))
 		_add_block(Vector3(cx, 0.06, 0), Vector3(depth - 1.2, 0.04, hz * 2 - 1.2), Color.WHITE, false, _pbr("flagstone_grey", 0.9, Color(1.0, 0.96, 0.9)))
@@ -5250,7 +5296,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		# Door posts and the lintel over the doors.
 		_add_block(Vector3(front_x, (ROOM_H + 0.3) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.7, ROOM_H + 0.3, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)))
 	_add_block(Vector3(back_x, ROOM_H / 2.0, 0), Vector3(0.5, ROOM_H, hz * 2 + 0.5), Color.WHITE, true, wall_mat)
-	_add_block(Vector3(front_x, ROOM_H - 0.2, 0), Vector3(0.7, 0.4, ROOM_DOOR_HALF * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)) if not elven else _elf_leaf())
+	_add_block(Vector3(front_x, ROOM_H - 0.2, 0), Vector3(0.7, 0.4, ROOM_DOOR_HALF * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)) if not elven else _moonstone())
 	# A cornice (or vine ledge) along every wall top.
 	var cap := _ashlar(Color(0.92, 0.88, 0.8))
 	for zs in [-1.0, 1.0]:
@@ -5258,22 +5304,13 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	_add_block(Vector3(back_x, ROOM_H + 0.08, 0), Vector3(0.7, 0.16, hz * 2 + 0.7), Color.WHITE, false, cap)
 	for zs in [-1.0, 1.0]:
 		_add_block(Vector3(front_x, ROOM_H + 0.08, zs * (hz / 2.0 + ROOM_DOOR_HALF / 2.0)), Vector3(0.7, 0.16, hz - ROOM_DOOR_HALF), Color.WHITE, false, cap)
-	if elven:
-		# Leaf tufts along the grown walls' tops instead of a solid green slab.
-		for k in 7:
-			var t: float = -hz + 0.6 + k * (hz * 2 - 1.2) / 6.0
-			_add_block(Vector3(back_x, ROOM_H + 0.3, t), Vector3(0.9, 0.3, 0.7), Color.WHITE, false, _elf_leaf(k % 2 == 0))
-		for k in 6:
-			var t: float = front_x + side * (0.5 + k * (depth - 1.0) / 5.0)
-			for zs in [-1.0, 1.0]:
-				_add_block(Vector3(t, ROOM_H + 0.3, zs * hz), Vector3(0.7, 0.3, 0.9), Color.WHITE, false, _elf_leaf(k % 2 == 1))
 	audit_label = ""
 	# A carpet runner from the doors to a round, three-tier dais in the middle
 	# of the room; the crown sits on a cushioned pedestal on top (the
 	# reference renders), with the empty throne against the back wall.
 	_add_rug(Vector3((front_x + throne.x - side * 2.0) / 2.0, 0.07, 0), Vector2(absf(throne.x - side * 2.0 - front_x), 1.9), color)
 	var tier_mat := _ashlar(Color(0.95, 0.92, 0.86))
-	var trim := _gold() if not elven else _elf_leaf(true)
+	var trim := _gold() if not elven else _moon_silver()
 	for t in 3:
 		var r := 2.2 - t * 0.55
 		var step := MeshInstance3D.new()
@@ -5305,7 +5342,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	topm.radial_segments = 32
 	top.mesh = topm
 	top.position = throne + Vector3(0, 0.31, 0)
-	top.material_override = _carpet(color.darkened(0.15)) if not elven else _moss()
+	top.material_override = _carpet(color.darkened(0.15)) if not elven else _moonstone()
 	add_child(top)
 	# The pedestal: a carved block with gold bands, the team crest on each
 	# face and a velvet cushion on top.
@@ -5365,15 +5402,15 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	var g_w := wz - (ROOM_HALF_Z + 0.35)          # gallery width
 	var back_c := (room_b + side * 0.35 + bx - side * 0.5) / 2.0
 	var back_d := absf((bx - side * 0.5) - (room_b + side * 0.35))
-	var planks := _pbr("wood", 0.55, Color(0.46, 0.38, 0.34)) if not elven else _pbr("wood_dark", 0.5, Color(0.8, 0.85, 0.7))
-	var wainscot := _pbr("wood_dark", 0.5, Color(0.85, 0.75, 0.62)) if not elven else _moss()
+	var planks := _pbr("wood", 0.55, Color(0.46, 0.38, 0.34)) if not elven else _pbr("wood_dark", 0.5, Color(0.92, 0.78, 0.64))
+	var wainscot := _pbr("wood_dark", 0.5, Color(0.85, 0.75, 0.62)) if not elven else _pbr("wood_dark", 0.5, Color(0.78, 0.62, 0.5))
 	# --- Floors -------------------------------------------------------------
 	# Entrance hall: fine flags; great hall: planks; chapel: a dark carpet on
 	# stone (or a mossy glade); chambers: planks under big rugs.
-	_add_block(Vector3(kx + side * 1.8, 0.045, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone_moss" if elven else "flagstone_grey", 0.9, Color(0.78, 0.8, 0.7) if elven else Color(0.95, 0.95, 0.97)))
+	_add_block(Vector3(kx + side * 1.8, 0.045, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone" if elven else "flagstone_grey", 0.9, ELF_MOONSTONE * 0.88 if elven else Color(0.95, 0.95, 0.97)))
 	_add_block(Vector3((room_f + room_b) / 2.0, 0.045, -g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, planks)
 	if elven:
-		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _moss())
+		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _moonstone(Color(0.86, 0.86, 0.86)))
 	else:
 		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pbr("carpet", 1.1, Color(0.3, 0.3, 0.5)))
 	_add_block(Vector3(back_c, 0.045, 0), Vector3(back_d, 0.03, wz * 2), Color.WHITE, false, planks)
@@ -5381,7 +5418,7 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	for zs in [-1.0, 1.0]:
 		var depth := absf(bx - kx) - 1.2
 		_add_block(Vector3((kx + bx) / 2.0, 0.5, zs * (wz - 0.05)), Vector3(depth, 1.0, 0.1), Color.WHITE, false, wainscot)
-		_add_block(Vector3((kx + bx) / 2.0, 1.03, zs * (wz - 0.09)), Vector3(depth, 0.06, 0.18), Color.WHITE, false, _timber(Color(0.6, 0.5, 0.4)) if not elven else _elf_leaf())
+		_add_block(Vector3((kx + bx) / 2.0, 1.03, zs * (wz - 0.09)), Vector3(depth, 0.06, 0.18), Color.WHITE, false, _timber(Color(0.6, 0.5, 0.4)) if not elven else _moonstone())
 	_add_block(Vector3(bx - side * 0.55, 0.5, 0), Vector3(0.1, 1.0, wz * 2), Color.WHITE, false, wainscot)
 	# --- Lighting: warm room lights (no hanging fixtures under the open sky). ---
 	_add_chandelier(Vector3(kx + side * 2.0, 2.1, 0), elven)
@@ -5409,17 +5446,17 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	_add_block(hearth + Vector3(0, 1.58, 0), Vector3(2.0, 0.16, 0.7), Color.WHITE, false, _timber(Color(0.55, 0.45, 0.35)))
 	_add_block(hearth + Vector3(0, 0.5, 0.26), Vector3(1.1, 1.0, 0.04), Color.WHITE, false, _material(Color(0.08, 0.06, 0.05)))
 	audit_label = ""
-	_add_flame(hearth + Vector3(0, 0.35, 0.3), 0.22, Color(1.0, 0.6, 0.2) if not elven else Color(0.5, 1.0, 0.7))
-	_add_light(hearth + Vector3(0, 0.9, 1.0), Color(1.0, 0.7, 0.4) if not elven else Color(0.5, 1.0, 0.8), 1.4, 7.0)
+	_add_flame(hearth + Vector3(0, 0.35, 0.3), 0.22, Color(1.0, 0.6, 0.2) if not elven else ELF_GLOW)
+	_add_light(hearth + Vector3(0, 0.9, 1.0), Color(1.0, 0.7, 0.4) if not elven else ELF_GLOW, 1.4, 7.0)
 	_prop("dungeon/keg", Vector3(room_f + side * 0.4, 0, -(wz - 0.5)), 0.55, 0.3)
 	_prop("kitchen/crate_cheese" if not elven else "kitchen/crate_carrots", Vector3(room_f - side * 1.0, 0, -(wz - 0.55)), BITS_SCALE * 0.9, 0.4)
 	# --- The chapel (Humans) or the moon shrine (Elves) (z > 0). ---
 	if elven:
 		# A still pool of moonlight ringed with stones, a shrine stone and crystals.
 		var pool := Vector3((room_f + room_b) / 2.0, 0, wz - 1.05)
-		var water := _material(Color(0.5, 0.9, 0.95))
+		var water := _material(Color(0.6, 0.78, 1.0))
 		water.emission_enabled = true
-		water.emission = Color(0.4, 0.9, 0.9)
+		water.emission = Color(0.45, 0.65, 1.0)
 		water.emission_energy_multiplier = 0.7
 		var disc := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
@@ -5554,7 +5591,7 @@ func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
 	dm.radial_segments = 48
 	disc.mesh = dm
 	disc.position = throne + Vector3(0, 0.09, 0)
-	disc.material_override = _carpet(color.darkened(0.1)) if not elven else _moss()
+	disc.material_override = _carpet(color.darkened(0.1)) if not elven else _carpet(color.darkened(0.45))
 	add_child(disc)
 	for rr in [rug_r - 0.08, rug_r - 0.45]:
 		var ring := MeshInstance3D.new()
@@ -5566,7 +5603,7 @@ func _polish_keep(team: int, kx: float, side: float, throne: Vector3) -> void:
 		ring.mesh = tm
 		ring.scale = Vector3(1, 0.25, 1)
 		ring.position = throne + Vector3(0, 0.1, 0)
-		ring.material_override = _gold() if not elven else _elf_leaf(true)
+		ring.material_override = _gold() if not elven else _moon_silver()
 		add_child(ring)
 	# An EXIT sign by the keep's archway: a board on a post with an arrow
 	# pointing out to the yard.
@@ -6605,6 +6642,7 @@ func _build_castle(team: int) -> void:
 	var side := -1.0 if team == 0 else 1.0
 	var color: Color = Stats.FACTIONS[team].color
 	mossy = team == 0
+	elf_castle = team == 0
 	grey = team == 1
 	prop_solid = true
 	var cx := side * CASTLE_X
@@ -6616,7 +6654,7 @@ func _build_castle(team: int) -> void:
 	var in_x := fx + side * 0.5                   # the front wall's inner face
 
 	# --- The yard: sandstone flags inside the walls. ---
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone(Color(0.8, 0.82, 0.72) if mossy else Color.WHITE))
+	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _flagstone())
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
@@ -6670,7 +6708,7 @@ func _build_castle(team: int) -> void:
 	var khz := KEEP_HALF_Z
 	var kdepth := absf(bx - kx)
 	var kcx := (kx + bx) / 2.0
-	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _pbr("flagstone_moss", 0.75, Color(0.76, 0.78, 0.68)) if mossy else _pbr("flagstone_grey", 0.7, Color(0.9, 0.9, 0.94)))
+	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _pbr("flagstone", 0.75, ELF_MOONSTONE * 0.88) if mossy else _pbr("flagstone_grey", 0.7, Color(0.9, 0.9, 0.94)))
 	# Side walls, each with a side door near the back (a second way out of the keep).
 	for zs in [-1.0, 1.0]:
 		_add_wall(Vector3(kx + side * (kdepth - 4.5) / 2.0, KEEP_H / 2.0, zs * khz), Vector3(kdepth - 4.5, KEEP_H, 0.8))
@@ -6756,6 +6794,7 @@ func _build_castle(team: int) -> void:
 	m.setup(team, throne, color, MONARCH_TITLES[team])
 	monarchs.append(m)
 	mossy = false
+	elf_castle = false
 	grey = false
 	prop_solid = false
 
@@ -6925,15 +6964,15 @@ func _add_crystal(pos: Vector3, scale: float) -> void:
 		c.position = pos + Vector3(cos(i * 2.1) * 0.25 * scale, pm.size.y / 2.0, sin(i * 2.1) * 0.25 * scale)
 		c.rotation = Vector3(sin(i * 1.3) * 0.25, i * 1.1, cos(i * 0.7) * 0.25)
 		var cm := StandardMaterial3D.new()
-		cm.albedo_color = Color(0.5, 0.95, 0.85, 0.85)
+		cm.albedo_color = Color(0.66, 0.8, 1.0, 0.85)   # moonstone blue (was teal-green 0.5, 0.95, 0.85)
 		cm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		cm.emission_enabled = true
-		cm.emission = Color(0.3, 0.9, 0.7)
+		cm.emission = Color(0.4, 0.62, 1.0)
 		cm.emission_energy_multiplier = 1.4
 		c.material_override = cm
 		add_child(c)
 	var light := OmniLight3D.new()
-	light.light_color = Color(0.4, 1.0, 0.8)
+	light.light_color = ELF_GLOW
 	light.light_energy = 0.6
 	light.omni_range = 4.0 * scale
 	light.position = pos + Vector3(0, 0.8, 0)
