@@ -7,13 +7,13 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 05:05 UTC · `(stamped by the next entry)` · Lions that read as lions; the drill yard moved into view
+### 2026-10-09 05:05 UTC · `4b8f815` · Lions that read as lions; the drill yard moved into view
 
 - **What:** From the game camera (steep, from the south) the grey block lions read as rubble, so the stone lion is now cream stone with a gold disc mane and gold collar, and the gate pair is a third bigger. The barracks' drill yard (weapon rack, archery target, two sparring dummies) stood against the south wall, where the game camera never sees it: the camera looks over that wall's top, which hides the first ~2.5 m of floor behind it (the Elves' flower beds on the same wall are hidden the same way, told UI & Art). The drill yard now stands 3 m off the wall, in view; the two lion crests on that wall are gone (same reason).
 - **Files:** scripts/game.gd (`_add_stone_lion`, `_dress_human_castle`, `_build_cellar` Human branch)
 - **Tunables:** gate lions scale 1.0 → 1.3 at (fx−2.6, ±6.8); drill props z hz−0.9…1.6 → hz−3.2…3.6
-- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min Wildwood bot match (figures in the next entry). Renders: `game/groups/world-maps/human-*.png`
-- **Revert:** `git revert <hash>`
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min Wildwood bot match: doors 101/192 at 90 s, Elf door down at 120 s. Renders: `game/groups/world-maps/human-*.png`
+- **Revert:** `git revert 4b8f815`
 
 ### 2026-10-09 04:45 UTC · `965ecd3` · Merge UI & Art's Elf pass D and their raider fix
 
