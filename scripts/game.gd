@@ -105,6 +105,7 @@ var level_before := 1           # account level before the last match (end scree
 var name_editing := false
 var levelup_timer := 0.0
 var levelup_level := 1
+var levelup_text := ""         # set for a class promotion: the flourish says PROMOTED! and this name
 var map_trees: Array[Vector3] = []  # for the minimap: y > 0.5 means a big tree
 var map_paths: Array = []           # [from, to, width] of every path for the minimap
 var map_marks: Array = []           # [position, kind] ruins and such
@@ -449,6 +450,16 @@ func _debug_hooks() -> void:
 			if arg == "--debug-levelup":
 				levelup_timer = 3.0
 				levelup_level = 2
+				levelup_text = ""
+			if arg == "--debug-class":
+				# Renders: the class pick-up banner, as if the Knight's hat was just taken.
+				player.set_role(Role.KNIGHT)
+				player.class_banner = player.CLASS_BANNER_TIME - 0.5
+			if arg == "--debug-promote":
+				player.set_role(Role.KNIGHT)
+				player.mastery[Role.KNIGHT] = 3
+				player.choose_variant(Role.KNIGHT, 0)
+				levelup_timer = 2.8
 			if arg == "--debug-guide":
 				guide_open = true
 				guide_page = 1

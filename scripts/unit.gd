@@ -62,6 +62,8 @@ var regen_tick := 0.0
 var highlighted := false     # under the local player's aim
 var streak := 0              # kills without dying
 var kill_banner := {}        # the HUD's KILL card for a local player: {victim, role, team, streak, time}
+var class_banner := 0.0        # seconds the "YOU ARE NOW <class>" banner has left (players only)
+const CLASS_BANNER_TIME := 3.0
 var spawn_protect := 0.0     # seconds of spawn protection left
 var home_defense := false    # inside our own castle: the defender bonus
 var home_timer := 0.0
@@ -398,6 +400,10 @@ func choose_variant(for_role: int, index: int) -> bool:
 		game.spawn_popup(global_position + Vector3(0, 2.4, 0), role_name().to_upper(), gold)
 		if is_player:
 			game.announce("You are now a %s!" % role_name())
+			# The rank-up flourish, saying PROMOTED! with the new name.
+			game.levelup_timer = 3.2
+			game.levelup_level = level
+			game.levelup_text = role_name()
 		else:
 			game.chat_system("%s became a %s." % [display_name, role_name()])
 	return true
@@ -684,8 +690,11 @@ func gain_xp(amount: int) -> void:
 		game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
 		if is_player:
 			game.sfx.ui("level_up", -2.0)
+			# A brighter burst at your feet to go with the RANK UP! flourish.
+			game.spawn_flash(global_position + Vector3(0, 1.0, 0), Color(1.0, 0.9, 0.4), 5.0, 0.5)
 			game.levelup_timer = 3.2
 			game.levelup_level = level
+			game.levelup_text = ""
 		else:
 			_bot_spend()
 
@@ -1251,6 +1260,7 @@ var _was_carrying := false
 
 func _process(_delta: float) -> void:
 	_animate()
+	class_banner = maxf(class_banner - _delta, 0.0)
 	if (carrying != null) != _was_carrying:
 		_was_carrying = carrying != null
 		_apply_side_colors()

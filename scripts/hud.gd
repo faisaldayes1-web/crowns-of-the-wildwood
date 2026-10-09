@@ -212,7 +212,9 @@ func _draw() -> void:
 	elif game.capture_timer > 0.0:
 		_draw_capture_card()
 	elif game.levelup_timer > 0.0:
-		_draw_levelup_card()
+		_draw_rankup_flourish()
+	if _me() and _me().class_banner > 0.0 and not _me().dead:
+		_draw_class_banner(_me())
 	if pane:
 		if local_unit:
 			_text(Vector2(14, 184 if _narrow() else 252), "PLAYER %d" % (local_unit.local_index + 1), 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
@@ -1261,9 +1263,13 @@ func _draw_logo(rect: Rect2) -> void:
 
 func _close(rect: Rect2) -> void:
 	## An X button in a panel's top-right corner. Recorded for mouse clicks.
-	close_button = Rect2(rect.end.x - 34, rect.position.y + 8, 26, 26)
-	_plate(close_button, Color(0.45, 0.12, 0.12), GOLD_DARK, 6, 1)
-	_text(close_button.position + Vector2(0, 19), "✕", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 26, 0)
+	close_button = Rect2(rect.end.x - 36, rect.position.y + 6, 30, 30)
+	var c := close_button.get_center()
+	_ring_button(c, 11.0)
+	draw_line(c + Vector2(-4.5, -4.5), c + Vector2(4.5, 4.5), Color(0.3, 0.17, 0.04), 4.0)
+	draw_line(c + Vector2(4.5, -4.5), c + Vector2(-4.5, 4.5), Color(0.3, 0.17, 0.04), 4.0)
+	draw_line(c + Vector2(-4.5, -4.5), c + Vector2(4.5, 4.5), CREAM, 2.0)
+	draw_line(c + Vector2(4.5, -4.5), c + Vector2(-4.5, 4.5), CREAM, 2.0)
 
 
 func _padlock(c: Vector2, s: float, col: Color) -> void:
@@ -2115,17 +2121,6 @@ func _draw_capture_card() -> void:
 	var line := "The %s bring the crown home.  %d - %d, first to %d wins." % [Stats.FACTIONS[game.capture_team].name, game.score[0], game.score[1], Stats.CAPTURES_TO_WIN]
 	_text(rect.position + Vector2(64, 56), line, 12, Color(1, 0.95, 0.9, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_card("logo_elves" if game.capture_team == 0 else "logo_humans", Rect2(rect.end.x - 74, rect.position.y + 7, 64, 64))
-
-
-func _draw_levelup_card() -> void:
-	var a := clampf(game.levelup_timer / 0.5, 0.0, 1.0)
-	var rect := Rect2(size.x / 2.0 - 170, 106, 340, 78)
-	_plate(rect, Color(0.45, 0.32, 0.06, 0.95 * a), Color(1.0, 0.85, 0.3, a), 12, 3)
-	var p = _me()
-	if p:
-		_class_card(rect.position + Vector2(40, 39), 26, p.team, p.role)
-	_text(rect.position + Vector2(84, 32), "LEVEL UP!", 24, Color(1, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	_text(rect.position + Vector2(84, 54), "You are now Level %d   ·   +1 Perk Point (%s)" % [game.levelup_level, _k("rank_menu")], 12, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _draw_kill_feed() -> void:
@@ -3113,23 +3108,22 @@ func _promotion(p, rect: Rect2) -> void:
 # --- Game menu ---------------------------------------------------------------
 
 func _draw_game_menu() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.45))
-	var rect := Rect2(size.x / 2.0 - 390, size.y / 2.0 - 250, 780, 500)
-	_plate(rect, INK, GOLD, 16, 3)
-	_close(rect)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.05, 0.03, 0.02, 0.5))
+	var rect := Rect2(size.x / 2.0 - 390, size.y / 2.0 - 244, 780, 500)
 	var in_match: bool = game.playing
-	_text(rect.position + Vector2(0, 34), "PAUSED" if in_match else "OPTIONS", 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
+	_menu_panel(rect, "PAUSED" if in_match else "OPTIONS")
+	_close(rect)
 	# Tabs (only Classes and Controls before a match).
 	var ids: Array = game.menu_tabs()
 	var tw := minf(140.0, (rect.size.x - 40.0 - (ids.size() - 1) * 6.0) / ids.size())
 	var x0: float = rect.position.x + (rect.size.x - ids.size() * (tw + 6)) / 2.0
 	for i in ids.size():
-		var tab := Rect2(Vector2(x0 + i * (tw + 6), rect.position.y + 50), Vector2(tw, 30))
-		var on: bool = game.menu_tab == ids[i]
-		_plate(tab, Color(0.3, 0.26, 0.12, 0.98) if on else INK_LIGHT, GOLD if on else GOLD_DARK, 8, 1)
-		_text(tab.position + Vector2(0, 21), TABS[ids[i]], 13, GOLD if on else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, tab.size.x, 2)
+		var tab := Rect2(Vector2(x0 + i * (tw + 6), rect.position.y + 40), Vector2(tw, 32))
+		_menu_tab(tab, TABS[ids[i]], game.menu_tab == ids[i])
 		tab_buttons.append(tab)
 		tab_ids.append(ids[i])
+	draw_line(Vector2(rect.position.x + 20, rect.position.y + 82), Vector2(rect.end.x - 20, rect.position.y + 82), Color(0.3, 0.17, 0.04), 3.0)
+	draw_line(Vector2(rect.position.x + 20, rect.position.y + 82), Vector2(rect.end.x - 20, rect.position.y + 82), BRASS_DIM, 1.2)
 	var body := Rect2(rect.position + Vector2(24, 92), Vector2(rect.size.x - 48, rect.size.y - 130))
 	match game.menu_tab:
 		0: _menu_overview(body)
@@ -3139,17 +3133,16 @@ func _draw_game_menu() -> void:
 		3: _menu_scoreboard(body)
 		4: _menu_controls(body)
 	var footer := "Esc / Start resumes  ·  ← → switch tabs" if in_match else "Esc closes  ·  ← → switch tabs"
-	_text(rect.position + Vector2(0, rect.size.y - 12), footer, 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_text(rect.position + Vector2(0, rect.size.y - 12), footer, 11, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 	if in_match and not game.demo:
 		# Back to the main menu: click (or Cross/A on it) twice to confirm.
-		quit_button = Rect2(rect.position + Vector2(16, rect.size.y - 34), Vector2(170, 26))
+		quit_button = Rect2(rect.position + Vector2(18, rect.size.y - 36), Vector2(176, 28))
 		var arm: bool = game.quit_armed > 0.0
-		_plate(quit_button, Color(0.6, 0.18, 0.12, 0.98) if arm else Color(0.4, 0.2, 0.15, 0.95), GOLD if arm else GOLD_DARK, 6, 1)
-		_text(quit_button.position + Vector2(0, 18), "SURE? CLICK AGAIN" if arm else "MAIN MENU", 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, quit_button.size.x, 2)
+		_hud_button(quit_button, "SURE? CLICK AGAIN" if arm else "MAIN MENU", 13, arm, true)
 
 
 func _menu_overview(body: Rect2) -> void:
-	_text(body.position + Vector2(0, 16), "THE WILDWOOD VALLEY", 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 3)
+	_bar_text(Vector2(body.get_center().x, body.position.y + 16), "THE WILDWOOD VALLEY", bar_font if bar_font else font, 16, CREAM, Color(0.2, 0.1, 0.02), 3)
 	var map_rect := Rect2(body.position + Vector2(0, 26), Vector2(body.size.x, body.size.x * 26.0 / 58.0))
 	_draw_map(map_rect, true)
 	var y := map_rect.end.y + 22
@@ -3159,8 +3152,8 @@ func _menu_overview(body: Rect2) -> void:
 		var x: float = body.position.x + 10 + (i % 3) * (body.size.x / 3.0)
 		var ly: float = y + (i / 3) * 18
 		draw_circle(Vector2(x, ly - 4), 5, legend[i][1])
-		_text(Vector2(x + 12, ly), legend[i][0], 11, Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, steal their crown, carry it home. Grab a class hat in your cellar.", 11, GREY,
+		_text(Vector2(x + 12, ly), legend[i][0], 11, Color(0.92, 0.88, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(body.position + Vector2(0, y + 40), "Break the enemy door, smash the Crown Vault lock, steal their crown, carry it home. Grab a class hat in your cellar.", 11, Color(0.75, 0.68, 0.55),
 		HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
 
 
@@ -3173,11 +3166,11 @@ func _menu_classes(body: Rect2) -> void:
 		var s: Dictionary = Stats.kit(team, role)
 		var card := Rect2(body.position + Vector2(i * (cw + 8), 0), Vector2(cw, body.size.y))
 		var mine: bool = _me() and _me().role == role
-		_plate(card, INK_LIGHT, GOLD if mine else GOLD_DARK, 10, 2)
+		_leather(card, 10, mine, GOLD if mine else BRASS_DIM)
 		if not _card(_card_key(team, role), Rect2(card.position + Vector2(8, 6), Vector2(cw - 16, 80)), false):
 			_portrait(card.position + Vector2(cw / 2.0, 44), 26, team, role)
 		_icon(_class_icon(role), card.position + Vector2(cw - 20, 18), 9, Color.WHITE)
-		_text(card.position + Vector2(0, 92), Stats.FACTIONS[team].roles[role].to_upper(), 15, GOLD, HORIZONTAL_ALIGNMENT_CENTER, cw, 3)
+		_bar_text(Vector2(card.get_center().x, card.position.y + 94), Stats.FACTIONS[team].roles[role].to_upper(), bar_font if bar_font else font, 15, GOLD, Color(0.2, 0.1, 0.02), 3)
 		_text(card.position + Vector2(0, 108), ("uses %s" % s.energy).to_upper(), 10, MANA if s.energy == "mana" else STAMINA, HORIZONTAL_ALIGNMENT_CENTER, cw, 2)
 		var y := 128.0
 		var entries := [["LMB", s.attack_name, s.attack_desc, _attack_icon(role)]]
@@ -3211,9 +3204,9 @@ func _menu_controls(body: Rect2) -> void:
 	var pad_kind: String = game.pad_kind(game.local_pad(0))
 	for c in 2:
 		var x: float = body.position.x + c * half
-		_text(Vector2(x + 10, body.position.y + 14), "ACTION", 10, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_text(Vector2(x + 150, body.position.y + 14), "KEYBOARD / MOUSE", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
-		_text(Vector2(x + 282, body.position.y + 14), "DUALSENSE" if pad_kind == "ps" else "GAMEPAD", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 80, 2)
+		_bar_text(Vector2(x + 34, body.position.y + 14), "ACTION", bar_font if bar_font else font, 11, GOLD, Color(0.2, 0.1, 0.02), 2)
+		_bar_text(Vector2(x + 210, body.position.y + 14), "KEYBOARD / MOUSE", bar_font if bar_font else font, 11, GOLD, Color(0.2, 0.1, 0.02), 2)
+		_bar_text(Vector2(x + 322, body.position.y + 14), "DUALSENSE" if pad_kind == "ps" else "GAMEPAD", bar_font if bar_font else font, 11, GOLD, Color(0.2, 0.1, 0.02), 2)
 		for k in per_col:
 			var i: int = c * per_col + k
 			if i >= game.REBINDABLE.size():
@@ -3222,19 +3215,21 @@ func _menu_controls(body: Rect2) -> void:
 			var y: float = body.position.y + 40 + k * 29
 			var row := Rect2(Vector2(x + 4, y - 14), Vector2(half - 14, 27))
 			var hot: bool = game.rebinding == action
-			_plate(row, Color(0.35, 0.3, 0.12, pulse) if hot else (INK_LIGHT if k % 2 == 0 else Color(0.14, 0.15, 0.22, 0.96)), GOLD if hot else Color(0.3, 0.3, 0.38), 6, 1)
-			_text(Vector2(x + 14, y + 4), game.REBINDABLE[i][1], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			if hot:
+				_parchment(row, 6, pulse > 1.0)
+			else:
+				_leather(row, 6, k % 2 == 0)
+			_text(Vector2(x + 14, y + 4), game.REBINDABLE[i][1], 11, INK_TEXT if hot else Color(0.92, 0.88, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 0 if hot else 2)
 			var key_text: String = "PRESS A KEY…" if hot else game.binding_text(action, "key")
 			_keycap(Vector2(x + 210, y), key_text, 124)
 			_keycap(Vector2(x + 326, y), game.binding_text(action, "pad", pad_kind), 86)
 			bind_buttons.append([row, action])
-	reset_button = Rect2(body.end - Vector2(150, 30), Vector2(140, 24))
-	_plate(reset_button, Color(0.4, 0.2, 0.15, 0.95), GOLD_DARK, 6, 1)
-	_text(reset_button.position + Vector2(0, 17), "RESET TO DEFAULTS", 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, reset_button.size.x, 2)
+	reset_button = Rect2(body.end - Vector2(160, 32), Vector2(150, 26))
+	_hud_button(reset_button, "RESET TO DEFAULTS", 12, false, true)
 	_text(body.position + Vector2(0, body.size.y - 22), "Click a row, then press the key, mouse button or gamepad button you want. Esc cancels. Bindings are saved.",
-		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		11, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_text(body.position + Vector2(0, body.size.y - 8), "Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points, Backspace quits a match. PS5 and Xbox pads work as they are; the Settings tab picks the button names.",
-		11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		11, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _menu_settings(body: Rect2) -> void:
@@ -3243,25 +3238,16 @@ func _menu_settings(body: Rect2) -> void:
 	var x := body.position.x
 	var y := body.position.y
 	# Sound and music sliders: click or drag.
-	_text(Vector2(x + 10, y + 22), "SOUND", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(Vector2(x + 330, y + 22), "MUSIC", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_section(Vector2(x + 10, y + 22), "SOUND", 0.0)
+	_section(Vector2(x + 330, y + 22), "MUSIC", 0.0)
 	for i in 2:
-		var slider := Rect2(Vector2(x + 70 + i * 320, y + 9), Vector2(190, 16))
+		var slider := Rect2(Vector2(x + 80 + i * 320, y + 8), Vector2(190, 18))
 		var value: float = game.sfx.sound_volume if i == 0 else game.sfx.music_volume
-		_plate(slider, Color(0.08, 0.07, 0.1, 0.95), GOLD_DARK, 7, 1)
-		var inner := slider.grow(-2)
-		if value > 0.02:
-			var sb := StyleBoxFlat.new()
-			sb.bg_color = STAMINA if i == 0 else MANA
-			sb.set_corner_radius_all(5)
-			draw_style_box(sb, Rect2(inner.position, Vector2(inner.size.x * value, inner.size.y)))
-		draw_circle(Vector2(inner.position.x + inner.size.x * value, slider.get_center().y), 7.0, CREAM)
-		draw_arc(Vector2(inner.position.x + inner.size.x * value, slider.get_center().y), 7.0, 0, TAU, 16, GOLD_DARK, 1.5)
-		_text(slider.end + Vector2(8, -3), "%d%%" % roundi(value * 100), 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_slider(slider, value, STAMINA.darkened(0.1) if i == 0 else MANA)
+		_text(slider.end + Vector2(10, -4), "%d%%" % roundi(value * 100), 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		volume_sliders.append([slider, "sound" if i == 0 else "music"])
-	draw_line(Vector2(x, y + 44), Vector2(body.end.x, y + 44), GOLD_DARK, 1.0)
 	# Display toggles.
-	_text(Vector2(x + 10, y + 66), "DISPLAY", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_section(Vector2(x + 10, y + 66), "DISPLAY", body.size.x - 10)
 	var toggles := [["Shake", game.screen_shake, "shake"], ["Numbers", game.damage_numbers, "numbers"],
 		["FPS", game.show_fps, "fps"], ["Chat log", game.chat_visible, "chat"], ["Rosters", game.rosters_visible, "rosters"],
 		["Fullscreen", game.fullscreen, "fullscreen"]]
@@ -3270,43 +3256,38 @@ func _menu_settings(body: Rect2) -> void:
 		_toggle(Rect2(Vector2(x + 10 + i * (tw + 7), y + 76), Vector2(tw, 34)), toggles[i][0], toggles[i][1], toggles[i][2])
 	# The graphics preset: click to cycle Low, Medium, High, Ultra.
 	var gfx := Rect2(Vector2(x + 10 + toggles.size() * (tw + 7), y + 76), Vector2(tw, 34))
-	_plate(gfx, INK_LIGHT, GOLD if game.gfx_quality >= 2 else Color(0.3, 0.3, 0.38), 8, 1)
-	_text(gfx.position + Vector2(0, 13), "GRAPHICS", 8, GREY, HORIZONTAL_ALIGNMENT_CENTER, gfx.size.x, 1)
-	_text(gfx.position + Vector2(0, 28), game.GFX_NAMES[game.gfx_quality], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, gfx.size.x, 2)
+	_leather(gfx, 8, true, GOLD if game.gfx_quality >= 2 else BRASS_DIM)
+	_text(gfx.position + Vector2(0, 13), "GRAPHICS", 8, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_CENTER, gfx.size.x, 1)
+	_bar_text(Vector2(gfx.get_center().x, gfx.position.y + 29), game.GFX_NAMES[game.gfx_quality], bar_font if bar_font else font, 12, CREAM, Color(0.05, 0.03, 0.02, 0.8), 2)
 	toggle_buttons.append([gfx, "gfx"])
-	_text(Vector2(x + 10, y + 120), "%s and %s also toggle the chat log and the rosters in a match." % [_k("chat_toggle"), _k("roster_toggle")], 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	draw_line(Vector2(x, y + 128), Vector2(body.end.x, y + 128), GOLD_DARK, 1.0)
+	_text(Vector2(x + 10, y + 120), "%s and %s also toggle the chat log and the rosters in a match." % [_k("chat_toggle"), _k("roster_toggle")], 10, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	# Bot difficulty: click, or Left/Right on the title screen.
-	_text(Vector2(x + 10, y + 150), "BOTS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_section(Vector2(x + 10, y + 150), "BOTS", 0.0)
 	for i in Stats.BOT_DIFFICULTIES.size():
 		var name: String = Stats.BOT_DIFFICULTIES[i]
-		var b := Rect2(Vector2(x + 70 + i * 96, y + 134), Vector2(90, 24))
-		var on: bool = game.bot_difficulty == name
-		_plate(b, Color(0.5, 0.38, 0.08, 0.95) if on else INK_LIGHT, GOLD if on else Color(0.3, 0.3, 0.38), 6, 1)
-		_text(b.position + Vector2(0, 17), name.to_upper(), 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+		var b := Rect2(Vector2(x + 70 + i * 96, y + 134), Vector2(90, 26))
+		_hud_button(b, name.to_upper(), 12, game.bot_difficulty == name)
 		difficulty_buttons.append([b, name])
 	_text(Vector2(x + 370, y + 150), Stats.BOT_TUNING[game.bot_difficulty].desc, 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	draw_line(Vector2(x, y + 172), Vector2(body.end.x, y + 172), GOLD_DARK, 1.0)
 	# Team calls.
-	_text(Vector2(x + 10, y + 194), "TEAM CALLS", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_section(Vector2(x + 10, y + 194), "TEAM CALLS", body.size.x - 10)
 	var calls := [[_k("cmd_attack"), "ATTACK!", "everyone pushes the enemy door now, no waiting at the rally"],
 		[_k("cmd_defend"), "DEFEND!", "three bots come home to hold the castle"],
 		[_k("cmd_help"), "TO ME!", "the two nearest bots come to where you called"]]
 	for i in calls.size():
 		var cy: float = y + 212 + i * 26
 		_keycap(Vector2(x + 34, cy - 4), calls[i][0], 40)
-		_text(Vector2(x + 66, cy + 4), calls[i][1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_bar_text(Vector2(x + 66 + _bar_width(calls[i][1], 13) / 2.0, cy + 4), calls[i][1], bar_font if bar_font else font, 13, CREAM, Color(0.2, 0.1, 0.02), 2)
 		_text(Vector2(x + 150, cy + 4), calls[i][2], 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_text(Vector2(x + 10, y + 284), "Bots follow a call for %d seconds; rebind the keys in Controls." % int(Stats.COMMAND_TIME), 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	draw_line(Vector2(x, y + 292), Vector2(body.end.x, y + 292), GOLD_DARK, 1.0)
+	_text(Vector2(x + 10, y + 284), "Bots follow a call for %d seconds; rebind the keys in Controls." % int(Stats.COMMAND_TIME), 11, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	# Gamepad: rumble, button names and what is plugged in.
-	_text(Vector2(x + 10, y + 314), "GAMEPAD", 11, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_section(Vector2(x + 10, y + 314), "GAMEPAD", body.size.x - 10)
 	_toggle(Rect2(Vector2(x + 10, y + 324), Vector2(136, 34)), "Rumble", game.rumble_on, "rumble")
 	var style_names := {"auto": "AUTO", "xbox": "XBOX", "ps": "PLAYSTATION"}
 	var style := Rect2(Vector2(x + 156, y + 324), Vector2(150, 34))
-	_plate(style, INK_LIGHT, Color(0.3, 0.3, 0.38), 8, 1)
-	_text(style.position + Vector2(0, 13), "BUTTON NAMES", 8, GREY, HORIZONTAL_ALIGNMENT_CENTER, style.size.x, 1)
-	_text(style.position + Vector2(0, 28), style_names[game.pad_style], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, style.size.x, 2)
+	_leather(style, 8, true)
+	_text(style.position + Vector2(0, 13), "BUTTON NAMES", 8, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_CENTER, style.size.x, 1)
+	_bar_text(Vector2(style.get_center().x, style.position.y + 29), style_names[game.pad_style], bar_font if bar_font else font, 12, CREAM, Color(0.05, 0.03, 0.02, 0.8), 2)
 	toggle_buttons.append([style, "pad_style"])
 	var pads: Array = Input.get_connected_joypads()
 	var plugged := "No gamepad connected. DualSense (PS5), DualShock and Xbox pads work over USB or Bluetooth; plug one in and press any button."
@@ -3320,11 +3301,20 @@ func _menu_settings(body: Rect2) -> void:
 
 func _toggle(rect: Rect2, label: String, on: bool, key: String) -> void:
 	## A labelled on/off switch; recorded for mouse clicks.
-	_plate(rect, Color(0.18, 0.3, 0.16, 0.96) if on else INK_LIGHT, GOLD if on else Color(0.3, 0.3, 0.38), 8, 1)
-	_text(rect.position + Vector2(10, 21), label, 10, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var pill := Rect2(rect.end - Vector2(36, 24), Vector2(28, 14))
-	_plate(pill, STAMINA if on else Color(0.3, 0.3, 0.35), GOLD_DARK, 7, 1)
-	draw_circle(pill.position + Vector2(pill.size.x - 7 if on else 7, 7), 5.0, CREAM)
+	_leather(rect, 8, on, GOLD if on else BRASS_DIM)
+	_text(rect.position + Vector2(10, 21), label, 10, CREAM if on else Color(0.7, 0.64, 0.52), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var pill := Rect2(rect.end - Vector2(38, 25), Vector2(30, 16))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.36, 0.62, 0.22) if on else Color(0.22, 0.18, 0.16)
+	sb.set_corner_radius_all(8)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(0.3, 0.17, 0.04)
+	draw_style_box(sb, pill)
+	if on:
+		draw_rect(Rect2(pill.position + Vector2(4, 3), Vector2(pill.size.x - 8, 3)), Color(1, 1, 1, 0.25))
+	var kc := pill.position + Vector2(pill.size.x - 8 if on else 8, 8)
+	draw_circle(kc, 6.0, Color(0.35, 0.2, 0.04))
+	draw_circle(kc, 4.5, GOLD if on else Color(0.75, 0.68, 0.55))
 	toggle_buttons.append([rect, key])
 
 
@@ -3370,12 +3360,12 @@ func _menu_my_class(body: Rect2) -> void:
 		return
 	# Left: who you are.
 	var left := Rect2(body.position, Vector2(230, body.size.y))
-	_plate(left, INK_LIGHT, GOLD_DARK, 10, 2)
+	_leather(left, 10)
 	if not _card(_card_key(p.team, p.role), Rect2(left.position + Vector2(10, 6), Vector2(210, 100)), false, p.dead):
 		_portrait(left.position + Vector2(115, 54), 34, p.team, p.role, p.dead)
 	if p.role != Role.BASE:
 		_icon(p.variant().get("icon", _class_icon(p.role)), left.position + Vector2(196, 26), 11, Color.WHITE)
-	_text(left.position + Vector2(0, 114), p.role_name().to_upper(), 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, left.size.x, 4)
+	_bar_text(Vector2(left.get_center().x, left.position.y + 116), p.role_name().to_upper(), bar_font if bar_font else font, 18, GOLD, Color(0.2, 0.1, 0.02), 3)
 	var sub: String = Stats.FACTIONS[p.team].name if p.variant().is_empty() else "%s %s" % [Stats.FACTIONS[p.team].name, p.class_name_plain()]
 	_text(left.position + Vector2(0, 130), sub.to_upper(), 10, _team_color(p.team).lightened(0.4), HORIZONTAL_ALIGNMENT_CENTER, left.size.x, 2)
 	var s: Dictionary = p.stats()
@@ -3394,8 +3384,8 @@ func _menu_my_class(body: Rect2) -> void:
 		_paragraph(left.position + Vector2(14, 348), s.attack_desc, 10, Color(0.8, 0.8, 0.8), left.size.x - 28, 12.0)
 	# Middle: this life's ranks.
 	var mid := Rect2(body.position + Vector2(240, 0), Vector2(220, body.size.y))
-	_plate(mid, INK_LIGHT, GOLD_DARK, 10, 2)
-	_text(mid.position + Vector2(0, 20), "RANKS THIS LIFE", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, mid.size.x, 2)
+	_leather(mid, 10)
+	_bar_text(Vector2(mid.get_center().x, mid.position.y + 22), "RANKS THIS LIFE", bar_font if bar_font else font, 13, GOLD, Color(0.2, 0.1, 0.02), 2)
 	var track_icons := [_attack_icon(p.role, s), "", "", "vigor"]
 	for i in 2:
 		if i < p.abilities().size():
@@ -3416,9 +3406,9 @@ func _menu_my_class(body: Rect2) -> void:
 	_text(mid.position + Vector2(0, mid.size.y - 10), "%s opens the perk menu" % _k("rank_menu"), 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, mid.size.x, 2)
 	# Right: promotions, for this class or all of them.
 	var right := Rect2(body.position + Vector2(470, 0), Vector2(body.size.x - 470, body.size.y))
-	_plate(right, INK_LIGHT, GOLD_DARK, 10, 2)
+	_leather(right, 10)
 	if Stats.VARIANTS.has(p.role):
-		_text(right.position + Vector2(0, 20), "PROMOTION", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
+		_bar_text(Vector2(right.get_center().x, right.position.y + 22), "PROMOTION", bar_font if bar_font else font, 13, GOLD, Color(0.2, 0.1, 0.02), 2)
 		var spent: int = p.mastery.get(p.role, 0)
 		var unlocked: bool = p.variant_unlocked(p.role)
 		_text(right.position + Vector2(0, 36), ("%d / %d points spent in this class  ·  unlocked" if unlocked else "%d / %d points spent in this class  ·  locked") % [spent, Stats.VARIANT_UNLOCK], 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
@@ -3426,7 +3416,7 @@ func _menu_my_class(body: Rect2) -> void:
 			var v: Dictionary = Stats.VARIANTS[p.role][i]
 			var card := Rect2(right.position + Vector2(10, 48 + i * 158), Vector2(right.size.x - 20, 150))
 			var chosen: bool = p.variants.get(p.role, -1) == i
-			_plate(card, Color(0.3, 0.26, 0.12, 0.98) if chosen else (INK if unlocked else Color(0.1, 0.1, 0.13, 0.9)), GOLD if chosen else (GOLD_DARK if unlocked else Color(0.3, 0.3, 0.3)), 8, 2 if chosen else 1)
+			_leather(card, 8, chosen, GOLD if chosen else (BRASS_DIM if unlocked else Color(0.3, 0.25, 0.2)))
 			_icon(v.icon, card.position + Vector2(26, 24), 12, Color.WHITE, not unlocked)
 			_text(card.position + Vector2(54, 24), v.name.to_upper(), 14, GOLD if chosen else (Color.WHITE if unlocked else GREY), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 			_text(card.position + Vector2(0, 24), "CHOSEN" if chosen else ("available" if unlocked else "locked"), 10, GOLD if chosen else GREY, HORIZONTAL_ALIGNMENT_RIGHT, card.size.x - 10, 2)
@@ -3437,17 +3427,16 @@ func _menu_my_class(body: Rect2) -> void:
 				_text(card.position + Vector2(52, y + 18 + m * 19), moves[m][1], 10, CREAM if unlocked else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			if unlocked and not chosen and not p.dead:
 				var button := Rect2(card.end - Vector2(96, 30), Vector2(86, 22))
-				_plate(button, Color(0.2, 0.5, 0.25, 0.95), GOLD, 6, 1)
-				_text(button.position + Vector2(0, 15), "CHOOSE", 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, button.size.x, 2)
+				_hud_button(button, "CHOOSE", 11, true)
 				variant_buttons.append([button, p.role, i])
 	else:
-		_text(right.position + Vector2(0, 20), "TOTAL UPGRADES", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
+		_bar_text(Vector2(right.get_center().x, right.position.y + 22), "TOTAL UPGRADES", bar_font if bar_font else font, 13, GOLD, Color(0.2, 0.1, 0.02), 2)
 		_text(right.position + Vector2(0, 38), "Rank points spent per class this match. Three in a class unlock its two promotions.", 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, right.size.x, 2)
 		var roles := [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
 		for i in roles.size():
 			var role: int = roles[i]
 			var row := Rect2(right.position + Vector2(10, 52 + i * 52), Vector2(right.size.x - 20, 48))
-			_plate(row, INK, GOLD_DARK, 8, 1)
+			_leather(row, 8, true)
 			_icon(_class_icon(role), row.position + Vector2(26, 24), 11, Color.WHITE)
 			var spent: int = p.mastery.get(role, 0)
 			_text(row.position + Vector2(50, 20), Stats.FACTIONS[p.team].roles[role].to_upper(), 13, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
@@ -3468,16 +3457,16 @@ func _menu_scoreboard(body: Rect2) -> void:
 
 
 func _draw_scoreboard_overlay() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.35))
-	var rect := Rect2(size.x / 2.0 - 400, size.y / 2.0 - 240, 800, 470)
-	_plate(rect, INK, GOLD, 14, 3)
-	_card("logo_elves", Rect2(rect.position + Vector2(16, 6), Vector2(70, 70)))
-	_card("logo_humans", Rect2(rect.position + Vector2(rect.size.x - 86, 6), Vector2(70, 70)))
-	_text(rect.position + Vector2(0, 30), "SCOREBOARD", 22, GOLD, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 4)
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.05, 0.03, 0.02, 0.4))
+	var rect := Rect2(size.x / 2.0 - 400, size.y / 2.0 - 234, 800, 470)
+	_menu_panel(rect, "SCOREBOARD")
+	# The two crests on heater shields either side, like the top bar.
+	_crest_shield(rect.position + Vector2(52, 44), 54.0, 62.0, 0)
+	_crest_shield(Vector2(rect.end.x - 52, rect.position.y + 44), 54.0, 62.0, 1)
 	var left := maxf(game.time_left, 0.0)
-	_text(rect.position + Vector2(0, 48), "%s %d  ·  %02d:%02d left  ·  %d %s" % [Stats.FACTIONS[0].name, game.score[0], int(left) / 60, int(left) % 60, game.score[1], Stats.FACTIONS[1].name], 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
-	_draw_scoreboard_table(Rect2(rect.position + Vector2(20, 78), Vector2(rect.size.x - 40, rect.size.y - 98)), true)
-	_text(rect.position + Vector2(0, rect.size.y - 10), "Score = kills ×%d, assists ×%d, captures ×%d, hearts healed ×%d, damage ×%d, upgrades ×%d" % [Stats.SCORE_KILL, Stats.SCORE_ASSIST, Stats.SCORE_CAPTURE, Stats.SCORE_HEAL, Stats.SCORE_DAMAGE, Stats.SCORE_UPGRADE], 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	_info_banner(Vector2(rect.get_center().x, rect.position.y + 44), "%s %d  ·  %02d:%02d left  ·  %d %s" % [Stats.FACTIONS[0].name, game.score[0], int(left) / 60, int(left) % 60, game.score[1], Stats.FACTIONS[1].name], INK_TEXT)
+	_draw_scoreboard_table(Rect2(rect.position + Vector2(20, 82), Vector2(rect.size.x - 40, rect.size.y - 102)), true)
+	_text(rect.position + Vector2(0, rect.size.y - 10), "Score = kills ×%d, assists ×%d, captures ×%d, hearts healed ×%d, damage ×%d, upgrades ×%d" % [Stats.SCORE_KILL, Stats.SCORE_ASSIST, Stats.SCORE_CAPTURE, Stats.SCORE_HEAL, Stats.SCORE_DAMAGE, Stats.SCORE_UPGRADE], 10, Color(0.75, 0.68, 0.55), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
@@ -3498,22 +3487,28 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 		var members: Array = game.units.filter(func(u): return u.team == t)
 		members.sort_custom(func(a, b): return game.unit_score(a) > game.unit_score(b))
 		var block := Rect2(Vector2(rect.position.x, y), Vector2(rect.size.x, 30 + 18 + members.size() * 22 + 8))
-		_plate(block, tc.darkened(0.72), tc.darkened(0.1), 8, 1)
-		if not _card("crest_elf" if t == 0 else "crest_human", Rect2(block.position + Vector2(6, 3), Vector2(28, 28))):
-			_icon("crest_forest" if t == 0 else "crest_kingdom", block.position + Vector2(20, 16), 9, Color.WHITE)
+		# A leather block with the team's cloth band (red Elves, blue Humans,
+		# like the top bar) across its head.
+		_leather(block, 8)
+		var band := Rect2(block.position + Vector2(4, 3), Vector2(block.size.x - 8, 26))
+		_score_band(band, SCORE_BANDS[t])
+		if not _card("crest_elf" if t == 0 else "crest_human", Rect2(block.position + Vector2(8, 2), Vector2(28, 28))):
+			_icon("crest_forest" if t == 0 else "crest_kingdom", block.position + Vector2(22, 16), 9, Color.WHITE)
 		var kills := 0
 		for u in members:
 			kills += u.kills
-		_text(block.position + Vector2(38, 21), Stats.FACTIONS[t].name.to_upper(), 13, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-		_text(block.position + Vector2(0, 21), "%d capture%s  ·  %d kills" % [game.score[t], "" if game.score[t] == 1 else "s", kills], 11, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, block.size.x - 12, 2)
+		_bar_text(Vector2(block.position.x + 42 + _bar_width(Stats.FACTIONS[t].name.to_upper(), 15) / 2.0, block.position.y + 22), Stats.FACTIONS[t].name.to_upper(), bar_font if bar_font else font, 15, CREAM, Color(0.1, 0.05, 0.02), 3)
+		_text(block.position + Vector2(0, 21), "%d capture%s  ·  %d kills" % [game.score[t], "" if game.score[t] == 1 else "s", kills], 11, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, block.size.x - 14, 3)
 		for c in cols:
-			_text(block.position + Vector2(12 + c[1] * scale, 44), c[0], 9, GREY, c[2], 40 if c[2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
+			_text(block.position + Vector2(12 + c[1] * scale, 44), c[0], 9, GOLD, c[2], 40 if c[2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
 		for i in members.size():
 			var u = members[i]
 			var ry: float = block.position.y + 52 + i * 22
+			if i % 2 == 0:
+				draw_rect(Rect2(block.position.x + 4, ry - 2, block.size.x - 8, 21), Color(1, 0.9, 0.7, 0.04))
 			if u.is_player:
-				draw_rect(Rect2(block.position.x + 4, ry - 2, block.size.x - 8, 21), Color(0.45, 0.35, 0.1, 0.5))
-			var col := GOLD if u.is_player else Color.WHITE
+				_parchment(Rect2(block.position.x + 4, ry - 3, block.size.x - 8, 22), 5, true)
+			var col := INK_TEXT if u.is_player else Color(0.92, 0.88, 0.78)
 			if u.dead:
 				col = col.darkened(0.4)
 			var values := [u.display_name, u.role_name(), str(u.level), str(u.kills), str(u.deaths), str(u.assists), str(u.captures), str(u.healing), str(u.damage_dealt), str(u.total_upgrades()), str(game.unit_score(u))]
@@ -3537,7 +3532,7 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 			elif u.veteran == 1:
 				values[0] = "★ " + values[0]
 			for c in cols.size():
-				_text(Vector2(block.position.x + 12 + cols[c][1] * scale, ry + 13), values[c], 11, col if c != score_col else XP, cols[c][2], 40 if cols[c][2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 2)
+				_text(Vector2(block.position.x + 12 + cols[c][1] * scale, ry + 13), values[c], 11, col if c != score_col else (Color(0.6, 0.35, 0.02) if u.is_player else XP), cols[c][2], 40 if cols[c][2] == HORIZONTAL_ALIGNMENT_CENTER else -1, 0 if u.is_player else 2)
 			if u.carrying:
 				_icon("crown", Vector2(block.position.x + 12 + cols[1][1] * scale + _text_width(u.role_name(), 11) + 14, ry + 8), 5, GOLD)
 		y = block.end.y + 10
@@ -4052,3 +4047,361 @@ func _draw_end() -> void:
 	_plate(table, INK, GOLD, 12, 2)
 	_draw_scoreboard_table(Rect2(table.position + Vector2(16, 14), Vector2(table.size.x - 32, table.size.y - 28)))
 	_text(Vector2(cx - 210, size.y - 26), "Press R or Enter to play again", 14, Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, 420, 3)
+
+
+# --- Menu style ------------------------------------------------------------
+# The pause menu, Settings and the Tab panel in the approved in-match HUD
+# look (Faisal's UI reference, 2026-10-08): leather-black plates in brass
+# rims with gold corner braces, a wood-brown cloth band for the title in the
+# round Lilita One face, parchment tabs and buttons, ivy in the corners.
+
+const LEATHER := Color(0.14, 0.11, 0.1, 0.97)
+const LEATHER_LIGHT := Color(0.2, 0.16, 0.14, 0.97)
+const BRASS_DIM := Color(0.5, 0.35, 0.14)
+const INK_TEXT := Color(0.22, 0.13, 0.06)
+
+
+func _menu_panel(rect: Rect2, title: String) -> void:
+	## The frame every menu panel shares, with its title on a cloth band hung
+	## over the top edge under a small crown, and ivy sprigs in the corners.
+	_dark_frame(rect, 12)
+	# A faint diagonal weave on the leather so big panels are not flat black.
+	var inner := rect.grow(-6)
+	for i in range(0, int(inner.size.x + inner.size.y), 28):
+		var a := Vector2(inner.position.x + i, inner.position.y)
+		var b := Vector2(inner.position.x, inner.position.y + i)
+		if a.x > inner.end.x:
+			a = Vector2(inner.end.x, inner.position.y + (a.x - inner.end.x))
+		if b.y > inner.end.y:
+			b = Vector2(inner.position.x + (b.y - inner.end.y), inner.end.y)
+		draw_line(a, b, Color(1, 0.9, 0.7, 0.025), 1.0)
+	_gold_corners(rect, 28.0, 9.0)
+	var runs := [[rect.position + Vector2(10, 30), Vector2(0, 1), 70.0], [Vector2(rect.end.x - 10, rect.position.y + 30), Vector2(0, 1), 70.0],
+		[Vector2(rect.position.x + 10, rect.end.y - 8), Vector2(1, 0), 90.0], [rect.end - Vector2(10, 8), Vector2(-1, 0), 90.0]]
+	for i in runs.size():
+		_ivy(runs[i][0], runs[i][1], runs[i][2], 20 + i)
+	var tw := _bar_width(title, 24) + 90.0
+	var band := Rect2(Vector2(rect.get_center().x - tw / 2.0, rect.position.y - 20), Vector2(tw, 44))
+	_score_band(band, Color(0.46, 0.25, 0.08))
+	_bar_text(Vector2(band.get_center().x, band.position.y + 31), title, bar_font if bar_font else font, 24, CREAM, Color(0.2, 0.1, 0.02), 5)
+	_crown_glyph(Vector2(band.get_center().x, band.position.y - 7), 13.0)
+
+
+func _bar_width(text: String, fs: int) -> float:
+	var f: Font = bar_font if bar_font else font
+	return f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+
+
+func _leather(rect: Rect2, radius: int = 8, lit: bool = false, edge: Color = BRASS_DIM) -> void:
+	## A leather plate in a thin brass rim: cards, rows and sliders inside the menus.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = LEATHER_LIGHT if lit else LEATHER
+	sb.set_corner_radius_all(radius)
+	sb.set_border_width_all(2)
+	sb.border_color = edge
+	sb.shadow_size = 3
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_offset = Vector2(0, 2)
+	draw_style_box(sb, rect)
+	draw_rect(Rect2(rect.position + Vector2(radius, 2), Vector2(maxf(rect.size.x - radius * 2, 1), 1)), Color(1, 0.9, 0.6, 0.2))
+
+
+func _parchment(rect: Rect2, radius: int = 6, bright: bool = false) -> void:
+	## A parchment plate with a dark gold rim: the lit tab and the lit buttons.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.98, 0.92, 0.76) if bright else Color(0.93, 0.85, 0.66)
+	sb.set_corner_radius_all(radius)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(0.55, 0.38, 0.14)
+	sb.shadow_size = 4
+	sb.shadow_color = Color(0, 0, 0, 0.4)
+	sb.shadow_offset = Vector2(0, 2)
+	draw_style_box(sb, rect)
+	var inner := rect.grow(-3)
+	draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.4)), Color(1, 1, 0.95, 0.35))
+	draw_rect(Rect2(Vector2(inner.position.x, inner.end.y - 5), Vector2(inner.size.x, 5)), Color(0.6, 0.42, 0.16, 0.16))
+
+
+func _menu_tab(rect: Rect2, label: String, on: bool) -> void:
+	## A tab on the panel's top row: parchment when it is the open one, leather otherwise.
+	if on:
+		_parchment(rect, 8, true)
+		_bar_text(Vector2(rect.get_center().x, rect.position.y + rect.size.y * 0.5 + 6), label, bar_font if bar_font else font, 15, INK_TEXT, Color(1, 0.95, 0.8, 0.6), 1)
+	else:
+		_leather(rect, 8)
+		_bar_text(Vector2(rect.get_center().x, rect.position.y + rect.size.y * 0.5 + 6), label, bar_font if bar_font else font, 15, Color(0.85, 0.78, 0.62), Color(0.05, 0.03, 0.02, 0.8), 2)
+
+
+func _hud_button(rect: Rect2, label: String, fs: int, on: bool = false, danger: bool = false, dim: bool = false) -> void:
+	## A menu button: a gold band when it is the chosen option, a red band
+	## for the dangerous one, leather otherwise.
+	if on:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.93, 0.72, 0.22)
+		sb.set_corner_radius_all(7)
+		sb.set_border_width_all(2)
+		sb.border_color = Color(0.4, 0.24, 0.05)
+		sb.shadow_size = 4
+		sb.shadow_color = Color(0, 0, 0, 0.4)
+		sb.shadow_offset = Vector2(0, 2)
+		draw_style_box(sb, rect)
+		draw_rect(Rect2(rect.position + Vector2(3, 3), Vector2(rect.size.x - 6, rect.size.y * 0.4)), Color(1, 0.95, 0.7, 0.35))
+		_bar_text(Vector2(rect.get_center().x, rect.get_center().y + fs * 0.38), label, bar_font if bar_font else font, fs, Color(0.25, 0.14, 0.03), Color(1, 0.95, 0.75, 0.5), 1)
+	elif danger:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.55, 0.14, 0.1)
+		sb.set_corner_radius_all(7)
+		sb.set_border_width_all(2)
+		sb.border_color = Color(0.3, 0.17, 0.04)
+		sb.shadow_size = 4
+		sb.shadow_color = Color(0, 0, 0, 0.4)
+		sb.shadow_offset = Vector2(0, 2)
+		draw_style_box(sb, rect)
+		draw_rect(Rect2(rect.position + Vector2(3, 3), Vector2(rect.size.x - 6, rect.size.y * 0.4)), Color(1, 0.8, 0.7, 0.14))
+		draw_rect(rect.grow(-3), BRASS, false, 1.0)
+		_bar_text(Vector2(rect.get_center().x, rect.get_center().y + fs * 0.38), label, bar_font if bar_font else font, fs, CREAM, Color(0.2, 0.05, 0.02), 2)
+	else:
+		_leather(rect, 7, not dim)
+		_bar_text(Vector2(rect.get_center().x, rect.get_center().y + fs * 0.38), label, bar_font if bar_font else font, fs, GREY if dim else Color(0.9, 0.84, 0.68), Color(0.05, 0.03, 0.02, 0.8), 2)
+
+
+func _section(pos: Vector2, label: String, width: float) -> void:
+	## A gold section heading in the round face with a thin brass rule after it.
+	_bar_text(Vector2(pos.x + _bar_width(label, 14) / 2.0, pos.y), label, bar_font if bar_font else font, 14, GOLD, Color(0.2, 0.1, 0.02), 2)
+	var x0 := pos.x + _bar_width(label, 14) + 12.0
+	if x0 < pos.x + width:
+		draw_line(Vector2(x0, pos.y - 5), Vector2(pos.x + width, pos.y - 5), Color(0.3, 0.17, 0.04), 3.0)
+		draw_line(Vector2(x0, pos.y - 5), Vector2(pos.x + width, pos.y - 5), BRASS_DIM, 1.2)
+
+
+func _slider(rect: Rect2, value: float, color: Color) -> void:
+	## A leather track with a coloured glossy fill and a gold knob.
+	_leather(rect, int(rect.size.y / 2.0), false)
+	var inner := rect.grow(-3)
+	if value > 0.02:
+		var fill := Rect2(inner.position, Vector2(inner.size.x * value, inner.size.y))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = color
+		sb.set_corner_radius_all(int(inner.size.y / 2.0))
+		draw_style_box(sb, fill)
+		draw_rect(Rect2(fill.position + Vector2(3, 1), Vector2(maxf(fill.size.x - 6, 1), fill.size.y * 0.35)), Color(1, 1, 1, 0.25))
+	var kc := Vector2(inner.position.x + inner.size.x * value, rect.get_center().y)
+	draw_circle(kc + Vector2(0, 1.5), 9.0, Color(0, 0, 0, 0.4))
+	draw_circle(kc, 8.5, Color(0.35, 0.2, 0.04))
+	draw_circle(kc, 7.0, GOLD)
+	draw_circle(kc + Vector2(-1.5, -2.0), 2.5, Color(1, 0.97, 0.8, 0.7))
+
+
+# --- Class pick-up banner and rank-up flourish -----------------------------
+
+const CLASS_BANNER_TIME := 3.0   # seconds the class banner stays up
+
+
+func _cloth_ribbon(half: float, top: float, bot: float, light: Color, deep: Color, a: float, now: float) -> void:
+	## A gently arched cloth band with swallowtail ends, gold trim over ink
+	## lines and studs at the corners, drawn round the current transform's
+	## origin (the holding-crown banner's cousin, in any colour).
+	var ink := Color(0.12, 0.07, 0.03, a)
+	var gold := Color(1.0, 0.8, 0.22, a)
+	var bend := 12.0
+	var edge := func(x: float, y: float) -> Vector2: return Vector2(x, y + bend * pow(x / half, 2.0))
+	for sx in [-1.0, 1.0]:
+		var x0: float = sx * (half - 16.0)
+		var x1: float = sx * (half + 50.0)
+		var tail := PackedVector2Array([edge.call(x0, top + 20.0), edge.call(x1, top + 24.0), edge.call(x1 - sx * 18.0, (top + bot) / 2.0 + 12.0),
+			edge.call(x1, bot + 4.0), edge.call(x0, bot + 2.0)])
+		var tail_out := tail.duplicate()
+		tail_out.append(tail[0])
+		draw_colored_polygon(tail, deep.darkened(0.25))
+		draw_colored_polygon(PackedVector2Array([tail[0], tail[1], tail[2], edge.call(x0, (top + bot) / 2.0 + 10.0)]), light.darkened(0.1))
+		draw_polyline(tail_out, ink, 4.5)
+		draw_polyline(tail_out, gold, 1.8)
+		draw_colored_polygon(PackedVector2Array([edge.call(sx * half, bot - 2.0), edge.call(x0, bot + 2.0), edge.call(sx * half, bot + 13.0)]), deep.darkened(0.6))
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var n := 16
+	for i in n + 1:
+		pts.append(edge.call(lerpf(-half, half, float(i) / n), top))
+		cols.append(light)
+	for i in n + 1:
+		pts.append(edge.call(lerpf(half, -half, float(i) / n), bot))
+		cols.append(deep)
+	draw_polygon(pts, cols)
+	var sheen := PackedVector2Array()
+	for i in n + 1:
+		sheen.append(edge.call(lerpf(-half, half, float(i) / n), top + 5.0))
+	for i in n + 1:
+		sheen.append(edge.call(lerpf(half, -half, float(i) / n), top + 24.0))
+	draw_colored_polygon(sheen, Color(1.0, 1.0, 1.0, 0.1 * a))
+	var sweep := (fmod(now * 0.55, 1.6) - 0.3) * 2.0 * half - half
+	if absf(sweep) < half - 26.0:
+		draw_colored_polygon(PackedVector2Array([edge.call(sweep, top + 4.0), edge.call(sweep + 30.0, top + 4.0), edge.call(sweep + 5.0, bot - 4.0), edge.call(sweep - 25.0, bot - 4.0)]),
+			Color(1.0, 1.0, 1.0, 0.1 * a))
+	for y in [top, bot]:
+		var line := PackedVector2Array()
+		for i in n + 1:
+			line.append(edge.call(lerpf(-half, half, float(i) / n), y))
+		draw_polyline(line, ink, 8.0)
+		draw_polyline(line, gold, 4.5)
+		var hi := PackedVector2Array()
+		for q in line:
+			hi.append(q + Vector2(0, -1.5))
+		draw_polyline(hi, Color(1.0, 0.96, 0.7, 0.8 * a), 1.2)
+	for sx in [-1.0, 1.0]:
+		var side_line := PackedVector2Array([edge.call(sx * half, top), edge.call(sx * half, bot)])
+		draw_polyline(side_line, ink, 8.0)
+		draw_polyline(side_line, gold, 4.5)
+		for y in [top, bot]:
+			draw_circle(edge.call(sx * half, y), 5.5, ink)
+			draw_circle(edge.call(sx * half, y), 3.5, Color(1.0, 0.9, 0.45, a))
+
+
+func _scroll_hint(sy: float, sw: float, hint: String, a: float, icon: String = "") -> void:
+	## A curled parchment scroll with one line of hint text, centred on x=0.
+	var ink := Color(0.12, 0.07, 0.03, a)
+	var scroll := Rect2(-sw / 2.0, sy - 15.0, sw, 30.0)
+	for sx in [-1.0, 1.0]:
+		var ex: float = sx * sw / 2.0
+		draw_colored_polygon(PackedVector2Array([Vector2(ex - sx * 6.0, sy - 13.0), Vector2(ex + sx * 14.0, sy - 9.0), Vector2(ex + sx * 7.0, sy + 1.0),
+			Vector2(ex + sx * 14.0, sy + 14.0), Vector2(ex - sx * 6.0, sy + 16.0)]), Color(0.78, 0.62, 0.38, a))
+	draw_rect(scroll.grow(2.5), ink)
+	draw_rect(scroll, Color(0.98, 0.9, 0.7, a))
+	draw_rect(Rect2(scroll.position, Vector2(scroll.size.x, 8.0)), Color(1.0, 0.98, 0.88, 0.7 * a))
+	draw_rect(Rect2(scroll.position + Vector2(0, scroll.size.y - 5.0), Vector2(scroll.size.x, 5.0)), Color(0.85, 0.7, 0.45, 0.6 * a))
+	for sx in [-1.0, 1.0]:
+		draw_circle(Vector2(sx * sw / 2.0, sy + 1.0), 6.5, ink)
+		draw_circle(Vector2(sx * sw / 2.0, sy + 1.0), 4.5, Color(0.88, 0.72, 0.45, a))
+	var fs := 15
+	var tw := _text_width(hint, fs)
+	var hx := -tw / 2.0 + (10.0 if icon != "" else 0.0)
+	if icon != "":
+		_icon(icon, Vector2(hx - 16.0, sy + 1.0), 7.0, Color(0.3, 0.18, 0.06, a))
+	draw_string(font, Vector2(hx, sy + 6.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.22, 0.13, 0.06, a))
+
+
+func _twinkles(now: float, a: float, spots: Array) -> void:
+	for k in spots.size():
+		var sp: Vector2 = spots[k]
+		var tw := maxf(0.0, sin(now * 3.0 + k * 1.9))
+		var r := 3.0 + 6.0 * tw
+		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.98, 0.8, tw * a), 2.0)
+		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.98, 0.8, tw * a), 2.0)
+
+
+func _draw_class_banner(p) -> void:
+	## "YOU ARE NOW / ELF KNIGHT": a ribbon in the class colour with the
+	## class hex tile on top and a parchment scroll naming the kit, for a few
+	## seconds after the player puts a class hat on.
+	var t: float = CLASS_BANNER_TIME - p.class_banner
+	if t < 0.0 or p.class_banner <= 0.0:
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	var fade := clampf(p.class_banner / 0.5, 0.0, 1.0)
+	var pop := 1.0 + (0.22 * sin(clampf(t / 0.4, 0.0, 1.0) * PI) if t < 0.4 else 0.0)
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var s := minf(t / 0.14, 1.0) * pop * fit * 0.8 * (0.9 + 0.1 * fade)
+	var a := clampf(t / 0.15, 0.0, 1.0) * fade
+	if s < 0.05:
+		return
+	var role: int = p.role
+	var rc: Color = Stats.ROLES[role].color
+	var light := Color(rc.r * 0.75 + 0.1, rc.g * 0.75 + 0.1, rc.b * 0.75 + 0.1, a)
+	var deep := Color(rc.r * 0.3, rc.g * 0.3, rc.b * 0.3, a)
+	draw_set_transform(Vector2(size.x / 2.0, 186.0 * fit + sin(now * 2.2) * 2.0 - (1.0 - fade) * 30.0), 0.04 - 0.012 * sin(now * 1.7), Vector2(s, s))
+	var ink := Color(0.12, 0.07, 0.03, a)
+	# Shards in the class colour and gold flying out behind the ribbon.
+	for k in 14:
+		var ang := -PI + (k + 0.5) * TAU / 14.0
+		if absf(sin(ang)) > 0.6:
+			continue
+		var drift := fmod(now * 0.5 + k * 0.37, 1.0)
+		var d := Vector2(cos(ang) * 1.45, sin(ang)) * (140.0 + 36.0 * drift + 16.0 * (k % 3))
+		var dir := d.normalized()
+		var side := Vector2(-dir.y, dir.x)
+		var ln := 14.0 + 9.0 * (k % 2)
+		var wd := 4.5 + 2.0 * ((k + 1) % 3)
+		var col := Color(rc.r, rc.g, rc.b, a * (1.0 - drift * 0.7)) if k % 2 == 0 else Color(1.0, 0.86, 0.25, a * (1.0 - drift * 0.7))
+		draw_colored_polygon(PackedVector2Array([d - dir * ln, d + side * wd, d + dir * ln, d - side * wd]), col)
+	var half := 190.0
+	_cloth_ribbon(half, -56.0, 36.0, light, deep, a, now)
+	for sx in [-1.0, 1.0]:
+		_inked_star(Vector2(sx * (half - 30.0), -12.0), 10.0 + sin(now * 4.0 + sx) * 1.5, Color(1.0, 0.8, 0.22, a), ink)
+	_title_text(Vector2(-half, -16.0), "YOU ARE NOW", 30, Color(1.0, 0.97, 0.88, a), Color(deep.r, deep.g, deep.b, a), ink, half * 2.0)
+	_title_text(Vector2(-half, 28.0), p.role_name().to_upper(), 44, Color(1.0, 0.84, 0.18, a), Color(0.9, 0.42, 0.04, a), ink, half * 2.0)
+	# The class on a glossy hex tile above the ribbon, in its colour.
+	var hc := Vector2(0, -92.0 + sin(now * 4.0) * 2.0)
+	for i in 3:
+		draw_circle(hc, 44.0 - i * 9.0, Color(rc.r, rc.g, rc.b, 0.08 * a))
+	_hex_tile(hc, 30.0, Color(0.35, 0.2, 0.04, a), Color(rc.r * 0.7, rc.g * 0.7, rc.b * 0.7, a), false, true)
+	_icon(_class_icon(role), hc, 15.0, Color(1, 1, 1, a))
+	# What the kit does: attack and the two ability keys.
+	var st: Dictionary = p.stats()
+	var hint: String = "%s %s" % [_k("attack"), st.attack_name]
+	for i in mini(2, st.abilities.size()):
+		hint += "  ·  %s %s" % [_k("ability_1" if i == 0 else "ability_2"), st.abilities[i].name]
+	_scroll_hint(58.0, maxf(_text_width(hint, 15) + 56.0, 300.0), hint, a)
+	_twinkles(now, a, [Vector2(-230, -60), Vector2(222, -50), Vector2(-130, -100), Vector2(150, -95), Vector2(60, 86)])
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+func _draw_rankup_flourish() -> void:
+	## RANK UP! (or PROMOTED!) A burst of turning gold rays behind a laurel
+	## medallion with the new level, the title in the cartoon face and a
+	## parchment scroll with the perk-point reminder. Replaces the old plain
+	## level-up card.
+	var left: float = game.levelup_timer
+	var t: float = 3.2 - left
+	var now := Time.get_ticks_msec() / 1000.0
+	var fade := clampf(left / 0.5, 0.0, 1.0)
+	var pop := 1.0 + (0.3 * sin(clampf(t / 0.35, 0.0, 1.0) * PI) if t < 0.35 else 0.0)
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var s := minf(t / 0.12, 1.0) * pop * fit * 0.8 * (0.9 + 0.1 * fade)
+	var a := clampf(t / 0.12, 0.0, 1.0) * fade
+	if s < 0.05:
+		return
+	var promoted: bool = game.levelup_text != ""
+	var p = _me()
+	draw_set_transform(Vector2(size.x / 2.0, 196.0 * fit - (1.0 - fade) * 24.0), 0.0, Vector2(s, s))
+	var ink := Color(0.12, 0.07, 0.03, a)
+	var gold := Color(1.0, 0.8, 0.22, a)
+	# The light burst: two layers of soft rays turning opposite ways, and a
+	# bright ring that races out when it first pops.
+	var mc := Vector2(0, -96.0)
+	for layer in 2:
+		var spin := now * (0.5 if layer == 0 else -0.35) + layer * 0.3
+		var n := 14 if layer == 0 else 10
+		for k in n:
+			var ang := spin + k * TAU / n
+			var d := Vector2(cos(ang), sin(ang))
+			var side := Vector2(-d.y, d.x)
+			var ln := (170.0 if layer == 0 else 120.0) * (1.0 + 0.08 * sin(now * 3.0 + k))
+			var wd := 9.0 if layer == 0 else 16.0
+			draw_colored_polygon(PackedVector2Array([mc + d * 30.0, mc + d * ln + side * wd, mc + d * (ln + 10.0), mc + d * ln - side * wd]),
+				Color(1.0, 0.85, 0.3, (0.16 if layer == 0 else 0.09) * a))
+	var ring_t := clampf(t / 0.7, 0.0, 1.0)
+	if ring_t < 1.0:
+		draw_arc(mc, 40.0 + 170.0 * ring_t, 0, TAU, 48, Color(1.0, 0.95, 0.7, (1.0 - ring_t) * 0.8 * a), 6.0 * (1.0 - ring_t) + 1.0)
+	for i in 4:
+		draw_circle(mc, 58.0 - i * 10.0, Color(1.0, 0.85, 0.3, 0.1 * a))
+	# The medallion: a laurel wreath round a gold disc with the level.
+	_laurel(mc + Vector2(0, 10), -1.0, 0.9, 46.0, 40.0)
+	_laurel(mc + Vector2(0, 10), 1.0, 0.9, 46.0, 40.0)
+	draw_circle(mc + Vector2(0, 3), 40.0, Color(0, 0, 0, 0.35 * a))
+	draw_circle(mc, 38.0, Color(0.35, 0.2, 0.04, a))
+	draw_circle(mc, 34.0, Color(0.93, 0.72, 0.22, a))
+	draw_circle(mc, 28.0, Color(0.2, 0.12, 0.07, a))
+	_arc_polygon(mc, 33.0, PI, TAU, Color(1, 0.95, 0.7, 0.2 * a))
+	if promoted and p:
+		_icon(p.variant().get("icon", _class_icon(p.role)), mc, 14.0, Color(1, 1, 1, a))
+	else:
+		_bar_text(mc + Vector2(0, 11), str(game.levelup_level), bar_font if bar_font else font, 30, CREAM, Color(0.2, 0.1, 0.02), 3)
+	# The ribbon and its title.
+	var half := 180.0
+	_cloth_ribbon(half, -46.0, 30.0, Color(0.98, 0.72, 0.2, a), Color(0.6, 0.3, 0.04, a), a, now)
+	for sx in [-1.0, 1.0]:
+		_inked_star(Vector2(sx * (half - 30.0), -8.0), 10.0 + sin(now * 4.0 + sx) * 1.5, Color(1.0, 0.95, 0.6, a), ink)
+	_title_text(Vector2(-half, 18.0), "PROMOTED!" if promoted else "RANK UP!", 48, Color(1.0, 0.97, 0.88, a), Color(0.8, 0.4, 0.05, a), ink, half * 2.0)
+	var hint: String = ("You are now a %s" % game.levelup_text) if promoted else ("Level %d  ·  +1 perk point  ·  %s to spend it" % [game.levelup_level, _k("rank_menu")])
+	_scroll_hint(54.0, maxf(_text_width(hint, 15) + 56.0, 300.0), hint, a, "" if promoted else "vigor")
+	_twinkles(now, a, [Vector2(-210, -120), Vector2(205, -110), Vector2(-120, -160), Vector2(130, -150), Vector2(0, -170), Vector2(-90, 70), Vector2(100, 76)])
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
