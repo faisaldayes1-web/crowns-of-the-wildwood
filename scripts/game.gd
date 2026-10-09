@@ -6059,32 +6059,28 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		_add_block(Vector3(front_x, (ROOM_H + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.3 + seg / 2.0)), Vector3(0.5, ROOM_H + fy, seg), Color.WHITE, true, wall_mat)
 		# Door posts and the lintel over the doors (timber for the Elves).
 		_add_block(Vector3(front_x, (ROOM_H + 0.3 + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.7, ROOM_H + 0.3 + fy, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)) if not elven else _timber(Color(0.5, 0.36, 0.24)))
-		if elven:
-			# Timber posts at the hedge walls' corners (the reference's framed hedges).
-			for xx in [front_x, back_x]:
-				var ph: float = (ROOM_H if xx == front_x else wall_h) + 0.5
-				_add_block(Vector3(xx, (ph + fy) / 2.0, zs * hz), Vector3(0.8, ph + fy, 0.8), Color.WHITE, true, _timber(Color(0.5, 0.36, 0.24)))
-				_add_block(Vector3(xx, ph + 0.06 + fy, zs * hz), Vector3(0.95, 0.14, 0.95), Color.WHITE, false, _timber(Color(0.36, 0.26, 0.16)))
+		# (The Elves' timber corner posts went on Faisal's 08:17 2026-10-09
+		# note: they clipped into the walls and read as random.)
 	_add_block(Vector3(back_x, (wall_h + fy) / 2.0, 0), Vector3(wall_t, wall_h + fy, hz * 2 + 0.5), Color.WHITE, true, wall_mat)
 	_add_block(Vector3(front_x, ROOM_H - 0.2 + fy, 0), Vector3(0.7, 0.4, ROOM_DOOR_HALF * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
 	# A cornice along every wall top (Humans), or a run of rounded hedge
 	# along the hedge walls (Elves; the reference's bushy crown-room walls).
 	var cap := _ashlar(Color(0.92, 0.88, 0.8))
 	var wtop := wall_h + fy - 0.1
+	# The Elves' walls take a plain sandstone cap like the Humans' (the hedge
+	# runs on top read as "random greenery", Faisal 08:17 2026-10-09).
+	var ecap := _ashlar(Color(0.96, 0.94, 0.9))
 	for zs in [-1.0, 1.0]:
 		if elven:
-			_add_hedge_run(Vector3(cx - depth / 2.0, wtop, zs * hz), Vector3(cx + depth / 2.0, wtop, zs * hz), 0.42, 900 + int(zs))
+			_add_block(Vector3(cx, wall_h + 0.08 + fy, zs * hz), Vector3(depth + wall_t, 0.16, wall_t + 0.14), Color.WHITE, false, ecap)
 		else:
 			_add_block(Vector3(cx, _room_wall_h(team, zs) + 0.08 + fy, zs * hz), Vector3(depth + 0.7, 0.16, 0.7), Color.WHITE, false, cap)
 	if elven:
-		_add_hedge_run(Vector3(back_x, wtop, -hz), Vector3(back_x, wtop, hz), 0.42, 903)
+		_add_block(Vector3(back_x, wall_h + 0.08 + fy, 0), Vector3(wall_t + 0.14, 0.16, hz * 2 + wall_t), Color.WHITE, false, ecap)
 	else:
 		_add_block(Vector3(back_x, ROOM_H + 0.08 + fy, 0), Vector3(0.7, 0.16, hz * 2 + 0.7), Color.WHITE, false, cap)
 	for zs in [-1.0, 1.0]:
-		if elven:
-			_add_hedge_run(Vector3(front_x, ROOM_H + fy - 0.1, zs * (ROOM_DOOR_HALF + 0.3)), Vector3(front_x, ROOM_H + fy - 0.1, zs * hz), 0.42, 905 + int(zs))
-		else:
-			_add_block(Vector3(front_x, ROOM_H + 0.08 + fy, zs * (hz / 2.0 + ROOM_DOOR_HALF / 2.0)), Vector3(0.7, 0.16, hz - ROOM_DOOR_HALF), Color.WHITE, false, cap)
+		_add_block(Vector3(front_x, ROOM_H + 0.08 + fy, zs * (hz / 2.0 + ROOM_DOOR_HALF / 2.0)), Vector3(0.7, 0.16, hz - ROOM_DOOR_HALF), Color.WHITE, false, ecap if elven else cap)
 	audit_label = ""
 	# A carpet runner from the doors to a round, three-tier dais in the middle
 	# of the room; the crown sits on a cushioned pedestal on top (the
@@ -6156,7 +6152,6 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 			_add_crest(team, Vector3(back_x - side * 0.27, 1.75 + fy, zs * 3.3), Vector3(-side, 0, 0), 0.6, zs > 0.0)
 		if elven:
 			_add_crystal(Vector3(back_x - side * 0.9, fy, zs * (hz - 0.9)), 0.9)
-			_add_mushrooms(Vector3(front_x + side * 0.9, fy, zs * (hz - 0.8)), 61 + int(zs))
 		# (The Humans' torch stands in the room's corners went (Faisal 2026-10-09 08:14, circled as clipping or out of place).)
 		_add_banner(team, Vector3(front_x - side * 0.4, fy, zs * (ROOM_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.6, true)
 	_add_light(Vector3(back_x - side * 0.8, 1.6 + fy, 0), color.lightened(0.4), 1.0, 6.0)
@@ -6167,10 +6162,8 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		_prop("dungeon/barrel_small", Vector3(back_x - side * 0.7, fy, -(hz - 2.0)), 0.8)
 	if elven:
 		_add_fireflies(throne + Vector3(0, 0.8, 0))
-		# Stag banner frames at the court's back corners (the reference's
-		# banners framing the shrine; decor, off the gallery lanes).
-		for zs in [-1.0, 1.0]:
-			_add_banner_pole(team, Vector3(back_x + side * 1.3, 0, zs * (hz + 1.3)))
+		# (No stag banner frames at the court's back corners: "random sign",
+		# Faisal 08:17 2026-10-09.)
 
 
 func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3) -> void:
@@ -6263,7 +6256,6 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 		_add_fireflies(pool + Vector3(0, 0.6, 0))
 		_add_block(Vector3(room_b - side * 0.9, 0.6, wz - 0.7), Vector3(0.8, 1.2, 0.8), Color.WHITE, true, _ashlar(Color(0.75, 0.72, 0.62)))
 		_add_crystal(Vector3(room_b - side * 0.9, 1.2, wz - 0.7), 0.8)
-		_add_mushrooms(Vector3(room_f + side * 0.6, 0, wz - 0.8), 71)
 	else:
 		# An altar against the wall under a glowing window, candle stands and a kneeling cloth.
 		var altar := Vector3((room_f + room_b) / 2.0, 0, wz - 0.8)
@@ -6292,18 +6284,19 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	if elven:
 		_prop("furniture/shelf_B_large_decorated", Vector3(bw - side * 0.1, 0, -4.1), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		_prop("furniture/cabinet_small_decorated", Vector3(room_b + side * 0.8, 0, -(wz - 0.45)), BITS_SCALE, PI)
-		_add_mushrooms(Vector3(bw, 0, -2.9), 75)
 	else:
 		_prop("furniture/shelf_B_large_decorated", Vector3(bw - side * 0.1, 0, -4.1), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
 		# (Its cabinet by the crown room's back corner went (Faisal 2026-10-09 08:14, circled as clipping or out of place).)
 		_prop("furniture/pictureframe_large_A", Vector3(bx - side * 0.62, 1.6, -2.6), BITS_SCALE, PI / 2.0 if side > 0.0 else -PI / 2.0)
-	_add_rug(Vector3(back_c, 0.06, -4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color)
+	if not elven:   # (the Elves' loose study and armoury rugs went 08:17 2026-10-09)
+		_add_rug(Vector3(back_c, 0.06, -4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color)
 	# The armoury.
 	_prop("hex/weaponrack", Vector3(bw + side * 0.15, 0, 5.2), 4.0, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	_prop("dungeon/sword_shield_gold" if not elven else "dungeon/sword_shield", Vector3(bx - side * 0.62, 1.4, 3.2 if elven else 3.75), 0.9, PI / 2.0 if side > 0.0 else -PI / 2.0)
 	if elven:   # (the Humans' camera-facing keep wall is waist high: nothing hangs on it)
 		_prop("dungeon/sword_shield", Vector3(room_b + side * 1.6, 1.5, wz - 0.1), 0.9, 0.0)
-	_add_rug(Vector3(back_c, 0.06, 4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color.darkened(0.2))
+	if not elven:
+		_add_rug(Vector3(back_c, 0.06, 4.0), Vector2(minf(back_d - 1.8, 4.6), 2.8), color.darkened(0.2))
 	# Tapestries and torches along the galleries, braziers for the Humans.
 	for zs in [-1.0, 1.0]:
 		var ins := Vector3(0, 0, -zs)
