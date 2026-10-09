@@ -200,7 +200,7 @@ func take_hit(amount: int, attacker = null) -> void:
 		return
 	hp = maxi(hp - amount, 0)
 	if attacker and attacker.team != team:
-		attacker.gain_xp(Stats.XP_GATE * amount)
+		attacker.gain_xp(Stats.XP_GATE * amount, "siege")
 	game.spawn_splash(global_position + Vector3(0, 1.2, 0), Color(0.75, 0.6, 0.4), 8, 3.0, 0.4)
 	game.sfx.play("barricade", global_position, -2.0, 0.15)
 	if hp == 0:
@@ -216,7 +216,7 @@ func _destroyed(attacker) -> void:
 	game.shake_at(global_position, 0.4)
 	game.sfx.play("turret_break", global_position, 2.0)
 	if attacker and attacker.team != team:
-		attacker.gain_xp(Stats.XP_TURRET)
+		attacker.gain_xp(Stats.XP_TURRET, "siege")
 		if attacker.is_player:
 			game.spawn_popup(attacker.global_position + Vector3(0, 2.4, 0), "TURRET DOWN  +%d XP" % Stats.XP_TURRET, Color(1.0, 0.8, 0.4))
 	if is_instance_valid(builder) and builder.is_player:
