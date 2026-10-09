@@ -375,7 +375,7 @@ func _tick_work(delta: float) -> void:
 		var w: Dictionary = work[u]
 		var n = w.node
 		var moved: float = game._flat_dist(u.global_position, w.from) if is_instance_valid(u) else 99.0
-		if not is_instance_valid(u) or u.dead or u.carrying or moved > 0.6 or u.hearts < w.hearts \
+		if not is_instance_valid(u) or u.dead or u.carrying or moved > 1.0 or not n.in_reach(u) or u.hearts < w.hearts \
 				or u.attack_timer > w.atk + 0.01 or not n.available() or carried(u) >= E.carry_max:
 			n.set_progress(0.0)
 			work.erase(u)
