@@ -432,7 +432,7 @@ Revert: `git revert d2bf681`
 
 ## 2026-10-09 — Fix: bot raiders trapped behind the crown room in both keeps (0-0 matches)
 
-Commit: `PENDING`
+Commit: `b678241`
 
 What was wrong: since the World & Maps merge (5304307) every headless bot match ended 0-0 with no
 gate damage. Both teams' raiders came up the spawn stairs, headed for the gate straight through the
@@ -452,4 +452,4 @@ of both keeps by t=30 s, doors 110/198 at t=60 s (were 200/200 for 600 s before)
 
 Files touched: `scripts/game.gd` (`_polish_keep`), `docs/changelog/ui-art.md`.
 
-Revert: `git revert PENDING` (brings the 0-0 matches back)
+Revert: `git revert b678241` (brings the 0-0 matches back)
