@@ -37,7 +37,7 @@ The merge hash is listed in CHANGELOG.md under that release. Note that git then 
 
 ## Go back to a release tag
 
-Each release is tagged (`v0.3.0`, `v0.3.1`, ...).
+Each release is tagged (`v0.3.0`, `v0.3.1`, ...) and also marked by a `release/v0.3.0`-style branch on the same commit. If a tag is missing, use the `release/` branch name instead.
 
 - **Just look at or play an old version** without changing anything:
 
