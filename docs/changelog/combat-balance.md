@@ -267,7 +267,7 @@ then `python3 tools/balance/agg.py <tag>`.
 - **When:** 2026-10-09 12:20 UTC (Faisal 2026-10-09 09:23 "i also want the grab
   to actually do something like feel like it does something, (the f key or the
   rb key) maybe add a slight grab animation")
-- **Commit:** filled in by the next commit
+- **Commit:** `e80690e` (its message reads "docs: changelog hash for" by mistake; it holds the whole grab change)
 - **What:** Every press of grab now plays a quick reach animation, with a lean
   forward and a small sweep of the hand. When it takes hold (a class hat, the
   crown, the guide, a barricade), you get a pop and sparkle on the object, a
@@ -284,4 +284,4 @@ then `python3 tools/balance/agg.py <tag>`.
   `tests/combat_test.gd` (grab checks), `tests/fx_showcase.gd` (`--grab`).
 - **Tunables:** none.
 - **Checks:** `tools/tests/run.sh` 27/27.
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert e80690e`
