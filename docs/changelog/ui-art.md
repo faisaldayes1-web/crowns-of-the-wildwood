@@ -629,3 +629,24 @@ overlap (pre-existing pines), 250 props; seed-5 90 s match doors 102/36 at 60 s.
 Renders: `elf-crown-room-declutter-after.png` in game/groups/ui-art/.
 
 Revert: `git revert 3a57415`.
+
+## 2026-10-09 — Elf class courtyard: Faisal's circled notes (08:18 annotated screenshot)
+
+Commit: `HASH_PENDING`. Merged World & Maps first (their grove replacing the camp west of the
+courtyard fence, his note 4).
+
+- **"Names of classes are clipping"**: the names sat on boards along the pavilion's top edge,
+  which the game camera cuts off. Each name now stands just in front of its station's base
+  (billboarded, y 0.3, 1.35 m forward); the name boards are gone and the emblem panel gets a
+  dark timber frame instead.
+- **"Wrong way for the upgrade station"**: moved from the south-east corner by the exit to the
+  class row's near end, (bx − 1.6, 0, −4.0), board backing onto the row, anvil facing the room.
+  The row runner now starts past it (13.0 m long, was 16.2). The Guide is back at (bx − 1.3, 0,
+  5.2).
+- **"Random green texture box?"**: removed the lawn strip and both planting beds along the south
+  fence, and the orphaned shelves, bottles, crates and barrel that stood there.
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1
+overlap (pre-existing pines), 245 props; seed-5 90 s match doors 171/0 at 60 s.
+
+Revert: `git revert HASH_PENDING`.
