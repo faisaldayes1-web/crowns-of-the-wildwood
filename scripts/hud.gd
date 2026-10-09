@@ -72,6 +72,18 @@ var bake_mode := ""              # set on a copy: which layer it draws
 var bake_args: Array = []        # the copy's draw arguments (centre, radius)
 var _bakes: Dictionary = {}      # name -> {vp, hud, key, px}
 var _frame_rect: TextureRect     # shows the baked screen frame behind the HUD
+var _layers: Dictionary = {}     # baked layer name -> its TextureRect behind the HUD
+# The player panel and the top bar are baked too: their art changes only
+# when the state behind it does (hearts, level, a slot coming ready, the
+# clock's second). panel_pass picks what a draw call paints: "static" on the
+# baking copy, "live" (bars, cooldowns, numbers) on the HUD over the
+# texture, "" for both at once (no baking).
+var panel_pass := ""
+var _under: Control              # glows that sit under the baked panel
+var _under_items: Array = []     # [kind, args...] drawn by _under this frame
+var _under_k := 1.0
+var _sb_cache: Dictionary = {}   # StyleBoxFlat by look, so plates are not rebuilt every frame
+var _wrap_cache: Dictionary = {} # word-wrapped lines by [text, size, width]
 var hud_scale := 1.0             # the player panel's shrink factor in narrow panes
 var slot_flash: Dictionary = {}  # ability slot -> seconds of ready flash left
 var options_button := Rect2()
@@ -171,6 +183,11 @@ func _draw() -> void:
 		return
 	if _frame_rect:
 		_frame_rect.visible = false   # shown again below while the live HUD draws
+	for lr in _layers.values():
+		lr.visible = false
+	if not _under_items.is_empty() and _under:
+		_under_items = []
+		_under.queue_redraw()
 	rank_buttons = []
 	variant_buttons = []
 	tab_buttons = []
@@ -329,14 +346,20 @@ func _team_color(team: int) -> Color:
 
 
 func _plate(rect: Rect2, fill: Color = INK, edge: Color = GOLD_DARK, radius: int = 10, border: int = 2) -> void:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.set_corner_radius_all(radius)
-	sb.set_border_width_all(border)
-	sb.border_color = edge
-	sb.shadow_size = 5
-	sb.shadow_color = Color(0, 0, 0, 0.35)
-	sb.shadow_offset = Vector2(0, 2)
+	var sb_key := [fill, edge, radius, border]
+	var sb: StyleBoxFlat = _sb_cache.get(sb_key)
+	if sb == null:
+		sb = StyleBoxFlat.new()
+		sb.bg_color = fill
+		sb.set_corner_radius_all(radius)
+		sb.set_border_width_all(border)
+		sb.border_color = edge
+		sb.shadow_size = 5
+		sb.shadow_color = Color(0, 0, 0, 0.35)
+		sb.shadow_offset = Vector2(0, 2)
+		if _sb_cache.size() > 400:
+			_sb_cache.clear()   # pulsing colours make new keys; keep the cache small
+		_sb_cache[sb_key] = sb
 	draw_style_box(sb, rect)
 	# A soft sheen on the upper half and a thin inner line give the plates a bevelled, painted look.
 	if rect.size.y > 30 and border >= 2:
@@ -354,6 +377,18 @@ func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHIT
 
 func _paragraph(pos: Vector2, text: String, font_size: int, color: Color, width: float, line_h: float, outline: int = 2) -> float:
 	## Word-wrapped text. Returns the height used.
+	var lines := _wrap(text, font_size, width)
+	for i in lines.size():
+		_text(pos + Vector2(0, i * line_h), lines[i], font_size, color, HORIZONTAL_ALIGNMENT_LEFT, -1, outline)
+	return lines.size() * line_h
+
+
+func _wrap(text: String, font_size: int, width: float) -> Array:
+	## The text broken into lines no wider than `width`, remembered (the chat
+	## re-wraps the same rows every frame).
+	var key := [text, font_size, width]
+	if _wrap_cache.has(key):
+		return _wrap_cache[key]
 	var lines := []
 	var line := ""
 	for word in text.split(" "):
@@ -365,9 +400,10 @@ func _paragraph(pos: Vector2, text: String, font_size: int, color: Color, width:
 			line = trial
 	if line != "":
 		lines.append(line)
-	for i in lines.size():
-		_text(pos + Vector2(0, i * line_h), lines[i], font_size, color, HORIZONTAL_ALIGNMENT_LEFT, -1, outline)
-	return lines.size() * line_h
+	if _wrap_cache.size() > 300:
+		_wrap_cache.clear()
+	_wrap_cache[key] = lines
+	return lines
 
 
 func _text_width(text: String, font_size: int) -> float:
@@ -743,7 +779,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 	if fl > 0.0:
 		slot_flash[slot_id] = fl - get_process_delta_time()
 		var k := 1.0 - fl / 0.45
-		draw_arc(rect.get_center(), size_px * (0.55 + 0.4 * k), 0, TAU, 32, Color(1.0, 0.9, 0.5, 1.0 - k), 3.0)
+		_glow("arc", [rect.get_center(), size_px * (0.55 + 0.4 * k), Color(1.0, 0.9, 0.5, 1.0 - k), 3.0])
 	# Hexagon tiles, like Faisal's UI reference (2026-10-08): a dark outer
 	# edge, a thick bronze rim, then the glossy coloured face lit from the top.
 	var hc := rect.get_center()
@@ -751,7 +787,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 	if glow and not locked:
 		var gpulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() / 220.0)
 		for i in 5:
-			draw_colored_polygon(_hex_pts(hc, hr + 8.0 + i * 3.0), Color(1.0, 0.78, 0.25, 0.07 * gpulse))
+			_glow("poly", [_hex_pts(hc, hr + 8.0 + i * 3.0), Color(1.0, 0.78, 0.25, 0.07 * gpulse)])
 	var frame := BRASS
 	if glow and not locked:
 		frame = GOLD.lightened(0.15)
@@ -759,10 +795,45 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		frame = Color(0.75, 0.88, 1.0)
 	elif locked:
 		frame = Color(0.45, 0.36, 0.24)
-	var shadow := _hex_pts(hc + Vector2(0, 3), hr + 7.0)
-	draw_colored_polygon(shadow, Color(0, 0, 0, 0.45))
 	var art: String = next_slot_art
 	next_slot_art = ""
+	if _st():
+		_slot_face(rect, size_px, icon, color, hc, hr, frame, art, locked, ready)
+		_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
+		if label != "":
+			_text(Vector2(rect.position.x - 22, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
+				HORIZONTAL_ALIGNMENT_CENTER, size_px + 44, 3)
+	if not _lv():
+		return
+	if remaining > 0.0:
+		var frac := clampf(remaining / maxf(total, 0.01), 0.0, 1.0)
+		var top := hc.y - hr
+		var cut := PackedVector2Array([Vector2(hc.x - hr * 2.0, top - 2.0), Vector2(hc.x + hr * 2.0, top - 2.0),
+			Vector2(hc.x + hr * 2.0, top + 2.0 * hr * frac), Vector2(hc.x - hr * 2.0, top + 2.0 * hr * frac)])
+		for poly in Geometry2D.intersect_polygons(_hex_pts(hc, hr - 2.5), cut):
+			draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
+		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
+			16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
+		if panel_pass == "live":
+			# The keycap sits over the shade, as when it was all drawn live.
+			_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
+	# The energy cost in the top-left corner, so you can see which moves
+	# are cheap bread-and-butter and which ones to spend sparingly.
+	if cost > 0.0:
+		var tag := Rect2(rect.position + Vector2(2, 2), Vector2(20, 12))
+		draw_rect(tag, Color(0, 0, 0, 0.55))
+		_text(tag.position + Vector2(0, 10), str(int(cost)), 9, cost_color if usable else cost_color.darkened(0.4), HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 0)
+	# Rank pips in the top-right corner.
+	for i in rank:
+		draw_circle(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, GOLD)
+		draw_arc(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, 0, TAU, 10, Color(0.3, 0.2, 0.05), 1.0)
+
+
+func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vector2, hr: float, frame: Color,
+		art: String, locked: bool, ready: bool) -> void:
+	## The slot's tile and icon (the baked part of a slot).
+	var shadow := _hex_pts(hc + Vector2(0, 3), hr + 7.0)
+	draw_colored_polygon(shadow, Color(0, 0, 0, 0.45))
 	if art != "" and skill_art.has(art):
 		# The painted hexagon (rim and all) from the reference art: its hex
 		# fills 90% of the picture's height.
@@ -779,29 +850,6 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		_padlock(rect.get_center() + Vector2(0, -3), size_px * 0.3, Color(0.58, 0.58, 0.62))
 	elif not _tile_glyph(icon, rect.get_center() + Vector2(0, -4), size_px * 0.3, not ready):
 		_icon(icon, rect.get_center() + Vector2(0, -4), size_px * 0.29, Color.WHITE, not ready)
-	if remaining > 0.0:
-		var frac := clampf(remaining / maxf(total, 0.01), 0.0, 1.0)
-		var top := hc.y - hr
-		var cut := PackedVector2Array([Vector2(hc.x - hr * 2.0, top - 2.0), Vector2(hc.x + hr * 2.0, top - 2.0),
-			Vector2(hc.x + hr * 2.0, top + 2.0 * hr * frac), Vector2(hc.x - hr * 2.0, top + 2.0 * hr * frac)])
-		for poly in Geometry2D.intersect_polygons(_hex_pts(hc, hr - 2.5), cut):
-			draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
-		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
-			16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
-	# The energy cost in the top-left corner, so you can see which moves
-	# are cheap bread-and-butter and which ones to spend sparingly.
-	if cost > 0.0:
-		var tag := Rect2(rect.position + Vector2(2, 2), Vector2(20, 12))
-		draw_rect(tag, Color(0, 0, 0, 0.55))
-		_text(tag.position + Vector2(0, 10), str(int(cost)), 9, cost_color if usable else cost_color.darkened(0.4), HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 0)
-	# Rank pips in the top-right corner.
-	for i in rank:
-		draw_circle(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, GOLD)
-		draw_arc(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, 0, TAU, 10, Color(0.3, 0.2, 0.05), 1.0)
-	_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
-	if label != "":
-		_text(Vector2(rect.position.x - 22, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
-			HORIZONTAL_ALIGNMENT_CENTER, size_px + 44, 3)
 
 
 func _hex_tile(hc: Vector2, hr: float, frame: Color, color: Color, locked: bool, ready: bool) -> void:
@@ -1077,6 +1125,7 @@ func _minimap_ring(c: Vector2, r: float) -> void:
 
 func _draw_bake() -> void:
 	## A HUD copy inside a SubViewport: draw the one static layer it bakes.
+	touch_rects = []
 	match bake_mode:
 		"minimap_field":
 			_minimap_static(bake_args[0], bake_args[1])
@@ -1084,6 +1133,12 @@ func _draw_bake() -> void:
 			_minimap_ring(bake_args[0], bake_args[1])
 		"frame":
 			_screen_frame()
+		"panel":
+			panel_pass = "static"
+			if bake_args[0] and is_instance_valid(bake_args[0]):
+				_draw_player_panel(bake_args[0])
+		"topbar":
+			_scoreboard_static()
 
 
 func _bake_scale() -> float:
@@ -1093,7 +1148,7 @@ func _bake_scale() -> float:
 	return clampf(s, 1.0, 4.0) if s > 0.0 else 1.0
 
 
-func _bake(name: String, px: Vector2, key: Variant, mode: String, args: Array) -> Texture2D:
+func _bake(name: String, px: Vector2, key: Variant, mode: String, args: Array, origin := Vector2.ZERO, full := Vector2.ZERO) -> Texture2D:
 	## A static layer `px` units big, drawn by a HUD copy inside a SubViewport
 	## and re-drawn only when `key` changes. Returns its texture (drawn by the
 	## caller), or null on a copy.
@@ -1126,7 +1181,8 @@ func _bake(name: String, px: Vector2, key: Variant, mode: String, args: Array) -
 		b.px = px
 		b.vp.size = want
 		b.hud.scale = Vector2(sc, sc)
-		b.hud.size = px
+		b.hud.size = full if full != Vector2.ZERO else px
+		b.hud.position = -origin * sc   # the copy lays out the whole HUD; the viewport shows this part
 		b.hud.bake_args = args
 		b.hud.queue_redraw()
 		b.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
@@ -1155,6 +1211,85 @@ func _screen_frame_baked() -> void:
 	_frame_rect.position = Vector2.ZERO
 	_frame_rect.size = size
 	_frame_rect.visible = true
+
+
+func _layer(name: String, rect: Rect2, key: Variant, mode: String, args: Array) -> bool:
+	## Shows the baked layer `name` (the part `rect` of this HUD, drawn by a
+	## copy in `mode`) behind the live HUD. False when baking is not possible
+	## here, so the caller draws everything live.
+	var tex := _bake(name, rect.size, key, mode, args, rect.position, size)
+	if tex == null:
+		return false
+	var lr: TextureRect = _layers.get(name)
+	if lr == null:
+		lr = TextureRect.new()
+		lr.show_behind_parent = true
+		lr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lr.stretch_mode = TextureRect.STRETCH_SCALE
+		lr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		var mat := CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+		lr.material = mat
+		add_child(lr)
+		_layers[name] = lr
+	lr.texture = tex
+	lr.position = rect.position
+	lr.size = rect.size
+	lr.visible = true
+	return true
+
+
+func _st() -> bool:
+	## Paint the panel's static art in this pass.
+	return panel_pass != "live"
+
+
+func _lv() -> bool:
+	## Paint the panel's moving parts in this pass.
+	return panel_pass != "static"
+
+
+func _glow(kind: String, args: Array) -> void:
+	## A glow drawn under a panel element: straight away when the panel is
+	## drawn live, by the underlay (beneath the baked art) when it is baked,
+	## not at all on the baking copy.
+	if panel_pass == "":
+		_glow_draw(self, kind, args)
+	elif panel_pass == "live":
+		if _under == null:
+			_under = Control.new()
+			_under.show_behind_parent = true
+			_under.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_under.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			_under.draw.connect(_draw_under)
+			add_child(_under)
+			# Beneath the baked panel layers, above the frame and the top bar.
+			var at := 0
+			for lname in ["frame", "topbar"]:
+				var l = _frame_rect if lname == "frame" else _layers.get(lname)
+				if l and l.get_parent() == self:
+					at = maxi(at, l.get_index() + 1)
+			move_child(_under, at)
+		_under_items.append([kind, args, _under_k])
+		_under.queue_redraw()
+
+
+func _glow_draw(ci: CanvasItem, kind: String, args: Array) -> void:
+	match kind:
+		"poly":
+			ci.draw_colored_polygon(args[0], args[1])
+		"circle":
+			ci.draw_circle(args[0], args[1], args[2])
+		"arc":
+			ci.draw_arc(args[0], args[1], 0, TAU, 32, args[2], args[3])
+
+
+func _draw_under() -> void:
+	for it in _under_items:
+		var k: float = it[2]
+		_under.draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
+		_glow_draw(_under, it[0], it[1])
+	_under.draw_set_transform(Vector2.ZERO)
 
 
 func _mm_poly(poly: PackedVector2Array, clip: PackedVector2Array, col: Color, edge: Color = Color(0, 0, 0, 0), ew: float = 1.0) -> void:
@@ -2033,16 +2168,7 @@ func _draw_guide() -> void:
 
 
 func _paragraph_height(text: String, font_size: int, width: float, line_h: float) -> float:
-	var lines := 1
-	var line := ""
-	for word in text.split(" "):
-		var trial := word if line == "" else line + " " + word
-		if _text_width(trial, font_size) > width and line != "":
-			lines += 1
-			line = word
-		else:
-			line = trial
-	return lines * line_h
+	return maxi(1, _wrap(text, font_size, width).size()) * line_h
 
 
 func _draw_tutorial() -> void:
@@ -2122,6 +2248,56 @@ func _ivy(start: Vector2, dir: Vector2, length: float, seed_i: int) -> void:
 
 
 func _draw_scoreboard() -> void:
+	## The top bar: its art, names, scores, clock and the line under it are
+	## baked (they change at most a few times a second); the twinkles and the
+	## Ember Pass flame move every frame and are drawn live on top.
+	if bake_mode == "" and _layer("topbar", Rect2(0, 0, size.x, 132.0), _topbar_key(), "topbar", []):
+		_scoreboard_live(false)
+		return
+	_scoreboard_static()
+	_scoreboard_live(true)
+
+
+func _topbar_key() -> Array:
+	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and game.prep_left <= 0.0 and not game.overtime else {}
+	var left := maxf(game.time_left, 0.0)
+	return [size, _bake_scale(), game.score.duplicate(), game.prep_left > 0.0, ceilf(game.prep_left), int(game.prep_left * 2.0) % 2,
+		int(left), left < 60.0 and int(left * 2.0) % 2 == 0, game.overtime, _k("interact"), game.barricades_left[_my_team()],
+		fire.get("text", ""), fire.get("color", Color.BLACK), fire.is_empty()]
+
+
+func _scoreboard_live(_full: bool) -> void:
+	## The moving parts of the top bar: twinkles round the shields, and on
+	## Ember Pass the flame and the capture line under the strip.
+	var cx := size.x / 2.0
+	var k := 0.72 if _narrow() else 1.0
+	if k < 1.0:
+		draw_set_transform(Vector2(cx * (1.0 - k), 0), 0.0, Vector2(k, k))
+	var now := Time.get_ticks_msec() / 1000.0
+	# Twinkles round the shields, on top of the art's own.
+	for j in 4:
+		var sp := Vector2(cx + [-372.0, 362.0, -262.0, 262.0][j], [22.0, 26.0, 84.0, 82.0][j])
+		var tw := maxf(0.0, sin(now * 2.5 + j * 1.7))
+		var r := 2.5 + 6.0 * tw
+		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw), 1.6)
+		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw), 1.6)
+	var fortify: bool = game.prep_left > 0.0
+	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime else {}
+	if not fire.is_empty() and fire.text != "":
+		# Ember Pass: the Fire Objective's flame beside the strip, and the
+		# capture filling along its foot.
+		var x0 := cx - 250.0
+		draw_circle(Vector2(x0, 98), 10, Color(0.33, 0.2, 0.07))
+		_fire_icon(Vector2(x0, 98), 7.0, fire.owner, fire.progress, now)
+		var p: float = absf(fire.progress)
+		if p > 0.01 and p < 0.999:
+			var lead := 0 if fire.progress < 0.0 else 1
+			draw_rect(Rect2(cx - 231.0, 108.0, 499.0 * p, 3.0), _team_color(lead))
+	if k < 1.0:
+		draw_set_transform(Vector2.ZERO)
+
+
+func _scoreboard_static() -> void:
 	## Two cloth banners, ELVES in green on the left and HUMANS in blue on the
 	## right, each with its crest at the outer end, either side of a framed
 	## clock in gold laurels; the phase line on a parchment scroll below.
@@ -2150,13 +2326,6 @@ func _draw_scoreboard() -> void:
 		var mid := cx + (-157.0 if t == 0 else 159.0)
 		_bar_text(Vector2(mid, 31), Stats.FACTIONS[t].name.to_upper(), tf, 17, Color(1.0, 0.95, 0.86), ink, 6)
 		_bar_text(Vector2(mid, 61), str(game.score[t]), tf, 38, Color(1.0, 0.95, 0.84), ink, 10)
-	# Twinkles round the shields, on top of the art's own.
-	for j in 4:
-		var sp := Vector2(cx + [-372.0, 362.0, -262.0, 262.0][j], [22.0, 26.0, 84.0, 82.0][j])
-		var tw := maxf(0.0, sin(now * 2.5 + j * 1.7))
-		var r := 2.5 + 6.0 * tw
-		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw), 1.6)
-		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw), 1.6)
 	var fortify: bool = game.prep_left > 0.0
 	var clock_x := cx + 3.0
 	if fortify:
@@ -2192,16 +2361,6 @@ func _draw_scoreboard() -> void:
 		_text(Vector2(cx - 231.0, 98.5), line, fs, line_ink, HORIZONTAL_ALIGNMENT_CENTER, 499.0, 0)
 	else:
 		_info_banner(Vector2(cx, 98), line, line_ink)
-	if not fire.is_empty() and line == fire.text:
-		# Ember Pass: the Fire Objective's flame beside the strip, and the
-		# capture filling along its foot.
-		var x0 := cx - 250.0
-		draw_circle(Vector2(x0, 98), 10, Color(0.33, 0.2, 0.07))
-		_fire_icon(Vector2(x0, 98), 7.0, fire.owner, fire.progress, Time.get_ticks_msec() / 1000.0)
-		var p: float = absf(fire.progress)
-		if p > 0.01 and p < 0.999:
-			var lead := 0 if fire.progress < 0.0 else 1
-			draw_rect(Rect2(cx - 231.0, 108.0, 499.0 * p, 3.0), _team_color(lead))
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
 
@@ -2878,7 +3037,9 @@ func _ring_button(c: Vector2, r: float, hot: float = 0.0) -> void:
 	## A round dark button in a gold ring with small gold spikes round it.
 	if hot > 0.0:
 		for i in 5:
-			draw_circle(c, r + 8.0 + i * 3.0, Color(1.0, 0.8, 0.25, 0.06 * hot))
+			_glow("circle", [c, r + 8.0 + i * 3.0, Color(1.0, 0.8, 0.25, 0.06 * hot)])
+	if not _st():
+		return
 	draw_circle(c + Vector2(0, 3), r + 6, Color(0, 0, 0, 0.4))
 	for deg in [-90.0, -35.0, -145.0, 10.0, 170.0, 55.0, 125.0]:
 		var ang := deg_to_rad(deg)
@@ -2928,6 +3089,8 @@ func _right_buttons(p, W: float) -> void:
 	# CROWN
 	var hot := (0.7 + 0.3 * sin(now * 4.0)) if carrying else 0.0
 	_ring_button(Vector2(x, ys[0]), r, hot)
+	if not _st():
+		return
 	_crown_glyph(Vector2(x, ys[0] + 3), r * 0.66, 1.0 if carrying else 0.0)
 	_text(Vector2(x - 40, ys[0] + r + 20), "CROWN", 14, Color(1.0, 0.95, 0.82), HORIZONTAL_ALIGNMENT_CENTER, 80, 5)
 	# KITS
@@ -2952,8 +3115,19 @@ func _draw_player_panel(p) -> void:
 	## buttons in the corner. All of it shrinks together in narrow panes.
 	var k := minf(1.0, size.x / 1280.0)
 	hud_scale = k
+	_under_k = k
 	var W := size.x / k
 	var H := size.y / k
+	if bake_mode == "":
+		# The art that only changes with the player's state goes into two
+		# baked layers (the bottom row, the right-hand column); this pass
+		# then paints just the bars, cooldowns and numbers over them.
+		var key := _panel_key(p)
+		var bottom := Rect2(0, size.y - 180.0 * k, size.x, 180.0 * k)
+		var right := Rect2(size.x - 130.0 * k, 0, 130.0 * k, 340.0 * k)
+		panel_pass = ""
+		if _layer("panel_bottom", bottom, key, "panel", [p]) and _layer("panel_right", right, key, "panel", [p]):
+			panel_pass = "live"
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
 	var panel := Rect2(Vector2(116, H - 100), Vector2(430, 66))
@@ -2963,9 +3137,35 @@ func _draw_player_panel(p) -> void:
 	var bx := W - 22.0 - buttons_w
 	_corner_buttons(Vector2(bx, H - 89))
 	_ability_strip(p, Rect2(Vector2(bx - 30.0 - 470.0, H - 122), Vector2(470, 110)))
-	_status_tags(p, panel)
+	if _lv():
+		_status_tags(p, panel)
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
+	if bake_mode == "":
+		panel_pass = ""
+
+
+func _panel_key(p) -> Array:
+	## Everything the baked panel art depends on: when any of it changes the
+	## layers are drawn again (hearts, level, a slot coming ready or used).
+	var atk: Dictionary = p.attack_stats()
+	var alive: bool = not p.dead and p.carrying == null
+	var slots := [p.attack_timer <= 0.0, alive and p.energy >= atk.cost, atk.attack_name, p.role,
+		p.dodge_cooldown <= 0.0, alive and p.energy >= Stats.DODGE_COST, p.can_block(), p.blocking, p.energy > 0.0, p.points > 0]
+	var abil: Array = p.abilities()
+	for i in 2:
+		if i < abil.size():
+			var a: Dictionary = p.ability(i)
+			slots.append_array([a.name, p.ability_timers[i] <= 0.0, alive and p.energy >= a.cost])
+		else:
+			slots.append(false)
+	for i in 4:
+		slots.append(p.rank(i))
+	var keys := []
+	for act in ["attack", "dodge", "ability_1", "ability_2", "block", "rank_menu", "interact", "menu", "scoreboard"]:
+		keys.append(_k(act))
+	return [size, _bake_scale(), p.team, p.role, p.dead, p.hearts, p.level, p.local_index, game.hero_name,
+		p.carrying != null, game.barricades_left[p.team], game.on_pad(local_unit), slots, keys, skill_art.size()]
 
 
 func _status_tags(p, panel: Rect2) -> void:
@@ -3076,20 +3276,26 @@ func _status_panel(p, panel: Rect2) -> void:
 	## No backing panel: it all sits straight on the world.
 	var x0 := panel.position.x + 14.0
 	var row_y := panel.position.y + 8.0
-	for i in Stats.MAX_HEARTS:
-		_big_heart(Vector2(x0 + 24.0 + i * 46.0, row_y), 1.0, i < (0 if p.dead else p.hearts))
-	# The two bars share a bronze-framed dark block (the 2026-10-08
-	# reference): the energy bar with its numbers, the experience bar under.
 	var bar := Rect2(Vector2(x0 + 4.0, panel.position.y + 30.0), Vector2(Stats.MAX_HEARTS * 42.0 + 90.0, 18.0))
-	_dark_frame(Rect2(bar.position - Vector2(4, 4), Vector2(bar.size.x + 8, 48)), 6)
-	if p.dead:
+	if _st():
+		for i in Stats.MAX_HEARTS:
+			_big_heart(Vector2(x0 + 24.0 + i * 46.0, row_y), 1.0, i < (0 if p.dead else p.hearts))
+		# The two bars share a bronze-framed dark block (the 2026-10-08
+		# reference): the energy bar with its numbers, the experience bar under.
+		_dark_frame(Rect2(bar.position - Vector2(4, 4), Vector2(bar.size.x + 8, 48)), 6)
+	if not _lv():
+		pass
+	elif p.dead:
 		var msg := "Down for the rest of overtime" if game.overtime else "Down! Back in %d" % ceili(p.respawn_timer)
 		_text(Vector2(bar.position.x, bar.position.y + 14.0), msg, 12, Color(1, 0.7, 0.6), HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 3)
 	else:
 		var is_mana: bool = p.energy_kind() == "mana"
 		_meter(bar, p.energy / p.energy_max(), (MANA if is_mana else STAMINA).darkened(0.05))
 		_text(Vector2(bar.position.x, bar.position.y + 14.0), "%d/%d" % [roundi(p.energy), roundi(p.energy_max())], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 3)
-	_draw_xp_bar(p, Rect2(Vector2(x0 + 4.0, panel.position.y + 52.0), Vector2(bar.size.x, 18.0)))
+	if _lv():
+		_draw_xp_bar(p, Rect2(Vector2(x0 + 4.0, panel.position.y + 52.0), Vector2(bar.size.x, 18.0)))
+	if not _st():
+		return
 	var name_tag := ""
 	if p.local_index > 0:
 		name_tag = "PLAYER %d" % (p.local_index + 1)
@@ -3186,6 +3392,12 @@ func _ability_strip(p, strip: Rect2) -> void:
 	## The ability bar on its own gold-framed wooden board: attack, dodge,
 	## the two class abilities, perks (or block for shield classes) and grab,
 	## each slot with its keycap under the icon and its name below.
+	if _st():
+		_strip_board(strip)
+	_strip_slots(p, strip)
+
+
+func _strip_board(strip: Rect2) -> void:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.06, 0.04, 0.03)
 	sb.set_corner_radius_all(10)
@@ -3218,6 +3430,9 @@ func _ability_strip(p, strip: Rect2) -> void:
 		draw_arc(cc, 6.0, 0, TAU, 16, Color(0.35, 0.2, 0.04), 4.0)
 		draw_arc(cc, 6.0, 0, TAU, 16, BRASS, 2.2)
 		draw_circle(cc, 2.2, GOLD.lightened(0.2))
+
+
+func _strip_slots(p, strip: Rect2) -> void:
 	# Slots: attack, dodge, Q, E, perks (or block), grab.
 	var abil: Array = p.abilities()
 	var slot := 52.0
@@ -3268,6 +3483,8 @@ func _corner_buttons(origin: Vector2) -> void:
 		var r := Rect2(origin + Vector2(i * 50.0, 0), Vector2(42, 42))
 		if not pane:
 			touch_rects.append([Rect2(r.position * hud_scale, r.size * hud_scale), ["menu", "", "scoreboard"][i]])
+		if not _st():
+			continue
 		_plate(r.grow(3), Color(0.06, 0.04, 0.03), Color(0.03, 0.02, 0.01), 8, 1)
 		var fb := StyleBoxFlat.new()
 		fb.bg_color = Color(0.2, 0.13, 0.08)

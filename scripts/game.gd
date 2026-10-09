@@ -268,8 +268,10 @@ func _ready() -> void:
 	add_child(sfx)
 	if OS.has_feature("web"):
 		# A first visit in a browser (the iPad) starts on Low: no glow and the
-		# small shadow maps. Settings can raise it to Medium.
+		# small shadow maps. Settings can raise it to Medium. The frame
+		# counter starts on so a slow iPad shows its number (Settings: FPS).
 		gfx_quality = 0
+		show_fps = true
 	_load_controls()
 	if OS.has_feature("web"):
 		# Browsers (and tablets) run Medium at most; Settings can raise
@@ -3086,7 +3088,7 @@ func _load_controls() -> void:
 	couch_mode = "coop" if cfg.get_value("settings", "couch_mode", "versus") == "coop" else "versus"
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
-	show_fps = cfg.get_value("settings", "show_fps", false)
+	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
 	if OS.has_feature("web"):
 		# Browsers (and tablets) start on Medium at most; Settings can raise it.
@@ -7260,6 +7262,11 @@ func apply_graphics() -> void:
 		RenderingServer.directional_shadow_atlas_set_size(2048, true)
 		RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
 		vp.positional_shadow_atlas_size = 1024
+		# Low in a browser drops the sun's shadow: the shadow map redraws
+		# every caster (about 1,150 WebGL draws) and the sun lights each
+		# object in a second pass. Medium brings both back.
+		if sun_light:
+			sun_light.shadow_enabled = q >= 1
 	if world_environment:
 		world_environment.ssao_enabled = q >= 1
 		world_environment.ssil_enabled = q >= 2

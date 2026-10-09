@@ -38,3 +38,4 @@ environment/ssao/quality=3
 environment/ssil/quality=2
 environment/glow/upscale_mode=1
 limits/spatial_indexer/threaded_cull_minimum_instances.web=100000000
+limits/opengl/max_lights_per_object.web=4

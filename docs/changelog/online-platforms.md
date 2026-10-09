@@ -91,3 +91,36 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   the eye, no new console errors. Not yet measured on a real iPad.
 - **Revert:** `git revert 3e1aea7` (restores the old shadows, per-frame HUD drawing and
   full-density 3D on the web)
+
+## 2026-10-09 06:50 UTC · `HASH-PENDING` · iPad stutter: the HUD paints once, not every frame
+
+- **Why:** Faisal (06:04): "a lot of stutter and lag and anytime I tap anything there's a
+  delay". A timed native match showed the HUD script spending ~5.5 ms every frame repainting
+  the player panel (2.9 ms), the top bar (1.1 ms) and the chat (0.9 ms); in the browser's
+  WebAssembly that is roughly two to three times longer, so most of a 60 fps frame went on
+  redrawing pictures that had not changed. Taps are read once per frame, so a slow frame is a
+  slow tap.
+- **What:**
+  - All platforms: the player panel's art (hearts, portrait, laurels, level plate, ability
+    tiles, keycaps, names, the right-hand buttons, the corner buttons, the strip's board) and
+    the top bar (banners, names, scores, clock, the line under it) are baked into textures with
+    the existing `_bake` helper and shown by `TextureRect`s behind the HUD (`_layer`). They are
+    re-drawn only when what they show changes (`_panel_key`, `_topbar_key`: a heart lost, a slot
+    coming ready, the clock's second). The live pass paints only the energy and XP bars, the
+    cooldown shades and numbers, cost tags, rank pips and the status tags; glows that sit under
+    the tiles (perk/drop glow, ready flash, the crown button's pulse) go on an underlay control
+    beneath the baked layers. `_plate` keeps its `StyleBoxFlat`s in a cache, and word-wrapped
+    chat lines are remembered (`_wrap`).
+  - Web only: the Low preset (the default in a browser) turns the sun's shadow off; Medium
+    brings it back. The frame counter is on by default in a browser (Settings: FPS turns it off).
+    `max_lights_per_object.web` = 4.
+- **Files:** `project.godot`, `scripts/game.gd`, `scripts/hud.gd`, `docs/changelog/online-platforms.md`
+- **Tunables:** web Low: sun `shadow_enabled` true → false; `show_fps` default false → true on
+  web; `rendering/limits/opengl/max_lights_per_object.web` 8 → 4.
+- **Tested:** `--check-only` on the changed scripts; a 40 s headless `--play` match: HUD draw
+  time 5.5 ms → 1.1 ms a frame, the panel layers re-baked twice and the top bar about once a
+  second; the exported build in Chromium (iPad user agent, touch) side by side with the
+  previous build at the same moment: WebGL draw calls per frame 3,240 → 1,130, primitives
+  1.0 M → 0.4 M, software-renderer frame time −25 %, HUD identical to the eye apart from the
+  "FPS" number, no console errors. Not yet measured on a real iPad.
+- **Revert:** `git revert HASH-PENDING`
