@@ -40,3 +40,14 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Files:** `scripts/menu_stage.gd`
 - **Tunables:** none
 - **Revert:** `git revert a270b18`
+
+## 2026-10-09 03:31 UTC · `7efb455` · Merged the showcase thread's web fixes
+
+- **What:** the "Current build showcase" thread fixed the same two web problems on its own branch
+  (culling override as a web-only setting, letterbox in `_ready`); merged so both branches agree.
+  Kept its `_ready` block and web-only override, dropped this branch's duplicates, kept the
+  post-load graphics cap, FXAA-only web view and the menu hall shadow fix. `9291713` then merged
+  `main` (docs only).
+- **Files:** `project.godot`, `scripts/game.gd`
+- **Tunables:** `threaded_cull_minimum_instances` 1000000 → (web only) 100000000
+- **Revert:** `git revert -m 1 7efb455`
