@@ -261,6 +261,8 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 		_add_face(inst, c.scene, team, role, custom, skin)
 		if c.ears:
 			_add_ears(team, custom.get("skin", Color(0.97, 0.84, 0.72)))
+		if int(custom.get("hair_style", 0)) > 0 and variant == "":
+			_add_hair_style(int(custom.hair_style), custom.get("hair", Face.hair_color(skin)))
 		if c.crown:
 			_add_crown()
 	_add_class_flair(role, variant)
@@ -722,6 +724,79 @@ func _add_ears(team: int, skin_color: Color = Color(0.97, 0.84, 0.72)) -> void:
 		ear.position = Vector3(side * 0.46, 0.22, 0.0)
 		ear.rotation.z = -side * (PI / 2.0 - 0.35)
 		att.add_child(ear)
+
+
+func _hair_piece(parent: Node3D, mesh: Mesh, pos: Vector3, rot: Vector3, mat: Material, scl: Vector3 = Vector3.ONE) -> void:
+	var m := MeshInstance3D.new()
+	m.mesh = _flat_mesh(mesh)
+	m.material_override = mat
+	m.position = pos
+	m.rotation = rot
+	m.scale = scl
+	parent.add_child(m)
+
+
+static func _cyl(top: float, bottom: float, h: float, seg: int = 6) -> CylinderMesh:
+	var m := CylinderMesh.new()
+	m.top_radius = top
+	m.bottom_radius = bottom
+	m.height = h
+	m.radial_segments = seg
+	m.rings = 1
+	return m
+
+
+static func _ball(r: float, seg: int = 7) -> SphereMesh:
+	var m := SphereMesh.new()
+	m.radius = r
+	m.height = r * 2.0
+	m.radial_segments = seg
+	m.rings = 4
+	return m
+
+
+func _add_hair_style(style: int, color: Color) -> void:
+	## Modelled hair styles beyond the model's own cut (Stats.HERO_HAIR_STYLES,
+	## Faisal 09:14 2026-10-09 "add more hairstyles"): chunky faceted pieces
+	## on the head bone, kept to the back and sides so they still show under
+	## every class hat and helmet. Head-bone space (measured from the KayKit
+	## heads): +z is the face, the head and its own hair span about
+	## x -0.55..0.55, y -0.08..0.95, z -0.52..0.52, so every piece sits on or
+	## outside that box.
+	var head := _attach_to_head()
+	var hair := StandardMaterial3D.new()
+	hair.albedo_color = color
+	hair.roughness = 0.8
+	hair.rim_enabled = true
+	hair.rim = 0.3
+	hair.next_pass = outline
+	var tie := StandardMaterial3D.new()
+	tie.albedo_color = color.darkened(0.55)
+	tie.next_pass = outline
+	match style:
+		1:  # Ponytail: a knot high on the back of the head and a tail in three tapering lengths.
+			_hair_piece(head, _ball(0.16, 6), Vector3(0, 0.72, -0.54), Vector3.ZERO, hair)
+			_hair_piece(head, _cyl(0.11, 0.11, 0.08, 6), Vector3(0, 0.66, -0.66), Vector3(-1.2, 0, 0), tie)
+			_hair_piece(head, _cyl(0.15, 0.12, 0.36, 6), Vector3(0, 0.48, -0.76), Vector3(-0.45, 0, 0), hair)
+			_hair_piece(head, _cyl(0.12, 0.08, 0.34, 6), Vector3(0, 0.16, -0.84), Vector3(-0.12, 0, 0), hair)
+			_hair_piece(head, _cyl(0.08, 0.0, 0.26, 5), Vector3(0, -0.12, -0.82), Vector3(0.2, 0, 0), hair)
+		2:  # Long: a fan of five locks over the back down past the shoulders and a lock either side of the face.
+			for i in range(-2, 3):
+				var lx := i * 0.2
+				_hair_piece(head, _cyl(0.13, 0.08, 0.95, 5), Vector3(lx, 0.2, -0.56 + absf(lx) * 0.12), Vector3(-0.1, 0, i * 0.07), hair)
+			for side in [-1.0, 1.0]:
+				# Behind the ear, round and tapering (a flat slab read as a board in front of the face).
+				_hair_piece(head, _cyl(0.1, 0.05, 0.7, 7), Vector3(side * 0.6, 0.18, -0.12), Vector3(0.08, 0, side * 0.05), hair)
+		3:  # Braids: two plaits of chunky beads down the sides, each with a tie and a tuft.
+			for side in [-1.0, 1.0]:
+				for k in 4:
+					var r := 0.13 - k * 0.012
+					_hair_piece(head, _ball(r, 6), Vector3(side * (0.6 - k * 0.01), 0.36 - k * 0.19, 0.12), Vector3(0, k * 0.6, 0), hair, Vector3(1.0, 0.85, 1.0))
+				_hair_piece(head, _cyl(0.07, 0.07, 0.07, 6), Vector3(side * 0.57, -0.36, 0.12), Vector3.ZERO, tie)
+				_hair_piece(head, _cyl(0.03, 0.1, 0.2, 5), Vector3(side * 0.57, -0.5, 0.12), Vector3(PI, 0, 0), hair)
+		4:  # Bun: a big knot on top at the back of the head with a band round its base.
+			_hair_piece(head, _ball(0.28, 7), Vector3(0, 1.02, -0.3), Vector3(0.4, 0, 0), hair, Vector3(1.0, 0.85, 1.0))
+			_hair_piece(head, _cyl(0.2, 0.23, 0.08, 7), Vector3(0, 0.9, -0.24), Vector3(-0.5, 0, 0), tie)
 
 
 func _add_crown() -> void:

@@ -516,12 +516,11 @@ func _tab_appearance(panel: Rect2) -> void:
 		swatch(Rect2(_row_x(panel, i, Stats.HERO_SKINS.size(), 50), y - 19, 50, 38), Stats.HERO_SKINS[i][1], game.hero_skin == i, "skin", i)
 	y += step
 	_row_label(panel, y, "Hair Style")
-	for i in 5:
-		var r := Rect2(_row_x(panel, i, 5, 44), y - 21, 44, 42)
-		swatch(r, Color(0.2, 0.21, 0.24), i == 0, "locked", "hair_style", i > 0)
-		icon("hair", r.get_center(), 32, Color(1, 1, 1, 1.0 if i == 0 else 0.4))
-		if i > 0:
-			icon("lock", r.end - Vector2(8, 8), 15)
+	var ns := Stats.HERO_HAIR_STYLES.size()
+	for i in ns:
+		var r := Rect2(_row_x(panel, i, ns, 44), y - 21, 44, 42)
+		swatch(r, Color(0.2, 0.21, 0.24), game.hero_hair_style == i, "hair_style", i)
+		hair_thumb(r.get_center(), i, 1.0)
 	y += step
 	_row_label(panel, y, "Hair Color")
 	for i in Stats.HERO_HAIR.size():
@@ -608,9 +607,41 @@ func _tab_hair(panel: Rect2) -> void:
 		h.draw_circle(c, 29, Stats.HERO_HAIR[i][1])
 		h.draw_circle(c + Vector2(-9, -9), 7, Color(1, 1, 1, 0.3))
 		h._text(Vector2(c.x - 50, c.y + 50), Stats.HERO_HAIR[i][0].to_upper(), 11, Color.WHITE if on else Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	label(Vector2(panel.position.x + 26, y + 252), "HAIR STYLE", 15)
-	icon("lock", Vector2(panel.position.x + 140, y + 247), 22)
-	h._paragraph(Vector2(panel.position.x + 26, y + 276), "One style per body for now: new cuts arrive with the character art update.", 12, Color(0.8, 0.8, 0.76), panel.size.x - 52, 15.0)
+	label(Vector2(panel.position.x + 26, y + 252), "HAIR STYLE  ·  %s" % Stats.HERO_HAIR_STYLES[game.hero_hair_style], 15)
+	for i in Stats.HERO_HAIR_STYLES.size():
+		var r := Rect2(panel.position.x + 26 + i * 74, y + 270, 64, 64)
+		swatch(r, Color(0.2, 0.21, 0.24), game.hero_hair_style == i, "hair_style", i)
+		hair_thumb(r.get_center(), i, 1.45)
+
+
+func hair_thumb(c: Vector2, style: int, k: float) -> void:
+	## A little head in the chosen hair colour showing hair style `style`:
+	## the cut on top, then the ponytail, long hair, braids or bun.
+	var hc: Color = Stats.HERO_HAIR[game.hero_hair][1]
+	var skin: Color = Stats.HERO_SKINS[game.hero_skin][1]
+	var ink := Color(0.1, 0.07, 0.05)
+	var r := 9.0 * k
+	match style:
+		1:
+			h.draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.7, -r * 0.6), c + Vector2(r * 1.7, r * 0.4), c + Vector2(r * 1.2, r * 1.6), c + Vector2(r * 0.6, r * 0.2)]), hc)
+		2:
+			h.draw_rect(Rect2(c + Vector2(-r * 1.15, -r * 0.3), Vector2(r * 2.3, r * 1.9)), hc)
+		3:
+			for sd in [-1.0, 1.0]:
+				for j in 3:
+					h.draw_circle(c + Vector2(sd * r * 1.05, r * (0.3 + j * 0.55)), r * (0.32 - j * 0.04), hc)
+		4:
+			h.draw_circle(c + Vector2(0, -r * 1.2), r * 0.55, hc)
+			h.draw_circle(c + Vector2(0, -r * 1.2), r * 0.55, ink, false, 1.2)
+	h.draw_circle(c + Vector2(0, r * 0.15), r, skin)
+	h.draw_arc(c + Vector2(0, r * 0.15), r, 0, TAU, 20, ink, 1.2)
+	var cap := PackedVector2Array()
+	for j in 13:
+		var a := PI + PI * j / 12.0
+		cap.append(c + Vector2(cos(a) * r * 1.08, r * 0.15 + sin(a) * r * 1.08))
+	cap.append(c + Vector2(r * 0.6, -r * 0.1))
+	cap.append(c + Vector2(-r * 0.2, -r * 0.35))
+	h.draw_colored_polygon(cap, hc)
 
 
 func face_thumb(r: Rect2, i: int) -> void:
@@ -988,7 +1019,11 @@ func _press(id: String, arg) -> void:
 				game._save_settings()
 			else:
 				game.toast("The Shadowborn look unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
-		"locked": game.toast("New hair styles arrive in a later update", Color(1.0, 0.8, 0.5))
+		"hair_style":
+			game.hero_hair_style = int(arg)
+			if preview_role == Role.KNIGHT:
+				preview_role = Role.BASE   # the helmet hides most of the hair
+			game._save_settings()
 		"confirm":
 			game._save_settings()
 			go("title")

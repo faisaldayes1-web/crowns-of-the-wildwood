@@ -91,6 +91,7 @@ var rosters_visible := false      # N shows the side team rosters (off by defaul
 # Hero customizer (title screen): name, hair and trim colour.
 var hero_name := ""
 var hero_hair := 0
+var hero_hair_style := 0         # Stats.HERO_HAIR_STYLES index
 var hero_trim := 0
 var title_tab := 0              # main menu tab: 0 Play, 1 Hero, 2 Progress
 var banner_bg := 0              # player banner: Stats.BANNER_BACKGROUNDS index
@@ -145,6 +146,9 @@ var gates: Array = []
 var vaults: Array = []
 var toasts: Array = []        # [{text, color, time}] small HUD notices
 var stolen_timer := 0.0       # the CROWN STOLEN banner
+var crown_event := ""         # "taken" / "dropped": the crown ribbon the HUD shows everyone else
+var crown_event_team := -1    # the team of whoever took or dropped the crown
+var crown_event_timer := 0.0  # counts down from the ribbon's time on screen
 var capture_timer := 0.0      # the CAPTURE! banner
 var capture_team := 0
 var ramps: Array = []       # ramps[team] = [{bottom, top} at -z, {bottom, top} at +z]
@@ -310,6 +314,7 @@ func _ready() -> void:
 			hero_skin = int(parts[4]) if parts.size() > 4 else hero_skin
 			hero_face = int(parts[5]) if parts.size() > 5 else hero_face
 			hero_eye = int(parts[6]) if parts.size() > 6 else hero_eye
+			hero_hair_style = int(parts[7]) if parts.size() > 7 else hero_hair_style
 			hero_mark = int(parts[7]) if parts.size() > 7 else hero_mark
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
@@ -335,6 +340,10 @@ func _ready() -> void:
 				main_menu.go(scr)
 		if arg.begins_with("--debug-preview-team="):  # renders: the hero's side on the character screen
 			main_menu.preview_team = int(arg.trim_prefix("--debug-preview-team="))
+		if arg.begins_with("--debug-hair-style="):  # renders: a hair style without saving it
+			hero_hair_style = clampi(int(arg.trim_prefix("--debug-hair-style=")), 0, Stats.HERO_HAIR_STYLES.size() - 1)
+		if arg.begins_with("--debug-preview-role="):  # renders: the hero in a class's gear
+			main_menu.preview_role = int(arg.trim_prefix("--debug-preview-role="))
 		if arg.begins_with("--debug-char-tab="):
 			main_menu.char_tab = int(arg.trim_prefix("--debug-char-tab="))
 		if arg.begins_with("--debug-lobby="):  # N local players, all ready
@@ -418,6 +427,7 @@ func _process(delta: float) -> void:
 		for u in units:
 			print("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
+	crown_event_timer = maxf(crown_event_timer - delta, 0.0)
 	killer_timer = maxf(killer_timer - delta, 0.0)
 	capture_timer = maxf(capture_timer - delta, 0.0)
 	levelup_timer = maxf(levelup_timer - delta, 0.0)
@@ -512,18 +522,30 @@ func _debug_hooks() -> void:
 			if arg == "--debug-menu":
 				menu_open = true
 				menu_tab = 0
+			if arg.begins_with("--debug-map-zoom="):
+				hud.map_zoom = float(arg.trim_prefix("--debug-map-zoom="))
 			if arg.begins_with("--debug-tab="):
 				menu_tab = int(arg.trim_prefix("--debug-tab="))
 			if arg == "--debug-stolen":
 				stolen_timer = 3.5
-				if monarchs[1 - player_team].state == Monarch.State.HOME:
+				if monarchs[player_team].state == Monarch.State.HOME:
 					var thief = units.filter(func(x): return x.team != player_team)[mini(1, team_size - 1)]
-					monarchs[1 - player_team].pick_up(thief)
-					thief.carrying = monarchs[1 - player_team]
+					monarchs[player_team].pick_up(thief)
+					thief.carrying = monarchs[player_team]
+					crown_event_note("taken", thief.team)
+			if arg == "--debug-crown-lost":  # renders: an ally dropping the enemy crown
+				var ally = units.filter(func(x): return x.team == player_team and not x.is_player)[0]
+				monarchs[1 - player_team].pick_up(ally)
+				ally.carrying = monarchs[1 - player_team]
+				drop_monarch(ally)
 			if arg == "--debug-levelup":
 				levelup_timer = 3.0
 				levelup_level = 2
 				levelup_text = ""
+			if arg.begins_with("--debug-role="):  # renders: play a class from the start
+				player.set_role(int(arg.trim_prefix("--debug-role=")))
+				player.ranks[player.role] = [1, 2, 0, 1]
+				player.mastery[player.role] = 2
 			if arg == "--debug-class":
 				# Renders: the class pick-up banner, as if the Knight's hat was just taken.
 				player.set_role(Role.KNIGHT)
@@ -587,7 +609,7 @@ func _debug_hooks() -> void:
 			vmap._set_owner(0 if arg.ends_with("0") else 1)
 		if arg == "--debug-options" and frame == shot_frame - 5 and not playing:
 			menu_open = true
-			menu_tab = 4
+			menu_tab = 5
 		if arg.begins_with("--shot=") and frame == shot_frame:
 			get_viewport().get_texture().get_image().save_png(arg.trim_prefix("--shot="))
 		if arg == "--debug-end" and playing and frame == shot_frame - 60:
@@ -732,10 +754,14 @@ func try_interact(u) -> void:
 		u.carrying = m
 		u.gain_xp(Stats.XP_GRAB, "crown")
 		stolen_timer = 3.5
+		crown_event_note("taken", u.team)
 		sfx.play("crown_grab", u.global_position)
 		if u.team != player_team:
 			sfx.ui("stolen", -4.0)
-		announce("CROWN STOLEN! The %s has been taken by the %s!" % [m.title, Stats.FACTIONS[u.team].name])
+		# The crown ribbon (hud._draw_crown_event) is the only on-screen notice;
+		# the centre caption repeated it (Faisal 09:26 2026-10-09). The chat log
+		# keeps a line.
+		chat_system("CROWN STOLEN! The %s has been taken by the %s!" % [m.title, Stats.FACTIONS[u.team].name])
 		spawn_pillar(u.global_position, Color(1.0, 0.85, 0.3), 7.0, 1.2)
 		spawn_flash(u.global_position + Vector3(0, 1.5, 0), Color(1.0, 0.85, 0.3), 4.0, 0.5)
 		shake_at(u.global_position, 0.5)
@@ -830,6 +856,16 @@ func drop_monarch(u) -> void:
 	u.carrying = null
 	m.drop_at(u.global_position)
 	sfx.play("crown_drop", u.global_position)
+	crown_event_note("dropped", u.team)
+
+
+func crown_event_note(kind: String, team: int) -> void:
+	## Raise the crown ribbon (hud._draw_crown_event) for everyone but the
+	## unit it happened to: "taken" when a crown is picked up, "dropped" when
+	## its carrier lets it go or falls.
+	crown_event = kind
+	crown_event_team = team
+	crown_event_timer = 3.6
 
 
 func _check_stations() -> void:
@@ -1120,8 +1156,15 @@ func toggle_setting(key: String) -> void:
 			if rumble_on:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
 		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
+		"pad_style_prev": pad_style = {"auto": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
+		"test_sound":
+			sfx.ui("ui_confirm", 0.0)
+			return
 		"gfx":
 			gfx_quality = (gfx_quality + 1) % GFX_NAMES.size()
+			apply_graphics()
+		"gfx_0", "gfx_1", "gfx_2", "gfx_3":
+			gfx_quality = int(key.trim_prefix("gfx_"))
 			apply_graphics()
 		"fullscreen":
 			fullscreen = not fullscreen
@@ -1666,7 +1709,7 @@ func _show_loading(hold: float) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shot") or arg == "--demo" or arg == "--audit":
 			return   # screenshots and headless tests see the game itself
-	if loading_layer:
+	if is_instance_valid(loading_layer):   # the last one frees itself after its fade
 		loading_layer.queue_free()
 	loading_layer = CanvasLayer.new()
 	loading_layer.layer = 100
@@ -2188,7 +2231,8 @@ func shake_at(where: Vector3, amount: float) -> void:
 
 func hero_custom() -> Dictionary:
 	## The player's chosen hair and trim colours for the character skin.
-	var c := {"hair": Stats.HERO_HAIR[hero_hair][1], "skin": Stats.HERO_SKINS[hero_skin][1], "body": Stats.HERO_BODIES[hero_body][1], "face": hero_face, "mark": hero_mark}
+	var c := {"hair": Stats.HERO_HAIR[hero_hair][1], "skin": Stats.HERO_SKINS[hero_skin][1], "body": Stats.HERO_BODIES[hero_body][1], "face": hero_face, "mark": hero_mark,
+		"hair_style": hero_hair_style}
 	if hero_eye >= 0:
 		c.eye = hero_eye
 	if hero_trim > 0:
@@ -2371,7 +2415,7 @@ func _rank_pressed() -> bool:
 
 func menu_tabs() -> Array:
 	## Which menu tabs make sense now: at the title only Classes and Controls.
-	return [1, 4, 5] if not playing else [0, 3, 1, 2, 4, 5]
+	return [5, 4, 1, 6] if not playing else [0, 3, 1, 2, 4, 5]
 
 
 func menu_tick() -> void:
@@ -2385,7 +2429,7 @@ func menu_tick() -> void:
 		if not eaten and rebinding == "":
 			if Input.is_action_just_pressed("options") and not menu_open:
 				menu_open = true
-				menu_tab = 4
+				menu_tab = 5
 			elif Input.is_action_just_pressed("menu") and menu_open:
 				menu_open = false
 			elif Input.is_action_just_pressed("menu") and main_menu and not name_editing:
@@ -2491,9 +2535,21 @@ func menu_tick() -> void:
 		for b in hud.variant_buttons:
 			if b[0].has_point(mouse) and player:
 				player.choose_variant(b[1], b[2])
+		for b in hud.rank_tab_buttons:
+			if b[0].has_point(mouse):
+				hud.rank_view = -1 if player and b[1] == player.role else b[1]
 		for i in hud.tab_buttons.size():
 			if hud.tab_buttons[i].has_point(mouse):
 				menu_tab = hud.tab_ids[i]
+		for b in hud.group_buttons:
+			if b[0].has_point(mouse):
+				hud.controls_group = b[1]
+				sfx.ui("ui_click", -6.0)
+		for b in hud.class_buttons:
+			if b[0].has_point(mouse) and player and seals[player.team].has(b[1]):
+				seals[player.team][b[1]].take(player)
+				menu_open = false
+				get_tree().paused = false
 		for b in hud.bind_buttons:
 			if b[0].has_point(mouse):
 				rebinding = b[1]
@@ -2510,7 +2566,7 @@ func menu_tick() -> void:
 				toggle_setting(b[1])
 		if hud.options_button.has_point(mouse) and not playing:
 			menu_open = true
-			menu_tab = 4
+			menu_tab = 5
 		if not playing and not menu_open:
 			for b in hud.title_buttons:
 				if b[0].has_point(mouse) and b[1] < 3:
@@ -2572,6 +2628,13 @@ func menu_tick() -> void:
 		for b in hud.chat_buttons:
 			if b[0].has_point(mouse):
 				chat_tab = int(b[1])
+		if hud.resume_button.has_point(mouse) and menu_open:
+			menu_open = false
+			get_tree().paused = false
+		for b in hud.zoom_buttons:
+			if b[0].has_point(mouse) and menu_open:
+				hud.map_zoom = clampf(hud.map_zoom + 0.5 * b[1], 1.0, 3.0)
+				sfx.ui("ui_click", -6.0)
 		if hud.quit_button.has_point(mouse) and menu_open:
 			if quit_armed > 0.0:
 				quit_to_title()
@@ -3021,6 +3084,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "map_variant", map_variant)
 	cfg.set_value("settings", "hero_skin", hero_skin)
 	cfg.set_value("settings", "hero_face", hero_face)
+	cfg.set_value("settings", "hero_hair_style", hero_hair_style)
 	cfg.set_value("settings", "hero_eye", hero_eye)
 	cfg.set_value("settings", "hero_mark", hero_mark)
 	cfg.set_value("settings", "hero_body", hero_body)
@@ -3088,6 +3152,7 @@ func _load_controls() -> void:
 	map_variant = clampi(cfg.get_value("settings", "map_variant", 0), 0, Stats.MAPS.size() - 1)
 	hero_skin = clampi(cfg.get_value("settings", "hero_skin", 1), 0, Stats.HERO_SKINS.size() - 1)
 	hero_face = clampi(cfg.get_value("settings", "hero_face", 0), 0, Stats.HERO_FACES.size() - 1)
+	hero_hair_style = clampi(cfg.get_value("settings", "hero_hair_style", 0), 0, Stats.HERO_HAIR_STYLES.size() - 1)
 	hero_eye = clampi(cfg.get_value("settings", "hero_eye", -1), -1, Stats.HERO_EYES.size() - 1)
 	hero_mark = clampi(cfg.get_value("settings", "hero_mark", 0), 0, Stats.HERO_MARKS.size() - 1)
 	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)
@@ -4623,21 +4688,10 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 	if team == 0 and cellar_floor(team) >= 0.0:
 		# The open courtyard (Wildwood): designed stations under the pavilion,
 		# their name boards on its posts; the hat's own ring is the only glow.
+		# The class name is on the station's sign (Faisal 09:06 2026-10-09:
+		# the light floor label read poorly; "it should have been above it in
+		# the sign").
 		_add_elf_class_station(team, role, pos)
-		# The class name stands just in front of the station's base, where
-		# the game camera always sees it (on the pavilion's board it was cut
-		# off by the top of the screen: Faisal 08:18 2026-10-09).
-		var name := Label3D.new()
-		name.text = str(Stats.FACTIONS[team].roles[role]).to_upper()
-		name.font_size = 64
-		name.pixel_size = 0.0048
-		name.outline_size = 14
-		name.outline_modulate = Color(0.1, 0.07, 0.04)
-		name.modulate = Color(1.0, 0.97, 0.9)
-		name.position = Vector3(pos.x, pos.y + 0.3, pos.z + 1.35)
-		name.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		name.shaded = false
-		add_child(name)
 		return
 	if team == 0:
 		_add_elf_class_stall(team, role, pos, wall_z, top, sign_y)
@@ -5388,9 +5442,12 @@ func _add_fire(pos: Vector3, size: float = 1.0) -> void:
 
 
 
-func _add_banner_pole(team: int, pos: Vector3) -> void:
+func _add_banner_pole(team: int, pos: Vector3, yaw: float = 0.0) -> void:
 	## A timber pole with a crossbar and the faction's banner hanging from it,
 	## facing the camera: they flank each castle door (the target art).
+	## `yaw` turns the whole frame about its foot (0 = facing +z).
+	var c0 := get_child_count()
+	var a0 := audit_blocks.size()
 	# A two-post timber frame (Faisal's 2026-10-08 target art).
 	var wood := _timber(Color(0.5, 0.36, 0.24))
 	for xs in [-0.8, 0.8]:
@@ -5410,6 +5467,20 @@ func _add_banner_pole(team: int, pos: Vector3) -> void:
 		brace.rotation.z = 0.8 if xs > 0.0 else -0.8
 		add_child(brace)
 	_add_pennant(team, pos + Vector3(0, 3.28, 0.06), Vector3(0, 0, 1), 1.1, 2.2)
+	if yaw != 0.0:
+		_turn_since(c0, a0, pos, yaw)
+
+
+func _turn_since(c0: int, a0: int, pivot: Vector3, yaw: float) -> void:
+	## Turns every child added since index `c0` (and the audit boxes since
+	## `a0`) by `yaw` about `pivot`, so an axis-aligned build can face any way.
+	var t := Transform3D(Basis(Vector3.UP, yaw), pivot) * Transform3D(Basis.IDENTITY, -pivot)
+	for i in range(c0, get_child_count()):
+		var n := get_child(i)
+		if n is Node3D:
+			n.transform = t * n.transform
+	for i in range(a0, audit_blocks.size()):
+		audit_blocks[i][1] = t * (audit_blocks[i][1] as AABB)
 
 
 func _add_torch_stand(pos: Vector3, height: float = 1.9) -> void:
@@ -7392,29 +7463,38 @@ func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float) -> voi
 	audit_blocks.append(["fence", AABB(pos - Vector3(fs.x / 2.0, 0, fs.z / 2.0), fs)])
 
 
-func _add_upgrade_pad(team: int, pos: Vector3) -> void:
+func _add_upgrade_pad(team: int, pos: Vector3, yaw: float = 0.0, small_anvil: bool = false) -> void:
+	## `yaw` turns the station and its workshop about the pad (0 = the anvil
+	## and board facing +z). `small_anvil` drops the gold pad, its flagstone
+	## and the block anvil for a small modelled anvil with a hammer on it.
 	upgrade_pads[team] = pos
-	var color := Color(0.75, 0.55, 0.2)
-	_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.45), false, _flagstone(Color(0.7, 0.62, 0.5)))
-	var pad := MeshInstance3D.new()
-	var pad_mesh := CylinderMesh.new()
-	pad_mesh.top_radius = STATION_RADIUS
-	pad_mesh.bottom_radius = STATION_RADIUS
-	pad_mesh.height = 0.06
-	pad.mesh = pad_mesh
-	var pad_mat := _material(color)
-	pad_mat.emission_enabled = true
-	pad_mat.emission = color * 0.15
-	pad.material_override = pad_mat
-	pad.position = pos + Vector3(0, 0.12, 0)
-	add_child(pad)
-	# An anvil on a timber block, like the upgrade station in the renders.
-	_add_block(pos + Vector3(0, 0.4, 0), Vector3(0.7, 0.5, 0.7), Color.WHITE, false, _timber(Color(0.75, 0.65, 0.55)))
+	var c0 := get_child_count()
+	var a0 := audit_blocks.size()
 	var iron := _material(Color(0.3, 0.31, 0.35))
 	iron.metallic = 0.6
 	iron.roughness = 0.5
-	_add_block(pos + Vector3(0, 0.8, 0), Vector3(1.0, 0.3, 0.42), Color.WHITE, false, iron)
-	_add_block(pos + Vector3(0.45, 0.82, 0), Vector3(0.3, 0.2, 0.3), Color.WHITE, false, iron)
+	if small_anvil:
+		_add_small_anvil(pos)
+	else:
+		var color := Color(0.75, 0.55, 0.2)
+		_add_block(pos + Vector3(0, 0.05, 0), Vector3(2.2, 0.1, 2.2), color.darkened(0.45), false, _flagstone(Color(0.7, 0.62, 0.5)))
+		var pad := MeshInstance3D.new()
+		var pad_mesh := CylinderMesh.new()
+		pad_mesh.top_radius = STATION_RADIUS
+		pad_mesh.bottom_radius = STATION_RADIUS
+		pad_mesh.height = 0.06
+		pad.mesh = pad_mesh
+		var pad_mat := _material(color)
+		pad_mat.emission_enabled = true
+		pad_mat.emission = color * 0.15
+		pad.material_override = pad_mat
+		pad.position = pos + Vector3(0, 0.12, 0)
+		add_child(pad)
+		# An anvil on a timber block, like the upgrade station in the renders.
+		_add_block(pos + Vector3(0, 0.4, 0), Vector3(0.7, 0.5, 0.7), Color.WHITE, false, _timber(Color(0.75, 0.65, 0.55)))
+		_add_block(pos + Vector3(0, 0.8, 0), Vector3(1.0, 0.3, 0.42), Color.WHITE, false, iron)
+		_add_block(pos + Vector3(0.45, 0.82, 0), Vector3(0.3, 0.2, 0.3), Color.WHITE, false, iron)
+
 	# The workshop behind it (Faisal's 12:55 target): a timber board with
 	# the station's name, a hammer and an axe hung on it, a workbench and casks.
 	var sd := -1.0 if team == 0 else 1.0   # away from the cellar's back wall
@@ -7444,7 +7524,41 @@ func _add_upgrade_pad(team: int, pos: Vector3) -> void:
 	_add_block(back + Vector3(sd * 1.75, 0.42, 0.35), Vector3(1.0, 0.08, 0.6), Color.WHITE, false, wood)
 	_add_block(back + Vector3(sd * 1.75, 0.2, 0.35), Vector3(0.9, 0.4, 0.5), Color.WHITE, false, _timber(Color(0.5, 0.36, 0.24)))
 	_prop("dungeon/barrel_small", back + Vector3(sd * 2.7, 0, 0.3), 0.75)
-	_prop("dungeon/barrel_small", back + Vector3(sd * 2.8, 0, 1.05), 0.7, 0.6)
+	_prop("dungeon/barrel_small", back + Vector3(sd * (2.85 if yaw != 0.0 else 2.8), 0, 1.3 if yaw != 0.0 else 1.05), 0.7, 0.6)
+	if yaw != 0.0:
+		_turn_since(c0, a0, pos, yaw)
+
+
+func _add_small_anvil(pos: Vector3) -> void:
+	## A small smith's anvil standing on the paving (stepped foot, waist,
+	## face, heel and a pointed horn toward +x) with a hammer laid on its
+	## face, handle toward +z (Faisal 09:03 2026-10-09).
+	var iron := _material(Color(0.24, 0.25, 0.28))
+	iron.metallic = 0.7
+	iron.roughness = 0.42
+	var s := 1.25
+	_add_block(pos + Vector3(0, 0.06, 0) * s, Vector3(0.56, 0.12, 0.4) * s, Color.WHITE, false, iron)
+	_add_block(pos + Vector3(0, 0.15, 0) * s, Vector3(0.42, 0.06, 0.3) * s, Color.WHITE, false, iron)
+	_add_block(pos + Vector3(0, 0.26, 0) * s, Vector3(0.26, 0.16, 0.2) * s, Color.WHITE, false, iron)
+	_add_block(pos + Vector3(0, 0.4, 0) * s, Vector3(0.6, 0.13, 0.28) * s, Color.WHITE, false, iron)
+	_add_block(pos + Vector3(-0.36, 0.42, 0) * s, Vector3(0.12, 0.09, 0.2) * s, Color.WHITE, false, iron)
+	var horn := MeshInstance3D.new()
+	var hm := CylinderMesh.new()
+	hm.top_radius = 0.0
+	hm.bottom_radius = 0.08 * s
+	hm.height = 0.3 * s
+	hm.radial_segments = 8
+	horn.mesh = hm
+	horn.material_override = iron
+	horn.position = pos + Vector3(0.44, 0.41, 0) * s
+	horn.rotation.z = -PI / 2.0   # tip toward +x
+	add_child(horn)
+	# The hammer: an iron head on the face, its timber handle running forward.
+	var steel := _material(Color(0.5, 0.52, 0.56))
+	steel.metallic = 0.8
+	steel.roughness = 0.35
+	_add_block(pos + Vector3(-0.08, 0.515, -0.02) * s, Vector3(0.2, 0.09, 0.1) * s, Color.WHITE, false, steel)
+	_add_block(pos + Vector3(-0.08, 0.5, 0.16) * s, Vector3(0.045, 0.045, 0.34) * s, Color.WHITE, false, _timber(Color(0.55, 0.38, 0.24)))
 
 
 func _box_at(pos: Vector3, size: Vector3, mat: Material, rot: Vector3 = Vector3.ZERO) -> void:
@@ -7881,125 +7995,12 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 		_add_block(p + Vector3(0, 0.76, 0), Vector3(0.8, 0.12, 0.8), Color.WHITE, false, _ashlar(Color(0.96, 0.94, 0.9)))
 
 
-func _add_elf_station_canopy(bx: float, side: float, hz: float) -> void:
-	## The pavilion over the class row (the reference's green awning): seven
-	## thick timber posts with shaped caps along the row's back edge, a taller
-	## seven behind the fence, beams between them and an emerald canvas that
-	## sags a little in every bay, rising to the back so the camera sees the
-	## stations, their boards and the gold-trimmed valance under its edge.
-	var zf := -(hz - 0.2)    # the front posts, just behind the stations
-	var zb := -(hz + 1.8)    # the back posts, beyond the fence
-	var hf := 3.4
-	var hb := 4.0
-	var wood := _timber(Color(0.42, 0.28, 0.17))
-	var cap := _timber(Color(0.52, 0.36, 0.2))
-	var xs: Array = []
-	for k in 7:
-		xs.append(bx + side * (9.0 + (k - 3.0) * 2.85))
-	for x in xs:
-		for row in [[zf, hf], [zb, hb]]:
-			var z: float = row[0]
-			var h: float = row[1]
-			audit_label = "pole"
-			_add_block(Vector3(x, h / 2.0, z), Vector3(0.36, h, 0.36), Color.WHITE, false, wood)
-			audit_label = ""
-			_add_block(Vector3(x, 0.12, z), Vector3(0.6, 0.24, 0.6), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.82)))
-			_add_block(Vector3(x, h + 0.06, z), Vector3(0.54, 0.12, 0.54), Color.WHITE, false, cap)
-			var tip := MeshInstance3D.new()
-			var tm := CylinderMesh.new()
-			tm.top_radius = 0.0
-			tm.bottom_radius = 0.3
-			tm.height = 0.3
-			tm.radial_segments = 4
-			tip.mesh = tm
-			tip.position = Vector3(x, h + 0.27, z)
-			tip.rotation.y = PI / 4.0
-			tip.material_override = cap
-			add_child(tip)
-		# A rafter from the front post to the back one.
-		var mid := Vector3(x, (hf + hb) / 2.0 - 0.1, (zf + zb) / 2.0)
-		_box_at(mid, Vector3(0.22, 0.22, absf(zb - zf) + 0.3), wood, Vector3(atan2(hb - hf, absf(zb - zf)), 0, 0))
-	var length: float = absf(xs[-1] - xs[0]) + 0.6
-	var cx: float = (xs[0] + xs[-1]) / 2.0
-	_add_block(Vector3(cx, hf - 0.15, zf), Vector3(length, 0.3, 0.3), Color.WHITE, false, wood)
-	_add_block(Vector3(cx, hb - 0.15, zb), Vector3(length, 0.3, 0.3), Color.WHITE, false, wood)
-	# The canvas: a strip over the bays, sagging between posts and rafters.
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var nx := 48
-	var nz := 4
-	var x0: float = minf(xs[0], xs[-1]) - 0.3
-	var x1: float = maxf(xs[0], xs[-1]) + 0.3
-	var bay := 2.85
-	var pts: Array = []
-	for i in nx + 1:
-		var x: float = x0 + (x1 - x0) * i / nx
-		var u: float = fposmod(x - xs[0], bay) / bay
-		var col: Array = []
-		for j in nz + 1:
-			var t: float = float(j) / nz
-			var z: float = zf + (zb - zf) * t
-			var y: float = lerpf(hf, hb, t) + 0.1 - 0.2 * sin(PI * u) * (0.6 + 0.4 * sin(PI * t)) - 0.06 * sin(PI * t)
-			col.append(Vector3(x, y, z))
-		pts.append(col)
-	for i in nx:
-		for j in nz:
-			var a: Vector3 = pts[i][j]
-			var b: Vector3 = pts[i + 1][j]
-			var c: Vector3 = pts[i + 1][j + 1]
-			var d: Vector3 = pts[i][j + 1]
-			for tri in [[a, b, c], [a, c, d]]:
-				for v in tri:
-					st.add_vertex(v)
-	st.generate_normals()
-	var cloth := _cloth(Color(0.13, 0.46, 0.26))
-	cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var canvas := MeshInstance3D.new()
-	canvas.mesh = st.commit()
-	canvas.material_override = cloth
-	add_child(canvas)
-	# The valance: a scalloped hem under the front edge, with a gold band.
-	var vs := SurfaceTool.new()
-	vs.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var gs := SurfaceTool.new()
-	gs.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i in nx:
-		var a: Vector3 = pts[i][0]
-		var b: Vector3 = pts[i + 1][0]
-		var da: float = 0.26 + 0.14 * absf(sin(PI * (a.x - x0) / 0.7))
-		var db: float = 0.26 + 0.14 * absf(sin(PI * (b.x - x0) / 0.7))
-		var a2 := a - Vector3(0, da, 0)
-		var b2 := b - Vector3(0, db, 0)
-		for tri in [[a, b, b2], [a, b2, a2]]:
-			for v in tri:
-				vs.add_vertex(v + Vector3(0, 0, 0.02))
-		var g1 := a - Vector3(0, 0.08, 0)
-		var g2 := b - Vector3(0, 0.08, 0)
-		for tri in [[a, b, g2], [a, g2, g1]]:
-			for v in tri:
-				gs.add_vertex(v + Vector3(0, 0, 0.03))
-	vs.generate_normals()
-	gs.generate_normals()
-	var hem := MeshInstance3D.new()
-	hem.mesh = vs.commit()
-	var hem_mat := _cloth(Color(0.1, 0.38, 0.22))
-	hem_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	hem.material_override = hem_mat
-	add_child(hem)
-	var band := MeshInstance3D.new()
-	band.mesh = gs.commit()
-	var gold := _gold()
-	gold.cull_mode = BaseMaterial3D.CULL_DISABLED
-	band.material_override = gold
-	add_child(band)
-
-
 func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	## One class station of the open courtyard (Faisal's 2026-10-09 brief): an
 	## octagonal sandstone slab, a bevelled second tier and a bronze band under
-	## the hat's pedestal (seal.gd adds the pedestal, ring and hat), and on the
-	## pavilion post line behind it a thick timber name board on chains over
-	## an emerald panel with the class emblem in a soft glow of its colour.
+	## the hat's pedestal (seal.gd adds the pedestal, ring and hat), and behind
+	## it a sign on two timber posts: an emerald panel with the class emblem in
+	## a soft glow of its colour and the class name in gold below it.
 	var accent: Color = Stats.ROLES[role].color
 	var sand := _ashlar(Color(0.95, 0.92, 0.86))
 	var sand2 := _ashlar(Color(0.9, 0.86, 0.78))
@@ -8041,21 +8042,36 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	var zb := pos.z - 1.8
 	var dark := _timber(Color(0.26, 0.17, 0.1))
 	var mid := _timber(Color(0.4, 0.27, 0.16))
-	# (No name board on the posts since 08:18 2026-10-09: the name sits in
-	# front of the base; `dark`/`mid` stay for the panel's frame.)
+	# The sign stands on two timber posts of its own: emerald cloth in a dark
+	# frame, the class emblem above and the class NAME below it in bold gold
+	# on dark (Faisal 09:06 2026-10-09).
+	for xs in [-0.86, 0.86]:
+		_add_block(Vector3(pos.x + xs, pos.y + 1.3, zb - 0.04), Vector3(0.12, 2.6, 0.12), Color.WHITE, false, mid)
+		_add_block(Vector3(pos.x + xs, pos.y + 2.64, zb - 0.04), Vector3(0.18, 0.08, 0.18), Color.WHITE, false, _gold())
 	_add_block(Vector3(pos.x, pos.y + 1.95, zb - 0.02), Vector3(1.62, 1.07, 0.04), Color.WHITE, false, dark)
-	_add_block(Vector3(pos.x, pos.y + 2.5, zb), Vector3(0.05, 0.1, 0.05), Color.WHITE, false, mid)
 	_add_block(Vector3(pos.x, pos.y + 1.95, zb), Vector3(1.5, 0.95, 0.06), Color.WHITE, false, _cloth(Color(0.12, 0.44, 0.25)))
 	for yy in [1.5, 2.4]:
 		_add_block(Vector3(pos.x, pos.y + yy, zb + 0.01), Vector3(1.56, 0.07, 0.08), Color.WHITE, false, _gold())
+	# The name plate: a dark strip across the panel's lower third.
+	_add_block(Vector3(pos.x, pos.y + 1.68, zb + 0.04), Vector3(1.44, 0.3, 0.03), Color.WHITE, false, dark)
+	var name := Label3D.new()
+	name.text = str(Stats.FACTIONS[team].roles[role]).to_upper()
+	name.font_size = 64
+	name.pixel_size = 0.0036
+	name.outline_size = 10
+	name.outline_modulate = Color(0.08, 0.05, 0.02)
+	name.modulate = Color(1.0, 0.82, 0.32)
+	name.position = Vector3(pos.x, pos.y + 1.68, zb + 0.065)
+	name.shaded = false
+	add_child(name)
 	var disc := MeshInstance3D.new()
 	var dm := CylinderMesh.new()
-	dm.top_radius = 0.42
-	dm.bottom_radius = 0.42
+	dm.top_radius = 0.3
+	dm.bottom_radius = 0.3
 	dm.height = 0.02
 	dm.radial_segments = 24
 	disc.mesh = dm
-	disc.position = Vector3(pos.x, pos.y + 1.95, zb + 0.045)
+	disc.position = Vector3(pos.x, pos.y + 2.08, zb + 0.045)
 	disc.rotation.x = PI / 2.0
 	var glow := _material(accent.darkened(0.25))
 	glow.emission_enabled = true
@@ -8066,10 +8082,10 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	add_child(disc)
 	var em := MeshInstance3D.new()
 	var q := QuadMesh.new()
-	q.size = Vector2.ONE * 0.74
+	q.size = Vector2.ONE * 0.54
 	em.mesh = q
 	em.material_override = _icon_mat(_class_icon_name(role))
-	em.position = Vector3(pos.x, pos.y + 1.95, zb + 0.07)
+	em.position = Vector3(pos.x, pos.y + 2.08, zb + 0.07)
 	add_child(em)
 
 
@@ -8253,7 +8269,9 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		for zs in [-1.0, 1.0]:
 			for pxo in [12.0, 17.0]:
 				_add_stone_brazier(Vector3(bx + side * pxo, fy, zs * 3.6))
-			_add_banner_pole(team, Vector3(bx + side * 17.2, fy, zs * 6.2))
+			# Open courtyard: back to the west fence, facing across the yard to
+			# the castle wall (Faisal 08:35 2026-10-09).
+			_add_banner_pole(team, Vector3(bx + side * 17.2, fy, zs * 6.2), atan2(-side, 0.0) if open else 0.0)
 	# The stairs: a straight flight up the middle into the keep. The open
 	# courtyard is level with the keep, so a threshold strip marks the way in.
 	var st := cellar_stairs(team)
@@ -8346,7 +8364,9 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		var xs: Array = []
 		for k in order.size():
 			xs.append(bx + side * (9.0 + (k - 2.5) * 2.85))
-		_add_elf_station_canopy(bx, side, hz)
+		# (No pavilion canopy: from the game camera its canvas showed only as
+		# green slivers under the top bar, "this is bugged what is this green
+		# stuff", Faisal 09:06 2026-10-09. Each sign stands on its own posts.)
 		for k in order.size():
 			var p := Vector3(xs[k], fy, -(hz - 2.0))
 			_add_class_alcove(team, order[k], p)
@@ -8364,7 +8384,12 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# By the class row's near end, its board backing onto the row and the
 		# anvil facing the room ("wrong way", Faisal 08:18 2026-10-09: it sat
 		# in the far corner by the exit).
-		_add_upgrade_pad(team, Vector3(bx + side * 1.6, fy, -4.0))
+		# Turned to face the spawn circle, its board backing onto the castle
+		# wall (Faisal 08:35 2026-10-09: "make it face toward the players
+		# spawning in").
+		var up := Vector3(bx + side * 2.8, fy, -3.4)
+		var to_spawn := Vector3(bx + side * 14.5, fy, 0) - up
+		_add_upgrade_pad(team, up, atan2(to_spawn.x, to_spawn.z), true)
 	elif team == 0:
 		_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
 	if team == 0 and not open:

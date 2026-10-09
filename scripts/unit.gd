@@ -690,12 +690,12 @@ func _refresh_overhead() -> void:
 		vet = "BOUNTY · "
 	elif veteran == 1:
 		vet = "VETERAN · "
-	# Every unit wears a tag: the player its own name, allies their faction
-	# and class ("ELF KNIGHT"), enemies just "HOSTILE".
+	# Every unit wears a tag: the player its own name, everyone else their
+	# faction and class ("ELF HEALER", "HUMAN KNIGHT"), friend or foe alike
+	# (Faisal 09:13 2026-10-09: "DONT JUST SAY HOSTILE"); the label's colour
+	# still tells the teams apart.
 	if is_player:
 		label.text = vet + tag + role_name() + lvl
-	elif is_enemy_of_player():
-		label.text = vet + "HOSTILE"
 	else:
 		label.text = vet + ally_tag()
 	if is_player and game.couch_players > 1:
@@ -724,9 +724,9 @@ func _refresh_overhead() -> void:
 
 
 func ally_tag() -> String:
-	## "ELF KNIGHT", "HUMAN WARDEN"; a plain base unit is just "ELF" / "HUMAN".
+	## "ELF KNIGHT", "HUMAN WARDEN"; a unit with no class yet is "ELF SOLDIER".
 	var faction: String = Stats.FACTIONS[team].roles[Role.BASE].to_upper()
-	return faction if role == Role.BASE else faction + " " + role_name().to_upper()
+	return faction + " " + ("SOLDIER" if role == Role.BASE else role_name().to_upper())
 
 
 func _overhead_mat(color: Color, priority: int) -> StandardMaterial3D:

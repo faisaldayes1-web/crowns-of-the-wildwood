@@ -231,6 +231,9 @@ func show_hero(team: int, role: int, custom: Dictionary, rank: int) -> void:
 	rug.global_position = hero.global_position + Vector3(0, 0.02, 0)
 	rug.visible = screen == "character"
 	hero.rotation.y = PI + 0.32 + sin(t * 0.6) * 0.05  # turned a little toward the panel
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--debug-hero-turn="):  # renders: show the back of the hair
+			hero.rotation.y += float(arg.trim_prefix("--debug-hero-turn="))
 
 
 # --- The lobby ------------------------------------------------------------------------
