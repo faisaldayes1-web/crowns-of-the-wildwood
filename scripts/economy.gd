@@ -505,23 +505,31 @@ func _tick_drops(delta: float) -> void:
 # --- Bots --------------------------------------------------------------------------
 
 func plan_gatherers(team: int, bots: Array) -> void:
-	## Called by game._plan_bots after the squad planner: keep one bot (two
-	## while the pool is empty) on wood and ore, never while the castle is
-	## breached or in overtime.
+	## Called by game._plan_bots after the squad planner: keep one bot on
+	## wood and ore, never while the castle is breached or in overtime.
 	if game.overtime or game.enemy_inside_castle(team) or game.in_prep():
 		gatherers[team] = []
 		return
 	var E: Dictionary = Stats.ECONOMY
-	var want: int = E.bot_gatherers + (1 if wood[team] + ore[team] < 3 and _human_on(team) == false else 0)
+	var want: int = E.bot_gatherers
+	# The builder (Engineer) gathers first. Taking an attacker off the
+	# assault stalled most batch matches 0-0, so an attacker only gathers
+	# toward the team's first hat upgrades (bot_attacker_hats).
+	var jobs := ["build"]
+	if upgraded[team].size() < E.bot_attacker_hats:
+		jobs.append("attack")
 	var keep := []
 	for u in gatherers[team]:
-		if is_instance_valid(u) and not u.dead and u in bots and u.bot_job == u.base_job and keep.size() < want:
+		if is_instance_valid(u) and not u.dead and u in bots and u.bot_job == u.base_job and u.base_job in jobs and keep.size() < want:
 			keep.append(u)
 	if keep.size() < want:
-		var free := bots.filter(func(b): return b.bot_job == b.base_job and b.base_job == "attack" and not b in keep \
+		var free := bots.filter(func(b): return b.bot_job == b.base_job and b.base_job in jobs and not b in keep \
 			and b.role != Role.BASE)
 		var d: Vector3 = depots[team]
-		free.sort_custom(func(a, b): return game._flat_dist(a.global_position, d) < game._flat_dist(b.global_position, d))
+		free.sort_custom(func(a, b):
+			if (a.base_job == "build") != (b.base_job == "build"):
+				return a.base_job == "build"
+			return game._flat_dist(a.global_position, d) < game._flat_dist(b.global_position, d))
 		for b in free:
 			if keep.size() >= want:
 				break

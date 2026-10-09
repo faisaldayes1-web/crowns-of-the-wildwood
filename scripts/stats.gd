@@ -531,8 +531,9 @@ const ECONOMY := {
 	"turret_fix_wood": 1, "turret_fix_ore": 1, # patch a damaged turret back to full
 	"door_reach": 4.0,       # how close to your door you stand to mend it
 	"pad_reach": 1.8,        # how close to a turret pad you stand to buy or tend a turret
-	"bot_gatherers": 1,      # bots per team that gather (two while the team pool is empty)
+	"bot_gatherers": 1,      # bots per team that gather (the Engineer; else an attacker, see bot_attacker_hats)
 	"bot_reserve_wood": 2, "bot_reserve_ore": 1,   # all-bot teams keep this back for a door repair
+	"bot_attacker_hats": 2,   # with no Engineer bot, an attacker gathers only until this many hat machines are upgraded
 	"bot_repair_below": 100,   # all-bot teams mend their door only once it is down to this (no mending under siege)
 }
 
