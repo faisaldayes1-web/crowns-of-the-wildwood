@@ -92,7 +92,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Revert:** `git revert 3e1aea7` (restores the old shadows, per-frame HUD drawing and
   full-density 3D on the web)
 
-## 2026-10-09 06:50 UTC · `HASH-PENDING` · iPad stutter: the HUD paints once, not every frame
+## 2026-10-09 06:50 UTC · `e9fcddf` · iPad stutter: the HUD paints once, not every frame
 
 - **Why:** Faisal (06:04): "a lot of stutter and lag and anytime I tap anything there's a
   delay". A timed native match showed the HUD script spending ~5.5 ms every frame repainting
@@ -123,4 +123,4 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   previous build at the same moment: WebGL draw calls per frame 3,240 → 1,130, primitives
   1.0 M → 0.4 M, software-renderer frame time −25 %, HUD identical to the eye apart from the
   "FPS" number, no console errors. Not yet measured on a real iPad.
-- **Revert:** `git revert HASH-PENDING`
+- **Revert:** `git revert e9fcddf`
