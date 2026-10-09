@@ -7,7 +7,15 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 08:45 UTC · `(stamped by the next entry)` · Door health bar; Elf towers lose their canopy blobs; merge UI & Art 9e60e8a
+### 2026-10-09 11:35 UTC · `(stamped by the next entry)` · No crate piles by the road; merge UI & Art to 86cbac7
+
+- **What:** Faisal 11:27, "did you fix the random fence issues and missing textures?". The crate-and-barrel piles beside the main road (two a side, one by each gate) are gone; by the Human gate the pile read as a stray fence. The road keeps its braziers, lanterns and banner frame. Also merges `origin/group/ui-art-z3px4x` (Elf courtyard facing and anvil, nameplates, menus).
+- **Files:** scripts/game.gd (`_add_road_dressing`; merge)
+- **Tunables:** none
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 08:45 UTC · `7dc2a01` · Door health bar; Elf towers lose their canopy blobs; merge UI & Art 9e60e8a
 
 - **What:**
   - **Door health:** Faisal 08:21, "for the door healths add a health bar not a number". Over each castle door, the "Door 200 / 200" text is replaced by a billboard bar: a dark frame, a dark track, and a fill that shrinks from the right and shades from green to red. When the door is broken, the bar hides and the old text returns ("rebuilding in N" / "under siege").

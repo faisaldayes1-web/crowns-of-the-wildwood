@@ -7391,8 +7391,8 @@ func _add_road_dressing() -> void:
 		for x in [18.0, 34.0]:
 			for zs in [-1.0, 1.0]:
 				_add_stone_brazier(Vector3(sx * x, 0, zs * 3.7), zs > 0.0)
-		_add_crates(Vector3(sx * 15.5, 0, 4.9), 0.3 * sx)
-		_add_crates(Vector3(sx * 32.5, 0, -4.9), -0.5 * sx)
+		# (No crate-and-barrel piles by the road: Faisal 11:27, "did you fix the
+		# random fence issues", the pile by the Human gate read as a stray fence.)
 		# (The two picket fences by the road went: Faisal 08:16, "random fence
 		# not even on road".)
 		_add_banner_pole(team, Vector3(sx * 24.0, 0, -5.4))
