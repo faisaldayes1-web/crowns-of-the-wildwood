@@ -590,7 +590,7 @@ func _refresh_overhead() -> void:
 		bounty_ring_mat.albedo_color = (Color(1, 0.3, 0.2) if is_enemy_of_player() else Color(1, 0.85, 0.3)) if veteran == 2 else Color(0.95, 0.75, 0.3)
 		bounty_beam.visible = veteran == 2 and not dead
 		bounty_beam.material_override.albedo_color = Color(1, 0.3, 0.2, 0.3) if is_enemy_of_player() else Color(1, 0.85, 0.3, 0.25)
-	label.visible = not dead
+	label.visible = not dead and not downed   # the downed body carries the swirl and the revive bar instead
 	_refresh_hp_bar()
 
 
@@ -1307,8 +1307,6 @@ func _go_down(attacker) -> void:
 	if aim_marker:
 		aim_marker.visible = false
 		aim_ring.visible = false
-	if is_player:
-		game.announce("You are DOWN! A teammate can revive you, or hold %s to respawn." % game.key_label("interact"))
 	if game.demo:
 		var mate = _nearest_standing_ally()
 		print("DOWN t=%d team%d %s ally=%.0f foes=%d" % [game.match_clock(), team, role_name(), _flat_to(mate.global_position).length() if mate else 99.0, game.enemies_near(team, global_position, 6.0)])

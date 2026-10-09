@@ -4013,13 +4013,13 @@ func _draw_downed_screen(p) -> void:
 	# DOWNED BY: who put you on the ground.
 	var k = p.downed_by
 	if k != null and is_instance_valid(k):
-		_downed_by_card(Vector2(size.x / 2.0, 96.0), k, a)
+		_downed_by_card(Vector2(size.x / 2.0, 132.0), k, a)
 	var fit := clampf(size.x / 1280.0, 0.6, 1.0)
 	var pop := 1.0 + (0.25 * sin(clampf(since / 0.3, 0.0, 1.0) * PI) if since < 0.3 else 0.0)
 	var sc := minf(since / 0.1, 1.0) * pop * fit
 	if sc < 0.05:
 		return
-	var cy := size.y * 0.56
+	var cy := size.y * 0.6   # under the body, which sits at screen centre
 	draw_set_transform(Vector2(size.x / 2.0, cy), -0.045, Vector2(sc, sc))
 	_paint_splash(Vector2(0, -8), 250.0, 62.0, Color(0.62, 0.05, 0.06, 0.92 * a), Color(0.85, 0.12, 0.1, 0.9 * a))
 	# YOU'RE (white) DOWNED! (gold), one line in the cartoon face.
@@ -4037,7 +4037,7 @@ func _draw_downed_screen(p) -> void:
 	# Revive in N...: the bar drains as you bleed out, and fills (gold, or
 	# green for a Healer) while a teammate works on you.
 	var pw := 360.0 * fit
-	var pr := Rect2(size.x / 2.0 - pw / 2.0, cy + 76.0 * fit, pw, 70.0 * fit)
+	var pr := Rect2(size.x / 2.0 - pw / 2.0, cy + 70.0 * fit, pw, 64.0 * fit)
 	_plate(pr, Color(0.1, 0.07, 0.06, 0.93 * a), Color(0.45, 0.32, 0.16, a), 8, 2)
 	draw_rect(Rect2(pr.position + Vector2(3, 3), Vector2(pr.size.x - 6, 2)), Color(1, 1, 1, 0.08 * a))
 	var label := ("Reviving... %d%%" % roundi(p.revive_progress * 100.0)) if reviving else "Revive in %d..." % ceili(p.downed_timer)
@@ -4054,7 +4054,7 @@ func _draw_downed_screen(p) -> void:
 	# Under the bar: the nearest teammate (with an arrow their way) and the
 	# hold-to-respawn key.
 	var ally = p._nearest_standing_ally()
-	var y := pr.end.y + 22.0 * fit
+	var y := pr.end.y + 20.0 * fit
 	var line := "No teammates left standing"
 	var lc := Color(1.0, 0.6, 0.5, a)
 	if ally:

@@ -7469,7 +7469,7 @@ func _debug_downed_hooks(frame: int) -> void:
 			which = k
 	if which == "" or player == null:
 		return
-	var spot := Vector3(-20, 0, 3) if player_team == 0 else Vector3(20, 0, 3)
+	var spot := Vector3(-14, 0, 0) if player_team == 0 else Vector3(14, 0, 0)
 	var ally = null
 	var foe = null
 	for u in units:
@@ -7505,7 +7505,7 @@ func _debug_downed_hooks(frame: int) -> void:
 			player.take_damage(player.hearts, foe, player.global_position + Vector3(2, 0, 0))
 			player.downed_timer = 9.4
 			ally.set_role(Unit.Role.KNIGHT)
-			ally.global_position = spot + (Vector3(1.2, 0, 0.5) if which == "--debug-revive" else Vector3(7.0, 0, -4.0))
+			ally.global_position = spot + (Vector3(1.2, 0, 0.5) if which == "--debug-revive" else Vector3(10.0, 0, -12.0))
 		foe.global_position = away
 	if frame == shot_frame - 70 and which == "--debug-healer-revive":
 		Input.action_press("interact")
