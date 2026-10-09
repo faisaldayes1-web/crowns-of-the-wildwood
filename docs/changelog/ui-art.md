@@ -69,7 +69,7 @@ Revert: `git revert 3c2d934`
 
 ## 2026-10-09 — visual overhaul, pass 1: ground, flowers, trees, Elf castle hedges and lamps
 
-Commit: `(stamped by the docs commit right after)`
+Commit: `731b6e5`
 
 Faisal's references (project files, game/reference-renders/): `elf-base-interior-target-2026-10-08.png`,
 `elf-courtyard-target-2026-10-08.png`; `ember-pass-current-2026-10-08.jpeg` is the current build for
@@ -113,4 +113,4 @@ path stones per tile 5 → 4.
 
 Renders: `world-courtyard-before/after.png`, `world-elf-castle-before/after.png` beside the references.
 
-Revert: `git revert <hash>` (stamped by the docs commit right after), then regenerate the textures as above.
+Revert: `git revert 731b6e5`, then regenerate the textures as above.
