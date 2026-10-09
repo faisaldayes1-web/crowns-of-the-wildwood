@@ -611,3 +611,21 @@ Renders: `elf-front-declutter-before.png` / `-after.png` and `compare-elf-front-
 in game/groups/ui-art/.
 
 Revert: `git revert 70f43e1`.
+
+## 2026-10-09 — Elf crown room: Faisal's circled clutter removed (08:17 annotated screenshot)
+
+Commit: `HASH_PENDING`. Elf side only; merged World & Maps first (their Human clutter removal,
+path z-fight fix, road fences).
+
+- Removed the timber corner posts on the Elf crown room ("random clipping into wall") and the
+  hedge runs along its wall tops ("random greenery"); the walls now take a plain cream sandstone
+  cap like the Humans'.
+- Removed both stag banner frames at the crown court's back corners ("random sign").
+- Removed the lilac mushrooms in the crown room, the moon shrine and the study ("random
+  objects"), and the two loose rugs in the study and armoury behind the crown room.
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1
+overlap (pre-existing pines), 250 props; seed-5 90 s match doors 102/36 at 60 s.
+Renders: `elf-crown-room-declutter-after.png` in game/groups/ui-art/.
+
+Revert: `git revert HASH_PENDING`.
