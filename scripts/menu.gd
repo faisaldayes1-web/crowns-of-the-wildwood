@@ -397,7 +397,9 @@ func _draw_character() -> void:
 		stage.show_hero(preview_team, preview_role, game.hero_custom(), preview_rank)
 	plaque(632, 22, "CREATE YOUR CHARACTER", 600)
 	icon("crown", Vector2(632, 20), 46)
-	# Tabs down the left.
+	# Tabs down the left, an ivy vine climbing their left edge (Faisal's
+	# create-character reference, 2026-10-09).
+	h._ivy(Vector2(52, 128 + CHAR_TABS.size() * 62 - 6), Vector2(0, -1), CHAR_TABS.size() * 62.0 - 14.0, 31)
 	for i in CHAR_TABS.size():
 		var r := Rect2(60, 128 + i * 62, 272, 52)
 		var sel := char_tab == i
@@ -405,6 +407,8 @@ func _draw_character() -> void:
 		var rr := r.grow(2) if ov else r
 		nine("panel_row", rr, 14, 14, 14, 14)
 		if sel:
+			# The open tab gets a chevron at its right end.
+			icon("arrow_right", rr.position + Vector2(rr.size.x - 22, rr.size.y / 2.0), 22, Color(1.0, 0.86, 0.45))
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = Color(0.32, 0.22, 0.08, 0.55)
 			sb.set_corner_radius_all(8)
@@ -440,7 +444,13 @@ func _draw_character() -> void:
 	# The panel on the right.
 	var panel := Rect2(832, 110, 430, 480)
 	slate(panel)
-	ttext(Vector2(panel.position.x, panel.position.y + 34), CHAR_TABS[char_tab][0], 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 5)
+	# The open tab's name on a wood plaque over the panel's top edge, ivy
+	# sprigs at both ends, as in the reference.
+	var pr := Rect2(panel.get_center().x - 165, panel.position.y - 22, 330, 48)
+	nine("plaque", pr, 110, 24, 110, 24)
+	ttext(Vector2(pr.position.x, pr.position.y + 33), CHAR_TABS[char_tab][0], 22, Color(1.0, 0.86, 0.45), HORIZONTAL_ALIGNMENT_CENTER, pr.size.x, 5)
+	h._ivy(pr.position + Vector2(8, 10), Vector2(1, 0), 44.0, 32)
+	h._ivy(Vector2(pr.end.x - 8, pr.position.y + 10), Vector2(-1, 0), 44.0, 33)
 	h.draw_rect(Rect2(panel.position.x + 30, panel.position.y + 46, panel.size.x - 60, 1), Color(0.6, 0.48, 0.28, 0.6))
 	match char_tab:
 		0: _tab_appearance(panel)

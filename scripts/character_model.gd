@@ -661,6 +661,9 @@ static func _flat_mesh(mesh: Mesh) -> Mesh:
 		st.deindex()
 		st.generate_normals()
 		st.generate_tangents()
+		# Re-index (vertices with different normals stay separate, so the
+		# facets survive); Face.clean_head needs an index array.
+		st.index()
 		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
 		out.surface_set_material(s, mesh.surface_get_material(s))
 	flat_cache[key] = out

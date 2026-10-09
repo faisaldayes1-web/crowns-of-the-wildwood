@@ -315,6 +315,8 @@ func _ready() -> void:
 				main_menu.overlay = scr
 			else:
 				main_menu.go(scr)
+		if arg.begins_with("--debug-preview-team="):  # renders: the hero's side on the character screen
+			main_menu.preview_team = int(arg.trim_prefix("--debug-preview-team="))
 		if arg.begins_with("--debug-char-tab="):
 			main_menu.char_tab = int(arg.trim_prefix("--debug-char-tab="))
 		if arg.begins_with("--debug-lobby="):  # N local players, all ready

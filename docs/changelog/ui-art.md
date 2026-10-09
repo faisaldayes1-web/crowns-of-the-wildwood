@@ -216,3 +216,39 @@ clears the footer.
 
 Revert: `git revert -m 1 75cd987` (drops PR #2 from this branch again; Integration should instead
 merge PR #2 first and retarget this PR).
+
+---
+
+## 2026-10-09 — create-your-character screen toward the reference; faceted heads kept
+
+Commit: `PENDING`
+
+Faisal's reference (project files): `game/reference-renders/create-character-target-2026-10-09.png`.
+PR #2 already had the screen's bones (throne room stage, left category list Appearance / Hair /
+Face / Armor / Colors / Emblem, right option panel with body type, skin tone, hair style, hair
+colour, face style, eye colour, facial markings and preview emblem, Elf / Human buttons, Confirm).
+
+What changed:
+- **Left category list**: an ivy vine climbs its left edge; the open category shows a gold
+  chevron at its right end.
+- **Option panel**: the open category's name sits on a wood plaque over the panel's top edge with
+  ivy sprigs at both ends instead of plain white text inside the panel.
+- **Throne room light**: the hall's ambient light is warmer and a touch brighter
+  ((0.5, 0.44, 0.42) @ 0.45 → (0.62, 0.5, 0.4) @ 0.55) for the reference's candle-lit look.
+- **Faceted meshes keep their heads**: the flat-shaded copies from pass 2 had no index array, so
+  PR #2's `Face.clean_head` failed and the hero stood headless on this screen; the copies are
+  re-indexed (facets survive since vertices with different normals stay separate).
+- Render flag `--debug-preview-team=N` picks the hero's side on this screen.
+
+Still placeholders (as in PR #2): hair styles 2–5 are locked slots ("new hair styles arrive in a
+later update"); the HAIR / FACE / ARMOR / COLORS / EMBLEM categories open their own panels but the
+Appearance panel already carries the reference's rows. Nothing new was added to gameplay.
+
+Files touched: `scripts/menu.gd` (`_draw_character`), `scripts/menu_stage.gd` (`_set_mood` hall),
+`scripts/character_model.gd` (`_flat_mesh`), `scripts/game.gd` (render flag), `docs/changelog/ui-art.md`.
+
+Tunables (old → new): hall ambient (0.5, 0.44, 0.42) @ 0.45 → (0.62, 0.5, 0.4) @ 0.55.
+
+Renders: `create-character-before.png` (PR #2 as merged, Human) → `create-character-after.png` (Elf).
+
+Revert: `git revert PENDING`

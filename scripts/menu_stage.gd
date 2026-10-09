@@ -90,8 +90,10 @@ func _set_mood(want: String) -> void:
 	if want == "hall":
 		# Candlelight: little sky light, warm and glowing, deep shadows.
 		env.ambient_light_sky_contribution = 0.0
-		env.ambient_light_color = Color(0.5, 0.44, 0.42)
-		env.ambient_light_energy = 0.45
+		# (Warmer and a touch brighter since 2026-10-09, after the
+		# create-character reference's candle-lit hall.)
+		env.ambient_light_color = Color(0.62, 0.5, 0.4)
+		env.ambient_light_energy = 0.55
 		env.tonemap_exposure = 0.92
 		env.glow_intensity = 0.8
 		env.glow_bloom = 0.1
