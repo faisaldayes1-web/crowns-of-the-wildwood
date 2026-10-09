@@ -135,7 +135,7 @@ then `python3 tools/balance/agg.py <tag>`.
 - **When:** 2026-10-09 09:50 UTC (Faisal 2026-10-09 09:11: "we shouldn't be
   able to shoot projectiles through walls and the door, you can stand over
   and shoot but that's it")
-- **Commit:** _filled in by the next commit_
+- **Commit:** `d53d4e0`
 - **What:** Two leaks closed.
   - Shots only collided with the world and the *enemy's* door layer, so a
     side's arrows, bolts and fireballs flew straight through its own door,
@@ -165,4 +165,4 @@ then `python3 tools/balance/agg.py <tag>`.
   0 + 1); no script errors.
 - **Capture:** `-- --play --fxshow --fxwall` (Compatibility renderer); in
   project files `game/combat-feel/shots-stop-at-door-*`.
-- **Revert:** `git revert <hash>`
+- **Revert:** `git revert d53d4e0`
