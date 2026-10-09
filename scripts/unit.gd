@@ -1487,7 +1487,10 @@ func _physics_process(delta: float) -> void:
 		_update_player_aim(move)
 		_update_highlights()
 		if not game.menu_blocks_input(self):
-			wants_attack = Input.is_action_pressed(_a("attack")) and not (game.economy and game.economy.mouse_on_button())
+			wants_attack = Input.is_action_pressed(_a("attack"))
+			if game.economy and game.economy.mouse_on_button():
+				wants_attack = false   # a click on the economy card's button buys, it does not swing
+				set("attack_buffer", 0.0)
 			wants_block = Input.is_action_pressed(_a("block"))
 			if Input.is_action_just_pressed(_a("interact")):
 				game.try_interact(self)
