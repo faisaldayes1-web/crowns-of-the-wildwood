@@ -490,3 +490,56 @@ Tunables (old → new): Elf courtyard beds at x 3.4/11.0/14.4, z hz−1.4 → on
 Tested: `--check-only`; `--audit` unchanged (1 pre-existing pine overlap).
 
 Revert: `git revert b4c6aa2`
+
+---
+
+## 2026-10-09 — Elf base overhaul to the reference (Faisal's 03:30 / 03:34 brief): graphics, architecture, materials, pedestal, stations, workshop
+
+Commit: `7e37f9f`
+
+Faisal (03:30): "keep using the render as a reference, can you improve the graphics"; (03:34) the
+nine-point overhaul brief (shapes/proportions, open the base, replace the noisy green materials,
+rebuild the floors, lighting and depth, crown focal point, functional areas, controlled detail,
+consistency). This commit covers points 1-7 and the lighting; point 8 follows.
+
+What changed:
+- **Lighting (both maps' day light)**: soft lambert-wrap shading on every material instead of
+  two-band toon (`_toon_mat`); PCSS soft shadows (sun `light_angular_distance` 0 → 1.2,
+  `shadow_blur` 0.3 → 1.2); day ambient 0.19 → 0.27 (sky contribution 0.25 → 0.3), saturation
+  1.22 → 1.12, contrast 1.1 → 1.06, sun 1.45 → 1.3 at −44° (was −38°), warmer-less-yellow sun
+  colour, glow 0.7 → 0.6; SSAO radius 1.0 → 1.3, intensity 2.0 → 2.6; ink line thickness 1.6 → 1.25.
+- **Materials**: the Elf castle's untinted "stone" is cream sandstone, never the hedge texture
+  (`_ashlar`, `_add_wall`); hedges are leaf-blob runs along every Elf wall top; the hedge texture
+  itself is now overlapping leaf clumps (`make_hedge`), the sandstone bricks cream with soft tan
+  joints (`make_stone`), the paving three big soft-edged blocks per tile with restrained seams
+  (`make_flagstone`, also regenerates the moss and grey variants).
+- **Architecture (Elves only)**: crown-room side and back walls are a 1.3 m, 0.7 m-thick sandstone
+  parapet with hedge on top (sight ray at 1.0 m and shots at 1.1 m still blocked); the front wall
+  with the vault doors stays full height; chunky 0.8 m timber corner posts with caps. The keep's
+  side walls are a 1.4 m parapet with hedge tops (`kh`), corner pillars shortened to match, wall
+  torches lowered, tapestries and wall pennants/crests dropped on the low walls. Footprints and
+  collision unchanged; bots route as before.
+- **Crown focal point**: round layered sandstone pedestal with two gold bands under the crystals and
+  antlers (replaces the moonstone block); dais tiers 0.14 m tall (were 0.1); crystal emission
+  1.6 → 1.1; the crown's resting aura 0.7 scale / 0.2 alpha (was 1.0 / 0.35, `monarch.gd`, both
+  teams).
+- **Stations and workshop**: class banners in each class's own colour with the gold hem; thicker
+  stall posts (0.32) and beam; a workshop corner round the Upgrade Station (shelves with bottles,
+  crates, a barrel) against the courtyard's west wall.
+- **After the first renders**: both keep galleries paved in the same sandstone (were planks and
+  moonstone); the crown's room light 0.6 → 0.3, its gold emission 0.9 → 0.5 and resting beam alpha
+  0.2 → 0.12 (`monarch.gd`, both teams); foliage tops HSV hue 0.26 → 0.31, value 0.68-0.8 →
+  0.52-0.62 on every leaf blob and canopy (`_leaf_material`); stag banner frames at the crown
+  court's back corners.
+
+Files touched: `scripts/game.gd`, `scripts/monarch.gd`, `tools/make_textures.py`,
+`assets/textures/{hedge,stone,stone_moss,flagstone,flagstone_moss,flagstone_grey}_{color,normal}.jpg`,
+`assets/shaders/ink_outline.gdshader`, `docs/changelog/ui-art.md`.
+
+Tested: `--check-only` (game.gd, monarch.gd); `--audit` 1 overlap (pre-existing pines), 269 props;
+seed-5 bot matches: doors 169/200, then 172/198 at 60 s on the final state (raiders out, crown
+room reachable). Renders: `elf-base-overhaul-*.png` (debug and in-play cameras) and the
+`compare-*-overhaul.png` side-by-sides in game/groups/ui-art/.
+
+Revert: `git revert 7e37f9f` then `python3 tools/make_textures.py make_hedge make_stone make_flagstone`
+is NOT needed (the textures are committed; the revert restores them).
