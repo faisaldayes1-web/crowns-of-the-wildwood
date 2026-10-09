@@ -7,7 +7,15 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 08:25 UTC · `(stamped by the next entry)` · Faisal's circled fixes: Human base, roads (08:13-08:16)
+### 2026-10-09 08:30 UTC · `(stamped by the next entry)` · Trees behind the Elf courtyard too (Faisal 08:18)
+
+- **What:** Faisal, on the Elf class courtyard: "Flush this area out with trees so its not visible". The Elves' camp beyond the courtyard fence (campfire, crate, pallet, sack, bucket, wheelbarrow, tent, flag) is replaced by the same eight-tree stand as the Humans', mirrored. His other three notes on that shot (class name boards clipping, the upgrade station facing the wrong way, the green planting-bed boxes) went to UI & Art, whose base it is.
+- **Files:** scripts/game.gd (`_build_works`)
+- **Tunables:** none
+- **Tested:** `--check-only`; `--audit` Wildwood 1
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 08:25 UTC · `bc6323f` · Faisal's circled fixes: Human base, roads (08:13-08:16)
 
 - **What:** Faisal circled clipping and out-of-place items on the screenshots of 06:47.
   - **Upgrade station** faced the wrong way (south-west corner, its board's back to the room): back at (bx+1.1, −5.0) like the Elves', board against the class row, anvil facing the room; the Guide returns to the south-west; the extra shelf, crates and cask went.
