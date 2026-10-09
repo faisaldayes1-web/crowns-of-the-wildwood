@@ -40,6 +40,7 @@ var seal_labels := [{}, {}]
 var seal_marks := [{}, {}]          # the gold trim an upgraded machine wears
 var depot_signs: Array = [null, null]
 var spend_timer := 0.0
+var bot_mended := [-999.0, -999.0]   # match clock of each all-bot team's last door mend
 var hint_given := [false, false]
 # Match report (--demo): what each team gathered and bought.
 var gathered := [{"wood": 0, "ore": 0}, {"wood": 0, "ore": 0}]
@@ -626,7 +627,9 @@ func _bot_spend(team: int) -> void:
 	var gate = game.gates[team]
 	if job == "rebuild" and not _door_pressed(team) and gate.rebuild_timer > 8.0 and fix_door(team, steward):
 		return
-	if job == "repair" and gate.hp <= E.bot_repair_below and fix_door(team, steward):
+	if job == "repair" and gate.hp <= E.bot_repair_below and game.match_clock() >= bot_mended[team] + E.bot_repair_gap \
+			and fix_door(team, steward):
+		bot_mended[team] = game.match_clock()
 		return
 	var reserve_w: int = E.bot_reserve_wood if not upgraded[team].is_empty() else 0
 	var reserve_o: int = E.bot_reserve_ore if not upgraded[team].is_empty() else 0
