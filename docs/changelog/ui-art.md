@@ -359,13 +359,13 @@ Tested: `--check-only`; `--audit` 1 overlap on the Wildwood (the pre-existing pi
 
 Renders: `elf-base-passB-castle.png`, `elf-base-passB-courtyard.png`, `elf-base-passA-throne.png`.
 
-Revert: `git revert PENDING` (and `git revert -m 1 0b12837` for the merge).
+Revert: `git revert ae919cd` (and `git revert -m 1 0b12837` for the merge).
 
 ---
 
 ## 2026-10-09 — Elf base pass C: readable station boards, framed crown-room hedges, softer crown glow, rampart fire pillars
 
-Commit: `PENDING`
+Commit: `ae919cd`
 
 What changed (Elf base only):
 - **Class station boards**: the timber name board is 2.2 × 0.62 (was 1.9 × 0.5) and the class name
@@ -389,4 +389,4 @@ clean.
 
 Renders: `elf-base-passC-courtyard.png`, `elf-base-passC-throne.png`, `elf-base-passC-castle.png`.
 
-Revert: `git revert PENDING`
+Revert: `git revert ae919cd`
