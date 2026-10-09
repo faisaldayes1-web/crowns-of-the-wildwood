@@ -405,6 +405,12 @@ func _ready() -> void:
 	if reopen_screen != "":
 		main_menu.go(reopen_screen)
 		reopen_screen = ""
+	if net and (net.is_client() or net.status.begins_with("The host left")):
+		main_menu.go("online")   # a joiner waits for the host here (or reads why the room closed)
+	if net and net.is_host():
+		net.rewelcome()   # the host rebuilt its world (a new map): joiners rebuild theirs
+	if net:
+		print("NET ready")   # the title is up (tools/web_net_test.js waits for this)
 	for arg in OS.get_cmdline_user_args():
 		# Testing: open a menu screen (title, map, character, lobby) or overlay.
 		if arg.begins_with("--debug-screen="):
@@ -3217,6 +3223,17 @@ func menu_input(event: InputEvent) -> void:
 				if event.unicode >= 32 and hero_name.length() < Stats.HERO_NAME_MAX and ch.strip_edges() != "" or ch == " ":
 					hero_name += ch
 		return
+	if main_menu and not playing and main_menu.screen == "online" and main_menu.overlay == "" and event is InputEventKey and event.pressed and not (net and net.online()):
+		# Typing the JOIN code on a keyboard (the letter pad does the same by touch).
+		if event.keycode == KEY_BACKSPACE:
+			main_menu.code_key("<")
+			return
+		if event.keycode in [KEY_ENTER, KEY_KP_ENTER] and main_menu.room_entry.length() == main_menu.CODE_LEN:
+			net.join_room(main_menu.room_entry)
+			return
+		if event.unicode >= 32:
+			main_menu.code_key(char(event.unicode))
+			return
 	if ip_editing and event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE:

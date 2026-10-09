@@ -272,6 +272,13 @@ func _welcome(seed_value: int, map: int) -> void:
 	get_tree().reload_current_scene()
 
 
+func rewelcome() -> void:
+	## The host's scene reloaded (back from a match, or a map with other
+	## ground): send every joiner the world again so theirs matches.
+	for id in multiplayer.get_peers():
+		_welcome.rpc_id(id, world_seed, game.map_variant if game else 0)
+
+
 @rpc("authority", "call_remote", "reliable")
 func _match_start(team: int, slot: int, map: int, names: Array) -> void:
 	print("NET slot: team %d slot %d" % [team, slot])

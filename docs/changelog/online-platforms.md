@@ -185,7 +185,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   `project.godot` once the relay is hosted)
 - **Revert:** `git revert 9a786cf`
 
-## 2026-10-09 12:55 UTC · `HASH-PENDING` · Online N2: joiners see and do everything
+## 2026-10-09 12:07 UTC · `5bedad8` · Online N2: joiners see and do everything
 
 - **What:** a joiner's game now shows the whole fight, not only people moving, and a joiner can
   do everything a local player can.
@@ -221,4 +221,29 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   `scripts/gate.gd`, `scripts/vault.gd`, `scripts/economy.gd`, `scripts/resource_node.gd`,
   `scripts/volcano.gd`, `scripts/heal_orb.gd`, `scripts/seal.gd`
 - **Tunables:** none (gameplay numbers unchanged)
+- **Revert:** `git revert 5bedad8`
+
+## 2026-10-09 13:00 UTC · `HASH-PENDING` · ONLINE screen: create a room, join by code
+
+- **What:** online play is now reachable from the menus, by touch, so it works on an iPad.
+  - **Title:** the STORE plank under EXIT is now two half planks, **STORE** and **ONLINE** (a
+    small drawn globe, green while connected). The unopened-chest count moved to a red tag on
+    STORE's corner.
+  - **PLAY ONLINE screen** (`menu.gd` `_draw_online`): CREATE A ROOM on the left shows the
+    4-letter code in big boxes, how many friends joined and their names, then **CHOOSE MAP** (the
+    usual Select Map > Ready Up > START MATCH) or CLOSE ROOM. JOIN A ROOM on the right has four
+    code boxes, a letter pad of the relay's 32 code letters, DELETE and JOIN; a keyboard can type
+    the code too (Backspace, Enter). The connection status shows under both panels.
+  - A joiner waits on this screen ("Waiting for the host to start the match"); PLAY on the title
+    brings a joiner back here instead of to Select Map. If the host leaves, the joiner lands here
+    with the reason.
+  - When the host's world rebuilds (a map with other ground, or back from a match), joiners are
+    sent the world again (`Net.rewelcome`) so their map matches.
+  - `print("NET ready")` once the title is up, for the browser test.
+  - **New test:** `tools/web_net_test.js` runs the web export in two Chromium pages against a
+    local relay: through the menus as two iPads would, then the full `--net-test`.
+  - README Online section and `docs/online-plan.md` now describe rooms instead of typing an IP.
+- **Files:** `scripts/menu.gd`, `scripts/menu_stage.gd`, `scripts/game.gd`, `scripts/net.gd`,
+  `tools/web_net_test.js`, `README.md`, `docs/online-plan.md`
+- **Tunables:** none
 - **Revert:** `git revert HASH-PENDING`

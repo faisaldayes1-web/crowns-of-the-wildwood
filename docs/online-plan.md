@@ -58,8 +58,13 @@ Bandwidth estimate: 10 units x ~60 bytes x 20 Hz = 12 KB/s down per client, inpu
 
 ## 5. Matchmaking
 
-- **ENet:** host presses HOST on the title screen (port 24560 UDP); the friend types the host's
-  IP and presses JOIN. Joining mid-match drops you into a bot's slot.
+- **Rooms (done 2026-10-09):** title > ONLINE > CREATE ROOM gives a 4-letter code; friends tap
+  ONLINE, tap the code in on the letter pad and JOIN. Packets go through a relay
+  (`server/relay.js`, WebSocket, star topology: joiners only talk to the host), so the iPad web
+  build can play too. The relay address is `online/relay_url` in `project.godot` (`wss://` once it
+  is hosted publicly). Joining mid-match drops you into a bot's slot.
+- **ENet (direct IP):** `-- --host` / `-- --join=ip` on the command line (port 24560 UDP), kept
+  for desktop tests and LAN play.
 - **Steam:** HOST creates a Steam lobby (friends-only or public). Friends join through the overlay
   or the in-game lobby list. The lobby carries the map, bot difficulty and slot list; the host
   starts the match when ready. Quick match (public lobby search by region and map) comes last.
@@ -68,8 +73,8 @@ Bandwidth estimate: 10 units x ~60 bytes x 20 Hz = 12 KB/s down per client, inpu
 
 | # | Milestone | Done when |
 | --- | --- | --- |
-| N1 | **ENet host / join step one** | HOST / JOIN on the title menu; two instances connect by IP, both players spawn and see each other move, bots keep playing on the host; headless smoke test `tools/net_smoke.sh` passes |
-| N2 | Full match over ENet | attacks, projectiles, abilities, effects, kill feed, chat, class looks all show on clients; a whole match plays to the end screen online |
+| N1 | ENet host / join step one (done 2026-10-08) | HOST / JOIN on the title menu; two instances connect by IP, both players spawn and see each other move, bots keep playing on the host; headless smoke test `tools/net_smoke.sh` passes |
+| N2 | Full match online (done 2026-10-09) | attacks, projectiles, abilities, effects, kill feed, chat, class looks all show on clients; a whole match plays to the end screen online |
 | N3 | Feel | client prediction for the own unit, interpolation buffer, lag and packet-loss testing (`tools/net_smoke.sh` with simulated latency) |
 | N4 | Lobby and slots | pre-match lobby screen: who is in, which side, ready flags, kick; couch players joining online matches |
 | N5 | Steam | GodotSteam build, `SteamMultiplayerPeer`, lobbies, invites, rich presence, Steam app ID in `steam_appid.txt` |
@@ -87,4 +92,9 @@ is owned by the Current build showcase thread and is not touched by this script.
 for the client, starts a match, and both sides walk their player for a few seconds. It passes only
 when the client connected, got its slot, saw its own unit move (input went to the host and came
 back in snapshots), saw the host's player move, saw bots move, and the host saw the client's unit
-move. It must pass before every push from this group.
+move. It must pass before every push from this group. It runs the pair twice: over ENet and
+through the room relay.
+
+`tools/web_net_test.js` runs the web export in two Chromium pages (Playwright) against a local
+relay. First through the menus, as two iPads would (ONLINE, CREATE ROOM, tap the code in, JOIN,
+CHOOSE MAP, START MATCH), then the same `--net-test` as the headless smoke test.
