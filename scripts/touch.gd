@@ -33,9 +33,17 @@ func _ready() -> void:
 			game.touch_active = true
 
 
+var _was_playing := false
+
+
 func _process(_delta: float) -> void:
+	# Redrawn when a finger moves (below) and when play starts or stops, not
+	# every frame: each ring is a polygon the browser re-uploads per redraw.
 	if active:
-		queue_redraw()
+		var now := _playing()
+		if now != _was_playing:
+			_was_playing = now
+			queue_redraw()
 
 
 func _input(event: InputEvent) -> void:
@@ -57,6 +65,7 @@ func _playing() -> bool:
 
 
 func _down(i: int, pos: Vector2) -> void:
+	queue_redraw()
 	active = true
 	if game:
 		game.touch_active = true
@@ -89,6 +98,7 @@ func _down(i: int, pos: Vector2) -> void:
 
 
 func _drag(i: int, pos: Vector2) -> void:
+	queue_redraw()
 	if i == stick_id:
 		stick_vec = (pos - stick_origin) / STICK_RANGE
 		if stick_vec.length() > 1.0:
@@ -103,6 +113,7 @@ func _drag(i: int, pos: Vector2) -> void:
 
 
 func _up(i: int) -> void:
+	queue_redraw()
 	if held.has(i):
 		Input.action_release(held[i])
 		held.erase(i)

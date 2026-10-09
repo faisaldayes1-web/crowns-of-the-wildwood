@@ -65,6 +65,13 @@ var volume_sliders: Array = []   # [rect, "sound" | "music"] in the settings tab
 var toggle_buttons: Array = []   # [rect, setting key] in the settings tab
 var slot_prev: Dictionary = {}   # ability slot cooldowns last frame, for the ready flash
 var touch_rects: Array = []      # [rect, action] for the ability tiles and corner buttons (touch.gd)
+# Static art baked to textures once (the minimap chart and ring, the screen
+# frame): a copy of this HUD inside a SubViewport draws one layer, and the
+# live HUD draws the texture; re-baked only when the layer's key changes.
+var bake_mode := ""              # set on a copy: which layer it draws
+var bake_args: Array = []        # the copy's draw arguments (centre, radius)
+var _bakes: Dictionary = {}      # name -> {vp, hud, key, px}
+var _frame_rect: TextureRect     # shows the baked screen frame behind the HUD
 var hud_scale := 1.0             # the player panel's shrink factor in narrow panes
 var slot_flash: Dictionary = {}  # ability slot -> seconds of ready flash left
 var options_button := Rect2()
@@ -159,6 +166,11 @@ func _click_end(at: Vector2) -> void:
 func _draw() -> void:
 	if game == null:
 		return
+	if bake_mode != "":
+		_draw_bake()
+		return
+	if _frame_rect:
+		_frame_rect.visible = false   # shown again below while the live HUD draws
 	rank_buttons = []
 	variant_buttons = []
 	tab_buttons = []
@@ -214,7 +226,7 @@ func _draw() -> void:
 		return
 	_draw_screen_fx()
 	if not pane:
-		_screen_frame()
+		_screen_frame_baked()
 	# (No logo during play: Faisal 2026-10-07 21:14.)
 	_draw_scoreboard()
 	if game.show_fps:
@@ -953,17 +965,43 @@ func _laurel(c: Vector2, side: float, scale: float, rx: float = 50.0, ry: float 
 
 func _draw_minimap(c: Vector2, r: float) -> void:
 	## The minimap as a round painted chart of the valley in an engraved
-	## gold and bronze ring: an "N" on a small gold cartouche at the top, gem
-	## studs at the sides and foot, and the home-defence tag hung across the
-	## bottom.
-	# The chart: a painted top-down valley filling the whole round window.
+	## gold and bronze ring, with the home-defence tag hung across the
+	## bottom. The chart and the ring never change during a match, so each
+	## is a texture baked once (nearly 900 polygons a frame otherwise, which
+	## the iPad could not keep up with); only what moves is drawn live.
+	var rw := maxf(r * 0.12, 9.0)
+	var ro := r + rw
+	draw_circle(c + Vector2(0, 4), ro + 3, Color(0, 0, 0, 0.4))
+	var fh := r + 2.0
+	# Ember Pass's lava breathes: its chart is re-baked four times a second.
+	var field_key: Array = [r, game.map_variant, int(Time.get_ticks_msec() / 250) if game.vmap else 0]
+	var field_tex := _bake("minimap_field", Vector2(fh, fh) * 2.0, field_key, "minimap_field", [Vector2(fh, fh), r])
+	if field_tex:
+		draw_texture_rect(field_tex, Rect2(c - Vector2(fh, fh), Vector2(fh, fh) * 2.0), false)
+	else:
+		_minimap_static(c, r)
+	_minimap_live(c, r)
+	var rh := ro + 8.0
+	var ring_tex := _bake("minimap_ring", Vector2(rh, rh) * 2.0, [r], "minimap_ring", [Vector2(rh, rh), r])
+	if ring_tex:
+		draw_texture_rect(ring_tex, Rect2(c - Vector2(rh, rh), Vector2(rh, rh) * 2.0), false)
+	else:
+		_minimap_ring(c, r)
+	var me = _me()
+	if me and me.home_defense and not me.dead:
+		var tw := minf(r * 1.6, 170.0)
+		_home_pill(Rect2(Vector2(c.x - tw / 2.0, c.y + r - 12), Vector2(tw, 26)), me.team)
+
+
+func _minimap_ring(c: Vector2, r: float) -> void:
+	## The engraved gold and bronze ring round the chart: an "N" on a small
+	## gold cartouche at the top and gem studs at the sides and foot. Static,
+	## so the live HUD draws it from a texture baked once (see _bake).
 	var rw := maxf(r * 0.12, 9.0)
 	var ri := r - 3.0
 	var ro := r + rw
 	var rm := (ri + ro) / 2.0
 	var band := ro - ri
-	draw_circle(c + Vector2(0, 4), ro + 3, Color(0, 0, 0, 0.4))
-	_minimap_field(c, r)
 	# Ring: dark bronze band between bright gold rims, lit from the top left,
 	# with a beaded line of rivets round the middle.
 	draw_arc(c, rm, 0, TAU, 128, Color(0.25, 0.15, 0.05), band + 4.0)
@@ -1035,10 +1073,88 @@ func _draw_minimap(c: Vector2, r: float) -> void:
 	draw_polyline(cart, GOLD.lightened(0.2), 1.0)
 	var nfs := int(clampf(band * 1.15, 10.0, 15.0))
 	_text(Vector2(nc.x - 12, nc.y + nfs * 0.38), "N", nfs, Color(1.0, 0.88, 0.55), HORIZONTAL_ALIGNMENT_CENTER, 24, 2)
-	var me = _me()
-	if me and me.home_defense and not me.dead:
-		var tw := minf(r * 1.6, 170.0)
-		_home_pill(Rect2(Vector2(c.x - tw / 2.0, c.y + r - 12), Vector2(tw, 26)), me.team)
+
+
+func _draw_bake() -> void:
+	## A HUD copy inside a SubViewport: draw the one static layer it bakes.
+	match bake_mode:
+		"minimap_field":
+			_minimap_static(bake_args[0], bake_args[1])
+		"minimap_ring":
+			_minimap_ring(bake_args[0], bake_args[1])
+		"frame":
+			_screen_frame()
+
+
+func _bake_scale() -> float:
+	## Pixels per HUD unit on this screen, so a baked layer is as crisp as
+	## live drawing (the HUD is laid out at 1280x720 and stretched).
+	var s: float = get_viewport().get_final_transform().get_scale().x if get_viewport() else 1.0
+	return clampf(s, 1.0, 4.0) if s > 0.0 else 1.0
+
+
+func _bake(name: String, px: Vector2, key: Variant, mode: String, args: Array) -> Texture2D:
+	## A static layer `px` units big, drawn by a HUD copy inside a SubViewport
+	## and re-drawn only when `key` changes. Returns its texture (drawn by the
+	## caller), or null on a copy.
+	if bake_mode != "" or get_viewport() == null:
+		return null
+	var sc := _bake_scale()
+	var want := Vector2i((px * sc).ceil()) + Vector2i.ONE
+	var b: Dictionary = _bakes.get(name, {})
+	if b.is_empty():
+		var vp := SubViewport.new()
+		vp.transparent_bg = true
+		vp.disable_3d = true
+		vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		vp.size = want
+		add_child(vp)
+		var h := Control.new()
+		h.set_script(get_script())
+		h.game = game
+		h.pane = pane
+		h.bake_mode = mode
+		vp.add_child(h)
+		h.set_process(false)
+		h.set_process_input(false)
+		h.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		h.position = Vector2.ZERO
+		b = {"vp": vp, "hud": h, "key": null, "px": Vector2.ZERO}
+		_bakes[name] = b
+	if b.key != key or b.px != px or b.vp.size != want:
+		b.key = key
+		b.px = px
+		b.vp.size = want
+		b.hud.scale = Vector2(sc, sc)
+		b.hud.size = px
+		b.hud.bake_args = args
+		b.hud.queue_redraw()
+		b.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	return b.vp.get_texture()
+
+
+func _screen_frame_baked() -> void:
+	## The bronze frame and ivy (177 polygons) drawn once into a texture and
+	## shown by a TextureRect behind the HUD. A SubViewport's texture carries
+	## premultiplied alpha, so the rect blends it that way (drawing it with
+	## draw_texture_rect would dim the thin translucent lines).
+	var tex := _bake("frame", size, [size], "frame", [])
+	if tex == null:
+		_screen_frame()
+		return
+	if _frame_rect == null:
+		_frame_rect = TextureRect.new()
+		_frame_rect.show_behind_parent = true
+		_frame_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_frame_rect.stretch_mode = TextureRect.STRETCH_SCALE
+		var mat := CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+		_frame_rect.material = mat
+		add_child(_frame_rect)
+	_frame_rect.texture = tex
+	_frame_rect.position = Vector2.ZERO
+	_frame_rect.size = size
+	_frame_rect.visible = true
 
 
 func _mm_poly(poly: PackedVector2Array, clip: PackedVector2Array, col: Color, edge: Color = Color(0, 0, 0, 0), ew: float = 1.0) -> void:
@@ -1077,11 +1193,8 @@ func _mm_line(a: Vector2, b: Vector2, c: Vector2, rad: float, col: Color, w: flo
 	draw_line(a + d * t0, a + d * t1, col, w)
 
 
-func _minimap_field(c: Vector2, r: float) -> void:
-	## The valley painted from above and clipped to the minimap circle: deep
-	## forest round the edge, lighter meadow over the battlefield, tan roads,
-	## the bright river and its bridges, the shrine ring, both castles as team
-	## blocks with their crowns, potions, turrets and everyone the team can see.
+func _minimap_frame(c: Vector2, r: float) -> Dictionary:
+	## The chart's scale and clip circle, shared by the static and live layers.
 	## The map is stretched a little north-south so the field fills the window.
 	var hx: float = game.map_half.x
 	var hz: float = game.map_half.y
@@ -1093,8 +1206,24 @@ func _minimap_field(c: Vector2, r: float) -> void:
 	for i in 56:
 		var a := TAU * i / 56.0
 		clip.append(c + Vector2(cos(a), sin(a)) * r)
-	var pt := Time.get_ticks_msec() / 1000.0
-	var fx: float = game.CASTLE_X - game.CASTLE_DEPTH
+	return {"hx": hx, "hz": hz, "sx": sx, "sz": sz, "m": m, "clip": clip,
+		"pt": Time.get_ticks_msec() / 1000.0, "fx": game.CASTLE_X - game.CASTLE_DEPTH}
+
+
+func _minimap_static(c: Vector2, r: float) -> void:
+	## The painted chart: the valley (or Ember Pass) from above, clipped to
+	## the minimap circle. Nothing here moves during a match (the lava
+	## breathes slowly), so the live HUD draws it from a texture baked once
+	## by a HUD copy (see _bake); _minimap_live adds everything that moves.
+	var g := _minimap_frame(c, r)
+	var hx: float = g.hx
+	var hz: float = g.hz
+	var sx: float = g.sx
+	var sz: float = g.sz
+	var m: Callable = g.m
+	var clip: PackedVector2Array = g.clip
+	var pt: float = g.pt
+	var fx: float = g.fx
 	if game.vmap:
 		_volcano_field(c, r, m, clip, sx, sz, pt)
 	else:
@@ -1182,7 +1311,6 @@ func _minimap_field(c: Vector2, r: float) -> void:
 		draw_circle(c, sr, GOLD)
 		draw_circle(c, sr * 0.72, Color(0.65, 0.45, 0.1))
 		draw_circle(c, sr * 0.6, Color(0.2, 0.62, 0.22))
-		draw_circle(c, sr * 0.38, Color(0.45, 0.95, 0.4, 0.75 + 0.2 * sin(pt * 3.0)))
 		for k in 8:
 			var a := TAU * k / 8.0
 			draw_circle(c + Vector2(cos(a), sin(a)) * sr * 0.86, maxf(sr * 0.1, 0.9), Color(1, 0.95, 0.65))
@@ -1202,14 +1330,28 @@ func _minimap_field(c: Vector2, r: float) -> void:
 		_mm_rect(outer.grow(2.0), clip, Color(0.12, 0.12, 0.14, 0.9))
 		_mm_rect(outer, clip, tc.darkened(0.1), tc.lightened(0.45), 1.5)
 		_mm_rect(outer.grow(-outer.size.x * 0.16), clip, tc.lightened(0.12), tc.darkened(0.35), 1.0)
-		var gate = game.gates[t]
-		var door_color: Color = RED if gate.broken else GOLD
-		_mm_line(m.call(Vector3(ox, 0, -Stats.DOOR_HALF)), m.call(Vector3(ox, 0, Stats.DOOR_HALF)), c, r, door_color, 3.0)
 		var th: Vector2 = m.call(game.thrones[t])
 		if (th - c).length() < r - 4.0:
 			var cs := clampf(r / 180.0, 0.38, 0.62)
 			_crown(th + Vector2(0.6, 1.0), cs, Color(0.25, 0.15, 0.02, 0.6))
 			_crown(th, cs, GOLD)
+
+
+func _minimap_live(c: Vector2, r: float) -> void:
+	## Over the baked chart: the shrine pulse, the doors (gold, red once
+	## broken), potions, blessings, turrets and everyone the team can see.
+	var g := _minimap_frame(c, r)
+	var sx: float = g.sx
+	var m: Callable = g.m
+	var pt: float = g.pt
+	var fx: float = g.fx
+	if not game.vmap:
+		var sr: float = maxf(game.ISLAND_R * sx * 1.15, 7.0)
+		draw_circle(c, sr * 0.38, Color(0.45, 0.95, 0.4, 0.75 + 0.2 * sin(pt * 3.0)))
+		for t in 2:
+			var ox: float = (-1.0 if t == 0 else 1.0) * fx
+			var door_color: Color = RED if game.gates[t].broken else GOLD
+			_mm_line(m.call(Vector3(ox, 0, -Stats.DOOR_HALF)), m.call(Vector3(ox, 0, Stats.DOOR_HALF)), c, r, door_color, 3.0)
 	# Potions that are up: small pink-red markers.
 	for orb in game.heal_orbs:
 		if orb.active:

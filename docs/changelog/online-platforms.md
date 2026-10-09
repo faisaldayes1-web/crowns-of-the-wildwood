@@ -51,3 +51,43 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Files:** `project.godot`, `scripts/game.gd`
 - **Tunables:** `threaded_cull_minimum_instances` 1000000 → (web only) 100000000
 - **Revert:** `git revert -m 1 7efb455`
+
+## 2026-10-09 04:50 UTC · `HASH-PENDING` · iPad web build runs faster: a quarter of the draw calls, baked HUD art
+
+- **What:** Faisal: "it feels very laggy still" on the iPad. Measured in an iPad-emulating Chromium,
+  a match frame issued ~10,200 WebGL draw calls, two thirds of them shadow passes (the sun's four
+  cascades and five cube-map lamp shadows redrew every caster each frame) and ~1,400 of them the
+  HUD, which rebuilt ~900 polygons of minimap art every frame. Now ~2,700 draw calls a frame, and
+  the per-frame script time of the HUD is down by about half.
+  - Browser only (`OS.has_feature("web")`): the sun uses one orthogonal shadow map over 50 m
+    instead of four cascades over 70 m, read with a hard (one-tap) filter from a 2048 atlas;
+    room lights and camp fires cast no shadow (WebGL never rendered them anyway); mesh instances
+    under 0.8 m stop casting shadows after the world is built (`_trim_web_shadows`, 8,530 → 5,858
+    casters); the 3D view renders at half the canvas size (`scaling_3d_scale` 0.5, the iPad's
+    2x pixel density becomes one 3D pixel per screen point; the HUD stays full density); a first
+    visit starts on the Low preset (no glow, small atlases; Settings can raise it to Medium); bots
+    think every other physics tick and repeat their last move in between; the touch overlay
+    redraws on finger events, not every frame; anisotropic filtering 8 → 4.
+  - All platforms: the minimap's painted chart and its bronze ring, and the screen frame with
+    its ivy, are drawn once into textures by a copy of the HUD inside a `SubViewport`
+    (`_bake` / `_layer` in `scripts/hud.gd`) and re-drawn only when their key changes (Ember
+    Pass's lava chart four times a second); the live HUD draws the textures and only what moves
+    (units, potions, doors, the shrine pulse). The frame's texture carries premultiplied alpha,
+    so it is shown by a `TextureRect` with that blend mode. Wheat fields never cast shadows.
+  - New test aid: `-- --perf` prints frame-time monitors every five seconds (process and physics
+    time, draw calls, objects, primitives, node count) and, once, a census of nodes by class,
+    shadow casters and blended mesh instances. Useful in the browser console too.
+- **Files:** `project.godot`, `scripts/game.gd`, `scripts/hud.gd`, `scripts/touch.gd`,
+  `scripts/unit.gd`
+- **Tunables (web only):** `directional_shadow_mode` 4 splits → orthogonal;
+  `directional_shadow_max_distance` 70 → 50; directional atlas 4096 → 2048, filter soft medium →
+  hard; positional atlas 2048 → 1024 and lamp shadows off; `scaling_3d_scale` 1.0 → 0.5; default
+  preset Medium → Low (cap stays Medium); `anisotropic_filtering_level` 8 → 4; bot think 60 → 30 Hz.
+  Desktop: unchanged apart from the baked HUD layers and the wheat.
+- **Tested:** `--check-only` on every changed script; a headless `--play --perf` match; the
+  exported build in Chromium with an iPad user agent and touch emulation: draw calls per frame
+  10,249 → ~2,750 (shadow pass 6,500 → 1,150, HUD 1,400 → 345, 3D ~1,000 → ~650), the software
+  renderer's frame time 3.4 s → 0.7 s, screenshots of the minimap, frame and panel unchanged to
+  the eye, no new console errors. Not yet measured on a real iPad.
+- **Revert:** `git revert HASH-PENDING` (restores the old shadows, per-frame HUD drawing and
+  full-density 3D on the web)

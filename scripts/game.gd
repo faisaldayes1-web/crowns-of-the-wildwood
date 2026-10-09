@@ -235,6 +235,9 @@ var seals := [{}, {}]
 var message_timer := 0.0
 # Run with "-- --demo" to watch bots play each other (used for testing).
 var demo := false
+var perf_log := false   # "--perf": print frame-time monitors every 5 s
+var perf_clock := 0.0
+var perf_counted := false
 var shot_frame := 900
 # Menus. The game menu (Esc) pauses; the rank menu (Tab) is an overlay.
 var menu_open := false
@@ -263,9 +266,13 @@ func _ready() -> void:
 	_setup_input()
 	sfx = Sfx.new()
 	add_child(sfx)
+	if OS.has_feature("web"):
+		# A first visit in a browser (the iPad) starts on Low: no glow and the
+		# small shadow maps. Settings can raise it to Medium.
+		gfx_quality = 0
 	_load_controls()
 	if OS.has_feature("web"):
-		# Browsers (and tablets) start on Medium at most; Settings can raise
+		# Browsers (and tablets) run Medium at most; Settings can raise
 		# it. (Here, not in _load_controls: a fresh browser has no settings
 		# file and that returns early.)
 		gfx_quality = mini(gfx_quality, 1)
@@ -301,6 +308,7 @@ func _ready() -> void:
 		get_tree().quit()
 		return
 	demo = "--demo" in OS.get_cmdline_user_args()
+	perf_log = "--perf" in OS.get_cmdline_user_args()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shot-frame="):
 			shot_frame = int(arg.trim_prefix("--shot-frame="))
@@ -422,6 +430,34 @@ func _process(delta: float) -> void:
 			print("   turret team%d L%d hp=%d %s" % [t.team, t.level, t.hp, t.global_position.snapped(Vector3.ONE * 0.1)])
 		for u in units:
 			print("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
+	perf_clock += delta
+	if perf_log and perf_clock >= 5.0:
+		perf_clock = 0.0
+		if not perf_counted:
+			perf_counted = true
+			var kinds := {}
+			var casters := 0
+			var blended := 0
+			for n in find_children("*", "", true, false):
+				kinds[n.get_class()] = kinds.get(n.get_class(), 0) + 1
+				if n is GeometryInstance3D and n.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+					casters += 1
+				if n is MeshInstance3D:
+					var mat: Material = n.material_override if n.material_override else (n.get_active_material(0) if n.mesh and n.mesh.get_surface_count() > 0 else null)
+					if mat is BaseMaterial3D and (mat.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED or mat.blend_mode != BaseMaterial3D.BLEND_MODE_MIX):
+						blended += 1
+			var top := kinds.keys()
+			top.sort_custom(func(a, b): return kinds[a] > kinds[b])
+			var line := "PERF nodes by class:"
+			for k in top.slice(0, 14):
+				line += " %s=%d" % [k, kinds[k]]
+			print(line)
+			print("PERF shadow casters=%d, transparent/blended mesh instances=%d" % [casters, blended])
+		print("PERF fps=%d process=%.1fms physics=%.1fms draws=%d objects=%d prims=%d nodes=%d" % [
+			Performance.get_monitor(Performance.TIME_FPS), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+			Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
+			Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
 	killer_timer = maxf(killer_timer - delta, 0.0)
 	capture_timer = maxf(capture_timer - delta, 0.0)
@@ -5208,7 +5244,8 @@ func _add_chandelier(pos: Vector3, elven: bool, shadows: bool = true) -> void:
 	## stands, braziers and crystals around the room.
 	var light := OmniLight3D.new()
 	light.position = pos
-	light.shadow_enabled = shadows
+	# Browsers: no lamp shadows (each is two more depth passes a frame).
+	light.shadow_enabled = shadows and not OS.has_feature("web")
 	light.shadow_bias = 0.08
 	if elven:
 		# Warm lantern light with a hint of green: pure green washed the
@@ -5886,7 +5923,7 @@ func _add_light(pos: Vector3, color: Color, energy: float, range_m: float, shado
 	light.light_color = color
 	light.light_energy = energy
 	light.omni_range = range_m
-	light.shadow_enabled = shadows
+	light.shadow_enabled = shadows and not OS.has_feature("web")
 	light.position = pos
 	add_child(light)
 	return light
@@ -6101,6 +6138,9 @@ func _add_wheat(center: Vector3, size: Vector2, seed: int) -> void:
 	m.vertex_color_use_as_albedo = true
 	m.roughness = 0.9
 	inst.material_override = m
+	# Wheat never casts shadows: thousands of stalks in every shadow pass for
+	# fields that sit off-screen in play.
+	inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(inst)
 	# Heads of grain: a second, shorter mesh of fat gold tips.
 	var head := CapsuleMesh.new()
@@ -6120,6 +6160,7 @@ func _add_wheat(center: Vector3, size: Vector2, seed: int) -> void:
 	var hinst := MultiMeshInstance3D.new()
 	hinst.multimesh = hm
 	hinst.material_override = m
+	hinst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(hinst)
 
 
@@ -7206,12 +7247,19 @@ func apply_graphics() -> void:
 		vp.msaa_3d = Viewport.MSAA_4X
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	if OS.has_feature("web"):
-		# Browsers (an iPad at 2x pixel density): no multisampling and no 3D
-		# scaling, FXAA alone smooths the edges.
+		# Browsers (an iPad at 2x pixel density): no multisampling; the 3D
+		# view renders at half the canvas size (one pixel per screen point, a
+		# quarter of the fill) and FXAA smooths it, while the HUD stays at full
+		# density.
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
-		vp.scaling_3d_scale = 1.0
+		vp.scaling_3d_scale = 0.5
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		# One 2048 shadow map covers the single cascade the web sun uses, read
+		# with one tap (the soft filters cost a kernel per pixel).
+		RenderingServer.directional_shadow_atlas_set_size(2048, true)
+		RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_HARD)
+		vp.positional_shadow_atlas_size = 1024
 	if world_environment:
 		world_environment.ssao_enabled = q >= 1
 		world_environment.ssil_enabled = q >= 2
@@ -7362,6 +7410,12 @@ func _build_world() -> void:
 	sun.directional_shadow_split_1 = 0.12
 	sun.directional_shadow_split_2 = 0.3
 	sun.directional_shadow_max_distance = 70.0
+	if OS.has_feature("web"):
+		# Browsers: one shadow map over the visible ground instead of four
+		# cascades (each cascade redraws every caster: thousands of WebGL
+		# draw calls a frame on the iPad). The camera sees about 45 m.
+		sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+		sun.directional_shadow_max_distance = 50.0
 	add_child(sun)
 	# A cool fill from the other side so shadows are not black.
 	var fill := DirectionalLight3D.new()
@@ -7512,6 +7566,26 @@ func _finish_world() -> void:
 	add_child(camera)
 	camera.make_current()
 	_add_ink()
+	if OS.has_feature("web"):
+		_trim_web_shadows()
+
+
+func _trim_web_shadows() -> void:
+	## Browsers: small clutter (candles, buds, mushrooms, plates, bricks under
+	## 0.8 m) stops casting shadows. Each caster is a WebGL draw call in the
+	## sun's shadow pass every frame, and a shadow that small hides under its
+	## own prop from the 50-degree camera. Units, trees, walls and furniture
+	## keep theirs.
+	var trimmed := 0
+	for n in find_children("*", "MeshInstance3D", true, false):
+		if n.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF or n.mesh == null:
+			continue
+		var ext: Vector3 = n.mesh.get_aabb().size * n.global_transform.basis.get_scale()
+		if maxf(ext.x, maxf(ext.y, ext.z)) < 0.8:
+			n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			trimmed += 1
+	if perf_log:
+		print("PERF web shadow trim: %d small casters off" % trimmed)
 
 
 
