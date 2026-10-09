@@ -53,6 +53,8 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 		effect["slow"] = stats.slow
 	if stats.has("root"):
 		effect["root"] = stats.root
+	if stats.get("burn", false):
+		effect["burn"] = true
 	color = p_color
 	life = stats.range / speed
 	position = from + Vector3(0, FLIGHT_HEIGHT, 0)
