@@ -681,7 +681,7 @@ Revert: `git revert bcdae1e`.
 
 ## 2026-10-09 — HUD right column removed; Elf courtyard anvil, Guide bubble, names on signs, no canopy (Faisal 09:03-09:06)
 
-Commit: `PENDING`.
+Commit: `dc20ff6`.
 - **HUD** (`scripts/hud.gd`): the CROWN / KITS / MAP ring buttons down the top-right edge are gone
   ("useless"); `_right_buttons`, `_count_badge` and `_chest_glyph` deleted. Kits left still show in
   the FORTIFY prompt; the map is the pause menu's first tab.
@@ -704,4 +704,4 @@ Files: `scripts/game.gd`, `scripts/hud.gd`, `scripts/guide.gd`, `docs/changelog/
 Tested: `--check-only` (game, hud, guide); `--audit` 1 overlap (pre-existing pines), 245 props;
 seed-5 120 s match: Human gate down and crown taken by 120 s.
 
-Revert: `git revert PENDING`.
+Revert: `git revert dc20ff6`.
