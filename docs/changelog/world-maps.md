@@ -7,12 +7,20 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
+### 2026-10-09 05:05 UTC · `(stamped by the next entry)` · Lions that read as lions; the drill yard moved into view
+
+- **What:** From the game camera (steep, from the south) the grey block lions read as rubble, so the stone lion is now cream stone with a gold disc mane and gold collar, and the gate pair is a third bigger. The barracks' drill yard (weapon rack, archery target, two sparring dummies) stood against the south wall, where the game camera never sees it: the camera looks over that wall's top, which hides the first ~2.5 m of floor behind it (the Elves' flower beds on the same wall are hidden the same way, told UI & Art). The drill yard now stands 3 m off the wall, in view; the two lion crests on that wall are gone (same reason).
+- **Files:** scripts/game.gd (`_add_stone_lion`, `_dress_human_castle`, `_build_cellar` Human branch)
+- **Tunables:** gate lions scale 1.0 → 1.3 at (fx−2.6, ±6.8); drill props z hz−0.9…1.6 → hz−3.2…3.6
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min Wildwood bot match (figures in the next entry). Renders: `game/groups/world-maps/human-*.png`
+- **Revert:** `git revert <hash>`
+
 ### 2026-10-09 04:45 UTC · `965ecd3` · Merge UI & Art's Elf pass D and their raider fix
 
 - **What:** Merged `group/ui-art-z3px4x` at `d52a8e1`. UI & Art had found the same corner-pillar trap (their b678241) and moved the four pillars to the keep's archway wall and back wall; this branch had turned them into torches (47c7d81). Resolution in `_polish_keep`: Elves get UI & Art's fire pillars, Humans keep plain corner torches, because the Human keep already has iron braziers at the archway and a weapon rack and shelf on the back wall where those pillars would stand. Also took their Elf pass D (crown room terrace with stairs, turret pads, hedge line outside the Elf front wall); the vault-door lions stay removed.
 - **Files:** scripts/game.gd (hand-merged `_polish_keep`, `_build_throne_room`), docs/changelog/ui-art.md (theirs)
 - **Tunables:** none of ours
-- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches on both maps (figures in the next entry)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0; 3 min bot matches: Wildwood seed 5 doors 168/100 at 60 s, Elves score 1-0 at 120 s; Ember Pass doors 161/196 at 150 s; UI & Art's seed-5 Mage on the rampart stairs did not recur here
 - **Revert:** `git revert -m 1 965ecd3`
 
 ### 2026-10-09 04:30 UTC · `47c7d81` · Bot routing fix: both teams were stuck behind the throne room

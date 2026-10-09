@@ -7343,8 +7343,11 @@ func _add_stone_lion(pos: Vector3, face: Vector3, scale: float = 1.0) -> void:
 	var fx := signf(face.x)
 	var fz := signf(face.z)
 	var along_x := absf(face.x) >= absf(face.z)
-	var stone := _ashlar(Color(0.86, 0.86, 0.9))
-	var dark := _ashlar(Color(0.7, 0.7, 0.76))
+	# Cream stone with a gold mane and collar: from the game camera (steep,
+	# from the south) a grey block lion read as rubble; the gold disc of the
+	# mane is what says "lion" from above.
+	var stone := _ashlar(Color(0.95, 0.92, 0.84))
+	var dark := _ashlar(Color(0.72, 0.72, 0.78))
 	var parts := [
 		# [along, y, lateral, length (along), height, width (lateral), mat]
 		[0.0, 0.17, 0.0, 1.5, 0.34, 0.95, dark],      # plinth
@@ -7352,7 +7355,6 @@ func _add_stone_lion(pos: Vector3, face: Vector3, scale: float = 1.0) -> void:
 		[0.22, 0.9, 0.0, 0.55, 1.1, 0.6, stone],      # chest
 		[0.42, 0.64, 0.19, 0.26, 0.6, 0.22, stone],   # front legs
 		[0.42, 0.64, -0.19, 0.26, 0.6, 0.22, stone],
-		[0.15, 1.55, 0.0, 0.34, 0.72, 0.72, dark],    # mane
 		[0.36, 1.56, 0.0, 0.5, 0.46, 0.46, stone],    # head
 		[0.64, 1.46, 0.0, 0.16, 0.22, 0.26, stone],   # muzzle
 		[0.3, 1.86, 0.18, 0.14, 0.14, 0.12, stone],   # ears
@@ -7372,6 +7374,18 @@ func _add_stone_lion(pos: Vector3, face: Vector3, scale: float = 1.0) -> void:
 			wp = pos + Vector3(l, q[1] * scale, a * fz)
 			ws = Vector3(q[5], q[4], q[3]) * scale
 		_add_block(wp, ws, Color.WHITE, false, q[6])
+	# The mane: a gold disc round the head, its axis along the facing.
+	var mane := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.46 * scale
+	cm.bottom_radius = 0.46 * scale
+	cm.height = 0.34 * scale
+	cm.radial_segments = 14
+	mane.mesh = cm
+	mane.position = pos + (Vector3(0.15 * scale * fx, 1.55 * scale, 0) if along_x else Vector3(0, 1.55 * scale, 0.15 * scale * fz))
+	mane.rotation = Vector3(0, 0, PI / 2.0) if along_x else Vector3(PI / 2.0, 0, 0)
+	mane.material_override = _gold()
+	add_child(mane)
 	_add_blocker(pos, 0.55 * scale, 2.0 * scale)
 
 
@@ -7661,7 +7675,7 @@ func _dress_human_castle(team: int, fx: float, kx: float, side: float, dh: float
 	## (gate to archway, yard to the rampart stairs).
 	var in_x := fx + side * 0.5
 	for zs in [-1.0, 1.0]:
-		_add_stone_lion(Vector3(fx - side * 2.5, 0, zs * (dh + 3.2)), Vector3(-side, 0, 0))
+		_add_stone_lion(Vector3(fx - side * 2.6, 0, zs * (dh + 3.3)), Vector3(-side, 0, 0), 1.3)
 		_add_ballista(Vector3(fx, 5.3, zs * (dh + 1.1)), Vector3(-side, 0, 0))
 		for px in [2.0, 3.5]:   # by the gatehouse: off the door lane, the stairs diagonal and the turret pads
 			var pp := Vector3(in_x + side * px, 0, zs * (dh + 2.7))
@@ -7744,12 +7758,12 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 				for bxo in [3.4, 11.0, 14.4]:
 					_add_flower_bed(Vector3(bx + side * bxo, CELLAR_Y, zs * (hz - 1.4)), Vector2(2.0, 1.1), 300 + int(bxo))
 			else:
-				_prop("hex/weaponrack", Vector3(bx + side * 4.0, CELLAR_Y, zs * (hz - 0.9)), 4.0, 0.0)
-				_prop("hex/target", Vector3(bx + side * 10.6, CELLAR_Y, zs * (hz - 1.0)), 3.2, 0.0)
-				_add_training_dummy(Vector3(bx + side * 13.2, CELLAR_Y, zs * (hz - 1.5)), 0.4)
-				_add_training_dummy(Vector3(bx + side * 14.6, CELLAR_Y, zs * (hz - 1.6)), -0.3)
-				for cx2 in [7.0, 11.0]:
-					_add_crest(team, Vector3(bx + side * cx2, CELLAR_Y + 1.9, zs * (hz - 0.03)), Vector3(0, 0, -zs), 0.7)
+				# Set 3 m off the wall: the game camera looks over the south
+				# wall's top, which hides the first ~2.5 m of floor behind it.
+				_prop("hex/weaponrack", Vector3(bx + side * 4.0, CELLAR_Y, zs * (hz - 3.2)), 4.0, 0.0)
+				_prop("hex/target", Vector3(bx + side * 9.6, CELLAR_Y, zs * (hz - 3.3)), 3.2, 0.0)
+				_add_training_dummy(Vector3(bx + side * 12.4, CELLAR_Y, zs * (hz - 3.3)), 0.4)
+				_add_training_dummy(Vector3(bx + side * 14.0, CELLAR_Y, zs * (hz - 3.6)), -0.3)
 			_prop("dungeon/crates_stacked", Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 0.3 * side)
 			_add_blocker(Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 1.5)
 			_prop("dungeon/barrel_large", Vector3(bx + side * 17.2, CELLAR_Y, zs * (hz - 4.6)), 0.8)
