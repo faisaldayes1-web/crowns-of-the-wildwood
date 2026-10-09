@@ -720,7 +720,7 @@ Revert: `git revert f3ec838`.
 
 ## 2026-10-09 — Crown banners, Upgrades / Paused / Options boards, hair styles, menu test (Faisal 09:14-09:39)
 
-Commit: `HASH`. References: `game/reference-renders/pause-upgrades-tab-target-2026-10-09.png`
+Commit: `cc73516`. References: `game/reference-renders/pause-upgrades-tab-target-2026-10-09.png`
 (Upgrades tab and the perk screen), `pause-tabs-sheet-target-2026-10-09.png` (the other pause
 tabs), `pause-map-target-2026-10-09.png` (Map tab), `options-menu-target-2026-10-09.png`
 (Options / Settings).
@@ -772,4 +772,4 @@ Files: `scripts/hud.gd`, `scripts/game.gd`, `scripts/character_model.gd`, `scrip
 `docs/changelog/ui-art.md`. Tested: `--check-only`; `tools/options_menu_test.gd` 0 failures;
 `tools/menu_flow_test.gd`; `--audit` 1 overlap (pre-existing pines); seed-5 bot match.
 
-Revert: `git revert HASH`.
+Revert: `git revert cc73516`.
