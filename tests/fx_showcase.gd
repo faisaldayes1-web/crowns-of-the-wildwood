@@ -4,6 +4,9 @@ extends Node
 ## Puts six bots round the player on open ground, keeps them pinned there
 ## with full hearts so they trade blows, and fires a scripted run of hits,
 ## spells, heals and a fall in front of the camera.
+## With --fxwall as well: arrows and a fireball fired at the Human front wall
+## and door from outside, and a defender's arrow at its own door from inside;
+## every shot stops on the wall or door and the defender inside is unhurt.
 
 const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
@@ -40,6 +43,9 @@ func _physics_process(delta: float) -> void:
 
 
 func _stage() -> void:
+	if "--fxwall" in OS.get_cmdline_user_args():
+		_stage_wall()
+		return
 	var p = game.player
 	p.global_position = center
 	game.cam_zoom = 0.6   # closer than play, so the effects read in captures
@@ -151,3 +157,76 @@ func _fall() -> void:
 	var v = cast[5]
 	v.hearts = 1
 	v.take_damage(1, game.player, game.player.global_position, 6.0, {"fx": "heavy"})
+
+
+# --- Walls stop shots (--fxwall) ---------------------------------------------
+
+var wall_x := 0.0
+
+
+func _stage_wall() -> void:
+	var p = game.player
+	wall_x = game.gates[1].position.x
+	center = Vector3(wall_x - 7.0, 0, 1.5)
+	p.global_position = center
+	game.cam_zoom = 0.75
+	# Park the camera over the wall so both sides of it are in view.
+	game.cam_lock = Vector3(wall_x - 1.0, 0, 0.0)
+	game.cam_pos = game.cam_lock + game.CAMERA_OFFSET * game.cam_zoom
+	p.spawn_protect = 0.0
+	p.set_role(Role.RANGER)
+	var defender = null
+	for u in game.units:
+		if u == p:
+			continue
+		if defender == null and u.team == 1:
+			defender = u
+			continue
+		u.process_mode = Node.PROCESS_MODE_DISABLED
+		u.global_position = Vector3(200, -50, 200)
+	defender.set_role(Role.RANGER)
+	defender.spawn_protect = 0.0
+	defender.process_mode = Node.PROCESS_MODE_DISABLED   # stands still for the camera
+	defender.global_position = Vector3(wall_x + 4.0, 0, 1.0)
+	cast.append(defender)
+	spots.append(defender.global_position)
+	events = [[0.3, "_arrow_wall"], [0.75, "_arrow_wall"], [1.2, "_arrow_door"], [1.7, "_fireball_wall"],
+		[2.6, "_defender_door"], [3.1, "_arrow_wall"]]
+
+
+func _arrow_at(target: Vector3) -> void:
+	var p = game.player
+	var d: Vector3 = target - p.global_position
+	d.y = 0.0
+	p.facing = d.normalized()
+	p.rotation.y = atan2(-p.facing.x, -p.facing.z)
+	p.energy = p.energy_max()
+	p.attack_timer = 0.0
+	p._attack(p.facing)
+
+
+func _arrow_wall() -> void:
+	_arrow_at(Vector3(wall_x, 0, 4.6 + randf_range(-0.4, 0.4)))
+
+
+func _arrow_door() -> void:
+	_arrow_at(Vector3(wall_x, 0, 0.5))
+
+
+func _fireball_wall() -> void:
+	var p = game.player
+	game.spawn_shot(p, (Vector3(wall_x, 0, 0.5) - p.global_position).normalized(), {"damage": 1, "gate_damage": 1, "range": 14.0, "splash": 3.5, "shot_speed": 24.0, "fire": true},
+		Color(1.0, 0.5, 0.1))
+	game.get_node("Fx").cast(p, Color(1.0, 0.55, 0.15))
+
+
+func _defender_door() -> void:
+	# The defender shoots at its own door from inside: that stops too.
+	var d = cast[0]
+	d.energy = d.energy_max()
+	d.attack_timer = 0.0
+	var dir: Vector3 = Vector3(wall_x, 0, 0.0) - d.global_position
+	dir.y = 0.0
+	d.facing = dir.normalized()
+	d.rotation.y = atan2(-d.facing.x, -d.facing.z)
+	d._attack(d.facing)

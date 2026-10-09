@@ -80,7 +80,10 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 	if position.y > FLIGHT_HEIGHT + 0.5:
 		fall_speed = (position.y - FLIGHT_HEIGHT) / (stats.range * 0.8 / speed)
 	# The world, plus the enemy door (layer 4 = human door, layer 3 = elf door).
-	query_mask = 1 | (8 if team == 0 else 4)
+	# The world and BOTH teams' doors, gates and sanctuary wards (layers 3
+	# and 4): nothing flies through a wall or a door, your own included.
+	# Only from up on a rampart can you shoot over a wall.
+	query_mask = 1 | 4 | 8
 	rotation.y = atan2(-direction.x, -direction.z)
 	if fire:
 		_build_fireball()
@@ -237,7 +240,14 @@ func _physics_process(delta: float) -> void:
 
 	# Anything solid in the way stops the shot. The enemy door takes damage.
 	var ray := PhysicsRayQueryParameters3D.create(before, after, query_mask)
+	ray.hit_from_inside = true
 	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	# Our own turrets share our door layer, but shots fly past them.
+	while hit and hit.collider is Turret and hit.collider.team == team:
+		var skip := ray.exclude
+		skip.append(hit.rid)
+		ray.exclude = skip
+		hit = get_world_3d().direct_space_state.intersect_ray(ray)
 	if hit:
 		global_position = hit.position
 		var gate = game.gates[1 - team]
@@ -286,15 +296,25 @@ func _physics_process(delta: float) -> void:
 			return
 
 
+func _clear_to(target: Vector3) -> bool:
+	## Nothing solid (walls, doors, wards) between the blast and `target`.
+	## The ray starts a little back along the flight, off the face it hit.
+	var from := global_position - direction * 0.3
+	var ray := PhysicsRayQueryParameters3D.create(from, target, query_mask)
+	var hit := get_world_3d().direct_space_state.intersect_ray(ray)
+	return hit.is_empty() or hit.collider is Turret
+
+
 func _burst() -> void:
 	if splash > 0.0:
-		# Magic rains down on everyone near the impact, walls or no walls.
+		# The blast reaches everyone near the impact that it can see: a wall
+		# or a door between the blast and someone shields them.
 		for unit in game.units:
 			if unit.team == team or unit.dead:
 				continue
 			var offset: Vector3 = unit.global_position - global_position
 			offset.y = 0.0
-			if offset.length() < splash and not unit.is_protected():
+			if offset.length() < splash and not unit.is_protected() and _clear_to(unit.global_position + Vector3(0, 1.0, 0)):
 				unit.take_damage(damage, owner_unit, global_position, Stats.KNOCK_SPLASH, effect)
 		for t in game.turrets.duplicate():
 			if t.team != team and game._flat_dist(t.global_position, global_position) < splash + 0.5:

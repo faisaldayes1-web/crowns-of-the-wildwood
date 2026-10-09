@@ -7,6 +7,7 @@ extends Node
 
 const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
+const Projectile = preload("res://scripts/projectile.gd")
 
 var game
 var failures := 0
@@ -31,7 +32,7 @@ func _frames(n: int) -> void:
 
 func _first(team: int):
 	for u in game.units:
-		if u.team == team and not u.is_player:
+		if u.team == team and not u.is_player and not u.dead:
 			return u
 	return null
 
@@ -121,5 +122,106 @@ func _run() -> void:
 	await _frames(240)
 	_check(fx.get_child_count() <= before, "fx_cleanup", "children %d -> %d" % [before, fx.get_child_count()])
 
+	# 7. Walls and doors stop shots: arrows fired across each castle from a
+	# ring of spots outside it (so through the walls, both doors, the keep)
+	# must never fly through anything solid. Units are moved off the map.
+	await _wall_shots()
+	await _rampart_and_splash()
+
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
+
+
+func _wall_shots() -> void:
+	for u in game.units:
+		u.global_position = Vector3(0, -60, 0)
+	var shooters := [_first(0), _first(1)]
+	var shots := []
+	for castle in 2:
+		var cx: float = -game.CASTLE_X if castle == 0 else game.CASTLE_X
+		for k in 48:
+			# Spots 0-23 outside the walls aiming in; 24-47 in the yard aiming out.
+			var ang := TAU * (k % 24) / 24.0
+			var ring := Vector3(cos(ang), 0, sin(ang))
+			var from := Vector3(cx, 0, 0) + ring * (19.0 if k < 24 else 5.5)
+			if k >= 24 and absf(from.x) > absf(cx):
+				from.x -= signf(cx) * 4.0   # keep the yard spots out of the keep's back rooms
+			var dir := -ring if k < 24 else ring
+			for team in 2:
+				var shot = Projectile.new()
+				shot.owner_unit = shooters[team]
+				game.add_child(shot)
+				shot.setup(game, team, from, dir, {"damage": 1, "gate_damage": 0, "range": 38.0, "shot_speed": 32.0}, Color.WHITE)
+				shots.append({"shot": shot, "from": shot.global_position, "last": shot.global_position, "team": team, "castle": castle, "k": k})
+	for f in 120:
+		await get_tree().physics_frame
+		for e in shots:
+			if is_instance_valid(e.shot):
+				e.last = e.shot.global_position
+	var space: PhysicsDirectSpaceState3D = game.get_world_3d().direct_space_state
+	var leaks := 0
+	var detail := ""
+	for e in shots:
+		var path: Vector3 = e.last - e.from
+		if path.length() < 0.5:
+			continue
+		var ray := PhysicsRayQueryParameters3D.create(e.from, e.last - path.normalized() * 0.4, 1 | 4 | 8)
+		var hit := ray_hit(space, ray)
+		if not hit.is_empty():
+			leaks += 1
+			if detail.length() < 600:
+				detail += " [team%d castle%d spot%d through %s at %s]" % [e.team, e.castle, e.k, hit.collider.name, (hit.position as Vector3).snapped(Vector3.ONE * 0.1)]
+	_check(leaks == 0 and shots.size() == 192, "shots_stop_on_walls_and_doors", "%d of %d shots flew through something:%s" % [leaks, shots.size(), detail])
+
+
+func ray_hit(space: PhysicsDirectSpaceState3D, ray: PhysicsRayQueryParameters3D) -> Dictionary:
+	return space.intersect_ray(ray)
+
+
+func _rampart_and_splash() -> void:
+	## An archer on the rampart still hits someone on the field below, and a
+	## fireball bursting on the outside of the front wall spares a defender
+	## standing just inside it.
+	var archer = _first(1)    # Humans: castle at +x, front wall faces -x
+	var target = _first(0)
+	archer.set_role(Role.RANGER)
+	target.set_role(Role.BASE)
+	var post: Vector3 = game.wall_posts[1][0]
+	archer.global_position = post
+	_stage(archer, target)
+	target.global_position = post + Vector3(-9.0, -post.y, 0)
+	archer.global_position = post
+	var dir: Vector3 = target.global_position - archer.global_position
+	dir.y = 0.0
+	archer._attack(dir.normalized())
+	await _frames(40)
+	_check(target.hearts == target.max_hearts() - 1, "rampart_archer_hits_below", "hearts=%d archer at %s target at %s" % [target.hearts, archer.global_position, target.global_position])
+
+	# Fireball at the front wall from outside: a Human 1.6 m outside the wall
+	# is caught (so the blast did go off there), one 1.6 m inside is not.
+	var fx_x: float = game.gates[1].position.x
+	var z := -8.0
+	var mage = _first(0)
+	var humans: Array = game.units.filter(func(u): return u.team == 1 and not u.dead)
+	var inside = humans[0]
+	var outside = humans[1]
+	target.global_position = Vector3(0, -60, 0)
+	archer.global_position = Vector3(0, -60, 0)
+	for pair in [[inside, fx_x + 1.6], [outside, fx_x - 1.6]]:
+		var u = pair[0]
+		u.set_role(Role.BASE)
+		u.global_position = Vector3(pair[1], 0, z + 1.2)
+		u.spawn_protect = 0.0
+		u.home_defense = false
+		u.resist_pool = 0.0
+		u.blocking = false
+		u.dodge_timer = 0.0
+		u.guard_timer = 0.0
+		u.hearts = u.max_hearts()
+	var ball = Projectile.new()
+	ball.owner_unit = mage
+	game.add_child(ball)
+	ball.setup(game, 0, Vector3(fx_x - 8.0, 0, z), Vector3(1, 0, 0), {"damage": 1, "gate_damage": 0, "range": 20.0, "shot_speed": 28.0, "splash": 3.5, "fire": true}, Color.ORANGE)
+	await _frames(40)
+	_check(outside.hearts == outside.max_hearts() - 1, "splash_hits_outside_wall", "hearts=%d" % outside.hearts)
+	_check(inside.hearts == inside.max_hearts(), "splash_blocked_by_wall", "hearts=%d" % inside.hearts)

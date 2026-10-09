@@ -129,3 +129,40 @@ then `python3 tools/balance/agg.py <tag>`.
   --write-movie out.png --quit-after 175 -- --play --fxshow --shot-frame=99999`
   (Compatibility renderer); results in project files `game/combat-feel/`.
 - **Revert:** `git revert 6356f8f`
+
+## 5. Walls and doors stop every shot
+
+- **When:** 2026-10-09 09:50 UTC (Faisal 2026-10-09 09:11: "we shouldn't be
+  able to shoot projectiles through walls and the door, you can stand over
+  and shoot but that's it")
+- **Commit:** _filled in by the next commit_
+- **What:** Two leaks closed.
+  - Shots only collided with the world and the *enemy's* door layer, so a
+    side's arrows, bolts and fireballs flew straight through its own door,
+    its back door and its sanctuary ward. Every shot now stops on walls,
+    either team's door, gate, vault door and ward; it still flies past its
+    own team's turrets. The flight ray also catches a shot that starts
+    touching a wall (`hit_from_inside`).
+  - Splash (Fireball, Ice Burst, Bramble Burst, splash bolts) hurt everyone
+    in its radius "walls or no walls", so a blast on the outside of a wall
+    hit defenders behind it. A blast now only reaches people it can see: a
+    wall or door between them shields them.
+  - Shooting over a wall from the rampart is unchanged (tested).
+- **Files:** `scripts/projectile.gd` (`query_mask`, flight ray, `_clear_to`,
+  `_burst`), `tests/combat_test.gd` (4 new checks), `tests/fx_showcase.gd`
+  (`--fxwall` capture), `docs/changelog/combat-balance.md`. Also merges
+  `claude/project-thread-hu6d1n` 0ca54e0 (web build fixes) first.
+- **Tunables:** none. Projectile collision mask `1 | enemy door layer` →
+  `1 | 4 | 8`.
+- **Checks:** `tools/tests/run.sh` 22/22 pass. New: 192 arrows fired across
+  both castles from outside in and from the yard out (both teams) never fly
+  through anything solid (before the fix 14 flew through their own doors);
+  a Human Ranger on the rampart still hits an Elf on the field below; a
+  fireball on the outside of the Human front wall catches a Human outside it
+  and spares one just inside (before the fix it hit both).
+- **Bots still raid doors** (3-minute demo matches, seeds 21-22):
+  Wildwood 2 + 2 doors broken (before: 2 + 1), Ember Pass 1 + 1 (before:
+  0 + 1); no script errors.
+- **Capture:** `-- --play --fxshow --fxwall` (Compatibility renderer); in
+  project files `game/combat-feel/shots-stop-at-door-*`.
+- **Revert:** `git revert <hash>`
