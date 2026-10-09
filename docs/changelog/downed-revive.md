@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-09 10:52 UTC · `3b19863` · Downed screen layout fixes
+
+- **What:** "YOU'RE DOWNED!" sits under the body instead of over it, the DOWNED BY card clears the top bar's hint strip, the duplicate "You are DOWN!" announcement is gone, and a downed body's name tag hides (the swirl and revive bar mark it).
+- **Files:** scripts/hud.gd, scripts/unit.gd, scripts/game.gd
+- **Tunables:** none
+- **Revert:** `git revert 3b19863`
+
 ### 2026-10-09 09:42 UTC · `994b110` · Render hook for the finisher
 
 - **What:** `--debug-finish` puts the player (a Knight) over a downed enemy holding interact, for renders.
