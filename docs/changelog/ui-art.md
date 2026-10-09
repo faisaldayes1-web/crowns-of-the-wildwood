@@ -650,3 +650,14 @@ Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `-
 overlap (pre-existing pines), 245 props; seed-5 90 s match doors 171/0 at 60 s.
 
 Revert: `git revert 8caeef4`.
+
+## 2026-10-09 — Elf yard: corner trees removed (Faisal 08:21 "giant blobs… inside the building")
+
+Commit: `0afd162`. The two wildwood trees in the Elf yard's back corners (one pink, at about
+x −55, z ±7.8) are gone from `_dress_elf_yard`; the yard keeps the arch fire pillars, turret pads
+and the runner. World & Maps removed the leafy canopy blobs on the Elf towers in `_add_tower`.
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1 overlap,
+245 props; seed-5 90 s match doors 163/14 at 60 s.
+
+Revert: `git revert 0afd162`.

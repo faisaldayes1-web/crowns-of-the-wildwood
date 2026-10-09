@@ -7755,8 +7755,9 @@ func _dress_elf_yard(team: int, fx: float, kx: float, side: float, hz: float) ->
 	## fire pillars and the hedge along the front wall were cut on Faisal's
 	## 06:00 2026-10-09 "both sides equally cluttered". Only the trees are
 	## solid, off the lane and the stair routes.
+	# (The two corner trees went too, 08:23 2026-10-09: their round crowns
+	# read as "giant blobs inside the building", one of them pink.)
 	for zs in [-1.0, 1.0]:
-		_add_tree_grown(Vector3(kx - side * 2.6, 0, zs * (hz - 4.2)))
 		_add_stone_brazier(Vector3(kx - side * 1.9, 0, zs * 3.4))
 	# Turret pads where the Engineers build (the sheet's outer-defence turrets).
 	for spot in turret_spots(team):
