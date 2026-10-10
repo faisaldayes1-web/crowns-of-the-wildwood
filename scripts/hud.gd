@@ -3291,7 +3291,7 @@ func _touch_cluster(p, W: float, H: float) -> void:
 			_text(gc + Vector2(-60, 52), a.name, 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
 	# Pause (the map is its first tab) and the scoreboard beside it.
 	var pc := Vector2(W - 52, 52)
-	var sc := Vector2(W - 132, 52)
+	var sc := Vector2(W - 52, 134)
 	if not pane:
 		touch_rects.append([Rect2((pc - Vector2(44, 44)) * hud_scale, Vector2(88, 88) * hud_scale), "menu"])
 		touch_rects.append([Rect2((sc - Vector2(38, 44)) * hud_scale, Vector2(76, 88) * hud_scale), "scoreboard"])
