@@ -4,6 +4,14 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-10 10:06 UTC · `50b81b4` · No "downed by" card; killer banner only on the real death, revamped
+
+- **What:** Faisal 2026-10-10 09:57: going down shows only YOU'RE DOWNED! (with the revive bar and the skip key), with no DOWNED BY card. The killer's banner hangs on the death screen when you actually die. If you were finished off it reads FINISHED BY the finisher; if you bled out or skipped it reads SLAIN BY whoever downed you. Before, the card was set at the down and had usually timed out by the death. The banner (`_draw_banner`, also used by the hero-tab banner editor and the store preview) is redrawn in wood and gold: a carved frame with metal trim in the frame colour and gold corner studs, a cloth field shaded top to bottom with the team colour on the hem, the emblem on a heraldic shield, and the level on a gold rosette. The heading is a crimson tab with crossed blades, or a skull for a finisher. New render flags: `--debug-killed` now shows the bleed-out death, `--debug-killed-finish` shows the finisher death, and `--debug-downed-touch` turns on the touch layout.
+- **Files:** scripts/hud.gd, scripts/unit.gd, scripts/game.gd
+- **Tunables:** none
+- **Tested:** a bot match (seed 3001), tools/tests/run.sh (0 failures), options_menu_test and menu_flow_test (0 failures).
+- **Revert:** `git revert 50b81b4`
+
 ### 2026-10-09 12:03 UTC · `12521ed` · Finisher render hook lead time
 
 - **What:** `--debug-finish-strike` sets the shot up early enough that the finisher blow lands on the screenshot.
