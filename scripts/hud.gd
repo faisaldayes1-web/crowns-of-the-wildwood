@@ -3215,7 +3215,9 @@ func _draw_quick_upgrade(p) -> void:
 	var calm: float = p.calm_left()
 	var R := Rect2(x, y, w, 36)
 	var pulse := 0.5 + 0.5 * sin(now * 4.0)
-	_plate(R, Color(0.08, 0.06, 0.03, 0.92), GOLD.lerp(Color(1, 0.95, 0.7), pulse * 0.4) if calm <= 0.0 else Color(0.55, 0.3, 0.2), 9, 2)
+	game_board(R, "", false)
+	if calm <= 0.0:
+		_glow_frame(R.grow(2), Color(1.0, 0.82, 0.3, 0.25 + 0.3 * pulse))
 	_text(Vector2(x + 10, y + 16), "LEVEL UP", 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	if calm > 0.0:
 		_text(Vector2(x + 10, y + 30), "In combat %.0fs" % ceilf(calm), 10, Color(1.0, 0.55, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -3230,7 +3232,8 @@ func _draw_quick_upgrade(p) -> void:
 		tx += tw + 6.0
 		var icon: String = _attack_icon(p.role, p.stats()) if t == 0 else ("vigor" if t == 3 else str(abil[t - 1].get("icon", abil[t - 1].kind)))
 		var ready := calm <= 0.0
-		_plate(r, Color(0.2, 0.15, 0.06) if ready else Color(0.14, 0.12, 0.1), GOLD_DARK if ready else Color(0.35, 0.3, 0.25), 7, 1)
+		_plate(r, Color(0.13, 0.08, 0.04) if ready else Color(0.1, 0.08, 0.07), BRASS if ready else Color(0.35, 0.3, 0.25), 7, 1)
+		draw_rect(Rect2(r.position + Vector2(3, 2), Vector2(r.size.x - 6, 4)), Color(1, 0.85, 0.6, 0.1 if ready else 0.04))
 		_icon(icon, r.position + Vector2(15, 15), 8.0, Color.WHITE if ready else Color(0.6, 0.6, 0.6))
 		_text(Vector2(r.position.x + 30, r.position.y + 20), "LV%d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_keycap(Vector2(r.end.x - 2, r.position.y + 2), _k("rank_%d" % (t + 1)), 18)
@@ -3338,6 +3341,53 @@ func _status_tags(p, panel: Rect2) -> void:
 		_text(vb.position + Vector2(30, 17), ("ELITE VETERAN · BOUNTY ON YOU" if p.veteran == 2 else "VETERAN") + "  ·  %d streak" % p.streak, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	elif p.streak >= 2 and not p.dead:
 		_text(Vector2(panel.end.x, tag_y + 17), "%d kill streak" % p.streak, 11, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, -1, 3)
+
+
+func game_board(r: Rect2, title: String = "", ivy: bool = true) -> void:
+	## THE in-match panel look, shared by every HUD panel (the ability strip,
+	## LEVEL UP, Economy's BASE STOCK and action card): a dark wooden board in a
+	## brass rim with gold corner brackets, faint grain and ivy sprigs, and
+	## (with a title) a small wooden name tag on its top edge.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.04, 0.03)
+	sb.set_corner_radius_all(10)
+	sb.shadow_size = 7
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_offset = Vector2(0, 3)
+	draw_style_box(sb, r.grow(3))
+	_plate(r, WOOD_DARK, BRASS, 8, 3)
+	var inner := r.grow(-4)
+	var bands := maxi(2, int(inner.size.y / 18.0))
+	for i in bands:
+		var y := inner.position.y + inner.size.y * i / float(bands)
+		draw_rect(Rect2(Vector2(inner.position.x + 2, y + 1), Vector2(inner.size.x - 4, inner.size.y / bands - 1)), Color(1, 0.8, 0.55, 0.05) if i % 2 == 0 else Color(0, 0, 0, 0.1))
+	draw_rect(Rect2(r.position + Vector2(10, 2), Vector2(r.size.x - 20, 1)), GOLD.lightened(0.35))
+	draw_rect(r.grow(-6), Color(0.62, 0.44, 0.16, 0.35), false, 1.0)
+	_gold_corners(r.grow(2), minf(18.0, r.size.y * 0.45), 5.0)
+	if ivy and r.size.x > 120.0:
+		_ivy(r.position + Vector2(4, 2), Vector2(1, 0), minf(50.0, r.size.x * 0.2), 3)
+		_ivy(Vector2(r.end.x - 4, r.position.y + 2), Vector2(-1, 0), minf(50.0, r.size.x * 0.2), 6)
+	if title != "":
+		var tw := _text_width(title, 12) + 28.0
+		var tag := Rect2(r.get_center().x - tw / 2.0, r.position.y - 11.0, tw, 20.0)
+		_plate(tag, Color(0.36, 0.21, 0.09), BRASS, 6, 2)
+		draw_rect(Rect2(tag.position + Vector2(3, 3), Vector2(tag.size.x - 6, 5)), Color(1, 0.9, 0.7, 0.12))
+		_text(Vector2(tag.position.x, tag.end.y - 5), title, 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 3)
+
+
+func game_button(r: Rect2, label: String, enabled: bool = true, accent: Color = Color(1.0, 0.78, 0.25)) -> bool:
+	## The matching in-match button: a raised gold (or given accent) plate with
+	## dark lettering, a top shine and a hover lift; grey when not enabled.
+	## Returns whether the mouse is over it.
+	var hover := enabled and r.has_point(_mouse())
+	var rr := r.grow(2) if hover else r
+	draw_rect(Rect2(rr.position + Vector2(0, 3), rr.size), Color(0, 0, 0, 0.35))
+	var fill := accent.lightened(0.12) if hover else accent
+	_plate(rr, fill if enabled else Color(0.3, 0.29, 0.27), Color(0.4, 0.22, 0.04) if enabled else Color(0.2, 0.2, 0.2), 8, 2)
+	draw_rect(Rect2(rr.position + Vector2(4, 3), Vector2(rr.size.x - 8, rr.size.y * 0.3)), Color(1, 1, 1, 0.25 if enabled else 0.06))
+	var fs := 15 if _text_width(label, 15) < rr.size.x - 12.0 else 12
+	_text(Vector2(rr.position.x, rr.get_center().y + fs * 0.35), label, fs, Color(0.24, 0.12, 0.03) if enabled else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 0)
+	return hover
 
 
 func _gold_corners(rect: Rect2, arm: float, thick: float) -> void:
