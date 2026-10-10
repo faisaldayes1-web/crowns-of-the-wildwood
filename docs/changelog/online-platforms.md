@@ -141,7 +141,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tested:** `--check-only`; web export in Chromium with iPad touch: Perks tile opens the board, a tap outside closes it, no new console errors.
 - **Revert:** `git revert d2c2a23`
 
-### 2026-10-10 09:58 UTC · HASH-PENDING · iPad: steady 30 fps instead of jumpy frames
+### 2026-10-10 09:58 UTC · 2a24c42 · iPad: steady 30 fps instead of jumpy frames
 - What: on the web, if a match runs under ~52 fps for 4 s the game caps itself at a steady 30 fps (every frame gets exactly two 60 Hz physics steps), instead of alternating 0/1/2 steps that made units jump. Graphics still drop to Low below 26 fps.
 - Files: scripts/game.gd (`_auto_quality`).
 - Revert: `git revert <hash>`
