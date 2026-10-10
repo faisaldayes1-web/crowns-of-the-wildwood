@@ -537,6 +537,8 @@ const ECONOMY := {
 	"bot_repair_below": 100,   # all-bot teams mend their door only once it is down to this (no mending under siege)
 	"bot_repair_gap": 45.0,   # ...and at most once every this many seconds
 	"door_bar_lift": 1.6,    # metres the door's overhead health bar sits higher than World & Maps placed it
+	"field_calm": 3.0,       # seconds out of combat before a hat machine can be upgraded from the field (quick-upgrade popup)
+	"field_foe_radius": 9.0, # an enemy this close counts as combat
 }
 
 # The extra move a class gets from its upgraded hat (key G, pad left stick

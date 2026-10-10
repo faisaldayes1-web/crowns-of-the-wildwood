@@ -240,7 +240,7 @@ func _turret_on(team: int, pos: Vector3):
 
 # --- Spending ---------------------------------------------------------------------
 
-func upgrade_hat(team: int, role: int, by) -> bool:
+func upgrade_hat(team: int, role: int, by, at_machine: bool = true) -> bool:
 	var E: Dictionary = Stats.ECONOMY
 	if is_upgraded(team, role):
 		return false
@@ -261,13 +261,21 @@ func upgrade_hat(team: int, role: int, by) -> bool:
 	var a: Dictionary = Stats.hat_upgrade(team, role)
 	var cls: String = Stats.FACTIONS[team].roles[role]
 	if by and by.is_player:
-		game.announce("%s hat machine upgraded! Take the new hat to learn %s (%s)." % [cls, a.get("name", "?"), game.key_label("ability_3")])
+		game.announce("%s hat machine upgraded! Every %s gets %s (%s)." % [cls, cls, a.get("name", "?"), game.key_label("ability_3")])
 	elif by:
 		game.chat_system("%s upgraded the %s %s hat machine." % [by.display_name, Stats.FACTIONS[team].name, cls])
 	if game.demo:
 		print("ECON t=%d team%d upgrade %s" % [game.match_clock(), team, cls])
-	if by and by.role == role and not by.dead:
+	if at_machine and by and by.role == role and not by.dead:
 		seal.take(by)   # standing at it wearing the class: put the new hat straight on
+	# Everyone on the team already wearing this class gets the move now, wherever
+	# they are (Faisal 2026-10-10: no walking back to base for it).
+	for u in game.units:
+		if u.team == team and u.role == role and not u.hat_upgraded:
+			u.hat_upgraded = true
+			u._stats_cache = {}
+			if u.is_player:
+				game.toast("Your %s hat is upgraded: %s is on %s" % [cls, a.get("name", "?"), game.key_label("ability_3")], Color(1.0, 0.85, 0.4))
 	return true
 
 
@@ -681,6 +689,7 @@ func _physics_process(delta: float) -> void:
 	_tick_work(delta)
 	_tick_cargo()
 	_tick_drops(delta)
+	_tick_calm()
 	spend_timer -= delta
 	if spend_timer <= 0.0:
 		spend_timer = 2.0
@@ -1194,6 +1203,78 @@ func draw_counter(hud, me) -> void:
 		hud._text(Vector2(rect.position.x, rect.end.y + 16), "FULL: TAKE IT TO THE STOREHOUSE", 11, Color(1.0, 0.85, 0.45), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
 
 
+# --- Field upgrades (quick-upgrade popup, UI & Art) -------------------------------
+# Hat machines can be upgraded from anywhere once you have been out of combat
+# for ECONOMY.field_calm seconds, paid from the base stock; the machine at the
+# base stays the always-safe way. UI & Art's quick-upgrade popup lists these.
+
+var _calm_since := {}   # unit -> ms when it last hurt, was hurt or had a foe close
+var _calm_seen := {}    # unit -> [hearts, attack_timer] last frame
+
+
+func _tick_calm() -> void:
+	var now := Time.get_ticks_msec()
+	for u in game.units:
+		if not u.is_player:
+			continue
+		var seen: Array = _calm_seen.get(u, [u.hearts, u.attack_timer])
+		var fight: bool = u.dead or u.hearts < seen[0] or u.attack_timer > seen[1] + 0.01 \
+			or game.enemies_near(u.team, u.global_position, Stats.ECONOMY.field_foe_radius) > 0
+		if fight or not _calm_since.has(u):
+			_calm_since[u] = now
+		_calm_seen[u] = [u.hearts, u.attack_timer]
+
+
+func field_ok(p) -> bool:
+	## Out of combat long enough to upgrade from the field.
+	if p == null or not is_instance_valid(p) or p.dead or p.get("downed") == true:
+		return false
+	return Time.get_ticks_msec() - int(_calm_since.get(p, Time.get_ticks_msec())) >= int(Stats.ECONOMY.field_calm * 1000.0)
+
+
+func field_hat_offers(p) -> Array:
+	## One entry per hat machine on the player's team, for the quick-upgrade
+	## popup: {role, class_name, move_name, desc, icon, wood, ore, ok, reason, upgraded}.
+	var out := []
+	if p == null or not is_instance_valid(p):
+		return out
+	var E: Dictionary = Stats.ECONOMY
+	var team: int = p.team
+	var calm := field_ok(p)
+	for entry in game.LINEUP:
+		var role: int = entry[0]
+		if not game.seals[team].has(role) or game.seals[team][role].locked:
+			continue
+		var a: Dictionary = Stats.hat_upgrade(team, role)
+		var done := is_upgraded(team, role)
+		var reason := ""
+		if done:
+			reason = "UPGRADED"
+		elif not calm:
+			reason = "IN COMBAT"
+		else:
+			reason = _need(team, E.hat_wood, E.hat_ore)
+		out.append({"role": role, "class_name": game.seals[team][role].class_title(), "move_name": a.get("name", ""),
+			"desc": a.get("desc", ""), "icon": a.get("icon", "upgrade"), "wood": E.hat_wood, "ore": E.hat_ore,
+			"ok": reason == "", "reason": reason, "upgraded": done})
+	return out
+
+
+func buy_hat_remote(p, role: int) -> bool:
+	## The quick-upgrade popup's buy: same price and effect as the machine,
+	## except your own hat swaps to the upgraded one only at the machine.
+	if p == null or not is_instance_valid(p):
+		return false
+	if not field_ok(p):
+		if p.is_player:
+			game.toast("Get out of the fight for %d seconds to upgrade from the field" % int(Stats.ECONOMY.field_calm), Color(1.0, 0.7, 0.5))
+			game.sfx.ui("ui_deny", -6.0)
+		return false
+	if is_upgraded(p.team, role):
+		return false
+	return upgrade_hat(p.team, role, p, false)
+
+
 # --- Action card (HUD): the button for repairs, upgrades and turrets ---------------
 
 var card_button := Rect2()   # this frame's card button in HUD coordinates (mouse clicks), empty when none
@@ -1479,6 +1560,18 @@ func _test_tick() -> void:
 					break
 			other.set_role(Role.KNIGHT)
 			_check(other.hat_upgraded, "a teammate's Knight hat is upgraded too")
+			# Field upgrade (quick-upgrade popup): a Ranger already in the field gets its move at once.
+			other.set_role(Role.RANGER)
+			var was: bool = is_upgraded(team, Role.RANGER)
+			_calm_since[p] = Time.get_ticks_msec() - 10000
+			var ok_buy: bool = buy_hat_remote(p, Role.RANGER)
+			_check(was or (ok_buy and is_upgraded(team, Role.RANGER) and other.hat_upgraded and other.abilities().size() == 3),
+				"a field upgrade gives a Ranger already out there its move")
+			if ok_buy:
+				wood[team] += Stats.ECONOMY.hat_wood   # (keep the later price checks' stock as it was)
+				ore[team] += Stats.ECONOMY.hat_ore
+			_calm_since[p] = Time.get_ticks_msec()
+			_check(not field_ok(p) and not buy_hat_remote(p, Role.MAGE), "no field upgrade straight after a fight")
 			other.set_role(Role.BASE)
 			var gate = game.gates[team]
 			gate.hp = 120
