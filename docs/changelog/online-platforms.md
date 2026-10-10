@@ -155,6 +155,22 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   "FPS" number, no console errors. Not yet measured on a real iPad.
 - **Revert:** `git revert e9fcddf`
 
+## 2026-10-09 12:10 UTC · `20b0c0b` · Touch-first HUD on the iPad, sharper 3D
+
+- **Why:** Faisal (11:38): the iPad build "felt low textures and very laggy"; wants bigger icons and a mobile game UI.
+- **What:** On a touch screen the six moves become big painted tiles in an arc under the right thumb (attack 118 px in the corner, others 80 px), with no keycaps. The attack tile doubles as the aim pad: hold it to swing and drag to aim. A round pause button sits top-right; CROWN/KITS/MAP and the corner buttons are hidden, and the map stays in the pause menu. The move stick is bigger: 95 px range (was 70), with a larger knob and rest ring. A menu tap up to 24 px outside a button counts as a tap on it. Web 3D resolution goes from 0.5 to 0.75 of the canvas, and anisotropic filtering goes back from 4 to 8. Desktop HUD unchanged.
+- **Files:** `scripts/hud.gd`, `scripts/touch.gd`, `scripts/game.gd`, `project.godot`
+- **Tested:** `--check-only`; exported build in Chromium with iPad UA + touch, screenshot of the new layout, WebGL draws per frame ~1,110 (unchanged), no new console errors. Not measured on a real iPad.
+- **Revert:** `git revert 20b0c0b`
+
+## 2026-10-10 09:20 UTC · `d2c2a23` · iPad: the UPGRADES board opens and closes easily by touch
+
+- **Why:** Faisal (08:33): "fix the controls so that the upgrade menu is easier to exit in and out of".
+- **What:** On touch screens only: the UPGRADES board shows a big CLOSE button under it (in place of the keyboard hint), a tap anywhere outside the board closes it, and every panel's X button is finger-sized (64 px hit area, was 30).
+- **Files:** `scripts/hud.gd` (`_close`, `_draw_rank_menu`, `touch_close`), `scripts/touch.gd` (`_down`)
+- **Tested:** `--check-only`; web export in Chromium with iPad touch: Perks tile opens the board, a tap outside closes it, no new console errors.
+- **Revert:** `git revert d2c2a23`
+
 ## 2026-10-09 12:05 UTC · `8fc8fa2` · Online group catches up with the v0.4.0 alpha
 
 - **What:** merged `release/v0.4.0-alpha` (new menus, downed and revive, economy, store, strict
@@ -265,7 +281,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
   `Net.EVENT_SLICE` = 96 (new)
 - **Revert:** `git revert 0de501a`
 
-## 2026-10-10 08:52 UTC · `HASH-PENDING` · Online play uses the hosted relay
+## 2026-10-10 08:52 UTC · `e8fca2c` · Online play uses the hosted relay
 
 - **What:** Faisal set up the relay on Render (free plan, his account, deploying `server/` from
   this branch). The game now uses it by default, so ONLINE rooms work between devices over the
@@ -275,20 +291,21 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
     against Render (456 events reached the joiner in 40 s).
 - **Files:** `project.godot` (new `[online]` section), `tools/net_smoke.sh`, `README.md`
 - **Tunables:** `online/relay_url` (unset, so `ws://127.0.0.1:8787`) → `wss://crowns-of-the-wildwood.onrender.com`
-- **Revert:** `git revert HASH-PENDING`
+- **Revert:** `git revert e8fca2c`
 
-## 2026-10-09 12:10 UTC · `20b0c0b` · Touch-first HUD on the iPad, sharper 3D
+## 2026-10-10 09:04 UTC · `HASH-PENDING` · Online work merged with the latest alpha
 
-- **Why:** Faisal (11:38): the iPad build "felt low textures and very laggy"; wants bigger icons and a mobile game UI.
-- **What:** On a touch screen the six moves become big painted tiles in an arc under the right thumb (attack 118 px in the corner, others 80 px), with no keycaps. The attack tile doubles as the aim pad: hold it to swing and drag to aim. A round pause button sits top-right; CROWN/KITS/MAP and the corner buttons are hidden, and the map stays in the pause menu. The move stick is bigger: 95 px range (was 70), with a larger knob and rest ring. A menu tap up to 24 px outside a button counts as a tap on it. Web 3D resolution goes from 0.5 to 0.75 of the canvas, and anisotropic filtering goes back from 4 to 8. Desktop HUD unchanged.
-- **Files:** `scripts/hud.gd`, `scripts/touch.gd`, `scripts/game.gd`, `project.godot`
-- **Tested:** `--check-only`; exported build in Chromium with iPad UA + touch, screenshot of the new layout, WebGL draws per frame ~1,110 (unchanged), no new console errors. Not measured on a real iPad.
-- **Revert:** `git revert 20b0c0b`
-
-## 2026-10-10 09:20 UTC · `d2c2a23` · iPad: the UPGRADES board opens and closes easily by touch
-
-- **Why:** Faisal (08:33): "fix the controls so that the upgrade menu is easier to exit in and out of".
-- **What:** On touch screens only: the UPGRADES board shows a big CLOSE button under it (in place of the keyboard hint), a tap anywhere outside the board closes it, and every panel's X button is finger-sized (64 px hit area, was 30).
-- **Files:** `scripts/hud.gd` (`_close`, `_draw_rank_menu`, `touch_close`), `scripts/touch.gd` (`_down`)
-- **Tested:** `--check-only`; web export in Chromium with iPad touch: Perks tile opens the board, a tap outside closes it, no new console errors.
-- **Revert:** `git revert d2c2a23`
+- **What:** merged `release/v0.4.0-alpha` (114 new commits: grab feedback, input buffering,
+  attack recovery, iPad touch HUD and UPGRADES board, window keep-alive and more) into this branch,
+  so Integration & Release can take the online work in without conflicts. Conflicts resolved:
+  - `character_model.gd`: `play_once` keeps the alpha's new `recover` argument and is still
+    mirrored to joiners (the argument travels with it).
+  - `unit.gd`: the alpha's attack buffer and skill/dodge input buffer now read input through
+    `_tap/_held`, so they work for joiners too; the economy-card click check only applies to the
+    local player. `Net.input_counts` gains `attack` so a joiner's tapped swing is buffered too.
+  - `skill_fx.gd`, `game.gd`, this changelog: both sides kept.
+- **Tested:** `tools/net_smoke.sh` passes over ENet (591 events) and the relay (418 events).
+- **Files:** merge of `release/v0.4.0-alpha`; `scripts/character_model.gd`, `scripts/unit.gd`,
+  `scripts/net.gd`, `scripts/skill_fx.gd`, `scripts/game.gd`
+- **Tunables:** none
+- **Revert:** `git revert -m 1 HASH-PENDING`
