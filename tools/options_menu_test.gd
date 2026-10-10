@@ -34,6 +34,20 @@ func saved(section: String, key: String):
 	return cfg.get_value(section, key)
 
 
+func press(action: String) -> void:
+	Input.action_press(action)
+	await frames(2)
+	Input.action_release(action)
+	await frames(2)
+
+
+func find3(list: Array, key, arg) -> Rect2:
+	for b in list:
+		if b[1] == key and b[2] == arg:
+			return b[0]
+	return Rect2()
+
+
 func find(list: Array, key) -> Rect2:
 	for b in list:
 		if b[1] == key:
@@ -83,11 +97,11 @@ func _init() -> void:
 				continue
 			var before := [game.hero_body, game.hero_skin, game.hero_face, game.hero_eye, game.hero_mark, game.hero_hair, game.hero_hair_style,
 				game.hero_trim, game.hero_look, game.banner_bg, game.banner_emblem, game.banner_frame, m.preview_team, m.preview_role, m.preview_rank, m.char_tab,
-				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon]
+				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0]
 			await tap(b[0])
 			var after := [game.hero_body, game.hero_skin, game.hero_face, game.hero_eye, game.hero_mark, game.hero_hair, game.hero_hair_style,
 				game.hero_trim, game.hero_look, game.banner_bg, game.banner_emblem, game.banner_frame, m.preview_team, m.preview_role, m.preview_rank, m.char_tab,
-				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon]
+				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0]
 			tried += 1
 			if before == after and not _already(b, before):
 				dead.append("%s %s" % [b[1], str(b[2])])
@@ -99,6 +113,12 @@ func _init() -> void:
 		if b[1] == "char_tab" and int(b[2]) == 2:
 			await tap(b[0])
 	check(m.char_tab == 2, "a character tab button switches tab")
+	if m.stage:
+		var turn0: float = m.stage.hero_turn_goal
+		await tap(find3(hud.menu_buttons, "hero_turn", 1))
+		check(is_equal_approx(m.stage.hero_turn_goal, turn0 + PI / 4.0), "the right turn arrow spins the hero 45 degrees")
+		await tap(find3(hud.menu_buttons, "hero_turn", -1))
+		check(is_equal_approx(m.stage.hero_turn_goal, turn0), "the left turn arrow spins it back")
 	m.go("title")
 	await frames()
 	await tap(ids.get("tutorial", Rect2()))
@@ -108,6 +128,10 @@ func _init() -> void:
 			await tap(b[0])
 			break
 	check(m.tutorial_topic == 2, "a tutorial topic opens")
+	var pics := 0
+	for i in 6:
+		pics += 1 if m.tutorial_image(i) != null else 0
+	check(pics == 6, "every tutorial topic has its gameplay picture (%d / 6)" % pics)
 	for b in hud.menu_buttons:
 		if b[1] == "close":
 			await tap(b[0])
@@ -241,6 +265,29 @@ func _init() -> void:
 	check(hud.rank_buttons.size() == 4 and hud.close_button.size.x > 0.0, "the perk key opens the UPGRADES board")
 	await tap(hud.close_button)
 	check(not game.rank_open, "its X closes it")
+	# UPGRADES on a gamepad: the D-pad moves the lit row, A buys it, B closes.
+	game.pad_active = true
+	p.points = 3
+	game.rank_open = true
+	game.rank_player = p
+	await frames(3)
+	var lit: int = hud.rank_focus
+	await press(p.act_prefix + "rank_4")
+	check(hud.rank_focus == mini(lit + 1, 4), "pad: D-pad down lights the next row (%d -> %d)" % [lit, hud.rank_focus])
+	await press(p.act_prefix + "rank_1")
+	check(hud.rank_focus == lit, "pad: D-pad up goes back")
+	var r0: int = p.rank(hud.rank_focus)
+	await press(p.act_prefix + "attack")
+	check(p.rank(hud.rank_focus) == r0 + 1, "pad: A buys the lit skill")
+	check(hud.rank_flash.has(hud.rank_focus), "pad: the bought row flashes")
+	await press(p.act_prefix + "rank_6")
+	check(hud.rank_view != -1, "pad: RB flips to another class")
+	await press(p.act_prefix + "rank_5")
+	check(hud.rank_view == -1, "pad: LB flips back")
+	await press(p.act_prefix + "dodge")
+	check(not game.rank_open, "pad: B closes the board")
+	game.pad_active = false
+	await frames()
 	# The HUD corner squares: the map opens the pause menu, the list the scoreboard tab.
 	check(hud.corner_buttons.size() == 2, "HUD corner: two buttons (map, scoreboard; the dead bag is gone)")
 	for want in [["menu", 0], ["scoreboard", 3]]:
@@ -278,7 +325,7 @@ func _init() -> void:
 		Input.action_press("interact")
 		# Physics ticks run behind process frames headlessly: wait on the
 		# outcome (well past DOWNED_SKIP_HOLD) rather than a frame count.
-		for i in 600:
+		for i in 1500:
 			if p.dead:
 				break
 			await frames(1)

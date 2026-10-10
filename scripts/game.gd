@@ -658,6 +658,10 @@ func _debug_hooks() -> void:
 			if arg == "--debug-guide":
 				guide_open = true
 				guide_page = 1
+			if arg.begins_with("--debug-guide-topic="):   # renders: an answer with its picture
+				guide_open = true
+				guide_page = -1
+				guide_topic = int(arg.trim_prefix("--debug-guide-topic="))
 			if arg == "--debug-guide-menu":
 				guide_open = true
 				guide_page = -1
@@ -2490,6 +2494,51 @@ func _rank_pressed() -> bool:
 	return false
 
 
+func _rank_pad(u) -> void:
+	## UPGRADES on a gamepad (Faisal 06:00 2026-10-10 "make the upgrades feel
+	## better with controller controls"): the D-pad moves a highlight over the
+	## four skills and the two promotions, A / Cross buys or picks the one
+	## lit, LB / RB flip through the classes and B / Circle closes. (On a pad
+	## the D-pad used to buy a rank outright, with nothing lit to show which.)
+	var pre: String = u.act_prefix
+	var f: int = hud.rank_focus
+	var promos: bool = Stats.VARIANTS.has(u.role if hud.rank_view < 0 else hud.rank_view)
+	var moved := f
+	if Input.is_action_just_pressed(pre + "rank_1"):   # D-pad up
+		f = 3 if f >= 4 else maxi(f - 1, 0)
+	if Input.is_action_just_pressed(pre + "rank_4"):   # D-pad down
+		f = (4 if promos else 3) if f >= 3 else f + 1
+	if Input.is_action_just_pressed(pre + "rank_2") and f >= 4:   # D-pad left
+		f = 4
+	if Input.is_action_just_pressed(pre + "rank_3") and f >= 4:   # D-pad right
+		f = 5
+	for k in 2:
+		if Input.is_action_just_pressed(pre + "rank_%d" % (k + 5)):   # LB / RB: the class tabs
+			var order: Array = [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
+			if not u.role in order:
+				order.push_front(u.role)   # a base soldier sees their own page first
+			var at := order.find(u.role if hud.rank_view < 0 else hud.rank_view)
+			var next: int = order[posmod(at + (1 if k == 1 else -1), order.size())]
+			hud.rank_view = -1 if next == u.role else next
+			sfx.ui("ui_click", -6.0)
+	if f != moved:
+		hud.rank_focus = f
+		sfx.ui("ui_click", -8.0)
+	if Input.is_action_just_pressed(pre + "attack"):   # A / Cross
+		var own: bool = hud.rank_view < 0 or hud.rank_view == u.role
+		var ok := false
+		if own and f < 4:
+			ok = u.spend_point(f)
+		elif own:
+			ok = u.choose_variant(u.role, f - 4)
+		if not ok:
+			sfx.ui("ui_deny", -4.0)
+			hud.rank_deny = Time.get_ticks_msec() / 1000.0
+	if Input.is_action_just_pressed(pre + "dodge"):   # B / Circle
+		rank_open = false
+		sfx.ui("ui_close", -4.0)
+
+
 func menu_tabs() -> Array:
 	## Which menu tabs make sense now: at the title only Classes and Controls.
 	return [5, 4, 1, 6] if not playing else [0, 3, 1, 2, 4, 5]
@@ -2561,12 +2610,15 @@ func menu_tick() -> void:
 		if rank_open and rank_player:
 			if rank_player.dead:
 				rank_open = false
-			for i in 4:
-				if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 1)):
-					rank_player.spend_point(i)
-			for i in 2:
-				if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
-					rank_player.choose_variant(rank_player.role, i)
+			if on_pad(rank_player) and hud:
+				_rank_pad(rank_player)
+			else:
+				for i in 4:
+					if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 1)):
+						rank_player.spend_point(i)
+				for i in 2:
+					if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
+						rank_player.choose_variant(rank_player.role, i)
 	if menu_open and rebinding == "" and not chat_open:
 		var tabs := menu_tabs()
 		var at := maxi(tabs.find(menu_tab), 0)

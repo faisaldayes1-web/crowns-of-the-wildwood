@@ -915,7 +915,11 @@ func _bot_spend() -> void:
 
 func ranked(a: Dictionary, track: int) -> Dictionary:
 	## A copy of an attack or ability with this unit's rank applied.
-	var r := rank(track)
+	return ranked_at(a, track, rank(track))
+
+
+func ranked_at(a: Dictionary, track: int, r: int) -> Dictionary:
+	## The same at any rank r (the Upgrades page compares now and next).
 	if r == 0:
 		return a
 	var out := a.duplicate()

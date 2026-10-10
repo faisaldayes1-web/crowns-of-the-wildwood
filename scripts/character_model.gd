@@ -791,31 +791,35 @@ func _add_hair_style(style: int, color: Color) -> void:
 	var tie := StandardMaterial3D.new()
 	tie.albedo_color = color.darkened(0.55)
 	tie.next_pass = outline
+	# Each style has its own outline from the front three-quarter view of
+	# the customizer (Faisal 05:58 2026-10-10 "the hairs look too similar"):
+	# a tail flicking out to one side, a curtain to the chest, two plaits in
+	# front of the shoulders, a tall knot on top.
 	match style:
-		1:  # Ponytail: a knot high on the back of the head and a tail in three tapering lengths.
-			_hair_piece(head, _ball(0.16, 6), Vector3(0, 0.72, -0.54), Vector3.ZERO, hair)
-			_hair_piece(head, _cyl(0.11, 0.11, 0.08, 6), Vector3(0, 0.66, -0.66), Vector3(-1.2, 0, 0), tie)
-			_hair_piece(head, _cyl(0.15, 0.12, 0.36, 6), Vector3(0, 0.48, -0.76), Vector3(-0.45, 0, 0), hair)
-			_hair_piece(head, _cyl(0.12, 0.08, 0.34, 6), Vector3(0, 0.16, -0.84), Vector3(-0.12, 0, 0), hair)
-			_hair_piece(head, _cyl(0.08, 0.0, 0.26, 5), Vector3(0, -0.12, -0.82), Vector3(0.2, 0, 0), hair)
-		2:  # Long: a fan of five locks over the back down past the shoulders and a lock either side of the face.
-			for i in range(-2, 3):
-				var lx := i * 0.2
-				_hair_piece(head, _cyl(0.13, 0.08, 0.95, 5), Vector3(lx, 0.2, -0.56 + absf(lx) * 0.12), Vector3(-0.1, 0, i * 0.07), hair)
+		1:  # Ponytail: a high knot and a long tail that swings out past the right shoulder.
+			_hair_piece(head, _ball(0.2, 7), Vector3(0.1, 0.9, -0.5), Vector3.ZERO, hair)
+			_hair_piece(head, _cyl(0.14, 0.14, 0.1, 7), Vector3(0.18, 0.86, -0.66), Vector3(-1.1, 0, -0.4), tie)
+			_hair_piece(head, _cyl(0.2, 0.16, 0.5, 7), Vector3(0.42, 0.66, -0.78), Vector3(-0.6, 0, -0.9), hair)
+			_hair_piece(head, _cyl(0.16, 0.1, 0.5, 6), Vector3(0.74, 0.26, -0.7), Vector3(-0.2, 0, -0.35), hair)
+			_hair_piece(head, _cyl(0.1, 0.0, 0.4, 6), Vector3(0.84, -0.16, -0.6), Vector3(0.1, 0, -0.1), hair)
+		2:  # Long: a full curtain over the back to the waist and thick locks down the chest.
+			for i in range(-3, 4):
+				var lx := i * 0.17
+				_hair_piece(head, _cyl(0.15, 0.1, 1.5, 6), Vector3(lx, -0.05, -0.56 + absf(lx) * 0.2), Vector3(-0.08, 0, i * 0.06), hair)
 			for side in [-1.0, 1.0]:
-				# Behind the ear, round and tapering (a flat slab read as a board in front of the face).
-				_hair_piece(head, _cyl(0.1, 0.05, 0.7, 7), Vector3(side * 0.6, 0.18, -0.12), Vector3(0.08, 0, side * 0.05), hair)
-		3:  # Braids: two plaits of chunky beads down the sides, each with a tie and a tuft.
+				_hair_piece(head, _cyl(0.17, 0.13, 0.7, 7), Vector3(side * 0.62, 0.3, 0.02), Vector3(0.0, 0, side * 0.08), hair)
+				_hair_piece(head, _cyl(0.13, 0.05, 0.75, 7), Vector3(side * 0.66, -0.4, 0.2), Vector3(0.3, 0, side * 0.04), hair)
+		3:  # Braids: two thick plaits of beads hanging in front of the shoulders to the belt.
 			for side in [-1.0, 1.0]:
-				for k in 4:
-					var r := 0.13 - k * 0.012
-					_hair_piece(head, _ball(r, 6), Vector3(side * (0.6 - k * 0.01), 0.36 - k * 0.19, 0.12), Vector3(0, k * 0.6, 0), hair, Vector3(1.0, 0.85, 1.0))
-				_hair_piece(head, _cyl(0.07, 0.07, 0.07, 6), Vector3(side * 0.57, -0.36, 0.12), Vector3.ZERO, tie)
-				_hair_piece(head, _cyl(0.03, 0.1, 0.2, 5), Vector3(side * 0.57, -0.5, 0.12), Vector3(PI, 0, 0), hair)
-		4:  # Bun: a big knot on top at the back of the head with a band round its base.
-			_hair_piece(head, _ball(0.28, 7), Vector3(0, 1.02, -0.3), Vector3(0.4, 0, 0), hair, Vector3(1.0, 0.85, 1.0))
-			_hair_piece(head, _cyl(0.2, 0.23, 0.08, 7), Vector3(0, 0.9, -0.24), Vector3(-0.5, 0, 0), tie)
-
+				for k in 7:
+					var r := 0.16 - k * 0.01
+					_hair_piece(head, _ball(r, 6), Vector3(side * (0.62 + k * 0.01), 0.42 - k * 0.2, 0.18 + k * 0.04), Vector3(0, k * 0.6, 0), hair, Vector3(1.0, 0.85, 1.0))
+				_hair_piece(head, _cyl(0.09, 0.09, 0.09, 6), Vector3(side * 0.7, -1.0, 0.46), Vector3.ZERO, tie)
+				_hair_piece(head, _cyl(0.04, 0.14, 0.26, 6), Vector3(side * 0.7, -1.17, 0.46), Vector3(PI, 0, 0), hair)
+		4:  # Top knot: a tall stacked knot standing up from the crown with a band round it.
+			_hair_piece(head, _ball(0.34, 8), Vector3(0, 1.1, -0.2), Vector3(0.2, 0, 0), hair, Vector3(1.0, 0.8, 1.0))
+			_hair_piece(head, _cyl(0.24, 0.27, 0.1, 8), Vector3(0, 1.3, -0.2), Vector3(0.2, 0, 0), tie)
+			_hair_piece(head, _ball(0.24, 7), Vector3(0, 1.48, -0.24), Vector3(0.2, 0, 0), hair, Vector3(1.0, 0.9, 1.0))
 
 func _add_crown() -> void:
 	var att := _attach_to_head()
