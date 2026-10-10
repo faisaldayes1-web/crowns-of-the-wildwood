@@ -30,6 +30,9 @@ var move_anim := "Running_A"
 var attack_anims: Array = ["1H_Melee_Attack_Slice_Horizontal"]
 var height := 1.75             # for the overhead label
 var busy_until := 0.0          # a one-shot action plays until this time
+var recover_at := 0.0          # ...but moving may cut in from this time (play_once recover)
+const ATTACK_RECOVER := 0.55   # share of a basic swing that plays before a run can take over
+const RUN_BLEND := 0.18        # seconds to blend from a cut-short action into the run
 var tint := Color.WHITE        # the variant's skin tint; unit.gd restores it after a hit flash
 var outline: StandardMaterial3D  # the outline pass; unit.gd colours it by side and highlight
 var held := ""                 # a loop held by the unit (blocking, casting)
@@ -737,19 +740,23 @@ func play_loop(name: String) -> void:
 	anim.play(name, 0.15)
 
 
-func play_once(name: String, speed: float = 1.0) -> void:
-	## A one-shot action (attack, dodge, hit). Locomotion resumes after it.
+func play_once(name: String, speed: float = 1.0, recover: float = 1.0) -> void:
+	## A one-shot action (attack, dodge, hit). Locomotion resumes after it;
+	## while moving it may cut in once `recover` of the action has played
+	## (the follow-through of a swing gives way to the run, no stop-start).
 	if anim == null or not anim.has_animation(name):
 		return
 	current = name
 	anim.play(name, 0.08, speed)
-	busy_until = _now() + anim.get_animation(name).length / speed
+	var length: float = anim.get_animation(name).length / speed
+	busy_until = _now() + length
+	recover_at = _now() + length * recover
 
 
 func attack() -> void:
 	if attack_anims.is_empty():
 		return
-	play_once(attack_anims[randi() % attack_anims.size()], 1.6)
+	play_once(attack_anims[randi() % attack_anims.size()], 1.6, ATTACK_RECOVER)
 
 
 func hold(name: String) -> void:
@@ -772,6 +779,9 @@ func die() -> void:
 
 
 func revive() -> void:
+	position = Vector3.ZERO   # undo the death fling and any skill motion
+	rotation = Vector3.ZERO
+	scale = Vector3.ONE
 	busy_until = 0.0
 	held = ""
 	current = ""
@@ -780,7 +790,15 @@ func revive() -> void:
 
 func update_locomotion(moving: bool) -> void:
 	## Called every frame by the owner: picks idle or run unless busy.
-	if anim == null or _now() < busy_until:
+	if anim == null:
+		return
+	if _now() < busy_until:
+		if not (moving and held == "" and _now() >= recover_at):
+			return
+		busy_until = 0.0   # running again: blend out of the follow-through
+		current = ""
+		anim.play(move_anim, RUN_BLEND)
+		current = move_anim
 		return
 	if held != "":
 		play_loop(held)

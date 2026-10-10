@@ -7,6 +7,8 @@ const Stats = preload("res://scripts/stats.gd")
 const Unit = preload("res://scripts/unit.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Projectile = preload("res://scripts/projectile.gd")
+const Fx = preload("res://scripts/fx.gd")
+const SkillFx = preload("res://scripts/skill_fx.gd")
 const Gate = preload("res://scripts/gate.gd")
 const Hud = preload("res://scripts/hud.gd")
 const Touch = preload("res://scripts/touch.gd")
@@ -25,7 +27,8 @@ const MainMenu = preload("res://scripts/menu.gd")
 const MenuStage = preload("res://scripts/menu_stage.gd")
 const Role = Stats.Role
 
-const TEAM_SIZE := 5
+const TEST_TEAM_MAX := 6     # --team-size=N cap for balance batches only
+const TEAM_SIZE := 4          # strictly 4v4 for now (Faisal 2026-10-09): players and bots together
 const CAPTURES_TO_WIN := Stats.CAPTURES_TO_WIN
 # Each bot's class and job, in spawn order. The player takes the first slot.
 const LINEUP := [
@@ -108,7 +111,7 @@ var hero_face := 0              # Stats.HERO_FACES index
 var hero_eye := -1              # Stats.HERO_EYES index (-1: the side's own colour)
 var hero_mark := 0              # Stats.HERO_MARKS index
 var hero_body := 0              # Stats.HERO_BODIES index: the unclassed body's build
-var team_size := TEAM_SIZE      # fighters a side (SELECT MAP's TEAM SIZE); bots fill the gaps
+var team_size := TEAM_SIZE      # fighters a side; fixed at TEAM_SIZE for now, bots fill the gaps
 var split_screen := false       # SELECT MAP's SPLIT SCREEN: extra pads may join in the lobby
 var lobby_sides: Array = []     # READY UP: each local player's side (0 Elves, 1 Humans)
 var join_pads: Array = []       # READY UP: pad device of local players 2-4, in join order
@@ -241,6 +244,7 @@ var menu_open := false
 var rank_open := false
 var menu_tab := 0
 var shake_amount := 0.0
+var cam_kick := Vector3.ZERO     # directional jolt (kick_cam), springs back to zero
 var cam_pos := Vector3.ZERO
 var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
 var click_was := false
@@ -306,6 +310,10 @@ func _ready() -> void:
 			shot_frame = int(arg.trim_prefix("--shot-frame="))
 	if demo:
 		_start_match(0)
+		if "--selftest" in OS.get_cmdline_user_args():  # headless combat checks (tests/combat_test.gd)
+			var t: Node = load("res://tests/combat_test.gd").new()
+			t.game = self
+			add_child(t)
 		return
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--hero="):
@@ -320,6 +328,10 @@ func _ready() -> void:
 			hero_mark = int(parts[7]) if parts.size() > 7 else hero_mark
 	if "--play" in OS.get_cmdline_user_args():
 		_start_match(0)  # testing: straight into a match with a (idle) local player
+		if "--fxshow" in OS.get_cmdline_user_args():  # combat effects showcase (tests/fx_showcase.gd)
+			var show: Node = load("res://tests/fx_showcase.gd").new()
+			show.game = self
+			add_child(show)
 		return
 	banner.visible = false
 	sfx.play_music(false)
@@ -698,30 +710,41 @@ func _finish(winner: int) -> void:
 func try_interact(u) -> void:
 	if u.dead:
 		return
+	# Every press reaches out; the result below answers it with a pop
+	# (SkillFx.grab_hit) or a whiff (SkillFx.grab_miss). Looks only.
+	SkillFx.grab(u)
 	if u.carrying:
 		drop_monarch(u)
 		return
 	if u.is_player and guides[u.team] and guides[u.team].in_reach(u):
 		guide_toggle()
+		SkillFx.grab_hit(u, guides[u.team].global_position + Vector3(0, 1.6, 0), Color(0.6, 1.0, 0.6))
 		return
 	for role in seals[u.team]:
 		var seal = seals[u.team][role]
 		if seal.in_reach(u):
 			if u.role == role:
 				toast("You already carry the %s's seal" % seal.class_title(), Color(1.0, 0.8, 0.5))
+				SkillFx.grab_miss(u)
 			else:
 				seal.take(u)
+				SkillFx.grab_hit(u, seal.global_position + Vector3(0, 1.2, 0))
 			return
 	if prep_left > 0.0:
 		# The fortify phase: F raises a barricade.
-		plant_barricade(u)
+		if plant_barricade(u):
+			SkillFx.grab_hit(u, SkillFx.grab_point(u), Color(0.85, 0.65, 0.4))
+		else:
+			SkillFx.grab_miss(u)
 		return
 	var m = monarchs[1 - u.team]
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
 		if m.state == Monarch.State.HOME and vaults[1 - u.team].is_locked():
 			if u.is_player:
 				toast("The Crown Vault is locked: break the lock first", Color(1.0, 0.8, 0.5))
+			SkillFx.grab_miss(u)
 			return
+		SkillFx.grab_hit(u, m.global_position + Vector3(0, 1.0, 0), Color(1.0, 0.85, 0.3), true)
 		m.pick_up(u)
 		u.carrying = m
 		u.gain_xp(Stats.XP_GRAB, "crown")
@@ -737,6 +760,8 @@ func try_interact(u) -> void:
 		chat_system("%s grabbed the %s!" % [u.display_name, m.title])
 		_banter(1 - u.team, "ours_taken")
 		_banter(u.team, "carrying", u)
+		return
+	SkillFx.grab_miss(u)
 
 
 # --- Turrets ------------------------------------------------------------------
@@ -1473,56 +1498,20 @@ func spawn_trap(u, pos: Vector3, a: Dictionary) -> void:
 
 
 func spawn_burst(where: Vector3, radius: float, color: Color) -> void:
-	var ring := MeshInstance3D.new()
-	var disc := CylinderMesh.new()
-	disc.top_radius = radius
-	disc.bottom_radius = radius
-	disc.height = 0.05
-	ring.mesh = disc
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(color, 0.45)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ring.material_override = mat
-	add_child(ring)
-	ring.global_position = Vector3(where.x, where.y + 0.15, where.z)
-	get_tree().create_timer(0.25).timeout.connect(ring.queue_free)
+	## A soft flash of colour on the ground (scripts/fx.gd).
+	Fx.of(self).ground_glow(where, radius, color, 0.35)
 
 
 func spawn_splash(where: Vector3, color: Color, count: int, speed: float, life: float, rise: bool = false) -> void:
-	## A one-shot spray of little bits: sparks, splinters, motes.
-	var p := CPUParticles3D.new()
-	p.one_shot = true
-	p.explosiveness = 1.0
-	p.amount = count
-	p.lifetime = life
-	p.direction = Vector3.UP
-	p.spread = 180.0 if not rise else 50.0
-	p.initial_velocity_min = speed * 0.4
-	p.initial_velocity_max = speed
-	p.gravity = Vector3(0, 2.5, 0) if rise else Vector3(0, -14.0, 0)
-	p.damping_min = 1.0
-	p.damping_max = 3.0
-	p.scale_amount_min = 0.6
-	p.scale_amount_max = 1.2
-	var box := BoxMesh.new()
-	box.size = Vector3(0.14, 0.14, 0.14)
-	p.mesh = box
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.emission_enabled = true
-	mat.emission = color
-	mat.emission_energy_multiplier = 0.8
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	p.mesh.material = mat
-	var fade := Gradient.new()
-	fade.set_color(0, Color(1, 1, 1, 1))
-	fade.set_color(1, Color(1, 1, 1, 0))
-	p.color_ramp = fade
-	add_child(p)
-	p.global_position = where
-	p.emitting = true
-	get_tree().create_timer(life + 0.3).timeout.connect(p.queue_free)
+	## A one-shot spray of little bits: sparks, splinters, motes, smoke.
+	## Drawn by scripts/fx.gd: rising sprays are soft glowing motes (grey
+	## ones are smoke), the rest tumbling chips.
+	var fx: Node = Fx.of(self)
+	if rise:
+		var grey := color.s < 0.2 and color.v < 0.7
+		fx.burst(where, color, count if not grey else maxi(count / 3, 4), speed, life, fx.STYLE_SMOKE if grey else fx.STYLE_MOTE, Vector3.UP, 50.0)
+	else:
+		fx.burst(where, color, count, speed, life, fx.STYLE_SHARD)
 
 
 func spawn_popup(where: Vector3, text: String, color: Color) -> void:
@@ -1547,30 +1536,8 @@ func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 
 
 func spawn_ring(where: Vector3, radius: float, color: Color, duration: float = 0.5, thickness: float = 0.12) -> void:
-	## A ring that expands outward and fades: shockwaves, heals, blessings.
-	var ring := MeshInstance3D.new()
-	var torus := TorusMesh.new()
-	torus.inner_radius = 1.0 - thickness
-	torus.outer_radius = 1.0
-	torus.rings = 32
-	torus.ring_segments = 6
-	ring.mesh = torus
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.emission_enabled = true
-	mat.emission = color
-	mat.emission_energy_multiplier = 1.5
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	ring.material_override = mat
-	add_child(ring)
-	ring.global_position = where + Vector3(0, 0.12, 0)
-	ring.scale = Vector3(0.2, 0.2, 0.2)
-	var tw := create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(ring, "scale", Vector3(radius, 1.0, radius), duration).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(mat, "albedo_color:a", 0.0, duration).set_delay(duration * 0.3)
-	tw.chain().tween_callback(ring.queue_free)
+	## A ring that races outward and fades: shockwaves, heals, blessings.
+	Fx.of(self).ground_ring(where, radius, color, duration)
 
 
 func spawn_pillar(where: Vector3, color: Color, height: float = 4.0, duration: float = 0.9) -> void:
@@ -1616,19 +1583,7 @@ func spawn_flash(where: Vector3, color: Color, energy: float = 3.0, duration: fl
 
 
 func spawn_swing(u, aim: Vector3) -> void:
-	var swing := MeshInstance3D.new()
-	var slab := BoxMesh.new()
-	slab.size = Vector3(1.6, 0.05, 0.7)
-	swing.mesh = slab
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1, 1, 1, 0.5)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	swing.material_override = mat
-	add_child(swing)
-	swing.global_position = u.global_position + aim * 1.1 + Vector3(0, 1.0, 0)
-	swing.rotation.y = atan2(-aim.x, -aim.z)
-	get_tree().create_timer(0.12).timeout.connect(swing.queue_free)
+	Fx.of(self).slash(u.global_position, aim, Color(1, 1, 1))
 
 
 func announce(text: String) -> void:
@@ -1704,7 +1659,7 @@ func _start_match(team: int) -> void:
 			couch_mode = arg.trim_prefix("--couch-mode=")
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--team-size="):
-			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEAM_SIZE)  # testing: smaller sides
+			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEST_TEAM_MAX)  # testing only (batches): 3v3 / 5v5; the live game stays TEAM_SIZE
 	if menu_stage:
 		# Leave the menus: their hall and models go, the match camera takes over.
 		# Freed now, not queued: a camera left in the viewport would become
@@ -1727,8 +1682,10 @@ func _start_match(team: int) -> void:
 	locals.resize(couch_players)
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
-		# A side is team_size strong, or bigger if more local players chose it.
-		var count: int = maxi(team_size, local_sides.count(t))
+		# Strictly team_size a side (4v4): local players take seats, bots
+		# fill the rest. More locals on one side than seats can't happen
+		# (COUCH_MAX is 4), but never field more than team_size.
+		var count: int = team_size
 		for i in count:
 			var u = Unit.new()
 			add_child(u)
@@ -1916,6 +1873,8 @@ func _update_camera(delta: float) -> void:
 	sfx.set_listener(player.global_position)
 	shake_amount = move_toward(shake_amount, 0.0, delta * 1.6)
 	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amount * 0.35
+	cam_kick = cam_kick.lerp(Vector3.ZERO, clampf(delta * 10.0, 0.0, 1.0))
+	jolt += cam_kick
 	if couch_active:
 		# One camera a pane, each on its own player.
 		for pane in panes:
@@ -2163,6 +2122,17 @@ func shake(amount: float) -> void:
 	if not screen_shake:
 		return
 	shake_amount = maxf(shake_amount, amount)
+
+
+func kick_cam(dir: Vector3, amount: float) -> void:
+	## A directional camera jolt (getting hit, landing a blow) that springs
+	## back, on top of the random shake. Honours the screen shake setting.
+	if not screen_shake:
+		return
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	cam_kick = (cam_kick + dir.normalized() * amount).limit_length(0.5)
 
 
 func shake_at(where: Vector3, amount: float) -> void:
@@ -3073,7 +3043,7 @@ func _load_controls() -> void:
 	hero_eye = clampi(cfg.get_value("settings", "hero_eye", -1), -1, Stats.HERO_EYES.size() - 1)
 	hero_mark = clampi(cfg.get_value("settings", "hero_mark", 0), 0, Stats.HERO_MARKS.size() - 1)
 	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)
-	team_size = clampi(cfg.get_value("settings", "team_size", TEAM_SIZE), 1, TEAM_SIZE)
+	team_size = TEAM_SIZE   # 4v4 only for now: an older saved team size is ignored
 	split_screen = cfg.get_value("settings", "split_screen", false)
 	account_xp = maxi(int(cfg.get_value("profile", "account_xp", 0)), 0)
 	account_gold = maxi(int(cfg.get_value("profile", "account_gold", 0)), 0)

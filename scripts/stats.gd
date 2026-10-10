@@ -158,8 +158,13 @@ const CARRY_SPEED_MULT := 0.8
 
 const DODGE_TIME := 0.25      # seconds the dash lasts; nothing can hit you during it
 const DODGE_SPEED_MULT := 3.2 # dash speed as a multiple of run speed
-const DODGE_COOLDOWN := 2.0   # seconds until the next dodge is ready
+const DODGE_COOLDOWN := 4.0   # seconds until the next dodge is ready (2.0 → 4.0, Faisal 2026-10-09)
 const DODGE_COST := 10.0      # stamina (or mana) a dodge spends
+# Basic attacks (every class's left-click: Punch, Sword Strike, arrows, bolts,
+# Mend) cost nothing (Faisal 2026-10-09: "the basic attack shouldn't drain
+# your stamina or magika"). The per-class "cost" values in ROLES, FACTION_KITS
+# and VARIANTS (7-16) are kept for reference but overridden by this.
+const BASE_ATTACK_COST := 0.0
 
 const BLOCK_COST := 18.0      # stamina a blocked hit costs the blocker
 const BLOCK_DRAIN := 4.0      # stamina per second while the shield is up
@@ -267,12 +272,12 @@ const KNOCK_SPLASH := 8.0
 #   use_ability), cooldown is in seconds, cost comes out of the class's energy.
 const ROLES := {
 	Role.BASE: {"attack": "melee", "attack_name": "Punch", "attack_desc": "A quick jab. Find a class station!",
-		"damage": 1, "gate_damage": 1, "range": 1.7, "cooldown": 0.6,
+		"damage": 1, "gate_damage": 1, "range": 1.7, "cooldown": 0.72,   # 0.6 → 0.72 (Faisal 2026-10-09)
 		"energy": "stamina", "cost": 8, "speed": 1.0,
 		"color": Color(0.85, 0.8, 0.7), "abilities": []},
 	Role.KNIGHT: {"attack": "melee", "attack_name": "Sword Strike", "attack_desc": "A wide swing that also chips at doors.",
 		"damage": 1, "gate_damage": 2, "range": 2.2, "cooldown": 0.55,
-		"energy": "stamina", "cost": 8, "speed": 1.06, "block": true, "armour": 0.34,
+		"energy": "stamina", "cost": 8, "speed": 1.14, "block": true, "armour": 0.34,   # speed 1.06 → 1.10 (patch 1) → 1.14 (patch 3)
 		"color": Color(0.8, 0.8, 0.85), "abilities": [
 			{"name": "Shield Bash", "key": "Q", "kind": "bash", "cooldown": 4, "cost": 35.0,
 				"damage": 2, "distance": 4.0, "desc": "Charge forward: two hearts to everyone in the way, and a shove."},
@@ -288,11 +293,11 @@ const ROLES := {
 				"damage": 1, "root": 2.0, "lifetime": 30.0, "desc": "Plant a trap that roots and hurts the first enemy on it."}]},
 	Role.MAGE: {"attack": "spell", "attack_name": "Arcane Bolt", "attack_desc": "A bolt that bursts on impact.",
 		"damage": 1, "gate_damage": 2, "range": 13.0, "cooldown": 0.65,
-		"energy": "mana", "cost": 12.0, "splash": 1.4, "speed": 0.95, "shot_speed": 32.0,
+		"energy": "mana", "cost": 12.0, "splash": 1.0, "speed": 0.95,   # splash 1.4 → 1.0 (patch 3: a sidestep now dodges the bolt) "shot_speed": 32.0,
 		"color": Color(0.45, 0.3, 0.85), "abilities": [
 			{"name": "Fireball", "key": "Q", "kind": "fireball", "cooldown": 5, "cost": 55.0,
 				"damage": 2, "splash": 3.2, "range": 13.0, "shot_speed": 24.0, "desc": "A big slow ball of fire: two hearts to everyone near the blast, four hits to a door."},
-			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 4, "cost": 30.0,
+			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 5, "cost": 30.0,   # cooldown 4 → 5 (patch 3)
 				"distance": 6.0, "desc": "Teleport a short way in the aim direction."}]},
 	Role.ENGINEER: {"attack": "melee", "attack_name": "Hammer", "attack_desc": "A heavy swing that wrecks doors, fences and turrets.",
 		"damage": 1, "gate_damage": 3, "range": 1.9, "cooldown": 0.6,
@@ -346,7 +351,7 @@ const VARIANTS := {
 		{"name": "Warden", "icon": "warden", "tint": Color(0.78, 0.84, 1.0), "show": ["1H_Sword", "Rectangle_Shield"],
 			"desc": "Tower shield defence: a slam that pins enemies down and a bulwark that shields nearby teammates too.",
 			"attack": {"attack_name": "Mace", "attack_desc": "A short, heavy blow that batters doors.",
-				"range": 2.0, "cooldown": 0.55, "gate_damage": 3},
+				"range": 2.2, "cooldown": 0.55, "gate_damage": 3},   # range 2.0 → 2.2 (patch 1)
 			"abilities": [
 				{"name": "Shield Slam", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "distance": 3.5, "root": 1.2, "desc": "A short charge for two hearts that pins everyone it hits in place."},
@@ -372,7 +377,7 @@ const VARIANTS := {
 	Role.MAGE: [
 		{"name": "Pyromancer", "icon": "pyromancer", "tint": Color(1.0, 0.6, 0.4), "show": ["2H_Staff"],
 			"desc": "Fire: burning bolts, a huge fireball and a wave of flame in front of you.",
-			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.8},
+			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.3},   # splash 1.8 → 1.3 (patch 3)
 			"abilities": [
 				{"name": "Inferno", "key": "Q", "kind": "fireball", "icon": "fireball", "cooldown": 6, "cost": 60.0,
 					"damage": 2, "splash": 4.5, "range": 13.0, "shot_speed": 24.0, "desc": "A huge fireball: two hearts to everyone near the blast."},
@@ -384,7 +389,7 @@ const VARIANTS := {
 			"abilities": [
 				{"name": "Ice Burst", "key": "Q", "kind": "fireball", "icon": "frost", "cooldown": 5, "cost": 45.0,
 					"damage": 1, "splash": 3.5, "range": 13.0, "shot_speed": 28.0, "frost": true, "root": 1.0, "desc": "A ball of ice that freezes everyone near the blast in place."},
-				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 3, "cost": 30.0,
+				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4, "cost": 30.0,   # cooldown 3 → 4 (patch 3)
 					"distance": 8.0, "desc": "Teleport further in the aim direction."}]}],
 	Role.ROGUE: [
 		{"name": "Assassin", "icon": "assassin", "tint": Color(0.75, 0.55, 0.9), "show": ["1H_Sword"],
@@ -465,18 +470,18 @@ const FACTION_KITS := {
 				{"name": "Vine Snare", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 6, "cost": 35.0,
 					"damage": 1, "root": 2.5, "lifetime": 30.0, "desc": "A living snare that roots the first enemy who steps on it."}]},
 		Role.MAGE: {
-			"attack": {"attack_name": "Thorn Bolt", "attack_desc": "A seed that bursts into thorns and slows whoever it catches.", "slow": 0.8, "splash": 1.3, "cost": 12.0, "nature": true},
+			"attack": {"attack_name": "Thorn Bolt", "attack_desc": "A seed that bursts into thorns and slows whoever it catches.", "slow": 0.8, "splash": 1.0, "cost": 12.0, "nature": true},   # splash 1.3 → 1.0 (patch 3)
 			"abilities": [
 				{"name": "Bramble Burst", "key": "Q", "kind": "fireball", "icon": "bramble", "cooldown": 5, "cost": 50.0,
 					"damage": 1, "splash": 3.4, "range": 13.0, "shot_speed": 26.0, "root": 1.3, "nature": true, "desc": "A seed-ball that bursts into brambles: a heart to everyone near the blast, and they are rooted."},
-				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4, "cost": 30.0,
+				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 5, "cost": 30.0,   # cooldown 4 → 5 (patch 3)
 					"distance": 7.5, "desc": "Step along the fae paths, further than any blink."}]},
 		Role.HEALER: {
-			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 6.0, "cooldown": 0.7, "cost": 16.0},
+			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 5.0, "cooldown": 0.7, "cost": 16.0},
 			"abilities": [
 				{"name": "Spirit Bloom", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 8, "cost": 60.0,
 					"heal": 2, "radius": 8.0, "haste": 4.0, "desc": "Heal every teammate nearby two hearts and quicken them."},
-				{"name": "Lunar Lance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 3, "cost": 30.0,
+				{"name": "Lunar Lance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 4, "cost": 30.0,   # cooldown 3 → 4 (patch 4)
 					"damage": 1, "range": 13.0, "shot_speed": 38.0, "slow": 1.5, "desc": "A lance of moonlight that slows whoever it hits."}]},
 		Role.ENGINEER: {
 			"attack": {"attack_name": "Root Maul", "attack_desc": "A heavy wooden maul that wrecks doors, fences and turrets.", "cost": 9},
@@ -489,7 +494,7 @@ const FACTION_KITS := {
 	1: {
 		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Heavy plate turns about every third hit.", "armour": 0.37}},
 		Role.RANGER: {
-			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 14.0, "cooldown": 0.75, "cost": 10, "shot_speed": 36.0},
+			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 16.0, "cooldown": 0.62, "cost": 10, "shot_speed": 42.0},   # cooldown 0.75 → 0.68 (patch 1) → 0.62 (patch 4: Moonbow is 0.55)
 			"abilities": [
 				{"name": "Heavy Bolt", "key": "Q", "kind": "shot", "icon": "snipe", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "range": 16.0, "shot_speed": 50.0, "desc": "A wound-up bolt that takes two hearts."},
@@ -525,9 +530,9 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 # (Regen limits attack rate, so it is worth more than it looks: 1.3 made the
 # Humans win three of every four bot matches; 1.12 was still winning two of three once raids rallied and escorted, so 1.06.)
 const FACTIONS := [
-	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.3, "regen_mult": 1.0,
+	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.15, "regen_mult": 1.0,   # 6.3 → 6.15 (patch 2: still the quicker side, less kiting edge)
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
-	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.06,
+	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.15,   # 1.06 → 1.15 (patch 1: basic attacks went free, so faster regen is worth less)
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 ]
 

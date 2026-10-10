@@ -8,6 +8,8 @@ const Stats = preload("res://scripts/stats.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
+const Fx = preload("res://scripts/fx.gd")
+const SkillFx = preload("res://scripts/skill_fx.gd")
 const Role = Stats.Role
 
 const GRAVITY := 20.0
@@ -23,6 +25,19 @@ var dead := false
 var respawn_timer := 0.0
 var attack_timer := 0.0
 var flash_timer := 0.0
+const FLASH_TIME := 0.22     # hit flash: white for the first frames, then red, easing back
+var hitstop_timer := 0.0
+var heartbeat_timer := 0.0
+const AIM_ASSIST_DEG := 12.0     # stick aim bends onto an enemy this close to the stick line...
+const AIM_ASSIST_PULL := 0.75    # ...this much of the way (1 = dead on)
+const HIT_CONFIRM_RANGE := 4.0   # your hits from further than this play a tick and mark the target (ranged feedback)
+const ATTACK_BUFFER := 0.2         # seconds a tapped attack waits for the swing cooldown
+var attack_buffer := 0.0
+var hit_confirms := 0      # ranged hit confirms played (for the tests)
+const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits for its cooldown
+var input_buffer := [0.0, 0.0, 0.0]  # ability 1, ability 2, dodge
+var swing_flip := false     # alternate the slash arc left/right    # hit stop: the model's animation holds for a beat (looks only)
+var status_fx := {}         # looping aura emitters by kind (Fx.status_emitter)
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
 var ability_timers := [0.0, 0.0]
 var dodge_timer := 0.0      # time left in the current dash
@@ -54,6 +69,7 @@ var damage_dealt := 0   # hearts of damage dealt
 var display_name := ""
 var slow_timer := 0.0       # slowed: half speed
 var stealth_timer := 0.0    # smoke bomb: bots lose you
+var burn_tick := false      # demo log: the hit being taken is a fire-form burn going off
 var fire_form := false      # Ember Pass: our team holds the Fire Objective, so this class fights in FIRE form
 var fire_fx: Node3D         # the FIRE form's flames and glow
 var burn_timer := 0.0       # set alight by a FIRE attack: a heart goes when it runs out (healing puts it out)
@@ -900,7 +916,8 @@ func ranked(a: Dictionary, track: int) -> Dictionary:
 
 
 func attack_stats() -> Dictionary:
-	var s := ranked(stats(), 0)
+	var s := ranked(stats(), 0).duplicate()
+	s.cost = Stats.BASE_ATTACK_COST   # basic attacks are free; cooldowns pace them
 	if s.attack == "arrow" or s.attack == "spell":
 		s = s.duplicate()
 		s.cooldown = s.cooldown * Stats.RANGED_ATTACK_SLOW
@@ -919,6 +936,18 @@ func vigor_speed() -> float:
 
 
 # --- Damage ------------------------------------------------------------------
+
+func hit_confirm(target, amount: int) -> void:
+	## Your shot or spell landed out of earshot: a crisp tick, a white mark on
+	## whoever you hit, the aim ring pulsing and a light pad tap. Looks only.
+	hit_confirms += 1
+	game.sfx.ui("hit_tick", -6.0, 1.0 if amount < 2 else 0.85)
+	Fx.of(game).flare(target.global_position + Vector3(0, 1.2, 0), Color(1.0, 1.0, 0.95, 0.8), 0.9 if amount < 2 else 1.3, 0.12)
+	if aim_ring and aim_ring.visible:
+		aim_ring.scale = Vector3.ONE * 1.5
+		aim_ring.create_tween().tween_property(aim_ring, "scale", Vector3.ONE, 0.14).set_ease(Tween.EASE_OUT)
+	game.rumble(self, 0.18, 0.0, 0.05)
+
 
 func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knock: float = 0.0, effect: Dictionary = {}) -> bool:
 	## Returns true if the hit landed. `from` is where the hit came from, for
@@ -941,6 +970,8 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		knockback = push * knock * 0.5
 		game.spawn_splash(global_position + facing * 0.6 + Vector3(0, 1.0, 0), Color(0.9, 0.95, 1.0), 10, 4.0, 0.3)
 		game.spawn_popup(global_position + Vector3(0, 2.0, 0), "BLOCKED", Color(0.75, 0.85, 1.0))
+		Fx.of(game).hit(global_position + facing * 0.6 + Vector3(0, 1.0, 0), -push + Vector3(0, 0.2, 0), "frost")
+		_hitstop(0.05)
 		game.sfx.play("hit_shield", global_position, -1.0, 0.1)
 		if energy <= 0.0:
 			energy = 0.0
@@ -953,6 +984,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		if resist_pool >= 1.0:
 			resist_pool -= 1.0
 			game.spawn_popup(global_position + Vector3(0, 2.0, 0), "ARMOUR", Color(0.85, 0.85, 0.9))
+			Fx.of(game).flare(global_position + Vector3(0, 1.1, 0) - push * 0.3, Color(0.9, 0.92, 1.0), 1.0)
 			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.85, 0.85, 0.9), 8, 3.0, 0.3)
 			game.sfx.play("hit_shield", global_position, -4.0, 0.1)
 			return false
@@ -965,12 +997,19 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.7, 0.85, 1.0), 8, 3.0, 0.3)
 			return false
 	hearts -= amount
-	flash_timer = 0.15
+	flash_timer = FLASH_TIME
+	_hitstop(0.07 if amount < 2 else 0.11)
+	if model:
+		# A squash on the hit: wider and shorter, springing back.
+		model.scale = Vector3(1.14, 0.88, 1.14)
+		model.create_tween().tween_property(model, "scale", Vector3.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	Fx.of(game).hit(global_position + Vector3(0, 1.0, 0) - push * 0.25, push, _hit_kind(attacker, effect), amount)
 	last_hit_dir = push
 	knockback = push * knock
 	if effect.has("slow"):
+		if slow_timer <= 0.0:   # say it once, not on every cut that refreshes it
+			game.spawn_popup(global_position + Vector3(0, 1.6, 0), "SLOWED", Color(0.6, 0.85, 1.0))
 		slow_timer = maxf(slow_timer, effect.slow)
-		game.spawn_popup(global_position + Vector3(0, 1.6, 0), "SLOWED", Color(0.6, 0.85, 1.0))
 	if effect.has("root"):
 		root_timer = maxf(root_timer, effect.root)
 		game.spawn_ring(global_position, 0.9, Color(0.6, 0.85, 1.0), 0.4, 0.15)
@@ -983,21 +1022,34 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		attacker.gain_xp(Stats.XP_HIT * amount)
 		attacker.damage_dealt += amount
 		recent_hitters[attacker] = Time.get_ticks_msec() / 1000.0
-	game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(1.0, 0.3, 0.25), 10, 3.5, 0.4)
+		if attacker.is_player and hearts > 0 and _flat_to(attacker.global_position).length() > HIT_CONFIRM_RANGE:
+			attacker.hit_confirm(self, amount)
 	game.spawn_popup(global_position + Vector3(0, 2.0, 0), "-%d" % amount, Color(1, 0.35, 0.3))
 	game.sfx.play("hurt", global_position, -4.0 if not is_player else 0.0, 0.15)
+	# Weight in the sound too: a crunch under heavy blows, a crackle under spells.
+	var hk := _hit_kind(attacker, effect)
+	if amount >= 2 or hk == "heavy":
+		game.sfx.play("hit_heavy", global_position, -2.0 if amount >= 2 else -7.0, 0.1)
+	elif hk in ["arcane", "frost", "holy", "dark", "nature", "fire"]:
+		game.sfx.play("hit_magic", global_position, -6.0, 0.12)
 	if is_player:
 		game.shake(0.35)
 		game.rumble(self, 0.3, 0.8 if hearts <= 1 else 0.6, 0.22)
 	if hearts <= 0:
 		if game.demo and attacker and attacker != self:
 			# Balance log: who killed whom, at what in-match level and role.
-			print("KILL t=%d kteam=%d krole=%d klevel=%d kmastery=%d vteam=%d vrole=%d vlevel=%d vmastery=%d" % [game.match_clock(),
-				attacker.team, attacker.role, attacker.level, attacker.total_upgrades(), team, role, level, total_upgrades()])
+			print("KILL t=%d kteam=%d krole=%d klevel=%d kmastery=%d vteam=%d vrole=%d vlevel=%d vmastery=%d kfire=%d burn=%d" % [game.match_clock(),
+				attacker.team, attacker.role, attacker.level, attacker.total_upgrades(), team, role, level, total_upgrades(),
+				int(attacker.fire_form), int(burn_tick)])
 		if is_player:
 			var weapon: String = attacker.attack_stats().attack_name if (attacker and attacker != self and attacker.has_method("attack_stats")) else ""
 			game.on_player_killed(attacker if attacker != self else null, weapon)
 		if attacker and attacker != self:
+			if attacker.is_player:
+				game.shake(0.28)
+				game.kick_cam(global_position - attacker.global_position, 0.22)
+				game.sfx.ui("kill", -4.0)
+				attacker._hitstop(0.1)
 			if level - attacker.level >= 2:
 				attacker.giant_kills += 1
 			attacker.gain_xp(Stats.XP_KILL + Stats.XP_UPSET * maxi(level - attacker.level, 0), "takedowns")
@@ -1032,8 +1084,17 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		_die()
 		return true
 	_refresh_overhead()
-	if model and model._now() >= model.busy_until:
-		model.play_once("Hit_A", 1.5)
+	if model and (model._now() >= model.busy_until or amount >= 2) and dodge_timer <= 0.0:
+		# A flinch, from whichever side the blow came; a heavy blow cuts into
+		# whatever the body was doing and lifts it off its feet a little.
+		var side: float = facing.cross(Vector3.UP).dot(push)
+		model.play_once("Hit_B" if side > 0.0 else "Hit_A", 1.5 if amount < 2 else 1.8, 0.5)
+		if amount >= 2:
+			var tw: Tween = model.create_tween()
+			tw.tween_property(model, "position:y", 0.3, 0.09).set_ease(Tween.EASE_OUT)
+			tw.tween_property(model, "position:y", 0.0, 0.14).set_ease(Tween.EASE_IN)
+	if is_player:
+		game.kick_cam(push, 0.18 if amount < 2 else 0.3)   # the view jolts the way the blow pushed
 	# Bots roll sideways away from whatever just hit them, half the time.
 	if not is_player and dodge_ready() and randf() < 0.5 * game.bot_tuning().react:
 		try_dodge(facing.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0))
@@ -1056,7 +1117,7 @@ func heal(amount: int, healer = null) -> int:
 			healed += 1
 	if healed > 0:
 		_refresh_overhead()
-		game.spawn_splash(global_position + Vector3(0, 0.4, 0), Color(0.4, 1.0, 0.5), 12, 2.0, 0.9, true)
+		Fx.of(game).heal_on(self, healed, healer)
 		game.spawn_popup(global_position + Vector3(0, 2.0, 0), "+%d" % healed, Color(0.4, 1.0, 0.5))
 		if healer and healer != self:
 			healer.gain_xp(Stats.XP_HEAL * healed, "support")
@@ -1124,22 +1185,21 @@ func use_ability(i: int, dir: Vector3) -> void:
 		"shot": "bow", "cleave": "fireball" if a.get("fire", false) else "swing_heavy", "smoke": "blink", "curse": "curse", "bubble": "blessing"}
 	if ability_sound.has(a.kind):
 		game.sfx.play(ability_sound[a.kind], global_position, -1.0, 0.08)
-	match a.kind:
-		"bash": model.play_once("1H_Melee_Attack_Stab", 1.6)
-		"guard": model.hold("Blocking")
-		"bubble": model.play_once("Spellcast_Raise", 1.6)
-		"volley": model.play_once("2H_Ranged_Shoot", 1.2)
-		"trap": model.play_once("Interact", 1.5)
-		"fireball": model.play_once("Spellcast_Long", 1.4)
-		"blink": model.play_once("Spellcast_Raise", 2.0)
-		"blessing": model.play_once("Spellcast_Long", 1.2)
-		"smite": model.play_once("Spellcast_Shoot", 1.6)
-		"shot": model.play_once("2H_Ranged_Shoot", 1.2)
-		"cleave": model.play_once("2H_Melee_Attack_Spin" if role == Role.KNIGHT else "Spellcast_Long", 1.4)
-		"smoke": model.play_once("Interact", 1.8)
-		"curse": model.play_once("Spellcast_Raise", 1.5)
-		"turret", "upgrade", "overclock": model.play_once("Interact", 1.6)
 	rotation.y = atan2(-facing.x, -facing.z)
+	# A rune circle under every spell as it leaves the hands.
+	var cast_color := {"fireball": Color(0.6, 0.85, 1.0) if a.get("frost", false) else (Color(0.5, 0.9, 0.35) if a.get("nature", false) else Color(1.0, 0.55, 0.15)),
+		"smite": Color(0.6, 0.3, 0.9) if stats().get("drain", false) else Color(1.0, 0.92, 0.5), "blessing": Color(1.0, 0.95, 0.55),
+		"curse": Color(0.6, 0.25, 0.85), "bubble": Color(1.0, 0.95, 0.65), "blink": Color(0.7, 0.45, 1.0), "guard": Color(0.55, 0.8, 1.0)}
+	if cast_color.has(a.kind):
+		Fx.of(game).cast(self, cast_color[a.kind], 1.0 if a.kind != "blessing" else 1.6)
+	# Each skill's own body animation and particles (scripts/skill_fx.gd).
+	SkillFx.cast(self, a, dir)
+	var cast_from := global_position
+	_ability_effect(a, dir, turret_pos, tune_target)
+	SkillFx.land(self, a, dir, cast_from)
+
+
+func _ability_effect(a: Dictionary, dir: Vector3, turret_pos: Vector3, tune_target) -> void:
 	match a.kind:
 		"turret":
 			_prune_turrets()
@@ -1188,6 +1248,8 @@ func use_ability(i: int, dir: Vector3) -> void:
 			bash_root = a.get("root", 0.0)
 			game.spawn_splash(global_position + Vector3(0, 0.3, 0), Color(0.8, 0.85, 1.0), 12, 3.0, 0.4)
 			game.spawn_ring(global_position, 1.8, Color(0.7, 0.8, 1.0), 0.35)
+			Fx.of(game).burst(global_position + Vector3(0, 0.9, 0), Color(0.9, 0.95, 1.0), 10, 7.0, 0.3, Fx.STYLE_SPARK, -dir, 25.0)
+			Fx.of(game).slash(global_position, dir, Color(0.85, 0.92, 1.0), 1.2, true)
 		"guard":
 			guard_timer = a.duration
 			guard_ring.visible = true
@@ -1208,10 +1270,11 @@ func use_ability(i: int, dir: Vector3) -> void:
 			game.spawn_flash(global_position + Vector3(0, 1, 0), Color(1.0, 0.95, 0.6), 3.0, 0.4)
 			game.spawn_splash(global_position + Vector3(0, 1.2, 0), Color(1.0, 0.95, 0.7), 24, 4.0, 0.8, true)
 		"volley":
+			var look: Array = SkillFx.shot(self, a, Color(0.95, 0.9, 0.7))
 			for k in a.arrows:
 				var ang: float = deg_to_rad(a.spread) * (float(k) / (a.arrows - 1) - 0.5)
 				game.spawn_shot(self, dir.rotated(Vector3.UP, ang),
-					{"damage": a.damage, "gate_damage": 1, "range": a.range, "shot_speed": a.shot_speed}, Color(0.95, 0.9, 0.7))
+					{"damage": a.damage, "gate_damage": 1, "range": a.range, "shot_speed": a.shot_speed, "look": look[1]}, look[0])
 			game.spawn_splash(global_position + dir * 0.8 + Vector3(0, 1.1, 0), Color(0.95, 0.9, 0.7), 8, 3.0, 0.25)
 			_recoil(dir, 3.0)
 		"trap":
@@ -1219,12 +1282,14 @@ func use_ability(i: int, dir: Vector3) -> void:
 				game.spawn_trap(self, global_position + dir * (1.5 + k * 1.5), a)
 		"fireball":
 			var frost: bool = a.get("frost", false)
+			var nature: bool = a.get("nature", false)
 			var ball := {"damage": a.damage, "gate_damage": 4, "range": a.range, "splash": a.splash, "shot_speed": a.shot_speed,
-				"fire": not frost, "frost": frost}
+				"fire": not frost and not nature, "frost": frost, "nature": nature, "look": "thorn" if nature else ""}
 			if a.has("root"):
 				ball.root = a.root
-			game.spawn_shot(self, dir, ball, Color(0.6, 0.85, 1.0) if frost else Color(1.0, 0.5, 0.1))
-			game.spawn_flash(global_position + dir, Color(0.6, 0.85, 1.0) if frost else Color(1.0, 0.55, 0.15), 3.0, 0.3)
+			var ball_color := Color(0.6, 0.85, 1.0) if frost else (SkillFx.LEAF if nature else Color(1.0, 0.5, 0.1))
+			game.spawn_shot(self, dir, ball, ball_color)
+			game.spawn_flash(global_position + dir, ball_color, 3.0, 0.3)
 			_recoil(dir, 3.5)
 		"blink":
 			var from := global_position + Vector3(0, 0.9, 0)
@@ -1267,12 +1332,15 @@ func use_ability(i: int, dir: Vector3) -> void:
 				"shot_speed": a.shot_speed, "holy": true, "splash": a.get("splash", 0.0)}
 			if a.has("slow"):
 				bolt["slow"] = a.slow
+			var look: Array = SkillFx.shot(self, a, bolt_color)
+			bolt["look"] = look[1]
+			bolt_color = look[0] if not dark else bolt_color
 			game.spawn_shot(self, dir, bolt, bolt_color)
 			game.spawn_flash(global_position + dir, bolt_color, 2.0, 0.25)
 			_recoil(dir, 2.0)
 		"shot":
 			game.spawn_shot(self, dir, {"damage": a.damage, "gate_damage": a.get("gate_damage", 1), "range": a.range,
-				"shot_speed": a.shot_speed, "pierce": a.get("pierce", false)}, Color(0.95, 0.9, 0.7))
+				"shot_speed": a.shot_speed, "pierce": a.get("pierce", false)}, SkillFx.shot(self, a, Color(0.95, 0.9, 0.7))[0])
 			game.spawn_splash(global_position + dir * 0.8 + Vector3(0, 1.1, 0), Color(0.95, 0.9, 0.7), 8, 3.0, 0.25)
 			_recoil(dir, 3.0 if a.damage < 2 else 5.0)
 		"cleave":
@@ -1289,7 +1357,7 @@ func use_ability(i: int, dir: Vector3) -> void:
 					continue
 				if a.get("cone", false) and dist > 0.8 and dir.dot(to / dist) < 0.35:
 					continue
-				landed = other.take_damage(a.damage, self, global_position, 9.0) or landed
+				landed = other.take_damage(a.damage, self, global_position, 9.0, {"fx": "fire" if fire else "heavy"}) or landed
 			if a.get("cone", false):
 				for k in 7:
 					var ang: float = deg_to_rad(70.0) * (float(k) / 6.0 - 0.5)
@@ -1299,6 +1367,8 @@ func use_ability(i: int, dir: Vector3) -> void:
 			else:
 				game.spawn_ring(global_position, a.radius, c, 0.4, 0.25)
 				game.spawn_splash(global_position + Vector3(0, 1.0, 0), c, 24, 6.0, 0.45)
+				for k in 2:
+					Fx.of(game).slash(global_position, dir.rotated(Vector3.UP, PI * k), c, a.radius / 1.75, true, k == 1)
 				game.spawn_flash(global_position, c, 3.0, 0.3)
 			if landed and is_player:
 				game.shake(0.2)
@@ -1312,11 +1382,80 @@ func use_ability(i: int, dir: Vector3) -> void:
 			var purple := Color(0.6, 0.25, 0.85)
 			for other in game.units:
 				if other.team != team and not other.dead and _flat_to(other.global_position).length() <= a.radius:
-					other.take_damage(a.damage, self, global_position, 3.0, {"slow": a.slow})
+					other.take_damage(a.damage, self, global_position, 3.0, {"slow": a.slow, "fx": "dark"})
 					game.spawn_pillar(other.global_position, purple, 2.5, 0.6)
 			game.spawn_ring(global_position, a.radius, purple, 0.7, 0.2)
 			game.spawn_splash(global_position + Vector3(0, 0.5, 0), purple, 30, 4.0, 0.9, true)
 			game.spawn_flash(global_position, purple, 4.0, 0.5)
+
+
+func _hitstop(t: float) -> void:
+	## Freeze the model's animation for a beat so blows land with weight.
+	## Looks only: movement, timers and the bot brain carry on.
+	if model == null or model.anim == null:
+		return
+	hitstop_timer = maxf(hitstop_timer, t)
+	model.anim.speed_scale = 0.0
+
+
+func _flash_look() -> void:
+	## Hit flash: a white-hot rim for the first frames, then a red tint that
+	## eases back to the normal skin.
+	var k := flash_timer / FLASH_TIME
+	var white := k > 0.7
+	for m in flash_mats:
+		m.albedo_color = model.tint.lerp(Color(1.0, 0.3, 0.28), clampf(k * 1.4, 0.0, 1.0)) if not white else Color(1.0, 0.85, 0.8)
+		m.rim = 1.0 if white else 0.35
+		m.rim_tint = 0.0 if white else 0.6
+
+
+func _swing_kind(s: Dictionary) -> String:
+	## Which hit effect a melee swing makes.
+	if s.get("burn", false):
+		return "fire"
+	if s.has("slow"):
+		return "venom"
+	if role == Role.BASE:
+		return "fist"
+	return "heavy" if s.range > 2.5 else "melee"
+
+
+func _hit_kind(attacker, effect: Dictionary) -> String:
+	## Which hit effect a landed blow makes: the caller's word, else a guess
+	## from the attacker's base attack.
+	if effect.has("fx"):
+		return effect.fx
+	if attacker == null or not is_instance_valid(attacker) or not attacker.has_method("attack_stats"):
+		return "arrow"   # turrets, traps
+	if effect.get("burn", false):
+		return "fire"
+	var s: Dictionary = attacker.stats()
+	if s.attack == "arrow":
+		return "arrow"
+	if s.attack == "spell" or s.attack == "heal":
+		if s.get("fire", false):
+			return "fire"
+		if s.get("frost", false):
+			return "frost"
+		if s.get("nature", false):
+			return "nature"
+		return "dark" if s.get("drain", false) else "arcane"
+	return attacker._swing_kind(s)
+
+
+func _status_auras() -> void:
+	## Looping auras while a status lasts: venom slow, root, haste, guard.
+	if game == null or dead:
+		for e in status_fx.values():
+			e.emitting = false
+		return
+	var want := {"slow": slow_timer > 0.0, "root": root_timer > 0.0, "haste": haste_timer > 0.0 and stealth_timer <= 0.0,
+		"guard": guard_timer > 0.0}
+	for k in want:
+		if want[k] and not status_fx.has(k):
+			status_fx[k] = Fx.of(game).status_emitter(self, k)
+		if status_fx.has(k) and status_fx[k].emitting != want[k]:
+			status_fx[k].emitting = want[k]
 
 
 func _recoil(dir: Vector3, amount: float) -> void:
@@ -1357,13 +1496,36 @@ func _die() -> void:
 	_lose_levels(Stats.DEATH_LEVEL_LOSS)
 	if is_player and fell_from > 1:
 		game.announce("You fell at level %d: down to level %d, back in %d seconds." % [fell_from, level, int(respawn_timer)])
-	game.spawn_splash(global_position + Vector3(0, 0.8, 0), Color(0.3, 0.3, 0.35), 18, 3.0, 0.8)
-	game.spawn_ring(global_position, 1.4, Color(0.6, 0.2, 0.2), 0.5)
+	_death_fling()
+	Fx.of(game).death(global_position, Stats.FACTIONS[team].color)
 	game.sfx.play("death", global_position, 0.0, 0.1)
 	if aim_marker:
 		aim_marker.visible = false
 		aim_ring.visible = false
 	_refresh_overhead()   # hide the name tag and health bar while down
+
+
+func _death_fling() -> void:
+	## The killing blow throws the body back: a short arc the way it was hit,
+	## landing as the fall plays. Looks only (the unit itself stays put);
+	## the model is reset on revive.
+	if model == null:
+		return
+	var push := last_hit_dir
+	push.y = 0.0
+	if push.length() < 0.05:
+		return
+	var local: Vector3 = global_transform.basis.inverse() * (push.normalized() * 1.1)
+	local.y = 0.0
+	var tw: Tween = model.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(model, "position:x", local.x, 0.32).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(model, "position:z", local.z, 0.32).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(model, "position:y", 0.45, 0.14).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_property(model, "position:y", 0.0, 0.16).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(func():
+		if is_instance_valid(game):
+			Fx.of(game).burst(model.global_position + Vector3(0, 0.15, 0), Color(0.6, 0.55, 0.45), 8, 2.0, 0.7, Fx.STYLE_SMOKE, Vector3.UP, 70.0, 0.8))
 
 
 func _respawn() -> void:
@@ -1473,7 +1635,7 @@ func _update_player_aim(move: Vector3) -> void:
 	match aim_mode:
 		"stick":
 			if stick.length() > 0.3:
-				aim = Vector3(stick.x, 0, stick.y).normalized()
+				aim = _assist_aim(Vector3(stick.x, 0, stick.y).normalized())
 			else:
 				# Touch play: with no aim drag, face the nearest enemy in reach.
 				var auto := _auto_aim() if game.touch_active else Vector3.ZERO
@@ -1495,6 +1657,30 @@ func _update_player_aim(move: Vector3) -> void:
 			if move.length() > 0.05:
 				aim = move.normalized()
 			aim_point = global_position + aim * 6.0
+
+
+func _assist_aim(raw: Vector3) -> Vector3:
+	## Stick aim assist: an enemy within AIM_ASSIST_DEG of where the stick
+	## points, and within reach of your attack, bends the aim most of the way
+	## onto them. The closest to the stick line wins. Mouse aim is untouched.
+	var reach: float = attack_stats().get("range", 2.0) + 1.0
+	var best := deg_to_rad(AIM_ASSIST_DEG)
+	var pick := Vector3.ZERO
+	for u in game.units:
+		if u == self or u.team == team or u.dead:
+			continue
+		var to: Vector3 = u.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d < 0.1 or d > reach:
+			continue
+		var ang := raw.angle_to(to / d)
+		if ang < best:
+			best = ang
+			pick = to / d
+	if pick == Vector3.ZERO:
+		return raw
+	return raw.slerp(pick, AIM_ASSIST_PULL).normalized()
 
 
 func _auto_aim() -> Vector3:
@@ -1580,7 +1766,9 @@ func _physics_process(delta: float) -> void:
 		if burn_timer <= 0.0:
 			var by = burn_by if is_instance_valid(burn_by) and burn_by.team != team else null
 			burn_by = null
-			take_damage(Stats.FIRE_FORM.burn_damage, by)
+			burn_tick = true
+			take_damage(Stats.FIRE_FORM.burn_damage, by, Vector3.INF, 0.0, {"fx": "fire"})
+			burn_tick = false
 			if dead:
 				return
 	if buff_timer > 0.0:
@@ -1600,15 +1788,27 @@ func _physics_process(delta: float) -> void:
 			game.spawn_splash(global_position + Vector3(0, 0.9, 0), Color(0.55, 0.55, 0.6), 4, 1.2, 0.9, true)
 		overhead.visible = stealth_timer <= 0.0 or is_player
 	bot_block_timer = maxf(bot_block_timer - delta, 0.0)
+	if is_player and hearts == 1:
+		# Your last heart: a heartbeat you can hear, quickening nothing else.
+		heartbeat_timer -= delta
+		if heartbeat_timer <= 0.0:
+			heartbeat_timer = 0.95
+			game.sfx.ui("heartbeat", -9.0)
+	else:
+		heartbeat_timer = 0.0
 	if guard_timer > 0.0:
 		guard_timer -= delta
 		if guard_timer <= 0.0:
 			guard_ring.visible = false
 			model.release()
 	if flash_timer > 0.0:
-		flash_timer -= delta
-		for m in flash_mats:
-			m.albedo_color = Color(1, 0.35, 0.35) if flash_timer > 0.0 else model.tint
+		flash_timer = maxf(flash_timer - delta, 0.0)
+		_flash_look()
+	if hitstop_timer > 0.0:
+		hitstop_timer -= delta
+		if hitstop_timer <= 0.0 and model and model.anim:
+			model.anim.speed_scale = 1.0
+	_status_auras()
 
 	var speed: float = Stats.FACTIONS[team].speed * stats().speed * vigor_speed()
 	if carrying:
@@ -1635,7 +1835,7 @@ func _physics_process(delta: float) -> void:
 						and _flat_to(other.global_position).length() < 1.3 \
 						and absf(other.global_position.y - global_position.y) < 1.5:
 					bash_hit.append(other)
-					other.take_damage(bash_damage, self, global_position, 10.0, {"root": bash_root} if bash_root > 0.0 else {})
+					other.take_damage(bash_damage, self, global_position, 10.0, {"root": bash_root, "fx": "heavy"} if bash_root > 0.0 else {"fx": "heavy"})
 		else:
 			dodge_timer -= delta
 		velocity.x = dodge_dir.x * dash_speed
@@ -1655,15 +1855,32 @@ func _physics_process(delta: float) -> void:
 		_update_player_aim(move)
 		_update_highlights()
 		if not game.menu_blocks_input(self):
-			wants_attack = Input.is_action_pressed(_a("attack"))
+			# Held attack keeps swinging; a tap during the cooldown is kept for
+			# a moment and swings as soon as it can (no lost clicks).
+			if Input.is_action_just_pressed(_a("attack")):
+				attack_buffer = ATTACK_BUFFER
+			wants_attack = Input.is_action_pressed(_a("attack")) or attack_buffer > 0.0
 			wants_block = Input.is_action_pressed(_a("block"))
 			if Input.is_action_just_pressed(_a("interact")):
 				game.try_interact(self)
+			# A press just before a skill or the dodge is ready still counts:
+			# it waits up to INPUT_BUFFER seconds and fires the moment it can.
 			if Input.is_action_just_pressed(_a("ability_1")):
-				use_ability(0, aim)
+				input_buffer[0] = INPUT_BUFFER
 			if Input.is_action_just_pressed(_a("ability_2")):
-				use_ability(1, aim)
+				input_buffer[1] = INPUT_BUFFER
 			if Input.is_action_just_pressed(_a("dodge")):
+				input_buffer[2] = INPUT_BUFFER
+		for i in 2:
+			if input_buffer[i] > 0.0:
+				input_buffer[i] -= delta
+				if ability_ready(i):
+					input_buffer[i] = 0.0
+					use_ability(i, aim)
+		if input_buffer[2] > 0.0:
+			input_buffer[2] -= delta
+			if dodge_ready():
+				input_buffer[2] = 0.0
 				try_dodge(move)
 		if dodge_timer > 0.0 or bash_timer > 0.0:
 			return
@@ -1735,7 +1952,9 @@ func _physics_process(delta: float) -> void:
 		real.y = 0.0
 		stuck_time = stuck_time + delta if real.length() < speed * 0.3 else 0.0
 
+	attack_buffer = maxf(attack_buffer - delta, 0.0)
 	if wants_attack and not blocking and carrying == null and attack_timer <= 0.0:
+		attack_buffer = 0.0
 		_attack(aim)
 	if plan.has("ability"):
 		use_ability(plan.ability, plan.aim)
@@ -1820,6 +2039,8 @@ func _attack(dir: Vector3) -> void:
 			spell_color = Color(1.0, 0.5, 0.1)
 		elif s.get("frost", false):
 			spell_color = Color(0.6, 0.85, 1.0)
+		elif s.get("nature", false):
+			spell_color = SkillFx.LEAF
 		game.spawn_shot(self, dir, s, spell_color)
 		game.sfx.play("bolt", global_position, -2.0, 0.12)
 		_recoil(dir, 2.0)
@@ -1827,8 +2048,18 @@ func _attack(dir: Vector3) -> void:
 	# Melee: a short lunge into the swing.
 	knockback += dir * 2.5
 	game.sfx.play("punch" if role == Role.BASE else ("swing_heavy" if s.range > 2.5 else "swing"), global_position, -3.0, 0.12)
-	game.spawn_swing(self, dir)
+	var swing_kind := _swing_kind(s)
+	var swing_col: Color = Fx.KINDS[swing_kind].spark.lerp(Color.WHITE, 0.45)
+	swing_flip = not swing_flip
+	Fx.of(game).slash(global_position, dir, swing_col, clampf(s.range / 1.9, 0.75, 1.5), s.range > 2.5, swing_flip)
 	var landed := false
+	# On-hit effects of the swing: Venom Fang slows, fire form burns.
+	var effect := {}
+	if s.has("slow"):
+		effect["slow"] = s.slow
+	if s.get("burn", false):
+		effect["burn"] = true
+	effect["fx"] = swing_kind
 	for other in game.units:
 		if other.team == team or other.dead:
 			continue
@@ -1837,11 +2068,13 @@ func _attack(dir: Vector3) -> void:
 		# Swings reach people at your own height, not someone up on a wall.
 		if dist <= s.range and absf(other.global_position.y - global_position.y) < 1.5 \
 				and (dist < 0.8 or dir.dot(to / dist) > 0.3):
-			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE, {"burn": true} if s.get("burn", false) else {}) or landed
+			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE, effect) or landed
 	if landed:
+		_hitstop(0.06)
 		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
 		if is_player:
 			game.shake(0.12)
+			game.kick_cam(dir, 0.12)   # the view leans into the blow
 			game.rumble(self, 0.35, 0.15, 0.1)
 	# Swings from the ground also chip away at the enemy door.
 	var vault = game.vaults[1 - team]

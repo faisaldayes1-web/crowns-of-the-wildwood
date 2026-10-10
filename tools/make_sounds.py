@@ -205,6 +205,16 @@ def sounds():
     s["hurt"] = mix(square(np.linspace(420, 260, n), n, 0.3) * expdecay(n, 0.05) * 0.4, s["hit_flesh"][:n] * 0.6)
     n = int(SR * 0.6)
     s["death"] = mix(square(np.linspace(360, 90, n), n, 0.4) * env(n, 0.01, 0.5, 0.0, 0.08) * 0.35, thump(70, 0.4, 0.1) * 0.8)
+    # Weight on landed blows: a crunch for heavy hits, a crackle for spells,
+    # a sting for your own kills and a heartbeat at your last heart.
+    n = int(SR * 0.22)
+    s["hit_heavy"] = mix(thump(70, 0.22, 0.06) * 1.3, lowpass(noise(n), np.linspace(2500, 400, n)) * expdecay(n, 0.04) * 1.6, click(0.015, 4000) * 0.7)
+    n = int(SR * 0.2)
+    s["hit_magic"] = mix(bandpass(noise(n), 2500, 8000) * expdecay(n, 0.04) * 1.4, sine(np.linspace(1600, 500, n), n) * expdecay(n, 0.05) * 0.4)
+    s["kill"] = mix(thump(55, 0.45, 0.12) * 1.1, at(chime(1318, 0.35, 0.6) * 0.5, 0.03, 0.45), at(chime(1976, 0.3, 0.5) * 0.35, 0.07, 0.45))
+    # Hit confirm for your own ranged hits: a crisp tick you hear at any range.
+    s["hit_tick"] = mix(click(0.012, 9000) * 0.9, chime(2637, 0.09, 0.7) * 0.35)
+    s["heartbeat"] = mix(thump(55, 0.14, 0.04), at(thump(50, 0.14, 0.04) * 0.7, 0.18, 0.4))
     s["respawn"] = seq(chime(523, 0.3, 0.5) * 0.5, chime(784, 0.3, 0.5) * 0.5, chime(1046, 0.5, 0.5) * 0.5, gap=-0.2)
     n = int(SR * 0.18)
     s["dodge"] = whoosh(0.18, 500, 3000, False) * 0.8
@@ -237,6 +247,10 @@ def sounds():
     s["ui_open"] = seq(click(0.015, 3000) * 0.6, chime(880, 0.2, 0.3) * 0.4, gap=0.0)
     s["ui_close"] = seq(click(0.015, 3000) * 0.6, chime(660, 0.2, 0.3) * 0.4, gap=0.0)
     s["ui_deny"] = tone(180, 0.16, "square", 0.002, 0.1, 0.0, 0.04, (1.0, 0.4)) * 0.3
+    # Grab / interact: a quick hand whoosh; a soft pop and chime when it takes hold.
+    s["grab"] = mix(whoosh(0.12, 600, 2400, False) * 0.5, at(click(0.02, 3500) * 0.9, 0.07, 0.4), at(thump(220, 0.08, 0.02) * 0.6, 0.07, 0.4),
+                    at(chime(1568, 0.25, 0.3) * 0.35, 0.09, 0.4))
+    s["grab_miss"] = whoosh(0.14, 500, 1800, False) * 0.45
     s["station"] = mix(seq(click(0.03, 2000), click(0.03, 2000), gap=0.06), at(chime(1046, 0.5, 0.5), 0.1, 0.6), at(whoosh(0.3, 300, 2000, False) * 0.6, 0.05, 0.6))
     s["match_start"] = mix(seq(tone(392, 0.2, "tri", 0.005, 0.05, 0.8, 0.05, (1.0, 0.5)), tone(523, 0.2, "tri", 0.005, 0.05, 0.8, 0.05, (1.0, 0.5)), tone(784, 0.8, "tri", 0.005, 0.1, 0.7, 0.3, (1.0, 0.5))),
                            thump(65, 0.6, 0.2))
