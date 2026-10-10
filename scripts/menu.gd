@@ -48,6 +48,7 @@ var turn_drag := false
 var turn_last_x := 0.0
 var turn_was_held := false
 var exit_armed := 0.0
+var debug_players_done := false
 var delete_armed := ""        # a player DELETE asks for a second click (their id)
 var delete_time := 0.0
 var readied := [true, false, false, false]   # lobby: local players 2-4 ready up
@@ -227,6 +228,11 @@ func draw(hud) -> void:
 	delete_time = maxf(delete_time - hud.get_process_delta_time(), 0.0)
 	if delete_time <= 0.0:
 		delete_armed = ""
+	if not debug_players_done and "--debug-players" in OS.get_cmdline_user_args():
+		# Renders: the PLAYERS list; with --debug-welcome, the first-launch ask.
+		debug_players_done = true
+		overlay = "players"
+		game.needs_name = "--debug-welcome" in OS.get_cmdline_user_args()
 	if game.needs_name and screen == "title" and overlay == "":
 		# A first launch: ask who is playing before anything else.
 		overlay = "players"
