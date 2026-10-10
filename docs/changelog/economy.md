@@ -2,6 +2,35 @@
 
 Branch `group/economy-whmjnc`, draft PR #13. Newest entry first. Format: [README.md](README.md).
 
+### 2026-10-10 07:40 UTC · `ce29b5f` · Turret kill tally counts knock-downs
+
+- **What:** The demo's `turret_kills` only counted a unit going straight to dead; with Downed & Revive the kill credit is given at the knock-down, so turret kills read 0. Now a turret bolt that knocks someone down counts. Tally only, no gameplay change.
+- **Files:** scripts/projectile.gd
+- **Revert:** `git revert ce29b5f`
+
+### 2026-10-10 07:00 UTC · `0baddb5` · Cheaper turrets, bots build early, glowing pads (Faisal: "cheaper and smarter")
+
+- **What:** Turrets cost less. All-bot teams put one turret up before their first hat upgrade and a second after it; a bot on a team with a human builds one. Empty pads glow and pulse gold for you when your base can afford a turret.
+- **Files:** scripts/economy.gd (`_bot_spend`, `_bot_turret`, `_steward`, `_turrets_of`, `_build_pads`, `_process`), scripts/stats.gd (`ECONOMY`)
+- **Tunables:** `turret_wood/ore` 3/3 → 2/1, `turret_up` 2/2 → 1/1, `turret_fix` 1/1 → 1/0; new `bot_turrets_early` 1, `bot_turrets` 2, `bot_turrets_with_human` 1.
+- **Tested:** six seeds (2001-2006) per map, alpha build before and after. Turrets built per match 0 → 3.5 (Wildwood) and 0 → 3.5 (Moonlit). Captures 13 → 13 and 13 → 10 (see the thread for kills and match length). Self-test 22/22.
+- **Revert:** `git revert 0baddb5`
+
+### 2026-10-10 06:50 UTC · `7a7084e`, `e66cd61` · Quick hat upgrades from the field
+
+- **What:** Out of combat for 3 s you can buy your class's hat upgrade from anywhere, paid from the base stock, through UI & Art's LEVEL UP strip (`quick_tiles()`). The machine in the base still works. An upgrade now also reaches everyone already wearing that class, not only hats taken afterwards.
+- **Files:** scripts/economy.gd (`field_ok`, `field_hat_offers`, `buy_hat_remote`, `quick_tiles`, `upgrade_hat`, `_tick_calm`), scripts/stats.gd (`ECONOMY`)
+- **Tunables (new):** `field_calm` 3.0 (uses `unit.calm_left()` / `Stats.QUICK_UPGRADE_CALM` where it exists), `field_foe_radius` 9.0.
+- **Tested:** `--econ-test` 22/22 (2 new checks: a field upgrade gives a Ranger already out there its move; none straight after a fight).
+- **Revert:** `git revert e66cd61 7a7084e`
+
+### 2026-10-10 06:30 UTC · `4276911` · Upgrade card and base stock restyled, door bar raised (Faisal 06:02, 06:04)
+
+- **What:** The action card now looks like the pause menu's UPGRADES rows: navy with gold rim and leaf corners, a hex tile with the painted icon, the move's name and description, price top right, and a big gold + button with its F key. The base stock is a navy pill under the minimap (like DEFENDING HOME) with wood, ore and three carry pips. The door's health bar sits 1.6 m higher.
+- **Files:** scripts/economy.gd (`draw_action_card`, `draw_counter`, `_offer`, `_lift_door_bar`), scripts/stats.gd (`door_bar_lift` 1.6)
+- **Tested:** renders of the upgrade, repair, gather and storehouse shots on a merge with release/v0.4.0-alpha.
+- **Revert:** `git revert 4276911`
+
 ### 2026-10-09 21:30 UTC · `b13fe48`, `e920dee`, `a63d7b1` · Repair / upgrade button and resource monitor (Faisal 20:41)
 
 - **What:** Standing at your door, a turret pad or your class's hat machine now brings up a card above the ability board: what it does, the door's or turret's health bar, the price in wood and ore (red when the base is short), and a big button (REPAIR, RAISE, UPGRADE, BUILD, PUT ON). Click or tap it, or press interact. When it can't be bought the button says why (NEED 1 ORE, UNDER SIEGE, FULL HEALTH, MAX LEVEL). The resource monitor under the minimap is now a BASE STOCK panel with big wood and ore numbers that flash when they change, and three ON YOUR BACK slots. The floating door and pad prompts are gone (the card replaces them). A left click on the button doesn't swing your weapon.

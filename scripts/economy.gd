@@ -1505,28 +1505,33 @@ func draw_action_card(hud, me) -> void:
 		px -= tw2 + 34.0
 	# The big + button.
 	var btn := Rect2(Vector2(bx, card.position.y + 14), Vector2(78, 66))
-	var hover: bool = btn.has_point(hud.get_local_mouse_position()) and not touch
-	var top := Color(1.0, 0.82, 0.3) if o.ok else Color(0.42, 0.42, 0.45)
-	var bot := Color(0.85, 0.55, 0.1) if o.ok else Color(0.28, 0.28, 0.3)
-	if hover and o.ok:
-		top = top.lightened(0.15)
-		bot = bot.lightened(0.1)
-	var bsb := StyleBoxFlat.new()
-	bsb.bg_color = bot
-	bsb.set_corner_radius_all(10)
-	bsb.set_border_width_all(2)
-	bsb.set_border_width_all(3)
-	bsb.border_color = BRASS if o.ok else Color(0.45, 0.42, 0.38)
-	bsb.shadow_size = 3
-	bsb.shadow_color = Color(0, 0, 0, 0.4)
-	hud.draw_style_box(bsb, btn)
-	hud.draw_rect(Rect2(btn.position + Vector2(3, 3), Vector2(btn.size.x - 6, btn.size.y * 0.45)), Color(top, 0.75))
 	var pc := btn.get_center()
-	var ink := Color(1, 1, 1) if o.ok else Color(0.7, 0.7, 0.72)
-	hud.draw_rect(Rect2(pc - Vector2(18, 5), Vector2(36, 10)), Color(0.3, 0.17, 0.03, 0.6))
-	hud.draw_rect(Rect2(pc - Vector2(5, 18), Vector2(10, 36)), Color(0.3, 0.17, 0.03, 0.6))
-	hud.draw_rect(Rect2(pc - Vector2(16, 3.5), Vector2(32, 7)), ink)
-	hud.draw_rect(Rect2(pc - Vector2(3.5, 16), Vector2(7, 32)), ink)
+	if hud.has_method("game_button"):
+		hud.game_button(btn, "", o.ok)   # UI & Art's shared gold button
+		var ink2 := Color(0.24, 0.12, 0.03) if o.ok else Color(0.6, 0.6, 0.6)
+		hud.draw_rect(Rect2(pc - Vector2(16, 3.5), Vector2(32, 7)), ink2)
+		hud.draw_rect(Rect2(pc - Vector2(3.5, 16), Vector2(7, 32)), ink2)
+	else:
+		var hover: bool = btn.has_point(hud.get_local_mouse_position()) and not touch
+		var top := Color(1.0, 0.82, 0.3) if o.ok else Color(0.42, 0.42, 0.45)
+		var bot := Color(0.85, 0.55, 0.1) if o.ok else Color(0.28, 0.28, 0.3)
+		if hover and o.ok:
+			top = top.lightened(0.15)
+			bot = bot.lightened(0.1)
+		var bsb := StyleBoxFlat.new()
+		bsb.bg_color = bot
+		bsb.set_corner_radius_all(10)
+		bsb.set_border_width_all(3)
+		bsb.border_color = BRASS if o.ok else Color(0.45, 0.42, 0.38)
+		bsb.shadow_size = 3
+		bsb.shadow_color = Color(0, 0, 0, 0.4)
+		hud.draw_style_box(bsb, btn)
+		hud.draw_rect(Rect2(btn.position + Vector2(3, 3), Vector2(btn.size.x - 6, btn.size.y * 0.45)), Color(top, 0.75))
+		var ink := Color(1, 1, 1) if o.ok else Color(0.7, 0.7, 0.72)
+		hud.draw_rect(Rect2(pc - Vector2(18, 5), Vector2(36, 10)), Color(0.3, 0.17, 0.03, 0.6))
+		hud.draw_rect(Rect2(pc - Vector2(5, 18), Vector2(10, 36)), Color(0.3, 0.17, 0.03, 0.6))
+		hud.draw_rect(Rect2(pc - Vector2(16, 3.5), Vector2(32, 7)), ink)
+		hud.draw_rect(Rect2(pc - Vector2(3.5, 16), Vector2(7, 32)), ink)
 	if o.ok and not touch:
 		hud._keycap(btn.position + Vector2(btn.size.x - 4, 4), hud._k("interact"), 24.0)
 	var label: String = o.verb if o.ok or o.reason == "" else o.reason
@@ -1545,6 +1550,9 @@ const WOOD_DARK := Color(0.27, 0.15, 0.07)
 func _wood_board(hud, rect: Rect2, planks: int, trim: bool) -> void:
 	## The ability bar's board (hud._strip_board): dark planks in a brass rim
 	## with gold corners and ivy. Drawn here too for builds without it.
+	if trim and hud.has_method("game_board"):
+		hud.game_board(rect)   # UI & Art's shared in-match panel
+		return
 	if trim and hud.has_method("_strip_board"):
 		hud._strip_board(rect)
 		return
