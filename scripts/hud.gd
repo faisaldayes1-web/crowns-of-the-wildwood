@@ -3234,6 +3234,10 @@ func _draw_player_panel(p) -> void:
 		_touch_cluster(p, W, H)
 		if _lv():
 			_status_tags(p, panel)
+			if game.economy:
+				# Veteran Training's gold slot where the round G button sits
+				# (it shows only when there is no hat move).
+				game.economy.draw_hat_slot(self, p, Rect2(Vector2(W - 428, H - 268), Vector2(470, 110)))
 		if k < 1.0:
 			draw_set_transform(Vector2.ZERO)
 		if bake_mode == "":
