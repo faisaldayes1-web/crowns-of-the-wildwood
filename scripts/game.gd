@@ -70,6 +70,7 @@ const BRIDGE_HALF := [2.2, 6.3, 3.0]
 const BANK_LAYER := 16        # river banks block walkers, not shots
 const MONARCH_TITLES := ["Elven Crown", "Human Crown"]
 const CONTROLS_PATH := "user://controls.cfg"
+const PROFILE_DIR := "user://profiles"   # one save per named player (save_file.gd)
 # Actions the player can rebind in the Controls menu (and what to call them).
 const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"], ["ability_3", "Upgraded hat move"],
 	["dodge", "Dodge"], ["interact", "Grab / drop"], ["rank_menu", "Perks & ranks"], ["scoreboard", "Scoreboard (hold)"],
@@ -126,6 +127,8 @@ var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
+var profile_id := ""          # the player playing now: user://profiles/<id>.cfg
+var needs_name := false       # a first launch: the title asks who is playing
 var saved_at := -1.0          # when the save was last written (seconds since start)
 var account_gold := 0           # match rewards (Stats.MATCH_GOLD / MATCH_SHARDS), spent in the STORE (store.gd)
 var account_shards := 0
@@ -305,6 +308,7 @@ func _ready() -> void:
 		gfx_quality = 0
 		show_fps = true
 	_load_controls()
+	_ensure_profile()
 	if OS.has_feature("web"):
 		# Browsers (and tablets) run Medium at most; Settings can raise
 		# it. (Here, not in _load_controls: a fresh browser has no settings
@@ -3342,16 +3346,107 @@ func import_progress(code: String = "") -> bool:
 	if data.is_empty():
 		toast("That is not a whole progress code", Color(1.0, 0.6, 0.5))
 		return false
+	# The code comes in as its own player, next to the ones already here.
+	var pc := ConfigFile.new()
+	SaveFile.apply_code(pc, data)
 	_save_settings()
 	_flush_save()
-	DirAccess.copy_absolute(CONTROLS_PATH, CONTROLS_PATH + ".before-import")
+	var id := _new_profile_id()
+	DirAccess.make_dir_recursive_absolute(PROFILE_DIR)
+	SaveFile.write(pc, profile_path(id))
+	switch_profile(id, false)
+	toast("Imported %s: level %d, %d gold" % [player_name(), account_level(), account_gold], Color(0.6, 1.0, 0.55))
+	return true
+
+
+# --- Player profiles (save_file.gd) ---------------------------------------------
+
+func profile_path(id: String) -> String:
+	return "%s/%s.cfg" % [PROFILE_DIR, id]
+
+
+func player_name() -> String:
+	return hero_name if hero_name.strip_edges() != "" else "Unnamed Hero"
+
+
+func _new_profile_id() -> String:
+	var n := 1
+	while FileAccess.file_exists(profile_path("p%d" % n)):
+		n += 1
+	return "p%d" % n
+
+
+func _ensure_profile() -> void:
+	## Every save belongs to a named player. A device with no player yet
+	## makes one from what it has (an older save keeps its progress); a first
+	## launch then asks for a name on the title.
+	if profile_id == "" or not FileAccess.file_exists(profile_path(profile_id)):
+		profile_id = _new_profile_id() if profile_id == "" else profile_id
+		_save_settings()
+		_flush_save()
+	# Only on a plain launch: renders and tests start with their own flags.
+	needs_name = hero_name.strip_edges() == "" and OS.get_cmdline_user_args().is_empty() and DisplayServer.get_name() != "headless"
+
+
+func list_profiles() -> Array:
+	## Every player on this device: [{id, name, xp, gold}], oldest first.
+	_flush_save()
+	var out: Array = []
+	var d := DirAccess.open(PROFILE_DIR)
+	if d == null:
+		return out
+	for f in d.get_files():
+		if not f.ends_with(".cfg"):
+			continue
+		var id := f.trim_suffix(".cfg")
+		var pc := ConfigFile.new()
+		if SaveFile.read(pc, profile_path(id)) == OK:
+			out.append({"id": id, "name": str(pc.get_value("settings", "hero_name", "")),
+				"xp": int(pc.get_value("profile", "account_xp", 0)), "gold": int(pc.get_value("profile", "account_gold", 0))})
+	out.sort_custom(func(a, b): return a.id.naturalnocasecmp_to(b.id) < 0)
+	return out
+
+
+func switch_profile(id: String, announce := true) -> void:
+	## Saves the player playing now, then loads `id`'s level, gold, items and look.
+	if id == profile_id or not FileAccess.file_exists(profile_path(id)):
+		return
+	_save_settings()
+	_flush_save()
+	profile_id = id
 	var cfg := ConfigFile.new()
 	_read_save(cfg)
-	SaveFile.apply_code(cfg, data)
+	cfg.set_value("profiles", "current", id)
 	SaveFile.write(cfg, CONTROLS_PATH)
 	_load_controls()
 	_save_settings()
-	toast("Progress restored: level %d, %d gold" % [account_level(), account_gold], Color(0.6, 1.0, 0.55))
+	if announce:
+		toast("Playing as %s" % player_name(), Color(0.6, 1.0, 0.55))
+
+
+func new_profile(name: String) -> String:
+	## A new player starting from nothing (level 1, no gold or items, the
+	## default look); they become the one playing.
+	_save_settings()
+	_flush_save()
+	var id := _new_profile_id()
+	var pc := ConfigFile.new()
+	pc.set_value("settings", "hero_name", name.strip_edges().left(Stats.HERO_NAME_MAX))
+	for k in ["account_xp", "account_gold", "account_shards", "account_chests"]:
+		pc.set_value("profile", k, 0)
+	pc.set_value("profile", "owned_items", [])
+	DirAccess.make_dir_recursive_absolute(PROFILE_DIR)
+	SaveFile.write(pc, profile_path(id))
+	switch_profile(id, false)
+	return id
+
+
+func delete_profile(id: String) -> bool:
+	## Removes another player from this device (never the one playing).
+	if id == profile_id or not FileAccess.file_exists(profile_path(id)):
+		return false
+	for p in [profile_path(id), profile_path(id) + ".bak"]:
+		DirAccess.remove_absolute(p)
 	return true
 
 
@@ -3401,6 +3496,10 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "hero_cape", hero_cape)
 	cfg.set_value("settings", "hero_outfit", hero_outfit)
 	cfg.set_value("settings", "hero_weapon", hero_weapon)
+	if profile_id != "":
+		cfg.set_value("profiles", "current", profile_id)
+	if hero_name.strip_edges() != "":
+		needs_name = false
 	if _write_save(cfg) == OK:
 		saved_at = Time.get_ticks_msec() / 1000.0
 
@@ -3425,16 +3524,29 @@ func _read_save(cfg: ConfigFile) -> Error:
 
 
 func _write_save(cfg: ConfigFile) -> Error:
+	## Writes controls.cfg and the current player's profile file.
 	_flush_save()
+	var files := [[cfg, CONTROLS_PATH]]
+	if profile_id != "":
+		DirAccess.make_dir_recursive_absolute(PROFILE_DIR)
+		files.append([SaveFile.profile_of(cfg), profile_path(profile_id)])
 	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
 		# Tests read the file straight back; a browser build has no worker
 		# threads (and writes to its own storage, fast).
-		return SaveFile.write(cfg, CONTROLS_PATH)
-	var text := cfg.encode_to_text()
+		var err := OK
+		for f in files:
+			var e: Error = SaveFile.write(f[0], f[1])
+			if e != OK:
+				err = e
+		return err
+	var texts := []
+	for f in files:
+		texts.append([f[0].encode_to_text(), f[1]])
 	_save_task = WorkerThreadPool.add_task(func():
-		var c := ConfigFile.new()
-		if c.parse(text) == OK:
-			SaveFile.write(c, CONTROLS_PATH))
+		for t in texts:
+			var c := ConfigFile.new()
+			if c.parse(t[0]) == OK:
+				SaveFile.write(c, t[1]))
 	return OK
 
 
@@ -3458,6 +3570,12 @@ func _load_controls() -> void:
 	var cfg := ConfigFile.new()
 	if _read_save(cfg) != OK:
 		return
+	# The player playing now: their own file holds their progress and looks.
+	profile_id = str(cfg.get_value("profiles", "current", ""))
+	if profile_id != "":
+		var pc := ConfigFile.new()
+		if SaveFile.read(pc, profile_path(profile_id)) == OK:
+			SaveFile.use_profile(cfg, pc)
 	var diff: String = cfg.get_value("settings", "bot_difficulty", "Normal")
 	if diff in Stats.BOT_DIFFICULTIES:
 		bot_difficulty = diff

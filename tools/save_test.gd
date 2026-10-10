@@ -24,6 +24,11 @@ func frames(n: int = 2) -> void:
 
 func _init() -> void:
 	var backup := FileAccess.get_file_as_bytes(PATH) if FileAccess.file_exists(PATH) else PackedByteArray()
+	# The players' own saves move aside while the test runs.
+	var pdir := ProjectSettings.globalize_path("user://profiles")
+	var had_players := DirAccess.dir_exists_absolute(pdir)
+	if had_players:
+		DirAccess.rename_absolute(pdir, pdir + ".testbak")
 	# --- SaveFile on its own ---------------------------------------------
 	var t := "user://save_test.cfg"
 	var a := ConfigFile.new()
@@ -111,11 +116,46 @@ func _init() -> void:
 	game.account_xp = 0
 	game._load_controls()
 	check(game.account_xp == 4321, "the imported progress is saved")
+
+	# --- Named players --------------------------------------------------------
+	var first: String = game.profile_id
+	check(first != "" and FileAccess.file_exists(game.profile_path(first)), "progress belongs to a player with their own file")
+	game.hero_name = "Faisal"
+	game._save_settings()
+	var sam: String = game.new_profile("Sam")
+	check(game.profile_id == sam and game.hero_name == "Sam" and game.account_xp == 0 and game.account_gold == 0 and game.hero_hat == 0 and game.owned_items.is_empty(),
+		"a NEW PLAYER starts at level 1 with no gold, items or look")
+	game.account_gold = 50
+	game.account_xp = 900
+	game._save_settings()
+	game.switch_profile(first)
+	check(game.hero_name == "Faisal" and game.account_xp == 4321 and game.account_gold == 950 and game.hero_hat == 2, "switching back brings Faisal's level, gold and hat")
+	var faisal_code: String = game.export_progress()
+	game.switch_profile(sam)
+	check(game.account_gold == 50 and game.account_xp == 900, "Sam's progress was saved apart")
+	game.account_gold = 0
+	game._load_controls()
+	check(game.profile_id == sam and game.account_gold == 50, "a restart carries on as the last player")
+	var names: Array = game.list_profiles().map(func(p): return p.name)
+	check(names.has("Faisal") and names.has("Sam"), "PLAYERS lists everyone on the device (%s)" % ", ".join(names))
+	var sam_code: String = game.export_progress()
+	check(SaveFile.parse_code(sam_code).settings.get("hero_name") == "Sam", "a progress code carries the player's name")
+	check(not game.delete_profile(sam), "the player playing now cannot be deleted")
+	check(game.delete_profile(first) and not FileAccess.file_exists(game.profile_path(first)), "another player can be deleted")
+	check(game.import_progress(faisal_code) and game.hero_name == "Faisal" and game.profile_id != sam and game.account_xp == 4321,
+		"importing a code adds that player next to the others")
 	game.queue_free()
 	await frames(2)
 	# Put back the user's own save.
 	for p in [PATH + ".bak", PATH + ".tmp", PATH + ".before-import"]:
 		DirAccess.remove_absolute(p)
+	var d := DirAccess.open("user://profiles")
+	if d:
+		for fn in d.get_files():
+			d.remove(fn)
+	DirAccess.remove_absolute(pdir)
+	if had_players:
+		DirAccess.rename_absolute(pdir + ".testbak", pdir)
 	if backup.is_empty():
 		DirAccess.remove_absolute(PATH)
 	else:

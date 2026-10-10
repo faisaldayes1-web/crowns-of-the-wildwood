@@ -48,6 +48,8 @@ var turn_drag := false
 var turn_last_x := 0.0
 var turn_was_held := false
 var exit_armed := 0.0
+var delete_armed := ""        # a player DELETE asks for a second click (their id)
+var delete_time := 0.0
 var readied := [true, false, false, false]   # lobby: local players 2-4 ready up
 var join_pads: Array = []    # lobby: the pad device of local players 2-4, in join order
 var p1_pad := -1             # the pad player 1 last used in the menus
@@ -222,6 +224,14 @@ func label(pos: Vector2, text: String, size: int = 13, color: Color = Color(0.92
 func draw(hud) -> void:
 	h = hud
 	exit_armed = maxf(exit_armed - hud.get_process_delta_time(), 0.0)
+	delete_time = maxf(delete_time - hud.get_process_delta_time(), 0.0)
+	if delete_time <= 0.0:
+		delete_armed = ""
+	if game.needs_name and screen == "title" and overlay == "":
+		# A first launch: ask who is playing before anything else.
+		overlay = "players"
+		if not OS.has_feature("web"):
+			game.set_deferred("name_editing", true)
 	if stage:
 		stage.show_screen(screen)
 	match screen:
@@ -236,6 +246,7 @@ func draw(hud) -> void:
 			"credits": _draw_credits()
 			"tutorial": _draw_tutorial()
 			"progress": _draw_progress()
+			"players": _draw_players()
 	if game.cursor_shown:
 		var hint := "%s select  ·  %s back" % [h._k("ui_confirm"), h._k("ui_back")]
 		if screen == "lobby" and game.couch_players < 4 and game.couch_players > 1 or screen == "lobby" and _split_on():
@@ -253,6 +264,7 @@ const BG_ITEMS := [Rect2(38, 415, 340, 63), Rect2(38, 493, 340, 63), Rect2(38, 5
 const BG_CHIP := Rect2(1385, 20, 265, 70)
 const BG_STORE := Rect2(38, 809, 340, 63)    # under the painted column: drawn, not painted
 const BG_PURSE := Rect2(1385, 98, 265, 50)   # under the account chip
+const BG_SWITCH := Rect2(1385, 156, 265, 44)  # under the purse: PLAYERS (switch or add a player)
 
 
 func _bg_rect(r: Rect2) -> Rect2:
@@ -309,6 +321,9 @@ func _draw_title() -> void:
 	var gt := "%s GOLD" % gold_text(game.account_gold)
 	var gx := purse.position.x + purse.size.y + 8
 	ttext(Vector2(gx, purse.position.y + purse.size.y * 0.62), gt, fit_size(gt, int(purse.size.y * 0.42), purse.end.x - 12 - gx), Color(1.0, 0.86, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	if overlay == "":
+		var sw := _bg_rect(BG_SWITCH)
+		wood_button(sw, "PLAYERS", "players", null, "", int(sw.size.y * 0.42))
 	if exit_armed > 0.0:
 		var r := _bg_rect(BG_ITEMS[4])
 		var tip := Rect2(r.end.x + 10, r.position.y + 6, 190, r.size.y - 12)
@@ -1108,6 +1123,88 @@ func _draw_progress() -> void:
 	h._text(Vector2(lx + 2 * bw + 34, y + 63), "Import copies the code from the clipboard" if not OS.has_feature("web") else "Import asks you to paste the code", 10, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 
 
+const MAX_PLAYERS := 6
+
+
+func _draw_players() -> void:
+	## PLAYERS: everyone who plays on this device, each with their own level,
+	## gold, store items and look. The one playing now is marked; PLAY AS
+	## switches, NEW PLAYER adds one. A first launch opens here to ask a name.
+	var body := _overlay_frame("PLAYERS")
+	var x := body.position.x + 20
+	var w := body.size.x - 40
+	var first: bool = game.needs_name
+	ttext(Vector2(body.position.x, body.position.y + 34), "WHO'S PLAYING?" if first else "CHOOSE A PLAYER", 24, Color(1.0, 0.85, 0.42), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 5)
+	h._text(Vector2(body.position.x, body.position.y + 58), "Each player keeps their own level, XP, gold, chests, store items and look. It all saves by itself after every match, purchase and change.",
+		12, Color(0.9, 0.88, 0.82), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+	var list: Array = game.list_profiles()
+	for n in mini(list.size(), MAX_PLAYERS):
+		var p: Dictionary = list[n]
+		var me: bool = p.id == game.profile_id
+		var r := Rect2(x, body.position.y + 78 + n * 58, w, 50)
+		option_box(r, me, false, Color(1.0, 0.8, 0.3))
+		var lv: int = Stats.account_level(p.xp)
+		var bc := r.position + Vector2(30, 25)
+		h.draw_circle(bc, 19, Color(0.08, 0.06, 0.1))
+		h.draw_circle(bc, 16, Color(0.95, 0.62, 0.2))
+		ttext(bc + Vector2(-20, 7), str(lv), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 40, 4)
+		var nm: String = (game.hero_name if me else p.name)
+		if me:
+			# The name field: type on a keyboard, or a box to fill on a tablet.
+			var field := Rect2(r.position.x + 60, r.position.y + 9, 300, 32)
+			h._plate(field, Color(0.05, 0.06, 0.1, 0.9), Color(1.0, 0.8, 0.3) if game.name_editing else Color(0.55, 0.42, 0.22), 6, 2)
+			var shown := nm
+			if game.name_editing and int(Time.get_ticks_msec() / 400) % 2 == 0:
+				shown += "|"
+			elif shown.strip_edges() == "" and not game.name_editing:
+				shown = "tap to type your name"
+			h._text(field.position + Vector2(10, 22), shown, 15, Color.WHITE if nm != "" or game.name_editing else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+			if OS.has_feature("web"):
+				button(field, "player_name")
+			else:
+				h.hero_buttons.append([field, "name", 0])
+		else:
+			ttext(Vector2(r.position.x + 64, r.position.y + 33), nm if nm.strip_edges() != "" else "Unnamed Hero", 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		h._text(Vector2(r.position.x + 380, r.position.y + 22), Stats.rank_title(lv).to_upper(), 11, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		h._icon("coin", Vector2(r.position.x + 388, r.position.y + 35), 3.2, Color.WHITE)
+		h._text(Vector2(r.position.x + 398, r.position.y + 40), "%s gold" % gold_text(p.gold if not me else game.account_gold), 11, Color(1.0, 0.88, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var bx := r.end.x - 300
+		if me:
+			option_box(Rect2(bx + 130, r.position.y + 9, 160, 32), true, false, Color(0.45, 0.9, 0.3))
+			ttext(Vector2(bx + 130, r.position.y + 32), "PLAYING", 17, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, 160, 4)
+		else:
+			wood_button(Rect2(bx, r.position.y + 7, 150, 36), "PLAY AS", "player_play", p.id, "", 16)
+			var armed: bool = delete_armed == p.id
+			wood_button(Rect2(bx + 160, r.position.y + 7, 130, 36), "SURE?" if armed else "DELETE", "player_delete", p.id, "", 15, armed)
+	var ny := body.position.y + 78 + mini(list.size(), MAX_PLAYERS) * 58 + 6
+	if list.size() < MAX_PLAYERS:
+		wood_button(Rect2(x, ny, 220, 44), "+ NEW PLAYER", "player_new", null, "", 18)
+	var tip := "Type your name, then press Enter." if game.name_editing else "Tap your name to change it. DELETE asks twice and cannot be undone."
+	h._text(Vector2(x + 236, ny + 28), tip, 11, Color(0.8, 0.78, 0.72), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	h._text(Vector2(body.position.x, body.end.y - 6), "Saved on this device. To take a player to another device, use EXPORT CODE on the PROGRESS screen (tap the level chip).",
+		11, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+
+
+func _ask_name(make_new: bool) -> void:
+	## A name for the player playing now (or a new one). A tablet has no
+	## keyboard in the game, so the browser asks with its own box.
+	if OS.has_feature("web"):
+		var got = JavaScriptBridge.eval("window.prompt('Your name:', %s) || ''" % JSON.stringify("" if make_new else game.hero_name), true)
+		var nm := (str(got) if got != null else "").strip_edges().left(Stats.HERO_NAME_MAX)
+		if make_new:
+			if nm != "":
+				game.new_profile(nm)
+		elif nm != "":
+			game.hero_name = nm
+			game._save_settings()
+	else:
+		if make_new:
+			game.new_profile("")
+		game.set_deferred("name_editing", true)
+	if stage:
+		stage.show_screen(screen)
+
+
 func _ago(t: float) -> String:
 	if t < 60.0:
 		return "just now"
@@ -1160,7 +1257,25 @@ func _press(id: String, arg) -> void:
 		"tutorial": overlay = "tutorial"
 		"credits": overlay = "credits"
 		"progress": overlay = "progress"
-		"close": overlay = ""
+		"players": overlay = "players"
+		"player_name": _ask_name(false)
+		"player_new":
+			if game.list_profiles().size() < MAX_PLAYERS:
+				_ask_name(true)
+		"player_play":
+			game.switch_profile(str(arg))
+			if stage:
+				stage.show_screen(screen)
+		"player_delete":
+			if delete_armed == str(arg):
+				game.delete_profile(str(arg))
+				delete_armed = ""
+			else:
+				delete_armed = str(arg)
+				delete_time = 3.0
+		"close":
+			overlay = ""
+			game.needs_name = false   # asked once; the PLAYERS button names them later
 		"progress_export": game.export_progress()
 		"progress_import": game.import_progress()
 		"topic": tutorial_topic = int(arg)
