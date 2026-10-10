@@ -2403,6 +2403,9 @@ func _physics_process(delta: float) -> void:
 			if Input.is_action_just_pressed(_a("attack")):
 				attack_buffer = ATTACK_BUFFER
 			wants_attack = Input.is_action_pressed(_a("attack")) or attack_buffer > 0.0
+			if game.economy and game.economy.mouse_on_button():
+				wants_attack = false   # a click on the economy card's button buys, it does not swing
+				attack_buffer = 0.0
 			wants_block = Input.is_action_pressed(_a("block"))
 			# Hold interact over a downed teammate to revive them; otherwise
 			# interact grabs, drops and talks as before.
