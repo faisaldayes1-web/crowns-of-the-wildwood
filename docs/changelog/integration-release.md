@@ -4,6 +4,19 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-10 10:25 UTC · `044bc8b`, `3f723a1`, `47b58f0`, `6cc027c` · Store players, iPad touch, UI & Art banners, balance patch 4
+
+- **What:** merged four group heads into the alpha:
+  - Store `f3bb81a` (`044bc8b`): named players (WHO'S PLAYING? on first launch, PLAYERS button, one save file per player, IMPORT CODE adds a player), gold amount fits its box.
+  - iPad web build `9e16538` (`3f723a1`): web caps at a steady 30 FPS when a match runs under 52, bigger touch tiles, touch drag aim assist, G and scoreboard buttons, "Pick class" on locked slots with a PICK A CLASS pointer.
+  - UI & Art `04b8fca` (`47b58f0`): one big banner at a time (20 % smaller), notices queue as one small scroll and wait for banners, menus and the downed screen.
+  - Combat & Balance `4bf6ee0` (`6cc027c`): balance patch 4 (Human Crossbow cooldown 0.68 → 0.62, Elf Lunar Lance 3 → 4; docs/balance/patch-4.md), ranged hit confirm tick, controller stick aim assist (12° cone, 75 % pull, within attack reach).
+- **Conflicts resolved:** `docs/changelog/online-platforms.md` (kept the alpha's side, as the iPad thread asked); `scripts/unit.gd` `_update_player_aim`: touch keeps the iPad's 30° snap (`_auto_aim(along)`), a controller stick uses Combat's `_assist_aim`; both functions kept.
+- **Files:** merges only.
+- **Tunables:** see each group's changelog (store.md, online-platforms.md, ui-art.md, combat-balance.md entries 17-19).
+- **Tested:** see docs/CHANGELOG.md for this refresh.
+- **Revert:** `git revert -m 1 <merge>` for any of the four merges above, newest first.
+
 ### 2026-10-10 09:55 UTC · `5b70269` · Merged the iPad web build's Medium-by-default web graphics
 
 - **What:** merged `44997a0` from `claude/ipad-web-build-c1oo3k`: in a browser the game starts on Medium (sun shadows, glow, full-resolution 3D) and drops to Low only when a match runs under 26 FPS. Desktop behaviour unchanged, so the Windows zip was not rebuilt; the web zip was.
