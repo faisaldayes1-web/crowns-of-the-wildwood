@@ -277,7 +277,7 @@ const ROLES := {
 		"color": Color(0.85, 0.8, 0.7), "abilities": []},
 	Role.KNIGHT: {"attack": "melee", "attack_name": "Sword Strike", "attack_desc": "A wide swing that also chips at doors.",
 		"damage": 1, "gate_damage": 2, "range": 2.2, "cooldown": 0.55,
-		"energy": "stamina", "cost": 8, "speed": 1.10, "block": true, "armour": 0.34,   # speed 1.06 → 1.10 (patch 1)
+		"energy": "stamina", "cost": 8, "speed": 1.14, "block": true, "armour": 0.34,   # speed 1.06 → 1.10 (patch 1) → 1.14 (patch 3)
 		"color": Color(0.8, 0.8, 0.85), "abilities": [
 			{"name": "Shield Bash", "key": "Q", "kind": "bash", "cooldown": 4, "cost": 35.0,
 				"damage": 2, "distance": 4.0, "desc": "Charge forward: two hearts to everyone in the way, and a shove."},
@@ -293,11 +293,11 @@ const ROLES := {
 				"damage": 1, "root": 2.0, "lifetime": 30.0, "desc": "Plant a trap that roots and hurts the first enemy on it."}]},
 	Role.MAGE: {"attack": "spell", "attack_name": "Arcane Bolt", "attack_desc": "A bolt that bursts on impact.",
 		"damage": 1, "gate_damage": 2, "range": 13.0, "cooldown": 0.65,
-		"energy": "mana", "cost": 12.0, "splash": 1.4, "speed": 0.95, "shot_speed": 32.0,
+		"energy": "mana", "cost": 12.0, "splash": 1.0, "speed": 0.95,   # splash 1.4 → 1.0 (patch 3: a sidestep now dodges the bolt) "shot_speed": 32.0,
 		"color": Color(0.45, 0.3, 0.85), "abilities": [
 			{"name": "Fireball", "key": "Q", "kind": "fireball", "cooldown": 5, "cost": 55.0,
 				"damage": 2, "splash": 3.2, "range": 13.0, "shot_speed": 24.0, "desc": "A big slow ball of fire: two hearts to everyone near the blast, four hits to a door."},
-			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 4, "cost": 30.0,
+			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 5, "cost": 30.0,   # cooldown 4 → 5 (patch 3)
 				"distance": 6.0, "desc": "Teleport a short way in the aim direction."}]},
 	Role.ENGINEER: {"attack": "melee", "attack_name": "Hammer", "attack_desc": "A heavy swing that wrecks doors, fences and turrets.",
 		"damage": 1, "gate_damage": 3, "range": 1.9, "cooldown": 0.6,
@@ -377,7 +377,7 @@ const VARIANTS := {
 	Role.MAGE: [
 		{"name": "Pyromancer", "icon": "pyromancer", "tint": Color(1.0, 0.6, 0.4), "show": ["2H_Staff"],
 			"desc": "Fire: burning bolts, a huge fireball and a wave of flame in front of you.",
-			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.8},
+			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.3},   # splash 1.8 → 1.3 (patch 3)
 			"abilities": [
 				{"name": "Inferno", "key": "Q", "kind": "fireball", "icon": "fireball", "cooldown": 6, "cost": 60.0,
 					"damage": 2, "splash": 4.5, "range": 13.0, "shot_speed": 24.0, "desc": "A huge fireball: two hearts to everyone near the blast."},
@@ -389,7 +389,7 @@ const VARIANTS := {
 			"abilities": [
 				{"name": "Ice Burst", "key": "Q", "kind": "fireball", "icon": "frost", "cooldown": 5, "cost": 45.0,
 					"damage": 1, "splash": 3.5, "range": 13.0, "shot_speed": 28.0, "frost": true, "root": 1.0, "desc": "A ball of ice that freezes everyone near the blast in place."},
-				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 3, "cost": 30.0,
+				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4, "cost": 30.0,   # cooldown 3 → 4 (patch 3)
 					"distance": 8.0, "desc": "Teleport further in the aim direction."}]}],
 	Role.ROGUE: [
 		{"name": "Assassin", "icon": "assassin", "tint": Color(0.75, 0.55, 0.9), "show": ["1H_Sword"],
@@ -470,11 +470,11 @@ const FACTION_KITS := {
 				{"name": "Vine Snare", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 6, "cost": 35.0,
 					"damage": 1, "root": 2.5, "lifetime": 30.0, "desc": "A living snare that roots the first enemy who steps on it."}]},
 		Role.MAGE: {
-			"attack": {"attack_name": "Thorn Bolt", "attack_desc": "A seed that bursts into thorns and slows whoever it catches.", "slow": 0.8, "splash": 1.3, "cost": 12.0, "nature": true},
+			"attack": {"attack_name": "Thorn Bolt", "attack_desc": "A seed that bursts into thorns and slows whoever it catches.", "slow": 0.8, "splash": 1.0, "cost": 12.0, "nature": true},   # splash 1.3 → 1.0 (patch 3)
 			"abilities": [
 				{"name": "Bramble Burst", "key": "Q", "kind": "fireball", "icon": "bramble", "cooldown": 5, "cost": 50.0,
 					"damage": 1, "splash": 3.4, "range": 13.0, "shot_speed": 26.0, "root": 1.3, "nature": true, "desc": "A seed-ball that bursts into brambles: a heart to everyone near the blast, and they are rooted."},
-				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4, "cost": 30.0,
+				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 5, "cost": 30.0,   # cooldown 4 → 5 (patch 3)
 					"distance": 7.5, "desc": "Step along the fae paths, further than any blink."}]},
 		Role.HEALER: {
 			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 5.0, "cooldown": 0.7, "cost": 16.0},
