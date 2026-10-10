@@ -5330,13 +5330,13 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 	shield.append(ec + Vector2(-sw, -sh))
 	shield.append(ec + Vector2(0, -sh + 5 * u))
 	shield.append(ec + Vector2(sw, -sh))
+	# A heater shield: straight sides, then curving in to a point.
 	for i in 9:
 		var t := float(i) / 8.0
-		shield.append(ec + Vector2(sw * cos(t * PI / 2.0), -sh * 0.25 + (sh * 1.25) * sin(t * PI / 2.0)))
-	for i in range(8, -1, -1):
+		shield.append(ec + Vector2(sw, -sh * 0.15).lerp(Vector2(sw, sh * 0.55), t).lerp(Vector2(sw, sh * 0.55).lerp(Vector2(0, sh), t), t))
+	for i in range(7, -1, -1):
 		var t := float(i) / 8.0
-		if i < 8:
-			shield.append(ec + Vector2(-sw * cos(t * PI / 2.0), -sh * 0.25 + (sh * 1.25) * sin(t * PI / 2.0)))
+		shield.append(ec + Vector2(-sw, -sh * 0.15).lerp(Vector2(-sw, sh * 0.55), t).lerp(Vector2(-sw, sh * 0.55).lerp(Vector2(0, sh), t), t))
 	var shadow := PackedVector2Array()
 	for v in shield:
 		shadow.append(v + Vector2(2, 4))
@@ -5350,7 +5350,7 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 	draw_polyline(outline, ink, 5.0 * u, true)
 	draw_polyline(outline, trim.lerp(gold, 0.35), 2.4 * u, true)
 	draw_line(ec + Vector2(-sw * 0.7, -sh * 0.62), ec + Vector2(sw * 0.7, -sh * 0.62), Color(1, 1, 1, 0.16), 2.0)
-	_icon(Stats.BANNER_EMBLEMS[clampi(b.emblem, 0, Stats.BANNER_EMBLEMS.size() - 1)], ec + Vector2(0, 1 * u), 12.5 * u, Color.WHITE)
+	_icon(Stats.BANNER_EMBLEMS[clampi(b.emblem, 0, Stats.BANNER_EMBLEMS.size() - 1)], ec + Vector2(0, -2 * u), 15.5 * u, Color.WHITE)
 	# Name, title and weapon.
 	var tx := rect.position.x + 66 * u
 	var cy := rect.get_center().y
