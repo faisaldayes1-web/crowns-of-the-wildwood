@@ -1204,20 +1204,36 @@ func _mark_seal(team: int, role: int) -> void:
 # --- HUD (called from hud.gd while it draws) ---------------------------------------
 
 func _wood_icon(hud, c: Vector2, r: float) -> void:
-	## A log end: bark ring, pale wood, growth ring.
-	hud.draw_circle(c, r, Color(0.45, 0.3, 0.16))
-	hud.draw_circle(c, r * 0.72, Color(0.86, 0.68, 0.42))
-	hud.draw_arc(c, r * 0.4, 0, TAU, 12, Color(0.6, 0.42, 0.22), maxf(1.0, r * 0.13))
+	## Wood: two stacked logs, side on, with their cut ends showing rings,
+	## inked like the painted HUD icons.
+	var k := r / 10.0
+	var ink := Color(0.16, 0.08, 0.03)
+	for i in 2:
+		var lc := c + Vector2((i * 2 - 1) * 1.5, (i * 2 - 1) * -3.6) * k   # back log up and left
+		var body := Rect2(lc + Vector2(-8.5, -3.6) * k, Vector2(14.0, 7.2) * k)
+		hud.draw_rect(body.grow(1.3 * k), ink)
+		hud.draw_rect(body, Color(0.55, 0.33, 0.16) if i == 0 else Color(0.62, 0.38, 0.18))
+		hud.draw_rect(Rect2(body.position + Vector2(0, 0.8) * k, Vector2(body.size.x, 1.6 * k)), Color(0.78, 0.52, 0.27, 0.8))
+		hud.draw_line(body.position + Vector2(2, 5.2) * k, body.position + Vector2(9, 5.2) * k, Color(0.35, 0.19, 0.08), maxf(1.0, k))
+		var e := lc + Vector2(5.5, 0) * k
+		hud.draw_circle(e, 4.9 * k, ink)
+		hud.draw_circle(e, 3.7 * k, Color(0.95, 0.78, 0.5))
+		hud.draw_arc(e, 2.1 * k, 0, TAU, 12, Color(0.7, 0.48, 0.24), maxf(1.0, 0.9 * k))
+		hud.draw_circle(e, 0.7 * k, Color(0.6, 0.38, 0.18))
 
 
 func _ore_icon(hud, c: Vector2, r: float) -> void:
-	## A gold nugget.
-	var k := r / 9.0
-	var nug := PackedVector2Array([c + Vector2(-8, 3) * k, c + Vector2(-4, -7) * k, c + Vector2(5, -8) * k,
-		c + Vector2(9, 1) * k, c + Vector2(3, 8) * k, c + Vector2(-5, 7) * k])
-	hud.draw_colored_polygon(nug, Color(0.95, 0.68, 0.25))
-	hud.draw_polyline(nug + PackedVector2Array([nug[0]]), Color(0.45, 0.28, 0.08), maxf(1.0, 1.5 * k))
-	hud.draw_line(c + Vector2(-3, -3) * k, c + Vector2(3, -5) * k, Color(1.0, 0.95, 0.7), maxf(1.0, 2.0 * k))
+	## Ore, shown as a gold coin: inked rim, raised edge, a stamped crown and
+	## a shine.
+	var k := r / 10.0
+	hud.draw_circle(c, 10.2 * k, Color(0.3, 0.17, 0.03))
+	hud.draw_circle(c, 9.0 * k, Color(0.86, 0.56, 0.12))
+	hud.draw_circle(c + Vector2(-0.6, -0.6) * k, 7.4 * k, Color(1.0, 0.8, 0.26))
+	hud.draw_arc(c, 6.4 * k, 0, TAU, 20, Color(0.82, 0.52, 0.1), maxf(1.0, 1.1 * k))
+	var cr := PackedVector2Array([c + Vector2(-3.6, 2.2) * k, c + Vector2(-3.6, -2.2) * k, c + Vector2(-1.8, -0.4) * k,
+		c + Vector2(0, -3.0) * k, c + Vector2(1.8, -0.4) * k, c + Vector2(3.6, -2.2) * k, c + Vector2(3.6, 2.2) * k])
+	hud.draw_colored_polygon(cr, Color(0.78, 0.48, 0.08))
+	hud.draw_arc(c + Vector2(-2.5, -2.5) * k, 5.5 * k, PI * 1.05, PI * 1.45, 8, Color(1.0, 0.97, 0.8, 0.9), maxf(1.0, 1.4 * k))
 
 
 var _shown := [{"wood": 0, "ore": 0}, {"wood": 0, "ore": 0}]   # the stock the monitor last showed, per team
@@ -1225,10 +1241,10 @@ var _pulse := [{"wood": 0.0, "ore": 0.0}, {"wood": 0.0, "ore": 0.0}]   # when ea
 
 
 func draw_counter(hud, me) -> void:
-	## Base stock under the minimap, styled like the DEFENDING HOME tag: a
-	## navy pill with the base's wood and ore in gold medallions (a number
-	## flashes when it changes) and, at its right end, three pips for the
-	## load on your back.
+	## Base stock under the minimap, kept bare (Faisal 2026-10-10 08:32): a
+	## wood icon and a coin icon (ore) with the base's count beside each; a
+	## number flashes gold when it changes. While you carry a load, a small
+	## "+n" rides next to its count.
 	if me == null:
 		return
 	var team: int = me.team
@@ -1241,43 +1257,26 @@ func draw_counter(hud, me) -> void:
 	var narrow: bool = hud._narrow()
 	var c := Vector2(88, 90) if narrow else Vector2(124, 124)
 	var r := 68.0 if narrow else 100.0
-	var rect := Rect2(Vector2(c.x - 104.0, c.y + r + 22.0), Vector2(208, 34))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.1, 0.13, 0.24, 0.97)
-	sb.set_corner_radius_all(17)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(0.85, 0.68, 0.3)
-	sb.shadow_size = 4
-	sb.shadow_color = Color(0, 0, 0, 0.4)
-	hud.draw_style_box(sb, rect)
-	var cy := rect.position.y + rect.size.y / 2.0
-	var x := rect.position.x + 19.0
+	var cy := c.y + r + 40.0
+	var x := c.x - 78.0
+	var cg: Dictionary = cargo_of(me)
 	for kind in ["wood", "ore"]:
 		var flash := clampf(1.0 - (now - _pulse[team][kind]) / 700.0, 0.0, 1.0)
 		var mc := Vector2(x, cy)
-		hud.draw_circle(mc, 13.0 + flash * 2.0, Color(0.85, 0.68, 0.3))
-		hud.draw_circle(mc, 11.0 + flash * 2.0, Color(0.16, 0.12, 0.08))
+		var ir := 15.0 + flash * 2.5
 		if kind == "wood":
-			_wood_icon(hud, mc, 8.5)
+			_wood_icon(hud, mc, ir)
 		else:
-			_ore_icon(hud, mc, 8.5)
+			_ore_icon(hud, mc, ir)
 		var v: int = wood[team] if kind == "wood" else ore[team]
-		hud._text(Vector2(x + 17, cy + 7), str(v), 19, Color(1, 1, 1).lerp(Color(1.0, 0.82, 0.3), flash), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-		x += 66.0
-	# The load on your back: three pips, filled with what you carry.
-	var cg: Dictionary = cargo_of(me)
-	var cap: int = Stats.ECONOMY.carry_max
-	hud.draw_line(Vector2(rect.end.x - 72, rect.position.y + 7), Vector2(rect.end.x - 72, rect.end.y - 7), Color(0.85, 0.68, 0.3, 0.5), 1.0)
-	for i in cap:
-		var pc := Vector2(rect.end.x - 56 + i * 19.0, cy)
-		hud.draw_circle(pc, 7.5, Color(0, 0, 0, 0.45))
-		hud.draw_arc(pc, 7.5, 0, TAU, 16, Color(0.85, 0.68, 0.3, 0.8), 1.2)
-		if i < cg.wood:
-			_wood_icon(hud, pc, 6.0)
-		elif i < cg.wood + cg.ore:
-			_ore_icon(hud, pc, 6.0)
-	if cg.wood + cg.ore >= cap and not me.dead:
-		hud._text(Vector2(rect.position.x, rect.end.y + 16), "FULL: TAKE IT TO THE STOREHOUSE", 11, Color(1.0, 0.85, 0.45), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 3)
+		var txt := str(v)
+		hud._text(Vector2(x + 21, cy + 9), txt, 26, Color(0.97, 0.93, 0.8).lerp(Color(1.0, 0.82, 0.3), flash), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+		var carried: int = cg.wood if kind == "wood" else cg.ore
+		if carried > 0 and not me.dead:
+			hud._text(Vector2(x + 25 + hud._text_width(txt, 26), cy + 8), "+%d" % carried, 15, Color(0.6, 0.95, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		x += 86.0
+	if cg.wood + cg.ore >= Stats.ECONOMY.carry_max and not me.dead:
+		hud._text(Vector2(c.x - 104, cy + 34), "FULL: TAKE IT TO THE STOREHOUSE", 11, Color(1.0, 0.85, 0.45), HORIZONTAL_ALIGNMENT_CENTER, 208, 3)
 
 
 # --- Field upgrades (quick-upgrade popup, UI & Art) -------------------------------
@@ -1450,11 +1449,11 @@ func _need(team: int, w: int, o: int) -> String:
 
 
 func draw_action_card(hud, me) -> void:
-	## A row in the style of the pause menu's UPGRADES list, above the
-	## ability board while you stand at your door, a turret pad or your
-	## class's hat machine: a hex tile, the name and what it does, the price
-	## against the base stock and a big gold + button (click it, tap it, or
-	## press interact). Greyed with the reason when it can't be bought.
+	## A wooden board like the ability bar's, above it while you stand at
+	## your door, a turret pad or your class's hat machine: a hex tile like
+	## the ability slots, the name and what it does, the price against the
+	## base stock and a big gold + button (click it, tap it, or press
+	## interact). Greyed with the reason when it can't be bought.
 	card_button = Rect2()
 	if me == null or game.menu_open or game.guide_open:
 		return
@@ -1465,27 +1464,14 @@ func draw_action_card(hud, me) -> void:
 	var W: float = hud.size.x
 	var H: float = hud.size.y
 	var card := Rect2(Vector2(W / 2.0 - 300.0, H - (490.0 if touch else 282.0)), Vector2(600, 112))
-	var green := Color(0.45, 0.78, 0.3)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.11, 0.2, 0.97)
-	sb.set_corner_radius_all(10)
-	sb.set_border_width_all(3)
-	sb.border_color = Color(0.85, 0.68, 0.3)
-	sb.shadow_size = 6
-	sb.shadow_color = Color(0, 0, 0, 0.45)
-	hud.draw_style_box(sb, card)
-	hud.draw_rect(card.grow(-6), Color(green, 0.55), false, 1.5)
-	if hud.has_method("_leaf_cluster"):
-		var t := Time.get_ticks_msec() / 1000.0
-		hud._leaf_cluster(card.position + Vector2(10, 4), 1.0, t)
-		hud._leaf_cluster(Vector2(card.end.x - 10, card.position.y + 4), -1.0, t)
+	_wood_board(hud, card, 4, true)
 	# Hex tile with the move's (or the job's) painted icon.
 	var hc := card.position + Vector2(62, 56)
-	hud._hex_tile(hc, 36.0, Color(0.85, 0.68, 0.3) if o.ok else Color(0.5, 0.5, 0.52), o.tile, false, o.ok)
+	hud._hex_tile(hc, 36.0, BRASS if o.ok else Color(0.5, 0.5, 0.52), o.tile, false, o.ok)
 	hud._icon(o.icon, hc, 15.0, Color.WHITE, not o.ok)
 	var x := card.position.x + 118.0
-	hud._text(Vector2(x, card.position.y + 32), o.title, 21, Color(1, 1, 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-	hud._paragraph(Vector2(x, card.position.y + 53), o.detail, 13, Color(0.86, 0.88, 0.94), 300.0, 16.0)
+	hud._text(Vector2(x, card.position.y + 32), o.title, 21, Color(1.0, 0.84, 0.36), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	hud._paragraph(Vector2(x, card.position.y + 53), o.detail, 13, Color(0.97, 0.93, 0.8), 300.0, 16.0)
 	if o.bar != Vector2.ZERO:
 		var br := Rect2(Vector2(x, card.end.y - 22), Vector2(190, 11))
 		hud.draw_rect(br.grow(2), Color(0.05, 0.04, 0.03))
@@ -1497,8 +1483,8 @@ func draw_action_card(hud, me) -> void:
 		# A level-chip style tag (gold outline) like the LV chips in the menu.
 		var tw: float = hud._text_width(o.tag, 11) + 16.0
 		var tr := Rect2(Vector2(x, card.end.y - 26), Vector2(tw, 18))
-		hud.draw_rect(tr, Color(0.85, 0.68, 0.3, 0.15))
-		hud.draw_rect(tr, Color(0.85, 0.68, 0.3), false, 1.2)
+		hud.draw_rect(tr, Color(0.12, 0.06, 0.02, 0.6))
+		hud.draw_rect(tr, BRASS, false, 1.2)
 		hud._text(tr.position + Vector2(8, 13), o.tag, 11, Color(1.0, 0.85, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	# Price, right-aligned above the button, red when the base is short.
 	var bx := card.end.x - 92.0
@@ -1529,7 +1515,8 @@ func draw_action_card(hud, me) -> void:
 	bsb.bg_color = bot
 	bsb.set_corner_radius_all(10)
 	bsb.set_border_width_all(2)
-	bsb.border_color = Color(0.35, 0.2, 0.05) if o.ok else Color(0.2, 0.2, 0.22)
+	bsb.set_border_width_all(3)
+	bsb.border_color = BRASS if o.ok else Color(0.45, 0.42, 0.38)
 	bsb.shadow_size = 3
 	bsb.shadow_color = Color(0, 0, 0, 0.4)
 	hud.draw_style_box(bsb, btn)
@@ -1549,6 +1536,41 @@ func draw_action_card(hud, me) -> void:
 	card_ok = o.ok
 	if touch and hud.get("touch_rects") != null:
 		hud.touch_rects.append([btn.grow(10), "interact"])   # a tap presses interact (touch.gd)
+
+
+const BRASS := Color(0.86, 0.66, 0.28)   # hud.gd's palette: the ability board's rim
+const WOOD_DARK := Color(0.27, 0.15, 0.07)
+
+
+func _wood_board(hud, rect: Rect2, planks: int, trim: bool) -> void:
+	## The ability bar's board (hud._strip_board): dark planks in a brass rim
+	## with gold corners and ivy. Drawn here too for builds without it.
+	if trim and hud.has_method("_strip_board"):
+		hud._strip_board(rect)
+		return
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.04, 0.03)
+	sb.set_corner_radius_all(8)
+	sb.shadow_size = 6
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_offset = Vector2(0, 3)
+	hud.draw_style_box(sb, rect.grow(3))
+	var wb := StyleBoxFlat.new()
+	wb.bg_color = WOOD_DARK
+	wb.set_corner_radius_all(7)
+	wb.set_border_width_all(2 if not trim else 3)
+	wb.border_color = BRASS
+	hud.draw_style_box(wb, rect)
+	var board := rect.grow(-3)
+	for i in planks:
+		var y := board.position.y + board.size.y * i / float(planks)
+		hud.draw_rect(Rect2(Vector2(board.position.x + 2, y + 1), Vector2(board.size.x - 4, board.size.y / float(planks) - 1)),
+			Color(1, 0.8, 0.55, 0.05) if i % 2 == 0 else Color(0, 0, 0, 0.1))
+		if i > 0:
+			hud.draw_line(Vector2(board.position.x + 2, y), Vector2(board.end.x - 2, y), Color(0.12, 0.06, 0.02, 0.7), 1.5)
+	hud.draw_rect(Rect2(rect.position + Vector2(8, 2), Vector2(rect.size.x - 16, 1)), Color(1.0, 0.8, 0.25).lightened(0.35))
+	if trim and hud.has_method("_gold_corners"):
+		hud._gold_corners(rect.grow(2), 22.0, 6.0)
 
 
 func mouse_on_button() -> bool:
