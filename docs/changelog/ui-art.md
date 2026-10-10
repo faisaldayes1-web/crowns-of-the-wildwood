@@ -849,6 +849,7 @@ Commits:
 - `5c5a432` adds Economy's tiles on the quick strip.
 - `07cc200` fixes a door post z-fight.
 - `12e1e10` adds the tutorial pictures.
+- `0473c04` polishes UPGRADES (D-pad label, 0.46s precision, no 1-4 keycaps on a pad, emblem removed from under Next).
 
 ### Hairstyles
 Each style now has its own silhouette (`character_model._add_hair_style`):
@@ -902,5 +903,5 @@ Results: options_menu_test, menu_flow_test and store_menu_test all report 0 fail
 Revert newest first:
 
 ```
-git revert 12e1e10 5c5a432 07cc200 debf49f 0722242
+git revert 0473c04 12e1e10 5c5a432 07cc200 debf49f 0722242
 ```
