@@ -44,6 +44,7 @@ var bot_mended := [-999.0, -999.0]   # match clock of each all-bot team's last d
 var hint_given := [false, false]
 # Match report (--demo): what each team gathered and bought.
 var gathered := [{"wood": 0, "ore": 0}, {"wood": 0, "ore": 0}]
+var trained := [0, 0]              # team -> trainings bought (late-game XP to a variant)
 var bought := [{"hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0}, {"hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0}]
 
 
@@ -175,12 +176,7 @@ func try_interact(u) -> bool:
 		var seal = game.seals[u.team][role]
 		if not seal.in_reach(u) or u.role != role or seal.locked:
 			continue
-		if is_upgraded(u.team, role):
-			if u.hat_upgraded:
-				return false
-			seal.take(u)
-			return true
-		upgrade_hat(u.team, role, u)
+		train(u)
 		return true
 	# Our door: mend it, or raise it if it is down.
 	if _by_door(u) and _door_work(u.team) != "":
@@ -276,6 +272,65 @@ func upgrade_hat(team: int, role: int, by, at_machine: bool = true) -> bool:
 			u._stats_cache = {}
 			if u.is_player:
 				game.toast("Your %s hat is upgraded: %s is on %s" % [cls, a.get("name", "?"), game.key_label("ability_3")], Color(1.0, 0.85, 0.4))
+	return true
+
+
+func train_check(p) -> Dictionary:
+	## Whether p can buy training now: {ok, reason, short} where short is the
+	## rank points still missing before p's class variant unlocks.
+	var E: Dictionary = Stats.ECONOMY
+	if p == null or not is_instance_valid(p) or p.dead:
+		return {"ok": false, "reason": "", "short": 0}
+	if p.role == Role.BASE or not Stats.VARIANTS.has(p.role):
+		return {"ok": false, "reason": "PICK A CLASS", "short": 0}
+	if p.variant_unlocked():
+		return {"ok": false, "reason": "PROMOTED", "short": 0}
+	var short: int = Stats.VARIANT_UNLOCK - int(p.mastery.get(p.role, 0)) - int(p.points)
+	if short <= 0:
+		return {"ok": false, "reason": "SPEND YOUR POINTS", "short": 0}
+	var wait: int = int(E.train_after) - game.match_clock()
+	if wait > 0 and not game.overtime:
+		var left := int(Stats.MATCH_TIME) - int(E.train_after)
+		return {"ok": false, "reason": "OPENS AT %d:%02d" % [left / 60, left % 60], "short": short}
+	if not can_afford(p.team, E.train_wood, E.train_ore):
+		return {"ok": false, "reason": _need(p.team, E.train_wood, E.train_ore), "short": short}
+	return {"ok": true, "reason": "", "short": short}
+
+
+func train(p) -> bool:
+	## Buy training: experience for the levels (rank points) p still needs to
+	## unlock a variant of the class it wears. Late game only; paid from the
+	## base stock. Bots spend the points and promote at once.
+	var E: Dictionary = Stats.ECONOMY
+	var chk := train_check(p)
+	if not chk.ok:
+		if p and is_instance_valid(p) and p.is_player and chk.reason != "":
+			game.toast("Training: %s" % chk.reason.to_lower(), Color(1.0, 0.8, 0.5))
+			game.sfx.ui("ui_deny", -6.0)
+		return false
+	_spend(p.team, E.train_wood, E.train_ore)
+	trained[p.team] += 1
+	bought[p.team].hat += 1
+	var target: int = mini(p.level + int(chk.short), Stats.XP_LEVELS.size() + 1)
+	var need_xp: int = int(Stats.xp_span(target)[0]) - int(p.xp)
+	if need_xp > 0:
+		p.gain_xp(need_xp, "training")
+	var still: int = Stats.VARIANT_UNLOCK - int(p.mastery.get(p.role, 0)) - int(p.points)
+	if still > 0:
+		p.points += still   # at the level cap: the missing points directly
+		if not p.is_player and p.has_method("_bot_spend"):
+			p._bot_spend()
+	var gold := Color(1.0, 0.85, 0.3)
+	game.spawn_pillar(p.global_position, gold, 5.0, 1.0)
+	game.spawn_ring(p.global_position, 2.4, gold, 0.7)
+	game.sfx.play("promote", p.global_position, 0.0 if p.is_player else -6.0)
+	var cls: String = Stats.FACTIONS[p.team].roles[p.role]
+	if p.is_player:
+		game.announce("Training done! Spend your points (%s) and pick a %s variant." % [game.key_label("rank_menu"), cls])
+	else:
+		game.chat_system("%s trained as a %s." % [p.display_name, cls])
+	if game.demo:
+		print("ECON t=%d team%d train %s L%d" % [game.match_clock(), p.team, cls, p.level])
 	return true
 
 
@@ -538,7 +593,7 @@ func plan_gatherers(team: int, bots: Array) -> void:
 	# assault stalled most batch matches 0-0, so an attacker only gathers
 	# toward the team's first hat upgrades (bot_attacker_hats).
 	var jobs := ["build"]
-	if upgraded[team].size() < E.bot_attacker_hats:
+	if trained[team] < E.bot_attacker_hats:
 		jobs.append("attack")
 	var keep := []
 	for u in gatherers[team]:
@@ -681,16 +736,20 @@ func _bot_spend(team: int) -> void:
 			and fix_door(team, steward):
 		bot_mended[team] = game.match_clock()
 		return
-	if _bot_turret(team, E.bot_turrets_early if upgraded[team].is_empty() else E.bot_turrets) != 0:
+	if _bot_turret(team, E.bot_turrets_early if trained[team] == 0 else E.bot_turrets) != 0:
 		return   # built one, or saving up for it
-	var reserve_w: int = E.bot_reserve_wood if not upgraded[team].is_empty() else 0
-	var reserve_o: int = E.bot_reserve_ore if not upgraded[team].is_empty() else 0
-	for entry in game.LINEUP:
-		var role: int = entry[0]
-		if not is_upgraded(team, role) and game.seals[team].has(role):
-			if can_afford(team, E.hat_wood + reserve_w, E.hat_ore + reserve_o):
-				upgrade_hat(team, role, steward)
-			return   # save up for this one first
+	var reserve_w: int = E.bot_reserve_wood if trained[team] > 0 else 0
+	var reserve_o: int = E.bot_reserve_ore if trained[team] > 0 else 0
+	if game.match_clock() >= int(E.train_after):
+		# Late game: train the least promoted bot that can still use it.
+		var pick = null
+		for u in game.units:
+			if u.team == team and not u.is_player and not u.dead and train_check(u).short > 0 and (pick == null or u.level < pick.level):
+				pick = u
+		if pick != null:
+			if can_afford(team, E.train_wood + reserve_w, E.train_ore + reserve_o):
+				train(pick)
+			return   # save up for it first
 	for pad in pads[team]:
 		var t = _turret_on(team, pad.pos)
 		if t == null and can_afford(team, E.turret_wood + reserve_w, E.turret_ore + reserve_o):
@@ -729,11 +788,12 @@ func _physics_process(delta: float) -> void:
 				_bot_spend(team)
 			elif _human_on(team) and not game.in_prep():
 				_bot_turret(team, Stats.ECONOMY.bot_turrets_with_human)   # bots on your team still put one turret up early
-			if _human_on(team) and not hint_given[team] and can_afford(team, Stats.ECONOMY.hat_wood, Stats.ECONOMY.hat_ore) \
-					and upgraded[team].size() < 5:
+			var me = game.player
+			if _human_on(team) and not hint_given[team] and me != null and is_instance_valid(me) and me.team == team \
+					and train_check(me).ok:
 				hint_given[team] = true
-				game.toast("Your team has %d wood and %d ore: a hat upgrade is ready. Buy it once you're out of the fight, or at its machine (%s)" % [
-					wood[team], ore[team], game.key_label("interact")], Color(1.0, 0.9, 0.5))
+				game.toast("Training is open: %d wood and %d ore buys the experience to pick your class variant. Out of the fight, or at your hat machine (%s)" % [
+					Stats.ECONOMY.train_wood, Stats.ECONOMY.train_ore, game.key_label("interact")], Color(1.0, 0.9, 0.5))
 	if game.demo and Engine.get_process_frames() % 1800 == 0:
 		for team in 2:
 			print("   econ team%d pool %d wood %d ore  gathered %s  bought %s  hats %s" % [team, wood[team], ore[team],
@@ -804,6 +864,8 @@ func node_prompt(n, u) -> String:
 
 
 func _seal_prompt(team: int, role: int, p) -> String:
+	if Stats.ECONOMY.train_wood > 0:
+		return ""   # hat machines sell training now (the HUD card), not team moves
 	var E: Dictionary = Stats.ECONOMY
 	var a: Dictionary = Stats.hat_upgrade(team, role)
 	if is_upgraded(team, role):
@@ -1341,16 +1403,31 @@ func field_hat_offers(p) -> Array:
 
 func quick_tiles(p) -> Array:
 	## Tiles for UI & Art's LEVEL UP strip (the one quick-upgrade surface):
-	## the player's own class hat machine while it is not upgraded yet.
+	## training for the player's class, until its variant is unlocked.
 	if p == null or not is_instance_valid(p) or p.dead or p.role == Role.BASE:
 		return []
-	for o in field_hat_offers(p):
-		if o.role == p.role and not o.upgraded:
-			var role: int = o.role
-			return [{"icon": o.icon, "label": o.move_name, "sub": "HAT · %s" % game.key_label("ability_3"),
-				"cost_text": _cost_text(o.wood, o.ore), "ok": o.ok, "reason": o.reason,
-				"buy": func() -> bool: return buy_hat_remote(p, role)}]
-	return []
+	var chk := train_check(p)
+	if chk.reason in ["PROMOTED", "PICK A CLASS", "SPEND YOUR POINTS"]:
+		return []
+	var reason: String = chk.reason
+	if chk.ok and not field_ok(p):
+		reason = "IN COMBAT"
+	var E: Dictionary = Stats.ECONOMY
+	return [{"icon": "xp", "label": "Training", "sub": "XP TO A VARIANT",
+		"cost_text": _cost_text(E.train_wood, E.train_ore), "ok": reason == "", "reason": reason,
+		"buy": func() -> bool: return train_remote(p)}]
+
+
+func train_remote(p) -> bool:
+	## The LEVEL UP strip's buy: training from the field, once out of combat.
+	if p == null or not is_instance_valid(p):
+		return false
+	if not field_ok(p):
+		if p.is_player:
+			game.toast("Get out of the fight for %d seconds to train from the field" % int(Stats.ECONOMY.field_calm), Color(1.0, 0.7, 0.5))
+			game.sfx.ui("ui_deny", -6.0)
+		return false
+	return train(p)
 
 
 func buy_hat_remote(p, role: int) -> bool:
@@ -1389,15 +1466,18 @@ func offer(p) -> Dictionary:
 		var a: Dictionary = Stats.hat_upgrade(team, role)
 		var cname: String = seal.class_title()
 		var tile: Color = a.get("color", Color(0.3, 0.55, 0.25) if team == 0 else Color(0.3, 0.42, 0.7))
-		if is_upgraded(team, role):
-			if p.role == role and not p.hat_upgraded:
-				return _offer(a.get("name", ""), a.get("desc", ""), 0, 0, "PUT ON", true, "", Vector2.ZERO, a.get("icon", "upgrade"), tile, "NEW %s HAT · ON G" % cname.to_upper())
-			return _offer(a.get("name", ""), a.get("desc", ""), 0, 0, "UPGRADED", false, "UPGRADED", Vector2.ZERO, a.get("icon", "upgrade"), tile, "%s HAT · UPGRADED" % cname.to_upper())
 		if p.role != role:
 			return {}   # the hat itself is on offer here (the world prompt)
-		return _offer(a.get("name", ""), a.get("desc", ""),
-			E.hat_wood, E.hat_ore, "UPGRADE", can_afford(team, E.hat_wood, E.hat_ore), _need(team, E.hat_wood, E.hat_ore), Vector2.ZERO,
-			a.get("icon", "upgrade"), tile, "%s HAT UPGRADE · WHOLE TEAM · G" % cname.to_upper())
+		var chk := train_check(p)
+		var detail := "Gain the experience to pick a %s variant." % cname
+		if chk.short > 0:
+			detail = "Gain the experience (+%d rank point%s) to pick a %s variant." % [chk.short, "" if chk.short == 1 else "s", cname]
+		elif chk.reason == "PROMOTED":
+			detail = "You can already pick your %s variant (%s)." % [cname, game.key_label("rank_menu")]
+		elif chk.reason == "SPEND YOUR POINTS":
+			detail = "Spend your rank points (%s) to unlock your variant." % game.key_label("rank_menu")
+		return _offer("Veteran Training", detail, E.train_wood, E.train_ore, "TRAIN", chk.ok, chk.reason, Vector2.ZERO,
+			"xp", tile, "LATE GAME · JUST YOU")
 	if _by_door(p):
 		var gate = game.gates[team]
 		var hp := Vector2(0.0 if gate.broken else float(gate.hp), float(Stats.GATE_HITS))
@@ -1665,37 +1745,37 @@ func _test_tick() -> void:
 			wood[team] = 20
 			ore[team] = 20
 			p.set_role(Role.KNIGHT)
-			_check(not p.hat_upgraded and p.abilities().size() == 2, "a plain Knight hat has two moves")
 			var seal = game.seals[team][Role.KNIGHT]
 			_put(p, seal.global_position + Vector3(0, 0.2, 1.2))
 			test_wait = 10
 		4:
-			_check(offer(p).get("verb") == "UPGRADE" and offer(p).ok, "the action card offers the hat upgrade (%s)" % offer(p).get("title", "none"))
+			var o0 := offer(p)
+			_check(o0.get("verb") == "TRAIN" and not o0.ok and str(o0.get("reason", "")).begins_with("OPENS AT"),
+				"training is shut early in the match (%s)" % o0.get("reason", "none"))
+			game.time_left = Stats.MATCH_TIME - Stats.ECONOMY.train_after - 1.0   # late game
+			_check(offer(p).get("verb") == "TRAIN" and offer(p).ok, "the hat machine offers training late in the match (%s)" % offer(p).get("title", "none"))
 			game.try_interact(p)
-			_check(is_upgraded(team, Role.KNIGHT) and wood[team] == 15 and ore[team] == 15, "F at the hat machine upgrades it for 5 wood and 5 ore")
-			_check(p.hat_upgraded and p.abilities().size() == 3, "the upgraded hat adds a third move (%s)" % (p.abilities()[2].name if p.abilities().size() > 2 else "none"))
-			p.energy = p.energy_max()
-			p.use_ability(2, Vector3(side * -1.0, 0, 0))
-			_check(p.ability_timers[2] > 0.0, "the hat move fires on G")
+			var E: Dictionary = Stats.ECONOMY
+			_check(wood[team] == 20 - E.train_wood and ore[team] == 20 - E.train_ore, "training costs %d wood and %d ore" % [E.train_wood, E.train_ore])
+			_check(int(p.mastery.get(p.role, 0)) + p.points >= Stats.VARIANT_UNLOCK and p.level >= 4,
+				"training gives the levels for a variant (level %d, %d points)" % [p.level, p.points])
+			_check(offer(p).get("reason") == "SPEND YOUR POINTS" and quick_tiles(p).is_empty(), "no second training until the points are spent")
+			_check(p.abilities().size() == 2, "no G move from the hat machine any more")
 			var other = null
 			for u in game.units:
 				if u.team == team and not u.is_player:
 					other = u
 					break
-			other.set_role(Role.KNIGHT)
-			_check(other.hat_upgraded, "a teammate's Knight hat is upgraded too")
-			# Field upgrade (quick-upgrade popup): a Ranger already in the field gets its move at once.
 			other.set_role(Role.RANGER)
-			var was: bool = is_upgraded(team, Role.RANGER)
-			_calm_since[p] = Time.get_ticks_msec() - 10000
-			var ok_buy: bool = buy_hat_remote(p, Role.RANGER)
-			_check(was or (ok_buy and is_upgraded(team, Role.RANGER) and other.hat_upgraded and other.abilities().size() == 3),
-				"a field upgrade gives a Ranger already out there its move")
-			if ok_buy:
-				wood[team] += Stats.ECONOMY.hat_wood   # (keep the later price checks' stock as it was)
-				ore[team] += Stats.ECONOMY.hat_ore
+			wood[team] = 20
+			ore[team] = 20
+			_check(train(other) and other.variant_unlocked(), "a trained bot spends its points and can promote")
 			_calm_since[p] = Time.get_ticks_msec()
-			_check(not field_ok(p) and not buy_hat_remote(p, Role.MAGE), "no field upgrade straight after a fight")
+			p.set_role(Role.MAGE)
+			p.points = 0
+			_check(not train_remote(p), "no field training straight after a fight")
+			wood[team] = 15   # (the later price checks start from this stock)
+			ore[team] = 15
 			other.set_role(Role.BASE)
 			var gate = game.gates[team]
 			gate.hp = 120
@@ -1819,7 +1899,7 @@ func _shot_tick() -> void:
 				var seal = game.seals[team][Role.KNIGHT]
 				_put(p, seal.global_position + Vector3(0.4, 0.1, 1.5))
 				game.cam_pos = p.global_position + game.CAMERA_OFFSET * game.cam_zoom
-				upgrade_hat(team, Role.RANGER, p)
+				game.time_left = Stats.MATCH_TIME - Stats.ECONOMY.train_after - 30.0   # late game: training is open
 			if left == 45 and scene == "hat":
 				game.try_interact(p)   # ("upgrade" stops before the key: the card's UPGRADE button shows)
 		"repair":

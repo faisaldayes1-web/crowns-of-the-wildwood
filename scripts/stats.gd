@@ -523,7 +523,12 @@ const ECONOMY := {
 	"regrow": 45.0,          # seconds until a felled tree regrows or a spent deposit refills
 	"depot_radius": 2.6,     # walk into the storehouse ring to drop everything you carry
 	"drop_life": 40.0,       # seconds a dead soldier's dropped load stays on the ground
-	"hat_wood": 5, "hat_ore": 5,          # upgrade one class's hat machine (Faisal's price)
+	"hat_wood": 5, "hat_ore": 5,          # (old team-wide G-move upgrade; replaced by training below)
+	# Training at your class's hat machine (Faisal 2026-10-10 09:36): late in
+	# the match, buy experience up to the point where you can pick your
+	# class's variant. Personal, and dearer than the old hat upgrade.
+	"train_wood": 8, "train_ore": 8,
+	"train_after": 300,      # match seconds before training opens (the second half of a 10-minute match)
 	"repair_wood": 2, "repair_ore": 1, "repair_hits": 35,     # mend your door by 35 hits
 	"rebuild_wood": 4, "rebuild_ore": 2, "rebuild_hits": 100, # raise a broken door at once (not under siege)
 	"turret_wood": 2, "turret_ore": 1,    # a base turret on an empty turret pad (was 3 / 3; Faisal 2026-10-10 "cheaper and smarter")
