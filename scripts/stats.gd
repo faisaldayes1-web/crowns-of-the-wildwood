@@ -536,6 +536,7 @@ const ECONOMY := {
 	"bot_attacker_hats": 2,   # with no Engineer bot, an attacker gathers only until this many hat machines are upgraded
 	"bot_repair_below": 100,   # all-bot teams mend their door only once it is down to this (no mending under siege)
 	"bot_repair_gap": 45.0,   # ...and at most once every this many seconds
+	"door_bar_lift": 1.6,    # metres the door's overhead health bar sits higher than World & Maps placed it
 }
 
 # The extra move a class gets from its upgraded hat (key G, pad left stick
