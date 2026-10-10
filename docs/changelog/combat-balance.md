@@ -481,3 +481,16 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Tunables:** `DENY_GAP` 0.35 s (new); click -12 dB, ready tick -12 dB.
 - **Checks:** `tools/tests/run.sh` 34/34.
 - **Revert:** `git revert cf38cd9`
+
+## 21. Balance patch 5
+
+- **When:** 2026-10-10 (Faisal: "lets get it going")
+- **Commit:** `e8f02f9`
+- **What:** Lifts the Elf Knights; write-up in `docs/balance/patch-5.md`.
+- **Files:** `scripts/stats.gd`, `docs/balance/patch-5.md`.
+- **Tunables:** Elf Glaive `armour` 0.32 → 0.37; Wind Dash `damage` 1 → 2,
+  `cooldown` 3.5 → 4.5; Vanguard `armour` 0.42 → 0.45.
+- **Batches:** 96 matches. Elf Vanguard K/D 0.50 → 0.77, Elf Warden 0.50 →
+  0.85; wins 21-27 → 26-22.
+- **Checks:** `tools/tests/run.sh` 34/34.
+- **Revert:** `git revert e8f02f9`
