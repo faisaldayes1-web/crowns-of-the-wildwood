@@ -53,7 +53,7 @@ func build(p_game) -> void:
 	for spot in TREE_SPOTS:
 		_place_pair("wood", spot)
 	for spot in ORE_SPOTS:
-		_place_pair("ore", spot)
+		_place_pair("ore" if Stats.ECONOMY.ore_on else "wood", spot)
 	for team in 2:
 		_lift_door_bar(game.gates[team])
 		_build_depot(team)
@@ -137,6 +137,8 @@ func _spend(team: int, w: int, o: int) -> bool:
 
 
 func _cost_text(w: int, o: int) -> String:
+	if o <= 0 and not Stats.ECONOMY.ore_on:
+		return "%d wood" % w
 	return "%d wood · %d ore" % [w, o]
 
 
@@ -628,7 +630,7 @@ func bot_goal(u, plan: Dictionary) -> Vector3:
 		var side := -1.0 if u.team == 0 else 1.0
 		var d: Vector3 = depots[u.team]
 		var c: Dictionary = cargo_of(u)
-		var need_ore: bool = ore[u.team] + c.ore < wood[u.team] + c.wood
+		var need_ore: bool = Stats.ECONOMY.ore_on and ore[u.team] + c.ore < wood[u.team] + c.wood
 		var best_score := INF
 		for n in nodes:
 			if not n.available() or n.position.x * side < 0.0:
@@ -792,8 +794,8 @@ func _physics_process(delta: float) -> void:
 			if _human_on(team) and not hint_given[team] and me != null and is_instance_valid(me) and me.team == team \
 					and train_check(me).ok:
 				hint_given[team] = true
-				game.toast("Training is open: %d wood and %d ore buys the experience to pick your class variant. Out of the fight, or at your hat machine (%s)" % [
-					Stats.ECONOMY.train_wood, Stats.ECONOMY.train_ore, game.key_label("interact")], Color(1.0, 0.9, 0.5))
+				game.toast("Training is open: %s buys the experience to pick your class variant. Out of the fight, or at your hat machine (%s)" % [
+					_cost_text(Stats.ECONOMY.train_wood, Stats.ECONOMY.train_ore), game.key_label("interact")], Color(1.0, 0.9, 0.5))
 	if game.demo and Engine.get_process_frames() % 1800 == 0:
 		for team in 2:
 			print("   econ team%d pool %d wood %d ore  gathered %s  bought %s  hats %s" % [team, wood[team], ore[team],
@@ -1086,6 +1088,7 @@ func _build_depot(team: int) -> void:
 		log.visible = false
 	var cart := Node3D.new()
 	cart.position = Vector3(0.75, 0, 0.0)
+	cart.visible = Stats.ECONOMY.ore_on   # no ore cart while the game is wood only
 	piles.add_child(cart)
 	var bed := BoxMesh.new()
 	bed.size = Vector3(0.75, 0.32, 1.0)
@@ -1322,7 +1325,7 @@ func draw_counter(hud, me) -> void:
 	var cy := c.y + r + 40.0
 	var x := c.x - 78.0
 	var cg: Dictionary = cargo_of(me)
-	for kind in ["wood", "ore"]:
+	for kind in (["wood", "ore"] if Stats.ECONOMY.ore_on else ["wood"]):
 		var flash := clampf(1.0 - (now - _pulse[team][kind]) / 700.0, 0.0, 1.0)
 		var mc := Vector2(x, cy)
 		var ir := 15.0 + flash * 2.5
@@ -1774,8 +1777,8 @@ func _test_tick() -> void:
 			p.set_role(Role.MAGE)
 			p.points = 0
 			_check(not train_remote(p), "no field training straight after a fight")
-			wood[team] = 15   # (the later price checks start from this stock)
-			ore[team] = 15
+			wood[team] = 30   # (the later price checks start from this stock)
+			ore[team] = 30
 			other.set_role(Role.BASE)
 			var gate = game.gates[team]
 			gate.hp = 120
@@ -1785,7 +1788,7 @@ func _test_tick() -> void:
 			_check(offer(p).get("verb") == "REPAIR" and offer(p).ok and offer(p).bar.x == 120.0, "the action card offers the door repair (%s)" % offer(p).get("title", "none"))
 			game.try_interact(p)
 			var gate = game.gates[team]
-			_check(gate.hp == 120 + Stats.ECONOMY.repair_hits and wood[team] == 13 and ore[team] == 14, "F by the door mends it (+%d, hp %d)" % [Stats.ECONOMY.repair_hits, gate.hp])
+			_check(gate.hp == 120 + Stats.ECONOMY.repair_hits and wood[team] == 30 - Stats.ECONOMY.repair_wood and ore[team] == 30 - Stats.ECONOMY.repair_ore, "F by the door mends it (+%d, hp %d)" % [Stats.ECONOMY.repair_hits, gate.hp])
 			gate.take_hit(gate.hp)
 			_check(gate.broken, "door broken for the rebuild test")
 			test_wait = 5
