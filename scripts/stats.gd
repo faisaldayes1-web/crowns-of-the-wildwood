@@ -526,9 +526,9 @@ const ECONOMY := {
 	"hat_wood": 5, "hat_ore": 5,          # upgrade one class's hat machine (Faisal's price)
 	"repair_wood": 2, "repair_ore": 1, "repair_hits": 35,     # mend your door by 35 hits
 	"rebuild_wood": 4, "rebuild_ore": 2, "rebuild_hits": 100, # raise a broken door at once (not under siege)
-	"turret_wood": 3, "turret_ore": 3,    # a base turret on an empty turret pad
-	"turret_up_wood": 2, "turret_up_ore": 2,   # raise a base turret a level (up to 3)
-	"turret_fix_wood": 1, "turret_fix_ore": 1, # patch a damaged turret back to full
+	"turret_wood": 2, "turret_ore": 1,    # a base turret on an empty turret pad (was 3 / 3; Faisal 2026-10-10 "cheaper and smarter")
+	"turret_up_wood": 1, "turret_up_ore": 1,   # raise a base turret a level (up to 3; was 2 / 2)
+	"turret_fix_wood": 1, "turret_fix_ore": 0, # patch a damaged turret back to full (was 1 / 1)
 	"door_reach": 4.0,       # how close to your door you stand to mend it
 	"pad_reach": 1.8,        # how close to a turret pad you stand to buy or tend a turret
 	"bot_gatherers": 1,      # bots per team that gather (the Engineer; else an attacker, see bot_attacker_hats)
@@ -537,6 +537,9 @@ const ECONOMY := {
 	"bot_repair_below": 100,   # all-bot teams mend their door only once it is down to this (no mending under siege)
 	"bot_repair_gap": 45.0,   # ...and at most once every this many seconds
 	"door_bar_lift": 1.6,    # metres the door's overhead health bar sits higher than World & Maps placed it
+	"bot_turrets_early": 1,  # all-bot teams put this many turrets up before their first hat upgrade...
+	"bot_turrets": 2,        # ...and this many after it
+	"bot_turrets_with_human": 1,   # bots on a team with a player build up to this many
 	"field_calm": 3.0,       # seconds out of combat before a hat machine can be upgraded from the field (quick-upgrade popup)
 	"field_foe_radius": 9.0, # an enemy this close counts as combat
 }

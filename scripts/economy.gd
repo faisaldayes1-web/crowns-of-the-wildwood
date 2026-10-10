@@ -634,16 +634,41 @@ func _human_on(team: int) -> bool:
 	return false
 
 
-func _bot_spend(team: int) -> void:
-	## An all-bot team's steward: door first, then hat machines in lineup
-	## order, then turrets on empty pads, keeping a door repair in reserve.
-	var E: Dictionary = Stats.ECONOMY
+func _steward(team: int):
+	## The bot that "pays" (for the chat line): the gatherer if there is one.
 	var steward = null
 	for u in game.units:
-		if u.team == team and not u.dead:
+		if u.team == team and not u.dead and not u.is_player:
 			steward = u
 			if u in gatherers[team]:
 				break
+	return steward
+
+
+func _turrets_of(team: int) -> int:
+	return game.turrets.filter(func(x): return is_instance_valid(x) and x.team == team).size()
+
+
+func _bot_turret(team: int, want: int) -> int:
+	## Bots put turrets on empty pads until the team has `want`. Returns 1 when
+	## one went up, 0 when nothing was needed, -1 when saving up for one.
+	var E: Dictionary = Stats.ECONOMY
+	if _turrets_of(team) >= want:
+		return 0
+	if not can_afford(team, E.turret_wood, E.turret_ore):
+		return -1
+	for pad in pads[team]:
+		if _turret_on(team, pad.pos) == null and work_pad(team, pad.pos, _steward(team)):
+			return 1
+	return 0
+
+
+func _bot_spend(team: int) -> void:
+	## An all-bot team's steward: door first, then an early turret (a second
+	## after the first hat), then hat machines in lineup order, then more
+	## turrets and turret upgrades, keeping a door repair in reserve.
+	var E: Dictionary = Stats.ECONOMY
+	var steward = _steward(team)
 	var job := _door_work(team)
 	var gate = game.gates[team]
 	if job == "rebuild" and not _door_pressed(team) and gate.rebuild_timer > 8.0 and fix_door(team, steward):
@@ -652,6 +677,8 @@ func _bot_spend(team: int) -> void:
 			and fix_door(team, steward):
 		bot_mended[team] = game.match_clock()
 		return
+	if _bot_turret(team, E.bot_turrets_early if upgraded[team].is_empty() else E.bot_turrets) != 0:
+		return   # built one, or saving up for it
 	var reserve_w: int = E.bot_reserve_wood if not upgraded[team].is_empty() else 0
 	var reserve_o: int = E.bot_reserve_ore if not upgraded[team].is_empty() else 0
 	for entry in game.LINEUP:
@@ -696,7 +723,9 @@ func _physics_process(delta: float) -> void:
 		for team in 2:
 			if not _human_on(team) and not game.in_prep():
 				_bot_spend(team)
-			elif _human_on(team) and not hint_given[team] and can_afford(team, Stats.ECONOMY.hat_wood, Stats.ECONOMY.hat_ore) \
+			elif _human_on(team) and not game.in_prep():
+				_bot_turret(team, Stats.ECONOMY.bot_turrets_with_human)   # bots on your team still put one turret up early
+			if _human_on(team) and not hint_given[team] and can_afford(team, Stats.ECONOMY.hat_wood, Stats.ECONOMY.hat_ore) \
 					and upgraded[team].size() < 5:
 				hint_given[team] = true
 				game.toast("Your team has %d wood and %d ore: upgrade a hat machine in the cellar (wear the hat, press %s)" % [
@@ -740,7 +769,16 @@ func _process(_delta: float) -> void:
 					ptext = _pad_prompt(team, pad.pos)
 			pl.text = ptext
 			pl.visible = ptext != ""
-			pad.mark.visible = _turret_on(team, pad.pos) == null
+			var empty: bool = _turret_on(team, pad.pos) == null
+			pad.mark.visible = empty
+			# Pulse while this is your team's pad and the base can pay for a turret.
+			var lit: bool = empty and p != null and is_instance_valid(p) and p.team == team \
+				and can_afford(team, Stats.ECONOMY.turret_wood, Stats.ECONOMY.turret_ore)
+			pad.glow.visible = lit
+			if lit:
+				var k := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 260.0)
+				pad.ring_mat.albedo_color.a = 0.45 + 0.5 * k
+				pad.beam_mat.albedo_color.a = 0.08 + 0.14 * k
 
 
 # --- Prompts -----------------------------------------------------------------------
@@ -1059,8 +1097,43 @@ func _build_pads(team: int) -> void:
 		inner.position.y = 0.04
 		inner.material_override = _mat(Color(0.75, 0.55, 0.25), 0.4, 0.7)
 		mark.add_child(inner)
+		# The glow (Faisal 2026-10-10: make the pads easy to notice): a bright
+		# gold ring and a soft column of light that pulse while your team can
+		# afford a turret there (_process).
+		var glow := Node3D.new()
+		mark.add_child(glow)
+		var gm := StandardMaterial3D.new()
+		gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		gm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		gm.albedo_color = Color(1.0, 0.8, 0.3, 0.8)
+		gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var ring := MeshInstance3D.new()
+		var rt := TorusMesh.new()
+		rt.inner_radius = 0.8
+		rt.outer_radius = 0.95
+		ring.mesh = rt
+		ring.position.y = 0.06
+		ring.material_override = gm
+		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		glow.add_child(ring)
+		var beam := MeshInstance3D.new()
+		var bm := StandardMaterial3D.new()
+		bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		bm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		bm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		bm.albedo_color = Color(1.0, 0.8, 0.35, 0.18)
+		beam.mesh = _cyl(0.7, 0.8, 2.2, 16)
+		(beam.mesh as CylinderMesh).cap_top = false
+		(beam.mesh as CylinderMesh).cap_bottom = false
+		beam.position.y = 1.1
+		beam.material_override = bm
+		beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		glow.add_child(beam)
+		glow.visible = false
 		var label := _prompt_label(spot + Vector3(0, 2.4, 0), 28)
-		pads[team].append({"pos": spot, "label": label, "mark": mark})
+		pads[team].append({"pos": spot, "label": label, "mark": mark, "glow": glow, "ring_mat": gm, "beam_mat": bm})
 
 
 func _build_door_label(team: int) -> void:
