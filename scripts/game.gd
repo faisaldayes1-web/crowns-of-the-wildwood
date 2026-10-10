@@ -638,6 +638,8 @@ func _debug_hooks() -> void:
 				monarchs[1 - player_team].pick_up(ally)
 				ally.carrying = monarchs[1 - player_team]
 				drop_monarch(ally)
+			if arg.begins_with("--debug-points="):   # renders: points to spend (the LEVEL UP strip)
+				player.points = int(arg.trim_prefix("--debug-points="))
 			if arg == "--debug-levelup":
 				levelup_timer = 3.0
 				levelup_level = 2
@@ -6386,7 +6388,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		var seg := hz - ROOM_DOOR_HALF - 0.3
 		_add_block(Vector3(front_x, (ROOM_H + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.3 + seg / 2.0)), Vector3(0.5, ROOM_H + fy, seg), Color.WHITE, true, wall_mat)
 		# Door posts and the lintel over the doors (timber for the Elves).
-		_add_block(Vector3(front_x, (ROOM_H + 0.3 + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.7, ROOM_H + 0.3 + fy, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)) if not elven else _timber(Color(0.5, 0.36, 0.24)))
+		_add_block(Vector3(front_x, (ROOM_H + 0.3 + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.72, ROOM_H + 0.3 + fy, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)) if not elven else _timber(Color(0.5, 0.36, 0.24)))   # 0.72 not 0.7: its faces were flush with the raised floor's end and flickered
 		# (The Elves' timber corner posts went on Faisal's 08:17 2026-10-09
 		# note: they clipped into the walls and read as random.)
 	_add_block(Vector3(back_x, (wall_h + fy) / 2.0, 0), Vector3(wall_t, wall_h + fy, hz * 2 + 0.5), Color.WHITE, true, wall_mat)
