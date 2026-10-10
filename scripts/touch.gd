@@ -80,6 +80,9 @@ func _down(i: int, pos: Vector2) -> void:
 			var action: String = entry[1]
 			if action == "":
 				return
+			if action == "quick_tap":
+				game.touch_tap = pos   # a LEVEL UP tile with its own buy: handled like a click
+				return
 			if action == "attack" and aim_id < 0:
 				# The big attack tile is also the aim pad: hold to swing,
 				# drag to aim.

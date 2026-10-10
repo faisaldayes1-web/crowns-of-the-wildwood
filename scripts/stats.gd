@@ -68,7 +68,7 @@ const HERO_HAIR_FREE := 6
 # Hair styles (Create Your Character): the model's own cut, then the modelled
 # styles character_model._add_hair_style adds on the head bone. The first
 # HERO_HAIR_STYLE_FREE are everyone's; the rest are sold in the STORE.
-const HERO_HAIR_STYLES := ["Classic", "Ponytail", "Long", "Braids", "Bun"]
+const HERO_HAIR_STYLES := ["Classic", "Ponytail", "Long", "Braids", "Top Knot"]
 const HERO_HAIR_STYLE_FREE := 2
 const HERO_TRIM := [["Team", Color.TRANSPARENT], ["Crimson", Color(0.7, 0.12, 0.15)], ["Violet", Color(0.5, 0.25, 0.7)],
 	["Teal", Color(0.15, 0.6, 0.6)], ["Gold", Color(0.9, 0.72, 0.2)], ["Night", Color(0.12, 0.12, 0.18)],
@@ -331,6 +331,10 @@ const VIGOR_SPEED := 0.05
 const VIGOR_ENERGY := 12.0
 const VIGOR_REGEN := 0.2
 const RANK_TRACKS := ["Attack", "Q", "E", "Vigor"]
+# Quick upgrades (Faisal 06:04 2026-10-10 "quicker upgrades"): with points to
+# spend, 1-4 / the D-pad / the HUD's level-up tiles buy a rank anywhere,
+# once you have neither taken nor dealt a hit for this long.
+const QUICK_UPGRADE_CALM := 3.0
 
 # Scoreboard: what a player's match score is made of.
 const SCORE_KILL := 10

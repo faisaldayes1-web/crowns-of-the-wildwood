@@ -24,6 +24,8 @@ var title_cast: Node3D       # the battle scene behind the title (title_diorama.
 var hero: Node3D             # the character creator's model
 var hero_key := ""
 var hero_spin := 0.0            # extra turn (radians): the STORE turns the hero to show a cape
+var hero_turn := 0.0            # the player's own turn of the hero (drag, arrows, right stick)
+var hero_turn_goal := 0.0       # the arrows turn toward this; a drag sets both
 var lobby_models: Array = [null, null, null, null]
 var lobby_keys: Array = ["", "", "", ""]
 var pedestals: Array = []    # [node, ring material, light] per lobby slot
@@ -232,7 +234,8 @@ func show_hero(team: int, role: int, custom: Dictionary, rank: int) -> void:
 		rug = _round_rug()
 	rug.global_position = hero.global_position + Vector3(0, 0.02, 0)
 	rug.visible = screen in ["character", "store"]
-	hero.rotation.y = PI + 0.32 + hero_spin + sin(t * 0.6) * 0.05  # turned a little toward the panel
+	hero_turn = lerp_angle(hero_turn, hero_turn_goal, minf(get_process_delta_time() * 9.0, 1.0))
+	hero.rotation.y = PI + 0.32 + hero_spin + hero_turn + sin(t * 0.6) * 0.05  # turned a little toward the panel
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--debug-hero-turn="):  # renders: show the back of the hair
 			hero.rotation.y += float(arg.trim_prefix("--debug-hero-turn="))

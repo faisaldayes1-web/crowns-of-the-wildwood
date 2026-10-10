@@ -646,6 +646,8 @@ func _debug_hooks() -> void:
 				monarchs[1 - player_team].pick_up(ally)
 				ally.carrying = monarchs[1 - player_team]
 				drop_monarch(ally)
+			if arg.begins_with("--debug-points="):   # renders: points to spend (the LEVEL UP strip)
+				player.points = int(arg.trim_prefix("--debug-points="))
 			if arg == "--debug-levelup":
 				levelup_timer = 3.0
 				levelup_level = 2
@@ -666,6 +668,10 @@ func _debug_hooks() -> void:
 			if arg == "--debug-guide":
 				guide_open = true
 				guide_page = 1
+			if arg.begins_with("--debug-guide-topic="):   # renders: an answer with its picture
+				guide_open = true
+				guide_page = -1
+				guide_topic = int(arg.trim_prefix("--debug-guide-topic="))
 			if arg == "--debug-guide-menu":
 				guide_open = true
 				guide_page = -1
@@ -2500,6 +2506,77 @@ func _rank_pressed() -> bool:
 	return false
 
 
+func _quick_upgrades() -> void:
+	## Spend a point in the field without opening UPGRADES: 1-4 (or the
+	## D-pad, or the HUD's level-up tiles) buy that skill's next rank once
+	## you have been out of the fight for Stats.QUICK_UPGRADE_CALM seconds.
+	for u in locals:
+		if u == null or u.dead or u.downed or u.points <= 0:
+			continue
+		for i in 4:
+			if Input.is_action_just_pressed(u.act_prefix + "rank_%d" % (i + 1)):
+				quick_buy(u, i)
+
+
+func quick_buy(u, track: int) -> bool:
+	## One quick upgrade: refused (with a shake and IN COMBAT) mid-fight.
+	if u.calm_left() > 0.0:
+		sfx.ui("ui_deny", -4.0)
+		spawn_popup(u.global_position + Vector3(0, 2.2, 0), "IN COMBAT", Color(1.0, 0.5, 0.4))
+		if hud:
+			hud.quick_deny = Time.get_ticks_msec() / 1000.0
+		return false
+	if not u.spend_point(track):
+		sfx.ui("ui_deny", -4.0)
+		return false
+	return true
+
+
+func _rank_pad(u) -> void:
+	## UPGRADES on a gamepad (Faisal 06:00 2026-10-10 "make the upgrades feel
+	## better with controller controls"): the D-pad moves a highlight over the
+	## four skills and the two promotions, A / Cross buys or picks the one
+	## lit, LB / RB flip through the classes and B / Circle closes. (On a pad
+	## the D-pad used to buy a rank outright, with nothing lit to show which.)
+	var pre: String = u.act_prefix
+	var f: int = hud.rank_focus
+	var promos: bool = Stats.VARIANTS.has(u.role if hud.rank_view < 0 else hud.rank_view)
+	var moved := f
+	if Input.is_action_just_pressed(pre + "rank_1"):   # D-pad up
+		f = 3 if f >= 4 else maxi(f - 1, 0)
+	if Input.is_action_just_pressed(pre + "rank_4"):   # D-pad down
+		f = (4 if promos else 3) if f >= 3 else f + 1
+	if Input.is_action_just_pressed(pre + "rank_2") and f >= 4:   # D-pad left
+		f = 4
+	if Input.is_action_just_pressed(pre + "rank_3") and f >= 4:   # D-pad right
+		f = 5
+	for k in 2:
+		if Input.is_action_just_pressed(pre + "rank_%d" % (k + 5)):   # LB / RB: the class tabs
+			var order: Array = [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
+			if not u.role in order:
+				order.push_front(u.role)   # a base soldier sees their own page first
+			var at := order.find(u.role if hud.rank_view < 0 else hud.rank_view)
+			var next: int = order[posmod(at + (1 if k == 1 else -1), order.size())]
+			hud.rank_view = -1 if next == u.role else next
+			sfx.ui("ui_click", -6.0)
+	if f != moved:
+		hud.rank_focus = f
+		sfx.ui("ui_click", -8.0)
+	if Input.is_action_just_pressed(pre + "attack"):   # A / Cross
+		var own: bool = hud.rank_view < 0 or hud.rank_view == u.role
+		var ok := false
+		if own and f < 4:
+			ok = u.spend_point(f)
+		elif own:
+			ok = u.choose_variant(u.role, f - 4)
+		if not ok:
+			sfx.ui("ui_deny", -4.0)
+			hud.rank_deny = Time.get_ticks_msec() / 1000.0
+	if Input.is_action_just_pressed(pre + "dodge"):   # B / Circle
+		rank_open = false
+		sfx.ui("ui_close", -4.0)
+
+
 func menu_tabs() -> Array:
 	## Which menu tabs make sense now: at the title only Classes and Controls.
 	return [5, 4, 1, 6] if not playing else [0, 3, 1, 2, 4, 5]
@@ -2551,6 +2628,8 @@ func menu_tick() -> void:
 					guide_pick(i)
 		elif _rank_pressed() and not demo:
 			pass  # handled in _rank_pressed
+		elif not rank_open and not eaten and not demo:
+			_quick_upgrades()
 		elif Input.is_action_just_pressed("chat") and player and not demo and not eaten:
 			chat_open = true
 			chat_text = ""
@@ -2571,12 +2650,15 @@ func menu_tick() -> void:
 		if rank_open and rank_player:
 			if rank_player.dead:
 				rank_open = false
-			for i in 4:
-				if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 1)):
-					rank_player.spend_point(i)
-			for i in 2:
-				if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
-					rank_player.choose_variant(rank_player.role, i)
+			if on_pad(rank_player) and hud:
+				_rank_pad(rank_player)
+			else:
+				for i in 4:
+					if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 1)):
+						rank_player.spend_point(i)
+				for i in 2:
+					if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
+						rank_player.choose_variant(rank_player.role, i)
 	if menu_open and rebinding == "" and not chat_open:
 		var tabs := menu_tabs()
 		var at := maxi(tabs.find(menu_tab), 0)
@@ -2628,6 +2710,13 @@ func menu_tick() -> void:
 		for i in hud.tab_buttons.size():
 			if hud.tab_buttons[i].has_point(mouse):
 				menu_tab = hud.tab_ids[i]
+		for b in hud.quick_buttons:
+			if b[0].has_point(mouse) and playing and not menu_open and not rank_open and player:
+				if b[1] is Callable:
+					if b[1].is_valid() and not b[1].call():   # an Economy tile: it says why (toast) when it can't
+						sfx.ui("ui_deny", -4.0)
+				else:
+					quick_buy(player, b[1])
 		for b in hud.corner_buttons:
 			if b[0].has_point(mouse) and playing and not menu_open and not rank_open:
 				menu_open = true
@@ -6327,7 +6416,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		var seg := hz - ROOM_DOOR_HALF - 0.3
 		_add_block(Vector3(front_x, (ROOM_H + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.3 + seg / 2.0)), Vector3(0.5, ROOM_H + fy, seg), Color.WHITE, true, wall_mat)
 		# Door posts and the lintel over the doors (timber for the Elves).
-		_add_block(Vector3(front_x, (ROOM_H + 0.3 + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.7, ROOM_H + 0.3 + fy, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)) if not elven else _timber(Color(0.5, 0.36, 0.24)))
+		_add_block(Vector3(front_x, (ROOM_H + 0.3 + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.72, ROOM_H + 0.3 + fy, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)) if not elven else _timber(Color(0.5, 0.36, 0.24)))   # 0.72 not 0.7: its faces were flush with the raised floor's end and flickered
 		# (The Elves' timber corner posts went on Faisal's 08:17 2026-10-09
 		# note: they clipped into the walls and read as random.)
 	_add_block(Vector3(back_x, (wall_h + fy) / 2.0, 0), Vector3(wall_t, wall_h + fy, hz * 2 + 0.5), Color.WHITE, true, wall_mat)

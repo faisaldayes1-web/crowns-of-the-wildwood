@@ -60,6 +60,11 @@ var cards: Dictionary = {}  # class portraits, crests and faction logos supplied
 var rank_buttons: Array = []
 var rank_tab_buttons: Array = []   # [rect, role] class tabs on the skills screen
 var rank_view := -1                # the class the skills screen shows (-1 = your own)
+var rank_focus := 0                 # UPGRADES: the lit row (0-3 skills, 4-5 promotions); the pad moves it, the mouse hovers it
+var rank_deny := -10.0              # when a pad press could not buy (the lit row shakes)
+var rank_flash := {}                # track -> time it was just ranked up (the row flashes, "+1 LV" rises)
+var _rank_seen := {}                # role -> ranks last drawn (spots a purchase from any input)
+var _rank_board_was := false
 var map_only := false              # a clipped copy of the HUD that only draws the pause menu's map
 var map_view = null                # that copy (created the first time the pause map shows)
 var map_zoom := 1.0                # pause map zoom (1 = the whole valley)
@@ -68,6 +73,8 @@ var resume_button := Rect2()       # pause menu: RESUME
 var group_buttons: Array = []      # [rect, index] Controls tab action groups
 var controls_group := 0            # the Controls tab's open group
 var class_buttons: Array = []      # [rect, role] Classes tab SELECT
+var quick_buttons: Array = []      # [rect, track] the level-up tiles over the ability strip (mouse clicks)
+var quick_deny := -10.0             # when a quick upgrade was refused (in combat): the strip shakes
 var corner_buttons: Array = []     # [rect, "menu" | "scoreboard"] the HUD corner squares (mouse clicks)
 var menu_tex: Dictionary = {}      # assets/ui/menu art used by the pause menu
 var variant_buttons: Array = []   # [rect, role, index]
@@ -236,6 +243,7 @@ func _draw() -> void:
 	group_buttons = []
 	class_buttons = []
 	corner_buttons = []
+	quick_buttons = []
 	bind_buttons = []
 	reset_button = Rect2()
 	volume_sliders = []
@@ -311,6 +319,7 @@ func _draw() -> void:
 		if game.economy:
 			game.economy.draw_action_card(self, _me())   # repair / upgrade / turret button (economy.gd)
 		_draw_player_panel(_me())
+		_draw_quick_upgrade(_me())
 	if _me() and _me().downed:
 		_draw_downed_screen(_me())
 	if _me() and _me().dead and not game.demo:
@@ -2239,6 +2248,13 @@ func _draw_guide() -> void:
 			guide_buttons.append([row, str(i)])
 	else:
 		_paragraph(Vector2(tx, ty), body, 19, Color(0.18, 0.12, 0.06), tw, 26, 0)
+	# An answer shows its picture from a real match above the box (the same
+	# images as the title TUTORIAL).
+	var tex: Texture2D = game.MainMenu.tutorial_image(game.guide_topic) if game.guide_topic >= 0 else null
+	if tex:
+		var img := Rect2(box.end.x - 364, box.position.y - 214, 336, 189)
+		_plate(img.grow(6), Color(0.12, 0.09, 0.06, 0.98), GOLD, 8, 3)
+		draw_texture_rect(tex, img, false)
 	# Footer: Next / Back marker and Close.
 	var next_label: String = "Back" if game.guide_topic >= 0 else ("Next" if game.guide_page >= 0 else "")
 	if next_label != "":
@@ -3161,6 +3177,82 @@ func _draw_player_panel(p) -> void:
 		panel_pass = ""
 
 
+func _draw_quick_upgrade(p) -> void:
+	## LEVEL UP over the ability strip while there are points to spend: a
+	## tile per skill that can still rank up, with its key (1-4 / the D-pad)
+	## and the level it goes to. A press buys it on the spot, anywhere, once
+	## you have been out of the fight for a few seconds (Faisal 06:04
+	## 2026-10-10: "the only way to safely upgrade is to go back to base").
+	if p == null or p.dead or p.downed or game.rank_open or game.menu_open or game.demo:
+		return
+	var tracks: Array = []
+	for t in 4:
+		if p.points > 0 and p.track_available(t) and p.rank(t) < Stats.MAX_RANK:
+			tracks.append(t)
+	# Economy's field buys (the class's hat machine) ride on the same strip:
+	# one quick-upgrade surface, not two.
+	var extra: Array = game.economy.quick_tiles(p) if game.economy and game.economy.has_method("quick_tiles") else []
+	if tracks.is_empty() and extra.is_empty():
+		return
+	var k := minf(1.0, size.x / 1280.0)
+	var W := size.x / k
+	var H := size.y / k
+	var now := Time.get_ticks_msec() / 1000.0
+	var tw := 70.0
+	var head_w := 128.0
+	var ew := 150.0
+	var w := head_w + tracks.size() * (tw + 6.0) + extra.size() * (ew + 6.0) + 4.0
+	var x := W / 2.0 - w / 2.0 if touch_ui else (W - 22.0 - 142.0 - 30.0 - 235.0) - w / 2.0
+	var y := H - 132.0 if touch_ui else H - 164.0
+	var shake := 0.0
+	if now - quick_deny < 0.35:
+		shake = sin((now - quick_deny) * 55.0) * 5.0 * (1.0 - (now - quick_deny) / 0.35)
+	x += shake
+	if k < 1.0:
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
+	var calm: float = p.calm_left()
+	var R := Rect2(x, y, w, 36)
+	var pulse := 0.5 + 0.5 * sin(now * 4.0)
+	_plate(R, Color(0.08, 0.06, 0.03, 0.92), GOLD.lerp(Color(1, 0.95, 0.7), pulse * 0.4) if calm <= 0.0 else Color(0.55, 0.3, 0.2), 9, 2)
+	_text(Vector2(x + 10, y + 16), "LEVEL UP", 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	if calm > 0.0:
+		_text(Vector2(x + 10, y + 30), "In combat %.0fs" % ceilf(calm), 10, Color(1.0, 0.55, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	elif p.points > 0:
+		_text(Vector2(x + 10, y + 30), "%d point%s to spend" % [p.points, "" if p.points == 1 else "s"], 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	else:
+		_text(Vector2(x + 10, y + 30), "Upgrade from here", 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var tx := x + head_w
+	var abil: Array = p.abilities()
+	for t in tracks:
+		var r := Rect2(tx, y + 3, tw, 30)
+		tx += tw + 6.0
+		var icon: String = _attack_icon(p.role, p.stats()) if t == 0 else ("vigor" if t == 3 else str(abil[t - 1].get("icon", abil[t - 1].kind)))
+		var ready := calm <= 0.0
+		_plate(r, Color(0.2, 0.15, 0.06) if ready else Color(0.14, 0.12, 0.1), GOLD_DARK if ready else Color(0.35, 0.3, 0.25), 7, 1)
+		_icon(icon, r.position + Vector2(15, 15), 8.0, Color.WHITE if ready else Color(0.6, 0.6, 0.6))
+		_text(Vector2(r.position.x + 30, r.position.y + 20), "LV%d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_keycap(Vector2(r.end.x - 2, r.position.y + 2), _k("rank_%d" % (t + 1)), 18)
+		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
+		quick_buttons.append([sr, t])
+		if not pane:
+			touch_rects.append([sr, "rank_%d" % (t + 1)])
+	for e in extra:
+		var r := Rect2(tx, y + 3, ew, 30)
+		tx += ew + 6.0
+		var ok: bool = e.get("ok", false) and calm <= 0.0
+		_plate(r, Color(0.12, 0.17, 0.08) if ok else Color(0.14, 0.12, 0.1), Color(0.5, 0.85, 0.35) if ok else Color(0.35, 0.3, 0.25), 7, 1)
+		_icon(str(e.get("icon", "")), r.position + Vector2(15, 15), 8.0, Color.WHITE if ok else Color(0.6, 0.6, 0.6))
+		_text(Vector2(r.position.x + 30, r.position.y + 13), str(e.get("label", "")), 11, CREAM if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, ew - 34.0, 2)
+		var why: String = str(e.get("reason", ""))
+		_text(Vector2(r.position.x + 30, r.position.y + 26), why if why != "" else str(e.get("cost_text", "")), 9, Color(1.0, 0.55, 0.45) if why != "" else Color(0.9, 0.85, 0.7), HORIZONTAL_ALIGNMENT_LEFT, ew - 34.0, 1)
+		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
+		quick_buttons.append([sr, e.get("buy", Callable())])
+		if not pane:
+			touch_rects.append([sr, "quick_tap"])
+	if k < 1.0:
+		draw_set_transform(Vector2.ZERO)
+
+
 func _touch_cluster(p, W: float, H: float) -> void:
 	## Touch screens (the iPad): the moves as big tiles in an arc under the
 	## right thumb, attack the largest in the corner, and a round pause
@@ -3865,9 +3957,23 @@ func _draw_rank_menu(p) -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.35))
 	_menu_board(R, "UPGRADES", now)
 	_upgrades_page(p, Rect2(R.position + Vector2(18, 46), Vector2(R.size.x - 36, R.size.y - 86)), now)
-	var hint := ("D-pad spends a point  ·  %s / %s pick a promotion  ·  %s closes  ·  a fall costs 2 levels" % [_k("rank_5"), _k("rank_6"), _k("rank_menu")]) if game.on_pad(local_unit) \
-		else ("1-4 or + spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  a fall costs 2 levels" % _k("rank_menu"))
-	_text(Vector2(R.position.x, R.end.y - 14), hint, 11, Color(0.8, 0.74, 0.6), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
+	if game.on_pad(p):
+		# Button prompts with the pad's own glyphs.
+		var items := [["D-pad", "Move"], [game.key_label("attack", p), "Upgrade / pick"],
+			[game.key_label("rank_5", p) + "/" + game.key_label("rank_6", p), "Class"], [game.key_label("dodge", p), "Close"]]
+		var total := 0.0
+		for it in items:
+			total += 34.0 + _text_width(it[1], 12) + 22.0
+		var x := R.get_center().x - total / 2.0
+		for it in items:
+			var face := String(it[0])
+			_keycap(Vector2(x + 14.0, R.end.y - 19.0), face, maxf(26.0, _text_width(face, 11) + 12.0))
+			x += 34.0 + maxf(0.0, _text_width(face, 11) - 14.0)
+			_text(Vector2(x, R.end.y - 14), it[1], 12, Color(0.92, 0.86, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			x += _text_width(it[1], 12) + 22.0
+	else:
+		var hint := "1-4 or + spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  a fall costs 2 levels" % _k("rank_menu")
+		_text(Vector2(R.position.x, R.end.y - 14), hint, 11, Color(0.8, 0.74, 0.6), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
 
 
 func _upgrades_page(p, B: Rect2, now: float) -> void:
@@ -3993,11 +4099,29 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 	# Skill rows: attack, Q, E, vigor.
 	var promo_h := 104.0
 	var top := C.position.y + 44.0
-	var rh := floorf((C.end.y - promo_h - 24.0 - top) / 4.0)
+	var detail_h := 40.0
+	var rh := floorf((C.end.y - promo_h - 24.0 - top - detail_h) / 4.0)
 	var ranks: Array = p.ranks.get(view, [0, 0, 0, 0])
 	var abil: Array = p.abilities() if own else kit.get("abilities", [])
+	var pad: bool = game.on_pad(p) and game.rank_open
+	# A purchase (key, click, pad or touch) flashes its row.
+	var seen: Array = _rank_seen.get(view, [])
+	for t in mini(seen.size(), 4):
+		if ranks[t] > seen[t]:
+			rank_flash[t] = now
+	_rank_seen[view] = ranks.duplicate()
+	# Opening the board lights the first skill that can still be bought.
+	if game.rank_open and not _rank_board_was:
+		rank_focus = 0
+		for t in 4:
+			if ranks[t] < Stats.MAX_RANK and (t == 0 or t == 3 or t - 1 < abil.size()):
+				rank_focus = t
+				break
+	_rank_board_was = game.rank_open
 	for t in 4:
 		var row := Rect2(C.position.x, top + t * rh, C.size.x, rh - 6.0)
+		if not pad and row.has_point(_mouse()):
+			rank_focus = t
 		var available: bool = t == 0 or t == 3 or t - 1 < abil.size()
 		var r: int = ranks[t]
 		var maxed: bool = r >= Stats.MAX_RANK
@@ -4016,7 +4140,7 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 				var sy := art.position.y + 8.0 + k * (art.size.y - 16.0) / 4.0
 				var sx := art.position.x + 20.0 + f * (art.size.x - 40.0)
 				draw_line(Vector2(sx, sy), Vector2(sx + 20.0 + k * 3.0, sy - 5.0), Color(tint.lightened(0.5), 0.5 * sin(f * PI)), 2.0)
-			_icon(icon, art.position + Vector2(art.size.x - 40.0, art.size.y / 2.0), minf(22.0, art.size.y * 0.36), Color(tint.lightened(0.3), 0.55))
+			# (No big faint emblem here any more: the "Next:" line ran over it.)
 		# Icon tile.
 		var ts := minf(row.size.y - 12.0, 54.0)
 		var tile := Rect2(row.position + Vector2(6, (row.size.y - ts) / 2.0), Vector2(ts, ts))
@@ -4062,12 +4186,112 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 			var arm := bs * 0.26
 			draw_line(pc + Vector2(-arm, 0), pc + Vector2(arm, 0), pcol, 5.0)
 			draw_line(pc + Vector2(0, -arm), pc + Vector2(0, arm), pcol, 5.0)
-			if own:
+			if own and not pad:
 				_keycap(btn.position, str(t + 1), 15)
 		elif available:
 			_text(Vector2(btn.position.x - 10, btn.get_center().y + 6), "MAX", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER, btn.size.x + 20, 3)
 		rank_buttons.append(btn if can else Rect2())
+		# The lit row: a pulsing gold frame (a shake if the pad press could not buy).
+		if rank_focus == t:
+			var shake := 0.0
+			if now - rank_deny < 0.3:
+				shake = sin((now - rank_deny) * 60.0) * 4.0 * (1.0 - (now - rank_deny) / 0.3)
+			var fr := row.grow(3).grow_individual(-shake, 0, shake, 0)
+			var pulse := 0.6 + 0.4 * sin(now * 5.0)
+			_glow_frame(fr, Color(1.0, 0.82, 0.3, 0.55 * pulse))
+			if pad and available and not maxed and own:
+				var a_key: String = game.key_label("attack", p)
+				_keycap(Vector2(btn.position.x - 64.0, btn.get_center().y + 1), a_key, 22)
+		# Just ranked up: a white-gold flash fading over half a second and "+1 LV" rising off the button.
+		var since: float = now - float(rank_flash.get(t, -10.0)) if view == p.role else 10.0
+		if since < 0.9:
+			var k := 1.0 - since / 0.9
+			if since < 0.5:
+				_plate(row, Color(1.0, 0.92, 0.6, 0.35 * (1.0 - since / 0.5)), Color(1.0, 0.95, 0.7, 0.9 * (1.0 - since / 0.5)), 9, 3)
+			_text(Vector2(btn.position.x - 30.0, btn.position.y - 4.0 - since * 40.0), "+1 LV", 16, Color(1.0, 0.9, 0.4, k), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x + 60.0, 4)
+	_upgrade_detail(p, view, Rect2(C.position.x, top + 4 * rh, C.size.x, detail_h - 6.0), ranks, abil, kit, own)
 	_promotion_cards(p, view, Rect2(C.position.x, C.end.y - promo_h - 22.0, C.size.x, promo_h + 22.0))
+
+
+func _glow_frame(r: Rect2, col: Color) -> void:
+	## A soft glowing outline (three widening strokes).
+	for k in 3:
+		var sb := StyleBoxFlat.new()
+		sb.draw_center = false
+		sb.set_corner_radius_all(10 + k * 2)
+		sb.set_border_width_all(2)
+		sb.border_color = Color(col, col.a * (1.0 - k * 0.3))
+		draw_style_box(sb, r.grow(k * 2.0))
+
+
+const COMPARE_KEYS := [["damage", "Damage", "%s hearts"], ["heal", "Heal", "%s hearts"], ["cooldown", "Cooldown", "%ss"], ["cost", "Cost", "%s"],
+	["range", "Range", "%sm"], ["distance", "Distance", "%sm"], ["radius", "Radius", "%sm"], ["splash", "Splash", "%sm"],
+	["heal_radius", "Heal radius", "%sm"], ["duration", "Duration", "%ss"], ["root", "Root", "%ss"], ["haste", "Haste", "%s"],
+	["arrows", "Arrows", "%s"], ["gate_damage", "Gate damage", "%s"]]
+
+
+func _num(v) -> String:
+	var f := float(v)
+	if is_equal_approx(f, roundf(f)):
+		return str(int(f))
+	return ("%.2f" % f).rstrip("0") if absf(f) < 2.0 else ("%.1f" % f)   # 0.46s, not a rounded 0.5s
+
+
+func _rank_compare(p, view: int, t: int, r: int, abil: Array, kit: Dictionary, own: bool) -> Array:
+	## [label, now, next] for every number rank r+1 changes on track t.
+	var out: Array = []
+	if t == 3:
+		var energy := "Mana" if kit.get("energy", "stamina") == "mana" else "Stamina"
+		var base_max: float = p.energy_max() - Stats.VIGOR_ENERGY * p.rank(3) if own else float(kit.get("energy_max", 100.0))
+		out.append(["Speed", "%d%%" % int(100 + Stats.VIGOR_SPEED * 100 * r), "%d%%" % int(100 + Stats.VIGOR_SPEED * 100 * (r + 1))])
+		out.append(["Max " + energy.to_lower(), _num(base_max + Stats.VIGOR_ENERGY * r), _num(base_max + Stats.VIGOR_ENERGY * (r + 1))])
+		out.append(["Regen", "+%d%%" % int(Stats.VIGOR_REGEN * 100 * r), "+%d%%" % int(Stats.VIGOR_REGEN * 100 * (r + 1))])
+		return out
+	var a: Dictionary = (p.stats() if own else kit) if t == 0 else (abil[t - 1] if t - 1 < abil.size() else {})
+	if a.is_empty():
+		return out
+	var now_d: Dictionary = p.ranked_at(a, t, r)
+	var next_d: Dictionary = p.ranked_at(a, t, r + 1)
+	for e in COMPARE_KEYS:
+		if t == 0 and e[0] == "cost":
+			continue   # basic attacks are free
+		if now_d.has(e[0]) and next_d.has(e[0]) and typeof(now_d[e[0]]) in [TYPE_INT, TYPE_FLOAT] and not is_equal_approx(float(now_d[e[0]]), float(next_d[e[0]])):
+			out.append([e[1], e[2] % _num(now_d[e[0]]), e[2] % _num(next_d[e[0]])])
+	return out
+
+
+func _upgrade_detail(p, view: int, D: Rect2, ranks: Array, abil: Array, kit: Dictionary, own: bool) -> void:
+	## The lit skill's numbers, now and after the next rank: "Cooldown 6s > 5.5s".
+	_plate(D, Color(0.09, 0.08, 0.05, 0.97), GOLD_DARK, 7, 1)
+	if rank_focus > 3:
+		var v: Dictionary = Stats.VARIANTS.get(view, [{}, {}])[rank_focus - 4] if Stats.VARIANTS.has(view) else {}
+		_text(Vector2(D.position.x + 12, D.position.y + 22), "PROMOTION: %s" % str(v.get("name", "")).to_upper(), 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(D.position.x + 150, D.position.y + 22), "New attack and both skills; your ranks carry over.", 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, D.size.x - 160, 2)
+		return
+	var t: int = clampi(rank_focus, 0, 3)
+	var r: int = ranks[t]
+	var head := "LV %d  >  LV %d" % [r, r + 1] if r < Stats.MAX_RANK else "LV %d  MAX" % r
+	_text(Vector2(D.position.x + 12, D.position.y + 22), head, 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var x := D.position.x + 24.0 + _text_width(head, 13)
+	if r >= Stats.MAX_RANK:
+		_text(Vector2(x, D.position.y + 22), "Fully ranked.", 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		return
+	var rows: Array = _rank_compare(p, view, t, r, abil, kit, own)
+	if rows.is_empty():
+		_text(Vector2(x, D.position.y + 22), "Pick a class at the stations to rank this up.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		return
+	for e in rows:
+		var w := _text_width(e[0] + " ", 11) + _text_width(e[1], 12) + _text_width(e[2], 12) + 24.0
+		if x + w > D.end.x - 8.0:
+			break
+		_text(Vector2(x, D.position.y + 22), e[0], 11, Color(0.85, 0.83, 0.76), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		x += _text_width(e[0] + " ", 11)
+		_text(Vector2(x, D.position.y + 22), e[1], 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		x += _text_width(e[1], 12) + 4.0
+		draw_colored_polygon(PackedVector2Array([Vector2(x, D.position.y + 13), Vector2(x + 7, D.position.y + 17.5), Vector2(x, D.position.y + 22)]), Color(0.5, 1.0, 0.45))
+		x += 10.0
+		_text(Vector2(x, D.position.y + 22), e[2], 12, Color(0.55, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		x += _text_width(e[2], 12) + 16.0
 
 
 func _promotion_cards(p, view: int, P: Rect2) -> void:
@@ -4112,6 +4336,10 @@ func _promotion_cards(p, view: int, P: Rect2) -> void:
 		_text(Vector2(e.position.x, e.end.y - 7), "  ·  ".join(names), 10, Color(0.88, 0.86, 0.78), HORIZONTAL_ALIGNMENT_CENTER, e.size.x, 2)
 		if unlocked and not chosen and not p.dead and view == p.role:
 			variant_buttons.append([e, view, i])
+		if game.on_pad(p) and game.rank_open and rank_focus == 4 + i:
+			_glow_frame(e.grow(3), Color(1.0, 0.82, 0.3, 0.4 + 0.25 * sin(Time.get_ticks_msec() / 200.0)))
+		elif not game.on_pad(p) and e.has_point(_mouse()):
+			rank_focus = 4 + i
 
 
 func _upgrades_classes(p, view: int, Rr: Rect2) -> void:
