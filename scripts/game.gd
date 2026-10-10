@@ -2702,7 +2702,11 @@ func menu_tick() -> void:
 				menu_tab = hud.tab_ids[i]
 		for b in hud.quick_buttons:
 			if b[0].has_point(mouse) and playing and not menu_open and not rank_open and player:
-				quick_buy(player, b[1])
+				if b[1] is Callable:
+					if b[1].is_valid() and not b[1].call():   # an Economy tile: it says why (toast) when it can't
+						sfx.ui("ui_deny", -4.0)
+				else:
+					quick_buy(player, b[1])
 		for b in hud.corner_buttons:
 			if b[0].has_point(mouse) and playing and not menu_open and not rank_open:
 				menu_open = true

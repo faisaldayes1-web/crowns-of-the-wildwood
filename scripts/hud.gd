@@ -3183,13 +3183,16 @@ func _draw_quick_upgrade(p) -> void:
 	## and the level it goes to. A press buys it on the spot, anywhere, once
 	## you have been out of the fight for a few seconds (Faisal 06:04
 	## 2026-10-10: "the only way to safely upgrade is to go back to base").
-	if p == null or p.dead or p.downed or p.points <= 0 or game.rank_open or game.menu_open or game.demo:
+	if p == null or p.dead or p.downed or game.rank_open or game.menu_open or game.demo:
 		return
 	var tracks: Array = []
 	for t in 4:
-		if p.track_available(t) and p.rank(t) < Stats.MAX_RANK:
+		if p.points > 0 and p.track_available(t) and p.rank(t) < Stats.MAX_RANK:
 			tracks.append(t)
-	if tracks.is_empty():
+	# Economy's field buys (the class's hat machine) ride on the same strip:
+	# one quick-upgrade surface, not two.
+	var extra: Array = game.economy.quick_tiles(p) if game.economy and game.economy.has_method("quick_tiles") else []
+	if tracks.is_empty() and extra.is_empty():
 		return
 	var k := minf(1.0, size.x / 1280.0)
 	var W := size.x / k
@@ -3197,7 +3200,8 @@ func _draw_quick_upgrade(p) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	var tw := 70.0
 	var head_w := 128.0
-	var w := head_w + tracks.size() * (tw + 6.0) + 4.0
+	var ew := 150.0
+	var w := head_w + tracks.size() * (tw + 6.0) + extra.size() * (ew + 6.0) + 4.0
 	var x := W / 2.0 - w / 2.0 if touch_ui else (W - 22.0 - 142.0 - 30.0 - 235.0) - w / 2.0
 	var y := H - 132.0 if touch_ui else H - 164.0
 	var shake := 0.0
@@ -3213,8 +3217,10 @@ func _draw_quick_upgrade(p) -> void:
 	_text(Vector2(x + 10, y + 16), "LEVEL UP", 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	if calm > 0.0:
 		_text(Vector2(x + 10, y + 30), "In combat %.0fs" % ceilf(calm), 10, Color(1.0, 0.55, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	else:
+	elif p.points > 0:
 		_text(Vector2(x + 10, y + 30), "%d point%s to spend" % [p.points, "" if p.points == 1 else "s"], 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	else:
+		_text(Vector2(x + 10, y + 30), "Upgrade from here", 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var tx := x + head_w
 	var abil: Array = p.abilities()
 	for t in tracks:
@@ -3230,6 +3236,19 @@ func _draw_quick_upgrade(p) -> void:
 		quick_buttons.append([sr, t])
 		if not pane:
 			touch_rects.append([sr, "rank_%d" % (t + 1)])
+	for e in extra:
+		var r := Rect2(tx, y + 3, ew, 30)
+		tx += ew + 6.0
+		var ok: bool = e.get("ok", false) and calm <= 0.0
+		_plate(r, Color(0.12, 0.17, 0.08) if ok else Color(0.14, 0.12, 0.1), Color(0.5, 0.85, 0.35) if ok else Color(0.35, 0.3, 0.25), 7, 1)
+		_icon(str(e.get("icon", "")), r.position + Vector2(15, 15), 8.0, Color.WHITE if ok else Color(0.6, 0.6, 0.6))
+		_text(Vector2(r.position.x + 30, r.position.y + 13), str(e.get("label", "")), 11, CREAM if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, ew - 34.0, 2)
+		var why: String = str(e.get("reason", ""))
+		_text(Vector2(r.position.x + 30, r.position.y + 26), why if why != "" else str(e.get("cost_text", "")), 9, Color(1.0, 0.55, 0.45) if why != "" else Color(0.9, 0.85, 0.7), HORIZONTAL_ALIGNMENT_LEFT, ew - 34.0, 1)
+		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
+		quick_buttons.append([sr, e.get("buy", Callable())])
+		if not pane:
+			touch_rects.append([sr, "quick_tap"])
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
 
