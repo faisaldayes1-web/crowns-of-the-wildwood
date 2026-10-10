@@ -145,3 +145,8 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - What: on the web, if a match runs under ~52 fps for 4 s the game caps itself at a steady 30 fps (every frame gets exactly two 60 Hz physics steps), instead of alternating 0/1/2 steps that made units jump. Graphics still drop to Low below 26 fps.
 - Files: scripts/game.gd (`_auto_quality`).
 - Revert: `git revert <hash>`
+
+### 2026-10-10 10:15 UTC · b1dbfae · iPad: easier touch controls
+- What: move tiles bigger (attack 118→136, moves 80→94, Grab 70→84) and re-spaced; aim assist: an aim drag within 30° of an enemy locks onto it, and tap-attacks auto-face enemies up to 13 m for Ranger/Mage/Healer (7 m melee, unchanged); new round G button for the hat move and a scoreboard button (hold) beside pause.
+- Files: scripts/hud.gd (`_touch_cluster`, `_panel_key`), scripts/unit.gd (`_auto_aim`, `_update_player_aim`), scripts/touch.gd.
+- Revert: `git revert b1dbfae`
