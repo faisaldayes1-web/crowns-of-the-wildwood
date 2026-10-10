@@ -8921,7 +8921,7 @@ func apply_graphics() -> void:
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	vp.scaling_3d_scale = 0.8 if q == 0 else 1.0
 	# (FSR needs Forward+; the Compatibility renderer scales bilinear.)
-	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 and RenderingServer.get_current_rendering_method() == "forward_plus" else Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 and RenderingServer.get_rendering_device() != null else Viewport.SCALING_3D_MODE_BILINEAR
 	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 8192][q]
 	RenderingServer.directional_shadow_atlas_set_size([2048, 4096, 8192, 8192][q], true)
 	RenderingServer.directional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
