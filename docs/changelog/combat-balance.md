@@ -464,3 +464,20 @@ then `python3 tools/balance/agg.py <tag>`.
   Ember Pass 9-3 → 4-8. Crossbow 0.65 was tried and showed no change.
 - **Checks:** `tools/tests/run.sh` 33/33.
 - **Revert:** `git revert 252c5e5`
+
+## 20. Cooldown cues
+
+- **When:** 2026-10-10 (Faisal: "lets get it going"; standing combat-feel
+  mandate)
+- **Commit:** `cf38cd9`
+- **What:** Pressing dodge or an ability while it is still cooling down plays
+  a quiet "not yet" click instead of nothing, at most once every 0.35 s.
+  Presses within the 0.25 s input buffer are still queued and fire when ready.
+  When the dodge (4 s cooldown) comes back, a soft tick plays and a quick green
+  ring flashes at your feet, so you know it's ready without looking at the HUD.
+  Players only; sound and looks only.
+- **Files:** `scripts/unit.gd` (`_deny_cue()`, `DENY_GAP`, dodge-ready
+  cue), `tests/combat_test.gd` (`_deny_cue`).
+- **Tunables:** `DENY_GAP` 0.35 s (new); click -12 dB, ready tick -12 dB.
+- **Checks:** `tools/tests/run.sh` 34/34.
+- **Revert:** `git revert cf38cd9`
