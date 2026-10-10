@@ -458,7 +458,12 @@ func _build_lava() -> void:
 
 
 func _skirt(at: Vector3, size: Vector3, yaw: float = 0.0) -> void:
-	## The craggy rock face under a platform, down into the lava.
+	## The craggy rock face under a platform, down into the lava. Skirts
+	## running along z sit 6 mm higher than those along x, so where two meet
+	## at a corner their tops (and their hot bands) never share a plane: the
+	## coplanar overlaps flickered as the camera moved (Faisal 2026-10-10).
+	var lift := 0.006 if size.z > size.x else 0.0
+	at.y += lift
 	_box(at + Vector3(0, -size.y / 2.0 - 0.02, 0), Vector3(size.x, size.y, size.z), basalt(), yaw)
 	# A darker, glowing-hot band where it meets the lava.
 	var hot := StandardMaterial3D.new()
@@ -574,8 +579,10 @@ func _build_corridor(s: Array) -> void:
 		_box(mid + Vector3(0, -0.36, 0), Vector3(half * 2.0 - 0.3, 0.2, length - 1.0), basalt(Color(0.25, 0.2, 0.2)), yaw)
 		return
 	# Causeway and the grand stair: paved rock with a cliff skirt.
-	var pave: Material = game._flagstone(Color(0.47, 0.42, 0.4))
-	_box(mid + Vector3(0, -0.04, 0), Vector3(half * 2.0, 0.08, length), pave, yaw)
+	var pave: Material = game._flagstone(Color(0.45, 0.42, 0.42))
+	# (Its top sits 8 mm above the plateau rock it runs onto, and the plazas
+	# 8 mm above it: all three were at y 0 and z-fought in front of the doors.)
+	_box(mid + Vector3(0, -0.032, 0), Vector3(half * 2.0, 0.08, length), pave, yaw)
 	_skirt(mid + Vector3(0, -0.08, 0), Vector3(half * 2.0 + 0.6, absf(LAVA_Y) + 1.5, length), yaw)
 	var kerb: Material = game._ashlar(Color(0.44, 0.36, 0.35))
 	var start: Vector3 = a + dir * (rad[s[0]] - 0.4)
@@ -610,14 +617,14 @@ func _build_plaza(i: int) -> void:
 	var r: float = rad[i]
 	if castle_of(c) >= 0:
 		# The door court on the plateau: just the paving.
-		game._add_rosette(c + Vector3(0, 0.012, 0), r + 0.5, Color(0.62, 0.55, 0.55))
+		game._add_rosette(c + Vector3(0, 0.032, 0), r + 0.5, Color(0.62, 0.55, 0.55))
 		return
 	var top := CylinderMesh.new()
 	top.top_radius = r
 	top.bottom_radius = r
 	top.height = 0.1
 	top.radial_segments = 40
-	_mesh(top, c + Vector3(0, -0.05, 0), game._flagstone(Color(0.47, 0.42, 0.4)))
+	_mesh(top, c + Vector3(0, -0.034, 0), game._flagstone(Color(0.45, 0.42, 0.42)))
 	var cliff := CylinderMesh.new()
 	cliff.top_radius = r + 0.5
 	cliff.bottom_radius = r + 1.6
@@ -634,7 +641,7 @@ func _build_plaza(i: int) -> void:
 	band.bottom_radius = r + 1.7
 	band.height = 0.3
 	band.radial_segments = 9
-	_mesh(band, c + Vector3(0, LAVA_Y + 0.12, 0), hot, Vector3.ZERO, false)
+	_mesh(band, c + Vector3(0, LAVA_Y + 0.132, 0), hot, Vector3.ZERO, false)
 	# A low kerb round the rim, broken where the corridors come in.
 	var gaps := []
 	for s in segs:
@@ -661,7 +668,7 @@ func _build_fire_objective() -> void:
 	## over a font of fire, braziers and red banners round it, and the capture
 	## ring that glows in the holder's colour.
 	var c := FIRE_POS
-	game._add_rosette(c + Vector3(0, 0.014, 0), 8.2, Color(0.42, 0.3, 0.3))
+	game._add_rosette(c + Vector3(0, 0.03, 0), 8.2, Color(0.42, 0.3, 0.3))
 	# A ring of burning runes round the font, glowing straight off the paving.
 	var rune_mat := StandardMaterial3D.new()
 	rune_mat.albedo_texture = load("res://assets/textures/emblems/runes.png")
@@ -671,7 +678,7 @@ func _build_fire_objective() -> void:
 	rune_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var rune_plane := PlaneMesh.new()
 	rune_plane.size = Vector2(10.4, 10.4)
-	_mesh(rune_plane, c + Vector3(0, 0.03, 0), rune_mat, Vector3.ZERO, false)
+	_mesh(rune_plane, c + Vector3(0, 0.05, 0), rune_mat, Vector3.ZERO, false)
 	# The capture ring.
 	var torus := TorusMesh.new()
 	torus.inner_radius = Stats.FIRE_POINT.radius - 0.22
@@ -774,7 +781,7 @@ func _build_crossing() -> void:
 	## The Crossing: the high plaza where the northern bridges meet, with
 	## both factions' banners at its back.
 	var c := CROSSING
-	game._add_rosette(c + Vector3(0, 0.014, 0), 6.6, Color(0.6, 0.54, 0.54))
+	game._add_rosette(c + Vector3(0, 0.03, 0), 6.6, Color(0.6, 0.54, 0.54))
 	game._add_banner_pole(0, c + Vector3(-3.6, 0, -6.2))
 	game._add_banner_pole(1, c + Vector3(3.6, 0, -6.2))
 	game._add_brazier(c + Vector3(-6.0, 0, -3.6))
@@ -788,7 +795,7 @@ func _build_watch_post(team: int) -> void:
 	## tower stump and torches.
 	var sx := -1.0 if team == 0 else 1.0
 	var c: Vector3 = pos[ids.find("m%d" % team)]
-	game._add_rosette(c + Vector3(0, 0.014, 0), 5.6, Color(0.42, 0.52, 0.42) if team == 0 else Color(0.46, 0.48, 0.6))
+	game._add_rosette(c + Vector3(0, 0.03, 0), 5.6, Color(0.42, 0.52, 0.42) if team == 0 else Color(0.46, 0.48, 0.6))
 	game._add_banner_pole(team, c + Vector3(sx * 2.0, 0, -5.4))
 	# Cover: a low wall right on the south rim (solid; no gap behind it for
 	# anyone to get wedged in), shooters' spots in front of it.

@@ -4199,7 +4199,7 @@ func _add_river() -> void:
 			_add_block(Vector3(xs * (deck_len / 2.0 + 0.35), 0.17, bz), Vector3(1.1, 0.34, half * 2 + 1.0), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 			_add_block(Vector3(xs * (deck_len / 2.0 + 0.35), 0.38, bz), Vector3(1.3, 0.08, half * 2 + 1.2), Color.WHITE, false, _ashlar(Color(0.94, 0.9, 0.82)))
 		for zs in [-1.0, 1.0]:
-			_add_block(Vector3(0, -0.1, bz + zs * (half - 0.3)), Vector3(deck_len, 0.26, 0.3), Color.WHITE, false, _timber(Color(0.72, 0.58, 0.44)))
+			_add_block(Vector3(0, -0.09, bz + zs * (half - 0.3)), Vector3(deck_len, 0.26, 0.3), Color.WHITE, false, _timber(Color(0.72, 0.58, 0.44)))
 		var planks := int(deck_len / 0.5)
 		for k in planks:
 			var px: float = -deck_len / 2.0 + (k + 0.5) * deck_len / planks
@@ -4635,7 +4635,7 @@ func _add_elf_class_stall(team: int, role: int, pos: Vector3, wall_z: float, top
 	for xs in [-0.7, 0.7]:
 		_add_block(Vector3(pos.x + xs, top - 0.12, wall_z + 1.0), Vector3(0.04, 0.16, 0.04), Color.WHITE, false, _iron())
 	_add_block(Vector3(pos.x, sign_y, wall_z + 1.0), Vector3(2.2, 0.62, 0.1), Color.WHITE, false, dark)
-	_add_block(Vector3(pos.x, sign_y, wall_z + 1.04), Vector3(2.1, 0.54, 0.02), Color.WHITE, false, _timber(Color(0.36, 0.26, 0.16)))
+	_add_block(Vector3(pos.x, sign_y, wall_z + 1.05), Vector3(2.1, 0.54, 0.02), Color.WHITE, false, _timber(Color(0.36, 0.26, 0.16)))
 	# The banner: team cloth with a gold hem, the class icon on it.
 	var accent: Color = Stats.ROLES[role].color
 	_add_block(Vector3(pos.x, sign_y - 0.9, wall_z + 1.0), Vector3(1.4, 1.2, 0.05), Color.WHITE, false, _cloth(accent.darkened(0.1)))
@@ -5596,17 +5596,25 @@ func _gold() -> StandardMaterial3D:
 func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	## A solid ashlar wall with a cornice and merlons along its long axis.
 	## The elven castle's walls are trimmed hedges instead (2026-10-08 target).
-	_add_block(center, size, Color.WHITE, true, _ashlar())
+	# Walls along x stop 1 cm short at each end, tucking their end faces just
+	# inside the cross walls: flush, the end and the cross wall's face shared
+	# a plane at every corner and flickered.
+	var body := size - Vector3(0.02, 0, 0) if size.x > size.z else size
+	_add_block(center, body, Color.WHITE, true, _ashlar())
 	var top := center.y + size.y / 2.0
 	var along_x := size.x >= size.z
 	var length := size.x if along_x else size.z
 	var thick := size.z if along_x else size.x
+	# Walls along x carry their trim 8 mm higher than walls along z, so the
+	# cornices, string courses and plinths that cross at every corner never
+	# share a plane (coplanar overlaps flicker as the camera pans).
+	var lift := 0.008 if along_x else 0.0
 	if grey and size.y >= WALL_H - 0.01:
 		# The Humans' walls (Faisal's 03:34 brief: chunky stonework, not plain
 		# boxes): a darker plinth course round the foot of the outer and
 		# courtyard walls (the keep's walls have furniture against them)...
 		var foot := center.y - size.y / 2.0
-		_add_block(Vector3(center.x, foot + 0.2, center.z), Vector3(size.x + 0.36, 0.4, size.z + 0.36), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
+		_add_block(Vector3(center.x, foot + 0.2 + lift, center.z), Vector3(size.x + 0.36, 0.4, size.z + 0.36), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
 	if hedge_tops or mossy:
 		# The Elves' hedge walls are topped with a run of trimmed hedge
 		# (the reference's rounded, bushy wall tops; was a flat cap with a
@@ -5620,19 +5628,19 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 		return
 	if mossy:
 		# Hedge walls: a lighter clipped top and leaf tufts instead of merlons.
-		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _hedge(true))
+		_add_block(Vector3(center.x, top + 0.1 + lift, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _hedge(true))
 	elif grey:
 		# ...and a thick, pale cornice with a bevel line under it.
-		_add_block(Vector3(center.x, top + 0.15, center.z), Vector3(size.x + 0.24, 0.3, size.z + 0.24), Color.WHITE, false, _ashlar(Color(0.9, 0.9, 0.94)))
-		_add_block(Vector3(center.x, top - 0.06, center.z), Vector3(size.x + 0.12, 0.12, size.z + 0.12), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
+		_add_block(Vector3(center.x, top + 0.15 + lift, center.z), Vector3(size.x + 0.24, 0.3, size.z + 0.24), Color.WHITE, false, _ashlar(Color(0.9, 0.9, 0.94)))
+		_add_block(Vector3(center.x, top - 0.08 + lift, center.z), Vector3(size.x + 0.12, 0.12, size.z + 0.12), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
 	else:
-		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+		_add_block(Vector3(center.x, top + 0.1 + lift, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
 	if not merlons:
 		return
 	var n := maxi(int(length / 1.3), 1)
 	for k in n:
 		var t := -length / 2.0 + (k + 0.5) * length / n
-		var p := Vector3(center.x + t, top + 0.5, center.z) if along_x else Vector3(center.x, top + 0.5, center.z + t)
+		var p := Vector3(center.x + t, top + 0.5 + lift, center.z) if along_x else Vector3(center.x, top + 0.5 + lift, center.z + t)
 		var ms := Vector3(0.6, 0.6, thick) if along_x else Vector3(thick, 0.6, 0.6)
 		if mossy:
 			# Leaf tufts along the hedge top (the cream moonstone caps read
@@ -5653,8 +5661,8 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 	_add_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
 	if grey:
 		# The Humans' towers stand on a chunky plinth with a string course.
-		_add_block(pos + Vector3(0, 0.25, 0), Vector3(width + 0.5, 0.5, width + 0.5), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
-		_add_block(pos + Vector3(0, height * 0.55, 0), Vector3(width + 0.2, 0.16, width + 0.2), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
+		_add_block(pos + Vector3(0, 0.262, 0), Vector3(width + 0.5, 0.5, width + 0.5), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
+		_add_block(pos + Vector3(0, height * 0.55 + 0.016, 0), Vector3(width + 0.2, 0.16, width + 0.2), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
 	if mossy:
 		# An elven tower: a lantern hung under a green shingle roof. (The leafy
 		# canopy blobs it wore read as "giant blobs inside the building" from
@@ -6282,13 +6290,15 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	# --- Floors -------------------------------------------------------------
 	# Entrance hall: fine flags; great hall: planks; chapel: a dark carpet on
 	# stone (or a mossy glade); chambers: planks under big rugs.
-	_add_block(Vector3(kx + side * 1.8, 0.045, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone" if elven else "flagstone_grey", 0.9, ELF_MOONSTONE * 0.88 if elven else Color(0.95, 0.95, 0.97)))
+	# (The keep's floor strips overlap, so each sits at its own height: they
+	# were all at 0.045 and their shared tops flickered.)
+	_add_block(Vector3(kx + side * 1.8, 0.052, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone" if elven else "flagstone_grey", 0.9, ELF_MOONSTONE * 0.88 if elven else Color(0.95, 0.95, 0.97)))
 	_add_block(Vector3((room_f + room_b) / 2.0, 0.045, -g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pavers() if elven else planks)
 	if elven:
 		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pavers() if elven else _flagstone())
 	else:
 		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pbr("carpet", 1.1, Color(0.3, 0.3, 0.5)))
-	_add_block(Vector3(back_c, 0.045, 0), Vector3(back_d, 0.03, wz * 2), Color.WHITE, false, planks)
+	_add_block(Vector3(back_c, 0.038, 0), Vector3(back_d, 0.03, wz * 2), Color.WHITE, false, planks)
 	# --- Panelled walls: a wainscot along every inner face, with a ledge. ---
 	for zs in [-1.0, 1.0]:
 		var depth := absf(bx - kx) - 1.2
@@ -7733,7 +7743,8 @@ func _build_castle(team: int) -> void:
 	# Both bases are paved in one stone from the gate to the crown room
 	# (Faisal 06:00 2026-10-09, "the front textures are not even uniform"):
 	# the Elves' cream pavers, the same slabs cool-tinted for the Humans.
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _pavers() if mossy else _pbr("pavers", 0.22, Color(0.9, 0.9, 0.9)))
+	# (Its top at 0.024 clears the road cores that run in under the gate.)
+	_add_block(Vector3(cx, 0.014, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _pavers() if mossy else _pbr("pavers", 0.22, Color(0.9, 0.9, 0.9)))
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
@@ -7815,8 +7826,9 @@ func _build_castle(team: int) -> void:
 	for zs in [-1.0, 1.0]:
 		_add_wall(Vector3(kx, KEEP_H / 2.0, zs * kzc), Vector3(0.8, KEEP_H, kseg))
 		# Corner pillars of the keep.
-		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.4, zs * khz), Vector3(1.4, KEEP_H + 0.8, 1.4), Color.WHITE, true, _ashlar())
-		_add_block(Vector3(bx - side * 0.2, kh / 2.0 + 0.4, zs * khz), Vector3(1.4, kh + 0.8, 1.4), Color.WHITE, true, _ashlar())
+		# (1.42 wide: a hair proud of the walls they cap, whose faces they shared.)
+		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.4, zs * khz), Vector3(1.42, KEEP_H + 0.8, 1.42), Color.WHITE, true, _ashlar())
+		_add_block(Vector3(bx - side * 0.2, kh / 2.0 + 0.4, zs * khz), Vector3(1.42, kh + 0.8, 1.42), Color.WHITE, true, _ashlar())
 		# Banners either side of the archway and torches on the arch pillars.
 		_add_banner(team, Vector3(kx - side * 0.4, -0.2, zs * (KEEP_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.75, true)
 		_add_wall_torch(Vector3(kx - side * 0.4, 1.5, zs * (KEEP_DOOR_HALF + 0.3)), Vector3(-side, 0, 0))
@@ -7834,8 +7846,9 @@ func _build_castle(team: int) -> void:
 	_add_rug(Vector3((in_x + kx) / 2.0, 0.025, 0), Vector2(absf(kx - in_x) - 0.5, 3.4), color)
 	_add_emblem_decal(Vector3((in_x + kx) / 2.0, 0.072, 0), 2.2, team)
 	if team != 0:   # (the Elves' stairs up to the crown room take its place)
-		_add_rug(Vector3(kx + side * 3.0, 0.05, 0), Vector2(5.0, 2.8), color)
-		_add_emblem_decal(Vector3(kx + side * 1.6, 0.097, 0), 1.7, team)
+		# (Laid 1 cm above the keep floor: at 0.05 its top was the floor's top.)
+		_add_rug(Vector3(kx + side * 3.0, 0.06, 0), Vector2(5.0, 2.8), color)
+		_add_emblem_decal(Vector3(kx + side * 1.6, 0.107, 0), 1.7, team)
 
 	# The yard stays open: lanterns (Elves) or nothing but the gatehouse
 	# banners (Humans). Faisal: the base was too busy.
@@ -7923,10 +7936,12 @@ func _add_turret_pad(pos: Vector3) -> void:
 	var cm := CylinderMesh.new()
 	cm.top_radius = 0.95
 	cm.bottom_radius = 1.0
-	cm.height = 0.06
+	cm.height = 0.05
 	cm.radial_segments = 32
 	pad.mesh = cm
-	pad.position = pos + Vector3(0, 0.03, 0)
+	# (5 cm high, so the Economy's smaller build pad laid on the same spot
+	# stands 1 cm proud of it instead of sharing its top and flickering.)
+	pad.position = pos + Vector3(0, 0.025, 0)
 	pad.material_override = _ashlar(Color(0.95, 0.92, 0.86))
 	add_child(pad)
 	var ring := MeshInstance3D.new()
@@ -8317,7 +8332,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	if open:
 		# The ground has a gap under the old stairs' top (x 69..70.5 on the
 		# lane): a solid paved sill fills it, with the threshold strip on top.
-		_add_block(Vector3(bx - side * 0.9, -0.05, 0), Vector3(3.4, 0.1, 3.8), Color.WHITE, true, _pavers())
+		_add_block(Vector3(bx - side * 0.9, -0.044, 0), Vector3(3.4, 0.1, 3.8), Color.WHITE, true, _pavers())
 		_add_block(Vector3(bx + side * 1.0, 0.02, 0), Vector3(1.8, 0.04, 3.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	else:
 		_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
