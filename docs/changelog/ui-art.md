@@ -949,3 +949,14 @@ Commit: `39faf99`. Faisal (08:35): "Keep it just banners and make the banners a 
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo smoke run had no script errors.
 
 Revert: `git revert 39faf99`.
+
+## 2026-10-10 — Merged release/v0.4.0-alpha (online play)
+
+Commit: `d46af47` (merge).
+- **game.toast:** keeps the alpha's online routing (`to`) and the new one-at-a-time queue.
+- **game.announce:** keeps its online relay; `_announce_here` now feeds the notice scroll instead of the centre label.
+- **Class lines:** the station and hat class lines go to chat for the local player and stay as announcements for online joiners.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; tools/net_smoke.sh (ENet) passed; a demo run had no script errors.
+
+Revert: `git revert -m 1 d46af47`.
