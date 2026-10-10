@@ -319,6 +319,10 @@ func _ready() -> void:
 			map_variant = clampi(int(arg.trim_prefix("--map=")), 0, Stats.MAPS.size() - 1)
 	# Cartoon shading on everything that enters the scene, props and units alike.
 	get_tree().node_added.connect(func(n): _toonify.call_deferred(n))
+	# Building the world and starting a match take seconds in one go, and
+	# Windows greys a window out as "Not Responding" when it hears nothing
+	# for 5 s: keep answering it while nodes pour in.
+	get_tree().node_added.connect(func(_n): _keep_window_alive())
 	_build_world()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--gfx="):  # testing: render at a given preset (0-3)
@@ -1748,6 +1752,7 @@ func _flat_dist(a: Vector3, b: Vector3) -> float:
 
 const LOADING_SCREENS := ["res://assets/ui/loading_1.jpg", "res://assets/ui/loading_2.jpg"]
 var loading_layer: CanvasLayer
+var _alive_ms := 0   # last time _keep_window_alive answered the OS
 
 
 func _show_loading(hold: float) -> void:
@@ -9140,8 +9145,23 @@ func _add_ink() -> void:
 	ink_on = true
 
 
+func _keep_window_alive() -> void:
+	## Long builds (the world, a match start) block the main thread for
+	## seconds. Every quarter second, let the OS know the window is alive
+	## (input that arrives meanwhile is dropped, so no half-built scene
+	## sees a click). Faisal 2026-10-10: the Windows .exe went "Not
+	## Responding" while it loaded.
+	var now := Time.get_ticks_msec()
+	if now - _alive_ms < 250:
+		return
+	_alive_ms = now
+	if DisplayServer.get_name() != "headless":
+		DisplayServer.force_process_and_drop_events()
+
+
 func _toonify(node) -> void:
 	## Cel shading: hard-edged light and shadow on every standard material.
+	_keep_window_alive()
 	if not is_instance_valid(node) or not node is GeometryInstance3D:
 		return
 	_toon_mat(node.material_override)
