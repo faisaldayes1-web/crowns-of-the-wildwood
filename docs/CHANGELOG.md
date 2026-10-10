@@ -18,6 +18,13 @@ Waiting to release, in this order:
 | [#4](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/4) | Ember Pass volcano map, Fire Objective, Fire classes | v0.4.0 | held until the Volcano map and Current build showcase threads finish |
 | [#8](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/8) | Combat & Balance group | patch or minor | built on #1-#4 combined: after #4 |
 
+## v0.4.0-alpha refresh · 2026-10-10 01:10 UTC · Economy action card and base stock
+
+- **Branch:** `release/v0.4.0-alpha`, merge `026cb49` of Economy #13 (12 commits up to `9e1e02f`): REPAIR / UPGRADE / BUILD action card, resource monitor with base stock and carry slots, a downed soldier drops the load, door-mend retune (+50 → +35), `--no-economy` test flag. Every other group branch was already in (Combat & Balance up to balance patch 2, `130bf14`).
+- **Conflicts resolved:** `scripts/game.gd` (Economy's `--no-economy` guard, kept `_finish_world()`); `scripts/unit.gd` attack input (kept Combat's attack buffer and Economy's click-on-the-card guard).
+- **Tested:** options menu, menu flow, store, store menu and save tests, combat self-test all pass; bot matches on both maps; the .exe under wine.
+- **Revert:** `git revert -m 1 026cb49`
+
 ## v0.4.0-alpha · 2026-10-09 12:00 UTC · playable alpha (branch only, not on main)
 
 - **Branch:** `release/v0.4.0-alpha` (not merged to main; main stays at v0.3.1 until Faisal says go).
