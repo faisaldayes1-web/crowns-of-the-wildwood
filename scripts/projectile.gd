@@ -58,7 +58,7 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 	position = from + Vector3(0, FLIGHT_HEIGHT, 0)
 	# From the ramparts, shots come down to ground level over most of their range.
 	if position.y > FLIGHT_HEIGHT + 0.5:
-		fall_speed = (position.y - FLIGHT_HEIGHT) / (stats.range * 0.8 / speed)
+		fall_speed = (position.y - FLIGHT_HEIGHT) / (stats.get("drop_dist", stats.range * 0.8) / speed)   # a turret bolt comes down at its target, not past it
 	# The world, plus the enemy door (layer 4 = human door, layer 3 = elf door).
 	query_mask = 1 | (8 if team == 0 else 4)
 	rotation.y = atan2(-direction.x, -direction.z)
@@ -257,6 +257,7 @@ func _physics_process(delta: float) -> void:
 				var landed: bool = unit.take_damage(damage, owner_unit, global_position - direction, Stats.KNOCK_SHOT, effect)
 				if from_turret and (unit.dead or (was_up and unit.get("downed"))):   # knocked down counts: the kill credit is given there
 					game.turret_kills[team] += 1
+					game.spawn_popup(unit.global_position + Vector3(0, 2.6, 0), "TURRET!", Stats.FACTIONS[team].color.lightened(0.4))
 				if landed and drain and owner_unit:
 					owner_unit.heal(1, owner_unit)
 				if pierce:

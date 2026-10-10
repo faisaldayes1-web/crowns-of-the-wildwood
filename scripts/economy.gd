@@ -657,7 +657,11 @@ func _bot_turret(team: int, want: int) -> int:
 		return 0
 	if not can_afford(team, E.turret_wood, E.turret_ore):
 		return -1
-	for pad in pads[team]:
+	# Yard pads first: from there a turret has a clear shot at anyone coming
+	# through the door, where the rampart's gatehouse and merlons hide most
+	# of the door lane.
+	var order: Array = pads[team].slice(2) + pads[team].slice(0, 2)
+	for pad in order:
 		if _turret_on(team, pad.pos) == null and work_pad(team, pad.pos, _steward(team)):
 			return 1
 	return 0
@@ -728,7 +732,7 @@ func _physics_process(delta: float) -> void:
 			if _human_on(team) and not hint_given[team] and can_afford(team, Stats.ECONOMY.hat_wood, Stats.ECONOMY.hat_ore) \
 					and upgraded[team].size() < 5:
 				hint_given[team] = true
-				game.toast("Your team has %d wood and %d ore: upgrade a hat machine in the cellar (wear the hat, press %s)" % [
+				game.toast("Your team has %d wood and %d ore: a hat upgrade is ready. Buy it once you're out of the fight, or at its machine (%s)" % [
 					wood[team], ore[team], game.key_label("interact")], Color(1.0, 0.9, 0.5))
 	if game.demo and Engine.get_process_frames() % 1800 == 0:
 		for team in 2:
@@ -1679,12 +1683,12 @@ func _test_tick() -> void:
 			game.try_interact(p)
 			var gate = game.gates[team]
 			_check(not gate.broken and gate.hp == Stats.ECONOMY.rebuild_hits, "F by a broken door raises it (hp %d)" % gate.hp)
-			var pad: Dictionary = pads[team][2]
+			var pad: Dictionary = pads[team][3]
 			_put(p, pad.pos + Vector3(0, 0.1, 0.6 * side))
 			test_wait = 10
 		7:
 			_check(offer(p).get("verb") == "BUILD", "the action card offers a turret (%s)" % offer(p).get("title", "none"))
-			var pad: Dictionary = pads[team][2]
+			var pad: Dictionary = pads[team][3]
 			var before: int = wood[team]
 			game.try_interact(p)
 			var t = _turret_on(team, pad.pos)
@@ -1797,6 +1801,6 @@ func _shot_tick() -> void:
 				game.gates[team]._refresh()
 				_put(p, game.gates[team].global_position * Vector3(1, 0, 1) + Vector3(side * 2.2, 0.1, 1.2))
 				game.cam_pos = p.global_position + Vector3(-side * 1.5, 0, 0) + game.CAMERA_OFFSET * game.cam_zoom
-				work_pad(team, pads[team][2].pos, p)
+				work_pad(team, pads[team][3].pos, p)
 			if left == 30:
 				game.try_interact(p)

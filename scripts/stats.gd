@@ -167,7 +167,7 @@ const GATE_SIEGE_RADIUS := 9.0   # a broken door does not rebuild while an enemy
 # outside the front wall), never in the door lane.
 const TURRET := {"hits": [8, 12, 16], "range": [7.0, 8.0, 9.0], "interval": [1.5, 1.2, 0.95],
 	"damage": 1, "shot_speed": 34.0, "max_level": 3, "team_max": 6, "place_dist": 1.8, "grounds": 14.0,
-	"door_repair": 12.0}
+	"door_repair": 12.0, "rampart_lift": 0.7}   # a bolt from the rampart starts this much higher, over the merlons
 const MATCH_TIME := 600.0     # seconds
 const SEAL_REACH := 2.2     # how close you stand to a class seal to grab it with F
 const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins

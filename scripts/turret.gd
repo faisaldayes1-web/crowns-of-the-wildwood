@@ -254,10 +254,10 @@ func _target():
 	var best = null
 	var best_d := fire_range()
 	for u in game.units:
-		if u.team == team or u.dead or u.is_protected() or u.stealth_timer > 0.0:
+		if u.team == team or u.dead or u.get("downed") or u.is_protected() or u.stealth_timer > 0.0:
 			continue
 		var d: float = game._flat_dist(u.global_position, global_position)
-		if d > fire_range():
+		if d > fire_range() or not _clear_shot(u):
 			continue
 		if u.carrying != null:
 			return u
@@ -265,6 +265,14 @@ func _target():
 			best_d = d
 			best = u
 	return best
+
+
+func _clear_shot(u) -> bool:
+	## A turret shoots only what it can see: past the merlons, the walkway,
+	## the gatehouse and the door jambs (a blocked bolt is a wasted bolt).
+	var from: Vector3 = global_position + Vector3(0, 1.25 + (Stats.TURRET.rampart_lift if global_position.y > 2.0 else 0.0), 0)
+	var ray := PhysicsRayQueryParameters3D.create(from, u.global_position + Vector3(0, 1.1, 0), 1)
+	return get_world_3d().direct_space_state.intersect_ray(ray).is_empty()
 
 
 func _physics_process(delta: float) -> void:
@@ -278,7 +286,7 @@ func _physics_process(delta: float) -> void:
 			head.rotation.y = lerp_angle(head.rotation.y, atan2(to.x, to.z), minf(delta * 8.0, 1.0))
 		if fire_timer <= 0.0:
 			fire_timer = interval()
-			_fire(to.normalized())
+			_fire(to.normalized(), to.length(), target.global_position.y)
 	else:
 		sway += delta
 		head.rotation.y = lerp_angle(head.rotation.y, sin(sway * 0.5) * 0.6 + (PI / 2.0 if team == 0 else -PI / 2.0), minf(delta * 2.0, 1.0))
@@ -286,9 +294,15 @@ func _physics_process(delta: float) -> void:
 		glow.light_energy = 1.0 + 0.3 * sin(Time.get_ticks_msec() / 180.0) + (0.8 if overclock > 0.0 else 0.0)
 
 
-func _fire(dir: Vector3) -> void:
+func _fire(dir: Vector3, dist: float = 0.0, target_y: float = -100.0) -> void:
 	var s := {"damage": Stats.TURRET.damage, "gate_damage": 0, "range": fire_range() + 2.0,
 		"shot_speed": Stats.TURRET.shot_speed}
+	if dist > 0.5:
+		# From the rampart the bolt comes down on them in a straight line,
+		# instead of sailing over their heads.
+		s["drop_dist"] = maxf(dist - 0.6, 0.5)
+		if target_y > global_position.y - 1.0:
+			s["drop_dist"] = 1000.0   # they are up here with us: shoot level
 	if ballista:
 		s["splash"] = 2.0
 		s["shot_speed"] = 26.0
@@ -296,6 +310,8 @@ func _fire(dir: Vector3) -> void:
 		s["slow"] = 1.0
 		s["shot_speed"] = 30.0
 	var muzzle: Vector3 = global_position + Vector3(0, 1.25, 0) + dir * 0.6
+	if global_position.y > 2.0:
+		muzzle.y += Stats.TURRET.rampart_lift   # clear the merlons
 	var owner_unit = builder if is_instance_valid(builder) else null
 	game.spawn_bolt(team, muzzle, dir, s, Stats.FACTIONS[team].color.lightened(0.5), owner_unit)
 	game.sfx.play("turret_fire", global_position, -6.0, 0.15)
