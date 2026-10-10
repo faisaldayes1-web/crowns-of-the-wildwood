@@ -331,6 +331,10 @@ const VIGOR_SPEED := 0.05
 const VIGOR_ENERGY := 12.0
 const VIGOR_REGEN := 0.2
 const RANK_TRACKS := ["Attack", "Q", "E", "Vigor"]
+# Quick upgrades (Faisal 06:04 2026-10-10 "quicker upgrades"): with points to
+# spend, 1-4 / the D-pad / the HUD's level-up tiles buy a rank anywhere,
+# once you have neither taken nor dealt a hit for this long.
+const QUICK_UPGRADE_CALM := 3.0
 
 # Scoreboard: what a player's match score is made of.
 const SCORE_KILL := 10

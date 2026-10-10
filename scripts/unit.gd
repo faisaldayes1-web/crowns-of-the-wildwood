@@ -51,6 +51,7 @@ const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits 
 var input_buffer := [0.0, 0.0, 0.0]  # ability 1, ability 2, dodge
 var swing_flip := false     # alternate the slash arc left/right    # hit stop: the model's animation holds for a beat (looks only)
 var status_fx := {}         # looping aura emitters by kind (Fx.status_emitter)
+var combat_at := -100.0      # when this unit last took or dealt a hit (quick upgrades wait for calm)
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
 var ability_timers := [0.0, 0.0, 0.0]   # Q, E, and G (the upgraded hat's move)
 var hat_upgraded := false   # wearing a hat from an upgraded hat machine (economy.gd): a third move on G
@@ -913,6 +914,11 @@ func _bot_spend() -> void:
 			break
 
 
+func calm_left() -> float:
+	## Seconds until a quick upgrade is allowed (0 = now).
+	return maxf(0.0, Stats.QUICK_UPGRADE_CALM - (Time.get_ticks_msec() / 1000.0 - combat_at))
+
+
 func ranked(a: Dictionary, track: int) -> Dictionary:
 	## A copy of an attack or ability with this unit's rank applied.
 	return ranked_at(a, track, rank(track))
@@ -1024,6 +1030,9 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.7, 0.85, 1.0), 8, 3.0, 0.3)
 			return false
 	hearts -= amount
+	combat_at = Time.get_ticks_msec() / 1000.0
+	if attacker and is_instance_valid(attacker) and "combat_at" in attacker:
+		attacker.combat_at = combat_at
 	flash_timer = FLASH_TIME
 	_hitstop(0.07 if amount < 2 else 0.11)
 	if model:

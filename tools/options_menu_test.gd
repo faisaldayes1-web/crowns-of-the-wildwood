@@ -288,6 +288,30 @@ func _init() -> void:
 	check(not game.rank_open, "pad: B closes the board")
 	game.pad_active = false
 	await frames()
+	# Quick upgrades: 1-4 / the D-pad / the LEVEL UP tiles buy a rank in the
+	# field once out of the fight for a few seconds.
+	p.points = 3
+	p.combat_at = -100.0
+	await frames(3)
+	check(hud.quick_buttons.size() > 0, "quick upgrade: LEVEL UP tiles show with points to spend (%d)" % hud.quick_buttons.size())
+	var qt: int = hud.quick_buttons[0][1] if hud.quick_buttons.size() > 0 else 0
+	var q0: int = p.rank(qt)
+	await press(p.act_prefix + "rank_%d" % (qt + 1))
+	check(p.rank(qt) == q0 + 1 and not game.rank_open, "quick upgrade: its key buys a rank without opening the board")
+	await frames(2)
+	if hud.quick_buttons.size() > 0:
+		var qt2: int = hud.quick_buttons[0][1]
+		var q2: int = p.rank(qt2)
+		await tap(hud.quick_buttons[0][0])
+		check(p.rank(qt2) == q2 + 1, "quick upgrade: clicking its tile buys it")
+	p.points = 2
+	p.combat_at = Time.get_ticks_msec() / 1000.0
+	await frames(2)
+	var qr: Array = [p.rank(0), p.rank(1), p.rank(2), p.rank(3)]
+	await press(p.act_prefix + "rank_4")
+	check([p.rank(0), p.rank(1), p.rank(2), p.rank(3)] == qr and hud.quick_deny > 0.0, "quick upgrade: refused while in combat")
+	p.combat_at = -100.0
+	await frames()
 	# The HUD corner squares: the map opens the pause menu, the list the scoreboard tab.
 	check(hud.corner_buttons.size() == 2, "HUD corner: two buttons (map, scoreboard; the dead bag is gone)")
 	for want in [["menu", 0], ["scoreboard", 3]]:
@@ -319,6 +343,8 @@ func _init() -> void:
 		await frames()
 	# Downed (when the build has it): hold interact to skip to the respawn.
 	if "downed" in p and p.has_method("_go_down") and p.downed_enabled():
+		p.global_position = Vector3(0, 0.5, 0)   # out in the middle, away from teammates who would revive
+		await frames(2)
 		p._go_down(null)
 		await frames(40)
 		check(p.downed and not p.dead, "downed: losing the last heart downs you")

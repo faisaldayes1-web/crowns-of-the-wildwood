@@ -2494,6 +2494,32 @@ func _rank_pressed() -> bool:
 	return false
 
 
+func _quick_upgrades() -> void:
+	## Spend a point in the field without opening UPGRADES: 1-4 (or the
+	## D-pad, or the HUD's level-up tiles) buy that skill's next rank once
+	## you have been out of the fight for Stats.QUICK_UPGRADE_CALM seconds.
+	for u in locals:
+		if u == null or u.dead or u.downed or u.points <= 0:
+			continue
+		for i in 4:
+			if Input.is_action_just_pressed(u.act_prefix + "rank_%d" % (i + 1)):
+				quick_buy(u, i)
+
+
+func quick_buy(u, track: int) -> bool:
+	## One quick upgrade: refused (with a shake and IN COMBAT) mid-fight.
+	if u.calm_left() > 0.0:
+		sfx.ui("ui_deny", -4.0)
+		spawn_popup(u.global_position + Vector3(0, 2.2, 0), "IN COMBAT", Color(1.0, 0.5, 0.4))
+		if hud:
+			hud.quick_deny = Time.get_ticks_msec() / 1000.0
+		return false
+	if not u.spend_point(track):
+		sfx.ui("ui_deny", -4.0)
+		return false
+	return true
+
+
 func _rank_pad(u) -> void:
 	## UPGRADES on a gamepad (Faisal 06:00 2026-10-10 "make the upgrades feel
 	## better with controller controls"): the D-pad moves a highlight over the
@@ -2590,6 +2616,8 @@ func menu_tick() -> void:
 					guide_pick(i)
 		elif _rank_pressed() and not demo:
 			pass  # handled in _rank_pressed
+		elif not rank_open and not eaten and not demo:
+			_quick_upgrades()
 		elif Input.is_action_just_pressed("chat") and player and not demo and not eaten:
 			chat_open = true
 			chat_text = ""
@@ -2670,6 +2698,9 @@ func menu_tick() -> void:
 		for i in hud.tab_buttons.size():
 			if hud.tab_buttons[i].has_point(mouse):
 				menu_tab = hud.tab_ids[i]
+		for b in hud.quick_buttons:
+			if b[0].has_point(mouse) and playing and not menu_open and not rank_open and player:
+				quick_buy(player, b[1])
 		for b in hud.corner_buttons:
 			if b[0].has_point(mouse) and playing and not menu_open and not rank_open:
 				menu_open = true

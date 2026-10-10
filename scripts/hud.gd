@@ -73,6 +73,8 @@ var resume_button := Rect2()       # pause menu: RESUME
 var group_buttons: Array = []      # [rect, index] Controls tab action groups
 var controls_group := 0            # the Controls tab's open group
 var class_buttons: Array = []      # [rect, role] Classes tab SELECT
+var quick_buttons: Array = []      # [rect, track] the level-up tiles over the ability strip (mouse clicks)
+var quick_deny := -10.0             # when a quick upgrade was refused (in combat): the strip shakes
 var corner_buttons: Array = []     # [rect, "menu" | "scoreboard"] the HUD corner squares (mouse clicks)
 var menu_tex: Dictionary = {}      # assets/ui/menu art used by the pause menu
 var variant_buttons: Array = []   # [rect, role, index]
@@ -241,6 +243,7 @@ func _draw() -> void:
 	group_buttons = []
 	class_buttons = []
 	corner_buttons = []
+	quick_buttons = []
 	bind_buttons = []
 	reset_button = Rect2()
 	volume_sliders = []
@@ -316,6 +319,7 @@ func _draw() -> void:
 		if game.economy:
 			game.economy.draw_action_card(self, _me())   # repair / upgrade / turret button (economy.gd)
 		_draw_player_panel(_me())
+		_draw_quick_upgrade(_me())
 	if _me() and _me().downed:
 		_draw_downed_screen(_me())
 	if _me() and _me().dead and not game.demo:
@@ -3171,6 +3175,63 @@ func _draw_player_panel(p) -> void:
 		draw_set_transform(Vector2.ZERO)
 	if bake_mode == "":
 		panel_pass = ""
+
+
+func _draw_quick_upgrade(p) -> void:
+	## LEVEL UP over the ability strip while there are points to spend: a
+	## tile per skill that can still rank up, with its key (1-4 / the D-pad)
+	## and the level it goes to. A press buys it on the spot, anywhere, once
+	## you have been out of the fight for a few seconds (Faisal 06:04
+	## 2026-10-10: "the only way to safely upgrade is to go back to base").
+	if p == null or p.dead or p.downed or p.points <= 0 or game.rank_open or game.menu_open or game.demo:
+		return
+	var tracks: Array = []
+	for t in 4:
+		if p.track_available(t) and p.rank(t) < Stats.MAX_RANK:
+			tracks.append(t)
+	if tracks.is_empty():
+		return
+	var k := minf(1.0, size.x / 1280.0)
+	var W := size.x / k
+	var H := size.y / k
+	var now := Time.get_ticks_msec() / 1000.0
+	var tw := 70.0
+	var head_w := 128.0
+	var w := head_w + tracks.size() * (tw + 6.0) + 4.0
+	var x := W / 2.0 - w / 2.0 if touch_ui else (W - 22.0 - 142.0 - 30.0 - 235.0) - w / 2.0
+	var y := H - 132.0 if touch_ui else H - 164.0
+	var shake := 0.0
+	if now - quick_deny < 0.35:
+		shake = sin((now - quick_deny) * 55.0) * 5.0 * (1.0 - (now - quick_deny) / 0.35)
+	x += shake
+	if k < 1.0:
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
+	var calm: float = p.calm_left()
+	var R := Rect2(x, y, w, 36)
+	var pulse := 0.5 + 0.5 * sin(now * 4.0)
+	_plate(R, Color(0.08, 0.06, 0.03, 0.92), GOLD.lerp(Color(1, 0.95, 0.7), pulse * 0.4) if calm <= 0.0 else Color(0.55, 0.3, 0.2), 9, 2)
+	_text(Vector2(x + 10, y + 16), "LEVEL UP", 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	if calm > 0.0:
+		_text(Vector2(x + 10, y + 30), "In combat %.0fs" % ceilf(calm), 10, Color(1.0, 0.55, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	else:
+		_text(Vector2(x + 10, y + 30), "%d point%s to spend" % [p.points, "" if p.points == 1 else "s"], 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var tx := x + head_w
+	var abil: Array = p.abilities()
+	for t in tracks:
+		var r := Rect2(tx, y + 3, tw, 30)
+		tx += tw + 6.0
+		var icon: String = _attack_icon(p.role, p.stats()) if t == 0 else ("vigor" if t == 3 else str(abil[t - 1].get("icon", abil[t - 1].kind)))
+		var ready := calm <= 0.0
+		_plate(r, Color(0.2, 0.15, 0.06) if ready else Color(0.14, 0.12, 0.1), GOLD_DARK if ready else Color(0.35, 0.3, 0.25), 7, 1)
+		_icon(icon, r.position + Vector2(15, 15), 8.0, Color.WHITE if ready else Color(0.6, 0.6, 0.6))
+		_text(Vector2(r.position.x + 30, r.position.y + 20), "LV%d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_keycap(Vector2(r.end.x - 2, r.position.y + 2), _k("rank_%d" % (t + 1)), 18)
+		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
+		quick_buttons.append([sr, t])
+		if not pane:
+			touch_rects.append([sr, "rank_%d" % (t + 1)])
+	if k < 1.0:
+		draw_set_transform(Vector2.ZERO)
 
 
 func _touch_cluster(p, W: float, H: float) -> void:
