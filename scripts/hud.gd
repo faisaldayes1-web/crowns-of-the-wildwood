@@ -340,7 +340,9 @@ func _draw() -> void:
 		_draw_class_banner(_me())
 	if pane:
 		if local_unit:
-			_text(Vector2(14, 184 if _narrow() else 252), "PLAYER %d" % (local_unit.local_index + 1), 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+			# Under the BASE STOCK card when the economy draws one (economy.gd draw_counter).
+			var ly: float = (300.0 if _narrow() else 356.0) if game.economy else (184.0 if _narrow() else 252.0)
+			_text(Vector2(30 if _narrow() else 44, ly), "PLAYER %d" % (local_unit.local_index + 1), 15, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 		if game.rank_open and game.rank_player == local_unit:
 			_draw_rank_menu(local_unit)
 		return
@@ -4908,7 +4910,29 @@ func _menu_settings(body: Rect2) -> void:
 		for d in pads:
 			names.append(game.pad_title(d))
 		plugged = "Connected: " + ", ".join(names) + ((". Player 1 holds the %s." % game.pad_title(game.local_pad(0))) if game.couch_players > 1 else ". Press any button on it to switch the hints to its names.")
-	_paragraph(Vector2(x + 548, y + 12), plugged + " Settings are saved automatically.", 10, CREAM, w - 566, 12.0)
+	# Split Screen: how two couch players share the window.
+	var split := Rect2(x + 542, y + 2, 340, 36)
+	_opt_slot(split)
+	_text(split.position + Vector2(14, 23), "Split Screen", 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for k in 2:
+		var layout: String = ["vertical", "horizontal"][k]
+		var b := Rect2(split.position.x + 104 + k * 116, split.position.y + 4, 110, 28)
+		_opt_button(b, "", game.split_layout == layout)
+		var ink: Color = Color(1.0, 0.95, 0.8) if game.split_layout == layout else CREAM
+		_split_glyph(b.position + Vector2(17, 14), layout, ink)
+		_text(b.position + Vector2(28, 19), layout.to_upper(), 11, ink, HORIZONTAL_ALIGNMENT_CENTER, b.size.x - 30, 2)
+		toggle_buttons.append([b, "split_" + layout])
+	_paragraph(Vector2(x + 892, y + 6), plugged + " Saved automatically.", 9, CREAM, w - 904, 11.0)
+
+
+func _split_glyph(c: Vector2, layout: String, col: Color) -> void:
+	## A little screen split in two: side by side (vertical) or stacked (horizontal).
+	var r := Rect2(c - Vector2(10, 7), Vector2(20, 14))
+	draw_rect(r, col, false, 1.6)
+	if layout == "horizontal":
+		draw_line(Vector2(r.position.x, c.y), Vector2(r.end.x, c.y), col, 1.6)
+	else:
+		draw_line(Vector2(c.x, r.position.y), Vector2(c.x, r.end.y), col, 1.6)
 
 
 func _menu_audio(body: Rect2) -> void:

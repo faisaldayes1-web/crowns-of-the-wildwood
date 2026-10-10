@@ -395,6 +395,7 @@ func _init() -> void:
 
 	if backup.is_empty():
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))   # else the next run loads this test's settings from the backup
 	else:
 		var f := FileAccess.open(cfg, FileAccess.WRITE)
 		f.store_buffer(backup)
@@ -445,6 +446,12 @@ func _settings_page(where: String) -> void:
 	check(game.pad_style != style0 and saved("settings", "pad_style") == game.pad_style, "%s settings: button names steps forward (%s)" % [where, game.pad_style])
 	await tap(find(hud.toggle_buttons, "pad_style_prev"))
 	check(game.pad_style == style0, "%s settings: the left arrow steps back" % where)
+	# Split Screen: two couch players side by side or stacked.
+	for layout in ["horizontal", "vertical"]:
+		var r: Rect2 = find(hud.toggle_buttons, "split_" + layout)
+		check(r.size.x > 0.0, "%s settings: the split screen %s button is drawn" % [where, layout])
+		await tap(r)
+		check(game.split_layout == layout and saved("settings", "split_layout") == layout, "%s settings: split screen %s is picked and saved" % [where, layout])
 	for k in ["sound", "music"]:
 		var s: Rect2 = find(hud.volume_sliders, k)
 		await tap(Rect2(s.position + Vector2(s.size.x * 0.3 - 2, 0), Vector2(4, s.size.y)))

@@ -369,10 +369,11 @@ func _draw_map() -> void:
 		var ov := button(r, "split", k == 1)
 		option_box(r, on, ov, Color(1.0, 0.8, 0.25))
 		ttext(Vector2(r.position.x, r.position.y + 35), ["OFF", "ON"][k], 22, Color.WHITE if on else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-	var cap := "Play together on the same screen"
 	if _split_on():
-		cap = "Players 2-4 join in the lobby with a gamepad"
-	h._text(Vector2(gm.position.x + 116, gm.position.y + 260), cap, 12, Color(0.88, 0.86, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 376, 2)
+		# Two players: side by side (vertical) or stacked (horizontal).
+		_layout_picker(Rect2(gm.position.x + 116, gm.position.y + 240, 376, 34))
+	else:
+		h._text(Vector2(gm.position.x + 116, gm.position.y + 260), "Play together on the same screen", 12, Color(0.88, 0.86, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 376, 2)
 	h._text(Vector2(gm.position.x, gm.position.y + 284), "Bots fill every empty place on both sides.", 10, Color(0.7, 0.7, 0.68), HORIZONTAL_ALIGNMENT_CENTER, gm.size.x, 2)
 	var playable: bool = _card_open(map_pick)
 	green_button(Rect2(h.size.x / 2.0 - 190, 618, 380, 74), "START MATCH", "to_lobby", playable)
@@ -945,6 +946,22 @@ func _draw_lobby() -> void:
 	h._text(Vector2(0, 638), note, 13, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
 	wood_button(Rect2(56, 652, 220, 54), "BACK", "back", null, "", 22)
 	green_button(Rect2(h.size.x - 452, 646, 400, 68), "START MATCH" if all_ready else "WAITING...", "start", all_ready)
+	if game.couch_players == 2:
+		_layout_picker(Rect2(h.size.x / 2.0 - 230, 662, 340, 34))
+
+
+func _layout_picker(r: Rect2) -> void:
+	## SPLIT SCREEN layout for two players: VERTICAL (side by side) or
+	## HORIZONTAL (top and bottom). The same setting as the Options board's.
+	var bw := (r.size.x - 8.0) / 2.0
+	for k in 2:
+		var layout: String = ["vertical", "horizontal"][k]
+		var b := Rect2(r.position.x + k * (bw + 8.0), r.position.y, bw, r.size.y)
+		var on: bool = game.split_layout == layout
+		var ov := button(b, "split_layout", layout)
+		option_box(b, on, ov, Color(1.0, 0.8, 0.25))
+		h._split_glyph(b.position + Vector2(22, b.size.y / 2.0), layout, Color.WHITE if on else Color(0.75, 0.75, 0.75))
+		ttext(Vector2(b.position.x + 34, b.position.y + b.size.y / 2.0 + 6), layout.to_upper(), 15, Color.WHITE if on else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, b.size.x - 40, 3)
 
 
 func _side_chip(r: Rect2, k: int, team: int) -> void:
@@ -1159,6 +1176,8 @@ func _press(id: String, arg) -> void:
 				game.couch_players = 1
 				join_pads = []
 			game._save_settings()
+		"split_layout":
+			game.set_split_layout(str(arg))
 		"to_lobby":
 			if _card_open(map_pick):
 				go("lobby")

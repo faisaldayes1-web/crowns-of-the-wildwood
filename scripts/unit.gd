@@ -2210,7 +2210,7 @@ func _a(action: String) -> StringName:
 
 func _update_player_aim(move: Vector3) -> void:
 	var cam: Camera3D = game.camera_for(self)
-	var mouse: Vector2 = cam.get_viewport().get_mouse_position() if has_mouse else last_mouse
+	var mouse: Vector2 = game.mouse_for(self) if has_mouse else last_mouse
 	var stick := Input.get_vector(_a("aim_left"), _a("aim_right"), _a("aim_up"), _a("aim_down"))
 	if stick.length() > 0.3 or game.touch_active:
 		aim_mode = "stick"

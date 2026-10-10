@@ -117,6 +117,7 @@ var hero_mark := 0              # Stats.HERO_MARKS index
 var hero_body := 0              # Stats.HERO_BODIES index: the unclassed body's build
 var team_size := TEAM_SIZE      # fighters a side; fixed at TEAM_SIZE for now, bots fill the gaps
 var split_screen := false       # SELECT MAP's SPLIT SCREEN: extra pads may join in the lobby
+var split_layout := "vertical"  # two-player split: "vertical" (side by side) or "horizontal" (top and bottom)
 var lobby_sides: Array = []     # READY UP: each local player's side (0 Elves, 1 Humans)
 var join_pads: Array = []       # READY UP: pad device of local players 2-4, in join order
 var p1_pad_device := -1         # the pad player 1 used in the menus (-1: none or unknown)
@@ -239,6 +240,11 @@ var couch_active := false       # a split-screen match is running
 var locals: Array = []          # the local players' units, index 0 is `player`
 var panes: Array = []           # per local player: {unit, view, cam, hud, cam_pos}
 var split_layer: CanvasLayer
+var split_fill: ColorRect
+const SPLIT_TALL_ZOOM := 1.3    # camera pull-back in a side-by-side (half-width, full-height) pane
+const SPLIT_HUD_SHARE := 0.26   # most of a pane's height the HUD's top bar + bottom row may cover
+const SPLIT_HUD_ROWS := 260.0   # those two rows' height in HUD units
+const SPLIT_HUD_WIDTH := 1240.0 # HUD units the bottom row needs across
 var rank_player = null          # whose perk menu is open
 const COUCH_MAX := 4
 const COUCH_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "aim_left", "aim_right", "aim_up", "aim_down",
@@ -1293,6 +1299,7 @@ func toggle_setting(key: String) -> void:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
 		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
 		"pad_style_prev": pad_style = {"auto": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
+		"split_vertical", "split_horizontal": set_split_layout(key.trim_prefix("split_"))
 		"test_sound":
 			sfx.ui("ui_confirm", 0.0)
 			return
@@ -1828,6 +1835,8 @@ func _start_match(team: int) -> void:
 			couch_players = clampi(int(arg.trim_prefix("--couch=")), 1, COUCH_MAX)  # testing: split-screen renders
 		if arg.begins_with("--couch-mode="):
 			couch_mode = arg.trim_prefix("--couch-mode=")
+		if arg.begins_with("--split="):
+			split_layout = "horizontal" if arg.trim_prefix("--split=") == "horizontal" else "vertical"  # testing: --split=vertical|horizontal
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--team-size="):
 			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEST_TEAM_MAX)  # testing only (batches): 3v3 / 5v5; the live game stays TEAM_SIZE
@@ -2051,13 +2060,30 @@ func _update_camera(delta: float) -> void:
 		# One camera a pane, each on its own player.
 		for pane in panes:
 			var u = pane.unit
-			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.global_position) + CAMERA_OFFSET * cam_zoom
+			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.global_position) + CAMERA_OFFSET * cam_zoom * pane.zoom
 			pane.cam_pos = pane.cam_pos.lerp(t, clampf(delta * 5.0, 0.0, 1.0))
 			pane.cam.global_position = pane.cam_pos + jolt
 		return
 	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.global_position) + CAMERA_OFFSET * cam_zoom
 	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
 	camera.global_position = cam_pos + jolt
+
+
+func mouse_for(u) -> Vector2:
+	## The mouse in the viewport of the camera looking at u. In couch play
+	## the mouse belongs to player 1 (keyboard and mouse) while the others use
+	## pads: it is read from the whole window and mapped into player 1's pane,
+	## held to its edges, so the cursor over another pane never aims there.
+	if couch_active:
+		for pane in panes:
+			if pane.unit == u:
+				var r: Rect2 = pane.box.get_global_rect()
+				if r.size.x <= 0.0 or r.size.y <= 0.0:
+					break
+				var local: Vector2 = (get_viewport().get_mouse_position() - r.position) / r.size
+				local = local.clamp(Vector2.ZERO, Vector2.ONE)
+				return local * Vector2(pane.view.size)
+	return camera_for(u).get_viewport().get_mouse_position()
 
 
 func camera_for(u) -> Camera3D:
@@ -2226,34 +2252,17 @@ func _bind_couch_input() -> void:
 
 
 func _build_panes() -> void:
-	## Split the window: two players stack top and bottom, three or four
-	## take the quarters. Each pane is a SubViewport sharing the world with
-	## its own camera and HUD.
+	## Split the window: one SubViewport a local player, sharing the world
+	## with its own camera and HUD. _layout_panes places them.
 	couch_active = true
 	camera.current = false
 	split_layer = CanvasLayer.new()
 	split_layer.layer = 0
 	add_child(split_layer)
-	var n := couch_players
-	var rects: Array = []
-	if n == 2:
-		rects = [Rect2(0, 0, 1, 0.5), Rect2(0, 0.5, 1, 0.5)]
-	else:
-		rects = [Rect2(0, 0, 0.5, 0.5), Rect2(0.5, 0, 0.5, 0.5), Rect2(0, 0.5, 0.5, 0.5), Rect2(0.5, 0.5, 0.5, 0.5)]
-	var hud_scale := 0.72 if n == 2 else 0.56
-	for k in n:
+	for k in couch_players:
 		var u = locals[k]
-		var r: Rect2 = rects[k]
 		var box := SubViewportContainer.new()
 		box.stretch = true
-		box.anchor_left = r.position.x
-		box.anchor_top = r.position.y
-		box.anchor_right = r.end.x
-		box.anchor_bottom = r.end.y
-		box.offset_left = 2 if r.position.x > 0.0 else 0
-		box.offset_top = 2 if r.position.y > 0.0 else 0
-		box.offset_right = -2 if r.end.x < 1.0 else 0
-		box.offset_bottom = -2 if r.end.y < 1.0 else 0
 		split_layer.add_child(box)
 		var view := SubViewport.new()
 		view.handle_input_locally = false
@@ -2270,23 +2279,73 @@ func _build_panes() -> void:
 		h.game = self
 		h.local_unit = u
 		h.pane = true
-		h.scale = Vector2.ONE * hud_scale
 		h.process_mode = Node.PROCESS_MODE_ALWAYS
 		view.add_child(h)
-		var pane := {"unit": u, "view": view, "cam": cam, "hud": h, "cam_pos": u.global_position + CAMERA_OFFSET * cam_zoom}
-		cam.global_position = pane.cam_pos
+		var pane := {"unit": u, "box": box, "view": view, "cam": cam, "hud": h, "hud_scale": 1.0, "zoom": 1.0, "cam_pos": u.global_position}
 		panes.append(pane)
-		view.size_changed.connect(func(): h.size = Vector2(view.size) / hud_scale)
-		h.size = Vector2(view.size) / hud_scale
-	if n == 3:
+		view.size_changed.connect(func(): h.size = Vector2(view.size) / pane.hud_scale)
+	if couch_players == 3:
 		# The spare quarter: a dark plate so it is not raw clear colour.
-		var fill := ColorRect.new()
-		fill.color = Color(0.05, 0.06, 0.09)
-		fill.anchor_left = 0.5
-		fill.anchor_top = 0.5
-		fill.anchor_right = 1.0
-		fill.anchor_bottom = 1.0
-		split_layer.add_child(fill)
+		split_fill = ColorRect.new()
+		split_fill.color = Color(0.05, 0.06, 0.09)
+		split_fill.anchor_left = 0.5
+		split_fill.anchor_top = 0.5
+		split_fill.anchor_right = 1.0
+		split_fill.anchor_bottom = 1.0
+		split_layer.add_child(split_fill)
+	_layout_panes()
+	for pane in panes:
+		pane.cam_pos = pane.unit.global_position + CAMERA_OFFSET * cam_zoom * pane.zoom
+		pane.cam.global_position = pane.cam_pos
+
+
+func pane_rects(n: int, layout: String) -> Array:
+	## Where each local player's pane sits, as fractions of the window. Two
+	## players split vertically (side by side) or horizontally (top and
+	## bottom), per the Split Screen setting; three or four take the quarters.
+	if n == 2:
+		if layout == "horizontal":
+			return [Rect2(0, 0, 1, 0.5), Rect2(0, 0.5, 1, 0.5)]
+		return [Rect2(0, 0, 0.5, 1), Rect2(0.5, 0, 0.5, 1)]
+	return [Rect2(0, 0, 0.5, 0.5), Rect2(0.5, 0, 0.5, 0.5), Rect2(0, 0.5, 0.5, 0.5), Rect2(0.5, 0.5, 0.5, 0.5)]
+
+
+func _layout_panes() -> void:
+	## Size every pane for the current layout: its HUD scale (so the HUD fits
+	## the pane) and its camera pull-back (a tall half-width pane sees less of
+	## the lanes left to right, so its camera rises to keep the same reach).
+	var n := panes.size()
+	var rects := pane_rects(n, split_layout)
+	for k in n:
+		var pane: Dictionary = panes[k]
+		var r: Rect2 = rects[k]
+		var box: SubViewportContainer = pane.box
+		box.anchor_left = r.position.x
+		box.anchor_top = r.position.y
+		box.anchor_right = r.end.x
+		box.anchor_bottom = r.end.y
+		box.offset_left = 2 if r.position.x > 0.0 else 0
+		box.offset_top = 2 if r.position.y > 0.0 else 0
+		box.offset_right = -2 if r.end.x < 1.0 else 0
+		box.offset_bottom = -2 if r.end.y < 1.0 else 0
+		var tall := r.size.y > r.size.x * 1.2
+		# Keep the game view in charge (Faisal 2026-10-10: the split-screen
+		# HUD must not take up most of the screen): the top bar and the
+		# bottom row together stay near a quarter of the pane's height, and
+		# the bottom row still fits the pane's width.
+		var px: Vector2 = get_viewport().get_visible_rect().size * r.size
+		pane.hud_scale = clampf(minf(px.y * SPLIT_HUD_SHARE / SPLIT_HUD_ROWS, px.x / SPLIT_HUD_WIDTH), 0.4, 0.72)
+		pane.zoom = SPLIT_TALL_ZOOM if tall else 1.0
+		pane.hud.scale = Vector2.ONE * pane.hud_scale
+		pane.hud.size = Vector2(pane.view.size) / pane.hud_scale
+
+
+func set_split_layout(layout: String) -> void:
+	## The Split Screen setting (Options and READY UP): live in a match too.
+	split_layout = "horizontal" if layout == "horizontal" else "vertical"
+	if couch_active:
+		_layout_panes()
+	_save_settings()
 
 
 func shake(amount: float) -> void:
@@ -3332,6 +3391,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "hero_body", hero_body)
 	cfg.set_value("settings", "team_size", team_size)
 	cfg.set_value("settings", "split_screen", split_screen)
+	cfg.set_value("settings", "split_layout", split_layout)
 	cfg.set_value("profile", "account_xp", account_xp)
 	cfg.set_value("profile", "account_gold", account_gold)
 	cfg.set_value("profile", "account_shards", account_shards)
@@ -3436,6 +3496,7 @@ func _load_controls() -> void:
 	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)
 	team_size = TEAM_SIZE   # 4v4 only for now: an older saved team size is ignored
 	split_screen = cfg.get_value("settings", "split_screen", false)
+	split_layout = "horizontal" if cfg.get_value("settings", "split_layout", "vertical") == "horizontal" else "vertical"
 	account_xp = maxi(int(cfg.get_value("profile", "account_xp", 0)), 0)
 	account_gold = maxi(int(cfg.get_value("profile", "account_gold", 0)), 0)
 	account_shards = maxi(int(cfg.get_value("profile", "account_shards", 0)), 0)

@@ -43,6 +43,8 @@ func _init() -> void:
 	check(game.lobby_sides[0] == 1, "player 1 switches to the Humans")
 	m.add_player(3)
 	check(game.couch_players == 2 and game.split_screen and m.join_pads == [3], "a pad joins as player 2")
+	m._press("split_layout", "horizontal")
+	check(game.split_layout == "horizontal", "READY UP: two players can split HORIZONTAL (top and bottom)")
 	m.start()
 	check(not game.playing, "the match waits for player 2 to ready up")
 	m._press("readied", 1)
@@ -56,8 +58,26 @@ func _init() -> void:
 	check(game.local_pad(1) == 3, "player 2 keeps the pad they joined with")
 	check(game.menu_stage == null, "the menu stage is gone")
 	check(game.couch_active and not game.camera.current, "the split panes have the cameras (current=%s)" % game.camera.current)
+	if game.couch_active:
+		var b0: Control = game.panes[0].box
+		var b1: Control = game.panes[1].box
+		check(b0.anchor_bottom == 0.5 and b1.anchor_top == 0.5 and b1.anchor_left == 0.0, "horizontal split: player 1 on top, player 2 below")
+		game.set_split_layout("vertical")
+		check(b0.anchor_right == 0.5 and b1.anchor_left == 0.5 and b1.anchor_top == 0.0, "vertical split (switched mid-match): side by side")
+		# Player 1 aims with the mouse inside their own (left) pane; the
+		# cursor over player 2's pane is held to player 1's edge.
+		check(game.locals[0].has_mouse and not game.locals[1].has_mouse, "player 1 has the keyboard and mouse, player 2 the pad")
+		var mm := InputEventMouseMotion.new()
+		mm.position = Vector2(1100, 360)
+		mm.global_position = mm.position
+		Input.parse_input_event(mm)
+		await process_frame
+		var mp: Vector2 = game.mouse_for(game.locals[0])
+		check(mp.x > 0.0 and mp.x <= float(game.panes[0].view.size.x) + 0.5, "the mouse over player 2's pane stays in player 1's pane (%s)" % str(mp))
+		check(game.panes[0].zoom > 1.0 and game.panes[0].hud.size.y > game.panes[0].hud.size.x, "vertical split: tall panes pull the camera back and get a tall HUD")
 	if saved.is_empty():
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))   # else the next run loads this test's settings from the backup
 	else:
 		var f := FileAccess.open(cfg, FileAccess.WRITE)
 		f.store_buffer(saved)
