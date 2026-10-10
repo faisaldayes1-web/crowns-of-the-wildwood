@@ -3426,8 +3426,10 @@ func _read_save(cfg: ConfigFile) -> Error:
 
 func _write_save(cfg: ConfigFile) -> Error:
 	_flush_save()
-	if DisplayServer.get_name() == "headless":
-		return SaveFile.write(cfg, CONTROLS_PATH)   # tests read the file straight back
+	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
+		# Tests read the file straight back; a browser build has no worker
+		# threads (and writes to its own storage, fast).
+		return SaveFile.write(cfg, CONTROLS_PATH)
 	var text := cfg.encode_to_text()
 	_save_task = WorkerThreadPool.add_task(func():
 		var c := ConfigFile.new()
@@ -9498,7 +9500,7 @@ func _keep_window_alive() -> void:
 	if now - _alive_frame_start < 250 or now - _alive_ms < 250:
 		return
 	_alive_ms = now
-	if DisplayServer.get_name() != "headless":
+	if DisplayServer.get_name() != "headless" and not OS.has_feature("web"):   # (a browser tab never goes "Not Responding")
 		DisplayServer.force_process_and_drop_events()
 
 
