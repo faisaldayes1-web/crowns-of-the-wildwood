@@ -1299,9 +1299,12 @@ func _tick_calm() -> void:
 
 
 func field_ok(p) -> bool:
-	## Out of combat long enough to upgrade from the field.
+	## Out of combat long enough to upgrade from the field. Uses UI & Art's
+	## calm rule (unit.calm_left(), the LEVEL UP strip's) where it exists.
 	if p == null or not is_instance_valid(p) or p.dead or p.get("downed") == true:
 		return false
+	if p.has_method("calm_left"):
+		return p.calm_left() <= 0.0
 	return Time.get_ticks_msec() - int(_calm_since.get(p, Time.get_ticks_msec())) >= int(Stats.ECONOMY.field_calm * 1000.0)
 
 
@@ -1331,6 +1334,20 @@ func field_hat_offers(p) -> Array:
 			"desc": a.get("desc", ""), "icon": a.get("icon", "upgrade"), "wood": E.hat_wood, "ore": E.hat_ore,
 			"ok": reason == "", "reason": reason, "upgraded": done})
 	return out
+
+
+func quick_tiles(p) -> Array:
+	## Tiles for UI & Art's LEVEL UP strip (the one quick-upgrade surface):
+	## the player's own class hat machine while it is not upgraded yet.
+	if p == null or not is_instance_valid(p) or p.dead or p.role == Role.BASE:
+		return []
+	for o in field_hat_offers(p):
+		if o.role == p.role and not o.upgraded:
+			var role: int = o.role
+			return [{"icon": o.icon, "label": o.move_name, "sub": "HAT · %s" % game.key_label("ability_3"),
+				"cost_text": _cost_text(o.wood, o.ore), "ok": o.ok, "reason": o.reason,
+				"buy": func() -> bool: return buy_hat_remote(p, role)}]
+	return []
 
 
 func buy_hat_remote(p, role: int) -> bool:
