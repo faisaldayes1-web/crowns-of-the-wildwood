@@ -167,7 +167,7 @@ const GATE_SIEGE_RADIUS := 9.0   # a broken door does not rebuild while an enemy
 # outside the front wall), never in the door lane.
 const TURRET := {"hits": [8, 12, 16], "range": [7.0, 8.0, 9.0], "interval": [1.5, 1.2, 0.95],
 	"damage": 1, "shot_speed": 34.0, "max_level": 3, "team_max": 6, "place_dist": 1.8, "grounds": 14.0,
-	"door_repair": 12.0}
+	"door_repair": 12.0, "rampart_lift": 0.7}   # a bolt from the rampart starts this much higher, over the merlons
 const MATCH_TIME := 600.0     # seconds
 const SEAL_REACH := 2.2     # how close you stand to a class seal to grab it with F
 const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins
@@ -508,3 +508,85 @@ static func xp_span(level: int) -> Array:
 	var start: int = 0 if level <= 1 else XP_LEVELS[mini(level - 2, XP_LEVELS.size() - 1)]
 	var next: int = XP_LEVELS[level - 1] if level - 1 < XP_LEVELS.size() else -1
 	return [start, next]
+
+
+# --- Economy (Economy group, 2026-10-09) -------------------------------------
+# Wood from lumber trees and ore from ore deposits, carried on your back to
+# the storehouse in your castle yard. The team pool pays for hat machine
+# upgrades, door repairs and base turrets. See scripts/economy.gd.
+const ECONOMY := {
+	"gather_time": 2.6,      # seconds of chopping or mining for one unit
+	"carry_max": 3,          # units a soldier can carry at once (wood and ore together)
+	"reach": 2.2,            # how close you stand to a tree or deposit to work it
+	"tree_stock": 4,         # wood a lumber tree gives before it is felled
+	"ore_stock": 3,          # ore a deposit gives before it is spent
+	"regrow": 45.0,          # seconds until a felled tree regrows or a spent deposit refills
+	"depot_radius": 2.6,     # walk into the storehouse ring to drop everything you carry
+	"drop_life": 40.0,       # seconds a dead soldier's dropped load stays on the ground
+	"hat_wood": 5, "hat_ore": 5,          # (old team-wide G-move upgrade; replaced by training below)
+	# Training at your class's hat machine (Faisal 2026-10-10 09:36): late in
+	# the match, buy experience up to the point where you can pick your
+	# class's variant. Personal, and dearer than the old hat upgrade.
+	"train_wood": 14, "train_ore": 0,   # wood only since Faisal scrapped ore (2026-10-10 09:51); was 8 / 8
+	"ore_on": false,         # Faisal 2026-10-10 09:51: "scrap the ore idea and keep it wood for now" (ore spots grow trees)
+	"train_after": 300,      # match seconds before training opens (the second half of a 10-minute match)
+	"repair_wood": 3, "repair_ore": 0, "repair_hits": 35,     # mend your door by 35 hits (was 2 wood 1 ore)
+	"rebuild_wood": 6, "rebuild_ore": 0, "rebuild_hits": 100, # raise a broken door at once, not under siege (was 4 / 2)
+	"turret_wood": 3, "turret_ore": 0,    # a base turret on an empty turret pad (was 3 / 3, then 2 / 1; wood only since 2026-10-10)
+	"turret_up_wood": 2, "turret_up_ore": 0,   # raise a base turret a level (up to 3; was 2 / 2, then 1 / 1)
+	"turret_fix_wood": 1, "turret_fix_ore": 0, # patch a damaged turret back to full (was 1 / 1)
+	"door_reach": 4.0,       # how close to your door you stand to mend it
+	"pad_reach": 1.8,        # how close to a turret pad you stand to buy or tend a turret
+	"bot_gatherers": 1,      # bots per team that gather (the Engineer; else an attacker, see bot_attacker_hats)
+	"bot_reserve_wood": 3, "bot_reserve_ore": 0,
+	"bot_attacker_until": 17,  # an attacker (no Engineer on the team) gathers only while the pool is below this   # all-bot teams keep this back for a door repair
+	"bot_attacker_hats": 2,   # with no Engineer bot, an attacker gathers only until this many hat machines are upgraded
+	"bot_repair_below": 100,   # all-bot teams mend their door only once it is down to this (no mending under siege)
+	"bot_repair_gap": 45.0,   # ...and at most once every this many seconds
+	"door_bar_lift": 1.6,    # metres the door's overhead health bar sits higher than World & Maps placed it
+	"bot_turrets_early": 1,  # all-bot teams put this many turrets up before their first hat upgrade...
+	"bot_turrets": 1,        # ...and this many after it
+	"bot_turrets_with_human": 1,   # bots on a team with a player build up to this many
+	"field_calm": 3.0,       # seconds out of combat before a hat machine can be upgraded from the field (quick-upgrade popup)
+	"field_foe_radius": 9.0, # an enemy this close counts as combat
+}
+
+# The extra move a class gets from its upgraded hat (key G, pad left stick
+# click): one per class and faction. Elves keep to wind, leaf and moonlight,
+# Humans to steel, fire and holy light. Every move reuses an existing ability
+# kind (unit.gd use_ability), so it plays like the rest of the kit.
+const HAT_UPGRADES := {
+	0: {
+		Role.KNIGHT: {"name": "Leafstorm", "key": "G", "kind": "cleave", "icon": "cleave", "cooldown": 6, "cost": 40.0,
+			"damage": 1, "radius": 3.2, "color": Color(0.55, 0.9, 0.4), "desc": "Spin the glaive in a storm of leaves: a heart to everyone around you, and a shove."},
+		Role.RANGER: {"name": "Moonpiercer", "key": "G", "kind": "shot", "icon": "pierce", "cooldown": 6, "cost": 40.0,
+			"damage": 1, "range": 20.0, "shot_speed": 55.0, "pierce": true, "desc": "A silver arrow that flies through everyone in its line."},
+		Role.MAGE: {"name": "Wild Roots", "key": "G", "kind": "curse", "icon": "bramble", "cooldown": 9, "cost": 50.0,
+			"damage": 1, "radius": 4.5, "slow": 2.5, "color": Color(0.45, 0.8, 0.3), "desc": "Roots burst up around you: every enemy close by loses a heart and crawls."},
+		Role.HEALER: {"name": "Bloom Ward", "key": "G", "kind": "bubble", "icon": "bubble", "cooldown": 10, "cost": 45.0,
+			"duration": 1.5, "radius": 3.0, "desc": "A dome of petals: nothing hurts you or the teammates inside it for a moment."},
+		Role.ENGINEER: {"name": "Bramble Field", "key": "G", "kind": "trap", "icon": "trap", "cooldown": 8, "cost": 40.0,
+			"damage": 1, "root": 1.5, "count": 3, "lifetime": 30.0, "desc": "Grow three snaring brambles in a row."},
+		Role.ROGUE: {"name": "Leaf Step", "key": "G", "kind": "blink", "icon": "blink", "cooldown": 5, "cost": 30.0,
+			"distance": 7.0, "desc": "Vanish into the leaves and step out further on."},
+	},
+	1: {
+		Role.KNIGHT: {"name": "Crusader Charge", "key": "G", "kind": "bash", "icon": "bash", "cooldown": 6, "cost": 40.0,
+			"damage": 2, "distance": 6.0, "desc": "A long charge in steel: two hearts to everyone in the way."},
+		Role.RANGER: {"name": "Steel Volley", "key": "G", "kind": "volley", "icon": "volley", "cooldown": 6, "cost": 40.0,
+			"damage": 1, "arrows": 5, "spread": 26.0, "range": 14.0, "shot_speed": 40.0, "desc": "A fan of five crossbow bolts."},
+		Role.MAGE: {"name": "Flame Wave", "key": "G", "kind": "cleave", "icon": "wave", "cooldown": 6, "cost": 40.0,
+			"damage": 1, "radius": 4.5, "cone": true, "fire": true, "desc": "A fan of fire that burns everyone in front of you."},
+		Role.HEALER: {"name": "Divine Smite", "key": "G", "kind": "smite", "icon": "smite", "cooldown": 5, "cost": 40.0,
+			"damage": 2, "range": 12.0, "shot_speed": 36.0, "splash": 1.4, "desc": "A heavy bolt of holy light: two hearts, bursting on impact."},
+		Role.ENGINEER: {"name": "Hand Ballista", "key": "G", "kind": "shot", "icon": "snipe", "cooldown": 6, "cost": 40.0,
+			"damage": 2, "gate_damage": 6, "range": 16.0, "shot_speed": 50.0, "desc": "A heavy steel bolt: two hearts, and six hits to a door."},
+		Role.ROGUE: {"name": "Throwing Knives", "key": "G", "kind": "volley", "icon": "dagger", "cooldown": 5, "cost": 30.0,
+			"damage": 1, "arrows": 3, "spread": 18.0, "range": 10.0, "shot_speed": 38.0, "desc": "Three knives thrown in a fan."},
+	},
+}
+
+
+static func hat_upgrade(team: int, role: int) -> Dictionary:
+	## The extra move an upgraded hat gives `role` on `team`, or {}.
+	return HAT_UPGRADES.get(team, {}).get(role, {})

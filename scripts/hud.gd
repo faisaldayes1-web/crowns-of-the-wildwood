@@ -217,9 +217,13 @@ func _draw() -> void:
 			_draw_minimap(Vector2(88, 90), 68.0)
 		else:
 			_draw_minimap(Vector2(124, 124), 100.0)
+		if game.economy and _me():
+			game.economy.draw_counter(self, _me())   # team wood and ore (economy.gd)
 	_draw_toasts()
 	if _me() and not game.guide_open:
 		_draw_world_prompt()
+		if game.economy:
+			game.economy.draw_action_card(self, _me())   # repair / upgrade / turret button (economy.gd)
 		_draw_player_panel(_me())
 	if game.killer_timer > 0.0 and _me() and _me().dead and not game.killer_card.is_empty():
 		_draw_killer_card()
@@ -2480,6 +2484,8 @@ func _draw_player_panel(p) -> void:
 	var bx := W - 22.0 - buttons_w
 	_corner_buttons(Vector2(bx, H - 89))
 	_ability_strip(p, Rect2(Vector2(bx - 30.0 - 470.0, H - 122), Vector2(470, 110)))
+	if game.economy:
+		game.economy.draw_hat_slot(self, p, Rect2(Vector2(bx - 30.0 - 470.0, H - 122), Vector2(470, 110)))   # the upgraded hat's move
 	_status_tags(p, panel)
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
