@@ -181,6 +181,7 @@ var show_fps := false
 var quit_armed := 0.0          # pause menu: seconds the MAIN MENU button stays armed after a first click
 var gfx_quality := 2           # graphics preset: 0 Low, 1 Medium, 2 High, 3 Ultra
 var fps_intro_done := false    # the FPS counter was switched on once for the alpha testers
+var lamp_shadows: Array = []   # lamps that cast shadows (off on Low)
 var gfx_picked := false        # the player chose a preset in Settings (no automatic changes after that)
 var _fps_frames := 0           # automatic quality: frames counted in the current window...
 var _fps_since := 0            # ...since this time (msec), 0 = not counting
@@ -6024,7 +6025,9 @@ func _add_chandelier(pos: Vector3, elven: bool, shadows: bool = true) -> void:
 	var light := OmniLight3D.new()
 	light.position = pos
 	# Browsers: no lamp shadows (each is two more depth passes a frame).
-	light.shadow_enabled = shadows and not OS.has_feature("web")
+	light.shadow_enabled = shadows and not OS.has_feature("web") and gfx_quality >= 1
+	if shadows:
+		lamp_shadows.append(light)
 	light.shadow_bias = 0.08
 	if elven:
 		# Warm lantern light with a hint of green: pure green washed the
@@ -6752,7 +6755,9 @@ func _add_light(pos: Vector3, color: Color, energy: float, range_m: float, shado
 	light.light_color = color
 	light.light_energy = energy
 	light.omni_range = range_m
-	light.shadow_enabled = shadows and not OS.has_feature("web")
+	light.shadow_enabled = shadows and not OS.has_feature("web") and gfx_quality >= 1
+	if shadows:
+		lamp_shadows.append(light)
 	light.position = pos
 	add_child(light)
 	return light
@@ -8809,6 +8814,9 @@ func apply_graphics() -> void:
 	# Low and Medium: low-quality contact shadows, and two
 	# sun shadow cascades on Low (High keeps the project's Ultra AO and four).
 	RenderingServer.environment_set_ssao_quality(RenderingServer.ENV_SSAO_QUALITY_LOW if q <= 1 else RenderingServer.ENV_SSAO_QUALITY_ULTRA, true, 0.5, 2, 50.0, 300.0)
+	for l in lamp_shadows:
+		if is_instance_valid(l):
+			l.shadow_enabled = q >= 1 and not OS.has_feature("web")   # each is six more depth passes a frame
 	if sun_light and not OS.has_feature("web"):
 		sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == 0 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	if world_environment:
