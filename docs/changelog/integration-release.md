@@ -4,6 +4,15 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-10 09:20 UTC · `a238ae5`, `10d71ef`, `b679b8d` · Online play in the alpha, World & Maps trees
+
+- **What:** Faisal chose "Add online" (09:01): merged Online & Platforms (`e8fca2c`, then its catch-up merge `cc92436`, which buffers a joiner's attack taps) so the title's ONLINE button makes and joins 4-letter rooms over Faisal's Render relay `wss://crowns-of-the-wildwood.onrender.com`. Merged World & Maps `007d782` (clump-dome tree crowns, jagged pine tiers, z-fighting audit, wall stubs off the paths).
+- **Conflicts resolved:** `character_model.gd` (`play_once` keeps the `recover` argument and is mirrored to joiners), `unit.gd` (attack buffer and skill/dodge input buffer read input through `_tap`/`_held`; economy-card click guard only for the local player), `skill_fx.gd`, `game.gd`, `docs/changelog/online-platforms.md` (both sides kept).
+- **Files:** merges only.
+- **Tunables:** `online/relay_url` → `wss://crowns-of-the-wildwood.onrender.com` (from Online).
+- **Tested:** import clean; options menu, menu flow, store, store menu and save tests 0 failures; `tools/tests/run.sh` 0 failures; `tools/net_smoke.sh` passes over ENet and the relay, locally and against Render; bot matches on both maps; the .exe under wine.
+- **Revert:** `git revert -m 1 b679b8d`, `git revert -m 1 10d71ef`, `git revert -m 1 a238ae5` (newest first).
+
 ### 2026-10-10 08:55 UTC · `475d3a0`..`a81e452` · Stutter fixes, and every group's newest work in the alpha
 
 - **What:** Faisal (RTX 4090) saw stutter on menus and simple actions, and the iPad needed five taps on PLAY. Causes and fixes: the keep-the-window-alive pump from `14c7815` dropped input every quarter second during play; it now runs only inside a frame already 250 ms long, and never on the web (`475d3a0`, `4f2264e`). The settings save (five file operations) ran on every menu click; on Windows it now writes on a worker thread (`475d3a0`). Menu screens and every combat effect are shown once behind the loading art so their first use does not stall. A graphics card starts on High again. Merged: balance patch 3 (`b8a721d`), UI & Art `4d33ee6` (`02a4d9d`), Combat ranged hit confirm (`a701795`), Economy cheaper turrets and LEVEL UP hat tile (`9cd8a04`), Split-screen layouts PR #16 (`76b326f`), Music orchestral tracks PR #15 (`a81e452`, CREDITS kept both lines). options_menu_test re-finds each touch tile after the strip re-lays out (`cf8100d`).
