@@ -51,6 +51,7 @@ var exit_armed := 0.0
 var readied := [true, false, false, false]   # lobby: local players 2-4 ready up
 var join_pads: Array = []    # lobby: the pad device of local players 2-4, in join order
 var p1_pad := -1             # the pad player 1 last used in the menus
+var room_entry := ""         # online: the room code being typed or tapped in
 var font_title: Font
 var tex := {}
 var store                    # store.gd: the STORE screen
@@ -211,6 +212,7 @@ func draw(hud) -> void:
 		"character": _draw_character()
 		"lobby": _draw_lobby()
 		"store": store.draw(h, stage, preview_team)
+		"online": _draw_online()
 		_: _draw_title()
 	if overlay != "":
 		h.draw_rect(Rect2(Vector2.ZERO, h.size), Color(0, 0, 0, 0.55))
@@ -268,21 +270,31 @@ func _draw_title() -> void:
 		var r := _bg_rect(BG_ITEMS[i])
 		if button(r, ids[i]):
 			_bg_hover(r.grow(-2), 8)
-	# STORE: a plank like the painted ones, under EXIT, and the gold purse
-	# under the account chip (both open the store).
+	# STORE and ONLINE: two half planks like the painted ones, under EXIT,
+	# and the gold purse under the account chip (it opens the store too).
 	# (Not clickable under an overlay: the purse sits under its close button.)
-	var sr := _bg_rect(BG_STORE)
+	var row := _bg_rect(BG_STORE)
+	var gap := row.size.x * 0.03
+	var sr := Rect2(row.position, Vector2((row.size.x - gap) / 2.0, row.size.y))
+	var orr := Rect2(sr.end.x + gap, row.position.y, sr.size.x, row.size.y)
 	var sov := button(sr, "store") if overlay == "" else false
 	nine("btn_wood_hi" if sov else "btn_wood", sr, 20, 20, 20, 20)
 	if sov:
 		_bg_hover(sr.grow(-2), 8)
-	# Laid out like the painted planks: the icon at the left, the word from ~29%.
-	h._icon("coin", sr.position + Vector2(sr.size.x * 0.12, sr.size.y / 2.0), sr.size.y * 0.2, Color.WHITE)
-	ttext(Vector2(sr.position.x + sr.size.x * 0.29, sr.position.y + sr.size.y * 0.68), "STORE", int(sr.size.y * 0.5), Color(1, 0.97, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	h._icon("coin", sr.position + Vector2(sr.size.y * 0.5, sr.size.y / 2.0), sr.size.y * 0.2, Color.WHITE)
+	ttext(Vector2(sr.position.x + sr.size.y * 0.95, sr.position.y + sr.size.y * 0.68), "STORE", int(sr.size.y * 0.46), Color(1, 0.97, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
 	if game.account_chests > 0:
-		var badge := Vector2(sr.end.x - sr.size.y * 0.95, sr.get_center().y)
-		h._icon("chest", badge, sr.size.y * 0.17, Color.WHITE)
-		ttext(badge + Vector2(sr.size.y * 0.3, sr.size.y * 0.2), "x%d" % game.account_chests, int(sr.size.y * 0.36), Color(1.0, 0.9, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		# Unopened chests: a little tag on the plank's top right corner.
+		var badge := Vector2(sr.end.x - sr.size.y * 0.2, sr.position.y + sr.size.y * 0.08)
+		h.draw_circle(badge, sr.size.y * 0.26, Color(0.08, 0.06, 0.1))
+		h.draw_circle(badge, sr.size.y * 0.22, Color(0.85, 0.2, 0.15))
+		ttext(badge + Vector2(-20, sr.size.y * 0.1), str(game.account_chests), int(sr.size.y * 0.3), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 40, 3)
+	var oov := button(orr, "online") if overlay == "" else false
+	nine("btn_wood_hi" if oov else "btn_wood", orr, 20, 20, 20, 20)
+	if oov:
+		_bg_hover(orr.grow(-2), 8)
+	globe(orr.position + Vector2(orr.size.y * 0.5, orr.size.y / 2.0), orr.size.y * 0.22, game.net != null and game.net.online())
+	ttext(Vector2(orr.position.x + orr.size.y * 0.95, orr.position.y + orr.size.y * 0.68), "ONLINE", int(orr.size.y * 0.46), Color(1, 0.97, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
 	var purse := _bg_rect(BG_PURSE)
 	var pov := button(purse, "store") if overlay == "" else false
 	slate(purse.grow(2) if pov else purse)
@@ -308,6 +320,120 @@ func _draw_title() -> void:
 	h._text(Vector2(tx, chip.position.y + 39), Stats.rank_title(level).to_upper(), 10, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var span: Array = Stats.account_span(game.account_xp)
 	h._bar(Rect2(Vector2(tx, chip.position.y + 44), Vector2(chip.end.x - tx - 12, 7)), (float(span[0]) / span[1]) if span[1] > 0 else 1.0, Color(0.95, 0.6, 0.2))
+
+
+# --- Online -----------------------------------------------------------------------
+
+const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # the relay's room-code letters (no I, O, 0, 1)
+const CODE_LEN := 4
+
+
+func globe(c: Vector2, r: float, lit: bool) -> void:
+	## A small drawn globe for the ONLINE plank (green while connected).
+	var col := Color(0.55, 1.0, 0.45) if lit else Color(0.75, 0.9, 1.0)
+	h.draw_circle(c, r + 2.5, Color(0.12, 0.07, 0.03))
+	h.draw_circle(c, r, Color(0.16, 0.36, 0.62) if not lit else Color(0.16, 0.45, 0.22))
+	h.draw_arc(c, r, 0, TAU, 28, col, 2.0, true)
+	h.draw_line(c - Vector2(r, 0), c + Vector2(r, 0), col, 1.6, true)
+	h.draw_line(c - Vector2(0, r), c + Vector2(0, r), col, 1.6, true)
+	for k in [-1, 1]:
+		h.draw_line(c + Vector2(-r * 0.86, k * r * 0.5), c + Vector2(r * 0.86, k * r * 0.5), col, 1.2, true)
+	var pts := PackedVector2Array()
+	for i in 17:
+		var a := -PI / 2.0 + PI * i / 16.0
+		pts.append(c + Vector2(cos(a) * r * 0.45, sin(a) * r))
+	h.draw_polyline(pts, col, 1.4, true)
+
+
+func code_key(ch: String) -> void:
+	## A letter typed or tapped into the JOIN code.
+	ch = ch.to_upper()
+	if ch == "<":
+		room_entry = room_entry.left(maxi(room_entry.length() - 1, 0))
+	elif ch.length() == 1 and CODE_CHARS.contains(ch) and room_entry.length() < CODE_LEN:
+		room_entry += ch
+		game.sfx.ui("ui_click", -8.0)
+
+
+func _code_boxes(center_x: float, y: float, text: String, box: float, caret: bool) -> void:
+	for i in CODE_LEN:
+		var r := Rect2(center_x - (box * CODE_LEN + 12.0 * (CODE_LEN - 1)) / 2.0 + i * (box + 12.0), y, box, box * 1.15)
+		option_box(r, i < text.length(), caret and i == text.length(), Color(1.0, 0.8, 0.25))
+		if i < text.length():
+			ttext(Vector2(r.position.x, r.position.y + r.size.y * 0.72), text[i], int(box * 0.62), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 5)
+		elif caret and i == text.length() and int(Time.get_ticks_msec() / 500) % 2 == 0:
+			h.draw_rect(Rect2(r.get_center().x - 2, r.position.y + r.size.y * 0.25, 4, r.size.y * 0.5), Color(1, 0.9, 0.6))
+
+
+func _draw_online() -> void:
+	var net = game.net
+	var frame := Rect2(82, 46, h.size.x - 164, 600)
+	nine("frame_big", frame, 40, 40, 40, 40)
+	plaque(h.size.x / 2.0, 14, "PLAY ONLINE", 420)
+	var cx: float = h.size.x / 2.0
+	var hosting: bool = net != null and net.is_host()
+	var joined: bool = net != null and net.is_client()
+	# CREATE A ROOM (left).
+	var lp := Rect2(cx - 520, 104, 500, 470)
+	slate(lp)
+	ttext(Vector2(lp.position.x, lp.position.y + 34), "CREATE A ROOM", 24, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 5)
+	var lx := lp.position.x
+	if hosting and net.room_code != "":
+		h._text(Vector2(lx, lp.position.y + 74), "YOUR ROOM CODE", 14, Color(0.9, 0.88, 0.82), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 3)
+		_code_boxes(lp.get_center().x, lp.position.y + 88, net.room_code, 74, false)
+		h._text(Vector2(lx, lp.position.y + 206), "Friends tap ONLINE, then type this code under JOIN A ROOM.", 13, Color(0.88, 0.86, 0.8), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 2)
+		var n: int = net.peer_count()
+		var who := "Nobody has joined yet" if n == 0 else ("%d friend joined" % n if n == 1 else "%d friends joined" % n)
+		ttext(Vector2(lx, lp.position.y + 250), who, 22, Color(0.55, 0.95, 0.45) if n > 0 else Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 4)
+		var names: Array = []
+		for id in net.multiplayer.get_peers():
+			names.append(str(net.peer_names.get(id, "Player")))
+		if not names.is_empty():
+			h._text(Vector2(lx, lp.position.y + 276), ", ".join(names), 13, Color(0.85, 0.85, 0.82), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 2)
+		h._text(Vector2(lx, lp.position.y + 304), "Bots fill the empty places in the 4v4.", 12, Color(0.75, 0.75, 0.72), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 2)
+		green_button(Rect2(lp.get_center().x - 170, lp.position.y + 324, 340, 70), "CHOOSE MAP", "online_map")
+		wood_button(Rect2(lp.get_center().x - 110, lp.position.y + 404, 220, 48), "CLOSE ROOM", "online_leave", null, "", 19)
+	elif hosting:
+		ttext(Vector2(lx, lp.position.y + 210), "Opening a room ...", 22, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 4)
+		wood_button(Rect2(lp.get_center().x - 90, lp.position.y + 404, 180, 48), "CANCEL", "online_leave", null, "", 19)
+	else:
+		var lines := ["Host a match on this device.", "You get a 4-letter code to share,", "then pick the map and start as usual."]
+		for i in lines.size():
+			h._text(Vector2(lx, lp.position.y + 110 + i * 26), lines[i], 15, Color(0.9, 0.88, 0.82), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 2)
+		icon("crown", Vector2(lp.get_center().x, lp.position.y + 240), 84)
+		green_button(Rect2(lp.get_center().x - 170, lp.position.y + 324, 340, 70), "CREATE ROOM", "online_create", not joined)
+	# JOIN A ROOM (right).
+	var rp := Rect2(cx + 20, 104, 500, 470)
+	slate(rp)
+	ttext(Vector2(rp.position.x, rp.position.y + 34), "JOIN A ROOM", 24, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_CENTER, rp.size.x, 5)
+	if joined:
+		_code_boxes(rp.get_center().x, rp.position.y + 88, net.room_code if net.room_code != "" else room_entry, 74, false)
+		var wait := "Waiting for the host to start the match" if net.welcomed else "Connecting ..."
+		ttext(Vector2(rp.position.x, rp.position.y + 250), wait, 21, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, rp.size.x, 4)
+		icon("wait", Vector2(rp.get_center().x, rp.position.y + 310), 56)
+		wood_button(Rect2(rp.get_center().x - 90, rp.position.y + 404, 180, 48), "LEAVE", "online_leave", null, "", 19)
+	else:
+		_code_boxes(rp.get_center().x, rp.position.y + 60, room_entry, 56, not hosting)
+		# The letter pad: the iPad has no keyboard for the game's own text,
+		# so the code is tapped in (a keyboard types it too).
+		var cols := 8
+		var kw := 50.0
+		var kh := 42.0
+		var x0 := rp.get_center().x - (cols * kw + (cols - 1) * 6.0) / 2.0
+		for i in CODE_CHARS.length():
+			var r := Rect2(x0 + (i % cols) * (kw + 6.0), rp.position.y + 138 + (i / cols) * (kh + 6.0), kw, kh)
+			var ov := button(r, "code_key", CODE_CHARS[i]) and not hosting
+			option_box(r, false, ov)
+			ttext(Vector2(r.position.x, r.position.y + 30), CODE_CHARS[i], 22, Color.WHITE if not hosting else Color(0.55, 0.55, 0.55), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
+		var by := rp.position.y + 138 + 4 * (kh + 6.0) + 8
+		wood_button(Rect2(x0, by, 130, 50), "DELETE", "code_key", "<", "", 18, false, not hosting and room_entry != "")
+		green_button(Rect2(x0 + 146, by - 4, cols * (kw + 6.0) - 6.0 - 146, 58), "JOIN", "online_join", not hosting and room_entry.length() == CODE_LEN, false)
+	# Status from the connection (errors in a warmer colour).
+	var st: String = net.status if net else "Online play is not available in this build"
+	if st != "":
+		var bad := st.begins_with("Could not") or st.begins_with("Online:") or st.begins_with("The host left")
+		h._text(Vector2(0, 600), st, 15, Color(1.0, 0.6, 0.45) if bad else Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
+	wood_button(Rect2(40, 640, 150, 50), "BACK", "back", null, "", 20)
 
 
 # --- Select Map -------------------------------------------------------------------
@@ -1121,7 +1247,23 @@ func _press(id: String, arg) -> void:
 		store.press(id, arg)
 		return
 	match id:
-		"play": go("map")
+		"play":
+			# Joined to someone else's room: the host picks the map and starts.
+			go("online" if game.net and game.net.is_client() else "map")
+		"online": go("online")
+		"code_key": code_key(str(arg))
+		"online_create":
+			game.net.create_room()
+		"online_join":
+			if room_entry.length() == CODE_LEN:
+				game.net.join_room(room_entry)
+		"online_leave":
+			game.net.leave()
+			room_entry = ""
+		"online_map":
+			game.split_screen = false
+			game.couch_players = 1
+			go("map")
 		"store": open_store()
 		"gear":
 			# A store item choice in Create Your Character: wear it if owned,

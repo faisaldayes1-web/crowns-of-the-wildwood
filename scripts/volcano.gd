@@ -262,7 +262,7 @@ func heal_orb_spots() -> Array:
 
 func tick(delta: float) -> void:
 	_animate(delta)
-	if not game.playing or game.game_over or game.in_prep():
+	if not game.playing or game.game_over or game.in_prep() or game.net_client:
 		return
 	var s: Dictionary = Stats.FIRE_POINT
 	fire_counts = [0, 0]

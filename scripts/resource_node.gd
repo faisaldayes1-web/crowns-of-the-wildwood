@@ -98,7 +98,7 @@ func set_progress(frac: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if stock <= 0:
+	if stock <= 0 and not game.net_client:
 		regrow_left -= delta
 		if sapling:
 			# The sapling grows back into the tree's spot.
