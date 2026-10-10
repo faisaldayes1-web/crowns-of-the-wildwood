@@ -2,6 +2,14 @@
 
 Branch `group/economy-whmjnc`, draft PR #13. Newest entry first. Format: [README.md](README.md).
 
+### 2026-10-10 11:40 UTC · `c772a8f`, `94e5b1f` · Veteran Training overhaul, painted wood icon (Faisal 10:41)
+
+- **What:** A gold TRAINING slot sits left of the ability board. It shows AT 5:00 until training opens and glows once you can buy. Press G (the old hat-move key), or click or tap it, to open the Veteran Training panel from anywhere; F at your class's hat machine opens it too. The panel sits on the game's wooden board with a name tag. It shows your class, the two variants it unlocks, your rank points toward the unlock (gold earned, green + what training adds), the price against your wood, and a TRAIN button (click, tap or F). It also says why you can't buy (opens at 5:00, need wood, leave the fight). The wood icon is now painted like the HUD icons (three cut logs and a leaf), and there is a matching training icon (laurel, star, chevron).
+- **Files:** scripts/economy.gd (`draw_hat_slot`, `draw_training_panel`, `_tick_training_key`, `try_interact`, `offer`, `_wood_icon`, self-test), tools/make_econ_icons.py (new), assets/ui/icons/wood.png, training.png (new)
+- **Tunables:** none.
+- **Tested:** `--econ-test` 0 failed (branch and alpha), with 3 new panel checks; renders of the panel and the slot.
+- **Revert:** `git revert 94e5b1f c772a8f`
+
 ### 2026-10-10 10:40 UTC · `7f14b25`, `8e6e877`, `b0a7325` · Late-game training, wood only (Faisal 09:36, 09:51)
 
 - **What:** Hat machines no longer give the whole team a G move. Your class's machine, or the LEVEL UP strip once you're out of a fight, now sells **Veteran Training**. From 5:00 left in the match, it buys the experience (rank points) you still need to pick your class variant. It is personal, and it costs 14 wood. Ore is gone: the ore spots grow lumber trees, every price is wood only, and the ore counter and ore cart are hidden. Gathering stays on Wildwood and Moonlit, not Ember Pass. All-bot teams keep their one turret patched instead of filling every pad. An attacker gathers only while the pool is below the training price.
