@@ -342,7 +342,7 @@ const VARIANTS := {
 			"attacks": ["2H_Melee_Attack_Slice", "2H_Melee_Attack_Chop"], "idle": "2H_Melee_Idle",
 			"desc": "Greatsword offence: long reach, a spinning cleave and a long charge. The shield is gone, so no blocking.",
 			"attack": {"attack_name": "Greatsword", "attack_desc": "A heavy two-handed swing with long reach.",
-				"range": 2.8, "cooldown": 0.65, "cost": 12, "gate_damage": 3, "block": false, "armour": 0.42},
+				"range": 2.8, "cooldown": 0.65, "cost": 12, "gate_damage": 3, "block": false, "armour": 0.45},   # armour 0.42 → 0.45 (patch 5)
 			"abilities": [
 				{"name": "Cleave", "key": "Q", "kind": "cleave", "icon": "cleave", "cooldown": 4.5, "cost": 40.0,
 					"damage": 1, "radius": 3.2, "desc": "Spin with the greatsword, hitting and shoving everyone around you."},
@@ -456,10 +456,10 @@ const VARIANTS := {
 const FACTION_KITS := {
 	0: {
 		Role.KNIGHT: {
-			"attack": {"attack_name": "Glaive", "attack_desc": "A light, long-reaching sweep: quicker than a sword.", "range": 2.5, "cooldown": 0.5, "cost": 8, "armour": 0.32},
+			"attack": {"attack_name": "Glaive", "attack_desc": "A light, long-reaching sweep: quicker than a sword.", "range": 2.5, "cooldown": 0.5, "cost": 8, "armour": 0.37},   # armour 0.32 → 0.37 (patch 5: matches the Human plate)
 			"abilities": [
-				{"name": "Wind Dash", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 3.5, "cost": 30.0,
-					"damage": 1, "distance": 6.0, "desc": "A long, leaf-light dash that cuts everyone in the way for a heart and shoves them aside."},
+				{"name": "Wind Dash", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 4.5, "cost": 30.0,   # patch 5: damage 1 → 2, cooldown 3.5 → 4.5
+					"damage": 2, "distance": 6.0, "desc": "A long, leaf-light dash that cuts everyone in the way for two hearts and shoves them aside."},
 				{"name": "Barkskin", "key": "E", "kind": "guard", "icon": "guard", "cooldown": 7, "cost": 35.0,
 					"duration": 1.6, "desc": "Living bark turns every blow for a moment, from any side."}]},
 		Role.RANGER: {
