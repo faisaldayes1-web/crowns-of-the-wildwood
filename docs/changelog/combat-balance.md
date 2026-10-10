@@ -398,3 +398,19 @@ then `python3 tools/balance/agg.py <tag>`.
   Humans 18, Elves 17, 1 draw. 4v4: 10-2 → 7-5 (Ember Pass 6-0 → 3-3). 4v4
   plays best; 3v3 Wildwood stalls into overtime.
 - **Revert:** `git revert 82aaeb1`
+
+## 16. Balance patch 3
+
+- **When:** 2026-10-10 (Faisal: "the mages feel more strong then the meelee,
+  lets balance out a bit")
+- **Commit:** `8b3c750`
+- **What:** Mages and Knights closer; write-up in `docs/balance/patch-3.md`.
+- **Files:** `scripts/stats.gd`, `docs/balance/patch-3.md`.
+- **Tunables:** Mage Arcane Bolt `splash` 1.4 → 1.0; Pyromancer Ember Bolt
+  `splash` 1.8 → 1.3; Elf Thorn Bolt `splash` 1.3 → 1.0; Mage Blink
+  `cooldown` 4 → 5; Frostweaver Blink 3 → 4; Elf Fae Step 4 → 5; Knight
+  `speed` 1.10 → 1.14.
+- **Batches:** seeds 71-76, both maps, 3v3/4v4/5v5 (72 matches): Mage K/D
+  1.09 → 0.93, Knight 0.66 → 0.73, Mage damage 76.7 → 70.2 per match.
+- **Checks:** `tools/tests/run.sh` 29/29.
+- **Revert:** `git revert 8b3c750`

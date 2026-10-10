@@ -92,4 +92,4 @@ now works, and a Mage can't escape every time.
 
 ## Revert
 
-`git revert <patch 3 commit>`
+`git revert 8b3c750`
