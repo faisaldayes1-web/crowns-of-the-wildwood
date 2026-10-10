@@ -4,6 +4,17 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-10 11:40 UTC · UI & Art `e0fe3c4`, Economy `b05fc4a`, Combat `191c924` · Faisal's "get everything" build
+
+- **What:** Faisal (11:32) asked for a current build with everything. Merged:
+  - UI & Art `e0fe3c4`: the in-match perk-key board is now SKILLS & UPGRADES (Faisal's skills-upgrades reference).
+  - Economy `b05fc4a`: Veteran Training overhaul (Faisal 10:41) with a TRAINING slot and panel, and new wood.png and training.png icons.
+  - Combat `191c924`: cooldown "not yet" click and a dodge-ready tick.
+  - Every other group head (Online, Split-screen, Music, World & Maps `007d782`, Downed & Revive, Store, iPad) was already in.
+- **Conflicts:** none.
+- **Tested:** see docs/CHANGELOG.md.
+- **Revert:** `git revert -m 1 <merge>` for each merge, newest first (`git log --merges -3`).
+
 ### 2026-10-10 11:20 UTC · `3cbf766`, `9276184` · Economy wood-only and Veteran Training, HUD tiles inside their rims
 
 - **What:**
