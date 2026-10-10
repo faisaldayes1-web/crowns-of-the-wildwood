@@ -9,6 +9,7 @@
 #
 #   tools/net_smoke.sh                 # uses $GODOT or `godot` on PATH
 #   GODOT=/path/to/godot TRANSPORT=relay tools/net_smoke.sh
+#   RELAY_URL=wss://... TRANSPORT=relay tools/net_smoke.sh   # against a hosted relay
 set -u
 cd "$(dirname "$0")/.."
 GODOT="${GODOT:-godot}"
@@ -47,14 +48,20 @@ if [ "$TRANSPORT" = both ] || [ "$TRANSPORT" = enet ]; then
   run_pair enet "--host=$PORT" "--join=127.0.0.1:$PORT" || FAIL=1
 fi
 if [ "$TRANSPORT" = both ] || [ "$TRANSPORT" = relay ]; then
-  [ -d server/node_modules ] || (cd server && npm install --no-audit --no-fund >/dev/null)
-  PORT=$RELAY_PORT node server/relay.js >"$OUT/relay.log" 2>&1 &
-  RELAY=$!
-  sleep 1
   rm -f "$OUT/room.code"
-  URL="ws://127.0.0.1:$RELAY_PORT"
+  RELAY=""
+  if [ -n "${RELAY_URL:-}" ]; then
+    URL="$RELAY_URL"   # a hosted relay, e.g. RELAY_URL=wss://crowns-of-the-wildwood.onrender.com
+    : >"$OUT/relay.log"
+  else
+    [ -d server/node_modules ] || (cd server && npm install --no-audit --no-fund >/dev/null)
+    PORT=$RELAY_PORT node server/relay.js >"$OUT/relay.log" 2>&1 &
+    RELAY=$!
+    sleep 1
+    URL="ws://127.0.0.1:$RELAY_PORT"
+  fi
   run_pair relay "--relay=$URL --room-create --room-file=$OUT/room.code" "--relay=$URL --room-join=@$OUT/room.code" || FAIL=1
-  kill $RELAY 2>/dev/null
+  [ -n "$RELAY" ] && kill $RELAY 2>/dev/null
   sed 's/^/relay server | /' "$OUT/relay.log"
 fi
 if [ $FAIL -eq 0 ]; then

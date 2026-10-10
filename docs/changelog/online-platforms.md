@@ -248,7 +248,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tunables:** none
 - **Revert:** `git revert 3ba3c1b`
 
-## 2026-10-09 14:30 UTC · `HASH-PENDING` · Browser links survive a slow match start
+## 2026-10-09 14:30 UTC · `0de501a` · Browser links survive a slow match start
 
 - **What:** in the two-browser test the joiner got its seat and then dropped. A page busy
   building the match reads nothing for a while, so it misses the relay's pings and its first
@@ -263,4 +263,16 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Files:** `server/relay.js`, `scripts/net.gd`, `scripts/relay_peer.gd`, `tools/web_net_test.js`
 - **Tunables:** relay `MAX_PACKET` 64 KB → 1 MB, relay `MISSED_PINGS` 1 → 4 (both env vars),
   `Net.EVENT_SLICE` = 96 (new)
+- **Revert:** `git revert 0de501a`
+
+## 2026-10-10 08:52 UTC · `HASH-PENDING` · Online play uses the hosted relay
+
+- **What:** Faisal set up the relay on Render (free plan, his account, deploying `server/` from
+  this branch). The game now uses it by default, so ONLINE rooms work between devices over the
+  internet, the iPad web build included (it needs `wss://`). The free plan sleeps after 15
+  idle minutes, so the first room of a session takes about a minute to open.
+  - `tools/net_smoke.sh` takes `RELAY_URL=wss://...` to test against a hosted relay; it passed
+    against Render (456 events reached the joiner in 40 s).
+- **Files:** `project.godot` (new `[online]` section), `tools/net_smoke.sh`, `README.md`
+- **Tunables:** `online/relay_url` (unset, so `ws://127.0.0.1:8787`) → `wss://crowns-of-the-wildwood.onrender.com`
 - **Revert:** `git revert HASH-PENDING`
