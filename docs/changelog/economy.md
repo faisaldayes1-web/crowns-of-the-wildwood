@@ -2,6 +2,14 @@
 
 Branch `group/economy-whmjnc`, draft PR #13. Newest entry first. Format: [README.md](README.md).
 
+### 2026-10-10 10:40 UTC · `7f14b25`, `8e6e877`, `b0a7325` · Late-game training, wood only (Faisal 09:36, 09:51)
+
+- **What:** Hat machines no longer give the whole team a G move. Your class's machine, or the LEVEL UP strip once you're out of a fight, now sells **Veteran Training**. From 5:00 left in the match, it buys the experience (rank points) you still need to pick your class variant. It is personal, and it costs 14 wood. Ore is gone: the ore spots grow lumber trees, every price is wood only, and the ore counter and ore cart are hidden. Gathering stays on Wildwood and Moonlit, not Ember Pass. All-bot teams keep their one turret patched instead of filling every pad. An attacker gathers only while the pool is below the training price.
+- **Files:** scripts/economy.gd (`train_check`, `train`, `train_remote`, `quick_tiles`, `offer`, `_bot_spend`, `plan_gatherers`, `_cost_text`, `draw_counter`, self-test), scripts/stats.gd (`ECONOMY`)
+- **Tunables:** new `train_wood` 14, `train_ore` 0, `train_after` 300, `ore_on` false, `bot_attacker_until` 17. Repair 2+1 → 3 wood, raise door 4+2 → 6, turret 2+1 → 3, raise turret 1+1 → 2, patch 1 → 1, bot reserve 2+1 → 3.
+- **Tested:** `--econ-test` 0 failed (branch and alpha). Six seeds per map on the alpha. First wood-only run: 3 captures, 4 overtime (bots filled every pad), fixed. Final run: Wildwood 14 captures, 0 overtime, 486 s; Moonlit 10 captures, 0 overtime, 532 s (before today: 13 / 0 / 327 s and 13 / 0 / 378 s). Bots promote through kills by 5:00 left, so they rarely buy training.
+- **Revert:** `git revert b0a7325 8e6e877 7f14b25`
+
 ### 2026-10-10 09:20 UTC · `c888848`, `13c3762`, `637ae9b`, this commit · Game-style card, bare stock counter, one bot turret (Faisal 08:31, 08:32)
 
 - **What:** The action card is drawn on the ability bar's wooden board: brass rim, gold corners, cream and gold text. It uses UI & Art's `hud.game_board` and `hud.game_button` where the build has them. The base stock under the minimap is now just a wood icon and a gold coin icon (ore) with the counts beside them, plus "+n" while you carry. All-bot teams build one turret, not two.
