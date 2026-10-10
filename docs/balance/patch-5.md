@@ -64,4 +64,4 @@ counterparts.
 
 ## Revert
 
-`git revert <patch 5 commit>`
+`git revert e8f02f9`
