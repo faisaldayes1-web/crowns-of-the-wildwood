@@ -1741,8 +1741,24 @@ func draw_hat_slot(hud, p, strip: Rect2) -> void:
 	var at := Vector2(strip.position.x - slot - 18.0, strip.position.y + 22.0)
 	var wait: float = maxf(0.0, float(Stats.ECONOMY.train_after) - game.match_clock())
 	var ready: bool = chk.ok and field_ok(p)
-	hud._slot(at, slot, "training", Color(0.85, 0.62, 0.16), hud._k("ability_3"), "Training",
-		wait, float(Stats.ECONOMY.train_after), chk.ok, 0, training_open, 0.0, hud.STAMINA, ready)
+	# Drawn here in full (hud._slot's face is baked into the static HUD pass).
+	var hc := at + Vector2(slot, slot) / 2.0
+	var hr := slot * 0.62
+	if ready or training_open:
+		var k := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 220.0)
+		for i in 3:
+			hud.draw_circle(hc, hr + 6.0 + i * 4.0, Color(1.0, 0.78, 0.25, 0.08 * k))
+	hud._hex_tile(hc, hr, Color(1.0, 0.85, 0.4) if ready or training_open else BRASS,
+		Color(0.72, 0.5, 0.12) if wait <= 0.0 else Color(0.32, 0.27, 0.22), false, ready)
+	hud._icon("training", hc, slot * 0.3, Color.WHITE, wait > 0.0)
+	if hud.get("touch_ui") != true:
+		hud._keycap(Vector2(hc.x, at.y + slot + 4), hud._k("ability_3"), 24.0)
+	var label := "TRAINING"
+	var lc := Color(0.97, 0.93, 0.8) if ready else Color(0.75, 0.68, 0.58)
+	if wait > 0.0:
+		var left := int(Stats.MATCH_TIME) - int(Stats.ECONOMY.train_after)
+		label = "AT %d:%02d" % [left / 60, left % 60]
+	hud._text(Vector2(at.x - 30, at.y + slot + 31), label, 12, lc, HORIZONTAL_ALIGNMENT_CENTER, slot + 60, 3)
 	slot_rect = Rect2(at, Vector2(slot, slot))
 	if hud.get("touch_ui") == true and hud.get("touch_rects") != null:
 		hud.touch_rects.append([Rect2(at * hud.hud_scale, Vector2(slot, slot) * hud.hud_scale).grow(8), "ability_3"])
@@ -1760,7 +1776,17 @@ func draw_training_panel(hud, me) -> void:
 		hud.game_board(r, "VETERAN TRAINING")
 	else:
 		_wood_board(hud, r, 6, true)
-		hud._text(Vector2(r.position.x, r.position.y + 4), "VETERAN TRAINING", 13, Color(0.97, 0.93, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
+		# The name tag on the top edge, as hud.game_board draws it.
+		var tw: float = hud._text_width("VETERAN TRAINING", 13) + 32.0
+		var tag := Rect2(r.get_center().x - tw / 2.0, r.position.y - 12.0, tw, 22.0)
+		var tb := StyleBoxFlat.new()
+		tb.bg_color = Color(0.36, 0.21, 0.09)
+		tb.set_corner_radius_all(6)
+		tb.set_border_width_all(2)
+		tb.border_color = BRASS
+		hud.draw_style_box(tb, tag)
+		hud.draw_rect(Rect2(tag.position + Vector2(3, 3), Vector2(tag.size.x - 6, 5)), Color(1, 0.9, 0.7, 0.12))
+		hud._text(Vector2(tag.position.x, tag.end.y - 5), "VETERAN TRAINING", 13, Color(0.97, 0.93, 0.8), HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 3)
 	var cream := Color(0.97, 0.93, 0.8)
 	var gold := Color(1.0, 0.84, 0.36)
 	var cls: String = Stats.FACTIONS[me.team].roles[me.role]
