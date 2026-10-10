@@ -2,6 +2,22 @@
 
 Branch `group/economy-whmjnc`, draft PR #13. Newest entry first. Format: [README.md](README.md).
 
+### 2026-10-10 09:20 UTC · `c888848`, `13c3762`, `637ae9b`, this commit · Game-style card, bare stock counter, one bot turret (Faisal 08:31, 08:32)
+
+- **What:** The action card is drawn on the ability bar's wooden board: brass rim, gold corners, cream and gold text. It uses UI & Art's `hud.game_board` and `hud.game_button` where the build has them. The base stock under the minimap is now just a wood icon and a gold coin icon (ore) with the counts beside them, plus "+n" while you carry. All-bot teams build one turret, not two.
+- **Files:** scripts/economy.gd (`draw_action_card`, `draw_counter`, `_wood_board`, `_wood_icon`, `_ore_icon`), scripts/stats.gd
+- **Tunables:** `ECONOMY.bot_turrets` 2 → 1.
+- **Tested:** Moonlit, six seeds, one bot turret: 13 captures, 0 overtime, 371 s; with two: 11 captures, 3 overtime, 481 s. Renders of the upgrade and repair cards.
+- **Revert:** `git revert <this commit> 637ae9b 13c3762 c888848`
+
+### 2026-10-10 08:10 UTC · `84522bd` · Turrets that hit
+
+- **What:** Rampart turrets were wasting about 85% of their bolts on their own walkway, merlons and gatehouse. Now a turret only shoots enemies it has a clear line to, the bolt starts 0.7 m higher and drops straight onto the target, and downed bodies are skipped. Bots build on the yard pads first, which see the door. A "TURRET!" popup shows on a knock-down. The upgrade-ready hint mentions field upgrades.
+- **Files:** scripts/turret.gd (`_clear_shot`, `_target`, `_fire`), scripts/projectile.gd (`drop_dist`), scripts/economy.gd (`_bot_turret`, hint, self-test uses pad 3), scripts/stats.gd
+- **Tunables (new):** `TURRET.rampart_lift` 0.7.
+- **Tested:** hit rate went from about 15% to about 70% (instrumented 3-match runs). Six seeds per map, two bot turrets: Wildwood 3.3 turrets and 2.0 turret kills a match, 14 captures, 0 overtime (no turrets: 13, 0); Moonlit 3.3 turrets, 1.2 kills, 11 captures, 3 overtime (13, 0), hence the change to one turret above. Self-test 22/22.
+- **Revert:** `git revert 84522bd`
+
 ### 2026-10-10 07:40 UTC · `ce29b5f` · Turret kill tally counts knock-downs
 
 - **What:** The demo's `turret_kills` only counted a unit going straight to dead; with Downed & Revive the kill credit is given at the knock-down, so turret kills read 0. Now a turret bolt that knocks someone down counts. Tally only, no gameplay change.
