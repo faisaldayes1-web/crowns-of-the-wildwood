@@ -16,7 +16,7 @@ import sys
 from PIL import Image
 
 # Crop boxes (left, top, right, bottom) in render pixels; None = whole frame.
-CROPS = {0: None, 1: (240, 135, 1680, 945), 2: None, 3: (280, 140, 1640, 905), 4: (320, 180, 1600, 900), 5: None}
+CROPS = {0: (225, 320, 1275, 911), 1: (240, 135, 1680, 945), 2: None, 3: (180, 150, 1740, 1028), 4: (480, 180, 1440, 720), 5: None}
 
 
 def main():
