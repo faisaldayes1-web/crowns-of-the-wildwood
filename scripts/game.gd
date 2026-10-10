@@ -675,7 +675,7 @@ func _debug_hooks() -> void:
 			monarchs[1 - player_team].pick_up(player)
 			player.carrying = monarchs[1 - player_team]
 		if frame == shot_frame - 45 and player:
-			if arg == "--debug-killed":
+			if arg == "--debug-killed" or arg == "--debug-killed-finish":
 				# The kill screen: a bot's banner over the player's death
 				# (45 frames early so the death screen has faded fully in).
 				player.global_position = Vector3(-20, 0, 3)
@@ -685,6 +685,10 @@ func _debug_hooks() -> void:
 					if u.team != player_team and not u.dead:
 						u.bot_class = Role.KNIGHT
 						player.take_damage(player.hearts, u, player.global_position + Vector3(2, 0, 0))
+						if player.downed:
+							# Downed first: "--debug-killed-finish" has the bot
+							# finish the player off, else they bleed out.
+							player._die(u if "--debug-killed-finish" in OS.get_cmdline_user_args() else null)
 						killer_timer = 5.4
 						break
 			if arg == "--debug-rogue" and player.role == Role.BASE:
@@ -2912,12 +2916,13 @@ func banner_for(u) -> Dictionary:
 		"frame": (h / 3) % 4, "title": Stats.rank_title(level), "level": level, "team": u.team}
 
 
-func on_player_killed(killer, weapon: String) -> void:
-	## The player died: show the killer's banner for a while.
+func on_player_killed(killer, weapon: String, finished: bool = false) -> void:
+	## The player died: show the killer's banner for a while ("FINISHED BY"
+	## when they were finished off while downed).
 	if killer == null or killer == player:
 		killer_card = {}
 		return
-	killer_card = {"unit": killer, "weapon": weapon}
+	killer_card = {"unit": killer, "weapon": weapon, "finished": finished}
 	killer_timer = 6.0
 
 
@@ -10490,6 +10495,9 @@ func _debug_downed_hooks(frame: int) -> void:
 	## player), "--debug-healer-revive" (the player, a Healer, reviving a
 	## downed teammate).
 	var args := OS.get_cmdline_user_args()
+	if frame == 5 and "--debug-downed-touch" in args and touch:
+		touch.active = true   # renders: the iPad's touch layout over the downed / death screens
+		touch_active = true
 	var which := ""
 	var strike := "--debug-finish-strike" in args
 	for k in ["--debug-downed", "--debug-revive", "--debug-healer-revive", "--debug-finish"]:

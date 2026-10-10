@@ -5611,17 +5611,35 @@ func _chunky(rect: Rect2, fill: Color, selected: bool = false, hover: bool = fal
 
 
 func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
-	## A player banner (calling card): patterned background, frame, emblem,
-	## name, title and account level. `weapon` adds a "killed you with" line.
+	## A player banner (calling card) in the HUD's wood-and-gold style: a
+	## carved wooden frame with metal trim (the frame colour) and gold studs,
+	## the patterned cloth field shaded top to bottom, the emblem on a
+	## heraldic shield, name and title, and the account level on a gold
+	## rosette. `weapon` adds a "with ..." line (Faisal 2026-10-10: revamp
+	## the death banner and its icons).
 	if b.is_empty():
 		return
 	var bg: Array = Stats.BANNER_BACKGROUNDS[clampi(b.bg, 0, Stats.BANNER_BACKGROUNDS.size() - 1)]
 	var frame: Array = Stats.BANNER_FRAMES[clampi(b.frame, 0, Stats.BANNER_FRAMES.size() - 1)]
 	var c1: Color = bg[1]
 	var c2: Color = bg[2]
-	draw_rect(Rect2(rect.position + Vector2(0, 4), rect.size), Color(0, 0, 0, 0.45))
-	_plate(rect, c1, frame[1], 10, 3)
-	var inner := rect.grow(-5)
+	var trim: Color = frame[1]
+	if trim.v < 0.3:
+		trim = Color(0.62, 0.45, 0.22)   # the plain frame still gets a bronze edge on the wood
+	var ink := Color(0.1, 0.06, 0.03)
+	var gold := Color(1.0, 0.8, 0.22)
+	var u := clampf(rect.size.y / 70.0, 0.75, 1.3)
+	# Shadow, then the wooden frame with its metal trim.
+	_plate(Rect2(rect.position + Vector2(0, 5), rect.size), Color(0, 0, 0, 0.45), Color(0, 0, 0, 0), 11, 0)
+	_plate(rect, Color(0.33, 0.2, 0.1), ink, 11, 3)
+	draw_rect(Rect2(rect.position + Vector2(8, 3), Vector2(rect.size.x - 16, 2)), Color(1, 0.85, 0.6, 0.18))
+	var inner := rect.grow(-6)
+	_plate(inner.grow(2), Color(0, 0, 0, 0), trim, 7, 2)
+	# The cloth field, lighter at the top.
+	var top := c1.lightened(0.18)
+	var bot := c1.darkened(0.35)
+	draw_polygon(PackedVector2Array([inner.position, Vector2(inner.end.x, inner.position.y), inner.end, Vector2(inner.position.x, inner.end.y)]),
+		PackedColorArray([top, top, bot, bot]))
 	match bg[3]:
 		"stripes":
 			for i in range(0, int(inner.size.x / 18) + 2):
@@ -5629,13 +5647,13 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 				var p := PackedVector2Array([Vector2(x, inner.end.y), Vector2(x + 8, inner.end.y), Vector2(x + 8 + inner.size.y * 0.6, inner.position.y), Vector2(x + inner.size.y * 0.6, inner.position.y)])
 				for k in p.size():
 					p[k].x = clampf(p[k].x, inner.position.x, inner.end.x)
-				draw_colored_polygon(p, Color(c2, 0.35))
+				draw_colored_polygon(p, Color(c2, 0.28))
 		"diamonds":
 			for i in 7:
 				var cx: float = inner.position.x + 14 + i * (inner.size.x / 6.5)
 				var cy: float = inner.get_center().y + (12 if i % 2 == 0 else -12)
 				var d := 9.0
-				draw_colored_polygon(PackedVector2Array([Vector2(cx, cy - d), Vector2(cx + d, cy), Vector2(cx, cy + d), Vector2(cx - d, cy)]), Color(c2, 0.4))
+				draw_colored_polygon(PackedVector2Array([Vector2(cx, cy - d), Vector2(cx + d, cy), Vector2(cx, cy + d), Vector2(cx - d, cy)]), Color(c2, 0.3))
 		"rays":
 			var o := Vector2(inner.end.x - 10, inner.get_center().y)
 			for i in 7:
@@ -5644,29 +5662,86 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 				var p := PackedVector2Array([o, o + Vector2(cos(a1), sin(a1)) * inner.size.x * 1.2, o + Vector2(cos(a2), sin(a2)) * inner.size.x * 1.2])
 				for k in p.size():
 					p[k] = Vector2(clampf(p[k].x, inner.position.x, inner.end.x), clampf(p[k].y, inner.position.y, inner.end.y))
-				draw_colored_polygon(p, Color(c2, 0.35))
+				draw_colored_polygon(p, Color(c2, 0.28))
 		"leaves":
 			for i in 9:
 				var cx: float = inner.position.x + 10 + i * (inner.size.x / 8.5)
 				var cy: float = inner.position.y + 10 + (i * 37) % int(maxf(inner.size.y - 20, 1))
-				draw_circle(Vector2(cx, cy), 7, Color(c2, 0.3))
-				draw_circle(Vector2(cx + 5, cy - 4), 4, Color(c2, 0.3))
+				draw_circle(Vector2(cx, cy), 7, Color(c2, 0.24))
+				draw_circle(Vector2(cx + 5, cy - 4), 4, Color(c2, 0.24))
 		_:
-			draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.45)), Color(c2, 0.25))
-	var ec := rect.position + Vector2(34, rect.size.y / 2.0)
-	draw_circle(ec, 24, Color(0.05, 0.05, 0.08, 0.7))
-	draw_arc(ec, 24, 0, TAU, 32, frame[1], 2.0)
-	_icon(Stats.BANNER_EMBLEMS[clampi(b.emblem, 0, Stats.BANNER_EMBLEMS.size() - 1)], ec, 13, Color.WHITE)
-	var tc: Color = _team_color(b.get("team", 0)).lightened(0.5)
-	_text(rect.position + Vector2(68, 26), b.name, 17, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	_text(rect.position + Vector2(68, 42), str(b.title).to_upper(), 10, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			pass
+	# A soft dark band behind the text keeps the name readable on any cloth,
+	# and the team's colour runs along the hem.
+	var band := Rect2(inner.position.x + 54 * u, inner.position.y + 4, inner.size.x - 54 * u - 50 * u, inner.size.y - 8)
+	draw_rect(band, Color(0, 0, 0, 0.22))
+	draw_rect(Rect2(inner.position.x, inner.end.y - 4, inner.size.x, 4), Color(_team_color(b.get("team", 0)), 0.9))
+	draw_rect(Rect2(inner.position, Vector2(inner.size.x, inner.size.y * 0.32)), Color(1, 1, 1, 0.07))
+	# Gold studs in the frame corners.
+	for c in [rect.position + Vector2(7, 7), Vector2(rect.end.x - 7, rect.position.y + 7), Vector2(rect.position.x + 7, rect.end.y - 7), rect.end - Vector2(7, 7)]:
+		draw_circle(c, 3.2, ink)
+		draw_circle(c, 2.3, gold)
+		draw_circle(c + Vector2(-0.7, -0.7), 0.9, Color(1, 1, 0.85))
+	# The emblem on a heraldic shield that breaks over the frame.
+	var ec := Vector2(rect.position.x + 32 * u, rect.get_center().y)
+	var sw := 25.0 * u
+	var sh := 31.0 * u
+	var shield := PackedVector2Array()
+	shield.append(ec + Vector2(-sw, -sh))
+	shield.append(ec + Vector2(0, -sh + 5 * u))
+	shield.append(ec + Vector2(sw, -sh))
+	# A heater shield: straight sides, then curving in to a point.
+	for i in 9:
+		var t := float(i) / 8.0
+		shield.append(ec + Vector2(sw, -sh * 0.15).lerp(Vector2(sw, sh * 0.55), t).lerp(Vector2(sw, sh * 0.55).lerp(Vector2(0, sh), t), t))
+	for i in range(7, -1, -1):
+		var t := float(i) / 8.0
+		shield.append(ec + Vector2(-sw, -sh * 0.15).lerp(Vector2(-sw, sh * 0.55), t).lerp(Vector2(-sw, sh * 0.55).lerp(Vector2(0, sh), t), t))
+	var shadow := PackedVector2Array()
+	for v in shield:
+		shadow.append(v + Vector2(2, 4))
+	draw_colored_polygon(shadow, Color(0, 0, 0, 0.4))
+	var scol := PackedColorArray()
+	for v in shield:
+		scol.append(c2.darkened(0.35).lerp(c1.darkened(0.6), clampf((v.y - ec.y + sh) / (sh * 2.0), 0.0, 1.0)))
+	draw_polygon(shield, scol)
+	var outline := shield.duplicate()
+	outline.append(shield[0])
+	draw_polyline(outline, ink, 5.0 * u, true)
+	draw_polyline(outline, trim.lerp(gold, 0.35), 2.4 * u, true)
+	draw_line(ec + Vector2(-sw * 0.7, -sh * 0.62), ec + Vector2(sw * 0.7, -sh * 0.62), Color(1, 1, 1, 0.16), 2.0)
+	_icon(Stats.BANNER_EMBLEMS[clampi(b.emblem, 0, Stats.BANNER_EMBLEMS.size() - 1)], ec + Vector2(0, -2 * u), 15.5 * u, Color.WHITE)
+	# Name, title and weapon.
+	var tx := rect.position.x + 66 * u
+	var cy := rect.get_center().y
+	var lines := 3 if weapon != "" else 2
+	var y0 := cy - (7.0 if lines == 2 else 13.0) * u
+	_text(Vector2(tx, y0 + 6 * u), str(b.name), int(19 * u), Color(1, 0.98, 0.92), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	_text(Vector2(tx, y0 + 21 * u), str(b.title).to_upper(), int(10 * u), gold, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	if weapon != "":
-		_text(rect.position + Vector2(68, 56), "with %s" % weapon, 9, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var badge := rect.position + Vector2(rect.size.x - 28, rect.size.y / 2.0)
-	draw_circle(badge, 17, Color(0.08, 0.06, 0.12))
-	draw_circle(badge, 14, Color(0.95, 0.6, 0.2))
-	_text(badge + Vector2(-14, 3), str(b.level), 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 28, 2)
-	_text(badge + Vector2(-14, 11), "LV", 6, tc, HORIZONTAL_ALIGNMENT_CENTER, 28, 1)
+		_icon("sword", Vector2(tx + 5 * u, y0 + 31 * u), 3.0 * u, CREAM)
+		_text(Vector2(tx + 13 * u, y0 + 35 * u), "with %s" % weapon, int(10 * u), CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	# The level on a gold rosette.
+	var lc := Vector2(rect.end.x - 30 * u, cy)
+	var ro := PackedVector2Array()
+	var r1 := 21.0 * u
+	for i in 24:
+		var ang := -PI / 2.0 + i * TAU / 24.0
+		ro.append(lc + Vector2(cos(ang), sin(ang)) * (r1 if i % 2 == 0 else r1 * 0.84))
+	var ro_shadow := PackedVector2Array()
+	for v in ro:
+		ro_shadow.append(v + Vector2(1, 3))
+	draw_colored_polygon(ro_shadow, Color(0, 0, 0, 0.4))
+	draw_colored_polygon(ro, Color(0.85, 0.55, 0.1))
+	var ro_out := ro.duplicate()
+	ro_out.append(ro[0])
+	draw_polyline(ro_out, ink, 2.5, true)
+	draw_circle(lc, 15.5 * u, ink)
+	draw_circle(lc, 14.0 * u, gold)
+	draw_circle(lc, 11.5 * u, Color(1.0, 0.86, 0.38))
+	draw_arc(lc, 11.5 * u, PI * 1.1, PI * 1.9, 12, Color(1, 1, 0.9, 0.7), 1.5)
+	_text(Vector2(lc.x - 20 * u, lc.y - 5 * u), "LV", int(7 * u), Color(0.45, 0.25, 0.04), HORIZONTAL_ALIGNMENT_CENTER, 40 * u, 0)
+	_text(Vector2(lc.x - 20 * u, lc.y + 8 * u), str(b.level), int(15 * u), Color(0.35, 0.17, 0.02), HORIZONTAL_ALIGNMENT_CENTER, 40 * u, 0)
 
 
 func _draw_death_screen(p) -> void:
@@ -5724,16 +5799,40 @@ func _draw_death_screen(p) -> void:
 
 
 func _draw_killer_card(top_y: float = 160.0) -> void:
-	## "SLAIN BY": the killer's banner drops in over the field while you are down.
+	## "SLAIN BY" / "FINISHED BY": the killer's banner drops in over the
+	## field on the death screen, a crimson tab with crossed blades (or the
+	## takedown skull for a finisher) hanging over its top edge.
 	var k = game.killer_card.get("unit")
 	if k == null or not is_instance_valid(k):
 		return
+	var finished: bool = game.killer_card.get("finished", false)
 	var cx := size.x / 2.0
 	var slide: float = clampf((6.0 - game.killer_timer) * 4.0, 0.0, 1.0)
-	var y: float = top_y + 16.0 - (1.0 - slide) * 40.0
-	var rect := Rect2(cx - 170, y, 340, 70)
-	_bar_text(Vector2(cx, y - 8), "FINISHED BY" if game.killer_card.get("finished", false) else "SLAIN BY", bar_font if bar_font else font, 14, Color(1.0, 0.5, 0.45), Color(0.2, 0.05, 0.02), 3)
-	_draw_banner(rect, game.banner_for(k), game.killer_card.get("weapon", ""))
+	var swing: float = sin(clampf(slide, 0.0, 1.0) * PI) * 0.04
+	var y: float = top_y + 26.0 - (1.0 - slide) * 40.0
+	draw_set_transform(Vector2(cx, y), swing, Vector2.ONE)
+	_draw_banner(Rect2(-180, 0, 360, 72), game.banner_for(k), game.killer_card.get("weapon", ""))
+	# The tab: a crimson cloth plate with a gold edge and the heading.
+	var head := "FINISHED BY" if finished else "SLAIN BY"
+	var f: Font = bar_font if bar_font else font
+	var tw := f.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x + 64.0
+	var tab := Rect2(-tw / 2.0, -16.0, tw, 24.0)
+	var ink := Color(0.1, 0.04, 0.02)
+	draw_colored_polygon(PackedVector2Array([tab.position + Vector2(-10, 3), tab.position + Vector2(0, 3), tab.position + Vector2(0, 21), tab.position + Vector2(-10, 21), tab.position + Vector2(-4, 12)]), Color(0.42, 0.06, 0.06))
+	draw_colored_polygon(PackedVector2Array([Vector2(tab.end.x + 10, tab.position.y + 3), Vector2(tab.end.x, tab.position.y + 3), Vector2(tab.end.x, tab.position.y + 21), Vector2(tab.end.x + 10, tab.position.y + 21), Vector2(tab.end.x + 4, tab.position.y + 12)]), Color(0.42, 0.06, 0.06))
+	_plate(tab, Color(0.72, 0.12, 0.1) if not finished else Color(0.5, 0.06, 0.08), ink, 5, 2)
+	draw_rect(Rect2(tab.position + Vector2(4, 3), Vector2(tab.size.x - 8, 7)), Color(1, 0.6, 0.5, 0.18))
+	draw_rect(Rect2(tab.position.x + 3, tab.end.y - 4, tab.size.x - 6, 1.5), Color(1.0, 0.8, 0.22, 0.85))
+	_bar_text(Vector2(0, tab.position.y + 18.0), head, f, 15, Color(1, 0.95, 0.85), ink, 3)
+	for sx in [-1.0, 1.0]:
+		var gc := Vector2(sx * (tw / 2.0 - 15.0), tab.get_center().y)
+		if finished:
+			_icon("takedown", gc, 4.2, Color(1, 0.9, 0.8))
+		else:
+			for sg in [-1.0, 1.0]:
+				draw_line(gc + Vector2(-5 * sg, -5), gc + Vector2(5 * sg, 5), ink, 4.0)
+				draw_line(gc + Vector2(-5 * sg, -5), gc + Vector2(5 * sg, 5), Color(1.0, 0.85, 0.4), 2.0)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_banner_editor(origin: Vector2, w: float) -> void:
@@ -6419,10 +6518,11 @@ func _draw_rankup_flourish() -> void:
 
 # --- Downed and revive ---------------------------------------------------------
 # Faisal's downed-screen render (reference-renders/downed-screen-target-
-# 2026-10-09.png): a "DOWNED BY" card at the top, a dizzy swirl and stars
-# over the body, the big "YOU'RE DOWNED!" on a red paint splash with "You can
-# still be revived by a teammate!", and the "Revive in N..." bar. Under it,
-# the nearest teammate and the hold-to-respawn key.
+# 2026-10-09.png): a dizzy swirl and stars over the body, the big "YOU'RE
+# DOWNED!" on a red paint splash with "You can still be revived by a
+# teammate!", and the "Revive in N..." bar. Under it, the nearest teammate
+# and the hold-to-respawn key. No "downed by" card: the killer's banner waits
+# for the real death screen (Faisal 2026-10-10).
 
 func _draw_downed_screen(p) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
@@ -6439,10 +6539,6 @@ func _draw_downed_screen(p) -> void:
 		_vignette(Color(0.7, 0.05, 0.05, (0.22 + 0.1 * sin(now * 4.0)) * a))
 	else:
 		_vignette(Color(0.3, 0.8, 0.35, 0.25) if healer else Color(0.9, 0.7, 0.2, 0.22))
-	# DOWNED BY: who put you on the ground.
-	var k = p.downed_by
-	if k != null and is_instance_valid(k):
-		_downed_by_card(Vector2(size.x / 2.0, 132.0), k, a)
 	var fit := clampf(size.x / 1280.0, 0.6, 1.0)
 	var pop := 1.0 + (0.25 * sin(clampf(since / 0.3, 0.0, 1.0) * PI) if since < 0.3 else 0.0)
 	var sc := minf(since / 0.1, 1.0) * pop * fit
@@ -6513,36 +6609,6 @@ func _draw_downed_screen(p) -> void:
 			draw_arc(Vector2(kx, y - 5.0), kw / 2.0 + 6.0, -PI / 2.0, -PI / 2.0 + TAU * hold, 24, Color(1.0, 0.5, 0.35), 3.0, true)
 	else:
 		_text(Vector2(0, y), line, 14, lc, HORIZONTAL_ALIGNMENT_CENTER, size.x, 3)
-
-
-func _downed_by_card(top: Vector2, k, a: float) -> void:
-	## DOWNED BY: the attacker's crest, name, class, weapon and level on a
-	## dark violet plate.
-	var w := 440.0
-	var h := 86.0
-	_bar_text(top + Vector2(0, 0), "DOWNED BY", bar_font if bar_font else font, 20, Color(1, 0.97, 0.9, a), Color(0.08, 0.04, 0.03, a), 4)
-	var r := Rect2(top.x - w / 2.0, top.y + 10.0, w, h)
-	draw_rect(Rect2(r.position + Vector2(0, 5), r.size), Color(0, 0, 0, 0.4 * a))
-	_plate(r, Color(0.2, 0.14, 0.42, 0.96 * a), Color(0.1, 0.07, 0.18, a), 6, 3)
-	_plate(r.grow(-5), Color(0.27, 0.19, 0.55, 0.9 * a), Color(0.45, 0.36, 0.75, 0.6 * a), 4, 1)
-	for i in 4:
-		var dc := r.position + Vector2(230.0 + i * 52.0, 22.0 + (i % 2) * 40.0)
-		draw_colored_polygon(PackedVector2Array([dc + Vector2(0, -8), dc + Vector2(8, 0), dc + Vector2(0, 8), dc + Vector2(-8, 0)]), Color(0.42, 0.32, 0.75, 0.6 * a))
-	# The crest on a dark tile.
-	var tile := Rect2(r.position + Vector2(14, 14), Vector2(58, 58))
-	_plate(tile, Color(0.12, 0.1, 0.2, a), Color(0.55, 0.5, 0.75, a), 6, 2)
-	_icon(_class_icon(k.role), tile.get_center(), 15, Color.WHITE)
-	_text(r.position + Vector2(86, 34), k.display_name, 22, Color(1, 1, 1, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	_text(r.position + Vector2(86, 53), k.role_name().to_upper(), 13, Color(1.0, 0.8, 0.25, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var weapon: String = k.attack_stats().get("attack_name", "") if k.has_method("attack_stats") else ""
-	if weapon != "":
-		_text(r.position + Vector2(86, 70), "with %s" % weapon, 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var badge := Vector2(r.end.x - 42.0, r.get_center().y)
-	draw_circle(badge, 25.0, Color(0.15, 0.08, 0.02, a))
-	draw_circle(badge, 22.0, Color(0.95, 0.65, 0.12, a))
-	draw_circle(badge, 17.0, Color(1.0, 0.75, 0.2, a))
-	_text(badge + Vector2(-20, 6), str(k.level), 20, Color(0.35, 0.18, 0.02, a), HORIZONTAL_ALIGNMENT_CENTER, 40, 0)
-	_text(badge + Vector2(-20, 16), "LV", 8, Color(0.4, 0.22, 0.04, a), HORIZONTAL_ALIGNMENT_CENTER, 40, 0)
 
 
 func _cartoon_word(pos: Vector2, text: String, f: Font, fs: int, face: Color, under: Color, ink: Color) -> void:

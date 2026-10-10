@@ -31,6 +31,7 @@ var downed := false
 var downed_timer := 0.0       # bleed-out seconds left
 var downed_total := 0.0
 var downed_by = null          # who knocked us down (kill credit already given)
+var down_weapon := ""         # what they knocked us down with (for the death banner)
 var skip_hold := 0.0          # seconds interact has been held to skip
 var revive_progress := 0.0    # 0..1, filled by whoever is reviving us
 var revive_by = null          # the teammate reviving us this frame
@@ -1112,10 +1113,11 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 				int(attacker.fire_form), int(burn_tick)])
 		if is_player or remote_peer > 0:
 			var weapon: String = attacker.attack_stats().attack_name if (attacker and attacker != self and attacker.has_method("attack_stats")) else ""
-			if is_player:
-				game.on_player_killed(attacker if attacker != self else null, weapon)
-			elif game.net:
-				game.net.rec("game", "on_player_killed", [attacker if attacker != self else null, weapon], self)
+			down_weapon = weapon
+			if not downed_enabled():
+				_death_card(attacker, weapon, false)
+			# (Going down shows no killer: the banner waits for the real death,
+			# Faisal 2026-10-10; _die() hangs it then.)
 		if attacker and attacker != self:
 			if attacker.is_player:
 				game.shake(0.28)
@@ -1554,10 +1556,17 @@ func _recoil(dir: Vector3, amount: float) -> void:
 		game.rumble(self, clampf(amount * 0.08, 0.1, 0.5), 0.0, 0.08)
 
 
-func _die() -> void:
+func _die(finisher = null) -> void:
 	# A downed unit dying (finished off, bled out, skipped) already paid for
 	# the fall when it went down: only the body and the timer are left.
+	# `finisher` is whoever finished us off (the banner names them).
 	var was_down := downed
+	if was_down and (is_player or remote_peer > 0):
+		# The killer's banner: whoever finished us, else whoever knocked us down.
+		if finisher:
+			_death_card(finisher, "a finisher", true)
+		else:
+			_death_card(downed_by if is_instance_valid(downed_by) else null, down_weapon, false)
 	var timer_level: int = down_snapshot.get("level", level) if was_down else level
 	if was_down:
 		_end_downed()
@@ -1666,6 +1675,17 @@ func _go_down(attacker) -> void:
 	_refresh_overhead()
 
 
+func _death_card(killer, weapon: String, finished: bool) -> void:
+	## Hang the killer's banner on this player's death screen (a joiner's
+	## goes over the network).
+	if killer == self:
+		killer = null
+	if is_player:
+		game.on_player_killed(killer, weapon, finished)
+	elif remote_peer > 0 and game.net:
+		game.net.rec("game", "on_player_killed", [killer, weapon, finished], self)
+
+
 func _end_downed() -> void:
 	downed = false
 	downed_timer = 0.0
@@ -1691,9 +1711,6 @@ func _hit_while_downed(attacker, finisher: bool = false) -> bool:
 	if executed_by and is_instance_valid(executed_by) and executed_by != attacker:
 		return false   # someone else's finisher is already coming down
 	_finish_fx(attacker)
-	if is_player:
-		game.killer_card = {"unit": attacker, "weapon": "a finisher", "finished": true} if attacker else {}
-		game.killer_timer = 6.0
 	if attacker:
 		attacker.gain_xp(Stats.XP_FINISH, "takedowns")
 		if attacker.is_player:
@@ -1710,7 +1727,7 @@ func _hit_while_downed(attacker, finisher: bool = false) -> bool:
 			game.kill_feed.pop_front()
 	if game.demo:
 		print("FINISH t=%d team%d %s by=%s" % [game.match_clock(), team, role_name(), attacker.role_name() if attacker else "trap"])
-	_die()
+	_die(attacker)
 	return true
 
 
