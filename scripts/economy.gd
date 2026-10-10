@@ -1270,10 +1270,10 @@ func draw_counter(hud, me) -> void:
 			_ore_icon(hud, mc, ir)
 		var v: int = wood[team] if kind == "wood" else ore[team]
 		var txt := str(v)
-		hud._text(Vector2(x + 21, cy + 9), txt, 26, Color(0.97, 0.93, 0.8).lerp(Color(1.0, 0.82, 0.3), flash), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+		hud._text(Vector2(x + 26, cy + 9), txt, 26, Color(0.97, 0.93, 0.8).lerp(Color(1.0, 0.82, 0.3), flash), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
 		var carried: int = cg.wood if kind == "wood" else cg.ore
 		if carried > 0 and not me.dead:
-			hud._text(Vector2(x + 25 + hud._text_width(txt, 26), cy + 8), "+%d" % carried, 15, Color(0.6, 0.95, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+			hud._text(Vector2(x + 30 + hud._text_width(txt, 26), cy + 8), "+%d" % carried, 15, Color(0.6, 0.95, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		x += 86.0
 	if cg.wood + cg.ore >= Stats.ECONOMY.carry_max and not me.dead:
 		hud._text(Vector2(c.x - 104, cy + 34), "FULL: TAKE IT TO THE STOREHOUSE", 11, Color(1.0, 0.85, 0.45), HORIZONTAL_ALIGNMENT_CENTER, 208, 3)
