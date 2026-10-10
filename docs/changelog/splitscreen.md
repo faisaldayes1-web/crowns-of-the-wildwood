@@ -2,6 +2,14 @@
 
 Branch `group/splitscreen-*`. Newest entry at the top. See [README.md](README.md) for the format.
 
+### 2026-10-10 07:25 UTC · `81cc320` · Compact split-screen HUD
+
+- **What:** Faisal (05:58): the split-screen HUD must not take up most of the screen. Each pane's HUD is now sized from the pane itself: the top bar and the bottom row together cover about a quarter of the pane's height or less (two players stacked: 29%, was about half; side by side: 19%; quarters: 29%), while the bottom row still fits the pane's width. The PLAYER N tag moves under the BASE STOCK card, which it used to overlap.
+- **Files:** scripts/game.gd (`_layout_panes`), scripts/hud.gd (PLAYER N position)
+- **Tunables:** new `SPLIT_HUD_SHARE` 0.26, `SPLIT_HUD_ROWS` 260, `SPLIT_HUD_WIDTH` 1240; pane HUD scale clamped 0.4-0.72 (was a fixed 0.72 for two players, 0.56 for quarters).
+- **Tested:** options_menu_test and menu_flow_test (0 failures); 1080p screenshots of 2 players side by side and stacked and 3 players.
+- **Revert:** `git revert 81cc320`
+
 ### 2026-10-10 06:20 UTC · `ee38509` · Vertical and horizontal split screen for two players
 
 - **What:** Two couch players can now split the window **vertically** (side by side, the new default) or **horizontally** (top and bottom, the old layout). The choice is a Split Screen picker on the Options board's Settings tab (GAMEPAD row, also in the in-match PAUSED board, where it switches the panes live), under SPLIT SCREEN on SELECT MAP when split screen is ON, and on READY UP when two players are in. Three and four players keep the four quarters. A side-by-side pane is tall, so its HUD is laid out for a tall pane and its camera rises a little to keep the same reach along the lanes. Player 1 stays on keyboard and mouse (players 2-4 on pads); player 1's mouse aim is now read from the whole window and held inside their own pane, so the cursor over player 2's pane no longer aims there. The menu tests now also delete the settings backup (`controls.cfg.bak`) they leave behind, which made a second run of menu_flow_test fail.
