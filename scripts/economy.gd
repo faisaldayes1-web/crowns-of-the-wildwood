@@ -595,8 +595,8 @@ func plan_gatherers(team: int, bots: Array) -> void:
 	# assault stalled most batch matches 0-0, so an attacker only gathers
 	# toward the team's first hat upgrades (bot_attacker_hats).
 	var jobs := ["build"]
-	if trained[team] < E.bot_attacker_hats:
-		jobs.append("attack")
+	if trained[team] < E.bot_attacker_hats and wood[team] < E.bot_attacker_until:
+		jobs.append("attack")   # only until the pool can pay for training
 	var keep := []
 	for u in gatherers[team]:
 		if is_instance_valid(u) and not u.dead and u in bots and u.bot_job == u.base_job and u.base_job in jobs and keep.size() < want:
@@ -752,12 +752,11 @@ func _bot_spend(team: int) -> void:
 			if can_afford(team, E.train_wood + reserve_w, E.train_ore + reserve_o):
 				train(pick)
 			return   # save up for it first
+	# Only keep the turrets we have in repair: a wood-only batch where bots
+	# filled and raised every pad stalled 4 of 6 matches into overtime.
 	for pad in pads[team]:
 		var t = _turret_on(team, pad.pos)
-		if t == null and can_afford(team, E.turret_wood + reserve_w, E.turret_ore + reserve_o):
-			if work_pad(team, pad.pos, steward):
-				return
-		elif t != null and t.needs_work() and can_afford(team, E.turret_up_wood + reserve_w, E.turret_up_ore + reserve_o):
+		if t != null and t.hp < t.max_hp() and can_afford(team, E.turret_fix_wood + reserve_w, E.turret_fix_ore + reserve_o):
 			if work_pad(team, pad.pos, steward):
 				return
 
