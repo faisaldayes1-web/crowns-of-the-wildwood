@@ -147,6 +147,10 @@ func _run() -> void:
 	# 10. The killing blow throws the body back, and it stands up straight on respawn.
 	await _death_fling()
 
+	# 11. A player's hit from range answers with a hit confirm; a melee-range
+	# hit (which already has its own weight) does not.
+	await _hit_confirm()
+
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
 
@@ -319,3 +323,21 @@ func _death_fling() -> void:
 	_check(v.dead and flung > 0.5, "death_fling", "dead=%s flung=%.2f" % [v.dead, flung])
 	v.model.revive()
 	_check(v.model.position.length() < 0.01, "death_fling_reset")
+
+
+func _hit_confirm() -> void:
+	var a = _first(0)
+	var v = _first(1)
+	a.global_position = Vector3(-20, 0, 3)
+	_stage(a, v)
+	var was: bool = a.is_player
+	a.is_player = true
+	var before: int = a.hit_confirms
+	v.take_damage(1, a, a.global_position, 0.0, {})
+	_check(a.hit_confirms == before, "hit_confirm_not_melee", "confirms=%d" % (a.hit_confirms - before))
+	_stage(a, v)
+	v.global_position = a.global_position + Vector3(9, 0, 0)
+	v.take_damage(1, a, a.global_position, 0.0, {})
+	_check(a.hit_confirms == before + 1, "hit_confirm_ranged", "confirms=%d" % (a.hit_confirms - before))
+	a.is_player = was
+	await _frames(2)

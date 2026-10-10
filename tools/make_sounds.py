@@ -212,6 +212,8 @@ def sounds():
     n = int(SR * 0.2)
     s["hit_magic"] = mix(bandpass(noise(n), 2500, 8000) * expdecay(n, 0.04) * 1.4, sine(np.linspace(1600, 500, n), n) * expdecay(n, 0.05) * 0.4)
     s["kill"] = mix(thump(55, 0.45, 0.12) * 1.1, at(chime(1318, 0.35, 0.6) * 0.5, 0.03, 0.45), at(chime(1976, 0.3, 0.5) * 0.35, 0.07, 0.45))
+    # Hit confirm for your own ranged hits: a crisp tick you hear at any range.
+    s["hit_tick"] = mix(click(0.012, 9000) * 0.9, chime(2637, 0.09, 0.7) * 0.35)
     s["heartbeat"] = mix(thump(55, 0.14, 0.04), at(thump(50, 0.14, 0.04) * 0.7, 0.18, 0.4))
     s["respawn"] = seq(chime(523, 0.3, 0.5) * 0.5, chime(784, 0.3, 0.5) * 0.5, chime(1046, 0.5, 0.5) * 0.5, gap=-0.2)
     n = int(SR * 0.18)
