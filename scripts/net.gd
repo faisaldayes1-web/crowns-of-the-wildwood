@@ -35,7 +35,7 @@ var snapshot := {}             # client: the latest snapshot from the host
 var snapshot_count := 0        # client: snapshots received (smoke test)
 var welcomed := false          # client: the host's welcome came in (the scene reloads once on it)
 const HELD_ACTIONS := ["attack", "block", "interact"]
-var input_counts := {"interact": 0, "ability_1": 0, "ability_2": 0, "ability_3": 0, "dodge": 0}
+var input_counts := {"attack": 0, "interact": 0, "ability_1": 0, "ability_2": 0, "ability_3": 0, "dodge": 0}
 var game                       # the running game.gd, registered by its _ready
 var cli_done := false          # --host / --join from the command line were handled (once per run)
 var peer_names := {}           # host: peer id -> the hero name that joiner chose

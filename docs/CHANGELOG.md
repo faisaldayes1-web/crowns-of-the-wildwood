@@ -18,6 +18,22 @@ Waiting to release, in this order:
 | [#4](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/4) | Ember Pass volcano map, Fire Objective, Fire classes | v0.4.0 | held until the Volcano map and Current build showcase threads finish |
 | [#8](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/8) | Combat & Balance group | patch or minor | built on #1-#4 combined: after #4 |
 
+## v0.4.0-alpha refresh · 2026-10-10 01:10 UTC · Economy action card and base stock
+
+- **Branch:** `release/v0.4.0-alpha`, merge `026cb49` of Economy #13 (12 commits up to `9e1e02f`): REPAIR / UPGRADE / BUILD action card, resource monitor with base stock and carry slots, a downed soldier drops the load, door-mend retune (+50 → +35), `--no-economy` test flag. Every other group branch was already in (Combat & Balance up to balance patch 2, `130bf14`).
+- **Conflicts resolved:** `scripts/game.gd` (Economy's `--no-economy` guard, kept `_finish_world()`); `scripts/unit.gd` attack input (kept Combat's attack buffer and Economy's click-on-the-card guard).
+- **Tested:** options menu, menu flow, store, store menu and save tests, combat self-test all pass; bot matches on both maps; the .exe under wine.
+- **Revert:** `git revert -m 1 026cb49`
+
+## v0.4.0-alpha · 2026-10-09 12:00 UTC · playable alpha (branch only, not on main)
+
+- **Branch:** `release/v0.4.0-alpha` (not merged to main; main stays at v0.3.1 until Faisal says go).
+- **Built from:** main `a7f4f68` + merge commits of Combat & Balance #8 (which carries the combined #1-#4 build: Ember Pass, main menu), iPad web #9, UI & Art + Store #14 (contains #10), World & Maps #7, Downed & Revive #12, Economy #13, Music #15. Each group's merge is one commit on the branch, so `git revert -m 1 <merge>` takes one group back out.
+- **Conflicts resolved:** UI & Art's HUD vs the web branch (kept UI & Art's top strip and its removal of the CROWN/KITS/MAP buttons; kept the web branch's cached-HUD passes); death flow (Downed's `_fall`/`_go_down` with UI & Art's death-screen fields and Combat's death effect); Economy hooks beside Ember Pass's Fire Objective bots; CREDITS and the changelog table keep both sides.
+- **Windows:** `CrownsOfTheWildwood.exe` with the game data embedded (`binary_format/embed_pck=true`), one file, nothing to install.
+- **Tested:** full bot match on Wildwood (Elves 2-0, t=580) and Ember Pass (Elves 2-0, t=221), no script errors; options menu, store and store-menu tests pass; the .exe boots to the title and into a match under wine; the web build boots in Chromium.
+- **Known test drift:** menu_flow_test's two 2v2 checks fail because team size is now fixed at 4v4; combat self-test `slow_cleared_on_death` fails because a last heart now downs the unit instead of killing it.
+
 ## Version tags
 
 Tag pushes from Claude's sessions are refused by GitHub (403), so every release is also marked by a `release/vX.Y.Z` branch pointing at the same commit. Treat those branches as read-only. Until the tags exist, use `release/v0.3.0` wherever this file or REVERTING.md says `v0.3.0`. To create the real tags yourself from a clone:

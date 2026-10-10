@@ -4,6 +4,7 @@ extends Node3D
 ## so it can be swapped for real art later without changing the rules.
 
 const Stats = preload("res://scripts/stats.gd")
+const SaveFile = preload("res://scripts/save_file.gd")
 const Unit = preload("res://scripts/unit.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Projectile = preload("res://scripts/projectile.gd")
@@ -29,6 +30,7 @@ const MenuStage = preload("res://scripts/menu_stage.gd")
 const Economy = preload("res://scripts/economy.gd")
 const Role = Stats.Role
 
+const TEST_TEAM_MAX := 6     # --team-size=N cap for balance batches only
 const TEAM_SIZE := 4          # strictly 4v4 for now (Faisal 2026-10-09): players and bots together
 const CAPTURES_TO_WIN := Stats.CAPTURES_TO_WIN
 # Each bot's class and job, in spawn order. The player takes the first slot.
@@ -115,6 +117,7 @@ var hero_mark := 0              # Stats.HERO_MARKS index
 var hero_body := 0              # Stats.HERO_BODIES index: the unclassed body's build
 var team_size := TEAM_SIZE      # fighters a side; fixed at TEAM_SIZE for now, bots fill the gaps
 var split_screen := false       # SELECT MAP's SPLIT SCREEN: extra pads may join in the lobby
+var split_layout := "vertical"  # two-player split: "vertical" (side by side) or "horizontal" (top and bottom)
 var lobby_sides: Array = []     # READY UP: each local player's side (0 Elves, 1 Humans)
 var join_pads: Array = []       # READY UP: pad device of local players 2-4, in join order
 var p1_pad_device := -1         # the pad player 1 used in the menus (-1: none or unknown)
@@ -123,6 +126,7 @@ var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
+var saved_at := -1.0          # when the save was last written (seconds since start)
 var account_gold := 0           # match rewards (Stats.MATCH_GOLD / MATCH_SHARDS), spent in the STORE (store.gd)
 var account_shards := 0
 var account_chests := 0         # unopened Match Chests (opened in the STORE)
@@ -177,6 +181,12 @@ var damage_numbers := true
 var show_fps := false
 var quit_armed := 0.0          # pause menu: seconds the MAIN MENU button stays armed after a first click
 var gfx_quality := 2           # graphics preset: 0 Low, 1 Medium, 2 High, 3 Ultra
+var fps_intro_done := false    # the FPS counter was switched on once for the alpha testers
+var lamp_shadows: Array = []   # lamps that cast shadows (off on Low)
+var gfx_picked := false        # the player chose a preset in Settings (no automatic changes after that)
+var _fps_frames := 0           # automatic quality: frames counted in the current window...
+var _fps_since := 0            # ...since this time (msec), 0 = not counting
+var _fps_last := 0             # the previous frame's time (msec): a long stall restarts the window
 var fullscreen := false
 const GFX_NAMES := ["LOW", "MEDIUM", "HIGH", "ULTRA"]
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
@@ -230,6 +240,11 @@ var couch_active := false       # a split-screen match is running
 var locals: Array = []          # the local players' units, index 0 is `player`
 var panes: Array = []           # per local player: {unit, view, cam, hud, cam_pos}
 var split_layer: CanvasLayer
+var split_fill: ColorRect
+const SPLIT_TALL_ZOOM := 1.3    # camera pull-back in a side-by-side (half-width, full-height) pane
+const SPLIT_HUD_SHARE := 0.26   # most of a pane's height the HUD's top bar + bottom row may cover
+const SPLIT_HUD_ROWS := 260.0   # those two rows' height in HUD units
+const SPLIT_HUD_WIDTH := 1240.0 # HUD units the bottom row needs across
 var rank_player = null          # whose perk menu is open
 const COUCH_MAX := 4
 const COUCH_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "aim_left", "aim_right", "aim_up", "aim_down",
@@ -260,6 +275,7 @@ var menu_open := false
 var rank_open := false
 var menu_tab := 0
 var shake_amount := 0.0
+var cam_kick := Vector3.ZERO     # directional jolt (kick_cam), springs back to zero
 var cam_pos := Vector3.ZERO
 var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
 var click_was := false
@@ -314,6 +330,7 @@ func _ready() -> void:
 		# Tablets are 4:3: letterbox the 16:9 canvas rather than let the
 		# menus run off the sides.
 		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+	_pick_graphics()
 	sfx.set_listener(Vector3.ZERO)
 	Input.joy_connection_changed.connect(_on_pad_changed)
 	for arg in OS.get_cmdline_user_args():
@@ -338,6 +355,10 @@ func _ready() -> void:
 	# seed (trees, rocks and props carry colliders). --seed keeps its old meaning.
 	if net and not fixed_seed:
 		seed(net.world_seed)
+	# Building the world and starting a match take seconds in one go, and
+	# Windows greys a window out as "Not Responding" when it hears nothing
+	# for 5 s: keep answering it while nodes pour in.
+	get_tree().node_added.connect(func(_n): _keep_window_alive())
 	_build_world()
 	if net and not fixed_seed:
 		randomize()
@@ -402,6 +423,7 @@ func _ready() -> void:
 	menu_stage.build(self)
 	menu_stage.activate()
 	main_menu.stage = menu_stage
+	_warm_up_menus()   # (a coroutine: runs over the next frames, under the loading art)
 	if reopen_screen != "":
 		main_menu.go(reopen_screen)
 		reopen_screen = ""
@@ -488,6 +510,7 @@ func _process(delta: float) -> void:
 			k.time = Time.get_ticks_msec() / 1000.0 - 1.0
 	_debug_hooks()
 	_ui_sounds()
+	_auto_quality()
 	for t in 2:
 		command_timer[t] = maxf(command_timer[t] - delta, 0.0)
 	if playing and overtime and not game_over and not net_client:
@@ -518,6 +541,10 @@ func _process(delta: float) -> void:
 			get_tree().quit()
 		if Input.is_action_just_pressed("scoreboard") and summary:
 			summary.show_board = not summary.show_board
+		if touch_tap.x >= 0.0 and summary and hud:
+			# A finger on the summary's buttons (a mouse click goes through hud._input).
+			hud._click_end(touch_tap)
+			touch_tap = Vector2(-1, -1)
 		if Input.is_action_just_pressed("restart"):
 			# The first press skips the tally; once it has played, go on.
 			if summary and not summary.done():
@@ -711,6 +738,8 @@ func _debug_hooks() -> void:
 				monarchs[1 - player_team].pick_up(ally)
 				ally.carrying = monarchs[1 - player_team]
 				drop_monarch(ally)
+			if arg.begins_with("--debug-points="):   # renders: points to spend (the LEVEL UP strip)
+				player.points = int(arg.trim_prefix("--debug-points="))
 			if arg == "--debug-levelup":
 				levelup_timer = 3.0
 				levelup_level = 2
@@ -731,6 +760,10 @@ func _debug_hooks() -> void:
 			if arg == "--debug-guide":
 				guide_open = true
 				guide_page = 1
+			if arg.begins_with("--debug-guide-topic="):   # renders: an answer with its picture
+				guide_open = true
+				guide_page = -1
+				guide_topic = int(arg.trim_prefix("--debug-guide-topic="))
 			if arg == "--debug-guide-menu":
 				guide_open = true
 				guide_page = -1
@@ -823,7 +856,7 @@ func _score_capture(carrier, m) -> void:
 	carrier.captures += 1
 	capture_timer = 3.5
 	capture_team = carrier.team
-	sfx.ui("capture")
+	sfx.sting("crown_captured" if carrier.team == player_team else "crown_lost", "capture")
 	chat_system("%s captured the %s for the %s!" % [carrier.display_name, m.title, team_name])
 	_banter(carrier.team, "captured")
 	if score[carrier.team] >= CAPTURES_TO_WIN or overtime:
@@ -894,18 +927,23 @@ func _finish(winner: int) -> void:
 	sfx.play_ambience(false)
 	if winner < 0:
 		sfx.ui("horn")
+		sfx.stop_music()
 	else:
-		sfx.ui("victory" if winner == player_team else "defeat")
+		sfx.sting("victory" if winner == player_team else "defeat", "victory" if winner == player_team else "defeat", true)
 
 
 func try_interact(u) -> void:
 	if u.dead or u.downed:
 		return
+	# Every press reaches out; the result below answers it with a pop
+	# (SkillFx.grab_hit) or a whiff (SkillFx.grab_miss). Looks only.
+	SkillFx.grab(u)
 	if u.carrying:
 		drop_monarch(u)
 		return
 	if u.is_player and guides[u.team] and guides[u.team].in_reach(u):
 		guide_toggle()
+		SkillFx.grab_hit(u, guides[u.team].global_position + Vector3(0, 1.6, 0), Color(0.6, 1.0, 0.6))
 		return
 	if economy and economy.try_interact(u):
 		return   # gathering, hat machine upgrades, door repairs, turret pads
@@ -914,19 +952,26 @@ func try_interact(u) -> void:
 		if seal.in_reach(u):
 			if u.role == role:
 				toast("You already carry the %s's seal" % seal.class_title(), Color(1.0, 0.8, 0.5))
+				SkillFx.grab_miss(u)
 			else:
 				seal.take(u)
+				SkillFx.grab_hit(u, seal.global_position + Vector3(0, 1.2, 0))
 			return
 	if prep_left > 0.0:
 		# The fortify phase: F raises a barricade.
-		plant_barricade(u)
+		if plant_barricade(u):
+			SkillFx.grab_hit(u, SkillFx.grab_point(u), Color(0.85, 0.65, 0.4))
+		else:
+			SkillFx.grab_miss(u)
 		return
 	var m = monarchs[1 - u.team]
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
 		if m.state == Monarch.State.HOME and vaults[1 - u.team].is_locked():
 			if u.is_player:
 				toast("The Crown Vault is locked: break the lock first", Color(1.0, 0.8, 0.5))
+			SkillFx.grab_miss(u)
 			return
+		SkillFx.grab_hit(u, m.global_position + Vector3(0, 1.0, 0), Color(1.0, 0.85, 0.3), true)
 		m.pick_up(u)
 		u.carrying = m
 		u.gain_xp(Stats.XP_GRAB, "crown")
@@ -946,6 +991,8 @@ func try_interact(u) -> void:
 		chat_system("%s grabbed the %s!" % [u.display_name, m.title])
 		_banter(1 - u.team, "ours_taken")
 		_banter(u.team, "carrying", u)
+		return
+	SkillFx.grab_miss(u)
 
 
 # --- Turrets ------------------------------------------------------------------
@@ -1358,14 +1405,17 @@ func toggle_setting(key: String) -> void:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
 		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
 		"pad_style_prev": pad_style = {"auto": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
+		"split_vertical", "split_horizontal": set_split_layout(key.trim_prefix("split_"))
 		"test_sound":
 			sfx.ui("ui_confirm", 0.0)
 			return
 		"gfx":
 			gfx_quality = (gfx_quality + 1) % GFX_NAMES.size()
+			gfx_picked = true
 			apply_graphics()
 		"gfx_0", "gfx_1", "gfx_2", "gfx_3":
 			gfx_quality = int(key.trim_prefix("gfx_"))
+			gfx_picked = true
 			apply_graphics()
 		"fullscreen":
 			fullscreen = not fullscreen
@@ -1953,6 +2003,9 @@ func _flat_dist(a: Vector3, b: Vector3) -> float:
 
 const LOADING_SCREENS := ["res://assets/ui/loading_1.jpg", "res://assets/ui/loading_2.jpg"]
 var loading_layer: CanvasLayer
+var _alive_ms := 0   # last time _keep_window_alive answered the OS
+var _alive_frame := -1   # the frame _keep_window_alive last saw, and when it began
+var _alive_frame_start := 0
 
 
 func _show_loading(hold: float) -> void:
@@ -2011,9 +2064,11 @@ func _start_match(team: int) -> void:
 			couch_players = clampi(int(arg.trim_prefix("--couch=")), 1, COUCH_MAX)  # testing: split-screen renders
 		if arg.begins_with("--couch-mode="):
 			couch_mode = arg.trim_prefix("--couch-mode=")
+		if arg.begins_with("--split="):
+			split_layout = "horizontal" if arg.trim_prefix("--split=") == "horizontal" else "vertical"  # testing: --split=vertical|horizontal
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--team-size="):
-			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEAM_SIZE)  # testing: smaller sides
+			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEST_TEAM_MAX)  # testing only (batches): 3v3 / 5v5; the live game stays TEAM_SIZE
 	if menu_stage:
 		# Leave the menus: their hall and models go, the match camera takes over.
 		# Freed now, not queued: a camera left in the viewport would become
@@ -2081,6 +2136,7 @@ func _start_match(team: int) -> void:
 		_build_barrier()
 	else:
 		prep_left = 0.0
+	_warm_up_effects()
 	sfx.ui("match_start")
 	sfx.play_music(true)
 	sfx.play_ambience(true)
@@ -2174,7 +2230,7 @@ func _begin_battle() -> void:
 	announce("FIGHT! The barrier is down. Capture the crown!")
 	chat_system("The barrier is down. Fight!")
 	sfx.ui("horn", 0.0, 1.0)
-	sfx.ui("match_start")
+	sfx.sting("match_start", "match_start")
 	spawn_flash(Vector3(0, 3.0, 0), Color(1.0, 0.9, 0.6), 8.0, 0.8)
 	spawn_ring(Vector3(0, 0.2, 0), 14.0, Color(1.0, 0.9, 0.6), 1.0)
 	shake_at(Vector3.ZERO, 0.3)
@@ -2229,17 +2285,36 @@ func _update_camera(delta: float) -> void:
 	sfx.set_listener(player.global_position)
 	shake_amount = move_toward(shake_amount, 0.0, delta * 1.6)
 	var jolt := Vector3(randf_range(-1, 1), randf_range(-1, 1), 0) * shake_amount * 0.35
+	cam_kick = cam_kick.lerp(Vector3.ZERO, clampf(delta * 10.0, 0.0, 1.0))
+	jolt += cam_kick
 	if couch_active:
 		# One camera a pane, each on its own player.
 		for pane in panes:
 			var u = pane.unit
-			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.global_position) + CAMERA_OFFSET * cam_zoom
+			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.global_position) + CAMERA_OFFSET * cam_zoom * pane.zoom
 			pane.cam_pos = pane.cam_pos.lerp(t, clampf(delta * 5.0, 0.0, 1.0))
 			pane.cam.global_position = pane.cam_pos + jolt
 		return
 	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.global_position) + CAMERA_OFFSET * cam_zoom
 	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
 	camera.global_position = cam_pos + jolt
+
+
+func mouse_for(u) -> Vector2:
+	## The mouse in the viewport of the camera looking at u. In couch play
+	## the mouse belongs to player 1 (keyboard and mouse) while the others use
+	## pads: it is read from the whole window and mapped into player 1's pane,
+	## held to its edges, so the cursor over another pane never aims there.
+	if couch_active:
+		for pane in panes:
+			if pane.unit == u:
+				var r: Rect2 = pane.box.get_global_rect()
+				if r.size.x <= 0.0 or r.size.y <= 0.0:
+					break
+				var local: Vector2 = (get_viewport().get_mouse_position() - r.position) / r.size
+				local = local.clamp(Vector2.ZERO, Vector2.ONE)
+				return local * Vector2(pane.view.size)
+	return camera_for(u).get_viewport().get_mouse_position()
 
 
 func camera_for(u) -> Camera3D:
@@ -2661,34 +2736,17 @@ func _bind_couch_input() -> void:
 
 
 func _build_panes() -> void:
-	## Split the window: two players stack top and bottom, three or four
-	## take the quarters. Each pane is a SubViewport sharing the world with
-	## its own camera and HUD.
+	## Split the window: one SubViewport a local player, sharing the world
+	## with its own camera and HUD. _layout_panes places them.
 	couch_active = true
 	camera.current = false
 	split_layer = CanvasLayer.new()
 	split_layer.layer = 0
 	add_child(split_layer)
-	var n := couch_players
-	var rects: Array = []
-	if n == 2:
-		rects = [Rect2(0, 0, 1, 0.5), Rect2(0, 0.5, 1, 0.5)]
-	else:
-		rects = [Rect2(0, 0, 0.5, 0.5), Rect2(0.5, 0, 0.5, 0.5), Rect2(0, 0.5, 0.5, 0.5), Rect2(0.5, 0.5, 0.5, 0.5)]
-	var hud_scale := 0.72 if n == 2 else 0.56
-	for k in n:
+	for k in couch_players:
 		var u = locals[k]
-		var r: Rect2 = rects[k]
 		var box := SubViewportContainer.new()
 		box.stretch = true
-		box.anchor_left = r.position.x
-		box.anchor_top = r.position.y
-		box.anchor_right = r.end.x
-		box.anchor_bottom = r.end.y
-		box.offset_left = 2 if r.position.x > 0.0 else 0
-		box.offset_top = 2 if r.position.y > 0.0 else 0
-		box.offset_right = -2 if r.end.x < 1.0 else 0
-		box.offset_bottom = -2 if r.end.y < 1.0 else 0
 		split_layer.add_child(box)
 		var view := SubViewport.new()
 		view.handle_input_locally = false
@@ -2705,23 +2763,73 @@ func _build_panes() -> void:
 		h.game = self
 		h.local_unit = u
 		h.pane = true
-		h.scale = Vector2.ONE * hud_scale
 		h.process_mode = Node.PROCESS_MODE_ALWAYS
 		view.add_child(h)
-		var pane := {"unit": u, "view": view, "cam": cam, "hud": h, "cam_pos": u.global_position + CAMERA_OFFSET * cam_zoom}
-		cam.global_position = pane.cam_pos
+		var pane := {"unit": u, "box": box, "view": view, "cam": cam, "hud": h, "hud_scale": 1.0, "zoom": 1.0, "cam_pos": u.global_position}
 		panes.append(pane)
-		view.size_changed.connect(func(): h.size = Vector2(view.size) / hud_scale)
-		h.size = Vector2(view.size) / hud_scale
-	if n == 3:
+		view.size_changed.connect(func(): h.size = Vector2(view.size) / pane.hud_scale)
+	if couch_players == 3:
 		# The spare quarter: a dark plate so it is not raw clear colour.
-		var fill := ColorRect.new()
-		fill.color = Color(0.05, 0.06, 0.09)
-		fill.anchor_left = 0.5
-		fill.anchor_top = 0.5
-		fill.anchor_right = 1.0
-		fill.anchor_bottom = 1.0
-		split_layer.add_child(fill)
+		split_fill = ColorRect.new()
+		split_fill.color = Color(0.05, 0.06, 0.09)
+		split_fill.anchor_left = 0.5
+		split_fill.anchor_top = 0.5
+		split_fill.anchor_right = 1.0
+		split_fill.anchor_bottom = 1.0
+		split_layer.add_child(split_fill)
+	_layout_panes()
+	for pane in panes:
+		pane.cam_pos = pane.unit.global_position + CAMERA_OFFSET * cam_zoom * pane.zoom
+		pane.cam.global_position = pane.cam_pos
+
+
+func pane_rects(n: int, layout: String) -> Array:
+	## Where each local player's pane sits, as fractions of the window. Two
+	## players split vertically (side by side) or horizontally (top and
+	## bottom), per the Split Screen setting; three or four take the quarters.
+	if n == 2:
+		if layout == "horizontal":
+			return [Rect2(0, 0, 1, 0.5), Rect2(0, 0.5, 1, 0.5)]
+		return [Rect2(0, 0, 0.5, 1), Rect2(0.5, 0, 0.5, 1)]
+	return [Rect2(0, 0, 0.5, 0.5), Rect2(0.5, 0, 0.5, 0.5), Rect2(0, 0.5, 0.5, 0.5), Rect2(0.5, 0.5, 0.5, 0.5)]
+
+
+func _layout_panes() -> void:
+	## Size every pane for the current layout: its HUD scale (so the HUD fits
+	## the pane) and its camera pull-back (a tall half-width pane sees less of
+	## the lanes left to right, so its camera rises to keep the same reach).
+	var n := panes.size()
+	var rects := pane_rects(n, split_layout)
+	for k in n:
+		var pane: Dictionary = panes[k]
+		var r: Rect2 = rects[k]
+		var box: SubViewportContainer = pane.box
+		box.anchor_left = r.position.x
+		box.anchor_top = r.position.y
+		box.anchor_right = r.end.x
+		box.anchor_bottom = r.end.y
+		box.offset_left = 2 if r.position.x > 0.0 else 0
+		box.offset_top = 2 if r.position.y > 0.0 else 0
+		box.offset_right = -2 if r.end.x < 1.0 else 0
+		box.offset_bottom = -2 if r.end.y < 1.0 else 0
+		var tall := r.size.y > r.size.x * 1.2
+		# Keep the game view in charge (Faisal 2026-10-10: the split-screen
+		# HUD must not take up most of the screen): the top bar and the
+		# bottom row together stay near a quarter of the pane's height, and
+		# the bottom row still fits the pane's width.
+		var px: Vector2 = get_viewport().get_visible_rect().size * r.size
+		pane.hud_scale = clampf(minf(px.y * SPLIT_HUD_SHARE / SPLIT_HUD_ROWS, px.x / SPLIT_HUD_WIDTH), 0.4, 0.72)
+		pane.zoom = SPLIT_TALL_ZOOM if tall else 1.0
+		pane.hud.scale = Vector2.ONE * pane.hud_scale
+		pane.hud.size = Vector2(pane.view.size) / pane.hud_scale
+
+
+func set_split_layout(layout: String) -> void:
+	## The Split Screen setting (Options and READY UP): live in a match too.
+	split_layout = "horizontal" if layout == "horizontal" else "vertical"
+	if couch_active:
+		_layout_panes()
+	_save_settings()
 
 
 func shake(amount: float) -> void:
@@ -2729,6 +2837,17 @@ func shake(amount: float) -> void:
 	if not screen_shake:
 		return
 	shake_amount = maxf(shake_amount, amount)
+
+
+func kick_cam(dir: Vector3, amount: float) -> void:
+	## A directional camera jolt (getting hit, landing a blow) that springs
+	## back, on top of the random shake. Honours the screen shake setting.
+	if not screen_shake:
+		return
+	dir.y = 0.0
+	if dir.length() < 0.01:
+		return
+	cam_kick = (cam_kick + dir.normalized() * amount).limit_length(0.5)
 
 
 func shake_at(where: Vector3, amount: float) -> void:
@@ -2818,6 +2937,7 @@ func _bank_match_xp(winner: int) -> void:
 	account_chests += 1
 	summary.set_account(xp_was, account_xp)
 	_save_settings()
+	toast("Progress saved", Color(0.6, 1.0, 0.55))
 	var now := account_level()
 	if now > level_before:
 		if now >= Stats.UNLOCK_LEVEL and level_before < Stats.UNLOCK_LEVEL:
@@ -2937,6 +3057,77 @@ func _rank_pressed() -> bool:
 	return false
 
 
+func _quick_upgrades() -> void:
+	## Spend a point in the field without opening UPGRADES: 1-4 (or the
+	## D-pad, or the HUD's level-up tiles) buy that skill's next rank once
+	## you have been out of the fight for Stats.QUICK_UPGRADE_CALM seconds.
+	for u in locals:
+		if u == null or u.dead or u.downed or u.points <= 0:
+			continue
+		for i in 4:
+			if Input.is_action_just_pressed(u.act_prefix + "rank_%d" % (i + 1)):
+				quick_buy(u, i)
+
+
+func quick_buy(u, track: int) -> bool:
+	## One quick upgrade: refused (with a shake and IN COMBAT) mid-fight.
+	if u.calm_left() > 0.0:
+		sfx.ui("ui_deny", -4.0)
+		spawn_popup(u.global_position + Vector3(0, 2.2, 0), "IN COMBAT", Color(1.0, 0.5, 0.4))
+		if hud:
+			hud.quick_deny = Time.get_ticks_msec() / 1000.0
+		return false
+	if not u.spend_point(track):
+		sfx.ui("ui_deny", -4.0)
+		return false
+	return true
+
+
+func _rank_pad(u) -> void:
+	## UPGRADES on a gamepad (Faisal 06:00 2026-10-10 "make the upgrades feel
+	## better with controller controls"): the D-pad moves a highlight over the
+	## four skills and the two promotions, A / Cross buys or picks the one
+	## lit, LB / RB flip through the classes and B / Circle closes. (On a pad
+	## the D-pad used to buy a rank outright, with nothing lit to show which.)
+	var pre: String = u.act_prefix
+	var f: int = hud.rank_focus
+	var promos: bool = Stats.VARIANTS.has(u.role if hud.rank_view < 0 else hud.rank_view)
+	var moved := f
+	if Input.is_action_just_pressed(pre + "rank_1"):   # D-pad up
+		f = 3 if f >= 4 else maxi(f - 1, 0)
+	if Input.is_action_just_pressed(pre + "rank_4"):   # D-pad down
+		f = (4 if promos else 3) if f >= 3 else f + 1
+	if Input.is_action_just_pressed(pre + "rank_2") and f >= 4:   # D-pad left
+		f = 4
+	if Input.is_action_just_pressed(pre + "rank_3") and f >= 4:   # D-pad right
+		f = 5
+	for k in 2:
+		if Input.is_action_just_pressed(pre + "rank_%d" % (k + 5)):   # LB / RB: the class tabs
+			var order: Array = [Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER, Role.ENGINEER, Role.ROGUE]
+			if not u.role in order:
+				order.push_front(u.role)   # a base soldier sees their own page first
+			var at := order.find(u.role if hud.rank_view < 0 else hud.rank_view)
+			var next: int = order[posmod(at + (1 if k == 1 else -1), order.size())]
+			hud.rank_view = -1 if next == u.role else next
+			sfx.ui("ui_click", -6.0)
+	if f != moved:
+		hud.rank_focus = f
+		sfx.ui("ui_click", -8.0)
+	if Input.is_action_just_pressed(pre + "attack"):   # A / Cross
+		var own: bool = hud.rank_view < 0 or hud.rank_view == u.role
+		var ok := false
+		if own and f < 4:
+			ok = u.spend_point(f)
+		elif own:
+			ok = u.choose_variant(u.role, f - 4)
+		if not ok:
+			sfx.ui("ui_deny", -4.0)
+			hud.rank_deny = Time.get_ticks_msec() / 1000.0
+	if Input.is_action_just_pressed(pre + "dodge"):   # B / Circle
+		rank_open = false
+		sfx.ui("ui_close", -4.0)
+
+
 func menu_tabs() -> Array:
 	## Which menu tabs make sense now: at the title only Classes and Controls.
 	return [5, 4, 1, 6] if not playing else [0, 3, 1, 2, 4, 5]
@@ -2988,6 +3179,8 @@ func menu_tick() -> void:
 					guide_pick(i)
 		elif _rank_pressed() and not demo:
 			pass  # handled in _rank_pressed
+		elif not rank_open and not eaten and not demo:
+			_quick_upgrades()
 		elif Input.is_action_just_pressed("chat") and player and not demo and not eaten:
 			chat_open = true
 			chat_text = ""
@@ -3008,12 +3201,15 @@ func menu_tick() -> void:
 		if rank_open and rank_player:
 			if rank_player.dead:
 				rank_open = false
-			for i in 4:
-				if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 1)):
-					rank_player.spend_point(i)
-			for i in 2:
-				if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
-					rank_player.choose_variant(rank_player.role, i)
+			if on_pad(rank_player) and hud:
+				_rank_pad(rank_player)
+			else:
+				for i in 4:
+					if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 1)):
+						rank_player.spend_point(i)
+				for i in 2:
+					if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
+						rank_player.choose_variant(rank_player.role, i)
 	if menu_open and rebinding == "" and not chat_open:
 		var tabs := menu_tabs()
 		var at := maxi(tabs.find(menu_tab), 0)
@@ -3065,6 +3261,19 @@ func menu_tick() -> void:
 		for i in hud.tab_buttons.size():
 			if hud.tab_buttons[i].has_point(mouse):
 				menu_tab = hud.tab_ids[i]
+		for b in hud.quick_buttons:
+			if b[0].has_point(mouse) and playing and not menu_open and not rank_open and player:
+				if b[1] is Callable:
+					if b[1].is_valid() and not b[1].call():   # an Economy tile: it says why (toast) when it can't
+						sfx.ui("ui_deny", -4.0)
+				else:
+					quick_buy(player, b[1])
+		for b in hud.corner_buttons:
+			if b[0].has_point(mouse) and playing and not menu_open and not rank_open:
+				menu_open = true
+				menu_tab = 0 if b[1] == "menu" else 3
+				get_tree().paused = true
+				sfx.ui("ui_click", -4.0)
 		for b in hud.group_buttons:
 			if b[0].has_point(mouse):
 				hud.controls_group = b[1]
@@ -3614,9 +3823,61 @@ func select_map(index: int) -> void:
 	_apply_map_variant()
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and not demo:
+		_save_settings()   # closing the window keeps everything
+		_flush_save()
+
+
+func export_progress() -> String:
+	## The account as a code to carry to another device (see save_file.gd).
+	## On the web it also downloads as a text file and is shown to copy; on
+	## desktop it goes on the clipboard.
+	_save_settings()
+	var cfg := ConfigFile.new()
+	_read_save(cfg)
+	var code := SaveFile.export_code(cfg)
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(code.to_utf8_buffer(), "crowns-progress.txt", "text/plain")
+		JavaScriptBridge.eval("window.prompt('Your progress code (also downloaded as crowns-progress.txt). Copy it, then IMPORT it on the other device:', %s)" % JSON.stringify(code), true)
+	elif DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+		DisplayServer.clipboard_set(code)
+	toast("Progress code copied" if not OS.has_feature("web") else "Progress code ready", Color(0.6, 1.0, 0.55))
+	return code
+
+
+func import_progress(code: String = "") -> bool:
+	## Restores an exported code (asks for it when none is given). The save
+	## it replaces is kept as controls.cfg.before-import.
+	if code == "":
+		if OS.has_feature("web"):
+			var got = JavaScriptBridge.eval("window.prompt('Paste your progress code:', '') || ''", true)
+			code = str(got) if got != null else ""
+		elif DisplayServer.has_feature(DisplayServer.FEATURE_CLIPBOARD):
+			code = DisplayServer.clipboard_get()
+	if code.strip_edges() == "":
+		toast("Copy a progress code first, then press IMPORT", Color(1.0, 0.75, 0.5))
+		return false
+	var data := SaveFile.parse_code(code)
+	if data.is_empty():
+		toast("That is not a whole progress code", Color(1.0, 0.6, 0.5))
+		return false
+	_save_settings()
+	_flush_save()
+	DirAccess.copy_absolute(CONTROLS_PATH, CONTROLS_PATH + ".before-import")
+	var cfg := ConfigFile.new()
+	_read_save(cfg)
+	SaveFile.apply_code(cfg, data)
+	SaveFile.write(cfg, CONTROLS_PATH)
+	_load_controls()
+	_save_settings()
+	toast("Progress restored: level %d, %d gold" % [account_level(), account_gold], Color(0.6, 1.0, 0.55))
+	return true
+
+
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
-	cfg.load(CONTROLS_PATH)
+	_read_save(cfg)
 	cfg.set_value("settings", "bot_difficulty", bot_difficulty)
 	cfg.set_value("settings", "sound_volume", sfx.sound_volume)
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
@@ -3628,6 +3889,8 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "damage_numbers", damage_numbers)
 	cfg.set_value("settings", "show_fps", show_fps)
 	cfg.set_value("settings", "gfx_quality", gfx_quality)
+	cfg.set_value("settings", "gfx_picked", gfx_picked)
+	cfg.set_value("settings", "fps_intro_done", fps_intro_done)
 	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
@@ -3648,6 +3911,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "hero_body", hero_body)
 	cfg.set_value("settings", "team_size", team_size)
 	cfg.set_value("settings", "split_screen", split_screen)
+	cfg.set_value("settings", "split_layout", split_layout)
 	cfg.set_value("profile", "account_xp", account_xp)
 	cfg.set_value("profile", "account_gold", account_gold)
 	cfg.set_value("profile", "account_shards", account_shards)
@@ -3657,12 +3921,46 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "hero_cape", hero_cape)
 	cfg.set_value("settings", "hero_outfit", hero_outfit)
 	cfg.set_value("settings", "hero_weapon", hero_weapon)
-	cfg.save(CONTROLS_PATH)
+	if _write_save(cfg) == OK:
+		saved_at = Time.get_ticks_msec() / 1000.0
+
+
+# The save is written on a worker thread: the menus save on every click,
+# and the write (a temp file, read back, a backup copy, a rename) stalled
+# the frame on Windows (Faisal 2026-10-10: "stuttering ... doing simple
+# things"). Reads wait for a write in flight. Static, so a scene reload
+# (after a match) still waits for the old scene's write.
+static var _save_task := -1
+
+
+static func _flush_save() -> void:
+	if _save_task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_save_task)
+		_save_task = -1
+
+
+func _read_save(cfg: ConfigFile) -> Error:
+	_flush_save()
+	return SaveFile.read(cfg, CONTROLS_PATH)
+
+
+func _write_save(cfg: ConfigFile) -> Error:
+	_flush_save()
+	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
+		# Tests read the file straight back; a browser build has no worker
+		# threads (and writes to its own storage, fast).
+		return SaveFile.write(cfg, CONTROLS_PATH)
+	var text := cfg.encode_to_text()
+	_save_task = WorkerThreadPool.add_task(func():
+		var c := ConfigFile.new()
+		if c.parse(text) == OK:
+			SaveFile.write(c, CONTROLS_PATH))
+	return OK
 
 
 func _save_controls() -> void:
 	var cfg := ConfigFile.new()
-	cfg.load(CONTROLS_PATH)
+	_read_save(cfg)
 	for entry in REBINDABLE:
 		var list: Array = []
 		for ev in InputMap.action_get_events(entry[0]):
@@ -3673,12 +3971,12 @@ func _save_controls() -> void:
 			elif ev is InputEventJoypadButton:
 				list.append({"t": "pad", "c": ev.button_index})
 		cfg.set_value("controls", entry[0], list)
-	cfg.save(CONTROLS_PATH)
+	_write_save(cfg)
 
 
 func _load_controls() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(CONTROLS_PATH) != OK:
+	if _read_save(cfg) != OK:
 		return
 	var diff: String = cfg.get_value("settings", "bot_difficulty", "Normal")
 	if diff in Stats.BOT_DIFFICULTIES:
@@ -3690,7 +3988,9 @@ func _load_controls() -> void:
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
+	fps_intro_done = cfg.get_value("settings", "fps_intro_done", false)
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
+	gfx_picked = cfg.get_value("settings", "gfx_picked", false)
 	if OS.has_feature("web"):
 		# Browsers (and tablets) start on Medium at most; Settings can raise it.
 		gfx_quality = mini(gfx_quality, 1)
@@ -3718,6 +4018,7 @@ func _load_controls() -> void:
 	hero_body = clampi(cfg.get_value("settings", "hero_body", 0), 0, Stats.HERO_BODIES.size() - 1)
 	team_size = TEAM_SIZE   # 4v4 only for now: an older saved team size is ignored
 	split_screen = cfg.get_value("settings", "split_screen", false)
+	split_layout = "horizontal" if cfg.get_value("settings", "split_layout", "vertical") == "horizontal" else "vertical"
 	account_xp = maxi(int(cfg.get_value("profile", "account_xp", 0)), 0)
 	account_gold = maxi(int(cfg.get_value("profile", "account_gold", 0)), 0)
 	account_shards = maxi(int(cfg.get_value("profile", "account_shards", 0)), 0)
@@ -3756,7 +4057,12 @@ func _reset_controls() -> void:
 		if InputMap.has_action(entry[0]):
 			InputMap.erase_action(entry[0])
 	_setup_input()
-	DirAccess.remove_absolute(CONTROLS_PATH)
+	# Only the key bindings go back to default: the file also holds the
+	# settings and the account's progress (this used to delete it all).
+	var cfg := ConfigFile.new()
+	if _read_save(cfg) == OK and cfg.has_section("controls"):
+		cfg.erase_section("controls")
+		SaveFile.write(cfg, CONTROLS_PATH)
 	rebinding = ""
 
 
@@ -4766,7 +5072,7 @@ func _add_river() -> void:
 			_add_block(Vector3(xs * (deck_len / 2.0 + 0.35), 0.17, bz), Vector3(1.1, 0.34, half * 2 + 1.0), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 			_add_block(Vector3(xs * (deck_len / 2.0 + 0.35), 0.38, bz), Vector3(1.3, 0.08, half * 2 + 1.2), Color.WHITE, false, _ashlar(Color(0.94, 0.9, 0.82)))
 		for zs in [-1.0, 1.0]:
-			_add_block(Vector3(0, -0.1, bz + zs * (half - 0.3)), Vector3(deck_len, 0.26, 0.3), Color.WHITE, false, _timber(Color(0.72, 0.58, 0.44)))
+			_add_block(Vector3(0, -0.09, bz + zs * (half - 0.3)), Vector3(deck_len, 0.26, 0.3), Color.WHITE, false, _timber(Color(0.72, 0.58, 0.44)))
 		var planks := int(deck_len / 0.5)
 		for k in planks:
 			var px: float = -deck_len / 2.0 + (k + 0.5) * deck_len / planks
@@ -4995,9 +5301,11 @@ func _add_cover() -> void:
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
 			cover_points.append(Vector3(c.x, 0, c.z))
 			cover_boxes.append(AABB(Vector3(c.x - 0.5, 0, c.z - length / 2.0), Vector3(1.0, 1.2, length)))
-			# Supply stacks on the road itself (an abandoned caravan); palisades
-			# and broken walls alternate across the field.
-			var kind: int = 0 if absf(c.z) < 3.0 else 1 + (bi % 2)
+			# Supply stacks on the road itself (an abandoned caravan); broken
+			# ashlar walls across the field. (No timber palisades: they read
+			# as stray fences, Faisal 11:27 "did you fix the random fence
+			# issues". The cover and its collider are unchanged.)
+			var kind: int = 0 if absf(c.z) < 3.0 else 2
 			match kind:
 				0:
 					var n := int(length / 1.15)
@@ -5200,7 +5508,7 @@ func _add_elf_class_stall(team: int, role: int, pos: Vector3, wall_z: float, top
 	for xs in [-0.7, 0.7]:
 		_add_block(Vector3(pos.x + xs, top - 0.12, wall_z + 1.0), Vector3(0.04, 0.16, 0.04), Color.WHITE, false, _iron())
 	_add_block(Vector3(pos.x, sign_y, wall_z + 1.0), Vector3(2.2, 0.62, 0.1), Color.WHITE, false, dark)
-	_add_block(Vector3(pos.x, sign_y, wall_z + 1.04), Vector3(2.1, 0.54, 0.02), Color.WHITE, false, _timber(Color(0.36, 0.26, 0.16)))
+	_add_block(Vector3(pos.x, sign_y, wall_z + 1.05), Vector3(2.1, 0.54, 0.02), Color.WHITE, false, _timber(Color(0.36, 0.26, 0.16)))
 	# The banner: team cloth with a gold hem, the class icon on it.
 	var accent: Color = Stats.ROLES[role].color
 	_add_block(Vector3(pos.x, sign_y - 0.9, wall_z + 1.0), Vector3(1.4, 1.2, 0.05), Color.WHITE, false, _cloth(accent.darkened(0.1)))
@@ -6161,17 +6469,25 @@ func _gold() -> StandardMaterial3D:
 func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	## A solid ashlar wall with a cornice and merlons along its long axis.
 	## The elven castle's walls are trimmed hedges instead (2026-10-08 target).
-	_add_block(center, size, Color.WHITE, true, _ashlar())
+	# Walls along x stop 1 cm short at each end, tucking their end faces just
+	# inside the cross walls: flush, the end and the cross wall's face shared
+	# a plane at every corner and flickered.
+	var body := size - Vector3(0.02, 0, 0) if size.x > size.z else size
+	_add_block(center, body, Color.WHITE, true, _ashlar())
 	var top := center.y + size.y / 2.0
 	var along_x := size.x >= size.z
 	var length := size.x if along_x else size.z
 	var thick := size.z if along_x else size.x
+	# Walls along x carry their trim 8 mm higher than walls along z, so the
+	# cornices, string courses and plinths that cross at every corner never
+	# share a plane (coplanar overlaps flicker as the camera pans).
+	var lift := 0.008 if along_x else 0.0
 	if grey and size.y >= WALL_H - 0.01:
 		# The Humans' walls (Faisal's 03:34 brief: chunky stonework, not plain
 		# boxes): a darker plinth course round the foot of the outer and
 		# courtyard walls (the keep's walls have furniture against them)...
 		var foot := center.y - size.y / 2.0
-		_add_block(Vector3(center.x, foot + 0.2, center.z), Vector3(size.x + 0.36, 0.4, size.z + 0.36), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
+		_add_block(Vector3(center.x, foot + 0.2 + lift, center.z), Vector3(size.x + 0.36, 0.4, size.z + 0.36), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
 	if hedge_tops or mossy:
 		# The Elves' hedge walls are topped with a run of trimmed hedge
 		# (the reference's rounded, bushy wall tops; was a flat cap with a
@@ -6185,19 +6501,19 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 		return
 	if mossy:
 		# Hedge walls: a lighter clipped top and leaf tufts instead of merlons.
-		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _hedge(true))
+		_add_block(Vector3(center.x, top + 0.1 + lift, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _hedge(true))
 	elif grey:
 		# ...and a thick, pale cornice with a bevel line under it.
-		_add_block(Vector3(center.x, top + 0.15, center.z), Vector3(size.x + 0.24, 0.3, size.z + 0.24), Color.WHITE, false, _ashlar(Color(0.9, 0.9, 0.94)))
-		_add_block(Vector3(center.x, top - 0.06, center.z), Vector3(size.x + 0.12, 0.12, size.z + 0.12), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
+		_add_block(Vector3(center.x, top + 0.15 + lift, center.z), Vector3(size.x + 0.24, 0.3, size.z + 0.24), Color.WHITE, false, _ashlar(Color(0.9, 0.9, 0.94)))
+		_add_block(Vector3(center.x, top - 0.08 + lift, center.z), Vector3(size.x + 0.12, 0.12, size.z + 0.12), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
 	else:
-		_add_block(Vector3(center.x, top + 0.1, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+		_add_block(Vector3(center.x, top + 0.1 + lift, center.z), Vector3(size.x + 0.2, 0.2, size.z + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
 	if not merlons:
 		return
 	var n := maxi(int(length / 1.3), 1)
 	for k in n:
 		var t := -length / 2.0 + (k + 0.5) * length / n
-		var p := Vector3(center.x + t, top + 0.5, center.z) if along_x else Vector3(center.x, top + 0.5, center.z + t)
+		var p := Vector3(center.x + t, top + 0.5 + lift, center.z) if along_x else Vector3(center.x, top + 0.5 + lift, center.z + t)
 		var ms := Vector3(0.6, 0.6, thick) if along_x else Vector3(thick, 0.6, 0.6)
 		if mossy:
 			# Leaf tufts along the hedge top (the cream moonstone caps read
@@ -6218,8 +6534,8 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 	_add_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
 	if grey:
 		# The Humans' towers stand on a chunky plinth with a string course.
-		_add_block(pos + Vector3(0, 0.25, 0), Vector3(width + 0.5, 0.5, width + 0.5), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
-		_add_block(pos + Vector3(0, height * 0.55, 0), Vector3(width + 0.2, 0.16, width + 0.2), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
+		_add_block(pos + Vector3(0, 0.262, 0), Vector3(width + 0.5, 0.5, width + 0.5), Color.WHITE, false, _ashlar(Color(0.74, 0.74, 0.8)))
+		_add_block(pos + Vector3(0, height * 0.55 + 0.016, 0), Vector3(width + 0.2, 0.16, width + 0.2), Color.WHITE, false, _ashlar(Color(0.66, 0.66, 0.72)))
 	if mossy:
 		# An elven tower: a lantern hung under a green shingle roof. (The leafy
 		# canopy blobs it wore read as "giant blobs inside the building" from
@@ -6426,7 +6742,9 @@ func _add_chandelier(pos: Vector3, elven: bool, shadows: bool = true) -> void:
 	var light := OmniLight3D.new()
 	light.position = pos
 	# Browsers: no lamp shadows (each is two more depth passes a frame).
-	light.shadow_enabled = shadows and not OS.has_feature("web")
+	light.shadow_enabled = shadows and not OS.has_feature("web") and gfx_quality >= 1
+	if shadows:
+		lamp_shadows.append(light)
 	light.shadow_bias = 0.08
 	if elven:
 		# Warm lantern light with a hint of green: pure green washed the
@@ -6718,7 +7036,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 		var seg := hz - ROOM_DOOR_HALF - 0.3
 		_add_block(Vector3(front_x, (ROOM_H + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.3 + seg / 2.0)), Vector3(0.5, ROOM_H + fy, seg), Color.WHITE, true, wall_mat)
 		# Door posts and the lintel over the doors (timber for the Elves).
-		_add_block(Vector3(front_x, (ROOM_H + 0.3 + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.7, ROOM_H + 0.3 + fy, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)) if not elven else _timber(Color(0.5, 0.36, 0.24)))
+		_add_block(Vector3(front_x, (ROOM_H + 0.3 + fy) / 2.0, zs * (ROOM_DOOR_HALF + 0.15)), Vector3(0.72, ROOM_H + 0.3 + fy, 0.3), Color.WHITE, true, _ashlar(Color(0.9, 0.86, 0.78)) if not elven else _timber(Color(0.5, 0.36, 0.24)))   # 0.72 not 0.7: its faces were flush with the raised floor's end and flickered
 		# (The Elves' timber corner posts went on Faisal's 08:17 2026-10-09
 		# note: they clipped into the walls and read as random.)
 	_add_block(Vector3(back_x, (wall_h + fy) / 2.0, 0), Vector3(wall_t, wall_h + fy, hz * 2 + 0.5), Color.WHITE, true, wall_mat)
@@ -6848,13 +7166,15 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	# --- Floors -------------------------------------------------------------
 	# Entrance hall: fine flags; great hall: planks; chapel: a dark carpet on
 	# stone (or a mossy glade); chambers: planks under big rugs.
-	_add_block(Vector3(kx + side * 1.8, 0.045, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone" if elven else "flagstone_grey", 0.9, ELF_MOONSTONE * 0.88 if elven else Color(0.95, 0.95, 0.97)))
+	# (The keep's floor strips overlap, so each sits at its own height: they
+	# were all at 0.045 and their shared tops flickered.)
+	_add_block(Vector3(kx + side * 1.8, 0.052, 0), Vector3(2.8, 0.03, wz * 2), Color.WHITE, false, _pbr("flagstone" if elven else "flagstone_grey", 0.9, ELF_MOONSTONE * 0.88 if elven else Color(0.95, 0.95, 0.97)))
 	_add_block(Vector3((room_f + room_b) / 2.0, 0.045, -g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pavers() if elven else planks)
 	if elven:
 		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pavers() if elven else _flagstone())
 	else:
 		_add_block(Vector3((room_f + room_b) / 2.0, 0.045, g_z), Vector3(ROOM_FRONT + ROOM_BACK + 0.7, 0.03, g_w), Color.WHITE, false, _pbr("carpet", 1.1, Color(0.3, 0.3, 0.5)))
-	_add_block(Vector3(back_c, 0.045, 0), Vector3(back_d, 0.03, wz * 2), Color.WHITE, false, planks)
+	_add_block(Vector3(back_c, 0.038, 0), Vector3(back_d, 0.03, wz * 2), Color.WHITE, false, planks)
 	# --- Panelled walls: a wainscot along every inner face, with a ledge. ---
 	for zs in [-1.0, 1.0]:
 		var depth := absf(bx - kx) - 1.2
@@ -7154,7 +7474,9 @@ func _add_light(pos: Vector3, color: Color, energy: float, range_m: float, shado
 	light.light_color = color
 	light.light_energy = energy
 	light.omni_range = range_m
-	light.shadow_enabled = shadows and not OS.has_feature("web")
+	light.shadow_enabled = shadows and not OS.has_feature("web") and gfx_quality >= 1
+	if shadows:
+		lamp_shadows.append(light)
 	light.position = pos
 	add_child(light)
 	return light
@@ -8008,7 +8330,7 @@ func _add_road_lanterns() -> void:
 	for sx in [-1.0, 1.0]:
 		for k in 2:   # (the third post, by the gates, stood with a stray fence: Faisal 08:16)
 			var x: float = sx * (10.0 + k * 16.0)
-			var z: float = 3.9 if k % 2 == 1 else -3.9
+			var z: float = (3.9 if k % 2 == 1 else -3.9) * sx   # point-mirrored like the cover, so no post meets a wall stub
 			_prop("halloween/post_lantern", Vector3(x, 0, z), 0.75, PI / 2.0 if z > 0.0 else -PI / 2.0)
 			_add_light(Vector3(x, 2.4, z), Color(1.0, 0.75, 0.4), 1.0, 6.5)
 	# Benches to sit on by the shrine island's bridges.
@@ -8305,7 +8627,8 @@ func _build_castle(team: int) -> void:
 	# Both bases are paved in one stone from the gate to the crown room
 	# (Faisal 06:00 2026-10-09, "the front textures are not even uniform"):
 	# the Elves' cream pavers, the same slabs cool-tinted for the Humans.
-	_add_block(Vector3(cx, 0.01, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _pavers() if mossy else _pbr("pavers", 0.22, Color(0.9, 0.9, 0.9)))
+	# (Its top at 0.024 clears the road cores that run in under the gate.)
+	_add_block(Vector3(cx, 0.014, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _pavers() if mossy else _pbr("pavers", 0.22, Color(0.9, 0.9, 0.9)))
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
@@ -8387,8 +8710,9 @@ func _build_castle(team: int) -> void:
 	for zs in [-1.0, 1.0]:
 		_add_wall(Vector3(kx, KEEP_H / 2.0, zs * kzc), Vector3(0.8, KEEP_H, kseg))
 		# Corner pillars of the keep.
-		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.4, zs * khz), Vector3(1.4, KEEP_H + 0.8, 1.4), Color.WHITE, true, _ashlar())
-		_add_block(Vector3(bx - side * 0.2, kh / 2.0 + 0.4, zs * khz), Vector3(1.4, kh + 0.8, 1.4), Color.WHITE, true, _ashlar())
+		# (1.42 wide: a hair proud of the walls they cap, whose faces they shared.)
+		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.4, zs * khz), Vector3(1.42, KEEP_H + 0.8, 1.42), Color.WHITE, true, _ashlar())
+		_add_block(Vector3(bx - side * 0.2, kh / 2.0 + 0.4, zs * khz), Vector3(1.42, kh + 0.8, 1.42), Color.WHITE, true, _ashlar())
 		# Banners either side of the archway and torches on the arch pillars.
 		_add_banner(team, Vector3(kx - side * 0.4, -0.2, zs * (KEEP_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.75, true)
 		_add_wall_torch(Vector3(kx - side * 0.4, 1.5, zs * (KEEP_DOOR_HALF + 0.3)), Vector3(-side, 0, 0))
@@ -8406,8 +8730,9 @@ func _build_castle(team: int) -> void:
 	_add_rug(Vector3((in_x + kx) / 2.0, 0.025, 0), Vector2(absf(kx - in_x) - 0.5, 3.4), color)
 	_add_emblem_decal(Vector3((in_x + kx) / 2.0, 0.072, 0), 2.2, team)
 	if team != 0:   # (the Elves' stairs up to the crown room take its place)
-		_add_rug(Vector3(kx + side * 3.0, 0.05, 0), Vector2(5.0, 2.8), color)
-		_add_emblem_decal(Vector3(kx + side * 1.6, 0.097, 0), 1.7, team)
+		# (Laid 1 cm above the keep floor: at 0.05 its top was the floor's top.)
+		_add_rug(Vector3(kx + side * 3.0, 0.06, 0), Vector2(5.0, 2.8), color)
+		_add_emblem_decal(Vector3(kx + side * 1.6, 0.107, 0), 1.7, team)
 
 	# The yard stays open: lanterns (Elves) or nothing but the gatehouse
 	# banners (Humans). Faisal: the base was too busy.
@@ -8495,10 +8820,12 @@ func _add_turret_pad(pos: Vector3) -> void:
 	var cm := CylinderMesh.new()
 	cm.top_radius = 0.95
 	cm.bottom_radius = 1.0
-	cm.height = 0.06
+	cm.height = 0.05
 	cm.radial_segments = 32
 	pad.mesh = cm
-	pad.position = pos + Vector3(0, 0.03, 0)
+	# (5 cm high, so the Economy's smaller build pad laid on the same spot
+	# stands 1 cm proud of it instead of sharing its top and flickering.)
+	pad.position = pos + Vector3(0, 0.025, 0)
 	pad.material_override = _ashlar(Color(0.95, 0.92, 0.86))
 	add_child(pad)
 	var ring := MeshInstance3D.new()
@@ -8889,7 +9216,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	if open:
 		# The ground has a gap under the old stairs' top (x 69..70.5 on the
 		# lane): a solid paved sill fills it, with the threshold strip on top.
-		_add_block(Vector3(bx - side * 0.9, -0.05, 0), Vector3(3.4, 0.1, 3.8), Color.WHITE, true, _pavers())
+		_add_block(Vector3(bx - side * 0.9, -0.044, 0), Vector3(3.4, 0.1, 3.8), Color.WHITE, true, _pavers())
 		_add_block(Vector3(bx + side * 1.0, 0.02, 0), Vector3(1.8, 0.04, 3.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	else:
 		_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
@@ -9118,6 +9445,52 @@ var fill_light: DirectionalLight3D
 var cam_attrs: CameraAttributesPractical
 
 
+func _pick_graphics() -> void:
+	## Until the player picks a preset in Settings, the game picks one for
+	## the graphics card: Low on built-in (laptop) graphics, High on a
+	## graphics card, and _auto_quality steps a slow card down. The FPS
+	## counter starts on so a number can
+	## be reported back.
+	# (Tests and renders, which pass their own flags, keep the preset.)
+	if gfx_picked or OS.has_feature("web") or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
+		return
+	match RenderingServer.get_video_adapter_type():
+		RenderingDevice.DEVICE_TYPE_DISCRETE_GPU:
+			gfx_quality = 2   # High; a weak card steps itself down (_auto_quality)
+		_:
+			gfx_quality = 0
+	if not fps_intro_done:
+		fps_intro_done = true   # once: the player can switch it off in Settings
+		show_fps = true
+
+
+func _auto_quality() -> void:
+	## Until the player picks a preset, one step down whenever the game runs
+	## under 40 frames a second for four seconds (a toast says so). Never
+	## steps up. Long stalls (loading, a shader built the first time) do not
+	## count: they restart the window.
+	if gfx_picked or gfx_quality == 0 or OS.has_feature("web") or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
+		return
+	var now := Time.get_ticks_msec()
+	if is_instance_valid(loading_layer) or now - _fps_last > 250:
+		_fps_since = 0
+	_fps_last = now
+	if _fps_since == 0:
+		_fps_since = now
+		_fps_frames = 0
+		return
+	_fps_frames += 1
+	if now - _fps_since < 4000:
+		return
+	var fps := _fps_frames * 1000.0 / float(now - _fps_since)
+	_fps_since = 0
+	if fps < 40.0:
+		gfx_quality -= 1
+		apply_graphics()
+		_save_settings()
+		toast("Graphics set to %s for smoother play (Settings to change)" % GFX_NAMES[gfx_quality].capitalize(), Color(1.0, 0.9, 0.6))
+
+
 func apply_graphics() -> void:
 	## The graphics preset and display mode, applied live. Low suits older
 	## laptops and the Compatibility renderer; Ultra adds volumetric light
@@ -9132,7 +9505,8 @@ func apply_graphics() -> void:
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	vp.scaling_3d_scale = 0.8 if q == 0 else 1.0
-	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 else Viewport.SCALING_3D_MODE_BILINEAR
+	# (FSR needs Forward+; the Compatibility renderer scales bilinear.)
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 and RenderingServer.get_rendering_device() != null else Viewport.SCALING_3D_MODE_BILINEAR
 	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 8192][q]
 	RenderingServer.directional_shadow_atlas_set_size([2048, 4096, 8192, 8192][q], true)
 	RenderingServer.directional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
@@ -9142,17 +9516,17 @@ func apply_graphics() -> void:
 	# medium filter; FXAA runs on top of multisampling, and Medium gets 4x.
 	RenderingServer.directional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
 	RenderingServer.positional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
-	if vp.msaa_3d == Viewport.MSAA_2X:
+	if vp.msaa_3d == Viewport.MSAA_2X and q >= 2:
 		vp.msaa_3d = Viewport.MSAA_4X
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	if OS.has_feature("web"):
 		# Browsers (an iPad at 2x pixel density): no multisampling; the 3D
-		# view renders at half the canvas size (one pixel per screen point, a
-		# quarter of the fill) and FXAA smooths it, while the HUD stays at full
-		# density.
+		# view renders at three quarters of the canvas size (half looked
+		# blurry on the iPad: Faisal 2026-10-09 "low textures") and FXAA
+		# smooths it, while the HUD stays at full density.
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
-		vp.scaling_3d_scale = 0.5
+		vp.scaling_3d_scale = 0.75
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		# One 2048 shadow map covers the single cascade the web sun uses, read
 		# with one tap (the soft filters cost a kernel per pixel).
@@ -9164,6 +9538,14 @@ func apply_graphics() -> void:
 		# object in a second pass. Medium brings both back.
 		if sun_light:
 			sun_light.shadow_enabled = q >= 1
+	# Low and Medium: low-quality contact shadows, and two
+	# sun shadow cascades on Low (High keeps the project's Ultra AO and four).
+	RenderingServer.environment_set_ssao_quality(RenderingServer.ENV_SSAO_QUALITY_LOW if q <= 1 else RenderingServer.ENV_SSAO_QUALITY_ULTRA, true, 0.5, 2, 50.0, 300.0)
+	for l in lamp_shadows:
+		if is_instance_valid(l):
+			l.shadow_enabled = q >= 1 and not OS.has_feature("web")   # each is six more depth passes a frame
+	if sun_light and not OS.has_feature("web"):
+		sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == 0 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	if world_environment:
 		world_environment.ssao_enabled = q >= 1
 		world_environment.ssil_enabled = q >= 2
@@ -9175,9 +9557,16 @@ func apply_graphics() -> void:
 		pane.view.msaa_3d = vp.msaa_3d
 		pane.view.screen_space_aa = vp.screen_space_aa
 	if DisplayServer.get_name() != "headless":
-		var want := DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
-		if DisplayServer.window_get_mode() != want:
-			DisplayServer.window_set_mode(want)
+		# Only switch when the setting disagrees with the window: a maximized
+		# window is not "windowed", and forcing WINDOWED on every call (match
+		# start, the lobby, after a match) shrank it back to 1920x1080
+		# (Faisal 2026-10-10: "goes into smaller window").
+		var mode := DisplayServer.window_get_mode()
+		var is_full := mode in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
+		if fullscreen and not is_full:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		elif not fullscreen and is_full:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 
 
 func _apply_map_variant() -> void:
@@ -9449,9 +9838,10 @@ func _build_world() -> void:
 			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
 	_build_outskirts()
 	_add_back_forest()
-	economy = Economy.new()
-	add_child(economy)
-	economy.build(self)
+	if not "--no-economy" in OS.get_cmdline_user_args():   # testing: a match without wood and ore (balance baselines)
+		economy = Economy.new()
+		add_child(economy)
+		economy.build(self)
 	_finish_world()
 
 
@@ -9561,8 +9951,84 @@ func _add_ink() -> void:
 	ink_on = true
 
 
+func _warm_up_menus() -> void:
+	## The first visit to a menu screen loaded its art, built the hero and
+	## compiled its shaders on the spot: a visible stutter on each first
+	## click (Faisal 2026-10-10, on an RTX 4090). Show each screen for a
+	## frame while the loading art still covers the window, then go back.
+	if not is_instance_valid(loading_layer) or main_menu == null or DisplayServer.get_name() == "headless":
+		return
+	var m = main_menu
+	for scr in ["character", "store", "map"]:
+		await get_tree().process_frame
+		if not is_instance_valid(loading_layer) or main_menu != m or playing:
+			return
+		m.screen = scr
+	await get_tree().process_frame
+	if main_menu == m and not playing:
+		menu_open = true
+		menu_tab = 5   # SETTINGS
+	for i in 2:
+		await get_tree().process_frame
+	if main_menu == m and not playing:
+		menu_open = false
+		menu_tab = 0
+		m.screen = "title"
+
+
+func _warm_up_effects() -> void:
+	## One of every combat effect under the match's loading art, so the
+	## first punch, spell and death of the match do not stall while their
+	## shaders compile.
+	if not is_instance_valid(loading_layer) or DisplayServer.get_name() == "headless":
+		return
+	var fx = Fx.of(self)
+	var p: Vector3 = (player.global_position if player else camera.global_position + Vector3(0, -40, -26)) + Vector3(0, 0.1, 0)
+	var w := Color.WHITE
+	for style in 4:
+		fx.burst(p, w, 3, 1.0, 0.25, style)
+	fx.flare(p, w)
+	fx.ground_ring(p, 1.0, w)
+	fx.ground_glow(p, 1.0, w)
+	fx.rune(p, 1.0, w)
+	fx.scorch(p, 1.0, Color(0.1, 0.1, 0.1, 0.5), 0.3)
+	fx.beam(p + Vector3.UP, p + Vector3(2, 1, 0), w)
+	fx.slash(p + Vector3.UP, Vector3.FORWARD, w)
+	fx.slash(p + Vector3.UP, Vector3.FORWARD, w, 1.0, true)
+	for kind in Fx.KINDS:
+		fx.hit(p + Vector3.UP, Vector3.FORWARD, kind)
+		fx.blast(p, 1.2, kind)
+	fx.death(p, w)
+	fx.petals(p, w, 3)
+	fx.thorns(p, 1.0, w, 3, 0.3)
+	fx.rays(p, w, 3, 1.0, 0.2)
+
+
+func _keep_window_alive() -> void:
+	## Long builds (the world, a match start) block the main thread for
+	## seconds. Every quarter second, let the OS know the window is alive
+	## (input that arrives meanwhile is dropped, so no half-built scene
+	## sees a click). Faisal 2026-10-10: the Windows .exe went "Not
+	## Responding" while it loaded.
+	## Only inside a frame that has already run a quarter second: in normal
+	## play (projectiles, effects and numbers add nodes all the time) it
+	## must never run, or it ate the player's clicks (2026-10-10).
+	var now := Time.get_ticks_msec()
+	var frame := Engine.get_process_frames()
+	if frame != _alive_frame:
+		_alive_frame = frame
+		_alive_frame_start = now
+		return
+	if now - _alive_frame_start < 250 or now - _alive_ms < 250:
+		return
+	_alive_ms = now
+	if DisplayServer.get_name() != "headless" and not OS.has_feature("web"):   # (a browser tab never goes "Not Responding")
+		DisplayServer.force_process_and_drop_events()
+
+
 func _toonify(node) -> void:
 	## Cel shading: hard-edged light and shadow on every standard material.
+	_keep_window_alive()
 	if not is_instance_valid(node) or not node is GeometryInstance3D:
 		return
 	_toon_mat(node.material_override)
@@ -9841,7 +10307,8 @@ func _debug_downed_hooks(frame: int) -> void:
 	if ally == null or foe == null:
 		return
 	var away := Vector3(0, 0, -40)
-	if frame == shot_frame - 150:
+	var lead := 220 if strike else 150   # the strike shot needs the grace, the hold and the swing to play out
+	if frame == shot_frame - lead:
 		player.global_position = spot
 		player.spawn_protect = 0.0
 		player.home_defense = false
@@ -9871,8 +10338,8 @@ func _debug_downed_hooks(frame: int) -> void:
 	if frame == shot_frame - 70 and which == "--debug-healer-revive":
 		Input.action_press("interact")
 	if which == "--debug-finish":
-		if frame == shot_frame - (74 if strike else 28):
+		if frame == shot_frame - (100 if strike else 28):
 			Input.action_press("interact")
 		return
-	if frame > shot_frame - 150 and frame < shot_frame:
+	if frame > shot_frame - lead and frame < shot_frame:
 		foe.global_position = away   # keep the enemy that downed them out of the shot

@@ -4,6 +4,28 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-09 12:03 UTC · `12521ed` · Finisher render hook lead time
+
+- **What:** `--debug-finish-strike` sets the shot up early enough that the finisher blow lands on the screenshot.
+- **Files:** scripts/game.gd
+- **Tunables:** none
+- **Revert:** `git revert 12521ed`
+
+### 2026-10-09 11:38 UTC · `9e6acce` · Bots keep their posts and crown runs
+
+- **What:** Wall and door guards only finish a body at their feet, and raiders only one in their path, instead of walking off to finish downed enemies. The first finisher batch had cut matches to 227 s on average because defenders left their posts.
+- **Files:** scripts/unit.gd
+- **Tunables:** none
+- **Tested:** 12 seeds (3001-3012) Wildwood: Elves 9, Humans 3, average 419 s (main: Elves 7, Humans 5, 423 s). 879 downs: 158 revived (18%, 96 by Healers), 504 finished, 196 skipped, 17 bled out; downs, revives and finishes are even between the teams.
+- **Revert:** `git revert 9e6acce`
+
+### 2026-10-09 11:30 UTC · `9e34c93` · Finisher move and finisher UI
+
+- **What:** Holding interact over a downed enemy now raises your weapon (class wind-up), then plays a locked 0.8 s finisher: the class's heavy strike with a short lunge, the blow landing at 0.38 s with a red burst, shock ring, dark pillar, screen shake, pad rumble and a FINISHED! popup. While it lands the body can't be revived, crawl or skip. A finished body stays on the ground instead of replaying the standing death. Bots walk up and use the finisher instead of swinging at bodies. UI: a crimson FINISH plate over the body with the key in a ring that fills while held (grey countdown during the 2 s grace) and crossed blades; a FINISHED! banner for the finisher; the downed player's screen turns to "BEING FINISHED!" with the finisher's name; the death card reads FINISHED BY; finishes show crossed red blades in the kill feed.
+- **Files:** scripts/unit.gd, scripts/hud.gd, scripts/game.gd, scripts/stats.gd
+- **Tunables:** new `FINISH_ANIM` 0.8, `FINISH_IMPACT` 0.38
+- **Revert:** `git revert 9e34c93`
+
 ### 2026-10-09 10:52 UTC · `3b19863` · Downed screen layout fixes
 
 - **What:** "YOU'RE DOWNED!" sits under the body instead of over it, the DOWNED BY card clears the top bar's hint strip, the duplicate "You are DOWN!" announcement is gone, and a downed body's name tag hides (the swirl and revive bar mark it).

@@ -96,6 +96,7 @@ func _init() -> void:
 	check(m.screen == "title", "BACK leaves the store")
 	if backup.is_empty():
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))   # else the next run loads this test's settings from the backup
 	else:
 		var f := FileAccess.open(cfg, FileAccess.WRITE)
 		f.store_buffer(backup)

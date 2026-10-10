@@ -7,7 +7,28 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-09 11:45 UTC · `(stamped by the next entry)` · Faisal's 11:28-11:30 notes: Human upgrade station, boulders off paths, Elf gate banners, shrine rims and steps
+### 2026-10-10 06:35 UTC · `(stamped by the next entry)` · Flashing textures at the Ember Pass doors (z-fighting sweep, both maps)
+
+- **What:** Faisal 2026-10-10 06:02: "texture glitches where the door was flashing on the embers map". The cause was z-fighting: two surfaces in the same plane overlap, and the GPU flips between them as the camera moves. A new headless tool, `tools/zfight_audit.gd`, lists every overlapping pair of same-plane, same-facing faces. Fixed at the source:
+  - **In front of both Ember doors:** the causeway paving ran 4 m onto the plateau rock, and both tops sat at y 0 (27 m² flickering at each door). Now the plateau is at 0, causeways are 8 mm higher and plazas 16 mm higher. Door-court, plaza and Fire Objective rosettes and runes are lifted above them.
+  - **Cliff skirts and their hot lava bands:** at the corners they now sit 6 mm apart.
+  - **Human wall trim (both maps):** cornices, merlons, string courses and plinths on walls running along x sit 8 mm higher than on walls running along z, so they no longer cross in one plane at every corner. The bevel line moves under the wall top. Walls along x stop 1 cm short of the cross walls, so their end faces are no longer flush with the cross wall's face. Tower plinths and string courses are lifted 1–2 cm. Keep corner pillars are 1.42 m instead of 1.4 m.
+  - **Keep interiors:** the overlapping floor strips get their own heights (0.038 / 0.045 / 0.052). The Human keep rug sits above the keep floor instead of level with it.
+  - **Wildwood:** the yard floor clears the road cores under the gate. The middle-bridge edge boards clear the river surface. The pavers at the cellar hatch clear the courtyard. The Elf sign panels stand clear of their frames. My turret pad is 1 cm lower, so the Economy build pad on the same spot no longer shares its top.
+- **Files:** scripts/game.gd (`_add_wall`, `_add_tower`, keep, `_add_turret_pad`, yard floor, bridge boards), scripts/volcano.gd (`_skirt`, `_build_corridor`, `_build_plaza`, `_build_fire_objective`, rosettes), tools/zfight_audit.gd (new)
+- **Tunables:** none (all offsets are 6 mm–2 cm; no collision or routes change beyond the 1 cm wall ends)
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0. `tools/zfight_audit.gd` on the alpha merged with this commit: pairs of 0.5 m² or more went from 100+ to 27 (Wildwood) and from 120+ to 28 (Ember Pass). Nothing left near the doors except the door health bar's own layers, which are depth-sorted billboards. What remains is small flush corners inside the crown rooms (≤2.4 m²).
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 12:25 UTC · `2c68357` · Field cover: stone wall stubs instead of timber palisades
+
+- **What:** coordinator's 11:27 sweep for stray fences, after Faisal's "did you fix the random fence issues". The overview renders showed half the field cover as timber palisades, which read as random fences in the grass, e.g. above the brazier by the Human gate. All field cover is now broken ashlar wall stubs (the other half of the cycle already was). Colliders, sizes and positions are unchanged, so cover and balance are as before. The road lanterns are now point-mirrored like the cover, so the Elf post no longer stands in a stub.
+- **Files:** scripts/game.gd (`_add_cover`, `_add_road_lanterns`)
+- **Tunables:** none
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0
+- **Revert:** `git revert <hash>`
+
+### 2026-10-09 11:45 UTC · `ff95556` · Faisal's 11:28-11:30 notes: Human upgrade station, boulders off paths, Elf gate banners, shrine rims and steps
 
 - **What:**
   - **Human upgrade station** (11:28: "clipped into the wall… face it the other way… take out the orange circle"): it moves off the side wall to (bx + 3.2, −4.6) and turns to face the spawn circle. The gold pad, its flagstone and the block anvil are replaced by the small anvil, as on the Elves' station.

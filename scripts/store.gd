@@ -196,6 +196,7 @@ var tab := 0
 var pick: Array = []         # the item on show: [kind, index, rarity]
 var flash := 0.0             # gold flash after a purchase
 var reveal: Array = []       # a chest just opened: [item or [], time opened]
+var icons := {}              # item icon textures by path (null when there is none)
 var instant_turn := "--shot-frame=" in " ".join(OS.get_cmdline_user_args())   # renders: no easing
 
 
@@ -246,8 +247,8 @@ func draw(hud, stage, team: int) -> void:
 		stage.hero_spin = want if instant_turn else lerpf(stage.hero_spin, want, minf(h.get_process_delta_time() * 5.0, 1.0))
 	menu.plaque(632, 22, "STORE", 420)
 	menu.icon("crown", Vector2(632, 20), 46)
-	_wallet(Rect2(1012, 24, 240, 62))
-	_chests(Rect2(28, 24, 300, 62))
+	_wallet(Rect2(1012, 14, 240, 58))
+	_chests(Rect2(28, 14, 300, 58))
 	# Tabs down the left, like Create Your Character's.
 	h._ivy(Vector2(52, 128 + TABS.size() * 62 - 6), Vector2(0, -1), TABS.size() * 62.0 - 14.0, 41)
 	for i in TABS.size():
@@ -270,8 +271,8 @@ func draw(hud, stage, team: int) -> void:
 		menu.ttext(rr.position + Vector2(62, rr.size.y / 2.0 + 7), TABS[i][0], 19, Color(1.0, 0.92, 0.65) if sel else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		var have := items_in(i).filter(func(it): return owns(game, it[0], it[1])).size()
 		h._text(Vector2(rr.end.x - 96, rr.position.y + rr.size.y / 2.0 + 5), "%d/%d" % [have, items_in(i).size()], 11, Color(0.85, 0.82, 0.72), HORIZONTAL_ALIGNMENT_RIGHT, 60, 2)
-	_grid(Rect2(832, 110, 430, 480))
-	_detail(Rect2(832, 600, 430, 110))
+	_grid(Rect2(832, 122, 430, 452))
+	_detail(Rect2(832, 586, 430, 106))
 	menu.wood_button(Rect2(60, 652, 160, 52), "BACK", "back", null, "", 20)
 	if flash > 0.0:
 		_purchased()
@@ -300,8 +301,8 @@ func _wallet(r: Rect2) -> void:
 	menu.slate(r)
 	var pulse := clampf(flash / 2.0, 0.0, 1.0)
 	h._icon("coin", r.position + Vector2(34, r.size.y / 2.0), 11.0 + 2.0 * pulse, Color.WHITE)
-	menu.ttext(Vector2(r.position.x + 62, r.position.y + 38), "%d" % game.account_gold, 30, Color(1.0, 0.85, 0.35).lerp(Color.WHITE, pulse), HORIZONTAL_ALIGNMENT_LEFT, -1, 6)
-	h._text(Vector2(r.position.x + 62, r.position.y + 54), "GOLD  ·  +%d to +%d a match" % [Stats.MATCH_GOLD.loss, Stats.MATCH_GOLD.win], 10, Color(0.88, 0.85, 0.75), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	menu.ttext(Vector2(r.position.x + 62, r.position.y + 35), "%d" % game.account_gold, 28, Color(1.0, 0.85, 0.35).lerp(Color.WHITE, pulse), HORIZONTAL_ALIGNMENT_LEFT, -1, 6)
+	h._text(Vector2(r.position.x + 62, r.position.y + 50), "GOLD  ·  +%d-%d a match" % [Stats.MATCH_GOLD.loss, Stats.MATCH_GOLD.win], 10, Color(0.88, 0.85, 0.75), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _chests(r: Rect2) -> void:
@@ -309,8 +310,8 @@ func _chests(r: Rect2) -> void:
 	var n: int = game.account_chests
 	var bob := sin(Time.get_ticks_msec() / 260.0) * 2.0 if n > 0 else 0.0
 	h._icon("chest", r.position + Vector2(36, r.size.y / 2.0 + bob), 11.0, Color.WHITE, n == 0)
-	menu.ttext(Vector2(r.position.x + 66, r.position.y + 30), "MATCH CHESTS", 16, Color(1.0, 0.92, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	h._text(Vector2(r.position.x + 66, r.position.y + 50), "x%d  ·  one per match" % n, 12, Color(0.9, 0.88, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	menu.ttext(Vector2(r.position.x + 66, r.position.y + 28), "MATCH CHESTS", 16, Color(1.0, 0.92, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	h._text(Vector2(r.position.x + 66, r.position.y + 47), "x%d  ·  one per match" % n, 12, Color(0.9, 0.88, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var b := Rect2(r.end.x - 92, r.position.y + 12, 80, r.size.y - 24)
 	var ov: bool = menu.button(b, "store_chest") and n > 0
 	menu.nine("btn_green" if n > 0 else "btn_green_off", b.grow(2) if ov else b, 48, 20, 48, 20)
@@ -352,9 +353,17 @@ func _card(r: Rect2, it: Array) -> void:
 	h.draw_style_box(sb, r)
 	# A rarity strip along the top edge.
 	h.draw_rect(Rect2(r.position + Vector2(6, 4), Vector2(r.size.x - 12, 4)), rar[1])
-	thumb(Rect2(r.position.x + r.size.x / 2.0 - 30, r.position.y + 12, 60, r.size.y * 0.42), kind, i)
-	h._text(Vector2(r.position.x + 4, r.position.y + r.size.y * 0.42 + 30), item_name(kind, i).to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, 2)
-	var by := r.end.y - 10
+	# The item's picture fills the card above its name and price, over a
+	# soft glow in the rarity colour.
+	var side := minf(r.size.x - 16.0, r.size.y - 40.0)
+	var pic := Rect2(r.position.x + (r.size.x - side) / 2.0, r.position.y + 9, side, side)
+	if icon_tex(kind, i):
+		var gc := pic.get_center()
+		for k in 6:
+			h.draw_circle(gc, side * (0.5 - k * 0.07), Color(rar[1], 0.05 + k * 0.025))
+	thumb(pic, kind, i)
+	h._text(Vector2(r.position.x + 4, r.end.y - 22), item_name(kind, i).to_upper(), 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, 2)
+	var by := r.end.y - 7
 	if worn:
 		h._icon("check", Vector2(r.position.x + r.size.x / 2.0 - 36, by - 5), 4.0, Color(0.5, 1.0, 0.45))
 		h._text(Vector2(r.position.x, by), "EQUIPPED", 11, Color(0.55, 1.0, 0.45), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
@@ -368,8 +377,22 @@ func _card(r: Rect2, it: Array) -> void:
 		h._text(Vector2(cx - tw / 2.0 + 3, by), p, 13, Color(1.0, 0.85, 0.35) if game.account_gold >= price(it) else Color(0.85, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
+func icon_tex(kind: String, i: int) -> Texture2D:
+	## The item rendered on the real model (tools/render_store_icons.gd), or null.
+	var path := "res://assets/ui/store/%s_%d.png" % [kind, i]
+	if not icons.has(path):
+		icons[path] = load(path) if ResourceLoader.exists(path) else null
+	return icons[path]
+
+
 func thumb(r: Rect2, kind: String, i: int) -> void:
-	## A small picture of a choice: a dyed disc, a banner piece, a hat or cape outline.
+	## A picture of a choice: the item rendered on the hero when it is big
+	## enough to read, else a dyed disc, a banner piece or a drawn outline.
+	var tx := icon_tex(kind, i) if minf(r.size.x, r.size.y) >= 48.0 else null
+	if tx:
+		var sq := minf(r.size.x, r.size.y)
+		h.draw_texture_rect(tx, Rect2(r.get_center() - Vector2(sq, sq) / 2.0, Vector2(sq, sq)), false)
+		return
 	var c := r.get_center()
 	var rad := minf(r.size.x, r.size.y) / 2.0
 	var col := swatch_color(kind, i)
@@ -507,18 +530,20 @@ func _detail(r: Rect2) -> void:
 		"cape": note = "Hangs on every class, in your cape dye."
 		"trim": note = "Dyes your cape, sash and scarf."
 	h._text(Vector2(r.position.x + 20, r.position.y + 76), note, 11, Color(0.85, 0.83, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var b := Rect2(r.end.x - 196, r.position.y + 20, 180, 62)
+	# Kept inside the card with a margin: the green button's arrows reach
+	# past its rect.
+	var b := Rect2(r.end.x - 202, r.position.y + 22, 170, 54)
 	var have := owns(game, kind, i)
 	if not have:
 		var cost := price(pick)
 		var can: bool = game.account_gold >= cost
 		var ov: bool = menu.button(b, "store_buy") and can
 		menu.nine("btn_green" if can else "btn_green_off", b.grow(3) if ov else b, 48, 20, 48, 20, Color(1.12, 1.12, 1.12) if ov else Color.WHITE)
-		menu.ttext(Vector2(b.position.x + 38, b.position.y + 40), "BUY", 24, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
-		h._icon("coin", Vector2(b.position.x + 106, b.position.y + 31), 4.5, Color.WHITE)
-		menu.ttext(Vector2(b.position.x + 118, b.position.y + 39), "%d" % cost, 19, Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		menu.ttext(Vector2(b.position.x + 38, b.position.y + 36), "BUY", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+		h._icon("coin", Vector2(b.position.x + 100, b.position.y + 27), 4.5, Color.WHITE)
+		menu.ttext(Vector2(b.position.x + 112, b.position.y + 35), "%d" % cost, 18, Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		if not can:
-			h._text(Vector2(b.position.x, b.end.y + 14), "Need %d more gold" % (cost - game.account_gold), 11, Color(1.0, 0.7, 0.6), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+			h._text(Vector2(b.position.x, b.end.y + 13), "Need %d more gold" % (cost - game.account_gold), 11, Color(1.0, 0.7, 0.6), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 	elif equipped(game, kind) != i:
 		menu.wood_button(b, "EQUIP", "store_equip", null, "", 22)
 	else:
@@ -527,7 +552,7 @@ func _detail(r: Rect2) -> void:
 			menu.wood_button(b, "TAKE OFF", "store_unequip", null, "", 20)
 		else:
 			menu.option_box(b, true, false)
-			menu.ttext(Vector2(b.position.x, b.position.y + 40), "EQUIPPED", 20, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 4)
+			menu.ttext(Vector2(b.position.x, b.position.y + 36), "EQUIPPED", 20, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 4)
 	h._text(Vector2(r.position.x + 20, r.end.y - 12), "Also in Create Your Character once owned", 10, Color(0.7, 0.68, 0.62), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
@@ -567,7 +592,7 @@ func _draw_reveal() -> void:
 		menu.ttext(Vector2(card.position.x, card.end.y - 60), "+%d GOLD" % Stats.CHEST_GOLD, 26, Color(1.0, 0.85, 0.35), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 5)
 		h._text(Vector2(card.position.x, card.end.y - 32), "You own everything in the store!", 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
 	else:
-		thumb(Rect2(c.x - 70, c.y - 80, 140, 110), it[0], it[1])
+		thumb(Rect2(c.x - 75, c.y - 98, 150, 150), it[0], it[1])
 		menu.ttext(Vector2(card.position.x, card.end.y - 70), item_name(it[0], it[1]).to_upper(), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 5)
 		h._text(Vector2(card.position.x, card.end.y - 46), "%s  ·  %s" % [Stats.RARITIES[it[2]][0].to_upper(), KIND_LABEL[it[0]]], 13, col.lightened(0.2), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
 		h._text(Vector2(card.position.x, card.end.y - 22), "Added to your collection: tap to try it on", 11, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)

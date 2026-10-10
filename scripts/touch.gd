@@ -8,7 +8,7 @@ extends Control
 ## does not know whether a key, a pad or a thumb pressed them. Menus take
 ## taps through Godot's mouse emulation and need nothing here.
 
-const STICK_RANGE := 70.0   # pixels of drag for a full-strength move
+const STICK_RANGE := 95.0   # pixels of drag for a full-strength move (was 70: too twitchy on an iPad)
 const AIM_RANGE := 55.0
 const DEAD := 0.18
 
@@ -70,7 +70,11 @@ func _down(i: int, pos: Vector2) -> void:
 	if game:
 		game.touch_active = true
 	if not _playing():
-		game.touch_tap = pos   # a menu tap: game.menu_tick reads it as a click
+		if game.rank_open and not game.menu_open and (game.hud.touch_close.grow(10).has_point(pos) or not game.hud._menu_rect().has_point(pos)):
+			# The UPGRADES board: CLOSE, or a tap anywhere outside it, shuts it.
+			game.rank_open = false
+			return
+		game.touch_tap = _snap(pos)   # a menu tap: game.menu_tick reads it as a click
 		return
 	var hud = game.hud
 	# The HUD's ability tiles and corner buttons.
@@ -79,6 +83,17 @@ func _down(i: int, pos: Vector2) -> void:
 		if r.grow(6).has_point(pos):
 			var action: String = entry[1]
 			if action == "":
+				return
+			if action == "quick_tap":
+				game.touch_tap = pos   # a LEVEL UP tile with its own buy: handled like a click
+				return
+			if action == "attack" and aim_id < 0:
+				# The big attack tile is also the aim pad: hold to swing,
+				# drag to aim.
+				aim_id = i
+				aim_origin = pos
+				aim_vec = Vector2.ZERO
+				Input.action_press(_prefix() + "attack")
 				return
 			held[i] = _prefix() + action if action in ["attack", "dodge", "ability_1", "ability_2", "block", "interact", "rank_menu"] else action
 			Input.action_press(held[i])
@@ -157,12 +172,12 @@ func _draw() -> void:
 	# base under the thumb and the knob where it drags.
 	if stick_id >= 0:
 		_ring(stick_origin, STICK_RANGE, Color(1, 1, 1, 0.12), Color(1, 1, 1, 0.35))
-		draw_circle(stick_origin + stick_vec * STICK_RANGE, 26.0, Color(1.0, 0.95, 0.7, 0.55))
-		draw_arc(stick_origin + stick_vec * STICK_RANGE, 26.0, 0, TAU, 32, Color(0.3, 0.2, 0.05, 0.8), 2.0)
+		draw_circle(stick_origin + stick_vec * STICK_RANGE, 38.0, Color(1.0, 0.95, 0.7, 0.55))
+		draw_arc(stick_origin + stick_vec * STICK_RANGE, 38.0, 0, TAU, 32, Color(0.3, 0.2, 0.05, 0.8), 3.0)
 	else:
 		var rest := Vector2(size.x * 0.17, size.y * 0.62)
-		_ring(rest, 46.0, Color(1, 1, 1, 0.05), Color(1, 1, 1, 0.18))
-		draw_circle(rest, 16.0, Color(1, 1, 1, 0.12))
+		_ring(rest, 80.0, Color(1, 1, 1, 0.06), Color(1, 1, 1, 0.22))
+		draw_circle(rest, 30.0, Color(1, 1, 1, 0.14))
 	# The attack pad: a red ring where the thumb landed, an arrow for the aim.
 	if aim_id >= 0:
 		_ring(aim_origin, AIM_RANGE, Color(1.0, 0.3, 0.2, 0.12), Color(1.0, 0.45, 0.3, 0.45))
@@ -170,12 +185,27 @@ func _draw() -> void:
 			var tip := aim_origin + aim_vec.normalized() * (AIM_RANGE + 10.0)
 			draw_line(aim_origin, tip, Color(1.0, 0.6, 0.4, 0.8), 4.0)
 			draw_circle(tip, 7.0, Color(1.0, 0.7, 0.5, 0.9))
-	else:
-		var rest := Vector2(size.x * 0.84, size.y * 0.5)
-		_ring(rest, 40.0, Color(1.0, 0.3, 0.2, 0.05), Color(1.0, 0.45, 0.3, 0.2))
-		draw_circle(rest, 12.0, Color(1.0, 0.5, 0.4, 0.15))
+
 
 
 func _ring(c: Vector2, r: float, fill: Color, edge: Color) -> void:
 	draw_circle(c, r, fill)
 	draw_arc(c, r, 0, TAU, 48, edge, 2.5)
+
+
+func _snap(pos: Vector2) -> Vector2:
+	## Fingers are wider than a mouse pointer: a tap up to 24 px outside a
+	## menu button counts as a tap on the nearest one.
+	if game == null or game.hud == null:
+		return pos
+	var best := 24.0
+	var hit := pos
+	for r in game.hud.button_rects():
+		if r.has_point(pos):
+			return pos
+		var q := Vector2(clampf(pos.x, r.position.x, r.end.x), clampf(pos.y, r.position.y, r.end.y))
+		var d := q.distance_to(pos)
+		if d < best:
+			best = d
+			hit = r.get_center()
+	return hit

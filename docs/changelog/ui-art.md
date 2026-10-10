@@ -789,3 +789,119 @@ Files: `scripts/hud.gd`, `scripts/character_model.gd`, `docs/changelog/ui-art.md
 `--check-only`; `tools/options_menu_test.gd` 0 failures.
 
 Revert: `git revert a904271`.
+
+## 2026-10-09 — Icon upgrade pass (Faisal 11:33 "upgrading the ... icons")
+
+Commit: `758af0c`. `tools/make_icons.py` gets a finishing pass (`finish()`) used by every icon it
+and `tools/make_summary_icons.py` draw: colours +25 % saturation / +6 % brightness, light from
+the top and shade toward the bottom, a rim light on the top-left edges, a thick ink sticker
+outline and a soft drop shadow; the glow fades out before the canvas edge (no square halo).
+Output 128 → 256 px (all 72 in `assets/ui/icons`, reimported). The HUD draws them by rect, so
+sizes on screen are unchanged. Faisal's own painted versions replace these by file name when
+he sends them. Also: Classes-tab SELECT on pale classes (Knight, Healer) gets a darker fill so
+its white text reads.
+
+Files: `tools/make_icons.py`, `assets/ui/icons/*.png`, `scripts/hud.gd`,
+`docs/changelog/ui-art.md`. Tested: `--import`; `tools/options_menu_test.gd` 0 failures;
+renders of the HUD and Classes tab. Sheet: game/groups/ui-art/icons/upgraded-icons-sheet.png.
+
+Revert: `git revert 758af0c`.
+
+## 2026-10-09 — Every HUD button works (Faisal 11:39 "ALL the settings and buttons work")
+
+Commit: `fd1bcbf`. Broken → fixed:
+- The HUD corner "bag" button (I key) did nothing → removed (`_bag_glyph` gone); the corner now
+  shows map + scoreboard only, shifted 50 px.
+- The map / scoreboard corner buttons only answered the keys → a click or tap opens the pause
+  menu on MAP (tab 0) or SCOREBOARD (tab 3) (`hud.corner_buttons`, click handler in game.gd).
+- The end-of-match summary's SCOREBOARD and CONTINUE ignored touch taps (iPad) → the game_over
+  block passes `touch_tap` to `hud._click_end`.
+Test coverage: `tools/options_menu_test.gd` now also checks the corner buttons, every touch
+ability tile, the downed skip (hold interact; only where the build has Downed & Revive) and both
+summary buttons; `tools/menu_flow_test.gd` accepts the fixed 4v4 team size.
+
+Files: `scripts/hud.gd`, `scripts/game.gd`, `tools/options_menu_test.gd`,
+`tools/menu_flow_test.gd`. Tested: options_menu_test and menu_flow_test 0 failures; `--audit`
+(1 known pine overlap).
+
+Revert: `git revert fd1bcbf`.
+
+Follow-up `543029f`: the downed-skip check waits for the outcome (up to 600 frames) instead of a fixed
+frame count, since physics ticks lag process frames headlessly. On the combined alpha
+(release/v0.4.0-alpha + this branch): options_menu_test, menu_flow_test, store_menu_test all
+0 failures. Revert: `git revert 543029f`.
+
+## 2026-10-09 — Button test follows the iPad touch layout
+
+Commit: `7be12a4`. On release/v0.4.0-alpha (with the iPad touch-first HUD) two touch checks failed
+because the first touch switches the HUD to its touch cluster and the attack tile became the aim
+pad. The test now turns touch mode on first, reads that layout's tiles and accepts `aim_id` for
+attack. Game behaviour unchanged. Tested: options_menu_test 0 failures on this branch and on
+release/v0.4.0-alpha 3a17242. Files: `tools/options_menu_test.gd`.
+
+Revert: `git revert 7be12a4`.
+
+## 2026-10-10 — Faisal's 05:58 / 06:00 / 06:04 UI asks
+
+Commits:
+- `0722242` covers hairstyles, hero turning, Upgrades clarity and pad, the green Elves band and the tutorial picture code.
+- `debf49f` covers quick upgrades.
+- `5c5a432` adds Economy's tiles on the quick strip.
+- `07cc200` fixes a door post z-fight.
+- `12e1e10` adds the tutorial pictures.
+- `0473c04` polishes UPGRADES (D-pad label, 0.46s precision, no 1-4 keycaps on a pad, emblem removed from under Next).
+
+### Hairstyles
+Each style now has its own silhouette (`character_model._add_hair_style`):
+- **Ponytail:** a high knot, with the tail swinging out past the right shoulder.
+- **Long:** seven locks to the waist, plus two thick locks down the chest.
+- **Braids:** two 7-bead plaits in front of the shoulders, down to the belt.
+- **Bun** is now **Top Knot** (`Stats.HERO_HAIR_STYLES[4]`): a tall stacked knot on the crown.
+
+The `menu.hair_thumb` thumbnails were redrawn to match.
+
+### Turning the hero
+The hero on Create Your Character can be turned three ways (`menu._hero_turner`, `menu_stage.hero_turn` / `hero_turn_goal`):
+- drag with the mouse across `HERO_AREA`;
+- push the right stick (3.2 rad/s);
+- tap the round arrows, button id `hero_turn` ±1, which turn 45° each.
+
+### UPGRADES
+- **Lit row:** the lit skill row gets a pulsing gold frame. A detail strip shows its numbers now and after the next rank (`_rank_compare`, built on the new `unit.ranked_at(a, track, r)`).
+- **Gamepad** (`game._rank_pad`): the D-pad moves the highlight over the 4 skills and 2 promotions, A buys or picks, LB/RB change class and B closes. The footer shows pad glyph prompts. Old behaviour: the D-pad bought ranks directly.
+- **Purchase feedback:** a buy flashes its row and floats "+1 LV".
+
+### Quick upgrades
+While you have points, a LEVEL UP strip sits over the ability strip, centred on touch (`hud._draw_quick_upgrade`).
+- **Buying:** 1-4, the D-pad, a click or a tap buys a rank anywhere.
+- **Combat rule:** buying needs `Stats.QUICK_UPGRADE_CALM` = 3.0 s without taking or dealing a hit (`unit.combat_at`, `calm_left()`). Inside that window the buy is refused with a shake and an IN COMBAT popup.
+- **Economy tiles:** `game.economy.quick_tiles(p)` tiles go on the right of the same strip (`game.quick_buy`, `hud.quick_buttons`; touch "quick_tap").
+
+### Score bar
+The Elves band and stag shield in the top bar are now green (`tools/make_topbar.py elves_green`, which regenerates `assets/ui/topbar/topbar.png`).
+
+### Tutorial pictures
+- **Title TUTORIAL:** shows a gameplay picture per topic over the answer (`menu.tutorial_image`, `assets/ui/tutorial/topic_0..5.jpg`).
+- **In-match Guide:** shows the same picture above its box.
+- **Tools and flags:** `tools/make_tutorial_images.py` makes the pictures. New render flags: `--debug-guide-topic=N` and `--debug-points=N`.
+
+### Z-fight
+The throne-room door posts are now 0.72 wide (was 0.7). Their faces were flush with the raised floor.
+
+### Tests
+`tools/options_menu_test.gd` adds checks for:
+- the turn arrows;
+- the tutorial pictures;
+- the pad Upgrades (move, buy, flash, class flip, close);
+- quick upgrades (key, tile, refusal in combat).
+
+The downed check now downs the player away from teammates.
+
+Results: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. `--demo` 4000 frames ran with no script errors. `--audit` shows the 1 known overlap.
+
+### Revert
+Revert newest first:
+
+```
+git revert 0473c04 12e1e10 5c5a432 07cc200 debf49f 0722242
+```

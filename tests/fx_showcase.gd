@@ -10,6 +10,10 @@ extends Node
 ## With --skills=<Knight|Ranger|Mage|Healer|Rogue> instead: that class on each
 ## side casts both of its abilities, Elf first, then Human, at stand-ins
 ## (one capture per class for the skill looks).
+## With --grab: the player grabs a class seal (pop), grabs at nothing (whiff)
+## twice (whiffs).
+## With --fluid: the player Knight runs while swinging, taps attack fast, and
+## turns: for before/after clips of the combat flow.
 
 const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
@@ -57,6 +61,12 @@ func _stage() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--at="):
 			center = Vector3(float(arg.get_slice("=", 1).get_slice(",", 0)), 0, float(arg.get_slice("=", 1).get_slice(",", 1)))
+	if "--fluid" in OS.get_cmdline_user_args():
+		_stage_fluid()
+		return
+	if "--grab" in OS.get_cmdline_user_args():
+		_stage_grab()
+		return
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--skills="):
 			_stage_skills(arg.get_slice("=", 1))
@@ -350,3 +360,92 @@ func _human_q() -> void:
 
 func _human_e() -> void:
 	_skill(1, 1)
+
+
+# --- Grab (--grab) -------------------------------------------------------------
+
+var grab_seal = null
+
+
+func _stage_grab() -> void:
+	var p = game.player
+	p.spawn_protect = 0.0
+	game.cam_zoom = 0.55
+	for u in game.units:
+		if u != p:
+			u.process_mode = Node.PROCESS_MODE_DISABLED
+			u.global_position = Vector3(200, -50, 200)
+	grab_seal = game.seals[p.team][Role.RANGER]
+	# Stand in front of the seal (camera side), facing it.
+	p.global_position = Vector3(grab_seal.global_position.x, p.global_position.y, grab_seal.global_position.z + 1.3)
+	_face(p, grab_seal.global_position)
+	events = [[0.6, "_grab_seal"], [2.2, "_grab_air"], [3.6, "_grab_air"]]
+
+
+func _face(u, at: Vector3) -> void:
+	var d: Vector3 = at - u.global_position
+	d.y = 0.0
+	u.facing = d.normalized()
+	u.aim = u.facing
+	u.rotation.y = atan2(-u.facing.x, -u.facing.z)
+
+
+func _grab_seal() -> void:
+	game.prep_left = 0.0
+	game.try_interact(game.player)
+
+
+func _grab_air() -> void:
+	var p = game.player
+	game.prep_left = 0.0
+	p.global_position.z += 1.6   # step back from the seal: nothing in reach
+	_face(p, p.global_position + Vector3(0, 0, 1))
+	game.try_interact(p)
+
+
+# --- Fluid combat (--fluid) -----------------------------------------------------
+
+func _stage_fluid() -> void:
+	var p = game.player
+	center = Vector3(-11, 0, 13)
+	p.global_position = center + Vector3(-5, 0, 2.2)
+	p.spawn_protect = 0.0
+	p.set_role(Role.KNIGHT)
+	p.aim_mode = "stick"
+	game.cam_zoom = 0.6
+	var dummies := []
+	for u in game.units:
+		if u == p:
+			continue
+		if u.team != p.team and dummies.size() < 3:
+			dummies.append(u)
+			continue
+		u.process_mode = Node.PROCESS_MODE_DISABLED
+		u.global_position = Vector3(200, -50, 200)
+	var at := [Vector3(-2.2, 0, 2.5), Vector3(0.6, 0, 1.9), Vector3(2.8, 0, 2.6)]
+	for i in dummies.size():
+		_place(dummies[i], Role.BASE, center + at[i])
+		dummies[i].process_mode = Node.PROCESS_MODE_DISABLED
+		dummies[i].model.process_mode = Node.PROCESS_MODE_ALWAYS
+	events = [[0.3, "_run_right"], [2.2, "_stop"], [2.3, "_tap"], [2.45, "_tap"], [2.6, "_tap"], [2.75, "_tap"],
+		[3.3, "_run_left"], [5.0, "_stop"]]
+
+
+func _run_right() -> void:
+	Input.action_press("move_right")
+	Input.action_press("attack")
+
+
+func _run_left() -> void:
+	Input.action_press("move_left")
+	Input.action_press("attack")
+
+
+func _stop() -> void:
+	for a in ["move_right", "move_left", "attack"]:
+		Input.action_release(a)
+
+
+func _tap() -> void:
+	Input.action_press("attack")
+	get_tree().create_timer(0.05).timeout.connect(func(): Input.action_release("attack"))

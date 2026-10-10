@@ -68,7 +68,7 @@ const HERO_HAIR_FREE := 6
 # Hair styles (Create Your Character): the model's own cut, then the modelled
 # styles character_model._add_hair_style adds on the head bone. The first
 # HERO_HAIR_STYLE_FREE are everyone's; the rest are sold in the STORE.
-const HERO_HAIR_STYLES := ["Classic", "Ponytail", "Long", "Braids", "Bun"]
+const HERO_HAIR_STYLES := ["Classic", "Ponytail", "Long", "Braids", "Top Knot"]
 const HERO_HAIR_STYLE_FREE := 2
 const HERO_TRIM := [["Team", Color.TRANSPARENT], ["Crimson", Color(0.7, 0.12, 0.15)], ["Violet", Color(0.5, 0.25, 0.7)],
 	["Teal", Color(0.15, 0.6, 0.6)], ["Gold", Color(0.9, 0.72, 0.2)], ["Night", Color(0.12, 0.12, 0.18)],
@@ -331,6 +331,10 @@ const VIGOR_SPEED := 0.05
 const VIGOR_ENERGY := 12.0
 const VIGOR_REGEN := 0.2
 const RANK_TRACKS := ["Attack", "Q", "E", "Vigor"]
+# Quick upgrades (Faisal 06:04 2026-10-10 "quicker upgrades"): with points to
+# spend, 1-4 / the D-pad / the HUD's level-up tiles buy a rank anywhere,
+# once you have neither taken nor dealt a hit for this long.
+const QUICK_UPGRADE_CALM := 3.0
 
 # Scoreboard: what a player's match score is made of.
 const SCORE_KILL := 10
@@ -363,7 +367,7 @@ const ROLES := {
 		"color": Color(0.85, 0.8, 0.7), "abilities": []},
 	Role.KNIGHT: {"attack": "melee", "attack_name": "Sword Strike", "attack_desc": "A wide swing that also chips at doors.",
 		"damage": 1, "gate_damage": 2, "range": 2.2, "cooldown": 0.55,
-		"energy": "stamina", "cost": 8, "speed": 1.06, "block": true, "armour": 0.34,
+		"energy": "stamina", "cost": 8, "speed": 1.14, "block": true, "armour": 0.34,   # speed 1.06 → 1.10 (patch 1) → 1.14 (patch 3)
 		"color": Color(0.8, 0.8, 0.85), "abilities": [
 			{"name": "Shield Bash", "key": "Q", "kind": "bash", "cooldown": 4, "cost": 35.0,
 				"damage": 2, "distance": 4.0, "desc": "Charge forward: two hearts to everyone in the way, and a shove."},
@@ -379,11 +383,11 @@ const ROLES := {
 				"damage": 1, "root": 2.0, "lifetime": 30.0, "desc": "Plant a trap that roots and hurts the first enemy on it."}]},
 	Role.MAGE: {"attack": "spell", "attack_name": "Arcane Bolt", "attack_desc": "A bolt that bursts on impact.",
 		"damage": 1, "gate_damage": 2, "range": 13.0, "cooldown": 0.65,
-		"energy": "mana", "cost": 12.0, "splash": 1.4, "speed": 0.95, "shot_speed": 32.0,
+		"energy": "mana", "cost": 12.0, "splash": 1.0, "speed": 0.95,   # splash 1.4 → 1.0 (patch 3: a sidestep now dodges the bolt) "shot_speed": 32.0,
 		"color": Color(0.45, 0.3, 0.85), "abilities": [
 			{"name": "Fireball", "key": "Q", "kind": "fireball", "cooldown": 5, "cost": 55.0,
 				"damage": 2, "splash": 3.2, "range": 13.0, "shot_speed": 24.0, "desc": "A big slow ball of fire: two hearts to everyone near the blast, four hits to a door."},
-			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 4, "cost": 30.0,
+			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 5, "cost": 30.0,   # cooldown 4 → 5 (patch 3)
 				"distance": 6.0, "desc": "Teleport a short way in the aim direction."}]},
 	Role.ENGINEER: {"attack": "melee", "attack_name": "Hammer", "attack_desc": "A heavy swing that wrecks doors, fences and turrets.",
 		"damage": 1, "gate_damage": 3, "range": 1.9, "cooldown": 0.6,
@@ -437,7 +441,7 @@ const VARIANTS := {
 		{"name": "Warden", "icon": "warden", "tint": Color(0.78, 0.84, 1.0), "show": ["1H_Sword", "Rectangle_Shield"],
 			"desc": "Tower shield defence: a slam that pins enemies down and a bulwark that shields nearby teammates too.",
 			"attack": {"attack_name": "Mace", "attack_desc": "A short, heavy blow that batters doors.",
-				"range": 2.0, "cooldown": 0.55, "gate_damage": 3},
+				"range": 2.2, "cooldown": 0.55, "gate_damage": 3},   # range 2.0 → 2.2 (patch 1)
 			"abilities": [
 				{"name": "Shield Slam", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "distance": 3.5, "root": 1.2, "desc": "A short charge for two hearts that pins everyone it hits in place."},
@@ -463,7 +467,7 @@ const VARIANTS := {
 	Role.MAGE: [
 		{"name": "Pyromancer", "icon": "pyromancer", "tint": Color(1.0, 0.6, 0.4), "show": ["2H_Staff"],
 			"desc": "Fire: burning bolts, a huge fireball and a wave of flame in front of you.",
-			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.8},
+			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.3},   # splash 1.8 → 1.3 (patch 3)
 			"abilities": [
 				{"name": "Inferno", "key": "Q", "kind": "fireball", "icon": "fireball", "cooldown": 6, "cost": 60.0,
 					"damage": 2, "splash": 4.5, "range": 13.0, "shot_speed": 24.0, "desc": "A huge fireball: two hearts to everyone near the blast."},
@@ -475,7 +479,7 @@ const VARIANTS := {
 			"abilities": [
 				{"name": "Ice Burst", "key": "Q", "kind": "fireball", "icon": "frost", "cooldown": 5, "cost": 45.0,
 					"damage": 1, "splash": 3.5, "range": 13.0, "shot_speed": 28.0, "frost": true, "root": 1.0, "desc": "A ball of ice that freezes everyone near the blast in place."},
-				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 3, "cost": 30.0,
+				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4, "cost": 30.0,   # cooldown 3 → 4 (patch 3)
 					"distance": 8.0, "desc": "Teleport further in the aim direction."}]}],
 	Role.ROGUE: [
 		{"name": "Assassin", "icon": "assassin", "tint": Color(0.75, 0.55, 0.9), "show": ["1H_Sword"],
@@ -556,14 +560,14 @@ const FACTION_KITS := {
 				{"name": "Vine Snare", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 6, "cost": 35.0,
 					"damage": 1, "root": 2.5, "lifetime": 30.0, "desc": "A living snare that roots the first enemy who steps on it."}]},
 		Role.MAGE: {
-			"attack": {"attack_name": "Thorn Bolt", "attack_desc": "A seed that bursts into thorns and slows whoever it catches.", "slow": 0.8, "splash": 1.3, "cost": 12.0, "nature": true},
+			"attack": {"attack_name": "Thorn Bolt", "attack_desc": "A seed that bursts into thorns and slows whoever it catches.", "slow": 0.8, "splash": 1.0, "cost": 12.0, "nature": true},   # splash 1.3 → 1.0 (patch 3)
 			"abilities": [
 				{"name": "Bramble Burst", "key": "Q", "kind": "fireball", "icon": "bramble", "cooldown": 5, "cost": 50.0,
 					"damage": 1, "splash": 3.4, "range": 13.0, "shot_speed": 26.0, "root": 1.3, "nature": true, "desc": "A seed-ball that bursts into brambles: a heart to everyone near the blast, and they are rooted."},
-				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4, "cost": 30.0,
+				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 5, "cost": 30.0,   # cooldown 4 → 5 (patch 3)
 					"distance": 7.5, "desc": "Step along the fae paths, further than any blink."}]},
 		Role.HEALER: {
-			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 6.0, "cooldown": 0.7, "cost": 16.0},
+			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 5.0, "cooldown": 0.7, "cost": 16.0},
 			"abilities": [
 				{"name": "Spirit Bloom", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 8, "cost": 60.0,
 					"heal": 2, "radius": 8.0, "haste": 4.0, "desc": "Heal every teammate nearby two hearts and quicken them."},
@@ -580,7 +584,7 @@ const FACTION_KITS := {
 	1: {
 		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Heavy plate turns about every third hit.", "armour": 0.37}},
 		Role.RANGER: {
-			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 14.0, "cooldown": 0.75, "cost": 10, "shot_speed": 36.0},
+			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 16.0, "cooldown": 0.68, "cost": 10, "shot_speed": 42.0},
 			"abilities": [
 				{"name": "Heavy Bolt", "key": "Q", "kind": "shot", "icon": "snipe", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "range": 16.0, "shot_speed": 50.0, "desc": "A wound-up bolt that takes two hearts."},
@@ -616,9 +620,9 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 # (Regen limits attack rate, so it is worth more than it looks: 1.3 made the
 # Humans win three of every four bot matches; 1.12 was still winning two of three once raids rallied and escorted, so 1.06.)
 const FACTIONS := [
-	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.3, "regen_mult": 1.0,
+	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.15, "regen_mult": 1.0,   # 6.3 → 6.15 (patch 2: still the quicker side, less kiting edge)
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
-	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.06,
+	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.15,   # 1.06 → 1.15 (patch 1: basic attacks went free, so faster regen is worth less)
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 ]
 
@@ -652,15 +656,24 @@ const ECONOMY := {
 	"depot_radius": 2.6,     # walk into the storehouse ring to drop everything you carry
 	"drop_life": 40.0,       # seconds a dead soldier's dropped load stays on the ground
 	"hat_wood": 5, "hat_ore": 5,          # upgrade one class's hat machine (Faisal's price)
-	"repair_wood": 2, "repair_ore": 1, "repair_hits": 50,     # mend your door by 50 hits
+	"repair_wood": 2, "repair_ore": 1, "repair_hits": 35,     # mend your door by 35 hits
 	"rebuild_wood": 4, "rebuild_ore": 2, "rebuild_hits": 100, # raise a broken door at once (not under siege)
-	"turret_wood": 3, "turret_ore": 3,    # a base turret on an empty turret pad
-	"turret_up_wood": 2, "turret_up_ore": 2,   # raise a base turret a level (up to 3)
-	"turret_fix_wood": 1, "turret_fix_ore": 1, # patch a damaged turret back to full
+	"turret_wood": 2, "turret_ore": 1,    # a base turret on an empty turret pad (was 3 / 3; Faisal 2026-10-10 "cheaper and smarter")
+	"turret_up_wood": 1, "turret_up_ore": 1,   # raise a base turret a level (up to 3; was 2 / 2)
+	"turret_fix_wood": 1, "turret_fix_ore": 0, # patch a damaged turret back to full (was 1 / 1)
 	"door_reach": 4.0,       # how close to your door you stand to mend it
 	"pad_reach": 1.8,        # how close to a turret pad you stand to buy or tend a turret
-	"bot_gatherers": 1,      # bots per team that gather (two while the team pool is empty)
+	"bot_gatherers": 1,      # bots per team that gather (the Engineer; else an attacker, see bot_attacker_hats)
 	"bot_reserve_wood": 2, "bot_reserve_ore": 1,   # all-bot teams keep this back for a door repair
+	"bot_attacker_hats": 2,   # with no Engineer bot, an attacker gathers only until this many hat machines are upgraded
+	"bot_repair_below": 100,   # all-bot teams mend their door only once it is down to this (no mending under siege)
+	"bot_repair_gap": 45.0,   # ...and at most once every this many seconds
+	"door_bar_lift": 1.6,    # metres the door's overhead health bar sits higher than World & Maps placed it
+	"bot_turrets_early": 1,  # all-bot teams put this many turrets up before their first hat upgrade...
+	"bot_turrets": 2,        # ...and this many after it
+	"bot_turrets_with_human": 1,   # bots on a team with a player build up to this many
+	"field_calm": 3.0,       # seconds out of combat before a hat machine can be upgraded from the field (quick-upgrade popup)
+	"field_foe_radius": 9.0, # an enemy this close counts as combat
 }
 
 # The extra move a class gets from its upgraded hat (key G, pad left stick

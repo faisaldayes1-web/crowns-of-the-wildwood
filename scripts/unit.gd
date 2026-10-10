@@ -44,8 +44,16 @@ var attack_timer := 0.0
 var flash_timer := 0.0
 const FLASH_TIME := 0.22     # hit flash: white for the first frames, then red, easing back
 var hitstop_timer := 0.0
+var heartbeat_timer := 0.0
+const HIT_CONFIRM_RANGE := 4.0   # your hits from further than this play a tick and mark the target (ranged feedback)
+const ATTACK_BUFFER := 0.2         # seconds a tapped attack waits for the swing cooldown
+var attack_buffer := 0.0
+var hit_confirms := 0      # ranged hit confirms played (for the tests)
+const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits for its cooldown
+var input_buffer := [0.0, 0.0, 0.0]  # ability 1, ability 2, dodge
 var swing_flip := false     # alternate the slash arc left/right    # hit stop: the model's animation holds for a beat (looks only)
 var status_fx := {}         # looping aura emitters by kind (Fx.status_emitter)
+var combat_at := -100.0      # when this unit last took or dealt a hit (quick upgrades wait for calm)
 var last_hit_dir := Vector3.ZERO   # the push of the last hit that landed (for the HUD's hit direction arc)
 var ability_timers := [0.0, 0.0, 0.0]   # Q, E, and G (the upgraded hat's move)
 var hat_upgraded := false   # wearing a hat from an upgraded hat machine (economy.gd): a third move on G
@@ -918,9 +926,18 @@ func _bot_spend() -> void:
 			break
 
 
+func calm_left() -> float:
+	## Seconds until a quick upgrade is allowed (0 = now).
+	return maxf(0.0, Stats.QUICK_UPGRADE_CALM - (Time.get_ticks_msec() / 1000.0 - combat_at))
+
+
 func ranked(a: Dictionary, track: int) -> Dictionary:
 	## A copy of an attack or ability with this unit's rank applied.
-	var r := rank(track)
+	return ranked_at(a, track, rank(track))
+
+
+func ranked_at(a: Dictionary, track: int, r: int) -> Dictionary:
+	## The same at any rank r (the Upgrades page compares now and next).
 	if r == 0:
 		return a
 	var out := a.duplicate()
@@ -972,6 +989,18 @@ func vigor_speed() -> float:
 
 
 # --- Damage ------------------------------------------------------------------
+
+func hit_confirm(target, amount: int) -> void:
+	## Your shot or spell landed out of earshot: a crisp tick, a white mark on
+	## whoever you hit, the aim ring pulsing and a light pad tap. Looks only.
+	hit_confirms += 1
+	game.sfx.ui("hit_tick", -6.0, 1.0 if amount < 2 else 0.85)
+	Fx.of(game).flare(target.global_position + Vector3(0, 1.2, 0), Color(1.0, 1.0, 0.95, 0.8), 0.9 if amount < 2 else 1.3, 0.12)
+	if aim_ring and aim_ring.visible:
+		aim_ring.scale = Vector3.ONE * 1.5
+		aim_ring.create_tween().tween_property(aim_ring, "scale", Vector3.ONE, 0.14).set_ease(Tween.EASE_OUT)
+	game.rumble(self, 0.18, 0.0, 0.05)
+
 
 func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knock: float = 0.0, effect: Dictionary = {}) -> bool:
 	## Returns true if the hit landed. `from` is where the hit came from, for
@@ -1025,6 +1054,9 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.7, 0.85, 1.0), 8, 3.0, 0.3)
 			return false
 	hearts -= amount
+	combat_at = Time.get_ticks_msec() / 1000.0
+	if attacker and is_instance_valid(attacker) and "combat_at" in attacker:
+		attacker.combat_at = combat_at
 	flash_timer = FLASH_TIME
 	if game.net:
 		game.net.rec("game", "net_flash", [self])
@@ -1052,8 +1084,16 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		attacker.gain_xp(Stats.XP_HIT * amount)
 		attacker.damage_dealt += amount
 		recent_hitters[attacker] = Time.get_ticks_msec() / 1000.0
+		if attacker.is_player and hearts > 0 and _flat_to(attacker.global_position).length() > HIT_CONFIRM_RANGE:
+			attacker.hit_confirm(self, amount)
 	game.spawn_popup(global_position + Vector3(0, 2.0, 0), "-%d" % amount, Color(1, 0.35, 0.3))
 	game.sfx.play("hurt", global_position, -4.0 if not is_player else 0.0, 0.15)
+	# Weight in the sound too: a crunch under heavy blows, a crackle under spells.
+	var hk := _hit_kind(attacker, effect)
+	if amount >= 2 or hk == "heavy":
+		game.sfx.play("hit_heavy", global_position, -2.0 if amount >= 2 else -7.0, 0.1)
+	elif hk in ["arcane", "frost", "holy", "dark", "nature", "fire"]:
+		game.sfx.play("hit_magic", global_position, -6.0, 0.12)
 	if is_player:
 		game.shake(0.35)
 		game.rumble(self, 0.3, 0.8 if hearts <= 1 else 0.6, 0.22)
@@ -1072,6 +1112,8 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		if attacker and attacker != self:
 			if attacker.is_player:
 				game.shake(0.28)
+				game.kick_cam(global_position - attacker.global_position, 0.22)
+				game.sfx.ui("kill", -4.0)
 				attacker._hitstop(0.1)
 			if level - attacker.level >= 2:
 				attacker.giant_kills += 1
@@ -1113,8 +1155,17 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			_die()
 		return true
 	_refresh_overhead()
-	if model and model._now() >= model.busy_until:
-		model.play_once("Hit_A", 1.5)
+	if model and (model._now() >= model.busy_until or amount >= 2) and dodge_timer <= 0.0:
+		# A flinch, from whichever side the blow came; a heavy blow cuts into
+		# whatever the body was doing and lifts it off its feet a little.
+		var side: float = facing.cross(Vector3.UP).dot(push)
+		model.play_once("Hit_B" if side > 0.0 else "Hit_A", 1.5 if amount < 2 else 1.8, 0.5)
+		if amount >= 2:
+			var tw: Tween = model.create_tween()
+			tw.tween_property(model, "position:y", 0.3, 0.09).set_ease(Tween.EASE_OUT)
+			tw.tween_property(model, "position:y", 0.0, 0.14).set_ease(Tween.EASE_IN)
+	if is_player:
+		game.kick_cam(push, 0.18 if amount < 2 else 0.3)   # the view jolts the way the blow pushed
 	# Bots roll sideways away from whatever just hit them, half the time.
 	if not is_player and dodge_ready() and randf() < 0.5 * game.bot_tuning().react:
 		try_dodge(facing.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0))
@@ -1510,6 +1561,7 @@ func _die() -> void:
 	if is_player and fell_from > 1 and not was_down:
 		# (The HUD death screen carries this; the chat log keeps the line.)
 		game.chat_system("You fell at level %d: down to level %d, back in %d seconds." % [fell_from, level, int(respawn_timer)])
+	_death_fling()
 	Fx.of(game).death(global_position, Stats.FACTIONS[team].color)
 	game.sfx.play("death", global_position, 0.0, 0.1)
 	if aim_marker:
@@ -2056,6 +2108,29 @@ func _update_down_fx() -> void:
 
 
 
+func _death_fling() -> void:
+	## The killing blow throws the body back: a short arc the way it was hit,
+	## landing as the fall plays. Looks only (the unit itself stays put);
+	## the model is reset on revive.
+	if model == null:
+		return
+	var push := last_hit_dir
+	push.y = 0.0
+	if push.length() < 0.05:
+		return
+	var local: Vector3 = global_transform.basis.inverse() * (push.normalized() * 1.1)
+	local.y = 0.0
+	var tw: Tween = model.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(model, "position:x", local.x, 0.32).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(model, "position:z", local.z, 0.32).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(model, "position:y", 0.45, 0.14).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_property(model, "position:y", 0.0, 0.16).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(func():
+		if is_instance_valid(game):
+			Fx.of(game).burst(model.global_position + Vector3(0, 0.15, 0), Color(0.6, 0.55, 0.45), 8, 2.0, 0.7, Fx.STYLE_SMOKE, Vector3.UP, 70.0, 0.8))
+
+
 func _respawn() -> void:
 	dead = false
 	set_role(Role.BASE)
@@ -2157,7 +2232,7 @@ func _a(action: String) -> StringName:
 
 func _update_player_aim(move: Vector3) -> void:
 	var cam: Camera3D = game.camera_for(self)
-	var mouse: Vector2 = cam.get_viewport().get_mouse_position() if has_mouse else last_mouse
+	var mouse: Vector2 = game.mouse_for(self) if has_mouse else last_mouse
 	var stick := Input.get_vector(_a("aim_left"), _a("aim_right"), _a("aim_up"), _a("aim_down"))
 	if stick.length() > 0.3 or game.touch_active:
 		aim_mode = "stick"
@@ -2310,6 +2385,14 @@ func _physics_process(delta: float) -> void:
 			game.spawn_splash(global_position + Vector3(0, 0.9, 0), Color(0.55, 0.55, 0.6), 4, 1.2, 0.9, true)
 		overhead.visible = stealth_timer <= 0.0 or is_player
 	bot_block_timer = maxf(bot_block_timer - delta, 0.0)
+	if is_player and hearts == 1:
+		# Your last heart: a heartbeat you can hear, quickening nothing else.
+		heartbeat_timer -= delta
+		if heartbeat_timer <= 0.0:
+			heartbeat_timer = 0.95
+			game.sfx.ui("heartbeat", -9.0)
+	else:
+		heartbeat_timer = 0.0
 	if guard_timer > 0.0:
 		guard_timer -= delta
 		if guard_timer <= 0.0:
@@ -2375,7 +2458,14 @@ func _physics_process(delta: float) -> void:
 			_update_player_aim(move)
 			_update_highlights()
 		if not game.menu_blocks_input(self):
-			wants_attack = _held("attack")
+			# Held attack keeps swinging; a tap during the cooldown is kept for
+			# a moment and swings as soon as it can (no lost clicks).
+			if _tap("attack"):
+				attack_buffer = ATTACK_BUFFER
+			wants_attack = _held("attack") or attack_buffer > 0.0
+			if remote_peer <= 0 and game.economy and game.economy.mouse_on_button():
+				wants_attack = false   # a click on the economy card's button buys, it does not swing
+				attack_buffer = 0.0
 			wants_block = _held("block")
 			# Hold interact over a downed teammate to revive them; otherwise
 			# interact grabs, drops and talks as before.
@@ -2391,13 +2481,26 @@ func _physics_process(delta: float) -> void:
 				wants_attack = false
 			elif _tap("interact"):
 				game.try_interact(self)
+			# A press just before a skill or the dodge is ready still counts:
+			# it waits up to INPUT_BUFFER seconds and fires the moment it can.
 			if _tap("ability_1"):
-				use_ability(0, aim)
+				input_buffer[0] = INPUT_BUFFER
 			if _tap("ability_2"):
-				use_ability(1, aim)
+				input_buffer[1] = INPUT_BUFFER
 			if _tap("ability_3"):
 				use_ability(2, aim)
 			if _tap("dodge"):
+				input_buffer[2] = INPUT_BUFFER
+		for i in 2:
+			if input_buffer[i] > 0.0:
+				input_buffer[i] -= delta
+				if ability_ready(i):
+					input_buffer[i] = 0.0
+					use_ability(i, aim)
+		if input_buffer[2] > 0.0:
+			input_buffer[2] -= delta
+			if dodge_ready():
+				input_buffer[2] = 0.0
 				try_dodge(move)
 		if dodge_timer > 0.0 or bash_timer > 0.0:
 			return
@@ -2488,7 +2591,9 @@ func _physics_process(delta: float) -> void:
 		real.y = 0.0
 		stuck_time = stuck_time + delta if real.length() < speed * 0.3 else 0.0
 
+	attack_buffer = maxf(attack_buffer - delta, 0.0)
 	if wants_attack and not blocking and carrying == null and attack_timer <= 0.0:
+		attack_buffer = 0.0
 		_attack(aim)
 	if plan.has("ability"):
 		use_ability(plan.ability, plan.aim)
@@ -2785,6 +2890,7 @@ func _attack(dir: Vector3) -> void:
 		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
 		if is_player:
 			game.shake(0.12)
+			game.kick_cam(dir, 0.12)   # the view leans into the blow
 			game.rumble(self, 0.35, 0.15, 0.1)
 	# Swings from the ground also chip away at the enemy door.
 	var vault = game.vaults[1 - team]
@@ -3305,6 +3411,15 @@ func _bot_think(delta: float) -> Dictionary:
 			plan.aim = -away
 			plan.attack = plan.attack or energy >= s.cost
 			return plan
+	if enemy and enemy.downed:
+		# Bots don't leave a post or a crown run to finish a body: wall and
+		# door guards only finish one at their feet, raiders one in their path.
+		var body_d := _flat_to(enemy.global_position).length()
+		var running: bool = gearing_up or (bot_job == "attack" and mine.state == Monarch.State.HOME)
+		if (holding_wall or bot_job == "defend") and body_d > Stats.REVIVE_RANGE:
+			enemy = null
+		elif running and body_d > 3.0:
+			enemy = null
 	if enemy and enemy.downed:
 		# A downed enemy: walk up and do the finisher instead of swinging.
 		var to_body := _flat_to(enemy.global_position)

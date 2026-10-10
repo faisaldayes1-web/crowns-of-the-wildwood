@@ -418,3 +418,62 @@ static func _net_open(target: String, method: String, args: Array):
 static func _net_close(n) -> void:
 	if n:
 		n.depth -= 1
+
+
+# --- Grab / interact (F, pad RB) ---------------------------------------------
+## Every press reaches out (grab), then the result answers it: grab_hit() when
+## something was taken or used, grab_miss() when the hand closed on nothing.
+## game.try_interact() calls these; anything new that uses interact (gathering,
+## reviving, stations) should call grab_hit(u, where, colour) on success so it
+## feels the same.
+
+const GRAB_REACH := 0.9   # metres in front of the chest where the hand closes
+
+
+static func grab_point(u) -> Vector3:
+	var f: Vector3 = u.facing if u.facing.length() > 0.1 else Vector3(0, 0, -1)
+	return u.global_position + Vector3(0, 1.0, 0) + f.normalized() * GRAB_REACH
+
+
+static func grab(u) -> void:
+	## The reach: a quick arm-out grab animation and a lean into it.
+	# Bots retry a grab every frame while a crown sits behind a locked vault:
+	# only show a reach (and its whiff) every so often.
+	var now := Time.get_ticks_msec()
+	var shown: bool = now - int(u.get_meta("grab_ms", -100000)) >= 400
+	u.set_meta("grab_show", shown)
+	if not shown:
+		return
+	u.set_meta("grab_ms", now)
+	var m = u.model
+	if m == null or u.dead:
+		return
+	if m.anim and m.anim.has_animation("Interact") and m.held == "":
+		m.play_once("Interact", 2.4)
+	_lunge(u, 0.25, 0.08)
+	var f: Vector3 = u.facing if u.facing.length() > 0.1 else Vector3(0, 0, -1)
+	Fx.of(u.game).slash(u.global_position + Vector3(0, -0.2, 0), f.normalized(), Color(1.0, 1.0, 0.95, 0.55), 0.55)   # the hand sweeping in
+
+
+static func grab_hit(u, where: Vector3, color: Color = Color(1.0, 0.9, 0.55), big: bool = false) -> void:
+	## It took hold: a pop and sparkle on the object, a light sound, a short buzz.
+	var fx = Fx.of(u.game)
+	fx.flare(where, color.lightened(0.3), 0.9 if not big else 1.2, 0.16)
+	fx.burst(where, color, 16 if not big else 24, 4.5, 0.5, Fx.STYLE_SPARK, Vector3.UP, 80.0, 1.0)
+	fx.burst(where, color, 10, 2.0, 0.8, Fx.STYLE_MOTE)
+	fx.ground_ring(Vector3(where.x, u.global_position.y + 0.05, where.z), 1.1, color, 0.35)
+	if u.model:
+		var mdl = u.model
+		mdl.scale = Vector3(1.08, 0.93, 1.08)   # a small tug as the hand closes
+		mdl.create_tween().tween_property(mdl, "scale", Vector3.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	u.game.sfx.play("grab", where, -4.0 if u.is_player else -10.0, 0.06)
+	u.game.rumble(u, 0.35, 0.15, 0.08)
+
+
+static func grab_miss(u) -> void:
+	## Nothing there: a soft whiff and a puff of air where the hand closed.
+	if not u.get_meta("grab_show", true):
+		return
+	var at := grab_point(u)
+	Fx.of(u.game).burst(at, Color(0.95, 0.95, 0.9, 0.7), 5, 1.4, 0.35, Fx.STYLE_MOTE, u.facing, 40.0, 0.7)
+	u.game.sfx.play("grab_miss", at, -8.0 if u.is_player else -16.0, 0.1)

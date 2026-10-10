@@ -10,6 +10,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.environ.get("OUT", os.path.join(HERE, "logs"))
 ROLES = ["Base", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]
 TEAMS = ["Elves", "Humans"]
+# Class (STAT name, variants included) -> fight style, for the style table.
+STYLE = {"Knight": "melee", "Vanguard": "melee", "Warden": "melee", "Rogue": "melee", "Assassin": "melee",
+         "Shadow": "melee", "Base": "melee", "Engineer": "melee", "Siegewright": "melee", "Tinker": "melee",
+         "Ranger": "ranged", "Sharpshooter": "ranged", "Trapper": "ranged", "Mage": "ranged",
+         "Pyromancer": "ranged", "Frostweaver": "ranged",
+         "Healer": "support", "Cleric": "support", "DarkPriest": "support"}
 
 
 def kv(line):
@@ -24,6 +30,9 @@ def main(tags):
     cls = collections.defaultdict(lambda: collections.Counter())
     lengths, overtime, errors = [], 0, 0
     kills = []
+    down = collections.defaultdict(collections.Counter)   # event -> team -> count
+    first_door = []   # seconds until the first door of the match broke
+    stalls = 0
     for f in files:
         text = open(f, errors="replace").read()
         errors += text.count("SCRIPT ERROR")
@@ -37,6 +46,9 @@ def main(tags):
         caps[0] += int(a); caps[1] += int(b)
         lengths.append(int(r["t"]))
         overtime += r["overtime"] == "true"
+        doors = [int(m) for m in re.findall(r"^Door broken: \w+ t=(\d+)", text, re.M)]
+        first_door.append(min(doors) if doors else None)
+        stalls += text.count("\nSTALL ")
         for l in text.splitlines():
             if l.startswith("STAT"):
                 d = kv(l)
@@ -48,14 +60,41 @@ def main(tags):
                     c[k] += int(d[k])
             elif l.startswith("KILL"):
                 kills.append({k: int(v) for k, v in kv(l).items()})
+            else:
+                ev = l.split(" ", 1)[0]
+                if ev in ("DOWN", "REVIVE", "FINISH", "BLEEDOUT", "SKIP"):
+                    m = re.search(r"team(\d)", l)
+                    if m:
+                        down[ev][int(m.group(1))] += 1
     n = len(lengths)
     print("matches %d  wins %s  caps E%d H%d  kills E%d H%d  overtime %d  avg length %ds  script errors %d"
           % (n, dict(wins), caps[0], caps[1], tkills[0], tkills[1], overtime, sum(lengths) / max(n, 1), errors))
+    broke = [d for d in first_door if d is not None]
+    print("first door broken: %d of %d matches, avg at %ds;  bot stalls per match %.1f"
+          % (len(broke), n, sum(broke) / max(len(broke), 1), stalls / max(n, 1)))
     print("\n%-16s %4s %6s %6s %6s %6s %6s %5s" % ("class", "n", "K/m", "D/m", "A/m", "dmg/m", "heal/m", "K/D"))
     for (t, c), v in sorted(cls.items()):
         m = max(v["n"], 1)
         print("%-16s %4d %6.1f %6.1f %6.1f %6.1f %6.1f %5.2f" % ("%s %s" % (TEAMS[t][0], c), v["n"], v["kills"] / m,
               v["deaths"] / m, v["assists"] / m, v["dmg"] / m, v["heal"] / m, v["kills"] / max(v["deaths"], 1)))
+    # Fight styles: melee, ranged and support classes on each side.
+    sty = collections.defaultdict(collections.Counter)
+    for (t, c), v in cls.items():
+        g = STYLE.get(c, "other")
+        for k in ("n", "kills", "deaths", "dmg"):
+            sty[(t, g)][k] += v[k]
+    print("\n%-16s %4s %6s %6s %6s %5s" % ("style", "n", "K/m", "D/m", "dmg/m", "K/D"))
+    for (t, g), v in sorted(sty.items()):
+        m = max(v["n"], 1)
+        print("%-16s %4d %6.1f %6.1f %6.1f %5.2f" % ("%s %s" % (TEAMS[t][0], g), v["n"], v["kills"] / m, v["deaths"] / m,
+              v["dmg"] / m, v["kills"] / max(v["deaths"], 1)))
+    if down:
+        print("\ndowned per match (E/H): " + "  ".join("%s %.1f/%.1f" % (ev.lower(), down[ev][0] / max(n, 1), down[ev][1] / max(n, 1))
+              for ev in ("DOWN", "REVIVE", "FINISH", "BLEEDOUT", "SKIP")))
+        for t in (0, 1):
+            d = max(down["DOWN"][t], 1)
+            print("  %s: revived %d%%, finished %d%%, bled out %d%%, skipped %d%% of downs" % (TEAMS[t], 100 * down["REVIVE"][t] / d,
+                  100 * down["FINISH"][t] / d, 100 * down["BLEEDOUT"][t] / d, 100 * down["SKIP"][t] / d))
     if not kills:
         return
     print("\nkills logged %d" % len(kills))

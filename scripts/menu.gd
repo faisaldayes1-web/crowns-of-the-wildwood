@@ -43,6 +43,10 @@ var preview_role := Role.BASE
 var preview_team := 1
 var preview_rank := 1
 var tutorial_topic := 0
+const HERO_AREA := Rect2(420, 120, 380, 470)   # where the customizer's hero stands (drag here to turn it)
+var turn_drag := false
+var turn_last_x := 0.0
+var turn_was_held := false
 var exit_armed := 0.0
 var readied := [true, false, false, false]   # lobby: local players 2-4 ready up
 var join_pads: Array = []    # lobby: the pad device of local players 2-4, in join order
@@ -491,10 +495,11 @@ func _draw_map() -> void:
 		var ov := button(r, "split", k == 1)
 		option_box(r, on, ov, Color(1.0, 0.8, 0.25))
 		ttext(Vector2(r.position.x, r.position.y + 35), ["OFF", "ON"][k], 22, Color.WHITE if on else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-	var cap := "Play together on the same screen"
 	if _split_on():
-		cap = "Players 2-4 join in the lobby with a gamepad"
-	h._text(Vector2(gm.position.x + 116, gm.position.y + 260), cap, 12, Color(0.88, 0.86, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 376, 2)
+		# Two players: side by side (vertical) or stacked (horizontal).
+		_layout_picker(Rect2(gm.position.x + 116, gm.position.y + 240, 376, 34))
+	else:
+		h._text(Vector2(gm.position.x + 116, gm.position.y + 260), "Play together on the same screen", 12, Color(0.88, 0.86, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 376, 2)
 	h._text(Vector2(gm.position.x, gm.position.y + 284), "Bots fill every empty place on both sides.", 10, Color(0.7, 0.7, 0.68), HORIZONTAL_ALIGNMENT_CENTER, gm.size.x, 2)
 	var playable: bool = _card_open(map_pick)
 	green_button(Rect2(h.size.x / 2.0 - 190, 618, 380, 74), "START MATCH", "to_lobby", playable)
@@ -596,6 +601,7 @@ func _draw_character() -> void:
 		h.draw_rect(Rect2(rr.position + Vector2(6, 5), Vector2(rr.size.x - 12, rr.size.y * 0.32)), Color(1, 1, 1, 0.1))
 		icon("stag" if k == 0 else "crown", rr.position + Vector2(40, rr.size.y / 2.0), 44)
 		ttext(Vector2(rr.position.x + 64, rr.position.y + 38), "ELF" if k == 0 else "HUMAN", 24, Color.WHITE if on else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, rr.size.x - 76, 5)
+	_hero_turner()
 	# The panel on the right.
 	var panel := Rect2(832, 110, 430, 480)
 	slate(panel)
@@ -615,6 +621,53 @@ func _draw_character() -> void:
 		4: _tab_colors(panel)
 		5: _tab_emblem(panel)
 	green_button(Rect2(876, 604, 340, 70), "CONFIRM", "confirm", true, false)
+
+
+func _hero_turner() -> void:
+	## Turn the hero to see the back of the hair and cape (Faisal 05:58
+	## 2026-10-10 "add rotation to the character customizer"): drag across
+	## the hero with the mouse, push the right stick, or press the round
+	## arrows either side (a tap turns 45 degrees).
+	if stage == null:
+		return
+	var area := HERO_AREA
+	var m: Vector2 = h._mouse()
+	var held := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	if held and (turn_drag or (area.has_point(m) and not turn_was_held)):
+		if turn_drag:
+			stage.hero_turn += (m.x - turn_last_x) * 0.013
+			stage.hero_turn_goal = stage.hero_turn
+		turn_drag = true
+		turn_last_x = m.x
+	else:
+		turn_drag = false
+	turn_was_held = held
+	var stick := 0.0
+	for d in Input.get_connected_joypads():
+		var v := Input.get_joy_axis(d, JOY_AXIS_RIGHT_X)
+		if absf(v) > absf(stick):
+			stick = v
+	if absf(stick) > 0.2:
+		stage.hero_turn += stick * h.get_process_delta_time() * 3.2
+		stage.hero_turn_goal = stage.hero_turn
+	for k in 2:
+		var c := Vector2(HERO_AREA.position.x + 18.0 if k == 0 else HERO_AREA.end.x - 18.0, 560.0)
+		var r := Rect2(c - Vector2(24, 24), Vector2(48, 48))
+		var ov := button(r, "hero_turn", -1 if k == 0 else 1)
+		h.draw_circle(c + Vector2(0, 3), 25, Color(0, 0, 0, 0.35))
+		h.draw_circle(c, 25 if ov else 23, Color(1.0, 0.8, 0.32) if ov else Color(0.62, 0.48, 0.24))
+		h.draw_circle(c, 20, Color(0.2, 0.13, 0.07))
+		# A curved arrow round the centre, its head showing the way it turns.
+		var sgn := -1.0 if k == 0 else 1.0
+		var col := Color(1.0, 0.92, 0.7)
+		h.draw_arc(c, 11.0, PI * 0.95, PI * 2.05, 16, col, 3.5)
+		var tip := c + Vector2(sgn * 11.0, 1.5)
+		h.draw_colored_polygon(PackedVector2Array([tip + Vector2(sgn * 5.0, -4.0), tip + Vector2(-sgn * 5.0, -4.0), tip + Vector2(0, 5.0)]), col)
+	var hint := "Right stick to turn" if game.pad_active else "Drag to turn"
+	var tw: float = h._text_width(hint, 13) + 24.0
+	var pill := Rect2(HERO_AREA.get_center().x - tw / 2.0, 549, tw, 22)
+	h._plate(pill, Color(0.08, 0.05, 0.03, 0.8), Color(0.62, 0.48, 0.24), 11, 1)
+	h._text(Vector2(pill.position.x, pill.end.y - 6), hint, 13, Color(1.0, 0.94, 0.8), HORIZONTAL_ALIGNMENT_CENTER, pill.size.x, 2)
 
 
 func _row_label(panel: Rect2, y: float, text: String) -> void:
@@ -784,17 +837,20 @@ func hair_thumb(c: Vector2, style: int, k: float) -> void:
 	var ink := Color(0.1, 0.07, 0.05)
 	var r := 9.0 * k
 	match style:
-		1:
-			h.draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.7, -r * 0.6), c + Vector2(r * 1.7, r * 0.4), c + Vector2(r * 1.2, r * 1.6), c + Vector2(r * 0.6, r * 0.2)]), hc)
-		2:
-			h.draw_rect(Rect2(c + Vector2(-r * 1.15, -r * 0.3), Vector2(r * 2.3, r * 1.9)), hc)
-		3:
+		1:  # a tail swinging out past the right shoulder
+			h.draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.4, -r * 0.9), c + Vector2(r * 1.5, -r * 0.2), c + Vector2(r * 1.9, r * 1.3), c + Vector2(r * 1.55, r * 1.9), c + Vector2(r * 1.25, r * 0.7), c + Vector2(r * 0.5, -r * 0.1)]), hc)
+			h.draw_circle(c + Vector2(r * 0.85, -r * 0.75), r * 0.32, hc.darkened(0.5))
+		2:  # a curtain to the chest
+			h.draw_rect(Rect2(c + Vector2(-r * 1.3, -r * 0.4), Vector2(r * 2.6, r * 2.4)), hc)
+		3:  # two long plaits
 			for sd in [-1.0, 1.0]:
-				for j in 3:
-					h.draw_circle(c + Vector2(sd * r * 1.05, r * (0.3 + j * 0.55)), r * (0.32 - j * 0.04), hc)
-		4:
-			h.draw_circle(c + Vector2(0, -r * 1.2), r * 0.55, hc)
-			h.draw_circle(c + Vector2(0, -r * 1.2), r * 0.55, ink, false, 1.2)
+				for j in 5:
+					h.draw_circle(c + Vector2(sd * r * 1.1, r * (0.2 + j * 0.45)), r * (0.32 - j * 0.03), hc)
+				h.draw_circle(c + Vector2(sd * r * 1.1, r * 2.3), r * 0.14, hc.darkened(0.5))
+		4:  # a tall top knot
+			h.draw_circle(c + Vector2(0, -r * 1.15), r * 0.6, hc)
+			h.draw_rect(Rect2(c + Vector2(-r * 0.45, -r * 1.65), Vector2(r * 0.9, r * 0.2)), hc.darkened(0.5))
+			h.draw_circle(c + Vector2(0, -r * 1.95), r * 0.38, hc)
 	h.draw_circle(c + Vector2(0, r * 0.15), r, skin)
 	h.draw_arc(c + Vector2(0, r * 0.15), r, 0, TAU, 20, ink, 1.2)
 	var cap := PackedVector2Array()
@@ -1016,6 +1072,22 @@ func _draw_lobby() -> void:
 	h._text(Vector2(0, 638), note, 13, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
 	wood_button(Rect2(56, 652, 220, 54), "BACK", "back", null, "", 22)
 	green_button(Rect2(h.size.x - 452, 646, 400, 68), "START MATCH" if all_ready else "WAITING...", "start", all_ready)
+	if game.couch_players == 2:
+		_layout_picker(Rect2(h.size.x / 2.0 - 230, 662, 340, 34))
+
+
+func _layout_picker(r: Rect2) -> void:
+	## SPLIT SCREEN layout for two players: VERTICAL (side by side) or
+	## HORIZONTAL (top and bottom). The same setting as the Options board's.
+	var bw := (r.size.x - 8.0) / 2.0
+	for k in 2:
+		var layout: String = ["vertical", "horizontal"][k]
+		var b := Rect2(r.position.x + k * (bw + 8.0), r.position.y, bw, r.size.y)
+		var on: bool = game.split_layout == layout
+		var ov := button(b, "split_layout", layout)
+		option_box(b, on, ov, Color(1.0, 0.8, 0.25))
+		h._split_glyph(b.position + Vector2(22, b.size.y / 2.0), layout, Color.WHITE if on else Color(0.75, 0.75, 0.75))
+		ttext(Vector2(b.position.x + 34, b.position.y + b.size.y / 2.0 + 6), layout.to_upper(), 15, Color.WHITE if on else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, b.size.x - 40, 3)
 
 
 func _side_chip(r: Rect2, k: int, team: int) -> void:
@@ -1095,16 +1167,58 @@ func _draw_tutorial() -> void:
 		var ov := button(r, "topic", i)
 		option_box(r, on, ov, Color(1.0, 0.8, 0.25))
 		h._text(Vector2(r.position.x + 16, r.position.y + 32), Guide.TOPICS[i][0], 15, Color.WHITE if on else Color(0.85, 0.85, 0.82), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-	var pane := Rect2(body.position.x + 360, body.position.y + 40, body.size.x - 370, 364)
+	# The answer with a picture of it in a real match above the text
+	# (Faisal 05:58 2026-10-10 "for the tutorial ui, add images of gameplay").
+	var pane := Rect2(body.position.x + 360, body.position.y + 40, body.size.x - 370, body.size.y - 76)
 	slate(pane)
-	ttext(Vector2(pane.position.x, pane.position.y + 40), Guide.TOPICS[tutorial_topic][0].to_upper(), 20, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_CENTER, pane.size.x, 5)
-	h._paragraph(Vector2(pane.position.x + 28, pane.position.y + 82), game.guide_answer(tutorial_topic), 15, Color(0.95, 0.93, 0.88), pane.size.x - 56, 22.0)
-	h._paragraph(Vector2(body.position.x + 10, body.end.y - 40), "In a match the Wildwood Guide stands in your courtyard: press %s beside them to ask again." % game.key_label("interact"), 12, Color(0.8, 0.8, 0.76), body.size.x - 20, 15.0)
+	ttext(Vector2(pane.position.x, pane.position.y + 34), Guide.TOPICS[tutorial_topic][0].to_upper(), 20, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_CENTER, pane.size.x, 5)
+	var ty := pane.position.y + 54.0
+	var tex := tutorial_image(tutorial_topic)
+	if tex:
+		var iw := minf(pane.size.x - 48.0, 420.0)
+		var img := Rect2(pane.get_center().x - iw / 2.0, ty, iw, iw * 9.0 / 16.0)
+		h.draw_rect(img.grow(4), Color(0.08, 0.05, 0.03))
+		h.draw_texture_rect(tex, img, false)
+		h.draw_rect(img.grow(3), Color(0.85, 0.65, 0.3), false, 2.0)
+		ty = img.end.y + 16.0
+	h._paragraph(Vector2(pane.position.x + 26, ty + 14), game.guide_answer(tutorial_topic), 14, Color(0.95, 0.93, 0.88), pane.size.x - 52, 19.0)
+	h._paragraph(Vector2(body.position.x + 10, body.end.y - 14), "In a match the Wildwood Guide stands in your courtyard: press %s beside them to ask again." % game.key_label("interact"), 12, Color(0.8, 0.8, 0.76), body.size.x - 20, 15.0)
 
+
+static var _tut_tex := {}
+
+
+static func tutorial_image(i: int) -> Texture2D:
+	## Screenshots of real matches for the tutorial topics (rendered from the
+	## game; tools/make_tutorial_images.py crops them).
+	if not _tut_tex.has(i):
+		var path := "res://assets/ui/tutorial/topic_%d.jpg" % i
+		_tut_tex[i] = load(path) if ResourceLoader.exists(path) else null
+	return _tut_tex[i]
 
 func _draw_progress() -> void:
 	var body := _overlay_frame("PROGRESS")
-	h._draw_title_progress(body.grow(10))
+	var panel := body.grow(10)
+	h._draw_title_progress(panel)
+	# SAVED PROGRESS: it saves itself; the code moves it to another device.
+	var lx := panel.position.x + 30
+	var y := panel.position.y + 446
+	h._text(Vector2(lx, y), "SAVED PROGRESS", 12, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var ago := "" if game.saved_at < 0.0 else "  Last saved %s." % _ago(Time.get_ticks_msec() / 1000.0 - game.saved_at)
+	h._text(Vector2(lx, y + 16), "Your level, XP, gold, chests and store items save by themselves after every match and purchase.%s" % ago, 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	h._text(Vector2(lx, y + 30), "To play on another device (iPad and PC): EXPORT here, then IMPORT the code there.", 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	var bw := 200.0
+	wood_button(Rect2(lx, y + 40, bw, 36), "EXPORT CODE", "progress_export", null, "", 16)
+	wood_button(Rect2(lx + bw + 16, y + 40, bw, 36), "IMPORT CODE", "progress_import", null, "", 16)
+	h._text(Vector2(lx + 2 * bw + 34, y + 63), "Import copies the code from the clipboard" if not OS.has_feature("web") else "Import asks you to paste the code", 10, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+
+
+func _ago(t: float) -> String:
+	if t < 60.0:
+		return "just now"
+	if t < 3600.0:
+		return "%d min ago" % int(t / 60.0)
+	return "%d h ago" % int(t / 3600.0)
 
 
 # --- Input ------------------------------------------------------------------------------
@@ -1168,9 +1282,15 @@ func _press(id: String, arg) -> void:
 		"credits": overlay = "credits"
 		"progress": overlay = "progress"
 		"close": overlay = ""
+		"progress_export": game.export_progress()
+		"progress_import": game.import_progress()
 		"topic": tutorial_topic = int(arg)
+		"hero_turn":
+			if stage:
+				stage.hero_turn_goal += int(arg) * PI / 4.0
 		"exit":
 			if exit_armed > 0.0:
+				game._save_settings()
 				game.get_tree().quit()
 			exit_armed = 3.0
 		"back": back()
@@ -1198,6 +1318,8 @@ func _press(id: String, arg) -> void:
 				game.couch_players = 1
 				join_pads = []
 			game._save_settings()
+		"split_layout":
+			game.set_split_layout(str(arg))
 		"to_lobby":
 			if _card_open(map_pick):
 				go("lobby")
