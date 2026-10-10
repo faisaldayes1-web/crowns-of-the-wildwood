@@ -392,6 +392,7 @@ func _ready() -> void:
 	menu_stage.build(self)
 	menu_stage.activate()
 	main_menu.stage = menu_stage
+	_warm_up_menus()   # (a coroutine: runs over the next frames, under the loading art)
 	if reopen_screen != "":
 		main_menu.go(reopen_screen)
 		reopen_screen = ""
@@ -1769,6 +1770,8 @@ func _flat_dist(a: Vector3, b: Vector3) -> float:
 const LOADING_SCREENS := ["res://assets/ui/loading_1.jpg", "res://assets/ui/loading_2.jpg"]
 var loading_layer: CanvasLayer
 var _alive_ms := 0   # last time _keep_window_alive answered the OS
+var _alive_frame := -1   # the frame _keep_window_alive last saw, and when it began
+var _alive_frame_start := 0
 
 
 func _show_loading(hold: float) -> void:
@@ -1895,6 +1898,7 @@ func _start_match(team: int) -> void:
 		_build_barrier()
 	else:
 		prep_left = 0.0
+	_warm_up_effects()
 	sfx.ui("match_start")
 	sfx.play_music(true)
 	sfx.play_ambience(true)
@@ -3243,6 +3247,7 @@ func select_map(index: int) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST and not demo:
 		_save_settings()   # closing the window keeps everything
+		_flush_save()
 
 
 func export_progress() -> String:
@@ -3251,7 +3256,7 @@ func export_progress() -> String:
 	## desktop it goes on the clipboard.
 	_save_settings()
 	var cfg := ConfigFile.new()
-	SaveFile.read(cfg, CONTROLS_PATH)
+	_read_save(cfg)
 	var code := SaveFile.export_code(cfg)
 	if OS.has_feature("web"):
 		JavaScriptBridge.download_buffer(code.to_utf8_buffer(), "crowns-progress.txt", "text/plain")
@@ -3279,9 +3284,10 @@ func import_progress(code: String = "") -> bool:
 		toast("That is not a whole progress code", Color(1.0, 0.6, 0.5))
 		return false
 	_save_settings()
+	_flush_save()
 	DirAccess.copy_absolute(CONTROLS_PATH, CONTROLS_PATH + ".before-import")
 	var cfg := ConfigFile.new()
-	SaveFile.read(cfg, CONTROLS_PATH)
+	_read_save(cfg)
 	SaveFile.apply_code(cfg, data)
 	SaveFile.write(cfg, CONTROLS_PATH)
 	_load_controls()
@@ -3292,7 +3298,7 @@ func import_progress(code: String = "") -> bool:
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
-	SaveFile.read(cfg, CONTROLS_PATH)
+	_read_save(cfg)
 	cfg.set_value("settings", "bot_difficulty", bot_difficulty)
 	cfg.set_value("settings", "sound_volume", sfx.sound_volume)
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
@@ -3335,13 +3341,44 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "hero_cape", hero_cape)
 	cfg.set_value("settings", "hero_outfit", hero_outfit)
 	cfg.set_value("settings", "hero_weapon", hero_weapon)
-	if SaveFile.write(cfg, CONTROLS_PATH) == OK:
+	if _write_save(cfg) == OK:
 		saved_at = Time.get_ticks_msec() / 1000.0
+
+
+# The save is written on a worker thread: the menus save on every click,
+# and the write (a temp file, read back, a backup copy, a rename) stalled
+# the frame on Windows (Faisal 2026-10-10: "stuttering ... doing simple
+# things"). Reads wait for a write in flight. Static, so a scene reload
+# (after a match) still waits for the old scene's write.
+static var _save_task := -1
+
+
+static func _flush_save() -> void:
+	if _save_task >= 0:
+		WorkerThreadPool.wait_for_task_completion(_save_task)
+		_save_task = -1
+
+
+func _read_save(cfg: ConfigFile) -> Error:
+	_flush_save()
+	return SaveFile.read(cfg, CONTROLS_PATH)
+
+
+func _write_save(cfg: ConfigFile) -> Error:
+	_flush_save()
+	if DisplayServer.get_name() == "headless":
+		return SaveFile.write(cfg, CONTROLS_PATH)   # tests read the file straight back
+	var text := cfg.encode_to_text()
+	_save_task = WorkerThreadPool.add_task(func():
+		var c := ConfigFile.new()
+		if c.parse(text) == OK:
+			SaveFile.write(c, CONTROLS_PATH))
+	return OK
 
 
 func _save_controls() -> void:
 	var cfg := ConfigFile.new()
-	SaveFile.read(cfg, CONTROLS_PATH)
+	_read_save(cfg)
 	for entry in REBINDABLE:
 		var list: Array = []
 		for ev in InputMap.action_get_events(entry[0]):
@@ -3352,12 +3389,12 @@ func _save_controls() -> void:
 			elif ev is InputEventJoypadButton:
 				list.append({"t": "pad", "c": ev.button_index})
 		cfg.set_value("controls", entry[0], list)
-	SaveFile.write(cfg, CONTROLS_PATH)
+	_write_save(cfg)
 
 
 func _load_controls() -> void:
 	var cfg := ConfigFile.new()
-	if SaveFile.read(cfg, CONTROLS_PATH) != OK:
+	if _read_save(cfg) != OK:
 		return
 	var diff: String = cfg.get_value("settings", "bot_difficulty", "Normal")
 	if diff in Stats.BOT_DIFFICULTIES:
@@ -3440,7 +3477,7 @@ func _reset_controls() -> void:
 	# Only the key bindings go back to default: the file also holds the
 	# settings and the account's progress (this used to delete it all).
 	var cfg := ConfigFile.new()
-	if SaveFile.read(cfg, CONTROLS_PATH) == OK and cfg.has_section("controls"):
+	if _read_save(cfg) == OK and cfg.has_section("controls"):
 		cfg.erase_section("controls")
 		SaveFile.write(cfg, CONTROLS_PATH)
 	rebinding = ""
@@ -8825,16 +8862,16 @@ var cam_attrs: CameraAttributesPractical
 
 func _pick_graphics() -> void:
 	## Until the player picks a preset in Settings, the game picks one for
-	## the graphics card: Low on built-in (laptop) graphics, Medium on a
-	## graphics card. High was the default and ran slow and laggy on
-	## Faisal's PC (2026-10-10). The FPS counter starts on so a number can
+	## the graphics card: Low on built-in (laptop) graphics, High on a
+	## graphics card, and _auto_quality steps a slow card down. The FPS
+	## counter starts on so a number can
 	## be reported back.
 	# (Tests and renders, which pass their own flags, keep the preset.)
 	if gfx_picked or OS.has_feature("web") or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
 		return
 	match RenderingServer.get_video_adapter_type():
 		RenderingDevice.DEVICE_TYPE_DISCRETE_GPU:
-			gfx_quality = 1
+			gfx_quality = 2   # High; a weak card steps itself down (_auto_quality)
 		_:
 			gfx_quality = 0
 	if not fps_intro_done:
@@ -8883,7 +8920,8 @@ func apply_graphics() -> void:
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	vp.scaling_3d_scale = 0.8 if q == 0 else 1.0
-	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 else Viewport.SCALING_3D_MODE_BILINEAR
+	# (FSR needs Forward+; the Compatibility renderer scales bilinear.)
+	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 and RenderingServer.get_current_rendering_method() == "forward_plus" else Viewport.SCALING_3D_MODE_BILINEAR
 	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 8192][q]
 	RenderingServer.directional_shadow_atlas_set_size([2048, 4096, 8192, 8192][q], true)
 	RenderingServer.directional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
@@ -9328,14 +9366,75 @@ func _add_ink() -> void:
 	ink_on = true
 
 
+func _warm_up_menus() -> void:
+	## The first visit to a menu screen loaded its art, built the hero and
+	## compiled its shaders on the spot: a visible stutter on each first
+	## click (Faisal 2026-10-10, on an RTX 4090). Show each screen for a
+	## frame while the loading art still covers the window, then go back.
+	if not is_instance_valid(loading_layer) or main_menu == null or DisplayServer.get_name() == "headless":
+		return
+	var m = main_menu
+	for scr in ["character", "store", "map"]:
+		await get_tree().process_frame
+		if not is_instance_valid(loading_layer) or main_menu != m or playing:
+			return
+		m.screen = scr
+	await get_tree().process_frame
+	if main_menu == m and not playing:
+		menu_open = true
+		menu_tab = 5   # SETTINGS
+	for i in 2:
+		await get_tree().process_frame
+	if main_menu == m and not playing:
+		menu_open = false
+		menu_tab = 0
+		m.screen = "title"
+
+
+func _warm_up_effects() -> void:
+	## One of every combat effect under the match's loading art, so the
+	## first punch, spell and death of the match do not stall while their
+	## shaders compile.
+	if not is_instance_valid(loading_layer) or DisplayServer.get_name() == "headless":
+		return
+	var fx = Fx.of(self)
+	var p: Vector3 = (player.global_position if player else camera.global_position + Vector3(0, -40, -26)) + Vector3(0, 0.1, 0)
+	var w := Color.WHITE
+	for style in 4:
+		fx.burst(p, w, 3, 1.0, 0.25, style)
+	fx.flare(p, w)
+	fx.ground_ring(p, 1.0, w)
+	fx.ground_glow(p, 1.0, w)
+	fx.rune(p, 1.0, w)
+	fx.scorch(p, 1.0, Color(0.1, 0.1, 0.1, 0.5), 0.3)
+	fx.beam(p + Vector3.UP, p + Vector3(2, 1, 0), w)
+	fx.slash(p + Vector3.UP, Vector3.FORWARD, w)
+	fx.slash(p + Vector3.UP, Vector3.FORWARD, w, 1.0, true)
+	for kind in Fx.KINDS:
+		fx.hit(p + Vector3.UP, Vector3.FORWARD, kind)
+		fx.blast(p, 1.2, kind)
+	fx.death(p, w)
+	fx.petals(p, w, 3)
+	fx.thorns(p, 1.0, w, 3, 0.3)
+	fx.rays(p, w, 3, 1.0, 0.2)
+
+
 func _keep_window_alive() -> void:
 	## Long builds (the world, a match start) block the main thread for
 	## seconds. Every quarter second, let the OS know the window is alive
 	## (input that arrives meanwhile is dropped, so no half-built scene
 	## sees a click). Faisal 2026-10-10: the Windows .exe went "Not
 	## Responding" while it loaded.
+	## Only inside a frame that has already run a quarter second: in normal
+	## play (projectiles, effects and numbers add nodes all the time) it
+	## must never run, or it ate the player's clicks (2026-10-10).
 	var now := Time.get_ticks_msec()
-	if now - _alive_ms < 250:
+	var frame := Engine.get_process_frames()
+	if frame != _alive_frame:
+		_alive_frame = frame
+		_alive_frame_start = now
+		return
+	if now - _alive_frame_start < 250 or now - _alive_ms < 250:
 		return
 	_alive_ms = now
 	if DisplayServer.get_name() != "headless":
