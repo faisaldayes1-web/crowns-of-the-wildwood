@@ -45,8 +45,10 @@ var flash_timer := 0.0
 const FLASH_TIME := 0.22     # hit flash: white for the first frames, then red, easing back
 var hitstop_timer := 0.0
 var heartbeat_timer := 0.0
+const HIT_CONFIRM_RANGE := 4.0   # your hits from further than this play a tick and mark the target (ranged feedback)
 const ATTACK_BUFFER := 0.2         # seconds a tapped attack waits for the swing cooldown
 var attack_buffer := 0.0
+var hit_confirms := 0      # ranged hit confirms played (for the tests)
 const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits for its cooldown
 var input_buffer := [0.0, 0.0, 0.0]  # ability 1, ability 2, dodge
 var swing_flip := false     # alternate the slash arc left/right    # hit stop: the model's animation holds for a beat (looks only)
@@ -978,6 +980,18 @@ func vigor_speed() -> float:
 
 # --- Damage ------------------------------------------------------------------
 
+func hit_confirm(target, amount: int) -> void:
+	## Your shot or spell landed out of earshot: a crisp tick, a white mark on
+	## whoever you hit, the aim ring pulsing and a light pad tap. Looks only.
+	hit_confirms += 1
+	game.sfx.ui("hit_tick", -6.0, 1.0 if amount < 2 else 0.85)
+	Fx.of(game).flare(target.global_position + Vector3(0, 1.2, 0), Color(1.0, 1.0, 0.95, 0.8), 0.9 if amount < 2 else 1.3, 0.12)
+	if aim_ring and aim_ring.visible:
+		aim_ring.scale = Vector3.ONE * 1.5
+		aim_ring.create_tween().tween_property(aim_ring, "scale", Vector3.ONE, 0.14).set_ease(Tween.EASE_OUT)
+	game.rumble(self, 0.18, 0.0, 0.05)
+
+
 func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knock: float = 0.0, effect: Dictionary = {}) -> bool:
 	## Returns true if the hit landed. `from` is where the hit came from, for
 	## knockback and for the shield: a raised shield stops hits from the front.
@@ -1058,6 +1072,8 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		attacker.gain_xp(Stats.XP_HIT * amount)
 		attacker.damage_dealt += amount
 		recent_hitters[attacker] = Time.get_ticks_msec() / 1000.0
+		if attacker.is_player and hearts > 0 and _flat_to(attacker.global_position).length() > HIT_CONFIRM_RANGE:
+			attacker.hit_confirm(self, amount)
 	game.spawn_popup(global_position + Vector3(0, 2.0, 0), "-%d" % amount, Color(1, 0.35, 0.3))
 	game.sfx.play("hurt", global_position, -4.0 if not is_player else 0.0, 0.15)
 	# Weight in the sound too: a crunch under heavy blows, a crackle under spells.

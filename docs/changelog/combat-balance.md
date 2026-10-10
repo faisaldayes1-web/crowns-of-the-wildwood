@@ -414,3 +414,22 @@ then `python3 tools/balance/agg.py <tag>`.
   1.09 → 0.93, Knight 0.66 → 0.73, Mage damage 76.7 → 70.2 per match.
 - **Checks:** `tools/tests/run.sh` 29/29.
 - **Revert:** `git revert 8b3c750`
+
+## 17. Ranged hit confirm
+
+- **When:** 2026-10-10 (Faisal: "overall improve on the game in all aspects";
+  standing combat-feel mandate)
+- **Commit:** `8da42e0`
+- **What:** When your arrow, bolt or spell lands on someone more than 4 m away,
+  you hear a crisp tick, a small white mark flashes on them, the mouse aim ring
+  pulses and the pad gives a light tap. Before, a hit at range only made a
+  positional sound that was barely audible at a distance. Melee hits already
+  have hit stop and impact sounds, so they don't get the tick. Looks, sound
+  and rumble only.
+- **Files:** `scripts/unit.gd` (`HIT_CONFIRM_RANGE`, `hit_confirm()`,
+  `hit_confirms`), `tools/make_sounds.py` + `assets/sfx/hit_tick.wav`,
+  `tests/combat_test.gd` (`_hit_confirm`).
+- **Tunables:** `HIT_CONFIRM_RANGE` 4.0 m (new); tick -6 dB, deeper on
+  2-heart hits.
+- **Checks:** `tools/tests/run.sh` 31/31.
+- **Revert:** `git revert 8da42e0`
