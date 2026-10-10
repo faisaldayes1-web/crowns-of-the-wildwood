@@ -137,7 +137,7 @@ func _init() -> void:
 			await tap(b[0])
 			break
 	check(m.overlay == "", "the tutorial closes")
-	for id in ["credits", "progress"]:
+	for id in ["credits", "progress", "players"]:
 		await tap(ids.get(id, Rect2()))
 		check(m.overlay == id, "%s opens" % id.to_upper())
 		if id == "progress":
