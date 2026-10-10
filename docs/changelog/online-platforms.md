@@ -150,3 +150,8 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - What: move tiles bigger (attack 118→136, moves 80→94, Grab 70→84) and re-spaced; aim assist: an aim drag within 30° of an enemy locks onto it, and tap-attacks auto-face enemies up to 13 m for Ranger/Mage/Healer (7 m melee, unchanged); new round G button for the hat move and a scoreboard button (hold) beside pause.
 - Files: scripts/hud.gd (`_touch_cluster`, `_panel_key`), scripts/unit.gd (`_auto_aim`, `_update_player_aim`), scripts/touch.gd.
 - Revert: `git revert b1dbfae`
+
+### 2026-10-10 10:30 UTC · 7ae9d09 · iPad: Pick class slots, class pointer, uncropped tiles
+- What: both locked ability slots share one art and read "Pick class"; a plain soldier sees a bobbing PICK A CLASS arrow over the class stations (edge arrow when off screen, `_draw_class_pointer`); touch tiles moved in from the edges and the baked bottom layer is 480 tall on touch (400 cut the top tiles off).
+- Files: scripts/hud.gd
+- Revert: `git revert 7ae9d09`
