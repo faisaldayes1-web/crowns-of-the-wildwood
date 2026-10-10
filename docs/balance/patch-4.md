@@ -73,4 +73,4 @@ Ember Pass 9-3), so it was dropped.
 
 ## Revert
 
-`git revert <patch 4 commit>`
+`git revert 252c5e5`
