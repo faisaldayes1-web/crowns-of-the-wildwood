@@ -901,11 +901,20 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 	if art != "" and skill_art.has(art):
 		# The painted hexagon (rim and all) from the reference art: its hex
 		# fills 90% of the picture's height.
-		var th := 2.0 * (hr + 6.0) / 0.9
+		# The cut-outs from the reference were cropped at their edges (a
+		# sliced rim; Faisal 2026-10-10 "the tiles still look cropped"), so
+		# the drawn hexagon gives every tile a whole rim and the painting
+		# fills only its face.
+		_hex_tile(hc, hr, frame, color, locked, ready)
+		var th := 2.0 * (hr + 6.0) / 0.9 * 1.16   # zoomed past the painting's own (sliced) rim
 		var tex: Texture2D = skill_art[art]
 		var tw := th * tex.get_width() / tex.get_height()
-		draw_texture_rect(tex, Rect2(hc - Vector2(tw, th) / 2.0, Vector2(tw, th)), false,
-			Color.WHITE if (ready or locked) else Color(0.55, 0.55, 0.58))
+		var box := Rect2(hc - Vector2(tw, th) / 2.0 - Vector2(tw * 0.03, 0), Vector2(tw, th))
+		var face := _hex_pts(hc, hr - 2.5)
+		var uvs := PackedVector2Array()
+		for q in face:
+			uvs.append((q - box.position) / box.size)
+		draw_colored_polygon(face, Color.WHITE if (ready or locked) else Color(0.55, 0.55, 0.58), uvs, tex)
 	else:
 		_hex_tile(hc, hr, frame, color, locked, ready)
 	if art != "" and skill_art.has(art):
