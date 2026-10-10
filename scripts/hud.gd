@@ -184,16 +184,8 @@ func _process(_delta: float) -> void:
 		else:
 			holding_since = -1.0
 		game.menu_tick()
-		# The centre hint line (a Label game.gd owns) sits just under the
-		# objective banner, clear of the timer plate.
-		if not pane and game.message_label:
-			if game.message_label.offset_top < 120:
-				game.message_label.offset_top = 120
-				game.message_label.offset_bottom = 160
-			# The fortify call-out repeats the objective banner word for
-			# word, so it stays in the chat log only.
-			if game.prep_left > 0.0 and game.message_label.text.begins_with("FORTIFY!"):
-				game.message_label.text = ""
+		if not pane:
+			_tick_notices(_delta)
 		_hide_world_prompts()
 	queue_redraw()
 
@@ -327,20 +319,17 @@ func _draw() -> void:
 		_draw_downed_screen(_me())
 	if _me() and _me().dead and not game.demo:
 		_draw_death_screen(_me())
-	if _me() and not _me().kill_banner.is_empty():
-		_draw_kill_banner(_me())
 	if not game.guide_open and not pane:
 		_draw_kill_feed()
-	if _me() and _me().carrying and not _me().dead:
-		_draw_holding_banner(_me())
-	if game.crown_event_timer > 0.0 and not (_me() and _me().carrying):   # the carrier sees their own banner
-		_draw_crown_event()
-	elif game.capture_timer > 0.0:
-		_draw_capture_card()
-	elif game.levelup_timer > 0.0:
-		_draw_rankup_flourish()
-	if _me() and _me().class_banner > 0.0 and not _me().dead:
-		_draw_class_banner(_me())
+	# One big banner at a time (Faisal 2026-10-10 08:35: they kept landing on
+	# top of each other and the notices): _banner_kind picks it.
+	match _banner_kind():
+		"holding": _draw_holding_banner(_me())
+		"crown": _draw_crown_event()
+		"capture": _draw_capture_card()
+		"kill": _draw_kill_banner(_me())
+		"class": _draw_class_banner(_me())
+		"levelup": _draw_rankup_flourish()
 	if pane:
 		if local_unit:
 			# Under the BASE STOCK card when the economy draws one (economy.gd draw_counter).
@@ -1213,7 +1202,7 @@ func _draw_bake() -> void:
 			if bake_args[0] and is_instance_valid(bake_args[0]):
 				_draw_player_panel(bake_args[0])
 		"topbar":
-			_scoreboard_static()
+			_scoreboard_static(bake_args[0])
 
 
 func _bake_scale() -> float:
@@ -2066,7 +2055,7 @@ func _shield_shape(c: Vector2, w: float, h: float) -> PackedVector2Array:
 		pts.append(c + Vector2(-w / 2.0 * (1.0 - pow(t, 1.7)), knee + (h / 2.0 - knee) * t))
 	return pts
 
-const SCORE_BANDS := [Color(0.66, 0.12, 0.11), Color(0.16, 0.3, 0.72)]
+const SCORE_BANDS := [Color(0.15, 0.46, 0.19), Color(0.16, 0.3, 0.72)]   # Elves green like every other Elf UI (was red; Faisal 05:58 2026-10-10)
 
 
 func _crest_shield(c: Vector2, w: float, h: float, team: int) -> void:
@@ -2367,11 +2356,14 @@ func _draw_scoreboard() -> void:
 	## The top bar: its art, names, scores, clock and the line under it are
 	## baked (they change at most a few times a second); the twinkles and the
 	## Ember Pass flame move every frame and are drawn live on top.
-	if bake_mode == "" and _layer("topbar", Rect2(0, 0, size.x, 132.0), _topbar_key(), "topbar", []):
-		_scoreboard_live(false)
+	# The phase line under the clock steps aside while a big banner is up,
+	# so the banner is the only news on screen (Faisal 2026-10-10 09:03).
+	var quiet: bool = _banner_kind() in ["holding", "crown", "capture", "kill", "class", "levelup"]
+	if bake_mode == "" and _layer("topbar", Rect2(0, 0, size.x, 132.0), _topbar_key() + [quiet], "topbar", [quiet]):
+		_scoreboard_live(false, quiet)
 		return
-	_scoreboard_static()
-	_scoreboard_live(true)
+	_scoreboard_static(quiet)
+	_scoreboard_live(true, quiet)
 
 
 func _topbar_key() -> Array:
@@ -2382,7 +2374,7 @@ func _topbar_key() -> Array:
 		fire.get("text", ""), fire.get("color", Color.BLACK), fire.is_empty()]
 
 
-func _scoreboard_live(_full: bool) -> void:
+func _scoreboard_live(_full: bool, quiet: bool = false) -> void:
 	## The moving parts of the top bar: twinkles round the shields, and on
 	## Ember Pass the flame and the capture line under the strip.
 	var cx := size.x / 2.0
@@ -2398,7 +2390,7 @@ func _scoreboard_live(_full: bool) -> void:
 		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw), 1.6)
 		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw), 1.6)
 	var fortify: bool = game.prep_left > 0.0
-	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime else {}
+	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime and not quiet else {}
 	if not fire.is_empty() and fire.text != "":
 		# Ember Pass: the Fire Objective's flame beside the strip, and the
 		# capture filling along its foot.
@@ -2413,7 +2405,7 @@ func _scoreboard_live(_full: bool) -> void:
 		draw_set_transform(Vector2.ZERO)
 
 
-func _scoreboard_static() -> void:
+func _scoreboard_static(quiet: bool = false) -> void:
 	## Two cloth banners, ELVES in green on the left and HUMANS in blue on the
 	## right, each with its crest at the outer end, either side of a framed
 	## clock in gold laurels; the phase line on a parchment scroll below.
@@ -2469,10 +2461,12 @@ func _scoreboard_static() -> void:
 	elif game.overtime:
 		line = "Overtime: no respawns. The last team standing or the next capture wins."
 		line_ink = Color(0.55, 0.1, 0.05)
-	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime else {}
+	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime and not quiet else {}
 	if not fire.is_empty() and fire.text != "":
 		line = fire.text
 		line_ink = fire.color
+	if quiet:
+		line = ""
 	if line != "":
 		var fs := 14 if _text_width(line, 14) < 520.0 else 12
 		_text(Vector2(cx - 260.0, 100.0), line, fs, line_ink.lerp(Color(1.0, 0.95, 0.82), 0.85), HORIZONTAL_ALIGNMENT_CENTER, 520.0, 4)
@@ -2690,12 +2684,12 @@ func _draw_crown_ribbon(t: float, line1: String, line2: String, hint: String, pa
 	var fade := clampf((HOLD_BANNER_TIME - t) / 0.5, 0.0, 1.0)
 	var pop := 1.0 + (0.25 * sin(clampf(t / 0.4, 0.0, 1.0) * PI) if t < 0.4 else 0.0)
 	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
-	var s := minf(t / 0.14, 1.0) * pop * fit * 0.84 * (1.0 + 0.015 * sin(now * 4.0))
+	var s := minf(t / 0.14, 1.0) * pop * fit * 0.84 * BANNER_SIZE * (1.0 + 0.015 * sin(now * 4.0))
 	var a := clampf(t / 0.15, 0.0, 1.0) * fade
 	s *= 0.9 + 0.1 * fade
 	if s < 0.05:
 		return
-	draw_set_transform(Vector2(size.x / 2.0, 186.0 * fit + sin(now * 2.2) * 2.0 - (1.0 - fade) * 30.0), -0.06 + 0.012 * sin(now * 1.7), Vector2(s, s))
+	draw_set_transform(Vector2(size.x / 2.0, 164.0 * fit + sin(now * 2.2) * 2.0 - (1.0 - fade) * 30.0), -0.06 + 0.012 * sin(now * 1.7), Vector2(s, s))
 	var ink := Color(0.12, 0.07, 0.03, a)
 	var gold := Color(1.0, 0.8, 0.22, a)
 	# Burst: shards flying out from behind the ribbon, drifting outwards.
@@ -2856,6 +2850,7 @@ func _draw_capture_card() -> void:
 	var a := clampf(game.capture_timer / 0.5, 0.0, 1.0)
 	var pulse := 1.0 + 0.015 * sin(Time.get_ticks_msec() / 70.0)
 	var rect := Rect2(size.x / 2.0 - 230 * pulse, 106, 460 * pulse, 78)
+	_scale_about(Vector2(size.x / 2.0, 106.0), clampf(size.x / 1280.0, 0.55, 1.0) * BANNER_SIZE)
 	var ours: bool = game.capture_team == _my_team()
 	var tc: Color = _team_color(game.capture_team)
 	_plate(rect, Color(tc.r * 0.45, tc.g * 0.45, tc.b * 0.45, 0.95 * a), Color(1.0, 0.82, 0.3, a), 12, 3)
@@ -2864,6 +2859,7 @@ func _draw_capture_card() -> void:
 	var line := "The %s bring the crown home.  %d - %d, first to %d wins." % [Stats.FACTIONS[game.capture_team].name, game.score[0], game.score[1], Stats.CAPTURES_TO_WIN]
 	_text(rect.position + Vector2(64, 56), line, 12, Color(1, 0.95, 0.9, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_card("logo_elves" if game.capture_team == 0 else "logo_humans", Rect2(rect.end.x - 74, rect.position.y + 7, 64, 64))
+	draw_set_transform(Vector2.ZERO)
 
 
 func _draw_kill_feed() -> void:
@@ -2926,7 +2922,8 @@ func _draw_kill_banner(p) -> void:
 	if finish:
 		title = "FINISHED!"
 	var w: float = (300.0 + maxf(_text_width(title, 26) - 120.0, 0.0)) * scale_k
-	var rect := Rect2(size.x / 2.0 - w / 2.0, 120 - (1.0 - pop) * 24.0, w, 66 * scale_k)
+	var rect := Rect2(size.x / 2.0 - w / 2.0, 108 - (1.0 - pop) * 24.0, w, 66 * scale_k)
+	_scale_about(Vector2(size.x / 2.0, 108.0), clampf(size.x / 1280.0, 0.55, 1.0) * BANNER_SIZE)
 	# The burst behind the card.
 	draw_arc(rect.get_center(), 40.0 + age * 160.0, 0, TAU, 40, Color(1.0, 0.85, 0.3, maxf(0.5 - age * 1.2, 0.0)), 6.0)
 	_plate(rect, Color(0.42, 0.08, 0.08, 0.94 * a), Color(1.0, 0.85, 0.3, a), 12, 3)
@@ -2934,21 +2931,79 @@ func _draw_kill_banner(p) -> void:
 	_text(rect.position + Vector2(68 * scale_k, 30 * scale_k), title, int(26 * scale_k), Color(1.0, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	_text(rect.position + Vector2(68 * scale_k, 50 * scale_k), "%s the %s  ·  +%d XP" % [p.kill_banner.victim, p.kill_banner.role, Stats.XP_FINISH if finish else Stats.XP_KILL], int(12 * scale_k), sub_color, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_icon("sword", rect.end - Vector2(30 * scale_k, rect.size.y / 2.0), 12 * scale_k, Color(1.0, 0.85, 0.3, a))
+	draw_set_transform(Vector2.ZERO)
+
+
+const NOTICE_TIME := 2.6     # seconds each notice scroll stays up
+const BANNER_SIZE := 0.8     # the big banners, against their 2026-10-09 size (Faisal 2026-10-10 08:35: "a little smaller")
+
+
+func _banner_kind() -> String:
+	## The one big banner on screen now, by priority: the crown news first,
+	## then a capture, your kill, your new class, then a rank up. The others
+	## wait their turn or lapse (the kill feed still lists kills).
+	var p = _me()
+	# Covered or taken over: a menu, the guide or your Upgrades board is
+	# open, or the downed / fallen screen fills the top. No banner then, and
+	# notices wait (Faisal 09:03: no old text under or before the banner).
+	if game.menu_open or game.guide_open or (game.rank_open and p != null and game.rank_player == p):
+		return "covered"
+	if p and (p.downed or (p.dead and not game.demo)):
+		return "down"
+	if p and p.carrying and not p.dead and holding_since <= HOLD_BANNER_TIME:
+		return "holding"
+	if game.crown_event_timer > 0.0 and not (p and p.carrying):   # the carrier sees their own banner
+		return "crown"
+	if game.capture_timer > 0.0:
+		return "capture"
+	if p and not p.kill_banner.is_empty():
+		var age: float = Time.get_ticks_msec() / 1000.0 - p.kill_banner.time
+		if age >= 0.0 and age <= 2.4:
+			return "kill"
+	if p and p.class_banner > 0.0 and not p.dead:
+		return "class"
+	if game.levelup_timer > 0.0:
+		return "levelup"
+	return ""
+
+
+func _tick_notices(delta: float) -> void:
+	## Notices queue (game.toast and game.announce) and show one at a time;
+	## the front one waits while a big banner is up instead of overlapping it.
+	if game.toasts.is_empty() or _banner_kind() != "":
+		return
+	var t: Dictionary = game.toasts[0]
+	t.shown = t.get("shown", 0.0) + delta
+	if t.shown > NOTICE_TIME:
+		game.toasts.pop_front()
+
+
+func _scale_about(anchor: Vector2, k: float) -> void:
+	## Draw what follows scaled by k around anchor (draw_set_transform(Vector2.ZERO) to end).
+	draw_set_transform(anchor * (1.0 - k), 0.0, Vector2(k, k))
 
 
 func _draw_toasts() -> void:
-	var now := Time.get_ticks_msec() / 1000.0
-	var y := 120.0 if game.stolen_timer <= 0.0 and game.levelup_timer <= 0.0 else 192.0
-	for t in game.toasts:
-		var age: float = now - t.time
-		if age > 2.6:
-			continue
-		var a := clampf((2.6 - age) / 0.5, 0.0, 1.0)
-		var w := _text_width(t.text, 12) + 28
-		var r := Rect2(size.x / 2.0 - w / 2.0, y, w, 22)
-		_plate(r, Color(0.05, 0.06, 0.1, 0.8 * a), Color(t.color.r, t.color.g, t.color.b, 0.8 * a), 6, 1)
-		_text(r.position + Vector2(0, 16), t.text, 12, Color(t.color.r, t.color.g, t.color.b, a), HORIZONTAL_ALIGNMENT_CENTER, w, 2)
-		y += 26
+	## The notice line: one small parchment scroll under the clock, its end
+	## knobs in the notice's colour, never while a big banner is up (Faisal
+	## 2026-10-10 08:35: the notice texts kept overlapping the banners; "keep
+	## it just banners"). Replaces the stacked text plates and the centre
+	## announcement label.
+	if game.toasts.is_empty() or _banner_kind() != "":
+		return
+	var t: Dictionary = game.toasts[0]
+	var sh: float = t.get("shown", 0.0)
+	var a := clampf(sh / 0.15, 0.0, 1.0) * clampf((NOTICE_TIME - sh) / 0.4, 0.0, 1.0)
+	if a <= 0.0:
+		return
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var k := fit * (0.9 + 0.1 * clampf(sh / 0.15, 0.0, 1.0))
+	var fs := 14
+	while fs > 10 and _text_width(t.text, fs) > 560.0:
+		fs -= 1
+	draw_set_transform(Vector2(size.x / 2.0, 134.0 * fit), 0.0, Vector2(k, k))
+	_scroll_hint(0.0, _text_width(t.text, fs) + 40.0, t.text, a, "", fs, Color(t.color, a))
+	draw_set_transform(Vector2.ZERO)
 
 
 func _draw_objective() -> void:
@@ -3227,7 +3282,9 @@ func _draw_quick_upgrade(p) -> void:
 	var calm: float = p.calm_left()
 	var R := Rect2(x, y, w, 36)
 	var pulse := 0.5 + 0.5 * sin(now * 4.0)
-	_plate(R, Color(0.08, 0.06, 0.03, 0.92), GOLD.lerp(Color(1, 0.95, 0.7), pulse * 0.4) if calm <= 0.0 else Color(0.55, 0.3, 0.2), 9, 2)
+	game_board(R, "", false)
+	if calm <= 0.0:
+		_glow_frame(R.grow(2), Color(1.0, 0.82, 0.3, 0.25 + 0.3 * pulse))
 	_text(Vector2(x + 10, y + 16), "LEVEL UP", 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	if calm > 0.0:
 		_text(Vector2(x + 10, y + 30), "In combat %.0fs" % ceilf(calm), 10, Color(1.0, 0.55, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -3242,7 +3299,8 @@ func _draw_quick_upgrade(p) -> void:
 		tx += tw + 6.0
 		var icon: String = _attack_icon(p.role, p.stats()) if t == 0 else ("vigor" if t == 3 else str(abil[t - 1].get("icon", abil[t - 1].kind)))
 		var ready := calm <= 0.0
-		_plate(r, Color(0.2, 0.15, 0.06) if ready else Color(0.14, 0.12, 0.1), GOLD_DARK if ready else Color(0.35, 0.3, 0.25), 7, 1)
+		_plate(r, Color(0.13, 0.08, 0.04) if ready else Color(0.1, 0.08, 0.07), BRASS if ready else Color(0.35, 0.3, 0.25), 7, 1)
+		draw_rect(Rect2(r.position + Vector2(3, 2), Vector2(r.size.x - 6, 4)), Color(1, 0.85, 0.6, 0.1 if ready else 0.04))
 		_icon(icon, r.position + Vector2(15, 15), 8.0, Color.WHITE if ready else Color(0.6, 0.6, 0.6))
 		_text(Vector2(r.position.x + 30, r.position.y + 20), "LV%d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_keycap(Vector2(r.end.x - 2, r.position.y + 2), _k("rank_%d" % (t + 1)), 18)
@@ -3368,6 +3426,53 @@ func _status_tags(p, panel: Rect2) -> void:
 		_text(vb.position + Vector2(30, 17), ("ELITE VETERAN · BOUNTY ON YOU" if p.veteran == 2 else "VETERAN") + "  ·  %d streak" % p.streak, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	elif p.streak >= 2 and not p.dead:
 		_text(Vector2(panel.end.x, tag_y + 17), "%d kill streak" % p.streak, 11, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, -1, 3)
+
+
+func game_board(r: Rect2, title: String = "", ivy: bool = true) -> void:
+	## THE in-match panel look, shared by every HUD panel (the ability strip,
+	## LEVEL UP, Economy's BASE STOCK and action card): a dark wooden board in a
+	## brass rim with gold corner brackets, faint grain and ivy sprigs, and
+	## (with a title) a small wooden name tag on its top edge.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.04, 0.03)
+	sb.set_corner_radius_all(10)
+	sb.shadow_size = 7
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_offset = Vector2(0, 3)
+	draw_style_box(sb, r.grow(3))
+	_plate(r, WOOD_DARK, BRASS, 8, 3)
+	var inner := r.grow(-4)
+	var bands := maxi(2, int(inner.size.y / 18.0))
+	for i in bands:
+		var y := inner.position.y + inner.size.y * i / float(bands)
+		draw_rect(Rect2(Vector2(inner.position.x + 2, y + 1), Vector2(inner.size.x - 4, inner.size.y / bands - 1)), Color(1, 0.8, 0.55, 0.05) if i % 2 == 0 else Color(0, 0, 0, 0.1))
+	draw_rect(Rect2(r.position + Vector2(10, 2), Vector2(r.size.x - 20, 1)), GOLD.lightened(0.35))
+	draw_rect(r.grow(-6), Color(0.62, 0.44, 0.16, 0.35), false, 1.0)
+	_gold_corners(r.grow(2), minf(18.0, r.size.y * 0.45), 5.0)
+	if ivy and r.size.x > 120.0:
+		_ivy(r.position + Vector2(4, 2), Vector2(1, 0), minf(50.0, r.size.x * 0.2), 3)
+		_ivy(Vector2(r.end.x - 4, r.position.y + 2), Vector2(-1, 0), minf(50.0, r.size.x * 0.2), 6)
+	if title != "":
+		var tw := _text_width(title, 12) + 28.0
+		var tag := Rect2(r.get_center().x - tw / 2.0, r.position.y - 11.0, tw, 20.0)
+		_plate(tag, Color(0.36, 0.21, 0.09), BRASS, 6, 2)
+		draw_rect(Rect2(tag.position + Vector2(3, 3), Vector2(tag.size.x - 6, 5)), Color(1, 0.9, 0.7, 0.12))
+		_text(Vector2(tag.position.x, tag.end.y - 5), title, 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 3)
+
+
+func game_button(r: Rect2, label: String, enabled: bool = true, accent: Color = Color(1.0, 0.78, 0.25)) -> bool:
+	## The matching in-match button: a raised gold (or given accent) plate with
+	## dark lettering, a top shine and a hover lift; grey when not enabled.
+	## Returns whether the mouse is over it.
+	var hover := enabled and r.has_point(_mouse())
+	var rr := r.grow(2) if hover else r
+	draw_rect(Rect2(rr.position + Vector2(0, 3), rr.size), Color(0, 0, 0, 0.35))
+	var fill := accent.lightened(0.12) if hover else accent
+	_plate(rr, fill if enabled else Color(0.3, 0.29, 0.27), Color(0.4, 0.22, 0.04) if enabled else Color(0.2, 0.2, 0.2), 8, 2)
+	draw_rect(Rect2(rr.position + Vector2(4, 3), Vector2(rr.size.x - 8, rr.size.y * 0.3)), Color(1, 1, 1, 0.25 if enabled else 0.06))
+	var fs := 15 if _text_width(label, 15) < rr.size.x - 12.0 else 12
+	_text(Vector2(rr.position.x, rr.get_center().y + fs * 0.35), label, fs, Color(0.24, 0.12, 0.03) if enabled else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, rr.size.x, 0)
+	return hover
 
 
 func _gold_corners(rect: Rect2, arm: float, thick: float) -> void:
@@ -5966,7 +6071,7 @@ func _cloth_ribbon(half: float, top: float, bot: float, light: Color, deep: Colo
 			draw_circle(edge.call(sx * half, y), 3.5, Color(1.0, 0.9, 0.45, a))
 
 
-func _scroll_hint(sy: float, sw: float, hint: String, a: float, icon: String = "") -> void:
+func _scroll_hint(sy: float, sw: float, hint: String, a: float, icon: String = "", fs: int = 15, knob: Color = Color(0.88, 0.72, 0.45, -1.0)) -> void:
 	## A curled parchment scroll with one line of hint text, centred on x=0.
 	var ink := Color(0.12, 0.07, 0.03, a)
 	var scroll := Rect2(-sw / 2.0, sy - 15.0, sw, 30.0)
@@ -5980,8 +6085,7 @@ func _scroll_hint(sy: float, sw: float, hint: String, a: float, icon: String = "
 	draw_rect(Rect2(scroll.position + Vector2(0, scroll.size.y - 5.0), Vector2(scroll.size.x, 5.0)), Color(0.85, 0.7, 0.45, 0.6 * a))
 	for sx in [-1.0, 1.0]:
 		draw_circle(Vector2(sx * sw / 2.0, sy + 1.0), 6.5, ink)
-		draw_circle(Vector2(sx * sw / 2.0, sy + 1.0), 4.5, Color(0.88, 0.72, 0.45, a))
-	var fs := 15
+		draw_circle(Vector2(sx * sw / 2.0, sy + 1.0), 4.5, Color(0.88, 0.72, 0.45, a) if knob.a < 0.0 else knob)
 	var tw := _text_width(hint, fs)
 	var hx := -tw / 2.0 + (10.0 if icon != "" else 0.0)
 	if icon != "":
@@ -6009,7 +6113,7 @@ func _draw_class_banner(p) -> void:
 	var fade := clampf(p.class_banner / 0.5, 0.0, 1.0)
 	var pop := 1.0 + (0.22 * sin(clampf(t / 0.4, 0.0, 1.0) * PI) if t < 0.4 else 0.0)
 	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
-	var s := minf(t / 0.14, 1.0) * pop * fit * 0.8 * (0.9 + 0.1 * fade)
+	var s := minf(t / 0.14, 1.0) * pop * fit * 0.8 * BANNER_SIZE * (0.9 + 0.1 * fade)
 	var a := clampf(t / 0.15, 0.0, 1.0) * fade
 	if s < 0.05:
 		return
@@ -6019,7 +6123,7 @@ func _draw_class_banner(p) -> void:
 	var deep := Color(rc.r * 0.3, rc.g * 0.3, rc.b * 0.3, a)
 	# (Sits a little lower than the crown banner so the class tile on top
 	# clears the objective line.)
-	draw_set_transform(Vector2(size.x / 2.0, 214.0 * fit + sin(now * 2.2) * 2.0 - (1.0 - fade) * 30.0), 0.04 - 0.012 * sin(now * 1.7), Vector2(s, s))
+	draw_set_transform(Vector2(size.x / 2.0, 184.0 * fit + sin(now * 2.2) * 2.0 - (1.0 - fade) * 30.0), 0.04 - 0.012 * sin(now * 1.7), Vector2(s, s))
 	var ink := Color(0.12, 0.07, 0.03, a)
 	# Shards in the class colour and gold flying out behind the ribbon.
 	for k in 14:
@@ -6067,13 +6171,13 @@ func _draw_rankup_flourish() -> void:
 	var fade := clampf(left / 0.5, 0.0, 1.0)
 	var pop := 1.0 + (0.3 * sin(clampf(t / 0.35, 0.0, 1.0) * PI) if t < 0.35 else 0.0)
 	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
-	var s := minf(t / 0.12, 1.0) * pop * fit * 0.8 * (0.9 + 0.1 * fade)
+	var s := minf(t / 0.12, 1.0) * pop * fit * 0.8 * BANNER_SIZE * (0.9 + 0.1 * fade)
 	var a := clampf(t / 0.12, 0.0, 1.0) * fade
 	if s < 0.05:
 		return
 	var promoted: bool = game.levelup_text != ""
 	var p = _me()
-	draw_set_transform(Vector2(size.x / 2.0, 196.0 * fit - (1.0 - fade) * 24.0), 0.0, Vector2(s, s))
+	draw_set_transform(Vector2(size.x / 2.0, 168.0 * fit - (1.0 - fade) * 24.0), 0.0, Vector2(s, s))
 	var ink := Color(0.12, 0.07, 0.03, a)
 	var gold := Color(1.0, 0.8, 0.22, a)
 	# The light burst: two layers of soft rays turning opposite ways, and a

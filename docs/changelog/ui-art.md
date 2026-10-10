@@ -905,3 +905,58 @@ Revert newest first:
 ```
 git revert 0473c04 12e1e10 5c5a432 07cc200 debf49f 0722242
 ```
+
+## 2026-10-10 — Polish pass (Faisal 07:58 "improve on the game in all aspects")
+
+Commit: `7d0de41`.
+- **Elves are green everywhere:** `hud.SCORE_BANDS[0]` changed from Color(0.66, 0.12, 0.11) to Color(0.15, 0.46, 0.19). That turns the match summary's Elves band, crest and scoreboard section green. `assets/ui/skills/shield_elf.png` was recoloured with the new `tools/elves_green.py`.
+- **Long hair:** the chest locks are now rounded, tapering pieces with a puff at the top and a bead at the tip, instead of straight cylinders that read as planks.
+- **Also merged:** release/v0.4.0-alpha cf8100d, Integration's fix to the touch loop in options_menu_test.
+- **Tests:** options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 7d0de41`.
+
+## 2026-10-10 — Shared in-match panel style
+
+Commit: `5baffd5`. Faisal (08:31): "the ui still doesn't match the game style".
+
+- `hud.game_board(rect, title := "", ivy := true)` draws the ability strip's board for any in-match panel. That board is dark wood in a brass rim, with gold corner brackets, grain bands, ivy and an optional wooden name tag.
+- `hud.game_button(rect, label, enabled := true, accent := gold) -> bool` draws the matching raised button and returns true while it is hovered.
+- The LEVEL UP strip now uses `game_board`, plus a gold glow when ranks can be bought, and its tiles are recessed.
+- Economy has been asked to draw BASE STOCK, the action card and its buttons with these helpers.
+
+Tested: options_menu_test 0 failures.
+
+Revert: `git revert 5baffd5`.
+
+## 2026-10-10 — Banners only, smaller, no overlapping text
+
+Commit: `39faf99`. Faisal (08:35): "Keep it just banners and make the banners a little smaller"; (09:03): no conflicting text and no old UI before the new banner.
+
+- **One big banner at a time** (`hud._banner_kind`). The priority order is: crown news, capture, your kill, your new class, rank up. There are no banners while a menu, the guide or your Upgrades board is open, or while the downed or fallen screen shows.
+- **Notices:** `game.toast` and `game.announce` now queue. They show one at a time as a small parchment scroll under the clock, with the end knobs in the notice's colour, and they wait while a banner is up. Before, up to 4 plates stacked at y 120 under the kill banner. The centre `message_label` line no longer gets text. Repeats of a waiting notice are dropped, and at most 3 notices queue.
+- **Sizes:** new `hud.BANNER_SIZE` = 0.8, applied to the crown ribbon, class banner, rank-up flourish, kill banner and capture card. The kill banner and capture card now also scale with narrow screens and split-screen panes, which they did not before. Anchors:
+  - crown ribbon: y 186 → 164;
+  - class banner: y 214 → 184;
+  - rank-up flourish: y 196 → 168;
+  - kill banner: y 120 → 108.
+- **Phase line** under the clock (fortify, overtime, the Ember Pass fire) is hidden while a big banner shows.
+- **Duplicates dropped:**
+  - "You are now a …" / "You put on the … hat" now go to chat only, since the class banner says it.
+  - The player's own floating LEVEL n, promoted class name, REVIVED, VETERAN and BOUNTY popups are dropped; the banners and notices say them. Bots and other players still show them.
+- **`--debug-touch`** shows the iPad touch layout for renders.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo smoke run had no script errors.
+
+Revert: `git revert 39faf99`.
+
+## 2026-10-10 — Merged release/v0.4.0-alpha (online play)
+
+Commit: `d46af47` (merge).
+- **game.toast:** keeps the alpha's online routing (`to`) and the new one-at-a-time queue.
+- **game.announce:** keeps its online relay; `_announce_here` now feeds the notice scroll instead of the centre label.
+- **Class lines:** the station and hat class lines go to chat for the local player and stay as announcements for online joiners.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; tools/net_smoke.sh (ENet) passed; a demo run had no script errors.
+
+Revert: `git revert -m 1 d46af47`.
