@@ -15,6 +15,35 @@ const RESPAWN_TIME := 7.0
 const RESPAWN_PER_LEVEL := 1.0  # dying hurts more the higher you were: extra seconds per level
 const RESPAWN_MAX := 13.0
 
+# Downed and revive (Faisal 2026-10-09): losing your last heart knocks you
+# down instead of killing you. You crawl, can't fight, and bleed out after
+# DOWNED_TIME; an enemy hit finishes you; holding interact skips straight to
+# the respawn. A teammate standing over you and holding interact revives
+# you; a Healer does it faster and from further away (the Healer perk).
+# Going down already counts as the kill (feed, XP, levels lost); a revive
+# hands the lost levels back. Overtime is sudden death: no downed state.
+const DOWNED_TIME := 15.0          # seconds before a downed player bleeds out
+const DOWNED_GRACE := 2.0         # seconds after going down before a hit can finish you (stray swings and splash pass over)
+const FINISH_HOLD := 0.8          # an enemy holds interact this long over a downed player to finish them
+const FINISH_ANIM := 0.8          # the finisher move: the finisher is locked in place this long
+const FINISH_IMPACT := 0.38       # ...and the blow lands this far into it
+const DOWNED_CRAWL := 0.22         # crawl speed, as a share of walking speed
+const DOWNED_SKIP_HOLD := 1.0      # hold interact this long to give up and respawn
+const REVIVE_TIME := 4.0           # seconds a teammate holds interact to revive
+const REVIVE_RANGE := 1.8          # how close a teammate must stand
+const HEALER_REVIVE_TIME := 1.5    # Healer perk: faster...
+const HEALER_REVIVE_RANGE := 3.0   # ...and from further away
+const REVIVE_HEARTS := 2           # hearts a revived player gets back (of 4)
+const REVIVE_PROTECT := 1.0        # seconds of invulnerability while standing up
+const XP_REVIVE := 30              # XP for the reviver ("support")
+const XP_FINISH := 10              # XP for finishing off a downed enemy
+const SCORE_REVIVE := 8            # scoreboard points per revive
+const BOT_REVIVE_SEEK := 14.0      # bots go to revive a downed ally this close...
+const BOT_HEALER_REVIVE_SEEK := 20.0  # ...Healers from this far
+const BOT_DOWNED_TARGET_PENALTY := 8.0  # bots treat a downed enemy as this many metres further away than a standing one
+const BOT_FINISH_RANGE := 4.0      # bots only go for a downed enemy this close
+const BOT_DOWNED_GIVE_UP := 3.0    # a downed bot with no ally in BOT_REVIVE_SEEK * 2 skips after this many seconds
+
 # Veterans: kill streaks without dying. A Veteran is announced and marked;
 # an Elite Veteran carries a bounty: revealed to the enemy, slightly tougher,
 # and worth a team-wide reward to whoever brings them down.
@@ -29,27 +58,80 @@ const BOUNTY_BUFF := "Might"
 # how often bots fire abilities, react scales dodging and blocking, sight
 # scales how far they notice enemies, chase is how far they go after a bounty.
 # Hero customizer: hair and trim (cape / sash) colours the player can pick.
+# The first HERO_HAIR_FREE / HERO_TRIM_FREE entries are everyone's; the
+# rest are bought in the STORE (STORE_ITEMS below).
 const HERO_HAIR := [["Blond", Color(0.93, 0.8, 0.4)], ["Brown", Color(0.4, 0.25, 0.12)], ["Black", Color(0.12, 0.1, 0.12)],
-	["Red", Color(0.75, 0.2, 0.1)], ["Silver", Color(0.85, 0.85, 0.9)], ["Moss", Color(0.35, 0.6, 0.3)]]
+	["Red", Color(0.75, 0.2, 0.1)], ["Silver", Color(0.85, 0.85, 0.9)], ["Moss", Color(0.35, 0.6, 0.3)],
+	["Copper", Color(0.85, 0.42, 0.16)], ["Rose", Color(0.95, 0.5, 0.65)], ["Midnight", Color(0.16, 0.22, 0.55)],
+	["Frost", Color(0.7, 0.9, 1.0)], ["Violet", Color(0.55, 0.3, 0.85)], ["Ember", Color(1.0, 0.55, 0.12)]]
+const HERO_HAIR_FREE := 6
+# Hair styles (Create Your Character): the model's own cut, then the modelled
+# styles character_model._add_hair_style adds on the head bone. The first
+# HERO_HAIR_STYLE_FREE are everyone's; the rest are sold in the STORE.
+const HERO_HAIR_STYLES := ["Classic", "Ponytail", "Long", "Braids", "Top Knot"]
+const HERO_HAIR_STYLE_FREE := 2
 const HERO_TRIM := [["Team", Color.TRANSPARENT], ["Crimson", Color(0.7, 0.12, 0.15)], ["Violet", Color(0.5, 0.25, 0.7)],
-	["Teal", Color(0.15, 0.6, 0.6)], ["Gold", Color(0.9, 0.72, 0.2)], ["Night", Color(0.12, 0.12, 0.18)]]
+	["Teal", Color(0.15, 0.6, 0.6)], ["Gold", Color(0.9, 0.72, 0.2)], ["Night", Color(0.12, 0.12, 0.18)],
+	["Emerald", Color(0.1, 0.62, 0.3)], ["Sunset", Color(0.95, 0.45, 0.15)], ["Ivory", Color(0.92, 0.88, 0.76)],
+	["Sky", Color(0.35, 0.65, 0.95)], ["Rose", Color(0.85, 0.35, 0.55)], ["Royal", Color(0.35, 0.1, 0.5)]]
+const HERO_TRIM_FREE := 6
 const HERO_NAME_MAX := 12
 # Hero looks: Classic, and the Shadowborn look unlocked at account level 10
 # (a dusk tint, violet rim light and a cape on every class).
 const HERO_LOOKS := [["Classic", Color.TRANSPARENT], ["Shadowborn", Color(0.5, 0.42, 0.62)]]
+# Skin tones and the unclassed body's build (Create Your Character). The
+# build is the base model you spawn as; a class's own body replaces it.
+const HERO_SKINS := [["Fair", Color(0.98, 0.85, 0.74)], ["Light", Color(0.96, 0.75, 0.61)], ["Tan", Color(0.84, 0.62, 0.45)],
+	["Brown", Color(0.62, 0.42, 0.28)], ["Deep", Color(0.4, 0.26, 0.18)]]
+const HERO_BODIES := [["Slim", "rogue"], ["Sturdy", "knight"], ["Broad", "barbarian"]]
+# Face styles (scripts/face.gd, tools/make_faces.py): [name, blurb].
+const HERO_FACES := [["Bold", "Steady eyes, set brows"], ["Bright", "Wide eyes and a big grin"], ["Fierce", "Narrowed eyes, a smirk"], ["Gentle", "Soft eyes, a small smile"],
+	["Noble", "Calm eyes, a faint smile"], ["Sly", "Heavy lids, a crooked grin"]]
+# Eye colours: [name, swatch, texture suffix]. Humans default to brown, Elves to green.
+const HERO_EYES := [["Brown", Color(0.4, 0.22, 0.1), "brown"], ["Blue", Color(0.2, 0.4, 0.85), "blue"], ["Green", Color(0.2, 0.55, 0.25), "green"],
+	["Grey", Color(0.5, 0.52, 0.56), "grey"], ["Amber", Color(0.9, 0.62, 0.15), "amber"], ["Red", Color(0.75, 0.15, 0.15), "red"]]
+# Facial markings: [name, texture suffix ("" = none)].
+const HERO_MARKS := [["None", ""], ["Scar", "scar"], ["Claws", "claws"], ["Freckles", "freckles"], ["War Paint", "paint"]]
 # Maps: the Wildwood by day, and the moonlit night variant unlocked at level 10.
-const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"]]
+# Ember Pass is the volcano map (castles on basalt plateaus over lava, joined
+# by bridges, and the Fire Objective in the middle); open to everyone.
+const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"], ["Ember Pass", "volcano"]]
+
+# Ember Pass's Fire Objective: stand in the ring to capture it (alone it
+# takes capture_time seconds, each extra teammate adds extra_rate, counted up
+# to max_count); both sides inside freezes it; taking it from the other team
+# first burns it back to neutral. Left alone it settles back toward its
+# holder (or neutral) at `settle` times the capture rate. Bots send bots_take
+# to win it and keep bots_hold on it once it is theirs, one more while enemies
+# stand on it. (2 / 1 starved the raids: three draws in four test matches.)
+const FIRE_POINT := {"radius": 7.0, "capture_time": 8.0, "extra_rate": 0.5, "max_count": 3, "settle": 0.25,
+	"bots_take": 1, "bots_hold": 0}
+# FIRE form: while a team holds the Fire Objective every one of its classes
+# (and promotions) fights as its FIRE variant: the base attack sets enemies
+# alight (one more heart lost burn_delay seconds later, unless a healer mends
+# them first; a target only catches fire once every burn_cooldown seconds),
+# and abilities cost and cool down by the multipliers. It fades the moment
+# the point is lost. flame: the aura colour, Elves then Humans.
+const FIRE_FORM := {"burn_delay": 2.0, "burn_cooldown": 6.0, "burn_damage": 1, "cost_mult": 0.85, "cooldown_mult": 0.85,
+	"prefix": "Fire", "flame": [Color(1.0, 0.78, 0.28), Color(1.0, 0.42, 0.12)]}
 
 # Player banners (the calling card the enemy sees when you kill them, and
 # that you edit on the HERO tab): a background, an emblem, a frame and a title.
+# Entries from BANNER_*_FREE on are bought in the STORE.
 const BANNER_BACKGROUNDS := [["Forest", Color(0.12, 0.4, 0.22), Color(0.3, 0.7, 0.35), "plain"], ["Kingdom", Color(0.12, 0.2, 0.5), Color(0.3, 0.45, 0.9), "plain"],
 	["Ember", Color(0.45, 0.12, 0.08), Color(0.95, 0.5, 0.15), "rays"], ["Dusk", Color(0.2, 0.1, 0.35), Color(0.6, 0.3, 0.8), "diamonds"],
 	["Stripes", Color(0.15, 0.15, 0.2), Color(0.85, 0.7, 0.25), "stripes"], ["Vines", Color(0.08, 0.25, 0.15), Color(0.45, 0.8, 0.4), "leaves"],
-	["Frost", Color(0.15, 0.3, 0.45), Color(0.7, 0.9, 1.0), "diamonds"], ["Royal", Color(0.35, 0.05, 0.12), Color(0.95, 0.78, 0.3), "rays"]]
+	["Frost", Color(0.15, 0.3, 0.45), Color(0.7, 0.9, 1.0), "diamonds"], ["Royal", Color(0.35, 0.05, 0.12), Color(0.95, 0.78, 0.3), "rays"],
+	["Sunrise", Color(0.6, 0.25, 0.1), Color(1.0, 0.8, 0.35), "rays"], ["Starlight", Color(0.06, 0.08, 0.2), Color(0.85, 0.85, 1.0), "diamonds"]]
+const BANNER_BG_FREE := 8
 const BANNER_EMBLEMS := ["crown", "class_knight", "class_ranger", "class_mage", "class_healer", "class_engineer", "crest_forest", "crest_kingdom",
-	"fireball", "guard", "vigor", "trap", "blessing", "class_rogue"]   # the last needs the level-10 unlock
+	"fireball", "guard", "vigor", "trap", "blessing", "class_rogue",   # class_rogue needs the level-10 unlock
+	"moon", "frost", "bramble", "skull"]
+const BANNER_EMBLEM_FREE := 14
 const BANNER_FRAMES := [["Plain", Color(0.15, 0.12, 0.18)], ["Gold", Color(0.95, 0.78, 0.3)], ["Iron", Color(0.6, 0.62, 0.68)],
-	["Vine", Color(0.4, 0.75, 0.35)], ["Royal", Color(0.9, 0.4, 0.7)]]   # Royal needs the level-10 unlock
+	["Vine", Color(0.4, 0.75, 0.35)], ["Royal", Color(0.9, 0.4, 0.7)],   # Royal needs the level-10 unlock
+	["Ember", Color(1.0, 0.45, 0.12)], ["Frost", Color(0.65, 0.9, 1.0)], ["Obsidian", Color(0.35, 0.2, 0.5)]]
+const BANNER_FRAME_FREE := 5
 # Banner titles: [needed account level, title].
 const BANNER_TITLES := [[1, "Recruit"], [1, "Door Breaker"], [2, "Crown Thief"], [3, "Militia"], [4, "Trapper"], [5, "Soldier"], [6, "Duelist"],
 	[8, "Veteran"], [10, "Champion"], [10, "Shadowborn"], [15, "Warlord"], [20, "Crownbreaker"], [30, "Legend"]]
@@ -63,14 +145,55 @@ const ACCOUNT_XP_STEP := 150
 const ACCOUNT_MAX_LEVEL := 50
 const UNLOCK_LEVEL := 10
 const MATCH_BONUS := {"win": 300, "draw": 150, "loss": 100}
+# Match rewards shown on the summary screen and banked on the account (the
+# shop that spends them is a later milestone).
+const MATCH_GOLD := {"win": 300, "draw": 250, "loss": 200}
+const MATCH_SHARDS := {"win": 25, "draw": 20, "loss": 15}
+
+# --- Store (cosmetic only: nothing here changes a fight) ---------------------
+# Gear the STORE sells beyond colours. Index 0 of each is the free default.
+# Hats are worn by the unclassed body (no class hat on); capes and scarves
+# hang on every class in the trim colour; armour tints recolour the metal
+# plates; weapon skins recolour the held weapons. Colour TRANSPARENT = none.
+const HERO_HATS := [["None", ""], ["Feathered Cap", "cap"], ["Straw Hat", "straw"], ["Leaf Circlet", "circlet"],
+	["Flower Crown", "flowers"], ["Wizard Hat", "wizard"], ["Horned Helm", "horns"], ["Golden Circlet", "gold"]]
+const HERO_CAPES := [["None", ""], ["Long Scarf", "scarf"], ["Traveller's Cape", "cape"], ["Leaf Cloak", "leaf"],
+	["Royal Mantle", "royal"], ["Ember Mantle", "ember"]]
+# [name, metal colour, glow energy]
+const HERO_OUTFITS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.8, 0.5, 0.25), 0.0], ["Verdant", Color(0.35, 0.7, 0.4), 0.0],
+	["Crimson", Color(0.8, 0.2, 0.2), 0.0], ["Gilded", Color(1.0, 0.8, 0.3), 0.0], ["Frost", Color(0.65, 0.88, 1.0), 0.25],
+	["Obsidian", Color(0.28, 0.22, 0.36), 0.15]]
+const WEAPON_SKINS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.85, 0.55, 0.3), 0.0], ["Wildwood", Color(0.45, 0.8, 0.4), 0.0],
+	["Gilded", Color(1.0, 0.82, 0.3), 0.0], ["Frostbite", Color(0.6, 0.9, 1.0), 0.3], ["Ember", Color(1.0, 0.5, 0.15), 0.35],
+	["Shadow", Color(0.45, 0.3, 0.7), 0.3]]
+# Rarities: [name, colour, price in gold, chest weight].
+const RARITIES := {"common": ["Common", Color(0.78, 0.8, 0.82), 300, 60], "rare": ["Rare", Color(0.35, 0.65, 1.0), 600, 28],
+	"epic": ["Epic", Color(0.72, 0.4, 1.0), 1200, 10], "legendary": ["Legendary", Color(1.0, 0.7, 0.2), 2500, 2]}
+# What the STORE sells: [kind, index into that kind's table, rarity]. Kinds:
+# hair (HERO_HAIR), hair_style (HERO_HAIR_STYLES), trim (HERO_TRIM), outfit, hat, cape, weapon, banner_bg,
+# banner_emblem, banner_frame. Prices come from the rarity.
+const STORE_ITEMS := [
+	["hair_style", 2, "common"], ["hair_style", 3, "rare"], ["hair_style", 4, "rare"],
+	["hair", 6, "common"], ["hair", 7, "common"], ["hair", 8, "rare"], ["hair", 9, "rare"], ["hair", 10, "epic"], ["hair", 11, "epic"],
+	["outfit", 1, "common"], ["outfit", 2, "common"], ["outfit", 3, "rare"], ["outfit", 4, "epic"], ["outfit", 5, "epic"], ["outfit", 6, "legendary"],
+	["cape", 1, "common"], ["cape", 2, "rare"], ["cape", 3, "rare"], ["cape", 4, "epic"], ["cape", 5, "legendary"],
+	["trim", 6, "common"], ["trim", 7, "common"], ["trim", 8, "common"], ["trim", 9, "rare"], ["trim", 10, "rare"], ["trim", 11, "epic"],
+	["hat", 1, "common"], ["hat", 2, "common"], ["hat", 3, "rare"], ["hat", 4, "rare"], ["hat", 5, "epic"], ["hat", 6, "epic"], ["hat", 7, "legendary"],
+	["weapon", 1, "common"], ["weapon", 2, "rare"], ["weapon", 3, "rare"], ["weapon", 4, "epic"], ["weapon", 5, "epic"], ["weapon", 6, "legendary"],
+	["banner_bg", 8, "rare"], ["banner_bg", 9, "epic"],
+	["banner_emblem", 14, "common"], ["banner_emblem", 15, "common"], ["banner_emblem", 16, "rare"], ["banner_emblem", 17, "rare"],
+	["banner_frame", 5, "rare"], ["banner_frame", 6, "rare"], ["banner_frame", 7, "epic"]]
+# Opening a Match Chest gives one item you do not own yet, picked by rarity
+# weight; with everything owned it pays CHEST_GOLD instead.
+const CHEST_GOLD := 150
 # Accolades on the end-of-match screen, each worth account XP. need is the
 # threshold (hearts healed, siege XP, kills in one life, assists, kills).
 const ACCOLADES := [
 	{"key": "crown", "name": "Crown Thief", "desc": "Carried the enemy crown home.", "xp": 100, "icon": "crown"},
-	{"key": "slayer", "name": "Giant Slayer", "desc": "Felled an enemy two levels above you.", "xp": 40, "icon": "sword"},
-	{"key": "streak", "name": "Unstoppable", "desc": "Five kills in a single life.", "need": 5, "xp": 50, "icon": "might"},
+	{"key": "slayer", "name": "Giant Slayer", "desc": "Felled an enemy two levels above you.", "xp": 40, "icon": "vanguard"},
+	{"key": "streak", "name": "Unstoppable", "desc": "Five kills in a single life.", "need": 5, "xp": 50, "icon": "takedown"},
 	{"key": "untouchable", "name": "Untouchable", "desc": "Three or more kills and never fell.", "need": 3, "xp": 50, "icon": "block"},
-	{"key": "top", "name": "Top Blade", "desc": "The most kills in the match.", "need": 3, "xp": 40, "icon": "dagger"},
+	{"key": "top", "name": "Top Blade", "desc": "The most kills in the match.", "need": 3, "xp": 40, "icon": "vanguard"},
 	{"key": "medic", "name": "Field Medic", "desc": "Healed twelve hearts on teammates.", "need": 12, "xp": 40, "icon": "mend"},
 	{"key": "breaker", "name": "Siege Breaker", "desc": "Battered enemy doors, turrets and the vault.", "need": 40, "xp": 40, "icon": "hammer"},
 	{"key": "wingman", "name": "Wingman", "desc": "Six or more assists.", "need": 6, "xp": 30, "icon": "guard"},
@@ -121,8 +244,13 @@ const CARRY_SPEED_MULT := 0.8
 
 const DODGE_TIME := 0.25      # seconds the dash lasts; nothing can hit you during it
 const DODGE_SPEED_MULT := 3.2 # dash speed as a multiple of run speed
-const DODGE_COOLDOWN := 2.0   # seconds until the next dodge is ready
+const DODGE_COOLDOWN := 4.0   # seconds until the next dodge is ready (2.0 → 4.0, Faisal 2026-10-09)
 const DODGE_COST := 10.0      # stamina (or mana) a dodge spends
+# Basic attacks (every class's left-click: Punch, Sword Strike, arrows, bolts,
+# Mend) cost nothing (Faisal 2026-10-09: "the basic attack shouldn't drain
+# your stamina or magika"). The per-class "cost" values in ROLES, FACTION_KITS
+# and VARIANTS (7-16) are kept for reference but overridden by this.
+const BASE_ATTACK_COST := 0.0
 
 const BLOCK_COST := 18.0      # stamina a blocked hit costs the blocker
 const BLOCK_DRAIN := 4.0      # stamina per second while the shield is up
@@ -203,6 +331,10 @@ const VIGOR_SPEED := 0.05
 const VIGOR_ENERGY := 12.0
 const VIGOR_REGEN := 0.2
 const RANK_TRACKS := ["Attack", "Q", "E", "Vigor"]
+# Quick upgrades (Faisal 06:04 2026-10-10 "quicker upgrades"): with points to
+# spend, 1-4 / the D-pad / the HUD's level-up tiles buy a rank anywhere,
+# once you have neither taken nor dealt a hit for this long.
+const QUICK_UPGRADE_CALM := 3.0
 
 # Scoreboard: what a player's match score is made of.
 const SCORE_KILL := 10
@@ -230,12 +362,12 @@ const KNOCK_SPLASH := 8.0
 #   use_ability), cooldown is in seconds, cost comes out of the class's energy.
 const ROLES := {
 	Role.BASE: {"attack": "melee", "attack_name": "Punch", "attack_desc": "A quick jab. Find a class station!",
-		"damage": 1, "gate_damage": 1, "range": 1.7, "cooldown": 0.6,
+		"damage": 1, "gate_damage": 1, "range": 1.7, "cooldown": 0.72,   # 0.6 → 0.72 (Faisal 2026-10-09)
 		"energy": "stamina", "cost": 8, "speed": 1.0,
 		"color": Color(0.85, 0.8, 0.7), "abilities": []},
 	Role.KNIGHT: {"attack": "melee", "attack_name": "Sword Strike", "attack_desc": "A wide swing that also chips at doors.",
 		"damage": 1, "gate_damage": 2, "range": 2.2, "cooldown": 0.55,
-		"energy": "stamina", "cost": 8, "speed": 1.06, "block": true, "armour": 0.34,
+		"energy": "stamina", "cost": 8, "speed": 1.14, "block": true, "armour": 0.34,   # speed 1.06 → 1.10 (patch 1) → 1.14 (patch 3)
 		"color": Color(0.8, 0.8, 0.85), "abilities": [
 			{"name": "Shield Bash", "key": "Q", "kind": "bash", "cooldown": 4, "cost": 35.0,
 				"damage": 2, "distance": 4.0, "desc": "Charge forward: two hearts to everyone in the way, and a shove."},
@@ -251,11 +383,11 @@ const ROLES := {
 				"damage": 1, "root": 2.0, "lifetime": 30.0, "desc": "Plant a trap that roots and hurts the first enemy on it."}]},
 	Role.MAGE: {"attack": "spell", "attack_name": "Arcane Bolt", "attack_desc": "A bolt that bursts on impact.",
 		"damage": 1, "gate_damage": 2, "range": 13.0, "cooldown": 0.65,
-		"energy": "mana", "cost": 12.0, "splash": 1.4, "speed": 0.95, "shot_speed": 32.0,
+		"energy": "mana", "cost": 12.0, "splash": 1.0, "speed": 0.95,   # splash 1.4 → 1.0 (patch 3: a sidestep now dodges the bolt) "shot_speed": 32.0,
 		"color": Color(0.45, 0.3, 0.85), "abilities": [
 			{"name": "Fireball", "key": "Q", "kind": "fireball", "cooldown": 5, "cost": 55.0,
 				"damage": 2, "splash": 3.2, "range": 13.0, "shot_speed": 24.0, "desc": "A big slow ball of fire: two hearts to everyone near the blast, four hits to a door."},
-			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 4, "cost": 30.0,
+			{"name": "Blink", "key": "E", "kind": "blink", "cooldown": 5, "cost": 30.0,   # cooldown 4 → 5 (patch 3)
 				"distance": 6.0, "desc": "Teleport a short way in the aim direction."}]},
 	Role.ENGINEER: {"attack": "melee", "attack_name": "Hammer", "attack_desc": "A heavy swing that wrecks doors, fences and turrets.",
 		"damage": 1, "gate_damage": 3, "range": 1.9, "cooldown": 0.6,
@@ -309,7 +441,7 @@ const VARIANTS := {
 		{"name": "Warden", "icon": "warden", "tint": Color(0.78, 0.84, 1.0), "show": ["1H_Sword", "Rectangle_Shield"],
 			"desc": "Tower shield defence: a slam that pins enemies down and a bulwark that shields nearby teammates too.",
 			"attack": {"attack_name": "Mace", "attack_desc": "A short, heavy blow that batters doors.",
-				"range": 2.0, "cooldown": 0.55, "gate_damage": 3},
+				"range": 2.2, "cooldown": 0.55, "gate_damage": 3},   # range 2.0 → 2.2 (patch 1)
 			"abilities": [
 				{"name": "Shield Slam", "key": "Q", "kind": "bash", "icon": "bash", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "distance": 3.5, "root": 1.2, "desc": "A short charge for two hearts that pins everyone it hits in place."},
@@ -335,7 +467,7 @@ const VARIANTS := {
 	Role.MAGE: [
 		{"name": "Pyromancer", "icon": "pyromancer", "tint": Color(1.0, 0.6, 0.4), "show": ["2H_Staff"],
 			"desc": "Fire: burning bolts, a huge fireball and a wave of flame in front of you.",
-			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.8},
+			"attack": {"attack_name": "Ember Bolt", "attack_desc": "A burning bolt that splashes.", "fire": true, "splash": 1.3},   # splash 1.8 → 1.3 (patch 3)
 			"abilities": [
 				{"name": "Inferno", "key": "Q", "kind": "fireball", "icon": "fireball", "cooldown": 6, "cost": 60.0,
 					"damage": 2, "splash": 4.5, "range": 13.0, "shot_speed": 24.0, "desc": "A huge fireball: two hearts to everyone near the blast."},
@@ -347,7 +479,7 @@ const VARIANTS := {
 			"abilities": [
 				{"name": "Ice Burst", "key": "Q", "kind": "fireball", "icon": "frost", "cooldown": 5, "cost": 45.0,
 					"damage": 1, "splash": 3.5, "range": 13.0, "shot_speed": 28.0, "frost": true, "root": 1.0, "desc": "A ball of ice that freezes everyone near the blast in place."},
-				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 3, "cost": 30.0,
+				{"name": "Blink", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4, "cost": 30.0,   # cooldown 3 → 4 (patch 3)
 					"distance": 8.0, "desc": "Teleport further in the aim direction."}]}],
 	Role.ROGUE: [
 		{"name": "Assassin", "icon": "assassin", "tint": Color(0.75, 0.55, 0.9), "show": ["1H_Sword"],
@@ -428,14 +560,14 @@ const FACTION_KITS := {
 				{"name": "Vine Snare", "key": "E", "kind": "trap", "icon": "trap", "cooldown": 6, "cost": 35.0,
 					"damage": 1, "root": 2.5, "lifetime": 30.0, "desc": "A living snare that roots the first enemy who steps on it."}]},
 		Role.MAGE: {
-			"attack": {"attack_name": "Thorn Bolt", "attack_desc": "A seed that bursts into thorns and slows whoever it catches.", "slow": 0.8, "splash": 1.3, "cost": 12.0, "nature": true},
+			"attack": {"attack_name": "Thorn Bolt", "attack_desc": "A seed that bursts into thorns and slows whoever it catches.", "slow": 0.8, "splash": 1.0, "cost": 12.0, "nature": true},   # splash 1.3 → 1.0 (patch 3)
 			"abilities": [
 				{"name": "Bramble Burst", "key": "Q", "kind": "fireball", "icon": "bramble", "cooldown": 5, "cost": 50.0,
 					"damage": 1, "splash": 3.4, "range": 13.0, "shot_speed": 26.0, "root": 1.3, "nature": true, "desc": "A seed-ball that bursts into brambles: a heart to everyone near the blast, and they are rooted."},
-				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 4, "cost": 30.0,
+				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 5, "cost": 30.0,   # cooldown 4 → 5 (patch 3)
 					"distance": 7.5, "desc": "Step along the fae paths, further than any blink."}]},
 		Role.HEALER: {
-			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 6.0, "cooldown": 0.7, "cost": 16.0},
+			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 5.0, "cooldown": 0.7, "cost": 16.0},
 			"abilities": [
 				{"name": "Spirit Bloom", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 8, "cost": 60.0,
 					"heal": 2, "radius": 8.0, "haste": 4.0, "desc": "Heal every teammate nearby two hearts and quicken them."},
@@ -452,7 +584,7 @@ const FACTION_KITS := {
 	1: {
 		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Heavy plate turns about every third hit.", "armour": 0.37}},
 		Role.RANGER: {
-			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 14.0, "cooldown": 0.75, "cost": 10, "shot_speed": 36.0},
+			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 16.0, "cooldown": 0.68, "cost": 10, "shot_speed": 42.0},
 			"abilities": [
 				{"name": "Heavy Bolt", "key": "Q", "kind": "shot", "icon": "snipe", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "range": 16.0, "shot_speed": 50.0, "desc": "A wound-up bolt that takes two hearts."},
@@ -488,9 +620,9 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 # (Regen limits attack rate, so it is worth more than it looks: 1.3 made the
 # Humans win three of every four bot matches; 1.12 was still winning two of three once raids rallied and escorted, so 1.06.)
 const FACTIONS := [
-	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.3, "regen_mult": 1.0,
+	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.15, "regen_mult": 1.0,   # 6.3 → 6.15 (patch 2: still the quicker side, less kiting edge)
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
-	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.06,
+	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.15,   # 1.06 → 1.15 (patch 1: basic attacks went free, so faster regen is worth less)
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 ]
 
@@ -508,3 +640,78 @@ static func xp_span(level: int) -> Array:
 	var start: int = 0 if level <= 1 else XP_LEVELS[mini(level - 2, XP_LEVELS.size() - 1)]
 	var next: int = XP_LEVELS[level - 1] if level - 1 < XP_LEVELS.size() else -1
 	return [start, next]
+
+
+# --- Economy (Economy group, 2026-10-09) -------------------------------------
+# Wood from lumber trees and ore from ore deposits, carried on your back to
+# the storehouse in your castle yard. The team pool pays for hat machine
+# upgrades, door repairs and base turrets. See scripts/economy.gd.
+const ECONOMY := {
+	"gather_time": 2.6,      # seconds of chopping or mining for one unit
+	"carry_max": 3,          # units a soldier can carry at once (wood and ore together)
+	"reach": 2.2,            # how close you stand to a tree or deposit to work it
+	"tree_stock": 4,         # wood a lumber tree gives before it is felled
+	"ore_stock": 3,          # ore a deposit gives before it is spent
+	"regrow": 45.0,          # seconds until a felled tree regrows or a spent deposit refills
+	"depot_radius": 2.6,     # walk into the storehouse ring to drop everything you carry
+	"drop_life": 40.0,       # seconds a dead soldier's dropped load stays on the ground
+	"hat_wood": 5, "hat_ore": 5,          # upgrade one class's hat machine (Faisal's price)
+	"repair_wood": 2, "repair_ore": 1, "repair_hits": 35,     # mend your door by 35 hits
+	"rebuild_wood": 4, "rebuild_ore": 2, "rebuild_hits": 100, # raise a broken door at once (not under siege)
+	"turret_wood": 2, "turret_ore": 1,    # a base turret on an empty turret pad (was 3 / 3; Faisal 2026-10-10 "cheaper and smarter")
+	"turret_up_wood": 1, "turret_up_ore": 1,   # raise a base turret a level (up to 3; was 2 / 2)
+	"turret_fix_wood": 1, "turret_fix_ore": 0, # patch a damaged turret back to full (was 1 / 1)
+	"door_reach": 4.0,       # how close to your door you stand to mend it
+	"pad_reach": 1.8,        # how close to a turret pad you stand to buy or tend a turret
+	"bot_gatherers": 1,      # bots per team that gather (the Engineer; else an attacker, see bot_attacker_hats)
+	"bot_reserve_wood": 2, "bot_reserve_ore": 1,   # all-bot teams keep this back for a door repair
+	"bot_attacker_hats": 2,   # with no Engineer bot, an attacker gathers only until this many hat machines are upgraded
+	"bot_repair_below": 100,   # all-bot teams mend their door only once it is down to this (no mending under siege)
+	"bot_repair_gap": 45.0,   # ...and at most once every this many seconds
+	"door_bar_lift": 1.6,    # metres the door's overhead health bar sits higher than World & Maps placed it
+	"bot_turrets_early": 1,  # all-bot teams put this many turrets up before their first hat upgrade...
+	"bot_turrets": 2,        # ...and this many after it
+	"bot_turrets_with_human": 1,   # bots on a team with a player build up to this many
+	"field_calm": 3.0,       # seconds out of combat before a hat machine can be upgraded from the field (quick-upgrade popup)
+	"field_foe_radius": 9.0, # an enemy this close counts as combat
+}
+
+# The extra move a class gets from its upgraded hat (key G, pad left stick
+# click): one per class and faction. Elves keep to wind, leaf and moonlight,
+# Humans to steel, fire and holy light. Every move reuses an existing ability
+# kind (unit.gd use_ability), so it plays like the rest of the kit.
+const HAT_UPGRADES := {
+	0: {
+		Role.KNIGHT: {"name": "Leafstorm", "key": "G", "kind": "cleave", "icon": "cleave", "cooldown": 6, "cost": 40.0,
+			"damage": 1, "radius": 3.2, "color": Color(0.55, 0.9, 0.4), "desc": "Spin the glaive in a storm of leaves: a heart to everyone around you, and a shove."},
+		Role.RANGER: {"name": "Moonpiercer", "key": "G", "kind": "shot", "icon": "pierce", "cooldown": 6, "cost": 40.0,
+			"damage": 1, "range": 20.0, "shot_speed": 55.0, "pierce": true, "desc": "A silver arrow that flies through everyone in its line."},
+		Role.MAGE: {"name": "Wild Roots", "key": "G", "kind": "curse", "icon": "bramble", "cooldown": 9, "cost": 50.0,
+			"damage": 1, "radius": 4.5, "slow": 2.5, "color": Color(0.45, 0.8, 0.3), "desc": "Roots burst up around you: every enemy close by loses a heart and crawls."},
+		Role.HEALER: {"name": "Bloom Ward", "key": "G", "kind": "bubble", "icon": "bubble", "cooldown": 10, "cost": 45.0,
+			"duration": 1.5, "radius": 3.0, "desc": "A dome of petals: nothing hurts you or the teammates inside it for a moment."},
+		Role.ENGINEER: {"name": "Bramble Field", "key": "G", "kind": "trap", "icon": "trap", "cooldown": 8, "cost": 40.0,
+			"damage": 1, "root": 1.5, "count": 3, "lifetime": 30.0, "desc": "Grow three snaring brambles in a row."},
+		Role.ROGUE: {"name": "Leaf Step", "key": "G", "kind": "blink", "icon": "blink", "cooldown": 5, "cost": 30.0,
+			"distance": 7.0, "desc": "Vanish into the leaves and step out further on."},
+	},
+	1: {
+		Role.KNIGHT: {"name": "Crusader Charge", "key": "G", "kind": "bash", "icon": "bash", "cooldown": 6, "cost": 40.0,
+			"damage": 2, "distance": 6.0, "desc": "A long charge in steel: two hearts to everyone in the way."},
+		Role.RANGER: {"name": "Steel Volley", "key": "G", "kind": "volley", "icon": "volley", "cooldown": 6, "cost": 40.0,
+			"damage": 1, "arrows": 5, "spread": 26.0, "range": 14.0, "shot_speed": 40.0, "desc": "A fan of five crossbow bolts."},
+		Role.MAGE: {"name": "Flame Wave", "key": "G", "kind": "cleave", "icon": "wave", "cooldown": 6, "cost": 40.0,
+			"damage": 1, "radius": 4.5, "cone": true, "fire": true, "desc": "A fan of fire that burns everyone in front of you."},
+		Role.HEALER: {"name": "Divine Smite", "key": "G", "kind": "smite", "icon": "smite", "cooldown": 5, "cost": 40.0,
+			"damage": 2, "range": 12.0, "shot_speed": 36.0, "splash": 1.4, "desc": "A heavy bolt of holy light: two hearts, bursting on impact."},
+		Role.ENGINEER: {"name": "Hand Ballista", "key": "G", "kind": "shot", "icon": "snipe", "cooldown": 6, "cost": 40.0,
+			"damage": 2, "gate_damage": 6, "range": 16.0, "shot_speed": 50.0, "desc": "A heavy steel bolt: two hearts, and six hits to a door."},
+		Role.ROGUE: {"name": "Throwing Knives", "key": "G", "kind": "volley", "icon": "dagger", "cooldown": 5, "cost": 30.0,
+			"damage": 1, "arrows": 3, "spread": 18.0, "range": 10.0, "shot_speed": 38.0, "desc": "Three knives thrown in a fan."},
+	},
+}
+
+
+static func hat_upgrade(team: int, role: int) -> Dictionary:
+	## The extra move an upgraded hat gives `role` on `team`, or {}.
+	return HAT_UPGRADES.get(team, {}).get(role, {})

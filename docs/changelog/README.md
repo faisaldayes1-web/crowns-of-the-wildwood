@@ -8,7 +8,10 @@ Each developer group keeps its own log here, one file per group (the group creat
 | UI & Art | `group/ui-art-*` | [ui-art.md](ui-art.md) |
 | Combat & Balance | `group/combat-balance-*` | [combat-balance.md](combat-balance.md) |
 | Online & Platforms | `group/online-platforms-*` | [online-platforms.md](online-platforms.md) |
+| Downed & Revive | `group/downed-revive-*` | [downed-revive.md](downed-revive.md) |
 | Integration & Release | `group/integration-release-*` | [integration-release.md](integration-release.md) |
+| Economy | `group/economy-*` | [economy.md](economy.md) |
+| Music | `group/music-*` | [music.md](music.md) |
 
 Releases (merges into `main` and version tags) are logged project-wide in [../CHANGELOG.md](../CHANGELOG.md) by the Integration & Release group.
 
