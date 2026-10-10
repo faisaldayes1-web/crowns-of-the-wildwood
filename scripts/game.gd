@@ -538,7 +538,7 @@ func _score_capture(carrier, m) -> void:
 	carrier.captures += 1
 	capture_timer = 3.5
 	capture_team = carrier.team
-	sfx.ui("capture")
+	sfx.sting("crown_captured" if carrier.team == player_team else "crown_lost", "capture")
 	chat_system("%s captured the %s for the %s!" % [carrier.display_name, m.title, team_name])
 	_banter(carrier.team, "captured")
 	if score[carrier.team] >= CAPTURES_TO_WIN or overtime:
@@ -605,8 +605,9 @@ func _finish(winner: int) -> void:
 	sfx.play_ambience(false)
 	if winner < 0:
 		sfx.ui("horn")
+		sfx.stop_music()
 	else:
-		sfx.ui("victory" if winner == player_team else "defeat")
+		sfx.sting("victory" if winner == player_team else "defeat", "victory" if winner == player_team else "defeat", true)
 
 
 func try_interact(u) -> void:
@@ -1742,7 +1743,7 @@ func _begin_battle() -> void:
 	announce("FIGHT! The barrier is down. Capture the crown!")
 	chat_system("The barrier is down. Fight!")
 	sfx.ui("horn", 0.0, 1.0)
-	sfx.ui("match_start")
+	sfx.sting("match_start", "match_start")
 	spawn_flash(Vector3(0, 3.0, 0), Color(1.0, 0.9, 0.6), 8.0, 0.8)
 	spawn_ring(Vector3(0, 0.2, 0), 14.0, Color(1.0, 0.9, 0.6), 1.0)
 	shake_at(Vector3.ZERO, 0.3)

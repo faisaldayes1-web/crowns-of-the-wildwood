@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Synthesizes every sound in the game from scratch (no samples): short
-effects, an ambience loop and a music loop, written as 16-bit WAVs into
-assets/sfx/. Run it after changing a recipe; Godot re-imports on launch.
+effects and an ambience loop, written as 16-bit WAVs into assets/sfx/. Run
+it after changing a recipe; Godot re-imports on launch. The music has its
+own generator, tools/make_music.py (music() below is the old placeholder
+theme, no longer written).
 """
 import math, os, struct, wave
 import numpy as np
@@ -342,7 +344,6 @@ def main():
     for name, data in sounds().items():
         write(name, data, 0.8)
     write("ambience", ambience(), 0.5, loop=True)
-    write("theme", music(), 0.75, loop=True)
 
 
 if __name__ == "__main__":
