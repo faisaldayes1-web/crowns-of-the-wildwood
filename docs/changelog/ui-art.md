@@ -905,3 +905,13 @@ Revert newest first:
 ```
 git revert 0473c04 12e1e10 5c5a432 07cc200 debf49f 0722242
 ```
+
+## 2026-10-10 — Polish pass (Faisal 07:58 "improve on the game in all aspects")
+
+Commit: `7d0de41`.
+- **Elves are green everywhere:** `hud.SCORE_BANDS[0]` changed from Color(0.66, 0.12, 0.11) to Color(0.15, 0.46, 0.19). That turns the match summary's Elves band, crest and scoreboard section green. `assets/ui/skills/shield_elf.png` was recoloured with the new `tools/elves_green.py`.
+- **Long hair:** the chest locks are now rounded, tapering pieces with a puff at the top and a bead at the tip, instead of straight cylinders that read as planks.
+- **Also merged:** release/v0.4.0-alpha cf8100d, Integration's fix to the touch loop in options_menu_test.
+- **Tests:** options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 7d0de41`.
