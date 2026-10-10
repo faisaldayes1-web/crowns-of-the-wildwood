@@ -2221,6 +2221,12 @@ func _update_player_aim(move: Vector3) -> void:
 		"stick":
 			if stick.length() > 0.3:
 				aim = Vector3(stick.x, 0, stick.y).normalized()
+				if game.touch_active:
+					# Touch aim assist: a drag within 30 degrees of an enemy
+					# locks onto it (a thumb is never as exact as a mouse).
+					var snap := _auto_aim(aim)
+					if snap != Vector3.ZERO:
+						aim = snap
 			else:
 				# Touch play: with no aim drag, face the nearest enemy in reach.
 				var auto := _auto_aim() if game.touch_active else Vector3.ZERO
@@ -2244,9 +2250,11 @@ func _update_player_aim(move: Vector3) -> void:
 			aim_point = global_position + aim * 6.0
 
 
-func _auto_aim() -> Vector3:
-	## The direction to the nearest living enemy within a few metres, or zero.
-	var best := 7.0
+func _auto_aim(along: Vector3 = Vector3.ZERO) -> Vector3:
+	## The direction to the nearest living enemy in reach, or zero. With
+	## `along`, only enemies within 30 degrees of that direction count.
+	## Reach: 7 m for melee, 13 m for ranged and spell classes.
+	var best := 13.0 if role in [Stats.Role.RANGER, Stats.Role.MAGE, Stats.Role.HEALER] else 7.0
 	var dir := Vector3.ZERO
 	for u in game.units:
 		if u == self or u.team == team or u.dead:
@@ -2254,6 +2262,8 @@ func _auto_aim() -> Vector3:
 		var to: Vector3 = u.global_position - global_position
 		to.y = 0.0
 		var d := to.length()
+		if along != Vector3.ZERO and d > 0.1 and along.dot(to / d) < 0.866:
+			continue
 		if d < best and d > 0.1:
 			best = d
 			dir = to / d

@@ -3270,25 +3270,43 @@ func _touch_cluster(p, W: float, H: float) -> void:
 	## Touch screens (the iPad): the moves as big tiles in an arc under the
 	## right thumb, attack the largest in the corner, and a round pause
 	## button top-right. Drag from the attack tile to aim (touch.gd).
-	var big := 118.0
-	var mid := 80.0
-	var centres := [Vector2(W - 120, H - 128), Vector2(W - 282, H - 70), Vector2(W - 292, H - 200),
-		Vector2(W - 212, H - 310), Vector2(W - 82, H - 318), Vector2(W - 420, H - 66)]
-	var sizes := [big, mid, mid, mid, mid, 70.0]
+	var big := 136.0   # 2026-10-10 (Faisal: "easier for touch"): 118/80/70 → 136/94/84
+	var mid := 94.0
+	var centres := [Vector2(W - 134, H - 143), Vector2(W - 316, H - 78), Vector2(W - 327, H - 224),
+		Vector2(W - 237, H - 350), Vector2(W - 92, H - 358), Vector2(W - 470, H - 74)]
+	var sizes := [big, mid, mid, mid, mid, 84.0]
 	var at := []
 	for i in 6:
 		at.append(centres[i] - Vector2(sizes[i], sizes[i]) / 2.0)
 	_move_slots(p, at, sizes)
-	# Pause (the map is its first tab).
+	# The hat move (G) when the hat carries one: a round button left of the arc.
+	if p.abilities().size() > 2 and not p.dead:
+		var gc := Vector2(W - 452, H - 196)
+		if not pane:
+			touch_rects.append([Rect2((gc - Vector2(46, 46)) * hud_scale, Vector2(92, 92) * hud_scale), "ability_3"])
+		_ring_button(gc, 34.0)
+		if _st():
+			var a: Dictionary = p.ability(2)
+			_icon(a.get("icon", a.kind), gc, 16, Color.WHITE)
+			_text(gc + Vector2(-60, 52), a.name, 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
+	# Pause (the map is its first tab) and the scoreboard beside it.
 	var pc := Vector2(W - 52, 52)
+	var sc := Vector2(W - 132, 52)
 	if not pane:
 		touch_rects.append([Rect2((pc - Vector2(44, 44)) * hud_scale, Vector2(88, 88) * hud_scale), "menu"])
+		touch_rects.append([Rect2((sc - Vector2(38, 44)) * hud_scale, Vector2(76, 88) * hud_scale), "scoreboard"])
 	_ring_button(pc, 30.0)
+	_ring_button(sc, 30.0)
 	if _st():
 		for j in 3:
 			var y := pc.y - 9.0 + j * 9.0
 			draw_line(Vector2(pc.x - 13, y + 1), Vector2(pc.x + 13, y + 1), Color(0, 0, 0, 0.5), 4.5)
 			draw_line(Vector2(pc.x - 13, y), Vector2(pc.x + 13, y), Color(0.95, 0.85, 0.6), 4.0)
+		# Scoreboard: three bars of a podium.
+		for j in 3:
+			var hgt: float = [14.0, 22.0, 10.0][j]
+			var bx := sc.x - 13.0 + j * 9.0
+			draw_rect(Rect2(bx, sc.y + 11.0 - hgt, 7.0, hgt), Color(0.95, 0.85, 0.6))
 
 
 func _panel_key(p) -> Array:
@@ -3310,7 +3328,7 @@ func _panel_key(p) -> Array:
 	var keys := []
 	for act in ["attack", "dodge", "ability_1", "ability_2", "block", "rank_menu", "interact", "menu", "scoreboard"]:
 		keys.append(_k(act))
-	return [touch_ui, size, _bake_scale(), p.team, p.role, p.dead, p.hearts, p.level, p.local_index, game.hero_name,
+	return [touch_ui, size, _bake_scale(), p.team, p.role, abil.size(), p.dead, p.hearts, p.level, p.local_index, game.hero_name,
 		p.carrying != null, game.barricades_left[p.team], game.on_pad(local_unit), slots, keys, skill_art.size()]
 
 
