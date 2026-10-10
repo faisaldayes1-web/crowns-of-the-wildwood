@@ -2054,7 +2054,7 @@ func _shield_shape(c: Vector2, w: float, h: float) -> PackedVector2Array:
 		pts.append(c + Vector2(-w / 2.0 * (1.0 - pow(t, 1.7)), knee + (h / 2.0 - knee) * t))
 	return pts
 
-const SCORE_BANDS := [Color(0.66, 0.12, 0.11), Color(0.16, 0.3, 0.72)]
+const SCORE_BANDS := [Color(0.15, 0.46, 0.19), Color(0.16, 0.3, 0.72)]   # Elves green like every other Elf UI (was red; Faisal 05:58 2026-10-10)
 
 
 func _crest_shield(c: Vector2, w: float, h: float, team: int) -> void:
