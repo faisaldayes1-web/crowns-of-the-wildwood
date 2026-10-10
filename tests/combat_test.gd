@@ -151,6 +151,10 @@ func _run() -> void:
 	# hit (which already has its own weight) does not.
 	await _hit_confirm()
 
+	# 12. Stick aim assist bends a near miss onto the enemy, leaves a clear
+	# miss alone.
+	await _aim_assist()
+
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
 
@@ -341,3 +345,17 @@ func _hit_confirm() -> void:
 	_check(a.hit_confirms == before + 1, "hit_confirm_ranged", "confirms=%d" % (a.hit_confirms - before))
 	a.is_player = was
 	await _frames(2)
+
+
+func _aim_assist() -> void:
+	var a = _first(0)
+	var v = _first(1)
+	a.global_position = Vector3(-20, 0, 3)
+	_stage(a, v)
+	v.global_position = a.global_position + Vector3(1.5, 0, 0)
+	var near: Vector3 = Vector3(1, 0, 0).rotated(Vector3.UP, deg_to_rad(9.0))
+	var bent: Vector3 = a._assist_aim(near)
+	_check(rad_to_deg(bent.angle_to(Vector3(1, 0, 0))) < 4.0, "aim_assist_bends", "off by %.1f deg" % rad_to_deg(bent.angle_to(Vector3(1, 0, 0))))
+	var far: Vector3 = Vector3(1, 0, 0).rotated(Vector3.UP, deg_to_rad(40.0))
+	_check(a._assist_aim(far).is_equal_approx(far), "aim_assist_ignores_clear_miss")
+	await _frames(1)

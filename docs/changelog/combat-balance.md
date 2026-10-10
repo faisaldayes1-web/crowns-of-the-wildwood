@@ -433,3 +433,34 @@ then `python3 tools/balance/agg.py <tag>`.
   2-heart hits.
 - **Checks:** `tools/tests/run.sh` 31/31.
 - **Revert:** `git revert 8da42e0`
+
+## 18. Controller aim assist
+
+- **When:** 2026-10-10 (Faisal: "overall improve on the game in all aspects";
+  he plays on controller)
+- **Commit:** `c8c6368`
+- **What:** Aiming with the right stick, an enemy within 12° of where you
+  point and within reach of your attack pulls the aim 75% of the way onto them,
+  picking the one closest to your line. A near miss with a stick now lands,
+  while a clear miss (or an enemy out of reach) stays exactly where you
+  pointed. Mouse aim is unchanged; touch keeps its own auto-aim.
+- **Files:** `scripts/unit.gd` (`AIM_ASSIST_DEG`, `AIM_ASSIST_PULL`,
+  `_assist_aim()`), `tests/combat_test.gd` (`_aim_assist`).
+- **Tunables:** `AIM_ASSIST_DEG` 12, `AIM_ASSIST_PULL` 0.75 (new).
+- **Checks:** `tools/tests/run.sh` 33/33. Bots don't aim with the stick, so
+  balance batches are unaffected.
+- **Revert:** `git revert c8c6368`
+
+## 19. Balance patch 4
+
+- **When:** 2026-10-10 (Faisal: "overall improve on the game in all aspects")
+- **Commit:** `252c5e5`
+- **What:** Fixes the Ember Pass Elf lean (the Moonbow out-traded the
+  Crossbow on the open bridges). Write-up in `docs/balance/patch-4.md`.
+- **Files:** `scripts/stats.gd`, `docs/balance/patch-4.md`.
+- **Tunables:** Human Crossbow `cooldown` 0.68 → 0.62; Elf Lunar Lance
+  `cooldown` 3 → 4.
+- **Batches:** 132 matches. At 4v4 over seeds 71-82: Elves 17-7 → 11-13, and
+  Ember Pass 9-3 → 4-8. Crossbow 0.65 was tried and showed no change.
+- **Checks:** `tools/tests/run.sh` 33/33.
+- **Revert:** `git revert 252c5e5`

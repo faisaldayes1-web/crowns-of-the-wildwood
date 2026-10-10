@@ -45,6 +45,8 @@ var flash_timer := 0.0
 const FLASH_TIME := 0.22     # hit flash: white for the first frames, then red, easing back
 var hitstop_timer := 0.0
 var heartbeat_timer := 0.0
+const AIM_ASSIST_DEG := 12.0     # stick aim bends onto an enemy this close to the stick line...
+const AIM_ASSIST_PULL := 0.75    # ...this much of the way (1 = dead on)
 const HIT_CONFIRM_RANGE := 4.0   # your hits from further than this play a tick and mark the target (ranged feedback)
 const ATTACK_BUFFER := 0.2         # seconds a tapped attack waits for the swing cooldown
 var attack_buffer := 0.0
@@ -2252,6 +2254,9 @@ func _update_player_aim(move: Vector3) -> void:
 					var snap := _auto_aim(aim)
 					if snap != Vector3.ZERO:
 						aim = snap
+				else:
+					# Controller stick: bend the aim onto a close enemy.
+					aim = _assist_aim(aim)
 			else:
 				# Touch play: with no aim drag, face the nearest enemy in reach.
 				var auto := _auto_aim() if game.touch_active else Vector3.ZERO
@@ -2273,6 +2278,30 @@ func _update_player_aim(move: Vector3) -> void:
 			if move.length() > 0.05:
 				aim = move.normalized()
 			aim_point = global_position + aim * 6.0
+
+
+func _assist_aim(raw: Vector3) -> Vector3:
+	## Stick aim assist: an enemy within AIM_ASSIST_DEG of where the stick
+	## points, and within reach of your attack, bends the aim most of the way
+	## onto them. The closest to the stick line wins. Mouse aim is untouched.
+	var reach: float = attack_stats().get("range", 2.0) + 1.0
+	var best := deg_to_rad(AIM_ASSIST_DEG)
+	var pick := Vector3.ZERO
+	for u in game.units:
+		if u == self or u.team == team or u.dead:
+			continue
+		var to: Vector3 = u.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d < 0.1 or d > reach:
+			continue
+		var ang := raw.angle_to(to / d)
+		if ang < best:
+			best = ang
+			pick = to / d
+	if pick == Vector3.ZERO:
+		return raw
+	return raw.slerp(pick, AIM_ASSIST_PULL).normalized()
 
 
 func _auto_aim(along: Vector3 = Vector3.ZERO) -> Vector3:
