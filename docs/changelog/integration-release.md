@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-10 12:20 UTC · iPad `f58db73`, Combat `5bf1dcb` · Touch TRAINING slot, balance patch 5
+
+- **What:** iPad web build `7d6c4dc`: touch players get Veteran Training's slot where the G button sits; it was desktop-only before. Combat & Balance `e8f02f9`: balance patch 5 (Elf Glaive armour 0.32 → 0.37, Wind Dash damage 1 → 2 with cooldown 3.5 → 4.5, Vanguard armour 0.42 → 0.45; docs/balance/patch-5.md).
+- **Conflicts:** none.
+- **Tested:** see the next alpha refresh.
+- **Revert:** `git revert -m 1 <merge>` for each, newest first.
+
 ### 2026-10-10 11:40 UTC · UI & Art `e0fe3c4`, Economy `b05fc4a`, Combat `191c924` · Faisal's "get everything" build
 
 - **What:** Faisal (11:32) asked for a current build with everything. Merged:
