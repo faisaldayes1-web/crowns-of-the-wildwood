@@ -928,3 +928,24 @@ Commit: `5baffd5`. Faisal (08:31): "the ui still doesn't match the game style".
 Tested: options_menu_test 0 failures.
 
 Revert: `git revert 5baffd5`.
+
+## 2026-10-10 — Banners only, smaller, no overlapping text
+
+Commit: `39faf99`. Faisal (08:35): "Keep it just banners and make the banners a little smaller"; (09:03): no conflicting text and no old UI before the new banner.
+
+- **One big banner at a time** (`hud._banner_kind`). The priority order is: crown news, capture, your kill, your new class, rank up. There are no banners while a menu, the guide or your Upgrades board is open, or while the downed or fallen screen shows.
+- **Notices:** `game.toast` and `game.announce` now queue. They show one at a time as a small parchment scroll under the clock, with the end knobs in the notice's colour, and they wait while a banner is up. Before, up to 4 plates stacked at y 120 under the kill banner. The centre `message_label` line no longer gets text. Repeats of a waiting notice are dropped, and at most 3 notices queue.
+- **Sizes:** new `hud.BANNER_SIZE` = 0.8, applied to the crown ribbon, class banner, rank-up flourish, kill banner and capture card. The kill banner and capture card now also scale with narrow screens and split-screen panes, which they did not before. Anchors:
+  - crown ribbon: y 186 → 164;
+  - class banner: y 214 → 184;
+  - rank-up flourish: y 196 → 168;
+  - kill banner: y 120 → 108.
+- **Phase line** under the clock (fortify, overtime, the Ember Pass fire) is hidden while a big banner shows.
+- **Duplicates dropped:**
+  - "You are now a …" / "You put on the … hat" now go to chat only, since the class banner says it.
+  - The player's own floating LEVEL n, promoted class name, REVIVED, VETERAN and BOUNTY popups are dropped; the banners and notices say them. Bots and other players still show them.
+- **`--debug-touch`** shows the iPad touch layout for renders.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo smoke run had no script errors.
+
+Revert: `git revert 39faf99`.
