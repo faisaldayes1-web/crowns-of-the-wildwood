@@ -329,3 +329,8 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - What: the painted tile cut-outs had sliced rims; each tile now gets the drawn full hexagon rim and the painting fills only its face (zoom 1.16, shifted 3% left), on every platform.
 - Files: scripts/hud.gd (`_slot_face`)
 - Revert: `git revert 2e9a51f` and the two commits before it
+
+### 2026-10-10 12:30 UTC · 7d6c4dc · iPad: Veteran Training slot on touch
+- What: Economy`s gold TRAINING slot was drawn only in the desktop HUD; the touch HUD now draws it where the round G button sits (it shows only without a hat move), with its own tap target.
+- Files: scripts/hud.gd
+- Revert: `git revert 7d6c4dc`
