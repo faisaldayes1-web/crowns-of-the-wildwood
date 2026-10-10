@@ -253,8 +253,9 @@ func _physics_process(delta: float) -> void:
 			if unit in hit_list:
 				continue
 			if splash <= 0.0:
+				var was_up: bool = not unit.get("downed")
 				var landed: bool = unit.take_damage(damage, owner_unit, global_position - direction, Stats.KNOCK_SHOT, effect)
-				if from_turret and unit.dead:
+				if from_turret and (unit.dead or (was_up and unit.get("downed"))):   # knocked down counts: the kill credit is given there
 					game.turret_kills[team] += 1
 				if landed and drain and owner_unit:
 					owner_unit.heal(1, owner_unit)
