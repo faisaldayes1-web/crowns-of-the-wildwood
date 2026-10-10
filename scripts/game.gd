@@ -8830,9 +8830,16 @@ func apply_graphics() -> void:
 		pane.view.msaa_3d = vp.msaa_3d
 		pane.view.screen_space_aa = vp.screen_space_aa
 	if DisplayServer.get_name() != "headless":
-		var want := DisplayServer.WINDOW_MODE_FULLSCREEN if fullscreen else DisplayServer.WINDOW_MODE_WINDOWED
-		if DisplayServer.window_get_mode() != want:
-			DisplayServer.window_set_mode(want)
+		# Only switch when the setting disagrees with the window: a maximized
+		# window is not "windowed", and forcing WINDOWED on every call (match
+		# start, the lobby, after a match) shrank it back to 1920x1080
+		# (Faisal 2026-10-10: "goes into smaller window").
+		var mode := DisplayServer.window_get_mode()
+		var is_full := mode in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
+		if fullscreen and not is_full:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+		elif not fullscreen and is_full:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 
 
 func _apply_map_variant() -> void:
