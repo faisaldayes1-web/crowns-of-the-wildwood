@@ -317,10 +317,12 @@ func _ready() -> void:
 	sfx = Sfx.new()
 	add_child(sfx)
 	if OS.has_feature("web"):
-		# A first visit in a browser (the iPad) starts on Low: no glow and the
-		# small shadow maps. Settings can raise it to Medium. The frame
-		# counter starts on so a slow iPad shows its number (Settings: FPS).
-		gfx_quality = 0
+		# A first visit in a browser (the iPad) starts on Medium: sun shadows,
+		# glow and a full-resolution 3D view (Faisal 2026-10-10: the website
+		# looked much worse than the PC). _auto_quality drops to Low if the
+		# device cannot hold the frame rate. The frame counter starts on so
+		# a slow iPad shows its number (Settings: FPS).
+		gfx_quality = 1
 		show_fps = true
 	_load_controls()
 	if OS.has_feature("web"):
@@ -3993,8 +3995,9 @@ func _load_controls() -> void:
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
 	gfx_picked = cfg.get_value("settings", "gfx_picked", false)
 	if OS.has_feature("web"):
-		# Browsers (and tablets) start on Medium at most; Settings can raise it.
-		gfx_quality = mini(gfx_quality, 1)
+		# Browsers (and tablets) start on Medium unless the player picked a
+		# preset (older visits saved the old Low default).
+		gfx_quality = mini(gfx_quality, 1) if gfx_picked else 1
 	fullscreen = cfg.get_value("settings", "fullscreen", false)
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
@@ -9541,7 +9544,7 @@ func _auto_quality() -> void:
 	## under 40 frames a second for four seconds (a toast says so). Never
 	## steps up. Long stalls (loading, a shader built the first time) do not
 	## count: they restart the window.
-	if gfx_picked or gfx_quality == 0 or OS.has_feature("web") or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
+	if gfx_picked or gfx_quality == 0 or (OS.has_feature("web") and not playing) or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
 		return
 	var now := Time.get_ticks_msec()
 	if is_instance_valid(loading_layer) or now - _fps_last > 250:
@@ -9556,7 +9559,7 @@ func _auto_quality() -> void:
 		return
 	var fps := _fps_frames * 1000.0 / float(now - _fps_since)
 	_fps_since = 0
-	if fps < 40.0:
+	if fps < (26.0 if OS.has_feature("web") else 40.0):
 		gfx_quality -= 1
 		apply_graphics()
 		_save_settings()
@@ -9598,7 +9601,7 @@ func apply_graphics() -> void:
 		# smooths it, while the HUD stays at full density.
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
-		vp.scaling_3d_scale = 0.75
+		vp.scaling_3d_scale = 1.0 if q >= 1 else 0.75
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		# One 2048 shadow map covers the single cascade the web sun uses, read
 		# with one tap (the soft filters cost a kernel per pixel).
