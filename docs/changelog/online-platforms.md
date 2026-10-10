@@ -155,3 +155,8 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - What: both locked ability slots share one art and read "Pick class"; a plain soldier sees a bobbing PICK A CLASS arrow over the class stations (edge arrow when off screen, `_draw_class_pointer`); touch tiles moved in from the edges and the baked bottom layer is 480 tall on touch (400 cut the top tiles off).
 - Files: scripts/hud.gd
 - Revert: `git revert 7ae9d09`
+
+### 2026-10-10 10:55 UTC · 2e9a51f · HUD tiles no longer look cropped
+- What: the painted tile cut-outs had sliced rims; each tile now gets the drawn full hexagon rim and the painting fills only its face (zoom 1.16, shifted 3% left), on every platform.
+- Files: scripts/hud.gd (`_slot_face`)
+- Revert: `git revert 2e9a51f` and the two commits before it
