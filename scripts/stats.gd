@@ -295,7 +295,7 @@ const GATE_SIEGE_RADIUS := 9.0   # a broken door does not rebuild while an enemy
 # outside the front wall), never in the door lane.
 const TURRET := {"hits": [8, 12, 16], "range": [7.0, 8.0, 9.0], "interval": [1.5, 1.2, 0.95],
 	"damage": 1, "shot_speed": 34.0, "max_level": 3, "team_max": 6, "place_dist": 1.8, "grounds": 14.0,
-	"door_repair": 12.0}
+	"door_repair": 12.0, "rampart_lift": 0.7}   # a bolt from the rampart starts this much higher, over the merlons
 const MATCH_TIME := 600.0     # seconds
 const SEAL_REACH := 2.2     # how close you stand to a class seal to grab it with F
 const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins
@@ -655,22 +655,29 @@ const ECONOMY := {
 	"regrow": 45.0,          # seconds until a felled tree regrows or a spent deposit refills
 	"depot_radius": 2.6,     # walk into the storehouse ring to drop everything you carry
 	"drop_life": 40.0,       # seconds a dead soldier's dropped load stays on the ground
-	"hat_wood": 5, "hat_ore": 5,          # upgrade one class's hat machine (Faisal's price)
-	"repair_wood": 2, "repair_ore": 1, "repair_hits": 35,     # mend your door by 35 hits
-	"rebuild_wood": 4, "rebuild_ore": 2, "rebuild_hits": 100, # raise a broken door at once (not under siege)
-	"turret_wood": 2, "turret_ore": 1,    # a base turret on an empty turret pad (was 3 / 3; Faisal 2026-10-10 "cheaper and smarter")
-	"turret_up_wood": 1, "turret_up_ore": 1,   # raise a base turret a level (up to 3; was 2 / 2)
+	"hat_wood": 5, "hat_ore": 5,          # (old team-wide G-move upgrade; replaced by training below)
+	# Training at your class's hat machine (Faisal 2026-10-10 09:36): late in
+	# the match, buy experience up to the point where you can pick your
+	# class's variant. Personal, and dearer than the old hat upgrade.
+	"train_wood": 14, "train_ore": 0,   # wood only since Faisal scrapped ore (2026-10-10 09:51); was 8 / 8
+	"ore_on": false,         # Faisal 2026-10-10 09:51: "scrap the ore idea and keep it wood for now" (ore spots grow trees)
+	"train_after": 300,      # match seconds before training opens (the second half of a 10-minute match)
+	"repair_wood": 3, "repair_ore": 0, "repair_hits": 35,     # mend your door by 35 hits (was 2 wood 1 ore)
+	"rebuild_wood": 6, "rebuild_ore": 0, "rebuild_hits": 100, # raise a broken door at once, not under siege (was 4 / 2)
+	"turret_wood": 3, "turret_ore": 0,    # a base turret on an empty turret pad (was 3 / 3, then 2 / 1; wood only since 2026-10-10)
+	"turret_up_wood": 2, "turret_up_ore": 0,   # raise a base turret a level (up to 3; was 2 / 2, then 1 / 1)
 	"turret_fix_wood": 1, "turret_fix_ore": 0, # patch a damaged turret back to full (was 1 / 1)
 	"door_reach": 4.0,       # how close to your door you stand to mend it
 	"pad_reach": 1.8,        # how close to a turret pad you stand to buy or tend a turret
 	"bot_gatherers": 1,      # bots per team that gather (the Engineer; else an attacker, see bot_attacker_hats)
-	"bot_reserve_wood": 2, "bot_reserve_ore": 1,   # all-bot teams keep this back for a door repair
+	"bot_reserve_wood": 3, "bot_reserve_ore": 0,
+	"bot_attacker_until": 17,  # an attacker (no Engineer on the team) gathers only while the pool is below this   # all-bot teams keep this back for a door repair
 	"bot_attacker_hats": 2,   # with no Engineer bot, an attacker gathers only until this many hat machines are upgraded
 	"bot_repair_below": 100,   # all-bot teams mend their door only once it is down to this (no mending under siege)
 	"bot_repair_gap": 45.0,   # ...and at most once every this many seconds
 	"door_bar_lift": 1.6,    # metres the door's overhead health bar sits higher than World & Maps placed it
 	"bot_turrets_early": 1,  # all-bot teams put this many turrets up before their first hat upgrade...
-	"bot_turrets": 2,        # ...and this many after it
+	"bot_turrets": 1,        # ...and this many after it
 	"bot_turrets_with_human": 1,   # bots on a team with a player build up to this many
 	"field_calm": 3.0,       # seconds out of combat before a hat machine can be upgraded from the field (quick-upgrade popup)
 	"field_foe_radius": 9.0, # an enemy this close counts as combat
