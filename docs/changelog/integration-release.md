@@ -4,6 +4,16 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-10 11:20 UTC · `3cbf766`, `9276184` · Economy wood-only and Veteran Training, HUD tiles inside their rims
+
+- **What:**
+  - Economy `facb4de` (`3cbf766`): game-style action card, bare wood counter, field upgrades on the LEVEL UP strip, turret line-of-sight aim, late-game Veteran Training at the hat machine, wood only (ore scrapped, Faisal 09:51).
+  - iPad web build `01e717c` (`9276184`): every platform's skill tiles sit inside a drawn hex rim, with the painting clipped to the face, so no sliced rims show.
+  - Restored the iPad thread's 10-Oct entries in docs/changelog/online-platforms.md (2a24c42, b1dbfae, 7ae9d09, 2e9a51f), which the earlier "keep the alpha's side" resolutions had dropped.
+- **Files:** merges only, plus docs.
+- **Tested:** on `3cbf766`: import clean; econ test 0 failed; options menu, menu flow, store, store menu and save tests 0 failures; tools/tests/run.sh 0 failures; net_smoke PASS; bot matches on both maps (Humans 2-0 on both); the .exe under wine. On `9276184`: import clean; options menu and menu flow 0 failures; the .exe under wine.
+- **Revert:** `git revert -m 1 9276184`, `git revert -m 1 3cbf766`
+
 ### 2026-10-10 10:25 UTC · `044bc8b`, `3f723a1`, `47b58f0`, `6cc027c` · Store players, iPad touch, UI & Art banners, balance patch 4
 
 - **What:** merged four group heads into the alpha:
