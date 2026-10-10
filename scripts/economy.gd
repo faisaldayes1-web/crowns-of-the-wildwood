@@ -172,13 +172,22 @@ func try_interact(u) -> bool:
 	## here (or explained why it could not), so nothing else takes it.
 	if u.dead or u.carrying:
 		return false
-	# Hat machines: wearing the class, F upgrades the machine, or swaps in the
-	# upgraded hat once it is upgraded. Not wearing it, the seal takes over.
+	# The training panel is open: interact buys.
+	if training_open and u == game.player:
+		if train_remote(u):
+			training_open = false
+		return true
+	# Hat machines: wearing the class, F opens the training panel. Not
+	# wearing it, the seal takes over (the hat itself).
 	for role in game.seals[u.team]:
 		var seal = game.seals[u.team][role]
 		if not seal.in_reach(u) or u.role != role or seal.locked:
 			continue
-		train(u)
+		if u.is_player and _training_listed(u):
+			training_open = true
+			game.sfx.ui("ui_open", -6.0)
+		elif not u.is_player:
+			train(u)
 		return true
 	# Our door: mend it, or raise it if it is down.
 	if _by_door(u) and _door_work(u.team) != "":
@@ -806,6 +815,7 @@ func _process(_delta: float) -> void:
 		return
 	for u in game.units:
 		_update_hat_glow(u)
+	_tick_training_key()
 	var p = game.player
 	var live: bool = game.playing and p != null and is_instance_valid(p) and p.is_player and not p.dead
 	for team in 2:
@@ -1268,8 +1278,13 @@ func _mark_seal(team: int, role: int) -> void:
 # --- HUD (called from hud.gd while it draws) ---------------------------------------
 
 func _wood_icon(hud, c: Vector2, r: float) -> void:
-	## Wood: two stacked logs, side on, with their cut ends showing rings,
-	## inked like the painted HUD icons.
+	## Wood: the painted icon (tools/make_econ_icons.py) where the HUD has it,
+	## else two stacked logs drawn here.
+	var icons = hud.get("icons")
+	if icons is Dictionary and icons.has("wood"):
+		var px := r * 2.5
+		hud.draw_texture_rect(icons["wood"], Rect2(c - Vector2(px, px) / 2.0, Vector2(px, px)), false)
+		return
 	var k := r / 10.0
 	var ink := Color(0.16, 0.08, 0.03)
 	for i in 2:
@@ -1468,18 +1483,12 @@ func offer(p) -> Dictionary:
 		var a: Dictionary = Stats.hat_upgrade(team, role)
 		var cname: String = seal.class_title()
 		var tile: Color = a.get("color", Color(0.3, 0.55, 0.25) if team == 0 else Color(0.3, 0.42, 0.7))
-		if p.role != role:
+		if p.role != role or not _training_listed(p):
 			return {}   # the hat itself is on offer here (the world prompt)
 		var chk := train_check(p)
-		var detail := "Gain the experience to pick a %s variant." % cname
-		if chk.short > 0:
-			detail = "Gain the experience (+%d rank point%s) to pick a %s variant." % [chk.short, "" if chk.short == 1 else "s", cname]
-		elif chk.reason == "PROMOTED":
-			detail = "You can already pick your %s variant (%s)." % [cname, game.key_label("rank_menu")]
-		elif chk.reason == "SPEND YOUR POINTS":
-			detail = "Spend your rank points (%s) to unlock your variant." % game.key_label("rank_menu")
-		return _offer("Veteran Training", detail, E.train_wood, E.train_ore, "TRAIN", chk.ok, chk.reason, Vector2.ZERO,
-			"xp", tile, "LATE GAME · JUST YOU")
+		return _offer("Veteran Training", "Buy the experience to pick your %s variant. %s opens it anywhere once you're out of a fight." % [cname, game.key_label("ability_3")],
+			Stats.ECONOMY.train_wood, Stats.ECONOMY.train_ore, "OPEN", true, "", Vector2.ZERO, "training", Color(0.62, 0.46, 0.16),
+			"LATE GAME · JUST YOU" if chk.ok or chk.short > 0 else "")
 	if _by_door(p):
 		var gate = game.gates[team]
 		var hp := Vector2(0.0 if gate.broken else float(gate.hp), float(Stats.GATE_HITS))
@@ -1538,6 +1547,9 @@ func draw_action_card(hud, me) -> void:
 	## interact). Greyed with the reason when it can't be bought.
 	card_button = Rect2()
 	if me == null or game.menu_open or game.guide_open:
+		return
+	if training_open and not me.dead:
+		draw_training_panel(hud, me)
 		return
 	var o := offer(me)
 	if o.is_empty():
@@ -1670,6 +1682,11 @@ func mouse_on_button() -> bool:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and game.hud != null \
+			and slot_rect.has_area() and slot_rect.has_point(game.hud.get_local_mouse_position()):
+		_toggle_training()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and mouse_on_button():
 		var p = game.player
 		if p and is_instance_valid(p) and not p.dead:
@@ -1680,16 +1697,138 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func draw_hat_slot(hud, p, strip: Rect2) -> void:
-	## The upgraded hat's extra move, in its own slot left of the ability board.
-	if p == null or p.dead or p.abilities().size() < 3:
+# --- Veteran Training (Faisal 2026-10-10 09:36 / 10:41) ------------------------------
+# A gold slot left of the ability board (key G, the old hat-move key) opens
+# the training panel from anywhere; so does F at your class's hat machine.
+# The panel shows the class, its two variants, your rank points toward the
+# unlock, the price and a TRAIN button (click, tap or F).
+
+var training_open := false
+var slot_rect := Rect2()   # the training slot, HUD coordinates (mouse clicks)
+
+
+func _training_listed(p) -> bool:
+	## Training still means something for p: a class with variants, not yet unlocked.
+	return train_check(p).reason not in ["PROMOTED", "PICK A CLASS", ""] or train_check(p).ok
+
+
+func _tick_training_key() -> void:
+	var p = game.player
+	if p == null or not is_instance_valid(p) or p.dead or not game.playing or game.menu_open:
+		training_open = false
 		return
-	var a: Dictionary = p.abilities()[2]
+	if not _training_listed(p):
+		training_open = false
+		return
+	if p.abilities().size() < 3 and Input.is_action_just_pressed("ability_3"):
+		_toggle_training()
+
+
+func _toggle_training() -> void:
+	training_open = not training_open
+	game.sfx.ui("ui_open" if training_open else "ui_close", -6.0)
+
+
+func draw_hat_slot(hud, p, strip: Rect2) -> void:
+	## The training slot, left of the ability board: gold when training can
+	## be bought, a countdown sweep until it opens at 5:00, hidden once your
+	## variant is unlocked. (Kept under its old name: hud.gd calls it.)
+	slot_rect = Rect2()
+	if p == null or p.dead or p.abilities().size() >= 3 or not _training_listed(p):
+		return
+	var chk := train_check(p)
 	var slot := 48.0
 	var at := Vector2(strip.position.x - slot - 18.0, strip.position.y + 22.0)
-	var cost_c: Color = hud.STAMINA if p.energy_kind() == "stamina" else hud.MANA
-	hud._slot(at, slot, a.get("icon", a.kind), Color(0.9, 0.7, 0.2), hud._k("ability_3"), a.name,
-		p.ability_timers[2], a.cooldown, p.energy >= a.cost and p.carrying == null, 0, false, a.cost, cost_c, false)
+	var wait: float = maxf(0.0, float(Stats.ECONOMY.train_after) - game.match_clock())
+	var ready: bool = chk.ok and field_ok(p)
+	hud._slot(at, slot, "training", Color(0.85, 0.62, 0.16), hud._k("ability_3"), "Training",
+		wait, float(Stats.ECONOMY.train_after), chk.ok, 0, training_open, 0.0, hud.STAMINA, ready)
+	slot_rect = Rect2(at, Vector2(slot, slot))
+	if hud.get("touch_ui") == true and hud.get("touch_rects") != null:
+		hud.touch_rects.append([Rect2(at * hud.hud_scale, Vector2(slot, slot) * hud.hud_scale).grow(8), "ability_3"])
+
+
+func draw_training_panel(hud, me) -> void:
+	## The Veteran Training panel, on the ability bar's wooden board.
+	var chk := train_check(me)
+	var E: Dictionary = Stats.ECONOMY
+	var touch: bool = hud.get("touch_ui") == true
+	var W: float = hud.size.x
+	var H: float = hud.size.y
+	var r := Rect2(Vector2(W / 2.0 - 330.0, H - (520.0 if touch else 362.0)), Vector2(660, 222))
+	if hud.has_method("game_board"):
+		hud.game_board(r, "VETERAN TRAINING")
+	else:
+		_wood_board(hud, r, 6, true)
+		hud._text(Vector2(r.position.x, r.position.y + 4), "VETERAN TRAINING", 13, Color(0.97, 0.93, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
+	var cream := Color(0.97, 0.93, 0.8)
+	var gold := Color(1.0, 0.84, 0.36)
+	var cls: String = Stats.FACTIONS[me.team].roles[me.role]
+	# Close hint, top right.
+	hud._text(Vector2(r.end.x - 120, r.position.y + 30), "%s  CLOSE" % game.key_label("ability_3"), 11, Color(0.86, 0.66, 0.28), HORIZONTAL_ALIGNMENT_RIGHT, 100, 2)
+	# The class, in a big hex.
+	var hc := r.position + Vector2(70, 98)
+	hud._hex_tile(hc, 44.0, BRASS, Stats.ROLES[me.role].color.darkened(0.2) if Stats.ROLES.has(me.role) else Color(0.4, 0.3, 0.2), false, chk.ok)
+	hud._icon(hud._class_icon(me.role) if hud.has_method("_class_icon") else "training", hc, 19.0, Color.WHITE)
+	hud._text(Vector2(hc.x - 60, hc.y + 66), cls.to_upper(), 13, cream, HORIZONTAL_ALIGNMENT_CENTER, 120, 3)
+	# Title and pitch.
+	var x := r.position.x + 140.0
+	hud._text(Vector2(x, r.position.y + 44), "Become a veteran %s" % cls, 22, gold, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	hud._paragraph(Vector2(x, r.position.y + 64), "Skip the grind: buy the experience to unlock your variant now.", 13, cream, 320.0, 16.0)
+	# Rank points toward the unlock: earned (gold) and what training adds (green +).
+	var have: int = mini(int(me.mastery.get(me.role, 0)) + int(me.points), Stats.VARIANT_UNLOCK)
+	hud._text(Vector2(x, r.position.y + 112), "RANK POINTS", 11, Color(0.86, 0.66, 0.28), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	for i in Stats.VARIANT_UNLOCK:
+		var pc := Vector2(x + 104 + i * 26.0, r.position.y + 107)
+		hud.draw_circle(pc, 10.0, Color(0.12, 0.06, 0.02))
+		hud.draw_arc(pc, 10.0, 0, TAU, 20, BRASS, 2.0)
+		if i < have:
+			hud.draw_circle(pc, 7.0, gold)
+		else:
+			hud.draw_rect(Rect2(pc - Vector2(5, 1.5), Vector2(10, 3)), Color(0.55, 0.9, 0.4))
+			hud.draw_rect(Rect2(pc - Vector2(1.5, 5), Vector2(3, 10)), Color(0.55, 0.9, 0.4))
+	# The two variants it unlocks.
+	hud._text(Vector2(x, r.position.y + 146), "UNLOCKS", 11, Color(0.86, 0.66, 0.28), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var vars: Array = Stats.VARIANTS.get(me.role, [])
+	for i in vars.size():
+		var vc := Vector2(x + 96 + i * 150.0, r.position.y + 162)
+		hud._hex_tile(vc, 20.0, BRASS, vars[i].get("tint", Color(0.5, 0.4, 0.3)).darkened(0.35), false, false)
+		hud._icon(vars[i].get("icon", "upgrade"), vc, 9.0, Color.WHITE)
+		hud._text(Vector2(vc.x + 26, vc.y + 6), vars[i].get("name", "?"), 15, cream, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		if i == 0:
+			hud._text(Vector2(vc.x + 114, vc.y + 6), "or", 12, Color(0.86, 0.66, 0.28), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# Price and the TRAIN button, right column.
+	var bx := r.end.x - 170.0
+	var short: bool = wood[me.team] < E.train_wood
+	_wood_icon(hud, Vector2(bx + 30, r.position.y + 66), 15.0)
+	hud._text(Vector2(bx + 52, r.position.y + 76), str(E.train_wood), 26, Color(1.0, 0.45, 0.4) if short else cream, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	hud._text(Vector2(bx + 96, r.position.y + 74), "have %d" % wood[me.team], 11, Color(0.86, 0.66, 0.28), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var calm := field_ok(me)
+	var ok: bool = chk.ok and calm
+	var btn := Rect2(Vector2(bx, r.position.y + 100), Vector2(150, 58))
+	if hud.has_method("game_button"):
+		hud.game_button(btn, "TRAIN", ok)
+	else:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(1.0, 0.78, 0.25) if ok else Color(0.3, 0.29, 0.27)
+		sb.set_corner_radius_all(8)
+		sb.set_border_width_all(2)
+		sb.border_color = Color(0.4, 0.22, 0.04)
+		hud.draw_style_box(sb, btn)
+		hud._text(Vector2(btn.position.x, btn.get_center().y + 7), "TRAIN", 20, Color(0.24, 0.12, 0.03) if ok else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x, 0)
+	if ok and not touch:
+		hud._keycap(btn.position + Vector2(btn.size.x - 4, 4), hud._k("interact"), 24.0)
+	var why: String = chk.reason if not chk.ok else ("" if calm else "LEAVE THE FIGHT FOR %d s" % int(E.field_calm))
+	if why != "":
+		hud._text(Vector2(btn.position.x - 30, btn.end.y + 18), why, 11, Color(1.0, 0.55, 0.5), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x + 60, 2)
+	# Footer: the rules in one line.
+	var left := int(Stats.MATCH_TIME) - int(E.train_after)
+	hud._text(Vector2(r.position.x, r.end.y - 10), "Opens at %d:%02d left  ·  just you  ·  out of a fight for %d s" % [left / 60, left % 60, int(E.field_calm)],
+		11, Color(0.86, 0.66, 0.28, 0.9), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+	card_button = btn
+	card_ok = ok
+	if touch and hud.get("touch_rects") != null:
+		hud.touch_rects.append([btn.grow(10), "interact"])
 
 
 # --- Self-test (--play -- --econ-test) -----------------------------------------------
@@ -1751,17 +1890,21 @@ func _test_tick() -> void:
 			_put(p, seal.global_position + Vector3(0, 0.2, 1.2))
 			test_wait = 10
 		4:
-			var o0 := offer(p)
-			_check(o0.get("verb") == "TRAIN" and not o0.ok and str(o0.get("reason", "")).begins_with("OPENS AT"),
-				"training is shut early in the match (%s)" % o0.get("reason", "none"))
+			var c0 := train_check(p)
+			_check(not c0.ok and str(c0.reason).begins_with("OPENS AT") and offer(p).get("verb") == "OPEN",
+				"training is shut early in the match (%s)" % c0.reason)
 			game.time_left = Stats.MATCH_TIME - Stats.ECONOMY.train_after - 1.0   # late game
-			_check(offer(p).get("verb") == "TRAIN" and offer(p).ok, "the hat machine offers training late in the match (%s)" % offer(p).get("title", "none"))
+			_calm_since[p] = Time.get_ticks_msec() - 10000
 			game.try_interact(p)
+			_check(training_open, "F at the hat machine opens the training panel")
+			_check(train_check(p).ok, "training is open late in the match")
+			game.try_interact(p)
+			_check(not training_open, "F in the panel trains and closes it")
 			var E: Dictionary = Stats.ECONOMY
 			_check(wood[team] == 20 - E.train_wood and ore[team] == 20 - E.train_ore, "training costs %d wood and %d ore" % [E.train_wood, E.train_ore])
 			_check(int(p.mastery.get(p.role, 0)) + p.points >= Stats.VARIANT_UNLOCK and p.level >= 4,
 				"training gives the levels for a variant (level %d, %d points)" % [p.level, p.points])
-			_check(offer(p).get("reason") == "SPEND YOUR POINTS" and quick_tiles(p).is_empty(), "no second training until the points are spent")
+			_check(train_check(p).reason == "SPEND YOUR POINTS" and quick_tiles(p).is_empty(), "no second training until the points are spent")
 			_check(p.abilities().size() == 2, "no G move from the hat machine any more")
 			var other = null
 			for u in game.units:
@@ -1895,13 +2038,16 @@ func _shot_tick() -> void:
 				_put(p, depots[team] + Vector3(-side * 1.6, 0.1, 1.0))
 		"hat", "upgrade":
 			if left == 200:
-				wood[team] = 14
-				ore[team] = 13
+				wood[team] = 18
+				ore[team] = 0
 				p.set_role(Role.KNIGHT)
 				var seal = game.seals[team][Role.KNIGHT]
 				_put(p, seal.global_position + Vector3(0.4, 0.1, 1.5))
 				game.cam_pos = p.global_position + game.CAMERA_OFFSET * game.cam_zoom
 				game.time_left = Stats.MATCH_TIME - Stats.ECONOMY.train_after - 30.0   # late game: training is open
+			if left == 60 and scene == "upgrade":
+				_calm_since[p] = Time.get_ticks_msec() - 10000
+				training_open = true   # the Veteran Training panel, as G opens it
 			if left == 45 and scene == "hat":
 				game.try_interact(p)   # ("upgrade" stops before the key: the card's UPGRADE button shows)
 		"repair":
