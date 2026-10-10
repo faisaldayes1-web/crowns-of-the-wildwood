@@ -1022,7 +1022,7 @@ func _check_stations() -> void:
 				u.set_role(role)
 				sfx.play("station", u.global_position)
 				if u == player:
-					announce("You are now a %s." % u.role_name())
+					chat_system("You are now a %s." % u.role_name())   # the class banner says it on screen
 
 
 func station_position(team: int, role: int) -> Vector3:
@@ -1084,12 +1084,8 @@ func announce_veteran(u, tier: int) -> void:
 	if tier == 2:
 		announce("%s of the %s is an ELITE VETERAN: %d kills without dying! Bounty on their head, location revealed." % [u.display_name, side_name, u.streak])
 		chat_system("Bounty: %s (%s) is an Elite Veteran. Bring them down for a team reward!" % [u.display_name, side_name])
-		if u.is_player:
-			spawn_popup(u.global_position + Vector3(0, 2.8, 0), "ELITE VETERAN", Color(1.0, 0.6, 0.2))
 	else:
 		announce("%s of the %s is a Veteran: %d kills without dying." % [u.display_name, side_name, u.streak])
-		if u.is_player:
-			spawn_popup(u.global_position + Vector3(0, 2.8, 0), "VETERAN", Color(1.0, 0.85, 0.3))
 
 
 func bounty_claimed(killer, victim) -> void:
@@ -1103,8 +1099,6 @@ func bounty_claimed(killer, victim) -> void:
 	for u in units:
 		if u.team == killer.team and not u.dead:
 			u.apply_blessing(Stats.BOUNTY_BUFF)
-	if killer.is_player:
-		spawn_popup(killer.global_position + Vector3(0, 3.0, 0), "BOUNTY  +%d XP" % Stats.BOUNTY_XP, Color(1.0, 0.85, 0.3))
 
 
 func nearest_orb(pos: Vector3, radius: float):
@@ -1188,10 +1182,14 @@ func defender_near(team: int, pos: Vector3, radius: float) -> bool:
 
 
 func toast(text: String, color: Color = Color.WHITE) -> void:
-	## A small, short notice under the clock (not the big announcement).
-	toasts.append({"text": text, "color": color, "time": Time.get_ticks_msec() / 1000.0})
-	if toasts.size() > 4:
-		toasts.pop_front()
+	## A short notice: queued and shown one at a time as a small scroll under
+	## the clock (hud.gd _draw_toasts), never stacked or under a big banner.
+	for t in toasts:
+		if t.text == text:
+			return   # already showing or waiting
+	toasts.append({"text": text, "color": color, "time": Time.get_ticks_msec() / 1000.0, "shown": 0.0})
+	while toasts.size() > 3:
+		toasts.remove_at(1)   # keep the one on screen, drop the oldest waiting
 
 
 func enemy_inside_castle(team: int) -> bool:
@@ -1762,9 +1760,12 @@ func spawn_swing(u, aim: Vector3) -> void:
 
 
 func announce(text: String) -> void:
-	if message_label:
-		message_label.text = text
-		message_timer = 3.0
+	## News for the chat log and the notice scroll (the old floating centre
+	## line overlapped the banners: Faisal 2026-10-10 08:35). The FORTIFY!
+	## call-out repeats the objective banner word for word, so it stays in
+	## the chat log only.
+	if not text.begins_with("FORTIFY!"):
+		toast(text, Color(1.0, 0.85, 0.4))
 	chat_system(text)
 
 

@@ -478,7 +478,8 @@ func choose_variant(for_role: int, index: int) -> bool:
 		game.spawn_ring(global_position, 2.4, gold, 0.7)
 		game.spawn_splash(global_position + Vector3(0, 0.6, 0), gold, 30, 5.0, 1.0, true)
 		game.spawn_flash(global_position, gold, 4.0, 0.5)
-		game.spawn_popup(global_position + Vector3(0, 2.4, 0), role_name().to_upper(), gold)
+		if not is_player:   # the player gets the PROMOTED! banner instead
+			game.spawn_popup(global_position + Vector3(0, 2.4, 0), role_name().to_upper(), gold)
 		if is_player:
 			# (The rank-up flourish says PROMOTED! with the variant name; the
 			# chat log keeps the line.)
@@ -869,7 +870,8 @@ func gain_xp(amount: int, source: String = "combat") -> void:
 		game.spawn_pillar(global_position, Color(1.0, 0.9, 0.4), 4.5, 1.0)
 		game.spawn_ring(global_position, 2.2, Color(1.0, 0.9, 0.4), 0.6)
 		game.spawn_splash(global_position + Vector3(0, 0.6, 0), Color(1.0, 0.9, 0.4), 24, 4.5, 0.9, true)
-		game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
+		if not is_player:   # the player gets the RANK UP! banner instead
+			game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
 		if is_player:
 			game.sfx.ui("level_up", -2.0)
 			# A brighter burst at your feet to go with the RANK UP! flourish.
@@ -1886,7 +1888,8 @@ func _revive(by) -> void:
 	game.spawn_pillar(global_position, col, 3.5, 0.8)
 	game.spawn_ring(global_position, 1.8, col, 0.5)
 	game.spawn_splash(global_position + Vector3(0, 0.6, 0), col, 20, 3.0, 0.8, true)
-	game.spawn_popup(global_position + Vector3(0, 2.2, 0), "REVIVED", col)
+	if not is_player:   # the player gets the REVIVED BY notice instead
+		game.spawn_popup(global_position + Vector3(0, 2.2, 0), "REVIVED", col)
 	game.sfx.play("respawn", global_position, -4.0)
 	if is_player:
 		game.toast("REVIVED BY %s" % (by.display_name.to_upper() if by else "A TEAMMATE"), col)
