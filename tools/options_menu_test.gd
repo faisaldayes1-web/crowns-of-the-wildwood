@@ -331,7 +331,18 @@ func _init() -> void:
 	for e in tiles:
 		if e[1] in ["menu", "scoreboard", "rank_menu", "interact"]:
 			continue   # these open screens or grab; checked above
-		game.touch._down(7, e[0].get_center())
+		# A rank tile spends a point, and the LEVEL UP strip re-lays itself
+		# out at once: find this tile where the HUD has it now.
+		var now_at: Array = hud.touch_rects.filter(func(t): return t[1] == e[1])
+		if now_at.is_empty():
+			continue
+		game.touch._down(7, now_at[0][0].get_center())
+		if e[1] == "quick_tap":
+			# A LEVEL UP buy tile is a tap (handled like a click), not a held action.
+			check(game.touch_tap != Vector2(-1, -1), "touch: the quick_tap tile taps")
+			game.touch._up(7)
+			game.touch_tap = Vector2(-1, -1)
+			continue
 		# The attack tile is also the aim pad (aim_id) on the touch layout.
 		var act: String = game.touch.held.get(7, "")
 		if act == "" and game.touch.get("aim_id") == 7:
