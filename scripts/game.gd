@@ -143,6 +143,7 @@ var name_editing := false
 var levelup_timer := 0.0
 var levelup_level := 1
 var levelup_text := ""         # set for a class promotion: the flourish says PROMOTED! and this name
+var pine_tiers := {}   # cached pine tier meshes
 var map_trees: Array[Vector3] = []  # for the minimap: y > 0.5 means a big tree
 var map_paths: Array = []           # [from, to, width] of every path for the minimap
 var map_marks: Array = []           # [position, kind] ruins and such
@@ -4758,18 +4759,47 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		leaf.set_shader_parameter("top_color", Color.from_hsv(0.9, 0.5, 0.78) if lavender else Color.from_hsv(0.38, 0.75, 0.5))
 		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.88, 0.7, 0.32) if lavender else Color.from_hsv(0.42, 0.85, 0.18))
 	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.25 if wild else 1.0)
-	var blobs := 6 if big else 4
 	var base_y: float = trunk_h * 0.8
-	for i in blobs:
+	# The crown: a dome of leaf clumps (a skirt of low clumps, a smaller ring
+	# above and a top knot) on short boughs, shaded as one crown from dark
+	# underneath to a sunlit top. It was four to six big blobs, each with its
+	# own dark underside, which read as a pile of green balls.
+	leaf.set_shader_parameter("world_gradient", true)
+	leaf.set_shader_parameter("crown_base", pos.y + base_y - radius * 0.55)
+	leaf.set_shader_parameter("height", radius * 1.9)
+	var low := 6 if big else 5
+	var mid := 4 if big else 3
+	var spin := r.randf() * TAU
+	var clumps := []   # [offset, size]
+	for i in low:
+		var a := spin + TAU * i / low + r.randf_range(-0.2, 0.2)
+		clumps.append([Vector3(cos(a), 0, sin(a)) * radius * r.randf_range(0.6, 0.72) + Vector3(0, r.randf_range(-0.12, 0.1) * radius, 0), radius * r.randf_range(0.5, 0.6)])
+	for i in mid:
+		var a := spin + TAU * (i + 0.5) / mid + r.randf_range(-0.25, 0.25)
+		clumps.append([Vector3(cos(a), 0, sin(a)) * radius * r.randf_range(0.3, 0.4) + Vector3(0, radius * r.randf_range(0.42, 0.52), 0), radius * r.randf_range(0.5, 0.58)])
+	clumps.append([Vector3(r.randf_range(-0.1, 0.1), 0.85, r.randf_range(-0.1, 0.1)) * radius, radius * 0.5])
+	for i in clumps.size():
 		var blob := MeshInstance3D.new()
-		var rr: float = radius if i == 0 else radius * r.randf_range(0.55, 0.85)
-		blob.mesh = _rock_mesh(seed + i * 11, rr, 0.12)
-		var ang := TAU * i / blobs + r.randf() * 0.8
-		var spread: float = 0.0 if i == 0 else radius * r.randf_range(0.45, 0.75)
-		blob.position = Vector3(cos(ang) * spread, base_y + (0.9 if i == 0 else r.randf_range(-0.3, 0.9)) * radius * 0.5, sin(ang) * spread)
-		blob.scale = Vector3(1.0, 0.85, 1.0)
+		blob.mesh = _rock_mesh(seed + i * 11, clumps[i][1], 0.14)
+		blob.position = Vector3(0, base_y, 0) + clumps[i][0]
+		blob.scale = Vector3(1.0, 0.82, 1.0)
 		blob.material_override = leaf
 		tree.add_child(blob)
+	# Boughs from the trunk top out into the lower clumps.
+	for i in 3:
+		var off: Vector3 = clumps[i * low / 3][0] * 0.75
+		var bough := MeshInstance3D.new()
+		var bm := CylinderMesh.new()
+		bm.top_radius = 0.06 if not big else 0.08
+		bm.bottom_radius = 0.14 if not big else 0.18
+		var reach := Vector3(off.x, maxf(off.y, 0.0) + radius * 0.25, off.z)
+		bm.height = reach.length()
+		bm.radial_segments = 5
+		bough.mesh = bm
+		bough.material_override = bark
+		var mid_pt := Vector3(0, base_y - radius * 0.3, 0) + reach / 2.0
+		bough.transform = Transform3D(Basis(Quaternion(Vector3.UP, reach.normalized())), mid_pt)
+		tree.add_child(bough)
 	if wild and seed % 3 == 0:
 		_add_mushrooms(pos + Vector3(0.9, 0, 0.4), seed)
 	if wild and seed % 4 == 1:
@@ -4813,24 +4843,60 @@ func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool
 	leaf.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	var hue := r.randf_range(-0.02, 0.02)
 	# Deep forest green with lighter tips (the 2026-10-08 target art).
-	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.41 + hue, 0.85, 0.09))
-	leaf.set_shader_parameter("top_color", Color.from_hsv(0.37 + hue, 0.7, 0.28))
+	# (Lifted a little with the one-piece gradient: the jagged tiers read
+	# near black otherwise.)
+	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.41 + hue, 0.85, 0.15))
+	leaf.set_shader_parameter("top_color", Color.from_hsv(0.36 + hue, 0.68, 0.44))
 	leaf.set_shader_parameter("height", 1.6)
 	leaf.set_shader_parameter("sway", 0.03)
 	var base_r: float = (1.9 if big else 1.5) * r.randf_range(0.9, 1.1)
+	# One gradient over the whole tree (dark skirts, light tip), not per tier.
+	leaf.set_shader_parameter("world_gradient", true)
+	leaf.set_shader_parameter("crown_base", tree.position.y + trunk_h * 0.2)
+	leaf.set_shader_parameter("height", trunk_h * 1.0)
 	for i in 4:
 		var cone := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = 0.0
-		cm.bottom_radius = base_r * (1.05 - 0.22 * i)
-		cm.height = trunk_h * 0.36
-		cm.radial_segments = 9
-		cm.rings = 2
-		cone.mesh = cm
+		cone.mesh = _pine_tier_mesh(r.randi(), base_r * (1.05 - 0.22 * i), trunk_h * 0.36)
 		cone.position.y = trunk_h * (0.36 + 0.17 * i)
 		cone.rotation.y = r.randf() * TAU
 		cone.material_override = leaf
 		tree.add_child(cone)
+
+
+func _pine_tier_mesh(seed: int, radius: float, height: float) -> ArrayMesh:
+	## One tier of a conifer: a faceted cone whose rim is a ring of drooping
+	## needle points (the old smooth cones read as plain stacked lampshades).
+	var key := "%d|%.2f|%.2f" % [seed % 6, radius, height]
+	if pine_tiers.has(key):
+		return pine_tiers[key]
+	var r := RandomNumberGenerator.new()
+	r.seed = seed % 6
+	var n := 11
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var apex := Vector3(0, height / 2.0, 0)
+	var rim := []
+	for k in n * 2:
+		var a := TAU * k / (n * 2)
+		var tip := k % 2 == 0
+		var rr := radius * (1.0 if tip else 0.72) * r.randf_range(0.94, 1.06)
+		# Points droop below the notches; notches tuck up under the tier above.
+		var y := -height / 2.0 - (0.12 * height if tip else -0.08 * height)
+		rim.append(Vector3(cos(a) * rr, y, sin(a) * rr))
+	var under := Vector3(0, -height * 0.3, 0)
+	for k in n * 2:
+		var p0: Vector3 = rim[k]
+		var p1: Vector3 = rim[(k + 1) % (n * 2)]
+		st.add_vertex(apex)
+		st.add_vertex(p1)
+		st.add_vertex(p0)
+		st.add_vertex(under)
+		st.add_vertex(p0)
+		st.add_vertex(p1)
+	st.generate_normals()
+	var m := st.commit()
+	pine_tiers[key] = m
+	return m
 
 
 func _leaf_material(r: RandomNumberGenerator, autumn: bool) -> ShaderMaterial:
@@ -5298,6 +5364,14 @@ func _add_cover() -> void:
 		for m in [1.0, -1.0]:
 			var c: Vector3 = b[0] * m
 			var length: float = b[1]
+			var kind: int = 0 if absf(c.z) < 3.0 else 2
+			# Wall stubs stand beside the road, not on it (the one at x -31
+			# sat across the Forest Path like a post): step them away from
+			# the paths, cover point and collider with them.
+			var k := 0
+			while kind == 2 and _near_path(c, length / 2.0 + 0.4) and k < 8:
+				c.z += 1.0 if c.z >= 0.0 else -1.0
+				k += 1
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
 			cover_points.append(Vector3(c.x, 0, c.z))
 			cover_boxes.append(AABB(Vector3(c.x - 0.5, 0, c.z - length / 2.0), Vector3(1.0, 1.2, length)))
@@ -5305,7 +5379,6 @@ func _add_cover() -> void:
 			# ashlar walls across the field. (No timber palisades: they read
 			# as stray fences, Faisal 11:27 "did you fix the random fence
 			# issues". The cover and its collider are unchanged.)
-			var kind: int = 0 if absf(c.z) < 3.0 else 2
 			match kind:
 				0:
 					var n := int(length / 1.15)
@@ -5397,8 +5470,8 @@ func _add_palisade(c: Vector3, length: float) -> void:
 
 func _add_wall_stub(c: Vector3, length: float) -> void:
 	## A broken length of ashlar wall: tall at one end, crumbled at the other,
-	## with rubble spilling off the low end. Mossy on the elven side.
-	mossy = c.x < 0.0
+	## with rubble spilling off the low end. Stone on both sides: the elven
+	## "ashlar" is bark, which made the Elf-side stubs read as wooden posts.
 	audit_label = "wall"
 	var tall_len: float = length * 0.55
 	var low_len: float = length - tall_len
@@ -5407,8 +5480,7 @@ func _add_wall_stub(c: Vector3, length: float) -> void:
 	_add_block(Vector3(c.x, 0.4, c.z + tall_len / 2.0), Vector3(0.6, 0.8, low_len), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
 	_add_block(Vector3(c.x, 0.9, c.z + tall_len / 2.0 - low_len / 4.0), Vector3(0.6, 0.2, low_len / 2.0), Color.WHITE, false, _ashlar(Color(0.88, 0.85, 0.78)))
 	audit_label = ""
-	_prop("dungeon/rubble_large", Vector3(c.x + 0.4, 0, c.z + length / 2.0 + 0.7), 0.22, 0.4)
-	mossy = false
+	_prop("dungeon/rubble_large", Vector3(c.x + 0.4 * signf(c.x), 0, c.z + length / 2.0 + 0.7), 0.22, 0.4)
 
 
 func _add_ruins(c: Vector3, small: bool = false) -> void:
