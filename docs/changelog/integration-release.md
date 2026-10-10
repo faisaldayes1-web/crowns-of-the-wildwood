@@ -4,6 +4,14 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-10 09:55 UTC · `5b70269` · Merged the iPad web build's Medium-by-default web graphics
+
+- **What:** merged `44997a0` from `claude/ipad-web-build-c1oo3k`: in a browser the game starts on Medium (sun shadows, glow, full-resolution 3D) and drops to Low only when a match runs under 26 FPS. Desktop behaviour unchanged, so the Windows zip was not rebuilt; the web zip was.
+- **Files:** scripts/game.gd (via merge)
+- **Tunables:** web start preset Low → Medium; web auto step-down threshold 26 FPS (desktop stays 40)
+- **Tested:** import clean; options menu, menu flow and save tests 0 failures. The iPad thread checked it in Chromium (ONLINE room 8K7E created through the Render relay).
+- **Revert:** `git revert -m 1 5b70269`
+
 ### 2026-10-10 09:20 UTC · `a238ae5`, `10d71ef`, `b679b8d` · Online play in the alpha, World & Maps trees
 
 - **What:** Faisal chose "Add online" (09:01): merged Online & Platforms (`e8fca2c`, then its catch-up merge `cc92436`, which buffers a joiner's attack taps) so the title's ONLINE button makes and joins 4-letter rooms over Faisal's Render relay `wss://crowns-of-the-wildwood.onrender.com`. Merged World & Maps `007d782` (clump-dome tree crowns, jagged pine tiers, z-fighting audit, wall stubs off the paths).
