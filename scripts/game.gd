@@ -9677,6 +9677,13 @@ func _auto_quality() -> void:
 		return
 	var fps := _fps_frames * 1000.0 / float(now - _fps_since)
 	_fps_since = 0
+	if OS.has_feature("web") and Engine.max_fps == 0 and fps < 52.0:
+		# A browser that cannot hold 60 runs 0, 1 or 2 physics steps a frame
+		# at random, so units jump (Faisal 2026-10-10 "frame skipping and
+		# jumping" on the iPad). A steady 30 gives every frame exactly two
+		# steps: smooth motion, and slack for the slow frames.
+		Engine.max_fps = 30
+		return
 	if fps < (26.0 if OS.has_feature("web") else 40.0):
 		gfx_quality -= 1
 		apply_graphics()

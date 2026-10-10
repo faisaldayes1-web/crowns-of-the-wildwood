@@ -318,6 +318,7 @@ func _draw() -> void:
 	_draw_toasts()
 	if _me() and not game.guide_open:
 		_draw_world_prompt()
+		_draw_class_pointer(_me())
 		if game.economy:
 			game.economy.draw_action_card(self, _me())   # repair / upgrade / turret button (economy.gd)
 		_draw_player_panel(_me())
@@ -3156,7 +3157,7 @@ func _draw_player_panel(p) -> void:
 		# baked layers (the bottom row, the right-hand column); this pass
 		# then paints just the bars, cooldowns and numbers over them.
 		var key := _panel_key(p)
-		var bottom := Rect2(0, size.y - (400.0 if touch_ui else 180.0) * k, size.x, (400.0 if touch_ui else 180.0) * k)
+		var bottom := Rect2(0, size.y - (480.0 if touch_ui else 180.0) * k, size.x, (480.0 if touch_ui else 180.0) * k)
 		var right := Rect2(size.x - 130.0 * k, 0, 130.0 * k, 340.0 * k)
 		panel_pass = ""
 		if _layer("panel_bottom", bottom, key, "panel", [p]) and _layer("panel_right", right, key, "panel", [p]):
@@ -3270,25 +3271,43 @@ func _touch_cluster(p, W: float, H: float) -> void:
 	## Touch screens (the iPad): the moves as big tiles in an arc under the
 	## right thumb, attack the largest in the corner, and a round pause
 	## button top-right. Drag from the attack tile to aim (touch.gd).
-	var big := 118.0
-	var mid := 80.0
-	var centres := [Vector2(W - 120, H - 128), Vector2(W - 282, H - 70), Vector2(W - 292, H - 200),
-		Vector2(W - 212, H - 310), Vector2(W - 82, H - 318), Vector2(W - 420, H - 66)]
-	var sizes := [big, mid, mid, mid, mid, 70.0]
+	var big := 136.0   # 2026-10-10 (Faisal: "easier for touch"): 118/80/70 → 136/94/84
+	var mid := 94.0
+	var centres := [Vector2(W - 146, H - 166), Vector2(W - 330, H - 102), Vector2(W - 341, H - 246),
+		Vector2(W - 251, H - 370), Vector2(W - 106, H - 380), Vector2(W - 484, H - 98)]
+	var sizes := [big, mid, mid, mid, mid, 84.0]
 	var at := []
 	for i in 6:
 		at.append(centres[i] - Vector2(sizes[i], sizes[i]) / 2.0)
 	_move_slots(p, at, sizes)
-	# Pause (the map is its first tab).
+	# The hat move (G) when the hat carries one: a round button left of the arc.
+	if p.abilities().size() > 2 and not p.dead:
+		var gc := Vector2(W - 470, H - 222)
+		if not pane:
+			touch_rects.append([Rect2((gc - Vector2(46, 46)) * hud_scale, Vector2(92, 92) * hud_scale), "ability_3"])
+		_ring_button(gc, 34.0)
+		if _st():
+			var a: Dictionary = p.ability(2)
+			_icon(a.get("icon", a.kind), gc, 16, Color.WHITE)
+			_text(gc + Vector2(-60, 52), a.name, 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
+	# Pause (the map is its first tab) and the scoreboard beside it.
 	var pc := Vector2(W - 52, 52)
+	var sc := Vector2(W - 52, 134)
 	if not pane:
 		touch_rects.append([Rect2((pc - Vector2(44, 44)) * hud_scale, Vector2(88, 88) * hud_scale), "menu"])
+		touch_rects.append([Rect2((sc - Vector2(38, 44)) * hud_scale, Vector2(76, 88) * hud_scale), "scoreboard"])
 	_ring_button(pc, 30.0)
+	_ring_button(sc, 30.0)
 	if _st():
 		for j in 3:
 			var y := pc.y - 9.0 + j * 9.0
 			draw_line(Vector2(pc.x - 13, y + 1), Vector2(pc.x + 13, y + 1), Color(0, 0, 0, 0.5), 4.5)
 			draw_line(Vector2(pc.x - 13, y), Vector2(pc.x + 13, y), Color(0.95, 0.85, 0.6), 4.0)
+		# Scoreboard: three bars of a podium.
+		for j in 3:
+			var hgt: float = [14.0, 22.0, 10.0][j]
+			var bx := sc.x - 13.0 + j * 9.0
+			draw_rect(Rect2(bx, sc.y + 11.0 - hgt, 7.0, hgt), Color(0.95, 0.85, 0.6))
 
 
 func _panel_key(p) -> Array:
@@ -3310,7 +3329,7 @@ func _panel_key(p) -> Array:
 	var keys := []
 	for act in ["attack", "dodge", "ability_1", "ability_2", "block", "rank_menu", "interact", "menu", "scoreboard"]:
 		keys.append(_k(act))
-	return [touch_ui, size, _bake_scale(), p.team, p.role, p.dead, p.hearts, p.level, p.local_index, game.hero_name,
+	return [touch_ui, size, _bake_scale(), p.team, p.role, abil.size(), p.dead, p.hearts, p.level, p.local_index, game.hero_name,
 		p.carrying != null, game.barricades_left[p.team], game.on_pad(local_unit), slots, keys, skill_art.size()]
 
 
@@ -3620,8 +3639,8 @@ func _move_slots(p, at: Array, sz: Array) -> void:
 			_slot(at[i + 2], sz[i + 2], a.get("icon", a.kind), Stats.ROLES[p.role].color.darkened(0.15), _k("ability_%d" % (i + 1)), a.name,
 				p.ability_timers[i], a.cooldown, p.energy >= a.cost and alive, p.rank(i + 1), false, a.cost, cost_c)
 		else:
-			next_slot_art = ["lock_a", "lock_b"][i]
-			_slot(at[i + 2], sz[i + 2], "", [Color(0.5, 0.3, 0.72), Color(0.62, 0.38, 0.22)][i], _k("ability_%d" % (i + 1)), "Locked", 0.0, 1.0, false)
+			next_slot_art = "lock_a"   # both the same until a class is picked (Faisal 2026-10-10)
+			_slot(at[i + 2], sz[i + 2], "", Color(0.5, 0.3, 0.72), _k("ability_%d" % (i + 1)), "Pick class", 0.0, 1.0, false)
 	if p.can_block():
 		_slot(at[4], sz[4], "block", Color(0.45, 0.5, 0.6), _k("block"), "Block", 0.0, 1.0, alive and p.energy > 0.0, 0, p.blocking)
 	else:
@@ -3763,6 +3782,48 @@ func _draw_world_prompt() -> void:
 		_keycap(Vector2(tx + kw / 2.0, sp.y), k, kw)
 		tx += kw + 8.0
 	_text(Vector2(tx, sp.y + 5.0), text, 13, Color(0.97, 0.95, 0.88), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _draw_class_pointer(me) -> void:
+	## A plain soldier sees where the classes are (Faisal 2026-10-10: "it
+	## should be obvious where the classes are"): a bobbing gold arrow and
+	## PICK A CLASS over the class stations, or, when they are off screen, an
+	## arrow at the screen edge pointing the way.
+	if me.role != Role.BASE or me.dead or me.downed or game.stations[me.team].is_empty():
+		return
+	var cam: Camera3D = game.camera_for(me)
+	var mid := Vector3.ZERO
+	for role in game.stations[me.team]:
+		mid += game.stations[me.team][role]
+	mid /= float(game.stations[me.team].size())
+	var at := mid + Vector3(0, 3.6, 0)
+	var inv := get_global_transform().affine_inverse()
+	var sp: Vector2 = inv * cam.unproject_position(at)
+	var bob := sin(Time.get_ticks_msec() / 220.0) * 6.0
+	var gold := Color(1.0, 0.82, 0.25)
+	var inside := Rect2(Vector2(60, 150), size - Vector2(120, 330)).has_point(sp) and not cam.is_position_behind(at)
+	if inside:
+		var tip := sp + Vector2(0, 18 + bob)
+		draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-20, -24), tip + Vector2(20, -24)]), Color(0, 0, 0, 0.45))
+		draw_colored_polygon(PackedVector2Array([tip + Vector2(0, -3), tip + Vector2(-16, -24), tip + Vector2(16, -24)]), gold)
+		var r := Rect2(sp + Vector2(-84, -40 + bob), Vector2(168, 30))
+		_plate(r, Color(0.3, 0.17, 0.04, 0.92), gold, 8, 2)
+		_text(r.position + Vector2(0, 21), "PICK A CLASS", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+		return
+	# Off screen: from the player toward the stations, pinned inside the view.
+	var from: Vector2 = inv * cam.unproject_position(me.global_position + Vector3(0, 1.5, 0))
+	var d := (sp - from).normalized() if cam.is_position_behind(at) == false else Vector2(mid.x - me.global_position.x, mid.z - me.global_position.z).normalized()
+	if d == Vector2.ZERO:
+		return
+	var c := from + d * 120.0
+	c = c.clamp(Vector2(80, 170), size - Vector2(80, 200))
+	c += d * bob
+	var side := Vector2(-d.y, d.x)
+	draw_colored_polygon(PackedVector2Array([c + d * 26, c - d * 14 + side * 20, c - d * 14 - side * 20]), Color(0, 0, 0, 0.45))
+	draw_colored_polygon(PackedVector2Array([c + d * 22, c - d * 11 + side * 16, c - d * 11 - side * 16]), gold)
+	var r2 := Rect2(c - d * 44 - Vector2(76, 15), Vector2(152, 30))
+	_plate(r2, Color(0.3, 0.17, 0.04, 0.92), gold, 8, 2)
+	_text(r2.position + Vector2(0, 21), "PICK A CLASS", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r2.size.x, 2)
 
 
 # --- Map ---------------------------------------------------------------------
