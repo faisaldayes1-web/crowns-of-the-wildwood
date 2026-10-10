@@ -960,3 +960,15 @@ Commit: `d46af47` (merge).
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; tools/net_smoke.sh (ENet) passed; a demo run had no script errors.
 
 Revert: `git revert -m 1 d46af47`.
+
+## 2026-10-10 — SKILLS & UPGRADES board (Faisal 11:02, skills-upgrades-target-2026-10-09.png)
+
+Commit: `43134bb`. The perk key and the Upgrade Station now open **SKILLS & UPGRADES** (`hud._skills_page`) instead of the pause tab's layout.
+- **Left column:** class tabs (`_skills_tabs`) with the sigil over the name, your class first. Then the four skill rows: the art strip has a painted emblem, the LV pips sit under the description and the Next line runs along the strip's foot. Then the before/after strip, and YOUR STATS tiles (`_skills_stats`) in place of the reference's global upgrades. The game has no global upgrades, so these tiles are display only.
+- **Right column** (`_skills_side`): LEVEL, the points to spend and the XP bar beside the X. Then CLASS PROMOTION with the class portrait (cropped card art), the padlocked emblem and both paths (5 / 6 or a click to pick).
+- **Code:** `_life_stats` is shared with the pause tab's stats card. `_upgrades_skills(..., board)` switches the layout.
+- **Unchanged:** the pause menu's UPGRADES tab.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 43134bb`.
