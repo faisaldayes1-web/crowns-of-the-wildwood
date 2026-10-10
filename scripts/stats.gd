@@ -481,7 +481,7 @@ const FACTION_KITS := {
 			"abilities": [
 				{"name": "Spirit Bloom", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 8, "cost": 60.0,
 					"heal": 2, "radius": 8.0, "haste": 4.0, "desc": "Heal every teammate nearby two hearts and quicken them."},
-				{"name": "Lunar Lance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 3, "cost": 30.0,
+				{"name": "Lunar Lance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 4, "cost": 30.0,   # cooldown 3 → 4 (patch 4)
 					"damage": 1, "range": 13.0, "shot_speed": 38.0, "slow": 1.5, "desc": "A lance of moonlight that slows whoever it hits."}]},
 		Role.ENGINEER: {
 			"attack": {"attack_name": "Root Maul", "attack_desc": "A heavy wooden maul that wrecks doors, fences and turrets.", "cost": 9},
@@ -494,7 +494,7 @@ const FACTION_KITS := {
 	1: {
 		Role.KNIGHT: {"attack": {"attack_desc": "A wide swing that also chips at doors. Heavy plate turns about every third hit.", "armour": 0.37}},
 		Role.RANGER: {
-			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 16.0, "cooldown": 0.68, "cost": 10, "shot_speed": 42.0},
+			"attack": {"attack_name": "Crossbow", "attack_desc": "Heavy bolts: slower to load, hit harder from the walls.", "range": 16.0, "cooldown": 0.62, "cost": 10, "shot_speed": 42.0},   # cooldown 0.75 → 0.68 (patch 1) → 0.62 (patch 4: Moonbow is 0.55)
 			"abilities": [
 				{"name": "Heavy Bolt", "key": "Q", "kind": "shot", "icon": "snipe", "cooldown": 4, "cost": 40.0,
 					"damage": 2, "range": 16.0, "shot_speed": 50.0, "desc": "A wound-up bolt that takes two hearts."},
