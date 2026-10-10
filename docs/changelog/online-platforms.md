@@ -132,3 +132,11 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Files:** `scripts/hud.gd`, `scripts/touch.gd`, `scripts/game.gd`, `project.godot`
 - **Tested:** `--check-only`; exported build in Chromium with iPad UA + touch, screenshot of the new layout, WebGL draws per frame ~1,110 (unchanged), no new console errors. Not measured on a real iPad.
 - **Revert:** `git revert 20b0c0b`
+
+## 2026-10-10 09:20 UTC · `d2c2a23` · iPad: the UPGRADES board opens and closes easily by touch
+
+- **Why:** Faisal (08:33): "fix the controls so that the upgrade menu is easier to exit in and out of".
+- **What:** On touch screens only: the UPGRADES board shows a big CLOSE button under it (in place of the keyboard hint), a tap anywhere outside the board closes it, and every panel's X button is finger-sized (64 px hit area, was 30).
+- **Files:** `scripts/hud.gd` (`_close`, `_draw_rank_menu`, `touch_close`), `scripts/touch.gd` (`_down`)
+- **Tested:** `--check-only`; web export in Chromium with iPad touch: Perks tile opens the board, a tap outside closes it, no new console errors.
+- **Revert:** `git revert d2c2a23`

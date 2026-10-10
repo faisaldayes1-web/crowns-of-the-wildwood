@@ -58,6 +58,7 @@ var next_slot_art := ""          # set just before _slot(): the skill art to dra
 var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
+var touch_close := Rect2()          # the UPGRADES board's CLOSE button on touch screens
 var rank_tab_buttons: Array = []   # [rect, role] class tabs on the skills screen
 var rank_view := -1                # the class the skills screen shows (-1 = your own)
 var rank_focus := 0                 # UPGRADES: the lit row (0-3 skills, 4-5 promotions); the pad moves it, the mouse hovers it
@@ -236,6 +237,7 @@ func _draw() -> void:
 	rank_buttons = []
 	variant_buttons = []
 	rank_tab_buttons = []
+	touch_close = Rect2()
 	tab_buttons = []
 	tab_ids = []
 	zoom_buttons = []
@@ -1976,6 +1978,15 @@ func _close(rect: Rect2) -> void:
 	## An X button in a panel's top-right corner. Recorded for mouse clicks.
 	close_button = Rect2(rect.end.x - 36, rect.position.y + 6, 30, 30)
 	var c := close_button.get_center()
+	if game.touch_active:
+		# A finger-sized X on touch screens (the iPad).
+		close_button = Rect2(rect.end.x - 62, rect.position.y - 6, 64, 64)
+		c = close_button.get_center()
+		_ring_button(c, 20.0)
+		for w in [[7.0, Color(0.3, 0.17, 0.04)], [3.5, CREAM]]:
+			draw_line(c + Vector2(-8, -8), c + Vector2(8, 8), w[1], w[0])
+			draw_line(c + Vector2(8, -8), c + Vector2(-8, 8), w[1], w[0])
+		return
 	_ring_button(c, 11.0)
 	draw_line(c + Vector2(-4.5, -4.5), c + Vector2(4.5, 4.5), Color(0.3, 0.17, 0.04), 4.0)
 	draw_line(c + Vector2(4.5, -4.5), c + Vector2(-4.5, 4.5), Color(0.3, 0.17, 0.04), 4.0)
@@ -3973,6 +3984,12 @@ func _draw_rank_menu(p) -> void:
 			x += 34.0 + maxf(0.0, _text_width(face, 11) - 14.0)
 			_text(Vector2(x, R.end.y - 14), it[1], 12, Color(0.92, 0.86, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			x += _text_width(it[1], 12) + 22.0
+	elif game.touch_active:
+		# Touch: a big CLOSE button under the board; a tap outside the board
+		# closes it too (touch.gd).
+		touch_close = Rect2(R.get_center().x - 110.0, R.end.y - 30.0, 220.0, 52.0)
+		_plate(touch_close, Color(0.55, 0.12, 0.08), GOLD, 12, 3)
+		_text(Vector2(touch_close.position.x, touch_close.position.y + 35), "CLOSE", 22, CREAM, HORIZONTAL_ALIGNMENT_CENTER, touch_close.size.x, 5)
 	else:
 		var hint := "1-4 or + spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  a fall costs 2 levels" % _k("rank_menu")
 		_text(Vector2(R.position.x, R.end.y - 14), hint, 11, Color(0.8, 0.74, 0.6), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
