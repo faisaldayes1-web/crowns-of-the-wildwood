@@ -155,6 +155,10 @@ func _run() -> void:
 	# miss alone.
 	await _aim_assist()
 
+	# 13. Pressing something still on cooldown clicks "not yet", once per
+	# burst of presses.
+	await _deny_cue()
+
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
 
@@ -358,4 +362,14 @@ func _aim_assist() -> void:
 	_check(rad_to_deg(bent.angle_to(Vector3(1, 0, 0))) < 4.0, "aim_assist_bends", "off by %.1f deg" % rad_to_deg(bent.angle_to(Vector3(1, 0, 0))))
 	var far: Vector3 = Vector3(1, 0, 0).rotated(Vector3.UP, deg_to_rad(40.0))
 	_check(a._assist_aim(far).is_equal_approx(far), "aim_assist_ignores_clear_miss")
+	await _frames(1)
+
+
+func _deny_cue() -> void:
+	var a = _first(0)
+	a.deny_at = -10.0
+	var before: int = a.deny_cues
+	a._deny_cue()
+	a._deny_cue()
+	_check(a.deny_cues == before + 1, "deny_cue_throttled", "cues=%d" % (a.deny_cues - before))
 	await _frames(1)

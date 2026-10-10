@@ -47,10 +47,13 @@ var hitstop_timer := 0.0
 var heartbeat_timer := 0.0
 const AIM_ASSIST_DEG := 12.0     # stick aim bends onto an enemy this close to the stick line...
 const AIM_ASSIST_PULL := 0.75    # ...this much of the way (1 = dead on)
+const DENY_GAP := 0.35          # at most one cooldown "not yet" click this often
 const HIT_CONFIRM_RANGE := 4.0   # your hits from further than this play a tick and mark the target (ranged feedback)
 const ATTACK_BUFFER := 0.2         # seconds a tapped attack waits for the swing cooldown
 var attack_buffer := 0.0
-var hit_confirms := 0      # ranged hit confirms played (for the tests)
+var hit_confirms := 0
+var deny_at := -10.0       # when the last "still cooling down" click played
+var deny_cues := 0         # how many played (for the tests)      # ranged hit confirms played (for the tests)
 const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits for its cooldown
 var input_buffer := [0.0, 0.0, 0.0]  # ability 1, ability 2, dodge
 var swing_flip := false     # alternate the slash arc left/right    # hit stop: the model's animation holds for a beat (looks only)
@@ -1203,6 +1206,17 @@ func heal(amount: int, healer = null) -> int:
 func dodge_ready() -> bool:
 	return dodge_cooldown <= 0.0 and not dead and carrying == null and root_timer <= 0.0 \
 		and energy >= Stats.DODGE_COST
+
+
+func _deny_cue() -> void:
+	## Pressed a dodge or ability that is still cooling down (beyond the input
+	## buffer): a quiet "not yet" click, at most every DENY_GAP seconds.
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - deny_at < DENY_GAP:
+		return
+	deny_at = now
+	deny_cues += 1
+	game.sfx.ui("ui_deny", -12.0)
 
 
 func try_dodge(dir: Vector3) -> void:
@@ -2391,6 +2405,10 @@ func _physics_process(delta: float) -> void:
 		energy = minf(energy + regen * delta, energy_max())
 	energy = maxf(energy, 0.0)
 	attack_timer = maxf(attack_timer - delta, 0.0)
+	if is_player and dodge_cooldown > 0.0 and dodge_cooldown <= delta and not dead:
+		# Dodge is back: a soft tick and a quick ring at your feet.
+		game.sfx.ui("block_up", -12.0, 1.4)
+		game.spawn_ring(global_position, 0.7, Color(0.75, 1.0, 0.65), 0.25, 0.08)
 	dodge_cooldown = maxf(dodge_cooldown - delta, 0.0)
 	for i in ability_timers.size():
 		ability_timers[i] = maxf(ability_timers[i] - delta, 0.0)
@@ -2533,6 +2551,11 @@ func _physics_process(delta: float) -> void:
 				use_ability(2, aim)
 			if _tap("dodge"):
 				input_buffer[2] = INPUT_BUFFER
+				if dodge_cooldown > INPUT_BUFFER:
+					_deny_cue()
+			for i in mini(2, abilities().size()):
+				if Input.is_action_just_pressed(_a("ability_%d" % (i + 1))) and ability_timers[i] > INPUT_BUFFER:
+					_deny_cue()
 		for i in 2:
 			if input_buffer[i] > 0.0:
 				input_buffer[i] -= delta
