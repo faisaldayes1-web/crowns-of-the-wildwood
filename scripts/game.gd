@@ -180,6 +180,11 @@ var damage_numbers := true
 var show_fps := false
 var quit_armed := 0.0          # pause menu: seconds the MAIN MENU button stays armed after a first click
 var gfx_quality := 2           # graphics preset: 0 Low, 1 Medium, 2 High, 3 Ultra
+var fps_intro_done := false    # the FPS counter was switched on once for the alpha testers
+var gfx_picked := false        # the player chose a preset in Settings (no automatic changes after that)
+var _fps_frames := 0           # automatic quality: frames counted in the current window...
+var _fps_since := 0            # ...since this time (msec), 0 = not counting
+var _fps_last := 0             # the previous frame's time (msec): a long stall restarts the window
 var fullscreen := false
 const GFX_NAMES := ["LOW", "MEDIUM", "HIGH", "ULTRA"]
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
@@ -301,6 +306,7 @@ func _ready() -> void:
 		# Tablets are 4:3: letterbox the 16:9 canvas rather than let the
 		# menus run off the sides.
 		get_window().content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+	_pick_graphics()
 	sfx.set_listener(Vector3.ZERO)
 	Input.joy_connection_changed.connect(_on_pad_changed)
 	for arg in OS.get_cmdline_user_args():
@@ -426,6 +432,7 @@ func _process(delta: float) -> void:
 			k.time = Time.get_ticks_msec() / 1000.0 - 1.0
 	_debug_hooks()
 	_ui_sounds()
+	_auto_quality()
 	for t in 2:
 		command_timer[t] = maxf(command_timer[t] - delta, 0.0)
 	if playing and overtime and not game_over:
@@ -1283,9 +1290,11 @@ func toggle_setting(key: String) -> void:
 			return
 		"gfx":
 			gfx_quality = (gfx_quality + 1) % GFX_NAMES.size()
+			gfx_picked = true
 			apply_graphics()
 		"gfx_0", "gfx_1", "gfx_2", "gfx_3":
 			gfx_quality = int(key.trim_prefix("gfx_"))
+			gfx_picked = true
 			apply_graphics()
 		"fullscreen":
 			fullscreen = not fullscreen
@@ -3205,6 +3214,8 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "damage_numbers", damage_numbers)
 	cfg.set_value("settings", "show_fps", show_fps)
 	cfg.set_value("settings", "gfx_quality", gfx_quality)
+	cfg.set_value("settings", "gfx_picked", gfx_picked)
+	cfg.set_value("settings", "fps_intro_done", fps_intro_done)
 	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
@@ -3268,7 +3279,9 @@ func _load_controls() -> void:
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
+	fps_intro_done = cfg.get_value("settings", "fps_intro_done", false)
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
+	gfx_picked = cfg.get_value("settings", "gfx_picked", false)
 	if OS.has_feature("web"):
 		# Browsers (and tablets) start on Medium at most; Settings can raise it.
 		gfx_quality = mini(gfx_quality, 1)
@@ -8701,6 +8714,52 @@ var fill_light: DirectionalLight3D
 var cam_attrs: CameraAttributesPractical
 
 
+func _pick_graphics() -> void:
+	## Until the player picks a preset in Settings, the game picks one for
+	## the graphics card: Low on built-in (laptop) graphics, Medium on a
+	## graphics card. High was the default and ran slow and laggy on
+	## Faisal's PC (2026-10-10). The FPS counter starts on so a number can
+	## be reported back.
+	# (Tests and renders, which pass their own flags, keep the preset.)
+	if gfx_picked or OS.has_feature("web") or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
+		return
+	match RenderingServer.get_video_adapter_type():
+		RenderingDevice.DEVICE_TYPE_DISCRETE_GPU:
+			gfx_quality = 1
+		_:
+			gfx_quality = 0
+	if not fps_intro_done:
+		fps_intro_done = true   # once: the player can switch it off in Settings
+		show_fps = true
+
+
+func _auto_quality() -> void:
+	## Until the player picks a preset, one step down whenever the game runs
+	## under 40 frames a second for four seconds (a toast says so). Never
+	## steps up. Long stalls (loading, a shader built the first time) do not
+	## count: they restart the window.
+	if gfx_picked or gfx_quality == 0 or OS.has_feature("web") or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
+		return
+	var now := Time.get_ticks_msec()
+	if is_instance_valid(loading_layer) or now - _fps_last > 250:
+		_fps_since = 0
+	_fps_last = now
+	if _fps_since == 0:
+		_fps_since = now
+		_fps_frames = 0
+		return
+	_fps_frames += 1
+	if now - _fps_since < 4000:
+		return
+	var fps := _fps_frames * 1000.0 / float(now - _fps_since)
+	_fps_since = 0
+	if fps < 40.0:
+		gfx_quality -= 1
+		apply_graphics()
+		_save_settings()
+		toast("Graphics set to %s for smoother play (Settings to change)" % GFX_NAMES[gfx_quality].capitalize(), Color(1.0, 0.9, 0.6))
+
+
 func apply_graphics() -> void:
 	## The graphics preset and display mode, applied live. Low suits older
 	## laptops and the Compatibility renderer; Ultra adds volumetric light
@@ -8725,7 +8784,7 @@ func apply_graphics() -> void:
 	# medium filter; FXAA runs on top of multisampling, and Medium gets 4x.
 	RenderingServer.directional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
 	RenderingServer.positional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
-	if vp.msaa_3d == Viewport.MSAA_2X:
+	if vp.msaa_3d == Viewport.MSAA_2X and q >= 2:
 		vp.msaa_3d = Viewport.MSAA_4X
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	if OS.has_feature("web"):
@@ -8747,6 +8806,11 @@ func apply_graphics() -> void:
 		# object in a second pass. Medium brings both back.
 		if sun_light:
 			sun_light.shadow_enabled = q >= 1
+	# Low and Medium: low-quality contact shadows, and two
+	# sun shadow cascades on Low (High keeps the project's Ultra AO and four).
+	RenderingServer.environment_set_ssao_quality(RenderingServer.ENV_SSAO_QUALITY_LOW if q <= 1 else RenderingServer.ENV_SSAO_QUALITY_ULTRA, true, 0.5, 2, 50.0, 300.0)
+	if sun_light and not OS.has_feature("web"):
+		sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == 0 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	if world_environment:
 		world_environment.ssao_enabled = q >= 1
 		world_environment.ssil_enabled = q >= 2
