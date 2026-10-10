@@ -3959,7 +3959,7 @@ func _draw_rank_menu(p) -> void:
 	_upgrades_page(p, Rect2(R.position + Vector2(18, 46), Vector2(R.size.x - 36, R.size.y - 86)), now)
 	if game.on_pad(p):
 		# Button prompts with the pad's own glyphs.
-		var items := [[game.key_label("rank_1", p) + game.key_label("rank_4", p), "Move"], [game.key_label("attack", p), "Upgrade / pick"],
+		var items := [["D-pad", "Move"], [game.key_label("attack", p), "Upgrade / pick"],
 			[game.key_label("rank_5", p) + "/" + game.key_label("rank_6", p), "Class"], [game.key_label("dodge", p), "Close"]]
 		var total := 0.0
 		for it in items:
@@ -4140,7 +4140,7 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 				var sy := art.position.y + 8.0 + k * (art.size.y - 16.0) / 4.0
 				var sx := art.position.x + 20.0 + f * (art.size.x - 40.0)
 				draw_line(Vector2(sx, sy), Vector2(sx + 20.0 + k * 3.0, sy - 5.0), Color(tint.lightened(0.5), 0.5 * sin(f * PI)), 2.0)
-			_icon(icon, art.position + Vector2(art.size.x - 40.0, art.size.y / 2.0), minf(22.0, art.size.y * 0.36), Color(tint.lightened(0.3), 0.55))
+			# (No big faint emblem here any more: the "Next:" line ran over it.)
 		# Icon tile.
 		var ts := minf(row.size.y - 12.0, 54.0)
 		var tile := Rect2(row.position + Vector2(6, (row.size.y - ts) / 2.0), Vector2(ts, ts))
@@ -4186,7 +4186,7 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 			var arm := bs * 0.26
 			draw_line(pc + Vector2(-arm, 0), pc + Vector2(arm, 0), pcol, 5.0)
 			draw_line(pc + Vector2(0, -arm), pc + Vector2(0, arm), pcol, 5.0)
-			if own:
+			if own and not pad:
 				_keycap(btn.position, str(t + 1), 15)
 		elif available:
 			_text(Vector2(btn.position.x - 10, btn.get_center().y + 6), "MAX", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER, btn.size.x + 20, 3)
@@ -4232,7 +4232,9 @@ const COMPARE_KEYS := [["damage", "Damage", "%s hearts"], ["heal", "Heal", "%s h
 
 func _num(v) -> String:
 	var f := float(v)
-	return str(int(f)) if is_equal_approx(f, roundf(f)) else ("%.1f" % f)
+	if is_equal_approx(f, roundf(f)):
+		return str(int(f))
+	return ("%.2f" % f).rstrip("0") if absf(f) < 2.0 else ("%.1f" % f)   # 0.46s, not a rounded 0.5s
 
 
 func _rank_compare(p, view: int, t: int, r: int, abil: Array, kit: Dictionary, own: bool) -> Array:
