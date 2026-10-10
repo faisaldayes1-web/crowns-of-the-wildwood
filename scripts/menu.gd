@@ -134,6 +134,24 @@ func ttext(pos: Vector2, text: String, size: int, color: Color = Color.WHITE, al
 	h.draw_string(f, pos, text, align, width, size, color)
 
 
+func fit_size(text: String, size: int, width: float) -> int:
+	## The biggest title-face size up to `size` at which `text` fits in `width`.
+	var f: Font = font_title if font_title else h.font
+	while size > 8 and f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width:
+		size -= 1
+	return size
+
+
+static func gold_text(n: int) -> String:
+	## 1234567 -> "1,234,567".
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.right(3) + out
+		s = s.left(s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
+
+
 func button(r: Rect2, id: String, arg = null) -> bool:
 	## Record a clickable rect; returns whether the pointer is over it.
 	h.menu_buttons.append([r, id, arg])
@@ -287,7 +305,10 @@ func _draw_title() -> void:
 	var pov := button(purse, "store") if overlay == "" else false
 	slate(purse.grow(2) if pov else purse)
 	h._icon("coin", purse.position + Vector2(purse.size.y / 2.0 + 4, purse.size.y / 2.0), purse.size.y * 0.16, Color.WHITE)
-	ttext(Vector2(purse.position.x + purse.size.y + 8, purse.position.y + purse.size.y * 0.62), "%d GOLD" % game.account_gold, int(purse.size.y * 0.42), Color(1.0, 0.86, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	# Shrinks to fit so a big purse never runs out of its box.
+	var gt := "%s GOLD" % gold_text(game.account_gold)
+	var gx := purse.position.x + purse.size.y + 8
+	ttext(Vector2(gx, purse.position.y + purse.size.y * 0.62), gt, fit_size(gt, int(purse.size.y * 0.42), purse.end.x - 12 - gx), Color(1.0, 0.86, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	if exit_armed > 0.0:
 		var r := _bg_rect(BG_ITEMS[4])
 		var tip := Rect2(r.end.x + 10, r.position.y + 6, 190, r.size.y - 12)

@@ -301,8 +301,9 @@ func _wallet(r: Rect2) -> void:
 	menu.slate(r)
 	var pulse := clampf(flash / 2.0, 0.0, 1.0)
 	h._icon("coin", r.position + Vector2(34, r.size.y / 2.0), 11.0 + 2.0 * pulse, Color.WHITE)
-	menu.ttext(Vector2(r.position.x + 62, r.position.y + 35), "%d" % game.account_gold, 28, Color(1.0, 0.85, 0.35).lerp(Color.WHITE, pulse), HORIZONTAL_ALIGNMENT_LEFT, -1, 6)
-	h._text(Vector2(r.position.x + 62, r.position.y + 50), "GOLD  ·  +%d-%d a match" % [Stats.MATCH_GOLD.loss, Stats.MATCH_GOLD.win], 10, Color(0.88, 0.85, 0.75), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var gt: String = "%s GOLD" % menu.gold_text(game.account_gold)
+	var gs: int = menu.fit_size(gt, 28, r.end.x - 16 - (r.position.x + 62))
+	menu.ttext(Vector2(r.position.x + 62, r.position.y + r.size.y / 2.0 + gs * 0.36), gt, gs, Color(1.0, 0.85, 0.35).lerp(Color.WHITE, pulse), HORIZONTAL_ALIGNMENT_LEFT, -1, 6)
 
 
 func _chests(r: Rect2) -> void:
