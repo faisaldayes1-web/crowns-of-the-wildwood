@@ -18,6 +18,11 @@ Waiting to release, in this order:
 | [#4](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/4) | Ember Pass volcano map, Fire Objective, Fire classes | v0.4.0 | held until the Volcano map and Current build showcase threads finish |
 | [#8](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/8) | Combat & Balance group | patch or minor | built on #1-#4 combined: after #4 |
 
+## v0.4.0-alpha refresh · 2026-10-10 09:20 UTC · Online rooms, new trees, smoother clicks
+
+- **Branch:** `release/v0.4.0-alpha`. Adds Online & Platforms (ONLINE button: create or join a 4-letter room over the Render relay; merges `a238ae5`, `b679b8d`) and World & Maps `007d782` (new tree crowns, z-fighting fixes; merge `10d71ef`). Earlier the same day: Not Responding fix, automatic graphics preset, click-lag and stutter fixes, balance patch 3, Split-screen #16, orchestral music #15 (see [changelog/integration-release.md](changelog/integration-release.md)).
+- **Revert:** `git revert -m 1 <merge>` for each merge above, newest first.
+
 ## v0.4.0-alpha refresh · 2026-10-10 01:10 UTC · Economy action card and base stock
 
 - **Branch:** `release/v0.4.0-alpha`, merge `026cb49` of Economy #13 (12 commits up to `9e1e02f`): REPAIR / UPGRADE / BUILD action card, resource monitor with base stock and carry slots, a downed soldier drops the load, door-mend retune (+50 → +35), `--no-economy` test flag. Every other group branch was already in (Combat & Balance up to balance patch 2, `130bf14`).

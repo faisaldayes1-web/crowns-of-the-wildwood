@@ -70,6 +70,10 @@ func _down(i: int, pos: Vector2) -> void:
 	if game:
 		game.touch_active = true
 	if not _playing():
+		if game.rank_open and not game.menu_open and (game.hud.touch_close.grow(10).has_point(pos) or not game.hud._menu_rect().has_point(pos)):
+			# The UPGRADES board: CLOSE, or a tap anywhere outside it, shuts it.
+			game.rank_open = false
+			return
 		game.touch_tap = _snap(pos)   # a menu tap: game.menu_tick reads it as a click
 		return
 	var hud = game.hud

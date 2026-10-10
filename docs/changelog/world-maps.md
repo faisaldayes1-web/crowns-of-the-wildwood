@@ -7,7 +7,19 @@ Branch `group/world-maps-5djtj1`, draft PR #7. Based on the combined build (PRs 
 
 <!-- entries below -->
 
-### 2026-10-10 06:35 UTC · `(stamped by the next entry)` · Flashing textures at the Ember Pass doors (z-fighting sweep, both maps)
+### 2026-10-10 08:50 UTC · `(stamped by the next entry)` · Trees: clump-dome crowns and jagged pines; field wall stubs off the Forest Path
+
+- **What:** Faisal 07:58 "overall improve on the game in all aspects" (coordinator: the next most visible map and tree upgrades).
+  - **Leafy trees:** each crown is now a dome of 9–11 leaf clumps (a skirt of low clumps, a smaller ring above and a top knot) on three short boughs. It used to be 4–6 big blobs.
+  - **Crown shading:** the leaf shader can now shade a whole crown on world height (`world_gradient`, `crown_base`), so a tree is dark underneath and sunlit on top as one piece. Before, every blob had its own dark underside and the tree read as a pile of balls.
+  - **Pines:** each tier is now a faceted cone whose rim is a ring of drooping needle points (`_pine_tier_mesh`, cached), instead of a smooth cone. They also get the one-piece gradient, lifted a little so they no longer read near black.
+  - **Field wall stubs:** they now step off any path they sat on, with their cover point and collider. The one at (−31, −19.7) stood across the Forest Path like a wooden post. They are stone on both sides now: the elven `_ashlar` is bark, which made the Elf-side stubs read as logs. Their rubble is mirrored by side.
+- **Files:** assets/shaders/leaf.gdshader, scripts/game.gd (`_add_tree_grown`, `_add_pine`, `_pine_tier_mesh`, `_add_cover`, `_add_wall_stub`)
+- **Tunables:** none. Tree colliders are unchanged.
+- **Tested:** `--check-only`; `--audit` Wildwood 1 / Ember Pass 0 (baseline). 3 min `--demo` on both maps: Wildwood doors 0 / 182 by t=150 s; Ember Pass doors 0 / 200 by t=150 s. Only one Ember door dropped, but this change does not touch Ember Pass, and the run before it had the other door falling (171 / 0).
+- **Revert:** `git revert <hash>`
+
+### 2026-10-10 06:35 UTC · `5a468b0` · Flashing textures at the Ember Pass doors (z-fighting sweep, both maps)
 
 - **What:** Faisal 2026-10-10 06:02: "texture glitches where the door was flashing on the embers map". The cause was z-fighting: two surfaces in the same plane overlap, and the GPU flips between them as the camera moves. A new headless tool, `tools/zfight_audit.gd`, lists every overlapping pair of same-plane, same-facing faces. Fixed at the source:
   - **In front of both Ember doors:** the causeway paving ran 4 m onto the plateau rock, and both tops sat at y 0 (27 m² flickering at each door). Now the plateau is at 0, causeways are 8 mm higher and plazas 16 mm higher. Door-court, plaza and Fire Objective rosettes and runes are lifted above them.

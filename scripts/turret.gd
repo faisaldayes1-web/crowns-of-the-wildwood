@@ -270,7 +270,7 @@ func _target():
 func _physics_process(delta: float) -> void:
 	overclock = maxf(overclock - delta, 0.0)
 	fire_timer -= delta
-	var target = _target()
+	var target = _target() if not game.net_client else null   # online: the host's turret shoots
 	if target:
 		var to: Vector3 = target.global_position - global_position
 		to.y = 0.0

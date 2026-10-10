@@ -879,6 +879,12 @@ func play_loop(name: String) -> void:
 
 
 func play_once(name: String, speed: float = 1.0, recover: float = 1.0) -> void:
+	var n = _net_open("play_once", [self, name, speed, recover])
+	_x_play_once(name, speed, recover)
+	_net_close(n)
+
+
+func _x_play_once(name: String, speed: float = 1.0, recover: float = 1.0) -> void:
 	## A one-shot action (attack, dodge, hit). Locomotion resumes after it;
 	## while moving it may cut in once `recover` of the action has played
 	## (the follow-through of a swing gives way to the run, no stop-start).
@@ -892,18 +898,36 @@ func play_once(name: String, speed: float = 1.0, recover: float = 1.0) -> void:
 
 
 func attack() -> void:
+	var n = _net_open("attack", [self])
+	_x_attack()
+	_net_close(n)
+
+
+func _x_attack() -> void:
 	if attack_anims.is_empty():
 		return
 	play_once(attack_anims[randi() % attack_anims.size()], 1.6, ATTACK_RECOVER)
 
 
 func hold(name: String) -> void:
+	var n = _net_open("hold", [self, name])
+	_x_hold(name)
+	_net_close(n)
+
+
+func _x_hold(name: String) -> void:
 	## Keep a loop (Blocking, Spellcasting) until release().
 	held = name
 	play_loop(name)
 
 
 func release() -> void:
+	var n = _net_open("release", [self])
+	_x_release()
+	_net_close(n)
+
+
+func _x_release() -> void:
 	held = ""
 	current = ""
 
@@ -917,6 +941,12 @@ func die() -> void:
 
 
 func go_down() -> void:
+	var n = _net_open("go_down", [self])
+	_x_go_down()
+	_net_close(n)
+
+
+func _x_go_down() -> void:
 	## Downed: drop to the ground and lie there until revived or dead.
 	held = ""
 	busy_until = _now() + 9999.0
@@ -927,6 +957,12 @@ func go_down() -> void:
 
 
 func stand_up() -> void:
+	var n = _net_open("stand_up", [self])
+	_x_stand_up()
+	_net_close(n)
+
+
+func _x_stand_up() -> void:
 	## Revived: get back up, then normal locomotion.
 	held = ""
 	if anim and anim.has_animation("Lie_StandUp"):
@@ -964,3 +1000,18 @@ func update_locomotion(moving: bool) -> void:
 		play_loop(held)
 		return
 	play_loop(move_anim if moving else idle_anim)
+
+
+# --- Online: mirror animations to the joiners (scripts/net.gd) ---------------
+
+func _net_open(method: String, args: Array):
+	var n = get_node_or_null("/root/Net")
+	if n:
+		n.rec("model", method, args)
+		n.depth += 1
+	return n
+
+
+func _net_close(n) -> void:
+	if n:
+		n.depth -= 1

@@ -159,6 +159,16 @@ var local_index := -1              # which local (couch) player drives this unit
 var _bot_plan: Dictionary = {}     # browsers: the last plan, repeated on alternate ticks
 var act_prefix := ""               # input action prefix: "" for player 1, "p2_" ... for couch players
 var has_mouse := true              # player 1 aims with the mouse; the others with the right stick
+# Online (scripts/net.gd). Host: a joiner drives this unit through net_input.
+# Client: every unit is a puppet gliding to the host's snapshot (net_pos).
+var remote_peer := 0               # host: the joiner's peer id, 0 for a local player or a bot
+var net_input := {}                # host: the joiner's latest {move, aim, attack, block, counts}
+var net_seen := {}                 # host: tap counts already acted on
+var net_pos := Vector3.INF         # client: where the host says we are
+var net_rot := 0.0
+var net_custom := {}               # host: a joiner's hero colours and hair
+var net_look := {}                 # client: the host's word on how this fighter looks
+var net_look_sent := []            # host: the look last sent to the joiners
 var avoid_dir := Vector3.ZERO      # look-ahead detour we are committed to
 var avoid_timer := 0.0
 var sidestep_timer := 0.0   # while > 0 the bot commits to walking around an obstacle
@@ -469,7 +479,7 @@ func choose_variant(for_role: int, index: int) -> bool:
 		_stats_cache = {}
 		ability_timers = [0.0, 0.0, 0.0]
 		blocking = false
-		model.setup(team, role, variant().name, game.hero_custom() if is_player else {}, gear_rank())
+		model.setup(team, role, variant().name, custom_look(), gear_rank())
 		flash_mats = model.flash_mats
 		_apply_side_colors()
 		_refresh_overhead()
@@ -516,8 +526,8 @@ func refresh_fire(announce: bool = true) -> void:
 		game.spawn_pillar(global_position, flame, 4.0, 0.8)
 		game.spawn_ring(global_position, 2.0, flame, 0.6)
 		game.spawn_popup(global_position + Vector3(0, 2.4, 0), role_name().to_upper(), flame)
-		if is_player:
-			game.announce("FIRE FORM! You are a %s: your attacks set enemies alight." % role_name())
+		if is_player or remote_peer > 0:
+			game.announce("FIRE FORM! You are a %s: your attacks set enemies alight." % role_name(), self)
 	elif is_player:
 		game.toast("Your fire fades: the Fire Objective is lost", Color(1.0, 0.6, 0.35))
 
@@ -602,7 +612,7 @@ func set_role(new_role: int) -> void:
 	if model == null:
 		model = CharacterModel.new()
 		build.add_child(model)
-	model.setup(team, role, variant().get("name", ""), game.hero_custom() if is_player else {}, gear_rank())
+	model.setup(team, role, variant().get("name", ""), custom_look(), gear_rank())
 	flash_mats = model.flash_mats
 	_apply_side_colors()
 	refresh_fire(role != Role.BASE)
@@ -713,8 +723,8 @@ func apply_blessing(kind: String) -> void:
 	regen_tick = Stats.BLESSING_REGEN_TICK
 	var c: Color = Stats.BLESSING_KINDS[kind].color
 	game.spawn_popup(global_position + Vector3(0, 2.4, 0), kind.to_upper(), c)
-	if is_player:
-		game.announce("Blessing of Light: %s! (%s for %d seconds)" % [kind, Stats.BLESSING_KINDS[kind].desc, int(Stats.BLESSING_DURATION)])
+	if is_player or remote_peer > 0:
+		game.announce("Blessing of Light: %s! (%s for %d seconds)" % [kind, Stats.BLESSING_KINDS[kind].desc, int(Stats.BLESSING_DURATION)], self)
 	else:
 		game.chat_system("%s took the Blessing of %s." % [display_name, kind])
 
@@ -826,7 +836,7 @@ func spend_point(track: int) -> bool:
 	mastery[role] = mastery.get(role, 0) + 1
 	if gear_rank() != old_rank:
 		# New armour tier: redress the model.
-		model.setup(team, role, variant().get("name", ""), game.hero_custom() if is_player else {}, gear_rank())
+		model.setup(team, role, variant().get("name", ""), custom_look(), gear_rank())
 		flash_mats = model.flash_mats
 		_apply_side_colors()
 		_refresh_overhead()
@@ -1050,6 +1060,8 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	if attacker and is_instance_valid(attacker) and "combat_at" in attacker:
 		attacker.combat_at = combat_at
 	flash_timer = FLASH_TIME
+	if game.net:
+		game.net.rec("game", "net_flash", [self])
 	_hitstop(0.07 if amount < 2 else 0.11)
 	if model:
 		# A squash on the hit: wider and shorter, springing back.
@@ -1093,9 +1105,12 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			print("KILL t=%d kteam=%d krole=%d klevel=%d kmastery=%d vteam=%d vrole=%d vlevel=%d vmastery=%d kfire=%d burn=%d" % [game.match_clock(),
 				attacker.team, attacker.role, attacker.level, attacker.total_upgrades(), team, role, level, total_upgrades(),
 				int(attacker.fire_form), int(burn_tick)])
-		if is_player:
+		if is_player or remote_peer > 0:
 			var weapon: String = attacker.attack_stats().attack_name if (attacker and attacker != self and attacker.has_method("attack_stats")) else ""
-			game.on_player_killed(attacker if attacker != self else null, weapon)
+			if is_player:
+				game.on_player_killed(attacker if attacker != self else null, weapon)
+			elif game.net:
+				game.net.rec("game", "on_player_killed", [attacker if attacker != self else null, weapon], self)
 		if attacker and attacker != self:
 			if attacker.is_player:
 				game.shake(0.28)
@@ -1129,6 +1144,9 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 				game.sfx.ui("rank_up", -2.0, 1.15 if attacker.streak < 2 else 1.0 + 0.1 * mini(attacker.streak, 5))
 				game.rumble(attacker, 0.4, 0.7, 0.3)
 				game.spawn_ring(attacker.global_position, 2.2, Color(1.0, 0.85, 0.3), 0.5)
+			elif attacker.remote_peer > 0 and game.net:
+				game.net.rec("game", "net_kill_banner", [{"victim": display_name, "role": role_name(), "team": team, "role_id": role,
+					"streak": attacker.streak}], attacker)
 			if veteran == 2 and attacker.team != team:
 				game.bounty_claimed(attacker, self)
 			attacker._check_veteran()
@@ -1665,6 +1683,9 @@ func _hit_while_downed(attacker, finisher: bool = false) -> bool:
 		if attacker.is_player:
 			attacker.kill_banner = {"victim": display_name, "role": role_name(), "team": team, "role_id": role,
 				"streak": 0, "time": Time.get_ticks_msec() / 1000.0, "finish": true}
+		elif attacker.remote_peer > 0 and game.net:
+			game.net.rec("game", "net_kill_banner", [{"victim": display_name, "role": role_name(), "team": team, "role_id": role,
+				"streak": 0, "finish": true}], attacker)
 		# The finisher shows in the kill feed too (the down already counted
 		# as the kill for whoever knocked us down).
 		game.kill_feed.append({"killer": attacker.display_name, "kteam": attacker.team, "krole": attacker.role,
@@ -1891,10 +1912,10 @@ func _revive(by) -> void:
 	if not is_player:   # the player gets the REVIVED BY notice instead
 		game.spawn_popup(global_position + Vector3(0, 2.2, 0), "REVIVED", col)
 	game.sfx.play("respawn", global_position, -4.0)
-	if is_player:
-		game.toast("REVIVED BY %s" % (by.display_name.to_upper() if by else "A TEAMMATE"), col)
-	if by and by.is_player:
-		game.toast("YOU REVIVED %s" % display_name.to_upper(), col)
+	if is_player or remote_peer > 0:
+		game.toast("REVIVED BY %s" % (by.display_name.to_upper() if by else "A TEAMMATE"), col, self)
+	if by and (by.is_player or by.remote_peer > 0):
+		game.toast("YOU REVIVED %s" % display_name.to_upper(), col, by)
 	if game.demo:
 		print("REVIVE t=%d team%d %s by=%s healer=%s" % [game.match_clock(), team, role_name(), by.role_name() if by else "?", healer])
 	_refresh_overhead()
@@ -1917,13 +1938,14 @@ func _downed_process(delta: float) -> void:
 		_die()
 		return
 	var move := Vector3.ZERO
-	if is_player:
+	if is_player or remote_peer > 0:
+		_net_read_taps()
 		if not game.menu_blocks_input(self):
-			var stick := Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+			var stick := _stick()
 			move = Vector3(stick.x, 0, stick.y)
 			# Hold interact to give up and respawn (not from a press held
 			# over from before the fall).
-			if Input.is_action_pressed(_a("interact")) and downed_total - downed_timer > 0.4:
+			if _held("interact") and downed_total - downed_timer > 0.4:
 				skip_hold += delta
 			else:
 				skip_hold = 0.0
@@ -2266,6 +2288,9 @@ func _auto_aim() -> Vector3:
 func _physics_process(delta: float) -> void:
 	if game == null or not game.playing:
 		return
+	if game.net_client:
+		_net_puppet(delta)
+		return
 	if dead:
 		if death_timer > 0.0:
 			death_timer -= delta
@@ -2424,44 +2449,50 @@ func _physics_process(delta: float) -> void:
 	var wants_attack := false
 	var wants_block := false
 	var plan := {}
-	if is_player:
-		var stick := Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+	if is_player or remote_peer > 0:
+		# A local player, or (on the host) a joiner whose controls arrive over
+		# the network: the same code reads both through _stick/_held/_tap.
+		_net_read_taps()
+		var stick := _stick()
 		move = Vector3(stick.x, 0, stick.y)
-		_update_player_aim(move)
-		_update_highlights()
+		if remote_peer > 0:
+			_net_aim()
+		else:
+			_update_player_aim(move)
+			_update_highlights()
 		if not game.menu_blocks_input(self):
 			# Held attack keeps swinging; a tap during the cooldown is kept for
 			# a moment and swings as soon as it can (no lost clicks).
-			if Input.is_action_just_pressed(_a("attack")):
+			if _tap("attack"):
 				attack_buffer = ATTACK_BUFFER
-			wants_attack = Input.is_action_pressed(_a("attack")) or attack_buffer > 0.0
-			if game.economy and game.economy.mouse_on_button():
+			wants_attack = _held("attack") or attack_buffer > 0.0
+			if remote_peer <= 0 and game.economy and game.economy.mouse_on_button():
 				wants_attack = false   # a click on the economy card's button buys, it does not swing
 				attack_buffer = 0.0
-			wants_block = Input.is_action_pressed(_a("block"))
+			wants_block = _held("block")
 			# Hold interact over a downed teammate to revive them; otherwise
 			# interact grabs, drops and talks as before.
 			var rv = revive_candidate()
 			var fv = finish_candidate() if rv == null else null
-			if rv and Input.is_action_pressed(_a("interact")):
+			if rv and _held("interact"):
 				_tick_revive(rv, delta)
 				move = Vector3.ZERO
 				wants_attack = false
-			elif fv and Input.is_action_pressed(_a("interact")):
+			elif fv and _held("interact"):
 				_tick_finish(fv, delta)
 				move = Vector3.ZERO
 				wants_attack = false
-			elif Input.is_action_just_pressed(_a("interact")):
+			elif _tap("interact"):
 				game.try_interact(self)
 			# A press just before a skill or the dodge is ready still counts:
 			# it waits up to INPUT_BUFFER seconds and fires the moment it can.
-			if Input.is_action_just_pressed(_a("ability_1")):
+			if _tap("ability_1"):
 				input_buffer[0] = INPUT_BUFFER
-			if Input.is_action_just_pressed(_a("ability_2")):
+			if _tap("ability_2"):
 				input_buffer[1] = INPUT_BUFFER
-			if Input.is_action_just_pressed(_a("ability_3")):
+			if _tap("ability_3"):
 				use_ability(2, aim)
-			if Input.is_action_just_pressed(_a("dodge")):
+			if _tap("dodge"):
 				input_buffer[2] = INPUT_BUFFER
 		for i in 2:
 			if input_buffer[i] > 0.0:
@@ -2533,7 +2564,7 @@ func _physics_process(delta: float) -> void:
 
 	# The player always faces where they aim; bots face where they walk, or
 	# whatever they are attacking.
-	if is_player:
+	if is_player or remote_peer > 0:
 		facing = aim
 	elif (wants_attack or blocking) and aim.length() > 0.05:
 		facing = aim.normalized()
@@ -2569,6 +2600,183 @@ func _physics_process(delta: float) -> void:
 		_attack(aim)
 	if plan.has("ability"):
 		use_ability(plan.ability, plan.aim)
+
+
+# --- Controls: a local player's devices, or a joiner's over the network ----------
+
+var net_taps: Array = []           # host: the joiner's taps that land this physics frame
+var _taps_frame := -1
+
+
+func _net_read_taps() -> void:
+	## Host: turn the joiner's tap counters into this frame's taps (once a frame).
+	if remote_peer <= 0 or _taps_frame == Engine.get_physics_frames():
+		return
+	_taps_frame = Engine.get_physics_frames()
+	net_taps = []
+	var counts: Dictionary = net_input.get("counts", {})
+	for k in counts:
+		if counts[k] != net_seen.get(k, counts[k]):
+			net_taps.append(k)
+		net_seen[k] = counts[k]
+
+
+func _stick() -> Vector2:
+	if remote_peer > 0:
+		return net_input.get("move", Vector2.ZERO)
+	return Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+
+
+func _held(action: String) -> bool:
+	if remote_peer > 0:
+		return action in net_input.get("held", [])
+	return Input.is_action_pressed(_a(action))
+
+
+func _tap(action: String) -> bool:
+	if remote_peer > 0:
+		return action in net_taps
+	return Input.is_action_just_pressed(_a(action))
+
+
+func _net_aim() -> void:
+	var to: Vector3 = net_input.get("aim", aim)
+	to.y = 0.0
+	if to.length() > 0.05:
+		aim = to.normalized()
+	aim_point = global_position + aim * 6.0
+
+
+func custom_look() -> Dictionary:
+	## A player's own hero (colours, hair) painted into every class; bots plain.
+	if is_player:
+		return game.hero_custom()
+	if remote_peer > 0:
+		return net_custom
+	if game.net_client and not net_look.is_empty():
+		return net_look.custom
+	return {}
+
+
+func redress() -> void:
+	## Put the model back on with the current class, variant, gear and colours.
+	if model == null:
+		return
+	model.setup(team, role, variant().get("name", ""), custom_look(), gear_rank())
+	flash_mats = model.flash_mats
+	_apply_side_colors()
+	_refresh_overhead()
+
+
+func net_look_now() -> Array:
+	return [role, variant().get("name", ""), gear_rank(), custom_look()]
+
+
+func net_wear_look() -> void:
+	## Client: dress the model as the host says (once it is in that class).
+	if net_look.is_empty() or net_look.role != role or model == null:
+		return
+	model.setup(team, role, net_look.variant, custom_look(), net_look.rank)
+	flash_mats = model.flash_mats
+	_apply_side_colors()
+	_refresh_overhead()
+
+
+func net_apply(d: Array) -> void:
+	## Client: one unit's line of the host's snapshot.
+	net_pos = d[0]
+	net_rot = d[1]
+	if d[5] != role:
+		set_role(d[5])
+		net_wear_look()
+	if d[14] != downed:
+		downed = d[14]
+		if downed:
+			_build_down_fx()
+			down_fx.visible = true
+			if aim_marker:
+				aim_marker.visible = false
+				aim_ring.visible = false
+		else:
+			if down_fx:
+				down_fx.visible = false
+			if down_cross:
+				down_cross.visible = false
+				down_bar.visible = false
+			if aim_marker and not d[4]:
+				aim_marker.visible = true
+		_refresh_overhead()
+	downed_timer = d[15]
+	downed_total = d[16]
+	revive_progress = d[17]
+	if d[18]:
+		revive_by = self
+		revive_frame = Engine.get_physics_frames()
+	hearts = d[2]
+	energy = d[3]
+	respawn_timer = d[6]
+	level = d[7]
+	kills = d[8]
+	deaths = d[9]
+	carrying = game.monarchs[1 - team] if d[10] else null
+	xp = d[11]
+	points = d[12]
+	if d[13] != display_name and not is_player:
+		display_name = d[13]
+		_refresh_overhead()
+	if d[4] != dead:
+		dead = d[4]
+		if dead:
+			model.die()
+			death_timer = 1.1
+			if aim_marker:
+				aim_marker.visible = false
+				aim_ring.visible = false
+		else:
+			model.revive()
+			visible = true
+			global_position = net_pos
+			if aim_marker:
+				aim_marker.visible = true
+
+
+func _net_puppet(delta: float) -> void:
+	## Client: glide to the host's latest position and facing. Our own unit
+	## still works out its aim here, which is sent to the host as input.
+	if dead:
+		if death_timer > 0.0:
+			death_timer -= delta
+			if death_timer <= 0.0:
+				visible = false
+		return
+	if net_pos != Vector3.INF and downed:
+		global_position = global_position.lerp(net_pos, minf(1.0, delta * 15.0))
+		return
+	if is_player:
+		var stick := Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+		_update_player_aim(Vector3(stick.x, 0, stick.y))
+	if flash_timer > 0.0:
+		flash_timer = maxf(flash_timer - delta, 0.0)
+		_flash_look()
+	if carry_fx:
+		carry_fx.visible = carrying != null
+	if net_pos == Vector3.INF:
+		return
+	var before := global_position
+	if global_position.distance_to(net_pos) > 4.0:
+		global_position = net_pos   # a respawn or a blink: jump
+	else:
+		global_position = global_position.lerp(net_pos, minf(1.0, delta * 15.0))
+	velocity = (global_position - before) / maxf(delta, 0.001)
+	# Footsteps here rather than over the network.
+	var planar := Vector2(velocity.x, velocity.z).length()
+	if planar > 1.0:
+		step_timer -= delta * planar / 6.0
+		if step_timer <= 0.0:
+			step_timer = 0.34
+			var stone: bool = global_position.y > 0.5 or absf(global_position.x) > game.CASTLE_X - game.CASTLE_DEPTH - 1.0 or absf(global_position.x) < 7.0
+			game.sfx.play("step_stone" if stone else "step", global_position, -14.0 if is_player else -20.0, 0.2)
+	rotation.y = atan2(-aim.x, -aim.z) if is_player else lerp_angle(rotation.y, net_rot, minf(1.0, delta * 15.0))
 
 
 func _update_highlights() -> void:

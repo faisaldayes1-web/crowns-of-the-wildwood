@@ -58,6 +58,7 @@ var next_slot_art := ""          # set just before _slot(): the skill art to dra
 var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
+var touch_close := Rect2()          # the UPGRADES board's CLOSE button on touch screens
 var rank_tab_buttons: Array = []   # [rect, role] class tabs on the skills screen
 var rank_view := -1                # the class the skills screen shows (-1 = your own)
 var rank_focus := 0                 # UPGRADES: the lit row (0-3 skills, 4-5 promotions); the pad moves it, the mouse hovers it
@@ -228,6 +229,7 @@ func _draw() -> void:
 	rank_buttons = []
 	variant_buttons = []
 	rank_tab_buttons = []
+	touch_close = Rect2()
 	tab_buttons = []
 	tab_ids = []
 	zoom_buttons = []
@@ -1965,6 +1967,15 @@ func _close(rect: Rect2) -> void:
 	## An X button in a panel's top-right corner. Recorded for mouse clicks.
 	close_button = Rect2(rect.end.x - 36, rect.position.y + 6, 30, 30)
 	var c := close_button.get_center()
+	if game.touch_active:
+		# A finger-sized X on touch screens (the iPad).
+		close_button = Rect2(rect.end.x - 62, rect.position.y - 6, 64, 64)
+		c = close_button.get_center()
+		_ring_button(c, 20.0)
+		for w in [[7.0, Color(0.3, 0.17, 0.04)], [3.5, CREAM]]:
+			draw_line(c + Vector2(-8, -8), c + Vector2(8, 8), w[1], w[0])
+			draw_line(c + Vector2(8, -8), c + Vector2(-8, 8), w[1], w[0])
+		return
 	_ring_button(c, 11.0)
 	draw_line(c + Vector2(-4.5, -4.5), c + Vector2(4.5, 4.5), Color(0.3, 0.17, 0.04), 4.0)
 	draw_line(c + Vector2(4.5, -4.5), c + Vector2(-4.5, 4.5), Color(0.3, 0.17, 0.04), 4.0)
@@ -4078,6 +4089,12 @@ func _draw_rank_menu(p) -> void:
 			x += 34.0 + maxf(0.0, _text_width(face, 11) - 14.0)
 			_text(Vector2(x, R.end.y - 14), it[1], 12, Color(0.92, 0.86, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			x += _text_width(it[1], 12) + 22.0
+	elif game.touch_active:
+		# Touch: a big CLOSE button under the board; a tap outside the board
+		# closes it too (touch.gd).
+		touch_close = Rect2(R.get_center().x - 110.0, R.end.y - 30.0, 220.0, 52.0)
+		_plate(touch_close, Color(0.55, 0.12, 0.08), GOLD, 12, 3)
+		_text(Vector2(touch_close.position.x, touch_close.position.y + 35), "CLOSE", 22, CREAM, HORIZONTAL_ALIGNMENT_CENTER, touch_close.size.x, 5)
 	else:
 		var hint := "1-4 or + spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  a fall costs 2 levels" % _k("rank_menu")
 		_text(Vector2(R.position.x, R.end.y - 14), hint, 11, Color(0.8, 0.74, 0.6), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
@@ -5582,6 +5599,8 @@ func _draw_title() -> void:
 		_: _draw_title_play(panel)
 	options_button = Rect2(tx, ty + 3 * 78, 190, 64)
 	var foot := "Press 1 or 2 (or click a side) to play  ·  Esc never quits by accident"
+	if game.net and game.net.status != "":
+		foot = game.net.status + ("  ·  press 1 or 2 to start the match" if game.net.is_host() else "")
 	if game.cursor_shown:
 		foot = "D-pad or stick moves the pointer  ·  %s picks  ·  %s backs out  ·  bumpers switch tabs" % [_k("ui_confirm"), _k("ui_back")]
 	elif game.couch_players > 1:
@@ -5641,7 +5660,26 @@ func _draw_title_play(panel: Rect2) -> void:
 		_chunky(b, Color(0.55, 0.4, 0.12) if on else Color(0.25, 0.22, 0.3), on, b.has_point(_mouse()))
 		_text(b.position + Vector2(0, 21), name.to_upper(), 11, Color.WHITE if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 		difficulty_buttons.append([b, name])
-	_text(Vector2(left + 360, dy + 20), Stats.BOT_TUNING[game.bot_difficulty].desc, 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(left + 50, dy + 42), Stats.BOT_TUNING[game.bot_difficulty].desc, 9, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# Online, under COUCH: host a game, or type the host's address and join.
+	var net = game.net
+	if net:
+		_text(Vector2(cxr, dy + 14), "ONLINE", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var host_b := Rect2(cxr + 56, dy, 70, 30)
+		var join_b := Rect2(cxr + 132, dy, 60, 30)
+		var ip_b := Rect2(cxr + 198, dy, 124, 30)
+		var hosting: bool = net.is_host()
+		var joined: bool = net.is_client()
+		_chunky(host_b, Color(0.2, 0.45, 0.6) if not hosting else Color(0.55, 0.3, 0.2), hosting, host_b.has_point(_mouse()))
+		_text(host_b.position + Vector2(0, 20), "STOP" if hosting else "HOST", 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, host_b.size.x, 2)
+		_chunky(join_b, Color(0.2, 0.5, 0.35) if not joined else Color(0.55, 0.3, 0.2), joined, join_b.has_point(_mouse()))
+		_text(join_b.position + Vector2(0, 20), "LEAVE" if joined else "JOIN", 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, join_b.size.x, 2)
+		_plate(ip_b, Color(0.05, 0.06, 0.1, 0.9), GOLD if game.ip_editing else GOLD_DARK, 6, 2)
+		var ip_text: String = game.net_ip + ("|" if game.ip_editing and int(Time.get_ticks_msec() / 400) % 2 == 0 else "")
+		_text(ip_b.position + Vector2(8, 20), ip_text, 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+		couch_buttons.append([host_b, "host"])
+		couch_buttons.append([join_b, "join"])
+		couch_buttons.append([ip_b, "ip"])
 	# The match card: how a round goes, as chunky tags.
 	var ty := dy + 50
 	_text(Vector2(left, ty + 14), "MATCH", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)

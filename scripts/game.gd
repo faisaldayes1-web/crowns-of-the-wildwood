@@ -143,6 +143,7 @@ var name_editing := false
 var levelup_timer := 0.0
 var levelup_level := 1
 var levelup_text := ""         # set for a class promotion: the flourish says PROMOTED! and this name
+var pine_tiers := {}   # cached pine tier meshes
 var map_trees: Array[Vector3] = []  # for the minimap: y > 0.5 means a big tree
 var map_paths: Array = []           # [from, to, width] of every path for the minimap
 var map_marks: Array = []           # [position, kind] ruins and such
@@ -287,22 +288,41 @@ var chat_log: Array = []       # {who, text, color, time, team}
 var rebinding := ""            # action waiting for a new key in the Controls menu
 var swallow_frame := -1        # frame on which a key was eaten by chat / rebinding
 var bot_chat_timer := 18.0
+# Online play (scripts/net.gd, the "Net" autoload): the host runs the match,
+# a client's units are puppets that follow the host's snapshots.
+var net: Node                   # the Net autoload (null if the project runs without it)
+var net_client := false         # this instance joined someone else's game
+var net_ready := false          # client: the host's world is built, waiting for a slot
+var ip_editing := false         # the title screen's host address field has the keyboard
+var net_ip := "127.0.0.1"
+var net_test := false           # --net-test: the headless two-instance smoke test
+var net_test_log := {}
+var net_slot := Vector2i(-1, -1)  # client: the (team, lineup slot) the host gave us
 
 
 func _ready() -> void:
 	randomize()
+	var fixed_seed := false
 	_show_loading(1.2)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="):
 			seed(int(arg.trim_prefix("--seed=")))
+			fixed_seed = true
+	net = get_node_or_null("/root/Net")
+	if net:
+		net.game = self
+		net_client = net.is_client()
+		net_test = "--net-test" in OS.get_cmdline_user_args()
 	_setup_input()
 	sfx = Sfx.new()
 	add_child(sfx)
 	if OS.has_feature("web"):
-		# A first visit in a browser (the iPad) starts on Low: no glow and the
-		# small shadow maps. Settings can raise it to Medium. The frame
-		# counter starts on so a slow iPad shows its number (Settings: FPS).
-		gfx_quality = 0
+		# A first visit in a browser (the iPad) starts on Medium: sun shadows,
+		# glow and a full-resolution 3D view (Faisal 2026-10-10: the website
+		# looked much worse than the PC). _auto_quality drops to Low if the
+		# device cannot hold the frame rate. The frame counter starts on so
+		# a slow iPad shows its number (Settings: FPS).
+		gfx_quality = 1
 		show_fps = true
 	_load_controls()
 	if OS.has_feature("web"):
@@ -332,11 +352,19 @@ func _ready() -> void:
 			map_variant = clampi(int(arg.trim_prefix("--map=")), 0, Stats.MAPS.size() - 1)
 	# Cartoon shading on everything that enters the scene, props and units alike.
 	get_tree().node_added.connect(func(n): _toonify.call_deferred(n))
+	if net_client and net.map_variant >= 0:
+		map_variant = net.map_variant   # the host's map
+	# Every instance in an online game builds the same world from the host's
+	# seed (trees, rocks and props carry colliders). --seed keeps its old meaning.
+	if net and not fixed_seed:
+		seed(net.world_seed)
 	# Building the world and starting a match take seconds in one go, and
 	# Windows greys a window out as "Not Responding" when it hears nothing
 	# for 5 s: keep answering it while nodes pour in.
 	get_tree().node_added.connect(func(_n): _keep_window_alive())
 	_build_world()
+	if net and not fixed_seed:
+		randomize()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--gfx="):  # testing: render at a given preset (0-3)
 			gfx_quality = clampi(int(arg.trim_prefix("--gfx=")), 0, 3)
@@ -402,6 +430,12 @@ func _ready() -> void:
 	if reopen_screen != "":
 		main_menu.go(reopen_screen)
 		reopen_screen = ""
+	if net and (net.is_client() or net.status.begins_with("The host left")):
+		main_menu.go("online")   # a joiner waits for the host here (or reads why the room closed)
+	if net and net.is_host():
+		net.rewelcome()   # the host rebuilt its world (a new map): joiners rebuild theirs
+	if net:
+		print("NET ready")   # the title is up (tools/web_net_test.js waits for this)
 	for arg in OS.get_cmdline_user_args():
 		# Testing: open a menu screen (title, map, character, lobby) or overlay.
 		if arg.begins_with("--debug-screen="):
@@ -431,6 +465,45 @@ func _ready() -> void:
 			split_screen = true
 			couch_players = clampi(int(arg.trim_prefix("--debug-lobby=")), 1, COUCH_MAX)
 			main_menu.readied = [true, true, true, true]
+	if net:
+		_net_ready_hooks()
+
+
+func _exit_tree() -> void:
+	if net and net.game == self:
+		net.game = null
+
+
+func _net_ready_hooks() -> void:
+	## Online start-up: a client that has the host's world tells the host it
+	## is ready; --host / --join start a connection from the command line.
+	if net_client:
+		net_ready = true
+		net.client_ready()
+		if not net.pending_start.is_empty():
+			net_start_client(net.pending_start)
+		return
+	if net.online() or net.cli_done:
+		return  # the host came back to the title after a match: keep hosting
+	net.cli_done = true
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--host" or arg.begins_with("--host="):
+			net.host(int(arg.trim_prefix("--host=")) if "=" in arg else net.DEFAULT_PORT)
+		elif arg.begins_with("--join="):
+			var parts := arg.trim_prefix("--join=").split(":")
+			net.join(parts[0], int(parts[1]) if parts.size() > 1 else net.DEFAULT_PORT)
+		elif arg == "--room-create":
+			net.create_room()
+		elif arg.begins_with("--room-join="):
+			var code := arg.trim_prefix("--room-join=")
+			if code.begins_with("@"):   # tests: wait for the host to write its code to this file
+				var path := code.substr(1)
+				for i in 600:
+					if FileAccess.file_exists(path) and FileAccess.get_file_as_string(path).strip_edges() != "":
+						break
+					await get_tree().create_timer(0.1).timeout
+				code = FileAccess.get_file_as_string(path).strip_edges()
+			net.join_room(code)
 
 
 func _process(delta: float) -> void:
@@ -443,7 +516,7 @@ func _process(delta: float) -> void:
 	_auto_quality()
 	for t in 2:
 		command_timer[t] = maxf(command_timer[t] - delta, 0.0)
-	if playing and overtime and not game_over:
+	if playing and overtime and not game_over and not net_client:
 		# Sudden death: a team with nobody left standing loses.
 		for t in 2:
 			if units.filter(func(u): return u.team == t and not u.dead).is_empty():
@@ -451,10 +524,12 @@ func _process(delta: float) -> void:
 				_finish(1 - t)
 				break
 	_update_compass()
+	if net_test:
+		_net_test_tick(delta)
 	if vmap:
 		vmap.tick(delta)
 	if not playing and not game_over:
-		if name_editing or menu_open:
+		if name_editing or ip_editing or menu_open or net_client:
 			return
 		if main_menu and main_menu.screen == "lobby" and main_menu.overlay == "":
 			# Ready Up: 1 or 2 picks player 1's side and starts.
@@ -479,6 +554,15 @@ func _process(delta: float) -> void:
 				summary.skip()
 			else:
 				get_tree().reload_current_scene()
+		return
+
+	if net_client:
+		# The host runs the match: only the camera, the HUD timers and the
+		# fortify horn (when the snapshot's clock says so) run here.
+		if prep_left <= 0.0 and is_instance_valid(barrier):
+			_begin_battle()
+		_update_camera(delta)
+		_tick_ui_timers(delta)
 		return
 
 	if prep_left > 0.0:
@@ -540,6 +624,10 @@ func _process(delta: float) -> void:
 			Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0,
 			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME),
 			Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.OBJECT_NODE_COUNT)])
+	_tick_ui_timers(delta)
+
+
+func _tick_ui_timers(delta: float) -> void:
 	stolen_timer = maxf(stolen_timer - delta, 0.0)
 	crown_event_timer = maxf(crown_event_timer - delta, 0.0)
 	killer_timer = maxf(killer_timer - delta, 0.0)
@@ -952,6 +1040,7 @@ func turret_spot(team: int, pos: Vector3, builder) -> Vector3:
 
 
 func spawn_turret(team: int, pos: Vector3, builder, opts: Dictionary) -> Node3D:
+	var nid := _net_spawn_begin("turret", [team, pos, builder, opts])
 	var t = Turret.new()
 	add_child(t)
 	t.setup(self, team, pos, builder, opts)
@@ -960,6 +1049,7 @@ func spawn_turret(team: int, pos: Vector3, builder, opts: Dictionary) -> Node3D:
 	spawn_splash(pos + Vector3(0, 0.6, 0), Color(0.8, 0.7, 0.5), 16, 3.0, 0.6)
 	spawn_ring(pos, 1.3, Stats.FACTIONS[team].color, 0.5)
 	sfx.play("turret_place", pos, 0.0)
+	_net_spawn_end(t, nid)
 	return t
 
 
@@ -981,11 +1071,16 @@ func turret_spots(team: int) -> Array:
 
 func spawn_bolt(team: int, from: Vector3, dir: Vector3, s: Dictionary, color: Color, owner_unit) -> void:
 	## A shot from something that is not a unit (turrets).
+	if net:
+		net.rec("game", "net_shot", [team, from, dir, s, color, true])
+		net.mute += 1
 	var shot = Projectile.new()
 	shot.owner_unit = owner_unit
 	shot.from_turret = true
 	add_child(shot)
 	shot.setup(self, team, from - Vector3(0, Projectile.FLIGHT_HEIGHT, 0), dir, s, color)
+	if net:
+		net.mute -= 1
 
 
 func drop_monarch(u) -> void:
@@ -1002,9 +1097,13 @@ func crown_event_note(kind: String, team: int) -> void:
 	## Raise the crown ribbon (hud._draw_crown_event) for everyone but the
 	## unit it happened to: "taken" when a crown is picked up, "dropped" when
 	## its carrier lets it go or falls.
+	if net:
+		net.rec("game", "crown_event_note", [kind, team])
 	crown_event = kind
 	crown_event_team = team
 	crown_event_timer = 3.6
+	if net_client and kind == "taken":
+		stolen_timer = 3.5
 
 
 func _check_stations() -> void:
@@ -1023,6 +1122,8 @@ func _check_stations() -> void:
 				sfx.play("station", u.global_position)
 				if u == player:
 					chat_system("You are now a %s." % u.role_name())   # the class banner says it on screen
+				elif u.remote_peer > 0:
+					announce("You are now a %s." % u.role_name(), u)
 
 
 func station_position(team: int, role: int) -> Vector3:
@@ -1059,7 +1160,8 @@ func _tick_blessings(delta: float) -> void:
 	spawn_blessing(spot, kinds[randi() % kinds.size()])
 
 
-func spawn_blessing(spot: Vector3, kind: String) -> void:
+func spawn_blessing(spot: Vector3, kind: String) -> Node3D:
+	var nid := _net_spawn_begin("blessing", [spot, kind])
 	var b = Blessing.new()
 	add_child(b)
 	b.setup(self, spot, kind)
@@ -1072,6 +1174,8 @@ func spawn_blessing(spot: Vector3, kind: String) -> void:
 	elif absf(spot.x) > 12.0:
 		where = "on the %s' side" % (Stats.FACTIONS[0].name if spot.x < 0.0 else Stats.FACTIONS[1].name)
 	announce("A Blessing of %s has appeared %s!" % [kind, where])
+	_net_spawn_end(b, nid)
+	return b
 
 
 func bot_tuning() -> Dictionary:
@@ -1181,9 +1285,14 @@ func defender_near(team: int, pos: Vector3, radius: float) -> bool:
 	return false
 
 
-func toast(text: String, color: Color = Color.WHITE) -> void:
+func toast(text: String, color: Color = Color.WHITE, to = null) -> void:
 	## A short notice: queued and shown one at a time as a small scroll under
 	## the clock (hud.gd _draw_toasts), never stacked or under a big banner.
+	## Toasts are personal: online, only `to`'s player sees one sent to a joiner.
+	if to != null and not to.is_player:
+		if net:
+			net.rec("game", "toast", [text, color], to)
+		return
 	for t in toasts:
 		if t.text == text:
 			return   # already showing or waiting
@@ -1212,7 +1321,7 @@ func _plan_bots(team: int) -> void:
 	var theirs = monarchs[1 - team]
 	var bots := []
 	for u in units:
-		if u.team == team and not u.dead and not u.is_player:
+		if u.team == team and not u.dead and not u.is_player and u.remote_peer == 0:
 			u.bot_job = u.base_job
 			u.job_target = Vector3.INF
 			bots.append(u)
@@ -1281,6 +1390,8 @@ func call_command(kind: String) -> void:
 func quit_to_title() -> void:
 	## Leave the match for the main menu (the scene restarts on the title).
 	get_tree().paused = false
+	if net:
+		net.leave()
 	get_tree().reload_current_scene()
 
 
@@ -1648,10 +1759,104 @@ func _around_throne_room(team: int, from: Vector3, to: Vector3) -> Vector3:
 func spawn_shot(u, dir: Vector3, s: Dictionary, color: Color) -> void:
 	## An arrow, spell or bolt. `s` carries damage, gate_damage, range and
 	## optionally splash and speed (see projectile.gd).
+	if net:
+		net.rec("game", "net_shot", [u.team, u.global_position, dir, s, color, false])
+		net.mute += 1
 	var shot = Projectile.new()
 	shot.owner_unit = u
 	add_child(shot)
 	shot.setup(self, u.team, u.global_position, dir, s, color)
+	if net:
+		net.mute -= 1
+
+
+func net_shot(team: int, from: Vector3, dir: Vector3, s: Dictionary, color: Color, turret: bool) -> void:
+	## Client: the host's arrow or spell, flying for the look of it (the
+	## host decides what it hits; its impact arrives as effects).
+	var shot = Projectile.new()
+	shot.inert = true
+	shot.from_turret = turret
+	add_child(shot)
+	shot.setup(self, team, from - (Vector3(0, Projectile.FLIGHT_HEIGHT, 0) if turret else Vector3.ZERO), dir, s, color)
+
+
+# Turrets, traps and blessings the host creates in a match get a net id; the
+# joiners build the same thing from the same arguments and drop it when it
+# leaves the host's snapshot. (Planted barricades are matched by list index.)
+var net_next_id := 1
+var net_ents := {}   # net id -> node
+var _net_pending: Array = []
+
+
+func _net_spawn_begin(kind: String, args: Array) -> int:
+	if not net or not net.is_host():
+		return 0
+	var nid := net_next_id
+	net_next_id += 1
+	net.rec("game", "net_spawn", [kind, nid, args])
+	net.mute += 1   # its own effects are made again on the joiners' side
+	_net_pending = [kind, args]
+	return nid
+
+
+func _net_spawn_end(node: Node, nid: int) -> void:
+	if nid <= 0:
+		return
+	net.mute -= 1
+	node.set_meta("nid", nid)
+	node.set_meta("nkind", _net_pending[0])
+	node.set_meta("nspawn", _net_pending[1])
+	net_ents[nid] = node
+
+
+func net_spawn(kind: String, nid: int, args: Array) -> void:
+	## Client: build what the host built.
+	if nid > 0 and net_ents.has(nid):
+		return
+	var node: Node = null
+	match kind:
+		"turret": node = spawn_turret(args[0], args[1], args[2], args[3])
+		"trap": node = place_trap(args[0], args[1], args[2])
+		"blessing": node = spawn_blessing(args[0], args[1])
+		"barricade":
+			_add_barricade(args[0], args[1], args[2], args[3])
+			return
+	if node and nid > 0:
+		node.set_meta("nid", nid)
+		net_ents[nid] = node
+
+
+func net_entity_list() -> Array:
+	## Host: what a joiner arriving mid-match must build: [kind, nid, args].
+	var out: Array = []
+	for nid in net_ents:
+		var n = net_ents[nid]
+		if is_instance_valid(n) and n.has_meta("nkind"):
+			out.append([n.get_meta("nkind"), nid, n.get_meta("nspawn")])
+	return out
+
+
+func net_kill_banner(b: Dictionary) -> void:
+	## Client: our KILL! card.
+	if player:
+		b["time"] = Time.get_ticks_msec() / 1000.0
+		player.kill_banner = b
+		sfx.ui("rank_up", -2.0, 1.15)
+
+
+func net_look(u, role: int, variant_name: String, rank: int, custom: Dictionary) -> void:
+	## Client: how a fighter looks (class variant, gear rank, a player's
+	## hero colours). Kept on the unit so a class change can put it back.
+	if u == null:
+		return
+	u.net_look = {"role": role, "variant": variant_name, "rank": rank, "custom": custom}
+	u.net_wear_look()
+
+
+func net_flash(u) -> void:
+	## Client: a unit took a hit (the red flash).
+	if u:
+		u.flash_timer = u.FLASH_TIME
 
 
 func spawn_trap(u, pos: Vector3, a: Dictionary) -> void:
@@ -1665,9 +1870,16 @@ func spawn_trap(u, pos: Vector3, a: Dictionary) -> void:
 		to = hit.position - dir * 0.8
 		if (to - from).length() < 0.6:
 			return
+	place_trap(u.team, Vector3(to.x, u.global_position.y, to.z), a)
+
+
+func place_trap(team: int, pos: Vector3, a: Dictionary) -> Node3D:
+	var nid := _net_spawn_begin("trap", [team, pos, a])
 	var trap = Trap.new()
 	add_child(trap)
-	trap.setup(self, u.team, Vector3(to.x, u.global_position.y, to.z), a)
+	trap.setup(self, team, pos, a)
+	_net_spawn_end(trap, nid)
+	return trap
 
 
 func spawn_burst(where: Vector3, radius: float, color: Color) -> void:
@@ -1689,6 +1901,8 @@ func spawn_splash(where: Vector3, color: Color, count: int, speed: float, life: 
 
 func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 	## A number or word that floats up and fades, like damage numbers.
+	if net:
+		net.rec("game", "spawn_popup", [where, text, color])
 	if not damage_numbers and (text.begins_with("-") or text.begins_with("+")):
 		return
 	var l := Label3D.new()
@@ -1715,6 +1929,8 @@ func spawn_ring(where: Vector3, radius: float, color: Color, duration: float = 0
 
 func spawn_pillar(where: Vector3, color: Color, height: float = 4.0, duration: float = 0.9) -> void:
 	## A column of light that narrows and fades: level ups, rank ups, captures.
+	if net:
+		net.rec("game", "spawn_pillar", [where, color, height, duration])
 	var pillar := MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = 0.6
@@ -1743,6 +1959,8 @@ func spawn_pillar(where: Vector3, color: Color, height: float = 4.0, duration: f
 
 func spawn_flash(where: Vector3, color: Color, energy: float = 3.0, duration: float = 0.25) -> void:
 	## A brief point light: impacts and casts.
+	if net:
+		net.rec("game", "spawn_flash", [where, color, energy, duration])
 	var light := OmniLight3D.new()
 	light.light_color = color
 	light.light_energy = energy
@@ -1759,11 +1977,25 @@ func spawn_swing(u, aim: Vector3) -> void:
 	Fx.of(self).slash(u.global_position, aim, Color(1, 1, 1))
 
 
-func announce(text: String) -> void:
-	## News for the chat log and the notice scroll (the old floating centre
-	## line overlapped the banners: Faisal 2026-10-10 08:35). The FORTIFY!
-	## call-out repeats the objective banner word for word, so it stays in
-	## the chat log only.
+func announce(text: String, to = null) -> void:
+	## News for the notice scroll, also logged in the chat. Online,
+	## `to` (a unit) makes it personal: only that unit's player sees it;
+	## without it every joiner sees it too.
+	if net and net.online():
+		net.rec("game", "announce", [text], to)
+		if to != null and not to.is_player:
+			return   # a joiner's own message: shown on their screen only
+		net.depth += 1
+	_announce_here(text)
+	if net and net.online():
+		net.depth -= 1
+
+
+func _announce_here(text: String) -> void:
+	## News goes to the notice scroll and the chat log (the old floating
+	## centre line overlapped the banners: Faisal 2026-10-10 08:35). The
+	## FORTIFY! call-out repeats the objective banner word for word, so it
+	## stays in the chat log only.
 	if not text.begins_with("FORTIFY!"):
 		toast(text, Color(1.0, 0.85, 0.4))
 	chat_system(text)
@@ -1826,6 +2058,8 @@ func _show_loading(hold: float) -> void:
 func _start_match(team: int) -> void:
 	_show_loading(1.0)
 	player_team = team
+	if net and net.online():
+		couch_players = 1   # couch and online together come later (docs/online-plan.md, N4)
 	for m in monarchs:
 		# Only our own crown is labelled (Faisal 2026-10-07: no "steal" text).
 		m.label.text = ""   # no crown captions (Faisal 2026-10-07 21:14)
@@ -1928,6 +2162,8 @@ func _start_match(team: int) -> void:
 			key_label("rank_menu"), key_label("scoreboard"), key_label("chat")])
 	if prep_left > 0.0:
 		announce("FORTIFY! Build turrets, set traps and raise barricades (%s) before the barrier falls." % key_label("interact"))
+	if net and net.is_host():
+		net.on_match_started()
 
 
 func in_prep() -> bool:
@@ -2044,8 +2280,8 @@ func plant_barricade(u) -> bool:
 	sfx.play("station", pos)
 	spawn_ring(pos, 2.0, Color(0.9, 0.75, 0.45), 0.5)
 	spawn_splash(pos + Vector3(0, 0.6, 0), Color(0.75, 0.55, 0.3), 14, 3.0, 0.5)
-	if u.is_player:
-		announce("Barricade raised. %d kit%s left." % [barricades_left[team], "" if barricades_left[team] == 1 else "s"])
+	if u.is_player or u.remote_peer > 0:
+		announce("Barricade raised. %d kit%s left." % [barricades_left[team], "" if barricades_left[team] == 1 else "s"], u)
 	return true
 
 
@@ -2197,6 +2433,257 @@ func set_couch(what: String) -> void:
 	_save_settings()
 
 
+# --- Online play -------------------------------------------------------------
+
+func net_free_slot() -> int:
+	## Host: the unit index a joiner takes: a bot's slot, first on the other
+	## side from the host, then alternating sides (versus by default).
+	var counts := [0, 0]
+	for u in units:
+		if u.is_player or u.remote_peer > 0:
+			counts[u.team] += 1
+	var order: Array = [1 - player_team, player_team] if counts[1 - player_team] <= counts[player_team] else [player_team, 1 - player_team]
+	for t in order:
+		for i in team_size:
+			var u = units[t * team_size + i]
+			if not u.is_player and u.remote_peer == 0:
+				return t * team_size + i
+	return -1
+
+
+func net_claim_unit(idx: int, peer_id: int, peer_name: String, custom: Dictionary = {}) -> void:
+	## Host: a joiner takes over a bot. It keeps its place, hearts and class.
+	var u = units[idx]
+	u.remote_peer = peer_id
+	u.net_input = {}
+	u.net_seen = {}
+	u.net_custom = custom
+	u.redress()
+	u.display_name = peer_name if peer_name != "" else "Player %d" % (idx + 1)
+	u._refresh_overhead()
+	chat_system("%s joined the %s." % [u.display_name, Stats.FACTIONS[u.team].name])
+
+
+func net_release_unit(idx: int) -> void:
+	## Host: a joiner left; a bot takes their unit back.
+	if idx < 0 or idx >= units.size():
+		return
+	var u = units[idx]
+	chat_system("%s left the game; a bot takes over." % u.display_name)
+	u.remote_peer = 0
+	u.net_input = {}
+	u.display_name = Stats.BOT_NAMES[u.team][(idx % team_size) % Stats.BOT_NAMES[u.team].size()]
+	u._refresh_overhead()
+
+
+func net_start_client(start: Dictionary) -> void:
+	## Client: the host gave us a slot; build the match around it.
+	if playing:
+		return
+	net_slot = Vector2i(start.team, start.slot)
+	if start.map != map_variant:
+		map_variant = start.map
+		_apply_map_variant()
+	_start_match(start.team)
+	var names: Array = start.names
+	for i in mini(names.size(), units.size()):
+		if units[i] != player:
+			units[i].display_name = names[i]
+			units[i]._refresh_overhead()
+	net.pending_start = {}
+	net.replay_early()
+
+
+func net_build_snapshot() -> Dictionary:
+	## Host: everything a client draws, 20 times a second.
+	var us: Array = []
+	for u in units:
+		us.append([u.global_position, u.rotation.y, u.hearts, u.energy, u.dead, u.role, u.respawn_timer,
+			u.level, u.kills, u.deaths, u.carrying != null, u.xp, u.points, u.display_name,
+			u.downed, u.downed_timer, u.downed_total, u.revive_progress, u.being_revived()])
+		# How it looks changes rarely: sent as an event when it does.
+		if Engine.get_physics_frames() % 15 == 0:
+			var look: Array = u.net_look_now()
+			if look != u.net_look_sent:
+				u.net_look_sent = look
+				net.rec("game", "net_look", [u] + look)
+	var ms: Array = []
+	for m in monarchs:
+		ms.append([m.state, m.global_position, m.rotation.y, units.find(m.carrier) if m.carrier else -1])
+	var gs: Array = []
+	for g in gates:
+		gs.append([g.hp, g.broken])
+	var vs: Array = []
+	for v in vaults:
+		vs.append([v.hp, v.open])
+	var now := Time.get_ticks_msec() / 1000.0
+	var feed: Array = []
+	for k in kill_feed:
+		var e: Dictionary = k.duplicate()
+		e["age"] = now - float(k.time)
+		e.erase("time")
+		feed.append(e)
+	var ents := {}
+	for nid in net_ents.keys():
+		var n = net_ents[nid]
+		if not is_instance_valid(n) or n.is_queued_for_deletion():
+			net_ents.erase(nid)
+			continue
+		ents[nid] = [n.get("hp"), n.get("level")]
+	var econ := {}
+	if economy:
+		var cargo: Array = []
+		for u in units:
+			var c: Dictionary = economy.cargo.get(u, {})
+			cargo.append([c.get("wood", 0), c.get("ore", 0)])
+		econ = {"wood": economy.wood, "ore": economy.ore, "up": economy.upgraded, "cargo": cargo,
+			"stock": economy.nodes.map(func(n): return n.stock)}
+	return {"units": us, "monarchs": ms, "gates": gs, "vaults": vs, "score": score, "time": time_left,
+		"prep": prep_left, "overtime": overtime, "over": game_over, "winner": winner_team, "feed": feed,
+		"ents": ents, "barr": barricades.map(func(b): return b.hp), "orbs": heal_orbs.map(func(o): return o.active),
+		"econ": econ, "fire": [vmap.fire_owner, vmap.fire_progress] if vmap else []}
+
+
+func net_apply_snapshot(d: Dictionary) -> void:
+	## Client: take the host's state. Units glide to their new spots in
+	## unit.gd (_net_puppet); everything else is set as it comes.
+	var us: Array = d.units
+	for i in mini(us.size(), units.size()):
+		units[i].net_apply(us[i])
+	var ms: Array = d.monarchs
+	for i in mini(ms.size(), monarchs.size()):
+		var m = monarchs[i]
+		m.state = ms[i][0]
+		m.carrier = units[ms[i][3]] if ms[i][3] >= 0 else null
+		if m.carrier == null:
+			m.global_position = ms[i][1]
+			m.rotation.y = ms[i][2]
+	var gs: Array = d.gates
+	for i in mini(gs.size(), gates.size()):
+		if gates[i].hp != gs[i][0] or gates[i].broken != gs[i][1]:
+			gates[i].hp = gs[i][0]
+			gates[i].broken = gs[i][1]
+			gates[i].shape.disabled = gates[i].broken
+			gates[i]._refresh()
+	var vs: Array = d.vaults
+	for i in mini(vs.size(), vaults.size()):
+		if vaults[i].hp != vs[i][0] or vaults[i].open != vs[i][1]:
+			vaults[i].hp = vs[i][0]
+			vaults[i].open = vs[i][1]
+			vaults[i]._refresh()
+	for t in 2:
+		if d.score[t] > score[t]:
+			capture_team = t
+			capture_timer = 3.0
+	var now := Time.get_ticks_msec() / 1000.0
+	kill_feed = []
+	for e in d.feed:
+		var k: Dictionary = e.duplicate()
+		k["time"] = now - float(e.age)
+		k.erase("age")
+		kill_feed.append(k)
+	_net_apply_entities(d)
+	score = d.score.duplicate()
+	time_left = d.time
+	prep_left = d.prep
+	overtime = d.overtime
+	if d.over and not game_over:
+		_finish(d.winner)
+
+
+func _net_apply_entities(d: Dictionary) -> void:
+	var ents: Dictionary = d.ents
+	for nid in net_ents.keys():
+		var n = net_ents[nid]
+		if not ents.has(nid):
+			if is_instance_valid(n):
+				if n in turrets:
+					turrets.erase(n)
+				blessings.erase(n)
+				n.queue_free()
+			net_ents.erase(nid)
+		elif is_instance_valid(n) and n.get("hp") != null:
+			var e: Array = ents[nid]
+			if n.hp != e[0] or (e[1] != null and n.level != e[1]):
+				n.hp = e[0]
+				if e[1] != null:
+					n.level = e[1]
+				if n.has_method("_refresh"):
+					n._refresh()
+	var barr: Array = d.barr
+	for i in mini(barr.size(), barricades.size()):
+		var b = barricades[i]
+		if b.hp != barr[i]:
+			var was_up: bool = b.hp > 0
+			b.hp = barr[i]
+			b.shape.disabled = b.hp <= 0
+			b.visual.visible = b.hp > 0
+			if was_up != (b.hp > 0) and b.hp > 0:
+				b.visual.rotation = Vector3.ZERO
+				b.visual.position = Vector3.ZERO
+	var orbs: Array = d.orbs
+	for i in mini(orbs.size(), heal_orbs.size()):
+		var o = heal_orbs[i]
+		if o.active != orbs[i]:
+			o.active = orbs[i]
+			o.orb.visible = o.active
+			o.light.visible = o.active
+			o.sparks.emitting = o.active
+			o.respawn_timer = Stats.HEAL_ORB_RESPAWN if not o.active else 0.0
+	var econ: Dictionary = d.econ
+	if economy and not econ.is_empty():
+		for t in 2:
+			var changed: bool = economy.wood[t] != econ.wood[t] or economy.ore[t] != econ.ore[t]
+			economy.wood[t] = econ.wood[t]
+			economy.ore[t] = econ.ore[t]
+			if changed:
+				economy._refresh_pile(t)
+			for r in econ.up[t]:
+				if not economy.upgraded[t].has(r):
+					economy.upgraded[t][r] = true
+					economy._mark_seal(t, int(r))
+		for i in mini(econ.cargo.size(), units.size()):
+			var c: Array = econ.cargo[i]
+			var u = units[i]
+			var have: Dictionary = economy.cargo.get(u, {"wood": 0, "ore": 0})
+			if have.get("wood", 0) != c[0] or have.get("ore", 0) != c[1]:
+				if c[0] == 0 and c[1] == 0:
+					economy.cargo.erase(u)
+				else:
+					economy.cargo[u] = {"wood": c[0], "ore": c[1]}
+				economy._refresh_cargo(u)
+		for i in mini(econ.stock.size(), economy.nodes.size()):
+			var n = economy.nodes[i]
+			if n.stock != econ.stock[i]:
+				n.stock = econ.stock[i]
+				n._refresh()
+	if vmap and d.fire.size() == 2 and vmap.fire_owner != d.fire[0]:
+		vmap.fire_owner = d.fire[0]
+		for u in units:
+			u.refresh_fire(false)
+	if vmap and d.fire.size() == 2:
+		vmap.fire_progress = d.fire[1]
+
+
+func net_button(what: String) -> void:
+	## Title screen ONLINE row: HOST / STOP, JOIN / LEAVE and the address field.
+	sfx.ui("ui_click")
+	match what:
+		"host":
+			if net.is_host():
+				net.leave()
+			else:
+				net.host()
+		"join":
+			if net.is_client():
+				net.leave()
+				get_tree().reload_current_scene()   # back to our own world
+			else:
+				var parts := net_ip.strip_edges().split(":")
+				net.join(parts[0], int(parts[1]) if parts.size() > 1 else net.DEFAULT_PORT)
+		"ip":
+			ip_editing = true
+			swallow_frame = Engine.get_process_frames()
 var local_sides: Array = []     # each local player's side this match (see _start_match)
 var bound_pads: Array = []      # the pad device each local player holds this match (see _bind_couch_input)
 
@@ -2204,6 +2691,8 @@ var bound_pads: Array = []      # the pad device each local player holds this ma
 func _local_slot(team: int, slot: int) -> int:
 	## Which local player (0-based) takes lineup slot `slot` of `team`, or -1
 	## for a bot. Local players fill a side's first slots in player order.
+	if net_client:
+		return 0 if team == net_slot.x and slot == net_slot.y else -1
 	var ks := 0
 	for k in couch_players:
 		if local_sides[k] == team:
@@ -2369,6 +2858,8 @@ func kick_cam(dir: Vector3, amount: float) -> void:
 
 func shake_at(where: Vector3, amount: float) -> void:
 	## A shake that fades with distance from the player.
+	if net:
+		net.rec("game", "shake_at", [where, amount])
 	if player == null:
 		return
 	var d := _flat_dist(where, player.global_position)
@@ -2552,6 +3043,8 @@ func _tick_tutorial() -> void:
 func menu_blocks_input(u = null) -> bool:
 	## True while a menu has this player's controls (the perk menu only
 	## blocks the player who opened it).
+	if u != null and u.remote_peer > 0:
+		return false   # a joiner's menus live on their own screen
 	return menu_open or chat_open or guide_open or (rank_open and (u == null or rank_player == null or rank_player == u))
 
 
@@ -2654,7 +3147,7 @@ func menu_tick() -> void:
 	var eaten: bool = Engine.get_process_frames() == swallow_frame
 	if not playing:
 		# Title screen: the options menu (controls, classes), bot difficulty.
-		if not eaten and rebinding == "":
+		if not eaten and rebinding == "" and not ip_editing:
 			if Input.is_action_just_pressed("options") and not menu_open:
 				menu_open = true
 				menu_tab = 5
@@ -2679,7 +3172,7 @@ func menu_tick() -> void:
 		if Input.is_action_just_pressed("menu") and not eaten and rebinding == "" and not guide_open:
 			menu_open = not menu_open
 			rank_open = false
-			get_tree().paused = menu_open
+			get_tree().paused = menu_open and not (net and net.online())  # an online match never pauses
 		scoreboard_open = (Input.is_action_pressed("scoreboard") or debug_score) and not menu_open and not rank_open
 		if menu_open:
 			if Input.is_action_just_pressed("quit_match") and rebinding == "":
@@ -2862,9 +3355,13 @@ func menu_tick() -> void:
 			for b in hud.faction_buttons:
 				if b[0].has_point(mouse) and not was_editing:
 					_start_match(b[1])
+			ip_editing = false
 			for b in hud.couch_buttons:
 				if b[0].has_point(mouse):
-					set_couch(b[1])
+					if b[1] in ["host", "join", "ip"]:
+						net_button(b[1])
+					else:
+						set_couch(b[1])
 		for b in hud.guide_buttons:
 			if b[0].has_point(mouse):
 				if b[1] == "next":
@@ -2941,6 +3438,29 @@ func menu_input(event: InputEvent) -> void:
 				if event.unicode >= 32 and hero_name.length() < Stats.HERO_NAME_MAX and ch.strip_edges() != "" or ch == " ":
 					hero_name += ch
 		return
+	if main_menu and not playing and main_menu.screen == "online" and main_menu.overlay == "" and event is InputEventKey and event.pressed and not (net and net.online()):
+		# Typing the JOIN code on a keyboard (the letter pad does the same by touch).
+		if event.keycode == KEY_BACKSPACE:
+			main_menu.code_key("<")
+			return
+		if event.keycode in [KEY_ENTER, KEY_KP_ENTER] and main_menu.room_entry.length() == main_menu.CODE_LEN:
+			net.join_room(main_menu.room_entry)
+			return
+		if event.unicode >= 32:
+			main_menu.code_key(char(event.unicode))
+			return
+	if ip_editing and event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE:
+				ip_editing = false
+				swallow_frame = Engine.get_process_frames()
+			KEY_BACKSPACE:
+				net_ip = net_ip.left(maxi(net_ip.length() - 1, 0))
+			_:
+				var ch := char(event.unicode)
+				if event.unicode >= 32 and net_ip.length() < 40 and (ch.is_valid_int() or ch in [".", ":"] or ch.to_lower() in "abcdefghijklmnopqrstuvwxyz-"):
+					net_ip += ch
+		return
 	if chat_open and event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_ENTER, KEY_KP_ENTER:
@@ -2965,6 +3485,8 @@ func menu_input(event: InputEvent) -> void:
 
 func chat_add(who: String, text: String, color: Color, team_only: bool = false, role: int = -1, pteam: int = -1) -> void:
 	## `role`/`pteam` give the speaker's portrait; `clock` stamps the match time.
+	if net:
+		net.rec("game", "chat_add", [who, text, color, team_only, role, pteam], null, pteam if team_only else -1)
 	chat_log.append({"who": who, "text": text, "color": color, "time": Time.get_ticks_msec() / 1000.0, "team": team_only,
 		"role": role, "pteam": pteam, "clock": maxf(time_left, 0.0)})
 	if chat_log.size() > CHAT_LINES:
@@ -2991,6 +3513,9 @@ func _send_chat(text: String) -> void:
 	elif text.begins_with("/t "):
 		text = text.trim_prefix("/t ").strip_edges()
 	if text == "":
+		return
+	if net_client:
+		net.send_chat(text, team_only)   # the host posts it for everyone it is meant for
 		return
 	chat_add(player.display_name, text, _team_color(player.team), team_only, player.role, player.team)
 	# A teammate answers after a moment.
@@ -3427,8 +3952,10 @@ func _read_save(cfg: ConfigFile) -> Error:
 
 func _write_save(cfg: ConfigFile) -> Error:
 	_flush_save()
-	if DisplayServer.get_name() == "headless":
-		return SaveFile.write(cfg, CONTROLS_PATH)   # tests read the file straight back
+	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
+		# Tests read the file straight back; a browser build has no worker
+		# threads (and writes to its own storage, fast).
+		return SaveFile.write(cfg, CONTROLS_PATH)
 	var text := cfg.encode_to_text()
 	_save_task = WorkerThreadPool.add_task(func():
 		var c := ConfigFile.new()
@@ -3471,8 +3998,9 @@ func _load_controls() -> void:
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
 	gfx_picked = cfg.get_value("settings", "gfx_picked", false)
 	if OS.has_feature("web"):
-		# Browsers (and tablets) start on Medium at most; Settings can raise it.
-		gfx_quality = mini(gfx_quality, 1)
+		# Browsers (and tablets) start on Medium unless the player picked a
+		# preset (older visits saved the old Low default).
+		gfx_quality = mini(gfx_quality, 1) if gfx_picked else 1
 	fullscreen = cfg.get_value("settings", "fullscreen", false)
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
@@ -4237,18 +4765,47 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		leaf.set_shader_parameter("top_color", Color.from_hsv(0.9, 0.5, 0.78) if lavender else Color.from_hsv(0.38, 0.75, 0.5))
 		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.88, 0.7, 0.32) if lavender else Color.from_hsv(0.42, 0.85, 0.18))
 	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.25 if wild else 1.0)
-	var blobs := 6 if big else 4
 	var base_y: float = trunk_h * 0.8
-	for i in blobs:
+	# The crown: a dome of leaf clumps (a skirt of low clumps, a smaller ring
+	# above and a top knot) on short boughs, shaded as one crown from dark
+	# underneath to a sunlit top. It was four to six big blobs, each with its
+	# own dark underside, which read as a pile of green balls.
+	leaf.set_shader_parameter("world_gradient", true)
+	leaf.set_shader_parameter("crown_base", pos.y + base_y - radius * 0.55)
+	leaf.set_shader_parameter("height", radius * 1.9)
+	var low := 6 if big else 5
+	var mid := 4 if big else 3
+	var spin := r.randf() * TAU
+	var clumps := []   # [offset, size]
+	for i in low:
+		var a := spin + TAU * i / low + r.randf_range(-0.2, 0.2)
+		clumps.append([Vector3(cos(a), 0, sin(a)) * radius * r.randf_range(0.6, 0.72) + Vector3(0, r.randf_range(-0.12, 0.1) * radius, 0), radius * r.randf_range(0.5, 0.6)])
+	for i in mid:
+		var a := spin + TAU * (i + 0.5) / mid + r.randf_range(-0.25, 0.25)
+		clumps.append([Vector3(cos(a), 0, sin(a)) * radius * r.randf_range(0.3, 0.4) + Vector3(0, radius * r.randf_range(0.42, 0.52), 0), radius * r.randf_range(0.5, 0.58)])
+	clumps.append([Vector3(r.randf_range(-0.1, 0.1), 0.85, r.randf_range(-0.1, 0.1)) * radius, radius * 0.5])
+	for i in clumps.size():
 		var blob := MeshInstance3D.new()
-		var rr: float = radius if i == 0 else radius * r.randf_range(0.55, 0.85)
-		blob.mesh = _rock_mesh(seed + i * 11, rr, 0.12)
-		var ang := TAU * i / blobs + r.randf() * 0.8
-		var spread: float = 0.0 if i == 0 else radius * r.randf_range(0.45, 0.75)
-		blob.position = Vector3(cos(ang) * spread, base_y + (0.9 if i == 0 else r.randf_range(-0.3, 0.9)) * radius * 0.5, sin(ang) * spread)
-		blob.scale = Vector3(1.0, 0.85, 1.0)
+		blob.mesh = _rock_mesh(seed + i * 11, clumps[i][1], 0.14)
+		blob.position = Vector3(0, base_y, 0) + clumps[i][0]
+		blob.scale = Vector3(1.0, 0.82, 1.0)
 		blob.material_override = leaf
 		tree.add_child(blob)
+	# Boughs from the trunk top out into the lower clumps.
+	for i in 3:
+		var off: Vector3 = clumps[i * low / 3][0] * 0.75
+		var bough := MeshInstance3D.new()
+		var bm := CylinderMesh.new()
+		bm.top_radius = 0.06 if not big else 0.08
+		bm.bottom_radius = 0.14 if not big else 0.18
+		var reach := Vector3(off.x, maxf(off.y, 0.0) + radius * 0.25, off.z)
+		bm.height = reach.length()
+		bm.radial_segments = 5
+		bough.mesh = bm
+		bough.material_override = bark
+		var mid_pt := Vector3(0, base_y - radius * 0.3, 0) + reach / 2.0
+		bough.transform = Transform3D(Basis(Quaternion(Vector3.UP, reach.normalized())), mid_pt)
+		tree.add_child(bough)
 	if wild and seed % 3 == 0:
 		_add_mushrooms(pos + Vector3(0.9, 0, 0.4), seed)
 	if wild and seed % 4 == 1:
@@ -4292,24 +4849,60 @@ func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool
 	leaf.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	var hue := r.randf_range(-0.02, 0.02)
 	# Deep forest green with lighter tips (the 2026-10-08 target art).
-	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.41 + hue, 0.85, 0.09))
-	leaf.set_shader_parameter("top_color", Color.from_hsv(0.37 + hue, 0.7, 0.28))
+	# (Lifted a little with the one-piece gradient: the jagged tiers read
+	# near black otherwise.)
+	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.41 + hue, 0.85, 0.15))
+	leaf.set_shader_parameter("top_color", Color.from_hsv(0.36 + hue, 0.68, 0.44))
 	leaf.set_shader_parameter("height", 1.6)
 	leaf.set_shader_parameter("sway", 0.03)
 	var base_r: float = (1.9 if big else 1.5) * r.randf_range(0.9, 1.1)
+	# One gradient over the whole tree (dark skirts, light tip), not per tier.
+	leaf.set_shader_parameter("world_gradient", true)
+	leaf.set_shader_parameter("crown_base", tree.position.y + trunk_h * 0.2)
+	leaf.set_shader_parameter("height", trunk_h * 1.0)
 	for i in 4:
 		var cone := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = 0.0
-		cm.bottom_radius = base_r * (1.05 - 0.22 * i)
-		cm.height = trunk_h * 0.36
-		cm.radial_segments = 9
-		cm.rings = 2
-		cone.mesh = cm
+		cone.mesh = _pine_tier_mesh(r.randi(), base_r * (1.05 - 0.22 * i), trunk_h * 0.36)
 		cone.position.y = trunk_h * (0.36 + 0.17 * i)
 		cone.rotation.y = r.randf() * TAU
 		cone.material_override = leaf
 		tree.add_child(cone)
+
+
+func _pine_tier_mesh(seed: int, radius: float, height: float) -> ArrayMesh:
+	## One tier of a conifer: a faceted cone whose rim is a ring of drooping
+	## needle points (the old smooth cones read as plain stacked lampshades).
+	var key := "%d|%.2f|%.2f" % [seed % 6, radius, height]
+	if pine_tiers.has(key):
+		return pine_tiers[key]
+	var r := RandomNumberGenerator.new()
+	r.seed = seed % 6
+	var n := 11
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var apex := Vector3(0, height / 2.0, 0)
+	var rim := []
+	for k in n * 2:
+		var a := TAU * k / (n * 2)
+		var tip := k % 2 == 0
+		var rr := radius * (1.0 if tip else 0.72) * r.randf_range(0.94, 1.06)
+		# Points droop below the notches; notches tuck up under the tier above.
+		var y := -height / 2.0 - (0.12 * height if tip else -0.08 * height)
+		rim.append(Vector3(cos(a) * rr, y, sin(a) * rr))
+	var under := Vector3(0, -height * 0.3, 0)
+	for k in n * 2:
+		var p0: Vector3 = rim[k]
+		var p1: Vector3 = rim[(k + 1) % (n * 2)]
+		st.add_vertex(apex)
+		st.add_vertex(p1)
+		st.add_vertex(p0)
+		st.add_vertex(under)
+		st.add_vertex(p0)
+		st.add_vertex(p1)
+	st.generate_normals()
+	var m := st.commit()
+	pine_tiers[key] = m
+	return m
 
 
 func _leaf_material(r: RandomNumberGenerator, autumn: bool) -> ShaderMaterial:
@@ -4777,6 +5370,14 @@ func _add_cover() -> void:
 		for m in [1.0, -1.0]:
 			var c: Vector3 = b[0] * m
 			var length: float = b[1]
+			var kind: int = 0 if absf(c.z) < 3.0 else 2
+			# Wall stubs stand beside the road, not on it (the one at x -31
+			# sat across the Forest Path like a post): step them away from
+			# the paths, cover point and collider with them.
+			var k := 0
+			while kind == 2 and _near_path(c, length / 2.0 + 0.4) and k < 8:
+				c.z += 1.0 if c.z >= 0.0 else -1.0
+				k += 1
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
 			cover_points.append(Vector3(c.x, 0, c.z))
 			cover_boxes.append(AABB(Vector3(c.x - 0.5, 0, c.z - length / 2.0), Vector3(1.0, 1.2, length)))
@@ -4784,7 +5385,6 @@ func _add_cover() -> void:
 			# ashlar walls across the field. (No timber palisades: they read
 			# as stray fences, Faisal 11:27 "did you fix the random fence
 			# issues". The cover and its collider are unchanged.)
-			var kind: int = 0 if absf(c.z) < 3.0 else 2
 			match kind:
 				0:
 					var n := int(length / 1.15)
@@ -4876,8 +5476,8 @@ func _add_palisade(c: Vector3, length: float) -> void:
 
 func _add_wall_stub(c: Vector3, length: float) -> void:
 	## A broken length of ashlar wall: tall at one end, crumbled at the other,
-	## with rubble spilling off the low end. Mossy on the elven side.
-	mossy = c.x < 0.0
+	## with rubble spilling off the low end. Stone on both sides: the elven
+	## "ashlar" is bark, which made the Elf-side stubs read as wooden posts.
 	audit_label = "wall"
 	var tall_len: float = length * 0.55
 	var low_len: float = length - tall_len
@@ -4886,8 +5486,7 @@ func _add_wall_stub(c: Vector3, length: float) -> void:
 	_add_block(Vector3(c.x, 0.4, c.z + tall_len / 2.0), Vector3(0.6, 0.8, low_len), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
 	_add_block(Vector3(c.x, 0.9, c.z + tall_len / 2.0 - low_len / 4.0), Vector3(0.6, 0.2, low_len / 2.0), Color.WHITE, false, _ashlar(Color(0.88, 0.85, 0.78)))
 	audit_label = ""
-	_prop("dungeon/rubble_large", Vector3(c.x + 0.4, 0, c.z + length / 2.0 + 0.7), 0.22, 0.4)
-	mossy = false
+	_prop("dungeon/rubble_large", Vector3(c.x + 0.4 * signf(c.x), 0, c.z + length / 2.0 + 0.7), 0.22, 0.4)
 
 
 func _add_ruins(c: Vector3, small: bool = false) -> void:
@@ -7860,6 +8459,8 @@ func _add_barrow(pos: Vector3) -> void:
 
 
 func _add_barricade(team: int, pos: Vector3, length: float, rot_y: float) -> void:
+	if playing and net:
+		net.rec("game", "net_spawn", ["barricade", 0, [team, pos, length, rot_y]])   # planted in a match
 	var b := Barricade.new()
 	add_child(b)
 	b.setup(self, team, pos, length, rot_y)
@@ -8946,7 +9547,7 @@ func _auto_quality() -> void:
 	## under 40 frames a second for four seconds (a toast says so). Never
 	## steps up. Long stalls (loading, a shader built the first time) do not
 	## count: they restart the window.
-	if gfx_picked or gfx_quality == 0 or OS.has_feature("web") or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
+	if gfx_picked or gfx_quality == 0 or (OS.has_feature("web") and not playing) or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
 		return
 	var now := Time.get_ticks_msec()
 	if is_instance_valid(loading_layer) or now - _fps_last > 250:
@@ -8961,7 +9562,7 @@ func _auto_quality() -> void:
 		return
 	var fps := _fps_frames * 1000.0 / float(now - _fps_since)
 	_fps_since = 0
-	if fps < 40.0:
+	if fps < (26.0 if OS.has_feature("web") else 40.0):
 		gfx_quality -= 1
 		apply_graphics()
 		_save_settings()
@@ -9003,7 +9604,7 @@ func apply_graphics() -> void:
 		# smooths it, while the HUD stays at full density.
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
-		vp.scaling_3d_scale = 0.75
+		vp.scaling_3d_scale = 1.0 if q >= 1 else 0.75
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		# One 2048 shadow map covers the single cascade the web sun uses, read
 		# with one tap (the soft filters cost a kernel per pixel).
@@ -9499,7 +10100,7 @@ func _keep_window_alive() -> void:
 	if now - _alive_frame_start < 250 or now - _alive_ms < 250:
 		return
 	_alive_ms = now
-	if DisplayServer.get_name() != "headless":
+	if DisplayServer.get_name() != "headless" and not OS.has_feature("web"):   # (a browser tab never goes "Not Responding")
 		DisplayServer.force_process_and_drop_events()
 
 
@@ -9656,6 +10257,106 @@ func _add_action(action: StringName, keys: Array, buttons: Array, axis: int = -1
 		var mb := InputEventMouseButton.new()
 		mb.button_index = button
 		InputMap.action_add_event(action, mb)
+
+
+# --- Online smoke test (tools/net_smoke.sh) -----------------------------------
+
+func _net_test_tick(delta: float) -> void:
+	## --net-test: the host starts a match as soon as a joiner is ready.
+	## Both walk their player for 1.5 s and check that everyone moved on both
+	## screens; the joiner swings and chats; then the match runs on and the
+	## joiner checks that the host's effects, animations, sounds, shots,
+	## class looks and its own chat line all reached it. Prints NETTEST PASS
+	## / FAIL and quits.
+	var L := net_test_log
+	if L.get("done", false):
+		return
+	L.clock = L.get("clock", 0.0) + delta
+	if L.clock > 200.0:
+		_net_test_end(false, "timed out (connected=%s playing=%s snapshots=%d)" % [net.online(), playing, net.snapshot_count])
+		return
+	if not playing:
+		if net.is_host() and net.ready_peers.size() >= 1:
+			_start_match(0)
+		return
+	if net_client and net.snapshot_count == 0:
+		return
+	var who := "client" if net_client else "host"
+	L.t = L.get("t", 0.0) + delta
+	var t: float = L.t
+	if not L.has("start"):
+		L.start = units.map(func(u): return u.global_position)
+		L.remote = units.map(func(u): return u.remote_peer > 0).find(true)
+		L.ok = true
+		print("NETTEST %s: match running, my unit is team %d slot %d" % [who, player.team, units.find(player) % team_size])
+	if t > 1.0 and not L.has("pressed"):
+		L.pressed = true
+		Input.action_press("move_down")
+	if t > 2.5 and not L.has("released"):
+		L.released = true
+		Input.action_release("move_down")
+	if net_client and t > 3.0 and not L.has("chat"):
+		L.chat = true
+		_send_chat("/all hello from the joiner")
+		Input.action_press("attack")
+	if net_client and t > 3.6 and not L.has("swung"):
+		L.swung = true
+		Input.action_release("attack")
+	if t > (9.0 if net_client else 7.0) and not L.has("moved"):
+		L.moved = true
+		var moved := func(i: int) -> float:
+			var a: Vector3 = L.start[i]
+			var b: Vector3 = units[i].global_position
+			return Vector2(b.x - a.x, b.z - a.z).length()
+		var checks := {}
+		checks["own unit moved"] = moved.call(units.find(player))
+		var bot_best := 0.0
+		for i in units.size():
+			if not units[i].is_player and units[i].remote_peer == 0 and i != 0:
+				bot_best = maxf(bot_best, moved.call(i))
+		checks["a bot moved"] = bot_best
+		if net_client:
+			checks["host player moved"] = moved.call(0)   # the host plays team 0 slot 0
+		else:
+			var remote: int = L.remote
+			checks["joiner's unit moved"] = moved.call(remote) if remote >= 0 else 0.0
+		for k in checks:
+			print("NETTEST %s: %s %.2f m" % [who, k, checks[k]])
+			if checks[k] < 2.0:
+				L.ok = false
+	var finish_at := 40.0 if net_client else 44.0   # the host stays on while the joiner checks
+	if t > finish_at:
+		var ok: bool = L.ok
+		var said := chat_log.any(func(c): return "hello from the joiner" in str(c.text))
+		print("NETTEST %s: joiner's chat line %s" % [who, "arrived" if said else "MISSING"])
+		ok = ok and said
+		if net_client:
+			var by: Dictionary = net.events_by
+			var shots: int = by.get("game.net_shot", 0)
+			var looks: int = by.get("game.net_look", 0)
+			print("NETTEST client: events %d (effects %d, animations %d, sounds %d, shots %d, looks %d, skill casts %d)" % [
+				net.events_in, by.get("fx", 0), by.get("model", 0), by.get("sfx", 0), shots, looks, by.get("skill", 0)])
+			print("NETTEST client: kill feed %d, entities %d, chat lines %d" % [kill_feed.size(), net_ents.size(), chat_log.size()])
+			for need in [["effects", by.get("fx", 0)], ["animations", by.get("model", 0)], ["sounds", by.get("sfx", 0)],
+					["shots", shots], ["looks", looks]]:
+				if need[1] <= 0:
+					print("NETTEST client: no %s arrived" % need[0])
+					ok = false
+		_net_test_end(ok, ("snapshots=%d" % net.snapshot_count) if net_client else ("peers=%d" % net.peer_count()))
+
+
+func _net_test_end(ok: bool, info: String) -> void:
+	if net_test_log.get("done", false):
+		return
+	net_test_log.done = true
+	print("NETTEST %s %s: %s" % ["client" if net_client else "host", "PASS" if ok else "FAIL", info])
+	if net.is_host():
+		# Keep hosting until the joiner has finished its own checks and left.
+		var waited := 0.0
+		while net.peer_count() > 0 and waited < 20.0:
+			await get_tree().create_timer(0.25).timeout
+			waited += 0.25
+	get_tree().quit(0 if ok else 1)
 
 
 func _debug_downed_hooks(frame: int) -> void:

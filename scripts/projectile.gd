@@ -25,6 +25,7 @@ var fall_speed := 0.0
 var speed := 30.0
 var query_mask := 1
 var from_turret := false   # a turret bolt (for the demo tallies)
+var inert := false         # online, on a joiner's screen: only flies; the host's game decides the hits
 var owner_unit = null      # who fired it, for experience
 var fire := false
 var holy := false
@@ -337,6 +338,9 @@ func _physics_process(delta: float) -> void:
 		skip.append(hit.rid)
 		ray.exclude = skip
 		hit = get_world_3d().direct_space_state.intersect_ray(ray)
+	if hit and inert:
+		queue_free()   # the impact effects come from the host
+		return
 	if hit:
 		global_position = hit.position
 		var gate = game.gates[1 - team]
@@ -359,7 +363,17 @@ func _physics_process(delta: float) -> void:
 		return
 	life -= delta
 	if life <= 0.0:
+		if inert:
+			queue_free()
+			return
 		_burst()
+		return
+	if inert:
+		for unit in game.units:
+			if unit.team != team and not unit.dead and not pierce and _flat(unit.global_position - global_position) < HIT_RADIUS \
+					and absf(global_position.y - (unit.global_position.y + 1.0)) < 1.5:
+				queue_free()
+				return
 		return
 
 	for unit in game.units:
@@ -427,3 +441,7 @@ func _burst() -> void:
 		game.sfx.play("arrow_hit", global_position, -6.0, 0.15)
 		game.spawn_splash(global_position, Color(0.9, 0.85, 0.7), 6, 2.5, 0.3)
 	queue_free()
+
+
+func _flat(v: Vector3) -> float:
+	return Vector2(v.x, v.z).length()

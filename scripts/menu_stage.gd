@@ -182,7 +182,7 @@ func show_screen(name: String) -> void:
 					cam.fov = float(arg.trim_prefix("--debug-title-fov="))
 			cam.global_position = from
 			cam.look_at(to)
-		"map":
+		"map", "online":
 			cam.fov = 50.0
 			cam.global_position = HALL + Vector3(0, 2.4, 8.5)
 			cam.look_at(HALL + Vector3(0, 2.6, -6.0))

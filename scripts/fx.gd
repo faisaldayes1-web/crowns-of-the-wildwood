@@ -133,6 +133,13 @@ func _mat(tex: String, additive: bool, billboard: int) -> StandardMaterial3D:
 
 func burst(where: Vector3, color: Color, count: int, speed: float, life: float, style: int = STYLE_SPARK,
 		dir: Vector3 = Vector3.UP, spread: float = 180.0, size: float = 1.0) -> void:
+	var n = _net_open("fx", "burst", [where, color, count, speed, life, style, dir, spread, size])
+	_x_burst(where, color, count, speed, life, style, dir, spread, size)
+	_net_close(n)
+
+
+func _x_burst(where: Vector3, color: Color, count: int, speed: float, life: float, style: int = STYLE_SPARK,
+		dir: Vector3 = Vector3.UP, spread: float = 180.0, size: float = 1.0) -> void:
 	## A one-shot spray. `dir`/`spread` aim it (hits spray away from the blow).
 	if count <= 0:
 		return
@@ -221,6 +228,12 @@ func _sprite(where: Vector3, tex: String, color: Color, size: float, life: float
 
 
 func flare(where: Vector3, color: Color, size: float = 1.4, life: float = 0.16) -> void:
+	var n = _net_open("fx", "flare", [where, color, size, life])
+	_x_flare(where, color, size, life)
+	_net_close(n)
+
+
+func _x_flare(where: Vector3, color: Color, size: float = 1.4, life: float = 0.16) -> void:
 	## The bright four-point star that marks the moment of a hit.
 	# Kept small and half-strength: additive white on sunlit grass washes out.
 	_sprite(where, "star", Color(color, 0.85), size * 0.6, life, 1.3, false, randf_range(-0.8, 0.8))
@@ -228,25 +241,55 @@ func flare(where: Vector3, color: Color, size: float = 1.4, life: float = 0.16) 
 
 
 func ground_ring(where: Vector3, radius: float, color: Color, life: float = 0.45) -> void:
+	var n = _net_open("fx", "ground_ring", [where, radius, color, life])
+	_x_ground_ring(where, radius, color, life)
+	_net_close(n)
+
+
+func _x_ground_ring(where: Vector3, radius: float, color: Color, life: float = 0.45) -> void:
 	## A shockwave on the ground that races out to `radius`.
 	_sprite(Vector3(where.x, where.y + 0.14, where.z), "ring", color, radius * 2.0 / 1.5, life, 1.5, true)
 
 
 func ground_glow(where: Vector3, radius: float, color: Color, life: float = 0.5) -> void:
+	var n = _net_open("fx", "ground_glow", [where, radius, color, life])
+	_x_ground_glow(where, radius, color, life)
+	_net_close(n)
+
+
+func _x_ground_glow(where: Vector3, radius: float, color: Color, life: float = 0.5) -> void:
 	_sprite(Vector3(where.x, where.y + 0.12, where.z), "soft", Color(color, color.a * 0.45), radius * 2.0 / 1.2, life, 1.2, true)
 
 
 func rune(where: Vector3, radius: float, color: Color, life: float = 0.55) -> void:
+	var n = _net_open("fx", "rune", [where, radius, color, life])
+	_x_rune(where, radius, color, life)
+	_net_close(n)
+
+
+func _x_rune(where: Vector3, radius: float, color: Color, life: float = 0.55) -> void:
 	## A spinning circle of light under a caster.
 	_sprite(Vector3(where.x, where.y + 0.13, where.z), "rune", color, radius * 2.0, life, 1.15, true, 1.6)
 
 
 func scorch(where: Vector3, radius: float, color: Color = Color(0.08, 0.06, 0.05, 0.7), life: float = 3.5) -> void:
+	var n = _net_open("fx", "scorch", [where, radius, color, life])
+	_x_scorch(where, radius, color, life)
+	_net_close(n)
+
+
+func _x_scorch(where: Vector3, radius: float, color: Color = Color(0.08, 0.06, 0.05, 0.7), life: float = 3.5) -> void:
 	## A dark mark left on the ground by a blast; fades slowly.
 	_sprite(Vector3(where.x, where.y + 0.11, where.z), "soft", color, radius * 2.0 / 1.25, life, 1.25, true, 0.0, false)
 
 
 func beam(from: Vector3, to: Vector3, color: Color, life: float = 0.3, width: float = 0.16) -> void:
+	var n = _net_open("fx", "beam", [from, to, color, life, width])
+	_x_beam(from, to, color, life, width)
+	_net_close(n)
+
+
+func _x_beam(from: Vector3, to: Vector3, color: Color, life: float = 0.3, width: float = 0.16) -> void:
 	## A thin line of light from one point to another (heals, drains).
 	var d := to - from
 	var length := d.length()
@@ -308,6 +351,12 @@ func _arc() -> ArrayMesh:
 
 
 func slash(origin: Vector3, aim: Vector3, color: Color, reach: float = 1.0, heavy: bool = false, flip: bool = false) -> void:
+	var n = _net_open("fx", "slash", [origin, aim, color, reach, heavy, flip])
+	_x_slash(origin, aim, color, reach, heavy, flip)
+	_net_close(n)
+
+
+func _x_slash(origin: Vector3, aim: Vector3, color: Color, reach: float = 1.0, heavy: bool = false, flip: bool = false) -> void:
 	## A crescent that sweeps across the aim direction and fades: the swing.
 	var s := MeshInstance3D.new()
 	s.mesh = _arc()
@@ -340,6 +389,12 @@ func slash(origin: Vector3, aim: Vector3, color: Color, reach: float = 1.0, heav
 # --- Composite effects ---------------------------------------------------------
 
 func hit(where: Vector3, push: Vector3, kind: String, amount: int = 1) -> void:
+	var n = _net_open("fx", "hit", [where, push, kind, amount])
+	_x_hit(where, push, kind, amount)
+	_net_close(n)
+
+
+func _x_hit(where: Vector3, push: Vector3, kind: String, amount: int = 1) -> void:
 	## The moment a blow lands: flare, sparks thrown away from the attacker,
 	## and a kind-specific extra (smoke, motes, chips).
 	var k: Dictionary = KINDS.get(kind, KINDS.melee)
@@ -360,6 +415,12 @@ func hit(where: Vector3, push: Vector3, kind: String, amount: int = 1) -> void:
 
 
 func blast(where: Vector3, radius: float, kind: String) -> void:
+	var n = _net_open("fx", "blast", [where, radius, kind])
+	_x_blast(where, radius, kind)
+	_net_close(n)
+
+
+func _x_blast(where: Vector3, radius: float, kind: String) -> void:
 	## An area hit (fireball, frost burst, splash bolts, curses): flare,
 	## shockwave, sparks, debris or motes, smoke and a scorch mark.
 	var k: Dictionary = KINDS.get(kind, KINDS.arcane)
@@ -392,6 +453,12 @@ func blast(where: Vector3, radius: float, kind: String) -> void:
 
 
 func heal_on(target: Node3D, amount: int, healer: Node3D = null) -> void:
+	var n = _net_open("fx", "heal_on", [target, amount, healer])
+	_x_heal_on(target, amount, healer)
+	_net_close(n)
+
+
+func _x_heal_on(target: Node3D, amount: int, healer: Node3D = null) -> void:
 	## Green light rising round whoever is mended, a cross of light over
 	## them, and a thread from the healer when it came from someone else.
 	var at := target.global_position
@@ -427,12 +494,24 @@ func _cross(where: Vector3, color: Color, delay: float) -> void:
 
 
 func cast(caster: Node3D, color: Color, radius: float = 1.1) -> void:
+	var n = _net_open("fx", "cast", [caster, color, radius])
+	_x_cast(caster, color, radius)
+	_net_close(n)
+
+
+func _x_cast(caster: Node3D, color: Color, radius: float = 1.1) -> void:
 	## A spell leaving the hands: a rune circle under the caster and a glow.
 	rune(caster.global_position, radius, color, 0.5)
 	burst(caster.global_position + Vector3(0, 1.1, 0), color, 6, 2.0, 0.4, STYLE_MOTE)
 
 
 func death(where: Vector3, color: Color) -> void:
+	var n = _net_open("fx", "death", [where, color])
+	_x_death(where, color)
+	_net_close(n)
+
+
+func _x_death(where: Vector3, color: Color) -> void:
 	## A fall: a puff of dust, sparks of the team colour and a wisp rising.
 	burst(where + Vector3(0, 0.6, 0), Color(0.6, 0.57, 0.52), 8, 2.2, 1.0, STYLE_SMOKE, Vector3.UP, 80.0, 1.2)
 	burst(where + Vector3(0, 1.0, 0), color, 14, 3.5, 0.9, STYLE_MOTE)
@@ -530,6 +609,12 @@ const STYLE_PETAL := 4    # flat flakes that flutter down slowly (leaves, petals
 
 
 func petals(where: Vector3, color: Color, count: int, speed: float = 3.0, life: float = 1.4, up: float = 1.0) -> void:
+	var n = _net_open("fx", "petals", [where, color, count, speed, life, up])
+	_x_petals(where, color, count, speed, life, up)
+	_net_close(n)
+
+
+func _x_petals(where: Vector3, color: Color, count: int, speed: float = 3.0, life: float = 1.4, up: float = 1.0) -> void:
 	## Leaves, petals or feathers: flat flakes thrown up that tumble and drift down.
 	var p := CPUParticles3D.new()
 	p.one_shot = true
@@ -564,6 +649,13 @@ func petals(where: Vector3, color: Color, count: int, speed: float = 3.0, life: 
 
 
 func swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, rise: float = 2.5, life: float = 0.9,
+		glow: bool = true) -> void:
+	var n = _net_open("fx", "swirl", [host, color, count, radius, rise, life, glow])
+	_x_swirl(host, color, count, radius, rise, life, glow)
+	_net_close(n)
+
+
+func _x_swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, rise: float = 2.5, life: float = 0.9,
 		glow: bool = true) -> void:
 	## Light spiralling up round a unit (casts, buffs). Follows the unit.
 	var p := CPUParticles3D.new()
@@ -600,6 +692,12 @@ func swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, ris
 
 
 func afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
+	var n = _net_open("fx", "afterimage", [model, color, life])
+	_x_afterimage(model, color, life)
+	_net_close(n)
+
+
+func _x_afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 	## A see-through copy of the body in its current pose that fades where it
 	## stood: dashes and blinks leave a trail of these.
 	if model == null or not is_instance_valid(model):
@@ -630,12 +728,24 @@ func afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 
 
 func trail_ghosts(model: Node3D, color: Color, count: int = 4, every: float = 0.05, life: float = 0.35) -> void:
+	var n = _net_open("fx", "trail_ghosts", [model, color, count, every, life])
+	_x_trail_ghosts(model, color, count, every, life)
+	_net_close(n)
+
+
+func _x_trail_ghosts(model: Node3D, color: Color, count: int = 4, every: float = 0.05, life: float = 0.35) -> void:
 	## A run of afterimages left behind while the body moves (dashes).
 	for i in count:
 		get_tree().create_timer(every * i).timeout.connect(func(): afterimage(model, color, life))
 
 
 func thorns(where: Vector3, radius: float, color: Color, count: int = 12, life: float = 1.0, height: float = 1.1) -> void:
+	var n = _net_open("fx", "thorns", [where, radius, color, count, life, height])
+	_x_thorns(where, radius, color, count, life, height)
+	_net_close(n)
+
+
+func _x_thorns(where: Vector3, radius: float, color: Color, count: int = 12, life: float = 1.0, height: float = 1.1) -> void:
 	## A ring of thorny spikes that burst out of the ground and sink back.
 	var root := Node3D.new()
 	add_child(root)
@@ -671,6 +781,12 @@ func thorns(where: Vector3, radius: float, color: Color, count: int = 12, life: 
 
 
 func dome(host: Node3D, radius: float, color: Color, life: float = 0.5) -> void:
+	var n = _net_open("fx", "dome", [host, radius, color, life])
+	_x_dome(host, radius, color, life)
+	_net_close(n)
+
+
+func _x_dome(host: Node3D, radius: float, color: Color, life: float = 0.5) -> void:
 	## A shell of light that snaps up round a unit and fades (shields, wards).
 	var d := MeshInstance3D.new()
 	var sph := SphereMesh.new()
@@ -698,8 +814,31 @@ func dome(host: Node3D, radius: float, color: Color, life: float = 0.5) -> void:
 
 
 func rays(where: Vector3, color: Color, count: int = 8, length: float = 3.0, life: float = 0.4) -> void:
+	var n = _net_open("fx", "rays", [where, color, count, length, life])
+	_x_rays(where, color, count, length, life)
+	_net_close(n)
+
+
+func _x_rays(where: Vector3, color: Color, count: int = 8, length: float = 3.0, life: float = 0.4) -> void:
 	## Beams of light flaring out from a point (holy flashes).
 	for i in count:
 		var a := TAU * i / count + randf() * 0.3
 		var dir := Vector3(cos(a), randf_range(0.1, 0.6), sin(a)).normalized()
 		beam(where, where + dir * length * randf_range(0.6, 1.0), color, life, 0.09)
+
+
+# --- Online: mirror every effect to the joiners (scripts/net.gd) -------------
+
+func _net_open(target: String, method: String, args: Array):
+	## Host: record an effect for the joiners' screens; effects this one
+	## draws inside itself are not recorded twice (Net.depth).
+	var n = get_node_or_null("/root/Net")
+	if n:
+		n.rec(target, method, args)
+		n.depth += 1
+	return n
+
+
+func _net_close(n) -> void:
+	if n:
+		n.depth -= 1
