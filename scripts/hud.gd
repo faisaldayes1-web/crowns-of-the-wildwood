@@ -4143,8 +4143,8 @@ func _draw_rank_menu(p) -> void:
 	var R := _menu_rect()
 	var now := Time.get_ticks_msec() / 1000.0
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.35))
-	_menu_board(R, "UPGRADES", now)
-	_upgrades_page(p, Rect2(R.position + Vector2(18, 46), Vector2(R.size.x - 36, R.size.y - 86)), now)
+	_menu_board(R, "SKILLS & UPGRADES", now)
+	_skills_page(p, Rect2(R.position + Vector2(18, 44), Vector2(R.size.x - 36, R.size.y - 74)), now)
 	if game.on_pad(p):
 		# Button prompts with the pad's own glyphs.
 		var items := [["D-pad", "Move"], [game.key_label("attack", p), "Upgrade / pick"],
@@ -4168,6 +4168,162 @@ func _draw_rank_menu(p) -> void:
 	else:
 		var hint := "1-4 or + spends a point  ·  5 / 6 picks a promotion  ·  %s closes  ·  a fall costs 2 levels" % _k("rank_menu")
 		_text(Vector2(R.position.x, R.end.y - 14), hint, 11, Color(0.8, 0.74, 0.6), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
+
+
+func _skills_page(p, B: Rect2, now: float) -> void:
+	## SKILLS & UPGRADES, the in-match board (Faisal's reference
+	## game/reference-renders/skills-upgrades-target-2026-10-09.png, sent again
+	## 2026-10-10 11:02): class tabs, the skill rows with their art strips and
+	## + buttons and YOUR STATS along the foot on the left; your level and the
+	## CLASS PROMOTION portrait on the right. The pause menu's UPGRADES tab
+	## keeps its own layout (its reference has the stats card and class list).
+	var view: int = p.role if rank_view < 0 else rank_view
+	_upgrades_skills(p, view, Rect2(B.position, Vector2(680, B.size.y)), now, true)
+	_skills_side(p, view, Rect2(B.position.x + 694, B.position.y, B.size.x - 694, B.size.y))
+
+
+func _life_stats(p) -> Array:
+	## [icon, colour, label, value] for STATS (THIS LIFE).
+	var mana: bool = p.energy_kind() == "mana"
+	var atk: Dictionary = p.attack_stats()
+	var cdr := 0.0
+	var n_abil: int = p.abilities().size()
+	if n_abil > 0:
+		for i in n_abil:
+			cdr += Stats.RANK_COOLDOWN_CUT * p.rank(i + 1)
+		cdr /= n_abil
+	var speed: float = float(p.stats().get("speed", 1.0)) * p.vigor_speed()
+	return [
+		["vigor", HEART, "Hearts", "%d / %d" % [p.hearts, p.max_hearts()]],
+		["shard" if mana else "smite", MANA if mana else STAMINA, "Mana" if mana else "Stamina", "%d / %d" % [int(p.energy), int(p.energy_max())]],
+		["sword", Color(0.95, 0.45, 0.35), "Attack Damage", "%d heart%s" % [int(atk.get("damage", 1)), "" if int(atk.get("damage", 1)) == 1 else "s"]],
+		["dodge", Color(0.95, 0.75, 0.3), "Movement Speed", "%d%%" % roundi(speed * 100.0)],
+		["clock", Color(0.7, 0.55, 1.0), "Cooldown Reduction", "%d%%" % roundi(cdr * 100.0)],
+	]
+
+
+func _skills_stats(p, S: Rect2) -> void:
+	## YOUR STATS along the foot of the skills column, as tiles (where the
+	## reference has its GLOBAL UPGRADES row).
+	_text(S.position + Vector2(4, 13), "YOUR STATS", 15, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	_text(S.position + Vector2(12 + _text_width("YOUR STATS", 15), 13), "(THIS LIFE: RANKS AND GEAR CHANGE THEM)", 10, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var rows: Array = _life_stats(p)
+	var tw := (S.size.x - 8.0 * (rows.size() - 1)) / rows.size()
+	for i in rows.size():
+		var r: Array = rows[i]
+		var t := Rect2(S.position.x + i * (tw + 8.0), S.position.y + 22.0, tw, S.size.y - 22.0)
+		_plate(t, Color(0.08, 0.09, 0.11, 0.97), Color(0.33, 0.3, 0.25), 8, 1)
+		var ib := Rect2(t.position + Vector2(6, (t.size.y - 34.0) / 2.0), Vector2(34, 34))
+		_plate(ib, Color(r[1], 1.0).darkened(0.7), Color(r[1], 1.0).darkened(0.25), 6, 1)
+		_icon(r[0], ib.get_center(), 9.0, r[1])
+		var short := {"Attack Damage": "Damage", "Movement Speed": "Speed", "Cooldown Reduction": "Cooldowns"}
+		_text(Vector2(ib.end.x + 6, t.position.y + 21), short.get(r[2], r[2]), 10, Color(0.86, 0.85, 0.8), HORIZONTAL_ALIGNMENT_LEFT, t.end.x - ib.end.x - 8, 2)
+		_text(Vector2(ib.end.x + 6, t.position.y + 40), r[3], 14, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+
+
+func _skills_side(p, view: int, Rr: Rect2) -> void:
+	## The right column: LEVEL with the XP bar beside the close X, then CLASS
+	## PROMOTION: the class portrait with its emblem (padlocked until enough
+	## points are spent in the class) and its two paths to pick from.
+	var now := Time.get_ticks_msec() / 1000.0
+	var ink := Color(0.1, 0.06, 0.03)
+	var team: int = p.team
+	# LEVEL.
+	var L := Rect2(Rr.position.x, Rr.position.y - 36.0, Rr.size.x - 48.0, 58.0)
+	_plate(L, Color(0.07, 0.08, 0.1, 0.98), GOLD_DARK, 10, 2)
+	var xc := L.position + Vector2(26, L.size.y / 2.0)
+	draw_circle(xc, 16.0, ink)
+	draw_circle(xc, 14.0, GOLD_DARK)
+	draw_circle(xc, 11.5, Color(0.2, 0.12, 0.04))
+	_text(Vector2(xc.x - 16, xc.y + 5), "XP", 12, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 32, 2)
+	var lv_line := "LEVEL %d" % p.level
+	if p.points > 0:
+		lv_line += "   ·   %d POINT%s" % [p.points, "" if p.points == 1 else "S"]
+	_text(Vector2(L.position.x + 46, L.position.y + 22), lv_line, 16, CREAM, HORIZONTAL_ALIGNMENT_CENTER, L.size.x - 56, 3)
+	var span: Array = Stats.xp_span(p.level)
+	var bar := Rect2(L.position.x + 50, L.position.y + 30, L.size.x - 62, 18)
+	_plate(bar, Color(0.03, 0.04, 0.05), Color(0.35, 0.32, 0.26), 6, 1)
+	if span[1] > 0:
+		var fr := clampf(float(p.xp - span[0]) / float(maxi(span[1] - span[0], 1)), 0.0, 1.0)
+		if fr > 0.0:
+			_plate(Rect2(bar.position + Vector2(2, 2), Vector2((bar.size.x - 4) * fr, bar.size.y - 4)), XP, XP.darkened(0.35), 4, 0)
+	_text(Vector2(bar.position.x, bar.end.y - 4), ("%d / %d XP" % [p.xp, span[1]]) if span[1] > 0 else "MAX LEVEL", 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 2)
+	# CLASS PROMOTION.
+	var P := Rect2(Rr.position.x, Rr.position.y + 34.0, Rr.size.x, Rr.size.y - 34.0)
+	_plate(P, Color(0.06, 0.07, 0.08, 0.98), Color(0.35, 0.3, 0.2), 10, 2)
+	_text(P.position + Vector2(12, 26), "CLASS PROMOTION", 19, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	var has: bool = Stats.VARIANTS.has(view)
+	var spent: int = p.mastery.get(view, 0)
+	var unlocked: bool = has and p.variant_unlocked(view)
+	var cls: String = "Soldier" if view == Role.BASE else str(Stats.FACTIONS[team].roles[view])
+	var sub := "Pick a class at the stations, then spend points in its skills to unlock a promotion."
+	if has:
+		var left := Stats.VARIANT_UNLOCK - spent
+		sub = "Unlocked: choose one of the two paths below." if unlocked else "Spend %d more point%s in %s skills to unlock this class's promotion." % [left, "" if left == 1 else "s", cls]
+	_paragraph(P.position + Vector2(12, 42), sub, 10, Color(0.6, 1.0, 0.5) if unlocked else Color(0.82, 0.8, 0.74), P.size.x - 24, 12.0)
+	# The portrait, cropped to fill, fading into the panel at the foot.
+	var art := Rect2(P.position + Vector2(10, 70), Vector2(P.size.x - 20, 176))
+	_plate(art.grow(2), Color(0.03, 0.04, 0.04), Color(0.4, 0.5, 0.25) if unlocked else Color(0.3, 0.28, 0.22), 8, 2)
+	var key := _card_key(team, view)
+	if cards.has(key):
+		var tex: Texture2D = cards[key]
+		var ts := tex.get_size()
+		var sw: float = ts.x
+		var sh: float = sw * art.size.y / art.size.x
+		if sh > ts.y * 0.74:
+			sh = ts.y * 0.74
+			sw = sh * art.size.x / art.size.y
+		draw_texture_rect_region(tex, art, Rect2(Vector2((ts.x - sw) / 2.0, ts.y * 0.02), Vector2(sw, sh)), Color.WHITE if unlocked or not has else Color(0.72, 0.72, 0.72))
+	else:
+		_plate(art, Stats.FACTIONS[team].color.darkened(0.6), Stats.FACTIONS[team].color.darkened(0.3), 8, 0)
+	draw_polygon(PackedVector2Array([art.position + Vector2(0, art.size.y * 0.55), art.position + Vector2(art.size.x, art.size.y * 0.55), art.end, art.position + Vector2(0, art.size.y)]),
+		PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0.06, 0.07, 0.08, 0.95), Color(0.06, 0.07, 0.08, 0.95)]))
+	# The emblem: the class sigil in a gold ring, padlocked while locked.
+	var rc: Color = Stats.ROLES[view].color if view != Role.BASE else Color(0.75, 0.6, 0.35)
+	var ec := Vector2(art.end.x - 46.0, art.position.y + 46.0)
+	draw_circle(ec, 33.0, Color(0, 0, 0, 0.45))
+	draw_circle(ec, 30.0, ink)
+	draw_circle(ec, 28.0, GOLD)
+	draw_circle(ec, 24.0, rc.darkened(0.65))
+	_icon(_class_icon(view), ec, 13.0, rc.lightened(0.45))
+	if has and not unlocked:
+		draw_circle(ec + Vector2(0, 24), 11.0, ink)
+		_padlock(ec + Vector2(0, 25), 13.0, CREAM)
+	_text(Vector2(art.position.x, art.end.y - 12), cls.to_upper(), 24, Color(0.62, 1.0, 0.5) if view != Role.BASE else CREAM, HORIZONTAL_ALIGNMENT_CENTER, art.size.x, 5)
+	# The two paths.
+	if not has:
+		return
+	var vy := art.end.y + 10.0
+	var vh := (P.end.y - vy - 10.0 - 8.0) / 2.0
+	for i in 2:
+		var v: Dictionary = Stats.VARIANTS[view][i]
+		var e := Rect2(P.position.x + 10, vy + i * (vh + 8.0), P.size.x - 20, vh)
+		var chosen: bool = p.variants.get(view, -1) == i
+		_plate(e, Color(0.26, 0.21, 0.08, 0.98) if chosen else (Color(0.1, 0.15, 0.1, 0.97) if unlocked else Color(0.08, 0.09, 0.11, 0.96)),
+			GOLD if chosen else (Color(0.45, 0.8, 0.35) if unlocked else Color(0.3, 0.3, 0.32)), 8, 2 if chosen else 1)
+		var ib := Rect2(e.position + Vector2(7, 7), Vector2(36, 36))
+		var vt: Color = v.get("tint", Color.WHITE)
+		_plate(ib, vt.darkened(0.7), vt.darkened(0.2) if unlocked else Color(0.35, 0.35, 0.38), 6, 2)
+		_icon(v.icon, ib.get_center(), 11, Color.WHITE, not unlocked)
+		_text(e.position + Vector2(50, 20), str(v.name).to_upper(), 15, GOLD if chosen else (Color.WHITE if unlocked else Color(0.85, 0.85, 0.85)), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		if chosen:
+			_text(e.position + Vector2(0, 19), "CHOSEN", 10, GOLD, HORIZONTAL_ALIGNMENT_RIGHT, e.size.x - 10, 2)
+		elif unlocked:
+			_text(e.position + Vector2(0, 19), ("%s: PICK" % (i + 5)) if not game.on_pad(p) else "PICK", 10, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_RIGHT, e.size.x - 10, 2)
+		else:
+			_padlock(e.position + Vector2(e.size.x - 16, 15), 9.0, GREY)
+		_paragraph(e.position + Vector2(50, 33), str(v.desc), 9, Color(0.85, 0.85, 0.82) if unlocked else Color(0.7, 0.7, 0.7), e.size.x - 58, 10.0)
+		var names: Array = [str(v.get("attack", {}).get("attack_name", Stats.kit(team, view).get("attack_name", "")))]
+		for a in v.abilities:
+			names.append(str(a.name))
+		draw_line(Vector2(e.position.x + 8, e.end.y - 22), Vector2(e.end.x - 8, e.end.y - 22), Color(0.3, 0.3, 0.28), 1.0)
+		_text(Vector2(e.position.x, e.end.y - 7), "  ·  ".join(names), 10, Color(0.88, 0.86, 0.78), HORIZONTAL_ALIGNMENT_CENTER, e.size.x, 2)
+		if unlocked and not chosen and not p.dead and view == p.role:
+			variant_buttons.append([e, view, i])
+		if game.on_pad(p) and game.rank_open and rank_focus == 4 + i:
+			_glow_frame(e.grow(3), Color(1.0, 0.82, 0.3, 0.4 + 0.25 * sin(now * 5.0)))
+		elif not game.on_pad(p) and e.has_point(_mouse()):
+			rank_focus = 4 + i
 
 
 func _upgrades_page(p, B: Rect2, now: float) -> void:
@@ -4217,22 +4373,7 @@ func _upgrades_card(p, L: Rect2) -> void:
 	_plate(S, Color(0.07, 0.08, 0.1, 0.97), Color(0.28, 0.27, 0.24), 9, 1)
 	_text(S.position + Vector2(10, 20), "STATS", 15, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	_text(S.position + Vector2(10 + _text_width("STATS ", 15), 20), "(THIS LIFE)", 12, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var mana: bool = p.energy_kind() == "mana"
-	var atk: Dictionary = p.attack_stats()
-	var cdr := 0.0
-	var n_abil: int = p.abilities().size()
-	if n_abil > 0:
-		for i in n_abil:
-			cdr += Stats.RANK_COOLDOWN_CUT * p.rank(i + 1)
-		cdr /= n_abil
-	var speed: float = float(p.stats().get("speed", 1.0)) * p.vigor_speed()
-	var rows := [
-		["vigor", HEART, "Hearts", "%d / %d" % [p.hearts, p.max_hearts()]],
-		["shard" if mana else "smite", MANA if mana else STAMINA, "Mana" if mana else "Stamina", "%d / %d" % [int(p.energy), int(p.energy_max())]],
-		["sword", Color(0.95, 0.45, 0.35), "Attack Damage", "%d heart%s" % [int(atk.get("damage", 1)), "" if int(atk.get("damage", 1)) == 1 else "s"]],
-		["dodge", Color(0.95, 0.75, 0.3), "Movement Speed", "%d%%" % roundi(speed * 100.0)],
-		["clock", Color(0.7, 0.55, 1.0), "Cooldown Reduction", "%d%%" % roundi(cdr * 100.0)],
-	]
+	var rows: Array = _life_stats(p)
 	var rh := clampf((S.size.y - 40.0) / 9.0, 16.0, 22.0)
 	var y := S.position.y + 30.0
 	for i in rows.size():
@@ -4254,7 +4395,7 @@ func _upgrades_card(p, L: Rect2) -> void:
 		y += rh
 
 
-func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
+func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -> void:
 	## The class tabs (the viewed class wide, "<CLASS> SKILLS"), the four skill
 	## rows with their + buttons, then PROMOTION with the two variant cards.
 	var ink := Color(0.1, 0.06, 0.03)
@@ -4267,8 +4408,11 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 	for r in [Role.RANGER, Role.MAGE, Role.KNIGHT, Role.HEALER, Role.ENGINEER, Role.ROGUE]:
 		if r != view:
 			roles.append(r)
+	if board:
+		_skills_tabs(p, view, C)
+		roles = []
 	var wide := 200.0
-	var small := (C.size.x - wide - (roles.size() - 1) * 6.0) / (roles.size() - 1)
+	var small := (C.size.x - wide - (roles.size() - 1) * 6.0) / maxi(roles.size() - 1, 1)
 	var x := C.position.x
 	for i in roles.size():
 		var role: int = roles[i]
@@ -4292,9 +4436,10 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 		rank_tab_buttons.append([tr, role])
 	# Skill rows: attack, Q, E, vigor.
 	var promo_h := 104.0
-	var top := C.position.y + 44.0
+	var top := C.position.y + (70.0 if board else 44.0)
 	var detail_h := 40.0
-	var rh := floorf((C.end.y - promo_h - 24.0 - top - detail_h) / 4.0)
+	var foot := 84.0 if board else promo_h + 24.0   # YOUR STATS, or the promotion cards
+	var rh := floorf((C.end.y - foot - top - detail_h) / 4.0)
 	var ranks: Array = p.ranks.get(view, [0, 0, 0, 0])
 	var abil: Array = p.abilities() if own else kit.get("abilities", [])
 	var pad: bool = game.on_pad(p) and game.rank_open
@@ -4334,7 +4479,14 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 				var sy := art.position.y + 8.0 + k * (art.size.y - 16.0) / 4.0
 				var sx := art.position.x + 20.0 + f * (art.size.x - 40.0)
 				draw_line(Vector2(sx, sy), Vector2(sx + 20.0 + k * 3.0, sy - 5.0), Color(tint.lightened(0.5), 0.5 * sin(f * PI)), 2.0)
-			# (No big faint emblem here any more: the "Next:" line ran over it.)
+			# (No big faint emblem in the pause tab: the "Next:" line ran over it.
+			# The SKILLS & UPGRADES board has the room, so it paints one, like
+			# the reference's art strips, with the Next line at the strip foot.)
+			if board:
+				var ec := Vector2(art.position.x + art.size.x * 0.55, art.position.y + art.size.y * 0.45)
+				for g in 3:
+					draw_circle(ec, art.size.y * (0.46 - g * 0.1), Color(tint, 0.07 + g * 0.05))
+				_icon(icon, ec, art.size.y * 0.24, Color(tint.lightened(0.55), 0.85))
 		# Icon tile.
 		var ts := minf(row.size.y - 12.0, 54.0)
 		var tile := Rect2(row.position + Vector2(6, (row.size.y - ts) / 2.0), Vector2(ts, ts))
@@ -4358,13 +4510,13 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 		_text(Vector2(tx, row.position.y + 20), name, 17, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		_paragraph(Vector2(tx, row.position.y + 34), desc, 10, Color(0.86, 0.86, 0.82) if available else GREY, art.position.x - tx - 8.0, 11.0)
 		if available:
-			var lv := Rect2(art.position.x + 8, row.end.y - 17, 30, 13)
+			var lv := Rect2((tx if board else art.position.x + 8.0), row.end.y - 17, 30, 13)
 			_plate(lv, Color(0.2, 0.15, 0.06), GOLD_DARK, 3, 1)
 			_text(Vector2(lv.position.x, lv.end.y - 2), "LV %d" % r, 9, GOLD, HORIZONTAL_ALIGNMENT_CENTER, lv.size.x, 1)
 			for k in Stats.MAX_RANK:
 				var pip := Rect2(lv.end.x + 5 + k * 20, lv.position.y + 2, 16, 9)
 				_plate(pip, tint if k < r else Color(0.12, 0.13, 0.15), tint.darkened(0.25) if k < r else Color(0.4, 0.37, 0.3), 4, 1)
-			_text(Vector2(art.position.x + 8, art.position.y + 14), _rank_desc_for(p, view, t, r), 9, GOLD if not maxed else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(Vector2(art.position.x + 8, (row.end.y - 7.0) if board else (art.position.y + 14.0)), _rank_desc_for(p, view, t, r), 9, GOLD if not maxed else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		# Cost and the + button.
 		var bs := minf(row.size.y - 26.0, 40.0)
 		var btn := Rect2(row.end.x - bs - 12.0, row.end.y - bs - 6.0, bs, bs)
@@ -4404,7 +4556,36 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float) -> void:
 				_plate(row, Color(1.0, 0.92, 0.6, 0.35 * (1.0 - since / 0.5)), Color(1.0, 0.95, 0.7, 0.9 * (1.0 - since / 0.5)), 9, 3)
 			_text(Vector2(btn.position.x - 30.0, btn.position.y - 4.0 - since * 40.0), "+1 LV", 16, Color(1.0, 0.9, 0.4, k), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x + 60.0, 4)
 	_upgrade_detail(p, view, Rect2(C.position.x, top + 4 * rh, C.size.x, detail_h - 6.0), ranks, abil, kit, own)
-	_promotion_cards(p, view, Rect2(C.position.x, C.end.y - promo_h - 22.0, C.size.x, promo_h + 22.0))
+	if board:
+		_skills_stats(p, Rect2(C.position.x, C.end.y - foot + 6.0, C.size.x, foot - 6.0))
+	else:
+		_promotion_cards(p, view, Rect2(C.position.x, C.end.y - promo_h - 22.0, C.size.x, promo_h + 22.0))
+
+
+func _skills_tabs(p, view: int, C: Rect2) -> void:
+	## The class tabs of SKILLS & UPGRADES: your class first, then the rest in
+	## a fixed order, each its sigil over its name; the viewed one lit green.
+	var team: int = p.team
+	var roles: Array = [p.role]
+	for r in [Role.RANGER, Role.MAGE, Role.KNIGHT, Role.HEALER, Role.ENGINEER, Role.ROGUE]:
+		if r != p.role:
+			roles.append(r)
+	var tw := (C.size.x - (roles.size() - 1) * 6.0) / roles.size()
+	for i in roles.size():
+		var role: int = roles[i]
+		var tr := Rect2(C.position.x + i * (tw + 6.0), C.position.y, tw, 60)
+		var sel: bool = role == view
+		var rc: Color = Stats.ROLES[role].color if role != Role.BASE else Color(0.75, 0.6, 0.35)
+		var hover := tr.has_point(_mouse())
+		_plate(tr, Color(0.1, 0.24, 0.12, 0.98) if sel else (Color(0.16, 0.17, 0.21, 0.97) if hover else Color(0.11, 0.12, 0.16, 0.96)),
+			Color(0.5, 1.0, 0.45) if sel else Color(0.32, 0.3, 0.26), 8, 3 if sel else 1)
+		draw_rect(Rect2(tr.position + Vector2(4, 4), Vector2(tr.size.x - 8, 12)), Color(0.6, 1.0, 0.5, 0.12) if sel else Color(1, 1, 1, 0.04))
+		_icon(_class_icon(role), tr.position + Vector2(tr.size.x / 2.0, 24), 12, rc.lightened(0.45) if sel or hover else rc.lightened(0.15))
+		var nm: String = "SOLDIER" if role == Role.BASE else str(Stats.FACTIONS[team].roles[role]).to_upper()
+		_text(Vector2(tr.position.x, tr.end.y - 9), nm, 13, CREAM if sel else Color(0.86, 0.84, 0.78), HORIZONTAL_ALIGNMENT_CENTER, tr.size.x, 3)
+		if role == p.role:
+			draw_circle(tr.position + Vector2(tr.size.x - 9, 9), 3.5, Color(0.5, 1.0, 0.45))
+		rank_tab_buttons.append([tr, role])
 
 
 func _glow_frame(r: Rect2, col: Color) -> void:
