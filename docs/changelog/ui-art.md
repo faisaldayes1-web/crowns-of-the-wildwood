@@ -915,3 +915,16 @@ Commit: `7d0de41`.
 - **Tests:** options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
 
 Revert: `git revert 7d0de41`.
+
+## 2026-10-10 — Shared in-match panel style
+
+Commit: `5baffd5`. Faisal (08:31): "the ui still doesn't match the game style".
+
+- `hud.game_board(rect, title := "", ivy := true)` draws the ability strip's board for any in-match panel. That board is dark wood in a brass rim, with gold corner brackets, grain bands, ivy and an optional wooden name tag.
+- `hud.game_button(rect, label, enabled := true, accent := gold) -> bool` draws the matching raised button and returns true while it is hovered.
+- The LEVEL UP strip now uses `game_board`, plus a gold glow when ranks can be bought, and its tiles are recessed.
+- Economy has been asked to draw BASE STOCK, the action card and its buttons with these helpers.
+
+Tested: options_menu_test 0 failures.
+
+Revert: `git revert 5baffd5`.
