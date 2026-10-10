@@ -920,7 +920,7 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 		var th := 2.0 * (hr + 6.0) / 0.9 * 1.16   # zoomed past the painting's own (sliced) rim
 		var tex: Texture2D = skill_art[art]
 		var tw := th * tex.get_width() / tex.get_height()
-		var box := Rect2(hc - Vector2(tw, th) / 2.0 + Vector2(tw * 0.075, 0), Vector2(tw, th))
+		var box := Rect2(hc - Vector2(tw, th) / 2.0 - Vector2(tw * 0.03, 0), Vector2(tw, th))
 		var face := _hex_pts(hc, hr - 2.5)
 		var uvs := PackedVector2Array()
 		for q in face:
