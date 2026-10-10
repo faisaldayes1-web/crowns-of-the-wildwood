@@ -236,6 +236,9 @@ var panes: Array = []           # per local player: {unit, view, cam, hud, cam_p
 var split_layer: CanvasLayer
 var split_fill: ColorRect
 const SPLIT_TALL_ZOOM := 1.3    # camera pull-back in a side-by-side (half-width, full-height) pane
+const SPLIT_HUD_SHARE := 0.26   # most of a pane's height the HUD's top bar + bottom row may cover
+const SPLIT_HUD_ROWS := 260.0   # those two rows' height in HUD units
+const SPLIT_HUD_WIDTH := 1240.0 # HUD units the bottom row needs across
 var rank_player = null          # whose perk menu is open
 const COUCH_MAX := 4
 const COUCH_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "aim_left", "aim_right", "aim_up", "aim_down",
@@ -2306,7 +2309,12 @@ func _layout_panes() -> void:
 		box.offset_right = -2 if r.end.x < 1.0 else 0
 		box.offset_bottom = -2 if r.end.y < 1.0 else 0
 		var tall := r.size.y > r.size.x * 1.2
-		pane.hud_scale = 0.6 if tall else (0.72 if n == 2 else 0.56)
+		# Keep the game view in charge (Faisal 2026-10-10: the split-screen
+		# HUD must not take up most of the screen): the top bar and the
+		# bottom row together stay near a quarter of the pane's height, and
+		# the bottom row still fits the pane's width.
+		var px: Vector2 = get_viewport().get_visible_rect().size * r.size
+		pane.hud_scale = clampf(minf(px.y * SPLIT_HUD_SHARE / SPLIT_HUD_ROWS, px.x / SPLIT_HUD_WIDTH), 0.4, 0.72)
 		pane.zoom = SPLIT_TALL_ZOOM if tall else 1.0
 		pane.hud.scale = Vector2.ONE * pane.hud_scale
 		pane.hud.size = Vector2(pane.view.size) / pane.hud_scale

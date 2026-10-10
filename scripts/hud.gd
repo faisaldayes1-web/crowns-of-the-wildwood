@@ -331,7 +331,9 @@ func _draw() -> void:
 		_draw_class_banner(_me())
 	if pane:
 		if local_unit:
-			_text(Vector2(14, 184 if _narrow() else 252), "PLAYER %d" % (local_unit.local_index + 1), 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+			# Under the BASE STOCK card when the economy draws one (economy.gd draw_counter).
+			var ly: float = (300.0 if _narrow() else 356.0) if game.economy else (184.0 if _narrow() else 252.0)
+			_text(Vector2(30 if _narrow() else 44, ly), "PLAYER %d" % (local_unit.local_index + 1), 15, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 		if game.rank_open and game.rank_player == local_unit:
 			_draw_rank_menu(local_unit)
 		return
