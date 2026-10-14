@@ -14,6 +14,19 @@ Newest entry at the top, as in [README.md](README.md).
 
 ---
 
+### 2026-10-14 · `4a78a69` · Online matches no longer freeze on the menu button
+
+- **What:** Tapping or clicking the corner MENU / map button paused the whole
+  game even in an online match (Esc already knew not to), so on the host
+  every joiner froze until the menu closed. It now pauses offline only.
+- **Files:** scripts/game.gd
+- **Tunables:** none
+- **Tested:** all six test tools pass (run.sh, menu_flow, options_menu,
+  save, store_menu, store). Ember Pass check of the whole branch, seeds
+  501-507, before vs after: Humans 4-3 vs 5-2 (within noise), no script
+  errors, bot stalls 0.3 vs 0.0 per match.
+- **Revert:** `git revert 4a78a69`
+
 ### 2026-10-14 · `12a638a` · Nobody stays stuck
 
 - **What:**
