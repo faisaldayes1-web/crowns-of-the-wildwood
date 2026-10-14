@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 11:30 UTC · UI & Art `86357d0` · Faisal's painted skill strips
+
+- **What:** merged UI & Art `86357d0`: Faisal's 67 painted skill strips behind the skill rows (assets/ui/strips, tools/make_skill_strips.py, hud.gd).
+- **Conflicts:** none.
+- **Tested:** import, all group tests, economy and online checks, bot matches on both maps, Steam build, both .exe files under wine.
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 10:25 UTC · UI & Art `5477cce` · Promotion card built to Faisal's mock-up
 
 - **What:** merged UI & Art `053a21d` + changelog `5477cce`: CLASS PROMOTION card built to Faisal's mock-up (hud.gd), blurred card backdrops assets/ui/cards/*_blur.png made by tools/make_card_blur.py.
