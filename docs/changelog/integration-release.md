@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 16:00 UTC · Economy `6ba18ff` · Wood/ore node pairs always placed
+
+- **What:** merged Economy `6ba18ff`: the mirrored node-pair search reaches 14 m in 16 directions (was 8 m), so the two pairs that were skipped with "no room for a wood/ore node pair" now place (18 nodes on both maps). scripts/economy.gd.
+- **Conflicts:** none.
+- **Tested:** full check (as in the entry below).
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 15:55 UTC · Combat & Balance `e9bf9f7` · Balance patch 6, cooldown-shade fix
 
 - **What:** merged Combat & Balance up to `e9bf9f7`: balance patch 6 (`a4c4786`, scripts/stats.gd; docs/balance/patch-6.md), cooldown shade no longer draws an untriangulable sliver (`30458d2`, hud.gd; removes the "Invalid polygon data" errors), STALL demo logging only counts bots that want to move (`9ec77f7`), their copy of the `_first()` downed-skip (`db30d12`).
