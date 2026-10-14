@@ -4,6 +4,14 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 16:40 UTC · Combat & Balance `8f995ef` · Balance patch 7
+
+- **What:** merged balance patch 7 (scripts/stats.gd only; docs/balance/patch-7.md). Over 96 matches: Elves 29-19 → 25-23.
+- **Tunables:** Elves speed 6.15 → 6.05.
+- **Conflicts:** none.
+- **Tested:** full check (import, all group tests, economy, net_smoke, bot matches on both maps, Steam build, both .exe files under wine).
+- **Revert:** `git revert 8f995ef` (patch only) or `git revert -m 1 <merge>`.
+
 ### 2026-10-14 16:00 UTC · Economy `6ba18ff` · Wood/ore node pairs always placed
 
 - **What:** merged Economy `6ba18ff`: the mirrored node-pair search reaches 14 m in 16 directions (was 8 m), so the two pairs that were skipped with "no room for a wood/ore node pair" now place (18 nodes on both maps). scripts/economy.gd.
