@@ -1012,7 +1012,7 @@ Commit: `f3e2ecf`. Faisal (07:40, in the Integration thread): "heres the 2k text
 - **New tool:** `tools/slice_ui_v2.py <folder>` cuts each piece from the cell above its file-name label. It removes the checker backdrop and the dark halo by a flood fill from the cell's edge, drops neighbours' edges and the section headers, and centres the piece at the size the sheet names.
 - **Class icons** (`icons/class_*`): his CLASS ICONS row, which are framed square tiles. The old icons were shields.
 - **Class cards:** new Elf and Human base cards (`cards/elf_base`, `cards/human_base`) and six class cards, still shared by both factions.
-- **Icons:** 72 icons at 256 px (were 128). This adds coin, frostweaver and siegewright, which were missing from the first set. There are 19 menu icons at 96 px.
+- **Icons:** 61 ability, HUD and upgrade icons at 256 px (were 128). This adds coin, frostweaver and siegewright, which were missing from the first set. There are 19 menu icons at 96 px.
 - **Faction art:** logos, crests, the scoreboard shields, the four banners and the stag, all cut from art roughly twice the size of the first set's.
 - **Store:** 52 thumbnails. trim_0 is not on the sheet and stays.
 - **Kept:** the title logo and topbar (higher resolution already), the action bar's hex skill art, and the body-shape icons.
