@@ -53,4 +53,4 @@ judge the patch by the 48-match total.
 
 ## Revert
 
-`git revert <patch 7 commit>`
+`git revert 8f995ef`
