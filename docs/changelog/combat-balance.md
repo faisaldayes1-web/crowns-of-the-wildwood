@@ -537,3 +537,18 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Files:** `scripts/unit.gd` (demo diagnostics).
 - **Checks:** `tools/tests/run.sh` 34/34.
 - **Revert:** `git revert 9ec77f7`
+
+## 25. Balance patch 6
+
+- **When:** 2026-10-14 (Faisal: "keep rebalancing and fixing the game and bug
+  fixing")
+- **Commit:** `a4c4786`
+- **What:** Trims the Elf lean on the latest alpha, mainly the Elf healers.
+  Write-up in `docs/balance/patch-6.md`.
+- **Files:** `scripts/stats.gd`, `docs/balance/patch-6.md`.
+- **Tunables:** Humans `regen_mult` 1.15 → 1.22; Elf Grove Mend
+  `cooldown` 0.7 → 0.8; Elf Spirit Bloom `haste` 4 → 3.
+- **Batches:** 144 matches. Wins 32-16 → 29-19; Elf/Human healer K/D
+  1.77/0.96 → 1.60/0.94.
+- **Checks:** `tools/tests/run.sh` 34/34.
+- **Revert:** `git revert a4c4786`

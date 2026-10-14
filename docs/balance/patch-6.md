@@ -66,4 +66,4 @@ going.
 
 ## Revert
 
-`git revert <patch 6 commit>`
+`git revert a4c4786`
