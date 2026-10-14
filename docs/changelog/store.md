@@ -208,3 +208,29 @@ Files: `scripts/save_file.gd`, `scripts/game.gd`, `scripts/menu.gd`, `tools/save
 
 Undo: `git revert 71ca08f` (the profile files stay on disk and are ignored; controls.cfg still holds the
 current player's data).
+
+## 2026-10-14 — Epic and Legendary items look expensive
+
+Commit: `2dc1ab1` (branch restarted from the Steam beta `group/integration-release-g9m95g` at b0e261f)
+
+Faisal 20:46: "for the expensive rare items make them look visually different so it entices sales".
+
+What changed:
+- **Store cards by tier** (`scripts/store.gd` `_card`): Common as before; Rare adds a thin brass line inside
+  the frame; Epic adds a glow that breathes, a light band sweeping across every 3.4 s, three twinkling
+  sparkles and an EPIC tag on the top edge; Legendary adds slow golden rays turning behind the item, six
+  sparkles, a sweep every 2.4 s, brass corner braces and a LEGENDARY tag. The detail card under the grid
+  gleams the same way for Epic and Legendary.
+- **Preview**: the hero sways side to side for an Epic pick and turns slowly all the way round for a
+  Legendary one.
+- **Worn sparkle** (`scripts/store_gear.gd` `aura`, called from `character_model.gd`): Epic (violet, 10
+  motes) and Legendary (gold, 18 larger motes) hats, capes, armour tints and weapon skins sparkle round the
+  head, back, chest or sword hand — in the menus and in matches. CPUParticles3D, so it runs on the web
+  build too.
+- No price, stat or save change.
+
+Tests: `tools/store_test.gd` +3 (Legendary gear sparkles, Common/Rare does not, Epic weapon does).
+
+Files: `scripts/store.gd`, `scripts/store_gear.gd`, `scripts/character_model.gd`, `tools/store_test.gd`.
+
+Undo: `git revert 2dc1ab1`
