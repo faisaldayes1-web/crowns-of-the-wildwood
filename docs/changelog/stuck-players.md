@@ -14,7 +14,7 @@ Newest entry at the top, as in [README.md](README.md).
 
 ---
 
-### 2026-10-14 · `HASH` · Nobody stays stuck
+### 2026-10-14 · `12a638a` · Nobody stays stuck
 
 - **What:**
   - **Frozen after a finisher (the main lock):** if the enemy finishing you
@@ -53,4 +53,4 @@ Newest entry at the top, as in [README.md](README.md).
   seed 301 and Ember Pass seed 302: no STALL lines (the same seeds before
   the fix had two Rangers stalled at the Wildwood defence posts), no safety
   net triggers, no script errors.
-- **Revert:** `git revert HASH`
+- **Revert:** `git revert 12a638a`
