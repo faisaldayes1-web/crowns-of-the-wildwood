@@ -55,6 +55,7 @@ var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_i
 var skill_art: Dictionary = {}   # hexagon skill tiles and shield faces (assets/ui/skills)
 var touch_ui := false            # touch-screen layout: big thumb buttons, no keycaps (see _touch_cluster)
 var next_slot_art := ""          # set just before _slot(): the skill art to draw for it
+var strips: Dictionary = {}  # slug -> Texture2D, Faisal's painted skill-row art (tools/make_skill_strips.py)
 var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
@@ -149,6 +150,13 @@ func _ready() -> void:
 				var kind := file.trim_suffix(".png.import")
 				if not icons.has(kind):
 					icons[kind] = load("res://assets/ui/icons/%s.png" % kind)
+	# The skill rows' painted strips (Faisal 2026-10-14 10:59), by skill name.
+	var sdir := DirAccess.open("res://assets/ui/strips")
+	if sdir:
+		for file in sdir.get_files():
+			var sk := file.trim_suffix(".import").trim_suffix(".png")
+			if not strips.has(sk) and (file.ends_with(".png") or file.ends_with(".png.import")):
+				strips[sk] = load("res://assets/ui/strips/%s.png" % sk)
 	for key in ["crest_elf", "crest_human", "logo_elves", "logo_humans", "elf_base", "elf_knight", "elf_ranger", "elf_mage", "elf_healer",
 			"human_base", "human_knight", "human_ranger", "human_mage", "human_healer",
 			"elf_engineer", "human_engineer", "elf_rogue", "human_rogue"]:   # (Engineer and Rogue cards: Faisal's 2026-10-14 sheet)
@@ -4553,7 +4561,17 @@ func _fx_comet(head: Vector2, back: Vector2, w: float, col: Color, hot: Color, a
 	draw_circle(head, w * 0.9, Color(1, 1, 1, a))
 
 
-func _strip_fx(art: Rect2, kind: String, icon: String, tint: Color, now: float) -> void:
+func _skill_slug(n: String) -> String:
+	## "Bramble Burst" -> "bramble_burst", the painted strip's file name.
+	var out := ""
+	for c in n.to_lower().replace("'", ""):
+		out += c if (c >= "a" and c <= "z") or (c >= "0" and c <= "9") else "_"
+	while out.contains("__"):
+		out = out.replace("__", "_")
+	return out.strip_edges().trim_prefix("_").trim_suffix("_")
+
+
+func _strip_fx(art: Rect2, kind: String, icon: String, tint: Color, now: float, painted: bool = false) -> void:
 	## The skill row's living art strip (Faisal 2026-10-14 07:24: "i like the
 	## idea of the this animation being here"; 08:08 "improve on the visuals
 	## of these"): a painted-looking scene in the skill's colour on a loop.
@@ -4564,6 +4582,19 @@ func _strip_fx(art: Rect2, kind: String, icon: String, tint: Color, now: float) 
 	var hot := tint.lightened(0.6)
 	var h := art.size.y
 	var ec := Vector2(art.position.x + art.size.x * 0.66, art.get_center().y)
+	if painted:
+		# Over Faisal's painting only twinkles and a slow glint drift by, so
+		# the art stays the picture.
+		var pw := minf(h * 5.2, art.size.x)
+		for k in 9:
+			var f := fmod(now * 0.4 + k * 0.113, 1.0)
+			var sp := Vector2(art.end.x - pw * (0.08 + fmod(k * 0.37, 0.7)), art.position.y + 6.0 + fmod(k * 23.7, h - 12.0) - f * 8.0)
+			_fx_sparkle(sp, 2.0 + 3.0 * sin(f * PI), Color(hot, 0.9 * sin(f * PI)))
+		var g := fmod(now * 0.22, 1.0)
+		var gx := art.end.x - pw + g * (pw - h * 0.25)
+		draw_polygon(PackedVector2Array([Vector2(gx, art.position.y), Vector2(gx + h * 0.25, art.position.y), Vector2(gx + h * 0.05, art.end.y), Vector2(gx - h * 0.2, art.end.y)]),
+			PackedColorArray([Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.07), Color(1, 1, 1, 0.07), Color(1, 1, 1, 0.0)]))
+		return
 	# Light pool and rays.
 	_fx_glow(ec, h * 1.1, tint, 0.55)
 	for k in 5:
@@ -4771,7 +4802,9 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -
 		if available:
 			var wash := PackedVector2Array([art.position, art.position + Vector2(art.size.x, 0), art.end, art.position + Vector2(0, art.size.y)])
 			draw_polygon(wash, PackedColorArray([Color(tint, 0.0), Color(tint, 0.38), Color(tint, 0.38), Color(tint, 0.0)]))
-			for k in 5:
+			var sname: String = "Vigor" if t == 3 else (str(abil[t - 1].name) if t > 0 else (p.track_name(0) if own else str(kit.get("attack_name", ""))))
+			var painted: Texture2D = strips.get(_skill_slug(sname))
+			for k in (0 if painted else 5):   # (the streaks only without a painting)
 				var f := fmod(now * (0.25 + k * 0.05) + k * 0.31, 1.0)
 				var sy := art.position.y + 8.0 + k * (art.size.y - 16.0) / 4.0
 				var sx := art.position.x + 20.0 + f * (art.size.x - 40.0)
@@ -4779,9 +4812,22 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -
 			# (No big faint emblem in the pause tab: the "Next:" line ran over it.
 			# The SKILLS & UPGRADES board has the room, so it paints one, like
 			# the reference's art strips, with the Next line at the strip foot.)
-			if board:
+			# Faisal's painted strip for this skill (2026-10-14 10:59), right-
+			# aligned at the row's height; the drawn effects then only sparkle
+			# and shimmer over it.
+			if painted:
+				# Zoomed 1.3x on the subject (the painting's edges are only
+				# dark backdrop).
+				var zoom := 1.3
+				var full := art.size.y * 4.0 * zoom
+				var sw := minf(full, art.size.x)
+				var src_w := painted.get_width() * sw / full
+				var src_h := painted.get_height() / zoom
+				draw_texture_rect_region(painted, Rect2(art.end.x - sw, art.position.y, sw, art.size.y),
+					Rect2(painted.get_width() - src_w, (painted.get_height() - src_h) / 2.0, src_w, src_h))
+			if board or painted:
 				var fx_kind: String = ("vigor" if t == 3 else str(abil[t - 1].kind)) if t > 0 else str((p.stats() if own else kit).get("attack", "melee"))
-				_strip_fx(art, fx_kind, icon, tint, now + t * 0.37)
+				_strip_fx(art, fx_kind, icon, tint, now + t * 0.37, painted != null)
 		# Icon tile.
 		var ts := minf(row.size.y - 12.0, 54.0)
 		var tile := Rect2(row.position + Vector2(6, (row.size.y - ts) / 2.0), Vector2(ts, ts))
