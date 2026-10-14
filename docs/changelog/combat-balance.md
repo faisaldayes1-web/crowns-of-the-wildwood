@@ -597,3 +597,13 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Files:** `scripts/fx.gd`, `scripts/unit.gd`.
 - **Checks:** `tools/tests/run.sh` 35/35.
 - **Revert:** `git revert 8636cf4`
+
+## 29. Block-hit flinch
+
+- **When:** 2026-10-14 (Faisal: "improve all animations and particle effects")
+- **Commit:** `ce8d525`
+- **What:** A hit that lands on a raised shield plays the `Block_Hit`
+  animation (the shield arm takes the blow), then the held block resumes.
+- **Files:** `scripts/unit.gd`.
+- **Checks:** `tools/tests/run.sh` 35/35.
+- **Revert:** `git revert ce8d525`
