@@ -2937,7 +2937,11 @@ func _draw_kill_banner(p) -> void:
 	# The burst behind the card.
 	draw_arc(rect.get_center(), 40.0 + age * 160.0, 0, TAU, 40, Color(1.0, 0.85, 0.3, maxf(0.5 - age * 1.2, 0.0)), 6.0)
 	_plate(rect, Color(0.42, 0.08, 0.08, 0.94 * a), Color(1.0, 0.85, 0.3, a), 12, 3)
-	_class_card(rect.position + Vector2(36 * scale_k, rect.size.y / 2.0), 22 * scale_k, p.kill_banner.team, p.kill_banner.role_id, true)
+	# The victim's class shield from Faisal's 2026-10-14 art (the round
+	# portrait crop read as a dark smudge at this size: Faisal 07:16).
+	var vrole: int = p.kill_banner.role_id
+	var vicon: String = _class_icon(vrole) if vrole != Role.BASE else ("class_elf" if p.kill_banner.team == 0 else "class_human")
+	_icon(vicon, rect.position + Vector2(36 * scale_k, rect.size.y / 2.0), 10.5 * scale_k, Color(1, 1, 1, a))
 	_text(rect.position + Vector2(68 * scale_k, 30 * scale_k), title, int(26 * scale_k), Color(1.0, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	_text(rect.position + Vector2(68 * scale_k, 50 * scale_k), "%s the %s  ·  +%d XP" % [p.kill_banner.victim, p.kill_banner.role, Stats.XP_FINISH if finish else Stats.XP_KILL], int(12 * scale_k), sub_color, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_icon("sword", rect.end - Vector2(30 * scale_k, rect.size.y / 2.0), 12 * scale_k, Color(1.0, 0.85, 0.3, a))
@@ -4266,63 +4270,97 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 		var left := Stats.VARIANT_UNLOCK - spent
 		sub = "Unlocked: choose one of the two paths below." if unlocked else "Spend %d more point%s in %s skills to unlock this class's promotion." % [left, "" if left == 1 else "s", cls]
 	_paragraph(P.position + Vector2(12, 42), sub, 10, Color(0.6, 1.0, 0.5) if unlocked else Color(0.82, 0.8, 0.74), P.size.x - 24, 12.0)
-	# The portrait, cropped to fill, fading into the panel at the foot.
-	var art := Rect2(P.position + Vector2(10, 70), Vector2(P.size.x - 20, 176))
-	_plate(art.grow(2), Color(0.03, 0.04, 0.04), Color(0.4, 0.5, 0.25) if unlocked else Color(0.3, 0.28, 0.22), 8, 2)
+	# One tall art card like the reference's WILDHUNTER card (Faisal
+	# 2026-10-14 07:24: "i want it to look more like this"): the class
+	# portrait fills the card edge to edge with its face on the left, and the
+	# shown path's emblem, name, words and perks sit over the darkened right
+	# half. The two paths are tabs along the card's foot; hovering one shows
+	# it, clicking an unlocked one picks it.
+	var rcol: Color = Stats.ROLES[view].color if view != Role.BASE else Color(0.75, 0.6, 0.35)
+	var tabs_h := 38.0 if has else 0.0
+	var art := Rect2(P.position + Vector2(10, 72), Vector2(P.size.x - 20, P.size.y - 82 - (tabs_h + 8.0 if has else 0.0)))
+	_plate(art.grow(2), Color(0.03, 0.04, 0.04), Color(0.45, 0.8, 0.35) if unlocked else Color(0.42, 0.36, 0.24), 8, 2)
+	draw_rect(art, rcol.darkened(0.75))
 	var key := _card_key(team, view)
+	var lit: Color = Color.WHITE if unlocked or not has else Color(0.8, 0.8, 0.8)
 	if cards.has(key):
 		var tex: Texture2D = cards[key]
 		var ts := tex.get_size()
-		var sw: float = ts.x
-		var sh: float = sw * art.size.y / art.size.x
-		if sh > ts.y * 0.74:
-			sh = ts.y * 0.74
-			sw = sh * art.size.x / art.size.y
-		draw_texture_rect_region(tex, art, Rect2(Vector2((ts.x - sw) / 2.0, ts.y * 0.02), Vector2(sw, sh)), Color.WHITE if unlocked or not has else Color(0.72, 0.72, 0.72))
-	else:
-		_plate(art, Stats.FACTIONS[team].color.darkened(0.6), Stats.FACTIONS[team].color.darkened(0.3), 8, 0)
-	draw_polygon(PackedVector2Array([art.position + Vector2(0, art.size.y * 0.55), art.position + Vector2(art.size.x, art.size.y * 0.55), art.end, art.position + Vector2(0, art.size.y)]),
-		PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0), Color(0.06, 0.07, 0.08, 0.95), Color(0.06, 0.07, 0.08, 0.95)]))
-	# The emblem: the class sigil in a gold ring, padlocked while locked.
-	var rc: Color = Stats.ROLES[view].color if view != Role.BASE else Color(0.75, 0.6, 0.35)
-	var ec := Vector2(art.end.x - 46.0, art.position.y + 46.0)
-	draw_circle(ec, 33.0, Color(0, 0, 0, 0.45))
-	draw_circle(ec, 30.0, ink)
-	draw_circle(ec, 28.0, GOLD)
-	draw_circle(ec, 24.0, rc.darkened(0.65))
-	_icon(_class_icon(view), ec, 13.0, rc.lightened(0.45))
-	if has and not unlocked:
-		draw_circle(ec + Vector2(0, 24), 11.0, ink)
-		_padlock(ec + Vector2(0, 25), 13.0, CREAM)
-	_text(Vector2(art.position.x, art.end.y - 12), cls.to_upper(), 24, Color(0.62, 1.0, 0.5) if view != Role.BASE else CREAM, HORIZONTAL_ALIGNMENT_CENTER, art.size.x, 5)
-	# The two paths.
+		var src := Rect2(Vector2(ts.x * 0.02, ts.y * 0.02), Vector2(ts.x * 0.96, ts.y * 0.78))
+		var ph := art.size.y
+		var pw := ph * src.size.x / src.size.y
+		var px := art.position.x - pw * (0.22 if has else 0.0) + (0.0 if has else (art.size.x - pw) / 2.0)
+		# Only the part inside the card is drawn.
+		var x0 := maxf(px, art.position.x)
+		var x1 := minf(px + pw, art.end.x)
+		if x1 > x0:
+			var u0 := src.position.x + (x0 - px) / pw * src.size.x
+			var u1 := src.position.x + (x1 - px) / pw * src.size.x
+			draw_texture_rect_region(tex, Rect2(x0, art.position.y, x1 - x0, ph), Rect2(u0, src.position.y, u1 - u0, src.size.y), lit)
+	var shade := Color(0.04, 0.05, 0.05, 0.94)
+	if has:
+		var mx := art.position.x + art.size.x * 0.3
+		var fx := art.position.x + art.size.x * 0.52
+		draw_polygon(PackedVector2Array([Vector2(mx, art.position.y), Vector2(fx, art.position.y), Vector2(fx, art.end.y), Vector2(mx, art.end.y)]),
+			PackedColorArray([Color(shade, 0.0), shade, shade, Color(shade, 0.0)]))
+		draw_rect(Rect2(fx, art.position.y, art.end.x - fx, art.size.y), shade)
+	draw_polygon(PackedVector2Array([art.position + Vector2(0, art.size.y * 0.7), art.position + Vector2(art.size.x, art.size.y * 0.7), art.end, art.position + Vector2(0, art.size.y)]),
+		PackedColorArray([Color(shade, 0.0), Color(shade, 0.0), shade, shade]))
+	# Leaves of light drifting over the picture.
+	for k in 7:
+		var f := fmod(now * 0.12 + k * 0.37, 1.0)
+		var lp := Vector2(art.position.x + fmod(k * 53.0, art.size.x * 0.5) + f * 30.0, art.position.y + f * art.size.y)
+		draw_circle(lp, 1.8, Color(rcol.lightened(0.6), 0.6 * sin(f * PI)))
 	if not has:
+		_text(Vector2(art.position.x, art.end.y - 14), cls.to_upper(), 24, CREAM, HORIZONTAL_ALIGNMENT_CENTER, art.size.x, 5)
 		return
-	var vy := art.end.y + 10.0
-	var vh := (P.end.y - vy - 10.0 - 8.0) / 2.0
+	var shown: int = rank_focus - 4 if rank_focus == 4 or rank_focus == 5 else maxi(p.variants.get(view, 0), 0)
+	var v: Dictionary = Stats.VARIANTS[view][shown]
+	var vt: Color = v.get("tint", rcol)
+	var tx := art.position.x + art.size.x * 0.45
+	var tw := art.end.x - tx - 8.0
+	# The emblem: the path's sigil in a gold ring, padlocked while locked.
+	var ec := Vector2(tx + tw / 2.0, art.position.y + 48.0)
+	for g in 3:
+		draw_circle(ec, 44.0 - g * 6.0, Color(vt, 0.05 + 0.04 * g + 0.03 * sin(now * 2.0)))
+	draw_circle(ec, 33.0, Color(0, 0, 0, 0.5))
+	draw_circle(ec, 31.0, ink)
+	draw_circle(ec, 29.0, GOLD)
+	draw_circle(ec, 25.0, vt.darkened(0.7))
+	_icon(str(v.icon), ec, 13.0, Color.WHITE)
+	if not unlocked:
+		draw_circle(ec + Vector2(0, 26), 11.0, ink)
+		_padlock(ec + Vector2(0, 27), 13.0, CREAM)
+	var green := Color(0.62, 1.0, 0.5)
+	_text(Vector2(tx, art.position.y + 104), str(v.name).to_upper(), 19 if _text_width(str(v.name).to_upper(), 19) <= tw - 4 else 15, green, HORIZONTAL_ALIGNMENT_CENTER, tw, 5)
+	var py := art.position.y + 112.0 + _paragraph(Vector2(tx, art.position.y + 120), str(v.desc), 9, Color(0.9, 0.9, 0.86), tw, 11.0)
+	# Its perks: the new attack and the two new skills, each on an icon tile.
+	var perks: Array = [[_attack_icon(view, Stats.kit(team, view).merged(v.get("attack", {}), true)), str(v.get("attack", {}).get("attack_name", "Attack"))]]
+	for ab in v.abilities:
+		perks.append([str(ab.get("icon", ab.kind)), str(ab.name)])
+	var y := maxf(py + 8.0, art.position.y + 172.0)
+	var room := art.end.y - 10.0 - y
+	var step := clampf(room / perks.size(), 22.0, 34.0)
+	for pk in perks:
+		var ib := Rect2(Vector2(tx, y), Vector2(22, 22))
+		_plate(ib, vt.darkened(0.72), GOLD_DARK, 4, 1)
+		_icon(pk[0], ib.get_center(), 6.5, Color.WHITE, not unlocked)
+		_text(Vector2(ib.end.x + 6, y + 15), pk[1], 11, Color(0.92, 0.92, 0.88), HORIZONTAL_ALIGNMENT_LEFT, tw - 28.0, 2)
+		y += step
+	# The two path tabs along the foot.
+	var tab_w := (art.size.x - 6.0) / 2.0
 	for i in 2:
-		var v: Dictionary = Stats.VARIANTS[view][i]
-		var e := Rect2(P.position.x + 10, vy + i * (vh + 8.0), P.size.x - 20, vh)
+		var vv: Dictionary = Stats.VARIANTS[view][i]
+		var e := Rect2(art.position.x + i * (tab_w + 6.0), art.end.y + 10.0, tab_w, tabs_h)
 		var chosen: bool = p.variants.get(view, -1) == i
-		_plate(e, Color(0.26, 0.21, 0.08, 0.98) if chosen else (Color(0.1, 0.15, 0.1, 0.97) if unlocked else Color(0.08, 0.09, 0.11, 0.96)),
-			GOLD if chosen else (Color(0.45, 0.8, 0.35) if unlocked else Color(0.3, 0.3, 0.32)), 8, 2 if chosen else 1)
-		var ib := Rect2(e.position + Vector2(7, 7), Vector2(36, 36))
-		var vt: Color = v.get("tint", Color.WHITE)
-		_plate(ib, vt.darkened(0.7), vt.darkened(0.2) if unlocked else Color(0.35, 0.35, 0.38), 6, 2)
-		_icon(v.icon, ib.get_center(), 11, Color.WHITE, not unlocked)
-		_text(e.position + Vector2(50, 20), str(v.name).to_upper(), 15, GOLD if chosen else (Color.WHITE if unlocked else Color(0.85, 0.85, 0.85)), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-		if chosen:
-			_text(e.position + Vector2(0, 19), "CHOSEN", 10, GOLD, HORIZONTAL_ALIGNMENT_RIGHT, e.size.x - 10, 2)
-		elif unlocked:
-			_text(e.position + Vector2(0, 19), ("%s: PICK" % (i + 5)) if not game.on_pad(p) else "PICK", 10, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_RIGHT, e.size.x - 10, 2)
-		else:
-			_padlock(e.position + Vector2(e.size.x - 16, 15), 9.0, GREY)
-		_paragraph(e.position + Vector2(50, 33), str(v.desc), 9, Color(0.85, 0.85, 0.82) if unlocked else Color(0.7, 0.7, 0.7), e.size.x - 58, 10.0)
-		var names: Array = [str(v.get("attack", {}).get("attack_name", Stats.kit(team, view).get("attack_name", "")))]
-		for a in v.abilities:
-			names.append(str(a.name))
-		draw_line(Vector2(e.position.x + 8, e.end.y - 22), Vector2(e.end.x - 8, e.end.y - 22), Color(0.3, 0.3, 0.28), 1.0)
-		_text(Vector2(e.position.x, e.end.y - 7), "  ·  ".join(names), 10, Color(0.88, 0.86, 0.78), HORIZONTAL_ALIGNMENT_CENTER, e.size.x, 2)
+		var on: bool = i == shown
+		var vc: Color = vv.get("tint", rcol)
+		_plate(e, Color(0.26, 0.21, 0.08, 0.98) if chosen else (vc.darkened(0.72) if on else Color(0.08, 0.09, 0.11, 0.96)),
+			GOLD if chosen else (green if unlocked and on else (Color(0.5, 0.45, 0.32) if on else Color(0.3, 0.3, 0.32))), 8, 2 if chosen or on else 1)
+		_icon(str(vv.icon), e.position + Vector2(18, e.size.y / 2.0), 7.0, Color.WHITE, not unlocked)
+		_text(Vector2(e.position.x + 32, e.position.y + 17), str(vv.name).to_upper(), 12, GOLD if chosen else (Color.WHITE if on else Color(0.8, 0.8, 0.8)), HORIZONTAL_ALIGNMENT_LEFT, e.size.x - 36, 2)
+		var tag := "CHOSEN" if chosen else ((("%s: PICK" % (i + 5)) if not game.on_pad(p) else "PICK") if unlocked else "LOCKED")
+		_text(Vector2(e.position.x + 32, e.position.y + 31), tag, 9, GOLD if chosen else (green if unlocked else GREY), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		if unlocked and not chosen and not p.dead and view == p.role:
 			variant_buttons.append([e, view, i])
 		if game.on_pad(p) and game.rank_open and rank_focus == 4 + i:
@@ -4398,6 +4436,119 @@ func _upgrades_card(p, L: Rect2) -> void:
 		_text(Vector2(S.position.x + 12, y + rh - 5), t[0], 12, Color(0.86, 0.86, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_text(Vector2(S.position.x, y + rh - 5), t[1], 12, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, S.size.x - 10, 2)
 		y += rh
+
+
+func _strip_fx(art: Rect2, kind: String, icon: String, tint: Color, now: float) -> void:
+	## The skill row's living art strip (Faisal 2026-10-14 07:24: "i like the
+	## idea of this animation being here"): the skill acted out in its colour
+	## on a loop. Bolts and arrows streak across with a trail, traps and
+	## auras turn as a ring of thorns, dashes leave after-images, swings sweep
+	## an arc and buffs beat like a heart.
+	var hot := tint.lightened(0.55)
+	var c := art.get_center() + Vector2(art.size.x * 0.05, 0)
+	var h := art.size.y
+	var motes := func(n: int, speed: float, spread: float) -> void:
+		for k in n:
+			var f := fmod(now * speed + k * 0.618, 1.0)
+			var mx := art.position.x + 12.0 + fmod(k * 37.3, art.size.x - 24.0)
+			var my := art.end.y - 4.0 - f * (h - 8.0)
+			draw_circle(Vector2(mx + sin(now * 2.0 + k) * spread, my), 1.6 + fmod(k * 0.7, 1.2), Color(hot, 0.7 * sin(f * PI)))
+	match kind:
+		"arrow", "spell", "shot", "fireball", "volley":
+			# A bolt flying left to right, its trail fading behind it.
+			var n := 3 if kind == "volley" else 1
+			for b in n:
+				var f := fmod(now * 0.55 + b * 0.22, 1.0)
+				var y := c.y + (b - (n - 1) / 2.0) * h * 0.2 + sin(f * PI) * -3.0
+				var isz := h * (0.24 if n == 1 else 0.13)
+				var x := art.position.x + 10.0 + f * (art.size.x - 20.0)
+				var a := sin(f * PI)
+				for k in 12:
+					var tx := x - k * 7.0
+					if tx < art.position.x + 4.0:
+						break
+					draw_circle(Vector2(tx, y + sin(k * 0.9 + now * 9.0) * 1.2), (7.0 - k * 0.45) * (h / 50.0), Color(tint.lightened(0.25 + k * 0.03), a * (0.55 - k * 0.045)))
+				draw_circle(Vector2(x, y), h * 0.36, Color(tint, 0.16 * a))
+				draw_circle(Vector2(x, y), h * 0.24, Color(hot, 0.16 * a))
+				draw_set_transform(Vector2(x, y), 0.0 if kind != "fireball" and kind != "spell" else now * 3.0, Vector2.ONE)
+				_icon(icon, Vector2.ZERO, isz, Color.WHITE)
+				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+				for k in 4:
+					var sp := Vector2(x - 6.0 - fmod(now * 90.0 + k * 23.0, 40.0), y + (k - 1.5) * 4.0)
+					draw_circle(sp, 1.4, Color(hot, a * 0.8))
+		"blink":
+			# A dash: after-images sliding right, chevrons ahead of them.
+			var f := fmod(now * 0.7, 1.0)
+			var x0 := art.position.x + 24.0 + f * (art.size.x * 0.6)
+			for g in 4:
+				var gx := x0 - g * h * 0.42
+				if gx < art.position.x + 12.0:
+					continue
+				draw_circle(Vector2(gx, c.y), h * 0.2, Color(tint, 0.1 * (4 - g)))
+				_icon(icon, Vector2(gx, c.y), h * 0.21, Color(1, 1, 1, 0.75 - g * 0.18))
+			for k in 3:
+				var cx := x0 + h * 0.4 + k * 12.0
+				if cx > art.end.x - 8.0:
+					break
+				var ca := 0.4 + 0.5 * sin(now * 8.0 - k)
+				draw_polyline(PackedVector2Array([Vector2(cx - 5, c.y - 9), Vector2(cx + 4, c.y), Vector2(cx - 5, c.y + 9)]), Color(hot, ca), 3.0)
+			motes.call(6, 0.5, 3.0)
+		"melee", "bash", "cleave", "smite":
+			# A swing: a bright arc sweeping round the weapon, then fading.
+			var f := fmod(now * 0.8, 1.0)
+			var r := h * 0.46
+			var a0 := -2.3 + f * 3.2
+			var sweep := 1.6 if kind != "cleave" else TAU * 0.8
+			for k in 6:
+				var aa := a0 - k * sweep / 8.0
+				draw_arc(c, r - k * 1.5, aa - sweep / 8.0, aa, 10, Color(hot, (0.75 - k * 0.12) * sin(f * PI)), 4.0 - k * 0.5)
+			draw_circle(c, h * 0.26, Color(tint, 0.14))
+			var tilt := -0.5 + 0.5 * sin(f * PI)
+			draw_set_transform(c, tilt, Vector2.ONE)
+			_icon(icon, Vector2.ZERO, h * 0.25, Color.WHITE)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+			if f > 0.55 and f < 0.8:
+				var burst := (f - 0.55) / 0.25
+				for k in 6:
+					var d := Vector2.from_angle(k * TAU / 6.0 + 0.3)
+					draw_line(c + d * r * (0.6 + burst * 0.5), c + d * r * (0.75 + burst * 0.6), Color(hot, 1.0 - burst), 2.0)
+		"vigor", "upgrade", "overclock", "heal", "blessing", "guard":
+			# A buff: the emblem beats, rings ripple out, sparks circle it.
+			var beat := fmod(now * 1.1, 1.0)
+			var pulse := 1.0 + 0.14 * exp(-beat * 9.0) + 0.08 * exp(-absf(beat - 0.22) * 14.0)
+			for k in 3:
+				var rf := fmod(now * 0.6 + k / 3.0, 1.0)
+				draw_arc(c, h * (0.2 + rf * 0.5), 0, TAU, 40, Color(hot, 0.5 * (1.0 - rf)), 2.0)
+			for k in 8:
+				var ang := now * 1.4 + k * TAU / 8.0
+				var orb := c + Vector2(cos(ang) * h * 0.62, sin(ang) * h * 0.3)
+				draw_circle(orb, 1.8, Color(hot, 0.4 + 0.4 * sin(ang * 2.0)))
+			draw_circle(c, h * 0.28 * pulse, Color(tint, 0.2))
+			_icon(icon, c, h * 0.26 * pulse, Color.WHITE)
+			motes.call(8, 0.35, 4.0)
+		_:
+			# Traps, turrets, bubbles, smoke and curses: a ring of thorns
+			# turning on the ground round the emblem, glowing as it closes.
+			var spin := now * 0.6
+			var rx := minf(art.size.x * 0.32, h * 1.3)
+			var ry := h * 0.3
+			var g := 0.5 + 0.5 * sin(now * 2.2)
+			var gc := c + Vector2(0, h * 0.12)
+			var ring := PackedVector2Array()
+			for k in 41:
+				var ang := k * TAU / 40.0
+				ring.append(gc + Vector2(cos(ang) * rx, sin(ang) * ry))
+			draw_polyline(ring, Color(tint.darkened(0.2), 0.8), 3.0)
+			draw_polyline(ring, Color(hot, 0.25 + 0.35 * g), 1.2)
+			for k in 14:
+				var ang := spin + k * TAU / 14.0
+				var base := gc + Vector2(cos(ang) * rx, sin(ang) * ry)
+				var front := sin(ang) > 0.0
+				var tip := base + Vector2(cos(ang) * 7.0, -12.0 - 4.0 * g)
+				draw_colored_polygon(PackedVector2Array([base + Vector2(-3, 0), tip, base + Vector2(3, 0)]), Color(tint.lightened(0.2 if front else -0.2), 0.95 if front else 0.55))
+			draw_circle(gc, ry * 0.9, Color(tint, 0.08 + 0.08 * g))
+			_icon(icon, c - Vector2(0, h * 0.06 * sin(now * 1.6)), h * 0.24, Color.WHITE)
+			motes.call(7, 0.4, 2.0)
 
 
 func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -> void:
@@ -4488,10 +4639,8 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -
 			# The SKILLS & UPGRADES board has the room, so it paints one, like
 			# the reference's art strips, with the Next line at the strip foot.)
 			if board:
-				var ec := Vector2(art.position.x + art.size.x * 0.55, art.position.y + art.size.y * 0.45)
-				for g in 3:
-					draw_circle(ec, art.size.y * (0.46 - g * 0.1), Color(tint, 0.07 + g * 0.05))
-				_icon(icon, ec, art.size.y * 0.24, Color(tint.lightened(0.55), 0.85))
+				var fx_kind: String = ("vigor" if t == 3 else str(abil[t - 1].kind)) if t > 0 else str((p.stats() if own else kit).get("attack", "melee"))
+				_strip_fx(art, fx_kind, icon, tint, now + t * 0.37)
 		# Icon tile.
 		var ts := minf(row.size.y - 12.0, 54.0)
 		var tile := Rect2(row.position + Vector2(6, (row.size.y - ts) / 2.0), Vector2(ts, ts))
