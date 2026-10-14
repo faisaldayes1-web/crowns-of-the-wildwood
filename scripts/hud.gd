@@ -150,7 +150,8 @@ func _ready() -> void:
 				if not icons.has(kind):
 					icons[kind] = load("res://assets/ui/icons/%s.png" % kind)
 	for key in ["crest_elf", "crest_human", "logo_elves", "logo_humans", "elf_base", "elf_knight", "elf_ranger", "elf_mage", "elf_healer",
-			"human_base", "human_knight", "human_ranger", "human_mage", "human_healer"]:
+			"human_base", "human_knight", "human_ranger", "human_mage", "human_healer",
+			"elf_engineer", "human_engineer", "elf_rogue", "human_rogue"]:   # (Engineer and Rogue cards: Faisal's 2026-10-14 sheet)
 		var path := "res://assets/ui/cards/%s.png" % key
 		if ResourceLoader.exists(path):
 			cards[key] = load(path)
