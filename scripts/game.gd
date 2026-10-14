@@ -10224,6 +10224,12 @@ func _net_test_tick(delta: float) -> void:
 	if net_client and t > 3.6 and not L.has("swung"):
 		L.swung = true
 		Input.action_release("attack")
+	if not net_client and t > 4.0 and not L.has("shot") and player:
+		# The host fires one harmless arrow, so the joiner's "shots arrived"
+		# check does not hang on whether a bot happened to shoot in time.
+		L.shot = true
+		var dir: Vector3 = player.facing if player.facing.length() > 0.1 else Vector3(0, 0, -1)
+		spawn_shot(player, dir.normalized(), {"damage": 0, "gate_damage": 0, "range": 6.0}, Color(1, 1, 1))
 	if t > (9.0 if net_client else 7.0) and not L.has("moved"):
 		L.moved = true
 		var moved := func(i: int) -> float:

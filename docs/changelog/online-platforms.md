@@ -293,7 +293,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Tunables:** `online/relay_url` (unset, so `ws://127.0.0.1:8787`) → `wss://crowns-of-the-wildwood.onrender.com`
 - **Revert:** `git revert e8fca2c`
 
-## 2026-10-10 09:04 UTC · `HASH-PENDING` · Online work merged with the latest alpha
+## 2026-10-10 09:04 UTC · `cc92436` · Online work merged with the latest alpha
 
 - **What:** merged `release/v0.4.0-alpha` (114 new commits: grab feedback, input buffering,
   attack recovery, iPad touch HUD and UPGRADES board, window keep-alive and more) into this branch,
@@ -308,4 +308,16 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Files:** merge of `release/v0.4.0-alpha`; `scripts/character_model.gd`, `scripts/unit.gd`,
   `scripts/net.gd`, `scripts/skill_fx.gd`, `scripts/game.gd`
 - **Tunables:** none
-- **Revert:** `git revert -m 1 HASH-PENDING`
+- **Revert:** `git revert -m 1 cc92436`
+
+## 2026-10-14 12:54 UTC · `HASH-PENDING` · Smoke test no longer fails on a quiet match
+
+- **What:** Integration & Release saw `tools/net_smoke.sh` fail about 1 run in 8. Looping it 16
+  times on the alpha (82a3d77) caught it once. The ENet joiner reported "no shots arrived" in a
+  quiet match (175 events, 0 arrows) because no bot happened to shoot within the 40 s window.
+  The network was fine; the check depended on luck. The host now fires one harmless arrow
+  (0 damage, 6 m) at 4 s, so the shot-replication check always has something to see. 4 of 4
+  runs passed after the change.
+- **Files:** `scripts/game.gd` (`_net_test_tick`, only runs with `--net-test`)
+- **Tunables:** none (test only)
+- **Revert:** `git revert HASH-PENDING`
