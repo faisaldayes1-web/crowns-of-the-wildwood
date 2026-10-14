@@ -565,3 +565,23 @@ then `python3 tools/balance/agg.py <tag>`.
   1.09/1.20.
 - **Checks:** `tools/tests/run.sh` 34/34.
 - **Revert:** `git revert 8f995ef`
+
+## 27. Heavier hit impacts
+
+- **When:** 2026-10-14 (Faisal: "add more impacts")
+- **Commit:** `a7ec6dd`
+- **What:** Every landed blow pops a punch ring, throws the attacker's
+  faction flecks (Elf leaf-green and gold, Human steel and ember chips),
+  kicks dust off the victim's feet along the blow and plays a new body
+  thump (`hit_thud`) under plain cuts, punches and arrows. Arcane, holy and
+  dark hits add a coloured ring; big hits add a ground glow and stone
+  debris. Knocked-back units skid and puff dust. Your own hits nudge your
+  camera along the blow (0.07, heavy 0.13); being hit kicks it (0.16). All
+  of it honours the screen-shake setting.
+- **Web/iPad:** particle counts scale with graphics quality (Low 0.55×,
+  Medium 0.75×); Low skips the chips, debris and skid puffs.
+- **Files:** `scripts/fx.gd`, `scripts/unit.gd`, `tools/make_sounds.py`,
+  `assets/sfx/hit_thud.wav`, `tests/combat_test.gd`.
+- **Tunables:** none (visual and sound only; no gameplay change).
+- **Checks:** `tools/tests/run.sh` 35/35 (new `impacts_scale_with_quality`).
+- **Revert:** `git revert a7ec6dd`
