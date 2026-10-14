@@ -1973,7 +1973,7 @@ func _physics_process(delta: float) -> void:
 		# Shoved by a blow: the feet skid and kick up dust as they go.
 		skid_timer -= delta
 		if skid_timer <= 0.0:
-			skid_timer = 0.06
+			skid_timer = 0.08
 			Fx.of(game).skid(global_position, knockback)
 	knockback = knockback.move_toward(Vector3.ZERO, 40.0 * delta)
 	# Footsteps: soft on grass, a tap on stone (walls, bridges, castle floors).
