@@ -4,6 +4,15 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 05:40 UTC · Steam build (branch group/integration-release-g9m95g)
+
+- **Why:** Faisal (2026-10-13): Roblox later, "playable on Steam first".
+- **What:** GodotSteam 4.15 GDExtension in `tools/steam/godotsteam/` (Windows and Linux 64-bit, Godot ignores the folder); `tools/steam/build_steam.sh` adds it to a temporary copy of the project and exports the new "Windows Steam" preset; `scripts/steam.gd` (autoload SteamHub) starts Steam when it is running and is a no-op otherwise; 10 achievements (match win, each faction's win, capture, revive, finisher, online match, levels 5/10/20); the Steam overlay pauses an offline match; `tools/steam/upload.sh`/`upload.bat` + `app_build.vdf.in` for steamcmd; docs/steam.md (store art sizes, Steam Cloud setup, Faisal's steps).
+- **Files:** scripts/steam.gd (new), scripts/game.gd (`_steam_match_end`, `steam_unlock`, level hook), scripts/unit.gd (revive and finisher hooks), project.godot (SteamHub autoload, `[steam]` app_id 0, require_steam on for the `steam` feature only), export_presets.cfg (preset "Windows Steam"), tools/steam/*, docs/steam.md, .gitignore (build/).
+- **Tunables:** `steam/app_id` 0 until Faisal has an App ID.
+- **Tested:** import clean; tools/tests/run.sh, options menu, menu flow and save tests 0 failures; Wildwood bot match clean; the Steam .exe built with `--dev --app-id=480` plays a match under wine with no Steam client ("Steam not running", no errors). Not tested with a real Steam client: none is available here.
+- **Revert:** `git revert <this commit>`; the standalone zip and the web build do not use any of it.
+
 ### 2026-10-10 12:45 UTC · Downed & Revive `f6f825e` · Killer banner only on the real death
 
 - **What:** merged Downed & Revive (Faisal 09:57): the downed screen has no "DOWNED BY" card any more; FINISHED BY / SLAIN BY appears only on the real death, redrawn in wood and gold.

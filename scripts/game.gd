@@ -858,6 +858,7 @@ func _score_capture(carrier, m) -> void:
 	m.go_home()
 	score[carrier.team] += 1
 	carrier.gain_xp(Stats.XP_CAPTURE, "crown")
+	steam_unlock("FIRST_CAPTURE", carrier)
 	spawn_splash(thrones[carrier.team] + Vector3(0, 1, 0), Color(1.0, 0.85, 0.3), 50, 6.0, 1.2, true)
 	spawn_pillar(thrones[carrier.team], Color(1.0, 0.85, 0.3), 7.0, 1.4)
 	spawn_ring(thrones[carrier.team], 6.0, Color(1.0, 0.9, 0.5), 0.8)
@@ -932,6 +933,7 @@ func _finish(winner: int) -> void:
 		line = "The %s win %d to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
 	winner_team = winner
 	chat_system(line)   # the summary screen carries the result; no banner over it
+	_steam_match_end(winner)
 	if message_label:
 		message_label.text = ""
 	_bank_match_xp(winner)
@@ -941,6 +943,27 @@ func _finish(winner: int) -> void:
 		sfx.stop_music()
 	else:
 		sfx.sting("victory" if winner == player_team else "defeat", "victory" if winner == player_team else "defeat", true)
+
+
+func _steam_match_end(winner: int) -> void:
+	## Steam achievements for the finished match (scripts/steam.gd; no-op off Steam).
+	var steam = get_node_or_null("/root/SteamHub")
+	if steam == null or demo:
+		return
+	if net and net.online():
+		steam.unlock("ONLINE_MATCH")
+	if winner >= 0 and winner == player_team:
+		steam.unlock("FIRST_WIN")
+		steam.unlock("WIN_ELVES" if Stats.FACTIONS[winner].name == "Elves" else "WIN_HUMANS")
+
+
+func steam_unlock(id: String, u = null) -> void:
+	## One achievement, only for the local player (u) when one is given.
+	if u != null and not u.is_player:
+		return
+	var steam = get_node_or_null("/root/SteamHub")
+	if steam and not demo:
+		steam.unlock(id)
 
 
 func try_interact(u) -> void:
@@ -2954,6 +2977,9 @@ func _bank_match_xp(winner: int) -> void:
 	_save_settings()
 	toast("Progress saved", Color(0.6, 1.0, 0.55))
 	var now := account_level()
+	var steam = get_node_or_null("/root/SteamHub")
+	if steam:
+		steam.level_reached(now)
 	if now > level_before:
 		if now >= Stats.UNLOCK_LEVEL and level_before < Stats.UNLOCK_LEVEL:
 			chat_system("Account level %d: the Rogue, the Shadowborn look and the Moonlit Wildwood are unlocked!" % now)

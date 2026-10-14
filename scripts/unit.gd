@@ -1909,6 +1909,8 @@ func _finish_fx(attacker) -> void:
 	game.spawn_splash(p + Vector3(0, 0.7, 0), Color(1.0, 0.85, 0.4), 12, 4.0, 0.5, true)
 	game.spawn_pillar(p, Color(0.6, 0.08, 0.08), 3.0, 0.6)
 	game.spawn_popup(p + Vector3(0, 2.0, 0), "FINISHED!", Color(1.0, 0.35, 0.25))
+	if attacker:
+		game.steam_unlock("FIRST_FINISHER", attacker)
 	game.sfx.play("smite", p, 0.0, 0.1)
 	game.sfx.play("hit_flesh", p, -2.0, 0.1)
 	game.shake_at(p, 0.55)
@@ -1931,6 +1933,8 @@ func _revive(by) -> void:
 	energy = maxf(energy, energy_max() * 0.5)
 	revive_protect = Stats.REVIVE_PROTECT
 	times_revived += 1
+	if by:
+		game.steam_unlock("FIRST_REVIVE", by)
 	model.stand_up()
 	if aim_marker:
 		aim_marker.visible = true

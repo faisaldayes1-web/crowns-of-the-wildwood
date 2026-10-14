@@ -17,6 +17,7 @@ config/features=PackedStringArray("4.3", "Forward Plus")
 [autoload]
 
 Net="*res://scripts/net.gd"
+SteamHub="*res://scripts/steam.gd"
 
 [display]
 
@@ -46,3 +47,9 @@ limits/opengl/max_lights_per_object.web=4
 [online]
 
 relay_url="wss://crowns-of-the-wildwood.onrender.com"
+
+[steam]
+
+app_id=0
+require_steam=false
+require_steam.steam=true
