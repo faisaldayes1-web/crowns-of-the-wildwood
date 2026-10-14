@@ -91,7 +91,7 @@ func take_hit(amount: int, attacker = null) -> void:
 
 
 func _process(delta: float) -> void:
-	if hp > 0:
+	if hp > 0 or game.net_client:
 		return
 	rebuild_timer -= delta
 	if rebuild_timer <= 0.0 and not game.enemy_inside_castle(team):

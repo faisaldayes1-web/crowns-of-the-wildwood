@@ -1,0 +1,1159 @@
+# UI & Art group changelog
+
+Branch `group/ui-art-z3px4x`, based on PR #1 (`claude/project-thread-xtp3z5`, commit 528e75b) so the
+menus share the approved in-match HUD style. Every commit on this branch has an entry here with
+what changed in plain words, the files touched, old → new values for any tunable, and the exact
+line that undoes it. Renders for each visual change are under
+`/mnt/project-files/game/groups/ui-art/` (project files), named `<change>-before.png` /
+`<change>-after.png`.
+
+Integration notes:
+- PR #3 moves the scoreboard table into `scripts/scoreboard.gd` (`Scoreboard.draw_overlay(hud)` /
+  `draw_table`). Whichever lands second: the Tab panel frame below is `hud._menu_panel(rect,
+  "SCOREBOARD")` + `_crest_shield` + `_info_banner`, and the team blocks use `hud._leather` and
+  `hud._score_band(band, SCORE_BANDS[t])`; port those calls into `scoreboard.gd` and drop the
+  `_draw_scoreboard_table` body from `hud.gd`.
+- The in-match HUD and the match summary screen were not touched (owned by the showcase thread).
+
+---
+
+## 2026-10-09 — pause menu, Settings and Tab panel in the HUD style; class pick-up banner; rank-up flourish
+
+Commit: `3c2d934`
+
+What changed:
+- **Pause menu / Options**: the navy plate is now the HUD's leather-black frame in a brass rim with gold
+  corner braces and ivy sprigs, the title (PAUSED / OPTIONS) on a wood-brown cloth band under a small
+  crown, tabs as parchment (open) or leather (closed) pills in the Lilita One face, a round
+  ring-button close, and MAIN MENU as a red cloth button. Cards and rows inside every tab (Map,
+  Scoreboard, Classes, Upgrades, Controls) use the same leather plates and gold section headings.
+- **Settings**: SOUND/MUSIC sliders are leather tracks with a glossy fill and a gold knob; toggles
+  are leather chips with a brass-rimmed green/gold switch; BOTS and the graphics preset are gold
+  band buttons when chosen; section headings (DISPLAY, BOTS, TEAM CALLS, GAMEPAD) in gold Lilita
+  One with a brass rule.
+- **Tab panel (scoreboard)**: same frame, titled SCOREBOARD, the two faction heater shields either
+  side, the score/clock line on a parchment info banner, each team block headed by its cloth band
+  (red Elves / blue Humans, like the top bar), alternating row stripes, the player's row on
+  parchment.
+- **Class pick-up banner** (new): when a player puts on a class hat, a ribbon in the class colour
+  pops in under the top bar for 3 s: "YOU ARE NOW / ELF KNIGHT", a glossy hex tile with the class
+  icon above it, and a parchment scroll naming the kit (attack, Q, E with their keys).
+- **Rank-up flourish** (new, replaces the plain "LEVEL UP!" card): on every level a laurel
+  medallion with the new level sits in a turning gold light burst (two ray layers + a ring that
+  races out), a gold ribbon reads RANK UP!, and a parchment scroll says "Level N · +1 perk point ·
+  R to spend it". A class promotion (choosing a variant) uses the same flourish with PROMOTED! and
+  the variant name; the medallion shows the variant icon. Level-ups also fire a brighter 3D flash
+  at the player's feet.
+- Render flags for testing: `--debug-class` (class banner), `--debug-promote` (promotion
+  flourish); `--debug-levelup` still shows the level flourish.
+
+Files touched: `scripts/hud.gd` (menu style helpers `_menu_panel`, `_leather`, `_parchment`,
+`_menu_tab`, `_hud_button`, `_section`, `_slider`; banners `_cloth_ribbon`, `_scroll_hint`,
+`_twinkles`, `_draw_class_banner`, `_draw_rankup_flourish`; restyled `_draw_game_menu`, `_close`,
+`_menu_*`, `_toggle`, `_draw_scoreboard_overlay`, `_draw_scoreboard_table`; `_draw_levelup_card`
+removed), `scripts/game.gd` (`levelup_text`, debug flags), `scripts/unit.gd` (`class_banner`,
+`CLASS_BANNER_TIME`, promotion/level-up hooks), `scripts/seal.gd` (starts the class banner),
+`docs/changelog/ui-art.md`.
+
+Tunables: `unit.gd CLASS_BANNER_TIME` new = 3.0 s; `hud.gd CLASS_BANNER_TIME` 3.0 s (same value,
+for the pop timing); flourish length unchanged at `game.levelup_timer = 3.2` s. No gameplay
+numbers changed.
+
+Renders: `menu-pause-before/after.png`, `menu-settings-before/after.png`,
+`tab-panel-before/after.png`, `class-banner-after.png`, `rankup-after.png`,
+`promoted-after.png`.
+
+Revert: `git revert 3c2d934`
+
+---
+
+## 2026-10-09 — visual overhaul, pass 1: ground, flowers, trees, Elf castle hedges and lamps
+
+Commit: `731b6e5`
+
+Faisal's references (project files, game/reference-renders/): `elf-base-interior-target-2026-10-08.png`,
+`elf-courtyard-target-2026-10-08.png`; `ember-pass-current-2026-10-08.jpeg` is the current build for
+contrast. Art layer only: no base layout, geometry or station positions changed (World & Maps owns
+those), and no HUD/UI change.
+
+What changed:
+- **Meadow grass** (`tools/make_textures.py make_grass`): deeper, more saturated green, less lime, so
+  the flowers and units read on top of it.
+- **Cobble paths** (`make_stepping_stones`): 4 stones per tile instead of 5 (bigger), rounder, cream
+  and tan instead of orange-tan, and the joints are packed earth (lighter) instead of dark mud.
+- **Courtyard flags** (`make_flagstone`): cream sandstone squares with a pale tan grout instead of
+  deep yellow with a dark brown joint; the mossy (Elf) and grey (Human) variants follow.
+- **Flowers**: 3200 blooms instead of 1400, mostly white daisies, then cornflower blue and
+  buttercup yellow, a few pink/red; fewer glowing elf blooms (12% instead of 30% on the elf side).
+  Grass tufts: 9000 instead of 8000, shorter (scale 1.4/1.0/1.4 instead of 1.6 all round) and in the
+  meadow's own green.
+- **Trees**: the lavender wildwood canopies are now pink blossom (hue 0.9) like the courtyard
+  target's cherry; the mint ones a deeper green.
+- **Elf castle walls** are trimmed box hedges (new `_hedge()` material, `make_hedge` texture) instead
+  of bark, with a lighter clipped top; leaf tufts stay instead of merlons.
+- **Elf castle lights**: lanterns are warm lamplight (1.0, 0.85, 0.6 @ 0.8) instead of pale green
+  (0.85, 1.0, 0.78 @ 0.9); tower globes and wall crystals are softer teal (0.7, 1.0, 0.85 @ 0.7 and
+  0.6 instead of 0.55, 1.0, 0.85 @ 1.2 and 1.1), so the yard no longer reads green.
+- **Day light**: ambient 0.13 → 0.16; sun (1.0, 0.87, 0.7) @ 1.35 → (1.0, 0.9, 0.74) @ 1.45.
+- **Stag emblem**: `tools/make_emblems.py stag()` draws the Elves' stag head in gold (matches the top
+  bar's shield); Elf banners and crests use it (`_faction_emblem(0)` → "stag"; the great tree is now
+  the alternate, the moon is unused).
+
+Files touched: `tools/make_textures.py`, `tools/make_emblems.py`, `scripts/game.gd` (`_add_ground_detail`,
+`_add_tree_grown`, `_add_lantern`, `_add_tower`, `_add_wall_torch`, `_add_wall`, `_hedge`, `_faction_emblem`,
+day lighting in `_apply_time_of_day`), regenerated `assets/textures/{grass,flagstone*,path*}` plus new
+`assets/textures/hedge_*` and `assets/textures/emblems/stag.png`. Regenerate with
+`python3 tools/make_textures.py make_grass make_flagstone make_paths make_hedge` and
+`python3 tools/make_emblems.py`, then `godot --headless --path . --import`.
+
+Tunables (old → new): flowers 1400 → 3200; tufts 8000 → 9000, tuft scale 1.6 → (1.4, 1.0, 1.4); elf
+bloom share 0.3 → 0.12; ambient_light_energy 0.13 → 0.16; sun 1.35 → 1.45; lantern light
+(0.85,1.0,0.78)@0.9 → (1.0,0.85,0.6)@0.8; tower globe light 1.2 → 0.7; wall crystal light 1.1 → 0.6;
+path stones per tile 5 → 4.
+
+Renders: `world-courtyard-before/after.png`, `world-elf-castle-before/after.png` beside the references.
+
+Revert: `git revert 731b6e5`, then regenerate the textures as above.
+
+---
+
+## 2026-10-09 — visual overhaul, pass 2: Elf keep walls, yard, blossoms; chunky faceted Elves; death screen
+
+Commit: `ece3b24`
+
+What changed:
+- **Elf keep interior**: the untinted elven "stone" (keep walls, throne room, pillars) is now the
+  same trimmed hedge as the outer walls instead of bark, so the base interior reads as the green,
+  grown hall of the interior target; tinted pieces (caps, stairs, posts) stay bark. The Elf yard
+  flags are near-white cream (0.97, 0.96, 0.9) instead of a green-grey tint (0.8, 0.82, 0.72).
+- **Flowers**: bloom emission is a faint neutral lift (0.5, 0.5, 0.45 @ 0.18) instead of teal
+  (0.3, 0.6, 0.7 @ 0.25), so the daisies are white, not blue. Pink blossom trees are one wild tree
+  in eight instead of one in four.
+- **Elf character look** (Faisal's create-character reference, 2026-10-09): every unit's meshes are
+  rebuilt faceted (flat-shaded, each triangle with its own normal) so the low-poly angles read
+  crisp; a bone pose scale makes the head bigger (1.22), the hands oversized mittens (1.3) and the
+  boots big (1.25), with the hand slots scaled back (0.8) so weapons keep their size; Elf villagers
+  wear the hooded tunic model (humans stay bare-headed); the pointed ears sit a little closer in.
+  No gameplay numbers changed (hit shapes are unchanged; the scale is visual only).
+- **Death screen** (new, replaces the plain "SLAIN BY" card): a dark red wash with vignette, a
+  crimson ribbon reading YOU FELL, a laurel medallion whose gold ring drains with the respawn
+  timer and shows the seconds (or OVERTIME), "RESPAWNING IN" under it, a parchment line "Back at
+  your castle cellar · ranks lost from level N", and the killer card below titled SLAIN BY in the
+  HUD face. The respawn countdown stays visible the whole time. The "You fell at level" announce
+  moved from the centre banner to the chat log so it does not fight the screen.
+- The class pick-up ribbon sits 28 px lower so the class tile clears the objective line.
+
+Files touched: `scripts/game.gd` (`_ashlar`, `_build_castle` yard flags, `_add_ground_detail`
+emission, `_add_tree_grown`), `scripts/character_model.gd` (`CHUNKY`, `_flat_mesh`, `flat_cache`,
+villager scene, ear offset), `scripts/unit.gd` (`respawn_total`, `fell_level`, announce →
+chat), `scripts/hud.gd` (`_draw_death_screen`, `_draw_killer_card` title, banner offset),
+`docs/changelog/ui-art.md`.
+
+Tunables (old → new): Elf yard flag tint (0.8, 0.82, 0.72) → (0.97, 0.96, 0.9); bloom emission
+(0.3, 0.6, 0.7) @ 0.25 → (0.5, 0.5, 0.45) @ 0.18; blossom trees 1 in 4 → 1 in 8; bone scales
+head 1.0 → 1.22, hands 1.0 → 1.3, hand slots 1.0 → 0.8, feet 1.0 → 1.25; ears x 0.5 → 0.46,
+y 0.25 → 0.22; class banner y 186 → 214. Respawn times unchanged.
+
+Renders: `world-elf-castle-pass2.png`, `world-courtyard-pass2.png`, `characters-after.png`,
+`death-screen-before/after.png` (before = the old SLAIN BY card from `art/` pass-1 era is not
+available; the previous build's card is described above).
+
+Revert: `git revert ece3b24`
+
+---
+
+## 2026-10-09 — pause map fits its panel; promotion announce moved to chat
+
+Commit: `e05dd11`
+
+What changed:
+- **Pause menu MAP tab**: the valley map keeps its 58:26 shape but is sized to leave room for the
+  legend and the quest line inside the panel (the second legend row and the quest line used to sit
+  under the MAIN MENU footer). Wildwood trees past the valley's edge are no longer drawn outside
+  the map frame (they were scattered over the whole panel).
+- **Promotion**: the centre "You are now a Vanguard!" announce no longer doubles the PROMOTED!
+  flourish; the line goes to the chat log instead.
+
+Files touched: `scripts/hud.gd` (`_menu_overview`, `_draw_map`), `scripts/unit.gd` (`choose_variant`),
+`docs/changelog/ui-art.md`. No tunables changed.
+
+Renders: `menu-pause-before.png` → `menu-pause-after.png`.
+
+Revert: `git revert e05dd11`
+
+---
+
+## 2026-10-09 — death screen: old "You fell!" label switched off
+
+Commit: `b259ad8`
+
+What changed: the plain yellow "You fell! / Respawning in N" label (`game.respawn_label`) stayed
+on over the new death screen; it is now kept hidden, the HUD screen carries the countdown. The
+`--debug-killed` render flag kills the player 45 frames before the shot instead of 5 so the
+screen has faded in (gameplay fade-in unchanged at 0.4 s).
+
+Files touched: `scripts/game.gd` (`_update_respawn_timer`, debug flag timing),
+`docs/changelog/ui-art.md`. No tunables changed.
+
+Renders: `death-screen-after.png`.
+
+Revert: `git revert b259ad8`
+
+---
+
+## 2026-10-09 — merged PR #2's main menu (create-your-character screen) into this branch
+
+Commit: `75cd987` (merge commit, no squash)
+
+Why: Faisal's 00:24 ask is the create-your-character screen and the Elf look. That screen lives in
+PR #2's branch (`claude/project-thread-lndv4w`: scripts/menu.gd, menu_stage.gd, the throne-room
+stage, Lilita One menu art), so this branch now carries PR #2 and the character-screen polish
+lands on top of it. Conflicts resolved: `scripts/game.gd` sun shadows keep this branch's crisp
+cartoon shadows (shadow_blur 0.3, no PCSS) over PR #2's soft 1.0; `scripts/character_model.gd`
+keeps both the chunky bone scales and PR #2's `_add_face`; `assets/CREDITS.md` keeps both lists.
+Also in this commit's follow-up: the pause map leaves 100 px (was 78) under it so the quest line
+clears the footer.
+
+Revert: `git revert -m 1 75cd987` (drops PR #2 from this branch again; Integration should instead
+merge PR #2 first and retarget this PR).
+
+---
+
+## 2026-10-09 — create-your-character screen toward the reference; faceted heads kept
+
+Commit: `027f43b`
+
+Faisal's reference (project files): `game/reference-renders/create-character-target-2026-10-09.png`.
+PR #2 already had the screen's bones (throne room stage, left category list Appearance / Hair /
+Face / Armor / Colors / Emblem, right option panel with body type, skin tone, hair style, hair
+colour, face style, eye colour, facial markings and preview emblem, Elf / Human buttons, Confirm).
+
+What changed:
+- **Left category list**: an ivy vine climbs its left edge; the open category shows a gold
+  chevron at its right end.
+- **Option panel**: the open category's name sits on a wood plaque over the panel's top edge with
+  ivy sprigs at both ends instead of plain white text inside the panel.
+- **Throne room light**: the hall's ambient light is warmer and a touch brighter
+  ((0.5, 0.44, 0.42) @ 0.45 → (0.62, 0.5, 0.4) @ 0.55) for the reference's candle-lit look.
+- **Faceted meshes keep their heads**: the flat-shaded copies from pass 2 had no index array, so
+  PR #2's `Face.clean_head` failed and the hero stood headless on this screen; the copies are
+  re-indexed (facets survive since vertices with different normals stay separate).
+- Render flag `--debug-preview-team=N` picks the hero's side on this screen.
+
+Still placeholders (as in PR #2): hair styles 2–5 are locked slots ("new hair styles arrive in a
+later update"); the HAIR / FACE / ARMOR / COLORS / EMBLEM categories open their own panels but the
+Appearance panel already carries the reference's rows. Nothing new was added to gameplay.
+
+Files touched: `scripts/menu.gd` (`_draw_character`), `scripts/menu_stage.gd` (`_set_mood` hall),
+`scripts/character_model.gd` (`_flat_mesh`), `scripts/game.gd` (render flag), `docs/changelog/ui-art.md`.
+
+Tunables (old → new): hall ambient (0.5, 0.44, 0.42) @ 0.45 → (0.62, 0.5, 0.4) @ 0.55.
+
+Renders: `create-character-before.png` (PR #2 as merged, Human) → `create-character-after.png` (Elf).
+
+Revert: `git revert 027f43b`
+
+---
+
+## 2026-10-09 — merged World & Maps' branch (base remaster, combined PRs #1-#4, web build); scope: this group now owns the Wildwood Elf base
+
+Commit: `5304307` (merge commit, no squash)
+
+Why: Faisal (02:01) wants the Elf base's design, roads and build quality to match his reference,
+not only the surfaces; the coordinator moved the whole Wildwood Elf base (layout, geometry, crown
+room, class stations, courtyard paths, props, materials, lighting) to this group. World & Maps'
+branch carries the combined build (PRs #1-#4, the web build) and their base remaster
+(`1eb78a4`, `ed70e0a`), so it was merged in to build on. Agreed split (cross-session message to
+World & Maps 02:05): this group edits the `mossy` / `elf_castle` / team 0 branches of
+`_build_castle`, `_build_cellar`, `_furnish_cellar`, `_furnish_keep`, `_build_throne_room`,
+`_polish_keep`, the Elf materials and a new `_build_elf_base`; World & Maps keeps the Human base,
+Ember Pass, roads, bridges, routing and the clipping audit; shared helpers stay untouched.
+
+Conflicts resolved: Elf lantern / tower globe / wall crystal lights keep this branch's warm and
+soft colours (their moon-blue `ELF_GLOW` at 1.1-1.2 was brighter and colder than the reference);
+hedge wall tops keep the clipped hedge block plus their `hedge_tops` courtyard blobs; the Elf
+yard keeps cream flags; `hud.gd` takes their `scoreboard.gd` / `match_summary.gd` split and the
+new keyed map legend while keeping this branch's menu style helpers (the Tab panel frame now
+comes from `Scoreboard.draw_overlay`, so the leather/band styling must be ported into
+`scripts/scoreboard.gd` next); `unit.gd` keeps `respawn_total` / `fell_level` and their
+"down to level N" line (sent to chat, not the centre banner, so it does not fight the death
+screen).
+
+Tested: `--check-only` on game/hud/unit/scoreboard/menu/volcano; 400-frame headless bot match
+with no script errors.
+
+Revert: `git revert -m 1 5304307`.
+
+---
+
+## 2026-10-09 — Elf base pass A: the Wildwood Elf base toward Faisal's reference (palette, class stalls, runners, courtyard stores, altar court, light)
+
+Commit: `bbfabb6`
+
+Faisal (02:01): "its not just textures and small flowers but the overall design of the base and
+roads and quality. Make it look exactly like the reference." References: `game/reference-renders/
+elf-base-interior-target-2026-10-08.png`, `elf-courtyard-target-2026-10-08.png`,
+`elf-base-layout-target-2026-10-09.jpeg`. This group now owns the Wildwood Elf base (see the merge
+entry above); nothing here touches the Human base, Ember Pass or roads.
+
+What changed (Elf base only, `elf_castle` / team 0 branches):
+- **Palette back to the reference**: Elf walls are trimmed hedge (untinted `_ashlar` under
+  `elf_castle`), trims are cream sandstone (not moonstone or heartwood); `_moonstone()` is now
+  cream sandstone marble (0.96, 0.93, 0.86) for every caller; `_moon_silver()` is gold; Elf floors
+  are cream sandstone squares (0.97, 0.96, 0.9); `ELF_GLOW` crystals are green (0.6, 1.0, 0.72)
+  instead of moon-blue.
+- **Class stations** (`_add_elf_class_stall`): each Elf station is a timber frame with a dark
+  hanging name board on chains, a green banner with the class icon under it, a hedge behind, and a
+  hexagonal timber platform under the pedestal, as in the interior reference. The Humans keep the
+  stone alcoves.
+- **Courtyard** (`_dress_elf_courtyard`): green stag runners from the spawn circle to the stairs
+  and along the class row (new `_add_emblem_decal` lays the faction beast on a rug), a stocked
+  potion shelf and a round map table by the south wall, a wildwood tree in the corner, bushes in two
+  corners; the mushrooms moved from x 6.6 to 4.9 to clear the tree.
+- **Crown room**: the Elf floor is cream sandstone inside a hedge-green border, with green stag
+  runners out to the side walls and the back around the crystal altar; the timber lintel replaces
+  the moonstone one.
+- **Light and ink** (both maps, art layer): ambient 0.16 → 0.19, SSAO intensity 1.6 → 2.0,
+  saturation 1.2 → 1.25, contrast 1.05 → 1.1, ink line thickness 1.4 → 1.6.
+
+Files touched: `scripts/game.gd` (`_ashlar`, `_flagstone`, `_moonstone`, `_moon_silver`, `ELF_GLOW`,
+`_build_throne_room`, `_add_class_alcove`, new `_add_elf_class_stall`, `_icon_mat`, `_class_icon_name`,
+`_add_emblem_decal`, `_dress_elf_courtyard`, `_furnish_cellar`, `_build_cellar`, environment and day
+light), `assets/shaders/ink_outline.gdshader`, `docs/changelog/ui-art.md`.
+
+Tunables (old → new): ambient 0.16 → 0.19; ssao_intensity 1.6 → 2.0; saturation 1.2 → 1.25;
+contrast 1.05 → 1.1; ink thickness 1.4 → 1.6; ELF_GLOW (0.62, 0.8, 1.0) → (0.6, 1.0, 0.72).
+No gameplay numbers changed; station, spawn and lane positions unchanged.
+
+Tested: `--check-only`; `--audit` 1 overlap on the Wildwood (the same pine pair as before, none
+added); 300/600-frame headless bot matches with no script errors.
+
+Renders: `elf-base-passA-castle.png`, `elf-base-passA-courtyard.png`, `elf-base-passA-throne.png`
+and `compare-elf-base-reference-vs-passA.png`.
+
+Revert: `git revert bbfabb6`
+
+---
+
+## 2026-10-09 — Elf base pass B: cobbled yard lane with lawns, trees and fire pillars; leaf wall tops; courtyard lawn; stag decals fixed
+
+Commit: `f5d39ef` (then merge `0b12837` of World & Maps' 8fb3a0e: Human identity, cobbled flank paths)
+
+What changed (Elf base only):
+- **Yard** (`_dress_elf_yard`, courtyard reference): a cobbled lane from the gate to the keep's arch
+  with the stag at its middle, lawns with raised flower beds and bushes either side, a wildwood tree
+  in each inner corner (off the lane and the rampart-stair routes), and a stone fire pillar either
+  side of the arch.
+- **Wall tops**: every Elf merlon is a leaf tuft again; the cream caps from the moonstone pass read
+  as white balls from above in the pass A render.
+- **Courtyard**: a lawn with a flower bed beside the spawn circle's south side; the map table moved
+  from x 12.6 to 10.4 so it clears that bed (audit clean on the Elf side).
+- **Stag decals** on the runners sit 5-8 cm above the rug (0.11 / 0.15) instead of 6 mm: they were
+  depth-fighting the rug and did not show.
+
+Files touched: `scripts/game.gd` (`_build_castle` team 0 hook, new `_dress_elf_yard`, `_add_wall`,
+`_dress_elf_courtyard`, `_build_throne_room`), `docs/changelog/ui-art.md`. No tunables.
+
+Tested: `--check-only`; `--audit` 1 overlap on the Wildwood (the pre-existing pine pair);
+900-frame headless bot match clean; after the merge a 300-frame match clean.
+
+Renders: `elf-base-passB-castle.png`, `elf-base-passB-courtyard.png`, `elf-base-passA-throne.png`.
+
+Revert: `git revert ae919cd` (and `git revert -m 1 0b12837` for the merge).
+
+---
+
+## 2026-10-09 — Elf base pass C: readable station boards, framed crown-room hedges, softer crown glow, rampart fire pillars
+
+Commit: `ae919cd`
+
+What changed (Elf base only):
+- **Class station boards**: the timber name board is 2.2 × 0.62 (was 1.9 × 0.5) and the class name
+  now sits in front of it, turned to the camera (billboard, font 72), so it reads from the top-down
+  view; in pass A it was inside the board and invisible.
+- **Crown room**: timber door posts and timber corner posts with caps frame the hedge walls (the
+  reference's framed hedges); the crown's room light is 0.6 (was 1.2) and the altar's green light
+  0.9 (was 1.4), so the crystal altar is no longer washed out.
+- **Outer defence**: a stone fire pillar on the outer half of the rampart deck either side of the
+  gatehouse (the layout sheet's upper-level defence), clear of the archer posts and stair tops.
+- **Yard lane** (fb9c9f7, before this entry): lane and lawns lifted 2 cm above the yard flags so
+  they no longer show in patches; the cobble tint cooled to (0.82, 0.8, 0.74).
+
+Files touched: `scripts/game.gd` (`_add_elf_class_stall`, `_add_class_alcove` label,
+`_build_throne_room`, `_add_crown_altar`, `_dress_elf_yard`), `docs/changelog/ui-art.md`.
+
+Tunables (old → new): crown room light 1.2 → 0.6 (Elves); altar light 1.4 → 0.9.
+
+Tested: `--check-only`; `--audit` 1 overlap (the pre-existing pine pair); 600-frame headless match
+clean.
+
+Renders: `elf-base-passC-courtyard.png`, `elf-base-passC-throne.png`, `elf-base-passC-castle.png`.
+
+Revert: `git revert ae919cd`
+
+---
+
+## 2026-10-09 — Elf base pass D: the crown room upstairs, turret pads, hedge line (layout sheet)
+
+Commit: `d2bf681`
+
+What changed (Elf base only; the Human side is untouched):
+- **Crown room upstairs**: the Elves' crown room now stands on a sandstone terrace 0.9 m above the
+  keep floor (`ROOM_RAISE`), with a wide flight of stairs between timber cheek walls from the keep
+  hall up to the vault doors; its hedge walls, posts, cornice, rugs, decals, crests, crystals and
+  chests all ride the terrace. The keep's arch-to-throne rug is Humans-only now (the stairs take its
+  place). The throne/crown position is `thrones[0] = (-63.5, 0.9, 0)`; scoring is a flat distance so
+  captures are unaffected, and the bots' throne-room routing box already spans the height.
+- **Turret spots** (the sheet's outer-defence turrets): a round sandstone pad with a gold ring at each
+  of `turret_spots(0)` (two on the rampart, two in the yard), new `_add_turret_pad`.
+- **Fence line**: a trimmed hedge run along the outside foot of the front wall from the gate approach
+  to each corner (decor, not solid); the yard-side bush there was dropped. The rampart fire pillars
+  moved out to z ±10 so they clear the turret spots.
+- Shared code touched, no-op for the Humans: `vault.gd` places the doors at `throne.y`;
+  `_polish_keep` pennants add `throne.y`.
+
+Files touched: `scripts/game.gd` (`ROOM_RAISE`, `_build_castle`, `_build_throne_room`,
+`_polish_keep`, `_dress_elf_yard`, `_add_turret_pad`), `scripts/vault.gd`, `docs/changelog/ui-art.md`.
+
+Tunables (old → new): `ROOM_RAISE` new 0.9 (Elves; 0 keeps the old ground-level room); rampart fire
+pillars z ±(DOOR_HALF+4.6) → ±(CASTLE_HALF_Z−2.0).
+
+Tested: `--check-only` on game.gd and vault.gd; `--audit` 1 overlap (the pre-existing pine pair);
+headless bot matches (seed 3, 200 s; seed 5, full length) with no script errors. The full match
+ended 0-0 with both teams' raiders idling in their own keeps behind the crown room from t=30 s;
+the same seed on the pass C commit (ae919cd) does exactly the same, so it is not this pass (under
+investigation, see the next entry).
+
+Renders: `elf-base-passD-throne.png`, `elf-base-passD-castle.png`.
+
+Revert: `git revert d2bf681`
+
+---
+
+## 2026-10-09 — Fix: bot raiders trapped behind the crown room in both keeps (0-0 matches)
+
+Commit: `b678241`
+
+What was wrong: since the World & Maps merge (5304307) every headless bot match ended 0-0 with no
+gate damage. Both teams' raiders came up the spawn stairs, headed for the gate straight through the
+throne room's back wall (the route gives the gate, not the gallery corner, from there), slid along
+the wall as designed, and ran into the new solid stone fire pillar standing 8 cm off the room's
+outer corner, which closed the corner between wall and gallery. They oscillated there for the whole
+match. Traced with a per-bot probe print and a solid-box dump behind the room; main (799a873) and
+this branch before the merge (ece3b24) were fine.
+
+Fix (shared `_polish_keep`, both teams): the four fire pillars moved off the room's corners to the
+keep's archway wall (`kx + side*1.0, ±(KEEP_DOOR_HALF+2.4)`) and the keep's back wall
+(`bx - side*1.0, ±(ROOM_HALF_Z+0.85)`), where nothing routes. No routing code touched (World & Maps
+owns it; told them).
+
+Tested: `--check-only`; `--audit` unchanged (1 pre-existing pine overlap); seed-5 match: raiders out
+of both keeps by t=30 s, doors 110/198 at t=60 s (were 200/200 for 600 s before).
+
+Files touched: `scripts/game.gd` (`_polish_keep`), `docs/changelog/ui-art.md`.
+
+Revert: `git revert b678241` (brings the 0-0 matches back)
+
+---
+
+## 2026-10-09 — Merge World & Maps (f95a3ea): their raider fix supersedes ours
+
+World & Maps fixed the same trap on their branch (47c7d81) by turning the four corner fire pillars back
+into non-solid `_add_torch` torches, the pre-merge look. Merged their branch and took their torches
+over our moved braziers (conflict in `_polish_keep`), keeping our terrace heights (`fy`/`throne.y`)
+on the throne-room banner, light and pennants; their removal of the Human stone lions inside the
+throne room's doors is taken as is. Seed-5 match after the merge: doors 120/200 at t=60 s, no script
+errors, audit unchanged. Reverting our own fix commit above is no longer needed (its lines are gone).
+
+---
+
+## 2026-10-09 — Merge World & Maps (965ecd3): `_polish_keep` split, Elves keep the moved fire pillars
+
+Their merge of our branch resolved `_polish_keep` as: Elves get our archway/back-wall stone fire
+pillars, Humans keep plain corner torches (their props hold those wall spots). Taken as is so both
+branches read the same; our terrace heights (`fy`/`throne.y`) are intact. Seed-5 match after the
+merge: doors 200/176 at t=60 s (Elves raiding), no script errors.
+
+---
+
+## 2026-10-09 — Elf courtyard: hidden south-wall flower beds moved into view
+
+Commit: `b4c6aa2`
+
+World & Maps found that the game camera looks over the south (+z) wall of the sunken courtyard and
+the wall's top hides the first ~2.5 m of floor behind it, so the three Elf flower beds at z = hz−1.4
+(pass A) were never seen in play. Now one bed at z = hz−2.9 by the west end; the two further along
+are dropped (the lawn, its own bed and the round table already dress that visible strip).
+
+Files touched: `scripts/game.gd` (`_build_cellar`, team 0 beds), `docs/changelog/ui-art.md`.
+Tunables (old → new): Elf courtyard beds at x 3.4/11.0/14.4, z hz−1.4 → one bed at x 3.4, z hz−2.9.
+Tested: `--check-only`; `--audit` unchanged (1 pre-existing pine overlap).
+
+Revert: `git revert b4c6aa2`
+
+---
+
+## 2026-10-09 — Elf base overhaul to the reference (Faisal's 03:30 / 03:34 brief): graphics, architecture, materials, pedestal, stations, workshop
+
+Commit: `7e37f9f`
+
+Faisal (03:30): "keep using the render as a reference, can you improve the graphics"; (03:34) the
+nine-point overhaul brief (shapes/proportions, open the base, replace the noisy green materials,
+rebuild the floors, lighting and depth, crown focal point, functional areas, controlled detail,
+consistency). This commit covers points 1-7 and the lighting; point 8 follows.
+
+What changed:
+- **Lighting (both maps' day light)**: soft lambert-wrap shading on every material instead of
+  two-band toon (`_toon_mat`); PCSS soft shadows (sun `light_angular_distance` 0 → 1.2,
+  `shadow_blur` 0.3 → 1.2); day ambient 0.19 → 0.27 (sky contribution 0.25 → 0.3), saturation
+  1.22 → 1.12, contrast 1.1 → 1.06, sun 1.45 → 1.3 at −44° (was −38°), warmer-less-yellow sun
+  colour, glow 0.7 → 0.6; SSAO radius 1.0 → 1.3, intensity 2.0 → 2.6; ink line thickness 1.6 → 1.25.
+- **Materials**: the Elf castle's untinted "stone" is cream sandstone, never the hedge texture
+  (`_ashlar`, `_add_wall`); hedges are leaf-blob runs along every Elf wall top; the hedge texture
+  itself is now overlapping leaf clumps (`make_hedge`), the sandstone bricks cream with soft tan
+  joints (`make_stone`), the paving three big soft-edged blocks per tile with restrained seams
+  (`make_flagstone`, also regenerates the moss and grey variants).
+- **Architecture (Elves only)**: crown-room side and back walls are a 1.3 m, 0.7 m-thick sandstone
+  parapet with hedge on top (sight ray at 1.0 m and shots at 1.1 m still blocked); the front wall
+  with the vault doors stays full height; chunky 0.8 m timber corner posts with caps. The keep's
+  side walls are a 1.4 m parapet with hedge tops (`kh`), corner pillars shortened to match, wall
+  torches lowered, tapestries and wall pennants/crests dropped on the low walls. Footprints and
+  collision unchanged; bots route as before.
+- **Crown focal point**: round layered sandstone pedestal with two gold bands under the crystals and
+  antlers (replaces the moonstone block); dais tiers 0.14 m tall (were 0.1); crystal emission
+  1.6 → 1.1; the crown's resting aura 0.7 scale / 0.2 alpha (was 1.0 / 0.35, `monarch.gd`, both
+  teams).
+- **Stations and workshop**: class banners in each class's own colour with the gold hem; thicker
+  stall posts (0.32) and beam; a workshop corner round the Upgrade Station (shelves with bottles,
+  crates, a barrel) against the courtyard's west wall.
+- **After the first renders**: both keep galleries paved in the same sandstone (were planks and
+  moonstone); the crown's room light 0.6 → 0.3, its gold emission 0.9 → 0.5 and resting beam alpha
+  0.2 → 0.12 (`monarch.gd`, both teams); foliage tops HSV hue 0.26 → 0.31, value 0.68-0.8 →
+  0.52-0.62 on every leaf blob and canopy (`_leaf_material`); stag banner frames at the crown
+  court's back corners.
+
+Files touched: `scripts/game.gd`, `scripts/monarch.gd`, `tools/make_textures.py`,
+`assets/textures/{hedge,stone,stone_moss,flagstone,flagstone_moss,flagstone_grey}_{color,normal}.jpg`,
+`assets/shaders/ink_outline.gdshader`, `docs/changelog/ui-art.md`.
+
+Tested: `--check-only` (game.gd, monarch.gd); `--audit` 1 overlap (pre-existing pines), 269 props;
+seed-5 bot matches: doors 169/200, then 172/198 at 60 s on the final state (raiders out, crown
+room reachable). Renders: `elf-base-overhaul-*.png` (debug and in-play cameras) and the
+`compare-*-overhaul.png` side-by-sides in game/groups/ui-art/.
+
+Revert: `git revert 7e37f9f` then `python3 tools/make_textures.py make_hedge make_stone make_flagstone`
+is NOT needed (the textures are committed; the revert restores them).
+
+## 2026-10-09 — Elf class-selection courtyard rebuilt as an open garden (Faisal's 04:08 brief)
+
+Commit: `c5afec8`. Scope: ONLY the Wildwood Elves' class-selection courtyard (the former
+"cellar" behind the Elf keep); the Human cellar and both Ember Pass cellars are untouched.
+
+- **Ground level, not sunken**: new `cellar_floor(team)` returns 0.0 for the Wildwood Elves
+  (−2.4 everywhere else). `_in_cellar` now bounds the courtyard in x as well (depth < 19 m) and
+  tests `y < floor + 2`, so spawn protection, "defending home", the projectile sanctuary rule and
+  the barricade rule ("Not in the cellar", now via `_in_cellar`) behave as before on every map.
+  `cellar_stairs`, `_route_leg` and unit spawns use `cellar_floor`. Bots route out through the
+  castle passage as before (seed-5 match: all five Elves out by 30 s, hats taken).
+- **Composition** (`_build_cellar` open branch, `_add_elf_courtyard_fence`,
+  `_dress_elf_open_courtyard`): the 3.3 m hedge walls are gone; the edge is a 0.3 m sandstone kerb
+  with a timber picket fence on it round three sides, plus an unseen 1.4 m collider so nothing
+  walks or shoots in (sight ray 1.0 m, shots 1.1 m). A solid paved sill fills the ground gap under
+  the old stairs' top. One stag runner from the spawn circle to the passage, one along the class
+  row; lawn with two planting beds along the south fence; the workshop (Upgrade Station board,
+  bench, barrels, shelves, crates) grouped in the south-east corner; the Guide by the passage;
+  nothing loose in the middle. Eight trees with layered crowns (`_add_canopy_tree`) and clipped
+  bushes frame the fence from outside.
+- **Stations** (`_add_elf_class_station`, `_add_elf_station_canopy`, `seal.gd`): six stations
+  centred on the courtyard 2.85 m apart under a pavilion: seven 0.36 m timber posts with capped
+  tips in front and seven taller behind the fence, beams and rafters, an emerald canvas that sags
+  per bay, rising to the back, with a scalloped hem and gold band. Each station: octagonal
+  sandstone slab, bevelled second tier, bronze band, carved cream pedestal with a gold cap
+  (`seal.gd`, `lift` 0.2 m) and the class hat; behind it a thick dark name board on iron chains
+  over an emerald panel with gold hems, a soft disc of the class colour and the class emblem. The
+  alcove runes, second ring and light are dropped for these stations; the hat's own ring is
+  smaller (0.8–0.96) and quieter (alpha 0.45, emission 0.8).
+- **Materials**: new `pavers` texture (`tools/make_textures.py make_pavers`): staggered cream
+  sandstone slabs with rounded corners and soft bevels, one tile per 4.5 m (`_pavers()`).
+- **Lighting** (`_apply_map_variant` day): ambient 0.27 → 0.21, saturation 1.12 → 1.08, contrast
+  1.06 → 1.08, sun 1.3 → 1.42 at −46° (was −44°), shadow opacity 0.9 → 0.92, shadow blur and
+  angular distance 1.2 → 0.8; SSAO radius 1.3 → 1.1, intensity 2.6 → 3.2.
+
+Files: `scripts/game.gd`, `scripts/seal.gd`, `tools/make_textures.py`,
+`assets/textures/pavers_{color,normal}.jpg` `docs/changelog/ui-art.md`.
+
+Tested: `--check-only` (game.gd, seal.gd); `--audit` 1 overlap (the pre-existing pines), 262
+props; seed-5 90 s match (Elves on the floor, out by 30 s); Ember Pass `--map=2` still builds the
+sunken Elf cellar; full seed-7 match: Elves 2-0 at 137 s (captures work). Renders: `elf-courtyard-rebuild-*.png` and
+`compare-elf-courtyard-reference-vs-rebuild.png` in game/groups/ui-art/.
+
+Revert: `git revert c5afec8`.
+
+## 2026-10-09 — Elf base decluttered, one paving stone throughout (Faisal 06:00: "both sides equally cluttered… front textures not uniform")
+
+Commit: `70f43e1`. Elf side only (the Humans' side is World & Maps'); no map-wide pass.
+
+- **One paving**: the yard, the keep floor, both galleries and the crown-room floor now use the
+  courtyard's `_pavers()` (were cream flagstone, moonstone-tinted flagstone at 0.75, flagstone,
+  flagstone), so the base reads as one stone from the gate to the crown. The door apron outside
+  the gate and the road are shared map code (World & Maps) and unchanged.
+- **Yard decluttered** (`_dress_elf_yard`, `_build_castle`): removed the cobble lane, the two
+  lawns, four flower beds, two bushes by the gate, two lanterns, the two rampart fire pillars,
+  the hedge runs along the outside of the front wall, and the four bushes against the walls.
+  Kept: the two corner trees, the two fire pillars at the keep's arch, the four turret pads, the
+  gate torches, banner frames and tower pennants. Both teams now lay one runner with the faction
+  emblem from the gate to the archway (the Elves had a short rug at the arch plus a decal on the
+  lane).
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1 overlap
+(the pre-existing pines), 261 props; seed-5 90 s match: doors 118/110 at 60 s.
+Renders: `elf-front-declutter-before.png` / `-after.png` and `compare-elf-front-before-vs-after.png`
+in game/groups/ui-art/.
+
+Revert: `git revert 70f43e1`.
+
+## 2026-10-09 — Elf crown room: Faisal's circled clutter removed (08:17 annotated screenshot)
+
+Commit: `3a57415`. Elf side only; merged World & Maps first (their Human clutter removal,
+path z-fight fix, road fences).
+
+- Removed the timber corner posts on the Elf crown room ("random clipping into wall") and the
+  hedge runs along its wall tops ("random greenery"); the walls now take a plain cream sandstone
+  cap like the Humans'.
+- Removed both stag banner frames at the crown court's back corners ("random sign").
+- Removed the lilac mushrooms in the crown room, the moon shrine and the study ("random
+  objects"), and the two loose rugs in the study and armoury behind the crown room.
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1
+overlap (pre-existing pines), 250 props; seed-5 90 s match doors 102/36 at 60 s.
+Renders: `elf-crown-room-declutter-after.png` in game/groups/ui-art/.
+
+Revert: `git revert 3a57415`.
+
+## 2026-10-09 — Elf class courtyard: Faisal's circled notes (08:18 annotated screenshot)
+
+Commit: `8caeef4`. Merged World & Maps first (their grove replacing the camp west of the
+courtyard fence, his note 4).
+
+- **"Names of classes are clipping"**: the names sat on boards along the pavilion's top edge,
+  which the game camera cuts off. Each name now stands just in front of its station's base
+  (billboarded, y 0.3, 1.35 m forward); the name boards are gone and the emblem panel gets a
+  dark timber frame instead.
+- **"Wrong way for the upgrade station"**: moved from the south-east corner by the exit to the
+  class row's near end, (bx − 1.6, 0, −4.0), board backing onto the row, anvil facing the room.
+  The row runner now starts past it (13.0 m long, was 16.2). The Guide is back at (bx − 1.3, 0,
+  5.2).
+- **"Random green texture box?"**: removed the lawn strip and both planting beds along the south
+  fence, and the orphaned shelves, bottles, crates and barrel that stood there.
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1
+overlap (pre-existing pines), 245 props; seed-5 90 s match doors 171/0 at 60 s.
+
+Revert: `git revert 8caeef4`.
+
+## 2026-10-09 — Elf yard: corner trees removed (Faisal 08:21 "giant blobs… inside the building")
+
+Commit: `0afd162`. The two wildwood trees in the Elf yard's back corners (one pink, at about
+x −55, z ±7.8) are gone from `_dress_elf_yard`; the yard keeps the arch fire pillars, turret pads
+and the runner. World & Maps removed the leafy canopy blobs on the Elf towers in `_add_tower`.
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1 overlap,
+245 props; seed-5 90 s match doors 163/14 at 60 s.
+
+Revert: `git revert 0afd162`.
+
+## 2026-10-09 — Elf courtyard: upgrade station faces the spawn, banners face the castle wall (Faisal 08:35)
+
+Commit: `bcdae1e`. New `_turn_since(c0, a0, pivot, yaw)` turns everything a builder just added
+(children and audit boxes) about a pivot. `_add_upgrade_pad` and `_add_banner_pole` take an
+optional `yaw` (default 0 = unchanged, so the Humans, Ember Pass and door banners are untouched).
+- Upgrade Station (Wildwood Elves): moved from (bx − 1.6, 0, −4.0) to (bx − 2.8, 0, −3.4) and
+  turned to face the spawn circle (yaw ≈ −74°): anvil toward the spawning players, board and
+  workbench backing onto the castle wall. Its second cask sits 0.25 m further out (they touched
+  once turned).
+- Stag banners by the spawn circle (bx − 17.2, z ±6.2): turned 90° so their backs are to the west
+  fence and they face across the courtyard to the castle wall.
+
+Files: `scripts/game.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; `--audit` 1 overlap
+(pre-existing pines), 245 props; seed-5 120 s match: Human gate 32 at 90 s, crown taken by 120 s.
+
+Revert: `git revert bcdae1e`.
+
+## 2026-10-09 — HUD right column removed; Elf courtyard anvil, Guide bubble, names on signs, no canopy (Faisal 09:03-09:06)
+
+Commit: `dc20ff6`.
+- **HUD** (`scripts/hud.gd`): the CROWN / KITS / MAP ring buttons down the top-right edge are gone
+  ("useless"); `_right_buttons`, `_count_badge` and `_chest_glyph` deleted. Kits left still show in
+  the FORTIFY prompt; the map is the pause menu's first tab.
+- **Upgrade Station** (Wildwood Elves): `_add_upgrade_pad(..., small_anvil = true)` drops the gold
+  pad disc, its flagstone square and the timber-block anvil for `_add_small_anvil()`: a modelled
+  anvil (stepped foot, waist, face, heel, cone horn; ×1.25) with a hammer on its face. The perk
+  menu still opens within 1.3 m of the same spot. Humans keep the old pad.
+- **Wildwood Guide** (`scripts/guide.gd`): the rotating floating lines (they clipped through the
+  castle wall) and the gold marker cone are replaced by a white "..." speech bubble (Sprite3D,
+  billboard, no depth test, texture drawn once in `_bubble_texture()`) that bobs over its head;
+  it speaks only in the conversation panel when you interact. `AMBIENT` removed; `BUBBLE_RANGE`
+  13 → 16 m so the whole courtyard sees it.
+- **Class names**: the light billboard name in front of each station is gone; each sign now
+  stands on two timber posts of its own with the emblem higher (disc r 0.42 → 0.30, icon 0.74 →
+  0.54, y 1.95 → 2.08) and the class name in gold on a dark plate across its lower third.
+- **Pavilion canopy removed** (`_add_elf_station_canopy` deleted): from the game camera its canvas
+  showed only as green slivers under the top bar ("what is this green stuff").
+
+Files: `scripts/game.gd`, `scripts/hud.gd`, `scripts/guide.gd`, `docs/changelog/ui-art.md`.
+Tested: `--check-only` (game, hud, guide); `--audit` 1 overlap (pre-existing pines), 245 props;
+seed-5 120 s match: Human gate down and crown taken by 120 s.
+
+Revert: `git revert dc20ff6`.
+
+## 2026-10-09 — Enemy nameplates show faction and class, not "HOSTILE" (Faisal 09:13)
+
+Commit: `f3ec838`. `unit._refresh_overhead()` was the only place the word was set: enemies now
+wear the same tag as allies, `ally_tag()` ("ELF HEALER", "HUMAN KNIGHT"), still tinted red for
+foes and green for friends. A unit with no class yet reads "ELF SOLDIER" / "HUMAN SOLDIER"
+(was a bare "ELF" / "HUMAN" for allies).
+
+Files: `scripts/unit.gd`, `docs/changelog/ui-art.md`. Tested: `--check-only`; 30 s seed-5 match,
+no script errors.
+
+Revert: `git revert f3ec838`.
+
+## 2026-10-09 — Crown banners, Upgrades / Paused / Options boards, hair styles, menu test (Faisal 09:14-09:39)
+
+Commit: `cc73516`. References: `game/reference-renders/pause-upgrades-tab-target-2026-10-09.png`
+(Upgrades tab and the perk screen), `pause-tabs-sheet-target-2026-10-09.png` (the other pause
+tabs), `pause-map-target-2026-10-09.png` (Map tab), `options-menu-target-2026-10-09.png`
+(Options / Settings).
+
+- **Crown banners** (09:19, 09:26): the "enemy has your crown" / "your team lost the crown"
+  moments now use the same cloth ribbon as picking the crown up (`hud._draw_crown_ribbon`,
+  palettes RIBBON_BLUE / RED / GREEN / DUSK; `game.crown_event_note(kind, team)` from pickup and
+  `drop_monarch`, 4 s). The old stolen card and info banner are gone, so only the banner shows
+  (the steal `announce` is chat-only now). `--debug-stolen` steals the player's own crown;
+  `--debug-crown-lost` drops it.
+- **Top bar** (09:25): the parchment strip with "Steal their crown and carry it home…" is cut from
+  the top-bar art at load; the phase line shows only for fortify, overtime or the Ember Pass fire.
+- **One board for the menus** (`_menu_rect` 1030×594 at y 104, was 980×500 / 1040×584;
+  `_menu_board`, `_menu_body`): PAUSED, OPTIONS and UPGRADES share the frame, plaque and leafy
+  corners; LEAVE MATCH / key hint / RESUME sit inside its foot.
+- **UPGRADES** (`_upgrades_page`): left card with portrait, faction and class, LV badge and XP,
+  STATS (THIS LIFE) from the live unit (hearts, stamina or mana, attack damage, movement speed,
+  cooldown reduction, K/D, captures, match score, total upgrades); centre "<CLASS> SKILLS" tab plus
+  icon tabs for the other classes, four skill rows (tile, name, description, LV badge and pips,
+  art strip with the next rank, "1 pt" and the + button), PROMOTION with both variant cards and
+  the skills each brings; right CLASS UPGRADES list (each class, its two promotions, points
+  spent x/3, click to view). The pause menu's UPGRADES tab draws this page (it used to close the
+  menu and open a separate screen); the perk key and the Upgrade Station open the same board
+  titled UPGRADES without pausing. The locked "GLOBAL UPGRADES" row is gone (the Economy group adds
+  its own). Costs stay "1 pt": the reference's gold numbers are placeholders.
+- **Settings tab** (Options reference): AUDIO sliders, DISPLAY switches (icon, label, green
+  switch), Fullscreen, Graphics Quality as four buttons (was one button that cycled), BOTS three
+  buttons with skulls and the level's description, TEAM CALLS, GAMEPAD (Rumble, Button Names with
+  ◀ ▶: the left arrow now steps back). New **AUDIO** tab (id 6): big sound and music sliders and
+  a test sound. OPTIONS opens on SETTINGS (was CONTROLS); its tabs are Settings, Controls,
+  Classes, Audio.
+- **Controls tab**: action groups on the left (Movement, Combat, Interaction, Team Calls,
+  Interface), the open group's rows with keyboard and gamepad keys, RESET TO DEFAULT.
+- **Classes tab**: CHOOSE YOUR CLASS cards (portrait, three traits, attack and skill icons). SELECT
+  puts the class on while you stand in your own spawn courtyard (it calls the station's own
+  `seal.take`); elsewhere the button reads AT STATIONS, and at the title the cards are info only.
+- **Hair styles 1-4 are real** (09:14): Ponytail, Long, Braids, Bun modelled on the head bone
+  (`character_model._add_hair_style`), sized from the measured head (±0.55 wide, 0.95 tall);
+  picked on the character screen (`hero_hair_style`, saved), `Stats.HERO_HAIR_STYLES`.
+- **Bug fixed**: starting a match after the start-up loading screen had faded raised "queue_free
+  on a previously freed instance" in `_show_loading`, so the match's loading screen never showed.
+- **Test**: `tools/options_menu_test.gd` taps (through `touch_tap`, like a click) every title
+  button, every character-screen swatch, every OPTIONS and PAUSED tab, switch, quality and bot
+  button, both sliders, a key rebind and reset, map zoom, + buttons, class list, promotion cards,
+  SELECT, RESUME, X, and LEAVE MATCH twice; it checks each setting changed and was saved.
+
+Files: `scripts/hud.gd`, `scripts/game.gd`, `scripts/character_model.gd`, `scripts/menu.gd`,
+`scripts/menu_stage.gd`, `scripts/stats.gd`, `tools/options_menu_test.gd`,
+`docs/changelog/ui-art.md`. Tested: `--check-only`; `tools/options_menu_test.gd` 0 failures;
+`tools/menu_flow_test.gd`; `--audit` 1 overlap (pre-existing pines); seed-5 bot match.
+
+Revert: `git revert cc73516`.
+
+## 2026-10-09 — Menu render fixes
+
+Commit: `a904271`. From the first renders of the boards: the Settings page fits the board in a
+match and at the title (gap (h − 442) / 4, title body 594 − 130); switch labels shrink to fit
+beside the switch; team-call and Controls keycaps named X / Y / A / B stay keyboard keys (new
+`keyboard` flag on `_keycap`; they drew as pad buttons); on the skill rows the level badge and
+pips moved under the art strip with "Next:" above them, the description wraps clear of the art,
+the "1 pt" cost sits beside the + button (it sat under the key number); CLASS UPGRADES rows show
+pips and x/3 on the name line so the promotion names no longer run into them; the Long style's
+side locks are round and behind the ear.
+
+Files: `scripts/hud.gd`, `scripts/character_model.gd`, `docs/changelog/ui-art.md`. Tested:
+`--check-only`; `tools/options_menu_test.gd` 0 failures.
+
+Revert: `git revert a904271`.
+
+## 2026-10-09 — Icon upgrade pass (Faisal 11:33 "upgrading the ... icons")
+
+Commit: `758af0c`. `tools/make_icons.py` gets a finishing pass (`finish()`) used by every icon it
+and `tools/make_summary_icons.py` draw: colours +25 % saturation / +6 % brightness, light from
+the top and shade toward the bottom, a rim light on the top-left edges, a thick ink sticker
+outline and a soft drop shadow; the glow fades out before the canvas edge (no square halo).
+Output 128 → 256 px (all 72 in `assets/ui/icons`, reimported). The HUD draws them by rect, so
+sizes on screen are unchanged. Faisal's own painted versions replace these by file name when
+he sends them. Also: Classes-tab SELECT on pale classes (Knight, Healer) gets a darker fill so
+its white text reads.
+
+Files: `tools/make_icons.py`, `assets/ui/icons/*.png`, `scripts/hud.gd`,
+`docs/changelog/ui-art.md`. Tested: `--import`; `tools/options_menu_test.gd` 0 failures;
+renders of the HUD and Classes tab. Sheet: game/groups/ui-art/icons/upgraded-icons-sheet.png.
+
+Revert: `git revert 758af0c`.
+
+## 2026-10-09 — Every HUD button works (Faisal 11:39 "ALL the settings and buttons work")
+
+Commit: `fd1bcbf`. Broken → fixed:
+- The HUD corner "bag" button (I key) did nothing → removed (`_bag_glyph` gone); the corner now
+  shows map + scoreboard only, shifted 50 px.
+- The map / scoreboard corner buttons only answered the keys → a click or tap opens the pause
+  menu on MAP (tab 0) or SCOREBOARD (tab 3) (`hud.corner_buttons`, click handler in game.gd).
+- The end-of-match summary's SCOREBOARD and CONTINUE ignored touch taps (iPad) → the game_over
+  block passes `touch_tap` to `hud._click_end`.
+Test coverage: `tools/options_menu_test.gd` now also checks the corner buttons, every touch
+ability tile, the downed skip (hold interact; only where the build has Downed & Revive) and both
+summary buttons; `tools/menu_flow_test.gd` accepts the fixed 4v4 team size.
+
+Files: `scripts/hud.gd`, `scripts/game.gd`, `tools/options_menu_test.gd`,
+`tools/menu_flow_test.gd`. Tested: options_menu_test and menu_flow_test 0 failures; `--audit`
+(1 known pine overlap).
+
+Revert: `git revert fd1bcbf`.
+
+Follow-up `543029f`: the downed-skip check waits for the outcome (up to 600 frames) instead of a fixed
+frame count, since physics ticks lag process frames headlessly. On the combined alpha
+(release/v0.4.0-alpha + this branch): options_menu_test, menu_flow_test, store_menu_test all
+0 failures. Revert: `git revert 543029f`.
+
+## 2026-10-09 — Button test follows the iPad touch layout
+
+Commit: `7be12a4`. On release/v0.4.0-alpha (with the iPad touch-first HUD) two touch checks failed
+because the first touch switches the HUD to its touch cluster and the attack tile became the aim
+pad. The test now turns touch mode on first, reads that layout's tiles and accepts `aim_id` for
+attack. Game behaviour unchanged. Tested: options_menu_test 0 failures on this branch and on
+release/v0.4.0-alpha 3a17242. Files: `tools/options_menu_test.gd`.
+
+Revert: `git revert 7be12a4`.
+
+## 2026-10-10 — Faisal's 05:58 / 06:00 / 06:04 UI asks
+
+Commits:
+- `0722242` covers hairstyles, hero turning, Upgrades clarity and pad, the green Elves band and the tutorial picture code.
+- `debf49f` covers quick upgrades.
+- `5c5a432` adds Economy's tiles on the quick strip.
+- `07cc200` fixes a door post z-fight.
+- `12e1e10` adds the tutorial pictures.
+- `0473c04` polishes UPGRADES (D-pad label, 0.46s precision, no 1-4 keycaps on a pad, emblem removed from under Next).
+
+### Hairstyles
+Each style now has its own silhouette (`character_model._add_hair_style`):
+- **Ponytail:** a high knot, with the tail swinging out past the right shoulder.
+- **Long:** seven locks to the waist, plus two thick locks down the chest.
+- **Braids:** two 7-bead plaits in front of the shoulders, down to the belt.
+- **Bun** is now **Top Knot** (`Stats.HERO_HAIR_STYLES[4]`): a tall stacked knot on the crown.
+
+The `menu.hair_thumb` thumbnails were redrawn to match.
+
+### Turning the hero
+The hero on Create Your Character can be turned three ways (`menu._hero_turner`, `menu_stage.hero_turn` / `hero_turn_goal`):
+- drag with the mouse across `HERO_AREA`;
+- push the right stick (3.2 rad/s);
+- tap the round arrows, button id `hero_turn` ±1, which turn 45° each.
+
+### UPGRADES
+- **Lit row:** the lit skill row gets a pulsing gold frame. A detail strip shows its numbers now and after the next rank (`_rank_compare`, built on the new `unit.ranked_at(a, track, r)`).
+- **Gamepad** (`game._rank_pad`): the D-pad moves the highlight over the 4 skills and 2 promotions, A buys or picks, LB/RB change class and B closes. The footer shows pad glyph prompts. Old behaviour: the D-pad bought ranks directly.
+- **Purchase feedback:** a buy flashes its row and floats "+1 LV".
+
+### Quick upgrades
+While you have points, a LEVEL UP strip sits over the ability strip, centred on touch (`hud._draw_quick_upgrade`).
+- **Buying:** 1-4, the D-pad, a click or a tap buys a rank anywhere.
+- **Combat rule:** buying needs `Stats.QUICK_UPGRADE_CALM` = 3.0 s without taking or dealing a hit (`unit.combat_at`, `calm_left()`). Inside that window the buy is refused with a shake and an IN COMBAT popup.
+- **Economy tiles:** `game.economy.quick_tiles(p)` tiles go on the right of the same strip (`game.quick_buy`, `hud.quick_buttons`; touch "quick_tap").
+
+### Score bar
+The Elves band and stag shield in the top bar are now green (`tools/make_topbar.py elves_green`, which regenerates `assets/ui/topbar/topbar.png`).
+
+### Tutorial pictures
+- **Title TUTORIAL:** shows a gameplay picture per topic over the answer (`menu.tutorial_image`, `assets/ui/tutorial/topic_0..5.jpg`).
+- **In-match Guide:** shows the same picture above its box.
+- **Tools and flags:** `tools/make_tutorial_images.py` makes the pictures. New render flags: `--debug-guide-topic=N` and `--debug-points=N`.
+
+### Z-fight
+The throne-room door posts are now 0.72 wide (was 0.7). Their faces were flush with the raised floor.
+
+### Tests
+`tools/options_menu_test.gd` adds checks for:
+- the turn arrows;
+- the tutorial pictures;
+- the pad Upgrades (move, buy, flash, class flip, close);
+- quick upgrades (key, tile, refusal in combat).
+
+The downed check now downs the player away from teammates.
+
+Results: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. `--demo` 4000 frames ran with no script errors. `--audit` shows the 1 known overlap.
+
+### Revert
+Revert newest first:
+
+```
+git revert 0473c04 12e1e10 5c5a432 07cc200 debf49f 0722242
+```
+
+## 2026-10-10 — Polish pass (Faisal 07:58 "improve on the game in all aspects")
+
+Commit: `7d0de41`.
+- **Elves are green everywhere:** `hud.SCORE_BANDS[0]` changed from Color(0.66, 0.12, 0.11) to Color(0.15, 0.46, 0.19). That turns the match summary's Elves band, crest and scoreboard section green. `assets/ui/skills/shield_elf.png` was recoloured with the new `tools/elves_green.py`.
+- **Long hair:** the chest locks are now rounded, tapering pieces with a puff at the top and a bead at the tip, instead of straight cylinders that read as planks.
+- **Also merged:** release/v0.4.0-alpha cf8100d, Integration's fix to the touch loop in options_menu_test.
+- **Tests:** options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 7d0de41`.
+
+## 2026-10-10 — Shared in-match panel style
+
+Commit: `5baffd5`. Faisal (08:31): "the ui still doesn't match the game style".
+
+- `hud.game_board(rect, title := "", ivy := true)` draws the ability strip's board for any in-match panel. That board is dark wood in a brass rim, with gold corner brackets, grain bands, ivy and an optional wooden name tag.
+- `hud.game_button(rect, label, enabled := true, accent := gold) -> bool` draws the matching raised button and returns true while it is hovered.
+- The LEVEL UP strip now uses `game_board`, plus a gold glow when ranks can be bought, and its tiles are recessed.
+- Economy has been asked to draw BASE STOCK, the action card and its buttons with these helpers.
+
+Tested: options_menu_test 0 failures.
+
+Revert: `git revert 5baffd5`.
+
+## 2026-10-10 — Banners only, smaller, no overlapping text
+
+Commit: `39faf99`. Faisal (08:35): "Keep it just banners and make the banners a little smaller"; (09:03): no conflicting text and no old UI before the new banner.
+
+- **One big banner at a time** (`hud._banner_kind`). The priority order is: crown news, capture, your kill, your new class, rank up. There are no banners while a menu, the guide or your Upgrades board is open, or while the downed or fallen screen shows.
+- **Notices:** `game.toast` and `game.announce` now queue. They show one at a time as a small parchment scroll under the clock, with the end knobs in the notice's colour, and they wait while a banner is up. Before, up to 4 plates stacked at y 120 under the kill banner. The centre `message_label` line no longer gets text. Repeats of a waiting notice are dropped, and at most 3 notices queue.
+- **Sizes:** new `hud.BANNER_SIZE` = 0.8, applied to the crown ribbon, class banner, rank-up flourish, kill banner and capture card. The kill banner and capture card now also scale with narrow screens and split-screen panes, which they did not before. Anchors:
+  - crown ribbon: y 186 → 164;
+  - class banner: y 214 → 184;
+  - rank-up flourish: y 196 → 168;
+  - kill banner: y 120 → 108.
+- **Phase line** under the clock (fortify, overtime, the Ember Pass fire) is hidden while a big banner shows.
+- **Duplicates dropped:**
+  - "You are now a …" / "You put on the … hat" now go to chat only, since the class banner says it.
+  - The player's own floating LEVEL n, promoted class name, REVIVED, VETERAN and BOUNTY popups are dropped; the banners and notices say them. Bots and other players still show them.
+- **`--debug-touch`** shows the iPad touch layout for renders.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo smoke run had no script errors.
+
+Revert: `git revert 39faf99`.
+
+## 2026-10-10 — Merged release/v0.4.0-alpha (online play)
+
+Commit: `d46af47` (merge).
+- **game.toast:** keeps the alpha's online routing (`to`) and the new one-at-a-time queue.
+- **game.announce:** keeps its online relay; `_announce_here` now feeds the notice scroll instead of the centre label.
+- **Class lines:** the station and hat class lines go to chat for the local player and stay as announcements for online joiners.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; tools/net_smoke.sh (ENet) passed; a demo run had no script errors.
+
+Revert: `git revert -m 1 d46af47`.
+
+## 2026-10-10 — SKILLS & UPGRADES board (Faisal 11:02, skills-upgrades-target-2026-10-09.png)
+
+Commit: `43134bb`. The perk key and the Upgrade Station now open **SKILLS & UPGRADES** (`hud._skills_page`) instead of the pause tab's layout.
+- **Left column:** class tabs (`_skills_tabs`) with the sigil over the name, your class first. Then the four skill rows: the art strip has a painted emblem, the LV pips sit under the description and the Next line runs along the strip's foot. Then the before/after strip, and YOUR STATS tiles (`_skills_stats`) in place of the reference's global upgrades. The game has no global upgrades, so these tiles are display only.
+- **Right column** (`_skills_side`): LEVEL, the points to spend and the XP bar beside the X. Then CLASS PROMOTION with the class portrait (cropped card art), the padlocked emblem and both paths (5 / 6 or a click to pick).
+- **Code:** `_life_stats` is shared with the pause tab's stats card. `_upgrades_skills(..., board)` switches the layout.
+- **Unchanged:** the pause menu's UPGRADES tab.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 43134bb`.
+
+## 2026-10-14 — Faisal's upgraded UI art in the game
+
+Commit: `8776540`, then a merge of release/v0.4.0-alpha 99f41df. Faisal (06:27): "Here is all the upgraded ui, implement them into the game".
+
+- **New tool:** `tools/slice_new_ui.py <folder>` cuts his sheets into the game's files by name. The sheets are kept in /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/source/: showcase-2.png and cosmetic-atlas-1.png.
+- **Icons:** 76 ability, HUD and menu icons. The symbol is lifted off its framed tile by keying out the dark backdrop, so it sits on the HUD's own hex and round buttons.
+- **Class shields:** the eight class shields (`icons/class_*`), the scoreboard shields (`skills/shield_elf`, `skills/shield_human`), and the forest and kingdom crests.
+- **Faction art:** the Elves and Humans crests and logos (`cards/crest_*`, `cards/logo_*`), the four menu banners and `menu/icon_stag`.
+- **Class cards:** one card per class, used for both factions. The Engineer and Rogue cards are new, and `hud.gd` now loads them.
+- **Store:** all 53 thumbnails. `hair_2` (black hair) uses a tighter key, because the hair matches the backdrop's colour.
+- **Not taken:**
+  - the sixth row's hex-skill tiles (dodge, drop, locks, perks, punch), since the action bar keeps its hex art;
+  - the topbar frame strip, which is too small for the 1460 px top bar;
+  - the unused stag banner.
+- **Missing from the sheet,** so the old art stays: coin, frostweaver, siegewright and the menu arrows/body/gear/hair/palette icons.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
+
+Revert: `git revert 8776540`.
+
+## 2026-10-14 — Promotion card, living skill strips, kill banner shield
+
+Commit: `30a2e48`. Faisal's comments on the new UI renders: 07:16 on the kill banner portrait ("change this to match the visual style of the rest of the game"); 07:17 on the promotion portrait ("fix the image scale, and where it is placed"); 07:24 on his reference's WILDHUNTER card ("i want it to look more like this"); 07:24 on its animated skill strips ("i like the idea of the this animation being here").
+
+- **Kill banner:** the victim's cropped card portrait is replaced by their class shield icon (`_draw_kill_banner`).
+- **CLASS PROMOTION** (`_skills_side`): one tall art card. The class card fills it edge to edge with the face on the left; the right half is shaded and carries the path's emblem (padlocked while locked), its name in green, its description and its three perks (attack plus two skills) on icon tiles. The two paths are tabs at the foot: hover shows one, click (or 5/6, or the pad) picks an unlocked one.
+- **Skill strips** (new `_strip_fx`, SKILLS & UPGRADES board only): each row's skill acted out on a loop in its colour. Bolts and arrows streak across with a trail (three for volleys); traps, turrets, smoke and curses turn as a ring of thorns; blinks leave after-images and chevrons; melee swings sweep an arc; Vigor and buffs beat with ripples and orbiting sparks. This replaces the static faint emblem. The pause menu's UPGRADES tab is unchanged.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
+
+Revert: `git revert 30a2e48`.
+
+## 2026-10-14 — Faisal's sharper UI sheets
+
+Commit: `f3e2ecf`. Faisal (07:40, in the Integration thread): "heres the 2k textures": four 1672x941 sheets, kept in /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/source-v2/ (page1-4.png).
+
+- **New tool:** `tools/slice_ui_v2.py <folder>` cuts each piece from the cell above its file-name label. It removes the checker backdrop and the dark halo by a flood fill from the cell's edge, drops neighbours' edges and the section headers, and centres the piece at the size the sheet names.
+- **Class icons** (`icons/class_*`): his CLASS ICONS row, which are framed square tiles. The old icons were shields.
+- **Class cards:** new Elf and Human base cards (`cards/elf_base`, `cards/human_base`) and six class cards, still shared by both factions.
+- **Icons:** 61 ability, HUD and upgrade icons at 256 px (were 128). This adds coin, frostweaver and siegewright, which were missing from the first set. There are 19 menu icons at 96 px.
+- **Faction art:** logos, crests, the scoreboard shields, the four banners and the stag, all cut from art roughly twice the size of the first set's.
+- **Store:** 52 thumbnails. trim_0 is not on the sheet and stays.
+- **Kept:** the title logo and topbar (higher resolution already), the action bar's hex skill art, and the body-shape icons.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert f3e2ecf`.
+
+## 2026-10-14 — Kill ribbon, centred ability emblems, richer skill strips
+
+Commit: `9a64ae0`. Faisal's comments on sharper-art-in-game.jpg, 08:08-08:10:
+- "improve on the visuals of these" (the skill strips);
+- "make this notification look like the you died one as well" (the kill banner);
+- "this is off center" (Perks and Grab);
+- "Anything off center make sure to fix".
+
+- **Kill banner** (`_draw_kill_banner`): now the YOU FELL look. A gold cloth ribbon with swallowtails, the title in the cartoon lettering, the victim's class shield in a gold medallion on the left and a sword on the right, "<victim> the <class> · +XP" under it, and twinkles. It is scaled by BANNER_SIZE as before.
+- **Ability bar** (`_slot_face`): the painted hex tiles (punch, dodge, perks, drop, lock_a) had their symbols off centre, so every slot now draws its emblem from the 2026-10-14 icon sheet, centred on the hexagon (hc − 2 px). The code-drawn fist, dodge, heart and crown glyphs are no longer used there.
+- **Skill strips** (`_strip_fx` with new `_fx_glow`, `_fx_sparkle` and `_fx_comet`):
+  - every strip has a light pool, slow rays and twinkles behind a big glowing emblem;
+  - bolts fly in as tapered comets and burst on the emblem;
+  - melee sweeps a filled crescent;
+  - traps grow shaded thorns on a lit ground disc;
+  - buffs beat with sparkles circling them.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
+
+Revert: `git revert 9a64ae0`.
+
+## 2026-10-14 — Class promotion card closer to the reference
+
+Commit: `0e50b30`. Faisal (08:56): "for the class promotion, make it look more like the reference image".
+
+- **Card** (`_skills_side`):
+  - CLASS PROMOTION is now in gold display lettering.
+  - The card has an ink-and-gold frame with gold corner brackets and ivy sprigs.
+  - The class art shows through a softer veil on the right half (alpha 0.94 → 0.72).
+- **Emblem:** a bigger medallion (radius 29 → 40) with a gold ring, rivets and the path sigil. While locked, the padlock hangs off its foot.
+- **Path name:** shown in the cartoon title lettering in green, auto-fitted to the column. The description sits centred under it.
+- **Perks:** each perk sits on a gold-framed tile with its name and a one-line summary of what it does.
+  - The attack perk's icon now uses the path's own element, so Ember Bolt shows fire, not thorns.
+- **Path tabs:** given gold frames.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 0e50b30`.
+
+## 2026-10-14 — Promotion card: half picture, gradient, glow
+
+Commit: `411ecac`. Faisal (09:06): "make the image take up half the card and add the little gradient on the part where the text starts exactly like the refernece photo. and add slight glow".
+
+- **Picture** (`_skills_side`): when a class has paths, its picture is drawn only in the left 56% of the card, centred on the face.
+- **Text half:** a dark panel in the class colour (alpha 0.97), entered by a gradient from 40% to 56% of the card width, with a soft class-colour glow along the seam.
+- **Glow:** a slight class-colour glow round the whole card (four rings, alpha 0.2 fading out).
+- **Text column:** starts at 50% (was 45%).
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 411ecac`.
+
+## 2026-10-14 — Promotion card to the mock-up
+
+Commit: `053a21d`. Faisal (10:06): "now make it slihglty less opaque and make the glow outside not inside the emblem. for the example its still not how it is, create a visual render first of how it should look". Mock-up: /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/class-promotion-mockup.png.
+
+- **Text panel:** less opaque (alpha 0.97 → 0.74).
+- **Medallion:**
+  - its glow is now six soft rings outside the rim (radius 43 to 61, pulsing gently), and the inner highlight is gone;
+  - it has eight gold spikes round the ring.
+- **Card:**
+  - a thin pale frame with the class-colour glow outside it, in place of the gold frame, brackets and ivy;
+  - a blurred, dimmed copy of the class picture behind the whole card. These are new `cards/*_blur.png` files from the new `tools/make_card_blur.py`, loaded as `cards[key + "_blur"]`.
+  - a divider between the description and the perks.
+- **Locked picture:** brightness 0.8 → 0.94.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 053a21d`.
+
+## 2026-10-14 — Painted skill strips
+
+Commit: `66167d2`. Faisal (10:59): "here are all of the skill upgrades" (67 strips, 1024×256, from the sheets sent at 08:42).
+
+- **New tool:** `tools/make_skill_strips.py` writes `assets/ui/strips/<slug>.png` at 512×128. The navy backdrop is keyed to clear by brightness, and the left and right ends fade out.
+- **HUD:** new `strips` dictionary and `_skill_slug()`. Each skill row draws its painting right-aligned at the row height, zoomed 1.3x on the subject, in both the SKILLS & UPGRADES board and the pause tab.
+- **Effects over a painting:** `_strip_fx(..., painted=true)` draws only nine twinkles and a slow white glint (alpha 0.07). The light pool, rays, comets, emblem and the old streaks are drawn only when a skill has no painting.
+- **Coverage:** all 67 skill names match a file.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 66167d2`.
+
+## 2026-10-14 — Promotion card from mock-up 4; strip fade
+
+Commit: `9051625`.
+
+Faisal (12:39): "mock up 4 with a bigger gradient is fine for now". Mock-up: /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/class-promotion-mockup-4.png.
+
+**Promotion card**
+- **Portrait:** the whole class portrait now sits in the card's top-left corner, 56% of the card's width and at most 55% of its height. It replaces the half-card picture, the blurred backdrop and the veil.
+- **Frame:** a gold thorn frame round the portrait, from the new `_thorn_frame()`. It is drawn with `draw_rect` outlines, because a clear `_plate` casts its box shadow over the picture.
+- **Background:** a 10×10 gradient grid that runs from the class colour (darkened 0.25) at the top-left to darkened 0.84. The falloff radius is 1.55 card widths.
+- **Layout:** the emblem sits beside the portrait. The name, description and perks run full width below it, with perk spacing 26–34 px.
+
+Faisal (12:40): "for the skill strips they have a gradient that fades to black not just a black scren at the end".
+
+**Skill rows**
+- **Wash:** it now rises from 0 to alpha 0.38 at 72% of the art width, then fades back to 0 under the cost and + button. Before, it stopped with a hard edge at the art's end.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 9051625`.
+
+## 2026-10-14 — Icons and portrait centred
+
+Commit: `4fc4032`. Faisal (18:16, in the World visual overhaul thread): "make sure the icons are not off centered". His screenshot circled the corner portrait and the Perks and Grab slots.
+
+- **New tool:** `tools/center_icons.py`.
+  - It finds each icon's subject: the vivid object plus its black outline, leaving out the dull painted halo.
+  - It shifts `assets/ui/icons/<name>.png` so the subject is centred. 53 icons moved by 1 to 12 px.
+  - It writes halo-free copies to `assets/ui/icons_clean/`.
+- **Ability bar:** `_slot_face` draws the `clean_icons` copy when there is one, so the heart and crown no longer sit on a lopsided smudge.
+- **Corner portrait:** `_medallion` now crops round each card's face, from the new `FACE_AT` table. Before, it used one fixed spot (0.56, 0.2) for every card. The crop side changed 0.66 → 0.62 of the card width, and the crop stays below the card's gold frame (top ≥ 3.5% of its height).
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 4fc4032`.
+
+## 2026-10-14 — Event banners
+
+Commit: `f27555f`. Faisal (20:46): "add more impacts and begin adding more banners". Banners are UI & Art's part of that ask.
+
+- **What changed:** 18 kinds of match news now show as the big cloth-ribbon banner instead of the small notice scroll. `EVENT_BANNERS` lists the notice text each one matches, its title, the line under it, its icon and its mood.
+  - The news: gate broken, gate rebuilt, OVERTIME, FIGHT, team wiped, elite veteran, veteran, bounty claimed, vault open, vault locked, fire claimed, fire lost, blessing, promotion unlocked, hat machine upgraded, turret lost, new item and first blood.
+- **How it works:**
+  - `_event_banner()` checks the front notice against that list. `_banner_kind()` returns "event" at the lowest priority, so it is still one banner at a time.
+  - Each event banner stays up for `EVENT_TIME` = 2.6 s.
+  - `_draw_event_banner()` draws the ribbon at 0.78 × `BANNER_SIZE`. It is gold when the news is good for you or for nobody, and crimson when it is bad for you.
+  - The phase line hides under it, as it does for the other banners.
+- **First blood:** `_watch_first_blood()` sends a notice the first time anyone scores a kill in a match.
+- **Debug render:** `--debug-event="<notice text>"` shows one event banner.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert f27555f`.

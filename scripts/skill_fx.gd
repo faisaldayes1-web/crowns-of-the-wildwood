@@ -94,6 +94,12 @@ static func _at(u, up: float = 0.0, fwd: float = 0.0, dir: Vector3 = Vector3.ZER
 
 
 static func animate(u, a: Dictionary) -> void:
+	var n = _net_open("skill", "animate", [u, a])
+	_x_animate(u, a)
+	_net_close(n)
+
+
+static func _x_animate(u, a: Dictionary) -> void:
 	var m = u.model
 	if m == null:
 		return
@@ -188,6 +194,12 @@ static func _ghost_path(fx, u, from: Vector3, to: Vector3, color: Color, count: 
 # --- Cast --------------------------------------------------------------------
 
 static func cast(u, a: Dictionary, dir: Vector3) -> void:
+	var n = _net_open("skill", "cast", [u, a, dir])
+	_x_cast(u, a, dir)
+	_net_close(n)
+
+
+static func _x_cast(u, a: Dictionary, dir: Vector3) -> void:
 	animate(u, a)
 	var fx = Fx.of(u.game)
 	var elf := _elf(u)
@@ -339,6 +351,12 @@ static func cast(u, a: Dictionary, dir: Vector3) -> void:
 
 
 static func land(u, a: Dictionary, dir: Vector3, from: Vector3) -> void:
+	var n = _net_open("skill", "land", [u, a, dir, from])
+	_x_land(u, a, dir, from)
+	_net_close(n)
+
+
+static func _x_land(u, a: Dictionary, dir: Vector3, from: Vector3) -> void:
 	## After the ability resolved: where a dash or blink carried the caster.
 	var fx = Fx.of(u.game)
 	var to: Vector3 = u.global_position
@@ -443,3 +461,19 @@ static func grab_miss(u) -> void:
 	var at := grab_point(u)
 	Fx.of(u.game).burst(at, Color(0.95, 0.95, 0.9, 0.7), 5, 1.4, 0.35, Fx.STYLE_MOTE, u.facing, 40.0, 0.7)
 	u.game.sfx.play("grab_miss", at, -8.0 if u.is_player else -16.0, 0.1)
+
+
+# --- Online: mirror every skill animation to the joiners (scripts/net.gd) ----
+
+static func _net_open(target: String, method: String, args: Array):
+	var tree := Engine.get_main_loop() as SceneTree
+	var n = tree.root.get_node_or_null("Net") if tree else null
+	if n:
+		n.rec(target, method, args)
+		n.depth += 1
+	return n
+
+
+static func _net_close(n) -> void:
+	if n:
+		n.depth -= 1

@@ -226,6 +226,8 @@ func _process(delta: float) -> void:
 	ring.rotation.y += delta * 0.5
 	ring.material_override.albedo_color.a = 0.45 + 0.2 * sin(t * 4.0)
 	light.light_energy = 1.4 + 0.4 * sin(t * 4.0)
+	if game.net_client:
+		return  # online: the host hands out potions
 	for u in game.units:
 		if u.dead or u.hearts >= Stats.MAX_HEARTS:
 			continue
@@ -234,8 +236,8 @@ func _process(delta: float) -> void:
 			u.heal(Stats.HEAL_ORB_HEARTS)
 			game.spawn_burst(global_position, 1.3, RED)
 			game.spawn_splash(global_position + Vector3(0, 0.8, 0), PINK, 16, 3.0, 0.5, true)
-			if u == game.player:
-				game.announce("Health potion: +%d hearts" % Stats.HEAL_ORB_HEARTS)
+			if u == game.player or u.remote_peer > 0:
+				game.announce("Health potion: +%d hearts" % Stats.HEAL_ORB_HEARTS, u)
 			active = false
 			orb.visible = false
 			light.visible = false

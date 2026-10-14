@@ -27,6 +27,26 @@ def stretch_fill(a, x0, x1, y0, y1, src_cols):
     a[y0:y1, x0:x1, :] = col[:, None, :]
 
 
+def elves_green(rgb):
+    """The reference painted the Elves' band and stag shield red; the Elves
+    are green everywhere else (scoreboard, minimap, chips, outlines), so
+    turn the reds on the left half green, keeping their shading (Faisal
+    05:58 2026-10-10: "the enemy score ui should be the same as all of
+    them"). The gold trim and the clock are not red, so they stay."""
+    hsv = np.asarray(Image.fromarray(rgb).convert("HSV")).astype(np.int16).copy()
+    h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
+    left = np.zeros(h.shape, bool)
+    left[:, :LEFT_END] = True
+    red = left & ((h < 14) | (h > 236)) & (s > 70) & (v > 90)   # not the dark clock inside
+    h[red] = 88          # ~124 degrees: the Elves' green
+    s[red] = np.clip(s[red] * 0.85, 0, 255).astype(np.int16)
+    v[red] = np.clip(v[red] * 0.82, 0, 255).astype(np.int16)
+    return np.asarray(Image.fromarray(hsv.astype(np.uint8), "HSV").convert("RGB"))
+
+
+LEFT_END = 600   # crop x where the clock frame starts
+
+
 def main():
     im = Image.open(REF).convert("RGB").crop((X0, Y0, X1, Y1))
     a = np.asarray(im).astype(np.float32)
@@ -74,6 +94,7 @@ def main():
     alpha = Image.fromarray(np.where(bg, 0, 255).astype(np.uint8))
     # Close small holes, then soften the edge a touch.
     alpha = alpha.filter(ImageFilter.MaxFilter(3)).filter(ImageFilter.MinFilter(5)).filter(ImageFilter.GaussianBlur(0.8))
+    rgb = elves_green(rgb)
     out = Image.fromarray(rgb).convert("RGBA")
     out.putalpha(alpha)
     import os

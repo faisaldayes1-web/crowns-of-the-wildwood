@@ -11,6 +11,7 @@ extends RefCounted
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
 const Face = preload("res://scripts/face.gd")
+const Store = preload("res://scripts/store.gd")
 const Role = Stats.Role
 
 # Map cards: [title, thumbnail, Stats.MAPS index or -1 for coming soon].
@@ -33,7 +34,7 @@ const CREDITS := [
 var game
 var h                        # the HUD this frame (all drawing goes through it)
 var stage                    # menu_stage.gd
-var screen := "title"        # title, map, character, lobby
+var screen := "title"        # title, map, character, lobby, store
 var overlay := ""            # "", "credits", "tutorial", "progress"
 var map_first := 0           # leftmost map card shown
 var map_pick := 0            # selected card (MAP_CARDS index)
@@ -42,16 +43,26 @@ var preview_role := Role.BASE
 var preview_team := 1
 var preview_rank := 1
 var tutorial_topic := 0
+const HERO_AREA := Rect2(420, 120, 380, 470)   # where the customizer's hero stands (drag here to turn it)
+var turn_drag := false
+var turn_last_x := 0.0
+var turn_was_held := false
 var exit_armed := 0.0
+var debug_players_done := false
+var delete_armed := ""        # a player DELETE asks for a second click (their id)
+var delete_time := 0.0
 var readied := [true, false, false, false]   # lobby: local players 2-4 ready up
 var join_pads: Array = []    # lobby: the pad device of local players 2-4, in join order
 var p1_pad := -1             # the pad player 1 last used in the menus
+var room_entry := ""         # online: the room code being typed or tapped in
 var font_title: Font
 var tex := {}
+var store                    # store.gd: the STORE screen
 
 
 func _init(g) -> void:
 	game = g
+	store = Store.new(g, self)
 	font_title = load("res://assets/ui/fonts/LilitaOne-Regular.ttf")
 	var dir := DirAccess.open("res://assets/ui/menu")
 	if dir:
@@ -127,6 +138,24 @@ func ttext(pos: Vector2, text: String, size: int, color: Color = Color.WHITE, al
 	h.draw_string(f, pos, text, align, width, size, color)
 
 
+func fit_size(text: String, size: int, width: float) -> int:
+	## The biggest title-face size up to `size` at which `text` fits in `width`.
+	var f: Font = font_title if font_title else h.font
+	while size > 8 and f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > width:
+		size -= 1
+	return size
+
+
+static func gold_text(n: int) -> String:
+	## 1234567 -> "1,234,567".
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.right(3) + out
+		s = s.left(s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
+
+
 func button(r: Rect2, id: String, arg = null) -> bool:
 	## Record a clickable rect; returns whether the pointer is over it.
 	h.menu_buttons.append([r, id, arg])
@@ -197,12 +226,27 @@ func label(pos: Vector2, text: String, size: int = 13, color: Color = Color(0.92
 func draw(hud) -> void:
 	h = hud
 	exit_armed = maxf(exit_armed - hud.get_process_delta_time(), 0.0)
+	delete_time = maxf(delete_time - hud.get_process_delta_time(), 0.0)
+	if delete_time <= 0.0:
+		delete_armed = ""
+	if not debug_players_done and "--debug-players" in OS.get_cmdline_user_args():
+		# Renders: the PLAYERS list; with --debug-welcome, the first-launch ask.
+		debug_players_done = true
+		overlay = "players"
+		game.needs_name = "--debug-welcome" in OS.get_cmdline_user_args()
+	if game.needs_name and screen == "title" and overlay == "":
+		# A first launch: ask who is playing before anything else.
+		overlay = "players"
+		if not OS.has_feature("web"):
+			game.set_deferred("name_editing", true)
 	if stage:
 		stage.show_screen(screen)
 	match screen:
 		"map": _draw_map()
 		"character": _draw_character()
 		"lobby": _draw_lobby()
+		"store": store.draw(h, stage, preview_team)
+		"online": _draw_online()
 		_: _draw_title()
 	if overlay != "":
 		h.draw_rect(Rect2(Vector2.ZERO, h.size), Color(0, 0, 0, 0.55))
@@ -210,6 +254,7 @@ func draw(hud) -> void:
 			"credits": _draw_credits()
 			"tutorial": _draw_tutorial()
 			"progress": _draw_progress()
+			"players": _draw_players()
 	if game.cursor_shown:
 		var hint := "%s select  ·  %s back" % [h._k("ui_confirm"), h._k("ui_back")]
 		if screen == "lobby" and game.couch_players < 4 and game.couch_players > 1 or screen == "lobby" and _split_on():
@@ -225,6 +270,9 @@ const BG_W := 1672.0
 const BG_PLAY := Rect2(18, 322, 380, 80)
 const BG_ITEMS := [Rect2(38, 415, 340, 63), Rect2(38, 493, 340, 63), Rect2(38, 572, 340, 63), Rect2(38, 651, 340, 63), Rect2(38, 730, 340, 65)]
 const BG_CHIP := Rect2(1385, 20, 265, 70)
+const BG_STORE := Rect2(38, 809, 340, 63)    # under the painted column: drawn, not painted
+const BG_PURSE := Rect2(1385, 98, 265, 50)   # under the account chip
+const BG_SWITCH := Rect2(1385, 156, 265, 44)  # under the purse: PLAYERS (switch or add a player)
 
 
 func _bg_rect(r: Rect2) -> Rect2:
@@ -258,6 +306,42 @@ func _draw_title() -> void:
 		var r := _bg_rect(BG_ITEMS[i])
 		if button(r, ids[i]):
 			_bg_hover(r.grow(-2), 8)
+	# STORE and ONLINE: two half planks like the painted ones, under EXIT,
+	# and the gold purse under the account chip (it opens the store too).
+	# (Not clickable under an overlay: the purse sits under its close button.)
+	var row := _bg_rect(BG_STORE)
+	var gap := row.size.x * 0.03
+	var sr := Rect2(row.position, Vector2((row.size.x - gap) / 2.0, row.size.y))
+	var orr := Rect2(sr.end.x + gap, row.position.y, sr.size.x, row.size.y)
+	var sov := button(sr, "store") if overlay == "" else false
+	nine("btn_wood_hi" if sov else "btn_wood", sr, 20, 20, 20, 20)
+	if sov:
+		_bg_hover(sr.grow(-2), 8)
+	h._icon("coin", sr.position + Vector2(sr.size.y * 0.5, sr.size.y / 2.0), sr.size.y * 0.2, Color.WHITE)
+	ttext(Vector2(sr.position.x + sr.size.y * 0.95, sr.position.y + sr.size.y * 0.68), "STORE", int(sr.size.y * 0.46), Color(1, 0.97, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	if game.account_chests > 0:
+		# Unopened chests: a little tag on the plank's top right corner.
+		var badge := Vector2(sr.end.x - sr.size.y * 0.2, sr.position.y + sr.size.y * 0.08)
+		h.draw_circle(badge, sr.size.y * 0.26, Color(0.08, 0.06, 0.1))
+		h.draw_circle(badge, sr.size.y * 0.22, Color(0.85, 0.2, 0.15))
+		ttext(badge + Vector2(-20, sr.size.y * 0.1), str(game.account_chests), int(sr.size.y * 0.3), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 40, 3)
+	var oov := button(orr, "online") if overlay == "" else false
+	nine("btn_wood_hi" if oov else "btn_wood", orr, 20, 20, 20, 20)
+	if oov:
+		_bg_hover(orr.grow(-2), 8)
+	globe(orr.position + Vector2(orr.size.y * 0.5, orr.size.y / 2.0), orr.size.y * 0.22, game.net != null and game.net.online())
+	ttext(Vector2(orr.position.x + orr.size.y * 0.95, orr.position.y + orr.size.y * 0.68), "ONLINE", int(orr.size.y * 0.46), Color(1, 0.97, 0.9), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	var purse := _bg_rect(BG_PURSE)
+	var pov := button(purse, "store") if overlay == "" else false
+	slate(purse.grow(2) if pov else purse)
+	h._icon("coin", purse.position + Vector2(purse.size.y / 2.0 + 4, purse.size.y / 2.0), purse.size.y * 0.16, Color.WHITE)
+	# Shrinks to fit so a big purse never runs out of its box.
+	var gt := "%s GOLD" % gold_text(game.account_gold)
+	var gx := purse.position.x + purse.size.y + 8
+	ttext(Vector2(gx, purse.position.y + purse.size.y * 0.62), gt, fit_size(gt, int(purse.size.y * 0.42), purse.end.x - 12 - gx), Color(1.0, 0.86, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	if overlay == "":
+		var sw := _bg_rect(BG_SWITCH)
+		wood_button(sw, "PLAYERS", "players", null, "", int(sw.size.y * 0.42))
 	if exit_armed > 0.0:
 		var r := _bg_rect(BG_ITEMS[4])
 		var tip := Rect2(r.end.x + 10, r.position.y + 6, 190, r.size.y - 12)
@@ -278,6 +362,120 @@ func _draw_title() -> void:
 	h._text(Vector2(tx, chip.position.y + 39), Stats.rank_title(level).to_upper(), 10, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var span: Array = Stats.account_span(game.account_xp)
 	h._bar(Rect2(Vector2(tx, chip.position.y + 44), Vector2(chip.end.x - tx - 12, 7)), (float(span[0]) / span[1]) if span[1] > 0 else 1.0, Color(0.95, 0.6, 0.2))
+
+
+# --- Online -----------------------------------------------------------------------
+
+const CODE_CHARS := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   # the relay's room-code letters (no I, O, 0, 1)
+const CODE_LEN := 4
+
+
+func globe(c: Vector2, r: float, lit: bool) -> void:
+	## A small drawn globe for the ONLINE plank (green while connected).
+	var col := Color(0.55, 1.0, 0.45) if lit else Color(0.75, 0.9, 1.0)
+	h.draw_circle(c, r + 2.5, Color(0.12, 0.07, 0.03))
+	h.draw_circle(c, r, Color(0.16, 0.36, 0.62) if not lit else Color(0.16, 0.45, 0.22))
+	h.draw_arc(c, r, 0, TAU, 28, col, 2.0, true)
+	h.draw_line(c - Vector2(r, 0), c + Vector2(r, 0), col, 1.6, true)
+	h.draw_line(c - Vector2(0, r), c + Vector2(0, r), col, 1.6, true)
+	for k in [-1, 1]:
+		h.draw_line(c + Vector2(-r * 0.86, k * r * 0.5), c + Vector2(r * 0.86, k * r * 0.5), col, 1.2, true)
+	var pts := PackedVector2Array()
+	for i in 17:
+		var a := -PI / 2.0 + PI * i / 16.0
+		pts.append(c + Vector2(cos(a) * r * 0.45, sin(a) * r))
+	h.draw_polyline(pts, col, 1.4, true)
+
+
+func code_key(ch: String) -> void:
+	## A letter typed or tapped into the JOIN code.
+	ch = ch.to_upper()
+	if ch == "<":
+		room_entry = room_entry.left(maxi(room_entry.length() - 1, 0))
+	elif ch.length() == 1 and CODE_CHARS.contains(ch) and room_entry.length() < CODE_LEN:
+		room_entry += ch
+		game.sfx.ui("ui_click", -8.0)
+
+
+func _code_boxes(center_x: float, y: float, text: String, box: float, caret: bool) -> void:
+	for i in CODE_LEN:
+		var r := Rect2(center_x - (box * CODE_LEN + 12.0 * (CODE_LEN - 1)) / 2.0 + i * (box + 12.0), y, box, box * 1.15)
+		option_box(r, i < text.length(), caret and i == text.length(), Color(1.0, 0.8, 0.25))
+		if i < text.length():
+			ttext(Vector2(r.position.x, r.position.y + r.size.y * 0.72), text[i], int(box * 0.62), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 5)
+		elif caret and i == text.length() and int(Time.get_ticks_msec() / 500) % 2 == 0:
+			h.draw_rect(Rect2(r.get_center().x - 2, r.position.y + r.size.y * 0.25, 4, r.size.y * 0.5), Color(1, 0.9, 0.6))
+
+
+func _draw_online() -> void:
+	var net = game.net
+	var frame := Rect2(82, 46, h.size.x - 164, 600)
+	nine("frame_big", frame, 40, 40, 40, 40)
+	plaque(h.size.x / 2.0, 14, "PLAY ONLINE", 420)
+	var cx: float = h.size.x / 2.0
+	var hosting: bool = net != null and net.is_host()
+	var joined: bool = net != null and net.is_client()
+	# CREATE A ROOM (left).
+	var lp := Rect2(cx - 520, 104, 500, 470)
+	slate(lp)
+	ttext(Vector2(lp.position.x, lp.position.y + 34), "CREATE A ROOM", 24, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 5)
+	var lx := lp.position.x
+	if hosting and net.room_code != "":
+		h._text(Vector2(lx, lp.position.y + 74), "YOUR ROOM CODE", 14, Color(0.9, 0.88, 0.82), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 3)
+		_code_boxes(lp.get_center().x, lp.position.y + 88, net.room_code, 74, false)
+		h._text(Vector2(lx, lp.position.y + 206), "Friends tap ONLINE, then type this code under JOIN A ROOM.", 13, Color(0.88, 0.86, 0.8), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 2)
+		var n: int = net.peer_count()
+		var who := "Nobody has joined yet" if n == 0 else ("%d friend joined" % n if n == 1 else "%d friends joined" % n)
+		ttext(Vector2(lx, lp.position.y + 250), who, 22, Color(0.55, 0.95, 0.45) if n > 0 else Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 4)
+		var names: Array = []
+		for id in net.multiplayer.get_peers():
+			names.append(str(net.peer_names.get(id, "Player")))
+		if not names.is_empty():
+			h._text(Vector2(lx, lp.position.y + 276), ", ".join(names), 13, Color(0.85, 0.85, 0.82), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 2)
+		h._text(Vector2(lx, lp.position.y + 304), "Bots fill the empty places in the 4v4.", 12, Color(0.75, 0.75, 0.72), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 2)
+		green_button(Rect2(lp.get_center().x - 170, lp.position.y + 324, 340, 70), "CHOOSE MAP", "online_map")
+		wood_button(Rect2(lp.get_center().x - 110, lp.position.y + 404, 220, 48), "CLOSE ROOM", "online_leave", null, "", 19)
+	elif hosting:
+		ttext(Vector2(lx, lp.position.y + 210), "Opening a room ...", 22, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 4)
+		wood_button(Rect2(lp.get_center().x - 90, lp.position.y + 404, 180, 48), "CANCEL", "online_leave", null, "", 19)
+	else:
+		var lines := ["Host a match on this device.", "You get a 4-letter code to share,", "then pick the map and start as usual."]
+		for i in lines.size():
+			h._text(Vector2(lx, lp.position.y + 110 + i * 26), lines[i], 15, Color(0.9, 0.88, 0.82), HORIZONTAL_ALIGNMENT_CENTER, lp.size.x, 2)
+		icon("crown", Vector2(lp.get_center().x, lp.position.y + 240), 84)
+		green_button(Rect2(lp.get_center().x - 170, lp.position.y + 324, 340, 70), "CREATE ROOM", "online_create", not joined)
+	# JOIN A ROOM (right).
+	var rp := Rect2(cx + 20, 104, 500, 470)
+	slate(rp)
+	ttext(Vector2(rp.position.x, rp.position.y + 34), "JOIN A ROOM", 24, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_CENTER, rp.size.x, 5)
+	if joined:
+		_code_boxes(rp.get_center().x, rp.position.y + 88, net.room_code if net.room_code != "" else room_entry, 74, false)
+		var wait := "Waiting for the host to start the match" if net.welcomed else "Connecting ..."
+		ttext(Vector2(rp.position.x, rp.position.y + 250), wait, 21, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, rp.size.x, 4)
+		icon("wait", Vector2(rp.get_center().x, rp.position.y + 310), 56)
+		wood_button(Rect2(rp.get_center().x - 90, rp.position.y + 404, 180, 48), "LEAVE", "online_leave", null, "", 19)
+	else:
+		_code_boxes(rp.get_center().x, rp.position.y + 60, room_entry, 56, not hosting)
+		# The letter pad: the iPad has no keyboard for the game's own text,
+		# so the code is tapped in (a keyboard types it too).
+		var cols := 8
+		var kw := 50.0
+		var kh := 42.0
+		var x0 := rp.get_center().x - (cols * kw + (cols - 1) * 6.0) / 2.0
+		for i in CODE_CHARS.length():
+			var r := Rect2(x0 + (i % cols) * (kw + 6.0), rp.position.y + 138 + (i / cols) * (kh + 6.0), kw, kh)
+			var ov := button(r, "code_key", CODE_CHARS[i]) and not hosting
+			option_box(r, false, ov)
+			ttext(Vector2(r.position.x, r.position.y + 30), CODE_CHARS[i], 22, Color.WHITE if not hosting else Color(0.55, 0.55, 0.55), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
+		var by := rp.position.y + 138 + 4 * (kh + 6.0) + 8
+		wood_button(Rect2(x0, by, 130, 50), "DELETE", "code_key", "<", "", 18, false, not hosting and room_entry != "")
+		green_button(Rect2(x0 + 146, by - 4, cols * (kw + 6.0) - 6.0 - 146, 58), "JOIN", "online_join", not hosting and room_entry.length() == CODE_LEN, false)
+	# Status from the connection (errors in a warmer colour).
+	var st: String = net.status if net else "Online play is not available in this build"
+	if st != "":
+		var bad := st.begins_with("Could not") or st.begins_with("Online:") or st.begins_with("The host left")
+		h._text(Vector2(0, 600), st, 15, Color(1.0, 0.6, 0.45) if bad else Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
+	wood_button(Rect2(40, 640, 150, 50), "BACK", "back", null, "", 20)
 
 
 # --- Select Map -------------------------------------------------------------------
@@ -339,10 +537,11 @@ func _draw_map() -> void:
 		var ov := button(r, "split", k == 1)
 		option_box(r, on, ov, Color(1.0, 0.8, 0.25))
 		ttext(Vector2(r.position.x, r.position.y + 35), ["OFF", "ON"][k], 22, Color.WHITE if on else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-	var cap := "Play together on the same screen"
 	if _split_on():
-		cap = "Players 2-4 join in the lobby with a gamepad"
-	h._text(Vector2(gm.position.x + 116, gm.position.y + 260), cap, 12, Color(0.88, 0.86, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 376, 2)
+		# Two players: side by side (vertical) or stacked (horizontal).
+		_layout_picker(Rect2(gm.position.x + 116, gm.position.y + 240, 376, 34))
+	else:
+		h._text(Vector2(gm.position.x + 116, gm.position.y + 260), "Play together on the same screen", 12, Color(0.88, 0.86, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 376, 2)
 	h._text(Vector2(gm.position.x, gm.position.y + 284), "Bots fill every empty place on both sides.", 10, Color(0.7, 0.7, 0.68), HORIZONTAL_ALIGNMENT_CENTER, gm.size.x, 2)
 	var playable: bool = _card_open(map_pick)
 	green_button(Rect2(h.size.x / 2.0 - 190, 618, 380, 74), "START MATCH", "to_lobby", playable)
@@ -400,7 +599,9 @@ func _draw_character() -> void:
 		stage.show_hero(preview_team, preview_role, game.hero_custom(), preview_rank)
 	plaque(632, 22, "CREATE YOUR CHARACTER", 600)
 	icon("crown", Vector2(632, 20), 46)
-	# Tabs down the left.
+	# Tabs down the left, an ivy vine climbing their left edge (Faisal's
+	# create-character reference, 2026-10-09).
+	h._ivy(Vector2(52, 128 + CHAR_TABS.size() * 62 - 6), Vector2(0, -1), CHAR_TABS.size() * 62.0 - 14.0, 31)
 	for i in CHAR_TABS.size():
 		var r := Rect2(60, 128 + i * 62, 272, 52)
 		var sel := char_tab == i
@@ -408,6 +609,8 @@ func _draw_character() -> void:
 		var rr := r.grow(2) if ov else r
 		nine("panel_row", rr, 14, 14, 14, 14)
 		if sel:
+			# The open tab gets a chevron at its right end.
+			icon("arrow_right", rr.position + Vector2(rr.size.x - 22, rr.size.y / 2.0), 22, Color(1.0, 0.86, 0.45))
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = Color(0.32, 0.22, 0.08, 0.55)
 			sb.set_corner_radius_all(8)
@@ -440,10 +643,17 @@ func _draw_character() -> void:
 		h.draw_rect(Rect2(rr.position + Vector2(6, 5), Vector2(rr.size.x - 12, rr.size.y * 0.32)), Color(1, 1, 1, 0.1))
 		icon("stag" if k == 0 else "crown", rr.position + Vector2(40, rr.size.y / 2.0), 44)
 		ttext(Vector2(rr.position.x + 64, rr.position.y + 38), "ELF" if k == 0 else "HUMAN", 24, Color.WHITE if on else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, rr.size.x - 76, 5)
+	_hero_turner()
 	# The panel on the right.
 	var panel := Rect2(832, 110, 430, 480)
 	slate(panel)
-	ttext(Vector2(panel.position.x, panel.position.y + 34), CHAR_TABS[char_tab][0], 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 5)
+	# The open tab's name on a wood plaque over the panel's top edge, ivy
+	# sprigs at both ends, as in the reference.
+	var pr := Rect2(panel.get_center().x - 165, panel.position.y - 22, 330, 48)
+	nine("plaque", pr, 110, 24, 110, 24)
+	ttext(Vector2(pr.position.x, pr.position.y + 33), CHAR_TABS[char_tab][0], 22, Color(1.0, 0.86, 0.45), HORIZONTAL_ALIGNMENT_CENTER, pr.size.x, 5)
+	h._ivy(pr.position + Vector2(8, 10), Vector2(1, 0), 44.0, 32)
+	h._ivy(Vector2(pr.end.x - 8, pr.position.y + 10), Vector2(-1, 0), 44.0, 33)
 	h.draw_rect(Rect2(panel.position.x + 30, panel.position.y + 46, panel.size.x - 60, 1), Color(0.6, 0.48, 0.28, 0.6))
 	match char_tab:
 		0: _tab_appearance(panel)
@@ -453,6 +663,53 @@ func _draw_character() -> void:
 		4: _tab_colors(panel)
 		5: _tab_emblem(panel)
 	green_button(Rect2(876, 604, 340, 70), "CONFIRM", "confirm", true, false)
+
+
+func _hero_turner() -> void:
+	## Turn the hero to see the back of the hair and cape (Faisal 05:58
+	## 2026-10-10 "add rotation to the character customizer"): drag across
+	## the hero with the mouse, push the right stick, or press the round
+	## arrows either side (a tap turns 45 degrees).
+	if stage == null:
+		return
+	var area := HERO_AREA
+	var m: Vector2 = h._mouse()
+	var held := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	if held and (turn_drag or (area.has_point(m) and not turn_was_held)):
+		if turn_drag:
+			stage.hero_turn += (m.x - turn_last_x) * 0.013
+			stage.hero_turn_goal = stage.hero_turn
+		turn_drag = true
+		turn_last_x = m.x
+	else:
+		turn_drag = false
+	turn_was_held = held
+	var stick := 0.0
+	for d in Input.get_connected_joypads():
+		var v := Input.get_joy_axis(d, JOY_AXIS_RIGHT_X)
+		if absf(v) > absf(stick):
+			stick = v
+	if absf(stick) > 0.2:
+		stage.hero_turn += stick * h.get_process_delta_time() * 3.2
+		stage.hero_turn_goal = stage.hero_turn
+	for k in 2:
+		var c := Vector2(HERO_AREA.position.x + 18.0 if k == 0 else HERO_AREA.end.x - 18.0, 560.0)
+		var r := Rect2(c - Vector2(24, 24), Vector2(48, 48))
+		var ov := button(r, "hero_turn", -1 if k == 0 else 1)
+		h.draw_circle(c + Vector2(0, 3), 25, Color(0, 0, 0, 0.35))
+		h.draw_circle(c, 25 if ov else 23, Color(1.0, 0.8, 0.32) if ov else Color(0.62, 0.48, 0.24))
+		h.draw_circle(c, 20, Color(0.2, 0.13, 0.07))
+		# A curved arrow round the centre, its head showing the way it turns.
+		var sgn := -1.0 if k == 0 else 1.0
+		var col := Color(1.0, 0.92, 0.7)
+		h.draw_arc(c, 11.0, PI * 0.95, PI * 2.05, 16, col, 3.5)
+		var tip := c + Vector2(sgn * 11.0, 1.5)
+		h.draw_colored_polygon(PackedVector2Array([tip + Vector2(sgn * 5.0, -4.0), tip + Vector2(-sgn * 5.0, -4.0), tip + Vector2(0, 5.0)]), col)
+	var hint := "Right stick to turn" if game.pad_active else "Drag to turn"
+	var tw: float = h._text_width(hint, 13) + 24.0
+	var pill := Rect2(HERO_AREA.get_center().x - tw / 2.0, 549, tw, 22)
+	h._plate(pill, Color(0.08, 0.05, 0.03, 0.8), Color(0.62, 0.48, 0.24), 11, 1)
+	h._text(Vector2(pill.position.x, pill.end.y - 6), hint, 13, Color(1.0, 0.94, 0.8), HORIZONTAL_ALIGNMENT_CENTER, pill.size.x, 2)
 
 
 func _row_label(panel: Rect2, y: float, text: String) -> void:
@@ -506,16 +763,19 @@ func _tab_appearance(panel: Rect2) -> void:
 		swatch(Rect2(_row_x(panel, i, Stats.HERO_SKINS.size(), 50), y - 19, 50, 38), Stats.HERO_SKINS[i][1], game.hero_skin == i, "skin", i)
 	y += step
 	_row_label(panel, y, "Hair Style")
-	for i in 5:
-		var r := Rect2(_row_x(panel, i, 5, 44), y - 21, 44, 42)
-		swatch(r, Color(0.2, 0.21, 0.24), i == 0, "locked", "hair_style", i > 0)
-		icon("hair", r.get_center(), 32, Color(1, 1, 1, 1.0 if i == 0 else 0.4))
-		if i > 0:
+	var ns := Stats.HERO_HAIR_STYLES.size()
+	for i in ns:
+		var r := Rect2(_row_x(panel, i, ns, 44), y - 21, 44, 42)
+		swatch(r, Color(0.2, 0.21, 0.24), game.hero_hair_style == i, "hair_style", i)
+		hair_thumb(r.get_center(), i, 1.0)
+		if not Store.owns(game, "hair_style", i):
 			icon("lock", r.end - Vector2(8, 8), 15)
 	y += step
 	_row_label(panel, y, "Hair Color")
-	for i in Stats.HERO_HAIR.size():
-		var c := Vector2(_row_x(panel, i, Stats.HERO_HAIR.size(), 36) + 18, y)
+	var hairs: Array = range(Stats.HERO_HAIR.size()).filter(func(i): return Store.owns(game, "hair", i))
+	for k in hairs.size():
+		var i: int = hairs[k]
+		var c := Vector2(_row_x(panel, k, hairs.size(), 36) + 18, y)
 		_dot(c, Stats.HERO_HAIR[i][1], game.hero_hair == i, "hair", i)
 	y += step
 	_row_label(panel, y, "Face Style")
@@ -590,17 +850,66 @@ func _tab_hair(panel: Rect2) -> void:
 	var y := panel.position.y + 86
 	label(Vector2(panel.position.x + 26, y), "HAIR COLOUR  ·  %s" % Stats.HERO_HAIR[game.hero_hair][0], 15)
 	for i in Stats.HERO_HAIR.size():
-		var c := Vector2(panel.position.x + 60 + (i % 3) * 120, y + 50 + (i / 3) * 84)
-		var r := Rect2(c - Vector2(34, 34), Vector2(68, 68))
+		var c := Vector2(panel.position.x + 62 + (i % 4) * 102, y + 46 + (i / 4) * 78)
+		var r := Rect2(c - Vector2(30, 30), Vector2(60, 60))
 		var on: bool = game.hero_hair == i
+		var have := Store.owns(game, "hair", i)
 		var ov := button(r, "hair", i)
-		h.draw_circle(c, 35 if on else 32, Color(1.0, 0.8, 0.3) if on else (Color(0.9, 0.8, 0.6) if ov else Color(0.1, 0.08, 0.06)))
-		h.draw_circle(c, 29, Stats.HERO_HAIR[i][1])
-		h.draw_circle(c + Vector2(-9, -9), 7, Color(1, 1, 1, 0.3))
-		h._text(Vector2(c.x - 50, c.y + 50), Stats.HERO_HAIR[i][0].to_upper(), 11, Color.WHITE if on else Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	label(Vector2(panel.position.x + 26, y + 252), "HAIR STYLE", 15)
-	icon("lock", Vector2(panel.position.x + 140, y + 247), 22)
-	h._paragraph(Vector2(panel.position.x + 26, y + 276), "One style per body for now: new cuts arrive with the character art update.", 12, Color(0.8, 0.8, 0.76), panel.size.x - 52, 15.0)
+		h.draw_circle(c, 31 if on else 28, Color(1.0, 0.8, 0.3) if on else (Color(0.9, 0.8, 0.6) if ov else Color(0.1, 0.08, 0.06)))
+		h.draw_circle(c, 25, Stats.HERO_HAIR[i][1] if have else Stats.HERO_HAIR[i][1].darkened(0.45))
+		h.draw_circle(c + Vector2(-8, -8), 6, Color(1, 1, 1, 0.3))
+		if not have:
+			_price_tag(c + Vector2(0, 2), "hair", i)
+		h._text(Vector2(c.x - 50, c.y + 44), Stats.HERO_HAIR[i][0].to_upper(), 11, Color.WHITE if on else Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
+	label(Vector2(panel.position.x + 26, y + 258), "HAIR STYLE  ·  %s" % Stats.HERO_HAIR_STYLES[game.hero_hair_style], 15)
+	for i in Stats.HERO_HAIR_STYLES.size():
+		var r := Rect2(panel.position.x + 26 + i * 74, y + 274, 64, 64)
+		swatch(r, Color(0.2, 0.21, 0.24), game.hero_hair_style == i, "hair_style", i)
+		hair_thumb(r.get_center(), i, 1.45)
+		if not Store.owns(game, "hair_style", i):
+			h.draw_rect(r.grow(-2), Color(0, 0, 0, 0.4))
+			_price_tag(r.get_center() + Vector2(0, 4), "hair_style", i)
+
+
+func hair_thumb(c: Vector2, style: int, k: float) -> void:
+	## A little head in the chosen hair colour showing hair style `style`:
+	## the cut on top, then the ponytail, long hair, braids or bun.
+	var hc: Color = Stats.HERO_HAIR[game.hero_hair][1]
+	var skin: Color = Stats.HERO_SKINS[game.hero_skin][1]
+	var ink := Color(0.1, 0.07, 0.05)
+	var r := 9.0 * k
+	match style:
+		1:  # a tail swinging out past the right shoulder
+			h.draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.4, -r * 0.9), c + Vector2(r * 1.5, -r * 0.2), c + Vector2(r * 1.9, r * 1.3), c + Vector2(r * 1.55, r * 1.9), c + Vector2(r * 1.25, r * 0.7), c + Vector2(r * 0.5, -r * 0.1)]), hc)
+			h.draw_circle(c + Vector2(r * 0.85, -r * 0.75), r * 0.32, hc.darkened(0.5))
+		2:  # a curtain to the chest
+			h.draw_rect(Rect2(c + Vector2(-r * 1.3, -r * 0.4), Vector2(r * 2.6, r * 2.4)), hc)
+		3:  # two long plaits
+			for sd in [-1.0, 1.0]:
+				for j in 5:
+					h.draw_circle(c + Vector2(sd * r * 1.1, r * (0.2 + j * 0.45)), r * (0.32 - j * 0.03), hc)
+				h.draw_circle(c + Vector2(sd * r * 1.1, r * 2.3), r * 0.14, hc.darkened(0.5))
+		4:  # a tall top knot
+			h.draw_circle(c + Vector2(0, -r * 1.15), r * 0.6, hc)
+			h.draw_rect(Rect2(c + Vector2(-r * 0.45, -r * 1.65), Vector2(r * 0.9, r * 0.2)), hc.darkened(0.5))
+			h.draw_circle(c + Vector2(0, -r * 1.95), r * 0.38, hc)
+	h.draw_circle(c + Vector2(0, r * 0.15), r, skin)
+	h.draw_arc(c + Vector2(0, r * 0.15), r, 0, TAU, 20, ink, 1.2)
+	var cap := PackedVector2Array()
+	for j in 13:
+		var a := PI + PI * j / 12.0
+		cap.append(c + Vector2(cos(a) * r * 1.08, r * 0.15 + sin(a) * r * 1.08))
+	cap.append(c + Vector2(r * 0.6, -r * 0.1))
+	cap.append(c + Vector2(-r * 0.2, -r * 0.35))
+	h.draw_colored_polygon(cap, hc)
+
+
+func _price_tag(c: Vector2, kind: String, i: int) -> void:
+	## A lock and the STORE price over a choice not owned yet.
+	icon("lock", c + Vector2(0, -6), 20)
+	var p := "%d" % Store.price(Store.item_for(kind, i))
+	h._icon("coin", c + Vector2(-h._text_width(p, 10) / 2.0 - 6, 11), 2.6, Color.WHITE)
+	h._text(Vector2(c.x - 30, c.y + 15), p, 10, Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, 66, 2)
 
 
 func face_thumb(r: Rect2, i: int) -> void:
@@ -626,40 +935,60 @@ func _tab_face(panel: Rect2) -> void:
 
 
 func _tab_armor(panel: Rect2) -> void:
-	var y := panel.position.y + 86
+	var y := panel.position.y + 74
 	label(Vector2(panel.position.x + 26, y), "LOOK", 15)
 	for i in Stats.HERO_LOOKS.size():
-		var r := Rect2(panel.position.x + 26 + i * 204, y + 14, 192, 64)
+		var r := Rect2(panel.position.x + 26 + i * 204, y + 10, 192, 56)
 		var locked: bool = i > 0 and not game.unlocked()
 		var on: bool = game.hero_look == i
 		var ov := button(r, "look", i)
 		option_box(r, on, ov, Color(1.0, 0.8, 0.25) if i == 0 else Color(0.75, 0.5, 1.0))
-		ttext(Vector2(r.position.x, r.position.y + 30), Stats.HERO_LOOKS[i][0].to_upper(), 19, Color.WHITE if not locked else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-		h._text(Vector2(r.position.x, r.position.y + 50), "Team colours" if i == 0 else ("LEVEL %d" % Stats.UNLOCK_LEVEL if locked else "Dusk armour, violet glow, a cape"), 10, Color(0.85, 0.85, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+		ttext(Vector2(r.position.x, r.position.y + 27), Stats.HERO_LOOKS[i][0].to_upper(), 19, Color.WHITE if not locked else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+		h._text(Vector2(r.position.x, r.position.y + 45), "Team colours" if i == 0 else ("LEVEL %d" % Stats.UNLOCK_LEVEL if locked else "Dusk armour, violet glow, a cape"), 10, Color(0.85, 0.85, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 		if locked:
 			icon("lock", r.position + Vector2(r.size.x - 18, 16), 22)
-	y += 110
-	label(Vector2(panel.position.x + 26, y), "GEAR RANK  ·  preview what promotions earn", 15)
+	# STORE gear: what you own is worn on a click, the rest opens the store.
+	y += 84
+	for row in [["ARMOUR TINT", "outfit"], ["HAT  ·  no class hat on", "hat"], ["CAPE & SCARF", "cape"], ["WEAPON SKIN", "weapon"]]:
+		label(Vector2(panel.position.x + 26, y), row[0], 13)
+		var kind: String = row[1]
+		var n: int = Store.table(kind).size()
+		for i in n:
+			var r := Rect2(panel.position.x + 26 + i * minf(52.0, (panel.size.x - 52 - 44) / maxf(n - 1, 1)), y + 8, 44, 38)
+			var have := Store.owns(game, kind, i)
+			var on: bool = Store.equipped(game, kind) == i
+			var ov := button(r, "gear", [kind, i])
+			option_box(r, on, ov, Color(1.0, 0.8, 0.25))
+			if i == 0:
+				h.draw_line(r.get_center() + Vector2(-8, -8), r.get_center() + Vector2(8, 8), Color(0.8, 0.78, 0.74), 2.5)
+			else:
+				store.h = h
+				store.thumb(r.grow(-5), kind, i)
+			if not have:
+				h.draw_rect(r.grow(-2), Color(0, 0, 0, 0.45))
+				icon("lock", r.end - Vector2(9, 9), 16)
+		y += 60
+	label(Vector2(panel.position.x + 26, y), "GEAR RANK  ·  preview what promotions earn", 13)
 	for k in 4:
-		var r := Rect2(panel.position.x + 26 + k * 102, y + 14, 92, 54)
+		var r := Rect2(panel.position.x + 26 + k * 102, y + 8, 92, 40)
 		var ov := button(r, "rank", k + 1)
 		option_box(r, preview_rank == k + 1, ov, Color(1.0, 0.8, 0.25))
-		ttext(Vector2(r.position.x, r.position.y + 36), "RANK %d" % (k + 1), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-	h._paragraph(Vector2(panel.position.x + 26, y + 98), "Every class steps up its gear as you rank it in a match: better shields, capes from rank 3, glowing trims at rank 4. Pick a class under APPEARANCE > Preview to see its gear.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
+		ttext(Vector2(r.position.x, r.position.y + 28), "RANK %d" % (k + 1), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
 
 
 func _tab_colors(panel: Rect2) -> void:
 	var y := panel.position.y + 86
 	label(Vector2(panel.position.x + 26, y), "TRIM  ·  %s" % Stats.HERO_TRIM[game.hero_trim][0], 15)
 	for i in Stats.HERO_TRIM.size():
-		var c := Vector2(panel.position.x + 70 + (i % 3) * 120, y + 56 + (i / 3) * 92)
-		var r := Rect2(c - Vector2(40, 34), Vector2(80, 68))
-		var col: Color = Stats.HERO_TRIM[i][1]
-		if col.a == 0.0:
-			col = Stats.FACTIONS[preview_team].color
-		swatch(r, col, game.hero_trim == i, "trim", i)
-		h._text(Vector2(c.x - 50, c.y + 52), Stats.HERO_TRIM[i][0].to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	h._paragraph(Vector2(panel.position.x + 26, y + 270), "Trim colours your cape and sash on every class. TEAM keeps your side's colour.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
+		var c := Vector2(panel.position.x + 62 + (i % 4) * 102, y + 50 + (i / 4) * 86)
+		var r := Rect2(c - Vector2(36, 30), Vector2(72, 60))
+		var col: Color = Store.swatch_color("trim", i, preview_team)
+		var have := Store.owns(game, "trim", i)
+		swatch(r, col if have else col.darkened(0.45), game.hero_trim == i, "trim", i)
+		if not have:
+			_price_tag(c + Vector2(0, 2), "trim", i)
+		h._text(Vector2(c.x - 50, c.y + 46), Stats.HERO_TRIM[i][0].to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
+	h._paragraph(Vector2(panel.position.x + 26, y + 272), "Trim colours your cape and sash on every class. TEAM keeps your side's colour. Locked dyes are in the STORE.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
 
 
 func _tab_emblem(panel: Rect2) -> void:
@@ -785,6 +1114,22 @@ func _draw_lobby() -> void:
 	h._text(Vector2(0, 638), note, 13, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
 	wood_button(Rect2(56, 652, 220, 54), "BACK", "back", null, "", 22)
 	green_button(Rect2(h.size.x - 452, 646, 400, 68), "START MATCH" if all_ready else "WAITING...", "start", all_ready)
+	if game.couch_players == 2:
+		_layout_picker(Rect2(h.size.x / 2.0 - 230, 662, 340, 34))
+
+
+func _layout_picker(r: Rect2) -> void:
+	## SPLIT SCREEN layout for two players: VERTICAL (side by side) or
+	## HORIZONTAL (top and bottom). The same setting as the Options board's.
+	var bw := (r.size.x - 8.0) / 2.0
+	for k in 2:
+		var layout: String = ["vertical", "horizontal"][k]
+		var b := Rect2(r.position.x + k * (bw + 8.0), r.position.y, bw, r.size.y)
+		var on: bool = game.split_layout == layout
+		var ov := button(b, "split_layout", layout)
+		option_box(b, on, ov, Color(1.0, 0.8, 0.25))
+		h._split_glyph(b.position + Vector2(22, b.size.y / 2.0), layout, Color.WHITE if on else Color(0.75, 0.75, 0.75))
+		ttext(Vector2(b.position.x + 34, b.position.y + b.size.y / 2.0 + 6), layout.to_upper(), 15, Color.WHITE if on else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, b.size.x - 40, 3)
 
 
 func _side_chip(r: Rect2, k: int, team: int) -> void:
@@ -864,16 +1209,140 @@ func _draw_tutorial() -> void:
 		var ov := button(r, "topic", i)
 		option_box(r, on, ov, Color(1.0, 0.8, 0.25))
 		h._text(Vector2(r.position.x + 16, r.position.y + 32), Guide.TOPICS[i][0], 15, Color.WHITE if on else Color(0.85, 0.85, 0.82), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-	var pane := Rect2(body.position.x + 360, body.position.y + 40, body.size.x - 370, 364)
+	# The answer with a picture of it in a real match above the text
+	# (Faisal 05:58 2026-10-10 "for the tutorial ui, add images of gameplay").
+	var pane := Rect2(body.position.x + 360, body.position.y + 40, body.size.x - 370, body.size.y - 76)
 	slate(pane)
-	ttext(Vector2(pane.position.x, pane.position.y + 40), Guide.TOPICS[tutorial_topic][0].to_upper(), 20, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_CENTER, pane.size.x, 5)
-	h._paragraph(Vector2(pane.position.x + 28, pane.position.y + 82), game.guide_answer(tutorial_topic), 15, Color(0.95, 0.93, 0.88), pane.size.x - 56, 22.0)
-	h._paragraph(Vector2(body.position.x + 10, body.end.y - 40), "In a match the Wildwood Guide stands in your courtyard: press %s beside them to ask again." % game.key_label("interact"), 12, Color(0.8, 0.8, 0.76), body.size.x - 20, 15.0)
+	ttext(Vector2(pane.position.x, pane.position.y + 34), Guide.TOPICS[tutorial_topic][0].to_upper(), 20, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_CENTER, pane.size.x, 5)
+	var ty := pane.position.y + 54.0
+	var tex := tutorial_image(tutorial_topic)
+	if tex:
+		var iw := minf(pane.size.x - 48.0, 420.0)
+		var img := Rect2(pane.get_center().x - iw / 2.0, ty, iw, iw * 9.0 / 16.0)
+		h.draw_rect(img.grow(4), Color(0.08, 0.05, 0.03))
+		h.draw_texture_rect(tex, img, false)
+		h.draw_rect(img.grow(3), Color(0.85, 0.65, 0.3), false, 2.0)
+		ty = img.end.y + 16.0
+	h._paragraph(Vector2(pane.position.x + 26, ty + 14), game.guide_answer(tutorial_topic), 14, Color(0.95, 0.93, 0.88), pane.size.x - 52, 19.0)
+	h._paragraph(Vector2(body.position.x + 10, body.end.y - 14), "In a match the Wildwood Guide stands in your courtyard: press %s beside them to ask again." % game.key_label("interact"), 12, Color(0.8, 0.8, 0.76), body.size.x - 20, 15.0)
 
+
+static var _tut_tex := {}
+
+
+static func tutorial_image(i: int) -> Texture2D:
+	## Screenshots of real matches for the tutorial topics (rendered from the
+	## game; tools/make_tutorial_images.py crops them).
+	if not _tut_tex.has(i):
+		var path := "res://assets/ui/tutorial/topic_%d.jpg" % i
+		_tut_tex[i] = load(path) if ResourceLoader.exists(path) else null
+	return _tut_tex[i]
 
 func _draw_progress() -> void:
 	var body := _overlay_frame("PROGRESS")
-	h._draw_title_progress(body.grow(10))
+	var panel := body.grow(10)
+	h._draw_title_progress(panel)
+	# SAVED PROGRESS: it saves itself; the code moves it to another device.
+	var lx := panel.position.x + 30
+	var y := panel.position.y + 446
+	h._text(Vector2(lx, y), "SAVED PROGRESS", 12, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var ago := "" if game.saved_at < 0.0 else "  Last saved %s." % _ago(Time.get_ticks_msec() / 1000.0 - game.saved_at)
+	h._text(Vector2(lx, y + 16), "Your level, XP, gold, chests and store items save by themselves after every match and purchase.%s" % ago, 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	h._text(Vector2(lx, y + 30), "To play on another device (iPad and PC): EXPORT here, then IMPORT the code there.", 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	var bw := 200.0
+	wood_button(Rect2(lx, y + 40, bw, 36), "EXPORT CODE", "progress_export", null, "", 16)
+	wood_button(Rect2(lx + bw + 16, y + 40, bw, 36), "IMPORT CODE", "progress_import", null, "", 16)
+	h._text(Vector2(lx + 2 * bw + 34, y + 63), "Import copies the code from the clipboard" if not OS.has_feature("web") else "Import asks you to paste the code", 10, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+
+
+const MAX_PLAYERS := 6
+
+
+func _draw_players() -> void:
+	## PLAYERS: everyone who plays on this device, each with their own level,
+	## gold, store items and look. The one playing now is marked; PLAY AS
+	## switches, NEW PLAYER adds one. A first launch opens here to ask a name.
+	var body := _overlay_frame("PLAYERS")
+	var x := body.position.x + 20
+	var w := body.size.x - 40
+	var first: bool = game.needs_name
+	ttext(Vector2(body.position.x, body.position.y + 34), "WHO'S PLAYING?" if first else "CHOOSE A PLAYER", 24, Color(1.0, 0.85, 0.42), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 5)
+	h._text(Vector2(body.position.x, body.position.y + 58), "Each player keeps their own level, XP, gold, chests, store items and look. It all saves by itself after every match, purchase and change.",
+		12, Color(0.9, 0.88, 0.82), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+	var list: Array = game.list_profiles()
+	for n in mini(list.size(), MAX_PLAYERS):
+		var p: Dictionary = list[n]
+		var me: bool = p.id == game.profile_id
+		var r := Rect2(x, body.position.y + 78 + n * 58, w, 50)
+		option_box(r, me, false, Color(1.0, 0.8, 0.3))
+		var lv: int = Stats.account_level(p.xp)
+		var bc := r.position + Vector2(30, 25)
+		h.draw_circle(bc, 19, Color(0.08, 0.06, 0.1))
+		h.draw_circle(bc, 16, Color(0.95, 0.62, 0.2))
+		ttext(bc + Vector2(-20, 7), str(lv), 17, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 40, 4)
+		var nm: String = (game.hero_name if me else p.name)
+		if me:
+			# The name field: type on a keyboard, or a box to fill on a tablet.
+			var field := Rect2(r.position.x + 60, r.position.y + 9, 300, 32)
+			h._plate(field, Color(0.05, 0.06, 0.1, 0.9), Color(1.0, 0.8, 0.3) if game.name_editing else Color(0.55, 0.42, 0.22), 6, 2)
+			var shown := nm
+			if game.name_editing and int(Time.get_ticks_msec() / 400) % 2 == 0:
+				shown += "|"
+			elif shown.strip_edges() == "" and not game.name_editing:
+				shown = "tap to type your name"
+			h._text(field.position + Vector2(10, 22), shown, 15, Color.WHITE if nm != "" or game.name_editing else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+			if OS.has_feature("web"):
+				button(field, "player_name")
+			else:
+				h.hero_buttons.append([field, "name", 0])
+		else:
+			ttext(Vector2(r.position.x + 64, r.position.y + 33), nm if nm.strip_edges() != "" else "Unnamed Hero", 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		h._text(Vector2(r.position.x + 380, r.position.y + 22), Stats.rank_title(lv).to_upper(), 11, Color(1.0, 0.82, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		h._icon("coin", Vector2(r.position.x + 388, r.position.y + 35), 3.2, Color.WHITE)
+		h._text(Vector2(r.position.x + 398, r.position.y + 40), "%s gold" % gold_text(p.gold if not me else game.account_gold), 11, Color(1.0, 0.88, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var bx := r.end.x - 300
+		if me:
+			option_box(Rect2(bx + 130, r.position.y + 9, 160, 32), true, false, Color(0.45, 0.9, 0.3))
+			ttext(Vector2(bx + 130, r.position.y + 32), "PLAYING", 17, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, 160, 4)
+		else:
+			wood_button(Rect2(bx, r.position.y + 7, 150, 36), "PLAY AS", "player_play", p.id, "", 16)
+			var armed: bool = delete_armed == p.id
+			wood_button(Rect2(bx + 160, r.position.y + 7, 130, 36), "SURE?" if armed else "DELETE", "player_delete", p.id, "", 15, armed)
+	var ny := body.position.y + 78 + mini(list.size(), MAX_PLAYERS) * 58 + 6
+	if list.size() < MAX_PLAYERS:
+		wood_button(Rect2(x, ny, 220, 44), "+ NEW PLAYER", "player_new", null, "", 18)
+	var tip := "Type your name, then press Enter." if game.name_editing else "Tap your name to change it. DELETE asks twice and cannot be undone."
+	h._text(Vector2(x + 236, ny + 28), tip, 11, Color(0.8, 0.78, 0.72), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	h._text(Vector2(body.position.x, body.end.y - 6), "Saved on this device. To take a player to another device, use EXPORT CODE on the PROGRESS screen (tap the level chip).",
+		11, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
+
+
+func _ask_name(make_new: bool) -> void:
+	## A name for the player playing now (or a new one). A tablet has no
+	## keyboard in the game, so the browser asks with its own box.
+	if OS.has_feature("web"):
+		var got = JavaScriptBridge.eval("window.prompt('Your name:', %s) || ''" % JSON.stringify("" if make_new else game.hero_name), true)
+		var nm := (str(got) if got != null else "").strip_edges().left(Stats.HERO_NAME_MAX)
+		if make_new:
+			if nm != "":
+				game.new_profile(nm)
+		elif nm != "":
+			game.hero_name = nm
+			game._save_settings()
+	else:
+		if make_new:
+			game.new_profile("")
+		game.set_deferred("name_editing", true)
+	if stage:
+		stage.show_screen(screen)
+
+
+func _ago(t: float) -> String:
+	if t < 60.0:
+		return "just now"
+	if t < 3600.0:
+		return "%d min ago" % int(t / 60.0)
+	return "%d h ago" % int(t / 3600.0)
 
 
 # --- Input ------------------------------------------------------------------------------
@@ -882,16 +1351,53 @@ func tick(clicked: bool, mouse: Vector2) -> void:
 	## Called by game.menu_tick on every fresh click (mouse or pad confirm).
 	if not clicked or h == null:
 		return
+	if screen == "store" and not store.reveal.is_empty() and overlay == "":
+		store.press("store_reveal_close", null)
+		return
 	for b in h.menu_buttons:
 		if b[0].has_point(mouse):
 			_press(b[1], b[2])
 			return
 
 
+func open_store(kind: String = "", i: int = -1) -> void:
+	store.show(kind, i)
+	go("store")
+
+
 func _press(id: String, arg) -> void:
 	game.sfx.ui("ui_click", -4.0)
+	if id.begins_with("store_"):
+		store.press(id, arg)
+		return
 	match id:
-		"play": go("map")
+		"play":
+			# Joined to someone else's room: the host picks the map and starts.
+			go("online" if game.net and game.net.is_client() else "map")
+		"online": go("online")
+		"code_key": code_key(str(arg))
+		"online_create":
+			game.net.create_room()
+		"online_join":
+			if room_entry.length() == CODE_LEN:
+				game.net.join_room(room_entry)
+		"online_leave":
+			game.net.leave()
+			room_entry = ""
+		"online_map":
+			game.split_screen = false
+			game.couch_players = 1
+			go("map")
+		"store": open_store()
+		"gear":
+			# A store item choice in Create Your Character: wear it if owned,
+			# else open the store on it.
+			if Store.owns(game, arg[0], arg[1]):
+				Store.equip(game, arg[0], arg[1])
+				if arg[0] == "hat" or arg[0] == "cape":
+					preview_role = Role.BASE
+			else:
+				open_store(arg[0], arg[1])
 		"customize": go("character")
 		"settings":
 			game.menu_open = true
@@ -899,10 +1405,34 @@ func _press(id: String, arg) -> void:
 		"tutorial": overlay = "tutorial"
 		"credits": overlay = "credits"
 		"progress": overlay = "progress"
-		"close": overlay = ""
+		"players": overlay = "players"
+		"player_name": _ask_name(false)
+		"player_new":
+			if game.list_profiles().size() < MAX_PLAYERS:
+				_ask_name(true)
+		"player_play":
+			game.switch_profile(str(arg))
+			if stage:
+				stage.show_screen(screen)
+		"player_delete":
+			if delete_armed == str(arg):
+				game.delete_profile(str(arg))
+				delete_armed = ""
+			else:
+				delete_armed = str(arg)
+				delete_time = 3.0
+		"close":
+			overlay = ""
+			game.needs_name = false   # asked once; the PLAYERS button names them later
+		"progress_export": game.export_progress()
+		"progress_import": game.import_progress()
 		"topic": tutorial_topic = int(arg)
+		"hero_turn":
+			if stage:
+				stage.hero_turn_goal += int(arg) * PI / 4.0
 		"exit":
 			if exit_armed > 0.0:
+				game._save_settings()
 				game.get_tree().quit()
 			exit_armed = 3.0
 		"back": back()
@@ -930,6 +1460,8 @@ func _press(id: String, arg) -> void:
 				game.couch_players = 1
 				join_pads = []
 			game._save_settings()
+		"split_layout":
+			game.set_split_layout(str(arg))
 		"to_lobby":
 			if _card_open(map_pick):
 				go("lobby")
@@ -963,6 +1495,8 @@ func _press(id: String, arg) -> void:
 			if preview_role == Role.KNIGHT:
 				preview_role = Role.BASE
 			game._save_settings()
+		"hair", "trim", "hair_style" when not Store.owns(game, id, int(arg)):
+			open_store(id, int(arg))
 		"hair":
 			game.hero_hair = int(arg)
 			if preview_role == Role.KNIGHT:
@@ -977,7 +1511,11 @@ func _press(id: String, arg) -> void:
 				game._save_settings()
 			else:
 				game.toast("The Shadowborn look unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
-		"locked": game.toast("New hair styles arrive in a later update", Color(1.0, 0.8, 0.5))
+		"hair_style":
+			game.hero_hair_style = int(arg)
+			if preview_role == Role.KNIGHT:
+				preview_role = Role.BASE   # the helmet hides most of the hair
+			game._save_settings()
 		"confirm":
 			game._save_settings()
 			go("title")

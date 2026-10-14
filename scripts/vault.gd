@@ -31,7 +31,7 @@ func setup(p_game, p_team: int, throne: Vector3, p_side: float) -> void:
 	# The doors sit in the throne room's front wall (game.gd _build_throne_room).
 	var front_x: float = throne.x - side * game.ROOM_FRONT
 	var half: float = game.ROOM_DOOR_HALF
-	position = Vector3(throne.x, 0, 0)
+	position = Vector3(throne.x, throne.y, 0)   # (the Elves' crown room sits on a terrace)
 	lock_pos = Vector3(front_x, 0, 0)
 	collision_layer = 4 if team == 0 else 8
 	collision_mask = 0
@@ -156,7 +156,7 @@ func _process(delta: float) -> void:
 		leaves[i].rotation.y = door_angle * side * (1.0 if i == 0 else -1.0)
 	if glow_light:
 		glow_light.light_energy = 1.2 + (0.6 * sin(Time.get_ticks_msec() / 200.0) if open else 0.0)
-	if not open:
+	if not open or game.net_client:
 		return
 	relock_timer -= delta
 	if relock_timer <= 0.0 and not game.enemy_inside_keep(team) and game.monarchs[team].state == 0:

@@ -25,6 +25,7 @@ var fall_speed := 0.0
 var speed := 30.0
 var query_mask := 1
 var from_turret := false   # a turret bolt (for the demo tallies)
+var inert := false         # online, on a joiner's screen: only flies; the host's game decides the hits
 var owner_unit = null      # who fired it, for experience
 var fire := false
 var holy := false
@@ -78,7 +79,7 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 	position = from + Vector3(0, FLIGHT_HEIGHT, 0)
 	# From the ramparts, shots come down to ground level over most of their range.
 	if position.y > FLIGHT_HEIGHT + 0.5:
-		fall_speed = (position.y - FLIGHT_HEIGHT) / (stats.range * 0.8 / speed)
+		fall_speed = (position.y - FLIGHT_HEIGHT) / (stats.get("drop_dist", stats.range * 0.8) / speed)   # a turret bolt comes down at its target, not past it
 	# The world, plus the enemy door (layer 4 = human door, layer 3 = elf door).
 	# The world and BOTH teams' doors, gates and sanctuary wards (layers 3
 	# and 4): nothing flies through a wall or a door, your own included.
@@ -337,6 +338,9 @@ func _physics_process(delta: float) -> void:
 		skip.append(hit.rid)
 		ray.exclude = skip
 		hit = get_world_3d().direct_space_state.intersect_ray(ray)
+	if hit and inert:
+		queue_free()   # the impact effects come from the host
+		return
 	if hit:
 		global_position = hit.position
 		var gate = game.gates[1 - team]
@@ -359,7 +363,17 @@ func _physics_process(delta: float) -> void:
 		return
 	life -= delta
 	if life <= 0.0:
+		if inert:
+			queue_free()
+			return
 		_burst()
+		return
+	if inert:
+		for unit in game.units:
+			if unit.team != team and not unit.dead and not pierce and _flat(unit.global_position - global_position) < HIT_RADIUS \
+					and absf(global_position.y - (unit.global_position.y + 1.0)) < 1.5:
+				queue_free()
+				return
 		return
 
 	for unit in game.units:
@@ -372,9 +386,11 @@ func _physics_process(delta: float) -> void:
 			if unit in hit_list:
 				continue
 			if splash <= 0.0:
+				var was_up: bool = not unit.get("downed")
 				var landed: bool = unit.take_damage(damage, owner_unit, global_position - direction, Stats.KNOCK_SHOT, effect)
-				if from_turret and unit.dead:
+				if from_turret and (unit.dead or (was_up and unit.get("downed"))):   # knocked down counts: the kill credit is given there
 					game.turret_kills[team] += 1
+					game.spawn_popup(unit.global_position + Vector3(0, 2.6, 0), "TURRET!", Stats.FACTIONS[team].color.lightened(0.4))
 				if landed and drain and owner_unit:
 					owner_unit.heal(1, owner_unit)
 				if pierce:
@@ -427,3 +443,7 @@ func _burst() -> void:
 		game.sfx.play("arrow_hit", global_position, -6.0, 0.15)
 		game.spawn_splash(global_position, Color(0.9, 0.85, 0.7), 6, 2.5, 0.3)
 	queue_free()
+
+
+func _flat(v: Vector3) -> float:
+	return Vector2(v.x, v.z).length()

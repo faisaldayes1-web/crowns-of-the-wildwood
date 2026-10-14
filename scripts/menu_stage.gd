@@ -23,6 +23,9 @@ var hall: Node3D
 var title_cast: Node3D       # the battle scene behind the title (title_diorama.gd)
 var hero: Node3D             # the character creator's model
 var hero_key := ""
+var hero_spin := 0.0            # extra turn (radians): the STORE turns the hero to show a cape
+var hero_turn := 0.0            # the player's own turn of the hero (drag, arrows, right stick)
+var hero_turn_goal := 0.0       # the arrows turn toward this; a drag sets both
 var lobby_models: Array = [null, null, null, null]
 var lobby_keys: Array = ["", "", "", ""]
 var pedestals: Array = []    # [node, ring material, light] per lobby slot
@@ -90,8 +93,10 @@ func _set_mood(want: String) -> void:
 	if want == "hall":
 		# Candlelight: little sky light, warm and glowing, deep shadows.
 		env.ambient_light_sky_contribution = 0.0
-		env.ambient_light_color = Color(0.5, 0.44, 0.42)
-		env.ambient_light_energy = 0.45
+		# (Warmer and a touch brighter since 2026-10-09, after the
+		# create-character reference's candle-lit hall.)
+		env.ambient_light_color = Color(0.62, 0.5, 0.4)
+		env.ambient_light_energy = 0.55
 		env.tonemap_exposure = 0.92
 		env.glow_intensity = 0.8
 		env.glow_bloom = 0.1
@@ -154,13 +159,14 @@ func show_screen(name: String) -> void:
 	if name == screen:
 		return
 	screen = name
+	hero_spin = 0.0
 	title_cast.visible = false
 	backdrop.visible = name == "title"
 	if name == "title":
 		_place_embers()
 	_set_mood("title" if name == "title" else "hall")
 	if rug:
-		rug.visible = name == "character"
+		rug.visible = name in ["character", "store"]
 	match name:
 		"title":
 			# Across the stream at the castle and its crown, the two armies either side.
@@ -176,11 +182,11 @@ func show_screen(name: String) -> void:
 					cam.fov = float(arg.trim_prefix("--debug-title-fov="))
 			cam.global_position = from
 			cam.look_at(to)
-		"map":
+		"map", "online":
 			cam.fov = 50.0
 			cam.global_position = HALL + Vector3(0, 2.4, 8.5)
 			cam.look_at(HALL + Vector3(0, 2.6, -6.0))
-		"character":
+		"character", "store":
 			cam.fov = 37.0
 			cam.global_position = HALL + Vector3(0.6, 1.55, 6.2)
 			cam.look_at(HALL + Vector3(0.6, 1.25, 0.0))
@@ -189,7 +195,7 @@ func show_screen(name: String) -> void:
 			cam.global_position = HALL + Vector3(0, 2.2, 11.2)
 			cam.look_at(HALL + Vector3(0, 1.35, 0.0))
 	if hero:
-		hero.visible = name == "character"
+		hero.visible = name in ["character", "store"]
 	for i in 4:
 		if lobby_models[i]:
 			lobby_models[i].visible = name == "lobby"
@@ -222,13 +228,17 @@ func show_hero(team: int, role: int, custom: Dictionary, rank: int) -> void:
 		add_child(hero)
 		hero.setup(team, role, "", custom, rank)
 		hero.scale = Vector3.ONE * 1.0
-	hero.visible = screen == "character"
+	hero.visible = screen in ["character", "store"]
 	hero.global_position = _floor_at(Vector2(0.39, 0.86))
 	if rug == null:
 		rug = _round_rug()
 	rug.global_position = hero.global_position + Vector3(0, 0.02, 0)
-	rug.visible = screen == "character"
-	hero.rotation.y = PI + 0.32 + sin(t * 0.6) * 0.05  # turned a little toward the panel
+	rug.visible = screen in ["character", "store"]
+	hero_turn = lerp_angle(hero_turn, hero_turn_goal, minf(get_process_delta_time() * 9.0, 1.0))
+	hero.rotation.y = PI + 0.32 + hero_spin + hero_turn + sin(t * 0.6) * 0.05  # turned a little toward the panel
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--debug-hero-turn="):  # renders: show the back of the hair
+			hero.rotation.y += float(arg.trim_prefix("--debug-hero-turn="))
 
 
 # --- The lobby ------------------------------------------------------------------------
@@ -698,7 +708,9 @@ func _build_hall() -> void:
 	key.spot_range = 22.0
 	key.spot_angle = 34.0
 	key.spot_attenuation = 0.6
-	key.shadow_enabled = true
+	# No spot shadow in the browser: WebGL rejects the Compatibility
+	# renderer's positional shadow texture binds (console spam, no shadow).
+	key.shadow_enabled = not OS.has_feature("web")
 	game.add_child(key)
 	key.global_position = c + Vector3(0, 6.5, 9.0)
 	key.look_at(c + Vector3(0, 0.8, 0.0))
