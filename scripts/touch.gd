@@ -46,6 +46,16 @@ func _process(_delta: float) -> void:
 			queue_redraw()
 
 
+func _notification(what: int) -> void:
+	# The iPad dropped our fingers (the app or tab lost focus, a system swipe,
+	# the dock): the browser may never send their lift, so a held move stick
+	# kept walking, or kept its slot so no new touch could move the player
+	# (Faisal 2026-10-14: "sometimes people get stuck"). Let go of everything.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT \
+			or what == NOTIFICATION_APPLICATION_PAUSED:
+		release_all()
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		if event.pressed:
@@ -66,6 +76,9 @@ func _playing() -> bool:
 
 func _down(i: int, pos: Vector2) -> void:
 	queue_redraw()
+	# A new press on a finger we still think is down: its lift was lost.
+	if held.has(i) or i == stick_id or i == aim_id:
+		_up(i)
 	active = true
 	if game:
 		game.touch_active = true
@@ -101,11 +114,17 @@ func _down(i: int, pos: Vector2) -> void:
 	if pos.y < 110.0:
 		return   # the score bar and minimap
 	if pos.x < size.x * 0.45:
+		if stick_id >= 0:
+			# One thumb drives the stick: a fresh touch on the left half takes
+			# it over (the old finger's lift was lost, or it is long gone).
+			_up(stick_id)
 		if stick_id < 0:
 			stick_id = i
 			stick_origin = pos
 			stick_vec = Vector2.ZERO
-	elif aim_id < 0:
+	else:
+		if aim_id >= 0:
+			_up(aim_id)   # same for the aim pad: the newest touch owns it
 		aim_id = i
 		aim_origin = pos
 		aim_vec = Vector2.ZERO

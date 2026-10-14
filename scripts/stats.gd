@@ -41,6 +41,8 @@ const SCORE_REVIVE := 8            # scoreboard points per revive
 const BOT_REVIVE_SEEK := 14.0      # bots go to revive a downed ally this close...
 const BOT_HEALER_REVIVE_SEEK := 20.0  # ...Healers from this far
 const BOT_DOWNED_TARGET_PENALTY := 8.0  # bots treat a downed enemy as this many metres further away than a standing one
+const BOT_FOLLOW_MIN := 2.0        # bots that follow someone (healers, escorts, "To me!") keep at least this far from them (Faisal 2026-10-14: healers stood on the player)
+const BOT_FOLLOW_MAX := 3.2        # ...and no further than this, well inside a Healer's Mend radius (5)
 const BOT_FINISH_RANGE := 4.0      # bots only go for a downed enemy this close
 const BOT_DOWNED_GIVE_UP := 3.0    # a downed bot with no ally in BOT_REVIVE_SEEK * 2 skips after this many seconds
 
