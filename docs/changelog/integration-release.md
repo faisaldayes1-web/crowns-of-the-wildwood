@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 13:10 UTC · UI & Art `c2bc6b9` · Promotion card from Faisal's approved mock-up 4
+
+- **What:** merged UI & Art `c2bc6b9`: CLASS PROMOTION card rebuilt from Faisal's approved mock-up 4; skill-row colour fades to black under the + button.
+- **Conflicts:** none.
+- **Tested:** full check (import, all group tests, economy, net_smoke, bot matches on both maps, Steam build, both .exe files under wine).
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 13:05 UTC · Online & Platforms `5423659` · net_smoke no longer flaky
 
 - **What:** merged Online & Platforms `5423659`: in `--net-test` only, the host fires one harmless arrow at 4 s so the joiner's "shots arrived" check no longer depends on a bot shooting (net_smoke failed about 1 run in 8 on quiet matches).
