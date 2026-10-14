@@ -122,16 +122,62 @@ const BANNER_BACKGROUNDS := [["Forest", Color(0.12, 0.4, 0.22), Color(0.3, 0.7, 
 	["Ember", Color(0.45, 0.12, 0.08), Color(0.95, 0.5, 0.15), "rays"], ["Dusk", Color(0.2, 0.1, 0.35), Color(0.6, 0.3, 0.8), "diamonds"],
 	["Stripes", Color(0.15, 0.15, 0.2), Color(0.85, 0.7, 0.25), "stripes"], ["Vines", Color(0.08, 0.25, 0.15), Color(0.45, 0.8, 0.4), "leaves"],
 	["Frost", Color(0.15, 0.3, 0.45), Color(0.7, 0.9, 1.0), "diamonds"], ["Royal", Color(0.35, 0.05, 0.12), Color(0.95, 0.78, 0.3), "rays"],
-	["Sunrise", Color(0.6, 0.25, 0.1), Color(1.0, 0.8, 0.35), "rays"], ["Starlight", Color(0.06, 0.08, 0.2), Color(0.85, 0.85, 1.0), "diamonds"]]
+	["Sunrise", Color(0.6, 0.25, 0.1), Color(1.0, 0.8, 0.35), "rays"], ["Starlight", Color(0.06, 0.08, 0.2), Color(0.85, 0.85, 1.0), "diamonds"],
+	# Painted fields (Faisal 2026-10-14 20:48: more player banners;
+	# assets/ui/banners/bg_*.png from tools/make_banner_art.py).
+	["Moonlit Grove", Color(0.06, 0.18, 0.18), Color(0.7, 0.85, 0.95), "painted:moonlit_grove"],
+	["Autumn Leaves", Color(0.4, 0.15, 0.05), Color(0.95, 0.6, 0.2), "painted:autumn_leaves"],
+	["Fae Lights", Color(0.04, 0.14, 0.1), Color(0.8, 1.0, 0.55), "painted:fae_lights"],
+	["Thornweave", Color(0.08, 0.18, 0.1), Color(0.5, 0.75, 0.35), "painted:thornweave"],
+	["Quartered", Color(0.55, 0.1, 0.12), Color(0.85, 0.65, 0.2), "painted:quartered"],
+	["Chevron", Color(0.12, 0.2, 0.5), Color(0.92, 0.92, 0.88), "painted:chevron"],
+	["Checky", Color(0.12, 0.2, 0.45), Color(0.8, 0.67, 0.3), "painted:checky"],
+	["Stone Keep", Color(0.35, 0.35, 0.33), Color(0.65, 0.64, 0.6), "painted:stone_keep"],
+	["Royal Damask", Color(0.38, 0.04, 0.1), Color(0.85, 0.65, 0.3), "painted:royal_damask"],
+	["Aurora", Color(0.03, 0.06, 0.15), Color(0.4, 0.95, 0.7), "painted:aurora"],
+	["Crystal", Color(0.2, 0.4, 0.6), Color(0.85, 0.95, 1.0), "painted:crystal"],
+	["Storm", Color(0.12, 0.13, 0.18), Color(0.75, 0.85, 1.0), "painted:storm"],
+	["Shadow", Color(0.15, 0.08, 0.2), Color(0.65, 0.35, 0.85), "painted:shadow"],
+	["Starfall", Color(0.04, 0.04, 0.12), Color(0.9, 0.9, 1.0), "painted:starfall"],
+	["Dragonfire", Color(0.3, 0.05, 0.02), Color(1.0, 0.6, 0.15), "painted:dragonfire"],
+	["Golden Hoard", Color(0.4, 0.26, 0.05), Color(1.0, 0.85, 0.4), "painted:golden_hoard"]]
 const BANNER_BG_FREE := 8
 const BANNER_EMBLEMS := ["crown", "class_knight", "class_ranger", "class_mage", "class_healer", "class_engineer", "crest_forest", "crest_kingdom",
 	"fireball", "guard", "vigor", "trap", "blessing", "class_rogue",   # class_rogue needs the level-10 unlock
-	"moon", "frost", "bramble", "skull"]
+	"moon", "frost", "bramble", "skull",
+	# More painted emblems (Faisal 2026-10-14 20:48)
+	"sword", "hammer", "dagger", "arrow", "flag", "potion", "shard", "might", "smite", "cleave", "volley", "turret",
+	"sharpshooter", "trapper", "pyromancer", "frostweaver", "warden", "cleric", "vanguard", "nightrunner",
+	"assassin", "darkpriest", "artificer", "siegewright", "takedown", "coin", "chest", "class_elf", "class_human"]
 const BANNER_EMBLEM_FREE := 14
 const BANNER_FRAMES := [["Plain", Color(0.15, 0.12, 0.18)], ["Gold", Color(0.95, 0.78, 0.3)], ["Iron", Color(0.6, 0.62, 0.68)],
 	["Vine", Color(0.4, 0.75, 0.35)], ["Royal", Color(0.9, 0.4, 0.7)],   # Royal needs the level-10 unlock
-	["Ember", Color(1.0, 0.45, 0.12)], ["Frost", Color(0.65, 0.9, 1.0)], ["Obsidian", Color(0.35, 0.2, 0.5)]]
+	["Ember", Color(1.0, 0.45, 0.12)], ["Frost", Color(0.65, 0.9, 1.0)], ["Obsidian", Color(0.35, 0.2, 0.5)],
+	["Bronze", Color(0.8, 0.5, 0.25)], ["Silverleaf", Color(0.82, 0.9, 0.86)], ["Thorncrown", Color(0.35, 0.65, 0.25)],
+	["Runic", Color(0.35, 0.75, 1.0)], ["Bloodmoon", Color(0.85, 0.15, 0.2)], ["Celestial", Color(0.9, 0.9, 1.0)],
+	["Dragonscale", Color(1.0, 0.55, 0.1)], ["Sovereign", Color(1.0, 0.84, 0.35)]]
 const BANNER_FRAME_FREE := 5
+# How rare a store banner part is (index -> tier); anything not listed is
+# common. Rare and up draw fancier in hud.gd _banner_fx: rare shimmers,
+# epic adds a pulsing glow and corner gems, legendary a crest, orbiting
+# sparks and a light sweep (Faisal 2026-10-14 20:46: "for the expensive
+# rare items make them look visually different so it entices sales").
+const BANNER_RARITY := {
+	"banner_bg": {8: "rare", 9: "rare", 13: "rare", 17: "rare", 18: "rare", 19: "epic", 20: "epic", 21: "epic",
+		22: "epic", 23: "legendary", 24: "legendary", 25: "legendary"},
+	"banner_emblem": {14: "rare", 15: "rare", 16: "rare", 17: "rare", 30: "rare", 31: "rare", 32: "rare", 33: "rare",
+		34: "epic", 35: "epic", 36: "epic", 37: "epic", 38: "epic", 39: "epic", 40: "epic", 41: "epic",
+		45: "legendary", 46: "legendary"},
+	"banner_frame": {5: "rare", 6: "rare", 7: "epic", 9: "rare", 10: "rare", 11: "epic", 12: "epic", 13: "legendary",
+		14: "legendary", 15: "legendary"},
+}
+const RARITY_COLORS := {"common": Color(0.75, 0.75, 0.72), "rare": Color(0.35, 0.65, 1.0), "epic": Color(0.75, 0.4, 1.0), "legendary": Color(1.0, 0.72, 0.2)}
+
+
+static func banner_rarity(kind: String, i: int) -> String:
+	return str(BANNER_RARITY.get(kind, {}).get(i, "common"))
+
+
 # Banner titles: [needed account level, title].
 const BANNER_TITLES := [[1, "Recruit"], [1, "Door Breaker"], [2, "Crown Thief"], [3, "Militia"], [4, "Trapper"], [5, "Soldier"], [6, "Duelist"],
 	[8, "Veteran"], [10, "Champion"], [10, "Shadowborn"], [15, "Warlord"], [20, "Crownbreaker"], [30, "Legend"]]
