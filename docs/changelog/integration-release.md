@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 13:05 UTC · Online & Platforms `5423659` · net_smoke no longer flaky
+
+- **What:** merged Online & Platforms `5423659`: in `--net-test` only, the host fires one harmless arrow at 4 s so the joiner's "shots arrived" check no longer depends on a bot shooting (net_smoke failed about 1 run in 8 on quiet matches).
+- **Conflicts:** docs/changelog/online-platforms.md, kept both sides.
+- **Tested:** full check (import, all group tests, economy, net_smoke, bot matches on both maps, Steam build, both .exe files under wine).
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 11:30 UTC · UI & Art `86357d0` · Faisal's painted skill strips
 
 - **What:** merged UI & Art `86357d0`: Faisal's 67 painted skill strips behind the skill rows (assets/ui/strips, tools/make_skill_strips.py, hud.gd).
