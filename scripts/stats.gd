@@ -164,20 +164,16 @@ const BANNER_FRAME_FREE := 5
 # epic adds a pulsing glow and corner gems, legendary a crest, orbiting
 # sparks and a light sweep (Faisal 2026-10-14 20:46: "for the expensive
 # rare items make them look visually different so it entices sales").
-const BANNER_RARITY := {
-	"banner_bg": {8: "rare", 9: "rare", 13: "rare", 17: "rare", 18: "rare", 19: "epic", 20: "epic", 21: "epic",
-		22: "epic", 23: "legendary", 24: "legendary", 25: "legendary"},
-	"banner_emblem": {14: "rare", 15: "rare", 16: "rare", 17: "rare", 30: "rare", 31: "rare", 32: "rare", 33: "rare",
-		34: "epic", 35: "epic", 36: "epic", 37: "epic", 38: "epic", 39: "epic", 40: "epic", 41: "epic",
-		45: "legendary", 46: "legendary"},
-	"banner_frame": {5: "rare", 6: "rare", 7: "epic", 9: "rare", 10: "rare", 11: "epic", 12: "epic", 13: "legendary",
-		14: "legendary", 15: "legendary"},
-}
 const RARITY_COLORS := {"common": Color(0.75, 0.75, 0.72), "rare": Color(0.35, 0.65, 1.0), "epic": Color(0.75, 0.4, 1.0), "legendary": Color(1.0, 0.72, 0.2)}
 
 
 static func banner_rarity(kind: String, i: int) -> String:
-	return str(BANNER_RARITY.get(kind, {}).get(i, "common"))
+	## A banner piece's STORE rarity ("common" for the free ones). STORE_ITEMS
+	## is the one place rarities live.
+	for it in STORE_ITEMS:
+		if it[0] == kind and it[1] == i:
+			return it[2]
+	return "common"
 
 
 # Banner titles: [needed account level, title].
@@ -228,9 +224,20 @@ const STORE_ITEMS := [
 	["trim", 6, "common"], ["trim", 7, "common"], ["trim", 8, "common"], ["trim", 9, "rare"], ["trim", 10, "rare"], ["trim", 11, "epic"],
 	["hat", 1, "common"], ["hat", 2, "common"], ["hat", 3, "rare"], ["hat", 4, "rare"], ["hat", 5, "epic"], ["hat", 6, "epic"], ["hat", 7, "legendary"],
 	["weapon", 1, "common"], ["weapon", 2, "rare"], ["weapon", 3, "rare"], ["weapon", 4, "epic"], ["weapon", 5, "epic"], ["weapon", 6, "legendary"],
-	["banner_bg", 8, "rare"], ["banner_bg", 9, "epic"],
-	["banner_emblem", 14, "common"], ["banner_emblem", 15, "common"], ["banner_emblem", 16, "rare"], ["banner_emblem", 17, "rare"],
-	["banner_frame", 5, "rare"], ["banner_frame", 6, "rare"], ["banner_frame", 7, "epic"]]
+	["banner_bg", 8, "rare"], ["banner_bg", 9, "rare"], ["banner_bg", 10, "common"], ["banner_bg", 11, "common"], ["banner_bg", 12, "common"],
+	["banner_bg", 13, "rare"], ["banner_bg", 14, "common"], ["banner_bg", 15, "common"], ["banner_bg", 16, "common"], ["banner_bg", 17, "rare"],
+	["banner_bg", 18, "rare"], ["banner_bg", 19, "epic"], ["banner_bg", 20, "epic"], ["banner_bg", 21, "epic"], ["banner_bg", 22, "epic"],
+	["banner_bg", 23, "legendary"], ["banner_bg", 24, "legendary"], ["banner_bg", 25, "legendary"],
+	["banner_emblem", 14, "rare"], ["banner_emblem", 15, "rare"], ["banner_emblem", 16, "rare"], ["banner_emblem", 17, "rare"], ["banner_emblem", 18, "common"],
+	["banner_emblem", 19, "common"], ["banner_emblem", 20, "common"], ["banner_emblem", 21, "common"], ["banner_emblem", 22, "common"], ["banner_emblem", 23, "common"],
+	["banner_emblem", 24, "common"], ["banner_emblem", 25, "common"], ["banner_emblem", 26, "common"], ["banner_emblem", 27, "common"], ["banner_emblem", 28, "common"],
+	["banner_emblem", 29, "common"], ["banner_emblem", 30, "rare"], ["banner_emblem", 31, "rare"], ["banner_emblem", 32, "rare"], ["banner_emblem", 33, "rare"],
+	["banner_emblem", 34, "epic"], ["banner_emblem", 35, "epic"], ["banner_emblem", 36, "epic"], ["banner_emblem", 37, "epic"], ["banner_emblem", 38, "epic"],
+	["banner_emblem", 39, "epic"], ["banner_emblem", 40, "epic"], ["banner_emblem", 41, "epic"], ["banner_emblem", 42, "common"], ["banner_emblem", 43, "common"],
+	["banner_emblem", 44, "common"], ["banner_emblem", 45, "legendary"], ["banner_emblem", 46, "legendary"],
+	["banner_frame", 5, "rare"], ["banner_frame", 6, "rare"], ["banner_frame", 7, "epic"], ["banner_frame", 8, "common"], ["banner_frame", 9, "rare"],
+	["banner_frame", 10, "rare"], ["banner_frame", 11, "epic"], ["banner_frame", 12, "epic"], ["banner_frame", 13, "legendary"], ["banner_frame", 14, "legendary"],
+	["banner_frame", 15, "legendary"]]
 # Opening a Match Chest gives one item you do not own yet, picked by rarity
 # weight; with everything owned it pays CHEST_GOLD instead.
 const CHEST_GOLD := 150

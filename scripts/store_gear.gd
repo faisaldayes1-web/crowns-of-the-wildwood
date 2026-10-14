@@ -350,7 +350,7 @@ static func _scarf(body: Node3D, cloth: Color, outline: Material) -> void:
 # the head, capes and armour round the back and chest, weapon skins round the
 # sword hand. CPUParticles3D, a dozen or two each, so the web build keeps up.
 
-const AURA := {"epic": [Color(0.78, 0.5, 1.0), 10, 0.05], "legendary": [Color(1.0, 0.82, 0.3), 18, 0.07]}
+const AURA := {"epic": [Color(0.82, 0.55, 1.0), 10, 0.2], "legendary": [Color(1.0, 0.85, 0.35), 18, 0.28]}
 
 
 static func tier(kind: String, i: int) -> String:
@@ -426,7 +426,6 @@ static func _motes(look: Array, offset: Vector3, radius: float, big: bool) -> CP
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	mat.vertex_color_use_as_albedo = true
 	mat.albedo_texture = _spark_texture()
