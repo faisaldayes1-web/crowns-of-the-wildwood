@@ -89,5 +89,16 @@ func _init() -> void:
 				"outfit": 1 + hat % (Stats.HERO_OUTFITS.size() - 1), "weapon": 1 + hat % (Stats.WEAPON_SKINS.size() - 1), "trim": Color(0.2, 0.6, 0.3)}, 2)
 			check(m.get_child_count() > 0, "model builds: role %d hat %s" % [role, Stats.HERO_HATS[hat][0]])
 			m.free()
+	# Epic and Legendary gear sparkles when worn; Common and Rare do not.
+	var auras := func(custom: Dictionary) -> int:
+		var m := CharacterModel.new()
+		root.add_child(m)
+		m.setup(0, Stats.Role.KNIGHT, "", custom, 1)
+		var n := m.find_children("RarityAura", "CPUParticles3D", true, false).size()
+		m.free()
+		return n
+	check(auras.call({"body": "rogue", "cape": "ember", "weapon": 6, "outfit": 6}) == 3, "Legendary cape, weapon and armour each sparkle")
+	check(auras.call({"body": "rogue", "cape": "cape", "weapon": 1, "outfit": 1}) == 0, "Common and Rare gear does not sparkle")
+	check(auras.call({"body": "rogue", "weapon": 4}) == 1, "an Epic weapon skin sparkles")
 	print("STORE TEST: %s (%d failed)" % ["OK" if failed == 0 else "FAILED", failed])
 	quit(1 if failed else 0)
