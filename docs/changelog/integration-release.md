@@ -4,6 +4,14 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 21:00 UTC · Stuck players `8a2eea9` (PR #19) · Nobody stays stuck
+
+- **What:** merged the "Players getting stuck" fix: finisher releases when the striker falls, body-swept Blink/Shadow Step, wedge safety net, free-spot respawn, bot follow distance (scripts/unit.gd); iPad stick/aim takeover and release on focus loss (scripts/touch.gd); +6 combat checks; tools/stuck_scan.gd. See docs/changelog/stuck-players.md.
+- **Tunables:** new BOT_FOLLOW_MIN 2.0, BOT_FOLLOW_MAX 3.2 (scripts/stats.gd).
+- **Conflicts:** none.
+- **Tested:** full check (import, all group tests, economy, net_smoke, bot matches on both maps, Steam build, both .exe files under wine).
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 18:45 UTC · UI & Art `78c77d5` · Off-centre icons fixed
 
 - **What:** merged UI & Art `78c77d5`: 53 icons re-centred, the ability bar uses halo-free copies (assets/ui/icons_clean), the corner portrait centres on each class's face (hud.gd `_slot_face`, `_medallion`, loader).
