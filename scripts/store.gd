@@ -244,7 +244,15 @@ func draw(hud, stage, team: int) -> void:
 		stage.show_hero(team, preview_role(), preview_custom(), 1)
 		# Capes hang at the back: turn the hero round to show them.
 		var want := 2.5 if not pick.is_empty() and pick[0] == "cape" else 0.0
-		stage.hero_spin = want if instant_turn else lerpf(stage.hero_spin, want, minf(h.get_process_delta_time() * 5.0, 1.0))
+		var top: String = pick[2] if pick.size() > 2 else ""
+		var t := Time.get_ticks_msec() / 1000.0
+		if top == "legendary" and not instant_turn:
+			# Legendary: a slow turntable all the way round.
+			stage.hero_spin = fmod(t * 0.8, TAU)
+		else:
+			if top == "epic" and not instant_turn:
+				want += sin(t * 0.9) * 0.8   # Epic: a slow sway to show it off
+			stage.hero_spin = want if instant_turn else lerpf(stage.hero_spin, want, minf(h.get_process_delta_time() * 5.0, 1.0))
 	menu.plaque(632, 22, "STORE", 420)
 	menu.icon("crown", Vector2(632, 20), 46)
 	_wallet(Rect2(1012, 14, 240, 58))
@@ -343,26 +351,49 @@ func _card(r: Rect2, it: Array) -> void:
 	var worn := have and equipped(game, kind) == i
 	var sel := pick == it
 	var ov: bool = menu.button(r, "store_pick", it)
+	var t := Time.get_ticks_msec() / 1000.0 + r.position.x * 0.013 + r.position.y * 0.007
+	var tier: int = TIER_RANK.get(it[2], 0)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.11, 0.12, 0.15).lerp(rar[1].darkened(0.6), 0.35)
+	sb.bg_color = Color(0.11, 0.12, 0.15).lerp(rar[1].darkened(0.6), 0.35 + 0.12 * tier)
 	sb.set_corner_radius_all(8)
-	sb.set_border_width_all(3 if sel else 2)
-	sb.border_color = Color(1.0, 0.85, 0.4) if sel else (rar[1].lightened(0.2) if ov else rar[1].darkened(0.25))
-	if sel:
-		sb.shadow_color = Color(rar[1], 0.6)
-		sb.shadow_size = 10
+	sb.set_border_width_all((3 if sel else 2) + (1 if tier >= 2 else 0))
+	sb.border_color = Color(1.0, 0.85, 0.4) if sel else (rar[1].lightened(0.2) if ov else rar[1].darkened(0.25 - 0.1 * tier))
+	if sel or tier >= 2:
+		# Epic and Legendary cards glow even when not picked, breathing.
+		sb.shadow_color = Color(rar[1], 0.6 if sel else 0.25 + 0.15 * tier + 0.12 * sin(t * 2.4))
+		sb.shadow_size = 10 if sel else 4 + 3 * tier
 	h.draw_style_box(sb, r)
+	if tier >= 1:
+		# Rare and up: a thin brass line inside the frame.
+		var inner := StyleBoxFlat.new()
+		inner.bg_color = Color(0, 0, 0, 0)
+		inner.set_corner_radius_all(6)
+		inner.set_border_width_all(1)
+		inner.border_color = Color(1.0, 0.85, 0.5, 0.25 + 0.15 * tier)
+		h.draw_style_box(inner, r.grow(-5))
 	# A rarity strip along the top edge.
 	h.draw_rect(Rect2(r.position + Vector2(6, 4), Vector2(r.size.x - 12, 4)), rar[1])
 	# The item's picture fills the card above its name and price, over a
 	# soft glow in the rarity colour.
 	var side := minf(r.size.x - 16.0, r.size.y - 40.0)
 	var pic := Rect2(r.position.x + (r.size.x - side) / 2.0, r.position.y + 9, side, side)
+	var gc := pic.get_center()
+	if tier >= 3:
+		# Legendary: slow golden rays turning behind the item.
+		_rays(gc, side * 0.62, t * 0.5, Color(rar[1], 0.16))
 	if icon_tex(kind, i):
-		var gc := pic.get_center()
+		var pulse := (0.5 + 0.5 * sin(t * 2.0)) * (0.06 if tier >= 2 else 0.0)
 		for k in 6:
-			h.draw_circle(gc, side * (0.5 - k * 0.07), Color(rar[1], 0.05 + k * 0.025))
+			h.draw_circle(gc, side * (0.5 - k * 0.07), Color(rar[1], 0.05 + k * 0.025 + pulse))
 	thumb(pic, kind, i)
+	if tier >= 2:
+		_shine(r, t, 3.4 if tier == 2 else 2.4)
+		_sparkles(r, t, 3 if tier == 2 else 6, rar[1].lightened(0.4))
+		if tier >= 3:
+			_braces(r, Color(1.0, 0.85, 0.4))
+		var tag := Rect2(r.get_center().x - 40, r.position.y - 7, 80, 16)
+		h._plate(tag, rar[1].darkened(0.35), rar[1].lightened(0.35), 5, 1)
+		h._text(Vector2(tag.position.x, tag.position.y + 12), rar[0].to_upper(), 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 1)
 	h._text(Vector2(r.position.x + 4, r.end.y - 22), item_name(kind, i).to_upper(), 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, 2)
 	var by := r.end.y - 7
 	if worn:
@@ -376,6 +407,58 @@ func _card(r: Rect2, it: Array) -> void:
 		var cx := r.position.x + r.size.x / 2.0
 		h._icon("coin", Vector2(cx - tw / 2.0 - 9, by - 5), 3.6, Color.WHITE)
 		h._text(Vector2(cx - tw / 2.0 + 3, by), p, 13, Color(1.0, 0.85, 0.35) if game.account_gold >= price(it) else Color(0.85, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+# Rarity looks on the cards: 0 Common, 1 Rare (brass inner line), 2 Epic
+# (breathing glow, a light sweep, a few sparkles, a tag), 3 Legendary (all
+# that, more sparkles, turning rays and brass corner braces).
+const TIER_RANK := {"common": 0, "rare": 1, "epic": 2, "legendary": 3}
+
+
+func _rays(c: Vector2, rad: float, turn: float, col: Color) -> void:
+	for k in 12:
+		var a := turn + TAU * k / 12.0
+		h.draw_colored_polygon(PackedVector2Array([c, c + Vector2.from_angle(a - 0.09) * rad, c + Vector2.from_angle(a + 0.09) * rad]),
+			Color(col, col.a * (1.0 if k % 2 == 0 else 0.55)))
+
+
+func _shine(r: Rect2, t: float, period: float) -> void:
+	## A light band sweeping across the card every `period` seconds.
+	var k := fmod(t, period) / 0.7   # the sweep itself takes 0.7 s
+	if k > 1.0:
+		return
+	var x := lerpf(r.position.x - 40.0, r.end.x + 20.0, k)
+	var pts := PackedVector2Array([Vector2(x + 18, r.position.y + 3), Vector2(x + 40, r.position.y + 3),
+		Vector2(x + 18, r.end.y - 3), Vector2(x - 4, r.end.y - 3)])
+	for n in pts.size():
+		pts[n].x = clampf(pts[n].x, r.position.x + 3, r.end.x - 3)
+	h.draw_colored_polygon(pts, Color(1, 1, 1, 0.13 * sin(k * PI)))
+
+
+func _sparkles(r: Rect2, t: float, n: int, col: Color) -> void:
+	## Little four-point stars twinkling at fixed spots round the item.
+	for k in n:
+		var seed := float(k) * 2.399 + r.position.x * 0.01
+		var p := r.position + Vector2(r.size.x * (0.12 + 0.76 * fposmod(sin(seed * 12.9) * 43.7, 1.0)),
+			r.size.y * (0.1 + 0.55 * fposmod(sin(seed * 78.2) * 17.3, 1.0)))
+		var tw := maxf(sin(t * 2.6 + seed * 3.0), 0.0)
+		if tw <= 0.05:
+			continue
+		var s := 2.0 + 4.0 * tw
+		h.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -s), p + Vector2(s * 0.25, 0), p + Vector2(0, s), p + Vector2(-s * 0.25, 0)]), Color(col, tw))
+		h.draw_colored_polygon(PackedVector2Array([p + Vector2(-s, 0), p + Vector2(0, s * 0.25), p + Vector2(s, 0), p + Vector2(0, -s * 0.25)]), Color(col, tw))
+
+
+func _braces(r: Rect2, col: Color) -> void:
+	## Brass corner braces, as on the game's menu boards.
+	var L := 14.0
+	for c in [[r.position, Vector2(1, 1)], [Vector2(r.end.x, r.position.y), Vector2(-1, 1)],
+			[Vector2(r.position.x, r.end.y), Vector2(1, -1)], [r.end, Vector2(-1, -1)]]:
+		var o: Vector2 = c[0] + c[1] * 2.0
+		var d: Vector2 = c[1]
+		h.draw_polyline(PackedVector2Array([o + Vector2(0, d.y * L), o, o + Vector2(d.x * L, 0)]), Color(0.25, 0.15, 0.05), 5.0)
+		h.draw_polyline(PackedVector2Array([o + Vector2(0, d.y * L), o, o + Vector2(d.x * L, 0)]), col, 3.0)
+		h.draw_circle(o, 3.0, col.lightened(0.3))
 
 
 func icon_tex(kind: String, i: int) -> Texture2D:
@@ -516,6 +599,22 @@ func _detail(r: Rect2) -> void:
 	var i: int = pick[1]
 	var rar: Array = Stats.RARITIES[pick[2]]
 	menu.slate(r)
+	var tier: int = TIER_RANK.get(pick[2], 0)
+	if tier >= 2:
+		# Epic and Legendary: the card gleams in the rarity colour.
+		var t := Time.get_ticks_msec() / 1000.0
+		var glow := StyleBoxFlat.new()
+		glow.bg_color = Color(0, 0, 0, 0)
+		glow.set_corner_radius_all(10)
+		glow.set_border_width_all(2)
+		glow.border_color = Color(rar[1], 0.55 + 0.2 * sin(t * 2.4))
+		glow.shadow_color = Color(rar[1], 0.3)
+		glow.shadow_size = 8
+		h.draw_style_box(glow, r.grow(-2))
+		_shine(r, t, 3.0)
+		_sparkles(r, t, 4 if tier == 2 else 7, rar[1].lightened(0.4))
+		if tier >= 3:
+			_braces(r, Color(1.0, 0.85, 0.4))
 	if kind.begins_with("banner"):
 		# Banner pieces show on the banner itself, over the hero's head.
 		var b := {"name": game.hero_name if game.hero_name.strip_edges() != "" else "You", "bg": game.banner_bg, "emblem": game.banner_emblem,

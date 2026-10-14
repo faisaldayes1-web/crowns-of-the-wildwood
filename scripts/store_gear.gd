@@ -341,3 +341,123 @@ static func _scarf(body: Node3D, cloth: Color, outline: Material) -> void:
 			var box := BoxMesh.new()
 			box.size = Vector3(0.16, 0.2, 0.05)
 			_add(body, box, stripe if seg == 3 else mat, p, Vector3(0.5 + seg * 0.08, 0.0, (k - 0.5) * 0.25))
+
+
+# --- Rarity auras -------------------------------------------------------------
+# Epic and Legendary items sparkle when worn, in the menus and in a match, so
+# the expensive ones read as special at a glance: violet motes for Epic, gold
+# for Legendary (more of them, bigger, with a slow twinkle). Hats sparkle round
+# the head, capes and armour round the back and chest, weapon skins round the
+# sword hand. CPUParticles3D, a dozen or two each, so the web build keeps up.
+
+const AURA := {"epic": [Color(0.78, 0.5, 1.0), 10, 0.05], "legendary": [Color(1.0, 0.82, 0.3), 18, 0.07]}
+
+
+static func tier(kind: String, i: int) -> String:
+	## The item's rarity ("" when it is free).
+	for it in Stats.STORE_ITEMS:
+		if it[0] == kind and it[1] == i:
+			return it[2]
+	return ""
+
+
+static func worn_tiers(custom: Dictionary) -> Array:
+	## [[kind, rarity], ...] for the Epic and Legendary items in `custom`.
+	var out: Array = []
+	for kind in ["hat", "cape", "outfit", "weapon"]:
+		if not custom.has(kind):
+			continue
+		var i := -1
+		var v = custom[kind]
+		if v is int:
+			i = v
+		else:
+			var table: Array = Stats.HERO_HATS if kind == "hat" else Stats.HERO_CAPES
+			for n in table.size():
+				if table[n][1] == v:
+					i = n
+		var t := tier(kind, i)
+		if AURA.has(t):
+			out.append([kind, t])
+	return out
+
+
+static func aura(skeleton: Skeleton3D, custom: Dictionary, bare: bool) -> void:
+	if skeleton == null:
+		return
+	for w in worn_tiers(custom):
+		var kind: String = w[0]
+		if kind == "hat" and not bare:
+			continue   # a class hat covers it
+		var spot: Array = {"hat": ["head", Vector3(0, 0.75, 0), 0.45], "cape": ["chest", Vector3(0, 0.1, -0.35), 0.45],
+			"outfit": ["chest", Vector3(0, 0.0, 0), 0.5], "weapon": ["handslot.r", Vector3.ZERO, 0.35]}[kind]
+		if skeleton.find_bone(spot[0]) < 0:
+			continue
+		var att := BoneAttachment3D.new()
+		att.bone_name = spot[0]
+		skeleton.add_child(att)
+		att.add_child(_motes(AURA[w[1]], spot[1], spot[2], w[1] == "legendary"))
+
+
+static func _motes(look: Array, offset: Vector3, radius: float, big: bool) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.name = "RarityAura"
+	p.amount = int(look[1])
+	p.lifetime = 1.6
+	p.position = offset
+	p.local_coords = false
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = radius
+	p.direction = Vector3.UP
+	p.spread = 25.0
+	p.gravity = Vector3(0, 0.35, 0)
+	p.initial_velocity_min = 0.05
+	p.initial_velocity_max = 0.25
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.6 if big else 1.1
+	var fade := Curve.new()
+	fade.add_point(Vector2(0.0, 0.0))
+	fade.add_point(Vector2(0.25, 1.0))
+	fade.add_point(Vector2(0.7, 0.8))
+	fade.add_point(Vector2(1.0, 0.0))
+	p.scale_amount_curve = fade
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE * float(look[2])
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.vertex_color_use_as_albedo = true
+	mat.albedo_texture = _spark_texture()
+	mat.no_depth_test = false
+	quad.material = mat
+	p.mesh = quad
+	var col: Color = look[0]
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 0.95))
+	grad.set_color(1, Color(col, 0.0))
+	grad.add_point(0.35, Color(col.lightened(0.3), 0.9))
+	p.color_ramp = grad
+	return p
+
+
+static var _spark: Texture2D
+
+
+static func _spark_texture() -> Texture2D:
+	## A soft four-point star, made once.
+	if _spark:
+		return _spark
+	var n := 32
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var d := Vector2(x + 0.5 - n / 2.0, y + 0.5 - n / 2.0) / (n / 2.0)
+			var core := clampf(1.0 - d.length() * 2.2, 0.0, 1.0)
+			var rays := clampf(1.0 - absf(d.x) * 9.0, 0.0, 1.0) * clampf(1.0 - absf(d.y), 0.0, 1.0) \
+				+ clampf(1.0 - absf(d.y) * 9.0, 0.0, 1.0) * clampf(1.0 - absf(d.x), 0.0, 1.0)
+			var a := clampf(core + rays * 0.8, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	_spark = ImageTexture.create_from_image(img)
+	return _spark

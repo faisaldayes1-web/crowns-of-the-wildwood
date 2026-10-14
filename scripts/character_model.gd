@@ -286,6 +286,9 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	if skeleton and (custom.has("hat") or custom.has("cape")):
 		# STORE gear: a hat on the bare unclassed head, a cape or scarf on every class.
 		StoreGear.dress(self, inst, skeleton, custom, cloth, outline, c.get("bare", false))
+	if skeleton:
+		# Epic and Legendary STORE items sparkle when worn.
+		StoreGear.aura(skeleton, custom, c.get("bare", false))
 	if variant == "" or Stats.VARIANTS.has(role):
 		_add_rank_flair(team, role, rank)
 	if variant == "":
