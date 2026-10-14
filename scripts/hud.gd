@@ -349,6 +349,7 @@ func _draw() -> void:
 		"kill": _draw_kill_banner(_me())
 		"class": _draw_class_banner(_me())
 		"levelup": _draw_rankup_flourish()
+		"event": _draw_event_banner(_event_banner())
 	if pane:
 		if local_unit:
 			# Under the BASE STOCK card when the economy draws one (economy.gd draw_counter).
@@ -2396,7 +2397,7 @@ func _draw_scoreboard() -> void:
 	## Ember Pass flame move every frame and are drawn live on top.
 	# The phase line under the clock steps aside while a big banner is up,
 	# so the banner is the only news on screen (Faisal 2026-10-10 09:03).
-	var quiet: bool = _banner_kind() in ["holding", "crown", "capture", "kill", "class", "levelup"]
+	var quiet: bool = _banner_kind() in ["holding", "crown", "capture", "kill", "class", "levelup", "event"]
 	if bake_mode == "" and _layer("topbar", Rect2(0, 0, size.x, 132.0), _topbar_key() + [quiet], "topbar", [quiet]):
 		_scoreboard_live(false, quiet)
 		return
@@ -2992,6 +2993,125 @@ const NOTICE_TIME := 2.6     # seconds each notice scroll stays up
 const BANNER_SIZE := 0.8     # the big banners, against their 2026-10-09 size (Faisal 2026-10-10 08:35: "a little smaller")
 
 
+const EVENT_TIME := 2.6      # seconds an event banner stays up
+
+# Match news that gets a big banner instead of the small notice scroll
+# (Faisal 2026-10-14 20:46: "begin adding more banners"): the notice text
+# it matches, then title, line under it, icon, and whether it is good news
+# for the side named in the text (gold) or bad (crimson). "%s" in a line
+# takes the regex's first group.
+const EVENT_BANNERS := [
+	["^The (\\w+) door has been broken", "GATE BROKEN!", "The %s door is down", "hammer", "bad"],
+	["^The (\\w+) door has been (?:rebuilt|raised again)", "GATE REBUILT", "The %s door stands again", "guard", "good"],
+	["^OVERTIME!", "OVERTIME!", "No respawns · next capture wins", "clock", "neutral"],
+	["^FIGHT!", "FIGHT!", "The barrier is down · capture the crown", "sword", "neutral"],
+	["^The (\\w+) are wiped out", "TEAM WIPED!", "The %s have fallen", "skull", "bad"],
+	["^(.+) of the \\w+ is an ELITE VETERAN", "ELITE VETERAN", "%s · bounty on their head", "skull", "neutral"],
+	["^(.+) of the \\w+ is a Veteran", "VETERAN", "%s is on a streak", "might", "neutral"],
+	["^BOUNTY CLAIMED! (\\S+)", "BOUNTY CLAIMED!", "%s claimed the bounty", "coin", "neutral"],
+	["^The (\\w+) Crown Vault is open", "VAULT OPEN!", "The %s crown is exposed", "lock", "bad"],
+	["^The (\\w+) Crown Vault has locked", "VAULT LOCKED", "The %s crown is safe", "lock", "good"],
+	["^(\\w+) HOLD THE FIRE", "FIRE CLAIMED!", "The %s hold the Fire Objective", "fireball", "good"],
+	["^The (\\w+) lost the Fire Objective", "FIRE LOST", "The %s lost the Fire Objective", "fireball", "bad"],
+	["^A Blessing of (\\w+) has appeared", "BLESSING!", "A Blessing of %s has appeared", "blessing", "neutral"],
+	["^Promotion unlocked", "PROMOTION UNLOCKED!", "Open your skills to pick a path", "rank", "neutral"],
+	["^(\\w+) hat machine upgraded", "HAT MACHINE UPGRADED", "Every %s gets a new skill", "upgrade", "neutral"],
+	["^Your (.+) was destroyed", "TURRET LOST", "Your %s was destroyed", "turret", "neutral_bad"],
+	["^Bought (.+)!", "NEW ITEM!", "%s is yours", "coin", "neutral"],
+	["^FIRST BLOOD: (.+)", "FIRST BLOOD!", "%s", "skull", "neutral"],
+]
+var _event_rx: Array = []
+var _first_blood_done := false
+
+
+func _event_banner() -> Dictionary:
+	## The front notice as a banner, if it is match news (EVENT_BANNERS).
+	if game.toasts.is_empty() or not (game.playing or game.demo):
+		return {}
+	if _event_rx.is_empty():
+		for e in EVENT_BANNERS:
+			var rx := RegEx.new()
+			rx.compile(e[0])
+			_event_rx.append(rx)
+	var t: Dictionary = game.toasts[0]
+	for i in EVENT_BANNERS.size():
+		var m: RegExMatch = _event_rx[i].search(str(t.text))
+		if m:
+			var e: Array = EVENT_BANNERS[i]
+			var arg := m.get_string(1) if m.get_group_count() >= 1 else ""
+			var line: String = e[2] % arg if "%s" in e[2] else e[2]
+			# Good or bad for you: the side the news names against your own.
+			var mood: String = e[4]
+			var me = _me()
+			if (mood == "good" or mood == "bad") and me != null and arg != "":
+				var mine: bool = arg.to_lower().begins_with(str(Stats.FACTIONS[me.team].name).to_lower().left(3))
+				mood = "win" if (mine == (mood == "good")) else "loss"
+			elif mood == "neutral_bad":
+				mood = "loss"
+			elif mood != "win" and mood != "loss":
+				mood = "win"
+			return {"title": e[1], "line": line, "icon": e[3], "mood": mood, "shown": float(t.get("shown", 0.0))}
+	return {}
+
+
+var _debug_event_done := false
+
+
+func _watch_first_blood() -> void:
+	## The match's first kill gets its own banner (queued like any notice).
+	if not _debug_event_done:
+		_debug_event_done = true
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("--debug-event="):   # a render of one event banner: --debug-event="The Elves door has been broken!"
+				game.toast(arg.trim_prefix("--debug-event="), Color(1.0, 0.85, 0.4))
+	var total := 0
+	for u in game.units:
+		total += int(u.kills)
+	if total == 0:
+		_first_blood_done = false
+	elif not _first_blood_done:
+		_first_blood_done = true
+		if not game.kill_feed.is_empty():
+			var k: Dictionary = game.kill_feed[game.kill_feed.size() - 1]
+			game.toast("FIRST BLOOD: %s took down %s" % [k.get("killer", "?"), k.get("victim", "?")], Color(1.0, 0.85, 0.4))
+
+
+func _draw_event_banner(b: Dictionary) -> void:
+	## Match news on the same cloth ribbon as KILL! and YOU FELL: gold when
+	## it is good for you (or nobody's), crimson when it is bad, the event's
+	## icon in a medallion at each end and the detail on a line under it.
+	var age: float = b.shown
+	var pop: float = clampf(age / 0.18, 0.0, 1.0)
+	var a: float = minf(pop * 2.0, 1.0) * clampf((EVENT_TIME - age) * 2.5, 0.0, 1.0)
+	if a <= 0.0:
+		return
+	var good: bool = b.mood == "win"
+	var light := Color(0.95, 0.66, 0.16, a) if good else Color(0.86, 0.18, 0.14, a)
+	var deep := Color(0.55, 0.26, 0.05, a) if good else Color(0.42, 0.05, 0.05, a)
+	var disc := Color(0.42, 0.08, 0.08, a) if good else Color(0.16, 0.05, 0.05, a)
+	var now := Time.get_ticks_msec() / 1000.0
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var s := (1.0 + (1.0 - pop) * 0.3) * fit * 0.78 * BANNER_SIZE
+	draw_set_transform(Vector2(size.x / 2.0, (118.0 - (1.0 - pop) * 20.0) * fit), 0.0, Vector2(s, s))
+	var ink := Color(0.12, 0.05, 0.03, a)
+	var tf: Font = title_font if title_font else font
+	var title: String = b.title
+	var half := maxf(170.0, tf.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 38).x / 2.0 + 74.0)
+	draw_arc(Vector2(0, -8), 60.0 + age * 200.0, 0, TAU, 40, Color(light.lightened(0.3), maxf(0.45 - age * 1.1, 0.0) * a), 5.0)
+	_cloth_ribbon(half, -44.0, 30.0, light, deep, a, now)
+	_title_text(Vector2(-half, 15.0), title, 38, Color(1.0, 0.97, 0.88, a), deep.lightened(0.15), ink, half * 2.0)
+	for sx in [-1.0, 1.0]:
+		var ic := Vector2(sx * (half - 34.0), -8.0)
+		draw_circle(ic + Vector2(0, 2), 25.0, Color(0, 0, 0, 0.35 * a))
+		draw_circle(ic, 23.0, ink)
+		draw_circle(ic, 21.0, Color(1.0, 0.8, 0.22, a))
+		draw_circle(ic, 18.0, disc)
+		_icon(str(b.icon), ic, 9.5, Color(1, 1, 1, a))
+	_bar_text(Vector2(0, 60.0), str(b.line), bar_font if bar_font else font, 15, Color(1.0, 0.92, 0.7, a), Color(0.2, 0.08, 0.02, a), 3)
+	_twinkles(now, a * (0.6 if good else 0.25), [Vector2(-half - 20, -50), Vector2(half + 16, -46), Vector2(-half * 0.6, 50), Vector2(half * 0.6, 54)])
+	draw_set_transform(Vector2.ZERO)
+
+
 func _banner_kind() -> String:
 	## The one big banner on screen now, by priority: the crown news first,
 	## then a capture, your kill, your new class, then a rank up. The others
@@ -3018,17 +3138,21 @@ func _banner_kind() -> String:
 		return "class"
 	if game.levelup_timer > 0.0:
 		return "levelup"
+	if not _event_banner().is_empty():
+		return "event"
 	return ""
 
 
 func _tick_notices(delta: float) -> void:
 	## Notices queue (game.toast and game.announce) and show one at a time;
 	## the front one waits while a big banner is up instead of overlapping it.
-	if game.toasts.is_empty() or _banner_kind() != "":
+	_watch_first_blood()
+	var kind := _banner_kind()
+	if game.toasts.is_empty() or (kind != "" and kind != "event"):
 		return
 	var t: Dictionary = game.toasts[0]
 	t.shown = t.get("shown", 0.0) + delta
-	if t.shown > NOTICE_TIME:
+	if t.shown > (EVENT_TIME if kind == "event" else NOTICE_TIME):
 		game.toasts.pop_front()
 
 
