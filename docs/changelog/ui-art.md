@@ -905,3 +905,201 @@ Revert newest first:
 ```
 git revert 0473c04 12e1e10 5c5a432 07cc200 debf49f 0722242
 ```
+
+## 2026-10-10 — Polish pass (Faisal 07:58 "improve on the game in all aspects")
+
+Commit: `7d0de41`.
+- **Elves are green everywhere:** `hud.SCORE_BANDS[0]` changed from Color(0.66, 0.12, 0.11) to Color(0.15, 0.46, 0.19). That turns the match summary's Elves band, crest and scoreboard section green. `assets/ui/skills/shield_elf.png` was recoloured with the new `tools/elves_green.py`.
+- **Long hair:** the chest locks are now rounded, tapering pieces with a puff at the top and a bead at the tip, instead of straight cylinders that read as planks.
+- **Also merged:** release/v0.4.0-alpha cf8100d, Integration's fix to the touch loop in options_menu_test.
+- **Tests:** options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 7d0de41`.
+
+## 2026-10-10 — Shared in-match panel style
+
+Commit: `5baffd5`. Faisal (08:31): "the ui still doesn't match the game style".
+
+- `hud.game_board(rect, title := "", ivy := true)` draws the ability strip's board for any in-match panel. That board is dark wood in a brass rim, with gold corner brackets, grain bands, ivy and an optional wooden name tag.
+- `hud.game_button(rect, label, enabled := true, accent := gold) -> bool` draws the matching raised button and returns true while it is hovered.
+- The LEVEL UP strip now uses `game_board`, plus a gold glow when ranks can be bought, and its tiles are recessed.
+- Economy has been asked to draw BASE STOCK, the action card and its buttons with these helpers.
+
+Tested: options_menu_test 0 failures.
+
+Revert: `git revert 5baffd5`.
+
+## 2026-10-10 — Banners only, smaller, no overlapping text
+
+Commit: `39faf99`. Faisal (08:35): "Keep it just banners and make the banners a little smaller"; (09:03): no conflicting text and no old UI before the new banner.
+
+- **One big banner at a time** (`hud._banner_kind`). The priority order is: crown news, capture, your kill, your new class, rank up. There are no banners while a menu, the guide or your Upgrades board is open, or while the downed or fallen screen shows.
+- **Notices:** `game.toast` and `game.announce` now queue. They show one at a time as a small parchment scroll under the clock, with the end knobs in the notice's colour, and they wait while a banner is up. Before, up to 4 plates stacked at y 120 under the kill banner. The centre `message_label` line no longer gets text. Repeats of a waiting notice are dropped, and at most 3 notices queue.
+- **Sizes:** new `hud.BANNER_SIZE` = 0.8, applied to the crown ribbon, class banner, rank-up flourish, kill banner and capture card. The kill banner and capture card now also scale with narrow screens and split-screen panes, which they did not before. Anchors:
+  - crown ribbon: y 186 → 164;
+  - class banner: y 214 → 184;
+  - rank-up flourish: y 196 → 168;
+  - kill banner: y 120 → 108.
+- **Phase line** under the clock (fortify, overtime, the Ember Pass fire) is hidden while a big banner shows.
+- **Duplicates dropped:**
+  - "You are now a …" / "You put on the … hat" now go to chat only, since the class banner says it.
+  - The player's own floating LEVEL n, promoted class name, REVIVED, VETERAN and BOUNTY popups are dropped; the banners and notices say them. Bots and other players still show them.
+- **`--debug-touch`** shows the iPad touch layout for renders.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo smoke run had no script errors.
+
+Revert: `git revert 39faf99`.
+
+## 2026-10-10 — Merged release/v0.4.0-alpha (online play)
+
+Commit: `d46af47` (merge).
+- **game.toast:** keeps the alpha's online routing (`to`) and the new one-at-a-time queue.
+- **game.announce:** keeps its online relay; `_announce_here` now feeds the notice scroll instead of the centre label.
+- **Class lines:** the station and hat class lines go to chat for the local player and stay as announcements for online joiners.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; tools/net_smoke.sh (ENet) passed; a demo run had no script errors.
+
+Revert: `git revert -m 1 d46af47`.
+
+## 2026-10-10 — SKILLS & UPGRADES board (Faisal 11:02, skills-upgrades-target-2026-10-09.png)
+
+Commit: `43134bb`. The perk key and the Upgrade Station now open **SKILLS & UPGRADES** (`hud._skills_page`) instead of the pause tab's layout.
+- **Left column:** class tabs (`_skills_tabs`) with the sigil over the name, your class first. Then the four skill rows: the art strip has a painted emblem, the LV pips sit under the description and the Next line runs along the strip's foot. Then the before/after strip, and YOUR STATS tiles (`_skills_stats`) in place of the reference's global upgrades. The game has no global upgrades, so these tiles are display only.
+- **Right column** (`_skills_side`): LEVEL, the points to spend and the XP bar beside the X. Then CLASS PROMOTION with the class portrait (cropped card art), the padlocked emblem and both paths (5 / 6 or a click to pick).
+- **Code:** `_life_stats` is shared with the pause tab's stats card. `_upgrades_skills(..., board)` switches the layout.
+- **Unchanged:** the pause menu's UPGRADES tab.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 43134bb`.
+
+## 2026-10-14 — Faisal's upgraded UI art in the game
+
+Commit: `8776540`, then a merge of release/v0.4.0-alpha 99f41df. Faisal (06:27): "Here is all the upgraded ui, implement them into the game".
+
+- **New tool:** `tools/slice_new_ui.py <folder>` cuts his sheets into the game's files by name. The sheets are kept in /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/source/: showcase-2.png and cosmetic-atlas-1.png.
+- **Icons:** 76 ability, HUD and menu icons. The symbol is lifted off its framed tile by keying out the dark backdrop, so it sits on the HUD's own hex and round buttons.
+- **Class shields:** the eight class shields (`icons/class_*`), the scoreboard shields (`skills/shield_elf`, `skills/shield_human`), and the forest and kingdom crests.
+- **Faction art:** the Elves and Humans crests and logos (`cards/crest_*`, `cards/logo_*`), the four menu banners and `menu/icon_stag`.
+- **Class cards:** one card per class, used for both factions. The Engineer and Rogue cards are new, and `hud.gd` now loads them.
+- **Store:** all 53 thumbnails. `hair_2` (black hair) uses a tighter key, because the hair matches the backdrop's colour.
+- **Not taken:**
+  - the sixth row's hex-skill tiles (dodge, drop, locks, perks, punch), since the action bar keeps its hex art;
+  - the topbar frame strip, which is too small for the 1460 px top bar;
+  - the unused stag banner.
+- **Missing from the sheet,** so the old art stays: coin, frostweaver, siegewright and the menu arrows/body/gear/hair/palette icons.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
+
+Revert: `git revert 8776540`.
+
+## 2026-10-14 — Promotion card, living skill strips, kill banner shield
+
+Commit: `30a2e48`. Faisal's comments on the new UI renders: 07:16 on the kill banner portrait ("change this to match the visual style of the rest of the game"); 07:17 on the promotion portrait ("fix the image scale, and where it is placed"); 07:24 on his reference's WILDHUNTER card ("i want it to look more like this"); 07:24 on its animated skill strips ("i like the idea of the this animation being here").
+
+- **Kill banner:** the victim's cropped card portrait is replaced by their class shield icon (`_draw_kill_banner`).
+- **CLASS PROMOTION** (`_skills_side`): one tall art card. The class card fills it edge to edge with the face on the left; the right half is shaded and carries the path's emblem (padlocked while locked), its name in green, its description and its three perks (attack plus two skills) on icon tiles. The two paths are tabs at the foot: hover shows one, click (or 5/6, or the pad) picks an unlocked one.
+- **Skill strips** (new `_strip_fx`, SKILLS & UPGRADES board only): each row's skill acted out on a loop in its colour. Bolts and arrows streak across with a trail (three for volleys); traps, turrets, smoke and curses turn as a ring of thorns; blinks leave after-images and chevrons; melee swings sweep an arc; Vigor and buffs beat with ripples and orbiting sparks. This replaces the static faint emblem. The pause menu's UPGRADES tab is unchanged.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
+
+Revert: `git revert 30a2e48`.
+
+## 2026-10-14 — Faisal's sharper UI sheets
+
+Commit: `f3e2ecf`. Faisal (07:40, in the Integration thread): "heres the 2k textures": four 1672x941 sheets, kept in /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/source-v2/ (page1-4.png).
+
+- **New tool:** `tools/slice_ui_v2.py <folder>` cuts each piece from the cell above its file-name label. It removes the checker backdrop and the dark halo by a flood fill from the cell's edge, drops neighbours' edges and the section headers, and centres the piece at the size the sheet names.
+- **Class icons** (`icons/class_*`): his CLASS ICONS row, which are framed square tiles. The old icons were shields.
+- **Class cards:** new Elf and Human base cards (`cards/elf_base`, `cards/human_base`) and six class cards, still shared by both factions.
+- **Icons:** 61 ability, HUD and upgrade icons at 256 px (were 128). This adds coin, frostweaver and siegewright, which were missing from the first set. There are 19 menu icons at 96 px.
+- **Faction art:** logos, crests, the scoreboard shields, the four banners and the stag, all cut from art roughly twice the size of the first set's.
+- **Store:** 52 thumbnails. trim_0 is not on the sheet and stays.
+- **Kept:** the title logo and topbar (higher resolution already), the action bar's hex skill art, and the body-shape icons.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert f3e2ecf`.
+
+## 2026-10-14 — Kill ribbon, centred ability emblems, richer skill strips
+
+Commit: `9a64ae0`. Faisal's comments on sharper-art-in-game.jpg, 08:08-08:10:
+- "improve on the visuals of these" (the skill strips);
+- "make this notification look like the you died one as well" (the kill banner);
+- "this is off center" (Perks and Grab);
+- "Anything off center make sure to fix".
+
+- **Kill banner** (`_draw_kill_banner`): now the YOU FELL look. A gold cloth ribbon with swallowtails, the title in the cartoon lettering, the victim's class shield in a gold medallion on the left and a sword on the right, "<victim> the <class> · +XP" under it, and twinkles. It is scaled by BANNER_SIZE as before.
+- **Ability bar** (`_slot_face`): the painted hex tiles (punch, dodge, perks, drop, lock_a) had their symbols off centre, so every slot now draws its emblem from the 2026-10-14 icon sheet, centred on the hexagon (hc − 2 px). The code-drawn fist, dodge, heart and crown glyphs are no longer used there.
+- **Skill strips** (`_strip_fx` with new `_fx_glow`, `_fx_sparkle` and `_fx_comet`):
+  - every strip has a light pool, slow rays and twinkles behind a big glowing emblem;
+  - bolts fly in as tapered comets and burst on the emblem;
+  - melee sweeps a filled crescent;
+  - traps grow shaded thorns on a lit ground disc;
+  - buffs beat with sparkles circling them.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
+
+Revert: `git revert 9a64ae0`.
+
+## 2026-10-14 — Class promotion card closer to the reference
+
+Commit: `0e50b30`. Faisal (08:56): "for the class promotion, make it look more like the reference image".
+
+- **Card** (`_skills_side`):
+  - CLASS PROMOTION is now in gold display lettering.
+  - The card has an ink-and-gold frame with gold corner brackets and ivy sprigs.
+  - The class art shows through a softer veil on the right half (alpha 0.94 → 0.72).
+- **Emblem:** a bigger medallion (radius 29 → 40) with a gold ring, rivets and the path sigil. While locked, the padlock hangs off its foot.
+- **Path name:** shown in the cartoon title lettering in green, auto-fitted to the column. The description sits centred under it.
+- **Perks:** each perk sits on a gold-framed tile with its name and a one-line summary of what it does.
+  - The attack perk's icon now uses the path's own element, so Ember Bolt shows fire, not thorns.
+- **Path tabs:** given gold frames.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 0e50b30`.
+
+## 2026-10-14 — Promotion card: half picture, gradient, glow
+
+Commit: `411ecac`. Faisal (09:06): "make the image take up half the card and add the little gradient on the part where the text starts exactly like the refernece photo. and add slight glow".
+
+- **Picture** (`_skills_side`): when a class has paths, its picture is drawn only in the left 56% of the card, centred on the face.
+- **Text half:** a dark panel in the class colour (alpha 0.97), entered by a gradient from 40% to 56% of the card width, with a soft class-colour glow along the seam.
+- **Glow:** a slight class-colour glow round the whole card (four rings, alpha 0.2 fading out).
+- **Text column:** starts at 50% (was 45%).
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 411ecac`.
+
+## 2026-10-14 — Promotion card to the mock-up
+
+Commit: `053a21d`. Faisal (10:06): "now make it slihglty less opaque and make the glow outside not inside the emblem. for the example its still not how it is, create a visual render first of how it should look". Mock-up: /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/class-promotion-mockup.png.
+
+- **Text panel:** less opaque (alpha 0.97 → 0.74).
+- **Medallion:**
+  - its glow is now six soft rings outside the rim (radius 43 to 61, pulsing gently), and the inner highlight is gone;
+  - it has eight gold spikes round the ring.
+- **Card:**
+  - a thin pale frame with the class-colour glow outside it, in place of the gold frame, brackets and ivy;
+  - a blurred, dimmed copy of the class picture behind the whole card. These are new `cards/*_blur.png` files from the new `tools/make_card_blur.py`, loaded as `cards[key + "_blur"]`.
+  - a divider between the description and the perks.
+- **Locked picture:** brightness 0.8 → 0.94.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 053a21d`.
+
+## 2026-10-14 — Painted skill strips
+
+Commit: `66167d2`. Faisal (10:59): "here are all of the skill upgrades" (67 strips, 1024×256, from the sheets sent at 08:42).
+
+- **New tool:** `tools/make_skill_strips.py` writes `assets/ui/strips/<slug>.png` at 512×128. The navy backdrop is keyed to clear by brightness, and the left and right ends fade out.
+- **HUD:** new `strips` dictionary and `_skill_slug()`. Each skill row draws its painting right-aligned at the row height, zoomed 1.3x on the subject, in both the SKILLS & UPGRADES board and the pause tab.
+- **Effects over a painting:** `_strip_fx(..., painted=true)` draws only nine twinkles and a slow white glint (alpha 0.07). The light pool, rays, comets, emblem and the old streaks are drawn only when a skill has no painting.
+- **Coverage:** all 67 skill names match a file.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 66167d2`.

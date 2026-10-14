@@ -404,22 +404,6 @@ static func shot(u, a: Dictionary, color: Color) -> Array:
 	return [color, ""]
 
 
-# --- Online: mirror every skill animation to the joiners (scripts/net.gd) ----
-
-static func _net_open(target: String, method: String, args: Array):
-	var tree := Engine.get_main_loop() as SceneTree
-	var n = tree.root.get_node_or_null("Net") if tree else null
-	if n:
-		n.rec(target, method, args)
-		n.depth += 1
-	return n
-
-
-static func _net_close(n) -> void:
-	if n:
-		n.depth -= 1
-
-
 # --- Grab / interact (F, pad RB) ---------------------------------------------
 ## Every press reaches out (grab), then the result answers it: grab_hit() when
 ## something was taken or used, grab_miss() when the hand closed on nothing.
@@ -477,3 +461,19 @@ static func grab_miss(u) -> void:
 	var at := grab_point(u)
 	Fx.of(u.game).burst(at, Color(0.95, 0.95, 0.9, 0.7), 5, 1.4, 0.35, Fx.STYLE_MOTE, u.facing, 40.0, 0.7)
 	u.game.sfx.play("grab_miss", at, -8.0 if u.is_player else -16.0, 0.1)
+
+
+# --- Online: mirror every skill animation to the joiners (scripts/net.gd) ----
+
+static func _net_open(target: String, method: String, args: Array):
+	var tree := Engine.get_main_loop() as SceneTree
+	var n = tree.root.get_node_or_null("Net") if tree else null
+	if n:
+		n.rec(target, method, args)
+		n.depth += 1
+	return n
+
+
+static func _net_close(n) -> void:
+	if n:
+		n.depth -= 1

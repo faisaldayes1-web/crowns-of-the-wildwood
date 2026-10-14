@@ -70,6 +70,7 @@ const BRIDGE_HALF := [2.2, 6.3, 3.0]
 const BANK_LAYER := 16        # river banks block walkers, not shots
 const MONARCH_TITLES := ["Elven Crown", "Human Crown"]
 const CONTROLS_PATH := "user://controls.cfg"
+const PROFILE_DIR := "user://profiles"   # one save per named player (save_file.gd)
 # Actions the player can rebind in the Controls menu (and what to call them).
 const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"], ["ability_3", "Upgraded hat move"],
 	["dodge", "Dodge"], ["interact", "Grab / drop"], ["rank_menu", "Perks & ranks"], ["scoreboard", "Scoreboard (hold)"],
@@ -126,6 +127,8 @@ var menu_stage: Node3D          # menu_stage.gd: their 3D backdrops
 # Account progression (saved): every XP point the player earns in a match,
 # plus a match bonus, goes on the account. See Stats.account_level.
 var account_xp := 0
+var profile_id := ""          # the player playing now: user://profiles/<id>.cfg
+var needs_name := false       # a first launch: the title asks who is playing
 var saved_at := -1.0          # when the save was last written (seconds since start)
 var account_gold := 0           # match rewards (Stats.MATCH_GOLD / MATCH_SHARDS), spent in the STORE (store.gd)
 var account_shards := 0
@@ -143,6 +146,7 @@ var name_editing := false
 var levelup_timer := 0.0
 var levelup_level := 1
 var levelup_text := ""         # set for a class promotion: the flourish says PROMOTED! and this name
+var pine_tiers := {}   # cached pine tier meshes
 var map_trees: Array[Vector3] = []  # for the minimap: y > 0.5 means a big tree
 var map_paths: Array = []           # [from, to, width] of every path for the minimap
 var map_marks: Array = []           # [position, kind] ruins and such
@@ -316,12 +320,15 @@ func _ready() -> void:
 	sfx = Sfx.new()
 	add_child(sfx)
 	if OS.has_feature("web"):
-		# A first visit in a browser (the iPad) starts on Low: no glow and the
-		# small shadow maps. Settings can raise it to Medium. The frame
-		# counter starts on so a slow iPad shows its number (Settings: FPS).
-		gfx_quality = 0
+		# A first visit in a browser (the iPad) starts on Medium: sun shadows,
+		# glow and a full-resolution 3D view (Faisal 2026-10-10: the website
+		# looked much worse than the PC). _auto_quality drops to Low if the
+		# device cannot hold the frame rate. The frame counter starts on so
+		# a slow iPad shows its number (Settings: FPS).
+		gfx_quality = 1
 		show_fps = true
 	_load_controls()
+	_ensure_profile()
 	if OS.has_feature("web"):
 		# Browsers (and tablets) run Medium at most; Settings can raise
 		# it. (Here, not in _load_controls: a fresh browser has no settings
@@ -668,7 +675,7 @@ func _debug_hooks() -> void:
 			monarchs[1 - player_team].pick_up(player)
 			player.carrying = monarchs[1 - player_team]
 		if frame == shot_frame - 45 and player:
-			if arg == "--debug-killed":
+			if arg == "--debug-killed" or arg == "--debug-killed-finish":
 				# The kill screen: a bot's banner over the player's death
 				# (45 frames early so the death screen has faded fully in).
 				player.global_position = Vector3(-20, 0, 3)
@@ -678,6 +685,10 @@ func _debug_hooks() -> void:
 					if u.team != player_team and not u.dead:
 						u.bot_class = Role.KNIGHT
 						player.take_damage(player.hearts, u, player.global_position + Vector3(2, 0, 0))
+						if player.downed:
+							# Downed first: "--debug-killed-finish" has the bot
+							# finish the player off, else they bleed out.
+							player._die(u if "--debug-killed-finish" in OS.get_cmdline_user_args() else null)
 						killer_timer = 5.4
 						break
 			if arg == "--debug-rogue" and player.role == Role.BASE:
@@ -1117,7 +1128,9 @@ func _check_stations() -> void:
 			if (u.role != role or new_hat) and _flat_dist(u.global_position, stations[u.team][role]) < STATION_RADIUS:
 				u.set_role(role)
 				sfx.play("station", u.global_position)
-				if u == player or u.remote_peer > 0:
+				if u == player:
+					chat_system("You are now a %s." % u.role_name())   # the class banner says it on screen
+				elif u.remote_peer > 0:
 					announce("You are now a %s." % u.role_name(), u)
 
 
@@ -1183,12 +1196,8 @@ func announce_veteran(u, tier: int) -> void:
 	if tier == 2:
 		announce("%s of the %s is an ELITE VETERAN: %d kills without dying! Bounty on their head, location revealed." % [u.display_name, side_name, u.streak])
 		chat_system("Bounty: %s (%s) is an Elite Veteran. Bring them down for a team reward!" % [u.display_name, side_name])
-		if u.is_player:
-			spawn_popup(u.global_position + Vector3(0, 2.8, 0), "ELITE VETERAN", Color(1.0, 0.6, 0.2))
 	else:
 		announce("%s of the %s is a Veteran: %d kills without dying." % [u.display_name, side_name, u.streak])
-		if u.is_player:
-			spawn_popup(u.global_position + Vector3(0, 2.8, 0), "VETERAN", Color(1.0, 0.85, 0.3))
 
 
 func bounty_claimed(killer, victim) -> void:
@@ -1202,8 +1211,6 @@ func bounty_claimed(killer, victim) -> void:
 	for u in units:
 		if u.team == killer.team and not u.dead:
 			u.apply_blessing(Stats.BOUNTY_BUFF)
-	if killer.is_player:
-		spawn_popup(killer.global_position + Vector3(0, 3.0, 0), "BOUNTY  +%d XP" % Stats.BOUNTY_XP, Color(1.0, 0.85, 0.3))
 
 
 func nearest_orb(pos: Vector3, radius: float):
@@ -1287,15 +1294,19 @@ func defender_near(team: int, pos: Vector3, radius: float) -> bool:
 
 
 func toast(text: String, color: Color = Color.WHITE, to = null) -> void:
-	## A small, short notice under the clock (not the big announcement).
+	## A short notice: queued and shown one at a time as a small scroll under
+	## the clock (hud.gd _draw_toasts), never stacked or under a big banner.
 	## Toasts are personal: online, only `to`'s player sees one sent to a joiner.
 	if to != null and not to.is_player:
 		if net:
 			net.rec("game", "toast", [text, color], to)
 		return
-	toasts.append({"text": text, "color": color, "time": Time.get_ticks_msec() / 1000.0})
-	if toasts.size() > 4:
-		toasts.pop_front()
+	for t in toasts:
+		if t.text == text:
+			return   # already showing or waiting
+	toasts.append({"text": text, "color": color, "time": Time.get_ticks_msec() / 1000.0, "shown": 0.0})
+	while toasts.size() > 3:
+		toasts.remove_at(1)   # keep the one on screen, drop the oldest waiting
 
 
 func enemy_inside_castle(team: int) -> bool:
@@ -1975,7 +1986,7 @@ func spawn_swing(u, aim: Vector3) -> void:
 
 
 func announce(text: String, to = null) -> void:
-	## The big message under the clock, also logged in the chat. Online,
+	## News for the notice scroll, also logged in the chat. Online,
 	## `to` (a unit) makes it personal: only that unit's player sees it;
 	## without it every joiner sees it too.
 	if net and net.online():
@@ -1989,9 +2000,12 @@ func announce(text: String, to = null) -> void:
 
 
 func _announce_here(text: String) -> void:
-	if message_label:
-		message_label.text = text
-		message_timer = 3.0
+	## News goes to the notice scroll and the chat log (the old floating
+	## centre line overlapped the banners: Faisal 2026-10-10 08:35). The
+	## FORTIFY! call-out repeats the objective banner word for word, so it
+	## stays in the chat log only.
+	if not text.begins_with("FORTIFY!"):
+		toast(text, Color(1.0, 0.85, 0.4))
 	chat_system(text)
 
 
@@ -2902,12 +2916,13 @@ func banner_for(u) -> Dictionary:
 		"frame": (h / 3) % 4, "title": Stats.rank_title(level), "level": level, "team": u.team}
 
 
-func on_player_killed(killer, weapon: String) -> void:
-	## The player died: show the killer's banner for a while.
+func on_player_killed(killer, weapon: String, finished: bool = false) -> void:
+	## The player died: show the killer's banner for a while ("FINISHED BY"
+	## when they were finished off while downed).
 	if killer == null or killer == player:
 		killer_card = {}
 		return
-	killer_card = {"unit": killer, "weapon": weapon}
+	killer_card = {"unit": killer, "weapon": weapon, "finished": finished}
 	killer_timer = 6.0
 
 
@@ -3862,16 +3877,107 @@ func import_progress(code: String = "") -> bool:
 	if data.is_empty():
 		toast("That is not a whole progress code", Color(1.0, 0.6, 0.5))
 		return false
+	# The code comes in as its own player, next to the ones already here.
+	var pc := ConfigFile.new()
+	SaveFile.apply_code(pc, data)
 	_save_settings()
 	_flush_save()
-	DirAccess.copy_absolute(CONTROLS_PATH, CONTROLS_PATH + ".before-import")
+	var id := _new_profile_id()
+	DirAccess.make_dir_recursive_absolute(PROFILE_DIR)
+	SaveFile.write(pc, profile_path(id))
+	switch_profile(id, false)
+	toast("Imported %s: level %d, %d gold" % [player_name(), account_level(), account_gold], Color(0.6, 1.0, 0.55))
+	return true
+
+
+# --- Player profiles (save_file.gd) ---------------------------------------------
+
+func profile_path(id: String) -> String:
+	return "%s/%s.cfg" % [PROFILE_DIR, id]
+
+
+func player_name() -> String:
+	return hero_name if hero_name.strip_edges() != "" else "Unnamed Hero"
+
+
+func _new_profile_id() -> String:
+	var n := 1
+	while FileAccess.file_exists(profile_path("p%d" % n)):
+		n += 1
+	return "p%d" % n
+
+
+func _ensure_profile() -> void:
+	## Every save belongs to a named player. A device with no player yet
+	## makes one from what it has (an older save keeps its progress); a first
+	## launch then asks for a name on the title.
+	if profile_id == "" or not FileAccess.file_exists(profile_path(profile_id)):
+		profile_id = _new_profile_id() if profile_id == "" else profile_id
+		_save_settings()
+		_flush_save()
+	# Only on a plain launch: renders and tests start with their own flags.
+	needs_name = hero_name.strip_edges() == "" and OS.get_cmdline_user_args().is_empty() and DisplayServer.get_name() != "headless"
+
+
+func list_profiles() -> Array:
+	## Every player on this device: [{id, name, xp, gold}], oldest first.
+	_flush_save()
+	var out: Array = []
+	var d := DirAccess.open(PROFILE_DIR)
+	if d == null:
+		return out
+	for f in d.get_files():
+		if not f.ends_with(".cfg"):
+			continue
+		var id := f.trim_suffix(".cfg")
+		var pc := ConfigFile.new()
+		if SaveFile.read(pc, profile_path(id)) == OK:
+			out.append({"id": id, "name": str(pc.get_value("settings", "hero_name", "")),
+				"xp": int(pc.get_value("profile", "account_xp", 0)), "gold": int(pc.get_value("profile", "account_gold", 0))})
+	out.sort_custom(func(a, b): return a.id.naturalnocasecmp_to(b.id) < 0)
+	return out
+
+
+func switch_profile(id: String, announce := true) -> void:
+	## Saves the player playing now, then loads `id`'s level, gold, items and look.
+	if id == profile_id or not FileAccess.file_exists(profile_path(id)):
+		return
+	_save_settings()
+	_flush_save()
+	profile_id = id
 	var cfg := ConfigFile.new()
 	_read_save(cfg)
-	SaveFile.apply_code(cfg, data)
+	cfg.set_value("profiles", "current", id)
 	SaveFile.write(cfg, CONTROLS_PATH)
 	_load_controls()
 	_save_settings()
-	toast("Progress restored: level %d, %d gold" % [account_level(), account_gold], Color(0.6, 1.0, 0.55))
+	if announce:
+		toast("Playing as %s" % player_name(), Color(0.6, 1.0, 0.55))
+
+
+func new_profile(name: String) -> String:
+	## A new player starting from nothing (level 1, no gold or items, the
+	## default look); they become the one playing.
+	_save_settings()
+	_flush_save()
+	var id := _new_profile_id()
+	var pc := ConfigFile.new()
+	pc.set_value("settings", "hero_name", name.strip_edges().left(Stats.HERO_NAME_MAX))
+	for k in ["account_xp", "account_gold", "account_shards", "account_chests"]:
+		pc.set_value("profile", k, 0)
+	pc.set_value("profile", "owned_items", [])
+	DirAccess.make_dir_recursive_absolute(PROFILE_DIR)
+	SaveFile.write(pc, profile_path(id))
+	switch_profile(id, false)
+	return id
+
+
+func delete_profile(id: String) -> bool:
+	## Removes another player from this device (never the one playing).
+	if id == profile_id or not FileAccess.file_exists(profile_path(id)):
+		return false
+	for p in [profile_path(id), profile_path(id) + ".bak"]:
+		DirAccess.remove_absolute(p)
 	return true
 
 
@@ -3921,6 +4027,10 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "hero_cape", hero_cape)
 	cfg.set_value("settings", "hero_outfit", hero_outfit)
 	cfg.set_value("settings", "hero_weapon", hero_weapon)
+	if profile_id != "":
+		cfg.set_value("profiles", "current", profile_id)
+	if hero_name.strip_edges() != "":
+		needs_name = false
 	if _write_save(cfg) == OK:
 		saved_at = Time.get_ticks_msec() / 1000.0
 
@@ -3945,16 +4055,29 @@ func _read_save(cfg: ConfigFile) -> Error:
 
 
 func _write_save(cfg: ConfigFile) -> Error:
+	## Writes controls.cfg and the current player's profile file.
 	_flush_save()
+	var files := [[cfg, CONTROLS_PATH]]
+	if profile_id != "":
+		DirAccess.make_dir_recursive_absolute(PROFILE_DIR)
+		files.append([SaveFile.profile_of(cfg), profile_path(profile_id)])
 	if DisplayServer.get_name() == "headless" or OS.has_feature("web"):
 		# Tests read the file straight back; a browser build has no worker
 		# threads (and writes to its own storage, fast).
-		return SaveFile.write(cfg, CONTROLS_PATH)
-	var text := cfg.encode_to_text()
+		var err := OK
+		for f in files:
+			var e: Error = SaveFile.write(f[0], f[1])
+			if e != OK:
+				err = e
+		return err
+	var texts := []
+	for f in files:
+		texts.append([f[0].encode_to_text(), f[1]])
 	_save_task = WorkerThreadPool.add_task(func():
-		var c := ConfigFile.new()
-		if c.parse(text) == OK:
-			SaveFile.write(c, CONTROLS_PATH))
+		for t in texts:
+			var c := ConfigFile.new()
+			if c.parse(t[0]) == OK:
+				SaveFile.write(c, t[1]))
 	return OK
 
 
@@ -3978,6 +4101,12 @@ func _load_controls() -> void:
 	var cfg := ConfigFile.new()
 	if _read_save(cfg) != OK:
 		return
+	# The player playing now: their own file holds their progress and looks.
+	profile_id = str(cfg.get_value("profiles", "current", ""))
+	if profile_id != "":
+		var pc := ConfigFile.new()
+		if SaveFile.read(pc, profile_path(profile_id)) == OK:
+			SaveFile.use_profile(cfg, pc)
 	var diff: String = cfg.get_value("settings", "bot_difficulty", "Normal")
 	if diff in Stats.BOT_DIFFICULTIES:
 		bot_difficulty = diff
@@ -3992,8 +4121,9 @@ func _load_controls() -> void:
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
 	gfx_picked = cfg.get_value("settings", "gfx_picked", false)
 	if OS.has_feature("web"):
-		# Browsers (and tablets) start on Medium at most; Settings can raise it.
-		gfx_quality = mini(gfx_quality, 1)
+		# Browsers (and tablets) start on Medium unless the player picked a
+		# preset (older visits saved the old Low default).
+		gfx_quality = mini(gfx_quality, 1) if gfx_picked else 1
 	fullscreen = cfg.get_value("settings", "fullscreen", false)
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
@@ -4758,18 +4888,47 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		leaf.set_shader_parameter("top_color", Color.from_hsv(0.9, 0.5, 0.78) if lavender else Color.from_hsv(0.38, 0.75, 0.5))
 		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.88, 0.7, 0.32) if lavender else Color.from_hsv(0.42, 0.85, 0.18))
 	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.25 if wild else 1.0)
-	var blobs := 6 if big else 4
 	var base_y: float = trunk_h * 0.8
-	for i in blobs:
+	# The crown: a dome of leaf clumps (a skirt of low clumps, a smaller ring
+	# above and a top knot) on short boughs, shaded as one crown from dark
+	# underneath to a sunlit top. It was four to six big blobs, each with its
+	# own dark underside, which read as a pile of green balls.
+	leaf.set_shader_parameter("world_gradient", true)
+	leaf.set_shader_parameter("crown_base", pos.y + base_y - radius * 0.55)
+	leaf.set_shader_parameter("height", radius * 1.9)
+	var low := 6 if big else 5
+	var mid := 4 if big else 3
+	var spin := r.randf() * TAU
+	var clumps := []   # [offset, size]
+	for i in low:
+		var a := spin + TAU * i / low + r.randf_range(-0.2, 0.2)
+		clumps.append([Vector3(cos(a), 0, sin(a)) * radius * r.randf_range(0.6, 0.72) + Vector3(0, r.randf_range(-0.12, 0.1) * radius, 0), radius * r.randf_range(0.5, 0.6)])
+	for i in mid:
+		var a := spin + TAU * (i + 0.5) / mid + r.randf_range(-0.25, 0.25)
+		clumps.append([Vector3(cos(a), 0, sin(a)) * radius * r.randf_range(0.3, 0.4) + Vector3(0, radius * r.randf_range(0.42, 0.52), 0), radius * r.randf_range(0.5, 0.58)])
+	clumps.append([Vector3(r.randf_range(-0.1, 0.1), 0.85, r.randf_range(-0.1, 0.1)) * radius, radius * 0.5])
+	for i in clumps.size():
 		var blob := MeshInstance3D.new()
-		var rr: float = radius if i == 0 else radius * r.randf_range(0.55, 0.85)
-		blob.mesh = _rock_mesh(seed + i * 11, rr, 0.12)
-		var ang := TAU * i / blobs + r.randf() * 0.8
-		var spread: float = 0.0 if i == 0 else radius * r.randf_range(0.45, 0.75)
-		blob.position = Vector3(cos(ang) * spread, base_y + (0.9 if i == 0 else r.randf_range(-0.3, 0.9)) * radius * 0.5, sin(ang) * spread)
-		blob.scale = Vector3(1.0, 0.85, 1.0)
+		blob.mesh = _rock_mesh(seed + i * 11, clumps[i][1], 0.14)
+		blob.position = Vector3(0, base_y, 0) + clumps[i][0]
+		blob.scale = Vector3(1.0, 0.82, 1.0)
 		blob.material_override = leaf
 		tree.add_child(blob)
+	# Boughs from the trunk top out into the lower clumps.
+	for i in 3:
+		var off: Vector3 = clumps[i * low / 3][0] * 0.75
+		var bough := MeshInstance3D.new()
+		var bm := CylinderMesh.new()
+		bm.top_radius = 0.06 if not big else 0.08
+		bm.bottom_radius = 0.14 if not big else 0.18
+		var reach := Vector3(off.x, maxf(off.y, 0.0) + radius * 0.25, off.z)
+		bm.height = reach.length()
+		bm.radial_segments = 5
+		bough.mesh = bm
+		bough.material_override = bark
+		var mid_pt := Vector3(0, base_y - radius * 0.3, 0) + reach / 2.0
+		bough.transform = Transform3D(Basis(Quaternion(Vector3.UP, reach.normalized())), mid_pt)
+		tree.add_child(bough)
 	if wild and seed % 3 == 0:
 		_add_mushrooms(pos + Vector3(0.9, 0, 0.4), seed)
 	if wild and seed % 4 == 1:
@@ -4813,24 +4972,60 @@ func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool
 	leaf.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	var hue := r.randf_range(-0.02, 0.02)
 	# Deep forest green with lighter tips (the 2026-10-08 target art).
-	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.41 + hue, 0.85, 0.09))
-	leaf.set_shader_parameter("top_color", Color.from_hsv(0.37 + hue, 0.7, 0.28))
+	# (Lifted a little with the one-piece gradient: the jagged tiers read
+	# near black otherwise.)
+	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.41 + hue, 0.85, 0.15))
+	leaf.set_shader_parameter("top_color", Color.from_hsv(0.36 + hue, 0.68, 0.44))
 	leaf.set_shader_parameter("height", 1.6)
 	leaf.set_shader_parameter("sway", 0.03)
 	var base_r: float = (1.9 if big else 1.5) * r.randf_range(0.9, 1.1)
+	# One gradient over the whole tree (dark skirts, light tip), not per tier.
+	leaf.set_shader_parameter("world_gradient", true)
+	leaf.set_shader_parameter("crown_base", tree.position.y + trunk_h * 0.2)
+	leaf.set_shader_parameter("height", trunk_h * 1.0)
 	for i in 4:
 		var cone := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = 0.0
-		cm.bottom_radius = base_r * (1.05 - 0.22 * i)
-		cm.height = trunk_h * 0.36
-		cm.radial_segments = 9
-		cm.rings = 2
-		cone.mesh = cm
+		cone.mesh = _pine_tier_mesh(r.randi(), base_r * (1.05 - 0.22 * i), trunk_h * 0.36)
 		cone.position.y = trunk_h * (0.36 + 0.17 * i)
 		cone.rotation.y = r.randf() * TAU
 		cone.material_override = leaf
 		tree.add_child(cone)
+
+
+func _pine_tier_mesh(seed: int, radius: float, height: float) -> ArrayMesh:
+	## One tier of a conifer: a faceted cone whose rim is a ring of drooping
+	## needle points (the old smooth cones read as plain stacked lampshades).
+	var key := "%d|%.2f|%.2f" % [seed % 6, radius, height]
+	if pine_tiers.has(key):
+		return pine_tiers[key]
+	var r := RandomNumberGenerator.new()
+	r.seed = seed % 6
+	var n := 11
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var apex := Vector3(0, height / 2.0, 0)
+	var rim := []
+	for k in n * 2:
+		var a := TAU * k / (n * 2)
+		var tip := k % 2 == 0
+		var rr := radius * (1.0 if tip else 0.72) * r.randf_range(0.94, 1.06)
+		# Points droop below the notches; notches tuck up under the tier above.
+		var y := -height / 2.0 - (0.12 * height if tip else -0.08 * height)
+		rim.append(Vector3(cos(a) * rr, y, sin(a) * rr))
+	var under := Vector3(0, -height * 0.3, 0)
+	for k in n * 2:
+		var p0: Vector3 = rim[k]
+		var p1: Vector3 = rim[(k + 1) % (n * 2)]
+		st.add_vertex(apex)
+		st.add_vertex(p1)
+		st.add_vertex(p0)
+		st.add_vertex(under)
+		st.add_vertex(p0)
+		st.add_vertex(p1)
+	st.generate_normals()
+	var m := st.commit()
+	pine_tiers[key] = m
+	return m
 
 
 func _leaf_material(r: RandomNumberGenerator, autumn: bool) -> ShaderMaterial:
@@ -5298,6 +5493,14 @@ func _add_cover() -> void:
 		for m in [1.0, -1.0]:
 			var c: Vector3 = b[0] * m
 			var length: float = b[1]
+			var kind: int = 0 if absf(c.z) < 3.0 else 2
+			# Wall stubs stand beside the road, not on it (the one at x -31
+			# sat across the Forest Path like a post): step them away from
+			# the paths, cover point and collider with them.
+			var k := 0
+			while kind == 2 and _near_path(c, length / 2.0 + 0.4) and k < 8:
+				c.z += 1.0 if c.z >= 0.0 else -1.0
+				k += 1
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
 			cover_points.append(Vector3(c.x, 0, c.z))
 			cover_boxes.append(AABB(Vector3(c.x - 0.5, 0, c.z - length / 2.0), Vector3(1.0, 1.2, length)))
@@ -5305,7 +5508,6 @@ func _add_cover() -> void:
 			# ashlar walls across the field. (No timber palisades: they read
 			# as stray fences, Faisal 11:27 "did you fix the random fence
 			# issues". The cover and its collider are unchanged.)
-			var kind: int = 0 if absf(c.z) < 3.0 else 2
 			match kind:
 				0:
 					var n := int(length / 1.15)
@@ -5397,8 +5599,8 @@ func _add_palisade(c: Vector3, length: float) -> void:
 
 func _add_wall_stub(c: Vector3, length: float) -> void:
 	## A broken length of ashlar wall: tall at one end, crumbled at the other,
-	## with rubble spilling off the low end. Mossy on the elven side.
-	mossy = c.x < 0.0
+	## with rubble spilling off the low end. Stone on both sides: the elven
+	## "ashlar" is bark, which made the Elf-side stubs read as wooden posts.
 	audit_label = "wall"
 	var tall_len: float = length * 0.55
 	var low_len: float = length - tall_len
@@ -5407,8 +5609,7 @@ func _add_wall_stub(c: Vector3, length: float) -> void:
 	_add_block(Vector3(c.x, 0.4, c.z + tall_len / 2.0), Vector3(0.6, 0.8, low_len), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
 	_add_block(Vector3(c.x, 0.9, c.z + tall_len / 2.0 - low_len / 4.0), Vector3(0.6, 0.2, low_len / 2.0), Color.WHITE, false, _ashlar(Color(0.88, 0.85, 0.78)))
 	audit_label = ""
-	_prop("dungeon/rubble_large", Vector3(c.x + 0.4, 0, c.z + length / 2.0 + 0.7), 0.22, 0.4)
-	mossy = false
+	_prop("dungeon/rubble_large", Vector3(c.x + 0.4 * signf(c.x), 0, c.z + length / 2.0 + 0.7), 0.22, 0.4)
 
 
 func _add_ruins(c: Vector3, small: bool = false) -> void:
@@ -9469,7 +9670,7 @@ func _auto_quality() -> void:
 	## under 40 frames a second for four seconds (a toast says so). Never
 	## steps up. Long stalls (loading, a shader built the first time) do not
 	## count: they restart the window.
-	if gfx_picked or gfx_quality == 0 or OS.has_feature("web") or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
+	if gfx_picked or gfx_quality == 0 or (OS.has_feature("web") and not playing) or DisplayServer.get_name() == "headless" or not OS.get_cmdline_user_args().is_empty():
 		return
 	var now := Time.get_ticks_msec()
 	if is_instance_valid(loading_layer) or now - _fps_last > 250:
@@ -9484,7 +9685,14 @@ func _auto_quality() -> void:
 		return
 	var fps := _fps_frames * 1000.0 / float(now - _fps_since)
 	_fps_since = 0
-	if fps < 40.0:
+	if OS.has_feature("web") and Engine.max_fps == 0 and fps < 52.0:
+		# A browser that cannot hold 60 runs 0, 1 or 2 physics steps a frame
+		# at random, so units jump (Faisal 2026-10-10 "frame skipping and
+		# jumping" on the iPad). A steady 30 gives every frame exactly two
+		# steps: smooth motion, and slack for the slow frames.
+		Engine.max_fps = 30
+		return
+	if fps < (26.0 if OS.has_feature("web") else 40.0):
 		gfx_quality -= 1
 		apply_graphics()
 		_save_settings()
@@ -9526,7 +9734,7 @@ func apply_graphics() -> void:
 		# smooths it, while the HUD stays at full density.
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
-		vp.scaling_3d_scale = 0.75
+		vp.scaling_3d_scale = 1.0 if q >= 1 else 0.75
 		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		# One 2048 shadow map covers the single cascade the web sun uses, read
 		# with one tap (the soft filters cost a kernel per pixel).
@@ -10293,6 +10501,9 @@ func _debug_downed_hooks(frame: int) -> void:
 	## player), "--debug-healer-revive" (the player, a Healer, reviving a
 	## downed teammate).
 	var args := OS.get_cmdline_user_args()
+	if frame == 5 and "--debug-downed-touch" in args and touch:
+		touch.active = true   # renders: the iPad's touch layout over the downed / death screens
+		touch_active = true
 	var which := ""
 	var strike := "--debug-finish-strike" in args
 	for k in ["--debug-downed", "--debug-revive", "--debug-healer-revive", "--debug-finish"]:

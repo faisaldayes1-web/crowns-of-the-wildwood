@@ -180,7 +180,9 @@ func take(u) -> void:
 	game.spawn_ring(global_position, 2.2, color, 0.5)
 	game.spawn_flash(u.global_position + Vector3(0, 1.2, 0), color, 3.0, 0.4)
 	game.spawn_splash(u.global_position + Vector3(0, 1.0, 0), color, 22, 3.5, 0.6, true)
-	if u == game.player or u.remote_peer > 0:
+	if u == game.player:
+		game.chat_system("You put on the %s's hat. You are now a %s." % [class_title(), u.role_name()])   # the class banner says it on screen
+	elif u.remote_peer > 0:
 		game.announce("You put on the %s's hat. You are now a %s." % [class_title(), u.role_name()], u)
 	if u.is_player:
 		u.class_banner = u.CLASS_BANNER_TIME

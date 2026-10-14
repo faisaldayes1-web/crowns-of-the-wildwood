@@ -807,8 +807,12 @@ func _add_hair_style(style: int, color: Color) -> void:
 				var lx := i * 0.17
 				_hair_piece(head, _cyl(0.15, 0.1, 1.5, 6), Vector3(lx, -0.05, -0.56 + absf(lx) * 0.2), Vector3(-0.08, 0, i * 0.06), hair)
 			for side in [-1.0, 1.0]:
-				_hair_piece(head, _cyl(0.17, 0.13, 0.7, 7), Vector3(side * 0.62, 0.3, 0.02), Vector3(0.0, 0, side * 0.08), hair)
-				_hair_piece(head, _cyl(0.13, 0.05, 0.75, 7), Vector3(side * 0.66, -0.4, 0.2), Vector3(0.3, 0, side * 0.04), hair)
+				# Rounded locks that taper and curl in a little at the ends (straight
+				# cylinders read as planks either side of the face).
+				_hair_piece(head, _ball(0.17, 8), Vector3(side * 0.6, 0.6, -0.02), Vector3.ZERO, hair, Vector3(1.0, 1.3, 1.0))
+				_hair_piece(head, _cyl(0.16, 0.12, 0.55, 9), Vector3(side * 0.64, 0.2, 0.04), Vector3(0.1, 0, side * 0.1), hair)
+				_hair_piece(head, _cyl(0.12, 0.04, 0.6, 9), Vector3(side * 0.62, -0.32, 0.18), Vector3(0.35, 0, -side * 0.12), hair)
+				_hair_piece(head, _ball(0.07, 6), Vector3(side * 0.58, -0.6, 0.3), Vector3.ZERO, hair)
 		3:  # Braids: two thick plaits of beads hanging in front of the shoulders to the belt.
 			for side in [-1.0, 1.0]:
 				for k in 7:

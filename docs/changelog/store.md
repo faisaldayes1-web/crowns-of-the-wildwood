@@ -158,3 +158,53 @@ Files: `scripts/save_file.gd` (new), `scripts/game.gd`, `scripts/menu.gd`, `tool
 `tools/options_menu_test.gd`.
 
 Undo: `git revert d40c3c4`
+
+## 2026-10-10 — the gold amount fits its box; no "+200-300 a match" line
+
+Commit: `135b76c` (branch restarted from `release/v0.4.0-alpha` at a94aab8 after PR #14 merged)
+
+Faisal 09:02: "the gold is not fully showing in numberbox when ur in the main menu it clips out also take
+out the (200-300 each match.)"
+
+What changed:
+- Title purse and the store's gold box shrink the number's text size until it fits (`menu.fit_size`), and
+  write it with commas (`menu.gold_text`: 1234567 → "1,234,567 GOLD").
+- The store's gold box no longer has the "GOLD · +200-300 a match" line; "1,234,567 GOLD" sits centred.
+
+Files: `scripts/menu.gd`, `scripts/store.gd`.
+
+Undo: `git revert 135b76c`
+
+## 2026-10-10 — named players: progress saved per player
+
+Commit: `71ca08f`
+
+Faisal 09:03: "Make sure the game saves progress everytime you play, connecting your progress to a name
+and saving the data".
+
+What changed:
+- **One save per player**: `user://profiles/<id>.cfg` (`p1`, `p2`, …) holds that player's name, level XP,
+  gold, shards, chests, store items, hero look and banner. `controls.cfg` keeps this device's settings and
+  key bindings plus `[profiles] current`, and still a copy of the current player's data. Every save (after
+  each match, purchase, equip and change, on EXIT and on closing the window) writes both through the
+  safe write (`.tmp`, read back, `.bak`, rename).
+- **Nobody loses progress**: an existing save becomes the first player (named after the hero name).
+- **First launch** opens WHO'S PLAYING? on the title with the name field ready (typing on PC; on iPad
+  tapping the field opens the browser's name box). Only on a plain launch: tests and renders with flags
+  skip it.
+- **PLAYERS** button under the gold on the title: the list of players with level, rank and gold;
+  PLAYING marks the current one (tap the name to rename); PLAY AS switches (the hero, gold and items
+  change at once); + NEW PLAYER starts one at level 1; DELETE asks SURE? and removes another player (never
+  the one playing). Up to 6 players.
+- **Codes carry the name**, and IMPORT CODE now adds the code's player next to the others instead of
+  replacing the one playing.
+
+Tests: `tools/save_test.gd` +9 checks (own file, new player starts empty, switching keeps each apart, a
+restart carries on as the last player, the list, the code's name, delete rules, import adds a player);
+`tools/options_menu_test.gd` opens PLAYERS.
+
+Files: `scripts/save_file.gd`, `scripts/game.gd`, `scripts/menu.gd`, `tools/save_test.gd`,
+`tools/options_menu_test.gd`.
+
+Undo: `git revert 71ca08f` (the profile files stay on disk and are ignored; controls.cfg still holds the
+current player's data).

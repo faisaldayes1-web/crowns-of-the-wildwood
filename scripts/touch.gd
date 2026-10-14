@@ -27,7 +27,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	if DisplayServer.is_touchscreen_available():
+	if DisplayServer.is_touchscreen_available() or OS.get_cmdline_user_args().has("--debug-touch"):   # (the flag: iPad-layout renders)
 		active = true
 		if game:
 			game.touch_active = true
@@ -95,7 +95,7 @@ func _down(i: int, pos: Vector2) -> void:
 				aim_vec = Vector2.ZERO
 				Input.action_press(_prefix() + "attack")
 				return
-			held[i] = _prefix() + action if action in ["attack", "dodge", "ability_1", "ability_2", "block", "interact", "rank_menu"] else action
+			held[i] = _prefix() + action if action in ["attack", "dodge", "ability_1", "ability_2", "ability_3", "block", "interact", "rank_menu"] else action
 			Input.action_press(held[i])
 			return
 	if pos.y < 110.0:

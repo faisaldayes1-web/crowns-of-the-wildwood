@@ -93,3 +93,38 @@ static func apply_code(cfg: ConfigFile, data: Dictionary) -> void:
 
 static func _check(body: String) -> String:
 	return body.sha256_text().substr(0, 8)
+
+
+# --- Player profiles ----------------------------------------------------------
+# Each named player keeps their own file, user://profiles/<id>.cfg, holding
+# the [profile] section (level XP, gold, shards, chests, store items) and the
+# look keys (name, hero, banner). controls.cfg keeps the device's settings
+# and controls plus [profiles] current = <id>, and a copy of the current
+# player's data so older builds still read it.
+
+static func profile_of(cfg: ConfigFile) -> ConfigFile:
+	## The current player's part of the save, as a profile file.
+	var pc := ConfigFile.new()
+	if cfg.has_section("profile"):
+		for k in cfg.get_section_keys("profile"):
+			pc.set_value("profile", k, cfg.get_value("profile", k))
+	for k in LOOK_KEYS:
+		if cfg.has_section_key("settings", k):
+			pc.set_value("settings", k, cfg.get_value("settings", k))
+	return pc
+
+
+static func use_profile(cfg: ConfigFile, pc: ConfigFile) -> void:
+	## Puts a player's profile into the save in place of whoever was there
+	## (keys the profile lacks fall back to their defaults).
+	if cfg.has_section("profile"):
+		cfg.erase_section("profile")
+	for k in LOOK_KEYS:
+		if cfg.has_section_key("settings", k):
+			cfg.erase_section_key("settings", k)
+	if pc.has_section("profile"):
+		for k in pc.get_section_keys("profile"):
+			cfg.set_value("profile", k, pc.get_value("profile", k))
+	for k in LOOK_KEYS:
+		if pc.has_section_key("settings", k):
+			cfg.set_value("settings", k, pc.get_value("settings", k))

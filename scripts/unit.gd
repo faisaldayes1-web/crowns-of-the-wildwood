@@ -31,6 +31,7 @@ var downed := false
 var downed_timer := 0.0       # bleed-out seconds left
 var downed_total := 0.0
 var downed_by = null          # who knocked us down (kill credit already given)
+var down_weapon := ""         # what they knocked us down with (for the death banner)
 var skip_hold := 0.0          # seconds interact has been held to skip
 var revive_progress := 0.0    # 0..1, filled by whoever is reviving us
 var revive_by = null          # the teammate reviving us this frame
@@ -45,10 +46,15 @@ var flash_timer := 0.0
 const FLASH_TIME := 0.22     # hit flash: white for the first frames, then red, easing back
 var hitstop_timer := 0.0
 var heartbeat_timer := 0.0
+const AIM_ASSIST_DEG := 12.0     # stick aim bends onto an enemy this close to the stick line...
+const AIM_ASSIST_PULL := 0.75    # ...this much of the way (1 = dead on)
+const DENY_GAP := 0.35          # at most one cooldown "not yet" click this often
 const HIT_CONFIRM_RANGE := 4.0   # your hits from further than this play a tick and mark the target (ranged feedback)
 const ATTACK_BUFFER := 0.2         # seconds a tapped attack waits for the swing cooldown
 var attack_buffer := 0.0
-var hit_confirms := 0      # ranged hit confirms played (for the tests)
+var hit_confirms := 0
+var deny_at := -10.0       # when the last "still cooling down" click played
+var deny_cues := 0         # how many played (for the tests)      # ranged hit confirms played (for the tests)
 const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits for its cooldown
 var input_buffer := [0.0, 0.0, 0.0]  # ability 1, ability 2, dodge
 var swing_flip := false     # alternate the slash arc left/right    # hit stop: the model's animation holds for a beat (looks only)
@@ -488,7 +494,8 @@ func choose_variant(for_role: int, index: int) -> bool:
 		game.spawn_ring(global_position, 2.4, gold, 0.7)
 		game.spawn_splash(global_position + Vector3(0, 0.6, 0), gold, 30, 5.0, 1.0, true)
 		game.spawn_flash(global_position, gold, 4.0, 0.5)
-		game.spawn_popup(global_position + Vector3(0, 2.4, 0), role_name().to_upper(), gold)
+		if not is_player:   # the player gets the PROMOTED! banner instead
+			game.spawn_popup(global_position + Vector3(0, 2.4, 0), role_name().to_upper(), gold)
 		if is_player:
 			# (The rank-up flourish says PROMOTED! with the variant name; the
 			# chat log keeps the line.)
@@ -879,7 +886,8 @@ func gain_xp(amount: int, source: String = "combat") -> void:
 		game.spawn_pillar(global_position, Color(1.0, 0.9, 0.4), 4.5, 1.0)
 		game.spawn_ring(global_position, 2.2, Color(1.0, 0.9, 0.4), 0.6)
 		game.spawn_splash(global_position + Vector3(0, 0.6, 0), Color(1.0, 0.9, 0.4), 24, 4.5, 0.9, true)
-		game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
+		if not is_player:   # the player gets the RANK UP! banner instead
+			game.spawn_popup(global_position + Vector3(0, 2.4, 0), "LEVEL %d" % level, Color(1, 0.9, 0.4))
 		if is_player:
 			game.sfx.ui("level_up", -2.0)
 			# A brighter burst at your feet to go with the RANK UP! flourish.
@@ -1105,10 +1113,11 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 				int(attacker.fire_form), int(burn_tick)])
 		if is_player or remote_peer > 0:
 			var weapon: String = attacker.attack_stats().attack_name if (attacker and attacker != self and attacker.has_method("attack_stats")) else ""
-			if is_player:
-				game.on_player_killed(attacker if attacker != self else null, weapon)
-			elif game.net:
-				game.net.rec("game", "on_player_killed", [attacker if attacker != self else null, weapon], self)
+			down_weapon = weapon
+			if not downed_enabled():
+				_death_card(attacker, weapon, false)
+			# (Going down shows no killer: the banner waits for the real death,
+			# Faisal 2026-10-10; _die() hangs it then.)
 		if attacker and attacker != self:
 			if attacker.is_player:
 				game.shake(0.28)
@@ -1199,6 +1208,17 @@ func heal(amount: int, healer = null) -> int:
 func dodge_ready() -> bool:
 	return dodge_cooldown <= 0.0 and not dead and carrying == null and root_timer <= 0.0 \
 		and energy >= Stats.DODGE_COST
+
+
+func _deny_cue() -> void:
+	## Pressed a dodge or ability that is still cooling down (beyond the input
+	## buffer): a quiet "not yet" click, at most every DENY_GAP seconds.
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - deny_at < DENY_GAP:
+		return
+	deny_at = now
+	deny_cues += 1
+	game.sfx.ui("ui_deny", -12.0)
 
 
 func try_dodge(dir: Vector3) -> void:
@@ -1536,10 +1556,17 @@ func _recoil(dir: Vector3, amount: float) -> void:
 		game.rumble(self, clampf(amount * 0.08, 0.1, 0.5), 0.0, 0.08)
 
 
-func _die() -> void:
+func _die(finisher = null) -> void:
 	# A downed unit dying (finished off, bled out, skipped) already paid for
 	# the fall when it went down: only the body and the timer are left.
+	# `finisher` is whoever finished us off (the banner names them).
 	var was_down := downed
+	if was_down and (is_player or remote_peer > 0):
+		# The killer's banner: whoever finished us, else whoever knocked us down.
+		if finisher:
+			_death_card(finisher, "a finisher", true)
+		else:
+			_death_card(downed_by if is_instance_valid(downed_by) else null, down_weapon, false)
 	var timer_level: int = down_snapshot.get("level", level) if was_down else level
 	if was_down:
 		_end_downed()
@@ -1648,6 +1675,17 @@ func _go_down(attacker) -> void:
 	_refresh_overhead()
 
 
+func _death_card(killer, weapon: String, finished: bool) -> void:
+	## Hang the killer's banner on this player's death screen (a joiner's
+	## goes over the network).
+	if killer == self:
+		killer = null
+	if is_player:
+		game.on_player_killed(killer, weapon, finished)
+	elif remote_peer > 0 and game.net:
+		game.net.rec("game", "on_player_killed", [killer, weapon, finished], self)
+
+
 func _end_downed() -> void:
 	downed = false
 	downed_timer = 0.0
@@ -1673,9 +1711,6 @@ func _hit_while_downed(attacker, finisher: bool = false) -> bool:
 	if executed_by and is_instance_valid(executed_by) and executed_by != attacker:
 		return false   # someone else's finisher is already coming down
 	_finish_fx(attacker)
-	if is_player:
-		game.killer_card = {"unit": attacker, "weapon": "a finisher", "finished": true} if attacker else {}
-		game.killer_timer = 6.0
 	if attacker:
 		attacker.gain_xp(Stats.XP_FINISH, "takedowns")
 		if attacker.is_player:
@@ -1692,7 +1727,7 @@ func _hit_while_downed(attacker, finisher: bool = false) -> bool:
 			game.kill_feed.pop_front()
 	if game.demo:
 		print("FINISH t=%d team%d %s by=%s" % [game.match_clock(), team, role_name(), attacker.role_name() if attacker else "trap"])
-	_die()
+	_die(attacker)
 	return true
 
 
@@ -1907,7 +1942,8 @@ func _revive(by) -> void:
 	game.spawn_pillar(global_position, col, 3.5, 0.8)
 	game.spawn_ring(global_position, 1.8, col, 0.5)
 	game.spawn_splash(global_position + Vector3(0, 0.6, 0), col, 20, 3.0, 0.8, true)
-	game.spawn_popup(global_position + Vector3(0, 2.2, 0), "REVIVED", col)
+	if not is_player:   # the player gets the REVIVED BY notice instead
+		game.spawn_popup(global_position + Vector3(0, 2.2, 0), "REVIVED", col)
 	game.sfx.play("respawn", global_position, -4.0)
 	if is_player or remote_peer > 0:
 		game.toast("REVIVED BY %s" % (by.display_name.to_upper() if by else "A TEAMMATE"), col, self)
@@ -2243,6 +2279,15 @@ func _update_player_aim(move: Vector3) -> void:
 		"stick":
 			if stick.length() > 0.3:
 				aim = Vector3(stick.x, 0, stick.y).normalized()
+				if game.touch_active:
+					# Touch aim assist: a drag within 30 degrees of an enemy
+					# locks onto it (a thumb is never as exact as a mouse).
+					var snap := _auto_aim(aim)
+					if snap != Vector3.ZERO:
+						aim = snap
+				else:
+					# Controller stick: bend the aim onto a close enemy.
+					aim = _assist_aim(aim)
 			else:
 				# Touch play: with no aim drag, face the nearest enemy in reach.
 				var auto := _auto_aim() if game.touch_active else Vector3.ZERO
@@ -2266,9 +2311,35 @@ func _update_player_aim(move: Vector3) -> void:
 			aim_point = global_position + aim * 6.0
 
 
-func _auto_aim() -> Vector3:
-	## The direction to the nearest living enemy within a few metres, or zero.
-	var best := 7.0
+func _assist_aim(raw: Vector3) -> Vector3:
+	## Stick aim assist: an enemy within AIM_ASSIST_DEG of where the stick
+	## points, and within reach of your attack, bends the aim most of the way
+	## onto them. The closest to the stick line wins. Mouse aim is untouched.
+	var reach: float = attack_stats().get("range", 2.0) + 1.0
+	var best := deg_to_rad(AIM_ASSIST_DEG)
+	var pick := Vector3.ZERO
+	for u in game.units:
+		if u == self or u.team == team or u.dead:
+			continue
+		var to: Vector3 = u.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d < 0.1 or d > reach:
+			continue
+		var ang := raw.angle_to(to / d)
+		if ang < best:
+			best = ang
+			pick = to / d
+	if pick == Vector3.ZERO:
+		return raw
+	return raw.slerp(pick, AIM_ASSIST_PULL).normalized()
+
+
+func _auto_aim(along: Vector3 = Vector3.ZERO) -> Vector3:
+	## The direction to the nearest living enemy in reach, or zero. With
+	## `along`, only enemies within 30 degrees of that direction count.
+	## Reach: 7 m for melee, 13 m for ranged and spell classes.
+	var best := 13.0 if role in [Stats.Role.RANGER, Stats.Role.MAGE, Stats.Role.HEALER] else 7.0
 	var dir := Vector3.ZERO
 	for u in game.units:
 		if u == self or u.team == team or u.dead:
@@ -2276,6 +2347,8 @@ func _auto_aim() -> Vector3:
 		var to: Vector3 = u.global_position - global_position
 		to.y = 0.0
 		var d := to.length()
+		if along != Vector3.ZERO and d > 0.1 and along.dot(to / d) < 0.866:
+			continue
 		if d < best and d > 0.1:
 			best = d
 			dir = to / d
@@ -2349,6 +2422,10 @@ func _physics_process(delta: float) -> void:
 		energy = minf(energy + regen * delta, energy_max())
 	energy = maxf(energy, 0.0)
 	attack_timer = maxf(attack_timer - delta, 0.0)
+	if is_player and dodge_cooldown > 0.0 and dodge_cooldown <= delta and not dead:
+		# Dodge is back: a soft tick and a quick ring at your feet.
+		game.sfx.ui("block_up", -12.0, 1.4)
+		game.spawn_ring(global_position, 0.7, Color(0.75, 1.0, 0.65), 0.25, 0.08)
 	dodge_cooldown = maxf(dodge_cooldown - delta, 0.0)
 	for i in ability_timers.size():
 		ability_timers[i] = maxf(ability_timers[i] - delta, 0.0)
@@ -2491,6 +2568,11 @@ func _physics_process(delta: float) -> void:
 				use_ability(2, aim)
 			if _tap("dodge"):
 				input_buffer[2] = INPUT_BUFFER
+				if dodge_cooldown > INPUT_BUFFER:
+					_deny_cue()
+			for i in mini(2, abilities().size()):
+				if Input.is_action_just_pressed(_a("ability_%d" % (i + 1))) and ability_timers[i] > INPUT_BUFFER:
+					_deny_cue()
 		for i in 2:
 			if input_buffer[i] > 0.0:
 				input_buffer[i] -= delta
