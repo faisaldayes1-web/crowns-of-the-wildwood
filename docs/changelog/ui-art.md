@@ -992,3 +992,15 @@ Commit: `8776540`, then a merge of release/v0.4.0-alpha 99f41df. Faisal (06:27):
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
 
 Revert: `git revert 8776540`.
+
+## 2026-10-14 — Promotion card, living skill strips, kill banner shield
+
+Commit: `30a2e48`. Faisal's comments on the new UI renders: 07:16 on the kill banner portrait ("change this to match the visual style of the rest of the game"); 07:17 on the promotion portrait ("fix the image scale, and where it is placed"); 07:24 on his reference's WILDHUNTER card ("i want it to look more like this"); 07:24 on its animated skill strips ("i like the idea of the this animation being here").
+
+- **Kill banner:** the victim's cropped card portrait is replaced by their class shield icon (`_draw_kill_banner`).
+- **CLASS PROMOTION** (`_skills_side`): one tall art card. The class card fills it edge to edge with the face on the left; the right half is shaded and carries the path's emblem (padlocked while locked), its name in green, its description and its three perks (attack plus two skills) on icon tiles. The two paths are tabs at the foot: hover shows one, click (or 5/6, or the pad) picks an unlocked one.
+- **Skill strips** (new `_strip_fx`, SKILLS & UPGRADES board only): each row's skill acted out on a loop in its colour. Bolts and arrows streak across with a trail (three for volleys); traps, turrets, smoke and curses turn as a ring of thorns; blinks leave after-images and chevrons; melee swings sweep an arc; Vigor and buffs beat with ripples and orbiting sparks. This replaces the static faint emblem. The pause menu's UPGRADES tab is unchanged.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
+
+Revert: `git revert 30a2e48`.
