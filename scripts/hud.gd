@@ -55,6 +55,7 @@ var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_i
 var skill_art: Dictionary = {}   # hexagon skill tiles and shield faces (assets/ui/skills)
 var touch_ui := false            # touch-screen layout: big thumb buttons, no keycaps (see _touch_cluster)
 var next_slot_art := ""          # set just before _slot(): the skill art to draw for it
+var clean_icons: Dictionary = {}  # kind -> the icon without its painted halo, for the ability bar (tools/center_icons.py)
 var strips: Dictionary = {}  # slug -> Texture2D, Faisal's painted skill-row art (tools/make_skill_strips.py)
 var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
@@ -150,6 +151,12 @@ func _ready() -> void:
 				var kind := file.trim_suffix(".png.import")
 				if not icons.has(kind):
 					icons[kind] = load("res://assets/ui/icons/%s.png" % kind)
+	var cdir := DirAccess.open("res://assets/ui/icons_clean")
+	if cdir:
+		for file in cdir.get_files():
+			var ck := file.trim_suffix(".import").trim_suffix(".png")
+			if not clean_icons.has(ck) and (file.ends_with(".png") or file.ends_with(".png.import")):
+				clean_icons[ck] = load("res://assets/ui/icons_clean/%s.png" % ck)
 	# The skill rows' painted strips (Faisal 2026-10-14 10:59), by skill name.
 	var sdir := DirAccess.open("res://assets/ui/strips")
 	if sdir:
@@ -940,6 +947,12 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 		pass   # the painted tile carries its own icon
 	elif locked:
 		_padlock(hc + Vector2(0, -2), size_px * 0.3, Color(0.58, 0.58, 0.62))
+	elif clean_icons.has(icon):
+		# Without its lopsided painted halo (Faisal 2026-10-14 18:16: "make
+		# sure the icons are not off centered"): the hexagon is the backing.
+		var px := size_px * 0.3 * 2.9
+		draw_texture_rect(clean_icons[icon], Rect2(hc + Vector2(0, -2) - Vector2(px, px) / 2.0, Vector2(px, px)), false,
+			Color.WHITE if ready else Color(0.45, 0.45, 0.5))
 	else:
 		_icon(icon, hc + Vector2(0, -2), size_px * 0.3, Color.WHITE, not ready)
 
@@ -3159,6 +3172,19 @@ func _hooded_head(c: Vector2, r: float, team: int, dead: bool) -> void:
 	draw_arc(c + Vector2(0, r * 0.36), 0.09 * r, 0.3, PI - 0.3, 8, Color(0.45, 0.2, 0.12), 1.2)
 
 
+# Where each class card's face is (fractions of the card), for the round
+# portrait (measured on the 2026-10-14 cards).
+const FACE_AT := {
+	"elf_base": Vector2(0.43, 0.29), "human_base": Vector2(0.46, 0.22),
+	"elf_engineer": Vector2(0.52, 0.26), "human_engineer": Vector2(0.52, 0.26),
+	"elf_healer": Vector2(0.48, 0.23), "human_healer": Vector2(0.48, 0.23),
+	"elf_knight": Vector2(0.61, 0.19), "human_knight": Vector2(0.61, 0.19),
+	"elf_mage": Vector2(0.44, 0.26), "human_mage": Vector2(0.44, 0.26),
+	"elf_ranger": Vector2(0.43, 0.26), "human_ranger": Vector2(0.43, 0.26),
+	"elf_rogue": Vector2(0.5, 0.21), "human_rogue": Vector2(0.5, 0.21),
+}
+
+
 func _medallion(c: Vector2, r: float, team: int, role: int, dead: bool) -> void:
 	## The player's portrait in a round gold ring: the owner's class card
 	## cropped to the face, or a drawn hooded head.
@@ -3180,9 +3206,14 @@ func _medallion(c: Vector2, r: float, team: int, role: int, dead: bool) -> void:
 	if cards.has(key):
 		var tex: Texture2D = cards[key]
 		var ts := tex.get_size()
-		var side := ts.x * 0.66
-		var src := Rect2(Vector2(ts.x * 0.56 - side / 2.0, ts.y * 0.2 - side / 2.0), Vector2(side, side))
-		src.position.y = maxf(src.position.y, 0.0)
+		var side := ts.x * 0.62
+		# Centred on each card's own face (Faisal 2026-10-14 18:16: "make
+		# sure the icons are not off centered"; one fixed spot left the
+		# Elf soldier's face off to the side of the ring).
+		var at: Vector2 = FACE_AT.get(key, Vector2(0.5, 0.24))
+		var src := Rect2(Vector2(ts.x * at.x - side / 2.0, ts.y * at.y - side / 2.0), Vector2(side, side))
+		src.position.x = clampf(src.position.x, 0.0, ts.x - side)
+		src.position.y = maxf(src.position.y, ts.y * 0.035)   # below the card's gold frame
 		var uvs := PackedVector2Array()
 		var cols := PackedColorArray()
 		var tint := Color(0.4, 0.4, 0.42) if dead else Color.WHITE
