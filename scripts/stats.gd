@@ -620,7 +620,7 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 # (Regen limits attack rate, so it is worth more than it looks: 1.3 made the
 # Humans win three of every four bot matches; 1.12 was still winning two of three once raids rallied and escorted, so 1.06.)
 const FACTIONS := [
-	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.15, "regen_mult": 1.0,   # 6.3 → 6.15 (patch 2: still the quicker side, less kiting edge)
+	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.05, "regen_mult": 1.0,   # 6.3 → 6.15 (patch 2) → 6.05 (patch 7: still the quicker side)
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.22,   # 1.06 → 1.15 (patch 1: basic attacks went free) → 1.22 (patch 6)
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
