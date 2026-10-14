@@ -2,6 +2,13 @@
 
 Branch `group/economy-whmjnc`, draft PR #13. Newest entry first. Format: [README.md](README.md).
 
+### 2026-10-14 15:55 UTC · `ed2c720` · No more "no room for a node pair" warnings
+
+- **What:** Two tree spots found no clear mirrored pair on the merged build, so every match logged a warning and those trees were missing. The search now reaches 14 m in 16 directions; all 9 pairs (18 trees) place on Wildwood and Moonlit.
+- **Files:** scripts/economy.gd (`_place_pair`)
+- **Tested:** `--demo --econ-where` on both maps (18 nodes, no warnings), `--econ-test` 0 failed on the latest alpha merge.
+- **Revert:** `git revert ed2c720`
+
 ### 2026-10-10 11:40 UTC · `c772a8f`, `94e5b1f` · Veteran Training overhaul, painted wood icon (Faisal 10:41)
 
 - **What:** A gold TRAINING slot sits left of the ability board. It shows AT 5:00 until training opens and glows once you can buy. Press G (the old hat-move key), or click or tap it, to open the Veteran Training panel from anywhere; F at your class's hat machine opens it too. The panel sits on the game's wooden board with a name tag. It shows your class, the two variants it unlocks, your rank points toward the unlock (gold earned, green + what training adds), the price against your wood, and a TRAIN button (click, tap or F). It also says why you can't buy (opens at 5:00, need wood, leave the fight). The wood icon is now painted like the HUD icons (three cut logs and a leaf), and there is a matching training icon (laurel, star, chevron).
