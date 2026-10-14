@@ -3342,7 +3342,7 @@ func menu_tick() -> void:
 			if b[0].has_point(mouse) and playing and not menu_open and not rank_open:
 				menu_open = true
 				menu_tab = 0 if b[1] == "menu" else 3
-				get_tree().paused = true
+				get_tree().paused = not (net and net.online())   # an online match never pauses (this froze every joiner)
 				sfx.ui("ui_click", -4.0)
 		for b in hud.group_buttons:
 			if b[0].has_point(mouse):
