@@ -1124,3 +1124,18 @@ Faisal (12:40): "for the skill strips they have a gradient that fades to black n
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
 
 Revert: `git revert 9051625`.
+
+## 2026-10-14 — Icons and portrait centred
+
+Commit: `4fc4032`. Faisal (18:16, in the World visual overhaul thread): "make sure the icons are not off centered". His screenshot circled the corner portrait and the Perks and Grab slots.
+
+- **New tool:** `tools/center_icons.py`.
+  - It finds each icon's subject: the vivid object plus its black outline, leaving out the dull painted halo.
+  - It shifts `assets/ui/icons/<name>.png` so the subject is centred. 53 icons moved by 1 to 12 px.
+  - It writes halo-free copies to `assets/ui/icons_clean/`.
+- **Ability bar:** `_slot_face` draws the `clean_icons` copy when there is one, so the heart and crown no longer sit on a lopsided smudge.
+- **Corner portrait:** `_medallion` now crops round each card's face, from the new `FACE_AT` table. Before, it used one fixed spot (0.56, 0.2) for every card. The crop side changed 0.66 → 0.62 of the card width, and the crop stays below the card's gold frame (top ≥ 3.5% of its height).
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 4fc4032`.
