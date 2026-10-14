@@ -6244,7 +6244,14 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 				draw_circle(Vector2(cx, cy), 7, Color(c2, 0.24))
 				draw_circle(Vector2(cx + 5, cy - 4), 4, Color(c2, 0.24))
 		_:
-			pass
+			var tex: Texture2D = _banner_tex(str(bg[3]))
+			if tex:
+				# A painted field (tools/make_banner_art.py), cropped to the
+				# cloth's shape from the middle.
+				var ts := tex.get_size()
+				var sh := minf(ts.y, ts.x * inner.size.y / inner.size.x)
+				var swd := sh * inner.size.x / inner.size.y
+				draw_texture_rect_region(tex, inner, Rect2((ts.x - swd) / 2.0, (ts.y - sh) / 2.0, swd, sh))
 	# A soft dark band behind the text keeps the name readable on any cloth,
 	# and the team's colour runs along the hem.
 	var band := Rect2(inner.position.x + 54 * u, inner.position.y + 4, inner.size.x - 54 * u - 50 * u, inner.size.y - 8)
@@ -6316,6 +6323,89 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 	draw_arc(lc, 11.5 * u, PI * 1.1, PI * 1.9, 12, Color(1, 1, 0.9, 0.7), 1.5)
 	_text(Vector2(lc.x - 20 * u, lc.y - 5 * u), "LV", int(7 * u), Color(0.45, 0.25, 0.04), HORIZONTAL_ALIGNMENT_CENTER, 40 * u, 0)
 	_text(Vector2(lc.x - 20 * u, lc.y + 8 * u), str(b.level), int(15 * u), Color(0.35, 0.17, 0.02), HORIZONTAL_ALIGNMENT_CENTER, 40 * u, 0)
+	# The rarest part sets how fancy the whole banner looks.
+	var tiers := ["common", "rare", "epic", "legendary"]
+	var best := 0
+	for pair in [["banner_bg", int(b.bg)], ["banner_emblem", int(b.emblem)], ["banner_frame", int(b.frame)]]:
+		best = maxi(best, tiers.find(Stats.banner_rarity(pair[0], pair[1])))
+	if best > 0:
+		_banner_fx(rect, tiers[best], trim, ec, u)
+
+
+var _banner_textures: Dictionary = {}
+
+
+func _banner_tex(pattern: String) -> Texture2D:
+	## The painted field for a "painted:<name>" background, or null.
+	if not pattern.begins_with("painted:"):
+		return null
+	var key := pattern.trim_prefix("painted:")
+	if not _banner_textures.has(key):
+		var path := "res://assets/ui/banners/bg_%s.png" % key
+		_banner_textures[key] = load(path) if ResourceLoader.exists(path) else null
+	return _banner_textures[key]
+
+
+func _banner_fx(rect: Rect2, tier: String, trim: Color, ec: Vector2, u: float) -> void:
+	## Rare banners look the part (Faisal 2026-10-14 20:46: "for the
+	## expensive rare items make them look visually different so it entices
+	## sales"). Rare: a light sweep across the cloth. Epic: plus a pulsing
+	## glow round the frame in its rarity colour and gems in the corners.
+	## Legendary: plus a gold crest over the shield, sparks circling the
+	## frame and a brighter, faster sweep.
+	var now := Time.get_ticks_msec() / 1000.0
+	var col: Color = Stats.RARITY_COLORS[tier]
+	var legend := tier == "legendary"
+	var epic := tier == "epic" or legend
+	var inner := rect.grow(-6)
+	# The light sweep: a slanted bright band crossing every few seconds.
+	var period := 2.6 if legend else 3.6
+	var f := fmod(now, period) / period
+	var sx := inner.position.x - 40.0 + f * (inner.size.x + 80.0)
+	var bw := 18.0 * u
+	var sweep := PackedVector2Array([Vector2(sx, inner.position.y), Vector2(sx + bw, inner.position.y), Vector2(sx + bw - 16.0 * u, inner.end.y), Vector2(sx - 16.0 * u, inner.end.y)])
+	var clip := PackedVector2Array()
+	for v in sweep:
+		clip.append(Vector2(clampf(v.x, inner.position.x, inner.end.x), v.y))
+	var sa := 0.32 if legend else 0.2
+	draw_polygon(clip, PackedColorArray([Color(1, 1, 1, 0.0), Color(1, 1, 1, sa), Color(1, 1, 1, sa), Color(1, 1, 1, 0.0)]))
+	if not epic:
+		# Rare: a thin ring in the rarity colour.
+		_plate(rect.grow(1.5), Color(0, 0, 0, 0), Color(col, 0.75), 12, 2)
+		return
+	var pulse := 0.6 + 0.4 * sin(now * 3.0)
+	for g in 3:
+		draw_rect(rect.grow(2.0 + g * 2.5), Color(col, (0.35 - g * 0.1) * pulse), false, 2.0)
+	for c in [rect.position + Vector2(7, 7), Vector2(rect.end.x - 7, rect.position.y + 7), Vector2(rect.position.x + 7, rect.end.y - 7), rect.end - Vector2(7, 7)]:
+		var gem := PackedVector2Array([c + Vector2(0, -5), c + Vector2(4, 0), c + Vector2(0, 5), c + Vector2(-4, 0)])
+		draw_colored_polygon(gem, col.darkened(0.2))
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -5), c + Vector2(4, 0), c + Vector2(0, 0)]), col.lightened(0.5))
+		draw_polyline(PackedVector2Array([gem[0], gem[1], gem[2], gem[3], gem[0]]), Color(0.1, 0.06, 0.03), 1.0)
+	if not legend:
+		return
+	# A small gold crown crest over the emblem shield.
+	var cc := ec + Vector2(0, -33.0 * u)
+	var crown := PackedVector2Array([cc + Vector2(-10, 4) * u, cc + Vector2(-10, -4) * u, cc + Vector2(-5, 0) * u, cc + Vector2(0, -7) * u,
+		cc + Vector2(5, 0) * u, cc + Vector2(10, -4) * u, cc + Vector2(10, 4) * u])
+	draw_colored_polygon(crown, Color(1.0, 0.8, 0.25))
+	draw_polyline(crown + PackedVector2Array([crown[0]]), Color(0.3, 0.15, 0.02), 1.5)
+	for k in [-1, 0, 1]:
+		draw_circle(cc + Vector2(k * 5.0, 1.5) * u, 1.2 * u, Color(0.9, 0.15, 0.2) if k == 0 else Color(0.3, 0.6, 1.0))
+	# Sparks running round the frame.
+	var per := 2.0 * (rect.size.x + rect.size.y)
+	for k in 6:
+		var d := fmod(now * 90.0 + k * per / 6.0, per)
+		var pt: Vector2
+		if d < rect.size.x:
+			pt = rect.position + Vector2(d, 0)
+		elif d < rect.size.x + rect.size.y:
+			pt = Vector2(rect.end.x, rect.position.y + d - rect.size.x)
+		elif d < 2.0 * rect.size.x + rect.size.y:
+			pt = Vector2(rect.end.x - (d - rect.size.x - rect.size.y), rect.end.y)
+		else:
+			pt = Vector2(rect.position.x, rect.end.y - (d - 2.0 * rect.size.x - rect.size.y))
+		draw_circle(pt, 4.0, Color(col, 0.35))
+		_fx_sparkle(pt, 3.5, Color(1.0, 0.95, 0.75, 0.95))
 
 
 func _draw_death_screen(p) -> void:
@@ -6416,42 +6506,51 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 	var preview := Rect2(origin + Vector2(0, 8), Vector2(w, 64))
 	var me := {"name": game.hero_name if game.hero_name.strip_edges() != "" else "You", "bg": game.banner_bg, "emblem": game.banner_emblem,
 		"frame": game.banner_frame, "title": Stats.BANNER_TITLES[game.banner_title][1], "level": game.account_level(), "team": 0}
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--debug-banner="):   # a render of one banner: --debug-banner=bg,emblem,frame
+			var v := arg.trim_prefix("--debug-banner=").split(",")
+			if v.size() == 3:
+				me.bg = int(v[0])
+				me.emblem = int(v[1])
+				me.frame = int(v[2])
 	_draw_banner(preview, me)
 	var y := origin.y + 84
-	var sw := 26.0
-	# Background swatches.
-	_text(Vector2(origin.x, y), "BACKGROUND", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	for i in Stats.BANNER_BACKGROUNDS.size():
-		var b := Rect2(origin.x + 76 + i * (sw + 3), y - 11, sw, 18)
-		var bg: Array = Stats.BANNER_BACKGROUNDS[i]
-		var have: bool = Store.owns(game, "banner_bg", i)
-		_plate(b, bg[2].lerp(bg[1], 0.4).darkened(0.0 if have else 0.5), GOLD if i == game.banner_bg else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_bg else 1)
-		if not have:
-			_store_lock(b)
-		hero_buttons.append([b, "banner_bg", i])
-	y += 26
-	_text(Vector2(origin.x, y), "EMBLEM", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var per_row := ceili(Stats.BANNER_EMBLEMS.size() / 2.0)
-	for i in Stats.BANNER_EMBLEMS.size():
-		var b := Rect2(origin.x + 76 + (i % per_row) * (sw + 3), y - 11 + (i / per_row) * 22, sw, 18)
-		var locked: bool = Stats.BANNER_EMBLEMS[i] == "class_rogue" and not game.unlocked()
-		var have: bool = Store.owns(game, "banner_emblem", i)
-		_plate(b, INK_LIGHT if not locked else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_emblem else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_emblem else 1)
-		_icon(Stats.BANNER_EMBLEMS[i], b.get_center(), 5, Color.WHITE, locked or not have)
-		if not have:
-			_store_lock(b)
-		hero_buttons.append([b, "banner_emblem", i])
-	y += 48
-	_text(Vector2(origin.x, y), "FRAME", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	for i in Stats.BANNER_FRAMES.size():
-		var b := Rect2(origin.x + 76 + i * (sw + 3), y - 11, sw, 18)
-		var locked: bool = Stats.BANNER_FRAMES[i][0] == "Royal" and not game.unlocked()
-		var have: bool = Store.owns(game, "banner_frame", i)
-		_plate(b, Stats.BANNER_FRAMES[i][1].darkened(0.0 if have else 0.5) if not locked else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_frame else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_frame else 1)
-		if not have:
-			_store_lock(b)
-		hero_buttons.append([b, "banner_frame", i])
-	y += 26
+	# The swatches wrap into rows (2026-10-14: many more banners), each
+	# with a thin ring in its rarity colour when it is rare or better.
+	var sw := 22.0
+	var per_row := maxi(int((w - 76.0) / (sw + 3.0)), 6)
+	var rows := [["BACKGROUND", "banner_bg", Stats.BANNER_BACKGROUNDS.size()], ["EMBLEM", "banner_emblem", Stats.BANNER_EMBLEMS.size()],
+		["FRAME", "banner_frame", Stats.BANNER_FRAMES.size()]]
+	for row in rows:
+		var kind: String = row[1]
+		_text(Vector2(origin.x, y), row[0], 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var n: int = row[2]
+		for i in n:
+			var b := Rect2(origin.x + 76 + (i % per_row) * (sw + 3), y - 11 + (i / per_row) * 21, sw, 17)
+			var have: bool = Store.owns(game, kind, i)
+			var sel: bool = i == (game.banner_bg if kind == "banner_bg" else (game.banner_emblem if kind == "banner_emblem" else game.banner_frame))
+			var rar := Stats.banner_rarity(kind, i)
+			if rar != "common":
+				_plate(b.grow(1.5), Color(0, 0, 0, 0), Color(Stats.RARITY_COLORS[rar], 0.9), 5, 1)
+			match kind:
+				"banner_bg":
+					var bg: Array = Stats.BANNER_BACKGROUNDS[i]
+					_plate(b, bg[2].lerp(bg[1], 0.4).darkened(0.0 if have else 0.5), GOLD if sel else Color(0.1, 0.1, 0.14), 4, 2 if sel else 1)
+					var tex: Texture2D = _banner_tex(str(bg[3]))
+					if tex:
+						draw_texture_rect_region(tex, b.grow(-2), Rect2(tex.get_width() * 0.3, 0, tex.get_width() * 0.4, tex.get_height()),
+							Color.WHITE if have else Color(0.5, 0.5, 0.5))
+				"banner_emblem":
+					var locked: bool = Stats.BANNER_EMBLEMS[i] == "class_rogue" and not game.unlocked()
+					_plate(b, INK_LIGHT if not locked else Color(0.2, 0.2, 0.24), GOLD if sel else Color(0.1, 0.1, 0.14), 4, 2 if sel else 1)
+					_icon(Stats.BANNER_EMBLEMS[i], b.get_center(), 4.6, Color.WHITE, locked or not have)
+				_:
+					var locked: bool = Stats.BANNER_FRAMES[i][0] == "Royal" and not game.unlocked()
+					_plate(b, Stats.BANNER_FRAMES[i][1].darkened(0.0 if have else 0.5) if not locked else Color(0.2, 0.2, 0.24), GOLD if sel else Color(0.1, 0.1, 0.14), 4, 2 if sel else 1)
+			if not have:
+				_store_lock(b)
+			hero_buttons.append([b, kind, i])
+		y += 5 + ceili(float(n) / per_row) * 21
 	_text(Vector2(origin.x, y), "TITLE", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var tx := origin.x + 76
 	var ty := y - 11

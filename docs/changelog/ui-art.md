@@ -1157,3 +1157,35 @@ Commit: `f27555f`. Faisal (20:46): "add more impacts and begin adding more banne
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
 
 Revert: `git revert f27555f`.
+
+## 2026-10-14 — More player banners
+
+Commit: `974445b`. Faisal (20:48): "player banners", replying about "begin adding more banners". He also asked: "for the expensive rare items make them look visually different so it entices sales".
+
+**New banner parts**
+- **Backgrounds:** 16 painted fields, written by the new `tools/make_banner_art.py` to `assets/ui/banners/bg_*.png`. They use the pattern `"painted:<name>"`. `BANNER_BACKGROUNDS` goes from 10 to 26 entries.
+  - Elf: Moonlit Grove, Autumn Leaves, Fae Lights, Thornweave.
+  - Human: Quartered, Chevron, Checky, Stone Keep, Royal Damask.
+  - Rare: Aurora, Crystal, Storm, Shadow, Starfall, Dragonfire, Golden Hoard.
+- **Emblems:** 29 more from the painted icons. `BANNER_EMBLEMS` goes from 18 to 47.
+- **Frames:** 8 more. `BANNER_FRAMES` goes from 8 to 16. They are Bronze, Silverleaf, Thorncrown, Runic, Bloodmoon, Celestial, Dragonscale and Sovereign.
+
+**Rarity**
+- New `Stats.BANNER_RARITY` (index → tier), `Stats.banner_rarity()` and `Stats.RARITY_COLORS`.
+- `hud._banner_fx` draws the rarest part's look:
+  - rare: a light sweep and a ring in the tier colour;
+  - epic: also a pulsing glow and corner gems;
+  - legendary: also a crown crest over the shield, six sparks circling the frame and a faster sweep.
+
+**Banner editor**
+- Swatches wrap into rows, now 22 px (was 26 px).
+- Painted fields show in their swatch.
+- Rare and better parts get a ring in their tier colour.
+
+**Debug render:** `--debug-banner=bg,emblem,frame` previews one banner in the editor.
+
+The store already sells everything past the `*_FREE` indexes. Prices stay with the Cosmetics store.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 974445b`.
