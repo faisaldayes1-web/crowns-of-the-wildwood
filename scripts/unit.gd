@@ -2618,7 +2618,8 @@ func _physics_process(delta: float) -> void:
 		if game.demo:
 			# Diagnostics: a bot that wants to move but has not for 12 s.
 			stall_clock += delta
-			if global_position.distance_to(stall_pos) > 0.5 or carrying or dead:
+			# Only a bot that wants to move counts: guards holding a post stand still on purpose.
+			if global_position.distance_to(stall_pos) > 0.5 or carrying or dead or move.length() < 0.1:
 				stall_pos = global_position
 				stall_clock = 0.0
 			elif stall_clock > 20.0:

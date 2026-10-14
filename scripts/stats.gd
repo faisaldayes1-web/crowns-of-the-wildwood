@@ -567,10 +567,10 @@ const FACTION_KITS := {
 				{"name": "Fae Step", "key": "E", "kind": "blink", "icon": "blink", "cooldown": 5, "cost": 30.0,   # cooldown 4 → 5 (patch 3)
 					"distance": 7.5, "desc": "Step along the fae paths, further than any blink."}]},
 		Role.HEALER: {
-			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 5.0, "cooldown": 0.7, "cost": 16.0},
+			"attack": {"attack_name": "Grove Mend", "attack_desc": "Mend teammates around you with living light; with nobody to heal, a bolt of moonlight.", "heal_radius": 5.0, "cooldown": 0.8, "cost": 16.0},   # cooldown 0.7 → 0.8 (patch 6: same pace as the Human Mend)
 			"abilities": [
 				{"name": "Spirit Bloom", "key": "Q", "kind": "blessing", "icon": "blessing", "cooldown": 8, "cost": 60.0,
-					"heal": 2, "radius": 8.0, "haste": 4.0, "desc": "Heal every teammate nearby two hearts and quicken them."},
+					"heal": 2, "radius": 8.0, "haste": 3.0, "desc": "Heal every teammate nearby two hearts and quicken them."},   # haste 4 → 3 (patch 6: as long as Blessing)
 				{"name": "Lunar Lance", "key": "E", "kind": "smite", "icon": "smite", "cooldown": 4, "cost": 30.0,   # cooldown 3 → 4 (patch 4)
 					"damage": 1, "range": 13.0, "shot_speed": 38.0, "slow": 1.5, "desc": "A lance of moonlight that slows whoever it hits."}]},
 		Role.ENGINEER: {
@@ -622,7 +622,7 @@ const BOT_NAMES := [["Aelith", "Faelar", "Sylvara", "Thalion", "Nimue", "Lorien"
 const FACTIONS := [
 	{"name": "Elves", "realm": "Forest", "color": Color(0.25, 0.7, 0.35), "speed": 6.15, "regen_mult": 1.0,   # 6.3 → 6.15 (patch 2: still the quicker side, less kiting edge)
 		"roles": ["Elf", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
-	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.15,   # 1.06 → 1.15 (patch 1: basic attacks went free, so faster regen is worth less)
+	{"name": "Humans", "realm": "Kingdom", "color": Color(0.25, 0.45, 0.9), "speed": 6.0, "regen_mult": 1.22,   # 1.06 → 1.15 (patch 1: basic attacks went free) → 1.22 (patch 6)
 		"roles": ["Human", "Knight", "Ranger", "Mage", "Healer", "Engineer", "Rogue"]},
 ]
 
