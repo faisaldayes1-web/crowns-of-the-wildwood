@@ -83,9 +83,9 @@ func _place_pair(kind: String, pos: Vector3) -> void:
 	if _spot_ok(pos) and _spot_ok(-pos):
 		spot = pos
 	else:
-		for d in [2.0, 3.5, 5.0, 6.5, 8.0]:
-			for k in 12:
-				var q: Vector3 = pos + Vector3(cos(k * TAU / 12.0), 0, sin(k * TAU / 12.0)) * d
+		for d in [2.0, 3.5, 5.0, 6.5, 8.0, 9.5, 11.0, 12.5, 14.0]:
+			for k in 16:
+				var q: Vector3 = pos + Vector3(cos(k * TAU / 16.0), 0, sin(k * TAU / 16.0)) * d
 				if _spot_ok(q) and _spot_ok(-q):
 					spot = q
 					break
