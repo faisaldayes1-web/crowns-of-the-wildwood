@@ -28,6 +28,7 @@ const Volcano = preload("res://scripts/volcano.gd")
 const MainMenu = preload("res://scripts/menu.gd")
 const MenuStage = preload("res://scripts/menu_stage.gd")
 const Economy = preload("res://scripts/economy.gd")
+const StyleProfile = preload("res://scripts/visual/style_profile.gd")
 const Role = Stats.Role
 
 const TEST_TEAM_MAX := 6     # --team-size=N cap for balance batches only
@@ -366,7 +367,9 @@ func _ready() -> void:
 	# Windows greys a window out as "Not Responding" when it hears nothing
 	# for 5 s: keep answering it while nodes pour in.
 	get_tree().node_added.connect(func(_n): _keep_window_alive())
+	world_style = true   # the match world follows the style profile; the menus built below do not
 	_build_world()
+	world_style = false
 	if net and not fixed_seed:
 		randomize()
 	for arg in OS.get_cmdline_user_args():
@@ -2115,6 +2118,10 @@ func _start_match(team: int) -> void:
 		if main_menu:
 			main_menu.stage = null
 		camera.make_current()
+	# The match world's light grade (style_profile.gd), now the menus' own
+	# light is gone.
+	style_live = true
+	_apply_map_variant()
 	# Each local player's side: from the lobby, else player 1's pick with
 	# the couch rule (versus: 2 and 4 against, co-op: all together).
 	local_sides = []
@@ -4236,12 +4243,19 @@ func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE, ext: String =
 	var mat := StandardMaterial3D.new()
 	# A swapped texture is already dark and cool, so it takes only a light soot.
 	var dim: Color = Color(0.9, 0.86, 0.84) if tex_swap.has(prefix) else soot
+	# The match world's style copy of the texture (scripts/visual/style_profile.gd);
+	# the menus, built with world_style off, keep the originals.
+	var style: Dictionary = StyleProfile.TEX.get(prefix, {}) if world_style and not tex_swap.has(prefix) and ext == "jpg" else {}
 	prefix = tex_swap.get(prefix, prefix)
-	mat.albedo_texture = load("res://assets/textures/%s_color.%s" % [prefix, ext])
+	var dir := StyleProfile.TEX_DIR if not style.is_empty() else "res://assets/textures/"
+	mat.albedo_texture = load("%s%s_color.%s" % [dir, prefix, ext])
 	mat.albedo_color = tint * dim
 	mat.normal_enabled = true
-	mat.normal_texture = load("res://assets/textures/%s_normal.jpg" % prefix)
+	mat.normal_texture = load("%s%s_normal.jpg" % [dir, prefix])
 	mat.roughness = 0.85
+	if not style.is_empty():
+		mat.normal_scale = style.normal
+		mat.roughness = style.rough
 	mat.uv1_triplanar = true
 	mat.uv1_world_triplanar = true
 	mat.uv1_scale = Vector3.ONE * scale
@@ -4301,6 +4315,9 @@ void fragment() {
 """
 
 var path_shader: Shader
+var world_style := false   # while the match world is built: builders use scripts/visual/style_profile.gd
+var style_live := false    # the match is on: the style's light grade replaces the menus' light
+var style_cache := {}      # shared, never-mutated world materials (bark, glow buds), by key
 
 
 func _stones(loose: bool = false, fray: bool = false) -> ShaderMaterial:
@@ -4313,11 +4330,13 @@ func _stones(loose: bool = false, fray: bool = false) -> ShaderMaterial:
 		path_shader = Shader.new()
 		path_shader.code = PATH_SHADER
 	var name := "path_loose" if loose else "path"
+	# The style copy: stones half the size (about 0.6 m), turf in the joints.
+	var dir := StyleProfile.TEX_DIR if world_style else "res://assets/textures/"
 	var mat := ShaderMaterial.new()
 	mat.shader = path_shader
-	mat.set_shader_parameter("albedo_tex", load("res://assets/textures/%s_color.png" % name))
-	mat.set_shader_parameter("normal_tex", load("res://assets/textures/%s_normal.jpg" % name))
-	mat.set_shader_parameter("stones_tex", load("res://assets/textures/%s_stones.png" % name))
+	mat.set_shader_parameter("albedo_tex", load("%s%s_color.png" % [dir, name]))
+	mat.set_shader_parameter("normal_tex", load("%s%s_normal.jpg" % [dir, name]))
+	mat.set_shader_parameter("stones_tex", load("%s%s_stones.png" % [dir, name]))
 	mat.set_shader_parameter("scale", 0.26 if loose else 0.2)
 	mat.set_shader_parameter("fray", fray)
 	if not fray:
@@ -4544,8 +4563,17 @@ func _add_ground_detail() -> void:
 	## stones, mushrooms under the trees and fallen leaves. Elven ground
 	## (west) gets glowing blooms and mushrooms; human ground (east) gets
 	## stones, leaf litter and plain wildflowers. All MultiMeshes.
+	## Style pass (2026-10-14): flowers and tufts grow in patches with open
+	## lawn between them (a noise field picks where), tufts sit a shade under
+	## the meadow instead of reading as dark blades, and every set is cut
+	## into DETAIL_CHUNK cells so the renderer culls what the camera (each
+	## split-screen camera on its own) cannot see. Purely decorative: no
+	## colliders, its own random generator.
 	var r := RandomNumberGenerator.new()
 	r.seed = 1234
+	var patch := FastNoiseLite.new()
+	patch.seed = 77
+	patch.frequency = StyleProfile.PATCH_FREQ
 	var flower := _petal_mesh()
 	var tuft := _tuft_mesh()
 	var stone := _rock_mesh(77, 0.26, 0.25)
@@ -4557,12 +4585,8 @@ func _add_ground_detail() -> void:
 	var leaf := PlaneMesh.new()
 	leaf.size = Vector2(0.34, 0.26)
 	var sets := [
-		["flower", flower, 3200, 0.4], ["tuft", tuft, 9000, 0.0], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
+		["flower", flower, StyleProfile.FLOWERS, 0.4], ["tuft", tuft, StyleProfile.TUFTS, 0.0], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
 	for s in sets:
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.use_colors = true
-		mm.mesh = s[1]
 		var placed: Array = []
 		var tries := 0
 		while placed.size() < s[2] and tries < s[2] * 12:
@@ -4575,10 +4599,16 @@ func _add_ground_detail() -> void:
 				p = Vector3(t.x + cos(a) * d, 0, t.z + sin(a) * d)
 			else:
 				p = Vector3(r.randf_range(-map_half.x + 4.0, map_half.x - 4.0), 0, r.randf_range(-map_half.y + 2.0, map_half.y - 2.0))
+				var n := patch.get_noise_2d(p.x, p.z)
+				if s[0] == "flower" and n < StyleProfile.FLOWER_PATCH:
+					continue
+				if s[0] == "tuft" and n < StyleProfile.TUFT_PATCH and r.randf() < 0.75:
+					continue
 			if not _open_ground(p):
 				continue
 			placed.append(p)
-		mm.instance_count = placed.size()
+		var xforms: Array = []
+		var cols: Array = []
 		for i in placed.size():
 			var p: Vector3 = placed[i]
 			var elf_side: bool = p.x < 0.0
@@ -4589,19 +4619,19 @@ func _add_ground_detail() -> void:
 				"flower":
 					# Cartoon blooms: flat five-petal heads tipped towards the camera.
 					basis = Basis(Vector3.RIGHT, deg_to_rad(35.0)) * Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * sc)
-					# Mostly daisies, then cornflower blue and buttercup yellow, a
-					# few pink and red (Faisal's courtyard target, 2026-10-08).
-					col = [Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 1.0), Color(1.0, 1.0, 1.0), Color(0.3, 0.5, 1.0), Color(0.3, 0.5, 1.0), Color(0.3, 0.5, 1.0),
-						Color(1.0, 0.85, 0.2), Color(1.0, 0.85, 0.2), Color(1.0, 0.55, 0.75), Color(0.95, 0.22, 0.2)][r.randi() % 11]
+					# The style guide's meadow: warm yellows, pinks and violets
+					# among white daisies and cornflowers, each patch mixed.
+					col = [Color(1.0, 0.98, 0.92), Color(1.0, 0.98, 0.92), Color(1.0, 0.86, 0.25), Color(1.0, 0.86, 0.25), Color(0.36, 0.52, 1.0),
+						Color(0.36, 0.52, 1.0), Color(1.0, 0.56, 0.78), Color(1.0, 0.56, 0.78), Color(0.72, 0.5, 1.0), Color(0.98, 0.36, 0.3)][r.randi() % 10]
 					if elf_side and r.randf() < 0.12:
 						col = Color(0.45, 0.95, 1.0)  # glowing wildwood bloom
 				"tuft":
-					# Shorter, denser clumps in the meadow's own green, so the
-					# ground reads as lush turf rather than spiky blades.
+					# A shade under the meadow, so the turf reads lush, not spiky.
 					basis = basis.scaled(Vector3(1.4, 1.0, 1.4))
-					col = Color.from_hsv(0.3 + r.randf_range(-0.02, 0.02), 0.85, r.randf_range(0.36, 0.5))
+					var th := StyleProfile.TUFT_HSV
+					col = Color.from_hsv(th.x + r.randf_range(-0.015, 0.015), th.y, th.z * r.randf_range(0.92, 1.08))
 				"stone":
-					col = Color(0.46, 0.46, 0.44).lerp(Color(0.36, 0.38, 0.36), r.randf())
+					col = Color(0.62, 0.61, 0.6).lerp(Color(0.5, 0.5, 0.5), r.randf())
 					if elf_side and r.randf() < 0.3:
 						col = Color(0.55, 0.62, 0.5)
 				"cap":
@@ -4610,10 +4640,8 @@ func _add_ground_detail() -> void:
 						col = Color(0.45, 0.85, 0.95)
 				"leaf":
 					col = [Color(0.8, 0.45, 0.15), Color(0.65, 0.3, 0.1), Color(0.85, 0.65, 0.2), Color(0.4, 0.55, 0.2)][r.randi() % 4]
-			mm.set_instance_transform(i, Transform3D(basis, p + Vector3(0, s[3], 0)))
-			mm.set_instance_color(i, col)
-		var inst := MultiMeshInstance3D.new()
-		inst.multimesh = mm
+			xforms.append(Transform3D(basis, p + Vector3(0, s[3], 0)))
+			cols.append(col)
 		var mat := StandardMaterial3D.new()
 		mat.vertex_color_use_as_albedo = true
 		mat.roughness = 0.9
@@ -4625,58 +4653,71 @@ func _add_ground_detail() -> void:
 			mat.emission_enabled = true
 			mat.emission = Color(0.5, 0.5, 0.45)
 			mat.emission_energy_multiplier = 0.18
-		inst.material_override = mat
-		inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(inst)
+		var parts := [[s[1], mat, xforms, cols]]
 		if s[0] == "flower":
 			# A golden eye on each bloom and a green stem under it.
-			var eyes := MultiMesh.new()
-			eyes.transform_format = MultiMesh.TRANSFORM_3D
 			var eye := SphereMesh.new()
 			eye.radius = 0.075
 			eye.height = 0.07
 			eye.radial_segments = 6
 			eye.rings = 2
-			eyes.mesh = eye
-			var stems := MultiMesh.new()
-			stems.transform_format = MultiMesh.TRANSFORM_3D
 			var stem := CylinderMesh.new()
 			stem.top_radius = 0.02
 			stem.bottom_radius = 0.025
 			stem.height = 0.4
 			stem.radial_segments = 4
 			stem.rings = 1
-			stems.mesh = stem
-			eyes.instance_count = placed.size()
-			stems.instance_count = placed.size()
+			var ex: Array = []
+			var sx: Array = []
 			for i in placed.size():
-				var t := mm.get_instance_transform(i)
-				eyes.set_instance_transform(i, Transform3D(t.basis, t.origin + t.basis.y * 0.02))
-				stems.set_instance_transform(i, Transform3D(Basis.IDENTITY, placed[i] + Vector3(0, 0.2, 0)))
-			for pair in [[eyes, Color(1.0, 0.85, 0.25)], [stems, Color(0.3, 0.6, 0.18)]]:
-				var ei := MultiMeshInstance3D.new()
-				ei.multimesh = pair[0]
-				ei.material_override = _material(pair[1])
-				ei.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-				add_child(ei)
+				var t: Transform3D = xforms[i]
+				ex.append(Transform3D(t.basis, t.origin + t.basis.y * 0.02))
+				sx.append(Transform3D(Basis.IDENTITY, placed[i] + Vector3(0, 0.2, 0)))
+			parts.append([eye, _material(Color(1.0, 0.85, 0.25)), ex, []])
+			parts.append([stem, _material(Color(0.3, 0.6, 0.18)), sx, []])
 		if s[0] == "cap":
 			# Stems under the caps.
-			var stems := MultiMesh.new()
-			stems.transform_format = MultiMesh.TRANSFORM_3D
 			var stem := CylinderMesh.new()
 			stem.top_radius = 0.05
 			stem.bottom_radius = 0.06
 			stem.height = 0.26
 			stem.radial_segments = 5
-			stems.mesh = stem
-			stems.instance_count = placed.size()
+			var sx: Array = []
 			for i in placed.size():
-				stems.set_instance_transform(i, Transform3D(Basis.IDENTITY, placed[i] + Vector3(0, 0.13, 0)))
-			var si := MultiMeshInstance3D.new()
-			si.multimesh = stems
-			si.material_override = _material(Color(0.9, 0.86, 0.75))
-			si.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			add_child(si)
+				sx.append(Transform3D(Basis.IDENTITY, placed[i] + Vector3(0, 0.13, 0)))
+			parts.append([stem, _material(Color(0.9, 0.86, 0.75)), sx, []])
+		for part in parts:
+			_add_detail_chunks(part[0], part[1], part[2], part[3])
+
+
+func _add_detail_chunks(mesh: Mesh, mat: Material, xforms: Array, cols: Array) -> void:
+	## One MultiMeshInstance per DETAIL_CHUNK cell (instances keep their
+	## generation order inside each cell), so off-screen ground detail is
+	## culled per cell instead of drawing the whole map's every frame. The
+	## cell's bounds come from its instances; a margin covers their size.
+	var cells := {}
+	for i in xforms.size():
+		var o: Vector3 = xforms[i].origin
+		var key := Vector2i(floori(o.x / StyleProfile.DETAIL_CHUNK), floori(o.z / StyleProfile.DETAIL_CHUNK))
+		if not cells.has(key):
+			cells[key] = []
+		cells[key].append(i)
+	for key in cells:
+		var idx: Array = cells[key]
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = not cols.is_empty()
+		mm.mesh = mesh
+		mm.instance_count = idx.size()
+		for k in idx.size():
+			mm.set_instance_transform(k, xforms[idx[k]])
+			if not cols.is_empty():
+				mm.set_instance_color(k, cols[idx[k]])
+		var inst := MultiMeshInstance3D.new()
+		inst.multimesh = mm
+		inst.material_override = mat
+		inst.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(inst)
 
 
 func _petal_mesh() -> ArrayMesh:
@@ -4829,7 +4870,20 @@ func _add_tree(pos: Vector3, big: bool = false) -> void:
 		shape.position.y = 1.5
 		body.add_child(shape)
 		add_child(body)
-		_prop("halloween/tree_pine_%s_%s" % [["orange", "yellow"][tree_seed % 2], "large" if big else "medium"], pos + Vector3(0, 0.3, 0), 0.8 if big else 0.95, float(tree_seed))
+		var autumn_prop := _prop("halloween/tree_pine_%s_%s" % [["orange", "yellow"][tree_seed % 2], "large" if big else "medium"], pos + Vector3(0, 0.3, 0), 0.8 if big else 0.95, float(tree_seed))
+		if world_style:
+			# The pack's flat-shaded cone read as another game's tree: in its
+			# place (same spot, same collider, still counted for the spacing
+			# checks) a layered pine like the rest of the wood, in autumn
+			# orange or gold, from its own seed.
+			autumn_prop.visible = false
+			var ar := RandomNumberGenerator.new()
+			ar.seed = tree_seed
+			var atree := Node3D.new()
+			atree.position = pos
+			atree.rotation.y = ar.randf() * TAU
+			add_child(atree)
+			_add_pine(atree, ar, _tree_bark(), big, tree_seed % 2)
 		return
 	if pos.x > 8.0 and tree_seed % 3 != 0:
 		var body := StaticBody3D.new()
@@ -4850,7 +4904,7 @@ func _add_tree(pos: Vector3, big: bool = false) -> void:
 		tree.position = pos
 		tree.rotation.y = r.randf() * TAU
 		add_child(tree)
-		_add_pine(tree, r, _pbr("bark", 0.5, Color(0.95, 0.9, 0.85)), big)
+		_add_pine(tree, r, _tree_bark(), big)
 		return
 	_add_tree_grown(pos, big)
 
@@ -4873,7 +4927,7 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 	tree.position = pos
 	tree.rotation.y = r.randf() * TAU
 	add_child(tree)
-	var bark := _pbr("bark", 0.5, Color(0.95, 0.9, 0.85))
+	var bark := _tree_bark()
 	if pos.x < -8.0 and seed % 4 == 1:
 		_add_pine(tree, r, bark, big)
 		return
@@ -4913,6 +4967,11 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		# Pink blossom (the courtyard target's cherry) or deep wildwood green.
 		leaf.set_shader_parameter("top_color", Color.from_hsv(0.9, 0.5, 0.78) if lavender else Color.from_hsv(0.38, 0.75, 0.5))
 		leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.88, 0.7, 0.32) if lavender else Color.from_hsv(0.42, 0.85, 0.18))
+		if world_style:   # the same crown ramp as every other tree, in the Wildwood's own hue
+			var top: Vector3 = StyleProfile.BLOSSOM_TOP if lavender else StyleProfile.WILD_TOP
+			var bottom: Vector3 = StyleProfile.BLOSSOM_BOTTOM if lavender else StyleProfile.WILD_BOTTOM
+			leaf.set_shader_parameter("top_color", Color.from_hsv(top.x, top.y, top.z))
+			leaf.set_shader_parameter("bottom_color", Color.from_hsv(bottom.x, bottom.y, bottom.z))
 	var radius: float = (1.9 if big else 1.4) * r.randf_range(0.9, 1.1) * (1.25 if wild else 1.0)
 	var base_y: float = trunk_h * 0.8
 	# The crown: a dome of leaf clumps (a skirt of low clumps, a smaller ring
@@ -4961,11 +5020,18 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		_add_fireflies(pos + Vector3(0, 1.0, 0))
 	# Glowing wildwood blossoms on every third tree, like the logo's.
 	if (seed % 3 == 0 or pos.x < -8.0) and not autumn:
-		var glow := StandardMaterial3D.new()
-		glow.albedo_color = Color(0.55, 0.85, 1.0)
-		glow.emission_enabled = true
-		glow.emission = Color(0.35, 0.75, 1.0)
-		glow.emission_energy_multiplier = 3.0
+		var glow: StandardMaterial3D = style_cache.get("bud") if world_style else null
+		if glow == null:
+			glow = StandardMaterial3D.new()
+			glow.albedo_color = Color(0.55, 0.85, 1.0)
+			glow.emission_enabled = true
+			glow.emission = Color(0.35, 0.75, 1.0)
+			glow.emission_energy_multiplier = 3.0
+			if world_style:
+				# Decoration glows softly; the brighter glows are kept for crowns,
+				# pickups and spells (style_profile.gd's emission budget).
+				glow.emission_energy_multiplier = StyleProfile.DECOR_GLOW_MAX
+				style_cache["bud"] = glow
 		for i in 6:
 			var bud := MeshInstance3D.new()
 			var sph := SphereMesh.new()
@@ -4980,7 +5046,7 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 			tree.add_child(bud)
 
 
-func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool) -> void:
+func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool, autumn: int = -1) -> void:
 	## A conifer: a slim trunk and three stacked cones of dark needles.
 	var trunk_h: float = (4.2 if big else 3.2) * r.randf_range(0.9, 1.1)
 	var trunk := MeshInstance3D.new()
@@ -4994,7 +5060,7 @@ func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool
 	trunk.material_override = bark
 	tree.add_child(trunk)
 	var leaf := ShaderMaterial.new()
-	leaf.shader = load("res://assets/shaders/leaf.gdshader")
+	leaf.shader = load("res://assets/shaders/leaf_soft.gdshader" if world_style else "res://assets/shaders/leaf.gdshader")
 	leaf.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	var hue := r.randf_range(-0.02, 0.02)
 	# Deep forest green with lighter tips (the 2026-10-08 target art).
@@ -5002,6 +5068,16 @@ func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool
 	# near black otherwise.)
 	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.41 + hue, 0.85, 0.15))
 	leaf.set_shader_parameter("top_color", Color.from_hsv(0.36 + hue, 0.68, 0.44))
+	if world_style:   # the broadleaf crown ramp, a step cooler and darker
+		var pb := StyleProfile.PINE_BOTTOM
+		var pt := StyleProfile.PINE_TOP
+		leaf.set_shader_parameter("bottom_color", Color.from_hsv(pb.x + hue, pb.y, pb.z))
+		leaf.set_shader_parameter("top_color", Color.from_hsv(pt.x + hue, pt.y, pt.z))
+		leaf.set_shader_parameter("rim_strength", StyleProfile.LEAF_RIM)
+		leaf.set_shader_parameter("clump", StyleProfile.LEAF_CLUMP * 0.6)
+		if autumn >= 0:   # the Kingdom's autumn pines: orange (0) or gold (1)
+			leaf.set_shader_parameter("bottom_color", StyleProfile.AUTUMN_BOTTOM if autumn == 0 else StyleProfile.GOLD_BOTTOM)
+			leaf.set_shader_parameter("top_color", StyleProfile.AUTUMN_TOP if autumn == 0 else StyleProfile.GOLD_TOP)
 	leaf.set_shader_parameter("height", 1.6)
 	leaf.set_shader_parameter("sway", 0.03)
 	var base_r: float = (1.9 if big else 1.5) * r.randf_range(0.9, 1.1)
@@ -5056,19 +5132,43 @@ func _pine_tier_mesh(seed: int, radius: float, height: float) -> ArrayMesh:
 
 func _leaf_material(r: RandomNumberGenerator, autumn: bool) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
-	mat.shader = load("res://assets/shaders/leaf.gdshader")
+	mat.shader = load("res://assets/shaders/leaf_soft.gdshader" if world_style else "res://assets/shaders/leaf.gdshader")
 	mat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	var hue := r.randf_range(-0.03, 0.03)
 	if autumn:
 		mat.set_shader_parameter("bottom_color", Color(0.45, 0.18, 0.05))
 		mat.set_shader_parameter("top_color", Color(0.95, 0.55, 0.15))
+		if world_style:
+			mat.set_shader_parameter("bottom_color", StyleProfile.AUTUMN_BOTTOM)
+			mat.set_shader_parameter("top_color", StyleProfile.AUTUMN_TOP)
 	else:
 		# Rich mid greens (Faisal's 2026-10-09 brief): the old lime tops read
 		# yellow next to the reference's foliage.
+		var top_v := r.randf_range(0.52, 0.62)   # (drawn in the same order as before: tree shapes stay put)
 		mat.set_shader_parameter("bottom_color", Color.from_hsv(0.35 + hue, 0.8, 0.28))
-		mat.set_shader_parameter("top_color", Color.from_hsv(0.31 + hue, 0.74, r.randf_range(0.52, 0.62)))
+		mat.set_shader_parameter("top_color", Color.from_hsv(0.31 + hue, 0.74, top_v))
+		if world_style:   # style_profile.gd's one foliage ramp
+			var j := hue / 0.03 * StyleProfile.LEAF_HUE_JITTER
+			var lb := StyleProfile.LEAF_BOTTOM
+			var lt := StyleProfile.LEAF_TOP
+			mat.set_shader_parameter("bottom_color", Color.from_hsv(lb.x + j, lb.y, lb.z))
+			mat.set_shader_parameter("top_color", Color.from_hsv(lt.x + j, lt.y, lt.z + (top_v - 0.57) * 0.6))
 	mat.set_shader_parameter("height", 2.0)
+	if world_style:
+		mat.set_shader_parameter("rim_strength", StyleProfile.LEAF_RIM)
+		mat.set_shader_parameter("clump", StyleProfile.LEAF_CLUMP)
 	return mat
+
+
+func _tree_bark() -> StandardMaterial3D:
+	## Trunks, roots and boughs. In the match world every tree shares one
+	## bark material (it is never changed after): hundreds fewer materials.
+	if not world_style:
+		return _pbr("bark", 0.5, Color(0.95, 0.9, 0.85))
+	var key := "bark|%s" % soot.to_html()
+	if not style_cache.has(key):
+		style_cache[key] = _pbr("bark", 0.5, Color(0.95, 0.9, 0.85))
+	return style_cache[key]
 
 
 func _rock_mesh(seed: int, radius: float, jitter: float = 0.22) -> ArrayMesh:
@@ -5183,6 +5283,10 @@ func _add_river() -> void:
 	var wmat := ShaderMaterial.new()
 	wmat.shader = load("res://assets/shaders/water.gdshader")
 	wmat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	if world_style:   # the style guide's saturated blue river
+		wmat.set_shader_parameter("shallow", StyleProfile.WATER_SHALLOW)
+		wmat.set_shader_parameter("deep", StyleProfile.WATER_DEEP)
+		wmat.set_shader_parameter("open_foam", StyleProfile.WATER_OPEN_FOAM)
 	water.material_override = wmat
 	water.position = Vector3(0, 0.03, 0)
 	add_child(water)
@@ -6321,22 +6425,25 @@ var rosette_mats := {}
 func _add_rosette(center: Vector3, radius: float, tint: Color = Color.WHITE) -> void:
 	## A round paved disc (rings of flags inside a brick kerb) laid flat on
 	## the ground as a decal: door courts and the shrine.
-	if not rosette_mats.has(tint):
+	var key := [tint, world_style]
+	if not rosette_mats.has(key):
+		# The match world's courts use the style copy (warm grey-tan flags, soft joints).
+		var dir := StyleProfile.TEX_DIR if world_style else "res://assets/textures/"
 		var mat := StandardMaterial3D.new()
-		mat.albedo_texture = load("res://assets/textures/rosette_color.png")
+		mat.albedo_texture = load(dir + "rosette_color.png")
 		mat.albedo_color = tint
 		mat.normal_enabled = true
-		mat.normal_texture = load("res://assets/textures/rosette_normal.jpg")
+		mat.normal_texture = load(dir + "rosette_normal.jpg")
 		mat.roughness = 0.85
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		mat.alpha_scissor_threshold = 0.5
 		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-		rosette_mats[tint] = mat
+		rosette_mats[key] = mat
 	var m := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
 	plane.size = Vector2.ONE * radius * 2.0
 	m.mesh = plane
-	m.material_override = rosette_mats[tint]
+	m.material_override = rosette_mats[key]
 	m.position = center
 	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(m)
@@ -9809,6 +9916,8 @@ func _apply_map_variant() -> void:
 		return
 	if vmap:
 		vmap.apply_light()
+		if style_live:
+			_style_light()
 		return
 	var dark := night()
 	if dark:
@@ -9860,6 +9969,38 @@ func _apply_map_variant() -> void:
 		sun_light.shadow_blur = 0.8
 		if fill_light:
 			fill_light.light_energy = 0.07
+	if style_live:
+		_style_light()
+
+
+func _style_light() -> void:
+	## The style guide's light on top of the map's own: a warm golden sun,
+	## coloured (not black) shade that still reads with ambient occlusion,
+	## bloom and the ink lines off (Low, Compatibility, the web), and a
+	## touch more colour. Day, the Moonlit Wildwood and Ember Pass each keep
+	## their mood; only the match world gets it (style_live, set at the
+	## match start), so the menus' lighting is untouched.
+	if vmap:
+		world_environment.ambient_light_energy = StyleProfile.EMBER.ambient_energy
+		return
+	if night():
+		world_environment.ambient_light_energy = StyleProfile.NIGHT.ambient_energy
+		sun_light.light_energy = StyleProfile.NIGHT.sun_energy
+		if fill_light:
+			fill_light.light_energy = StyleProfile.NIGHT.fill_energy
+		return
+	var d: Dictionary = StyleProfile.DAY
+	sun_light.light_color = d.sun_color
+	sun_light.light_energy = d.sun_energy
+	world_environment.ambient_light_energy = d.ambient_energy
+	world_environment.ambient_light_color = d.ambient_color
+	world_environment.ambient_light_sky_contribution = d.ambient_sky
+	world_environment.adjustment_saturation = d.saturation
+	world_environment.adjustment_contrast = d.contrast
+	world_environment.adjustment_brightness = d.brightness
+	world_environment.fog_light_color = d.fog_color
+	if fill_light:
+		fill_light.light_energy = d.fill_energy
 
 
 func _build_world() -> void:
@@ -10111,9 +10252,14 @@ func _finish_world() -> void:
 	_add_ink()
 	if OS.has_feature("web"):
 		_trim_web_shadows()
+	elif world_style:
+		# Desktop too, at a smaller size (style pass 2026-10-14): buds,
+		# candles, pebbles and bolts under 0.3 m throw shadows no one sees
+		# from the gameplay camera, and each is a draw in every sun cascade.
+		_trim_web_shadows(0.3)
 
 
-func _trim_web_shadows() -> void:
+func _trim_web_shadows(limit: float = 0.8) -> void:
 	## Browsers: small clutter (candles, buds, mushrooms, plates, bricks under
 	## 0.8 m) stops casting shadows. Each caster is a WebGL draw call in the
 	## sun's shadow pass every frame, and a shadow that small hides under its
@@ -10124,7 +10270,7 @@ func _trim_web_shadows() -> void:
 		if n.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF or n.mesh == null:
 			continue
 		var ext: Vector3 = n.mesh.get_aabb().size * n.global_transform.basis.get_scale()
-		if maxf(ext.x, maxf(ext.y, ext.z)) < 0.8:
+		if maxf(ext.x, maxf(ext.y, ext.z)) < limit:
 			n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			trimmed += 1
 	if perf_log:
