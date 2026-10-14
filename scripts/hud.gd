@@ -4308,77 +4308,61 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	var rcol: Color = Stats.ROLES[view].color if view != Role.BASE else Color(0.75, 0.6, 0.35)
 	var tabs_h := 38.0 if has else 0.0
 	var art := Rect2(P.position + Vector2(10, 72), Vector2(P.size.x - 20, P.size.y - 82 - (tabs_h + 8.0 if has else 0.0)))
-	# A gold-framed card, like the reference's (Faisal 08:56: "make it look
-	# more like the reference image").
-	# Built to Faisal's 10:06 mock-up (class-promotion-mockup.png): a thin
-	# pale frame with a soft glow of the class colour outside it.
+	# Built to Faisal's mock-up 4 (12:39: "mock up 4 with a bigger gradient
+	# is fine for now"): the whole class portrait in the card's top-left
+	# corner inside a gold thorn frame, and the empty space round it a wide
+	# gradient from the class colour (behind the portrait) down to dark.
 	for g in 4:
 		_plate(art.grow(4.0 + g * 3.0), Color(0, 0, 0, 0), Color(rcol.lightened(0.4), 0.22 - g * 0.05), 12 + g * 2, 3)
-	draw_rect(art, rcol.darkened(0.82))
-	var key0 := _card_key(team, view)
-	if cards.has(key0 + "_blur"):
-		# The picture blurred and dimmed behind the whole card.
-		var bt: Texture2D = cards[key0 + "_blur"]
-		var bsz := bt.get_size()
-		var bh := minf(bsz.y, bsz.x * art.size.y / art.size.x)
-		draw_texture_rect_region(bt, art, Rect2(Vector2.ZERO, Vector2(bsz.x, bh)), Color(0.55, 0.55, 0.55))
+	var dark := rcol.darkened(0.84)
+	var glow := rcol.darkened(0.25)
+	var gn := 10
+	for gy in gn:
+		for gx in gn:
+			var q := PackedVector2Array()
+			var qc := PackedColorArray()
+			for c in [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]:
+				var u: Vector2 = (Vector2(gx, gy) + c) / float(gn)
+				q.append(art.position + u * art.size)
+				var dd := sqrt(u.x * u.x + u.y * u.y * 0.8)
+				qc.append(dark.lerp(glow, pow(clampf(1.0 - dd / 1.55, 0.0, 1.0), 1.4)))
+			draw_polygon(q, qc)
 	var key := _card_key(team, view)
 	var lit: Color = Color.WHITE if unlocked or not has else Color(0.94, 0.94, 0.94)
+	var pbox := Rect2(art.position + Vector2(9, 9), Vector2(art.size.x * 0.56, art.size.y * 0.55))
 	if cards.has(key):
 		var tex: Texture2D = cards[key]
 		var ts := tex.get_size()
 		var src := Rect2(Vector2(ts.x * 0.02, ts.y * 0.02), Vector2(ts.x * 0.96, ts.y * 0.78))
-		var ph := art.size.y
-		var pw := ph * src.size.x / src.size.y
-		# With paths to show, the picture fills the left half of the card
-		# (Faisal 09:06: "make the image take up half the card"), centred on
-		# the face; the text half starts where it fades out.
-		var half_w := art.size.x * 0.56
-		var px := art.position.x + (half_w - pw) / 2.0 if has else art.position.x + (art.size.x - pw) / 2.0
-		# Only the part inside the card is drawn.
-		var x0 := maxf(px, art.position.x)
-		var x1 := minf(px + pw, art.position.x + half_w if has else art.end.x)
-		if x1 > x0:
-			var u0 := src.position.x + (x0 - px) / pw * src.size.x
-			var u1 := src.position.x + (x1 - px) / pw * src.size.x
-			draw_texture_rect_region(tex, Rect2(x0, art.position.y, x1 - x0, ph), Rect2(u0, src.position.y, u1 - u0, src.size.y), lit)
-	var shade := Color(0.04, 0.05, 0.05, 0.9)
-	if has:
-		# The art stays visible behind the words: a soft dark veil on the
-		# right half only, deepest where the perks sit.
-		# The text half: a dark panel tinted with the class colour, and the
-		# little gradient where the picture fades into it, like the
-		# reference; a soft glow of the class colour along the seam.
-		var mx := art.position.x + art.size.x * 0.4
-		var fx := art.position.x + art.size.x * 0.56
-		var veil := Color(rcol.darkened(0.82), 0.74)   # 0.97 → 0.74 (Faisal 10:06: "slightly less opaque")
-		draw_rect(Rect2(fx, art.position.y, art.end.x - fx, art.size.y), veil)
-		draw_polygon(PackedVector2Array([Vector2(mx, art.position.y), Vector2(fx, art.position.y), Vector2(fx, art.end.y), Vector2(mx, art.end.y)]),
-			PackedColorArray([Color(veil, 0.0), veil, veil, Color(veil, 0.0)]))
-		var gc := Color(rcol.lightened(0.4), 0.0)
-		var gw := art.size.x * 0.07
-		for side in [-1.0, 1.0]:
-			draw_polygon(PackedVector2Array([Vector2(fx - gw * 0.2, art.position.y), Vector2(fx - gw * 0.2 + side * gw, art.position.y), Vector2(fx - gw * 0.2 + side * gw, art.end.y), Vector2(fx - gw * 0.2, art.end.y)]),
-				PackedColorArray([Color(gc, 0.2), gc, gc, Color(gc, 0.2)]))
-	draw_polygon(PackedVector2Array([art.position + Vector2(0, art.size.y * 0.7), art.position + Vector2(art.size.x, art.size.y * 0.7), art.end, art.position + Vector2(0, art.size.y)]),
-		PackedColorArray([Color(shade, 0.0), Color(shade, 0.0), shade, shade]))
-	# Leaves of light drifting over the picture.
+		var pw := pbox.size.x
+		var ph := pw * src.size.y / src.size.x
+		if ph > art.size.y * 0.55:
+			ph = art.size.y * 0.55
+			pw = ph * src.size.x / src.size.y
+		pbox = Rect2(pbox.position if has else Vector2(art.get_center().x - pw / 2.0, pbox.position.y), Vector2(pw, ph))
+		# A soft drop shadow, the picture, then the thorn frame.
+		for g in 3:
+			draw_rect(pbox.grow(3.0 + g * 2.0), Color(0, 0, 0, 0.16), false, 2.0)
+		draw_texture_rect_region(tex, pbox, src, lit)
+	_thorn_frame(pbox.grow(3.0), ink)
+	# Leaves of light drifting over the gradient.
 	for k in 7:
 		var f := fmod(now * 0.12 + k * 0.37, 1.0)
-		var lp := Vector2(art.position.x + fmod(k * 53.0, art.size.x * 0.5) + f * 30.0, art.position.y + f * art.size.y)
-		draw_circle(lp, 1.8, Color(rcol.lightened(0.6), 0.6 * sin(f * PI)))
+		var lp := Vector2(art.position.x + fmod(k * 61.0, art.size.x), art.position.y + f * art.size.y)
+		draw_circle(lp, 1.8, Color(rcol.lightened(0.6), 0.5 * sin(f * PI)))
 	_plate(art.grow(1), Color(0, 0, 0, 0), Color(0.88, 0.84, 0.74), 10, 2)
 	if not has:
-		_text(Vector2(art.position.x, art.end.y - 14), cls.to_upper(), 24, CREAM, HORIZONTAL_ALIGNMENT_CENTER, art.size.x, 5)
+		_text(Vector2(art.position.x, pbox.end.y + 34), cls.to_upper(), 24, CREAM, HORIZONTAL_ALIGNMENT_CENTER, art.size.x, 5)
 		return
 	var shown: int = rank_focus - 4 if rank_focus == 4 or rank_focus == 5 else maxi(p.variants.get(view, 0), 0)
 	var v: Dictionary = Stats.VARIANTS[view][shown]
 	var vt: Color = v.get("tint", rcol)
-	var tx := art.position.x + art.size.x * 0.5
-	var tw := art.end.x - tx - 8.0
-	# The emblem: a big gold-ringed medallion with the path's sigil, its
-	# padlock hanging off the bottom while locked.
-	var ec := Vector2(tx + tw / 2.0, art.position.y + 52.0)
+	# Name, words and perks run full width under the portrait.
+	var tx := art.position.x + 14.0
+	var tw := art.size.x - 28.0
+	# The emblem: a big gold-ringed medallion with the path's sigil beside
+	# the portrait, its padlock hanging off the bottom while locked.
+	var ec := Vector2((pbox.end.x + 6.0 + art.end.x) / 2.0, pbox.position.y + pbox.size.y * 0.42)
 	# The glow sits outside the ring (Faisal 10:06: "make the glow outside
 	# not inside the emblem"): soft rings from the rim outwards.
 	var gpulse := 0.85 + 0.15 * sin(now * 2.0)
@@ -4409,9 +4393,9 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	var nf: Font = title_font if title_font else font
 	while tfs > 14 and nf.get_string_size(vname, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x > tw + 6.0:
 		tfs -= 1
-	_title_text(Vector2(tx - 4, art.position.y + 128), vname, tfs, Color(0.55, 1.0, 0.42), Color(0.1, 0.4, 0.08), ink, tw + 8.0)
+	_title_text(Vector2(tx - 4, pbox.end.y + 30.0), vname, tfs, Color(0.55, 1.0, 0.42), Color(0.1, 0.4, 0.08), ink, tw + 8.0)
 	var dl: Array = _wrap(str(v.desc), 10, tw)
-	var py := art.position.y + 144.0
+	var py := pbox.end.y + 46.0
 	for line in dl:
 		_text(Vector2(tx, py), line, 10, Color(0.94, 0.94, 0.9), HORIZONTAL_ALIGNMENT_CENTER, tw, 2)
 		py += 12.0
@@ -4424,10 +4408,10 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	var perks: Array = [[_attack_icon(view, base_kit.merged(atk, true)), str(atk.get("attack_name", "Attack")), str(atk.get("attack_desc", ""))]]
 	for ab in v.abilities:
 		perks.append([str(ab.get("icon", ab.kind)), str(ab.name), str(ab.get("desc", ""))])
-	draw_line(Vector2(tx + 4, py + 4), Vector2(art.end.x - 8, py + 4), Color(0.5, 0.5, 0.45, 0.6), 1.0)
-	var y := py + 12.0
-	var room := art.end.y - 8.0 - y
-	var step := clampf(room / perks.size(), 28.0, 46.0)
+	draw_line(Vector2(tx + 10, py + 2), Vector2(art.end.x - 24, py + 2), Color(0.66, 0.52, 0.25, 0.7), 1.0)
+	var y := py + 8.0
+	var room := art.end.y - 4.0 - y
+	var step := clampf(room / perks.size(), 26.0, 34.0)
 	for pk in perks:
 		var ib := Rect2(Vector2(tx, y), Vector2(26, 26))
 		_plate(ib.grow(1), ink, ink, 5, 0)
@@ -4559,6 +4543,36 @@ func _fx_comet(head: Vector2, back: Vector2, w: float, col: Color, hot: Color, a
 		PackedColorArray([Color(hot, a), Color(hot, a), Color(hot, 0.0)]))
 	_fx_glow(head, w * 3.2, col, a)
 	draw_circle(head, w * 0.9, Color(1, 1, 1, a))
+
+
+func _thorn_frame(r: Rect2, ink: Color) -> void:
+	## A gold frame with thorns along its sides and studs at its corners
+	## (the promotion card's portrait, Faisal 2026-10-14 11:18: "add a gold
+	## thorn border").
+	# (Outlines by draw_rect: a clear _plate still casts its box shadow over
+	# the whole picture.)
+	draw_rect(r.grow(1.5), ink, false, 5.0)
+	draw_rect(r, GOLD, false, 3.0)
+	draw_rect(r.grow(-2.0), Color(GOLD.lightened(0.4), 0.6), false, 1.0)
+	var sides := [[r.position, Vector2(r.end.x, r.position.y), Vector2(0, -1)], [Vector2(r.position.x, r.end.y), r.end, Vector2(0, 1)],
+		[r.position, Vector2(r.position.x, r.end.y), Vector2(-1, 0)], [Vector2(r.end.x, r.position.y), r.end, Vector2(1, 0)]]
+	for sd in sides:
+		var a: Vector2 = sd[0]
+		var b: Vector2 = sd[1]
+		var nrm: Vector2 = sd[2]
+		var n := maxi(int(a.distance_to(b) / 24.0), 2)
+		var along := (b - a).normalized()
+		for i in range(1, n):
+			var at := a.lerp(b, float(i) / n)
+			var lean := along * (2.0 if i % 2 else -2.0)
+			var ln := 5.0 + 2.0 * (i % 3)
+			var tri := PackedVector2Array([at - along * 2.5, at + along * 2.5, at + nrm * ln + lean])
+			draw_colored_polygon(tri, GOLD)
+			draw_polyline(PackedVector2Array([tri[0], tri[2], tri[1]]), ink, 1.0)
+	for c in [r.position, Vector2(r.end.x, r.position.y), Vector2(r.position.x, r.end.y), r.end]:
+		draw_circle(c, 6.0, ink)
+		draw_circle(c, 5.0, GOLD)
+		draw_circle(c, 2.2, GOLD.lightened(0.5))
 
 
 func _skill_slug(n: String) -> String:
@@ -4800,8 +4814,14 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -
 		# and faint and a few streaks drifting through.
 		var art := Rect2(row.position.x + 290.0, row.position.y + 3.0, row.size.x - 400.0, row.size.y - 6.0)
 		if available:
-			var wash := PackedVector2Array([art.position, art.position + Vector2(art.size.x, 0), art.end, art.position + Vector2(0, art.size.y)])
-			draw_polygon(wash, PackedColorArray([Color(tint, 0.0), Color(tint, 0.38), Color(tint, 0.38), Color(tint, 0.0)]))
+			# The wash rises to its peak under the art and fades back to black
+			# under the cost and + button (Faisal 2026-10-14 12:40: "a gradient
+			# that fades to black not just a black screen at the end").
+			var peak := art.position.x + art.size.x * 0.72
+			var fade_end := row.end.x - 4.0
+			for seg in [[art.position.x, peak, 0.0, 0.38], [peak, fade_end, 0.38, 0.0]]:
+				draw_polygon(PackedVector2Array([Vector2(seg[0], art.position.y), Vector2(seg[1], art.position.y), Vector2(seg[1], art.end.y), Vector2(seg[0], art.end.y)]),
+					PackedColorArray([Color(tint, seg[2]), Color(tint, seg[3]), Color(tint, seg[3]), Color(tint, seg[2])]))
 			var sname: String = "Vigor" if t == 3 else (str(abil[t - 1].name) if t > 0 else (p.track_name(0) if own else str(kit.get("attack_name", ""))))
 			var painted: Texture2D = strips.get(_skill_slug(sname))
 			for k in (0 if painted else 5):   # (the streaks only without a painting)
