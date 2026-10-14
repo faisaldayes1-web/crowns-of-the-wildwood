@@ -4299,6 +4299,8 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	var art := Rect2(P.position + Vector2(10, 72), Vector2(P.size.x - 20, P.size.y - 82 - (tabs_h + 8.0 if has else 0.0)))
 	# A gold-framed card, like the reference's (Faisal 08:56: "make it look
 	# more like the reference image").
+	for g in 4:
+		_plate(art.grow(8.0 + g * 3.0), Color(0, 0, 0, 0), Color(rcol.lightened(0.4), 0.2 - g * 0.045), 12 + g * 2, 3)
 	_plate(art.grow(6), Color(0.1, 0.06, 0.02), ink, 10, 2)
 	_plate(art.grow(4), Color(0, 0, 0, 0), GOLD if unlocked or not has else GOLD_DARK, 9, 3)
 	draw_rect(art, rcol.darkened(0.6))
@@ -4310,10 +4312,14 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 		var src := Rect2(Vector2(ts.x * 0.02, ts.y * 0.02), Vector2(ts.x * 0.96, ts.y * 0.78))
 		var ph := art.size.y
 		var pw := ph * src.size.x / src.size.y
-		var px := art.position.x - pw * (0.22 if has else 0.0) + (0.0 if has else (art.size.x - pw) / 2.0)
+		# With paths to show, the picture fills the left half of the card
+		# (Faisal 09:06: "make the image take up half the card"), centred on
+		# the face; the text half starts where it fades out.
+		var half_w := art.size.x * 0.56
+		var px := art.position.x + (half_w - pw) / 2.0 if has else art.position.x + (art.size.x - pw) / 2.0
 		# Only the part inside the card is drawn.
 		var x0 := maxf(px, art.position.x)
-		var x1 := minf(px + pw, art.end.x)
+		var x1 := minf(px + pw, art.position.x + half_w if has else art.end.x)
 		if x1 > x0:
 			var u0 := src.position.x + (x0 - px) / pw * src.size.x
 			var u1 := src.position.x + (x1 - px) / pw * src.size.x
@@ -4322,12 +4328,20 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	if has:
 		# The art stays visible behind the words: a soft dark veil on the
 		# right half only, deepest where the perks sit.
-		var mx := art.position.x + art.size.x * 0.28
-		var fx := art.position.x + art.size.x * 0.5
-		var veil := Color(0.04, 0.05, 0.05, 0.72)
+		# The text half: a dark panel tinted with the class colour, and the
+		# little gradient where the picture fades into it, like the
+		# reference; a soft glow of the class colour along the seam.
+		var mx := art.position.x + art.size.x * 0.4
+		var fx := art.position.x + art.size.x * 0.56
+		var veil := Color(rcol.darkened(0.82), 0.97)
+		draw_rect(Rect2(fx, art.position.y, art.end.x - fx, art.size.y), veil)
 		draw_polygon(PackedVector2Array([Vector2(mx, art.position.y), Vector2(fx, art.position.y), Vector2(fx, art.end.y), Vector2(mx, art.end.y)]),
 			PackedColorArray([Color(veil, 0.0), veil, veil, Color(veil, 0.0)]))
-		draw_rect(Rect2(fx, art.position.y, art.end.x - fx, art.size.y), veil)
+		var gc := Color(rcol.lightened(0.4), 0.0)
+		var gw := art.size.x * 0.07
+		for side in [-1.0, 1.0]:
+			draw_polygon(PackedVector2Array([Vector2(fx - gw * 0.2, art.position.y), Vector2(fx - gw * 0.2 + side * gw, art.position.y), Vector2(fx - gw * 0.2 + side * gw, art.end.y), Vector2(fx - gw * 0.2, art.end.y)]),
+				PackedColorArray([Color(gc, 0.2), gc, gc, Color(gc, 0.2)]))
 	draw_polygon(PackedVector2Array([art.position + Vector2(0, art.size.y * 0.7), art.position + Vector2(art.size.x, art.size.y * 0.7), art.end, art.position + Vector2(0, art.size.y)]),
 		PackedColorArray([Color(shade, 0.0), Color(shade, 0.0), shade, shade]))
 	# Leaves of light drifting over the picture.
@@ -4344,7 +4358,7 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	var shown: int = rank_focus - 4 if rank_focus == 4 or rank_focus == 5 else maxi(p.variants.get(view, 0), 0)
 	var v: Dictionary = Stats.VARIANTS[view][shown]
 	var vt: Color = v.get("tint", rcol)
-	var tx := art.position.x + art.size.x * 0.45
+	var tx := art.position.x + art.size.x * 0.5
 	var tw := art.end.x - tx - 8.0
 	# The emblem: a big gold-ringed medallion with the path's sigil, its
 	# padlock hanging off the bottom while locked.
