@@ -585,3 +585,15 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Tunables:** none (visual and sound only; no gameplay change).
 - **Checks:** `tools/tests/run.sh` 35/35 (new `impacts_scale_with_quality`).
 - **Revert:** `git revert a7ec6dd`
+
+## 28. Lighter impacts on Medium graphics
+
+- **When:** 2026-10-14 (follows 27; keep iPad web smooth)
+- **Commit:** `8636cf4`
+- **What:** Medium (the web default) only kicks up foot dust on big hits
+  and skips skid puffs; skid puffs come every 0.08 s instead of 0.06 s.
+- **Measured:** 4v4 bot match at Medium, seed 71: live effect nodes
+  averaged 20 before entry 27, 29 after it, 25 with this trim.
+- **Files:** `scripts/fx.gd`, `scripts/unit.gd`.
+- **Checks:** `tools/tests/run.sh` 35/35.
+- **Revert:** `git revert 8636cf4`
