@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 18:45 UTC · UI & Art `78c77d5` · Off-centre icons fixed
+
+- **What:** merged UI & Art `78c77d5`: 53 icons re-centred, the ability bar uses halo-free copies (assets/ui/icons_clean), the corner portrait centres on each class's face (hud.gd `_slot_face`, `_medallion`, loader).
+- **Conflicts:** none.
+- **Tested:** full check (as in the beta entry below).
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 18:35 UTC · Visual overhaul `2ff02af` (PR #18 candidate 1) · Beta build
 
 - **What:** merged the World visual overhaul candidate 1 for the Steam-ready beta: match-world style profile (softer stone/wood/grass textures, soft-lit foliage, procedural pines with the same colliders, patchy ground detail, blue river with calmer foam, warm day grade). Menus, UI, colliders and stats.gd unchanged (see docs/changelog/visual-overhaul.md).
