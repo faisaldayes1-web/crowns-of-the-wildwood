@@ -234,3 +234,28 @@ Tests: `tools/store_test.gd` +3 (Legendary gear sparkles, Common/Rare does not, 
 Files: `scripts/store.gd`, `scripts/store_gear.gd`, `scripts/character_model.gd`, `tools/store_test.gd`.
 
 Undo: `git revert 2dc1ab1`
+
+## 2026-10-14 — Player banners in the store, by rarity
+
+Commit: `7ce0768` (after merging UI & Art's banner set, `aa7db47`)
+
+Faisal 20:48: "player banners".
+
+What changed:
+- **Banners are store items** (`scripts/stats.gd`): every banner cloth (8-25), emblem (14-46) and frame
+  (5-15) past the free ones is a `STORE_ITEMS` row, with UI & Art's tiers (Legendary cloth 23-25, emblems
+  45-46, frames 13-15; Epic cloth 19-22, emblems 34-41, frames 7, 11, 12). `BANNER_RARITY` is gone;
+  `Stats.banner_rarity()` reads `STORE_ITEMS`, so the kill banner's fancier look follows the store tier.
+- **Three new tabs** (`scripts/store.gd`): BANNER CLOTH, EMBLEMS, FRAMES. Every tab now lists Legendary
+  first, then Epic, Rare, Common; nine cards a page with < BACK / MORE > and PAGE n / m.
+- **Real art on the cards**: cloth and frame cards show the painted banner cloth instead of a vector glyph.
+- **In-match sparkle readable**: worn Epic/Legendary motes are bigger (0.2 / 0.28) and drawn mixed, not
+  additive, so they show on bright ground; the menu hero scales them to 0.4x (`scripts/menu_stage.gd`).
+- No price or save change; prices come from the tier (300/600/1200/2500).
+
+Tests: `tools/store_menu_test.gd` +3 (rarest first, MORE turns the page, page 2 shows the tenth item).
+
+Files: `scripts/stats.gd`, `scripts/store.gd`, `scripts/store_gear.gd`, `scripts/menu_stage.gd`,
+`tools/store_menu_test.gd`.
+
+Undo: `git revert 7ce0768`
