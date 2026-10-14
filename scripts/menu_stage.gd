@@ -230,7 +230,7 @@ func show_hero(team: int, role: int, custom: Dictionary, rank: int) -> void:
 		hero.scale = Vector3.ONE * 1.0
 		# Rarity sparkles are sized for the match camera; this one is close.
 		for p in hero.find_children("RarityAura", "CPUParticles3D", true, false):
-			p.mesh.size *= 0.4
+			p.mesh.size *= 0.3
 	hero.visible = screen in ["character", "store"]
 	hero.global_position = _floor_at(Vector2(0.39, 0.86))
 	if rug == null:
