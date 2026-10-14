@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 21:40 UTC · Combat & Balance `163465d` · Heavier hit impacts
+
+- **What:** merged Combat's impacts piece (`a7ec6dd`): punch ring, faction flecks and chips, dust at the victim's feet, knockback skid dust, new hit_thud.wav; particle counts scale with graphics quality (Low skips chips, debris and skid). Visual and sound only.
+- **Conflicts:** scripts/fx.gd `hit()` kept the online wrapper (`hit` records for joiners, `_x_hit` draws) and gave both the new `team` argument; scripts/unit.gd kept the stuck fix's `_unstick(delta)` and added the skid block after it; tests/combat_test.gd runs both `_stuck()` (14) and `_impacts()` (15).
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 21:25 UTC · Store `8720fc0` + closable iPad menus `3c901cd` (PR #20)
 
 - **What:** merged: Store rarity tiers (tiered store cards, Epic sway / Legendary turntable in the preview, sparkle on worn Epic and Legendary gear; no save format change). Closable iPad menus: a tappable X on every panel (LEVEL UP strip, Veteran Training, action card), one action per tap, and Controls > CONTROL LAYOUT (Auto / Keyboard & Mouse / Controller / Touch, saved as settings/control_layout); Auto no longer shows the touch UI on a touch-screen laptop. New tools/touch_close_test.gd.
