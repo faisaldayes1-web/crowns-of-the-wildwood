@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 22:40 UTC · Store `4073682` · Player banners for sale, brighter rarity sparkles
+
+- **What:** cherry-picked Store `7ce0768`, `1a376aa` and their changelog commits (both branches): banner cloth, emblems and frames sold by rarity tier with paging and painted thumbnails; bigger, glowier sparkles on worn Legendary gear. `Stats.banner_rarity()` now reads STORE_ITEMS (UI & Art's stopgap BANNER_RARITY table is gone).
+- **Conflicts:** none.
+- **Tested:** full check plus touch_close_test, stuck scan, window modes, split-screen 2 and 4 players.
+- **Revert:** revert the cherry-picks newest first.
+
 ### 2026-10-14 22:05 UTC · UI & Art `aa7db47` · Player banners
 
 - **What:** merged Faisal's player banners: 16 painted backgrounds, 29 more emblems, 8 more frames, and rare/epic/legendary looks (Stats.BANNER_RARITY, hud._banner_fx). stats.gd only appends to the BANNER_* lists and adds the rarity table; no gameplay tunables.
