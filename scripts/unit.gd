@@ -1039,6 +1039,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		game.spawn_popup(global_position + Vector3(0, 2.0, 0), "BLOCKED", Color(0.75, 0.85, 1.0))
 		Fx.of(game).hit(global_position + facing * 0.6 + Vector3(0, 1.0, 0), -push + Vector3(0, 0.2, 0), "frost")
 		_hitstop(0.05)
+		model.play_once("Block_Hit", 1.6)   # the shield arm takes the blow; the held block resumes after
 		game.sfx.play("hit_shield", global_position, -1.0, 0.1)
 		if energy <= 0.0:
 			energy = 0.0
