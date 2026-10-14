@@ -1004,3 +1004,19 @@ Commit: `30a2e48`. Faisal's comments on the new UI renders: 07:16 on the kill ba
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
 
 Revert: `git revert 30a2e48`.
+
+## 2026-10-14 — Faisal's sharper UI sheets
+
+Commit: `f3e2ecf`. Faisal (07:40, in the Integration thread): "heres the 2k textures": four 1672x941 sheets, kept in /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/source-v2/ (page1-4.png).
+
+- **New tool:** `tools/slice_ui_v2.py <folder>` cuts each piece from the cell above its file-name label. It removes the checker backdrop and the dark halo by a flood fill from the cell's edge, drops neighbours' edges and the section headers, and centres the piece at the size the sheet names.
+- **Class icons** (`icons/class_*`): his CLASS ICONS row, which are framed square tiles. The old icons were shields.
+- **Class cards:** new Elf and Human base cards (`cards/elf_base`, `cards/human_base`) and six class cards, still shared by both factions.
+- **Icons:** 61 ability, HUD and upgrade icons at 256 px (were 128). This adds coin, frostweaver and siegewright, which were missing from the first set. There are 19 menu icons at 96 px.
+- **Faction art:** logos, crests, the scoreboard shields, the four banners and the stag, all cut from art roughly twice the size of the first set's.
+- **Store:** 52 thumbnails. trim_0 is not on the sheet and stays.
+- **Kept:** the title logo and topbar (higher resolution already), the action bar's hex skill art, and the body-shape icons.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert f3e2ecf`.
