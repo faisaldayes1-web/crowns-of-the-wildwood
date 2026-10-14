@@ -32,7 +32,7 @@ func _frames(n: int) -> void:
 
 func _first(team: int):
 	for u in game.units:
-		if u.team == team and not u.is_player and not u.dead:
+		if u.team == team and not u.is_player and not u.dead and not u.get("downed"):   # a downed bot ignores grabs and most input
 			return u
 	return null
 
