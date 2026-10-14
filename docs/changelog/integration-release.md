@@ -4,6 +4,14 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 15:55 UTC · Combat & Balance `e9bf9f7` · Balance patch 6, cooldown-shade fix
+
+- **What:** merged Combat & Balance up to `e9bf9f7`: balance patch 6 (`a4c4786`, scripts/stats.gd; docs/balance/patch-6.md), cooldown shade no longer draws an untriangulable sliver (`30458d2`, hud.gd; removes the "Invalid polygon data" errors), STALL demo logging only counts bots that want to move (`9ec77f7`), their copy of the `_first()` downed-skip (`db30d12`).
+- **Tunables:** Human regen_mult 1.15 → 1.22; Elf Grove Mend cooldown 0.7 → 0.8; Spirit Bloom haste 4 → 3.
+- **Conflicts:** tests/combat_test.gd `_first()`, took Combat's `u.get("downed")` form (same behaviour).
+- **Tested:** full check (import, all group tests, economy, net_smoke, bot matches on both maps, Steam build, both .exe files under wine).
+- **Revert:** `git revert -m 1 <merge>` on each branch; patch 6 alone: `git revert a4c4786`.
+
 ### 2026-10-14 13:10 UTC · UI & Art `c2bc6b9` · Promotion card from Faisal's approved mock-up 4
 
 - **What:** merged UI & Art `c2bc6b9`: CLASS PROMOTION card rebuilt from Faisal's approved mock-up 4; skill-row colour fades to black under the + button.
