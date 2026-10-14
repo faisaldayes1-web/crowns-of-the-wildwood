@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 10:25 UTC · UI & Art `5477cce` · Promotion card built to Faisal's mock-up
+
+- **What:** merged UI & Art `053a21d` + changelog `5477cce`: CLASS PROMOTION card built to Faisal's mock-up (hud.gd), blurred card backdrops assets/ui/cards/*_blur.png made by tools/make_card_blur.py.
+- **Conflicts:** none.
+- **Tested:** import, all group tests, economy and online checks, bot matches on both maps, Steam build, both .exe files under wine.
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 09:40 UTC · UI & Art `fe8ceaa` + `715cb48` · Promotion card picture, flaky combat test fixed
 
 - **What:** merged UI & Art `411ecac` + changelog `fe8ceaa` (promotion card picture fills the left half with a gradient and glow; hud.gd only). `715cb48`: tests/combat_test.gd `_first()` now skips downed bots, so `grab_feedback_once` no longer fails when the demo has already knocked the chosen bot down (it failed about 1 run in 5; 6 of 6 pass after).
