@@ -1139,3 +1139,21 @@ Commit: `4fc4032`. Faisal (18:16, in the World visual overhaul thread): "make su
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
 
 Revert: `git revert 4fc4032`.
+
+## 2026-10-14 — Event banners
+
+Commit: `f27555f`. Faisal (20:46): "add more impacts and begin adding more banners". Banners are UI & Art's part of that ask.
+
+- **What changed:** 18 kinds of match news now show as the big cloth-ribbon banner instead of the small notice scroll. `EVENT_BANNERS` lists the notice text each one matches, its title, the line under it, its icon and its mood.
+  - The news: gate broken, gate rebuilt, OVERTIME, FIGHT, team wiped, elite veteran, veteran, bounty claimed, vault open, vault locked, fire claimed, fire lost, blessing, promotion unlocked, hat machine upgraded, turret lost, new item and first blood.
+- **How it works:**
+  - `_event_banner()` checks the front notice against that list. `_banner_kind()` returns "event" at the lowest priority, so it is still one banner at a time.
+  - Each event banner stays up for `EVENT_TIME` = 2.6 s.
+  - `_draw_event_banner()` draws the ribbon at 0.78 × `BANNER_SIZE`. It is gold when the news is good for you or for nobody, and crimson when it is bad for you.
+  - The phase line hides under it, as it does for the other banners.
+- **First blood:** `_watch_first_blood()` sends a notice the first time anyone scores a kill in a match.
+- **Debug render:** `--debug-event="<notice text>"` shows one event banner.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert f27555f`.
