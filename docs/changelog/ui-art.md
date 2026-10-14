@@ -1072,3 +1072,21 @@ Commit: `411ecac`. Faisal (09:06): "make the image take up half the card and add
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
 
 Revert: `git revert 411ecac`.
+
+## 2026-10-14 — Promotion card to the mock-up
+
+Commit: `053a21d`. Faisal (10:06): "now make it slihglty less opaque and make the glow outside not inside the emblem. for the example its still not how it is, create a visual render first of how it should look". Mock-up: /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/class-promotion-mockup.png.
+
+- **Text panel:** less opaque (alpha 0.97 → 0.74).
+- **Medallion:**
+  - its glow is now six soft rings outside the rim (radius 43 to 61, pulsing gently), and the inner highlight is gone;
+  - it has eight gold spikes round the ring.
+- **Card:**
+  - a thin pale frame with the class-colour glow outside it, in place of the gold frame, brackets and ivy;
+  - a blurred, dimmed copy of the class picture behind the whole card. These are new `cards/*_blur.png` files from the new `tools/make_card_blur.py`, loaded as `cards[key + "_blur"]`.
+  - a divider between the description and the perks.
+- **Locked picture:** brightness 0.8 → 0.94.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 053a21d`.
