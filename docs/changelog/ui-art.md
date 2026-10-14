@@ -1103,3 +1103,24 @@ Commit: `66167d2`. Faisal (10:59): "here are all of the skill upgrades" (67 stri
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
 
 Revert: `git revert 66167d2`.
+
+## 2026-10-14 — Promotion card from mock-up 4; strip fade
+
+Commit: `9051625`.
+
+Faisal (12:39): "mock up 4 with a bigger gradient is fine for now". Mock-up: /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/class-promotion-mockup-4.png.
+
+**Promotion card**
+- **Portrait:** the whole class portrait now sits in the card's top-left corner, 56% of the card's width and at most 55% of its height. It replaces the half-card picture, the blurred backdrop and the veil.
+- **Frame:** a gold thorn frame round the portrait, from the new `_thorn_frame()`. It is drawn with `draw_rect` outlines, because a clear `_plate` casts its box shadow over the picture.
+- **Background:** a 10×10 gradient grid that runs from the class colour (darkened 0.25) at the top-left to darkened 0.84. The falloff radius is 1.55 card widths.
+- **Layout:** the emblem sits beside the portrait. The name, description and perks run full width below it, with perk spacing 26–34 px.
+
+Faisal (12:40): "for the skill strips they have a gradient that fades to black not just a black scren at the end".
+
+**Skill rows**
+- **Wash:** it now rises from 0 to alpha 0.38 at 72% of the art width, then fades back to 0 under the cost and + button. Before, it stopped with a hard edge at the art's end.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 9051625`.
