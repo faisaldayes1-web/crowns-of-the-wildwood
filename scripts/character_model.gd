@@ -37,6 +37,8 @@ var tint := Color.WHITE        # the variant's skin tint; unit.gd restores it af
 var outline: StandardMaterial3D  # the outline pass; unit.gd colours it by side and highlight
 var held := ""                 # a loop held by the unit (blocking, casting)
 var current := ""
+var swing_index := 0          # place in the attack chain (attack())
+var last_swing_at := -10.0
 
 
 static func config(team: int, role: int, variant: String = "", rank: int = 1) -> Dictionary:
@@ -754,9 +756,16 @@ func play_once(name: String, speed: float = 1.0, recover: float = 1.0) -> void:
 
 
 func attack() -> void:
+	## Swings in a chain alternate through the class's cuts (slice, chop,
+	## slice...) so a flurry reads as a combo, not the same cut repeated; a
+	## pause of a second starts the chain over.
 	if attack_anims.is_empty():
 		return
-	play_once(attack_anims[randi() % attack_anims.size()], 1.6, ATTACK_RECOVER)
+	if _now() - last_swing_at > 1.0:
+		swing_index = 0
+	last_swing_at = _now()
+	play_once(attack_anims[swing_index % attack_anims.size()], 1.6, ATTACK_RECOVER)
+	swing_index += 1
 
 
 func hold(name: String) -> void:
