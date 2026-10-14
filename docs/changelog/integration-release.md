@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 07:20 UTC · UI & Art `4b81c83` · Faisal's upgraded UI art
+
+- **What:** merged UI & Art's cut of Faisal's 06:27 sheets: 157 assets (icons, class shields, crests, logos, banners, class cards incl. new Engineer and Rogue cards, all 53 store thumbnails) via tools/slice_new_ui.py. coin, frostweaver, siegewright, the hex skill tiles and the top-bar strip keep the old art (not on the sheets or not taken).
+- **Conflicts:** none.
+- **Tested:** see the alpha refresh note in this file's next entry / the thread.
+- **Revert:** `git revert -m 1 <merge>` (`git log --merges -1`).
+
 ### 2026-10-10 12:45 UTC · Downed & Revive `f6f825e` · Killer banner only on the real death
 
 - **What:** merged Downed & Revive (Faisal 09:57): the downed screen has no "DOWNED BY" card any more; FINISHED BY / SLAIN BY appears only on the real death, redrawn in wood and gold.
