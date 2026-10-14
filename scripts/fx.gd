@@ -431,7 +431,7 @@ func _x_hit(where: Vector3, push: Vector3, kind: String, amount: int = 1, team: 
 		if kind in ["melee", "fist", "arrow", "heavy"] and detail() >= 0.75:
 			burst(where, FACTION_CHIP[team], _n(3 if big else 2), 4.5, 0.5, STYLE_SHARD, away, 50.0, 0.8)
 	# Dust kicked up at the feet, pushed the way the blow drove them.
-	if push.length() > 0.05:
+	if push.length() > 0.05 and (big or detail() >= 1.0):
 		burst(feet + Vector3(0, 0.15, 0), DUST, _n(5 if big else 3), 2.6 if big else 1.8, 0.5, STYLE_SMOKE,
 			(push + Vector3(0, 0.5, 0)).normalized(), 45.0, 0.75 if big else 0.6)
 	match int(k.extra):
@@ -453,7 +453,7 @@ func _x_hit(where: Vector3, push: Vector3, kind: String, amount: int = 1, team: 
 
 func skid(where: Vector3, dir: Vector3) -> void:
 	## A small puff of dust behind feet that are being shoved along the ground.
-	if detail() < 0.75:
+	if detail() < 1.0:
 		return
 	burst(Vector3(where.x, where.y + 0.12, where.z), DUST, _n(2), 1.2, 0.45, STYLE_SMOKE,
 		(-dir + Vector3(0, 0.8, 0)).normalized(), 50.0, 0.55)
