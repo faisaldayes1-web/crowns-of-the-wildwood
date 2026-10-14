@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 22:05 UTC · UI & Art `aa7db47` · Player banners
+
+- **What:** merged Faisal's player banners: 16 painted backgrounds, 29 more emblems, 8 more frames, and rare/epic/legendary looks (Stats.BANNER_RARITY, hud._banner_fx). stats.gd only appends to the BANNER_* lists and adds the rarity table; no gameplay tunables.
+- **Conflicts:** none.
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 22:00 UTC · Combat & Balance `e53d46c` · Lighter web impacts, block flinch, attack chains
 
 - **What:** cherry-picked Combat entries 28-30 (both branches): lighter impacts on Medium graphics (`8636cf4`), blocked hits play the Block_Hit flinch then the block resumes (`ce8d525`), basic attack chains step through the class's swings in order (`d4e4980`). Animation and VFX only.
