@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 22:00 UTC · Combat & Balance `e53d46c` · Lighter web impacts, block flinch, attack chains
+
+- **What:** cherry-picked Combat entries 28-30 (both branches): lighter impacts on Medium graphics (`8636cf4`), blocked hits play the Block_Hit flinch then the block resumes (`ce8d525`), basic attack chains step through the class's swings in order (`d4e4980`). Animation and VFX only.
+- **Conflicts:** scripts/character_model.gd `attack()` kept the online wrapper (`attack` records for joiners, `_x_attack` plays) with the new chain logic inside `_x_attack`.
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** revert the cherry-picks newest first.
+
 ### 2026-10-14 21:55 UTC · Online pause fix `4a78a69` + web menu click fix `1c719b7`
 
 - **What:** cherry-picked (both branches) from PR #19: the corner MENU/map button no longer pauses an online match for every joiner (offline only, like Esc). From the iPad web build thread: menus catch a click pressed and released between two frames (game._input latches left presses; the menu tick treats the latch as a click). This was Faisal's "menus unresponsive at times" on the web; it helps desktop too.
