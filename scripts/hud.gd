@@ -155,6 +155,9 @@ func _ready() -> void:
 		var path := "res://assets/ui/cards/%s.png" % key
 		if ResourceLoader.exists(path):
 			cards[key] = load(path)
+		var blur := "res://assets/ui/cards/%s_blur.png" % key   # the promotion card's backdrop (tools/make_card_blur.py)
+		if ResourceLoader.exists(blur):
+			cards[key + "_blur"] = load(blur)
 	# Skill tiles and scoreboard shields cut from Faisal's UI reference
 	# (2026-10-08): the hexagon art replaces the drawn tile for the moves it
 	# covers.
@@ -4299,13 +4302,20 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	var art := Rect2(P.position + Vector2(10, 72), Vector2(P.size.x - 20, P.size.y - 82 - (tabs_h + 8.0 if has else 0.0)))
 	# A gold-framed card, like the reference's (Faisal 08:56: "make it look
 	# more like the reference image").
+	# Built to Faisal's 10:06 mock-up (class-promotion-mockup.png): a thin
+	# pale frame with a soft glow of the class colour outside it.
 	for g in 4:
-		_plate(art.grow(8.0 + g * 3.0), Color(0, 0, 0, 0), Color(rcol.lightened(0.4), 0.2 - g * 0.045), 12 + g * 2, 3)
-	_plate(art.grow(6), Color(0.1, 0.06, 0.02), ink, 10, 2)
-	_plate(art.grow(4), Color(0, 0, 0, 0), GOLD if unlocked or not has else GOLD_DARK, 9, 3)
-	draw_rect(art, rcol.darkened(0.6))
+		_plate(art.grow(4.0 + g * 3.0), Color(0, 0, 0, 0), Color(rcol.lightened(0.4), 0.22 - g * 0.05), 12 + g * 2, 3)
+	draw_rect(art, rcol.darkened(0.82))
+	var key0 := _card_key(team, view)
+	if cards.has(key0 + "_blur"):
+		# The picture blurred and dimmed behind the whole card.
+		var bt: Texture2D = cards[key0 + "_blur"]
+		var bsz := bt.get_size()
+		var bh := minf(bsz.y, bsz.x * art.size.y / art.size.x)
+		draw_texture_rect_region(bt, art, Rect2(Vector2.ZERO, Vector2(bsz.x, bh)), Color(0.55, 0.55, 0.55))
 	var key := _card_key(team, view)
-	var lit: Color = Color.WHITE if unlocked or not has else Color(0.8, 0.8, 0.8)
+	var lit: Color = Color.WHITE if unlocked or not has else Color(0.94, 0.94, 0.94)
 	if cards.has(key):
 		var tex: Texture2D = cards[key]
 		var ts := tex.get_size()
@@ -4333,7 +4343,7 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 		# reference; a soft glow of the class colour along the seam.
 		var mx := art.position.x + art.size.x * 0.4
 		var fx := art.position.x + art.size.x * 0.56
-		var veil := Color(rcol.darkened(0.82), 0.97)
+		var veil := Color(rcol.darkened(0.82), 0.74)   # 0.97 → 0.74 (Faisal 10:06: "slightly less opaque")
 		draw_rect(Rect2(fx, art.position.y, art.end.x - fx, art.size.y), veil)
 		draw_polygon(PackedVector2Array([Vector2(mx, art.position.y), Vector2(fx, art.position.y), Vector2(fx, art.end.y), Vector2(mx, art.end.y)]),
 			PackedColorArray([Color(veil, 0.0), veil, veil, Color(veil, 0.0)]))
@@ -4349,9 +4359,7 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 		var f := fmod(now * 0.12 + k * 0.37, 1.0)
 		var lp := Vector2(art.position.x + fmod(k * 53.0, art.size.x * 0.5) + f * 30.0, art.position.y + f * art.size.y)
 		draw_circle(lp, 1.8, Color(rcol.lightened(0.6), 0.6 * sin(f * PI)))
-	_gold_corners(art.grow(5), 18.0, 4.0)
-	_ivy(art.position + Vector2(-2, 2), Vector2(1, 0), 46.0, 2)
-	_ivy(Vector2(art.end.x + 2, art.end.y - 2), Vector2(-1, 0), 46.0, 5)
+	_plate(art.grow(1), Color(0, 0, 0, 0), Color(0.88, 0.84, 0.74), 10, 2)
 	if not has:
 		_text(Vector2(art.position.x, art.end.y - 14), cls.to_upper(), 24, CREAM, HORIZONTAL_ALIGNMENT_CENTER, art.size.x, 5)
 		return
@@ -4363,17 +4371,23 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	# The emblem: a big gold-ringed medallion with the path's sigil, its
 	# padlock hanging off the bottom while locked.
 	var ec := Vector2(tx + tw / 2.0, art.position.y + 52.0)
-	for g in 4:
-		draw_circle(ec, 52.0 - g * 6.0, Color(vt, 0.04 + 0.035 * g + 0.025 * sin(now * 2.0)))
-	draw_circle(ec + Vector2(0, 3), 41.0, Color(0, 0, 0, 0.5))
+	# The glow sits outside the ring (Faisal 10:06: "make the glow outside
+	# not inside the emblem"): soft rings from the rim outwards.
+	var gpulse := 0.85 + 0.15 * sin(now * 2.0)
+	for g in 6:
+		draw_arc(ec, 43.0 + g * 3.5, 0, TAU, 48, Color(vt.lightened(0.35), (0.3 - g * 0.05) * gpulse), 4.0)
 	draw_circle(ec, 40.0, ink)
 	draw_circle(ec, 38.0, GOLD_DARK)
 	draw_arc(ec, 36.0, PI * 1.05, PI * 1.95, 24, GOLD.lightened(0.3), 3.0)
 	draw_circle(ec, 33.0, ink)
 	draw_circle(ec, 31.0, vt.darkened(0.72))
-	draw_circle(ec + Vector2(-6, -8), 18.0, Color(vt.lightened(0.2), 0.12))
 	for k in 8:
 		var d := Vector2.from_angle(k * TAU / 8.0)
+		var sp := ec + d * 43.0
+		var dn := d.orthogonal()
+		var spike := PackedVector2Array([sp + d * 6.0, sp + dn * 4.0, sp - d * 4.0, sp - dn * 4.0])
+		draw_colored_polygon(spike, GOLD)
+		draw_polyline(PackedVector2Array([spike[0], spike[1], spike[2], spike[3], spike[0]]), ink, 1.5)
 		draw_circle(ec + d * 37.0, 1.8, GOLD.lightened(0.2))
 	_icon(str(v.icon), ec, 16.5, Color.WHITE)
 	if not unlocked:
@@ -4402,7 +4416,8 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	var perks: Array = [[_attack_icon(view, base_kit.merged(atk, true)), str(atk.get("attack_name", "Attack")), str(atk.get("attack_desc", ""))]]
 	for ab in v.abilities:
 		perks.append([str(ab.get("icon", ab.kind)), str(ab.name), str(ab.get("desc", ""))])
-	var y := py + 6.0
+	draw_line(Vector2(tx + 4, py + 4), Vector2(art.end.x - 8, py + 4), Color(0.5, 0.5, 0.45, 0.6), 1.0)
+	var y := py + 12.0
 	var room := art.end.y - 8.0 - y
 	var step := clampf(room / perks.size(), 28.0, 46.0)
 	for pk in perks:
