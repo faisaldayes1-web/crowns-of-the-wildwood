@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 08:50 UTC · UI & Art `78e1421` · Kill banner ribbon, centred emblems, richer skill strips
+
+- **What:** merged UI & Art `9a64ae0` + changelog `78e1421`: kill banner restyled as a gold ribbon like YOU FELL, every ability-bar emblem centred, richer skill-strip effects. hud.gd only.
+- **Conflicts:** none.
+- **Tested:** import, all group tests, economy and online checks, bot matches on both maps, both .exe files under wine (see the thread).
+- **Revert:** `git revert -m 1 <merge>` (alpha `release/v0.4.0-alpha`, Steam branch `group/integration-release-g9m95g`).
+
 ### 2026-10-14 08:10 UTC · UI & Art `a357a05` and the 2k re-cut · Promotion card, Faisal's sharper UI art
 
 - **What:** merged UI & Art `a357a05` (full-art CLASS PROMOTION card with path tabs, animated skill strips on the SKILLS & UPGRADES board, class shield on the kill banner; hud.gd only) and their re-cut of Faisal's 07:40 sheets (167 PNGs under assets/ui incl. coin, frostweaver, siegewright, Elf/Human base cards, via tools/slice_ui_v2.py; no code).
