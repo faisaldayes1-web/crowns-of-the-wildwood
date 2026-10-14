@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 21:10 UTC · UI & Art `e059d15` · Event banners
+
+- **What:** merged UI & Art `e059d15`: event banners for 18 kinds of match news (first blood, gate broken or rebuilt, overtime, vault, veterans, bounty, fire objective and more), shown one at a time. hud.gd only.
+- **Conflicts:** none.
+- **Tested:** full check (as in the stuck-players entry below).
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 21:00 UTC · Stuck players `8a2eea9` (PR #19) · Nobody stays stuck
 
 - **What:** merged the "Players getting stuck" fix: finisher releases when the striker falls, body-swept Blink/Shadow Step, wedge safety net, free-spot respawn, bot follow distance (scripts/unit.gd); iPad stick/aim takeover and release on focus loss (scripts/touch.gd); +6 combat checks; tools/stuck_scan.gd. See docs/changelog/stuck-players.md.
