@@ -2,6 +2,14 @@
 
 Faisal's brief 2026-10-14 11:00 and style guide 11:10. Spec: [../visual/style-spec.md](../visual/style-spec.md).
 
+### 2026-10-14 · `1c16c1a` · Deeper river shallows
+
+- **What:** The river's light patches sit closer to its deep blue.
+- **Files:** scripts/visual/style_profile.gd, docs/visual/style-spec.md
+- **Tunables:** `WATER_SHALLOW` (0.34,0.70,0.96) → (0.22,0.54,0.90)
+- **Tested:** bridge render; fingerprints unchanged
+- **Revert:** `git revert 1c16c1a`
+
 ### 2026-10-14 · `1bffc9f` · Calmer open-water foam, style spec
 
 - **What:** River foam keeps to the banks in matches (open-water patches read as white clouds on the deeper blue). The menus' water keeps the old foam (uniform default 1.0).
