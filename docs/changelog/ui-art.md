@@ -1041,3 +1041,21 @@ Commit: `9a64ae0`. Faisal's comments on sharper-art-in-game.jpg, 08:08-08:10:
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
 
 Revert: `git revert 9a64ae0`.
+
+## 2026-10-14 — Class promotion card closer to the reference
+
+Commit: `0e50b30`. Faisal (08:56): "for the class promotion, make it look more like the reference image".
+
+- **Card** (`_skills_side`):
+  - CLASS PROMOTION is now in gold display lettering.
+  - The card has an ink-and-gold frame with gold corner brackets and ivy sprigs.
+  - The class art shows through a softer veil on the right half (alpha 0.94 → 0.72).
+- **Emblem:** a bigger medallion (radius 29 → 40) with a gold ring, rivets and the path sigil. While locked, the padlock hangs off its foot.
+- **Path name:** shown in the cartoon title lettering in green, auto-fitted to the column. The description sits centred under it.
+- **Perks:** each perk sits on a gold-framed tile with its name and a one-line summary of what it does.
+  - The attack perk's icon now uses the path's own element, so Ember Bolt shows fire, not thorns.
+- **Path tabs:** given gold frames.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 0e50b30`.

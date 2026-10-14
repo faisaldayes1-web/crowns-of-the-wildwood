@@ -4276,7 +4276,9 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	# CLASS PROMOTION.
 	var P := Rect2(Rr.position.x, Rr.position.y + 34.0, Rr.size.x, Rr.size.y - 34.0)
 	_plate(P, Color(0.06, 0.07, 0.08, 0.98), Color(0.35, 0.3, 0.2), 10, 2)
-	_text(P.position + Vector2(12, 26), "CLASS PROMOTION", 19, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	var tfont: Font = bar_font if bar_font else font
+	draw_string_outline(tfont, P.position + Vector2(12, 28), "CLASS PROMOTION", HORIZONTAL_ALIGNMENT_LEFT, -1, 21, 6, ink)
+	draw_string(tfont, P.position + Vector2(12, 28), "CLASS PROMOTION", HORIZONTAL_ALIGNMENT_LEFT, -1, 21, Color(1.0, 0.82, 0.32))
 	var has: bool = Stats.VARIANTS.has(view)
 	var spent: int = p.mastery.get(view, 0)
 	var unlocked: bool = has and p.variant_unlocked(view)
@@ -4295,8 +4297,11 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	var rcol: Color = Stats.ROLES[view].color if view != Role.BASE else Color(0.75, 0.6, 0.35)
 	var tabs_h := 38.0 if has else 0.0
 	var art := Rect2(P.position + Vector2(10, 72), Vector2(P.size.x - 20, P.size.y - 82 - (tabs_h + 8.0 if has else 0.0)))
-	_plate(art.grow(2), Color(0.03, 0.04, 0.04), Color(0.45, 0.8, 0.35) if unlocked else Color(0.42, 0.36, 0.24), 8, 2)
-	draw_rect(art, rcol.darkened(0.75))
+	# A gold-framed card, like the reference's (Faisal 08:56: "make it look
+	# more like the reference image").
+	_plate(art.grow(6), Color(0.1, 0.06, 0.02), ink, 10, 2)
+	_plate(art.grow(4), Color(0, 0, 0, 0), GOLD if unlocked or not has else GOLD_DARK, 9, 3)
+	draw_rect(art, rcol.darkened(0.6))
 	var key := _card_key(team, view)
 	var lit: Color = Color.WHITE if unlocked or not has else Color(0.8, 0.8, 0.8)
 	if cards.has(key):
@@ -4313,13 +4318,16 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 			var u0 := src.position.x + (x0 - px) / pw * src.size.x
 			var u1 := src.position.x + (x1 - px) / pw * src.size.x
 			draw_texture_rect_region(tex, Rect2(x0, art.position.y, x1 - x0, ph), Rect2(u0, src.position.y, u1 - u0, src.size.y), lit)
-	var shade := Color(0.04, 0.05, 0.05, 0.94)
+	var shade := Color(0.04, 0.05, 0.05, 0.9)
 	if has:
-		var mx := art.position.x + art.size.x * 0.3
-		var fx := art.position.x + art.size.x * 0.52
+		# The art stays visible behind the words: a soft dark veil on the
+		# right half only, deepest where the perks sit.
+		var mx := art.position.x + art.size.x * 0.28
+		var fx := art.position.x + art.size.x * 0.5
+		var veil := Color(0.04, 0.05, 0.05, 0.72)
 		draw_polygon(PackedVector2Array([Vector2(mx, art.position.y), Vector2(fx, art.position.y), Vector2(fx, art.end.y), Vector2(mx, art.end.y)]),
-			PackedColorArray([Color(shade, 0.0), shade, shade, Color(shade, 0.0)]))
-		draw_rect(Rect2(fx, art.position.y, art.end.x - fx, art.size.y), shade)
+			PackedColorArray([Color(veil, 0.0), veil, veil, Color(veil, 0.0)]))
+		draw_rect(Rect2(fx, art.position.y, art.end.x - fx, art.size.y), veil)
 	draw_polygon(PackedVector2Array([art.position + Vector2(0, art.size.y * 0.7), art.position + Vector2(art.size.x, art.size.y * 0.7), art.end, art.position + Vector2(0, art.size.y)]),
 		PackedColorArray([Color(shade, 0.0), Color(shade, 0.0), shade, shade]))
 	# Leaves of light drifting over the picture.
@@ -4327,6 +4335,9 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 		var f := fmod(now * 0.12 + k * 0.37, 1.0)
 		var lp := Vector2(art.position.x + fmod(k * 53.0, art.size.x * 0.5) + f * 30.0, art.position.y + f * art.size.y)
 		draw_circle(lp, 1.8, Color(rcol.lightened(0.6), 0.6 * sin(f * PI)))
+	_gold_corners(art.grow(5), 18.0, 4.0)
+	_ivy(art.position + Vector2(-2, 2), Vector2(1, 0), 46.0, 2)
+	_ivy(Vector2(art.end.x + 2, art.end.y - 2), Vector2(-1, 0), 46.0, 5)
 	if not has:
 		_text(Vector2(art.position.x, art.end.y - 14), cls.to_upper(), 24, CREAM, HORIZONTAL_ALIGNMENT_CENTER, art.size.x, 5)
 		return
@@ -4335,33 +4346,63 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 	var vt: Color = v.get("tint", rcol)
 	var tx := art.position.x + art.size.x * 0.45
 	var tw := art.end.x - tx - 8.0
-	# The emblem: the path's sigil in a gold ring, padlocked while locked.
-	var ec := Vector2(tx + tw / 2.0, art.position.y + 48.0)
-	for g in 3:
-		draw_circle(ec, 44.0 - g * 6.0, Color(vt, 0.05 + 0.04 * g + 0.03 * sin(now * 2.0)))
-	draw_circle(ec, 33.0, Color(0, 0, 0, 0.5))
-	draw_circle(ec, 31.0, ink)
-	draw_circle(ec, 29.0, GOLD)
-	draw_circle(ec, 25.0, vt.darkened(0.7))
-	_icon(str(v.icon), ec, 13.0, Color.WHITE)
+	# The emblem: a big gold-ringed medallion with the path's sigil, its
+	# padlock hanging off the bottom while locked.
+	var ec := Vector2(tx + tw / 2.0, art.position.y + 52.0)
+	for g in 4:
+		draw_circle(ec, 52.0 - g * 6.0, Color(vt, 0.04 + 0.035 * g + 0.025 * sin(now * 2.0)))
+	draw_circle(ec + Vector2(0, 3), 41.0, Color(0, 0, 0, 0.5))
+	draw_circle(ec, 40.0, ink)
+	draw_circle(ec, 38.0, GOLD_DARK)
+	draw_arc(ec, 36.0, PI * 1.05, PI * 1.95, 24, GOLD.lightened(0.3), 3.0)
+	draw_circle(ec, 33.0, ink)
+	draw_circle(ec, 31.0, vt.darkened(0.72))
+	draw_circle(ec + Vector2(-6, -8), 18.0, Color(vt.lightened(0.2), 0.12))
+	for k in 8:
+		var d := Vector2.from_angle(k * TAU / 8.0)
+		draw_circle(ec + d * 37.0, 1.8, GOLD.lightened(0.2))
+	_icon(str(v.icon), ec, 16.5, Color.WHITE)
 	if not unlocked:
-		draw_circle(ec + Vector2(0, 26), 11.0, ink)
-		_padlock(ec + Vector2(0, 27), 13.0, CREAM)
+		var lc := ec + Vector2(0, 36)
+		draw_circle(lc, 14.0, ink)
+		draw_circle(lc, 12.0, Color(0.2, 0.2, 0.22))
+		_padlock(lc + Vector2(0, 1), 15.0, CREAM)
 	var green := Color(0.62, 1.0, 0.5)
-	_text(Vector2(tx, art.position.y + 104), str(v.name).to_upper(), 19 if _text_width(str(v.name).to_upper(), 19) <= tw - 4 else 15, green, HORIZONTAL_ALIGNMENT_CENTER, tw, 5)
-	var py := art.position.y + 112.0 + _paragraph(Vector2(tx, art.position.y + 120), str(v.desc), 9, Color(0.9, 0.9, 0.86), tw, 11.0)
-	# Its perks: the new attack and the two new skills, each on an icon tile.
-	var perks: Array = [[_attack_icon(view, Stats.kit(team, view).merged(v.get("attack", {}), true)), str(v.get("attack", {}).get("attack_name", "Attack"))]]
+	var vname := str(v.name).to_upper()
+	var tfs := 26
+	var nf: Font = title_font if title_font else font
+	while tfs > 14 and nf.get_string_size(vname, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x > tw + 6.0:
+		tfs -= 1
+	_title_text(Vector2(tx - 4, art.position.y + 128), vname, tfs, Color(0.55, 1.0, 0.42), Color(0.1, 0.4, 0.08), ink, tw + 8.0)
+	var dl: Array = _wrap(str(v.desc), 10, tw)
+	var py := art.position.y + 144.0
+	for line in dl:
+		_text(Vector2(tx, py), line, 10, Color(0.94, 0.94, 0.9), HORIZONTAL_ALIGNMENT_CENTER, tw, 2)
+		py += 12.0
+	# Its perks: the new attack and the two new skills on gold-framed tiles,
+	# each with its name and what it does.
+	var atk: Dictionary = v.get("attack", {})
+	var base_kit: Dictionary = Stats.kit(team, view).duplicate()
+	for flag in ["drain", "nature", "frost", "fire"]:   # the path's own element wins (Ember Bolt is fire, not thorns)
+		base_kit.erase(flag)
+	var perks: Array = [[_attack_icon(view, base_kit.merged(atk, true)), str(atk.get("attack_name", "Attack")), str(atk.get("attack_desc", ""))]]
 	for ab in v.abilities:
-		perks.append([str(ab.get("icon", ab.kind)), str(ab.name)])
-	var y := maxf(py + 8.0, art.position.y + 172.0)
-	var room := art.end.y - 10.0 - y
-	var step := clampf(room / perks.size(), 22.0, 34.0)
+		perks.append([str(ab.get("icon", ab.kind)), str(ab.name), str(ab.get("desc", ""))])
+	var y := py + 6.0
+	var room := art.end.y - 8.0 - y
+	var step := clampf(room / perks.size(), 28.0, 46.0)
 	for pk in perks:
-		var ib := Rect2(Vector2(tx, y), Vector2(22, 22))
-		_plate(ib, vt.darkened(0.72), GOLD_DARK, 4, 1)
-		_icon(pk[0], ib.get_center(), 6.5, Color.WHITE, not unlocked)
-		_text(Vector2(ib.end.x + 6, y + 15), pk[1], 11, Color(0.92, 0.92, 0.88), HORIZONTAL_ALIGNMENT_LEFT, tw - 28.0, 2)
+		var ib := Rect2(Vector2(tx, y), Vector2(26, 26))
+		_plate(ib.grow(1), ink, ink, 5, 0)
+		_plate(ib, vt.darkened(0.7), GOLD, 4, 2)
+		_icon(pk[0], ib.get_center(), 7.5, Color.WHITE, not unlocked)
+		_text(Vector2(ib.end.x + 6, y + 11), pk[1], 11, Color(1.0, 0.92, 0.7), HORIZONTAL_ALIGNMENT_LEFT, tw - 32.0, 2)
+		var pl: Array = _wrap(pk[2], 8, tw - 32.0)
+		if not pl.is_empty():
+			var first: String = pl[0]
+			if pl.size() > 1:
+				first = first.rstrip(" ,.:;") + "…"
+			_text(Vector2(ib.end.x + 6, y + 23), first, 8, Color(0.85, 0.85, 0.82), HORIZONTAL_ALIGNMENT_LEFT, tw - 32.0, 1)
 		y += step
 	# The two path tabs along the foot.
 	var tab_w := (art.size.x - 6.0) / 2.0
@@ -4371,8 +4412,11 @@ func _skills_side(p, view: int, Rr: Rect2) -> void:
 		var chosen: bool = p.variants.get(view, -1) == i
 		var on: bool = i == shown
 		var vc: Color = vv.get("tint", rcol)
-		_plate(e, Color(0.26, 0.21, 0.08, 0.98) if chosen else (vc.darkened(0.72) if on else Color(0.08, 0.09, 0.11, 0.96)),
-			GOLD if chosen else (green if unlocked and on else (Color(0.5, 0.45, 0.32) if on else Color(0.3, 0.3, 0.32))), 8, 2 if chosen or on else 1)
+		_plate(e.grow(2), ink, ink, 9, 0)
+		_plate(e, Color(0.26, 0.21, 0.08, 0.98) if chosen else (vc.darkened(0.68) if on else Color(0.08, 0.09, 0.11, 0.96)),
+			GOLD if chosen or on else GOLD_DARK.darkened(0.3), 8, 2)
+		if on:
+			draw_rect(Rect2(e.position + Vector2(4, 3), Vector2(e.size.x - 8, 8)), Color(1, 1, 1, 0.08))
 		_icon(str(vv.icon), e.position + Vector2(18, e.size.y / 2.0), 7.0, Color.WHITE, not unlocked)
 		_text(Vector2(e.position.x + 32, e.position.y + 17), str(vv.name).to_upper(), 12, GOLD if chosen else (Color.WHITE if on else Color(0.8, 0.8, 0.8)), HORIZONTAL_ALIGNMENT_LEFT, e.size.x - 36, 2)
 		var tag := "CHOSEN" if chosen else ((("%s: PICK" % (i + 5)) if not game.on_pad(p) else "PICK") if unlocked else "LOCKED")
