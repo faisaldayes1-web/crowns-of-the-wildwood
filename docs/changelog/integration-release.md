@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 18:35 UTC · Visual overhaul `2ff02af` (PR #18 candidate 1) · Beta build
+
+- **What:** merged the World visual overhaul candidate 1 for the Steam-ready beta: match-world style profile (softer stone/wood/grass textures, soft-lit foliage, procedural pines with the same colliders, patchy ground detail, blue river with calmer foam, warm day grade). Menus, UI, colliders and stats.gd unchanged (see docs/changelog/visual-overhaul.md).
+- **Conflicts:** none.
+- **Tested:** full check (import, all group tests, economy, net_smoke, bot matches on both maps, Steam build, both .exe files under wine).
+- **Revert:** `git revert -m 1 <merge>` on each branch takes the whole overhaul out.
+
 ### 2026-10-14 16:40 UTC · Combat & Balance `8f995ef` · Balance patch 7
 
 - **What:** merged balance patch 7 (scripts/stats.gd only; docs/balance/patch-7.md). Over 96 matches: Elves 29-19 → 25-23.
