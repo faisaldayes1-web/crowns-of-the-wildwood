@@ -506,3 +506,20 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Files:** `tests/combat_test.gd`.
 - **Checks:** `tools/tests/run.sh` 34/34, three runs in a row.
 - **Revert:** `git revert db30d12`
+
+## 23. Bug fix: "Invalid polygon data" from the cooldown shade
+
+- **When:** 2026-10-14 (Faisal: "keep rebalancing and fixing the game and bug
+  fixing")
+- **Commit:** `30458d2`
+- **What:** The bot-match logs showed 1-5 `ERROR: Invalid polygon data,
+  triangulation failed` lines per match (167 over 48 matches). I traced them
+  with a temporary wrapper around every HUD polygon call. The ability slot's
+  cooldown shade clips a band out of the hexagon, and in a cooldown's last
+  instant the band overlaps the hex tip by under a pixel. That clip is a
+  0.1 px sliver the renderer refuses to fill. The shade now skips that last
+  sliver, which was invisible anyway. On screen nothing changes; the error
+  is gone.
+- **Files:** `scripts/hud.gd` (`_slot` cooldown shade).
+- **Checks:** `tools/tests/run.sh` 34/34.
+- **Revert:** `git revert 30458d2`
