@@ -13,6 +13,7 @@ Each developer group keeps its own log here, one file per group (the group creat
 | Economy | `group/economy-*` | [economy.md](economy.md) |
 | Music | `group/music-*` | [music.md](music.md) |
 | World visual overhaul | `claude/visual-overhaul-*` | [visual-overhaul.md](visual-overhaul.md) |
+| Stuck players fix | `claude/fix-stuck-players-*` | [stuck-players.md](stuck-players.md) |
 
 Releases (merges into `main` and version tags) are logged project-wide in [../CHANGELOG.md](../CHANGELOG.md) by the Integration & Release group.
 
