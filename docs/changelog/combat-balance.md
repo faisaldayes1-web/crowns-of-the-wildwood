@@ -523,3 +523,17 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Files:** `scripts/hud.gd` (`_slot` cooldown shade).
 - **Checks:** `tools/tests/run.sh` 34/34.
 - **Revert:** `git revert 30458d2`
+
+## 24. Stuck-bot diagnostic counts only real stalls
+
+- **When:** 2026-10-14 (bug sweep)
+- **Commit:** `9ec77f7`
+- **What:** In `--demo` logs, a STALL line meant "hasn't moved for 20 s",
+  so defenders holding a post counted as stuck. Of 239 STALL lines over 48
+  matches, 230 were bots standing still on purpose (move = 0, mostly
+  job=defend). Only bots that want to move now count, so agg.py's "bot
+  stalls per match" means real stuck bots. Demo logging only; gameplay
+  unchanged.
+- **Files:** `scripts/unit.gd` (demo diagnostics).
+- **Checks:** `tools/tests/run.sh` 34/34.
+- **Revert:** `git revert 9ec77f7`
