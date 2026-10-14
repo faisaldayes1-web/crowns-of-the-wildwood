@@ -1059,3 +1059,16 @@ Commit: `0e50b30`. Faisal (08:56): "for the class promotion, make it look more l
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
 
 Revert: `git revert 0e50b30`.
+
+## 2026-10-14 — Promotion card: half picture, gradient, glow
+
+Commit: `411ecac`. Faisal (09:06): "make the image take up half the card and add the little gradient on the part where the text starts exactly like the refernece photo. and add slight glow".
+
+- **Picture** (`_skills_side`): when a class has paths, its picture is drawn only in the left 56% of the card, centred on the face.
+- **Text half:** a dark panel in the class colour (alpha 0.97), entered by a gradient from 40% to 56% of the card width, with a soft class-colour glow along the seam.
+- **Glow:** a slight class-colour glow round the whole card (four rings, alpha 0.2 fading out).
+- **Text column:** starts at 50% (was 45%).
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
+
+Revert: `git revert 411ecac`.
