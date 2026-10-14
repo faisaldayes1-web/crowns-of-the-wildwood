@@ -494,3 +494,15 @@ then `python3 tools/balance/agg.py <tag>`.
   0.85; wins 21-27 → 26-22.
 - **Checks:** `tools/tests/run.sh` 34/34.
 - **Revert:** `git revert e8f02f9`
+
+## 22. Test fix: skip downed bots
+
+- **When:** 2026-10-14 (reported by Integration & Release: `grab_feedback_once`
+  failed about 1 run in 5)
+- **Commit:** `db30d12`
+- **What:** The tests' `_first()` could pick a bot that the running demo had
+  already knocked down, and a downed unit ignores grabs. It now skips downed
+  bots, matching Integration's 715cb48 on their branch. Test code only.
+- **Files:** `tests/combat_test.gd`.
+- **Checks:** `tools/tests/run.sh` 34/34, three runs in a row.
+- **Revert:** `git revert db30d12`
