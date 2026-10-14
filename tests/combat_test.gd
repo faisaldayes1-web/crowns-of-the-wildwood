@@ -159,6 +159,10 @@ func _run() -> void:
 	# burst of presses.
 	await _deny_cue()
 
+	# 14. A landed blow throws more on screen than the flare alone, and Low
+	# graphics spends fewer particles on it than High.
+	await _impacts()
+
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
 
@@ -372,4 +376,18 @@ func _deny_cue() -> void:
 	a._deny_cue()
 	a._deny_cue()
 	_check(a.deny_cues == before + 1, "deny_cue_throttled", "cues=%d" % (a.deny_cues - before))
+	await _frames(1)
+
+
+func _impacts() -> void:
+	var fx = load("res://scripts/fx.gd").of(game)
+	var keep: int = game.gfx_quality
+	var made := []
+	for q in [2, 0]:
+		game.gfx_quality = q
+		var before: int = fx.get_child_count()
+		fx.hit(Vector3(0, 1, 0), Vector3(1, 0, 0), "melee", 2, 0)
+		made.append(fx.get_child_count() - before)
+	game.gfx_quality = keep
+	_check(made[0] >= 8 and made[1] < made[0], "impacts_scale_with_quality", "high=%d low=%d" % [made[0], made[1]])
 	await _frames(1)

@@ -61,6 +61,7 @@ var carrying = null
 var spawn_point := Vector3.ZERO
 var facing := Vector3(1, 0, 0)
 var step_timer := 0.0        # footsteps
+var skid_timer := 0.0        # dust puffs while knocked back
 var turrets: Array = []      # Engineer: the turrets this unit built (oldest first)
 var kills := 0
 var deaths := 0
@@ -1006,7 +1007,8 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		# A squash on the hit: wider and shorter, springing back.
 		model.scale = Vector3(1.14, 0.88, 1.14)
 		model.create_tween().tween_property(model, "scale", Vector3.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	Fx.of(game).hit(global_position + Vector3(0, 1.0, 0) - push * 0.25, push, _hit_kind(attacker, effect), amount)
+	Fx.of(game).hit(global_position + Vector3(0, 1.0, 0) - push * 0.25, push, _hit_kind(attacker, effect), amount,
+		attacker.team if attacker and attacker != self else -1)
 	last_hit_dir = push
 	knockback = push * knock
 	if effect.has("slow"):
@@ -1035,7 +1037,15 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		game.sfx.play("hit_heavy", global_position, -2.0 if amount >= 2 else -7.0, 0.1)
 	elif hk in ["arcane", "frost", "holy", "dark", "nature", "fire"]:
 		game.sfx.play("hit_magic", global_position, -6.0, 0.12)
+	else:
+		# A body thump under every plain blow, so a cut or arrow lands with weight.
+		game.sfx.play("hit_thud", global_position, -6.0, 0.12)
+	if attacker and attacker != self and attacker.is_player and push.length() > 0.05:
+		# Your own blows nudge your camera the way they drove the target.
+		game.kick_cam(push, 0.07 if amount < 2 and hk != "heavy" else 0.13)
 	if is_player:
+		if push.length() > 0.05:
+			game.kick_cam(push, 0.16)
 		game.shake(0.35)
 		game.rumble(self, 0.3, 0.8 if hearts <= 1 else 0.6, 0.22)
 	if hearts <= 0:
@@ -1959,6 +1969,12 @@ func _physics_process(delta: float) -> void:
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
 	move_and_slide()
 	_clamp_to_map()
+	if knockback.length() > 3.5 and is_on_floor():
+		# Shoved by a blow: the feet skid and kick up dust as they go.
+		skid_timer -= delta
+		if skid_timer <= 0.0:
+			skid_timer = 0.06
+			Fx.of(game).skid(global_position, knockback)
 	knockback = knockback.move_toward(Vector3.ZERO, 40.0 * delta)
 	# Footsteps: soft on grass, a tap on stone (walls, bridges, castle floors).
 	if move.length() > 0.05 and is_on_floor():

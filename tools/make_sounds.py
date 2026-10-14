@@ -211,6 +211,9 @@ def sounds():
     s["hit_heavy"] = mix(thump(70, 0.22, 0.06) * 1.3, lowpass(noise(n), np.linspace(2500, 400, n)) * expdecay(n, 0.04) * 1.6, click(0.015, 4000) * 0.7)
     n = int(SR * 0.2)
     s["hit_magic"] = mix(bandpass(noise(n), 2500, 8000) * expdecay(n, 0.04) * 1.4, sine(np.linspace(1600, 500, n), n) * expdecay(n, 0.05) * 0.4)
+    # A dull body thump under plain cuts, punches and arrows.
+    n = int(SR * 0.14)
+    s["hit_thud"] = mix(thump(120, 0.14, 0.035) * 1.2, lowpass(noise(n), np.linspace(1800, 300, n)) * expdecay(n, 0.025) * 0.9, click(0.008, 3000) * 0.5)
     s["kill"] = mix(thump(55, 0.45, 0.12) * 1.1, at(chime(1318, 0.35, 0.6) * 0.5, 0.03, 0.45), at(chime(1976, 0.3, 0.5) * 0.35, 0.07, 0.45))
     # Hit confirm for your own ranged hits: a crisp tick you hear at any range.
     s["hit_tick"] = mix(click(0.012, 9000) * 0.9, chime(2637, 0.09, 0.7) * 0.35)
