@@ -1722,7 +1722,7 @@ func mouse_on_button() -> bool:
 
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.device == InputEvent.DEVICE_ID_EMULATION:
+	if event is InputEventMouseButton and event.device == InputEvent.DEVICE_ID_EMULATION and game.touch_active:
 		return   # a finger: touch.gd already pressed the slot's or button's action (a second toggle shut the panel again)
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and game.hud != null \
 			and card_close.has_area() and card_close.has_point(game.hud.get_local_mouse_position()) and close_action.is_valid():
