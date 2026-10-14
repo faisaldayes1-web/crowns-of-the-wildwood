@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 09:40 UTC · UI & Art `fe8ceaa` + `6a08fd7` · Promotion card picture, flaky combat test fixed
+
+- **What:** merged UI & Art `411ecac` + changelog `fe8ceaa` (promotion card picture fills the left half with a gradient and glow; hud.gd only). `6a08fd7`: tests/combat_test.gd `_first()` now skips downed bots, so `grab_feedback_once` no longer fails when the demo has already knocked the chosen bot down (it failed about 1 run in 5; 6 of 6 pass after).
+- **Conflicts:** none.
+- **Tunables:** none.
+- **Revert:** `git revert 6a08fd7`; `git revert -m 1 <merge>` for the UI & Art merge.
+
 ### 2026-10-14 09:10 UTC · UI & Art `c40a329` · Promotion card restyled after Faisal's reference
 
 - **What:** merged UI & Art `0e50b30` + changelog `c40a329`: CLASS PROMOTION card restyled after Faisal's reference. hud.gd only.
