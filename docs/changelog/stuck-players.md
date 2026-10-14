@@ -52,5 +52,9 @@ Newest entry at the top, as in [README.md](README.md).
   wedged body freed, followers keeping distance); 7-minute demos, Wildwood
   seed 301 and Ember Pass seed 302: no STALL lines (the same seeds before
   the fix had two Rangers stalled at the Wildwood defence posts), no safety
-  net triggers, no script errors.
+  net triggers, no script errors. Healer check, Wildwood seeds 401-406,
+  before (`b0e261f`) vs after: Humans 4-2 vs 5-1 (same seeds, within noise),
+  healing per Healer per match 99 vs 109, revives per match 3.2/4.2 vs
+  3.3/4.5, bot stalls 0.3 vs 0.0 per match; the safety net fired once in six
+  matches (a Healer wedged under the rampart stairs, moved 0.5 m).
 - **Revert:** `git revert 12a638a`
