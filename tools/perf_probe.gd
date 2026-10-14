@@ -2,11 +2,13 @@ extends SceneTree
 ## Warm frame-time and render statistics of a match with the real renderer
 ## (not headless), at a few fixed camera spots:
 ##     godot --path . --resolution 1280x720 --script tools/perf_probe.gd -- --play --seed=7 --gfx=2 [--map=2]
-## For each spot: 90 warm-up frames (first-use shaders, streaming), then 240
+## For each spot: WARM warm-up frames (first-use shaders, streaming), then TIMED
 ## timed frames. Prints median / p95 / p99 frame time, the render monitors
 ## (draw calls, objects, primitives) and memory, and a node census once.
 ## Run it alone: a second heavy process on the machine skews every number.
 
+const WARM := 30
+const TIMED := 90   # a software renderer manages ~1 frame a second: keep runs short
 const SPOTS := [Vector3(0, 0, 0), Vector3(-60, 0, 0), Vector3(30, 0, 18), Vector3(60, 0, 0)]
 
 
@@ -35,13 +37,13 @@ func _init() -> void:
 		game.cam_pos = spot + game.CAMERA_OFFSET * game.cam_zoom
 		var times: Array = []
 		var hitch := 0
-		for i in 90:
+		for i in WARM:
 			await process_frame
 		var last := Time.get_ticks_usec()
 		var draws := 0.0
 		var objs := 0.0
 		var prims := 0.0
-		for i in 240:
+		for i in TIMED:
 			await process_frame
 			var now := Time.get_ticks_usec()
 			times.append((now - last) / 1000.0)
@@ -55,7 +57,7 @@ func _init() -> void:
 			if t > med * 3.0:
 				hitch += 1
 		print("PERF spot %s median %.1f ms  p95 %.1f  p99 %.1f  max %.1f  hitches(>3x median) %d  draws %.0f  objects %.0f  prims %.0f" % [
-			spot, med, times[int(times.size() * 0.95)], times[int(times.size() * 0.99)], times[-1], hitch, draws / 240.0, objs / 240.0, prims / 240.0])
+			spot, med, times[int(times.size() * 0.95)], times[int(times.size() * 0.99)], times[-1], hitch, draws / TIMED, objs / TIMED, prims / TIMED])
 	print("PERF memory static %.0f MB  video %.0f MB  texture %.0f MB  buffer %.0f MB" % [
 		Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0, Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
 		Performance.get_monitor(Performance.RENDER_TEXTURE_MEM_USED) / 1048576.0, Performance.get_monitor(Performance.RENDER_BUFFER_MEM_USED) / 1048576.0])
