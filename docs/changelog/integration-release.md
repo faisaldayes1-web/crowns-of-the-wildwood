@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 08:10 UTC · UI & Art `a357a05` and the 2k re-cut · Promotion card, Faisal's sharper UI art
+
+- **What:** merged UI & Art `a357a05` (full-art CLASS PROMOTION card with path tabs, animated skill strips on the SKILLS & UPGRADES board, class shield on the kill banner; hud.gd only) and their re-cut of Faisal's 07:40 sheets (167 PNGs under assets/ui incl. coin, frostweaver, siegewright, Elf/Human base cards, via tools/slice_ui_v2.py; no code).
+- **Conflicts:** none.
+- **Tested:** import, all group tests, economy and online checks, bot matches on both maps, both .exe files under wine (see the thread).
+- **Revert:** `git revert -m 1 <merge>` for each, newest first.
+
 ### 2026-10-14 07:20 UTC · UI & Art `4b81c83` · Faisal's upgraded UI art
 
 - **What:** merged UI & Art's cut of Faisal's 06:27 sheets: 157 assets (icons, class shields, crests, logos, banners, class cards incl. new Engineer and Rogue cards, all 53 store thumbnails) via tools/slice_new_ui.py. coin, frostweaver, siegewright, the hex skill tiles and the top-bar strip keep the old art (not on the sheets or not taken).
