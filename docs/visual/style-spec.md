@@ -25,7 +25,7 @@ diorama and castle-hall menu stage keep their old look.
 | Foliage | one HSV ramp from shaded underside to warm yellow-green tips; soft wrapped light; leaf tufts; light silhouette rim |
 | Pines | the same ramp, cooler and a step darker; autumn/gold pines use the autumn ramp |
 | Ground detail | flowers and tufts in noise patches with open lawn between (1900 flowers, 5500 tufts, was 3200/9000) |
-| Water | saturated blue (shallow 0.34,0.70,0.96 / deep 0.08,0.34,0.80); foam keeps to banks |
+| Water | saturated blue (shallow 0.22,0.54,0.90 / deep 0.08,0.34,0.80); foam keeps to banks |
 | Decoration glow | ambient decor emission capped at 1.2; gameplay cues keep their own glow |
 
 ## Light grades (applied at match start)
