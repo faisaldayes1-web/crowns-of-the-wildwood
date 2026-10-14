@@ -899,6 +899,10 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 	## The slot's tile and icon (the baked part of a slot).
 	var shadow := _hex_pts(hc + Vector2(0, 3), hr + 7.0)
 	draw_colored_polygon(shadow, Color(0, 0, 0, 0.45))
+	# Every slot now draws its emblem from Faisal's 2026-10-14 icon sheet,
+	# centred on the hexagon: the old painted hex tiles had their symbols off
+	# centre (Faisal 08:09 "this is off center", on Perks and Grab).
+	art = ""
 	if art != "" and skill_art.has(art):
 		# The painted hexagon (rim and all) from the reference art: its hex
 		# fills 90% of the picture's height.
@@ -921,9 +925,9 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 	if art != "" and skill_art.has(art):
 		pass   # the painted tile carries its own icon
 	elif locked:
-		_padlock(rect.get_center() + Vector2(0, -3), size_px * 0.3, Color(0.58, 0.58, 0.62))
-	elif not _tile_glyph(icon, rect.get_center() + Vector2(0, -4), size_px * 0.3, not ready):
-		_icon(icon, rect.get_center() + Vector2(0, -4), size_px * 0.29, Color.WHITE, not ready)
+		_padlock(hc + Vector2(0, -2), size_px * 0.3, Color(0.58, 0.58, 0.62))
+	else:
+		_icon(icon, hc + Vector2(0, -2), size_px * 0.3, Color.WHITE, not ready)
 
 
 func _hex_tile(hc: Vector2, hr: float, frame: Color, color: Color, locked: bool, ready: bool) -> void:
@@ -2931,20 +2935,32 @@ func _draw_kill_banner(p) -> void:
 				sub_color = Color(1.0, 0.6, 0.4, a)
 	if finish:
 		title = "FINISHED!"
-	var w: float = (300.0 + maxf(_text_width(title, 26) - 120.0, 0.0)) * scale_k
-	var rect := Rect2(size.x / 2.0 - w / 2.0, 108 - (1.0 - pop) * 24.0, w, 66 * scale_k)
-	_scale_about(Vector2(size.x / 2.0, 108.0), clampf(size.x / 1280.0, 0.55, 1.0) * BANNER_SIZE)
-	# The burst behind the card.
-	draw_arc(rect.get_center(), 40.0 + age * 160.0, 0, TAU, 40, Color(1.0, 0.85, 0.3, maxf(0.5 - age * 1.2, 0.0)), 6.0)
-	_plate(rect, Color(0.42, 0.08, 0.08, 0.94 * a), Color(1.0, 0.85, 0.3, a), 12, 3)
-	# The victim's class shield from Faisal's 2026-10-14 art (the round
-	# portrait crop read as a dark smudge at this size: Faisal 07:16).
+	# The same cloth ribbon and cartoon lettering as YOU FELL (Faisal
+	# 2026-10-14 08:09: "make this notification look like the you died one"),
+	# in gold for a win: the victim's class shield on its left end, crossed
+	# swords on its right, the victim and XP on a line under it.
+	var now := Time.get_ticks_msec() / 1000.0
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var s := scale_k * fit * 0.82 * BANNER_SIZE
+	draw_set_transform(Vector2(size.x / 2.0, (118.0 - (1.0 - pop) * 20.0) * fit), 0.0, Vector2(s, s))
+	var ink := Color(0.12, 0.05, 0.03, a)
+	var tf: Font = title_font if title_font else font
+	var half := maxf(170.0, tf.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 40).x / 2.0 + 74.0)
+	draw_arc(Vector2(0, -8), 60.0 + age * 200.0, 0, TAU, 40, Color(1.0, 0.85, 0.3, maxf(0.5 - age * 1.2, 0.0) * a), 6.0)
+	_cloth_ribbon(half, -44.0, 30.0, Color(0.95, 0.66, 0.16, a), Color(0.55, 0.26, 0.05, a), a, now)
+	_title_text(Vector2(-half, 16.0), title, 40, Color(1.0, 0.97, 0.88, a), Color(0.62, 0.3, 0.04, a), ink, half * 2.0)
 	var vrole: int = p.kill_banner.role_id
 	var vicon: String = _class_icon(vrole) if vrole != Role.BASE else ("class_elf" if p.kill_banner.team == 0 else "class_human")
-	_icon(vicon, rect.position + Vector2(36 * scale_k, rect.size.y / 2.0), 10.5 * scale_k, Color(1, 1, 1, a))
-	_text(rect.position + Vector2(68 * scale_k, 30 * scale_k), title, int(26 * scale_k), Color(1.0, 0.95, 0.7, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	_text(rect.position + Vector2(68 * scale_k, 50 * scale_k), "%s the %s  ·  +%d XP" % [p.kill_banner.victim, p.kill_banner.role, Stats.XP_FINISH if finish else Stats.XP_KILL], int(12 * scale_k), sub_color, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_icon("sword", rect.end - Vector2(30 * scale_k, rect.size.y / 2.0), 12 * scale_k, Color(1.0, 0.85, 0.3, a))
+	for sx in [-1.0, 1.0]:
+		var ic := Vector2(sx * (half - 34.0), -8.0)
+		draw_circle(ic + Vector2(0, 2), 25.0, Color(0, 0, 0, 0.35 * a))
+		draw_circle(ic, 23.0, ink)
+		draw_circle(ic, 21.0, Color(1.0, 0.8, 0.22, a))
+		draw_circle(ic, 18.0, Color(0.42, 0.08, 0.08, a))
+		_icon(vicon if sx < 0.0 else "sword", ic, 9.5, Color(1, 1, 1, a))
+	var sub := "%s the %s  ·  +%d XP" % [p.kill_banner.victim, p.kill_banner.role, Stats.XP_FINISH if finish else Stats.XP_KILL]
+	_bar_text(Vector2(0, 62.0), sub, bar_font if bar_font else font, 16, sub_color, Color(0.2, 0.08, 0.02, a), 3)
+	_twinkles(now, a * 0.6, [Vector2(-half - 20, -50), Vector2(half + 16, -46), Vector2(-half * 0.6, 50), Vector2(half * 0.6, 54)])
 	draw_set_transform(Vector2.ZERO)
 
 
@@ -4438,117 +4454,169 @@ func _upgrades_card(p, L: Rect2) -> void:
 		y += rh
 
 
+func _fx_glow(c: Vector2, r: float, col: Color, a: float) -> void:
+	## A soft light: stacked discs, faint and wide to bright and small.
+	for k in 6:
+		var f := 1.0 - k / 6.0
+		draw_circle(c, r * f, Color(col, a * 0.12 * (1.0 + k * 0.35)))
+
+
+func _fx_sparkle(c: Vector2, s: float, col: Color) -> void:
+	## A four-point twinkle.
+	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -s), c + Vector2(s * 0.22, -s * 0.22), c + Vector2(s, 0), c + Vector2(s * 0.22, s * 0.22),
+		c + Vector2(0, s), c + Vector2(-s * 0.22, s * 0.22), c + Vector2(-s, 0), c + Vector2(-s * 0.22, -s * 0.22)]), col)
+
+
+func _fx_comet(head: Vector2, back: Vector2, w: float, col: Color, hot: Color, a: float) -> void:
+	## A tapered streak from head to back (back = direction * length), bright
+	## at the head and fading to nothing at the tail, with a white-hot core.
+	var n := back.normalized().orthogonal()
+	var tail := head + back
+	draw_polygon(PackedVector2Array([head + n * w, head - n * w, tail]),
+		PackedColorArray([Color(col, a * 0.85), Color(col, a * 0.85), Color(col, 0.0)]))
+	draw_polygon(PackedVector2Array([head + n * w * 0.45, head - n * w * 0.45, head + back * 0.6]),
+		PackedColorArray([Color(hot, a), Color(hot, a), Color(hot, 0.0)]))
+	_fx_glow(head, w * 3.2, col, a)
+	draw_circle(head, w * 0.9, Color(1, 1, 1, a))
+
+
 func _strip_fx(art: Rect2, kind: String, icon: String, tint: Color, now: float) -> void:
 	## The skill row's living art strip (Faisal 2026-10-14 07:24: "i like the
-	## idea of this animation being here"): the skill acted out in its colour
-	## on a loop. Bolts and arrows streak across with a trail, traps and
-	## auras turn as a ring of thorns, dashes leave after-images, swings sweep
-	## an arc and buffs beat like a heart.
-	var hot := tint.lightened(0.55)
-	var c := art.get_center() + Vector2(art.size.x * 0.05, 0)
+	## idea of the this animation being here"; 08:08 "improve on the visuals
+	## of these"): a painted-looking scene in the skill's colour on a loop.
+	## Every strip has a light pool, slow god-rays and twinkles behind a big
+	## glowing emblem; then bolts and arrows streak in as comets and burst on
+	## the emblem, traps close a ring of thorns, dashes leave after-images,
+	## swings sweep a crescent and buffs beat with rays.
+	var hot := tint.lightened(0.6)
 	var h := art.size.y
-	var motes := func(n: int, speed: float, spread: float) -> void:
-		for k in n:
-			var f := fmod(now * speed + k * 0.618, 1.0)
-			var mx := art.position.x + 12.0 + fmod(k * 37.3, art.size.x - 24.0)
-			var my := art.end.y - 4.0 - f * (h - 8.0)
-			draw_circle(Vector2(mx + sin(now * 2.0 + k) * spread, my), 1.6 + fmod(k * 0.7, 1.2), Color(hot, 0.7 * sin(f * PI)))
+	var ec := Vector2(art.position.x + art.size.x * 0.66, art.get_center().y)
+	# Light pool and rays.
+	_fx_glow(ec, h * 1.1, tint, 0.55)
+	for k in 5:
+		var ang := now * 0.15 + k * TAU / 5.0
+		var d := Vector2.from_angle(ang)
+		var w := d.orthogonal() * h * 0.09
+		draw_polygon(PackedVector2Array([ec + w, ec - w, ec + d * h * 1.1]),
+			PackedColorArray([Color(hot, 0.14), Color(hot, 0.14), Color(hot, 0.0)]))
+	for k in 6:
+		var f := fmod(now * 0.45 + k * 0.173, 1.0)
+		var sp := Vector2(art.position.x + 20.0 + fmod(k * 71.3, art.size.x - 40.0), art.position.y + 6.0 + fmod(k * 23.7, h - 12.0))
+		_fx_sparkle(sp, 2.0 + 3.0 * sin(f * PI), Color(hot, 0.85 * sin(f * PI)))
+	var big := h * 0.25
 	match kind:
 		"arrow", "spell", "shot", "fireball", "volley":
-			# A bolt flying left to right, its trail fading behind it.
+			# Comets fly in and burst on the emblem.
 			var n := 3 if kind == "volley" else 1
+			var period := 1.6
+			var t := fmod(now, period) / period
+			var fly := clampf(t / 0.55, 0.0, 1.0)
 			for b in n:
-				var f := fmod(now * 0.55 + b * 0.22, 1.0)
-				var y := c.y + (b - (n - 1) / 2.0) * h * 0.2 + sin(f * PI) * -3.0
-				var isz := h * (0.24 if n == 1 else 0.13)
-				var x := art.position.x + 10.0 + f * (art.size.x - 20.0)
-				var a := sin(f * PI)
-				for k in 12:
-					var tx := x - k * 7.0
-					if tx < art.position.x + 4.0:
-						break
-					draw_circle(Vector2(tx, y + sin(k * 0.9 + now * 9.0) * 1.2), (7.0 - k * 0.45) * (h / 50.0), Color(tint.lightened(0.25 + k * 0.03), a * (0.55 - k * 0.045)))
-				draw_circle(Vector2(x, y), h * 0.36, Color(tint, 0.16 * a))
-				draw_circle(Vector2(x, y), h * 0.24, Color(hot, 0.16 * a))
-				draw_set_transform(Vector2(x, y), 0.0 if kind != "fireball" and kind != "spell" else now * 3.0, Vector2.ONE)
-				_icon(icon, Vector2.ZERO, isz, Color.WHITE)
-				draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-				for k in 4:
-					var sp := Vector2(x - 6.0 - fmod(now * 90.0 + k * 23.0, 40.0), y + (k - 1.5) * 4.0)
-					draw_circle(sp, 1.4, Color(hot, a * 0.8))
+				var start := Vector2(art.position.x + 10.0, art.get_center().y + (b - (n - 1) / 2.0) * h * 0.32)
+				var tgt := ec + Vector2(-big * 0.9, (b - (n - 1) / 2.0) * h * 0.08)
+				var e := 1.0 - pow(1.0 - fly, 2.0)
+				var head := start.lerp(tgt, e) + Vector2(0, -sin(fly * PI) * h * 0.08)
+				if t < 0.55:
+					var dir := (tgt - start).normalized()
+					_fx_comet(head, -dir * minf(h * 1.6, (head.x - art.position.x) * 0.9), h * 0.06, tint.lightened(0.15), hot, 1.0)
+			var hit := (t - 0.55) / 0.45
+			var pulse := 1.0
+			if hit >= 0.0:
+				pulse = 1.0 + 0.18 * exp(-hit * 6.0)
+				draw_arc(ec, big * (1.0 + hit * 1.6), 0, TAU, 40, Color(hot, 0.8 * (1.0 - hit)), 3.0 * (1.0 - hit) + 1.0)
+				for k in 10:
+					var d := Vector2.from_angle(k * TAU / 10.0 + 0.2)
+					draw_line(ec + d * big * (1.0 + hit * 0.8), ec + d * big * (1.2 + hit * 1.5), Color(hot, 1.0 - hit), 2.0)
+			_fx_glow(ec, big * 1.6 * pulse, tint, 0.9)
+			_icon(icon, ec, h * 0.19 * pulse, Color.WHITE)
 		"blink":
-			# A dash: after-images sliding right, chevrons ahead of them.
-			var f := fmod(now * 0.7, 1.0)
-			var x0 := art.position.x + 24.0 + f * (art.size.x * 0.6)
-			for g in 4:
-				var gx := x0 - g * h * 0.42
-				if gx < art.position.x + 12.0:
+			# After-images streaking right, chevrons pulsing ahead.
+			var f := fmod(now * 0.6, 1.0)
+			var x0 := art.position.x + h * 0.6 + f * (art.size.x * 0.55)
+			_fx_comet(Vector2(x0, ec.y), Vector2(-art.size.x * 0.45, 0), h * 0.16, tint, hot, 0.55)
+			for g in range(3, -1, -1):
+				var gx := x0 - g * h * 0.5
+				if gx < art.position.x + h * 0.3:
 					continue
-				draw_circle(Vector2(gx, c.y), h * 0.2, Color(tint, 0.1 * (4 - g)))
-				_icon(icon, Vector2(gx, c.y), h * 0.21, Color(1, 1, 1, 0.75 - g * 0.18))
+				_fx_glow(Vector2(gx, ec.y), h * 0.4, tint, 0.5 - g * 0.1)
+				_icon(icon, Vector2(gx, ec.y), h * 0.2, Color(1, 1, 1, 1.0 - g * 0.24))
 			for k in 3:
-				var cx := x0 + h * 0.4 + k * 12.0
+				var cx := x0 + h * 0.55 + k * 13.0
 				if cx > art.end.x - 8.0:
 					break
-				var ca := 0.4 + 0.5 * sin(now * 8.0 - k)
-				draw_polyline(PackedVector2Array([Vector2(cx - 5, c.y - 9), Vector2(cx + 4, c.y), Vector2(cx - 5, c.y + 9)]), Color(hot, ca), 3.0)
-			motes.call(6, 0.5, 3.0)
+				var ca := 0.45 + 0.5 * sin(now * 8.0 - k)
+				draw_polyline(PackedVector2Array([Vector2(cx - 6, ec.y - 11), Vector2(cx + 5, ec.y), Vector2(cx - 6, ec.y + 11)]), Color(hot, ca), 4.0)
 		"melee", "bash", "cleave", "smite":
-			# A swing: a bright arc sweeping round the weapon, then fading.
-			var f := fmod(now * 0.8, 1.0)
-			var r := h * 0.46
-			var a0 := -2.3 + f * 3.2
-			var sweep := 1.6 if kind != "cleave" else TAU * 0.8
-			for k in 6:
-				var aa := a0 - k * sweep / 8.0
-				draw_arc(c, r - k * 1.5, aa - sweep / 8.0, aa, 10, Color(hot, (0.75 - k * 0.12) * sin(f * PI)), 4.0 - k * 0.5)
-			draw_circle(c, h * 0.26, Color(tint, 0.14))
-			var tilt := -0.5 + 0.5 * sin(f * PI)
-			draw_set_transform(c, tilt, Vector2.ONE)
-			_icon(icon, Vector2.ZERO, h * 0.25, Color.WHITE)
+			# A swing: a filled crescent sweeping round the weapon.
+			var f := fmod(now * 0.75, 1.0)
+			var sweep := 2.2 if kind != "cleave" else TAU * 0.85
+			var head_a := -2.4 + f * (sweep + 1.2)
+			var r := h * 0.48
+			var pts := PackedVector2Array()
+			var cols := PackedColorArray()
+			var segs := 18
+			for k in segs + 1:
+				var u := float(k) / segs
+				var aa := head_a - u * sweep * 0.7
+				var th := (1.0 - u) * h * 0.13
+				pts.append(ec + Vector2.from_angle(aa) * (r + th))
+				cols.append(Color(hot, (1.0 - u) * 0.9 * sin(f * PI)))
+			for k in range(segs, -1, -1):
+				var u := float(k) / segs
+				var aa := head_a - u * sweep * 0.7
+				pts.append(ec + Vector2.from_angle(aa) * (r - (1.0 - u) * h * 0.05))
+				cols.append(Color(tint, (1.0 - u) * 0.6 * sin(f * PI)))
+			draw_polygon(pts, cols)
+			_fx_glow(ec + Vector2.from_angle(head_a) * r, h * 0.2, hot, sin(f * PI))
+			_fx_glow(ec, big * 1.5, tint, 0.8)
+			draw_set_transform(ec, -0.35 + 0.35 * sin(f * TAU), Vector2.ONE)
+			_icon(icon, Vector2.ZERO, h * 0.2, Color.WHITE)
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-			if f > 0.55 and f < 0.8:
-				var burst := (f - 0.55) / 0.25
-				for k in 6:
-					var d := Vector2.from_angle(k * TAU / 6.0 + 0.3)
-					draw_line(c + d * r * (0.6 + burst * 0.5), c + d * r * (0.75 + burst * 0.6), Color(hot, 1.0 - burst), 2.0)
 		"vigor", "upgrade", "overclock", "heal", "blessing", "guard":
 			# A buff: the emblem beats, rings ripple out, sparks circle it.
 			var beat := fmod(now * 1.1, 1.0)
-			var pulse := 1.0 + 0.14 * exp(-beat * 9.0) + 0.08 * exp(-absf(beat - 0.22) * 14.0)
+			var pulse := 1.0 + 0.16 * exp(-beat * 9.0) + 0.09 * exp(-absf(beat - 0.22) * 14.0)
 			for k in 3:
 				var rf := fmod(now * 0.6 + k / 3.0, 1.0)
-				draw_arc(c, h * (0.2 + rf * 0.5), 0, TAU, 40, Color(hot, 0.5 * (1.0 - rf)), 2.0)
-			for k in 8:
-				var ang := now * 1.4 + k * TAU / 8.0
-				var orb := c + Vector2(cos(ang) * h * 0.62, sin(ang) * h * 0.3)
-				draw_circle(orb, 1.8, Color(hot, 0.4 + 0.4 * sin(ang * 2.0)))
-			draw_circle(c, h * 0.28 * pulse, Color(tint, 0.2))
-			_icon(icon, c, h * 0.26 * pulse, Color.WHITE)
-			motes.call(8, 0.35, 4.0)
+				draw_arc(ec, h * (0.22 + rf * 0.55), 0, TAU, 48, Color(hot, 0.55 * (1.0 - rf)), 2.5 * (1.0 - rf) + 0.5)
+			for k in 10:
+				var ang := now * 1.3 + k * TAU / 10.0
+				var orb := ec + Vector2(cos(ang) * h * 0.7, sin(ang) * h * 0.32)
+				_fx_sparkle(orb, 2.5 + 1.5 * sin(ang * 2.0), Color(hot, 0.5 + 0.4 * sin(ang * 2.0)))
+			_fx_glow(ec, big * 1.7 * pulse, tint, 1.0)
+			_icon(icon, ec, h * 0.21 * pulse, Color.WHITE)
 		_:
-			# Traps, turrets, bubbles, smoke and curses: a ring of thorns
-			# turning on the ground round the emblem, glowing as it closes.
-			var spin := now * 0.6
-			var rx := minf(art.size.x * 0.32, h * 1.3)
+			# Traps, turrets, bubbles, smoke and curses: a ring of thorns on a
+			# glowing ground circle, its spikes rising as it closes.
+			var spin := now * 0.5
+			var rx := minf(art.size.x * 0.3, h * 1.3)
 			var ry := h * 0.3
 			var g := 0.5 + 0.5 * sin(now * 2.2)
-			var gc := c + Vector2(0, h * 0.12)
-			var ring := PackedVector2Array()
-			for k in 41:
+			var gc := ec + Vector2(0, h * 0.14)
+			var disc := PackedVector2Array()
+			for k in 40:
 				var ang := k * TAU / 40.0
-				ring.append(gc + Vector2(cos(ang) * rx, sin(ang) * ry))
-			draw_polyline(ring, Color(tint.darkened(0.2), 0.8), 3.0)
-			draw_polyline(ring, Color(hot, 0.25 + 0.35 * g), 1.2)
-			for k in 14:
-				var ang := spin + k * TAU / 14.0
-				var base := gc + Vector2(cos(ang) * rx, sin(ang) * ry)
-				var front := sin(ang) > 0.0
-				var tip := base + Vector2(cos(ang) * 7.0, -12.0 - 4.0 * g)
-				draw_colored_polygon(PackedVector2Array([base + Vector2(-3, 0), tip, base + Vector2(3, 0)]), Color(tint.lightened(0.2 if front else -0.2), 0.95 if front else 0.55))
-			draw_circle(gc, ry * 0.9, Color(tint, 0.08 + 0.08 * g))
-			_icon(icon, c - Vector2(0, h * 0.06 * sin(now * 1.6)), h * 0.24, Color.WHITE)
-			motes.call(7, 0.4, 2.0)
+				disc.append(gc + Vector2(cos(ang) * rx, sin(ang) * ry))
+			draw_colored_polygon(disc, Color(tint, 0.14 + 0.1 * g))
+			var back := []
+			var front := []
+			for k in 16:
+				var ang := spin + k * TAU / 16.0
+				(front if sin(ang) > 0.0 else back).append(ang)
+			for pass_list in [back, front]:
+				for ang in pass_list:
+					var base := gc + Vector2(cos(ang) * rx, sin(ang) * ry)
+					var is_front: bool = sin(ang) > 0.0
+					var tall := h * (0.22 + 0.1 * g)
+					var tip := base + Vector2(cos(ang) * 4.0, -tall)
+					draw_polygon(PackedVector2Array([base + Vector2(-4, 0), tip, base + Vector2(4, 0)]),
+						PackedColorArray([tint.darkened(0.3 if is_front else 0.55), hot if is_front else tint, tint.darkened(0.3 if is_front else 0.55)]))
+				if pass_list == back:
+					var ring := PackedVector2Array(disc)
+					ring.append(disc[0])
+					draw_polyline(ring, Color(hot, 0.45 + 0.4 * g), 2.0)
+					_fx_glow(ec, big * 1.5, tint, 0.8)
+					_icon(icon, ec - Vector2(0, h * 0.07 * sin(now * 1.6)), h * 0.2, Color.WHITE)
 
 
 func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -> void:

@@ -1020,3 +1020,24 @@ Commit: `f3e2ecf`. Faisal (07:40, in the Integration thread): "heres the 2k text
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
 
 Revert: `git revert f3e2ecf`.
+
+## 2026-10-14 — Kill ribbon, centred ability emblems, richer skill strips
+
+Commit: `9a64ae0`. Faisal's comments on sharper-art-in-game.jpg, 08:08-08:10:
+- "improve on the visuals of these" (the skill strips);
+- "make this notification look like the you died one as well" (the kill banner);
+- "this is off center" (Perks and Grab);
+- "Anything off center make sure to fix".
+
+- **Kill banner** (`_draw_kill_banner`): now the YOU FELL look. A gold cloth ribbon with swallowtails, the title in the cartoon lettering, the victim's class shield in a gold medallion on the left and a sword on the right, "<victim> the <class> · +XP" under it, and twinkles. It is scaled by BANNER_SIZE as before.
+- **Ability bar** (`_slot_face`): the painted hex tiles (punch, dodge, perks, drop, lock_a) had their symbols off centre, so every slot now draws its emblem from the 2026-10-14 icon sheet, centred on the hexagon (hc − 2 px). The code-drawn fist, dodge, heart and crown glyphs are no longer used there.
+- **Skill strips** (`_strip_fx` with new `_fx_glow`, `_fx_sparkle` and `_fx_comet`):
+  - every strip has a light pool, slow rays and twinkles behind a big glowing emblem;
+  - bolts fly in as tapered comets and burst on the emblem;
+  - melee sweeps a filled crescent;
+  - traps grow shaded thorns on a lit ground disc;
+  - buffs beat with sparkles circling them.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
+
+Revert: `git revert 9a64ae0`.
