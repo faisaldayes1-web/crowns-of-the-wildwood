@@ -214,7 +214,8 @@ func _process(_delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if game and not pane:  # the panes would feed every key to the chat twice
 		game.menu_input(event)
-		if game.game_over and game.summary and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if game.game_over and game.summary and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
+				and event.device != InputEvent.DEVICE_ID_EMULATION:   # a finger comes through touch_tap (twice toggled the board, SKIP also continued)
 			_click_end(get_local_mouse_position())
 
 
@@ -2339,8 +2340,10 @@ func _draw_guide() -> void:
 		_text(nb.position + Vector2(0, 17), "[%s]  %s" % [_k("interact"), next_label], 12, brown, HORIZONTAL_ALIGNMENT_RIGHT, nb.size.x, 0)
 		guide_buttons.append([Rect2(nb.position, nb.size + Vector2(40, 0)), "next"])
 	var cb := Rect2(box.end.x - 110, box.position.y + 10, 96, 22)
+	if touch_ui:
+		cb = Rect2(box.end.x - 150, box.position.y + 6, 136, 40)   # finger-sized
 	_plate(cb, Color(0.5, 0.3, 0.2), GOLD_DARK, 6, 1)
-	_text(cb.position + Vector2(0, 16), "[%s]  Close" % _k("menu"), 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x, 2)
+	_text(cb.position + Vector2(0, cb.size.y / 2.0 + (7.0 if touch_ui else 5.0)), "CLOSE" if touch_ui else "[%s]  Close" % _k("menu"), 18 if touch_ui else 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x, 2)
 	guide_buttons.append([cb, "close"])
 
 
@@ -3423,7 +3426,7 @@ func _draw_quick_upgrade(p) -> void:
 		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
 		quick_buttons.append([sr, t])
 		if not pane:
-			touch_rects.append([sr, "rank_%d" % (t + 1)])
+			touch_rects.append([sr, "quick_tap"])   # (was "rank_N": with the finger's emulated click one tap bought two ranks)
 	for e in extra:
 		var r := Rect2(tx, y + 3, ew, 30)
 		tx += ew + 6.0
@@ -5602,6 +5605,17 @@ func _menu_controls(body: Rect2) -> void:
 		_icon(CONTROL_GROUPS[i][1], b.position + Vector2(22, 19), 8, CREAM)
 		_text(b.position + Vector2(42, 25), CONTROL_GROUPS[i][0], 15, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 		group_buttons.append([b, i])
+	# CONTROL LAYOUT (Faisal 2026-10-14: his touch-screen laptop got the iPad
+	# layout): Auto follows the last thing used; the others pin it.
+	var ly := L.position.y + CONTROL_GROUPS.size() * 44 + 12
+	_text(Vector2(L.position.x + 4, ly + 12), "CONTROL LAYOUT", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var layout_names := {"auto": "AUTO", "keyboard": "KEYBOARD & MOUSE", "controller": "CONTROLLER", "touch": "TOUCH"}
+	var lh := clampf((L.end.y - ly - 22.0) / 4.0 - 4.0, 24.0, 32.0)
+	for i in game.CONTROL_LAYOUTS.size():
+		var id: String = game.CONTROL_LAYOUTS[i]
+		var lb := Rect2(L.position.x, ly + 20 + i * (lh + 4), L.size.x, lh)
+		_opt_button(lb, layout_names[id], game.control_layout == id)
+		toggle_buttons.append([lb, "layout_" + id])
 	var R := Rect2(body.position + Vector2(232, 0), Vector2(body.size.x - 232, body.size.y - 46))
 	_plate(R, Color(0.07, 0.08, 0.1, 0.97), Color(0.42, 0.3, 0.1), 9, 1)
 	_text(R.position + Vector2(16, 26), CONTROL_GROUPS[controls_group][0], 17, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
@@ -5624,7 +5638,7 @@ func _menu_controls(body: Rect2) -> void:
 		_keycap(Vector2(kx, row.get_center().y), key_text, 130, false, true)
 		_keycap(Vector2(px, row.get_center().y), game.binding_text(action, "pad", pad_kind), 96)
 		bind_buttons.append([row, action])
-	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), "Click a row, then press the key, mouse button or gamepad button you want; Esc cancels. Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points.",
+	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), ("Tap a row, then press the key or button you want; tap again to cancel." if game.touch_active else "Click a row, then press the key, mouse button or gamepad button you want; Esc cancels.") + " Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points.",
 		11, Color(0.72, 0.72, 0.78), R.size.x - 32, 13.0)
 	reset_button = Rect2(body.position.x + 232 + (R.size.x - 220) / 2.0, body.end.y - 38, 220, 34)
 	_opt_button(reset_button, "RESET TO DEFAULT", false)
