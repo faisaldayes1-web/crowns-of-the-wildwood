@@ -607,3 +607,15 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Files:** `scripts/unit.gd`.
 - **Checks:** `tools/tests/run.sh` 35/35.
 - **Revert:** `git revert ce8d525`
+
+## 30. Attack chains alternate their cuts
+
+- **When:** 2026-10-14 (Faisal: "improve all animations")
+- **Commit:** `d4e4980`
+- **What:** Back-to-back basic attacks step through the class's swing
+  animations in order (e.g. slice, chop, slice) instead of picking one at
+  random, so a flurry reads as a combo. A second without swinging restarts
+  the chain. Animation only; damage and timing are unchanged.
+- **Files:** `scripts/character_model.gd`.
+- **Checks:** `tools/tests/run.sh` 35/35.
+- **Revert:** `git revert d4e4980`
