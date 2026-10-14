@@ -1090,3 +1090,16 @@ Commit: `053a21d`. Faisal (10:06): "now make it slihglty less opaque and make th
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
 
 Revert: `git revert 053a21d`.
+
+## 2026-10-14 — Painted skill strips
+
+Commit: `66167d2`. Faisal (10:59): "here are all of the skill upgrades" (67 strips, 1024×256, from the sheets sent at 08:42).
+
+- **New tool:** `tools/make_skill_strips.py` writes `assets/ui/strips/<slug>.png` at 512×128. The navy backdrop is keyed to clear by brightness, and the left and right ends fade out.
+- **HUD:** new `strips` dictionary and `_skill_slug()`. Each skill row draws its painting right-aligned at the row height, zoomed 1.3x on the subject, in both the SKILLS & UPGRADES board and the pause tab.
+- **Effects over a painting:** `_strip_fx(..., painted=true)` draws only nine twinkles and a slow white glint (alpha 0.07). The light pool, rays, comets, emblem and the old streaks are drawn only when a skill has no painting.
+- **Coverage:** all 67 skill names match a file.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 66167d2`.
