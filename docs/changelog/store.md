@@ -259,3 +259,13 @@ Files: `scripts/stats.gd`, `scripts/store.gd`, `scripts/store_gear.gd`, `scripts
 `tools/store_menu_test.gd`.
 
 Undo: `git revert 7ce0768`
+
+## 2026-10-14 — Worn sparkles readable from the match camera
+
+Commit: `1a376aa`
+
+Rarity motes are larger (Epic 0.32, Legendary 0.45, Legendary 24 motes), tinted rather than white, with a
+soft dark halo so they show on pale stone; the menu hero scales them to 0.3x. `scripts/store_gear.gd`,
+`scripts/menu_stage.gd`.
+
+Undo: `git revert 1a376aa`
