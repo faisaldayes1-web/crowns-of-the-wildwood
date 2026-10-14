@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 21:25 UTC · Store `8720fc0` + closable iPad menus `3c901cd` (PR #20)
+
+- **What:** cherry-picked (branches were cut from the Steam branch): Store rarity tiers (tiered store cards, Epic sway / Legendary turntable in the preview, sparkle on worn Epic and Legendary gear; no save format change). Closable iPad menus: a tappable X on every panel (LEVEL UP strip, Veteran Training, action card), one action per tap, and Controls > CONTROL LAYOUT (Auto / Keyboard & Mouse / Controller / Touch, saved as settings/control_layout); Auto no longer shows the touch UI on a touch-screen laptop. New tools/touch_close_test.gd.
+- **Conflicts:** scripts/touch.gd `_down()` with the stuck-players fix: kept its lost-lift `_up(i)` lines, then the layout check and `set_active(true)`.
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** `git revert -m 1 <merge>` (Steam branch) or revert the cherry-picks newest first (alpha).
+
 ### 2026-10-14 21:10 UTC · UI & Art `e059d15` · Event banners
 
 - **What:** merged UI & Art `e059d15`: event banners for 18 kinds of match news (first blood, gate broken or rebuilt, overtime, vault, veterans, bounty, fire objective and more), shown one at a time. hud.gd only.
