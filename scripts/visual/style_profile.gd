@@ -66,6 +66,7 @@ const DETAIL_CHUNK := 24.0      # ground detail MultiMesh cells (m): each cell i
 # Water (the guide's saturated blue river).
 const WATER_SHALLOW := Color(0.34, 0.70, 0.96)
 const WATER_DEEP := Color(0.08, 0.34, 0.80)
+const WATER_OPEN_FOAM := 0.25  # foam keeps to the banks; open-water patches read as white clouds on the deeper blue
 
 # Light grades, applied when the match starts (never on the menus).
 const DAY := {

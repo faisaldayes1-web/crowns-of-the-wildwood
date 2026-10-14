@@ -5286,6 +5286,7 @@ func _add_river() -> void:
 	if world_style:   # the style guide's saturated blue river
 		wmat.set_shader_parameter("shallow", StyleProfile.WATER_SHALLOW)
 		wmat.set_shader_parameter("deep", StyleProfile.WATER_DEEP)
+		wmat.set_shader_parameter("open_foam", StyleProfile.WATER_OPEN_FOAM)
 	water.material_override = wmat
 	water.position = Vector3(0, 0.03, 0)
 	add_child(water)
