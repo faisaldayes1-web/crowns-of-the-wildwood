@@ -350,7 +350,7 @@ static func _scarf(body: Node3D, cloth: Color, outline: Material) -> void:
 # the head, capes and armour round the back and chest, weapon skins round the
 # sword hand. CPUParticles3D, a dozen or two each, so the web build keeps up.
 
-const AURA := {"epic": [Color(0.82, 0.55, 1.0), 10, 0.2], "legendary": [Color(1.0, 0.85, 0.35), 18, 0.28]}
+const AURA := {"epic": [Color(0.82, 0.55, 1.0), 10, 0.32], "legendary": [Color(1.0, 0.8, 0.25), 24, 0.45]}
 
 
 static func tier(kind: String, i: int) -> String:
@@ -434,7 +434,7 @@ static func _motes(look: Array, offset: Vector3, radius: float, big: bool) -> CP
 	p.mesh = quad
 	var col: Color = look[0]
 	var grad := Gradient.new()
-	grad.set_color(0, Color(1, 1, 1, 0.95))
+	grad.set_color(0, Color(col.lightened(0.55), 1.0))
 	grad.set_color(1, Color(col, 0.0))
 	grad.add_point(0.35, Color(col.lightened(0.3), 0.9))
 	p.color_ramp = grad
@@ -453,10 +453,13 @@ static func _spark_texture() -> Texture2D:
 	for y in n:
 		for x in n:
 			var d := Vector2(x + 0.5 - n / 2.0, y + 0.5 - n / 2.0) / (n / 2.0)
-			var core := clampf(1.0 - d.length() * 2.2, 0.0, 1.0)
+			var core := clampf(1.0 - d.length() * 1.6, 0.0, 1.0)
 			var rays := clampf(1.0 - absf(d.x) * 9.0, 0.0, 1.0) * clampf(1.0 - absf(d.y), 0.0, 1.0) \
 				+ clampf(1.0 - absf(d.y) * 9.0, 0.0, 1.0) * clampf(1.0 - absf(d.x), 0.0, 1.0)
 			var a := clampf(core + rays * 0.8, 0.0, 1.0)
-			img.set_pixel(x, y, Color(1, 1, 1, a))
+			# A dim, darker halo round the star so it still reads on pale stone.
+			var halo := clampf(1.0 - d.length() * 1.15, 0.0, 1.0) * 0.55
+			var v := lerpf(0.3, 1.0, a)
+			img.set_pixel(x, y, Color(v, v, v, maxf(a, halo)))
 	_spark = ImageTexture.create_from_image(img)
 	return _spark
