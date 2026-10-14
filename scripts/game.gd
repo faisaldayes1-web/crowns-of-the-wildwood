@@ -284,6 +284,7 @@ var cam_kick := Vector3.ZERO     # directional jolt (kick_cam), springs back to 
 var cam_pos := Vector3.ZERO
 var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
 var click_was := false
+var click_latched := false   # a left press seen by _input since the last menu tick
 var scoreboard_open := false   # held: the match scoreboard overlay
 var debug_score := false
 var chat_open := false
@@ -3293,7 +3294,16 @@ func menu_tick() -> void:
 				if not click_was:
 					sfx.ui("ui_click", -4.0)
 				_save_settings()
-	if click and not click_was and hud and rebinding == "":
+	# A press that came and went between two frames (a quick click or tap
+	# while a slow browser frame was drawing) is caught by _input below;
+	# polling the button alone missed it (Faisal 2026-10-14: menus "still
+	# unresponsive at times" on the web).
+	var pressed_now := click and not click_was
+	if click_latched:
+		pressed_now = true
+		click = true
+		click_latched = false
+	if pressed_now and hud and rebinding == "":
 		var mouse := menu_mouse()
 		if not playing and not menu_open and main_menu and not name_editing:
 			main_menu.tick(true, mouse)
@@ -3435,6 +3445,11 @@ func menu_tick() -> void:
 			rank_open = false
 	click_was = click
 	touch_tap = Vector2(-1, -1)
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		click_latched = true
 
 
 func menu_input(event: InputEvent) -> void:
