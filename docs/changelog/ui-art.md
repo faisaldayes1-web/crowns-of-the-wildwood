@@ -972,3 +972,23 @@ Commit: `43134bb`. The perk key and the Upgrade Station now open **SKILLS & UPGR
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures.
 
 Revert: `git revert 43134bb`.
+
+## 2026-10-14 — Faisal's upgraded UI art in the game
+
+Commit: `8776540`, then a merge of release/v0.4.0-alpha 99f41df. Faisal (06:27): "Here is all the upgraded ui, implement them into the game".
+
+- **New tool:** `tools/slice_new_ui.py <folder>` cuts his sheets into the game's files by name. The sheets are kept in /mnt/project-files/game/groups/ui-art/new-ui-2026-10-14/source/: showcase-2.png and cosmetic-atlas-1.png.
+- **Icons:** 76 ability, HUD and menu icons. The symbol is lifted off its framed tile by keying out the dark backdrop, so it sits on the HUD's own hex and round buttons.
+- **Class shields:** the eight class shields (`icons/class_*`), the scoreboard shields (`skills/shield_elf`, `skills/shield_human`), and the forest and kingdom crests.
+- **Faction art:** the Elves and Humans crests and logos (`cards/crest_*`, `cards/logo_*`), the four menu banners and `menu/icon_stag`.
+- **Class cards:** one card per class, used for both factions. The Engineer and Rogue cards are new, and `hud.gd` now loads them.
+- **Store:** all 53 thumbnails. `hair_2` (black hair) uses a tighter key, because the hair matches the backdrop's colour.
+- **Not taken:**
+  - the sixth row's hex-skill tiles (dodge, drop, locks, perks, punch), since the action bar keeps its hex art;
+  - the topbar frame strip, which is too small for the 1460 px top bar;
+  - the unused stag banner.
+- **Missing from the sheet,** so the old art stays: coin, frostweaver, siegewright and the menu arrows/body/gear/hair/palette icons.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures; a demo run had no script errors.
+
+Revert: `git revert 8776540`.
