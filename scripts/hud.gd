@@ -886,8 +886,11 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		var top := hc.y - hr
 		var cut := PackedVector2Array([Vector2(hc.x - hr * 2.0, top - 2.0), Vector2(hc.x + hr * 2.0, top - 2.0),
 			Vector2(hc.x + hr * 2.0, top + 2.0 * hr * frac), Vector2(hc.x - hr * 2.0, top + 2.0 * hr * frac)])
-		for poly in Geometry2D.intersect_polygons(_hex_pts(hc, hr - 2.5), cut):
-			draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
+		# The shade's band starts 2.5 px above the hex's tip: under about a pixel
+		# of overlap the clip is a sliver the renderer can't triangulate.
+		if 2.0 * hr * frac > 3.5:
+			for poly in Geometry2D.intersect_polygons(_hex_pts(hc, hr - 2.5), cut):
+				draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
 		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
 			int(16 * maxf(1.0, size_px / 60.0)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
 		if panel_pass == "live" and not touch_ui:

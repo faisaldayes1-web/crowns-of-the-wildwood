@@ -494,3 +494,61 @@ then `python3 tools/balance/agg.py <tag>`.
   0.85; wins 21-27 → 26-22.
 - **Checks:** `tools/tests/run.sh` 34/34.
 - **Revert:** `git revert e8f02f9`
+
+## 22. Test fix: skip downed bots
+
+- **When:** 2026-10-14 (reported by Integration & Release: `grab_feedback_once`
+  failed about 1 run in 5)
+- **Commit:** `db30d12`
+- **What:** The tests' `_first()` could pick a bot that the running demo had
+  already knocked down, and a downed unit ignores grabs. It now skips downed
+  bots, matching Integration's 715cb48 on their branch. Test code only.
+- **Files:** `tests/combat_test.gd`.
+- **Checks:** `tools/tests/run.sh` 34/34, three runs in a row.
+- **Revert:** `git revert db30d12`
+
+## 23. Bug fix: "Invalid polygon data" from the cooldown shade
+
+- **When:** 2026-10-14 (Faisal: "keep rebalancing and fixing the game and bug
+  fixing")
+- **Commit:** `30458d2`
+- **What:** The bot-match logs showed 1-5 `ERROR: Invalid polygon data,
+  triangulation failed` lines per match (167 over 48 matches). I traced them
+  with a temporary wrapper around every HUD polygon call. The ability slot's
+  cooldown shade clips a band out of the hexagon, and in a cooldown's last
+  instant the band overlaps the hex tip by under a pixel. That clip is a
+  0.1 px sliver the renderer refuses to fill. The shade now skips that last
+  sliver, which was invisible anyway. On screen nothing changes; the error
+  is gone.
+- **Files:** `scripts/hud.gd` (`_slot` cooldown shade).
+- **Checks:** `tools/tests/run.sh` 34/34.
+- **Revert:** `git revert 30458d2`
+
+## 24. Stuck-bot diagnostic counts only real stalls
+
+- **When:** 2026-10-14 (bug sweep)
+- **Commit:** `9ec77f7`
+- **What:** In `--demo` logs, a STALL line meant "hasn't moved for 20 s",
+  so defenders holding a post counted as stuck. Of 239 STALL lines over 48
+  matches, 230 were bots standing still on purpose (move = 0, mostly
+  job=defend). Only bots that want to move now count, so agg.py's "bot
+  stalls per match" means real stuck bots. Demo logging only; gameplay
+  unchanged.
+- **Files:** `scripts/unit.gd` (demo diagnostics).
+- **Checks:** `tools/tests/run.sh` 34/34.
+- **Revert:** `git revert 9ec77f7`
+
+## 25. Balance patch 6
+
+- **When:** 2026-10-14 (Faisal: "keep rebalancing and fixing the game and bug
+  fixing")
+- **Commit:** `a4c4786`
+- **What:** Trims the Elf lean on the latest alpha, mainly the Elf healers.
+  Write-up in `docs/balance/patch-6.md`.
+- **Files:** `scripts/stats.gd`, `docs/balance/patch-6.md`.
+- **Tunables:** Humans `regen_mult` 1.15 → 1.22; Elf Grove Mend
+  `cooldown` 0.7 → 0.8; Elf Spirit Bloom `haste` 4 → 3.
+- **Batches:** 144 matches. Wins 32-16 → 29-19; Elf/Human healer K/D
+  1.77/0.96 → 1.60/0.94.
+- **Checks:** `tools/tests/run.sh` 34/34.
+- **Revert:** `git revert a4c4786`
