@@ -552,3 +552,16 @@ then `python3 tools/balance/agg.py <tag>`.
   1.77/0.96 → 1.60/0.94.
 - **Checks:** `tools/tests/run.sh` 34/34.
 - **Revert:** `git revert a4c4786`
+
+## 26. Balance patch 7
+
+- **When:** 2026-10-14 (follows patch 6)
+- **Commit:** `8f995ef`
+- **What:** Trims the Elves' faction-wide speed edge; write-up in
+  `docs/balance/patch-7.md`.
+- **Files:** `scripts/stats.gd`, `docs/balance/patch-7.md`.
+- **Tunables:** Elves `speed` 6.15 → 6.05.
+- **Batches:** 96 matches. Wins 29-19 → 25-23; healer K/D E/H 1.60/0.94 →
+  1.09/1.20.
+- **Checks:** `tools/tests/run.sh` 34/34.
+- **Revert:** `git revert 8f995ef`
