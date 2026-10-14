@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 09:10 UTC · UI & Art `c40a329` · Promotion card restyled after Faisal's reference
+
+- **What:** merged UI & Art `0e50b30` + changelog `c40a329`: CLASS PROMOTION card restyled after Faisal's reference. hud.gd only.
+- **Conflicts:** none.
+- **Tested:** same full check as the entry below.
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 08:50 UTC · UI & Art `78e1421` · Kill banner ribbon, centred emblems, richer skill strips
 
 - **What:** merged UI & Art `9a64ae0` + changelog `78e1421`: kill banner restyled as a gold ribbon like YOU FELL, every ability-bar emblem centred, richer skill-strip effects. hud.gd only.
