@@ -3309,6 +3309,8 @@ func menu_tick() -> void:
 		for i in hud.tab_buttons.size():
 			if hud.tab_buttons[i].has_point(mouse):
 				menu_tab = hud.tab_ids[i]
+		if hud.quick_close.has_point(mouse) and playing and not menu_open and not rank_open and player:
+			hud.hide_quick()
 		for b in hud.quick_buttons:
 			if b[0].has_point(mouse) and playing and not menu_open and not rank_open and player:
 				if b[1] is Callable:

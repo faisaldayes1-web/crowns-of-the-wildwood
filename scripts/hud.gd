@@ -78,6 +78,8 @@ var controls_group := 0            # the Controls tab's open group
 var class_buttons: Array = []      # [rect, role] Classes tab SELECT
 var quick_buttons: Array = []      # [rect, track] the level-up tiles over the ability strip (mouse clicks)
 var quick_deny := -10.0             # when a quick upgrade was refused (in combat): the strip shakes
+var quick_close := Rect2()          # the LEVEL UP strip's X (screen coordinates)
+var quick_hidden := ""              # the strip's contents when its X was pressed: hidden until they change
 var corner_buttons: Array = []     # [rect, "menu" | "scoreboard"] the HUD corner squares (mouse clicks)
 var menu_tex: Dictionary = {}      # assets/ui/menu art used by the pause menu
 var variant_buttons: Array = []   # [rect, role, index]
@@ -2026,6 +2028,35 @@ func _close(rect: Rect2) -> void:
 	draw_line(c + Vector2(4.5, -4.5), c + Vector2(-4.5, 4.5), CREAM, 2.0)
 
 
+func x_button(c: Vector2, r: float) -> void:
+	## A round X close button in the game's brass ring (the pause menu's X,
+	## at any size). Economy's panels and the LEVEL UP strip use it too.
+	_ring_button(c, r)
+	var a := r * 0.4
+	for w in [[maxf(4.0, r * 0.35), Color(0.3, 0.17, 0.04)], [maxf(2.0, r * 0.18), CREAM]]:
+		draw_line(c + Vector2(-a, -a), c + Vector2(a, a), w[1], w[0])
+		draw_line(c + Vector2(a, -a), c + Vector2(-a, a), w[1], w[0])
+
+
+func hide_quick() -> void:
+	## The LEVEL UP strip's X: put it away until a new point or tile shows up.
+	var key := _quick_key(_me())
+	if key == quick_hidden:
+		return   # the finger's tap and its emulated click both land here
+	quick_hidden = key
+	game.sfx.ui("ui_close", -6.0)
+
+
+func _quick_key(p) -> String:
+	if p == null:
+		return ""
+	var extra: Array = game.economy.quick_tiles(p) if game.economy and game.economy.has_method("quick_tiles") else []
+	var labels := []
+	for e in extra:
+		labels.append(str(e.get("label", "")))
+	return "%d|%d|%s" % [p.points, p.role, ",".join(labels)]
+
+
 func _padlock(c: Vector2, s: float, col: Color) -> void:
 	## A small padlock for a slot that has not been unlocked yet.
 	draw_arc(c + Vector2(0, -0.15 * s), 0.42 * s, PI, TAU, 16, col, 0.17 * s)
@@ -3464,8 +3495,14 @@ func _draw_quick_upgrade(p) -> void:
 	# Economy's field buys (the class's hat machine) ride on the same strip:
 	# one quick-upgrade surface, not two.
 	var extra: Array = game.economy.quick_tiles(p) if game.economy and game.economy.has_method("quick_tiles") else []
+	quick_close = Rect2()
 	if tracks.is_empty() and extra.is_empty():
+		quick_hidden = ""
 		return
+	if quick_hidden != "":
+		if quick_hidden == _quick_key(p):
+			return   # put away with its X (Faisal 2026-10-14: it could not be closed on the iPad)
+		quick_hidden = ""
 	var k := minf(1.0, size.x / 1280.0)
 	var W := size.x / k
 	var H := size.y / k
@@ -3524,6 +3561,14 @@ func _draw_quick_upgrade(p) -> void:
 		quick_buttons.append([sr, e.get("buy", Callable())])
 		if not pane:
 			touch_rects.append([sr, "quick_tap"])
+	# An X at the strip's left end puts it away (keys 1-4 still buy). Left,
+	# not right: on touch the right end runs into the move tiles.
+	var xr := 16.0 if touch_ui else 11.0
+	var xc := Vector2(x - xr - 10.0, y + 18.0)
+	x_button(xc, xr)
+	quick_close = Rect2((xc - Vector2(26, 26)) * hud_scale, Vector2(52, 52) * hud_scale)
+	if not pane:
+		touch_rects.append([quick_close, hide_quick])
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
 

@@ -94,6 +94,9 @@ func _down(i: int, pos: Vector2) -> void:
 	for entry in hud.touch_rects:
 		var r: Rect2 = entry[0]
 		if r.grow(6).has_point(pos):
+			if entry[1] is Callable:
+				entry[1].call()   # a close X (economy panels, the LEVEL UP strip)
+				return
 			var action: String = entry[1]
 			if action == "":
 				return
