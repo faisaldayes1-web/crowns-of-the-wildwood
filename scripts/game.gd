@@ -286,6 +286,8 @@ var cam_kick := Vector3.ZERO     # directional jolt (kick_cam), springs back to 
 var cam_pos := Vector3.ZERO
 var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
 var click_was := false
+var slider_drag := -1        # the volume slider the held press started on
+var menus_warming := false   # _warm_up_menus is flipping screens: no clicks
 var click_latched := false   # a left press seen by _input since the last menu tick
 var scoreboard_open := false   # held: the match scoreboard overlay
 var debug_score := false
@@ -333,6 +335,9 @@ func _ready() -> void:
 		show_fps = true
 	_load_controls()
 	_ensure_profile()
+	# A button still held from the click that reloaded the scene (CONTINUE
+	# on the summary, a map card) is not a new press on the next screen.
+	click_was = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if OS.has_feature("web"):
 		# Browsers (and tablets) run Medium at most; Settings can raise
 		# it. (Here, not in _load_controls: a fresh browser has no settings
@@ -436,7 +441,11 @@ func _ready() -> void:
 	menu_stage.build(self)
 	menu_stage.activate()
 	main_menu.stage = menu_stage
-	_warm_up_menus()   # (a coroutine: runs over the next frames, under the loading art)
+	# The warm-up flips through the screens, so it is told where to land:
+	# picking Ember Pass reloads the scene and must come back to SELECT MAP,
+	# not the title (Faisal 2026-10-15: "switch maps to ember and hit play
+	# it kicks you off to the main menu").
+	_warm_up_menus(reopen_screen if reopen_screen != "" else "title")   # (a coroutine: runs over the next frames, under the loading art)
 	if reopen_screen != "":
 		main_menu.go(reopen_screen)
 		reopen_screen = ""
@@ -3300,11 +3309,21 @@ func menu_tick() -> void:
 	if confirm_block and not Input.is_action_pressed("ui_confirm"):
 		confirm_block = false
 	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or touch_tap.x >= 0.0 or (cursor_shown and Input.is_action_pressed("ui_confirm") and not confirm_block)
-	if click and hud and menu_open:
-		# Volume sliders follow the mouse while the button is held.
+	if not click:
+		slider_drag = -1
+	if click and hud and menu_open and not menus_warming:
+		# Volume sliders follow the mouse while the button is held, but only
+		# a press that started on a slider drags it. A press still held from
+		# the match summary's CONTINUE landed on the Settings tab the menu
+		# warm-up shows for two frames after the reload, and dragged the
+		# volume to full (Faisal 2026-10-15: "when you finish a game it
+		# sends you to the main menu with the volume maxed").
 		var mp := menu_mouse()
-		for sl in hud.volume_sliders:
-			if sl[0].grow(6).has_point(mp):
+		for si in hud.volume_sliders.size():
+			var sl: Array = hud.volume_sliders[si]
+			if not click_was and sl[0].grow(6).has_point(mp):
+				slider_drag = si
+			if slider_drag == si:
 				var v := clampf((mp.x - sl[0].position.x - 2.0) / (sl[0].size.x - 4.0), 0.0, 1.0)
 				if sl[1] == "sound":
 					sfx.sound_volume = v
@@ -3323,6 +3342,8 @@ func menu_tick() -> void:
 		pressed_now = true
 		click = true
 		click_latched = false
+	if menus_warming:
+		pressed_now = false
 	if pressed_now and hud and rebinding == "":
 		var mouse := menu_mouse()
 		if not playing and not menu_open and main_menu and not name_editing:
@@ -10394,7 +10415,7 @@ func _add_ink() -> void:
 	ink_on = true
 
 
-func _warm_up_menus() -> void:
+func _warm_up_menus(land_on: String = "title") -> void:
 	## The first visit to a menu screen loaded its art, built the hero and
 	## compiled its shaders on the spot: a visible stutter on each first
 	## click (Faisal 2026-10-10, on an RTX 4090). Show each screen for a
@@ -10402,9 +10423,11 @@ func _warm_up_menus() -> void:
 	if not is_instance_valid(loading_layer) or main_menu == null or DisplayServer.get_name() == "headless":
 		return
 	var m = main_menu
+	menus_warming = true
 	for scr in ["character", "store", "map"]:
 		await get_tree().process_frame
 		if not is_instance_valid(loading_layer) or main_menu != m or playing:
+			menus_warming = false
 			return
 		m.screen = scr
 	await get_tree().process_frame
@@ -10416,7 +10439,8 @@ func _warm_up_menus() -> void:
 	if main_menu == m and not playing:
 		menu_open = false
 		menu_tab = 0
-		m.screen = "title"
+		m.screen = land_on
+	menus_warming = false
 
 
 func _warm_up_effects() -> void:
