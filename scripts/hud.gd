@@ -451,6 +451,19 @@ func _plate(rect: Rect2, fill: Color = INK, edge: Color = GOLD_DARK, radius: int
 
 func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHITE,
 		align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0, outline := 4) -> void:
+	# Text always fits its spot (Faisal 2026-10-15 02:30: "make sure the
+	# text fits on the spot"): given a width, a line too long for it shrinks
+	# (down to 60% of its size) instead of running past its box.
+	if width > 0.0 and font_size > 6:
+		var tw := _text_width(text, font_size)
+		if tw > width:
+			var fs := font_size
+			var floor_fs := maxi(int(font_size * 0.6), 6)
+			while fs > floor_fs and _text_width(text, fs) > width:
+				fs -= 1
+			if fs != font_size and pos.y > 0.0:
+				pos.y -= (font_size - fs) * 0.35   # stay on the same visual line
+			font_size = fs
 	if outline > 0:
 		draw_string_outline(font, pos, text, align, width, font_size, outline, Color(0.05, 0.04, 0.06, 0.85))
 	draw_string(font, pos, text, align, width, font_size, color)
@@ -462,6 +475,25 @@ func _paragraph(pos: Vector2, text: String, font_size: int, color: Color, width:
 	for i in lines.size():
 		_text(pos + Vector2(0, i * line_h), lines[i], font_size, color, HORIZONTAL_ALIGNMENT_LEFT, -1, outline)
 	return lines.size() * line_h
+
+
+func _fit_paragraph(box: Rect2, text: String, font_size: int, color: Color) -> void:
+	## Word-wrapped text that stays inside box: the size steps down until
+	## the lines fit its height, and a last line that still runs over ends
+	## in "…" (Faisal 2026-10-15: "make sure the text fits on the spot").
+	var fs := font_size
+	var lines := _wrap(text, fs, box.size.x)
+	while fs > 7 and lines.size() * (fs + 2.0) > box.size.y:
+		fs -= 1
+		lines = _wrap(text, fs, box.size.x)
+	var lh := fs + 2.0
+	var most := maxi(int(box.size.y / lh), 1)
+	if lines.size() > most:
+		lines = lines.slice(0, most)
+		lines[most - 1] = str(lines[most - 1]).rstrip(" ,.;:") + "…"
+	var top := box.position.y + (box.size.y - lines.size() * lh) / 2.0 + fs
+	for i in lines.size():
+		_text(Vector2(box.position.x, top + i * lh), lines[i], fs, color, HORIZONTAL_ALIGNMENT_LEFT, box.size.x, 2)
 
 
 func _wrap(text: String, font_size: int, width: float) -> Array:
@@ -2922,19 +2954,37 @@ func _runner(c: Vector2, r: float, col: Color) -> void:
 
 
 func _draw_capture_card() -> void:
-	## CAPTURE! A gold card under the clock when either team scores.
-	var a := clampf(game.capture_timer / 0.5, 0.0, 1.0)
-	var pulse := 1.0 + 0.015 * sin(Time.get_ticks_msec() / 70.0)
-	var rect := Rect2(size.x / 2.0 - 230 * pulse, 106, 460 * pulse, 78)
-	_scale_about(Vector2(size.x / 2.0, 106.0), clampf(size.x / 1280.0, 0.55, 1.0) * BANNER_SIZE)
+	## CAPTURE! on the same cloth ribbon as KILL! and YOU FELL (Faisal
+	## 2026-10-15 02:30: "the capture banner is still in the old format"):
+	## gold when your side scores, crimson when they do, the scoring side's
+	## sigil and the crown in the end medallions and the score under it.
 	var ours: bool = game.capture_team == _my_team()
-	var tc: Color = _team_color(game.capture_team)
-	_plate(rect, Color(tc.r * 0.45, tc.g * 0.45, tc.b * 0.45, 0.95 * a), Color(1.0, 0.82, 0.3, a), 12, 3)
-	_icon("crown", rect.position + Vector2(34, 36), 16, Color(1, 0.85, 0.3, a))
-	_text(rect.position + Vector2(64, 32), "CAPTURE!" if ours else "THEY SCORED", 24, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	var line := "The %s bring the crown home.  %d - %d, first to %d wins." % [Stats.FACTIONS[game.capture_team].name, game.score[0], game.score[1], Stats.CAPTURES_TO_WIN]
-	_text(rect.position + Vector2(64, 56), line, 12, Color(1, 0.95, 0.9, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_card("logo_elves" if game.capture_team == 0 else "logo_humans", Rect2(rect.end.x - 74, rect.position.y + 7, 64, 64))
+	var age: float = 3.5 - game.capture_timer
+	var pop: float = clampf(age / 0.18, 0.0, 1.0)
+	var a: float = minf(pop * 2.0, 1.0) * clampf(game.capture_timer / 0.5, 0.0, 1.0)
+	var light := Color(0.95, 0.66, 0.16, a) if ours else Color(0.86, 0.18, 0.14, a)
+	var deep := Color(0.55, 0.26, 0.05, a) if ours else Color(0.42, 0.05, 0.05, a)
+	var now := Time.get_ticks_msec() / 1000.0
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var s := (1.0 + (1.0 - pop) * 0.35) * fit * 0.82 * BANNER_SIZE
+	draw_set_transform(Vector2(size.x / 2.0, (118.0 - (1.0 - pop) * 20.0) * fit), 0.0, Vector2(s, s))
+	var ink := Color(0.12, 0.05, 0.03, a)
+	var title := "CAPTURE!" if ours else "THEY SCORED!"
+	var tf: Font = title_font if title_font else font
+	var half := maxf(190.0, tf.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 40).x / 2.0 + 74.0)
+	draw_arc(Vector2(0, -8), 60.0 + age * 200.0, 0, TAU, 40, Color(1.0, 0.85, 0.3, maxf(0.5 - age * 1.2, 0.0) * a), 6.0)
+	_cloth_ribbon(half, -44.0, 30.0, light, deep, a, now)
+	_title_text(Vector2(-half, 16.0), title, 40, Color(1.0, 0.97, 0.88, a), deep.lightened(0.15), ink, half * 2.0)
+	for sx in [-1.0, 1.0]:
+		var ic := Vector2(sx * (half - 34.0), -8.0)
+		draw_circle(ic + Vector2(0, 2), 25.0, Color(0, 0, 0, 0.35 * a))
+		draw_circle(ic, 23.0, ink)
+		draw_circle(ic, 21.0, Color(1.0, 0.8, 0.22, a))
+		draw_circle(ic, 18.0, _team_color(game.capture_team).darkened(0.45) * Color(1, 1, 1, a))
+		_icon(("class_elf" if game.capture_team == 0 else "class_human") if sx < 0.0 else "crown", ic, 9.5, Color(1, 1, 1, a))
+	var line := "The %s bring the crown home  ·  %d - %d  ·  first to %d" % [Stats.FACTIONS[game.capture_team].name, game.score[0], game.score[1], Stats.CAPTURES_TO_WIN]
+	_bar_text(Vector2(0, 62.0), line, bar_font if bar_font else font, 15, Color(1.0, 0.92, 0.7, a), Color(0.2, 0.08, 0.02, a), 3)
+	_twinkles(now, a * (0.7 if ours else 0.3), [Vector2(-half - 20, -50), Vector2(half + 16, -46), Vector2(-half * 0.6, 50), Vector2(half * 0.6, 54)])
 	draw_set_transform(Vector2.ZERO)
 
 
@@ -3101,6 +3151,9 @@ func _watch_first_blood() -> void:
 		for arg in OS.get_cmdline_user_args():
 			if arg.begins_with("--debug-event="):   # a render of one event banner: --debug-event="The Elves door has been broken!"
 				game.toast(arg.trim_prefix("--debug-event="), Color(1.0, 0.85, 0.4))
+			if arg.begins_with("--debug-capture="):   # a render of the capture banner for team N
+				game.capture_team = int(arg.trim_prefix("--debug-capture="))
+				game.capture_timer = 3.5
 	var total := 0
 	for u in game.units:
 		total += int(u.kills)
@@ -4143,8 +4196,7 @@ func _draw_world_prompt() -> void:
 func _draw_class_pointer(me) -> void:
 	## A plain soldier sees where the classes are (Faisal 2026-10-10: "it
 	## should be obvious where the classes are"): a bobbing gold arrow and
-	## PICK A CLASS over the class stations, or, when they are off screen, an
-	## arrow at the screen edge pointing the way.
+	## PICK A CLASS over the class stations.
 	if me.role != Role.BASE or me.dead or me.downed or game.stations[me.team].is_empty():
 		return
 	var cam: Camera3D = game.camera_for(me)
@@ -4158,28 +4210,14 @@ func _draw_class_pointer(me) -> void:
 	var bob := sin(Time.get_ticks_msec() / 220.0) * 6.0
 	var gold := Color(1.0, 0.82, 0.25)
 	var inside := Rect2(Vector2(60, 150), size - Vector2(120, 330)).has_point(sp) and not cam.is_position_behind(at)
+	# No arrows (Faisal 2026-10-15 02:30: "there's no point for the yellow
+	# arrow"): just the PICK A CLASS plate over the stations while they are
+	# on screen. The off-screen edge arrow, whose plate was cut off at the
+	# screen's edge, is gone.
 	if inside:
-		var tip := sp + Vector2(0, 18 + bob)
-		draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-20, -24), tip + Vector2(20, -24)]), Color(0, 0, 0, 0.45))
-		draw_colored_polygon(PackedVector2Array([tip + Vector2(0, -3), tip + Vector2(-16, -24), tip + Vector2(16, -24)]), gold)
 		var r := Rect2(sp + Vector2(-84, -40 + bob), Vector2(168, 30))
 		_plate(r, Color(0.3, 0.17, 0.04, 0.92), gold, 8, 2)
 		_text(r.position + Vector2(0, 21), "PICK A CLASS", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
-		return
-	# Off screen: from the player toward the stations, pinned inside the view.
-	var from: Vector2 = inv * cam.unproject_position(me.global_position + Vector3(0, 1.5, 0))
-	var d := (sp - from).normalized() if cam.is_position_behind(at) == false else Vector2(mid.x - me.global_position.x, mid.z - me.global_position.z).normalized()
-	if d == Vector2.ZERO:
-		return
-	var c := from + d * 120.0
-	c = c.clamp(Vector2(80, 170), size - Vector2(80, 200))
-	c += d * bob
-	var side := Vector2(-d.y, d.x)
-	draw_colored_polygon(PackedVector2Array([c + d * 26, c - d * 14 + side * 20, c - d * 14 - side * 20]), Color(0, 0, 0, 0.45))
-	draw_colored_polygon(PackedVector2Array([c + d * 22, c - d * 11 + side * 16, c - d * 11 - side * 16]), gold)
-	var r2 := Rect2(c - d * 44 - Vector2(76, 15), Vector2(152, 30))
-	_plate(r2, Color(0.3, 0.17, 0.04, 0.92), gold, 8, 2)
-	_text(r2.position + Vector2(0, 21), "PICK A CLASS", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r2.size.x, 2)
 
 
 # --- Map ---------------------------------------------------------------------
@@ -5855,12 +5893,12 @@ func _menu_settings(body: Rect2) -> void:
 	toggle_buttons.append([Rect2(la.end.x, pick.position.y, pick.size.x - 60, pick.size.y), "pad_style"])
 	toggle_buttons.append([ra, "pad_style"])
 	var pads: Array = Input.get_connected_joypads()
-	var plugged := "No gamepad connected. DualSense (PS5), DualShock and Xbox pads work over USB or Bluetooth; plug one in and press any button."
+	var plugged := "No gamepad: plug one in (USB or Bluetooth) and press any button."
 	if not pads.is_empty():
 		var names: Array = []
 		for d in pads:
 			names.append(game.pad_title(d))
-		plugged = "Connected: " + ", ".join(names) + ((". Player 1 holds the %s." % game.pad_title(game.local_pad(0))) if game.couch_players > 1 else ". Press any button on it to switch the hints to its names.")
+		plugged = "Connected: " + ", ".join(names) + ((". P1 holds the %s." % game.pad_title(game.local_pad(0))) if game.couch_players > 1 else ".")
 	# Split Screen: how two couch players share the window.
 	var split := Rect2(x + 542, y + 2, 340, 36)
 	_opt_slot(split)
@@ -5873,7 +5911,7 @@ func _menu_settings(body: Rect2) -> void:
 		_split_glyph(b.position + Vector2(17, 14), layout, ink)
 		_text(b.position + Vector2(28, 19), layout.to_upper(), 11, ink, HORIZONTAL_ALIGNMENT_CENTER, b.size.x - 30, 2)
 		toggle_buttons.append([b, "split_" + layout])
-	_paragraph(Vector2(x + 892, y + 6), plugged + " Saved automatically.", 9, CREAM, w - 904, 11.0)
+	_fit_paragraph(Rect2(x + 892, y, w - 904, 40), plugged, 10, CREAM)
 
 
 func _split_glyph(c: Vector2, layout: String, col: Color) -> void:
