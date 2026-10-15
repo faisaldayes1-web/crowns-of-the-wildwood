@@ -385,7 +385,10 @@ func _mouse() -> Vector2:
 func nav_rects() -> Array:
 	## Every button drawn this frame, for the gamepad cursor to jump between.
 	var out: Array = []
-	for list in [menu_buttons, title_buttons, faction_buttons, hero_buttons, couch_buttons, tab_buttons, bind_buttons,
+	var menu_live := menu_buttons
+	if game.main_menu and game.main_menu.overlay != "":
+		menu_live = menu_buttons.slice(game.main_menu.overlay_from)   # not the planks behind an overlay
+	for list in [menu_live, title_buttons, faction_buttons, hero_buttons, couch_buttons, tab_buttons, bind_buttons,
 			difficulty_buttons, toggle_buttons, guide_buttons, chat_buttons, variant_buttons, volume_sliders, group_buttons, class_buttons]:
 		for b in list:
 			if b[0].size.x > 0.0:

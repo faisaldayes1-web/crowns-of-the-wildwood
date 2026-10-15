@@ -1205,3 +1205,19 @@ Files: scripts/hud.gd, scripts/menu.gd.
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
 
 Revert: `git revert a6c6cf5`.
+
+## 2026-10-15 · 57cb0a8 · HOW TO PLAY tutorial cards
+
+Faisal 2026-10-15 04:37: "maybe add a simple tutorial with big ui elements to showcase how to play the game".
+
+- **menu.gd `HOW TO PLAY` overlay (`HOWTO`, `_draw_howto`):** six big cards: MOVE & FIGHT, PICK A CLASS, BREAK IN, STEAL THE CROWN, GUARD YOUR DOOR, LEVEL UP. Each has a gameplay picture (assets/ui/tutorial), a big icon, a title and one line. The line names the player's own keys, pad buttons or touch buttons (`_howto_line`).
+- **Buttons:** BACK, NEXT (LET'S PLAY! on the last card), six dots, and a close button. LB/RB or the arrow keys turn cards. The first card's MORE QUESTIONS opens the old question list.
+- **When it shows:** once on a first launch, after the name ask (new setting `howto_seen` in game.gd), and every time from the title's TUTORIAL button.
+- **Click fix:** under any title overlay, clicks and the gamepad cursor only reach the overlay's own buttons (`overlay_from`). Before, the title planks behind it could take the click.
+- **Debug:** `--debug-howto=N` shows card N.
+
+Files: scripts/menu.gd, scripts/game.gd, scripts/hud.gd (nav_rects), tools/options_menu_test.gd.
+
+Tested: options_menu_test (now checks NEXT, BACK and MORE QUESTIONS), menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 57cb0a8`.

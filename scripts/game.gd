@@ -186,6 +186,7 @@ var damage_numbers := true
 var show_fps := false
 var quit_armed := 0.0          # pause menu: seconds the MAIN MENU button stays armed after a first click
 var gfx_quality := 2           # graphics preset: 0 Low, 1 Medium, 2 High, 3 Ultra
+var howto_seen := false        # the HOW TO PLAY cards were shown once (menu.gd)
 var fps_intro_done := false    # the FPS counter was switched on once for the alpha testers
 var lamp_shadows: Array = []   # lamps that cast shadows (off on Low)
 var gfx_picked := false        # the player chose a preset in Settings (no automatic changes after that)
@@ -3265,6 +3266,11 @@ func menu_tick() -> void:
 				menu_open = false
 			elif Input.is_action_just_pressed("menu") and main_menu and not name_editing:
 				main_menu.back()
+			elif not menu_open and main_menu and main_menu.overlay == "howto":
+				if Input.is_action_just_pressed("menu_left"):
+					main_menu.howto_next(-1)
+				if Input.is_action_just_pressed("menu_right"):
+					main_menu.howto_next(1)
 			elif not menu_open:
 				if Input.is_action_just_pressed("menu_left"):
 					cycle_difficulty(-1)
@@ -4149,6 +4155,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "gfx_quality", gfx_quality)
 	cfg.set_value("settings", "gfx_picked", gfx_picked)
 	cfg.set_value("settings", "fps_intro_done", fps_intro_done)
+	cfg.set_value("settings", "howto_seen", howto_seen)
 	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
@@ -4272,6 +4279,7 @@ func _load_controls() -> void:
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
 	fps_intro_done = cfg.get_value("settings", "fps_intro_done", false)
+	howto_seen = cfg.get_value("settings", "howto_seen", false)
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
 	gfx_picked = cfg.get_value("settings", "gfx_picked", false)
 	if OS.has_feature("web"):
@@ -7771,9 +7779,14 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	for zs in [-1.0, 1.0]:
 		var ins := Vector3(0, 0, -zs)
 		if elven or zs < 0.0:   # (the Humans' camera-facing keep wall is waist high: nothing hangs on it)
-			_add_tapestry(team, Vector3(kx + side * 1.6, 0.5, zs * wz), ins, 1.5, 1.9)
-			if not elven:   # the Elves' keep walls are waist high
-				_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 0.5, zs * wz), ins, 1.2, 1.7)
+			# The Elves' keep walls are waist high under a hedge, so no
+			# tapestry hangs there (it stood up through the hedge, with the
+			# carrot crate and crystal torch in front: Faisal 2026-10-15).
+			# The Humans' first one hangs between the two wall torches, the
+			# second above the long table (both cut into them before).
+			if not elven:
+				_add_tapestry(team, Vector3(kx + side * 2.1, 0.5, zs * wz), ins, 0.9, 1.9)   # between the two wall torches
+				_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 1.25, zs * wz), ins, 1.2, 1.15)
 			_add_wall_torch(Vector3(room_f - side * 0.2, 0.9 if elven else 1.6, zs * (wz - 0.05)), ins)
 			_add_wall_torch(Vector3(room_b + side * 1.5, 1.6, zs * (wz - 0.05)), ins)
 	if elven:
@@ -9674,8 +9687,8 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 			for k in range(1, 5):   # (k = 0 sat right over the shelves)
 				var tx := bx + side * (1.5 + k * 3.8)
 				_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
-			for px in [5.3, 9.0, 12.9]:
-				_add_pennant(team, Vector3(bx + side * px, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0, px == 9.0)
+			for px in [7.2, 11.0, 14.8]:   # between the torches (they burned through the cloth at 5.3, 9.0, 12.9)
+				_add_pennant(team, Vector3(bx + side * px, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0, px == 11.0)
 			# Flower beds and stores along the south wall (the courtyard reference);
 			# the Humans drill here instead: an armoury rack, targets and dummies.
 			if team == 0:
