@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 05:30 UTC · World visual overhaul `d1af0cf`, UI & Art `504af81` · Flag clipping; HOW TO PLAY cards
+
+- **What:** merged into the Steam branch, cherry-picked into the alpha. Overhaul `77a4290`: no tapestries on the Elf keep walls (the green flag stood up through the hedge), Human ones clear of the torch and table, cellar pennants between their torches. UI & Art `57cb0a8`: HOW TO PLAY, six tutorial cards shown once on first launch (setting howto_seen) and from TUTORIAL; clicks under title overlays only reach the overlay's buttons.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** map_switch_test 0 failures on the merged code; full check before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the cherry-picks newest first.
+
 ### 2026-10-15 05:20 UTC · Economy `2518b65` + Integration `c865c8c` · LEVEL UP strip; map-switch checks
 
 - **What:** cherry-picked Economy `4e2f189` + `2518b65` into both branches (LEVEL UP strip on the in-match board: points badge, hex skill tiles, Training hex only once it opens). Added tools/map_switch_test.gd (every map pair both ways through SELECT MAP, seven back-to-back matches across the three maps solo and split-screen, checking screen, map, world, one game scene, volume and settings) and tools/net_map_switch_test.gd (an online host switches maps with a joiner in the room).
