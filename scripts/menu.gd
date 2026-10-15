@@ -1534,11 +1534,20 @@ func add_player(device: int) -> void:
 	## A gamepad joins the lobby as the next local player.
 	if game.couch_players >= game.COUCH_MAX:
 		return
-	game.split_screen = true
-	if device >= 0:
-		if device in join_pads:
+	if device < 0:
+		# Clicked in: give the new player a controller nobody holds yet. One
+		# keyboard player for now (Faisal 2026-10-15): no pad, no join.
+		for d in Input.get_connected_joypads():
+			if not d in join_pads and d != p1_pad:
+				device = d
+				break
+		if device < 0:
+			game.toast("Connect a controller for player %d: player 1 has the keyboard and mouse" % (game.couch_players + 1), Color(1.0, 0.8, 0.5))
 			return
-		join_pads.append(device)
+	game.split_screen = true
+	if device in join_pads:
+		return
+	join_pads.append(device)
 	game.couch_players += 1
 	readied[game.couch_players - 1] = false
 	game.sfx.ui("rank_up", -6.0)
