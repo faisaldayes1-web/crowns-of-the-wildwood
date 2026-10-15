@@ -129,13 +129,15 @@ static func config(team: int, role: int, variant: String = "", rank: int = 1) ->
 
 
 # Cells (col, row) of the 8x4 palette grid that hold each skin's hair and
-# trim (cape / sash), per base model. Mirrors tools/recolor_skins.py.
+# trim (cape / sash), per base model, and the main team cloth ("cloth": the
+# KayKit capes are cut from it, so a dyed cape repaints those too). Mirrors
+# tools/recolor_skins.py.
 const CELLS := {
-	"knight": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
-	"rogue": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
-	"mage": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)], "skin": [Vector2i(0, 0)]},
-	"healer": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0), Vector2i(2, 0)], "skin": [Vector2i(0, 0)]},
-	"barbarian": {"trim": [Vector2i(2, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
+	"knight": {"trim": [Vector2i(2, 2)], "cloth": [Vector2i(0, 1)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
+	"rogue": {"trim": [Vector2i(2, 2)], "cloth": [Vector2i(0, 1), Vector2i(1, 1), Vector2i(1, 2)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
+	"mage": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "cloth": [Vector2i(0, 1), Vector2i(1, 1), Vector2i(7, 1)], "hair": [Vector2i(1, 0), Vector2i(2, 0)], "skin": [Vector2i(0, 0)]},
+	"healer": {"trim": [Vector2i(2, 1), Vector2i(1, 2)], "cloth": [], "hair": [Vector2i(1, 0), Vector2i(2, 0)], "skin": [Vector2i(0, 0)]},
+	"barbarian": {"trim": [Vector2i(2, 2)], "cloth": [Vector2i(0, 1), Vector2i(1, 1)], "hair": [Vector2i(1, 0)], "skin": [Vector2i(0, 0)]},
 }
 static var custom_cache := {}
 static var flat_cache := {}   # mesh resource path -> faceted copy (see _flat_mesh)
@@ -153,8 +155,8 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 	## the palette cells (keeping each cell's shading gradient). Cached.
 	if custom.is_empty() or not CELLS.has(skin_name):
 		return skin
-	var key := "%s|%s|%s|%s|%d" % [skin.resource_path, custom.get("hair", Color.TRANSPARENT).to_html(), custom.get("trim", Color.TRANSPARENT).to_html(),
-		custom.get("skin", Color.TRANSPARENT).to_html(), int(custom.get("outfit", 0))]
+	var key := "%s|%s|%s|%s|%d|%s" % [skin.resource_path, custom.get("hair", Color.TRANSPARENT).to_html(), custom.get("trim", Color.TRANSPARENT).to_html(),
+		custom.get("skin", Color.TRANSPARENT).to_html(), int(custom.get("outfit", 0)), custom.get("cape_cloth", false)]
 	if custom_cache.has(key):
 		return custom_cache[key]
 	var img: Image = skin.get_image()
@@ -165,10 +167,11 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 		img.decompress()
 	var cw: int = img.get_width() / 8
 	var ch: int = img.get_height() / 4
-	for part in ["hair", "trim", "skin"]:
-		if not custom.has(part):
+	for part in ["hair", "trim", "skin", "cloth"]:
+		var src: String = "trim" if part == "cloth" else part
+		if not custom.has(src) or (part == "cloth" and not custom.get("cape_cloth", false)):
 			continue
-		var target: Color = custom[part]
+		var target: Color = custom[src]
 		for cell in CELLS[skin_name][part]:
 			var x0: int = cell.x * cw
 			var y0: int = cell.y * ch
@@ -244,6 +247,13 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	# armour tint does not).
 	var weapon_skin: Texture2D = customised_skin(plain_skin, c.skin, StoreGear.without_outfit(custom)) if custom.has("outfit") else skin
 	var weapon_look: Array = Stats.WEAPON_SKINS[int(custom.get("weapon", 0))]
+	# The KayKit capes take the cape dye over their whole cloth; the tunic and
+	# hood keep the team colour so sides still read at a glance.
+	var cape_skin: Texture2D = skin
+	if custom.has("trim"):
+		var cc := custom.duplicate()
+		cc.cape_cloth = true
+		cape_skin = customised_skin(plain_skin, c.skin, cc)
 	flash_mats = []
 	for mesh in _meshes(inst):
 		var held := StoreGear.in_gear(mesh, inst, ALL_GEAR)
@@ -252,7 +262,7 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 			var mat: Material = mesh.get_active_material(i)
 			if mat is StandardMaterial3D:
 				var dup: StandardMaterial3D = mat.duplicate()
-				dup.albedo_texture = weapon_skin if held else skin
+				dup.albedo_texture = weapon_skin if held else (cape_skin if StoreGear.in_gear(mesh, inst, ["Knight_Cape", "Rogue_Cape"]) else skin)
 				dup.albedo_color = tint * custom.get("look", Color.WHITE)
 				if held and weapon_look[1].a > 0.0:
 					StoreGear.skin_weapon(dup, weapon_look)
@@ -283,8 +293,10 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 			_add_crown()
 	_add_class_flair(role, variant)
 	var cloth: Color = custom.get("trim", Stats.FACTIONS[team].color.darkened(0.1))
-	if skeleton and variant == "" and custom.get("cape", "") != "scarf":
-		OutfitFlair.dress(skeleton, role, cloth, outline)
+	if skeleton and (variant == "" or custom.has("trim")) and custom.get("cape", "") != "scarf":
+		# A chosen cape dye always shows: every class and promotion wears the
+		# neck wrap in it (Knights and Rangers wear one in team colour anyway).
+		OutfitFlair.dress(skeleton, role, cloth, outline, custom.has("trim"))
 	if skeleton and (custom.has("hat") or custom.has("cape")):
 		# STORE gear: a hat on the bare unclassed head, a cape or scarf on every class.
 		StoreGear.dress(self, inst, skeleton, custom, cloth, outline, c.get("bare", false))
