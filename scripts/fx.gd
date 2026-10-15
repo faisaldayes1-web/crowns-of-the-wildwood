@@ -388,30 +388,75 @@ func _x_slash(origin: Vector3, aim: Vector3, color: Color, reach: float = 1.0, h
 
 # --- Composite effects ---------------------------------------------------------
 
-func hit(where: Vector3, push: Vector3, kind: String, amount: int = 1) -> void:
-	var n = _net_open("fx", "hit", [where, push, kind, amount])
-	_x_hit(where, push, kind, amount)
+func detail() -> float:
+	## How many particles to spend: the web (iPad) build runs Low or Medium,
+	## so every count below is scaled down there to keep fights smooth.
+	var q: int = game.gfx_quality if game and "gfx_quality" in game else 2
+	return 0.55 if q <= 0 else (0.75 if q == 1 else 1.0)
+
+
+func _n(count: int) -> int:
+	return maxi(int(round(count * detail())), 1)
+
+
+# Each faction's blows leave their own trace: Elves shed leaf-green and gold
+# flecks, Humans throw steel and ember flecks.
+const FACTION_FLECK := [Color(0.55, 0.95, 0.4), Color(1.0, 0.62, 0.25)]
+const FACTION_CHIP := [Color(0.35, 0.7, 0.25), Color(0.72, 0.74, 0.8)]
+const DUST := Color(0.62, 0.55, 0.45)
+
+
+func hit(where: Vector3, push: Vector3, kind: String, amount: int = 1, team: int = -1) -> void:
+	var n = _net_open("fx", "hit", [where, push, kind, amount, team])
+	_x_hit(where, push, kind, amount, team)
 	_net_close(n)
 
 
-func _x_hit(where: Vector3, push: Vector3, kind: String, amount: int = 1) -> void:
-	## The moment a blow lands: flare, sparks thrown away from the attacker,
-	## and a kind-specific extra (smoke, motes, chips).
+func _x_hit(where: Vector3, push: Vector3, kind: String, amount: int = 1, team: int = -1) -> void:
+	## The moment a blow lands: flare, a punch ring, sparks thrown away from
+	## the attacker, the attacker's faction flecks, dust kicked up at the
+	## victim's feet and a kind-specific extra (smoke, motes, chips).
+	## `team` is the attacker's team (-1: no faction trace).
 	var k: Dictionary = KINDS.get(kind, KINDS.melee)
 	var big := amount >= 2 or kind == "heavy"
 	var away := push if push.length() > 0.05 else Vector3.UP
 	away = (away + Vector3(0, 0.6, 0)).normalized()
+	var feet := Vector3(where.x, where.y - 1.0, where.z)
 	flare(where, k.core, 1.6 if big else 1.15, 0.18 if big else 0.14)
-	burst(where, k.spark, 12 if big else 7, 9.0 if big else 7.0, 0.32, STYLE_SPARK, away, 38.0)
+	# The punch ring: a quick bright ring that pops out of the contact point.
+	_sprite(where, "ring", Color(k.core, 0.75), 0.9 if big else 0.65, 0.15 if big else 0.12, 2.3 if big else 1.9)
+	burst(where, k.spark, _n(16 if big else 9), 10.0 if big else 7.5, 0.34, STYLE_SPARK, away, 38.0)
+	if team == 0 or team == 1:
+		burst(where, FACTION_FLECK[team], _n(5 if big else 3), 6.0, 0.4, STYLE_SPARK, away, 55.0, 0.7)
+		if kind in ["melee", "fist", "arrow", "heavy"] and detail() >= 0.75:
+			burst(where, FACTION_CHIP[team], _n(3 if big else 2), 4.5, 0.5, STYLE_SHARD, away, 50.0, 0.8)
+	# Dust kicked up at the feet, pushed the way the blow drove them.
+	if push.length() > 0.05 and (big or detail() >= 1.0):
+		burst(feet + Vector3(0, 0.15, 0), DUST, _n(5 if big else 3), 2.6 if big else 1.8, 0.5, STYLE_SMOKE,
+			(push + Vector3(0, 0.5, 0)).normalized(), 45.0, 0.75 if big else 0.6)
 	match int(k.extra):
 		STYLE_SMOKE:
-			burst(where, Color(0.55, 0.5, 0.48) if kind != "dark" else Color(0.3, 0.15, 0.4), 4, 1.6, 0.6, STYLE_SMOKE, Vector3.UP, 60.0, 0.8)
+			burst(where, Color(0.55, 0.5, 0.48) if kind != "dark" else Color(0.3, 0.15, 0.4), _n(4), 1.6, 0.6, STYLE_SMOKE, Vector3.UP, 60.0, 0.8)
 		STYLE_MOTE:
-			burst(where, k.spark, 8, 3.0, 0.55, STYLE_MOTE)
+			burst(where, k.spark, _n(8), 3.0, 0.55, STYLE_MOTE)
 		STYLE_SHARD:
-			burst(where, k.spark, 6, 5.0, 0.5, STYLE_SHARD, away, 50.0)
+			burst(where, k.spark, _n(6), 5.0, 0.5, STYLE_SHARD, away, 50.0)
+	if kind == "holy" or kind == "arcane" or kind == "dark":
+		# Spells land with a coloured ring of their own around the flare.
+		_sprite(where, "ring", Color(k.spark, 0.6), 0.8, 0.22, 2.0, false, 0.0)
 	if big:
-		ground_ring(Vector3(where.x, where.y - 1.0, where.z), 1.4, k.spark, 0.3)
+		ground_ring(feet, 1.6, k.spark, 0.32)
+		ground_glow(feet, 0.9, Color(k.core, 0.8), 0.25)
+		if detail() >= 0.75:
+			burst(feet + Vector3(0, 0.2, 0), Color(0.5, 0.46, 0.42), _n(5), 5.0, 0.6, STYLE_SHARD, Vector3.UP, 60.0, 0.9)
+
+
+func skid(where: Vector3, dir: Vector3) -> void:
+	## A small puff of dust behind feet that are being shoved along the ground.
+	if detail() < 1.0:
+		return
+	burst(Vector3(where.x, where.y + 0.12, where.z), DUST, _n(2), 1.2, 0.45, STYLE_SMOKE,
+		(-dir + Vector3(0, 0.8, 0)).normalized(), 50.0, 0.55)
 
 
 func blast(where: Vector3, radius: float, kind: String) -> void:

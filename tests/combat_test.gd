@@ -159,6 +159,15 @@ func _run() -> void:
 	# burst of presses.
 	await _deny_cue()
 
+	# 14. Nobody gets stuck (Faisal 2026-10-14): a finisher whose striker
+	# falls lets the body go, Blink never lands inside a wall, a body wedged
+	# in something solid is set free, and following bots keep their distance.
+	await _stuck()
+
+	# 15. A landed blow throws more on screen than the flare alone, and Low
+	# graphics spends fewer particles on it than High.
+	await _impacts()
+
 	print("TESTS DONE failures=%d" % failures)
 	get_tree().quit(failures)
 
@@ -372,4 +381,89 @@ func _deny_cue() -> void:
 	a._deny_cue()
 	a._deny_cue()
 	_check(a.deny_cues == before + 1, "deny_cue_throttled", "cues=%d" % (a.deny_cues - before))
+	await _frames(1)
+
+
+func _box(pos: Vector3, size: Vector3) -> StaticBody3D:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = size
+	cs.shape = bs
+	body.add_child(cs)
+	game.add_child(body)
+	body.global_position = pos
+	return body
+
+
+func _stuck() -> void:
+	var a = _first(0)
+	var v = _first(1)
+	a.global_position = Vector3(-20, 0, 3)
+	_stage(a, v)
+	# A finisher interrupted: the striker goes down mid-move.
+	v._go_down(a)
+	v.downed_timer = v.downed_total - Stats.DOWNED_GRACE - 0.1
+	a._start_finisher(v)
+	_check(a.finishing > 0.0 and v.executed_by == a, "finisher_started")
+	a.hearts = 1
+	a._go_down(v)
+	_check(a.finishing == 0.0 and v.executed_by == null, "finisher_cancelled_when_striker_falls",
+		"finishing=%.2f executed_by=%s" % [a.finishing, v.executed_by])
+	v.process_mode = Node.PROCESS_MODE_INHERIT
+	var t0: float = v.downed_timer
+	await _frames(10)
+	_check(v.downed_timer < t0, "downed_body_not_frozen", "timer %.2f -> %.2f" % [t0, v.downed_timer])
+	v.process_mode = Node.PROCESS_MODE_DISABLED
+	v._die()
+	a._die()
+	a._respawn()
+	v._respawn()
+
+	# Blink into a block taller than the old chest-height ray's gap.
+	var m = _first(0)
+	m.set_role(Role.MAGE)
+	m.global_position = Vector3(-20, 0, 8)
+	var block := _box(Vector3(-16, 0.35, 8), Vector3(2.0, 0.7, 3.0))
+	await _frames(2)
+	m._ability_effect({"kind": "blink", "distance": 4.0}, Vector3(1, 0, 0), Vector3.ZERO, null)
+	_check(m.spot_free(m.global_position, 0.38) and m.global_position.x < -17.0, "blink_stops_short_of_block",
+		"landed at %s" % m.global_position)
+	block.queue_free()
+
+	# A body wedged inside something solid is set down beside it.
+	var w = _first(1)
+	w.global_position = Vector3(-24, 0, -6)
+	var cage := _box(Vector3(-24, 1.0, -6), Vector3(1.6, 2.0, 1.6))
+	await _frames(2)
+	w.process_mode = Node.PROCESS_MODE_INHERIT
+	await _frames(60)
+	w.process_mode = Node.PROCESS_MODE_DISABLED
+	_check(w.spot_free(w.global_position, 0.3), "unstick_frees_wedged_body", "at %s" % w.global_position)
+	cage.queue_free()
+
+	# Following bots stand clear of whoever they follow.
+	var h = _first(0)
+	var buddy = _first(1)
+	var worst := INF
+	for i in 40:
+		h.bot_offset = Vector3(randf_range(-2.5, 2.5), 0, randf_range(-2.5, 2.5)) if i > 0 else Vector3.ZERO
+		h.global_position = buddy.global_position + Vector3(randf_range(-0.3, 0.3), 0, randf_range(-0.3, 0.3))
+		var spot: Vector3 = h._follow_spot(buddy)
+		worst = minf(worst, Vector2(spot.x - buddy.global_position.x, spot.z - buddy.global_position.z).length())
+	_check(worst >= Stats.BOT_FOLLOW_MIN - 0.01, "follow_keeps_distance", "closest %.2f" % worst)
+
+
+func _impacts() -> void:
+	var fx = load("res://scripts/fx.gd").of(game)
+	var keep: int = game.gfx_quality
+	var made := []
+	for q in [2, 0]:
+		game.gfx_quality = q
+		var before: int = fx.get_child_count()
+		fx.hit(Vector3(0, 1, 0), Vector3(1, 0, 0), "melee", 2, 0)
+		made.append(fx.get_child_count() - before)
+	game.gfx_quality = keep
+	_check(made[0] >= 8 and made[1] < made[0], "impacts_scale_with_quality", "high=%d low=%d" % [made[0], made[1]])
 	await _frames(1)

@@ -43,6 +43,8 @@ var preview_role := Role.BASE
 var preview_team := 1
 var preview_rank := 1
 var tutorial_topic := 0
+var howto_step := 0          # the HOW TO PLAY card on show
+var overlay_from := 0        # where the overlay's buttons start in h.menu_buttons
 const HERO_AREA := Rect2(420, 120, 380, 470)   # where the customizer's hero stands (drag here to turn it)
 var turn_drag := false
 var turn_last_x := 0.0
@@ -87,6 +89,8 @@ func go(to: String) -> void:
 
 func back() -> void:
 	## Esc / Circle / B: close an overlay, else one screen back.
+	if overlay == "howto":
+		_howto_done()
 	if overlay != "":
 		overlay = ""
 	elif screen == "lobby":
@@ -234,6 +238,17 @@ func draw(hud) -> void:
 		debug_players_done = true
 		overlay = "players"
 		game.needs_name = "--debug-welcome" in OS.get_cmdline_user_args()
+	if not debug_players_done and " --debug-howto" in " " + " ".join(OS.get_cmdline_user_args()):
+		debug_players_done = true
+		overlay = "howto"
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--debug-howto="):
+				howto_step = clampi(int(a.get_slice("=", 1)), 0, HOWTO.size() - 1)
+	elif not game.needs_name and not game.howto_seen and screen == "title" and overlay == "" \
+			and DisplayServer.get_name() != "headless" and OS.get_cmdline_user_args().is_empty():
+		# A first launch: once they have a name, show how to play (Faisal
+		# 2026-10-15 "add a simple tutorial with big ui elements").
+		open_howto()
 	if game.needs_name and screen == "title" and overlay == "":
 		# A first launch: ask who is playing before anything else.
 		overlay = "players"
@@ -248,11 +263,13 @@ func draw(hud) -> void:
 		"store": store.draw(h, stage, preview_team)
 		"online": _draw_online()
 		_: _draw_title()
+	overlay_from = h.menu_buttons.size()
 	if overlay != "":
 		h.draw_rect(Rect2(Vector2.ZERO, h.size), Color(0, 0, 0, 0.55))
 		match overlay:
 			"credits": _draw_credits()
 			"tutorial": _draw_tutorial()
+			"howto": _draw_howto()
 			"progress": _draw_progress()
 			"players": _draw_players()
 	if game.cursor_shown:
@@ -737,6 +754,9 @@ func _row_x(panel: Rect2, i: int, n: int, w: float) -> float:
 	return x0 + (i * (span - w) / maxf(n - 1, 1)) if n > 1 else x0
 
 
+const BODY_CHOICES := 2   # the builds offered on the Appearance tab (Slim, Sturdy)
+
+
 func _tab_appearance(panel: Rect2) -> void:
 	var y := panel.position.y + 74
 	var step := 51.0
@@ -748,7 +768,12 @@ func _tab_appearance(panel: Rect2) -> void:
 	icon("arrow_left", Vector2(ax0 + 8, y), 26)
 	button(Rect2(ax1 - 22, y - 18, 26, 36), "body_step", 1)
 	icon("arrow_right", Vector2(ax1 - 8, y), 26)
-	var nb := Stats.HERO_BODIES.size()
+	# Two builds only (Faisal 2026-10-15 02:30: "take out the third gender
+	# option"): Broad stays in Stats.HERO_BODIES so old saves still load, but
+	# it is no longer offered and a hero saved with it shows as Sturdy.
+	var nb := BODY_CHOICES
+	if game.hero_body >= nb:
+		game.hero_body = nb - 1
 	for i in nb:
 		var c := Vector2(ax0 + 30 + (ax1 - ax0 - 60) * (i + 0.5) / nb, y)
 		var on: bool = game.hero_body == i
@@ -1227,6 +1252,143 @@ func _draw_tutorial() -> void:
 	h._paragraph(Vector2(body.position.x + 10, body.end.y - 14), "In a match the Wildwood Guide stands in your courtyard: press %s beside them to ask again." % game.key_label("interact"), 12, Color(0.8, 0.8, 0.76), body.size.x - 20, 15.0)
 
 
+# --- HOW TO PLAY ------------------------------------------------------------------------
+# Six big cards, one idea each, shown on a first launch and from the
+# title's TUTORIAL button (Faisal 2026-10-15 "maybe add a simple tutorial
+# with big ui elements to showcase how to play the game"). The longer
+# questions and answers stay one tap away (MORE QUESTIONS).
+
+# [title, picture (assets/ui/tutorial/topic_N.jpg), icon, line, colour]
+# The line's {tags} become the player's own keys, pad buttons or taps.
+const HOWTO := [
+	["MOVE & FIGHT", 1, "sword", "{Move} to move. {Attack} to attack, {dodge} to dodge.", Color(0.95, 0.45, 0.3)],
+	["PICK A CLASS", 2, "class_knight", "Walk onto a glowing class station in your castle: Knight, Ranger, Mage, Healer or Engineer.", Color(0.45, 0.7, 1.0)],
+	["BREAK IN", 0, "hammer", "Smash the enemy castle door, then break the lock on their Crown Vault.", Color(1.0, 0.62, 0.25)],
+	["STEAL THE CROWN", 4, "crown", "{Interact} to grab their crown and run it to your throne. Two captures win!", Color(1.0, 0.82, 0.3)],
+	["GUARD YOUR DOOR", 5, "guard", "Enemies want your crown too. Stand at your broken door and {interact} to repair it.", Color(0.5, 0.9, 0.45)],
+	["LEVEL UP", 3, "upgrade", "Fighting earns XP. {Rank_menu} to spend points on your skills.", Color(0.8, 0.55, 1.0)],
+]
+
+
+func open_howto() -> void:
+	howto_step = 0
+	overlay = "howto"
+	game.sfx.ui("ui_open", -6.0)
+
+
+func howto_next(d: int) -> void:
+	## Step the deck: past the last card it closes; before the first it stays.
+	var to := howto_step + d
+	if to >= HOWTO.size():
+		_howto_done()
+		overlay = ""
+		game.sfx.ui("ui_close", -6.0)
+		return
+	howto_step = clampi(to, 0, HOWTO.size() - 1)
+	game.sfx.ui("ui_click", -6.0)
+
+
+func _howto_done() -> void:
+	if not game.howto_seen:
+		game.howto_seen = true
+		game._save_settings()
+
+
+func _howto_line(text: String) -> String:
+	## Fill the {tags} with what this player presses: keys, pad buttons or taps.
+	var touch: bool = game.control_layout == "touch" or game.touch_active and not game.pad_active
+	var pad: bool = not touch and game.on_pad(null)
+	var keys := {
+		"move": "use the left stick" if (touch or pad) else "use WASD",
+		"attack": "tap the sword button" if touch else "press " + game.key_label("attack"),
+		"dodge": "the dodge button" if touch else game.key_label("dodge"),
+		"interact": "tap the crown button" if touch else "press " + game.key_label("interact"),
+		"rank_menu": "tap the upgrade button" if touch else "press " + game.key_label("rank_menu"),
+	}
+	for k in keys.keys():
+		var v := str(keys[k]).replace("LMB", "Left Click").replace("RMB", "Right Click")
+		keys[k] = v
+		keys[k.left(1).to_upper() + k.substr(1)] = v.left(1).to_upper() + v.substr(1)
+	return text.format(keys)
+
+
+func _draw_howto() -> void:
+	var c: Array = HOWTO[howto_step]
+	var accent: Color = c[4]
+	var vw: float = h.size.x
+	var vh: float = h.size.y
+	var card := Rect2(Vector2(maxf(vw * 0.07, 30.0), maxf(vh * 0.1, 40.0)), Vector2.ZERO)
+	card.size = Vector2(vw - card.position.x * 2.0, vh - card.position.y * 2.0 + 10.0)
+	nine("frame_big", card, 40, 40, 40, 40)
+	plaque(vw / 2.0, card.position.y - 32, "HOW TO PLAY", 400)
+	var body := card.grow(-42)
+	# Close (top right): skips the rest, any time.
+	var x := Rect2(card.end.x - 74, card.position.y + 24, 48, 48)
+	var xov := button(x, "close")
+	h._plate(x, Color(0.5, 0.14, 0.12) if xov else Color(0.38, 0.1, 0.09), Color(0.85, 0.65, 0.3), 8, 2)
+	h._text(x.position + Vector2(0, 34), "✕", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, x.size.x, 0)
+	# The picture on the left, as big as the card allows.
+	var bottom := 92.0
+	var ih := body.size.y - bottom - 10.0
+	var iw := minf(ih * 16.0 / 9.0, body.size.x * 0.56)
+	ih = iw * 9.0 / 16.0
+	var img := Rect2(body.position.x + 4, body.position.y + (body.size.y - bottom - ih) / 2.0, iw, ih)
+	h.draw_rect(img.grow(7), Color(0.08, 0.05, 0.03))
+	var tex := tutorial_image(c[1])
+	if tex:
+		h.draw_texture_rect(tex, img, false)
+	h.draw_rect(img.grow(5), accent.darkened(0.15), false, 3.0)
+	h.draw_rect(img.grow(1), Color(1.0, 0.85, 0.45, 0.7), false, 1.5)
+	# The step number in a big badge on the picture's corner.
+	var badge := img.position + Vector2(8, 8)
+	h.draw_circle(badge, 38, Color(0.08, 0.05, 0.03))
+	h.draw_circle(badge, 34, accent.darkened(0.35))
+	h.draw_arc(badge, 34, 0, TAU, 40, Color(1.0, 0.85, 0.45), 3.0, true)
+	ttext(badge + Vector2(-40, 16), str(howto_step + 1), 44, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 80, 6)
+	# The right side: a big icon, the title and one line.
+	var rx := img.end.x + 40.0
+	var rw := body.end.x - rx
+	var ic := Vector2(rx + rw / 2.0, img.position.y + 70)
+	var t := Time.get_ticks_msec() / 1000.0
+	h.draw_circle(ic, 74, Color(accent, 0.18 + 0.06 * sin(t * 2.5)))
+	h.draw_circle(ic, 62, Color(0.1, 0.07, 0.05))
+	h.draw_arc(ic, 62, 0, TAU, 48, Color(1.0, 0.82, 0.4), 4.0, true)
+	var itex: Texture2D = h.clean_icons.get(c[2], h.icons.get(c[2]))
+	if itex:
+		var s := 104.0 + 4.0 * sin(t * 3.0)
+		h.draw_texture_rect(itex, Rect2(ic - Vector2(s, s) / 2.0, Vector2(s, s)), false)
+	var ts := 50
+	while ts > 24 and font_title and font_title.get_string_size(c[0], HORIZONTAL_ALIGNMENT_LEFT, -1, ts).x > rw - 16:
+		ts -= 2
+	ttext(Vector2(rx, ic.y + 128), c[0], ts, accent.lightened(0.35), HORIZONTAL_ALIGNMENT_CENTER, rw, 8)
+	h._fit_paragraph(Rect2(rx + 6, ic.y + 150, rw - 12, img.end.y - ic.y - 150), _howto_line(c[3]), 26, Color(0.97, 0.94, 0.86))
+	# Bottom row: BACK, the dots, NEXT (LET'S PLAY! on the last card).
+	var by := body.end.y - 70.0
+	var bw := minf(300.0, body.size.x * 0.26)
+	if howto_step > 0:
+		wood_button(Rect2(body.position.x, by, bw, 70), "BACK", "howto_step", -1, "", 30)
+	else:
+		wood_button(Rect2(body.position.x, by, bw, 70), "MORE QUESTIONS", "howto_more", null, "", 22)
+	var last := howto_step == HOWTO.size() - 1
+	var nx := Rect2(body.end.x - bw, by, bw, 70)
+	var nov := button(nx, "howto_step", 1)
+	var nr := nx.grow(3) if nov else nx
+	nine("btn_green", nr, 48, 20, 48, 20, Color(1.12, 1.12, 1.12) if nov else Color.WHITE)
+	ttext(Vector2(nr.position.x, nr.get_center().y + 11), "LET'S PLAY!" if last else "NEXT  ▶", 32, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, nr.size.x, 6)
+	var dots := HOWTO.size()
+	var gap := 34.0
+	var d0 := vw / 2.0 - (dots - 1) * gap / 2.0
+	for i in dots:
+		var dc := Vector2(d0 + i * gap, by + 35)
+		var on := i == howto_step
+		var dr := Rect2(dc - Vector2(15, 15), Vector2(30, 30))
+		button(dr, "howto_step", i - howto_step)
+		h.draw_circle(dc, 12 if on else 9, Color(0.08, 0.05, 0.03))
+		h.draw_circle(dc, 9 if on else 6, accent if on else (Color(0.9, 0.75, 0.4) if i < howto_step else Color(0.4, 0.36, 0.3)))
+	if game.cursor_shown or game.on_pad(null):
+		h._text(Vector2(0, card.end.y + 26), "%s / %s  turn the cards" % [game.key_label("menu_left"), game.key_label("menu_right")], 14, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vw, 3)
+
+
 static var _tut_tex := {}
 
 
@@ -1354,7 +1516,11 @@ func tick(clicked: bool, mouse: Vector2) -> void:
 	if screen == "store" and not store.reveal.is_empty() and overlay == "":
 		store.press("store_reveal_close", null)
 		return
-	for b in h.menu_buttons:
+	# Under an overlay only its own buttons answer: the title's planks
+	# behind it would otherwise take the click first.
+	var from := overlay_from if overlay != "" else 0
+	for i in range(from, h.menu_buttons.size()):
+		var b: Array = h.menu_buttons[i]
 		if b[0].has_point(mouse):
 			_press(b[1], b[2])
 			return
@@ -1402,7 +1568,12 @@ func _press(id: String, arg) -> void:
 		"settings":
 			game.menu_open = true
 			game.menu_tab = 5
-		"tutorial": overlay = "tutorial"
+		"tutorial": open_howto()
+		"howto_step":
+			howto_next(int(arg))
+		"howto_more":
+			_howto_done()
+			overlay = "tutorial"
 		"credits": overlay = "credits"
 		"progress": overlay = "progress"
 		"players": overlay = "players"
@@ -1422,6 +1593,8 @@ func _press(id: String, arg) -> void:
 				delete_armed = str(arg)
 				delete_time = 3.0
 		"close":
+			if overlay == "howto":
+				_howto_done()
 			overlay = ""
 			game.needs_name = false   # asked once; the PLAYERS button names them later
 		"progress_export": game.export_progress()
@@ -1474,7 +1647,7 @@ func _press(id: String, arg) -> void:
 			preview_role = Role.BASE   # a class wears its own body: show the build itself
 			game._save_settings()
 		"body_step":
-			game.hero_body = posmod(game.hero_body + int(arg), Stats.HERO_BODIES.size())
+			game.hero_body = posmod(game.hero_body + int(arg), BODY_CHOICES)
 			preview_role = Role.BASE
 			game._save_settings()
 		"skin":
@@ -1534,11 +1707,20 @@ func add_player(device: int) -> void:
 	## A gamepad joins the lobby as the next local player.
 	if game.couch_players >= game.COUCH_MAX:
 		return
-	game.split_screen = true
-	if device >= 0:
-		if device in join_pads:
+	if device < 0:
+		# Clicked in: give the new player a controller nobody holds yet. One
+		# keyboard player for now (Faisal 2026-10-15): no pad, no join.
+		for d in Input.get_connected_joypads():
+			if not d in join_pads and d != p1_pad:
+				device = d
+				break
+		if device < 0:
+			game.toast("Connect a controller for player %d: player 1 has the keyboard and mouse" % (game.couch_players + 1), Color(1.0, 0.8, 0.5))
 			return
-		join_pads.append(device)
+	game.split_screen = true
+	if device in join_pads:
+		return
+	join_pads.append(device)
 	game.couch_players += 1
 	readied[game.couch_players - 1] = false
 	game.sfx.ui("rank_up", -6.0)

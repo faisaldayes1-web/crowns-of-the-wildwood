@@ -81,6 +81,7 @@ var carrying = null
 var spawn_point := Vector3.ZERO
 var facing := Vector3(1, 0, 0)
 var step_timer := 0.0        # footsteps
+var skid_timer := 0.0        # dust puffs while knocked back
 var turrets: Array = []      # Engineer: the turrets this unit built (oldest first)
 var kills := 0
 var deaths := 0
@@ -155,6 +156,7 @@ var bot_block_timer := 0.0
 var rally_wait := 0.0   # seconds spent holding at the rally point
 var last_role := 0            # the class held when we died
 var stuck_time := 0.0
+var embed_time := 0.0       # seconds our body has been wedged inside something solid
 var stall_target := Vector3.ZERO   # last _steer_to target (diagnostics)
 var player_ring_mat: StandardMaterial3D   # the ground ring under a local player
 var side_ring: MeshInstance3D          # the team ring under every unit, and its glow halo
@@ -1037,6 +1039,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		game.spawn_popup(global_position + Vector3(0, 2.0, 0), "BLOCKED", Color(0.75, 0.85, 1.0))
 		Fx.of(game).hit(global_position + facing * 0.6 + Vector3(0, 1.0, 0), -push + Vector3(0, 0.2, 0), "frost")
 		_hitstop(0.05)
+		model.play_once("Block_Hit", 1.6)   # the shield arm takes the blow; the held block resumes after
 		game.sfx.play("hit_shield", global_position, -1.0, 0.1)
 		if energy <= 0.0:
 			energy = 0.0
@@ -1073,7 +1076,8 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		# A squash on the hit: wider and shorter, springing back.
 		model.scale = Vector3(1.14, 0.88, 1.14)
 		model.create_tween().tween_property(model, "scale", Vector3.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	Fx.of(game).hit(global_position + Vector3(0, 1.0, 0) - push * 0.25, push, _hit_kind(attacker, effect), amount)
+	Fx.of(game).hit(global_position + Vector3(0, 1.0, 0) - push * 0.25, push, _hit_kind(attacker, effect), amount,
+		attacker.team if attacker and attacker != self else -1)
 	last_hit_dir = push
 	knockback = push * knock
 	if effect.has("slow"):
@@ -1102,7 +1106,15 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		game.sfx.play("hit_heavy", global_position, -2.0 if amount >= 2 else -7.0, 0.1)
 	elif hk in ["arcane", "frost", "holy", "dark", "nature", "fire"]:
 		game.sfx.play("hit_magic", global_position, -6.0, 0.12)
+	else:
+		# A body thump under every plain blow, so a cut or arrow lands with weight.
+		game.sfx.play("hit_thud", global_position, -6.0, 0.12)
+	if attacker and attacker != self and attacker.is_player and push.length() > 0.05:
+		# Your own blows nudge your camera the way they drove the target.
+		game.kick_cam(push, 0.07 if amount < 2 and hk != "heavy" else 0.13)
 	if is_player:
+		if push.length() > 0.05:
+			game.kick_cam(push, 0.16)
 		game.shake(0.35)
 		game.rumble(self, 0.3, 0.8 if hearts <= 1 else 0.6, 0.22)
 	if hearts <= 0:
@@ -1383,12 +1395,16 @@ func _ability_effect(a: Dictionary, dir: Vector3, turret_pos: Vector3, tune_targ
 			game.spawn_flash(global_position + dir, ball_color, 3.0, 0.3)
 			_recoil(dir, 3.5)
 		"blink":
-			var from := global_position + Vector3(0, 0.9, 0)
-			var to: Vector3 = from + dir * a.distance
-			var ray := PhysicsRayQueryParameters3D.create(from, to, collision_mask)
-			var hit := get_world_3d().direct_space_state.intersect_ray(ray)
-			if hit:
-				to = hit.position - dir * 0.8
+			# Sweep the whole body along the path (not one ray at chest
+			# height, which slipped over low walls and props and dropped
+			# the Mage inside them or in a nook behind them, stuck).
+			var from := global_position
+			dir.y = 0.0
+			dir = dir.normalized() if dir.length() > 0.01 else facing
+			var reach: float = body_sweep(dir * a.distance)
+			var to: Vector3 = from + dir * a.distance * reach
+			if reach < 1.0:
+				to -= dir * minf(0.1, a.distance * reach)   # land a step clear of what stopped us
 			# Never land in the river (the ray clears the island's rims and
 			# the bank walls when cast from up on the shrine): stop short.
 			var steps := 0
@@ -1571,6 +1587,7 @@ func _die(finisher = null) -> void:
 	if was_down:
 		_end_downed()
 	executed_by = null
+	_cancel_finisher()
 	dead = true
 	burn_timer = 0.0
 	hearts = 0
@@ -1601,6 +1618,7 @@ func _fall() -> void:
 	## What losing your last heart costs, whether you die or go down: the
 	## crown drops, streaks end, the death counts and levels are lost.
 	last_role = role
+	_cancel_finisher()
 	if carrying:
 		game.drop_monarch(self)
 	if veteran > 0:
@@ -1846,6 +1864,19 @@ var finish_struck := false
 var executed_by = null        # (victim side) the enemy finishing us
 
 
+func _cancel_finisher() -> void:
+	## Our finisher stops (we fell or died mid-move): let the body go, or it
+	## would stay frozen under us until we respawned and struck it from the
+	## spawn (Faisal 2026-10-14: "sometimes people get stuck").
+	if finish_victim and is_instance_valid(finish_victim) and finish_victim.executed_by == self:
+		finish_victim.executed_by = null
+	finishing = 0.0
+	finish_victim = null
+	finish_struck = false
+	finish_target = null
+	finish_progress = 0.0
+
+
 func _finisher_anims() -> Array:
 	## [wind-up, strike] for this class.
 	match role:
@@ -2015,6 +2046,7 @@ func _downed_process(delta: float) -> void:
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
 	move_and_slide()
 	_clamp_to_map()
+	_unstick(delta)
 	if game.in_channel(global_position):
 		var bank := 1.0 if global_position.x >= 0.0 else -1.0
 		global_position.x = bank * (game.RIVER_HALF + 0.9)
@@ -2177,6 +2209,16 @@ func _respawn() -> void:
 	hearts = max_hearts()
 	energy = energy_max()
 	position = spawn_point + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
+	position = nearest_free_spot(position, 2.5)   # never inside a prop by the spawn
+	# Nothing from the last life carries over: a dash, a shove or a root.
+	velocity = Vector3.ZERO
+	knockback = Vector3.ZERO
+	dodge_timer = 0.0
+	bash_timer = 0.0
+	root_timer = 0.0
+	slow_timer = 0.0
+	embed_time = 0.0
+	_cancel_finisher()
 	spawn_protect = Stats.SPAWN_PROTECT_TIME
 	resist_pool = 0.0
 	rally_wait = 0.0
@@ -2659,8 +2701,19 @@ func _physics_process(delta: float) -> void:
 	velocity.x = move.x * speed + knockback.x
 	velocity.z = move.z * speed + knockback.z
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
+	var meant := Vector3(velocity.x, 0, velocity.z) * delta
+	var from := global_position
 	move_and_slide()
+	if move.length() > 0.1:
+		_step_up(from, meant)
 	_clamp_to_map()
+	_unstick(delta)
+	if knockback.length() > 3.5 and is_on_floor():
+		# Shoved by a blow: the feet skid and kick up dust as they go.
+		skid_timer -= delta
+		if skid_timer <= 0.0:
+			skid_timer = 0.08
+			Fx.of(game).skid(global_position, knockback)
 	knockback = knockback.move_toward(Vector3.ZERO, 40.0 * delta)
 	# Footsteps: soft on grass, a tap on stone (walls, bridges, castle floors).
 	if move.length() > 0.05 and is_on_floor():
@@ -2708,7 +2761,25 @@ func _net_read_taps() -> void:
 func _stick() -> Vector2:
 	if remote_peer > 0:
 		return net_input.get("move", Vector2.ZERO)
-	return Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+	return aim_relative(Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down")))
+
+
+func aim_relative(keys: Vector2) -> Vector2:
+	## Keyboard and mouse (Faisal 2026-10-15: "when you aim with your mouse,
+	## your movement should also go that way"): W walks toward the cursor,
+	## S backs away from it, A and D step round it. The Controls tab's
+	## MOVEMENT pick turns it back to screen directions; pads and touch keep
+	## screen directions (their stick already points where you go).
+	if game == null or game.move_mode != "aim" or aim_mode != "mouse" or not has_mouse or game.on_pad(self) or game.touch_active:
+		return keys
+	if keys == Vector2.ZERO:
+		return keys
+	var to := Vector2(aim_point.x - global_position.x, aim_point.z - global_position.z)
+	if to.length() < 0.9:
+		return keys   # the cursor on top of us: no clear "forward", keep screen directions
+	var fwd := to.normalized()
+	var right := Vector2(-fwd.y, fwd.x)
+	return (right * keys.x + fwd * -keys.y).limit_length(1.0)
 
 
 func _held(action: String) -> bool:
@@ -2876,6 +2947,116 @@ func _update_highlights() -> void:
 			var to := _flat_to(other.global_position)
 			on = to.length() < 4.0 and to.length() > 0.1 and aim.dot(to.normalized()) > 0.9
 		other.set_highlight(on)
+
+
+func _body_query(at: Vector3, radius: float = 0.4) -> PhysicsShapeQueryParameters3D:
+	## Our capsule at `at` (feet), lifted off the floor and over low steps.
+	var q := PhysicsShapeQueryParameters3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = radius
+	cap.height = 1.6
+	q.shape = cap
+	q.collision_mask = collision_mask
+	q.transform = Transform3D(Basis(), at + Vector3(0, 0.8 + 0.3, 0))
+	q.exclude = [get_rid()]
+	return q
+
+
+func body_sweep(motion: Vector3) -> float:
+	## How much of `motion` our body can travel before touching anything solid
+	## (0..1), cast from where we stand.
+	var q := _body_query(global_position, 0.36)   # a hair thin: standing against a wall must not stop a cast away from it
+	q.motion = Vector3(motion.x, 0, motion.z)
+	return get_world_3d().direct_space_state.cast_motion(q)[0]
+
+
+func spot_free(at: Vector3, radius: float = 0.4) -> bool:
+	return get_world_3d().direct_space_state.intersect_shape(_body_query(at, radius), 1).is_empty()
+
+
+func nearest_free_spot(at: Vector3, reach: float = 4.0) -> Vector3:
+	## The closest spot around `at` our body fits, searching outward in rings;
+	## `at` itself if nothing within `reach` is free.
+	if spot_free(at):
+		return at
+	var r := 0.5
+	while r <= reach:
+		var n := maxi(8, int(TAU * r / 0.5))
+		for i in n:
+			var ang := TAU * float(i) / float(n)
+			var p := at + Vector3(cos(ang) * r, 0, sin(ang) * r)
+			if game.vmap and not game.vmap.walkable(p):
+				continue
+			if game.vmap == null and game.in_channel(p):
+				continue
+			if spot_free(p):
+				return p
+		r += 0.5
+	return at
+
+
+const STEP_HEIGHT := 0.3
+
+
+func _step_up(from: Vector3, meant: Vector3) -> void:
+	## A body is a capsule and cannot climb a ledge, so the side of a flight
+	## of stairs, a stairwell's rim or a threshold held you in place (Faisal
+	## 2026-10-15: "fix the getting stuck indoors"). When a walk was blocked
+	## by something no taller than STEP_HEIGHT, step up onto it.
+	if not is_on_floor() or not is_on_wall() or meant.length() < 0.001:
+		return
+	var done := Vector3(global_position.x - from.x, 0, global_position.z - from.z)
+	if done.length() > meant.length() * 0.5:
+		return   # sliding along a wall still gets us somewhere: no step needed
+	var fwd := meant.normalized() * maxf(meant.length(), 0.15)
+	var xf := global_transform
+	var lift := Vector3(0, STEP_HEIGHT, 0)
+	if test_move(xf, lift):
+		return   # no room overhead
+	var up := xf.translated(lift)
+	if test_move(up, fwd):
+		return   # a real wall, taller than a step
+	var over := up.translated(fwd)
+	var hit := KinematicCollision3D.new()
+	if not test_move(over, Vector3(0, -STEP_HEIGHT - 0.05, 0), hit):
+		return   # nothing to stand on over there
+	if hit.get_normal().y < 0.7:
+		return   # not a floor
+	var land := over.origin + hit.get_travel()
+	if land.y - global_position.y < 0.01:
+		return
+	global_position = land
+
+
+func _unstick(delta: float) -> void:
+	## The safety net (Faisal 2026-10-14: "sometimes people get stuck"):
+	## a body wedged inside something solid (a fence rebuilt around it, a
+	## turret dropped on it, a shove into a corner) for half a second, or one
+	## that fell out of the world, is set down on the nearest free spot.
+	if global_position.y < -8.0:
+		global_position = nearest_free_spot(spawn_point, 3.0)
+		velocity = Vector3.ZERO
+		knockback = Vector3.ZERO
+		if game.demo:
+			print("UNSTICK t=%d team%d %s fell out of the world" % [game.match_clock(), team, role_name()])
+		return
+	if (Engine.get_physics_frames() + get_index()) % 10 != 0:
+		return
+	# A slimmer body than ours: brushing a wall is fine, being inside it is not.
+	if spot_free(global_position, 0.3):
+		embed_time = 0.0
+		return
+	embed_time += 10.0 * delta
+	if embed_time < 0.5:
+		return
+	embed_time = 0.0
+	var to := nearest_free_spot(global_position, 4.0)
+	if game.demo:
+		print("UNSTICK t=%d team%d %s at %s -> %s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), to.snapped(Vector3.ONE * 0.1)])
+	if to != global_position:
+		global_position = to
+		velocity = Vector3.ZERO
+		knockback = Vector3.ZERO
 
 
 func _clamp_to_map() -> void:
@@ -3175,6 +3356,29 @@ func _heal_focus():
 	return best
 
 
+func _follow_offset(center: Vector3) -> Vector3:
+	## Where round `center` a following bot stands: its own side (bot_offset),
+	## never closer than BOT_FOLLOW_MIN, so a Healer sticks with a player
+	## without standing on them.
+	var off := Vector3(bot_offset.x, 0, bot_offset.z)
+	if off.length() < 0.2:
+		off = _flat_to(center) * -1.0
+		if off.length() < 0.2:
+			off = -facing
+	return off.normalized() * clampf(off.length(), Stats.BOT_FOLLOW_MIN, Stats.BOT_FOLLOW_MAX)
+
+
+func _follow_spot(buddy) -> Vector3:
+	var c: Vector3 = buddy.global_position
+	var spot := c + _follow_offset(c)
+	if _flat_to(c).length() < Stats.BOT_FOLLOW_MIN:
+		# They walked into us: step back out on the side we already stand.
+		var away := -_flat_to(c)
+		if away.length() > 0.1:
+			spot = c + away.normalized() * Stats.BOT_FOLLOW_MIN * 1.2
+	return spot
+
+
 func _roll(p: float) -> bool:
 	## A chance scaled by the bot difficulty's ability rate.
 	return randf() < p * game.bot_tuning().ability
@@ -3391,9 +3595,9 @@ func _bot_think(delta: float) -> Dictionary:
 	elif mine.state == Monarch.State.DROPPED and (bot_job == "recover" or _flat_to(mine.global_position).length() < 16.0):
 		goal = mine.global_position
 	elif theirs.state == Monarch.State.CARRIED and (bot_job == "escort" or bot_job == "support" or _flat_to(theirs.carrier.global_position).length() < 10.0):
-		goal = theirs.carrier.global_position + bot_offset  # escort our carrier
+		goal = _follow_spot(theirs.carrier)  # escort our carrier
 	elif bot_job == "rally_to":
-		goal = job_target + bot_offset * 0.5  # the player called "To me!"
+		goal = job_target + _follow_offset(job_target)  # the player called "To me!"
 	elif bot_job == "defend":
 		# Spread a little along the wall, not out into the yard clutter.
 		goal = game.defense_post(team, bot_offset.z) + _post_spread()
@@ -3410,7 +3614,7 @@ func _bot_think(delta: float) -> Dictionary:
 		goal = _engineer_goal(plan)
 	elif bot_job == "support":
 		var buddy = _heal_focus()
-		goal = (buddy.global_position if buddy else game.thrones[team]) + bot_offset * 0.6
+		goal = _follow_spot(buddy) if buddy else game.thrones[team] + bot_offset * 0.6
 	elif bot_job == "attack":
 		goal = _raid_goal(delta)
 	else:

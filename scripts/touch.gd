@@ -21,16 +21,39 @@ var aim_id := -1
 var aim_origin := Vector2.ZERO
 var aim_vec := Vector2.ZERO
 var held: Dictionary = {}    # touch index -> action it is holding down
+var last_touch_ms := -100000
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	if DisplayServer.is_touchscreen_available() or OS.get_cmdline_user_args().has("--debug-touch"):   # (the flag: iPad-layout renders)
-		active = true
-		if game:
-			game.touch_active = true
+	# Only phones and tablets start on the touch layout. A laptop with a
+	# touch screen (Faisal 2026-10-14) keeps the keyboard layout until a
+	# finger actually lands; the Controls tab can pin either.
+	var layout: String = game.control_layout if game else "auto"
+	if layout == "touch" or (layout == "auto" and mobile_device()) or OS.get_cmdline_user_args().has("--debug-touch"):   # (the flag: iPad-layout renders)
+		set_active(true)
+
+
+func mobile_device() -> bool:
+	## A phone or tablet: the iPad's browser, Android, or a mobile export.
+	return OS.has_feature("mobile") or OS.has_feature("web_ios") or OS.has_feature("web_android")
+
+
+func set_active(on: bool) -> void:
+	if on == active and (game == null or game.touch_active == on):
+		return
+	if not on:
+		release_all()
+	active = on
+	if game:
+		game.touch_active = on
+	queue_redraw()
+
+
+func _layout() -> String:
+	return game.control_layout if game else "auto"
 
 
 var _was_playing := false
@@ -46,7 +69,22 @@ func _process(_delta: float) -> void:
 			queue_redraw()
 
 
+func _notification(what: int) -> void:
+	# The iPad dropped our fingers (the app or tab lost focus, a system swipe,
+	# the dock): the browser may never send their lift, so a held move stick
+	# kept walking, or kept its slot so no new touch could move the player
+	# (Faisal 2026-10-14: "sometimes people get stuck"). Let go of everything.
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT \
+			or what == NOTIFICATION_APPLICATION_PAUSED:
+		release_all()
+
+
 func _input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		last_touch_ms = Time.get_ticks_msec()
+	elif active and _layout() == "auto" and _not_touch(event) and Time.get_ticks_msec() - last_touch_ms > 1000:
+		# (a second's grace: some browsers follow a tap with their own mouse events)
+		set_active(false)   # Auto: a real mouse or key takes the keyboard layout back
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			_down(event.index, event.position)
@@ -54,6 +92,22 @@ func _input(event: InputEvent) -> void:
 			_up(event.index)
 	elif event is InputEventScreenDrag:
 		_drag(event.index, event.position)
+
+
+func _not_touch(event: InputEvent) -> bool:
+	## A real keyboard, mouse or pad event (a finger's emulated mouse events
+	## carry DEVICE_ID_EMULATION and do not count).
+	if event is InputEventKey:
+		return event.pressed and not event.echo
+	if event is InputEventMouseButton:
+		return event.pressed and event.device != InputEvent.DEVICE_ID_EMULATION
+	if event is InputEventMouseMotion:
+		return event.device != InputEvent.DEVICE_ID_EMULATION and event.relative.length() > 6.0 and stick_id < 0 and aim_id < 0
+	if event is InputEventJoypadButton:
+		return event.pressed
+	if event is InputEventJoypadMotion:
+		return absf(event.axis_value) > 0.6
+	return false
 
 
 func _prefix() -> String:
@@ -66,9 +120,16 @@ func _playing() -> bool:
 
 func _down(i: int, pos: Vector2) -> void:
 	queue_redraw()
-	active = true
-	if game:
-		game.touch_active = true
+	# A new press on a finger we still think is down: its lift was lost.
+	if held.has(i) or i == stick_id or i == aim_id:
+		_up(i)
+	if _layout() in ["keyboard", "controller"]:
+		# Pinned off: the finger still works the menus (as a click), the
+		# match takes no thumb controls.
+		if game and not _playing():
+			game.touch_tap = _snap(pos)
+		return
+	set_active(true)
 	if not _playing():
 		if game.rank_open and not game.menu_open and (game.hud.touch_close.grow(10).has_point(pos) or not game.hud._menu_rect().has_point(pos)):
 			# The UPGRADES board: CLOSE, or a tap anywhere outside it, shuts it.
@@ -81,6 +142,9 @@ func _down(i: int, pos: Vector2) -> void:
 	for entry in hud.touch_rects:
 		var r: Rect2 = entry[0]
 		if r.grow(6).has_point(pos):
+			if entry[1] is Callable:
+				entry[1].call()   # a close X (economy panels, the LEVEL UP strip)
+				return
 			var action: String = entry[1]
 			if action == "":
 				return
@@ -101,11 +165,17 @@ func _down(i: int, pos: Vector2) -> void:
 	if pos.y < 110.0:
 		return   # the score bar and minimap
 	if pos.x < size.x * 0.45:
+		if stick_id >= 0:
+			# One thumb drives the stick: a fresh touch on the left half takes
+			# it over (the old finger's lift was lost, or it is long gone).
+			_up(stick_id)
 		if stick_id < 0:
 			stick_id = i
 			stick_origin = pos
 			stick_vec = Vector2.ZERO
-	elif aim_id < 0:
+	else:
+		if aim_id >= 0:
+			_up(aim_id)   # same for the aim pad: the newest touch owns it
 		aim_id = i
 		aim_origin = pos
 		aim_vec = Vector2.ZERO

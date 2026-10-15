@@ -122,7 +122,26 @@ func _init() -> void:
 	m.go("title")
 	await frames()
 	await tap(ids.get("tutorial", Rect2()))
-	check(m.overlay == "tutorial", "TUTORIAL opens")
+	check(m.overlay == "howto" and m.howto_step == 0, "TUTORIAL opens the HOW TO PLAY cards")
+	await frames()
+	for b in hud.menu_buttons:
+		if b[1] == "howto_step" and int(b[2]) == 1:
+			await tap(b[0])
+			break
+	check(m.howto_step == 1, "NEXT turns to the second card")
+	await frames()
+	for b in hud.menu_buttons:
+		if b[1] == "howto_step" and int(b[2]) == -1:
+			await tap(b[0])
+			break
+	check(m.howto_step == 0, "BACK turns back to the first card")
+	await frames()
+	for b in hud.menu_buttons:
+		if b[1] == "howto_more":
+			await tap(b[0])
+			break
+	check(m.overlay == "tutorial" and game.howto_seen, "MORE QUESTIONS opens the questions (and marks the cards seen)")
+	await frames()
 	for b in hud.menu_buttons:
 		if b[1] == "topic" and int(b[2]) == 2:
 			await tap(b[0])
@@ -329,11 +348,13 @@ func _init() -> void:
 	var tiles: Array = hud.touch_rects.duplicate()
 	check(tiles.size() >= 6, "touch: the HUD lists its tiles (%d)" % tiles.size())
 	for e in tiles:
+		if e[1] is Callable:
+			continue   # a close X (tools/touch_close_test.gd checks those)
 		if e[1] in ["menu", "scoreboard", "rank_menu", "interact"]:
 			continue   # these open screens or grab; checked above
 		# A rank tile spends a point, and the LEVEL UP strip re-lays itself
 		# out at once: find this tile where the HUD has it now.
-		var now_at: Array = hud.touch_rects.filter(func(t): return t[1] == e[1])
+		var now_at: Array = hud.touch_rects.filter(func(t): return typeof(t[1]) == TYPE_STRING and t[1] == e[1])
 		if now_at.is_empty():
 			continue
 		game.touch._down(7, now_at[0][0].get_center())

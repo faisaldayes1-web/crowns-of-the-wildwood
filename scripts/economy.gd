@@ -1424,13 +1424,13 @@ func quick_tiles(p) -> Array:
 	if p == null or not is_instance_valid(p) or p.dead or p.role == Role.BASE:
 		return []
 	var chk := train_check(p)
-	if chk.reason in ["PROMOTED", "PICK A CLASS", "SPEND YOUR POINTS"]:
-		return []
+	if chk.reason in ["PROMOTED", "PICK A CLASS", "SPEND YOUR POINTS"] or chk.reason.begins_with("OPENS"):
+		return []   # (before 5:00 left the G slot says AT 5:00; the LEVEL UP strip stays away)
 	var reason: String = chk.reason
 	if chk.ok and not field_ok(p):
 		reason = "IN COMBAT"
 	var E: Dictionary = Stats.ECONOMY
-	return [{"icon": "xp", "label": "Training", "sub": "XP TO A VARIANT",
+	return [{"icon": "training", "label": "Training", "sub": "XP TO A VARIANT", "wood": E.train_wood,
 		"cost_text": _cost_text(E.train_wood, E.train_ore), "ok": reason == "", "reason": reason,
 		"buy": func() -> bool: return train_remote(p)}]
 
@@ -1466,6 +1466,8 @@ func buy_hat_remote(p, role: int) -> bool:
 
 var card_button := Rect2()   # this frame's card button in HUD coordinates (mouse clicks), empty when none
 var card_ok := false
+var card_close := Rect2()     # the action card's / training panel's X, HUD coordinates
+var card_hidden := ""         # the offer whose card was put away with its X, until you step off it
 
 
 func offer(p) -> Dictionary:
@@ -1546,13 +1548,19 @@ func draw_action_card(hud, me) -> void:
 	## base stock and a big gold + button (click it, tap it, or press
 	## interact). Greyed with the reason when it can't be bought.
 	card_button = Rect2()
+	card_close = Rect2()
 	if me == null or game.menu_open or game.guide_open:
 		return
 	if training_open and not me.dead:
 		draw_training_panel(hud, me)
 		return
 	var o := offer(me)
-	if o.is_empty():
+	if not o.is_empty() and o.icon == "hammer":
+		_draw_door_prompt(hud, me, o)   # the door: a small key prompt, no card (Faisal 2026-10-15)
+		return
+	if o.is_empty() or o.title != card_hidden:
+		card_hidden = ""   # stepping off (or onto another job) brings the card back
+	if o.is_empty() or card_hidden != "":
 		return
 	var touch: bool = hud.get("touch_ui") == true
 	var W: float = hud.size.x
@@ -1633,8 +1641,100 @@ func draw_action_card(hud, me) -> void:
 		Color(1.0, 0.88, 0.5) if o.ok else Color(1.0, 0.55, 0.5), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x + 80, 2)
 	card_button = btn
 	card_ok = o.ok
+	_close_x(hud, card, touch, func() -> void: _hide_card(o.title))
 	if touch and hud.get("touch_rects") != null:
 		hud.touch_rects.append([btn.grow(10), "interact"])   # a tap presses interact (touch.gd)
+
+
+func _draw_door_prompt(hud, me, o: Dictionary) -> void:
+	## By your own door (Faisal 2026-10-15: "the door upgrade shouldn't pop
+	## up when you're near it, it should say button to repair"): a small dark
+	## pill over the door like the other F prompts, with the current input's
+	## key, the job and its wood price, and a thin health line under it. The
+	## key (or a click or tap on the pill) does the job. Nothing at all while
+	## the door is unhurt; greyed with the reason when it can't be done.
+	if o.reason == "FULL HEALTH":
+		return
+	var cam: Camera3D = game.camera_for(me) if game.has_method("camera_for") else hud.get_viewport().get_camera_3d()
+	var gate = game.gates[me.team]
+	var at: Vector3 = gate.global_position + Vector3(0, 3.0, 0)
+	if cam == null or cam.is_position_behind(at):
+		return
+	var sp: Vector2 = hud.get_global_transform().affine_inverse() * cam.unproject_position(at)
+	var touch: bool = hud.get("touch_ui") == true
+	var ok: bool = o.ok
+	var short: bool = o.reason.begins_with("NEED")
+	var text: String = o.verb + " DOOR"
+	if not ok and not short:
+		text = {"UNDER SIEGE": "DOOR · UNDER SIEGE", "OVERTIME": "DOOR DOWN · NO RAISING IN OVERTIME"}.get(o.reason, text)
+	var price: int = o.wood if ok or short else 0
+	var k: String = hud._k("interact") if ok else ""
+	var kw: float = 0.0 if k == "" else maxf(20.0, hud._text_width(k, 11) + 10.0)
+	var pw: float = 0.0 if price <= 0 else hud._text_width(str(price), 13) + 30.0
+	var w: float = hud._text_width(text, 13) + kw + pw + (32.0 if kw > 0.0 else 24.0)
+	var r := Rect2(sp - Vector2(w / 2.0, 14), Vector2(w, 28))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.07, 0.1, 0.88)
+	sb.set_corner_radius_all(7)
+	sb.set_border_width_all(1)
+	sb.border_color = Color(0.86, 0.66, 0.28, 0.9) if ok else Color(0.55, 0.5, 0.42, 0.8)
+	sb.shadow_size = 4
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	hud.draw_style_box(sb, r)
+	hud.draw_rect(Rect2(r.position + Vector2(6, 1), Vector2(r.size.x - 12, 1)), Color(1, 1, 1, 0.12))
+	var tx := r.position.x + 11.0
+	if kw > 0.0:
+		hud._keycap(Vector2(tx + kw / 2.0, sp.y), k, kw)
+		tx += kw + 8.0
+	hud._text(Vector2(tx, sp.y + 5.0), text, 13, Color(0.97, 0.95, 0.88) if ok else Color(0.75, 0.73, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	if price > 0:
+		var px: float = tx + hud._text_width(text, 13) + 14.0
+		_wood_icon(hud, Vector2(px + 6.0, sp.y), 7.0)
+		hud._text(Vector2(px + 16.0, sp.y + 5.0), str(price), 13, Color(1.0, 0.42, 0.38) if short else Color(1.0, 0.92, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# The door's health, a thin line under the pill.
+	if o.bar != Vector2.ZERO:
+		var f := clampf(o.bar.x / maxf(o.bar.y, 1.0), 0.0, 1.0)
+		var br := Rect2(Vector2(r.position.x + 8.0, r.end.y + 4.0), Vector2(r.size.x - 16.0, 4.0))
+		hud.draw_rect(br.grow(1), Color(0.05, 0.04, 0.03, 0.85))
+		hud.draw_rect(Rect2(br.position, Vector2(br.size.x * f, br.size.y)), Color(0.9, 0.25, 0.2).lerp(Color(0.3, 0.85, 0.3), f))
+	card_button = r
+	card_ok = ok
+	if touch and hud.get("touch_rects") != null:
+		hud.touch_rects.append([r.grow(12), "interact"])   # a tap presses interact (touch.gd)
+
+
+func _close_x(hud, board: Rect2, touch: bool, on_close: Callable) -> void:
+	## An X on a board's top-right corner (Faisal 2026-10-14: the iPad could
+	## not close these). Clicked through _input, tapped through touch.gd.
+	var r := 18.0 if touch else 12.0
+	var c := Vector2(board.end.x - 4.0, board.position.y + 4.0)
+	if hud.has_method("x_button"):
+		hud.x_button(c, r)
+	else:
+		hud.draw_circle(c, r, Color(0.3, 0.17, 0.04))
+		hud.draw_line(c - Vector2(r, r) * 0.4, c + Vector2(r, r) * 0.4, Color(0.97, 0.93, 0.8), 3.0)
+		hud.draw_line(c + Vector2(r, -r) * 0.4, c + Vector2(-r, r) * 0.4, Color(0.97, 0.93, 0.8), 3.0)
+	card_close = Rect2(c - Vector2(28, 28), Vector2(56, 56))
+	close_action = on_close
+	if touch and hud.get("touch_rects") != null:
+		hud.touch_rects.append([card_close, on_close])
+
+
+var close_action := Callable()
+
+
+func _hide_card(title: String) -> void:
+	if card_hidden == title:
+		return
+	card_hidden = title
+	game.sfx.ui("ui_close", -6.0)
+
+
+func close_training() -> void:
+	if not training_open:
+		return   # the finger's tap and its emulated click both land here
+	training_open = false
+	game.sfx.ui("ui_close", -6.0)
 
 
 const BRASS := Color(0.86, 0.66, 0.28)   # hud.gd's palette: the ability board's rim
@@ -1682,6 +1782,13 @@ func mouse_on_button() -> bool:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.device == InputEvent.DEVICE_ID_EMULATION and game.touch_active:
+		return   # a finger: touch.gd already pressed the slot's or button's action (a second toggle shut the panel again)
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and game.hud != null \
+			and card_close.has_area() and card_close.has_point(game.hud.get_local_mouse_position()) and close_action.is_valid():
+		close_action.call()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and game.hud != null \
 			and slot_rect.has_area() and slot_rect.has_point(game.hud.get_local_mouse_position()):
 		_toggle_training()
@@ -1790,8 +1897,10 @@ func draw_training_panel(hud, me) -> void:
 	var cream := Color(0.97, 0.93, 0.8)
 	var gold := Color(1.0, 0.84, 0.36)
 	var cls: String = Stats.FACTIONS[me.team].roles[me.role]
-	# Close hint, top right.
-	hud._text(Vector2(r.end.x - 120, r.position.y + 30), "%s  CLOSE" % game.key_label("ability_3"), 11, Color(0.86, 0.66, 0.28), HORIZONTAL_ALIGNMENT_RIGHT, 100, 2)
+	# Close: an X on the corner (tap or click), and its key on keyboards.
+	_close_x(hud, r, touch, close_training)
+	if not touch:
+		hud._text(Vector2(r.end.x - 140, r.position.y + 30), "%s  CLOSE" % game.key_label("ability_3"), 11, Color(0.86, 0.66, 0.28), HORIZONTAL_ALIGNMENT_RIGHT, 100, 2)
 	# The class, in a big hex.
 	var hc := r.position + Vector2(70, 98)
 	hud._hex_tile(hc, 44.0, BRASS, Stats.ROLES[me.role].color.darkened(0.2) if Stats.ROLES.has(me.role) else Color(0.4, 0.3, 0.2), false, chk.ok)
@@ -2062,7 +2171,7 @@ func _shot_tick() -> void:
 				game.cam_lock = depots[team] + Vector3(-side * 2.0, 0, 2.5)
 			if left == 25:
 				_put(p, depots[team] + Vector3(-side * 1.6, 0.1, 1.0))
-		"hat", "upgrade":
+		"hat", "upgrade", "levelup":
 			if left == 200:
 				wood[team] = 18
 				ore[team] = 0
@@ -2071,6 +2180,9 @@ func _shot_tick() -> void:
 				_put(p, seal.global_position + Vector3(0.4, 0.1, 1.5))
 				game.cam_pos = p.global_position + game.CAMERA_OFFSET * game.cam_zoom
 				game.time_left = Stats.MATCH_TIME - Stats.ECONOMY.train_after - 30.0   # late game: training is open
+			if left == 60 and scene == "levelup":
+				_calm_since[p] = Time.get_ticks_msec() - 10000
+				_put(p, p.global_position + Vector3(0, 0, 3.0))   # off the machine: the LEVEL UP strip, not the card
 			if left == 60 and scene == "upgrade":
 				_calm_since[p] = Time.get_ticks_msec() - 10000
 				training_open = true   # the Veteran Training panel, as G opens it
@@ -2085,6 +2197,4 @@ func _shot_tick() -> void:
 				game.gates[team]._refresh()
 				_put(p, game.gates[team].global_position * Vector3(1, 0, 1) + Vector3(side * 2.2, 0.1, 1.2))
 				game.cam_pos = p.global_position + Vector3(-side * 1.5, 0, 0) + game.CAMERA_OFFSET * game.cam_zoom
-				work_pad(team, pads[team][3].pos, p)
-			if left == 30:
-				game.try_interact(p)
+				work_pad(team, pads[team][3].pos, p)   # (the door's own prompt stays up: no key press)
