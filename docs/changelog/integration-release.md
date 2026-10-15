@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 03:30 UTC · World visual overhaul `7c3271e` · Flicker pass (green flag)
+
+- **What:** merged `fada3c5` + `7c3271e` into the Steam branch, cherry-picked into the alpha. `_unfight_coplanar()` moves meshes (never colliders) 6 mm apart wherever two different-material faces shared a plane; the green flag was the base tapestry in the wainscot's plane.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** overhaul thread: zfight pairs 132/132/189 → 0, fingerprints unchanged; full check here before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
 ### 2026-10-15 03:20 UTC · Economy `9006e41`, Split-screen `64777c8`, UI & Art `b14784d` · Round-2 beta fixes
 
 - **What:** Economy `df055bd` (door shows a small "key REPAIR DOOR · wood 3" pill instead of the action card; nothing at full health) cherry-picked into both branches. Split-screen `fbb8b73` + `64777c8` (draft PR #23: one input device per player, no second keyboard, panes at full window resolution) and UI & Art `a6c6cf5` + `b14784d` (text fits its slot, two body types, no yellow arrow, ribbon capture banner) merged into the Steam branch and cherry-picked into the alpha.
