@@ -387,9 +387,20 @@ func fix_door(team: int, by) -> bool:
 	game.spawn_ring(gate.global_position - Vector3(0, gate.global_position.y, 0), 3.0, Color(1.0, 0.85, 0.3), 0.6)
 	game.spawn_splash(gate.global_position + Vector3(0, 0.5, 0), Color(0.85, 0.65, 0.4), 30, 4.0, 0.7, true)
 	game.sfx.play("door_rebuilt", gate.global_position, -1.0)
+	_build_xp(by)
 	if game.demo:
 		print("ECON t=%d team%d door %s hp=%d" % [game.match_clock(), team, job, gate.hp])
 	return true
+
+
+func _build_xp(by) -> void:
+	## XP for mending the door or building, raising or patching a turret.
+	if by == null or not is_instance_valid(by):
+		return
+	var xp: int = Stats.ECONOMY.xp_build
+	by.gain_xp(xp, "support")
+	if by.is_player:
+		game.spawn_popup(by.global_position + Vector3(0, 2.6, 0), "+%d XP" % xp, Color(1.0, 0.9, 0.45))
 
 
 func work_pad(team: int, pos: Vector3, by) -> bool:
@@ -430,7 +441,7 @@ func work_pad(team: int, pos: Vector3, by) -> bool:
 	match what:
 		"turret":
 			var spot: Vector3 = game.turret_spot(team, pos, null)
-			game.spawn_turret(team, spot, null, {"thorn": team == 0})
+			game.spawn_turret(team, spot, by if by and is_instance_valid(by) else null, {"thorn": team == 0})   # its hits and knock-downs earn the builder XP
 			bought[team].turret += 1
 		"fix":
 			t.hp = t.max_hp()
@@ -443,6 +454,7 @@ func work_pad(team: int, pos: Vector3, by) -> bool:
 			bought[team].tend += 1
 	if game.demo:
 		print("ECON t=%d team%d pad %s" % [game.match_clock(), team, what])
+	_build_xp(by)
 	return true
 
 
@@ -533,9 +545,11 @@ func _tick_cargo() -> void:
 				parts.append("+%d WOOD" % c.wood)
 			if c.ore > 0:
 				parts.append("+%d ORE" % c.ore)
+			parts.append("+%d XP" % ((c.wood + c.ore) * E.xp_deliver))
 			game.spawn_popup(u.global_position + Vector3(0, 2.4, 0), "  ".join(parts), Color(1.0, 0.92, 0.6))
 			game.spawn_ring(d, E.depot_radius, Color(1.0, 0.85, 0.3), 0.5)
 			game.sfx.play("station", d, -6.0)
+			u.gain_xp((c.wood + c.ore) * E.xp_deliver, "support")   # base work ranks you up too (2026-10-15)
 			cargo[u] = {"wood": 0, "ore": 0}
 			_refresh_cargo(u)
 			_refresh_pile(u.team)
@@ -2010,7 +2024,7 @@ func _test_tick() -> void:
 		1:
 			game.try_interact(p)
 			_check(work.has(p), "F at a lumber tree starts chopping")
-			test_wait = int(60 * Stats.ECONOMY.gather_time * 3.5)
+			test_wait = int(60 * Stats.ECONOMY.gather_time * (Stats.ECONOMY.carry_max + 0.5))
 		2:
 			_check(carried(p) == Stats.ECONOMY.carry_max, "chopping fills the carry limit (%d / %d)" % [carried(p), Stats.ECONOMY.carry_max])
 			_check(p.get_node_or_null("EconomyLoad") != null and p.get_node("EconomyLoad").visible, "the load shows on the soldier's back")
