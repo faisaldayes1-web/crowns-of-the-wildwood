@@ -319,3 +319,14 @@ Files: `scripts/character_model.gd`, `scripts/outfit_flair.gd`, `scripts/menu.gd
 `tools/store_test.gd`, `tools/store_menu_test.gd`.
 
 Undo: `git revert f757e2c`
+
+## 2026-10-15 — Customizer spacing
+
+Commit: `3029782`
+
+ARMOR tab row labels sat on the tiles above them: rows are now 56 px apart (36 per wrapped line, tiles
+36x32) and the RANK buttons are 30 tall so everything stays inside the panel. COLORS tab: the note under
+the dyes overlapped the last row's names; it moved down 28 px and now says the dye colours the cape and
+neck wrap. `scripts/menu.gd`, `tools/store_menu_test.gd` (tiles must end above y 590).
+
+Undo: `git revert 3029782`
