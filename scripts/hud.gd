@@ -3563,12 +3563,18 @@ func _draw_quick_upgrade(p) -> void:
 	var W := size.x / k
 	var H := size.y / k
 	var now := Time.get_ticks_msec() / 1000.0
-	var tw := 70.0
-	var head_w := 128.0
-	var ew := 150.0
-	var w := head_w + tracks.size() * (tw + 6.0) + extra.size() * (ew + 6.0) + 4.0
+	# The board (Faisal 2026-10-15 "change the level up upgrade from here ui"):
+	# the in-match board with a LEVEL UP name tag, a gold badge with the
+	# points left (or the combat countdown), then one hex per skill like the
+	# ability slots, its key on the corner and the level it goes to under it,
+	# and Economy's Training as a hex with its wood price.
+	var tw := 58.0
+	var head_w := 92.0
+	var ew := 104.0
+	var bh := 76.0
+	var w := head_w + tracks.size() * tw + extra.size() * ew + 10.0
 	var x := W / 2.0 - w / 2.0 if touch_ui else (W - 22.0 - 142.0 - 30.0 - 235.0) - w / 2.0
-	var y := H - 132.0 if touch_ui else H - 164.0
+	var y := H - 130.0 - bh if touch_ui else H - 138.0 - bh
 	var shake := 0.0
 	if now - quick_deny < 0.35:
 		shake = sin((now - quick_deny) * 55.0) * 5.0 * (1.0 - (now - quick_deny) / 0.35)
@@ -3576,43 +3582,64 @@ func _draw_quick_upgrade(p) -> void:
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
 	var calm: float = p.calm_left()
-	var R := Rect2(x, y, w, 36)
+	var ready := calm <= 0.0
+	var R := Rect2(x, y, w, bh)
 	var pulse := 0.5 + 0.5 * sin(now * 4.0)
-	game_board(R, "", false)
-	if calm <= 0.0:
-		_glow_frame(R.grow(2), Color(1.0, 0.82, 0.3, 0.25 + 0.3 * pulse))
-	_text(Vector2(x + 10, y + 16), "LEVEL UP", 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-	if calm > 0.0:
-		_text(Vector2(x + 10, y + 30), "In combat %.0fs" % ceilf(calm), 10, Color(1.0, 0.55, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	elif p.points > 0:
-		_text(Vector2(x + 10, y + 30), "%d point%s to spend" % [p.points, "" if p.points == 1 else "s"], 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	game_board(R, "LEVEL UP", false)
+	if ready:
+		_glow_frame(R.grow(2), Color(1.0, 0.82, 0.3, 0.2 + 0.3 * pulse))
+	# The badge: points to spend, or how long until you are out of the fight.
+	var bc := Vector2(x + head_w / 2.0, y + 34.0)
+	draw_circle(bc + Vector2(0, 2), 22.0, Color(0, 0, 0, 0.35))
+	draw_circle(bc, 22.0, Color(0.16, 0.09, 0.03))
+	draw_circle(bc, 19.5, BRASS if ready else Color(0.45, 0.4, 0.34))
+	draw_circle(bc, 16.5, Color(0.36, 0.2, 0.06) if ready else Color(0.2, 0.18, 0.16))
+	draw_arc(bc, 15.0, PI * 1.1, PI * 1.9, 12, Color(1, 0.95, 0.75, 0.35), 2.0)
+	var big := "+%d" % p.points if p.points > 0 else ""
+	if not ready:
+		big = "%.0f" % ceilf(calm)
+		draw_arc(bc, 19.5, -PI / 2.0, -PI / 2.0 + TAU * clampf(calm / maxf(Stats.QUICK_UPGRADE_CALM, 0.1), 0.0, 1.0), 24, Color(1.0, 0.45, 0.35), 3.0)
+	if big != "":
+		_text(Vector2(bc.x - 30, bc.y + 7), big, 19, GOLD if ready else Color(1.0, 0.6, 0.5), HORIZONTAL_ALIGNMENT_CENTER, 60, 3)
 	else:
-		_text(Vector2(x + 10, y + 30), "Upgrade from here", 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var tx := x + head_w
+		_icon("xp", bc, 9.0, Color.WHITE)
+	var sub := "IN COMBAT" if not ready else ("POINT%s" % ("" if p.points == 1 else "S") if p.points > 0 else "TRAIN")
+	_text(Vector2(x + 4, y + bh - 9), sub, 10, Color(1.0, 0.55, 0.45) if not ready else CREAM, HORIZONTAL_ALIGNMENT_CENTER, head_w - 8, 2)
+	draw_line(Vector2(x + head_w, y + 12), Vector2(x + head_w, y + bh - 10), Color(0.62, 0.44, 0.16, 0.5), 1.0)
+	var tx := x + head_w + 4.0
 	var abil: Array = p.abilities()
 	for t in tracks:
-		var r := Rect2(tx, y + 3, tw, 30)
-		tx += tw + 6.0
+		var hc := Vector2(tx + tw / 2.0, y + 32.0)
+		tx += tw
 		var icon: String = _attack_icon(p.role, p.stats()) if t == 0 else ("vigor" if t == 3 else str(abil[t - 1].get("icon", abil[t - 1].kind)))
-		var ready := calm <= 0.0
-		_plate(r, Color(0.13, 0.08, 0.04) if ready else Color(0.1, 0.08, 0.07), BRASS if ready else Color(0.35, 0.3, 0.25), 7, 1)
-		draw_rect(Rect2(r.position + Vector2(3, 2), Vector2(r.size.x - 6, 4)), Color(1, 0.85, 0.6, 0.1 if ready else 0.04))
-		_icon(icon, r.position + Vector2(15, 15), 8.0, Color.WHITE if ready else Color(0.6, 0.6, 0.6))
-		_text(Vector2(r.position.x + 30, r.position.y + 20), "LV%d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_keycap(Vector2(r.end.x - 2, r.position.y + 2), _k("rank_%d" % (t + 1)), 18)
+		_hex_tile(hc, 19.0, BRASS if ready else Color(0.45, 0.42, 0.38), Color(0.62, 0.4, 0.14), false, ready)
+		_icon(icon, hc, 9.0, Color.WHITE, not ready)
+		_keycap(hc + Vector2(15, -17), _k("rank_%d" % (t + 1)), 18)
+		_text(Vector2(hc.x - tw / 2.0, y + bh - 9), "LV %d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_CENTER, tw, 2)
+		var r := Rect2(hc - Vector2(tw / 2.0, 26), Vector2(tw, 56))
 		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
 		quick_buttons.append([sr, t])
 		if not pane:
 			touch_rects.append([sr, "quick_tap"])   # (was "rank_N": with the finger's emulated click one tap bought two ranks)
 	for e in extra:
-		var r := Rect2(tx, y + 3, ew, 30)
-		tx += ew + 6.0
-		var ok: bool = e.get("ok", false) and calm <= 0.0
-		_plate(r, Color(0.12, 0.17, 0.08) if ok else Color(0.14, 0.12, 0.1), Color(0.5, 0.85, 0.35) if ok else Color(0.35, 0.3, 0.25), 7, 1)
-		_icon(str(e.get("icon", "")), r.position + Vector2(15, 15), 8.0, Color.WHITE if ok else Color(0.6, 0.6, 0.6))
-		_text(Vector2(r.position.x + 30, r.position.y + 13), str(e.get("label", "")), 11, CREAM if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, ew - 34.0, 2)
+		var hc := Vector2(tx + 26.0, y + 34.0)
+		var ok: bool = e.get("ok", false) and ready
+		_hex_tile(hc, 19.0, BRASS if ok else Color(0.45, 0.42, 0.38), Color(0.38, 0.52, 0.2), false, ok)
+		_icon(str(e.get("icon", "")), hc, 10.0, Color.WHITE, not ok)
+		var lx := tx + 50.0
+		var lw := ew - 52.0
+		var label := str(e.get("label", "")).to_upper()
+		_text(Vector2(lx, y + 30), label, 12 if _text_width(label, 12) <= lw else 10, CREAM if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, lw, 2)
 		var why: String = str(e.get("reason", ""))
-		_text(Vector2(r.position.x + 30, r.position.y + 26), why if why != "" else str(e.get("cost_text", "")), 9, Color(1.0, 0.55, 0.45) if why != "" else Color(0.9, 0.85, 0.7), HORIZONTAL_ALIGNMENT_LEFT, ew - 34.0, 1)
+		if why != "" and why != "IN COMBAT":
+			_paragraph(Vector2(lx, y + 44), why, 9, Color(1.0, 0.55, 0.45), lw, 10.0)
+		elif game.economy and game.economy.has_method("_wood_icon") and int(e.get("wood", 0)) > 0:
+			game.economy._wood_icon(self, Vector2(lx + 7, y + 47), 6.0)
+			_text(Vector2(lx + 17, y + 52), str(e.get("wood", 0)), 13, Color(1.0, 0.92, 0.7) if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		else:
+			_text(Vector2(lx, y + 52), str(e.get("cost_text", "")), 10, Color(0.9, 0.85, 0.7), HORIZONTAL_ALIGNMENT_LEFT, lw, 1)
+		var r := Rect2(Vector2(tx, y + 6), Vector2(ew, bh - 12))
+		tx += ew
 		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
 		quick_buttons.append([sr, e.get("buy", Callable())])
 		if not pane:
@@ -3620,7 +3647,7 @@ func _draw_quick_upgrade(p) -> void:
 	# An X at the strip's left end puts it away (keys 1-4 still buy). Left,
 	# not right: on touch the right end runs into the move tiles.
 	var xr := 16.0 if touch_ui else 11.0
-	var xc := Vector2(x - xr - 10.0, y + 18.0)
+	var xc := Vector2(x - xr - 10.0, y + 22.0)
 	x_button(xc, xr)
 	quick_close = Rect2((xc - Vector2(26, 26)) * hud_scale, Vector2(52, 52) * hud_scale)
 	if not pane:

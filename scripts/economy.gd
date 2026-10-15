@@ -1424,13 +1424,13 @@ func quick_tiles(p) -> Array:
 	if p == null or not is_instance_valid(p) or p.dead or p.role == Role.BASE:
 		return []
 	var chk := train_check(p)
-	if chk.reason in ["PROMOTED", "PICK A CLASS", "SPEND YOUR POINTS"]:
-		return []
+	if chk.reason in ["PROMOTED", "PICK A CLASS", "SPEND YOUR POINTS"] or chk.reason.begins_with("OPENS"):
+		return []   # (before 5:00 left the G slot says AT 5:00; the LEVEL UP strip stays away)
 	var reason: String = chk.reason
 	if chk.ok and not field_ok(p):
 		reason = "IN COMBAT"
 	var E: Dictionary = Stats.ECONOMY
-	return [{"icon": "xp", "label": "Training", "sub": "XP TO A VARIANT",
+	return [{"icon": "training", "label": "Training", "sub": "XP TO A VARIANT", "wood": E.train_wood,
 		"cost_text": _cost_text(E.train_wood, E.train_ore), "ok": reason == "", "reason": reason,
 		"buy": func() -> bool: return train_remote(p)}]
 
@@ -2171,7 +2171,7 @@ func _shot_tick() -> void:
 				game.cam_lock = depots[team] + Vector3(-side * 2.0, 0, 2.5)
 			if left == 25:
 				_put(p, depots[team] + Vector3(-side * 1.6, 0.1, 1.0))
-		"hat", "upgrade":
+		"hat", "upgrade", "levelup":
 			if left == 200:
 				wood[team] = 18
 				ore[team] = 0
@@ -2180,6 +2180,9 @@ func _shot_tick() -> void:
 				_put(p, seal.global_position + Vector3(0.4, 0.1, 1.5))
 				game.cam_pos = p.global_position + game.CAMERA_OFFSET * game.cam_zoom
 				game.time_left = Stats.MATCH_TIME - Stats.ECONOMY.train_after - 30.0   # late game: training is open
+			if left == 60 and scene == "levelup":
+				_calm_since[p] = Time.get_ticks_msec() - 10000
+				_put(p, p.global_position + Vector3(0, 0, 3.0))   # off the machine: the LEVEL UP strip, not the card
 			if left == 60 and scene == "upgrade":
 				_calm_since[p] = Time.get_ticks_msec() - 10000
 				training_open = true   # the Veteran Training panel, as G opens it
