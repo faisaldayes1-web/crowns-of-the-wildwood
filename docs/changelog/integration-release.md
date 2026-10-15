@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 18:40 UTC · Store `fc26713` · Cape dyes on every character, customizer fixes
+
+- **What:** merged into the Steam branch, cherry-picked `f757e2c`, `66356b9`, `3029782`, `fc26713` into the alpha. Cape dyes show on every class, rank and promotion (KayKit capes dye the whole cloth; the OutfitFlair neck wrap is worn when a dye is chosen); customizer ARMOR tiles wrap at ten a line, COLORS note no longer overlaps. New tools/trim_check.gd. Not yet in a delivered build (next beta).
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** store, store_menu, options_menu, menu_flow, save tests 0 failures; tools/tests/run.sh 0 failures.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the four cherry-picks newest first.
+
 ### 2026-10-15 09:45 UTC · Combat & Balance `0c4a5b6` · Balance patch 8
 
 - **What:** merged into the Steam branch, cherry-picked `08e766f` + `0c4a5b6` into the alpha. Elves speed 6.05 → 6.1 (96 matches with Economy's XP changes: Humans 29-18 → 24-24). docs/balance/patch-8.md. Not yet in a delivered build (next beta).
