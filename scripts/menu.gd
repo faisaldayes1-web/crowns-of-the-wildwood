@@ -737,6 +737,9 @@ func _row_x(panel: Rect2, i: int, n: int, w: float) -> float:
 	return x0 + (i * (span - w) / maxf(n - 1, 1)) if n > 1 else x0
 
 
+const BODY_CHOICES := 2   # the builds offered on the Appearance tab (Slim, Sturdy)
+
+
 func _tab_appearance(panel: Rect2) -> void:
 	var y := panel.position.y + 74
 	var step := 51.0
@@ -748,7 +751,12 @@ func _tab_appearance(panel: Rect2) -> void:
 	icon("arrow_left", Vector2(ax0 + 8, y), 26)
 	button(Rect2(ax1 - 22, y - 18, 26, 36), "body_step", 1)
 	icon("arrow_right", Vector2(ax1 - 8, y), 26)
-	var nb := Stats.HERO_BODIES.size()
+	# Two builds only (Faisal 2026-10-15 02:30: "take out the third gender
+	# option"): Broad stays in Stats.HERO_BODIES so old saves still load, but
+	# it is no longer offered and a hero saved with it shows as Sturdy.
+	var nb := BODY_CHOICES
+	if game.hero_body >= nb:
+		game.hero_body = nb - 1
 	for i in nb:
 		var c := Vector2(ax0 + 30 + (ax1 - ax0 - 60) * (i + 0.5) / nb, y)
 		var on: bool = game.hero_body == i
@@ -1474,7 +1482,7 @@ func _press(id: String, arg) -> void:
 			preview_role = Role.BASE   # a class wears its own body: show the build itself
 			game._save_settings()
 		"body_step":
-			game.hero_body = posmod(game.hero_body + int(arg), Stats.HERO_BODIES.size())
+			game.hero_body = posmod(game.hero_body + int(arg), BODY_CHOICES)
 			preview_role = Role.BASE
 			game._save_settings()
 		"skin":
@@ -1534,11 +1542,20 @@ func add_player(device: int) -> void:
 	## A gamepad joins the lobby as the next local player.
 	if game.couch_players >= game.COUCH_MAX:
 		return
-	game.split_screen = true
-	if device >= 0:
-		if device in join_pads:
+	if device < 0:
+		# Clicked in: give the new player a controller nobody holds yet. One
+		# keyboard player for now (Faisal 2026-10-15): no pad, no join.
+		for d in Input.get_connected_joypads():
+			if not d in join_pads and d != p1_pad:
+				device = d
+				break
+		if device < 0:
+			game.toast("Connect a controller for player %d: player 1 has the keyboard and mouse" % (game.couch_players + 1), Color(1.0, 0.8, 0.5))
 			return
-		join_pads.append(device)
+	game.split_screen = true
+	if device in join_pads:
+		return
+	join_pads.append(device)
 	game.couch_players += 1
 	readied[game.couch_players - 1] = false
 	game.sfx.ui("rank_up", -6.0)

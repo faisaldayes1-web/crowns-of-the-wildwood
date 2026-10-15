@@ -2701,7 +2701,11 @@ func _physics_process(delta: float) -> void:
 	velocity.x = move.x * speed + knockback.x
 	velocity.z = move.z * speed + knockback.z
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
+	var meant := Vector3(velocity.x, 0, velocity.z) * delta
+	var from := global_position
 	move_and_slide()
+	if move.length() > 0.1:
+		_step_up(from, meant)
 	_clamp_to_map()
 	_unstick(delta)
 	if knockback.length() > 3.5 and is_on_floor():
@@ -2757,7 +2761,25 @@ func _net_read_taps() -> void:
 func _stick() -> Vector2:
 	if remote_peer > 0:
 		return net_input.get("move", Vector2.ZERO)
-	return Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+	return aim_relative(Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down")))
+
+
+func aim_relative(keys: Vector2) -> Vector2:
+	## Keyboard and mouse (Faisal 2026-10-15: "when you aim with your mouse,
+	## your movement should also go that way"): W walks toward the cursor,
+	## S backs away from it, A and D step round it. The Controls tab's
+	## MOVEMENT pick turns it back to screen directions; pads and touch keep
+	## screen directions (their stick already points where you go).
+	if game == null or game.move_mode != "aim" or aim_mode != "mouse" or not has_mouse or game.on_pad(self) or game.touch_active:
+		return keys
+	if keys == Vector2.ZERO:
+		return keys
+	var to := Vector2(aim_point.x - global_position.x, aim_point.z - global_position.z)
+	if to.length() < 0.9:
+		return keys   # the cursor on top of us: no clear "forward", keep screen directions
+	var fwd := to.normalized()
+	var right := Vector2(-fwd.y, fwd.x)
+	return (right * keys.x + fwd * -keys.y).limit_length(1.0)
 
 
 func _held(action: String) -> bool:
@@ -2971,6 +2993,39 @@ func nearest_free_spot(at: Vector3, reach: float = 4.0) -> Vector3:
 				return p
 		r += 0.5
 	return at
+
+
+const STEP_HEIGHT := 0.3
+
+
+func _step_up(from: Vector3, meant: Vector3) -> void:
+	## A body is a capsule and cannot climb a ledge, so the side of a flight
+	## of stairs, a stairwell's rim or a threshold held you in place (Faisal
+	## 2026-10-15: "fix the getting stuck indoors"). When a walk was blocked
+	## by something no taller than STEP_HEIGHT, step up onto it.
+	if not is_on_floor() or not is_on_wall() or meant.length() < 0.001:
+		return
+	var done := Vector3(global_position.x - from.x, 0, global_position.z - from.z)
+	if done.length() > meant.length() * 0.5:
+		return   # sliding along a wall still gets us somewhere: no step needed
+	var fwd := meant.normalized() * maxf(meant.length(), 0.15)
+	var xf := global_transform
+	var lift := Vector3(0, STEP_HEIGHT, 0)
+	if test_move(xf, lift):
+		return   # no room overhead
+	var up := xf.translated(lift)
+	if test_move(up, fwd):
+		return   # a real wall, taller than a step
+	var over := up.translated(fwd)
+	var hit := KinematicCollision3D.new()
+	if not test_move(over, Vector3(0, -STEP_HEIGHT - 0.05, 0), hit):
+		return   # nothing to stand on over there
+	if hit.get_normal().y < 0.7:
+		return   # not a floor
+	var land := over.origin + hit.get_travel()
+	if land.y - global_position.y < 0.01:
+		return
+	global_position = land
 
 
 func _unstick(delta: float) -> void:

@@ -4,6 +4,41 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 03:35 UTC · Players getting stuck `6887ea1` · No more getting stuck indoors
+
+- **What:** merged `b42f8be` + `6887ea1` into the Steam branch, cherry-picked into the alpha. Bodies step up lips under 30 cm (`Unit.STEP_HEIGHT`), and a collision-only wedge fills under every flight of stairs. New tools/snag_scan.gd. Snags Wildwood 49 → 11 (none indoors), Ember Pass 34 → 1.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** stuck thread: run.sh 0 failures, 3-minute routing demos on both maps clean; full check here before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
+### 2026-10-15 03:30 UTC · World visual overhaul `7c3271e` · Flicker pass (green flag)
+
+- **What:** merged `fada3c5` + `7c3271e` into the Steam branch, cherry-picked into the alpha. `_unfight_coplanar()` moves meshes (never colliders) 6 mm apart wherever two different-material faces shared a plane; the green flag was the base tapestry in the wainscot's plane.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** overhaul thread: zfight pairs 132/132/189 → 0, fingerprints unchanged; full check here before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
+### 2026-10-15 03:20 UTC · Economy `9006e41`, Split-screen `64777c8`, UI & Art `b14784d` · Round-2 beta fixes
+
+- **What:** Economy `df055bd` (door shows a small "key REPAIR DOOR · wood 3" pill instead of the action card; nothing at full health) cherry-picked into both branches. Split-screen `fbb8b73` + `64777c8` (draft PR #23: one input device per player, no second keyboard, panes at full window resolution) and UI & Art `a6c6cf5` + `b14784d` (text fits its slot, two body types, no yellow arrow, ribbon capture banner) merged into the Steam branch and cherry-picked into the alpha.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** full check before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>` per group (Economy: revert its two cherry-picks); alpha: revert the cherry-picks newest first.
+
+### 2026-10-15 03:25 UTC · Closable menus `2d9bdfc` · Keyboard movement follows the mouse aim
+
+- **What:** merged Closable menus `ca0699e` + `2d9bdfc` (draft PR #22) into the Steam branch, cherry-picked into the alpha. With keyboard and mouse, W walks toward the cursor (Controls > MOVEMENT "Keyboard movement" switch, saved as settings/move_mode); the hints switch back to keys as soon as the mouse moves after a pad.
+- **Conflicts:** none.
+- **Tested:** kbm_move_test 0 failed, reload_menu_test OK on the merged code; full check before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
+### 2026-10-15 03:10 UTC · Integration `777f953` · Ember Pass stays on SELECT MAP; volume kept after a match
+
+- **What:** picking Ember Pass rebuilds the world and now comes back to SELECT MAP (the menu warm-up used to end on the title, so PLAY looked like it kicked you out). A mouse button still held from the summary's CONTINUE no longer drags the sound slider on the Settings tab the warm-up shows, which set the volume to full. Sliders move only for a press that started on them; clicks are ignored during the warm-up; a button held across a reload is not a new press.
+- **Files:** scripts/game.gd (`_warm_up_menus(land_on)`, `menus_warming`, `slider_drag`, `click_was` at start), tools/reload_menu_test.gd (new, needs xvfb).
+- **Tested:** reload_menu_test fails on the old code (lands on the title; sound 0.30 → 1.00) and passes now.
+- **Revert:** `git revert 777f953` (both branches: the alpha has the cherry-pick).
+
 ### 2026-10-14 22:40 UTC · Store `4073682` · Player banners for sale, brighter rarity sparkles
 
 - **What:** cherry-picked Store `7ce0768`, `1a376aa` and their changelog commits (both branches): banner cloth, emblems and frames sold by rarity tier with paging and painted thumbnails; bigger, glowier sparkles on worn Legendary gear. `Stats.banner_rarity()` now reads STORE_ITEMS (UI & Art's stopgap BANNER_RARITY table is gone).
