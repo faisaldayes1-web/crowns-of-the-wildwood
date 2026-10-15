@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 03:20 UTC · Economy `9006e41`, Split-screen `64777c8`, UI & Art `b14784d` · Round-2 beta fixes
+
+- **What:** Economy `df055bd` (door shows a small "key REPAIR DOOR · wood 3" pill instead of the action card; nothing at full health) cherry-picked into both branches. Split-screen `fbb8b73` + `64777c8` (draft PR #23: one input device per player, no second keyboard, panes at full window resolution) and UI & Art `a6c6cf5` + `b14784d` (text fits its slot, two body types, no yellow arrow, ribbon capture banner) merged into the Steam branch and cherry-picked into the alpha.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** full check before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>` per group (Economy: revert its two cherry-picks); alpha: revert the cherry-picks newest first.
+
 ### 2026-10-15 03:25 UTC · Closable menus `2d9bdfc` · Keyboard movement follows the mouse aim
 
 - **What:** merged Closable menus `ca0699e` + `2d9bdfc` (draft PR #22) into the Steam branch, cherry-picked into the alpha. With keyboard and mouse, W walks toward the cursor (Controls > MOVEMENT "Keyboard movement" switch, saved as settings/move_mode); the hints switch back to keys as soon as the mouse moves after a pad.
