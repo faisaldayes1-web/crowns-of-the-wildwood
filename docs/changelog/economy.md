@@ -2,6 +2,14 @@
 
 Branch `group/economy-whmjnc`, draft PR #13. Newest entry first. Format: [README.md](README.md).
 
+### 2026-10-15 03:00 UTC · `df055bd` · Door: a small key prompt, no pop-up card (Faisal 2026-10-15)
+
+- **What:** Standing by your own door no longer pops up the big action card. A small dark pill hangs over the door instead: the current input's key, REPAIR DOOR (RAISE DOOR when it is down) and the wood price, with a thin health line under it. Nothing shows while the door is unhurt; UNDER SIEGE or NO RAISING IN OVERTIME show greyed without a key, and the price turns red when the base is short. The key, a click or a tap on the pill does the job. Turret pads and Veteran Training keep their cards. The `--econ-shot=repair` render no longer presses the key, so it shows the prompt.
+- **Files:** scripts/economy.gd (`draw_action_card`, new `_draw_door_prompt`, shot staging)
+- **Tunables:** none
+- **Tested:** `--econ-test` 0 failed on the final beta (alpha 5c17ba7); repair render checked.
+- **Revert:** `git revert df055bd`
+
 ### 2026-10-14 15:55 UTC · `ed2c720` · No more "no room for a node pair" warnings
 
 - **What:** Two tree spots found no clear mirrored pair on the merged build, so every match logged a warning and those trees were missing. The search now reaches 14 m in 16 directions; all 9 pairs (18 trees) place on Wildwood and Moonlit.
