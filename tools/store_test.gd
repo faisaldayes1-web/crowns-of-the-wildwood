@@ -100,5 +100,16 @@ func _init() -> void:
 	check(auras.call({"body": "rogue", "cape": "ember", "weapon": 6, "outfit": 6}) == 3, "Legendary cape, weapon and armour each sparkle")
 	check(auras.call({"body": "rogue", "cape": "cape", "weapon": 1, "outfit": 1}) == 0, "Common and Rare gear does not sparkle")
 	check(auras.call({"body": "rogue", "weapon": 4}) == 1, "an Epic weapon skin sparkles")
+	# The cape dye reaches every model a player can be: each class, rank and
+	# promotion, both factions (tools/trim_check.gd renders them).
+	var TrimCheck = load("res://tools/trim_check.gd")
+	var undyed: Array = []
+	for who in TrimCheck.cast():
+		for team in 2:
+			var cfg := CharacterModel.config(team, who[1], who[2], who[3])
+			var skin_name: String = who[4].get("body", cfg.skin)
+			if not CharacterModel.CELLS.has(skin_name) or CharacterModel.CELLS[skin_name].trim.is_empty():
+				undyed.append("%s/%d" % [who[0], team])
+	check(undyed.is_empty(), "every class, rank and promotion takes the cape dye%s" % ("" if undyed.is_empty() else " (not: %s)" % ", ".join(undyed)))
 	print("STORE TEST: %s (%d failed)" % ["OK" if failed == 0 else "FAILED", failed])
 	quit(1 if failed else 0)

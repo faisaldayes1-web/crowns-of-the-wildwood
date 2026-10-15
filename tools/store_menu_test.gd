@@ -100,6 +100,19 @@ func _init() -> void:
 		if not Store.owns(game, "hair", i):
 			locked = i
 			break
+	# The ARMOR tab's gear tiles never overlap, however much stock there is.
+	m.char_tab = 3
+	await frames(3)
+	var tiles: Array = hud.menu_buttons.filter(func(b): return b[1] in ["gear", "look", "rank"])
+	var overlap := 0
+	for a in tiles.size():
+		for b in range(a + 1, tiles.size()):
+			if tiles[a][0].grow(-1).intersects(tiles[b][0].grow(-1)):
+				overlap += 1
+	var inside := tiles.all(func(b): return b[0].end.y <= 596.0)
+	check(tiles.size() > 40 and overlap == 0 and inside, "ARMOR tab: %d tiles, none overlap, all above CONFIRM" % tiles.size())
+	m.char_tab = 1
+	await frames(3)
 	await tap_id("hair", locked)
 	check(m.screen == "store" and m.store.pick == Store.item_for("hair", locked), "a locked hair colour opens the store on it")
 	m.back()
