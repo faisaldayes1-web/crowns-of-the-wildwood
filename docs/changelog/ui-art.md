@@ -1157,3 +1157,67 @@ Commit: `f27555f`. Faisal (20:46): "add more impacts and begin adding more banne
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
 
 Revert: `git revert f27555f`.
+
+## 2026-10-14 — More player banners
+
+Commit: `974445b`. Faisal (20:48): "player banners", replying about "begin adding more banners". He also asked: "for the expensive rare items make them look visually different so it entices sales".
+
+**New banner parts**
+- **Backgrounds:** 16 painted fields, written by the new `tools/make_banner_art.py` to `assets/ui/banners/bg_*.png`. They use the pattern `"painted:<name>"`. `BANNER_BACKGROUNDS` goes from 10 to 26 entries.
+  - Elf: Moonlit Grove, Autumn Leaves, Fae Lights, Thornweave.
+  - Human: Quartered, Chevron, Checky, Stone Keep, Royal Damask.
+  - Rare: Aurora, Crystal, Storm, Shadow, Starfall, Dragonfire, Golden Hoard.
+- **Emblems:** 29 more from the painted icons. `BANNER_EMBLEMS` goes from 18 to 47.
+- **Frames:** 8 more. `BANNER_FRAMES` goes from 8 to 16. They are Bronze, Silverleaf, Thorncrown, Runic, Bloodmoon, Celestial, Dragonscale and Sovereign.
+
+**Rarity**
+- New `Stats.BANNER_RARITY` (index → tier), `Stats.banner_rarity()` and `Stats.RARITY_COLORS`.
+- `hud._banner_fx` draws the rarest part's look:
+  - rare: a light sweep and a ring in the tier colour;
+  - epic: also a pulsing glow and corner gems;
+  - legendary: also a crown crest over the shield, six sparks circling the frame and a faster sweep.
+
+**Banner editor**
+- Swatches wrap into rows, now 22 px (was 26 px).
+- Painted fields show in their swatch.
+- Rare and better parts get a ring in their tier colour.
+
+**Debug render:** `--debug-banner=bg,emblem,frame` previews one banner in the editor.
+
+The store already sells everything past the `*_FREE` indexes. Prices stay with the Cosmetics store.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 974445b`.
+
+## 2026-10-15 · a6c6cf5 · Beta feedback: text fit, two body types, no yellow arrow, capture banner
+
+Faisal 2026-10-15 02:30: "make sure the text fits on the spot, take out the third gender option. there's no point for the yellow arrow... the capture banner is still in the old format".
+
+- **Text fit (hud.gd):** `_text` shrinks a line that runs past its width, down to 60% of its size. New `_fit_paragraph` keeps wrapped notes inside their box (steps the size down, ends with "…" if still too long). The options GAMEPAD note was shortened and now uses it (it ran off the board).
+- **Body types (menu.gd):** `BODY_CHOICES := 2` (was 3, from `Stats.HERO_BODIES`). Broad stays in Stats so old saves load; they clamp to the second choice.
+- **Yellow arrow (hud.gd `_draw_class_pointer`):** the tip arrow and the off-screen edge arrow are gone; only the bobbing PICK A CLASS plate shows.
+- **Capture banner (hud.gd `_draw_capture_card`):** cloth-ribbon style like the event banners: gold "CAPTURE!" for us, crimson "THEY SCORED!" for them, class and crown medallions, score line under it.
+- **Debug:** `--debug-capture=N` shows team N's capture banner.
+
+Files: scripts/hud.gd, scripts/menu.gd.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert a6c6cf5`.
+
+## 2026-10-15 · 57cb0a8 · HOW TO PLAY tutorial cards
+
+Faisal 2026-10-15 04:37: "maybe add a simple tutorial with big ui elements to showcase how to play the game".
+
+- **menu.gd `HOW TO PLAY` overlay (`HOWTO`, `_draw_howto`):** six big cards: MOVE & FIGHT, PICK A CLASS, BREAK IN, STEAL THE CROWN, GUARD YOUR DOOR, LEVEL UP. Each has a gameplay picture (assets/ui/tutorial), a big icon, a title and one line. The line names the player's own keys, pad buttons or touch buttons (`_howto_line`).
+- **Buttons:** BACK, NEXT (LET'S PLAY! on the last card), six dots, and a close button. LB/RB or the arrow keys turn cards. The first card's MORE QUESTIONS opens the old question list.
+- **When it shows:** once on a first launch, after the name ask (new setting `howto_seen` in game.gd), and every time from the title's TUTORIAL button.
+- **Click fix:** under any title overlay, clicks and the gamepad cursor only reach the overlay's own buttons (`overlay_from`). Before, the title planks behind it could take the click.
+- **Debug:** `--debug-howto=N` shows card N.
+
+Files: scripts/menu.gd, scripts/game.gd, scripts/hud.gd (nav_rects), tools/options_menu_test.gd.
+
+Tested: options_menu_test (now checks NEXT, BACK and MORE QUESTIONS), menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 57cb0a8`.

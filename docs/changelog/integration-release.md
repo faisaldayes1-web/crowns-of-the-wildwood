@@ -4,6 +4,89 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 07:20 UTC · Store `3d64ca5` · The Wildwood collection
+
+- **What:** merged Store into the Steam branch, cherry-picked `d808bc2` + `3d64ca5` into the alpha. 16 new cosmetics in the overhaul's storybook look (hats 8-12, capes 6-9, outfits 7-9, weapon skins 7-10), NEW ribbon (Stats.STORE_NEW), firefly particles on the Legendary crown and mantle. Not yet in a delivered build (next beta).
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** reimport on both branches 0 errors; store, store_menu, save, options_menu tests 0 failures.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
+### 2026-10-15 06:20 UTC · File bloat `238bc5e` · Castle props share one texture
+
+- **What:** merged `5b23770` + `238bc5e` into the Steam branch, cherry-picked into the alpha. The 81 castle props reference one shared palette PNG instead of 86 embedded copies; exports skip *_src.png. Match texture memory 741 → 657 MB, pack 89.9 → 88.4 MB. Not yet in a delivered build (next beta).
+- **Conflicts:** none; game code identical on both branches. Stale `assets/props/dungeon/*_dungeon_texture*.png.import` files (untracked) deleted locally before reimport.
+- **Tested:** clean reimport on both branches, Wildwood bot match 0 script errors, no missing textures.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
+### 2026-10-15 05:30 UTC · World visual overhaul `d1af0cf`, UI & Art `504af81` · Flag clipping; HOW TO PLAY cards
+
+- **What:** merged into the Steam branch, cherry-picked into the alpha. Overhaul `77a4290`: no tapestries on the Elf keep walls (the green flag stood up through the hedge), Human ones clear of the torch and table, cellar pennants between their torches. UI & Art `57cb0a8`: HOW TO PLAY, six tutorial cards shown once on first launch (setting howto_seen) and from TUTORIAL; clicks under title overlays only reach the overlay's buttons.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** map_switch_test 0 failures on the merged code; full check before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the cherry-picks newest first.
+
+### 2026-10-15 05:20 UTC · Economy `2518b65` + Integration `c865c8c` · LEVEL UP strip; map-switch checks
+
+- **What:** cherry-picked Economy `4e2f189` + `2518b65` into both branches (LEVEL UP strip on the in-match board: points badge, hex skill tiles, Training hex only once it opens). Added tools/map_switch_test.gd (every map pair both ways through SELECT MAP, seven back-to-back matches across the three maps solo and split-screen, checking screen, map, world, one game scene, volume and settings) and tools/net_map_switch_test.gd (an online host switches maps with a joiner in the room).
+- **Tested:** map_switch_test 163 checks, 0 failures, no script errors; online host switching 0/2/1/0 with the joiner rebuilt each time the ground changed; online smoke on each of the three maps passes.
+- **Revert:** `git revert c865c8c` for the tests; Economy: revert its two cherry-picks.
+
+### 2026-10-15 03:35 UTC · Players getting stuck `6887ea1` · No more getting stuck indoors
+
+- **What:** merged `b42f8be` + `6887ea1` into the Steam branch, cherry-picked into the alpha. Bodies step up lips under 30 cm (`Unit.STEP_HEIGHT`), and a collision-only wedge fills under every flight of stairs. New tools/snag_scan.gd. Snags Wildwood 49 → 11 (none indoors), Ember Pass 34 → 1.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** stuck thread: run.sh 0 failures, 3-minute routing demos on both maps clean; full check here before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
+### 2026-10-15 03:30 UTC · World visual overhaul `7c3271e` · Flicker pass (green flag)
+
+- **What:** merged `fada3c5` + `7c3271e` into the Steam branch, cherry-picked into the alpha. `_unfight_coplanar()` moves meshes (never colliders) 6 mm apart wherever two different-material faces shared a plane; the green flag was the base tapestry in the wainscot's plane.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** overhaul thread: zfight pairs 132/132/189 → 0, fingerprints unchanged; full check here before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
+### 2026-10-15 03:20 UTC · Economy `9006e41`, Split-screen `64777c8`, UI & Art `b14784d` · Round-2 beta fixes
+
+- **What:** Economy `df055bd` (door shows a small "key REPAIR DOOR · wood 3" pill instead of the action card; nothing at full health) cherry-picked into both branches. Split-screen `fbb8b73` + `64777c8` (draft PR #23: one input device per player, no second keyboard, panes at full window resolution) and UI & Art `a6c6cf5` + `b14784d` (text fits its slot, two body types, no yellow arrow, ribbon capture banner) merged into the Steam branch and cherry-picked into the alpha.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** full check before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>` per group (Economy: revert its two cherry-picks); alpha: revert the cherry-picks newest first.
+
+### 2026-10-15 03:25 UTC · Closable menus `2d9bdfc` · Keyboard movement follows the mouse aim
+
+- **What:** merged Closable menus `ca0699e` + `2d9bdfc` (draft PR #22) into the Steam branch, cherry-picked into the alpha. With keyboard and mouse, W walks toward the cursor (Controls > MOVEMENT "Keyboard movement" switch, saved as settings/move_mode); the hints switch back to keys as soon as the mouse moves after a pad.
+- **Conflicts:** none.
+- **Tested:** kbm_move_test 0 failed, reload_menu_test OK on the merged code; full check before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
+### 2026-10-15 03:10 UTC · Integration `777f953` · Ember Pass stays on SELECT MAP; volume kept after a match
+
+- **What:** picking Ember Pass rebuilds the world and now comes back to SELECT MAP (the menu warm-up used to end on the title, so PLAY looked like it kicked you out). A mouse button still held from the summary's CONTINUE no longer drags the sound slider on the Settings tab the warm-up shows, which set the volume to full. Sliders move only for a press that started on them; clicks are ignored during the warm-up; a button held across a reload is not a new press.
+- **Files:** scripts/game.gd (`_warm_up_menus(land_on)`, `menus_warming`, `slider_drag`, `click_was` at start), tools/reload_menu_test.gd (new, needs xvfb).
+- **Tested:** reload_menu_test fails on the old code (lands on the title; sound 0.30 → 1.00) and passes now.
+- **Revert:** `git revert 777f953` (both branches: the alpha has the cherry-pick).
+
+### 2026-10-14 22:40 UTC · Store `4073682` · Player banners for sale, brighter rarity sparkles
+
+- **What:** cherry-picked Store `7ce0768`, `1a376aa` and their changelog commits (both branches): banner cloth, emblems and frames sold by rarity tier with paging and painted thumbnails; bigger, glowier sparkles on worn Legendary gear. `Stats.banner_rarity()` now reads STORE_ITEMS (UI & Art's stopgap BANNER_RARITY table is gone).
+- **Conflicts:** none.
+- **Tested:** full check plus touch_close_test, stuck scan, window modes, split-screen 2 and 4 players.
+- **Revert:** revert the cherry-picks newest first.
+
+### 2026-10-14 22:05 UTC · UI & Art `aa7db47` · Player banners
+
+- **What:** merged Faisal's player banners: 16 painted backgrounds, 29 more emblems, 8 more frames, and rare/epic/legendary looks (Stats.BANNER_RARITY, hud._banner_fx). stats.gd only appends to the BANNER_* lists and adds the rarity table; no gameplay tunables.
+- **Conflicts:** none.
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
+### 2026-10-14 22:00 UTC · Combat & Balance `e53d46c` · Lighter web impacts, block flinch, attack chains
+
+- **What:** cherry-picked Combat entries 28-30 (both branches): lighter impacts on Medium graphics (`8636cf4`), blocked hits play the Block_Hit flinch then the block resumes (`ce8d525`), basic attack chains step through the class's swings in order (`d4e4980`). Animation and VFX only.
+- **Conflicts:** scripts/character_model.gd `attack()` kept the online wrapper (`attack` records for joiners, `_x_attack` plays) with the new chain logic inside `_x_attack`.
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** revert the cherry-picks newest first.
+
 ### 2026-10-14 21:55 UTC · Online pause fix `4a78a69` + web menu click fix `1c719b7`
 
 - **What:** cherry-picked (both branches) from PR #19: the corner MENU/map button no longer pauses an online match for every joiner (offline only, like Esc). From the iPad web build thread: menus catch a click pressed and released between two frames (game._input latches left presses; the menu tick treats the latch as a click). This was Faisal's "menus unresponsive at times" on the web; it helps desktop too.

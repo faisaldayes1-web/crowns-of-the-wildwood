@@ -2,6 +2,14 @@
 
 Branch `group/splitscreen-*`. Newest entry at the top. See [README.md](README.md) for the format.
 
+### 2026-10-15 03:10 UTC · `fbb8b73` · One input device per player; full-resolution panes
+
+- **What:** Faisal (2026-10-15 02:30): in split screen the controller and the keyboard/mouse both drove both characters. Player 1's gamepad bindings used device -1, which Godot reads as "any pad", whenever player 1 had no pad of their own (the usual case: one controller, joined in READY UP), so player 2's controller also moved, aimed and attacked as player 1. Player 1's pad bindings now go to a device id no pad has, so each device drives exactly one player: player 1 on keyboard and mouse, players 2-4 on their own controllers. Clicking JOIN in READY UP only adds a player when a free controller is connected (one keyboard player for now). Faisal also said the graphics drop in split screen was too much: each pane rendered at the 1280x720 canvas size and was blown up to the window (1.5x blurrier each way at 1080p, 2x at 1440p). Panes now render at the window's own pixels and follow the graphics preset's 3D scaling, so a split-screen frame has as many pixels as a solo one.
+- **Files:** scripts/game.gd (`NO_PAD`, `_bind_couch_input`, `_layout_panes` sizes boxes in window pixels, `_pane_pixel_scale`, `_on_window_resized`, `apply_graphics` copies 3D scaling to panes, `mouse_for` reads `pane.rect`), scripts/menu.gd (`add_player`), tools/menu_flow_test.gd
+- **Tunables:** new `NO_PAD` 99. No gameplay numbers changed.
+- **Tested:** menu_flow_test (0 failures; new: JOIN with no free controller adds nobody, player 2's pad is not bound to player 1's actions, player 2's pad drives player 2, pane rects for both layouts), options_menu_test (0 failures); 1080p split-screen screenshot.
+- **Revert:** `git revert fbb8b73`
+
 ### 2026-10-10 07:25 UTC · `81cc320` · Compact split-screen HUD
 
 - **What:** Faisal (05:58): the split-screen HUD must not take up most of the screen. Each pane's HUD is now sized from the pane itself: the top bar and the bottom row together cover about a quarter of the pane's height or less (two players stacked: 29%, was about half; side by side: 19%; quarters: 29%), while the bottom row still fits the pane's width. The PLAYER N tag moves under the BASE STOCK card, which it used to overlap.

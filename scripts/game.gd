@@ -186,6 +186,7 @@ var damage_numbers := true
 var show_fps := false
 var quit_armed := 0.0          # pause menu: seconds the MAIN MENU button stays armed after a first click
 var gfx_quality := 2           # graphics preset: 0 Low, 1 Medium, 2 High, 3 Ultra
+var howto_seen := false        # the HOW TO PLAY cards were shown once (menu.gd)
 var fps_intro_done := false    # the FPS counter was switched on once for the alpha testers
 var lamp_shadows: Array = []   # lamps that cast shadows (off on Low)
 var gfx_picked := false        # the player chose a preset in Settings (no automatic changes after that)
@@ -252,6 +253,7 @@ const SPLIT_HUD_ROWS := 260.0   # those two rows' height in HUD units
 const SPLIT_HUD_WIDTH := 1240.0 # HUD units the bottom row needs across
 var rank_player = null          # whose perk menu is open
 const COUCH_MAX := 4
+const NO_PAD := 99              # a pad device id nothing uses: binds an action to no gamepad
 const COUCH_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "aim_left", "aim_right", "aim_up", "aim_down",
 	"attack", "block", "ability_1", "ability_2", "ability_3", "dodge", "interact", "rank_menu", "rank_1", "rank_2", "rank_3", "rank_4", "rank_5", "rank_6"]
 
@@ -261,6 +263,7 @@ var touch                      # on-screen touch controls (touch.gd), for the we
 var touch_active := false      # a finger has touched the screen: aim follows the move stick, not the mouse
 var control_layout := "auto"   # Controls tab (Faisal 2026-10-14: a touch-screen laptop got the iPad layout): "auto", "keyboard", "controller", "touch"
 const CONTROL_LAYOUTS := ["auto", "keyboard", "controller", "touch"]
+var move_mode := "aim"         # keyboard + mouse: "aim" (W walks toward the cursor) or "screen" (W walks up the screen)
 var touch_tap := Vector2(-1, -1)  # where a finger tapped a menu this frame (the click polling below would miss a short tap)
 var message_label: Label
 var banner: Label
@@ -286,6 +289,8 @@ var cam_kick := Vector3.ZERO     # directional jolt (kick_cam), springs back to 
 var cam_pos := Vector3.ZERO
 var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
 var click_was := false
+var slider_drag := -1        # the volume slider the held press started on
+var menus_warming := false   # _warm_up_menus is flipping screens: no clicks
 var click_latched := false   # a left press seen by _input since the last menu tick
 var scoreboard_open := false   # held: the match scoreboard overlay
 var debug_score := false
@@ -333,6 +338,9 @@ func _ready() -> void:
 		show_fps = true
 	_load_controls()
 	_ensure_profile()
+	# A button still held from the click that reloaded the scene (CONTINUE
+	# on the summary, a map card) is not a new press on the next screen.
+	click_was = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if OS.has_feature("web"):
 		# Browsers (and tablets) run Medium at most; Settings can raise
 		# it. (Here, not in _load_controls: a fresh browser has no settings
@@ -436,7 +444,11 @@ func _ready() -> void:
 	menu_stage.build(self)
 	menu_stage.activate()
 	main_menu.stage = menu_stage
-	_warm_up_menus()   # (a coroutine: runs over the next frames, under the loading art)
+	# The warm-up flips through the screens, so it is told where to land:
+	# picking Ember Pass reloads the scene and must come back to SELECT MAP,
+	# not the title (Faisal 2026-10-15: "switch maps to ember and hit play
+	# it kicks you off to the main menu").
+	_warm_up_menus(reopen_screen if reopen_screen != "" else "title")   # (a coroutine: runs over the next frames, under the loading art)
 	if reopen_screen != "":
 		main_menu.go(reopen_screen)
 		reopen_screen = ""
@@ -1459,6 +1471,8 @@ func toggle_setting(key: String) -> void:
 			if rumble_on:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
 		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
+		"move_aim", "move_screen":
+			move_mode = key.trim_prefix("move_")
 		"layout_auto", "layout_keyboard", "layout_controller", "layout_touch":
 			control_layout = key.trim_prefix("layout_")
 			apply_control_layout()
@@ -2373,7 +2387,7 @@ func mouse_for(u) -> Vector2:
 	if couch_active:
 		for pane in panes:
 			if pane.unit == u:
-				var r: Rect2 = pane.box.get_global_rect()
+				var r: Rect2 = pane.rect
 				if r.size.x <= 0.0 or r.size.y <= 0.0:
 					break
 				var local: Vector2 = (get_viewport().get_mouse_position() - r.position) / r.size
@@ -2782,10 +2796,15 @@ func _bind_couch_input() -> void:
 					p1_pad = d
 					break
 	bound_pads = [p1_pad] + pads
+	# Every device drives exactly one player (Faisal 2026-10-15). Device -1
+	# means "any pad" to Godot, so a player 1 with no pad of their own gets
+	# a device no pad has (NO_PAD); otherwise player 2's controller would
+	# move and aim player 1 too. Alone, player 1 answers to any pad again.
+	var p1_device: int = p1_pad if p1_pad >= 0 or couch_players <= 1 else NO_PAD
 	for action in COUCH_ACTIONS:
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
-				ev.device = p1_pad
+				ev.device = p1_device
 		for k in range(2, COUCH_MAX + 1):
 			var pa := StringName("p%d_%s" % [k, action])
 			if InputMap.has_action(pa):
@@ -2830,7 +2849,7 @@ func _build_panes() -> void:
 		h.pane = true
 		h.process_mode = Node.PROCESS_MODE_ALWAYS
 		view.add_child(h)
-		var pane := {"unit": u, "box": box, "view": view, "cam": cam, "hud": h, "hud_scale": 1.0, "zoom": 1.0, "cam_pos": u.global_position}
+		var pane := {"unit": u, "box": box, "view": view, "cam": cam, "hud": h, "hud_scale": 1.0, "zoom": 1.0, "cam_pos": u.global_position, "rect": Rect2()}
 		panes.append(pane)
 		view.size_changed.connect(func(): h.size = Vector2(view.size) / pane.hud_scale)
 	if couch_players == 3:
@@ -2843,6 +2862,7 @@ func _build_panes() -> void:
 		split_fill.anchor_bottom = 1.0
 		split_layer.add_child(split_fill)
 	_layout_panes()
+	get_viewport().size_changed.connect(_on_window_resized)   # window resized or fullscreen
 	for pane in panes:
 		pane.cam_pos = pane.unit.global_position + CAMERA_OFFSET * cam_zoom * pane.zoom
 		pane.cam.global_position = pane.cam_pos
@@ -2869,14 +2889,26 @@ func _layout_panes() -> void:
 		var pane: Dictionary = panes[k]
 		var r: Rect2 = rects[k]
 		var box: SubViewportContainer = pane.box
-		box.anchor_left = r.position.x
-		box.anchor_top = r.position.y
-		box.anchor_right = r.end.x
-		box.anchor_bottom = r.end.y
-		box.offset_left = 2 if r.position.x > 0.0 else 0
-		box.offset_top = 2 if r.position.y > 0.0 else 0
-		box.offset_right = -2 if r.end.x < 1.0 else 0
-		box.offset_bottom = -2 if r.end.y < 1.0 else 0
+		# The pane in canvas units, with a 2-unit seam between panes.
+		var canvas := get_viewport().get_visible_rect().size
+		var area := Rect2(r.position * canvas, r.size * canvas)
+		area.position.x += 2.0 if r.position.x > 0.0 else 0.0
+		area.position.y += 2.0 if r.position.y > 0.0 else 0.0
+		area.end = Vector2(area.end.x - (2.0 if r.end.x < 1.0 else 0.0), area.end.y - (2.0 if r.end.y < 1.0 else 0.0))
+		pane.rect = area
+		# Render at the window's own pixels (Faisal 2026-10-15: "the visual
+		# downgrade when going to split screen is too much"). The canvas is
+		# 1280x720 stretched to the window, and a stretched SubViewport took
+		# that canvas size, so a 1080p pane drew 1.5x fewer pixels each way
+		# (2x at 1440p) and was blown up blurry. The box is now sized in
+		# window pixels and scaled back down by the same factor.
+		var px_scale := _pane_pixel_scale()
+		box.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		box.scale = Vector2.ONE / px_scale
+		box.position = area.position
+		box.size = area.size * px_scale
+		pane.view.scaling_3d_scale = get_viewport().scaling_3d_scale
+		pane.view.scaling_3d_mode = get_viewport().scaling_3d_mode
 		var tall := r.size.y > r.size.x * 1.2
 		# Keep the game view in charge (Faisal 2026-10-10: the split-screen
 		# HUD must not take up most of the screen): the top bar and the
@@ -2885,8 +2917,24 @@ func _layout_panes() -> void:
 		var px: Vector2 = get_viewport().get_visible_rect().size * r.size
 		pane.hud_scale = clampf(minf(px.y * SPLIT_HUD_SHARE / SPLIT_HUD_ROWS, px.x / SPLIT_HUD_WIDTH), 0.4, 0.72)
 		pane.zoom = SPLIT_TALL_ZOOM if tall else 1.0
+		pane.hud_scale *= px_scale   # the pane's pixels are px_scale finer than canvas units
 		pane.hud.scale = Vector2.ONE * pane.hud_scale
 		pane.hud.size = Vector2(pane.view.size) / pane.hud_scale
+
+
+func _on_window_resized() -> void:
+	if couch_active:
+		_layout_panes()
+
+
+func _pane_pixel_scale() -> float:
+	## Window pixels per canvas unit (1.5 for a 1080p window on the 1280x720
+	## canvas); 1 when there is no real window (headless tests).
+	var canvas := get_viewport().get_visible_rect().size
+	var win := Vector2(get_window().size)
+	if DisplayServer.get_name() == "headless" or canvas.x <= 0.0 or win.x <= 0.0:
+		return 1.0
+	return clampf(minf(win.x / canvas.x, win.y / canvas.y), 0.5, 4.0)
 
 
 func set_split_layout(layout: String) -> void:
@@ -3218,6 +3266,11 @@ func menu_tick() -> void:
 				menu_open = false
 			elif Input.is_action_just_pressed("menu") and main_menu and not name_editing:
 				main_menu.back()
+			elif not menu_open and main_menu and main_menu.overlay == "howto":
+				if Input.is_action_just_pressed("menu_left"):
+					main_menu.howto_next(-1)
+				if Input.is_action_just_pressed("menu_right"):
+					main_menu.howto_next(1)
 			elif not menu_open:
 				if Input.is_action_just_pressed("menu_left"):
 					cycle_difficulty(-1)
@@ -3300,11 +3353,21 @@ func menu_tick() -> void:
 	if confirm_block and not Input.is_action_pressed("ui_confirm"):
 		confirm_block = false
 	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or touch_tap.x >= 0.0 or (cursor_shown and Input.is_action_pressed("ui_confirm") and not confirm_block)
-	if click and hud and menu_open:
-		# Volume sliders follow the mouse while the button is held.
+	if not click:
+		slider_drag = -1
+	if click and hud and menu_open and not menus_warming:
+		# Volume sliders follow the mouse while the button is held, but only
+		# a press that started on a slider drags it. A press still held from
+		# the match summary's CONTINUE landed on the Settings tab the menu
+		# warm-up shows for two frames after the reload, and dragged the
+		# volume to full (Faisal 2026-10-15: "when you finish a game it
+		# sends you to the main menu with the volume maxed").
 		var mp := menu_mouse()
-		for sl in hud.volume_sliders:
-			if sl[0].grow(6).has_point(mp):
+		for si in hud.volume_sliders.size():
+			var sl: Array = hud.volume_sliders[si]
+			if not click_was and sl[0].grow(6).has_point(mp):
+				slider_drag = si
+			if slider_drag == si:
 				var v := clampf((mp.x - sl[0].position.x - 2.0) / (sl[0].size.x - 4.0), 0.0, 1.0)
 				if sl[1] == "sound":
 					sfx.sound_volume = v
@@ -3323,6 +3386,8 @@ func menu_tick() -> void:
 		pressed_now = true
 		click = true
 		click_latched = false
+	if menus_warming:
+		pressed_now = false
 	if pressed_now and hud and rebinding == "":
 		var mouse := menu_mouse()
 		if not playing and not menu_open and main_menu and not name_editing:
@@ -3490,6 +3555,8 @@ func menu_input(event: InputEvent) -> void:
 		cursor_shown = false
 	elif event is InputEventMouseMotion and event.relative.length() > 2.0:
 		cursor_shown = false
+		if event.device != InputEvent.DEVICE_ID_EMULATION and couch_players == 1:
+			pad_active = false   # back on the mouse: the hints switch to keys at once
 	if control_layout == "controller":
 		pad_active = true    # picked in Controls: the hints stay on the pad's buttons
 	elif control_layout in ["keyboard", "touch"]:
@@ -4088,10 +4155,12 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "gfx_quality", gfx_quality)
 	cfg.set_value("settings", "gfx_picked", gfx_picked)
 	cfg.set_value("settings", "fps_intro_done", fps_intro_done)
+	cfg.set_value("settings", "howto_seen", howto_seen)
 	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
 	cfg.set_value("settings", "control_layout", control_layout)
+	cfg.set_value("settings", "move_mode", move_mode)
 	cfg.set_value("settings", "hero_name", hero_name)
 	cfg.set_value("settings", "hero_hair", hero_hair)
 	cfg.set_value("settings", "hero_trim", hero_trim)
@@ -4210,6 +4279,7 @@ func _load_controls() -> void:
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
 	fps_intro_done = cfg.get_value("settings", "fps_intro_done", false)
+	howto_seen = cfg.get_value("settings", "howto_seen", false)
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
 	gfx_picked = cfg.get_value("settings", "gfx_picked", false)
 	if OS.has_feature("web"):
@@ -4220,6 +4290,9 @@ func _load_controls() -> void:
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
 	control_layout = cfg.get_value("settings", "control_layout", "auto")
+	move_mode = cfg.get_value("settings", "move_mode", "aim")
+	if move_mode not in ["aim", "screen"]:
+		move_mode = "aim"
 	if control_layout not in CONTROL_LAYOUTS:
 		control_layout = "auto"
 	apply_control_layout()
@@ -4587,6 +4660,34 @@ func _add_ramp(from: Vector3, to: Vector3, width: float, color: Color, mat: Mate
 	mesh.mesh = box
 	mesh.material_override = mat if mat else _stone(color, 0.3)
 	body.add_child(mesh)
+	add_child(body)
+	_fill_under_ramp(from, to, width)
+
+
+func _fill_under_ramp(from: Vector3, to: Vector3, width: float) -> void:
+	## The slab is thin: the wedge of space under a flight of stairs was open,
+	## too low to stand in near the foot, and anyone who walked or was shoved
+	## in there wedged under the sloping underside (Faisal 2026-10-15: "fix
+	## the getting stuck indoors"). A solid wedge (collision only, nothing
+	## drawn) fills it; its top is the slab's own walking surface.
+	var low := from if from.y <= to.y else to
+	var high := to if from.y <= to.y else from
+	var flat := Vector3(high.x - low.x, 0, high.z - low.z)
+	if flat.length() < 0.1 or high.y - low.y < 0.3:
+		return
+	var perp := flat.normalized().cross(Vector3.UP) * (width / 2.0)
+	var base := Vector3(high.x, low.y, high.z)
+	var pts := PackedVector3Array()
+	for s in [-1.0, 1.0]:
+		pts.append(low + perp * s)
+		pts.append(high + perp * s)
+		pts.append(base + perp * s)
+	var wedge := ConvexPolygonShape3D.new()
+	wedge.points = pts
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	shape.shape = wedge
+	body.add_child(shape)
 	add_child(body)
 
 
@@ -7678,9 +7779,14 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	for zs in [-1.0, 1.0]:
 		var ins := Vector3(0, 0, -zs)
 		if elven or zs < 0.0:   # (the Humans' camera-facing keep wall is waist high: nothing hangs on it)
-			_add_tapestry(team, Vector3(kx + side * 1.6, 0.5, zs * wz), ins, 1.5, 1.9)
-			if not elven:   # the Elves' keep walls are waist high
-				_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 0.5, zs * wz), ins, 1.2, 1.7)
+			# The Elves' keep walls are waist high under a hedge, so no
+			# tapestry hangs there (it stood up through the hedge, with the
+			# carrot crate and crystal torch in front: Faisal 2026-10-15).
+			# The Humans' first one hangs between the two wall torches, the
+			# second above the long table (both cut into them before).
+			if not elven:
+				_add_tapestry(team, Vector3(kx + side * 2.1, 0.5, zs * wz), ins, 0.9, 1.9)   # between the two wall torches
+				_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 1.25, zs * wz), ins, 1.2, 1.15)
 			_add_wall_torch(Vector3(room_f - side * 0.2, 0.9 if elven else 1.6, zs * (wz - 0.05)), ins)
 			_add_wall_torch(Vector3(room_b + side * 1.5, 1.6, zs * (wz - 0.05)), ins)
 	if elven:
@@ -9581,8 +9687,8 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 			for k in range(1, 5):   # (k = 0 sat right over the shelves)
 				var tx := bx + side * (1.5 + k * 3.8)
 				_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
-			for px in [5.3, 9.0, 12.9]:
-				_add_pennant(team, Vector3(bx + side * px, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0, px == 9.0)
+			for px in [7.2, 11.0, 14.8]:   # between the torches (they burned through the cloth at 5.3, 9.0, 12.9)
+				_add_pennant(team, Vector3(bx + side * px, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0, px == 11.0)
 			# Flower beds and stores along the south wall (the courtyard reference);
 			# the Humans drill here instead: an armoury rack, targets and dummies.
 			if team == 0:
@@ -9960,6 +10066,8 @@ func apply_graphics() -> void:
 	for pane in panes:
 		pane.view.msaa_3d = vp.msaa_3d
 		pane.view.screen_space_aa = vp.screen_space_aa
+		pane.view.scaling_3d_scale = vp.scaling_3d_scale
+		pane.view.scaling_3d_mode = vp.scaling_3d_mode
 	if DisplayServer.get_name() != "headless":
 		# Only switch when the setting disagrees with the window: a maximized
 		# window is not "windowed", and forcing WINDOWED on every call (match
@@ -10320,6 +10428,121 @@ func _finish_world() -> void:
 		# candles, pebbles and bolts under 0.3 m throw shadows no one sees
 		# from the gameplay camera, and each is a draw in every sun cascade.
 		_trim_web_shadows(0.3)
+	_unfight_coplanar()
+
+
+func _unfight_coplanar() -> void:
+	## Z-fighting pass (beta feedback 2026-10-15: "green flag texture error",
+	## flashing textures): two visible faces of different materials in the
+	## same plane flicker as the camera moves. The same check as
+	## tools/zfight_audit.gd, on the built world; for each such pair the
+	## piece with the smaller face moves: a cloth, trim or rug (no more than
+	## 8 cm through the shared face) steps 6 mm out in front of what it lies
+	## on; anything deeper pulls just that face 6 mm back, its other faces
+	## staying put, so no new pair appears at its far side. Only meshes
+	## move, never their colliders (a block's StaticBody3D and shape stay
+	## where they were built). A move can land a piece on a third face, so
+	## the check runs again on the moved world, up to four rounds.
+	var total := 0
+	for _pass in 4:
+		var n := _unfight_round()
+		total += n
+		if n == 0:
+			break
+	if "--audit" in OS.get_cmdline_user_args():
+		print("UNFIGHT moved %d faces" % total)
+
+
+func _unfight_round() -> int:
+	var moved := {}
+	var faces := {}
+	for mi in find_children("*", "MeshInstance3D", true, false):
+		if not mi.is_visible_in_tree() or not (mi.mesh is BoxMesh or mi.mesh is QuadMesh or mi.mesh is PlaneMesh or mi.mesh is CylinderMesh):
+			continue
+		var mat: Material = mi.material_override
+		if mat is BaseMaterial3D and mat.no_depth_test:
+			continue   # health bars and labels draw on top by design
+		var t: Transform3D = mi.global_transform
+		var half: Vector3
+		var normals: Array
+		if mi.mesh is BoxMesh:
+			half = mi.mesh.size / 2.0
+			normals = [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.BACK, Vector3.FORWARD]   # undersides never show
+		elif mi.mesh is QuadMesh:
+			half = Vector3(mi.mesh.size.x / 2.0, mi.mesh.size.y / 2.0, 0.0)
+			normals = [Vector3.BACK]
+		elif mi.mesh is PlaneMesh:
+			half = Vector3(mi.mesh.size.x / 2.0, 0.0, mi.mesh.size.y / 2.0)
+			normals = [Vector3.UP]
+		else:
+			# A cylinder's top cap, as the square inside it (like the audit).
+			var r: float = mi.mesh.top_radius * 0.7
+			half = Vector3(r, mi.mesh.height / 2.0, r)
+			normals = [Vector3.UP]
+		for nl in normals:
+			var depth: float = (nl.abs() * half * 2.0 * t.basis.get_scale()).length()   # through the face
+			var wn: Vector3 = (t.basis * nl).normalized()
+			var axis := -1
+			for a in 3:
+				if absf(wn[a]) > 0.999:
+					axis = a
+			if axis < 0:
+				continue
+			var lo := Vector3(INF, INF, INF)
+			var hi := -lo
+			for sx in [-1.0, 1.0]:
+				for sy in [-1.0, 1.0]:
+					for sz in [-1.0, 1.0]:
+						var c := Vector3(sx * half.x, sy * half.y, sz * half.z)
+						for k in 3:
+							if nl[k] != 0.0:
+								c[k] = nl[k] * half[k]
+						var wp: Vector3 = t * c
+						lo = lo.min(wp)
+						hi = hi.max(wp)
+			var plane: float = (lo[axis] + hi[axis]) / 2.0
+			var u := (axis + 1) % 3
+			var w := (axis + 2) % 3
+			var key := "%d|%d|%d" % [axis, signi(int(signf(wn[axis]))), floori(plane / 0.01)]
+			if not faces.has(key):
+				faces[key] = []
+			faces[key].append([plane, Rect2(Vector2(lo[u], lo[w]), Vector2(hi[u] - lo[u], hi[w] - lo[w])), mi, wn, depth, nl])
+	for key in faces:
+		var list: Array = faces[key]
+		var parts: PackedStringArray = key.split("|")
+		var other: Array = faces.get("%s|%s|%d" % [parts[0], parts[1], int(parts[2]) + 1], [])
+		for i in list.size():
+			for j in range(i + 1, list.size() + other.size()):
+				var a: Array = list[i]
+				var b: Array = list[j] if j < list.size() else other[j - list.size()]
+				var ka := "%d|%s|%s" % [a[2].get_instance_id(), parts[0], parts[1]]
+				var kb := "%d|%s|%s" % [b[2].get_instance_id(), parts[0], parts[1]]
+				if a[2] == b[2] or absf(a[0] - b[0]) > 0.003 or moved.has(ka) or moved.has(kb):
+					continue
+				if a[1].intersection(b[1]).get_area() < 0.0004 or _same_look(a[2].material_override, b[2].material_override):
+					continue
+				var thin: Array = a if a[1].get_area() <= b[1].get_area() else b
+				var mi: MeshInstance3D = thin[2]
+				if thin[4] <= 0.08:
+					mi.global_position += thin[3] * 0.006
+				elif not mi.mesh is BoxMesh:
+					continue
+				else:
+					# 6 mm off the shared face only: shrink 6 mm along that
+					# local axis and slide 3 mm back, so the far face holds.
+					var nl: Vector3 = thin[5].abs()
+					mi.scale *= Vector3.ONE - nl * (0.006 / nl.dot(mi.mesh.size))
+					mi.global_position -= thin[3] * 0.003
+				moved[ka if thin == a else kb] = true
+	return moved.size()
+
+
+func _same_look(a: Material, b: Material) -> bool:
+	if a == b:
+		return true
+	if a is BaseMaterial3D and b is BaseMaterial3D:
+		return a.albedo_color.is_equal_approx(b.albedo_color) and a.albedo_texture == b.albedo_texture
+	return false
 
 
 func _trim_web_shadows(limit: float = 0.8) -> void:
@@ -10394,7 +10617,7 @@ func _add_ink() -> void:
 	ink_on = true
 
 
-func _warm_up_menus() -> void:
+func _warm_up_menus(land_on: String = "title") -> void:
 	## The first visit to a menu screen loaded its art, built the hero and
 	## compiled its shaders on the spot: a visible stutter on each first
 	## click (Faisal 2026-10-10, on an RTX 4090). Show each screen for a
@@ -10402,9 +10625,11 @@ func _warm_up_menus() -> void:
 	if not is_instance_valid(loading_layer) or main_menu == null or DisplayServer.get_name() == "headless":
 		return
 	var m = main_menu
+	menus_warming = true
 	for scr in ["character", "store", "map"]:
 		await get_tree().process_frame
 		if not is_instance_valid(loading_layer) or main_menu != m or playing:
+			menus_warming = false
 			return
 		m.screen = scr
 	await get_tree().process_frame
@@ -10416,7 +10641,8 @@ func _warm_up_menus() -> void:
 	if main_menu == m and not playing:
 		menu_open = false
 		menu_tab = 0
-		m.screen = "title"
+		m.screen = land_on
+	menus_warming = false
 
 
 func _warm_up_effects() -> void:

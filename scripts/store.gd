@@ -28,12 +28,17 @@ const KINDS := {
 # The store's tabs: [title, menu icon, kinds shown, preview class].
 const TABS := [["HAIR", "hair", ["hair_style", "hair"], Role.BASE], ["ARMOUR", "tunic", ["outfit"], Role.BASE],
 	["CAPES & DYES", "palette", ["cape", "trim"], Role.BASE], ["HATS", "crown", ["hat"], Role.BASE],
-	["WEAPONS", "swords", ["weapon"], Role.KNIGHT], ["BANNERS", "emblem", ["banner_bg", "banner_emblem", "banner_frame"], Role.BASE]]
+	["WEAPONS", "swords", ["weapon"], Role.KNIGHT],
+	["BANNER CLOTH", "emblem", ["banner_bg"], Role.BASE], ["EMBLEMS", "emblem", ["banner_emblem"], Role.BASE],
+	["FRAMES", "emblem", ["banner_frame"], Role.BASE]]
+const PER_PAGE := 9           # three rows of three cards; more turn pages
 # Swatch colours for the gear with no colour of its own (hats, capes).
 const HAT_SWATCH := [Color(0.3, 0.3, 0.34), Color(0.75, 0.2, 0.18), Color(0.86, 0.72, 0.42), Color(0.35, 0.68, 0.3),
-	Color(0.95, 0.55, 0.7), Color(0.32, 0.22, 0.62), Color(0.62, 0.65, 0.7), Color(1.0, 0.8, 0.28)]
+	Color(0.95, 0.55, 0.7), Color(0.32, 0.22, 0.62), Color(0.62, 0.65, 0.7), Color(1.0, 0.8, 0.28),
+	Color(0.55, 0.36, 0.2), Color(0.85, 0.2, 0.15), Color(0.95, 0.55, 0.2), Color(0.6, 0.42, 0.26), Color(1.0, 0.82, 0.3)]
 const CAPE_SWATCH := [Color(0.3, 0.3, 0.34), Color(0.8, 0.3, 0.25), Color(0.5, 0.36, 0.22), Color(0.3, 0.62, 0.28),
-	Color(0.62, 0.1, 0.16), Color(1.0, 0.5, 0.15)]
+	Color(0.62, 0.1, 0.16), Color(1.0, 0.5, 0.15),
+	Color(0.36, 0.55, 0.26), Color(0.78, 0.36, 0.14), Color(0.2, 0.45, 0.85), Color(0.1, 0.2, 0.26)]
 const KIND_LABEL := {"hair": "Hair Colour", "hair_style": "Hair Style", "trim": "Cape Dye", "outfit": "Armour Tint", "hat": "Hat", "cape": "Cape",
 	"weapon": "Weapon Skin", "banner_bg": "Banner Background", "banner_emblem": "Banner Emblem", "banner_frame": "Banner Frame"}
 
@@ -193,6 +198,7 @@ var game
 var menu                     # menu.gd (its drawing helpers)
 var h
 var tab := 0
+var page := 0
 var pick: Array = []         # the item on show: [kind, index, rarity]
 var flash := 0.0             # gold flash after a purchase
 var reveal: Array = []       # a chest just opened: [item or [], time opened]
@@ -206,8 +212,18 @@ func _init(g, m) -> void:
 
 
 func items_in(t: int) -> Array:
+	## A tab's items, the rarest first (Legendary leads the page).
 	var kinds: Array = TABS[t][2]
-	return Stats.STORE_ITEMS.filter(func(it): return it[0] in kinds)
+	var out: Array = Stats.STORE_ITEMS.filter(func(it): return it[0] in kinds)
+	out.sort_custom(func(a, b):
+		var ta: int = TIER_RANK.get(a[2], 0)
+		var tb: int = TIER_RANK.get(b[2], 0)
+		if ta != tb:
+			return ta > tb
+		if a[0] != b[0]:
+			return kinds.find(a[0]) < kinds.find(b[0])
+		return a[1] < b[1])
+	return out
 
 
 func show(kind: String = "", i: int = -1) -> void:
@@ -219,6 +235,7 @@ func show(kind: String = "", i: int = -1) -> void:
 			if kind in TABS[t][2]:
 				tab = t
 		pick = item_for(kind, i)
+	page = maxi(items_in(tab).find(pick), 0) / PER_PAGE
 	if pick.is_empty():
 		var first := items_in(tab)
 		pick = first[0] if not first.is_empty() else []
@@ -332,9 +349,20 @@ func _grid(panel: Rect2) -> void:
 	var pr := Rect2(panel.get_center().x - 165, panel.position.y - 22, 330, 48)
 	menu.nine("plaque", pr, 110, 24, 110, 24)
 	menu.ttext(Vector2(pr.position.x, pr.position.y + 33), TABS[tab][0], 22, Color(1.0, 0.86, 0.45), HORIZONTAL_ALIGNMENT_CENTER, pr.size.x, 5)
-	var items := items_in(tab)
+	var all := items_in(tab)
+	var pages := maxi(ceili(all.size() / float(PER_PAGE)), 1)
+	page = clampi(page, 0, pages - 1)
+	var items := all.slice(page * PER_PAGE, (page + 1) * PER_PAGE)
+	if pages > 1:
+		# Page arrows under the cards.
+		var y := panel.end.y - 40
+		for k in 2:
+			var b := Rect2(panel.position.x + 20 if k == 0 else panel.end.x - 120, y, 100, 30)
+			var on := page > 0 if k == 0 else page < pages - 1
+			menu.wood_button(b, "< BACK" if k == 0 else "MORE >", "store_page", -1 if k == 0 else 1, "", 14, false, on)
+		menu.ttext(Vector2(panel.position.x, y + 22), "PAGE %d / %d" % [page + 1, pages], 15, Color(1.0, 0.88, 0.6), HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 4)
 	var cols := 3
-	var rows := ceili(items.size() / float(cols))
+	var rows := maxi(ceili(items.size() / float(cols)), 3) if pages > 1 else ceili(items.size() / float(cols))
 	var cw := (panel.size.x - 40.0 - (cols - 1) * 10.0) / cols
 	var ch := minf(116.0, (panel.size.y - 62.0 - (rows - 1) * 8.0) / maxf(rows, 1))
 	for n in items.size():
@@ -394,6 +422,11 @@ func _card(r: Rect2, it: Array) -> void:
 		var tag := Rect2(r.get_center().x - 40, r.position.y - 7, 80, 16)
 		h._plate(tag, rar[1].darkened(0.35), rar[1].lightened(0.35), 5, 1)
 		h._text(Vector2(tag.position.x, tag.position.y + 12), rar[0].to_upper(), 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 1)
+	if key(kind, i) in Stats.STORE_NEW and not have:
+		# The newest stock wears a green NEW ribbon in the top corner.
+		var nr := Rect2(r.position + Vector2(7, 12), Vector2(36, 15))
+		h._plate(nr, Color(0.2, 0.5, 0.22), Color(0.6, 0.95, 0.5), 4, 1)
+		h._text(Vector2(nr.position.x, nr.position.y + 11), "NEW", 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, nr.size.x, 1)
 	h._text(Vector2(r.position.x + 4, r.end.y - 22), item_name(kind, i).to_upper(), 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, 2)
 	var by := r.end.y - 7
 	if worn:
@@ -482,11 +515,24 @@ func thumb(r: Rect2, kind: String, i: int) -> void:
 	var col := swatch_color(kind, i)
 	match kind:
 		"banner_bg", "banner_frame":
-			var b := {"name": "", "bg": i if kind == "banner_bg" else game.banner_bg, "emblem": game.banner_emblem,
-				"frame": i if kind == "banner_frame" else 1, "title": "", "level": 1, "team": 0}
-			var br := Rect2(c - Vector2(rad * 1.6, rad * 0.7), Vector2(rad * 3.2, rad * 1.4))
-			h._plate(br, Stats.BANNER_BACKGROUNDS[b.bg][1], Stats.BANNER_FRAMES[b.frame][1], 6, 3 if kind == "banner_frame" else 2)
-			h.draw_rect(Rect2(br.position + Vector2(4, 4), Vector2(br.size.x - 8, br.size.y * 0.4)), Color(Stats.BANNER_BACKGROUNDS[b.bg][2], 0.4))
+			var bg_i: int = i if kind == "banner_bg" else game.banner_bg
+			var fr_i: int = i if kind == "banner_frame" else 1
+			var big := rad >= 24.0
+			var br := Rect2(c - Vector2(rad * 0.95, rad * 0.75), Vector2(rad * 1.9, rad * 1.5)) if big else Rect2(c - Vector2(rad * 1.6, rad * 0.7), Vector2(rad * 3.2, rad * 1.4))
+			var bgd: Array = Stats.BANNER_BACKGROUNDS[bg_i]
+			h._plate(br, bgd[1], Stats.BANNER_FRAMES[fr_i][1], 6, (5 if big else 3) if kind == "banner_frame" else 2)
+			# The painted cloth (UI & Art's banner art), its middle as the editor shows it.
+			var tex: Texture2D = h._banner_tex(str(bgd[3])) if bgd.size() > 3 else null
+			var inner := br.grow(-4 if kind == "banner_bg" else -6)
+			if tex:
+				var tw := float(tex.get_width())
+				var th := float(tex.get_height())
+				var cw := minf(tw * 0.4, th * inner.size.x / inner.size.y)
+				h.draw_texture_rect_region(tex, inner, Rect2((tw - cw) / 2.0, 0, cw, th))
+			else:
+				h.draw_rect(Rect2(br.position + Vector2(4, 4), Vector2(br.size.x - 8, br.size.y * 0.4)), Color(bgd[2], 0.4))
+			if big and kind == "banner_frame":
+				_braces(br.grow(3), Stats.BANNER_FRAMES[fr_i][1].lightened(0.2))
 		"banner_emblem":
 			h.draw_circle(c, rad, Color(0.05, 0.05, 0.08, 0.8))
 			h.draw_arc(c, rad, 0, TAU, 32, Color(1.0, 0.8, 0.3), 2.0)
@@ -700,8 +746,11 @@ func _draw_reveal() -> void:
 
 func press(id: String, arg) -> void:
 	match id:
+		"store_page":
+			page += int(arg)
 		"store_tab":
 			tab = int(arg)
+			page = 0
 			var first := items_in(tab)
 			pick = first[0] if not first.is_empty() else []
 		"store_pick":

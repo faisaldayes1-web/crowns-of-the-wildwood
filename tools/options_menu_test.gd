@@ -122,7 +122,26 @@ func _init() -> void:
 	m.go("title")
 	await frames()
 	await tap(ids.get("tutorial", Rect2()))
-	check(m.overlay == "tutorial", "TUTORIAL opens")
+	check(m.overlay == "howto" and m.howto_step == 0, "TUTORIAL opens the HOW TO PLAY cards")
+	await frames()
+	for b in hud.menu_buttons:
+		if b[1] == "howto_step" and int(b[2]) == 1:
+			await tap(b[0])
+			break
+	check(m.howto_step == 1, "NEXT turns to the second card")
+	await frames()
+	for b in hud.menu_buttons:
+		if b[1] == "howto_step" and int(b[2]) == -1:
+			await tap(b[0])
+			break
+	check(m.howto_step == 0, "BACK turns back to the first card")
+	await frames()
+	for b in hud.menu_buttons:
+		if b[1] == "howto_more":
+			await tap(b[0])
+			break
+	check(m.overlay == "tutorial" and game.howto_seen, "MORE QUESTIONS opens the questions (and marks the cards seen)")
+	await frames()
 	for b in hud.menu_buttons:
 		if b[1] == "topic" and int(b[2]) == 2:
 			await tap(b[0])

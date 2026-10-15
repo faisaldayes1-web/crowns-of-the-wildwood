@@ -514,6 +514,8 @@ func _send_input() -> void:
 	var held: Array = []
 	if not game.menu_blocks_input(p):
 		move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+		if p and p.has_method("aim_relative"):
+			move = p.aim_relative(move)   # W toward the cursor (unit.gd), as offline
 		for k in HELD_ACTIONS:
 			if Input.is_action_pressed(k):
 				held.append(k)

@@ -385,7 +385,10 @@ func _mouse() -> Vector2:
 func nav_rects() -> Array:
 	## Every button drawn this frame, for the gamepad cursor to jump between.
 	var out: Array = []
-	for list in [menu_buttons, title_buttons, faction_buttons, hero_buttons, couch_buttons, tab_buttons, bind_buttons,
+	var menu_live := menu_buttons
+	if game.main_menu and game.main_menu.overlay != "":
+		menu_live = menu_buttons.slice(game.main_menu.overlay_from)   # not the planks behind an overlay
+	for list in [menu_live, title_buttons, faction_buttons, hero_buttons, couch_buttons, tab_buttons, bind_buttons,
 			difficulty_buttons, toggle_buttons, guide_buttons, chat_buttons, variant_buttons, volume_sliders, group_buttons, class_buttons]:
 		for b in list:
 			if b[0].size.x > 0.0:
@@ -451,6 +454,19 @@ func _plate(rect: Rect2, fill: Color = INK, edge: Color = GOLD_DARK, radius: int
 
 func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHITE,
 		align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0, outline := 4) -> void:
+	# Text always fits its spot (Faisal 2026-10-15 02:30: "make sure the
+	# text fits on the spot"): given a width, a line too long for it shrinks
+	# (down to 60% of its size) instead of running past its box.
+	if width > 0.0 and font_size > 6:
+		var tw := _text_width(text, font_size)
+		if tw > width:
+			var fs := font_size
+			var floor_fs := maxi(int(font_size * 0.6), 6)
+			while fs > floor_fs and _text_width(text, fs) > width:
+				fs -= 1
+			if fs != font_size and pos.y > 0.0:
+				pos.y -= (font_size - fs) * 0.35   # stay on the same visual line
+			font_size = fs
 	if outline > 0:
 		draw_string_outline(font, pos, text, align, width, font_size, outline, Color(0.05, 0.04, 0.06, 0.85))
 	draw_string(font, pos, text, align, width, font_size, color)
@@ -462,6 +478,25 @@ func _paragraph(pos: Vector2, text: String, font_size: int, color: Color, width:
 	for i in lines.size():
 		_text(pos + Vector2(0, i * line_h), lines[i], font_size, color, HORIZONTAL_ALIGNMENT_LEFT, -1, outline)
 	return lines.size() * line_h
+
+
+func _fit_paragraph(box: Rect2, text: String, font_size: int, color: Color) -> void:
+	## Word-wrapped text that stays inside box: the size steps down until
+	## the lines fit its height, and a last line that still runs over ends
+	## in "…" (Faisal 2026-10-15: "make sure the text fits on the spot").
+	var fs := font_size
+	var lines := _wrap(text, fs, box.size.x)
+	while fs > 7 and lines.size() * (fs + 2.0) > box.size.y:
+		fs -= 1
+		lines = _wrap(text, fs, box.size.x)
+	var lh := fs + 2.0
+	var most := maxi(int(box.size.y / lh), 1)
+	if lines.size() > most:
+		lines = lines.slice(0, most)
+		lines[most - 1] = str(lines[most - 1]).rstrip(" ,.;:") + "…"
+	var top := box.position.y + (box.size.y - lines.size() * lh) / 2.0 + fs
+	for i in lines.size():
+		_text(Vector2(box.position.x, top + i * lh), lines[i], fs, color, HORIZONTAL_ALIGNMENT_LEFT, box.size.x, 2)
 
 
 func _wrap(text: String, font_size: int, width: float) -> Array:
@@ -2922,19 +2957,37 @@ func _runner(c: Vector2, r: float, col: Color) -> void:
 
 
 func _draw_capture_card() -> void:
-	## CAPTURE! A gold card under the clock when either team scores.
-	var a := clampf(game.capture_timer / 0.5, 0.0, 1.0)
-	var pulse := 1.0 + 0.015 * sin(Time.get_ticks_msec() / 70.0)
-	var rect := Rect2(size.x / 2.0 - 230 * pulse, 106, 460 * pulse, 78)
-	_scale_about(Vector2(size.x / 2.0, 106.0), clampf(size.x / 1280.0, 0.55, 1.0) * BANNER_SIZE)
+	## CAPTURE! on the same cloth ribbon as KILL! and YOU FELL (Faisal
+	## 2026-10-15 02:30: "the capture banner is still in the old format"):
+	## gold when your side scores, crimson when they do, the scoring side's
+	## sigil and the crown in the end medallions and the score under it.
 	var ours: bool = game.capture_team == _my_team()
-	var tc: Color = _team_color(game.capture_team)
-	_plate(rect, Color(tc.r * 0.45, tc.g * 0.45, tc.b * 0.45, 0.95 * a), Color(1.0, 0.82, 0.3, a), 12, 3)
-	_icon("crown", rect.position + Vector2(34, 36), 16, Color(1, 0.85, 0.3, a))
-	_text(rect.position + Vector2(64, 32), "CAPTURE!" if ours else "THEY SCORED", 24, Color(1, 0.95, 0.85, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	var line := "The %s bring the crown home.  %d - %d, first to %d wins." % [Stats.FACTIONS[game.capture_team].name, game.score[0], game.score[1], Stats.CAPTURES_TO_WIN]
-	_text(rect.position + Vector2(64, 56), line, 12, Color(1, 0.95, 0.9, a), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_card("logo_elves" if game.capture_team == 0 else "logo_humans", Rect2(rect.end.x - 74, rect.position.y + 7, 64, 64))
+	var age: float = 3.5 - game.capture_timer
+	var pop: float = clampf(age / 0.18, 0.0, 1.0)
+	var a: float = minf(pop * 2.0, 1.0) * clampf(game.capture_timer / 0.5, 0.0, 1.0)
+	var light := Color(0.95, 0.66, 0.16, a) if ours else Color(0.86, 0.18, 0.14, a)
+	var deep := Color(0.55, 0.26, 0.05, a) if ours else Color(0.42, 0.05, 0.05, a)
+	var now := Time.get_ticks_msec() / 1000.0
+	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
+	var s := (1.0 + (1.0 - pop) * 0.35) * fit * 0.82 * BANNER_SIZE
+	draw_set_transform(Vector2(size.x / 2.0, (118.0 - (1.0 - pop) * 20.0) * fit), 0.0, Vector2(s, s))
+	var ink := Color(0.12, 0.05, 0.03, a)
+	var title := "CAPTURE!" if ours else "THEY SCORED!"
+	var tf: Font = title_font if title_font else font
+	var half := maxf(190.0, tf.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 40).x / 2.0 + 74.0)
+	draw_arc(Vector2(0, -8), 60.0 + age * 200.0, 0, TAU, 40, Color(1.0, 0.85, 0.3, maxf(0.5 - age * 1.2, 0.0) * a), 6.0)
+	_cloth_ribbon(half, -44.0, 30.0, light, deep, a, now)
+	_title_text(Vector2(-half, 16.0), title, 40, Color(1.0, 0.97, 0.88, a), deep.lightened(0.15), ink, half * 2.0)
+	for sx in [-1.0, 1.0]:
+		var ic := Vector2(sx * (half - 34.0), -8.0)
+		draw_circle(ic + Vector2(0, 2), 25.0, Color(0, 0, 0, 0.35 * a))
+		draw_circle(ic, 23.0, ink)
+		draw_circle(ic, 21.0, Color(1.0, 0.8, 0.22, a))
+		draw_circle(ic, 18.0, _team_color(game.capture_team).darkened(0.45) * Color(1, 1, 1, a))
+		_icon(("class_elf" if game.capture_team == 0 else "class_human") if sx < 0.0 else "crown", ic, 9.5, Color(1, 1, 1, a))
+	var line := "The %s bring the crown home  ·  %d - %d  ·  first to %d" % [Stats.FACTIONS[game.capture_team].name, game.score[0], game.score[1], Stats.CAPTURES_TO_WIN]
+	_bar_text(Vector2(0, 62.0), line, bar_font if bar_font else font, 15, Color(1.0, 0.92, 0.7, a), Color(0.2, 0.08, 0.02, a), 3)
+	_twinkles(now, a * (0.7 if ours else 0.3), [Vector2(-half - 20, -50), Vector2(half + 16, -46), Vector2(-half * 0.6, 50), Vector2(half * 0.6, 54)])
 	draw_set_transform(Vector2.ZERO)
 
 
@@ -3101,6 +3154,9 @@ func _watch_first_blood() -> void:
 		for arg in OS.get_cmdline_user_args():
 			if arg.begins_with("--debug-event="):   # a render of one event banner: --debug-event="The Elves door has been broken!"
 				game.toast(arg.trim_prefix("--debug-event="), Color(1.0, 0.85, 0.4))
+			if arg.begins_with("--debug-capture="):   # a render of the capture banner for team N
+				game.capture_team = int(arg.trim_prefix("--debug-capture="))
+				game.capture_timer = 3.5
 	var total := 0
 	for u in game.units:
 		total += int(u.kills)
@@ -3510,12 +3566,18 @@ func _draw_quick_upgrade(p) -> void:
 	var W := size.x / k
 	var H := size.y / k
 	var now := Time.get_ticks_msec() / 1000.0
-	var tw := 70.0
-	var head_w := 128.0
-	var ew := 150.0
-	var w := head_w + tracks.size() * (tw + 6.0) + extra.size() * (ew + 6.0) + 4.0
+	# The board (Faisal 2026-10-15 "change the level up upgrade from here ui"):
+	# the in-match board with a LEVEL UP name tag, a gold badge with the
+	# points left (or the combat countdown), then one hex per skill like the
+	# ability slots, its key on the corner and the level it goes to under it,
+	# and Economy's Training as a hex with its wood price.
+	var tw := 58.0
+	var head_w := 92.0
+	var ew := 104.0
+	var bh := 76.0
+	var w := head_w + tracks.size() * tw + extra.size() * ew + 10.0
 	var x := W / 2.0 - w / 2.0 if touch_ui else (W - 22.0 - 142.0 - 30.0 - 235.0) - w / 2.0
-	var y := H - 132.0 if touch_ui else H - 164.0
+	var y := H - 130.0 - bh if touch_ui else H - 138.0 - bh
 	var shake := 0.0
 	if now - quick_deny < 0.35:
 		shake = sin((now - quick_deny) * 55.0) * 5.0 * (1.0 - (now - quick_deny) / 0.35)
@@ -3523,43 +3585,64 @@ func _draw_quick_upgrade(p) -> void:
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
 	var calm: float = p.calm_left()
-	var R := Rect2(x, y, w, 36)
+	var ready := calm <= 0.0
+	var R := Rect2(x, y, w, bh)
 	var pulse := 0.5 + 0.5 * sin(now * 4.0)
-	game_board(R, "", false)
-	if calm <= 0.0:
-		_glow_frame(R.grow(2), Color(1.0, 0.82, 0.3, 0.25 + 0.3 * pulse))
-	_text(Vector2(x + 10, y + 16), "LEVEL UP", 13, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-	if calm > 0.0:
-		_text(Vector2(x + 10, y + 30), "In combat %.0fs" % ceilf(calm), 10, Color(1.0, 0.55, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	elif p.points > 0:
-		_text(Vector2(x + 10, y + 30), "%d point%s to spend" % [p.points, "" if p.points == 1 else "s"], 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	game_board(R, "LEVEL UP", false)
+	if ready:
+		_glow_frame(R.grow(2), Color(1.0, 0.82, 0.3, 0.2 + 0.3 * pulse))
+	# The badge: points to spend, or how long until you are out of the fight.
+	var bc := Vector2(x + head_w / 2.0, y + 34.0)
+	draw_circle(bc + Vector2(0, 2), 22.0, Color(0, 0, 0, 0.35))
+	draw_circle(bc, 22.0, Color(0.16, 0.09, 0.03))
+	draw_circle(bc, 19.5, BRASS if ready else Color(0.45, 0.4, 0.34))
+	draw_circle(bc, 16.5, Color(0.36, 0.2, 0.06) if ready else Color(0.2, 0.18, 0.16))
+	draw_arc(bc, 15.0, PI * 1.1, PI * 1.9, 12, Color(1, 0.95, 0.75, 0.35), 2.0)
+	var big := "+%d" % p.points if p.points > 0 else ""
+	if not ready:
+		big = "%.0f" % ceilf(calm)
+		draw_arc(bc, 19.5, -PI / 2.0, -PI / 2.0 + TAU * clampf(calm / maxf(Stats.QUICK_UPGRADE_CALM, 0.1), 0.0, 1.0), 24, Color(1.0, 0.45, 0.35), 3.0)
+	if big != "":
+		_text(Vector2(bc.x - 30, bc.y + 7), big, 19, GOLD if ready else Color(1.0, 0.6, 0.5), HORIZONTAL_ALIGNMENT_CENTER, 60, 3)
 	else:
-		_text(Vector2(x + 10, y + 30), "Upgrade from here", 10, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var tx := x + head_w
+		_icon("xp", bc, 9.0, Color.WHITE)
+	var sub := "IN COMBAT" if not ready else ("POINT%s" % ("" if p.points == 1 else "S") if p.points > 0 else "TRAIN")
+	_text(Vector2(x + 4, y + bh - 9), sub, 10, Color(1.0, 0.55, 0.45) if not ready else CREAM, HORIZONTAL_ALIGNMENT_CENTER, head_w - 8, 2)
+	draw_line(Vector2(x + head_w, y + 12), Vector2(x + head_w, y + bh - 10), Color(0.62, 0.44, 0.16, 0.5), 1.0)
+	var tx := x + head_w + 4.0
 	var abil: Array = p.abilities()
 	for t in tracks:
-		var r := Rect2(tx, y + 3, tw, 30)
-		tx += tw + 6.0
+		var hc := Vector2(tx + tw / 2.0, y + 32.0)
+		tx += tw
 		var icon: String = _attack_icon(p.role, p.stats()) if t == 0 else ("vigor" if t == 3 else str(abil[t - 1].get("icon", abil[t - 1].kind)))
-		var ready := calm <= 0.0
-		_plate(r, Color(0.13, 0.08, 0.04) if ready else Color(0.1, 0.08, 0.07), BRASS if ready else Color(0.35, 0.3, 0.25), 7, 1)
-		draw_rect(Rect2(r.position + Vector2(3, 2), Vector2(r.size.x - 6, 4)), Color(1, 0.85, 0.6, 0.1 if ready else 0.04))
-		_icon(icon, r.position + Vector2(15, 15), 8.0, Color.WHITE if ready else Color(0.6, 0.6, 0.6))
-		_text(Vector2(r.position.x + 30, r.position.y + 20), "LV%d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_keycap(Vector2(r.end.x - 2, r.position.y + 2), _k("rank_%d" % (t + 1)), 18)
+		_hex_tile(hc, 19.0, BRASS if ready else Color(0.45, 0.42, 0.38), Color(0.62, 0.4, 0.14), false, ready)
+		_icon(icon, hc, 9.0, Color.WHITE, not ready)
+		_keycap(hc + Vector2(15, -17), _k("rank_%d" % (t + 1)), 18)
+		_text(Vector2(hc.x - tw / 2.0, y + bh - 9), "LV %d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_CENTER, tw, 2)
+		var r := Rect2(hc - Vector2(tw / 2.0, 26), Vector2(tw, 56))
 		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
 		quick_buttons.append([sr, t])
 		if not pane:
 			touch_rects.append([sr, "quick_tap"])   # (was "rank_N": with the finger's emulated click one tap bought two ranks)
 	for e in extra:
-		var r := Rect2(tx, y + 3, ew, 30)
-		tx += ew + 6.0
-		var ok: bool = e.get("ok", false) and calm <= 0.0
-		_plate(r, Color(0.12, 0.17, 0.08) if ok else Color(0.14, 0.12, 0.1), Color(0.5, 0.85, 0.35) if ok else Color(0.35, 0.3, 0.25), 7, 1)
-		_icon(str(e.get("icon", "")), r.position + Vector2(15, 15), 8.0, Color.WHITE if ok else Color(0.6, 0.6, 0.6))
-		_text(Vector2(r.position.x + 30, r.position.y + 13), str(e.get("label", "")), 11, CREAM if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, ew - 34.0, 2)
+		var hc := Vector2(tx + 26.0, y + 34.0)
+		var ok: bool = e.get("ok", false) and ready
+		_hex_tile(hc, 19.0, BRASS if ok else Color(0.45, 0.42, 0.38), Color(0.38, 0.52, 0.2), false, ok)
+		_icon(str(e.get("icon", "")), hc, 10.0, Color.WHITE, not ok)
+		var lx := tx + 50.0
+		var lw := ew - 52.0
+		var label := str(e.get("label", "")).to_upper()
+		_text(Vector2(lx, y + 30), label, 12 if _text_width(label, 12) <= lw else 10, CREAM if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, lw, 2)
 		var why: String = str(e.get("reason", ""))
-		_text(Vector2(r.position.x + 30, r.position.y + 26), why if why != "" else str(e.get("cost_text", "")), 9, Color(1.0, 0.55, 0.45) if why != "" else Color(0.9, 0.85, 0.7), HORIZONTAL_ALIGNMENT_LEFT, ew - 34.0, 1)
+		if why != "" and why != "IN COMBAT":
+			_paragraph(Vector2(lx, y + 44), why, 9, Color(1.0, 0.55, 0.45), lw, 10.0)
+		elif game.economy and game.economy.has_method("_wood_icon") and int(e.get("wood", 0)) > 0:
+			game.economy._wood_icon(self, Vector2(lx + 7, y + 47), 6.0)
+			_text(Vector2(lx + 17, y + 52), str(e.get("wood", 0)), 13, Color(1.0, 0.92, 0.7) if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		else:
+			_text(Vector2(lx, y + 52), str(e.get("cost_text", "")), 10, Color(0.9, 0.85, 0.7), HORIZONTAL_ALIGNMENT_LEFT, lw, 1)
+		var r := Rect2(Vector2(tx, y + 6), Vector2(ew, bh - 12))
+		tx += ew
 		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
 		quick_buttons.append([sr, e.get("buy", Callable())])
 		if not pane:
@@ -3567,7 +3650,7 @@ func _draw_quick_upgrade(p) -> void:
 	# An X at the strip's left end puts it away (keys 1-4 still buy). Left,
 	# not right: on touch the right end runs into the move tiles.
 	var xr := 16.0 if touch_ui else 11.0
-	var xc := Vector2(x - xr - 10.0, y + 18.0)
+	var xc := Vector2(x - xr - 10.0, y + 22.0)
 	x_button(xc, xr)
 	quick_close = Rect2((xc - Vector2(26, 26)) * hud_scale, Vector2(52, 52) * hud_scale)
 	if not pane:
@@ -4143,8 +4226,7 @@ func _draw_world_prompt() -> void:
 func _draw_class_pointer(me) -> void:
 	## A plain soldier sees where the classes are (Faisal 2026-10-10: "it
 	## should be obvious where the classes are"): a bobbing gold arrow and
-	## PICK A CLASS over the class stations, or, when they are off screen, an
-	## arrow at the screen edge pointing the way.
+	## PICK A CLASS over the class stations.
 	if me.role != Role.BASE or me.dead or me.downed or game.stations[me.team].is_empty():
 		return
 	var cam: Camera3D = game.camera_for(me)
@@ -4158,28 +4240,14 @@ func _draw_class_pointer(me) -> void:
 	var bob := sin(Time.get_ticks_msec() / 220.0) * 6.0
 	var gold := Color(1.0, 0.82, 0.25)
 	var inside := Rect2(Vector2(60, 150), size - Vector2(120, 330)).has_point(sp) and not cam.is_position_behind(at)
+	# No arrows (Faisal 2026-10-15 02:30: "there's no point for the yellow
+	# arrow"): just the PICK A CLASS plate over the stations while they are
+	# on screen. The off-screen edge arrow, whose plate was cut off at the
+	# screen's edge, is gone.
 	if inside:
-		var tip := sp + Vector2(0, 18 + bob)
-		draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-20, -24), tip + Vector2(20, -24)]), Color(0, 0, 0, 0.45))
-		draw_colored_polygon(PackedVector2Array([tip + Vector2(0, -3), tip + Vector2(-16, -24), tip + Vector2(16, -24)]), gold)
 		var r := Rect2(sp + Vector2(-84, -40 + bob), Vector2(168, 30))
 		_plate(r, Color(0.3, 0.17, 0.04, 0.92), gold, 8, 2)
 		_text(r.position + Vector2(0, 21), "PICK A CLASS", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
-		return
-	# Off screen: from the player toward the stations, pinned inside the view.
-	var from: Vector2 = inv * cam.unproject_position(me.global_position + Vector3(0, 1.5, 0))
-	var d := (sp - from).normalized() if cam.is_position_behind(at) == false else Vector2(mid.x - me.global_position.x, mid.z - me.global_position.z).normalized()
-	if d == Vector2.ZERO:
-		return
-	var c := from + d * 120.0
-	c = c.clamp(Vector2(80, 170), size - Vector2(80, 200))
-	c += d * bob
-	var side := Vector2(-d.y, d.x)
-	draw_colored_polygon(PackedVector2Array([c + d * 26, c - d * 14 + side * 20, c - d * 14 - side * 20]), Color(0, 0, 0, 0.45))
-	draw_colored_polygon(PackedVector2Array([c + d * 22, c - d * 11 + side * 16, c - d * 11 - side * 16]), gold)
-	var r2 := Rect2(c - d * 44 - Vector2(76, 15), Vector2(152, 30))
-	_plate(r2, Color(0.3, 0.17, 0.04, 0.92), gold, 8, 2)
-	_text(r2.position + Vector2(0, 21), "PICK A CLASS", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r2.size.x, 2)
 
 
 # --- Map ---------------------------------------------------------------------
@@ -5762,6 +5830,17 @@ func _menu_controls(body: Rect2) -> void:
 		_keycap(Vector2(kx, row.get_center().y), key_text, 130, false, true)
 		_keycap(Vector2(px, row.get_center().y), game.binding_text(action, "pad", pad_kind), 96)
 		bind_buttons.append([row, action])
+	if controls_group == 0:
+		# How W/A/S/D steer with the mouse (Faisal 2026-10-15).
+		var mr := Rect2(R.position.x + 10, R.position.y + 50 + actions.size() * 40, R.size.x - 20, 40)
+		_opt_slot(mr)
+		_text(mr.position + Vector2(14, 25), "Keyboard movement", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var opts := [["aim", "TOWARD THE CURSOR"], ["screen", "UP THE SCREEN"]]
+		for i in 2:
+			var ob := Rect2(mr.position.x + 200 + i * 196, mr.position.y + 6, 188, 28)
+			_opt_button(ob, opts[i][1], game.move_mode == opts[i][0])
+			toggle_buttons.append([ob, "move_" + opts[i][0]])
+		_text(Vector2(mr.position.x + 14, mr.end.y + 18), "Toward the cursor: W walks where the mouse points, S backs off, A and D circle. Gamepads and touch always move by the stick.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, mr.size.x - 28, 2)
 	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), ("Tap a row, then press the key or button you want; tap again to cancel." if game.touch_active else "Click a row, then press the key, mouse button or gamepad button you want; Esc cancels.") + " Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points.",
 		11, Color(0.72, 0.72, 0.78), R.size.x - 32, 13.0)
 	reset_button = Rect2(body.position.x + 232 + (R.size.x - 220) / 2.0, body.end.y - 38, 220, 34)
@@ -5855,12 +5934,12 @@ func _menu_settings(body: Rect2) -> void:
 	toggle_buttons.append([Rect2(la.end.x, pick.position.y, pick.size.x - 60, pick.size.y), "pad_style"])
 	toggle_buttons.append([ra, "pad_style"])
 	var pads: Array = Input.get_connected_joypads()
-	var plugged := "No gamepad connected. DualSense (PS5), DualShock and Xbox pads work over USB or Bluetooth; plug one in and press any button."
+	var plugged := "No gamepad: plug one in (USB or Bluetooth) and press any button."
 	if not pads.is_empty():
 		var names: Array = []
 		for d in pads:
 			names.append(game.pad_title(d))
-		plugged = "Connected: " + ", ".join(names) + ((". Player 1 holds the %s." % game.pad_title(game.local_pad(0))) if game.couch_players > 1 else ". Press any button on it to switch the hints to its names.")
+		plugged = "Connected: " + ", ".join(names) + ((". P1 holds the %s." % game.pad_title(game.local_pad(0))) if game.couch_players > 1 else ".")
 	# Split Screen: how two couch players share the window.
 	var split := Rect2(x + 542, y + 2, 340, 36)
 	_opt_slot(split)
@@ -5873,7 +5952,7 @@ func _menu_settings(body: Rect2) -> void:
 		_split_glyph(b.position + Vector2(17, 14), layout, ink)
 		_text(b.position + Vector2(28, 19), layout.to_upper(), 11, ink, HORIZONTAL_ALIGNMENT_CENTER, b.size.x - 30, 2)
 		toggle_buttons.append([b, "split_" + layout])
-	_paragraph(Vector2(x + 892, y + 6), plugged + " Saved automatically.", 9, CREAM, w - 904, 11.0)
+	_fit_paragraph(Rect2(x + 892, y, w - 904, 40), plugged, 10, CREAM)
 
 
 func _split_glyph(c: Vector2, layout: String, col: Color) -> void:
@@ -6244,7 +6323,14 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 				draw_circle(Vector2(cx, cy), 7, Color(c2, 0.24))
 				draw_circle(Vector2(cx + 5, cy - 4), 4, Color(c2, 0.24))
 		_:
-			pass
+			var tex: Texture2D = _banner_tex(str(bg[3]))
+			if tex:
+				# A painted field (tools/make_banner_art.py), cropped to the
+				# cloth's shape from the middle.
+				var ts := tex.get_size()
+				var sh := minf(ts.y, ts.x * inner.size.y / inner.size.x)
+				var swd := sh * inner.size.x / inner.size.y
+				draw_texture_rect_region(tex, inner, Rect2((ts.x - swd) / 2.0, (ts.y - sh) / 2.0, swd, sh))
 	# A soft dark band behind the text keeps the name readable on any cloth,
 	# and the team's colour runs along the hem.
 	var band := Rect2(inner.position.x + 54 * u, inner.position.y + 4, inner.size.x - 54 * u - 50 * u, inner.size.y - 8)
@@ -6316,6 +6402,89 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 	draw_arc(lc, 11.5 * u, PI * 1.1, PI * 1.9, 12, Color(1, 1, 0.9, 0.7), 1.5)
 	_text(Vector2(lc.x - 20 * u, lc.y - 5 * u), "LV", int(7 * u), Color(0.45, 0.25, 0.04), HORIZONTAL_ALIGNMENT_CENTER, 40 * u, 0)
 	_text(Vector2(lc.x - 20 * u, lc.y + 8 * u), str(b.level), int(15 * u), Color(0.35, 0.17, 0.02), HORIZONTAL_ALIGNMENT_CENTER, 40 * u, 0)
+	# The rarest part sets how fancy the whole banner looks.
+	var tiers := ["common", "rare", "epic", "legendary"]
+	var best := 0
+	for pair in [["banner_bg", int(b.bg)], ["banner_emblem", int(b.emblem)], ["banner_frame", int(b.frame)]]:
+		best = maxi(best, tiers.find(Stats.banner_rarity(pair[0], pair[1])))
+	if best > 0:
+		_banner_fx(rect, tiers[best], trim, ec, u)
+
+
+var _banner_textures: Dictionary = {}
+
+
+func _banner_tex(pattern: String) -> Texture2D:
+	## The painted field for a "painted:<name>" background, or null.
+	if not pattern.begins_with("painted:"):
+		return null
+	var key := pattern.trim_prefix("painted:")
+	if not _banner_textures.has(key):
+		var path := "res://assets/ui/banners/bg_%s.png" % key
+		_banner_textures[key] = load(path) if ResourceLoader.exists(path) else null
+	return _banner_textures[key]
+
+
+func _banner_fx(rect: Rect2, tier: String, trim: Color, ec: Vector2, u: float) -> void:
+	## Rare banners look the part (Faisal 2026-10-14 20:46: "for the
+	## expensive rare items make them look visually different so it entices
+	## sales"). Rare: a light sweep across the cloth. Epic: plus a pulsing
+	## glow round the frame in its rarity colour and gems in the corners.
+	## Legendary: plus a gold crest over the shield, sparks circling the
+	## frame and a brighter, faster sweep.
+	var now := Time.get_ticks_msec() / 1000.0
+	var col: Color = Stats.RARITY_COLORS[tier]
+	var legend := tier == "legendary"
+	var epic := tier == "epic" or legend
+	var inner := rect.grow(-6)
+	# The light sweep: a slanted bright band crossing every few seconds.
+	var period := 2.6 if legend else 3.6
+	var f := fmod(now, period) / period
+	var sx := inner.position.x - 40.0 + f * (inner.size.x + 80.0)
+	var bw := 18.0 * u
+	var sweep := PackedVector2Array([Vector2(sx, inner.position.y), Vector2(sx + bw, inner.position.y), Vector2(sx + bw - 16.0 * u, inner.end.y), Vector2(sx - 16.0 * u, inner.end.y)])
+	var clip := PackedVector2Array()
+	for v in sweep:
+		clip.append(Vector2(clampf(v.x, inner.position.x, inner.end.x), v.y))
+	var sa := 0.32 if legend else 0.2
+	draw_polygon(clip, PackedColorArray([Color(1, 1, 1, 0.0), Color(1, 1, 1, sa), Color(1, 1, 1, sa), Color(1, 1, 1, 0.0)]))
+	if not epic:
+		# Rare: a thin ring in the rarity colour.
+		_plate(rect.grow(1.5), Color(0, 0, 0, 0), Color(col, 0.75), 12, 2)
+		return
+	var pulse := 0.6 + 0.4 * sin(now * 3.0)
+	for g in 3:
+		draw_rect(rect.grow(2.0 + g * 2.5), Color(col, (0.35 - g * 0.1) * pulse), false, 2.0)
+	for c in [rect.position + Vector2(7, 7), Vector2(rect.end.x - 7, rect.position.y + 7), Vector2(rect.position.x + 7, rect.end.y - 7), rect.end - Vector2(7, 7)]:
+		var gem := PackedVector2Array([c + Vector2(0, -5), c + Vector2(4, 0), c + Vector2(0, 5), c + Vector2(-4, 0)])
+		draw_colored_polygon(gem, col.darkened(0.2))
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -5), c + Vector2(4, 0), c + Vector2(0, 0)]), col.lightened(0.5))
+		draw_polyline(PackedVector2Array([gem[0], gem[1], gem[2], gem[3], gem[0]]), Color(0.1, 0.06, 0.03), 1.0)
+	if not legend:
+		return
+	# A small gold crown crest over the emblem shield.
+	var cc := ec + Vector2(0, -33.0 * u)
+	var crown := PackedVector2Array([cc + Vector2(-10, 4) * u, cc + Vector2(-10, -4) * u, cc + Vector2(-5, 0) * u, cc + Vector2(0, -7) * u,
+		cc + Vector2(5, 0) * u, cc + Vector2(10, -4) * u, cc + Vector2(10, 4) * u])
+	draw_colored_polygon(crown, Color(1.0, 0.8, 0.25))
+	draw_polyline(crown + PackedVector2Array([crown[0]]), Color(0.3, 0.15, 0.02), 1.5)
+	for k in [-1, 0, 1]:
+		draw_circle(cc + Vector2(k * 5.0, 1.5) * u, 1.2 * u, Color(0.9, 0.15, 0.2) if k == 0 else Color(0.3, 0.6, 1.0))
+	# Sparks running round the frame.
+	var per := 2.0 * (rect.size.x + rect.size.y)
+	for k in 6:
+		var d := fmod(now * 90.0 + k * per / 6.0, per)
+		var pt: Vector2
+		if d < rect.size.x:
+			pt = rect.position + Vector2(d, 0)
+		elif d < rect.size.x + rect.size.y:
+			pt = Vector2(rect.end.x, rect.position.y + d - rect.size.x)
+		elif d < 2.0 * rect.size.x + rect.size.y:
+			pt = Vector2(rect.end.x - (d - rect.size.x - rect.size.y), rect.end.y)
+		else:
+			pt = Vector2(rect.position.x, rect.end.y - (d - 2.0 * rect.size.x - rect.size.y))
+		draw_circle(pt, 4.0, Color(col, 0.35))
+		_fx_sparkle(pt, 3.5, Color(1.0, 0.95, 0.75, 0.95))
 
 
 func _draw_death_screen(p) -> void:
@@ -6416,42 +6585,51 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 	var preview := Rect2(origin + Vector2(0, 8), Vector2(w, 64))
 	var me := {"name": game.hero_name if game.hero_name.strip_edges() != "" else "You", "bg": game.banner_bg, "emblem": game.banner_emblem,
 		"frame": game.banner_frame, "title": Stats.BANNER_TITLES[game.banner_title][1], "level": game.account_level(), "team": 0}
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--debug-banner="):   # a render of one banner: --debug-banner=bg,emblem,frame
+			var v := arg.trim_prefix("--debug-banner=").split(",")
+			if v.size() == 3:
+				me.bg = int(v[0])
+				me.emblem = int(v[1])
+				me.frame = int(v[2])
 	_draw_banner(preview, me)
 	var y := origin.y + 84
-	var sw := 26.0
-	# Background swatches.
-	_text(Vector2(origin.x, y), "BACKGROUND", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	for i in Stats.BANNER_BACKGROUNDS.size():
-		var b := Rect2(origin.x + 76 + i * (sw + 3), y - 11, sw, 18)
-		var bg: Array = Stats.BANNER_BACKGROUNDS[i]
-		var have: bool = Store.owns(game, "banner_bg", i)
-		_plate(b, bg[2].lerp(bg[1], 0.4).darkened(0.0 if have else 0.5), GOLD if i == game.banner_bg else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_bg else 1)
-		if not have:
-			_store_lock(b)
-		hero_buttons.append([b, "banner_bg", i])
-	y += 26
-	_text(Vector2(origin.x, y), "EMBLEM", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var per_row := ceili(Stats.BANNER_EMBLEMS.size() / 2.0)
-	for i in Stats.BANNER_EMBLEMS.size():
-		var b := Rect2(origin.x + 76 + (i % per_row) * (sw + 3), y - 11 + (i / per_row) * 22, sw, 18)
-		var locked: bool = Stats.BANNER_EMBLEMS[i] == "class_rogue" and not game.unlocked()
-		var have: bool = Store.owns(game, "banner_emblem", i)
-		_plate(b, INK_LIGHT if not locked else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_emblem else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_emblem else 1)
-		_icon(Stats.BANNER_EMBLEMS[i], b.get_center(), 5, Color.WHITE, locked or not have)
-		if not have:
-			_store_lock(b)
-		hero_buttons.append([b, "banner_emblem", i])
-	y += 48
-	_text(Vector2(origin.x, y), "FRAME", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	for i in Stats.BANNER_FRAMES.size():
-		var b := Rect2(origin.x + 76 + i * (sw + 3), y - 11, sw, 18)
-		var locked: bool = Stats.BANNER_FRAMES[i][0] == "Royal" and not game.unlocked()
-		var have: bool = Store.owns(game, "banner_frame", i)
-		_plate(b, Stats.BANNER_FRAMES[i][1].darkened(0.0 if have else 0.5) if not locked else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_frame else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_frame else 1)
-		if not have:
-			_store_lock(b)
-		hero_buttons.append([b, "banner_frame", i])
-	y += 26
+	# The swatches wrap into rows (2026-10-14: many more banners), each
+	# with a thin ring in its rarity colour when it is rare or better.
+	var sw := 22.0
+	var per_row := maxi(int((w - 76.0) / (sw + 3.0)), 6)
+	var rows := [["BACKGROUND", "banner_bg", Stats.BANNER_BACKGROUNDS.size()], ["EMBLEM", "banner_emblem", Stats.BANNER_EMBLEMS.size()],
+		["FRAME", "banner_frame", Stats.BANNER_FRAMES.size()]]
+	for row in rows:
+		var kind: String = row[1]
+		_text(Vector2(origin.x, y), row[0], 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var n: int = row[2]
+		for i in n:
+			var b := Rect2(origin.x + 76 + (i % per_row) * (sw + 3), y - 11 + (i / per_row) * 21, sw, 17)
+			var have: bool = Store.owns(game, kind, i)
+			var sel: bool = i == (game.banner_bg if kind == "banner_bg" else (game.banner_emblem if kind == "banner_emblem" else game.banner_frame))
+			var rar := Stats.banner_rarity(kind, i)
+			if rar != "common":
+				_plate(b.grow(1.5), Color(0, 0, 0, 0), Color(Stats.RARITY_COLORS[rar], 0.9), 5, 1)
+			match kind:
+				"banner_bg":
+					var bg: Array = Stats.BANNER_BACKGROUNDS[i]
+					_plate(b, bg[2].lerp(bg[1], 0.4).darkened(0.0 if have else 0.5), GOLD if sel else Color(0.1, 0.1, 0.14), 4, 2 if sel else 1)
+					var tex: Texture2D = _banner_tex(str(bg[3]))
+					if tex:
+						draw_texture_rect_region(tex, b.grow(-2), Rect2(tex.get_width() * 0.3, 0, tex.get_width() * 0.4, tex.get_height()),
+							Color.WHITE if have else Color(0.5, 0.5, 0.5))
+				"banner_emblem":
+					var locked: bool = Stats.BANNER_EMBLEMS[i] == "class_rogue" and not game.unlocked()
+					_plate(b, INK_LIGHT if not locked else Color(0.2, 0.2, 0.24), GOLD if sel else Color(0.1, 0.1, 0.14), 4, 2 if sel else 1)
+					_icon(Stats.BANNER_EMBLEMS[i], b.get_center(), 4.6, Color.WHITE, locked or not have)
+				_:
+					var locked: bool = Stats.BANNER_FRAMES[i][0] == "Royal" and not game.unlocked()
+					_plate(b, Stats.BANNER_FRAMES[i][1].darkened(0.0 if have else 0.5) if not locked else Color(0.2, 0.2, 0.24), GOLD if sel else Color(0.1, 0.1, 0.14), 4, 2 if sel else 1)
+			if not have:
+				_store_lock(b)
+			hero_buttons.append([b, kind, i])
+		y += 5 + ceili(float(n) / per_row) * 21
 	_text(Vector2(origin.x, y), "TITLE", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var tx := origin.x + 76
 	var ty := y - 11

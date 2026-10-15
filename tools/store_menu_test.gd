@@ -53,6 +53,17 @@ func _init() -> void:
 	for t in Store.TABS.size():
 		await tap_id("store_tab", t)
 		check(m.store.tab == t and not m.store.pick.is_empty(), "tab %s opens with an item on show" % Store.TABS[t][0])
+	# A big tab turns pages, Legendary first.
+	var emblems: int = Store.TABS.map(func(t): return t[0]).find("EMBLEMS")
+	await tap_id("store_tab", emblems)
+	check(m.store.items_in(emblems)[0][2] == "legendary", "the rarest items lead the tab")
+	check(await tap_id("store_page", 1) and m.store.page == 1, "MORE turns to the next page")
+	var on_page := false
+	for b in hud.menu_buttons:
+		if b[1] == "store_pick" and b[2] == m.store.items_in(emblems)[Store.PER_PAGE]:
+			on_page = true
+	check(on_page, "page 2 shows the tenth item")
+	m.store.page = 0
 	# Buy a 600-gold item with 700 gold.
 	await tap_id("store_tab", 3)
 	var crown := Store.item_for("hat", 4)   # Flower Crown, rare: 600
