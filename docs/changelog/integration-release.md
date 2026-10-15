@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 03:10 UTC · Integration `777f953` · Ember Pass stays on SELECT MAP; volume kept after a match
+
+- **What:** picking Ember Pass rebuilds the world and now comes back to SELECT MAP (the menu warm-up used to end on the title, so PLAY looked like it kicked you out). A mouse button still held from the summary's CONTINUE no longer drags the sound slider on the Settings tab the warm-up shows, which set the volume to full. Sliders move only for a press that started on them; clicks are ignored during the warm-up; a button held across a reload is not a new press.
+- **Files:** scripts/game.gd (`_warm_up_menus(land_on)`, `menus_warming`, `slider_drag`, `click_was` at start), tools/reload_menu_test.gd (new, needs xvfb).
+- **Tested:** reload_menu_test fails on the old code (lands on the title; sound 0.30 → 1.00) and passes now.
+- **Revert:** `git revert 777f953` (both branches: the alpha has the cherry-pick).
+
 ### 2026-10-14 22:40 UTC · Store `4073682` · Player banners for sale, brighter rarity sparkles
 
 - **What:** cherry-picked Store `7ce0768`, `1a376aa` and their changelog commits (both branches): banner cloth, emblems and frames sold by rarity tier with paging and painted thumbnails; bigger, glowier sparkles on worn Legendary gear. `Stats.banner_rarity()` now reads STORE_ITEMS (UI & Art's stopgap BANNER_RARITY table is gone).
