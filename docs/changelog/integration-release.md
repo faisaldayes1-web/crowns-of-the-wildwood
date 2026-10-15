@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 09:45 UTC · Combat & Balance `0c4a5b6` · Balance patch 8
+
+- **What:** merged into the Steam branch, cherry-picked `08e766f` + `0c4a5b6` into the alpha. Elves speed 6.05 → 6.1 (96 matches with Economy's XP changes: Humans 29-18 → 24-24). docs/balance/patch-8.md. Not yet in a delivered build (next beta).
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** tools/tests/run.sh 0 failures.
+- **Revert:** `git revert 08e766f` (alpha: the cherry-pick).
+
 ### 2026-10-15 07:45 UTC · Economy `1f1cd36` · Faster wood loop, XP for base work
 
 - **What:** cherry-picked `54d3557` + `1f1cd36` into both branches (Faisal 06:33: easier rank-ups, faster wood). 5 XP per wood delivered, 12 XP per door mend/raise or turret build/raise/patch; pad turrets credit their builder; chopping 2.6 → 2.0 s, carry 3 → 4, Training 14 → 12 wood. Combat & Balance told about the new XP sources. Not yet in a delivered build (next beta).
