@@ -5762,6 +5762,17 @@ func _menu_controls(body: Rect2) -> void:
 		_keycap(Vector2(kx, row.get_center().y), key_text, 130, false, true)
 		_keycap(Vector2(px, row.get_center().y), game.binding_text(action, "pad", pad_kind), 96)
 		bind_buttons.append([row, action])
+	if controls_group == 0:
+		# How W/A/S/D steer with the mouse (Faisal 2026-10-15).
+		var mr := Rect2(R.position.x + 10, R.position.y + 50 + actions.size() * 40, R.size.x - 20, 40)
+		_opt_slot(mr)
+		_text(mr.position + Vector2(14, 25), "Keyboard movement", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var opts := [["aim", "TOWARD THE CURSOR"], ["screen", "UP THE SCREEN"]]
+		for i in 2:
+			var ob := Rect2(mr.position.x + 200 + i * 196, mr.position.y + 6, 188, 28)
+			_opt_button(ob, opts[i][1], game.move_mode == opts[i][0])
+			toggle_buttons.append([ob, "move_" + opts[i][0]])
+		_text(Vector2(mr.position.x + 14, mr.end.y + 18), "Toward the cursor: W walks where the mouse points, S backs off, A and D circle. Gamepads and touch always move by the stick.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, mr.size.x - 28, 2)
 	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), ("Tap a row, then press the key or button you want; tap again to cancel." if game.touch_active else "Click a row, then press the key, mouse button or gamepad button you want; Esc cancels.") + " Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points.",
 		11, Color(0.72, 0.72, 0.78), R.size.x - 32, 13.0)
 	reset_button = Rect2(body.position.x + 232 + (R.size.x - 220) / 2.0, body.end.y - 38, 220, 34)

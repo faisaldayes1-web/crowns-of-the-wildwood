@@ -2757,7 +2757,25 @@ func _net_read_taps() -> void:
 func _stick() -> Vector2:
 	if remote_peer > 0:
 		return net_input.get("move", Vector2.ZERO)
-	return Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+	return aim_relative(Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down")))
+
+
+func aim_relative(keys: Vector2) -> Vector2:
+	## Keyboard and mouse (Faisal 2026-10-15: "when you aim with your mouse,
+	## your movement should also go that way"): W walks toward the cursor,
+	## S backs away from it, A and D step round it. The Controls tab's
+	## MOVEMENT pick turns it back to screen directions; pads and touch keep
+	## screen directions (their stick already points where you go).
+	if game == null or game.move_mode != "aim" or aim_mode != "mouse" or not has_mouse or game.on_pad(self) or game.touch_active:
+		return keys
+	if keys == Vector2.ZERO:
+		return keys
+	var to := Vector2(aim_point.x - global_position.x, aim_point.z - global_position.z)
+	if to.length() < 0.9:
+		return keys   # the cursor on top of us: no clear "forward", keep screen directions
+	var fwd := to.normalized()
+	var right := Vector2(-fwd.y, fwd.x)
+	return (right * keys.x + fwd * -keys.y).limit_length(1.0)
 
 
 func _held(action: String) -> bool:
