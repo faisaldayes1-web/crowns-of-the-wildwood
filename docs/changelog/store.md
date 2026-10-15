@@ -293,3 +293,29 @@ autumn colours.
 Files: `scripts/stats.gd`, `scripts/store.gd`, `scripts/store_gear.gd`, `assets/ui/store/*`.
 
 Undo: `git revert d808bc2`
+
+## 2026-10-15 — Cape dye on every character; customizer gear tiles fit
+
+Commit: `f757e2c`
+
+Faisal 17:51: "make sure all the color trims apply to all characters and character customizer works."
+
+What changed:
+- **The dye barely showed before**: it only repainted one small trim cell of each skin, so a Rose dye left
+  the base bodies, Rangers, Rogues, Engineers and most promotions looking team-coloured. Now the KayKit
+  capes (Knight_Cape, Rogue_Cape) take the dye over their whole cloth (`CELLS[*].cloth`, `cape_cloth` key in
+  `customised_skin`), and every class and promotion wears the neck wrap in a chosen dye
+  (`OutfitFlair.dress(..., any_class)`). Tunics and hoods keep the team colour so sides still read. TEAM
+  (dye 0) is unchanged.
+- **ARMOR tab**: with 13 hats and 11 weapon skins the gear tiles were squeezed on top of each other. They
+  now wrap at ten a line (`menu.GEAR_COLS`, 36x34 tiles); the LOOK row is a little shorter to make room.
+- `tools/trim_check.gd` renders every playable look (3 builds, 6 classes at rank 1 and 3, 12 promotions),
+  both factions, front and back, in a dye.
+
+Tests: `store_test` +1 (every class, rank and promotion takes the dye); `store_menu_test` +1 (ARMOR tiles
+never overlap and stay above CONFIRM; failed before the fix).
+
+Files: `scripts/character_model.gd`, `scripts/outfit_flair.gd`, `scripts/menu.gd`, `tools/trim_check.gd`,
+`tools/store_test.gd`, `tools/store_menu_test.gd`.
+
+Undo: `git revert f757e2c`
