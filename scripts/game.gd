@@ -4653,6 +4653,34 @@ func _add_ramp(from: Vector3, to: Vector3, width: float, color: Color, mat: Mate
 	mesh.material_override = mat if mat else _stone(color, 0.3)
 	body.add_child(mesh)
 	add_child(body)
+	_fill_under_ramp(from, to, width)
+
+
+func _fill_under_ramp(from: Vector3, to: Vector3, width: float) -> void:
+	## The slab is thin: the wedge of space under a flight of stairs was open,
+	## too low to stand in near the foot, and anyone who walked or was shoved
+	## in there wedged under the sloping underside (Faisal 2026-10-15: "fix
+	## the getting stuck indoors"). A solid wedge (collision only, nothing
+	## drawn) fills it; its top is the slab's own walking surface.
+	var low := from if from.y <= to.y else to
+	var high := to if from.y <= to.y else from
+	var flat := Vector3(high.x - low.x, 0, high.z - low.z)
+	if flat.length() < 0.1 or high.y - low.y < 0.3:
+		return
+	var perp := flat.normalized().cross(Vector3.UP) * (width / 2.0)
+	var base := Vector3(high.x, low.y, high.z)
+	var pts := PackedVector3Array()
+	for s in [-1.0, 1.0]:
+		pts.append(low + perp * s)
+		pts.append(high + perp * s)
+		pts.append(base + perp * s)
+	var wedge := ConvexPolygonShape3D.new()
+	wedge.points = pts
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	shape.shape = wedge
+	body.add_child(shape)
+	add_child(body)
 
 
 func _add_boulder(pos: Vector3) -> void:
