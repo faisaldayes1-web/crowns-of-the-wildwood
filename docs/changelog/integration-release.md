@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 07:45 UTC · Economy `1f1cd36` · Faster wood loop, XP for base work
+
+- **What:** cherry-picked `54d3557` + `1f1cd36` into both branches (Faisal 06:33: easier rank-ups, faster wood). 5 XP per wood delivered, 12 XP per door mend/raise or turret build/raise/patch; pad turrets credit their builder; chopping 2.6 → 2.0 s, carry 3 → 4, Training 14 → 12 wood. Combat & Balance told about the new XP sources. Not yet in a delivered build (next beta).
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** econ-test 0 failed, Wildwood bot match 0 script errors.
+- **Revert:** revert the two cherry-picks newest first on each branch.
+
 ### 2026-10-15 07:20 UTC · Store `3d64ca5` · The Wildwood collection
 
 - **What:** merged Store into the Steam branch, cherry-picked `d808bc2` + `3d64ca5` into the alpha. 16 new cosmetics in the overhaul's storybook look (hats 8-12, capes 6-9, outfits 7-9, weapon skins 7-10), NEW ribbon (Stats.STORE_NEW), firefly particles on the Legendary crown and mantle. Not yet in a delivered build (next beta).
