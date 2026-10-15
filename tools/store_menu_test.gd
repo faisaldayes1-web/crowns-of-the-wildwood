@@ -109,7 +109,7 @@ func _init() -> void:
 		for b in range(a + 1, tiles.size()):
 			if tiles[a][0].grow(-1).intersects(tiles[b][0].grow(-1)):
 				overlap += 1
-	var inside := tiles.all(func(b): return b[0].end.y <= 596.0)
+	var inside := tiles.all(func(b): return b[0].end.y <= 590.0)
 	check(tiles.size() > 40 and overlap == 0 and inside, "ARMOR tab: %d tiles, none overlap, all above CONFIRM" % tiles.size())
 	m.char_tab = 1
 	await frames(3)
