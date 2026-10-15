@@ -2,13 +2,13 @@
 
 Faisal's brief 2026-10-14 11:00 and style guide 11:10. Spec: [../visual/style-spec.md](../visual/style-spec.md).
 
-### 2026-10-15 · `HASH` · Flicker pass (beta feedback)
+### 2026-10-15 · `fada3c5` · Flicker pass (beta feedback)
 
 - **What:** Faisal's beta note "there is a green flag texture error, try to do a pass and fix all flashing stutter texture errors". The green and blue base tapestries had their cloth face exactly in the plane of the wall panel behind them, so the two fought and flashed as the camera moved. A new `_unfight_coplanar()` pass runs once after the match world is built and separates every visible pair of different-material faces that share a plane: thin cloths, trims and rugs step 6 mm out; thicker blocks pull only the shared face 6 mm back. It repeats on the moved world (up to four rounds) so no move creates a new pair. Undersides are skipped (the camera never sees them). Only meshes move; colliders, routes and anchors are untouched.
 - **Files:** scripts/game.gd, tools/zfight_audit.gd (new `--all` lists every pair, not just the top 120)
 - **Tunables:** none (6 mm step, 8 cm thin limit, both in `_unfight_round`)
 - **Tested:** tools/zfight_audit.gd seed 7: Wildwood 357 → 193 pairs, Ember Pass 413 → 199; pairs of different materials (the ones that visibly flash) 132 → 0 on Wildwood and Moonlit Wildwood, 189 → 0 on Ember Pass (`--all`; what is left is same-material pieces and the gate HP bars, which draw on top by design). World fingerprints identical to the beta on all three maps; full test suite passes; Forward+ renders of both bases and both flags.
-- **Revert:** `git revert HASH`
+- **Revert:** `git revert fada3c5`
 
 ### 2026-10-14 · `1c16c1a` · Deeper river shallows
 
