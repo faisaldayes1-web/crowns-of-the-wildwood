@@ -105,6 +105,8 @@ func _not_touch(event: InputEvent) -> bool:
 		return event.device != InputEvent.DEVICE_ID_EMULATION and event.relative.length() > 6.0 and stick_id < 0 and aim_id < 0
 	if event is InputEventJoypadButton:
 		return event.pressed
+	if event is InputEventJoypadMotion:
+		return absf(event.axis_value) > 0.6
 	return false
 
 
