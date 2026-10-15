@@ -227,6 +227,74 @@ static func _hat(att: Node3D, style: String, outline: Material) -> void:
 				_add(att, _cyl(0.0, 0.05, 0.16, 6), gold, Vector3(cos(a) * 0.45, 0.76, sin(a) * 0.45))
 			var gem := _mat(Color(0.2, 0.75, 0.4), null, 1.2)
 			_add(att, _ball(0.08, 8), gem, Vector3(0, 0.7, 0.48))
+		# The Wildwood collection: soft, rounded storybook shapes in the
+		# overhaul's warm foliage and autumn ramps.
+		"acorn":
+			var cup := SphereMesh.new()
+			cup.radius = 0.53
+			cup.height = 0.6
+			cup.is_hemisphere = true
+			cup.radial_segments = 16
+			cup.rings = 6
+			_add(att, cup, _mat(Color(0.56, 0.37, 0.2), outline), Vector3(0, 0.6, 0))
+			# Scaly rows of the cup.
+			var scale_mat := _mat(Color(0.45, 0.28, 0.15), null)
+			for row in 2:
+				for k in 12:
+					var a := TAU * (k + row * 0.5) / 12.0
+					var rr := 0.5 - row * 0.12
+					_add(att, _ball(0.08, 5), scale_mat, Vector3(cos(a) * rr, 0.66 + row * 0.16, sin(a) * rr), Vector3.ZERO, Vector3(1, 0.6, 1))
+			_add(att, _cyl(0.035, 0.06, 0.22, 6), _mat(Color(0.4, 0.26, 0.14), outline), Vector3(0.04, 1.0, 0), Vector3(0, 0, -0.35))
+			_add(att, _ball(0.12, 6), _mat(Color(0.48, 0.72, 0.3), outline), Vector3(0.2, 0.98, 0.05), Vector3(0, 0.4, -0.9), Vector3(1.0, 0.25, 0.55))
+		"toadstool":
+			var red := _mat(Color(0.86, 0.2, 0.15), outline)
+			_add(att, _ball(0.62, 14), red, Vector3(0, 0.84, 0), Vector3.ZERO, Vector3(1, 0.55, 1))
+			_add(att, _cyl(0.56, 0.5, 0.06, 16), _mat(Color(0.98, 0.9, 0.76), null), Vector3(0, 0.66, 0))
+			var spot := _mat(Color(1.0, 0.97, 0.9), null)
+			var spots := [Vector2(0, 0.0), Vector2(0.5, 0.9), Vector2(2.1, 0.8), Vector2(3.6, 0.85), Vector2(5.0, 0.75), Vector2(1.3, 0.45), Vector2(4.2, 0.45)]
+			for sp in spots:
+				var ang: float = sp.x
+				var lat: float = sp.y   # 0 top, 1 rim
+				var dir := Vector3(cos(ang) * sin(lat * 1.35), cos(lat * 1.35), sin(ang) * sin(lat * 1.35))
+				var pos := Vector3(dir.x * 0.62, 0.84 + dir.y * 0.34, dir.z * 0.62)
+				_add(att, _ball(0.07 + 0.03 * (1.0 - lat), 6), spot, pos, Vector3.ZERO, Vector3(1, 0.5, 1))
+		"autumn":
+			# A gilded band with a ring of autumn leaves standing up.
+			_add(att, _torus(0.42, 0.48), _metal(GOLD, outline), Vector3(0, 0.66, 0), Vector3(0.08, 0, 0))
+			var cols := [Color(0.95, 0.45, 0.12), Color(0.85, 0.22, 0.12), Color(1.0, 0.75, 0.2)]
+			for k in 11:
+				var a := TAU * k / 11.0
+				var p := Vector3(cos(a) * 0.47, 0.82, sin(a) * 0.47)
+				_add(att, _ball(0.12, 6), _mat(cols[k % 3], outline if k % 2 == 0 else null, 0.25), p, Vector3(0, -a, 0.25), Vector3(0.3, 1.5, 0.75))
+			_add(att, _ball(0.07, 8), _mat(Color(0.9, 0.2, 0.15), null, 1.0), Vector3(0, 0.7, 0.49))
+		"antlers":
+			var bark := _mat(Color(0.6, 0.42, 0.26), outline)
+			_add(att, _torus(0.42, 0.49), bark, Vector3(0, 0.66, 0), Vector3(0.08, 0, 0))
+			for sx in [-1.0, 1.0]:
+				var root := Node3D.new()
+				root.position = Vector3(sx * 0.36, 0.72, -0.05)
+				root.rotation = Vector3(-0.15, 0, -sx * 0.45)
+				att.add_child(root)
+				_add(root, _cyl(0.035, 0.06, 0.6, 6), bark, Vector3(0, 0.3, 0))
+				_add(root, _cyl(0.025, 0.045, 0.32, 6), bark, Vector3(sx * 0.12, 0.42, 0.02), Vector3(0, 0, -sx * 0.7))
+				_add(root, _cyl(0.02, 0.04, 0.28, 6), bark, Vector3(-sx * 0.08, 0.6, 0), Vector3(0, 0, sx * 0.55))
+				_add(root, _cyl(0.02, 0.035, 0.22, 6), bark, Vector3(sx * 0.02, 0.68, 0), Vector3(0.2, 0, -sx * 0.2))
+				_add(root, _ball(0.1, 6), _mat(Color(0.5, 0.76, 0.3), null), Vector3(sx * 0.2, 0.55, 0.04), Vector3(0, 0, sx * 0.8), Vector3(1, 0.3, 0.6))
+			for k in 3:
+				_add(att, _ball(0.055, 6), _mat(Color(0.85, 0.12, 0.15), null, 0.4), Vector3(-0.12 + k * 0.12, 0.7, 0.47))
+		"sovereign":
+			# The legendary crown: tall gilded leaf points, a river-blue heart
+			# stone and fireflies circling it.
+			var gold := _metal(GOLD, outline)
+			_add(att, _cyl(0.5, 0.46, 0.16, 18), gold, Vector3(0, 0.7, 0))
+			for k in 8:
+				var a := TAU * k / 8.0
+				var tall := 1.6 if k % 2 == 0 else 1.15
+				_add(att, _ball(0.12, 6), gold, Vector3(cos(a) * 0.47, 0.84 + 0.06 * tall, sin(a) * 0.47), Vector3(0, -a, 0.15), Vector3(0.35, tall, 0.8))
+			_add(att, _ball(0.11, 10), _mat(Color(0.3, 0.7, 1.0), null, 2.0), Vector3(0, 0.74, 0.5))
+			for sx in [-1.0, 1.0]:
+				_add(att, _ball(0.06, 8), _mat(Color(0.35, 0.85, 0.4), null, 1.2), Vector3(sx * 0.36, 0.74, 0.35))
+			att.add_child(_fireflies(Vector3(0, 1.0, 0), 0.6, 8))
 
 
 # --- Capes and the long scarf (model space; the back is -Z) -------------------------------
@@ -275,9 +343,13 @@ static func _cape(body: Node3D, style: String, cloth: Color, outline: Material) 
 		"leaf": col = Color(0.27, 0.55, 0.25)
 		"royal": col = cloth if cloth.s > 0.25 else Color(0.62, 0.1, 0.16)
 		"ember": col = Color(0.35, 0.08, 0.06)
+		"moss": col = Color(0.32, 0.5, 0.24)
+		"autumn": col = Color(0.74, 0.32, 0.12)
+		"river": col = Color(0.18, 0.42, 0.82)
+		"firefly": col = Color(0.08, 0.17, 0.22)
 	var mat := _mat(col, outline)
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var long := 1.05 if style == "royal" else 0.95
+	var long: float = {"royal": 1.05, "firefly": 1.08, "moss": 0.72}.get(style, 0.95)
 	var root := Node3D.new()
 	root.position = Vector3(0, 1.12, -0.26)
 	body.add_child(root)
@@ -319,6 +391,53 @@ static func _cape(body: Node3D, style: String, cloth: Color, outline: Material) 
 			sparks.material_override = _mat(Color(1.0, 0.6, 0.15), null, 3.0)
 			sparks.position = Vector3(0, -long, -0.45)
 			root.add_child(sparks)
+		"moss":
+			# Soft moss tufts along the hem and round the collar.
+			var greens := [Color(0.42, 0.66, 0.28), Color(0.55, 0.75, 0.3), Color(0.3, 0.52, 0.22)]
+			for k in 9:
+				var u := (k / 8.0) * 2.0 - 1.0
+				_add(root, _ball(0.09, 6), _mat(greens[k % 3], null), _on_cloth(u, 1.0, long) + Vector3(0, 0.02, 0), Vector3.ZERO, Vector3(1.1, 0.8, 0.8))
+			_add(root, _torus(0.2, 0.32), _mat(greens[0], outline), Vector3(0, 0.03, 0.12), Vector3.ZERO, Vector3(1.1, 0.9, 0.9))
+		"autumn":
+			# A hem of falling leaves in the autumn ramp.
+			var cols := [Color(1.0, 0.72, 0.2), Color(0.95, 0.45, 0.12), Color(0.8, 0.2, 0.12)]
+			for k in 9:
+				var u := (k / 8.0) * 2.0 - 1.0
+				_add(root, _ball(0.11, 6), _mat(cols[k % 3], outline if k % 2 == 0 else null), _on_cloth(u, 1.0, long) + Vector3(0, -0.04, -0.02), Vector3(0.3, 0, u * 0.6 + 0.3 * (k % 2)), Vector3(0.75, 1.3, 0.25))
+			for k in 4:
+				_add(root, _ball(0.08, 6), _mat(cols[(k + 1) % 3], null), _on_cloth(-0.6 + k * 0.4, 0.55 + 0.12 * (k % 2), long), Vector3(0.3, 0, k), Vector3(0.7, 1.2, 0.25))
+			_add(root, _ball(0.08, 6), _mat(Color(1.0, 0.72, 0.2), null), Vector3(0, -0.02, 0.2), Vector3.ZERO, Vector3(1.2, 1.2, 0.5))
+		"river":
+			# A shimmering wave hem and foam flecks, like the overhaul's river.
+			var hem := _cloth_mesh(0.95, 0.97, 0.12, 0.12, 0.22)
+			var hem_root := Node3D.new()
+			hem_root.position = Vector3(0, -long + 0.08, -0.215)
+			root.add_child(hem_root)
+			var wave := _mat(Color(0.45, 0.8, 1.0), null, 1.2)
+			wave.cull_mode = BaseMaterial3D.CULL_DISABLED
+			_add(hem_root, hem, wave, Vector3.ZERO)
+			var foam := _mat(Color(0.92, 0.97, 1.0), null, 0.6)
+			for k in 7:
+				var u := (k / 6.0) * 2.0 - 1.0
+				_add(root, _ball(0.05, 6), foam, _on_cloth(u, 0.8 - 0.06 * (k % 2), long), Vector3.ZERO, Vector3(1.4, 0.7, 0.6))
+		"firefly":
+			# Night cloth sewn with glowing motes, a gilded leaf clasp, and
+			# fireflies drifting off it.
+			var hem := _cloth_mesh(0.95, 0.97, 0.08, 0.12, 0.22)
+			var hem_root := Node3D.new()
+			hem_root.position = Vector3(0, -long + 0.05, -0.215)
+			root.add_child(hem_root)
+			var gm := _metal(GOLD, null)
+			gm.cull_mode = BaseMaterial3D.CULL_DISABLED
+			_add(hem_root, hem, gm, Vector3.ZERO)
+			var glow := _mat(Color(0.8, 1.0, 0.45), null, 2.5)
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 11
+			for k in 16:
+				_add(root, _ball(0.028 + rng.randf() * 0.02, 5), glow, _on_cloth(rng.randf_range(-0.85, 0.85), rng.randf_range(0.12, 0.88), long))
+			_add(root, _ball(0.1, 6), _metal(GOLD, outline), Vector3(0, -0.02, 0.2), Vector3(0, 0, 0.6), Vector3(1.4, 0.7, 0.4))
+			var ff := _fireflies(Vector3(0, -long * 0.5, -0.4), 0.55, 10)
+			root.add_child(ff)
 		"leaf":
 			var leaf := _mat(Color(0.42, 0.75, 0.32), outline)
 			for k in 7:
@@ -326,6 +445,41 @@ static func _cape(body: Node3D, style: String, cloth: Color, outline: Material) 
 				var p := Vector3(u * 0.46, -long - 0.02, -0.12 * (1.0 - u * u) - 0.22)
 				_add(root, _ball(0.1, 6), leaf, p, Vector3(0.3, 0, u * 0.4), Vector3(0.7, 1.4, 0.25))
 			_add(root, _torus(0.2, 0.3), leaf, Vector3(0, 0.03, 0.12), Vector3.ZERO, Vector3(1.1, 0.8, 0.9))
+
+
+static func _on_cloth(u: float, v: float, long: float) -> Vector3:
+	## A point just outside the cape sheet (_cloth_mesh(0.62, 0.95, long, 0.12,
+	## 0.22)): u -1..1 across, v 0 (collar) .. 1 (hem).
+	var w := lerpf(0.62, 0.95, v)
+	return Vector3(u * w / 2.0, -long * v, -0.12 * (1.0 - u * u) - 0.22 * v * v - 0.03)
+
+
+static func _fireflies(pos: Vector3, radius: float, n: int) -> CPUParticles3D:
+	## Warm green-gold fireflies drifting round a point (Legendary Wildwood gear).
+	var p := CPUParticles3D.new()
+	p.name = "Fireflies"
+	p.amount = n
+	p.lifetime = 2.4
+	p.position = pos
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = radius
+	p.direction = Vector3.UP
+	p.spread = 180.0
+	p.gravity = Vector3(0, 0.08, 0)
+	p.initial_velocity_min = 0.05
+	p.initial_velocity_max = 0.2
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.2
+	var fade := Curve.new()
+	fade.add_point(Vector2(0.0, 0.0))
+	fade.add_point(Vector2(0.3, 1.0))
+	fade.add_point(Vector2(0.6, 0.5))
+	fade.add_point(Vector2(0.8, 1.0))
+	fade.add_point(Vector2(1.0, 0.0))
+	p.scale_amount_curve = fade
+	p.mesh = _ball(0.04, 5)
+	p.material_override = _mat(Color(0.85, 1.0, 0.45), null, 3.0)
+	return p
 
 
 static func _scarf(body: Node3D, cloth: Color, outline: Material) -> void:

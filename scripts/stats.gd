@@ -200,16 +200,22 @@ const MATCH_SHARDS := {"win": 25, "draw": 20, "loss": 15}
 # hang on every class in the trim colour; armour tints recolour the metal
 # plates; weapon skins recolour the held weapons. Colour TRANSPARENT = none.
 const HERO_HATS := [["None", ""], ["Feathered Cap", "cap"], ["Straw Hat", "straw"], ["Leaf Circlet", "circlet"],
-	["Flower Crown", "flowers"], ["Wizard Hat", "wizard"], ["Horned Helm", "horns"], ["Golden Circlet", "gold"]]
+	["Flower Crown", "flowers"], ["Wizard Hat", "wizard"], ["Horned Helm", "horns"], ["Golden Circlet", "gold"],
+	["Acorn Cap", "acorn"], ["Toadstool", "toadstool"], ["Autumn Crown", "autumn"], ["Stag Antlers", "antlers"],
+	["Wildwood Sovereign", "sovereign"]]
 const HERO_CAPES := [["None", ""], ["Long Scarf", "scarf"], ["Traveller's Cape", "cape"], ["Leaf Cloak", "leaf"],
-	["Royal Mantle", "royal"], ["Ember Mantle", "ember"]]
+	["Royal Mantle", "royal"], ["Ember Mantle", "ember"],
+	["Moss Shawl", "moss"], ["Autumn Cloak", "autumn"], ["Riverweave Cape", "river"], ["Firefly Mantle", "firefly"]]
 # [name, metal colour, glow energy]
 const HERO_OUTFITS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.8, 0.5, 0.25), 0.0], ["Verdant", Color(0.35, 0.7, 0.4), 0.0],
 	["Crimson", Color(0.8, 0.2, 0.2), 0.0], ["Gilded", Color(1.0, 0.8, 0.3), 0.0], ["Frost", Color(0.65, 0.88, 1.0), 0.25],
-	["Obsidian", Color(0.28, 0.22, 0.36), 0.15]]
+	["Obsidian", Color(0.28, 0.22, 0.36), 0.15],
+	["Mossy", Color(0.45, 0.62, 0.3), 0.0], ["Riverstone", Color(0.4, 0.62, 0.9), 0.0], ["Autumn Leaf", Color(0.95, 0.55, 0.2), 0.15]]
 const WEAPON_SKINS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.85, 0.55, 0.3), 0.0], ["Wildwood", Color(0.45, 0.8, 0.4), 0.0],
 	["Gilded", Color(1.0, 0.82, 0.3), 0.0], ["Frostbite", Color(0.6, 0.9, 1.0), 0.3], ["Ember", Color(1.0, 0.5, 0.15), 0.35],
-	["Shadow", Color(0.45, 0.3, 0.7), 0.3]]
+	["Shadow", Color(0.45, 0.3, 0.7), 0.3],
+	["Oakheart", Color(0.66, 0.45, 0.26), 0.0], ["Riverglass", Color(0.35, 0.7, 1.0), 0.2], ["Autumn Gold", Color(1.0, 0.62, 0.2), 0.3],
+	["Firefly", Color(0.75, 1.0, 0.45), 0.5]]
 # Rarities: [name, colour, price in gold, chest weight].
 const RARITIES := {"common": ["Common", Color(0.78, 0.8, 0.82), 300, 60], "rare": ["Rare", Color(0.35, 0.65, 1.0), 600, 28],
 	"epic": ["Epic", Color(0.72, 0.4, 1.0), 1200, 10], "legendary": ["Legendary", Color(1.0, 0.7, 0.2), 2500, 2]}
@@ -224,6 +230,11 @@ const STORE_ITEMS := [
 	["trim", 6, "common"], ["trim", 7, "common"], ["trim", 8, "common"], ["trim", 9, "rare"], ["trim", 10, "rare"], ["trim", 11, "epic"],
 	["hat", 1, "common"], ["hat", 2, "common"], ["hat", 3, "rare"], ["hat", 4, "rare"], ["hat", 5, "epic"], ["hat", 6, "epic"], ["hat", 7, "legendary"],
 	["weapon", 1, "common"], ["weapon", 2, "rare"], ["weapon", 3, "rare"], ["weapon", 4, "epic"], ["weapon", 5, "epic"], ["weapon", 6, "legendary"],
+	# The Wildwood collection (2026-10-15), in the world overhaul's storybook look.
+	["hat", 8, "common"], ["hat", 9, "rare"], ["hat", 10, "epic"], ["hat", 11, "epic"], ["hat", 12, "legendary"],
+	["cape", 6, "common"], ["cape", 7, "rare"], ["cape", 8, "epic"], ["cape", 9, "legendary"],
+	["outfit", 7, "common"], ["outfit", 8, "rare"], ["outfit", 9, "epic"],
+	["weapon", 7, "common"], ["weapon", 8, "rare"], ["weapon", 9, "epic"], ["weapon", 10, "legendary"],
 	["banner_bg", 8, "rare"], ["banner_bg", 9, "rare"], ["banner_bg", 10, "common"], ["banner_bg", 11, "common"], ["banner_bg", 12, "common"],
 	["banner_bg", 13, "rare"], ["banner_bg", 14, "common"], ["banner_bg", 15, "common"], ["banner_bg", 16, "common"], ["banner_bg", 17, "rare"],
 	["banner_bg", 18, "rare"], ["banner_bg", 19, "epic"], ["banner_bg", 20, "epic"], ["banner_bg", 21, "epic"], ["banner_bg", 22, "epic"],
@@ -238,6 +249,9 @@ const STORE_ITEMS := [
 	["banner_frame", 5, "rare"], ["banner_frame", 6, "rare"], ["banner_frame", 7, "epic"], ["banner_frame", 8, "common"], ["banner_frame", 9, "rare"],
 	["banner_frame", 10, "rare"], ["banner_frame", 11, "epic"], ["banner_frame", 12, "epic"], ["banner_frame", 13, "legendary"], ["banner_frame", 14, "legendary"],
 	["banner_frame", 15, "legendary"]]
+# Items the STORE marks NEW ("kind:index").
+const STORE_NEW := ["hat:8", "hat:9", "hat:10", "hat:11", "hat:12", "cape:6", "cape:7", "cape:8", "cape:9",
+	"outfit:7", "outfit:8", "outfit:9", "weapon:7", "weapon:8", "weapon:9", "weapon:10"]
 # Opening a Match Chest gives one item you do not own yet, picked by rarity
 # weight; with everything owned it pays CHEST_GOLD instead.
 const CHEST_GOLD := 150
