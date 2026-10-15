@@ -41,6 +41,9 @@ func _init() -> void:
 		"solo lobby shows you, an ally bot and the enemy bots")
 	m._press("side", [0, 1])
 	check(game.lobby_sides[0] == 1, "player 1 switches to the Humans")
+	if Input.get_connected_joypads().is_empty():
+		m.add_player(-1)
+		check(game.couch_players == 1, "clicking JOIN with no free controller adds nobody (one keyboard player only)")
 	m.add_player(3)
 	check(game.couch_players == 2 and game.split_screen and m.join_pads == [3], "a pad joins as player 2")
 	m._press("split_layout", "horizontal")
@@ -59,11 +62,27 @@ func _init() -> void:
 	check(game.menu_stage == null, "the menu stage is gone")
 	check(game.couch_active and not game.camera.current, "the split panes have the cameras (current=%s)" % game.camera.current)
 	if game.couch_active:
-		var b0: Control = game.panes[0].box
-		var b1: Control = game.panes[1].box
-		check(b0.anchor_bottom == 0.5 and b1.anchor_top == 0.5 and b1.anchor_left == 0.0, "horizontal split: player 1 on top, player 2 below")
+		var r0: Rect2 = game.panes[0].rect
+		var r1: Rect2 = game.panes[1].rect
+		check(r0.position.y == 0.0 and r1.position.y > r0.end.y - 1.0 and r1.position.x == 0.0, "horizontal split: player 1 on top, player 2 below (%s, %s)" % [r0, r1])
 		game.set_split_layout("vertical")
-		check(b0.anchor_right == 0.5 and b1.anchor_left == 0.5 and b1.anchor_top == 0.0, "vertical split (switched mid-match): side by side")
+		r0 = game.panes[0].rect
+		r1 = game.panes[1].rect
+		check(r1.position.x > r0.end.x - 1.0 and r1.position.y == 0.0, "vertical split (switched mid-match): side by side (%s, %s)" % [r0, r1])
+		check(game.panes[0].box.get_global_rect().size.x * game.panes[0].box.scale.x > 0.0, "the panes are drawn")
+		# Each device drives one player: player 2's pad (3) is not bound to
+		# player 1's actions, which would otherwise answer to every pad.
+		var shared := false
+		for action in ["move_left", "attack", "aim_right", "dodge"]:
+			for ev in InputMap.action_get_events(action):
+				if (ev is InputEventJoypadButton or ev is InputEventJoypadMotion) and (ev.device == -1 or ev.device == 3):
+					shared = true
+		check(not shared, "player 2's controller does not drive player 1")
+		var own := false
+		for ev in InputMap.action_get_events("p2_move_left"):
+			if ev is InputEventJoypadMotion and ev.device == 3:
+				own = true
+		check(own, "player 2's controller drives player 2")
 		# Player 1 aims with the mouse inside their own (left) pane; the
 		# cursor over player 2's pane is held to player 1's edge.
 		check(game.locals[0].has_mouse and not game.locals[1].has_mouse, "player 1 has the keyboard and mouse, player 2 the pad")

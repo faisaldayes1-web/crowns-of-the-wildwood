@@ -252,6 +252,7 @@ const SPLIT_HUD_ROWS := 260.0   # those two rows' height in HUD units
 const SPLIT_HUD_WIDTH := 1240.0 # HUD units the bottom row needs across
 var rank_player = null          # whose perk menu is open
 const COUCH_MAX := 4
+const NO_PAD := 99              # a pad device id nothing uses: binds an action to no gamepad
 const COUCH_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "aim_left", "aim_right", "aim_up", "aim_down",
 	"attack", "block", "ability_1", "ability_2", "ability_3", "dodge", "interact", "rank_menu", "rank_1", "rank_2", "rank_3", "rank_4", "rank_5", "rank_6"]
 
@@ -2373,7 +2374,7 @@ func mouse_for(u) -> Vector2:
 	if couch_active:
 		for pane in panes:
 			if pane.unit == u:
-				var r: Rect2 = pane.box.get_global_rect()
+				var r: Rect2 = pane.rect
 				if r.size.x <= 0.0 or r.size.y <= 0.0:
 					break
 				var local: Vector2 = (get_viewport().get_mouse_position() - r.position) / r.size
@@ -2782,10 +2783,15 @@ func _bind_couch_input() -> void:
 					p1_pad = d
 					break
 	bound_pads = [p1_pad] + pads
+	# Every device drives exactly one player (Faisal 2026-10-15). Device -1
+	# means "any pad" to Godot, so a player 1 with no pad of their own gets
+	# a device no pad has (NO_PAD); otherwise player 2's controller would
+	# move and aim player 1 too. Alone, player 1 answers to any pad again.
+	var p1_device: int = p1_pad if p1_pad >= 0 or couch_players <= 1 else NO_PAD
 	for action in COUCH_ACTIONS:
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
-				ev.device = p1_pad
+				ev.device = p1_device
 		for k in range(2, COUCH_MAX + 1):
 			var pa := StringName("p%d_%s" % [k, action])
 			if InputMap.has_action(pa):
@@ -2830,7 +2836,7 @@ func _build_panes() -> void:
 		h.pane = true
 		h.process_mode = Node.PROCESS_MODE_ALWAYS
 		view.add_child(h)
-		var pane := {"unit": u, "box": box, "view": view, "cam": cam, "hud": h, "hud_scale": 1.0, "zoom": 1.0, "cam_pos": u.global_position}
+		var pane := {"unit": u, "box": box, "view": view, "cam": cam, "hud": h, "hud_scale": 1.0, "zoom": 1.0, "cam_pos": u.global_position, "rect": Rect2()}
 		panes.append(pane)
 		view.size_changed.connect(func(): h.size = Vector2(view.size) / pane.hud_scale)
 	if couch_players == 3:
@@ -2843,6 +2849,7 @@ func _build_panes() -> void:
 		split_fill.anchor_bottom = 1.0
 		split_layer.add_child(split_fill)
 	_layout_panes()
+	get_viewport().size_changed.connect(_on_window_resized)   # window resized or fullscreen
 	for pane in panes:
 		pane.cam_pos = pane.unit.global_position + CAMERA_OFFSET * cam_zoom * pane.zoom
 		pane.cam.global_position = pane.cam_pos
@@ -2869,14 +2876,26 @@ func _layout_panes() -> void:
 		var pane: Dictionary = panes[k]
 		var r: Rect2 = rects[k]
 		var box: SubViewportContainer = pane.box
-		box.anchor_left = r.position.x
-		box.anchor_top = r.position.y
-		box.anchor_right = r.end.x
-		box.anchor_bottom = r.end.y
-		box.offset_left = 2 if r.position.x > 0.0 else 0
-		box.offset_top = 2 if r.position.y > 0.0 else 0
-		box.offset_right = -2 if r.end.x < 1.0 else 0
-		box.offset_bottom = -2 if r.end.y < 1.0 else 0
+		# The pane in canvas units, with a 2-unit seam between panes.
+		var canvas := get_viewport().get_visible_rect().size
+		var area := Rect2(r.position * canvas, r.size * canvas)
+		area.position.x += 2.0 if r.position.x > 0.0 else 0.0
+		area.position.y += 2.0 if r.position.y > 0.0 else 0.0
+		area.end = Vector2(area.end.x - (2.0 if r.end.x < 1.0 else 0.0), area.end.y - (2.0 if r.end.y < 1.0 else 0.0))
+		pane.rect = area
+		# Render at the window's own pixels (Faisal 2026-10-15: "the visual
+		# downgrade when going to split screen is too much"). The canvas is
+		# 1280x720 stretched to the window, and a stretched SubViewport took
+		# that canvas size, so a 1080p pane drew 1.5x fewer pixels each way
+		# (2x at 1440p) and was blown up blurry. The box is now sized in
+		# window pixels and scaled back down by the same factor.
+		var px_scale := _pane_pixel_scale()
+		box.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		box.scale = Vector2.ONE / px_scale
+		box.position = area.position
+		box.size = area.size * px_scale
+		pane.view.scaling_3d_scale = get_viewport().scaling_3d_scale
+		pane.view.scaling_3d_mode = get_viewport().scaling_3d_mode
 		var tall := r.size.y > r.size.x * 1.2
 		# Keep the game view in charge (Faisal 2026-10-10: the split-screen
 		# HUD must not take up most of the screen): the top bar and the
@@ -2885,8 +2904,24 @@ func _layout_panes() -> void:
 		var px: Vector2 = get_viewport().get_visible_rect().size * r.size
 		pane.hud_scale = clampf(minf(px.y * SPLIT_HUD_SHARE / SPLIT_HUD_ROWS, px.x / SPLIT_HUD_WIDTH), 0.4, 0.72)
 		pane.zoom = SPLIT_TALL_ZOOM if tall else 1.0
+		pane.hud_scale *= px_scale   # the pane's pixels are px_scale finer than canvas units
 		pane.hud.scale = Vector2.ONE * pane.hud_scale
 		pane.hud.size = Vector2(pane.view.size) / pane.hud_scale
+
+
+func _on_window_resized() -> void:
+	if couch_active:
+		_layout_panes()
+
+
+func _pane_pixel_scale() -> float:
+	## Window pixels per canvas unit (1.5 for a 1080p window on the 1280x720
+	## canvas); 1 when there is no real window (headless tests).
+	var canvas := get_viewport().get_visible_rect().size
+	var win := Vector2(get_window().size)
+	if DisplayServer.get_name() == "headless" or canvas.x <= 0.0 or win.x <= 0.0:
+		return 1.0
+	return clampf(minf(win.x / canvas.x, win.y / canvas.y), 0.5, 4.0)
 
 
 func set_split_layout(layout: String) -> void:
@@ -9960,6 +9995,8 @@ func apply_graphics() -> void:
 	for pane in panes:
 		pane.view.msaa_3d = vp.msaa_3d
 		pane.view.screen_space_aa = vp.screen_space_aa
+		pane.view.scaling_3d_scale = vp.scaling_3d_scale
+		pane.view.scaling_3d_mode = vp.scaling_3d_mode
 	if DisplayServer.get_name() != "headless":
 		# Only switch when the setting disagrees with the window: a maximized
 		# window is not "windowed", and forcing WINDOWED on every call (match
