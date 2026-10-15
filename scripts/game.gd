@@ -10387,6 +10387,121 @@ func _finish_world() -> void:
 		# candles, pebbles and bolts under 0.3 m throw shadows no one sees
 		# from the gameplay camera, and each is a draw in every sun cascade.
 		_trim_web_shadows(0.3)
+	_unfight_coplanar()
+
+
+func _unfight_coplanar() -> void:
+	## Z-fighting pass (beta feedback 2026-10-15: "green flag texture error",
+	## flashing textures): two visible faces of different materials in the
+	## same plane flicker as the camera moves. The same check as
+	## tools/zfight_audit.gd, on the built world; for each such pair the
+	## piece with the smaller face moves: a cloth, trim or rug (no more than
+	## 8 cm through the shared face) steps 6 mm out in front of what it lies
+	## on; anything deeper pulls just that face 6 mm back, its other faces
+	## staying put, so no new pair appears at its far side. Only meshes
+	## move, never their colliders (a block's StaticBody3D and shape stay
+	## where they were built). A move can land a piece on a third face, so
+	## the check runs again on the moved world, up to four rounds.
+	var total := 0
+	for _pass in 4:
+		var n := _unfight_round()
+		total += n
+		if n == 0:
+			break
+	if "--audit" in OS.get_cmdline_user_args():
+		print("UNFIGHT moved %d faces" % total)
+
+
+func _unfight_round() -> int:
+	var moved := {}
+	var faces := {}
+	for mi in find_children("*", "MeshInstance3D", true, false):
+		if not mi.is_visible_in_tree() or not (mi.mesh is BoxMesh or mi.mesh is QuadMesh or mi.mesh is PlaneMesh or mi.mesh is CylinderMesh):
+			continue
+		var mat: Material = mi.material_override
+		if mat is BaseMaterial3D and mat.no_depth_test:
+			continue   # health bars and labels draw on top by design
+		var t: Transform3D = mi.global_transform
+		var half: Vector3
+		var normals: Array
+		if mi.mesh is BoxMesh:
+			half = mi.mesh.size / 2.0
+			normals = [Vector3.RIGHT, Vector3.LEFT, Vector3.UP, Vector3.BACK, Vector3.FORWARD]   # undersides never show
+		elif mi.mesh is QuadMesh:
+			half = Vector3(mi.mesh.size.x / 2.0, mi.mesh.size.y / 2.0, 0.0)
+			normals = [Vector3.BACK]
+		elif mi.mesh is PlaneMesh:
+			half = Vector3(mi.mesh.size.x / 2.0, 0.0, mi.mesh.size.y / 2.0)
+			normals = [Vector3.UP]
+		else:
+			# A cylinder's top cap, as the square inside it (like the audit).
+			var r: float = mi.mesh.top_radius * 0.7
+			half = Vector3(r, mi.mesh.height / 2.0, r)
+			normals = [Vector3.UP]
+		for nl in normals:
+			var depth: float = (nl.abs() * half * 2.0 * t.basis.get_scale()).length()   # through the face
+			var wn: Vector3 = (t.basis * nl).normalized()
+			var axis := -1
+			for a in 3:
+				if absf(wn[a]) > 0.999:
+					axis = a
+			if axis < 0:
+				continue
+			var lo := Vector3(INF, INF, INF)
+			var hi := -lo
+			for sx in [-1.0, 1.0]:
+				for sy in [-1.0, 1.0]:
+					for sz in [-1.0, 1.0]:
+						var c := Vector3(sx * half.x, sy * half.y, sz * half.z)
+						for k in 3:
+							if nl[k] != 0.0:
+								c[k] = nl[k] * half[k]
+						var wp: Vector3 = t * c
+						lo = lo.min(wp)
+						hi = hi.max(wp)
+			var plane: float = (lo[axis] + hi[axis]) / 2.0
+			var u := (axis + 1) % 3
+			var w := (axis + 2) % 3
+			var key := "%d|%d|%d" % [axis, signi(int(signf(wn[axis]))), floori(plane / 0.01)]
+			if not faces.has(key):
+				faces[key] = []
+			faces[key].append([plane, Rect2(Vector2(lo[u], lo[w]), Vector2(hi[u] - lo[u], hi[w] - lo[w])), mi, wn, depth, nl])
+	for key in faces:
+		var list: Array = faces[key]
+		var parts: PackedStringArray = key.split("|")
+		var other: Array = faces.get("%s|%s|%d" % [parts[0], parts[1], int(parts[2]) + 1], [])
+		for i in list.size():
+			for j in range(i + 1, list.size() + other.size()):
+				var a: Array = list[i]
+				var b: Array = list[j] if j < list.size() else other[j - list.size()]
+				var ka := "%d|%s|%s" % [a[2].get_instance_id(), parts[0], parts[1]]
+				var kb := "%d|%s|%s" % [b[2].get_instance_id(), parts[0], parts[1]]
+				if a[2] == b[2] or absf(a[0] - b[0]) > 0.003 or moved.has(ka) or moved.has(kb):
+					continue
+				if a[1].intersection(b[1]).get_area() < 0.0004 or _same_look(a[2].material_override, b[2].material_override):
+					continue
+				var thin: Array = a if a[1].get_area() <= b[1].get_area() else b
+				var mi: MeshInstance3D = thin[2]
+				if thin[4] <= 0.08:
+					mi.global_position += thin[3] * 0.006
+				elif not mi.mesh is BoxMesh:
+					continue
+				else:
+					# 6 mm off the shared face only: shrink 6 mm along that
+					# local axis and slide 3 mm back, so the far face holds.
+					var nl: Vector3 = thin[5].abs()
+					mi.scale *= Vector3.ONE - nl * (0.006 / nl.dot(mi.mesh.size))
+					mi.global_position -= thin[3] * 0.003
+				moved[ka if thin == a else kb] = true
+	return moved.size()
+
+
+func _same_look(a: Material, b: Material) -> bool:
+	if a == b:
+		return true
+	if a is BaseMaterial3D and b is BaseMaterial3D:
+		return a.albedo_color.is_equal_approx(b.albedo_color) and a.albedo_texture == b.albedo_texture
+	return false
 
 
 func _trim_web_shadows(limit: float = 0.8) -> void:
