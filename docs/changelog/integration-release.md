@@ -4,6 +4,64 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-14 22:40 UTC · Store `4073682` · Player banners for sale, brighter rarity sparkles
+
+- **What:** cherry-picked Store `7ce0768`, `1a376aa` and their changelog commits (both branches): banner cloth, emblems and frames sold by rarity tier with paging and painted thumbnails; bigger, glowier sparkles on worn Legendary gear. `Stats.banner_rarity()` now reads STORE_ITEMS (UI & Art's stopgap BANNER_RARITY table is gone).
+- **Conflicts:** none.
+- **Tested:** full check plus touch_close_test, stuck scan, window modes, split-screen 2 and 4 players.
+- **Revert:** revert the cherry-picks newest first.
+
+### 2026-10-14 22:05 UTC · UI & Art `aa7db47` · Player banners
+
+- **What:** merged Faisal's player banners: 16 painted backgrounds, 29 more emblems, 8 more frames, and rare/epic/legendary looks (Stats.BANNER_RARITY, hud._banner_fx). stats.gd only appends to the BANNER_* lists and adds the rarity table; no gameplay tunables.
+- **Conflicts:** none.
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
+### 2026-10-14 22:00 UTC · Combat & Balance `e53d46c` · Lighter web impacts, block flinch, attack chains
+
+- **What:** cherry-picked Combat entries 28-30 (both branches): lighter impacts on Medium graphics (`8636cf4`), blocked hits play the Block_Hit flinch then the block resumes (`ce8d525`), basic attack chains step through the class's swings in order (`d4e4980`). Animation and VFX only.
+- **Conflicts:** scripts/character_model.gd `attack()` kept the online wrapper (`attack` records for joiners, `_x_attack` plays) with the new chain logic inside `_x_attack`.
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** revert the cherry-picks newest first.
+
+### 2026-10-14 21:55 UTC · Online pause fix `4a78a69` + web menu click fix `1c719b7`
+
+- **What:** cherry-picked (both branches) from PR #19: the corner MENU/map button no longer pauses an online match for every joiner (offline only, like Esc). From the iPad web build thread: menus catch a click pressed and released between two frames (game._input latches left presses; the menu tick treats the latch as a click). This was Faisal's "menus unresponsive at times" on the web; it helps desktop too.
+- **Files:** scripts/game.gd, docs/changelog/*.
+- **Conflicts:** none.
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** revert the cherry-picks newest first.
+
+### 2026-10-14 21:40 UTC · Combat & Balance `163465d` · Heavier hit impacts
+
+- **What:** merged Combat's impacts piece (`a7ec6dd`): punch ring, faction flecks and chips, dust at the victim's feet, knockback skid dust, new hit_thud.wav; particle counts scale with graphics quality (Low skips chips, debris and skid). Visual and sound only.
+- **Conflicts:** scripts/fx.gd `hit()` kept the online wrapper (`hit` records for joiners, `_x_hit` draws) and gave both the new `team` argument; scripts/unit.gd kept the stuck fix's `_unstick(delta)` and added the skid block after it; tests/combat_test.gd runs both `_stuck()` (14) and `_impacts()` (15).
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
+### 2026-10-14 21:25 UTC · Store `8720fc0` + closable iPad menus `3c901cd` (PR #20)
+
+- **What:** merged: Store rarity tiers (tiered store cards, Epic sway / Legendary turntable in the preview, sparkle on worn Epic and Legendary gear; no save format change). Closable iPad menus: a tappable X on every panel (LEVEL UP strip, Veteran Training, action card), one action per tap, and Controls > CONTROL LAYOUT (Auto / Keyboard & Mouse / Controller / Touch, saved as settings/control_layout); Auto no longer shows the touch UI on a touch-screen laptop. New tools/touch_close_test.gd.
+- **Conflicts:** scripts/touch.gd `_down()` with the stuck-players fix: kept its lost-lift `_up(i)` lines, then the layout check and `set_active(true)`.
+- **Tested:** full check plus touch_close_test, stuck scan, split-screen 2 and 4 players.
+- **Revert:** `git revert -m 1 <merge>` (Steam branch) or revert the cherry-picks newest first (alpha).
+
+### 2026-10-14 21:10 UTC · UI & Art `e059d15` · Event banners
+
+- **What:** merged UI & Art `e059d15`: event banners for 18 kinds of match news (first blood, gate broken or rebuilt, overtime, vault, veterans, bounty, fire objective and more), shown one at a time. hud.gd only.
+- **Conflicts:** none.
+- **Tested:** full check (as in the stuck-players entry below).
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
+### 2026-10-14 21:00 UTC · Stuck players `8a2eea9` (PR #19) · Nobody stays stuck
+
+- **What:** merged the "Players getting stuck" fix: finisher releases when the striker falls, body-swept Blink/Shadow Step, wedge safety net, free-spot respawn, bot follow distance (scripts/unit.gd); iPad stick/aim takeover and release on focus loss (scripts/touch.gd); +6 combat checks; tools/stuck_scan.gd. See docs/changelog/stuck-players.md.
+- **Tunables:** new BOT_FOLLOW_MIN 2.0, BOT_FOLLOW_MAX 3.2 (scripts/stats.gd).
+- **Conflicts:** none.
+- **Tested:** full check (import, all group tests, economy, net_smoke, bot matches on both maps, Steam build, both .exe files under wine).
+- **Revert:** `git revert -m 1 <merge>` on each branch.
+
 ### 2026-10-14 18:45 UTC · UI & Art `78c77d5` · Off-centre icons fixed
 
 - **What:** merged UI & Art `78c77d5`: 53 icons re-centred, the ability bar uses halo-free copies (assets/ui/icons_clean), the corner portrait centres on each class's face (hud.gd `_slot_face`, `_medallion`, loader).

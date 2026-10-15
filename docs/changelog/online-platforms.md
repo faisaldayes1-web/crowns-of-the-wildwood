@@ -346,3 +346,8 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Files:** `scripts/game.gd` (`_net_test_tick`, only runs with `--net-test`)
 - **Tunables:** none (test only)
 - **Revert:** `git revert 5423659`
+
+### 2026-10-14 21:40 UTC · 1c719b7 · Menus catch quick clicks (web "unresponsive at times")
+- What: menu clicks were found by polling the left button once a frame, so a click pressed and released inside one slow browser frame was never seen. `game._input` now latches every left press (`click_latched`) and the menu tick treats it as a click. Tested: a same-frame mousedown+mouseup on PLAY did nothing on 35a2315 and opens SELECT MAP with the fix.
+- Files: scripts/game.gd
+- Revert: `git revert 1c719b7`

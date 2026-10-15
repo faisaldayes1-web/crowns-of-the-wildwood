@@ -1139,3 +1139,53 @@ Commit: `4fc4032`. Faisal (18:16, in the World visual overhaul thread): "make su
 Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
 
 Revert: `git revert 4fc4032`.
+
+## 2026-10-14 — Event banners
+
+Commit: `f27555f`. Faisal (20:46): "add more impacts and begin adding more banners". Banners are UI & Art's part of that ask.
+
+- **What changed:** 18 kinds of match news now show as the big cloth-ribbon banner instead of the small notice scroll. `EVENT_BANNERS` lists the notice text each one matches, its title, the line under it, its icon and its mood.
+  - The news: gate broken, gate rebuilt, OVERTIME, FIGHT, team wiped, elite veteran, veteran, bounty claimed, vault open, vault locked, fire claimed, fire lost, blessing, promotion unlocked, hat machine upgraded, turret lost, new item and first blood.
+- **How it works:**
+  - `_event_banner()` checks the front notice against that list. `_banner_kind()` returns "event" at the lowest priority, so it is still one banner at a time.
+  - Each event banner stays up for `EVENT_TIME` = 2.6 s.
+  - `_draw_event_banner()` draws the ribbon at 0.78 × `BANNER_SIZE`. It is gold when the news is good for you or for nobody, and crimson when it is bad for you.
+  - The phase line hides under it, as it does for the other banners.
+- **First blood:** `_watch_first_blood()` sends a notice the first time anyone scores a kill in a match.
+- **Debug render:** `--debug-event="<notice text>"` shows one event banner.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert f27555f`.
+
+## 2026-10-14 — More player banners
+
+Commit: `974445b`. Faisal (20:48): "player banners", replying about "begin adding more banners". He also asked: "for the expensive rare items make them look visually different so it entices sales".
+
+**New banner parts**
+- **Backgrounds:** 16 painted fields, written by the new `tools/make_banner_art.py` to `assets/ui/banners/bg_*.png`. They use the pattern `"painted:<name>"`. `BANNER_BACKGROUNDS` goes from 10 to 26 entries.
+  - Elf: Moonlit Grove, Autumn Leaves, Fae Lights, Thornweave.
+  - Human: Quartered, Chevron, Checky, Stone Keep, Royal Damask.
+  - Rare: Aurora, Crystal, Storm, Shadow, Starfall, Dragonfire, Golden Hoard.
+- **Emblems:** 29 more from the painted icons. `BANNER_EMBLEMS` goes from 18 to 47.
+- **Frames:** 8 more. `BANNER_FRAMES` goes from 8 to 16. They are Bronze, Silverleaf, Thorncrown, Runic, Bloodmoon, Celestial, Dragonscale and Sovereign.
+
+**Rarity**
+- New `Stats.BANNER_RARITY` (index → tier), `Stats.banner_rarity()` and `Stats.RARITY_COLORS`.
+- `hud._banner_fx` draws the rarest part's look:
+  - rare: a light sweep and a ring in the tier colour;
+  - epic: also a pulsing glow and corner gems;
+  - legendary: also a crown crest over the shield, six sparks circling the frame and a faster sweep.
+
+**Banner editor**
+- Swatches wrap into rows, now 22 px (was 26 px).
+- Painted fields show in their swatch.
+- Rare and better parts get a ring in their tier colour.
+
+**Debug render:** `--debug-banner=bg,emblem,frame` previews one banner in the editor.
+
+The store already sells everything past the `*_FREE` indexes. Prices stay with the Cosmetics store.
+
+Tested: options_menu_test, menu_flow_test and store_menu_test all report 0 failures. The demo (seed 5) has no script errors.
+
+Revert: `git revert 974445b`.

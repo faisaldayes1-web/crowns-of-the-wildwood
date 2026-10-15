@@ -259,6 +259,8 @@ var camera: Camera3D
 var hud
 var touch                      # on-screen touch controls (touch.gd), for the web build on tablets
 var touch_active := false      # a finger has touched the screen: aim follows the move stick, not the mouse
+var control_layout := "auto"   # Controls tab (Faisal 2026-10-14: a touch-screen laptop got the iPad layout): "auto", "keyboard", "controller", "touch"
+const CONTROL_LAYOUTS := ["auto", "keyboard", "controller", "touch"]
 var touch_tap := Vector2(-1, -1)  # where a finger tapped a menu this frame (the click polling below would miss a short tap)
 var message_label: Label
 var banner: Label
@@ -284,6 +286,7 @@ var cam_kick := Vector3.ZERO     # directional jolt (kick_cam), springs back to 
 var cam_pos := Vector3.ZERO
 var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
 var click_was := false
+var click_latched := false   # a left press seen by _input since the last menu tick
 var scoreboard_open := false   # held: the match scoreboard overlay
 var debug_score := false
 var chat_open := false
@@ -1429,6 +1432,21 @@ func quit_to_title() -> void:
 	get_tree().reload_current_scene()
 
 
+func apply_control_layout() -> void:
+	## The Controls tab's layout pick. Auto: the touch layout appears only on
+	## a phone or tablet, or after a real finger touches the screen, and goes
+	## away when the mouse or keyboard is used (touch.gd). The others pin it.
+	pad_active = control_layout == "controller" or (pad_active and control_layout == "auto")
+	if touch == null:
+		return
+	if control_layout == "touch":
+		touch.set_active(true)
+	elif control_layout != "auto":
+		touch.set_active(false)
+	elif not touch.active and touch.mobile_device():
+		touch.set_active(true)
+
+
 func toggle_setting(key: String) -> void:
 	match key:
 		"shake": screen_shake = not screen_shake
@@ -1441,6 +1459,9 @@ func toggle_setting(key: String) -> void:
 			if rumble_on:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
 		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
+		"layout_auto", "layout_keyboard", "layout_controller", "layout_touch":
+			control_layout = key.trim_prefix("layout_")
+			apply_control_layout()
 		"pad_style_prev": pad_style = {"auto": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
 		"split_vertical", "split_horizontal": set_split_layout(key.trim_prefix("split_"))
 		"test_sound":
@@ -3293,7 +3314,16 @@ func menu_tick() -> void:
 				if not click_was:
 					sfx.ui("ui_click", -4.0)
 				_save_settings()
-	if click and not click_was and hud and rebinding == "":
+	# A press that came and went between two frames (a quick click or tap
+	# while a slow browser frame was drawing) is caught by _input below;
+	# polling the button alone missed it (Faisal 2026-10-14: menus "still
+	# unresponsive at times" on the web).
+	var pressed_now := click and not click_was
+	if click_latched:
+		pressed_now = true
+		click = true
+		click_latched = false
+	if pressed_now and hud and rebinding == "":
 		var mouse := menu_mouse()
 		if not playing and not menu_open and main_menu and not name_editing:
 			main_menu.tick(true, mouse)
@@ -3309,6 +3339,8 @@ func menu_tick() -> void:
 		for i in hud.tab_buttons.size():
 			if hud.tab_buttons[i].has_point(mouse):
 				menu_tab = hud.tab_ids[i]
+		if hud.quick_close.has_point(mouse) and playing and not menu_open and not rank_open and player:
+			hud.hide_quick()
 		for b in hud.quick_buttons:
 			if b[0].has_point(mouse) and playing and not menu_open and not rank_open and player:
 				if b[1] is Callable:
@@ -3437,6 +3469,11 @@ func menu_tick() -> void:
 	touch_tap = Vector2(-1, -1)
 
 
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		click_latched = true
+
+
 func menu_input(event: InputEvent) -> void:
 	## Raw key events from the HUD: typing in chat and rebinding controls.
 	# Remember whether player 1 is on the keyboard or a pad, so keycaps and
@@ -3453,7 +3490,17 @@ func menu_input(event: InputEvent) -> void:
 		cursor_shown = false
 	elif event is InputEventMouseMotion and event.relative.length() > 2.0:
 		cursor_shown = false
+	if control_layout == "controller":
+		pad_active = true    # picked in Controls: the hints stay on the pad's buttons
+	elif control_layout in ["keyboard", "touch"]:
+		pad_active = false
 	if rebinding != "":
+		if event is InputEventScreenTouch and event.pressed and Engine.get_process_frames() != swallow_frame:
+			rebinding = ""   # a finger can't press a key: a tap cancels (iPad, 2026-10-14)
+			swallow_frame = Engine.get_process_frames()
+			return
+		if event is InputEventMouseButton and event.device == InputEvent.DEVICE_ID_EMULATION:
+			return   # a finger's emulated click is not a mouse button to bind
 		if Engine.get_process_frames() == swallow_frame:
 			return  # the click that picked the row
 		if event is InputEventKey and event.pressed and not event.echo:
@@ -3502,6 +3549,17 @@ func menu_input(event: InputEvent) -> void:
 				var ch := char(event.unicode)
 				if event.unicode >= 32 and net_ip.length() < 40 and (ch.is_valid_int() or ch in [".", ":"] or ch.to_lower() in "abcdefghijklmnopqrstuvwxyz-"):
 					net_ip += ch
+		return
+	if chat_open and event is InputEventScreenTouch and event.pressed:
+		# Chat closes with Enter or Esc; a finger closes it with a tap
+		# anywhere but its All / Team tabs (iPad, 2026-10-14).
+		var on_tab := false
+		for b in hud.chat_buttons:
+			if b[0].has_point(event.position):
+				on_tab = true
+		if not on_tab:
+			chat_open = false
+			swallow_frame = Engine.get_process_frames()
 		return
 	if chat_open and event is InputEventKey and event.pressed:
 		match event.keycode:
@@ -4033,6 +4091,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
+	cfg.set_value("settings", "control_layout", control_layout)
 	cfg.set_value("settings", "hero_name", hero_name)
 	cfg.set_value("settings", "hero_hair", hero_hair)
 	cfg.set_value("settings", "hero_trim", hero_trim)
@@ -4160,6 +4219,10 @@ func _load_controls() -> void:
 	fullscreen = cfg.get_value("settings", "fullscreen", false)
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
+	control_layout = cfg.get_value("settings", "control_layout", "auto")
+	if control_layout not in CONTROL_LAYOUTS:
+		control_layout = "auto"
+	apply_control_layout()
 	if pad_style not in ["auto", "xbox", "ps"]:
 		pad_style = "auto"
 	sfx.sound_volume = clampf(cfg.get_value("settings", "sound_volume", 0.8), 0.0, 1.0)

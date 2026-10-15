@@ -1466,6 +1466,8 @@ func buy_hat_remote(p, role: int) -> bool:
 
 var card_button := Rect2()   # this frame's card button in HUD coordinates (mouse clicks), empty when none
 var card_ok := false
+var card_close := Rect2()     # the action card's / training panel's X, HUD coordinates
+var card_hidden := ""         # the offer whose card was put away with its X, until you step off it
 
 
 func offer(p) -> Dictionary:
@@ -1546,13 +1548,16 @@ func draw_action_card(hud, me) -> void:
 	## base stock and a big gold + button (click it, tap it, or press
 	## interact). Greyed with the reason when it can't be bought.
 	card_button = Rect2()
+	card_close = Rect2()
 	if me == null or game.menu_open or game.guide_open:
 		return
 	if training_open and not me.dead:
 		draw_training_panel(hud, me)
 		return
 	var o := offer(me)
-	if o.is_empty():
+	if o.is_empty() or o.title != card_hidden:
+		card_hidden = ""   # stepping off (or onto another job) brings the card back
+	if o.is_empty() or card_hidden != "":
 		return
 	var touch: bool = hud.get("touch_ui") == true
 	var W: float = hud.size.x
@@ -1633,8 +1638,43 @@ func draw_action_card(hud, me) -> void:
 		Color(1.0, 0.88, 0.5) if o.ok else Color(1.0, 0.55, 0.5), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x + 80, 2)
 	card_button = btn
 	card_ok = o.ok
+	_close_x(hud, card, touch, func() -> void: _hide_card(o.title))
 	if touch and hud.get("touch_rects") != null:
 		hud.touch_rects.append([btn.grow(10), "interact"])   # a tap presses interact (touch.gd)
+
+
+func _close_x(hud, board: Rect2, touch: bool, on_close: Callable) -> void:
+	## An X on a board's top-right corner (Faisal 2026-10-14: the iPad could
+	## not close these). Clicked through _input, tapped through touch.gd.
+	var r := 18.0 if touch else 12.0
+	var c := Vector2(board.end.x - 4.0, board.position.y + 4.0)
+	if hud.has_method("x_button"):
+		hud.x_button(c, r)
+	else:
+		hud.draw_circle(c, r, Color(0.3, 0.17, 0.04))
+		hud.draw_line(c - Vector2(r, r) * 0.4, c + Vector2(r, r) * 0.4, Color(0.97, 0.93, 0.8), 3.0)
+		hud.draw_line(c + Vector2(r, -r) * 0.4, c + Vector2(-r, r) * 0.4, Color(0.97, 0.93, 0.8), 3.0)
+	card_close = Rect2(c - Vector2(28, 28), Vector2(56, 56))
+	close_action = on_close
+	if touch and hud.get("touch_rects") != null:
+		hud.touch_rects.append([card_close, on_close])
+
+
+var close_action := Callable()
+
+
+func _hide_card(title: String) -> void:
+	if card_hidden == title:
+		return
+	card_hidden = title
+	game.sfx.ui("ui_close", -6.0)
+
+
+func close_training() -> void:
+	if not training_open:
+		return   # the finger's tap and its emulated click both land here
+	training_open = false
+	game.sfx.ui("ui_close", -6.0)
 
 
 const BRASS := Color(0.86, 0.66, 0.28)   # hud.gd's palette: the ability board's rim
@@ -1682,6 +1722,13 @@ func mouse_on_button() -> bool:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.device == InputEvent.DEVICE_ID_EMULATION and game.touch_active:
+		return   # a finger: touch.gd already pressed the slot's or button's action (a second toggle shut the panel again)
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and game.hud != null \
+			and card_close.has_area() and card_close.has_point(game.hud.get_local_mouse_position()) and close_action.is_valid():
+		close_action.call()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and game.hud != null \
 			and slot_rect.has_area() and slot_rect.has_point(game.hud.get_local_mouse_position()):
 		_toggle_training()
@@ -1790,8 +1837,10 @@ func draw_training_panel(hud, me) -> void:
 	var cream := Color(0.97, 0.93, 0.8)
 	var gold := Color(1.0, 0.84, 0.36)
 	var cls: String = Stats.FACTIONS[me.team].roles[me.role]
-	# Close hint, top right.
-	hud._text(Vector2(r.end.x - 120, r.position.y + 30), "%s  CLOSE" % game.key_label("ability_3"), 11, Color(0.86, 0.66, 0.28), HORIZONTAL_ALIGNMENT_RIGHT, 100, 2)
+	# Close: an X on the corner (tap or click), and its key on keyboards.
+	_close_x(hud, r, touch, close_training)
+	if not touch:
+		hud._text(Vector2(r.end.x - 140, r.position.y + 30), "%s  CLOSE" % game.key_label("ability_3"), 11, Color(0.86, 0.66, 0.28), HORIZONTAL_ALIGNMENT_RIGHT, 100, 2)
 	# The class, in a big hex.
 	var hc := r.position + Vector2(70, 98)
 	hud._hex_tile(hc, 44.0, BRASS, Stats.ROLES[me.role].color.darkened(0.2) if Stats.ROLES.has(me.role) else Color(0.4, 0.3, 0.2), false, chk.ok)
