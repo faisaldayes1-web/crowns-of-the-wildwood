@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 06:20 UTC · File bloat `238bc5e` · Castle props share one texture
+
+- **What:** merged `5b23770` + `238bc5e` into the Steam branch, cherry-picked into the alpha. The 81 castle props reference one shared palette PNG instead of 86 embedded copies; exports skip *_src.png. Match texture memory 741 → 657 MB, pack 89.9 → 88.4 MB. Not yet in a delivered build (next beta).
+- **Conflicts:** none; game code identical on both branches. Stale `assets/props/dungeon/*_dungeon_texture*.png.import` files (untracked) deleted locally before reimport.
+- **Tested:** clean reimport on both branches, Wildwood bot match 0 script errors, no missing textures.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
 ### 2026-10-15 05:30 UTC · World visual overhaul `d1af0cf`, UI & Art `504af81` · Flag clipping; HOW TO PLAY cards
 
 - **What:** merged into the Steam branch, cherry-picked into the alpha. Overhaul `77a4290`: no tapestries on the Elf keep walls (the green flag stood up through the hedge), Human ones clear of the torch and table, cellar pennants between their torches. UI & Art `57cb0a8`: HOW TO PLAY, six tutorial cards shown once on first launch (setting howto_seen) and from TUTORIAL; clicks under title overlays only reach the overlay's buttons.
