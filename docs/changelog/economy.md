@@ -2,6 +2,17 @@
 
 Branch `group/economy-whmjnc`, draft PR #13. Newest entry first. Format: [README.md](README.md).
 
+### 2026-10-15 07:20 UTC · `54d3557` · Faster wood loop, XP for base work (Faisal 2026-10-15 "make the rank up easier… the loop… faster")
+
+- **What:** Gathering and building used to earn no XP, so levels came only from fights. Now each wood dropped at the storehouse gives 5 XP, and mending or raising the door, or building, raising or patching a turret, gives 12 XP. Each award shows a "+N XP" popup. A turret built on a pad credits its builder, so its hits and knock-downs earn XP the way an Engineer's turret does. Chopping is faster, soldiers carry more, and Training is cheaper.
+- **Files:** scripts/stats.gd (`ECONOMY`), scripts/economy.gd (storehouse drop, `_build_xp`, `fix_door`, `work_pad`, self-test wait)
+- **Tunables:** gather_time 2.6 → 2.0; carry_max 3 → 4; train_wood 14 → 12; new xp_deliver 5, xp_build 12. XP_LEVELS and the other combat XP values are unchanged.
+- **Tested:** `--econ-test` 0 failed. Six seeds per map, before → after:
+  - Wildwood: Elves-Humans 2-4 → 3-3, overtime 3 → 0, average match 501 → 406 s, average victim level by match third 3.23/4.11 → 3.47/4.21.
+  - Moonlit: 2-4 → 1-5, overtime 1 → 0, average match 475 → 442 s, average victim level 3.10/3.71 → 3.26/4.19.
+  - Across both maps Humans won 8 of 12 before and after.
+- **Revert:** `git revert 54d3557`
+
 ### 2026-10-15 04:30 UTC · `4e2f189` · LEVEL UP strip restyle (Faisal 2026-10-15 "change the level up upgrade from here ui")
 
 - **What:** The quick-upgrade strip over the ability bar was a thin bar with "LEVEL UP / Upgrade from here" and flat plates. It also showed all match, because the Training tile listed itself before Training opened. Now it is the in-match board with a LEVEL UP name tag; a gold badge with the points left (a red countdown ring while you are in combat); one hex per skill like the ability slots, with its key on the corner and the level it goes to underneath; and Training as a green hex with its painted icon and wood price. Training joins the strip only from 5:00 left (before that, the G slot says AT 5:00). Keys, clicks, taps and the X are unchanged. New `--econ-shot=levelup` render staging.
