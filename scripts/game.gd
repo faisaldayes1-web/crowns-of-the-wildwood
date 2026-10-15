@@ -186,6 +186,7 @@ var damage_numbers := true
 var show_fps := false
 var quit_armed := 0.0          # pause menu: seconds the MAIN MENU button stays armed after a first click
 var gfx_quality := 2           # graphics preset: 0 Low, 1 Medium, 2 High, 3 Ultra
+var howto_seen := false        # the HOW TO PLAY cards were shown once (menu.gd)
 var fps_intro_done := false    # the FPS counter was switched on once for the alpha testers
 var lamp_shadows: Array = []   # lamps that cast shadows (off on Low)
 var gfx_picked := false        # the player chose a preset in Settings (no automatic changes after that)
@@ -3265,6 +3266,11 @@ func menu_tick() -> void:
 				menu_open = false
 			elif Input.is_action_just_pressed("menu") and main_menu and not name_editing:
 				main_menu.back()
+			elif not menu_open and main_menu and main_menu.overlay == "howto":
+				if Input.is_action_just_pressed("menu_left"):
+					main_menu.howto_next(-1)
+				if Input.is_action_just_pressed("menu_right"):
+					main_menu.howto_next(1)
 			elif not menu_open:
 				if Input.is_action_just_pressed("menu_left"):
 					cycle_difficulty(-1)
@@ -4149,6 +4155,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "gfx_quality", gfx_quality)
 	cfg.set_value("settings", "gfx_picked", gfx_picked)
 	cfg.set_value("settings", "fps_intro_done", fps_intro_done)
+	cfg.set_value("settings", "howto_seen", howto_seen)
 	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
@@ -4272,6 +4279,7 @@ func _load_controls() -> void:
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
 	fps_intro_done = cfg.get_value("settings", "fps_intro_done", false)
+	howto_seen = cfg.get_value("settings", "howto_seen", false)
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
 	gfx_picked = cfg.get_value("settings", "gfx_picked", false)
 	if OS.has_feature("web"):
