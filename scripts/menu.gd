@@ -981,7 +981,7 @@ func _tab_armor(panel: Rect2) -> void:
 		var kind: String = row[1]
 		var n: int = Store.table(kind).size()
 		for i in n:
-			var r := Rect2(panel.position.x + 26 + (i % GEAR_COLS) * 38, y + 8 + (i / GEAR_COLS) * 38, 36, 34)
+			var r := Rect2(panel.position.x + 26 + (i % GEAR_COLS) * 38, y + 8 + (i / GEAR_COLS) * 36, 36, 32)
 			var have := Store.owns(game, kind, i)
 			var on: bool = Store.equipped(game, kind) == i
 			var ov := button(r, "gear", [kind, i])
@@ -994,13 +994,13 @@ func _tab_armor(panel: Rect2) -> void:
 			if not have:
 				h.draw_rect(r.grow(-2), Color(0, 0, 0, 0.45))
 				icon("lock", r.end - Vector2(8, 8), 14)
-		y += 50 + ((n - 1) / GEAR_COLS) * 38
+		y += 56 + ((n - 1) / GEAR_COLS) * 36
 	label(Vector2(panel.position.x + 26, y), "GEAR RANK  ·  preview what promotions earn", 13)
 	for k in 4:
-		var r := Rect2(panel.position.x + 26 + k * 102, y + 8, 92, 40)
+		var r := Rect2(panel.position.x + 26 + k * 102, y + 8, 92, 30)
 		var ov := button(r, "rank", k + 1)
 		option_box(r, preview_rank == k + 1, ov, Color(1.0, 0.8, 0.25))
-		ttext(Vector2(r.position.x, r.position.y + 28), "RANK %d" % (k + 1), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+		ttext(Vector2(r.position.x, r.position.y + 22), "RANK %d" % (k + 1), 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
 
 
 func _tab_colors(panel: Rect2) -> void:
@@ -1015,7 +1015,7 @@ func _tab_colors(panel: Rect2) -> void:
 		if not have:
 			_price_tag(c + Vector2(0, 2), "trim", i)
 		h._text(Vector2(c.x - 50, c.y + 46), Stats.HERO_TRIM[i][0].to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	h._paragraph(Vector2(panel.position.x + 26, y + 272), "Trim colours your cape and sash on every class. TEAM keeps your side's colour. Locked dyes are in the STORE.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
+	h._paragraph(Vector2(panel.position.x + 26, y + 300), "Your dye colours your cape and neck wrap on every class. TEAM keeps your side's colour. Locked dyes are in the STORE.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
 
 
 func _tab_emblem(panel: Rect2) -> void:
