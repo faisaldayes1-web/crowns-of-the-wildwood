@@ -48,7 +48,7 @@ func _init() -> void:
 					hits.append([area, key, a, b])
 	hits.sort_custom(func(x, y): return x[0] > y[0])
 	hits = hits.filter(func(h): return not (h[1].get_slice("|", 1) == "-" and h[1].get_slice("|", 0) in ["y", "z"]))   # bottoms and backs never face the camera
-	for h in hits.slice(0, 120):
+	for h in hits.slice(0, hits.size() if "--all" in OS.get_cmdline_user_args() else 120):   # --all lists every pair
 		print("ZFIGHT %.3f m2  %s  plane %.3f\n   %s\n   %s" % [h[0], h[1].get_slice("|", 0) + h[1].get_slice("|", 1), h[2][0], h[2][2], h[3][2]])
 	print("ZFIGHT total %d pairs over %d meshes" % [hits.size(), n])
 	quit()
