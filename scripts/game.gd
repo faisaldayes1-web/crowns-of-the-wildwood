@@ -261,6 +261,7 @@ var touch                      # on-screen touch controls (touch.gd), for the we
 var touch_active := false      # a finger has touched the screen: aim follows the move stick, not the mouse
 var control_layout := "auto"   # Controls tab (Faisal 2026-10-14: a touch-screen laptop got the iPad layout): "auto", "keyboard", "controller", "touch"
 const CONTROL_LAYOUTS := ["auto", "keyboard", "controller", "touch"]
+var move_mode := "aim"         # keyboard + mouse: "aim" (W walks toward the cursor) or "screen" (W walks up the screen)
 var touch_tap := Vector2(-1, -1)  # where a finger tapped a menu this frame (the click polling below would miss a short tap)
 var message_label: Label
 var banner: Label
@@ -1459,6 +1460,8 @@ func toggle_setting(key: String) -> void:
 			if rumble_on:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
 		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
+		"move_aim", "move_screen":
+			move_mode = key.trim_prefix("move_")
 		"layout_auto", "layout_keyboard", "layout_controller", "layout_touch":
 			control_layout = key.trim_prefix("layout_")
 			apply_control_layout()
@@ -3490,6 +3493,8 @@ func menu_input(event: InputEvent) -> void:
 		cursor_shown = false
 	elif event is InputEventMouseMotion and event.relative.length() > 2.0:
 		cursor_shown = false
+		if event.device != InputEvent.DEVICE_ID_EMULATION and couch_players == 1:
+			pad_active = false   # back on the mouse: the hints switch to keys at once
 	if control_layout == "controller":
 		pad_active = true    # picked in Controls: the hints stay on the pad's buttons
 	elif control_layout in ["keyboard", "touch"]:
@@ -4092,6 +4097,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
 	cfg.set_value("settings", "control_layout", control_layout)
+	cfg.set_value("settings", "move_mode", move_mode)
 	cfg.set_value("settings", "hero_name", hero_name)
 	cfg.set_value("settings", "hero_hair", hero_hair)
 	cfg.set_value("settings", "hero_trim", hero_trim)
@@ -4220,6 +4226,9 @@ func _load_controls() -> void:
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
 	control_layout = cfg.get_value("settings", "control_layout", "auto")
+	move_mode = cfg.get_value("settings", "move_mode", "aim")
+	if move_mode not in ["aim", "screen"]:
+		move_mode = "aim"
 	if control_layout not in CONTROL_LAYOUTS:
 		control_layout = "auto"
 	apply_control_layout()
