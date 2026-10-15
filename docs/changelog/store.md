@@ -269,3 +269,27 @@ soft dark halo so they show on pale stone; the menu hero scales them to 0.3x. `s
 `scripts/menu_stage.gd`.
 
 Undo: `git revert 1a376aa`
+
+## 2026-10-15 — The Wildwood collection (new stock in the overhaul's look)
+
+Commit: `d808bc2` (after merging the Steam beta at 79dc7e2)
+
+Faisal 06:33: "is there any new items to the store using the new asset style?"
+
+What changed: 16 new items in soft, rounded storybook shapes using the world overhaul's foliage, river and
+autumn colours.
+- **Hats** (`HERO_HATS` 8-12): Acorn Cap (Common), Toadstool (Rare), Autumn Crown (Epic), Stag Antlers
+  (Epic), Wildwood Sovereign (Legendary: tall gilded leaf points, a glowing river-blue stone, its own fireflies).
+- **Capes** (`HERO_CAPES` 6-9): Moss Shawl (Common), Autumn Cloak (Rare, falling-leaf hem), Riverweave Cape
+  (Epic, glowing wave hem and foam), Firefly Mantle (Legendary, night cloth sewn with glowing motes, gold hem,
+  fireflies drifting off it).
+- **Armour tints** (`HERO_OUTFITS` 7-9): Mossy (Common), Riverstone (Rare), Autumn Leaf (Epic).
+- **Weapon skins** (`WEAPON_SKINS` 7-10): Oakheart (Common), Riverglass (Rare), Autumn Gold (Epic), Firefly
+  (Legendary).
+- **NEW ribbon**: items in `Stats.STORE_NEW` show a green NEW tag on their card until bought.
+- Icons `assets/ui/store/{hat_8..12,cape_6..9,outfit_7..9,weapon_7..10}.png` rendered from the model by
+  `tools/render_store_icons.gd`; Faisal's painted icons for the older items were left as they are.
+
+Files: `scripts/stats.gd`, `scripts/store.gd`, `scripts/store_gear.gd`, `assets/ui/store/*`.
+
+Undo: `git revert d808bc2`
