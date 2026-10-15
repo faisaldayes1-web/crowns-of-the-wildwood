@@ -7678,9 +7678,14 @@ func _furnish_keep(team: int, kx: float, bx: float, side: float, throne: Vector3
 	for zs in [-1.0, 1.0]:
 		var ins := Vector3(0, 0, -zs)
 		if elven or zs < 0.0:   # (the Humans' camera-facing keep wall is waist high: nothing hangs on it)
-			_add_tapestry(team, Vector3(kx + side * 1.6, 0.5, zs * wz), ins, 1.5, 1.9)
-			if not elven:   # the Elves' keep walls are waist high
-				_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 0.5, zs * wz), ins, 1.2, 1.7)
+			# The Elves' keep walls are waist high under a hedge, so no
+			# tapestry hangs there (it stood up through the hedge, with the
+			# carrot crate and crystal torch in front: Faisal 2026-10-15).
+			# The Humans' first one hangs between the two wall torches, the
+			# second above the long table (both cut into them before).
+			if not elven:
+				_add_tapestry(team, Vector3(kx + side * 2.1, 0.5, zs * wz), ins, 0.9, 1.9)   # between the two wall torches
+				_add_tapestry(team, Vector3((room_f + room_b) / 2.0 - side * 1.2, 1.25, zs * wz), ins, 1.2, 1.15)
 			_add_wall_torch(Vector3(room_f - side * 0.2, 0.9 if elven else 1.6, zs * (wz - 0.05)), ins)
 			_add_wall_torch(Vector3(room_b + side * 1.5, 1.6, zs * (wz - 0.05)), ins)
 	if elven:
@@ -9581,8 +9586,8 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 			for k in range(1, 5):   # (k = 0 sat right over the shelves)
 				var tx := bx + side * (1.5 + k * 3.8)
 				_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
-			for px in [5.3, 9.0, 12.9]:
-				_add_pennant(team, Vector3(bx + side * px, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0, px == 9.0)
+			for px in [7.2, 11.0, 14.8]:   # between the torches (they burned through the cloth at 5.3, 9.0, 12.9)
+				_add_pennant(team, Vector3(bx + side * px, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0, px == 11.0)
 			# Flower beds and stores along the south wall (the courtyard reference);
 			# the Humans drill here instead: an armoury rack, targets and dummies.
 			if team == 0:

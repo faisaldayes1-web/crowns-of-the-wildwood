@@ -2,6 +2,13 @@
 
 Faisal's brief 2026-10-14 11:00 and style guide 11:10. Spec: [../visual/style-spec.md](../visual/style-spec.md).
 
+### 2026-10-15 · `HASH` · Flags no longer clip
+
+- **What:** Faisal circled the green Elf keep flag as clipping: it stood up through the hedge on the waist-high Elf keep wall, with the carrot crate and crystal torch in front of it. The Elves' keep walls get no tapestry now (their second one was already skipped for the same reason). A check of every flag on both maps found three more: the Humans' first keep tapestry now hangs between the two wall torches (narrower, 1.5 → 0.9 m), the second hangs above the long table instead of behind it (bottom 0.5 → 1.25 m), and the cellar pennants sit between the torches (5.3/9.0/12.9 → 7.2/11.0/14.8 m) instead of over them.
+- **Files:** scripts/game.gd
+- **Tested:** no visual cuts into any flag cloth in the keeps (probe of every rod-and-cloth flag); world fingerprints identical; zfight `--all` still 0 different-material pairs; full test suite passes; Forward+ renders of both keeps.
+- **Revert:** `git revert HASH`
+
 ### 2026-10-15 · `fada3c5` · Flicker pass (beta feedback)
 
 - **What:** Faisal's beta note "there is a green flag texture error, try to do a pass and fix all flashing stutter texture errors". The green and blue base tapestries had their cloth face exactly in the plane of the wall panel behind them, so the two fought and flashed as the camera moved. A new `_unfight_coplanar()` pass runs once after the match world is built and separates every visible pair of different-material faces that share a plane: thin cloths, trims and rugs step 6 mm out; thicker blocks pull only the shared face 6 mm back. It repeats on the moved world (up to four rounds) so no move creates a new pair. Undersides are skipped (the camera never sees them). Only meshes move; colliders, routes and anchors are untouched.
