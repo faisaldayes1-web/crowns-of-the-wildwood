@@ -2,6 +2,14 @@
 
 Branch `group/economy-whmjnc`, draft PR #13. Newest entry first. Format: [README.md](README.md).
 
+### 2026-10-15 04:30 UTC · `4e2f189` · LEVEL UP strip restyle (Faisal 2026-10-15 "change the level up upgrade from here ui")
+
+- **What:** The quick-upgrade strip over the ability bar was a thin bar with "LEVEL UP / Upgrade from here" and flat plates. It also showed all match, because the Training tile listed itself before Training opened. Now it is the in-match board with a LEVEL UP name tag; a gold badge with the points left (a red countdown ring while you are in combat); one hex per skill like the ability slots, with its key on the corner and the level it goes to underneath; and Training as a green hex with its painted icon and wood price. Training joins the strip only from 5:00 left (before that, the G slot says AT 5:00). Keys, clicks, taps and the X are unchanged. New `--econ-shot=levelup` render staging.
+- **Files:** scripts/hud.gd (`_draw_quick_upgrade`; UI & Art owns this file and was told), scripts/economy.gd (`quick_tiles`, shot staging)
+- **Tunables:** none
+- **Tested:** `--econ-test` 0 failed, tools/options_menu_test.gd 0 failures (quick upgrade key and tap), two 1080p renders.
+- **Revert:** `git revert 4e2f189`
+
 ### 2026-10-15 03:00 UTC · `df055bd` · Door: a small key prompt, no pop-up card (Faisal 2026-10-15)
 
 - **What:** Standing by your own door no longer pops up the big action card. A small dark pill hangs over the door instead: the current input's key, REPAIR DOOR (RAISE DOOR when it is down) and the wood price, with a thin health line under it. Nothing shows while the door is unhurt; UNDER SIEGE or NO RAISING IN OVERTIME show greyed without a key, and the price turns red when the base is short. The key, a click or a tap on the pill does the job. Turret pads and Veteran Training keep their cards. The `--econ-shot=repair` render no longer presses the key, so it shows the prompt.
