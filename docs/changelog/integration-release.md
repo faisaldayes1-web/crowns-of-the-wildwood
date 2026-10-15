@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 07:20 UTC · Store `3d64ca5` · The Wildwood collection
+
+- **What:** merged Store into the Steam branch, cherry-picked `d808bc2` + `3d64ca5` into the alpha. 16 new cosmetics in the overhaul's storybook look (hats 8-12, capes 6-9, outfits 7-9, weapon skins 7-10), NEW ribbon (Stats.STORE_NEW), firefly particles on the Legendary crown and mantle. Not yet in a delivered build (next beta).
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** reimport on both branches 0 errors; store, store_menu, save, options_menu tests 0 failures.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
 ### 2026-10-15 06:20 UTC · File bloat `238bc5e` · Castle props share one texture
 
 - **What:** merged `5b23770` + `238bc5e` into the Steam branch, cherry-picked into the alpha. The 81 castle props reference one shared palette PNG instead of 86 embedded copies; exports skip *_src.png. Match texture memory 741 → 657 MB, pack 89.9 → 88.4 MB. Not yet in a delivered build (next beta).
