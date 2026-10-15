@@ -14,6 +14,30 @@ Newest entry at the top, as in [README.md](README.md).
 
 ---
 
+### 2026-10-15 · `b42f8be` · No more getting stuck indoors
+
+- **What:** Faisal 2026-10-15: "fix the getting stuck indoors". A player is a
+  capsule and could not climb any ledge, so the side of a flight of stairs
+  (the spawn cellar's stairs, the Elf crown room's stairs, the rampart
+  stairs), a stairwell's rim or a threshold a few centimetres high held you
+  in place; and the open wedge under each flight of stairs was too low to
+  stand in, so walking or being shoved under it wedged you. Now a walk that
+  is blocked by something no taller than 30 cm steps up onto it (players and
+  bots), and every flight of stairs has a solid, invisible wedge under it.
+  New tool `tools/snag_scan.gd` walks a real unit through every 0.5 m spot
+  (8 directions) and lists where it is held up.
+- **Files:** scripts/unit.gd (`_step_up`, `STEP_HEIGHT`), scripts/game.gd
+  (`_fill_under_ramp`), tools/snag_scan.gd
+- **Tunables:** new `STEP_HEIGHT` 0.3 m (unit.gd)
+- **Tested:** snag scan, whole map, before → after: Wildwood 49 → 11 (none
+  indoors; the rest are field props a body rightly stops at), Ember Pass
+  34 → 1 (a crate). stuck_scan: Wildwood 0 pockets (was 4), Ember Pass 1
+  (the Elf cellar spot, 6 m walk-out). `tools/tests/run.sh` 0 failures.
+  Bot routing check, 3-minute demos: Wildwood seed 601 Human door 64 at
+  t=60, Ember Pass seed 602 Elf door 46 at t=60 and a capture at t=74; no
+  STALL, no safety-net triggers, no script errors.
+- **Revert:** `git revert b42f8be`
+
 ### 2026-10-14 · `4a78a69` · Online matches no longer freeze on the menu button
 
 - **What:** Tapping or clicking the corner MENU / map button paused the whole

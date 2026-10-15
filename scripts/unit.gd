@@ -2701,7 +2701,11 @@ func _physics_process(delta: float) -> void:
 	velocity.x = move.x * speed + knockback.x
 	velocity.z = move.z * speed + knockback.z
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
+	var meant := Vector3(velocity.x, 0, velocity.z) * delta
+	var from := global_position
 	move_and_slide()
+	if move.length() > 0.1:
+		_step_up(from, meant)
 	_clamp_to_map()
 	_unstick(delta)
 	if knockback.length() > 3.5 and is_on_floor():
@@ -2989,6 +2993,39 @@ func nearest_free_spot(at: Vector3, reach: float = 4.0) -> Vector3:
 				return p
 		r += 0.5
 	return at
+
+
+const STEP_HEIGHT := 0.3
+
+
+func _step_up(from: Vector3, meant: Vector3) -> void:
+	## A body is a capsule and cannot climb a ledge, so the side of a flight
+	## of stairs, a stairwell's rim or a threshold held you in place (Faisal
+	## 2026-10-15: "fix the getting stuck indoors"). When a walk was blocked
+	## by something no taller than STEP_HEIGHT, step up onto it.
+	if not is_on_floor() or not is_on_wall() or meant.length() < 0.001:
+		return
+	var done := Vector3(global_position.x - from.x, 0, global_position.z - from.z)
+	if done.length() > meant.length() * 0.5:
+		return   # sliding along a wall still gets us somewhere: no step needed
+	var fwd := meant.normalized() * maxf(meant.length(), 0.15)
+	var xf := global_transform
+	var lift := Vector3(0, STEP_HEIGHT, 0)
+	if test_move(xf, lift):
+		return   # no room overhead
+	var up := xf.translated(lift)
+	if test_move(up, fwd):
+		return   # a real wall, taller than a step
+	var over := up.translated(fwd)
+	var hit := KinematicCollision3D.new()
+	if not test_move(over, Vector3(0, -STEP_HEIGHT - 0.05, 0), hit):
+		return   # nothing to stand on over there
+	if hit.get_normal().y < 0.7:
+		return   # not a floor
+	var land := over.origin + hit.get_travel()
+	if land.y - global_position.y < 0.01:
+		return
+	global_position = land
 
 
 func _unstick(delta: float) -> void:
