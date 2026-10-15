@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 03:35 UTC · Players getting stuck `6887ea1` · No more getting stuck indoors
+
+- **What:** merged `b42f8be` + `6887ea1` into the Steam branch, cherry-picked into the alpha. Bodies step up lips under 30 cm (`Unit.STEP_HEIGHT`), and a collision-only wedge fills under every flight of stairs. New tools/snag_scan.gd. Snags Wildwood 49 → 11 (none indoors), Ember Pass 34 → 1.
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** stuck thread: run.sh 0 failures, 3-minute routing demos on both maps clean; full check here before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
 ### 2026-10-15 03:30 UTC · World visual overhaul `7c3271e` · Flicker pass (green flag)
 
 - **What:** merged `fada3c5` + `7c3271e` into the Steam branch, cherry-picked into the alpha. `_unfight_coplanar()` moves meshes (never colliders) 6 mm apart wherever two different-material faces shared a plane; the green flag was the base tapestry in the wainscot's plane.
