@@ -19,6 +19,7 @@ const MAP_CARDS := [["THE WILDWOOD", "map_wildwood", 0], ["MOONLIT WILDWOOD", "m
 	["STONEKEEP FORTRESS", "map_stonekeep", -1], ["EMBER PASS", "map_ember", 2], ["TWILIGHT GROVE", "map_twilight", -1]]
 const DIFFICULTIES := [["CASUAL", "Relaxed, good for new players", "Easy", "crown"], ["NORMAL", "Classic experience", "Normal", "crown"],
 	["HARDCORE", "For the bravest", "Hard", "skull"]]
+const GEAR_COLS := 10   # store-gear tiles per line on the ARMOR tab
 const CHAR_TABS := [["APPEARANCE", "appearance"], ["HAIR", "hair"], ["FACE", "face"], ["ARMOR", "tunic"], ["COLORS", "palette"], ["EMBLEM", "emblem"]]
 const PREVIEW_ROLES := [Role.BASE, Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER]
 const SLOT_COLORS := [Color(0.16, 0.38, 0.95), Color(0.85, 0.16, 0.16), Color(0.2, 0.62, 0.22), Color(0.92, 0.72, 0.1)]
@@ -963,23 +964,24 @@ func _tab_armor(panel: Rect2) -> void:
 	var y := panel.position.y + 74
 	label(Vector2(panel.position.x + 26, y), "LOOK", 15)
 	for i in Stats.HERO_LOOKS.size():
-		var r := Rect2(panel.position.x + 26 + i * 204, y + 10, 192, 56)
+		var r := Rect2(panel.position.x + 26 + i * 204, y + 8, 192, 46)
 		var locked: bool = i > 0 and not game.unlocked()
 		var on: bool = game.hero_look == i
 		var ov := button(r, "look", i)
 		option_box(r, on, ov, Color(1.0, 0.8, 0.25) if i == 0 else Color(0.75, 0.5, 1.0))
-		ttext(Vector2(r.position.x, r.position.y + 27), Stats.HERO_LOOKS[i][0].to_upper(), 19, Color.WHITE if not locked else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-		h._text(Vector2(r.position.x, r.position.y + 45), "Team colours" if i == 0 else ("LEVEL %d" % Stats.UNLOCK_LEVEL if locked else "Dusk armour, violet glow, a cape"), 10, Color(0.85, 0.85, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+		ttext(Vector2(r.position.x, r.position.y + 23), Stats.HERO_LOOKS[i][0].to_upper(), 18, Color.WHITE if not locked else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+		h._text(Vector2(r.position.x, r.position.y + 39), "Team colours" if i == 0 else ("LEVEL %d" % Stats.UNLOCK_LEVEL if locked else "Dusk armour, violet glow, a cape"), 10, Color(0.85, 0.85, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 		if locked:
 			icon("lock", r.position + Vector2(r.size.x - 18, 16), 22)
 	# STORE gear: what you own is worn on a click, the rest opens the store.
-	y += 84
+	# Ten small tiles a line; a kind with more wraps onto a second line.
+	y += 70
 	for row in [["ARMOUR TINT", "outfit"], ["HAT  ·  no class hat on", "hat"], ["CAPE & SCARF", "cape"], ["WEAPON SKIN", "weapon"]]:
 		label(Vector2(panel.position.x + 26, y), row[0], 13)
 		var kind: String = row[1]
 		var n: int = Store.table(kind).size()
 		for i in n:
-			var r := Rect2(panel.position.x + 26 + i * minf(52.0, (panel.size.x - 52 - 44) / maxf(n - 1, 1)), y + 8, 44, 38)
+			var r := Rect2(panel.position.x + 26 + (i % GEAR_COLS) * 38, y + 8 + (i / GEAR_COLS) * 36, 36, 32)
 			var have := Store.owns(game, kind, i)
 			var on: bool = Store.equipped(game, kind) == i
 			var ov := button(r, "gear", [kind, i])
@@ -991,14 +993,14 @@ func _tab_armor(panel: Rect2) -> void:
 				store.thumb(r.grow(-5), kind, i)
 			if not have:
 				h.draw_rect(r.grow(-2), Color(0, 0, 0, 0.45))
-				icon("lock", r.end - Vector2(9, 9), 16)
-		y += 60
+				icon("lock", r.end - Vector2(8, 8), 14)
+		y += 56 + ((n - 1) / GEAR_COLS) * 36
 	label(Vector2(panel.position.x + 26, y), "GEAR RANK  ·  preview what promotions earn", 13)
 	for k in 4:
-		var r := Rect2(panel.position.x + 26 + k * 102, y + 8, 92, 40)
+		var r := Rect2(panel.position.x + 26 + k * 102, y + 8, 92, 30)
 		var ov := button(r, "rank", k + 1)
 		option_box(r, preview_rank == k + 1, ov, Color(1.0, 0.8, 0.25))
-		ttext(Vector2(r.position.x, r.position.y + 28), "RANK %d" % (k + 1), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+		ttext(Vector2(r.position.x, r.position.y + 22), "RANK %d" % (k + 1), 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
 
 
 func _tab_colors(panel: Rect2) -> void:
@@ -1013,7 +1015,7 @@ func _tab_colors(panel: Rect2) -> void:
 		if not have:
 			_price_tag(c + Vector2(0, 2), "trim", i)
 		h._text(Vector2(c.x - 50, c.y + 46), Stats.HERO_TRIM[i][0].to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	h._paragraph(Vector2(panel.position.x + 26, y + 272), "Trim colours your cape and sash on every class. TEAM keeps your side's colour. Locked dyes are in the STORE.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
+	h._paragraph(Vector2(panel.position.x + 26, y + 300), "Your dye colours your cape and neck wrap on every class. TEAM keeps your side's colour. Locked dyes are in the STORE.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
 
 
 func _tab_emblem(panel: Rect2) -> void:

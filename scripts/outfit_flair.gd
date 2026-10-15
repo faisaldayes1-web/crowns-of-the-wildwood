@@ -17,8 +17,8 @@ static func _bone_node(skeleton: Skeleton3D, bone: String) -> Node3D:
 	return n
 
 
-static func dress(skeleton: Skeleton3D, role: int, color: Color, outline: Material) -> void:
-	if role != 1 and role != 2:   # Knight, Ranger
+static func dress(skeleton: Skeleton3D, role: int, color: Color, outline: Material, any_class: bool = false) -> void:
+	if not any_class and role != 1 and role != 2:   # Knight, Ranger
 		return
 	var n := _bone_node(skeleton, "chest")
 	if n == null:
