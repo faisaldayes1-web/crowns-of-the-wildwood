@@ -4,6 +4,12 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 05:20 UTC · Economy `2518b65` + Integration `c865c8c` · LEVEL UP strip; map-switch checks
+
+- **What:** cherry-picked Economy `4e2f189` + `2518b65` into both branches (LEVEL UP strip on the in-match board: points badge, hex skill tiles, Training hex only once it opens). Added tools/map_switch_test.gd (every map pair both ways through SELECT MAP, seven back-to-back matches across the three maps solo and split-screen, checking screen, map, world, one game scene, volume and settings) and tools/net_map_switch_test.gd (an online host switches maps with a joiner in the room).
+- **Tested:** map_switch_test 163 checks, 0 failures, no script errors; online host switching 0/2/1/0 with the joiner rebuilt each time the ground changed; online smoke on each of the three maps passes.
+- **Revert:** `git revert c865c8c` for the tests; Economy: revert its two cherry-picks.
+
 ### 2026-10-15 03:35 UTC · Players getting stuck `6887ea1` · No more getting stuck indoors
 
 - **What:** merged `b42f8be` + `6887ea1` into the Steam branch, cherry-picked into the alpha. Bodies step up lips under 30 cm (`Unit.STEP_HEIGHT`), and a collision-only wedge fills under every flight of stairs. New tools/snag_scan.gd. Snags Wildwood 49 → 11 (none indoors), Ember Pass 34 → 1.
