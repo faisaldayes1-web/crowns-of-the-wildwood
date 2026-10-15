@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-15 03:25 UTC · Closable menus `2d9bdfc` · Keyboard movement follows the mouse aim
+
+- **What:** merged Closable menus `ca0699e` + `2d9bdfc` (draft PR #22) into the Steam branch, cherry-picked into the alpha. With keyboard and mouse, W walks toward the cursor (Controls > MOVEMENT "Keyboard movement" switch, saved as settings/move_mode); the hints switch back to keys as soon as the mouse moves after a pad.
+- **Conflicts:** none.
+- **Tested:** kbm_move_test 0 failed, reload_menu_test OK on the merged code; full check before the build.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
 ### 2026-10-15 03:10 UTC · Integration `777f953` · Ember Pass stays on SELECT MAP; volume kept after a match
 
 - **What:** picking Ember Pass rebuilds the world and now comes back to SELECT MAP (the menu warm-up used to end on the title, so PLAY looked like it kicked you out). A mouse button still held from the summary's CONTINUE no longer drags the sound slider on the Settings tab the warm-up shows, which set the volume to full. Sliders move only for a press that started on them; clicks are ignored during the warm-up; a button held across a reload is not a new press.
