@@ -619,3 +619,17 @@ then `python3 tools/balance/agg.py <tag>`.
 - **Files:** `scripts/character_model.gd`.
 - **Checks:** `tools/tests/run.sh` 35/35.
 - **Revert:** `git revert d4e4980`
+
+## 31. Balance patch 8
+
+- **When:** 2026-10-15 (Faisal: "Should there be balancing patches?")
+- **Commit:** `08e766f`
+- **What:** The Steam beta had tipped matches to the Humans (29-18, with
+  even kills). This gives the Elves back half of patch 7's speed trim.
+  Write-up in `docs/balance/patch-8.md`.
+- **Files:** `scripts/stats.gd`, `docs/balance/patch-8.md`.
+- **Tunables:** Elves `speed` 6.05 → 6.1.
+- **Batches:** 96 matches on the beta head. Wins 18-29 (1 draw) → 24-24;
+  the Elf door breaks first 34/48 → 27/48; overtimes 3 → 12.
+- **Checks:** `tools/tests/run.sh` 0 failures.
+- **Revert:** `git revert 08e766f`

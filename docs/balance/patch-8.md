@@ -65,4 +65,4 @@ Before the patch, the healers were 0.77/1.59.
 
 ## Revert
 
-`git revert <patch commit>`. The hash is in docs/changelog/combat-balance.md, entry 31.
+`git revert 08e766f`
