@@ -2,12 +2,12 @@
 
 Faisal's brief 2026-10-14 11:00 and style guide 11:10. Spec: [../visual/style-spec.md](../visual/style-spec.md).
 
-### 2026-10-15 · `HASH` · Flags no longer clip
+### 2026-10-15 · `77a4290` · Flags no longer clip
 
 - **What:** Faisal circled the green Elf keep flag as clipping: it stood up through the hedge on the waist-high Elf keep wall, with the carrot crate and crystal torch in front of it. The Elves' keep walls get no tapestry now (their second one was already skipped for the same reason). A check of every flag on both maps found three more: the Humans' first keep tapestry now hangs between the two wall torches (narrower, 1.5 → 0.9 m), the second hangs above the long table instead of behind it (bottom 0.5 → 1.25 m), and the cellar pennants sit between the torches (5.3/9.0/12.9 → 7.2/11.0/14.8 m) instead of over them.
 - **Files:** scripts/game.gd
 - **Tested:** no visual cuts into any flag cloth in the keeps (probe of every rod-and-cloth flag); world fingerprints identical; zfight `--all` still 0 different-material pairs; full test suite passes; Forward+ renders of both keeps.
-- **Revert:** `git revert HASH`
+- **Revert:** `git revert 77a4290`
 
 ### 2026-10-15 · `fada3c5` · Flicker pass (beta feedback)
 
