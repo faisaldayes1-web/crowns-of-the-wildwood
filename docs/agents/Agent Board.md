@@ -7,4 +7,4 @@
 
 **Adding a row:** append at the bottom; edit only your own rows.
 
-| Release planning | `Codex-faisal` | CW-4 PROPOSED release checklist; docs only | `docs/agents/CW-4 Release Plan.md`, own CW-4 handoff and board row | CLAIMED 2026-10-16; branch `Codex-faisal/cw4-release-plan` | Pending |
+| Release planning | `Codex-faisal` | CW-4 PROPOSED release checklist; docs only | `docs/agents/CW-4 Release Plan.md`, own CW-4 handoff and board row | PROPOSED ready for docs review 2026-10-16; runtime validation blocked by sparse checkout | [CW-4 handoff](Handoffs/2026-10-16%20Codex-faisal%20CW-4.md) |
