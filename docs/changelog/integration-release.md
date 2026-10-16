@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-16 03:30 UTC · Store `bf13e29` · Faisal's corrected Wildwood icons
+
+- **What:** merged into the Steam branch, cherry-picked `f12d195` + `bf13e29` into the alpha. All 16 Wildwood collection icons replaced with Faisal's corrected set (replaces cd8ab03's). Not yet in a delivered build (next beta).
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** reimport on both branches 0 errors; store_menu_test 0 failures.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
 ### 2026-10-16 00:20 UTC · Store `cd8ab03` · Faisal's painted icons for the Wildwood collection
 
 - **What:** merged into the Steam branch, cherry-picked `5fec42f` + `cd8ab03` into the alpha. PNG swaps for hat_8..12, cape_6..9 and outfit_8. Not yet in a delivered build (next beta).
