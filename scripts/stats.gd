@@ -716,8 +716,8 @@ static func xp_span(level: int) -> Array:
 # the storehouse in your castle yard. The team pool pays for hat machine
 # upgrades, door repairs and base turrets. See scripts/economy.gd.
 const ECONOMY := {
-	"gather_time": 2.6,      # seconds of chopping or mining for one unit
-	"carry_max": 3,          # units a soldier can carry at once (wood and ore together)
+	"gather_time": 2.0,      # seconds of chopping or mining for one unit (was 2.6; Faisal 2026-10-15 "make the loop faster")
+	"carry_max": 4,          # units a soldier can carry at once (was 3)
 	"reach": 2.2,            # how close you stand to a tree or deposit to work it
 	"tree_stock": 4,         # wood a lumber tree gives before it is felled
 	"ore_stock": 3,          # ore a deposit gives before it is spent
@@ -728,7 +728,7 @@ const ECONOMY := {
 	# Training at your class's hat machine (Faisal 2026-10-10 09:36): late in
 	# the match, buy experience up to the point where you can pick your
 	# class's variant. Personal, and dearer than the old hat upgrade.
-	"train_wood": 14, "train_ore": 0,   # wood only since Faisal scrapped ore (2026-10-10 09:51); was 8 / 8
+	"train_wood": 12, "train_ore": 0,   # (was 14 until 2026-10-15) wood only since Faisal scrapped ore (2026-10-10 09:51); was 8 / 8
 	"ore_on": false,         # Faisal 2026-10-10 09:51: "scrap the ore idea and keep it wood for now" (ore spots grow trees)
 	"train_after": 300,      # match seconds before training opens (the second half of a 10-minute match)
 	"repair_wood": 3, "repair_ore": 0, "repair_hits": 35,     # mend your door by 35 hits (was 2 wood 1 ore)
@@ -736,6 +736,10 @@ const ECONOMY := {
 	"turret_wood": 3, "turret_ore": 0,    # a base turret on an empty turret pad (was 3 / 3, then 2 / 1; wood only since 2026-10-10)
 	"turret_up_wood": 2, "turret_up_ore": 0,   # raise a base turret a level (up to 3; was 2 / 2, then 1 / 1)
 	"turret_fix_wood": 1, "turret_fix_ore": 0, # patch a damaged turret back to full (was 1 / 1)
+	# XP for base work (2026-10-15: gathering and building earned none, so
+	# ranking up only came from fights): per wood dropped at the storehouse,
+	# and per door mend / raise or turret built, raised or patched.
+	"xp_deliver": 5, "xp_build": 12,
 	"door_reach": 4.0,       # how close to your door you stand to mend it
 	"pad_reach": 1.8,        # how close to a turret pad you stand to buy or tend a turret
 	"bot_gatherers": 1,      # bots per team that gather (the Engineer; else an attacker, see bot_attacker_hats)
