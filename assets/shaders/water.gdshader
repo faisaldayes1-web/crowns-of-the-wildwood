@@ -9,6 +9,7 @@ uniform vec4 deep : source_color = vec4(0.16, 0.52, 0.88, 1.0);
 uniform float alpha : hint_range(0.0, 1.0) = 0.94;
 uniform float half_width = 3.3;   // the river's half width: foam laps the banks
 uniform float island_r = 6.6;     // and the shrine island
+uniform float open_foam = 1.0;    // foam patches out in open water (the match world's style turns them down)
 
 varying vec3 wpos;
 
@@ -28,7 +29,7 @@ void fragment() {
 	// Foam along the banks and around the island, broken up by the noise.
 	float shore = smoothstep(half_width - 0.7, half_width - 0.1, abs(wpos.x));
 	shore = max(shore, 1.0 - smoothstep(island_r - 0.1, island_r + 0.8, length(wpos.xz)));
-	float foam = smoothstep(1.38, 1.5, v) + shore * smoothstep(0.35, 0.65, n2 + shore * 0.35);
+	float foam = smoothstep(1.38, 1.5, v) * open_foam + shore * smoothstep(0.35, 0.65, n2 + shore * 0.35);
 	foam = clamp(foam, 0.0, 1.0);
 	col = mix(col, vec3(0.9, 0.97, 1.0), foam * 0.6);
 	ALBEDO = col;
