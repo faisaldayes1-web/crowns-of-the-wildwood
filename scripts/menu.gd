@@ -566,8 +566,11 @@ func _draw_map() -> void:
 
 
 func _card_open(i: int) -> bool:
+	## Every built map is open; the Moonlit Wildwood waits for account level
+	## UNLOCK_LEVEL. (Stonekeep Fortress and Twilight Grove are open to all
+	## for now: whether they unlock later is Faisal's call.)
 	var m: int = MAP_CARDS[i][2]
-	return m == 0 or m == 2 or (m == 1 and game.unlocked())
+	return m >= 0 and (m != 1 or game.unlocked())
 
 
 func _map_card(r: Rect2, i: int) -> void:

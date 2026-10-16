@@ -63,16 +63,21 @@ func _init() -> void:
 			if game.game_over:
 				break
 		done += 300
+		if done % 6000 == 0:
+			print("SAFE still clean at frame %d" % done if bad.is_empty() else "SAFE %d problems at frame %d" % [bad.size(), done])
 		for n in nodes:
 			if bad.has(n):
 				continue
 			if not is_instance_valid(n):
 				bad[n] = "freed " + names[n]
+				print("SAFE problem at frame %d: %s" % [done, bad[n]])
 			elif _snap(n) != nodes[n]:
 				bad[n] = "changed " + names[n]
+				print("SAFE problem at frame %d: %s" % [done, bad[n]])
 		for m in mats:
 			if not bad.has(m) and is_instance_valid(m) and StaticBatch._sig(m, sigcache) != mats[m][0]:
 				bad[m] = "material changed (first user %s)" % mats[m][1]
+				print("SAFE problem at frame %d: %s" % [done, bad[m]])
 	var lines := {}
 	for k in bad:
 		lines[bad[k]] = lines.get(bad[k], 0) + 1
