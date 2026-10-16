@@ -330,3 +330,15 @@ the dyes overlapped the last row's names; it moved down 28 px and now says the d
 neck wrap. `scripts/menu.gd`, `tools/store_menu_test.gd` (tiles must end above y 590).
 
 Undo: `git revert 3029782`
+
+## 2026-10-15 — Faisal's painted Wildwood icons
+
+Commit: `5fec42f`
+
+Faisal 23:52 sent ten painted icons. Matched by look: Acorn Cap `hat_8`, Toadstool `hat_9`, Autumn Crown
+`hat_10`, Stag Antlers `hat_11`, Wildwood Sovereign `hat_12`, Moss Shawl `cape_6`, Autumn Cloak `cape_7`,
+Riverweave Cape `cape_8`, Firefly Mantle `cape_9`, Riverstone armour `outfit_8`. Originals (1254 px) kept in
+`/mnt/project-files/game/groups/store/icons-from-faisal-2026-10-15/`. Still model renders: `outfit_7`,
+`outfit_9`, `weapon_7..10`.
+
+Undo: `git revert 5fec42f`
