@@ -7,5 +7,7 @@ State on 2026-10-16: `main` is **v0.3.1** (2026-10-08). **13 PRs are open and un
 - [ ] **CW-2 Integration branch** (`claude-faisallaptop`, after CW-1): one branch `claude-faisallaptop/int1` merging the PRs in CW-1's order (merge commits, no rebase), resolving conflicts, then a headless import with no script errors and a 6-minute bot match per map; screenshots. One PR to `main` for Faisal to approve. Same approach as DualFront's INT1.
 - [ ] **CW-3 v0.4 backlog proposal** (`chatgpt`, PROPOSED): from the README rules and the open PRs, a ranked list of the next 10 tasks (balance, maps, online, iPad/web build), each with acceptance criteria.
 
+- [ ] **CW-4 Release plan** (`Codex-faisal`, PROPOSED): a release checklist covering platforms (Steam/itch/web), builds, store copy, screenshots, credits/licences (assets/CREDITS.md), age rating, and a test pass. Publishing only with Faisal's go.
+
 ## Done
 - v0.2.0 baseline, v0.3.0 cartoon + HUD restyle, v0.3.1 match summary + scoreboard (see `docs/CHANGELOG.md`).

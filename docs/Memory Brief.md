@@ -11,6 +11,8 @@ _At most 40 lines. The coordinator rewrites it after each integrated handoff._
 - 6 redundant PRs closed.
 - `main` and #8 both boot headless with no script errors.
 
+**Goal (Faisal, 2026-10-16): finish and RELEASE Crowns as its own game.** It's nearly complete, on Godot. A closer Fat Princess remake is a separate project (Crown Heist).
+
 **Tonight (Faisal):** integrate the PRs, add 2 new maps, improve the visuals, eliminate the lag.
 
 **Next:** CW-1 PR ledger (Codex, issue #25), then CW-2 integration and the maps (Claude 2). Board: docs/agents/.
