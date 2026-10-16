@@ -487,12 +487,20 @@ static func attach_weather(cam: Camera3D, kind: String) -> void:
 		return
 	var old := cam.get_node_or_null("Air")
 	if old:
-		old.free()   # the map's light changed (day <-> night on the title screen)
+		if old.get_meta("kind", "") == kind:
+			return   # already the right air (the light is re-applied often)
+		# The map's light changed (day <-> night on the title screen).
+		# (Re-making it on every light refresh, freeing the old one at once,
+		# cost ~190 MB of static memory in testing: it is only remade when
+		# the kind changes, and the old one is queued for freeing.)
+		old.name = "AirOld"
+		old.queue_free()
 	if not AIR.has(kind) or RenderingServer.get_rendering_device() == null:
 		return
 	var a: Array = AIR[kind]
 	var p := GPUParticles3D.new()
 	p.name = "Air"
+	p.set_meta("kind", kind)
 	p.amount = a[0]
 	p.lifetime = a[1]
 	p.preprocess = a[1]
