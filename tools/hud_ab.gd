@@ -1,7 +1,7 @@
 extends SceneTree
 ## The HUD's share of the frame, split in two: "frozen" stops its _process
 ## (no queue_redraw, so last frame's drawing stays on screen and is only
-## rendered), "hidden" hides its layer (nothing drawn or rendered). Six
+## rendered), "hidden" hides it (nothing drawn or rendered). Six
 ## alternations of each against the live HUD, medians.
 ##     godot --path . --resolution 1920x1080 --script tools/hud_ab.gd -- --demo --seed=7 --gfx=2
 
@@ -28,18 +28,22 @@ func _init() -> void:
 	var t0 := Time.get_ticks_msec()
 	while Time.get_ticks_msec() - t0 < 14000:
 		await process_frame
-	var hud: Node = game.hud
-	var layer: CanvasLayer = hud.get_parent()
+	var huds: Array = root.find_children("*", "", true, false).filter(func(n): return n.get_script() and n.get_script().resource_path.ends_with("hud.gd"))
+	print("HUDAB %d HUD instances" % huds.size())
 	var sums := {"live": [], "frozen": [], "hidden": []}
 	for i in 6:
 		sums.live.append(await _median())
-		hud.set_process(false)
+		for h in huds:
+			h.set_process(false)
 		sums.frozen.append(await _median())
-		hud.set_process(true)
+		for h in huds:
+			h.set_process(true)
 		sums.live.append(await _median())
-		layer.visible = false
+		for h in huds:
+			h.visible = false
 		sums.hidden.append(await _median())
-		layer.visible = true
+		for h in huds:
+			h.visible = true
 	for k in sums:
 		var v: Array = sums[k]
 		v.sort()

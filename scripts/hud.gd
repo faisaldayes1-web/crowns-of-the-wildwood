@@ -204,10 +204,24 @@ func _process(_delta: float) -> void:
 			holding_since = 0.0 if holding_since < 0.0 else holding_since + _delta
 		else:
 			holding_since = -1.0
-		game.menu_tick()
 		if not pane:
+			# Once a frame, by the window's own HUD: the split-screen panes'
+			# HUDs ran it again each (five times a frame with four players).
+			game.menu_tick()
 			_tick_notices(_delta)
-		_hide_world_prompts()
+			_hide_world_prompts()
+	if pane and game and game.panes.size() > 1 and not game.game_over:
+		# Split screen: each pane's HUD redraws every other frame, the panes
+		# taking turns (claude-faisallaptop 2026-10-16: every pane redrawing
+		# its whole HUD each frame cost ~2 ms a pane). At 60 fps that is
+		# still 30 redraws a second per player; the last one stays on screen
+		# in between.
+		var slot := 0
+		for k in game.panes.size():
+			if game.panes[k].hud == self:
+				slot = k
+		if (Engine.get_process_frames() + slot) % 2 != 0:
+			return
 	queue_redraw()
 
 

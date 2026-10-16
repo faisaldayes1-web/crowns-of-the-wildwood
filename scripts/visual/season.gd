@@ -439,7 +439,6 @@ static func _lantern_motes(game: Node3D) -> void:
 			fade.add_point(0.75, Color(1.6, 1.6, 1.6, 1))
 			fade.set_color(fade.get_point_count() - 1, Color(1, 1, 1, 0))
 			p.color_ramp = fade
-			p.set_meta("no_batch", true)
 			game.add_child(p)
 			p.global_position = Vector3(qx * game.map_half.x * 0.5, 1.6, qz * game.map_half.y * 0.5)
 
@@ -464,48 +463,84 @@ static func _soft_dot() -> Texture2D:
 	return _dot
 
 
-# --- Weather -----------------------------------------------------------------
+# --- Weather and air ---------------------------------------------------------
 
-static func attach_weather(cam: Camera3D, season: String) -> void:
-	## Falling snow (winter) around a camera's view. The emitter rides with
-	## the camera; the flakes fall in world space.
-	if season != "winter" or cam == null:
+# What drifts through the air over each map, around the camera:
+# [amount, lifetime, size, colour, emission box, direction, speed min/max,
+#  gravity, turbulence, additive].
+const AIR := {
+	"winter": [1600, 6.0, 0.12, Color(1, 1, 1, 0.85), Vector3(30, 2, 22), Vector3(0.25, -1, 0.1), 2.4, 3.6, Vector3(0, -0.6, 0), 0.6, false],
+	"day": [320, 9.0, 0.11, Color(1.0, 0.96, 0.78, 0.8), Vector3(30, 5, 22), Vector3(1, 0.15, 0.3), 0.3, 0.7, Vector3(0, -0.02, 0), 0.4, true],
+	"night": [240, 7.0, 0.16, Color(0.85, 1.0, 0.45, 1.0), Vector3(30, 3, 22), Vector3(0, 1, 0), 0.1, 0.35, Vector3.ZERO, 0.8, true],
+	"volcano": [520, 5.0, 0.11, Color(1.0, 0.55, 0.2, 1.0), Vector3(30, 4, 22), Vector3(0.1, 1, 0.05), 0.8, 1.8, Vector3(0, 0.4, 0), 0.7, true],
+	"twilight": [220, 8.0, 0.12, Color(1.0, 0.75, 1.0, 0.9), Vector3(30, 4, 22), Vector3(0.2, 0.4, 0.1), 0.15, 0.4, Vector3.ZERO, 0.6, true],
+}
+
+
+static func attach_weather(cam: Camera3D, kind: String) -> void:
+	## The air over the map (visual pass 2026-10-16): falling snow on
+	## Stonekeep, pollen drifting in the Wildwood's sunlight, fireflies by
+	## moonlight, embers rising off Ember Pass and motes at twilight. One GPU
+	## particle system rides with each camera; the specks drift in world
+	## space. Nothing here touches the fight.
+	if cam == null:
 		return
+	var old := cam.get_node_or_null("Air")
+	if old:
+		old.free()   # the map's light changed (day <-> night on the title screen)
+	if not AIR.has(kind) or RenderingServer.get_rendering_device() == null:
+		return
+	var a: Array = AIR[kind]
 	var p := GPUParticles3D.new()
-	p.name = "Snowfall"
-	p.amount = 1600
-	p.lifetime = 6.0
-	p.preprocess = 6.0
+	p.name = "Air"
+	p.amount = a[0]
+	p.lifetime = a[1]
+	p.preprocess = a[1]
 	p.local_coords = false
 	p.visibility_aabb = AABB(Vector3(-40, -50, -70), Vector3(80, 80, 90))
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3(30, 2, 22)
-	pm.direction = Vector3(0.25, -1, 0.1)
-	pm.spread = 12.0
-	pm.initial_velocity_min = 2.4
-	pm.initial_velocity_max = 3.6
-	pm.gravity = Vector3(0, -0.6, 0)
+	pm.emission_box_extents = a[4]
+	pm.direction = a[5]
+	pm.spread = 12.0 if kind == "winter" else 60.0
+	pm.initial_velocity_min = a[6]
+	pm.initial_velocity_max = a[7]
+	pm.gravity = a[8]
 	pm.turbulence_enabled = true
-	pm.turbulence_noise_strength = 0.6
+	pm.turbulence_noise_strength = a[9]
 	pm.turbulence_noise_scale = 6.0
 	pm.scale_min = 0.6
 	pm.scale_max = 1.3
+	if kind != "winter":
+		# Fade in and out over each speck's life (fireflies pulse).
+		var fade := Gradient.new()
+		fade.set_color(0, Color(1, 1, 1, 0))
+		fade.add_point(0.3, Color(1, 1, 1, 1))
+		fade.add_point(0.7, Color(1, 1, 1, 1))
+		fade.set_color(fade.get_point_count() - 1, Color(1, 1, 1, 0))
+		var gt := GradientTexture1D.new()
+		gt.gradient = fade
+		pm.color_ramp = gt
 	p.process_material = pm
 	var q := QuadMesh.new()
-	q.size = Vector2(0.12, 0.12)
+	q.size = Vector2(a[2], a[2])
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	if a[10]:
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.vertex_color_use_as_albedo = true
 	mat.albedo_texture = _soft_dot()
-	mat.albedo_color = Color(1, 1, 1, 0.85)
+	mat.albedo_color = a[3] * Color(1.6, 1.6, 1.6, 1.0) if a[10] else a[3]
 	q.material = mat
 	p.draw_pass_1 = q
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	cam.add_child(p)
-	# A world-level box 12 m over the ground the camera looks at (the camera
-	# sits at CAMERA_OFFSET from it, pitched down), turned back level.
-	var to_ground := -Vector3(0, 19.0, 16.0) + Vector3(0, 12.0, 0)
+	# A world-level box over the ground the camera looks at (the camera sits
+	# at CAMERA_OFFSET from it, pitched down), turned back level. Snow falls
+	# from 12 m; the rest hangs near head height.
+	var lift := 12.0 if kind == "winter" else 2.5
+	var to_ground := -Vector3(0, 19.0, 16.0) + Vector3(0, lift, 0)
 	p.position = cam.basis.inverse() * to_ground
 	p.basis = cam.basis.inverse()

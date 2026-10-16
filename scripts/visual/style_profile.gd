@@ -75,8 +75,11 @@ const DAY := {
 	"saturation": 1.15, "contrast": 1.1, "brightness": 1.0,
 	"fog_color": Color(0.96, 0.86, 0.68), "fill_energy": 0.12,
 }
+# Night readability (visual pass 2026-10-16, claude-faisallaptop): a brighter
+# moon and a little more ambient, so units, paths and walls read in the
+# Moonlit Wildwood without losing the dark mood (was 0.5 / 0.55 / 0.14).
 const NIGHT := {
-	"ambient_energy": 0.5, "sun_energy": 0.55, "fill_energy": 0.14,
+	"ambient_energy": 0.6, "sun_energy": 0.75, "fill_energy": 0.2,
 }
 const EMBER := {
 	"ambient_energy": 0.34,

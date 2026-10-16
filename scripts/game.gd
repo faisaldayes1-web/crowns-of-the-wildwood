@@ -27,6 +27,7 @@ const Sfx = preload("res://scripts/sfx.gd")
 const Volcano = preload("res://scripts/volcano.gd")
 const StaticBatch = preload("res://scripts/static_batch.gd")
 const Season = preload("res://scripts/visual/season.gd")
+const CharacterModel = preload("res://scripts/character_model.gd")
 const MainMenu = preload("res://scripts/menu.gd")
 const MenuStage = preload("res://scripts/menu_stage.gd")
 const Economy = preload("res://scripts/economy.gd")
@@ -2228,6 +2229,7 @@ func _start_match(team: int) -> void:
 	# (scripts/static_batch.gd): ~9,800 draw calls a frame became ~1,500.
 	if not "--no-batch" in OS.get_cmdline_user_args():
 		StaticBatch.run(self)
+		StaticBatch.particles_to_gpu(self)
 	_warm_up_world()   # (a coroutine: a few frames under the loading art)
 	if prep_left >= 0.0:
 		prep_left = Stats.PREP_TIME
@@ -2863,7 +2865,7 @@ func _build_panes() -> void:
 		cam.fov = camera.fov
 		view.add_child(cam)
 		cam.make_current()
-		Season.attach_weather(cam, season)
+		Season.attach_weather(cam, air_kind())
 		var h = Hud.new()
 		h.game = self
 		h.local_unit = u
@@ -2887,6 +2889,7 @@ func _build_panes() -> void:
 	for pane in panes:
 		pane.cam_pos = pane.unit.global_position + CAMERA_OFFSET * cam_zoom * pane.zoom
 		pane.cam.global_position = pane.cam_pos
+	apply_graphics()   # the panes' shadow budget (see apply_graphics)
 
 
 func pane_rects(n: int, layout: String) -> Array:
@@ -3755,10 +3758,25 @@ func unit_score(u) -> int:
 
 # --- Control bindings --------------------------------------------------------
 
+var _key_labels := {}   # key_label results for half a second (the HUD asks ~20 times a frame)
+
+
 func key_label(action: String, unit = null) -> String:
 	## A short keycap label for the action's binding on whatever the player
 	## holds: the mouse or keyboard for player 1 at the keys, the gamepad
-	## (in Xbox or PlayStation names) for a pad player.
+	## (in Xbox or PlayStation names) for a pad player. Remembered for half a
+	## second, so a rebind or a pad picked up shows within 0.5 s.
+	var ck := "%s|%d|%s" % [action, unit.local_index if unit != null else -1, pad_active]
+	var now := Time.get_ticks_msec()
+	var hit: Array = _key_labels.get(ck, [])
+	if not hit.is_empty() and now - int(hit[1]) < 500:
+		return hit[0]
+	var label := _key_label(action, unit)
+	_key_labels[ck] = [label, now]
+	return label
+
+
+func _key_label(action: String, unit = null) -> String:
 	if on_pad(unit):
 		return pad_label(action, pad_kind(local_pad(unit.local_index if unit != null else 0)))
 	if DisplayServer.get_name() == "headless":
@@ -10096,6 +10114,15 @@ func apply_graphics() -> void:
 		pane.view.screen_space_aa = vp.screen_space_aa
 		pane.view.scaling_3d_scale = vp.scaling_3d_scale
 		pane.view.scaling_3d_mode = vp.scaling_3d_mode
+		# Every pane renders its own shadow maps: the lamps' cube shadows
+		# (six passes each) were redrawn per pane. Two players keep them at a
+		# smaller size; three and four drop them (lamps still light).
+		pane.view.positional_shadow_atlas_size = 0 if panes.size() >= 3 else mini(vp.positional_shadow_atlas_size, 2048)
+	if sun_light and panes.size() >= 3 and not OS.has_feature("web"):
+		# Three or four panes: two sun cascades instead of four (each cascade
+		# redraws every shadow caster once per pane, and a quarter-screen
+		# pane cannot show the extra detail).
+		sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
 	if DisplayServer.get_name() != "headless":
 		# Only switch when the setting disagrees with the window: a maximized
 		# window is not "windowed", and forcing WINDOWED on every call (match
@@ -10172,6 +10199,15 @@ func _apply_map_variant() -> void:
 			fill_light.light_energy = 0.07
 	if style_live:
 		_style_light()
+	if camera:
+		Season.attach_weather(camera, air_kind())
+
+
+func air_kind() -> String:
+	## What drifts through the air (Season.AIR): the map's kind, with the
+	## Moonlit Wildwood only once it is unlocked.
+	var k: String = Stats.MAPS[map_variant][1]
+	return "day" if k == "night" and not night() else k
 
 
 func _season_light() -> void:
@@ -10512,7 +10548,7 @@ func _finish_world() -> void:
 	camera.position = Vector3(0, 40, 26)
 	add_child(camera)
 	camera.make_current()
-	Season.attach_weather(camera, season)
+	Season.attach_weather(camera, air_kind())
 	_add_ink()
 	if OS.has_feature("web"):
 		_trim_web_shadows()
@@ -10750,6 +10786,7 @@ func _warm_up_world() -> void:
 		return
 	if loading_tween:
 		loading_tween.pause()
+	await _warm_up_models()
 	var keep := cam_lock
 	var spots := []
 	for x in [-100.0, -66.0, -33.0, 0.0, 33.0, 66.0, 100.0]:
@@ -10772,6 +10809,36 @@ func _warm_up_world() -> void:
 				pane.cam_pos = pane.unit.global_position + CAMERA_OFFSET * cam_zoom * pane.zoom
 	if loading_tween and loading_tween.is_valid():
 		loading_tween.play()
+
+
+func _warm_up_models() -> void:
+	## Every class (and every promotion) once per team, built in front of the
+	## camera under the loading art: the first build of each model loads its
+	## scene, skins and faces and compiles their shaders (55-65 ms, a visible
+	## hitch when the first bot of the match picked that class up); later
+	## builds reuse all of it (~7 ms).
+	var rack := Node3D.new()
+	add_child(rack)
+	rack.global_position = cam_pos - CAMERA_OFFSET * cam_zoom
+	var looks := []
+	for team in 2:
+		for role in Stats.Role.values():
+			looks.append([team, role, "", 1])
+			looks.append([team, role, "", 3])
+			if Stats.VARIANTS.has(role):
+				for v in Stats.VARIANTS[role]:
+					looks.append([team, role, v.name, 1])
+	var models := []
+	for i in looks.size():
+		var m = CharacterModel.new()
+		rack.add_child(m)
+		m.position = Vector3((i % 8) * 1.2 - 4.2, 0, (i / 8) * 1.2 - 3.0)
+		var l: Array = looks[i]
+		m.setup(l[0], l[1], l[2], {}, l[3])
+		models.append(m)
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	rack.queue_free()
 
 
 func _warm_up_effects() -> void:

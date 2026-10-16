@@ -100,12 +100,36 @@ static func _arrays(mesh: Mesh, s: int, cache: Dictionary) -> Array:
 			var pkey := _sig(mesh, cache)
 			a = cache.get(pkey, [])
 			if a.is_empty():
-				a = mesh.get_mesh_arrays()
+				a = _lighter(mesh).get_mesh_arrays()
 				cache[pkey] = a
 		else:
 			a = mesh.surface_get_arrays(s)
 		cache[key] = a
 	return a
+
+
+static func _lighter(mesh: PrimitiveMesh) -> PrimitiveMesh:
+	## Spheres, cylinders and rings left at Godot's default 64 segments (a
+	## 64x32 sphere is 4,096 triangles: 248 of them were half the world's
+	## triangles, drawn again in every shadow cascade and split-screen pane)
+	## are rebuilt with a segment count for their size. Explicitly lighter
+	## ones are kept as they are.
+	if mesh is SphereMesh and mesh.radial_segments >= 48:
+		var m: SphereMesh = mesh.duplicate()
+		m.radial_segments = clampi(int(16.0 + mesh.radius * 16.0), 16, 32)
+		m.rings = m.radial_segments / 2
+		return m
+	if mesh is CylinderMesh and mesh.radial_segments >= 48:
+		var m: CylinderMesh = mesh.duplicate()
+		m.radial_segments = clampi(int(12.0 + maxf(mesh.top_radius, mesh.bottom_radius) * 16.0), 12, 32)
+		m.rings = mini(mesh.rings, 1)
+		return m
+	if mesh is TorusMesh and mesh.rings >= 48:
+		var m: TorusMesh = mesh.duplicate()
+		m.rings = 32
+		m.ring_segments = mini(mesh.ring_segments, 12)
+		return m
+	return mesh
 
 
 static func run(game: Node3D) -> Dictionary:
@@ -269,3 +293,40 @@ static func _emit(holder: Node3D, b: Dictionary, start: int) -> int:
 	mi.gi_mode = b.gi
 	holder.add_child(mi)
 	return i
+
+
+static func particles_to_gpu(game: Node3D) -> int:
+	## The world's ambient particle systems (fireflies, chimney and campfire
+	## smoke, embers, falling leaves) ran on the CPU: ~70 of them were ~2 ms
+	## of the main thread a frame. The long-lived ones become GPU particles
+	## (GPUParticles3D.convert_from_particles keeps every setting). One-shot
+	## bursts and anything on a unit or other scripted thing stay as they
+	## are. Forward+ only; the web's Compatibility renderer keeps the CPU
+	## ones. Returns how many it converted.
+	if RenderingServer.get_rendering_device() == null or DisplayServer.get_name() == "headless":
+		return 0
+	var done := 0
+	for n in game.find_children("*", "CPUParticles3D", true, false):
+		var cp := n as CPUParticles3D
+		if cp.one_shot or not cp.emitting or _skip_subtree(cp, game):
+			continue
+		var gp := GPUParticles3D.new()
+		gp.convert_from_particles(cp)
+		gp.name = cp.name
+		gp.transform = cp.transform
+		gp.visible = cp.visible
+		gp.cast_shadow = cp.cast_shadow
+		gp.layers = cp.layers
+		# Culling box: where the CPU one's particles are now, with room to drift.
+		var box: AABB = cp.get_aabb()
+		gp.visibility_aabb = box.grow(3.0) if box.size.length() > 0.01 else AABB(Vector3(-8, -4, -8), Vector3(16, 12, 16))
+		var parent := cp.get_parent()
+		parent.add_child(gp)
+		parent.move_child(gp, cp.get_index())
+		gp.restart()
+		if gp.preprocess <= 0.0:
+			gp.preprocess = gp.lifetime   # start full, as the CPU one already was
+		parent.remove_child(cp)
+		cp.queue_free()
+		done += 1
+	return done
