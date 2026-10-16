@@ -4,6 +4,13 @@ Format: see [README.md](README.md). Newest first.
 
 <!-- entries below -->
 
+### 2026-10-16 00:20 UTC · Store `cd8ab03` · Faisal's painted icons for the Wildwood collection
+
+- **What:** merged into the Steam branch, cherry-picked `5fec42f` + `cd8ab03` into the alpha. PNG swaps for hat_8..12, cape_6..9 and outfit_8. Not yet in a delivered build (next beta).
+- **Conflicts:** none; game code identical on both branches.
+- **Tested:** reimport on both branches 0 errors; store_menu_test 0 failures.
+- **Revert:** Steam branch `git revert -m 1 <merge>`; alpha: revert the two cherry-picks newest first.
+
 ### 2026-10-15 18:40 UTC · Store `fc26713` · Cape dyes on every character, customizer fixes
 
 - **What:** merged into the Steam branch, cherry-picked `f757e2c`, `66356b9`, `3029782`, `fc26713` into the alpha. Cape dyes show on every class, rank and promotion (KayKit capes dye the whole cloth; the OutfitFlair neck wrap is worn when a dye is chosen); customizer ARMOR tiles wrap at ten a line, COLORS note no longer overlaps. New tools/trim_check.gd. Not yet in a delivered build (next beta).
