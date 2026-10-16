@@ -308,7 +308,6 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Files:** merge of `release/v0.4.0-alpha`; `scripts/character_model.gd`, `scripts/unit.gd`,
   `scripts/net.gd`, `scripts/skill_fx.gd`, `scripts/game.gd`
 - **Tunables:** none
-- **Revert:** `git revert -m 1 HASH-PENDING`
 - **Revert:** `git revert -m 1 cc92436`
 
 ### 2026-10-10 09:58 UTC · 2a24c42 · iPad: steady 30 fps instead of jumpy frames
