@@ -342,3 +342,14 @@ Riverweave Cape `cape_8`, Firefly Mantle `cape_9`, Riverstone armour `outfit_8`.
 `outfit_9`, `weapon_7..10`.
 
 Undo: `git revert 5fec42f`
+
+## 2026-10-16 — Faisal's corrected Wildwood icons (all 16)
+
+Commit: `f12d195`
+
+Faisal 02:42: "USE TEHSE INSTEAD THEY MATCH THE SAME ART STYLE". His zip named every file, so each went in
+under its own name: `hat_8..12`, `cape_6..9`, `outfit_7..9`, `weapon_7..10`. This replaces the ten icons
+from 5fec42f and the last six model renders. Originals in
+`/mnt/project-files/game/groups/store/icons-from-faisal-2026-10-16/`.
+
+Undo: `git revert f12d195` (back to the 2026-10-15 set)
