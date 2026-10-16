@@ -97,7 +97,10 @@ const HERO_MARKS := [["None", ""], ["Scar", "scar"], ["Claws", "claws"], ["Freck
 # Maps: the Wildwood by day, and the moonlit night variant unlocked at level 10.
 # Ember Pass is the volcano map (castles on basalt plateaus over lava, joined
 # by bridges, and the Fire Objective in the middle); open to everyone.
-const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"], ["Ember Pass", "volcano"]]
+# Stonekeep Fortress and Twilight Grove (claude-faisallaptop 2026-10-16) are the
+# Wildwood's layout in winter and at dusk (scripts/visual/season.gd).
+const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"], ["Ember Pass", "volcano"],
+	["Stonekeep Fortress", "winter"], ["Twilight Grove", "twilight"]]
 
 # Ember Pass's Fire Objective: stand in the ring to capture it (alone it
 # takes capture_time seconds, each extra teammate adds extra_rate, counted up

@@ -804,6 +804,46 @@ def make_pavers():
     save("pavers", color, height, 0.8)
 
 
+def make_snow():
+    """Stonekeep Fortress's snowfield (claude-faisallaptop 2026-10-16): the
+    meadow's soft cells in blue-white, broad wind-packed drifts, faint cool
+    seams and a scatter of sparkle flecks. Low contrast, so units, paths and
+    the ink lines read on top of it like they do on the grass."""
+    f1, f2, ids = voronoi(N, 5, 159)
+    r = np.random.default_rng(158)
+    shade = r.random(25)[ids]
+    broad = fbm(N, 2, 2, 160)
+    fine = fbm(N, 48, 2, 161)
+    sparkle = np.clip((fbm(N, 90, 1, 162) - 0.80) * 12.0, 0, 1)
+    base = rgb(0.80, 0.86, 0.94)
+    light = rgb(0.95, 0.97, 1.00)
+    color = lerp(base, light, (shade * 0.6)[..., None])
+    color = lerp(color, light, np.clip((broad - 0.5) * 3.0, 0, 1)[..., None] * 0.5)
+    seam = np.clip(1 - (f2 - f1) / 0.05, 0, 1)
+    color = lerp(color, rgb(0.70, 0.78, 0.90), seam[..., None] * 0.35)
+    color = color * (0.97 + 0.05 * fine)[..., None]
+    color = lerp(color, rgb(1.0, 1.0, 1.0), sparkle[..., None] * 0.6)
+    h = 0.45 + 0.35 * np.clip((f2 - f1) * 4, 0, 1) + 0.2 * broad
+    save("snow", np.clip(color, 0, 1), np.clip(h, 0, 1), 0.5)
+
+
+def make_twilight_grass():
+    """Twilight Grove's meadow: the same soft cells as the grass in a deep
+    dusk teal with violet seams, so the magenta light reads on it."""
+    f1, f2, ids = voronoi(N, 5, 259)
+    r = np.random.default_rng(258)
+    shade = r.random(25)[ids]
+    broad = fbm(N, 2, 2, 260)
+    base = rgb(0.22, 0.52, 0.42)
+    light = rgb(0.34, 0.66, 0.5)
+    color = lerp(base, light, (shade * 0.5)[..., None])
+    color = lerp(color, light * 1.05, np.clip((broad - 0.5) * 3.0, 0, 1)[..., None] * 0.4)
+    seam = np.clip(1 - (f2 - f1) / 0.05, 0, 1)
+    color = lerp(color, rgb(0.20, 0.22, 0.36), seam[..., None] * 0.4)
+    h = 0.5 + 0.5 * np.clip((f2 - f1) * 4, 0, 1)
+    save("grass_twilight", np.clip(color, 0, 1), np.clip(h, 0, 1), 0.15)
+
+
 import sys
 if len(sys.argv) > 1:   # e.g. python3 tools/make_textures.py make_greystone
     for fn in sys.argv[1:]:
@@ -829,3 +869,5 @@ make_moss()
 make_wood_dark()
 make_greystone()
 make_hedge()
+make_snow()
+make_twilight_grass()

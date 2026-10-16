@@ -6730,12 +6730,13 @@ func _draw_title_play(panel: Rect2) -> void:
 	var row_y := fy + 240
 	_text(Vector2(left, row_y + 14), "MAP", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in Stats.MAPS.size():
-		var b := Rect2(left + 50 + i * 128, row_y, 122, 34)
+		# Five maps fit before the couch picker (it starts at left + 450).
+		var b := Rect2(left + 50 + i * 79, row_y, 75, 34)
 		var on: bool = game.map_variant == i
 		var locked: bool = i == 1 and not game.unlocked()
-		var tile: Color = [Color(0.2, 0.55, 0.3), Color(0.25, 0.25, 0.55), Color(0.62, 0.22, 0.08)][mini(i, 2)]
+		var tile: Color = [Color(0.2, 0.55, 0.3), Color(0.25, 0.25, 0.55), Color(0.62, 0.22, 0.08), Color(0.45, 0.6, 0.78), Color(0.52, 0.24, 0.6)][mini(i, 4)]
 		_chunky(b, tile if not locked else Color(0.3, 0.3, 0.34), on, b.has_point(_mouse()))
-		_text(b.position + Vector2(0, 22), Stats.MAPS[i][0].to_upper(), 12 if Stats.MAPS[i][0].length() <= 11 else 9, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 3)
+		_text(b.position + Vector2(0, 22), Stats.MAPS[i][0].to_upper(), 9 if Stats.MAPS[i][0].length() <= 9 else 7, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 3)
 		if locked:
 			_text(b.position + Vector2(0, 32), "LEVEL %d" % Stats.UNLOCK_LEVEL, 7, Color(1.0, 0.75, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
 		hero_buttons.append([b, "map", i])

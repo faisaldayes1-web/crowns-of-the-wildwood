@@ -25,6 +25,8 @@ const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
 const Volcano = preload("res://scripts/volcano.gd")
+const StaticBatch = preload("res://scripts/static_batch.gd")
+const Season = preload("res://scripts/visual/season.gd")
 const MainMenu = preload("res://scripts/menu.gd")
 const MenuStage = preload("res://scripts/menu_stage.gd")
 const Economy = preload("res://scripts/economy.gd")
@@ -111,6 +113,7 @@ var killer_timer := 0.0
 var hero_look := 0              # Stats.HERO_LOOKS index (1 needs account level 10)
 var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
 static var reopen_screen := ""  # a menu screen to reopen after select_map() reloads the scene
+var season := ""               # "winter" (Stonekeep Fortress), "twilight" (Twilight Grove) or "" (scripts/visual/season.gd)
 var vmap = null                 # Ember Pass (the volcano map): its layout, bot routes and Fire Objective; null on the Wildwood
 var hero_skin := 1              # Stats.HERO_SKINS index
 var hero_face := 0              # Stats.HERO_FACES index
@@ -378,6 +381,10 @@ func _ready() -> void:
 	# Windows greys a window out as "Not Responding" when it hears nothing
 	# for 5 s: keep answering it while nodes pour in.
 	get_tree().node_added.connect(func(_n): _keep_window_alive())
+	season = Season.kind_of(map_variant)
+	if season != "":
+		tex_swap = Season.tex_swaps(season)   # snow or dusk meadow under everything
+		swap_dim = Color.WHITE
 	world_style = true   # the match world follows the style profile; the menus built below do not
 	_build_world()
 	world_style = false
@@ -2078,6 +2085,7 @@ func _flat_dist(a: Vector3, b: Vector3) -> float:
 
 const LOADING_SCREENS := ["res://assets/ui/loading_1.jpg", "res://assets/ui/loading_2.jpg"]
 var loading_layer: CanvasLayer
+var loading_tween: Tween   # its hold-then-fade; _warm_up_world holds it while it sweeps
 var _alive_ms := 0   # last time _keep_window_alive answered the OS
 var _alive_frame := -1   # the frame _keep_window_alive last saw, and when it began
 var _alive_frame_start := 0
@@ -2115,6 +2123,7 @@ func _show_loading(hold: float) -> void:
 	bg.add_child(label)
 	var layer := loading_layer
 	var tw := create_tween()
+	loading_tween = tw
 	tw.tween_interval(hold)
 	tw.tween_property(bg, "modulate:a", 0.0, 0.6)
 	tw.tween_callback(func() -> void:
@@ -2156,6 +2165,11 @@ func _start_match(team: int) -> void:
 	# The match world's light grade (style_profile.gd), now the menus' own
 	# light is gone.
 	style_live = true
+	# Anything built from now on (economy drops, turrets, barricades) is part
+	# of the match world: it takes the style textures, which are already
+	# loaded, instead of loading the menu originals from disk mid-fight (a
+	# 40 ms hitch, and those props came out in the wrong texture set).
+	world_style = true
 	_apply_map_variant()
 	# Each local player's side: from the lobby, else player 1's pick with
 	# the couch rule (versus: 2 and 4 against, co-op: all together).
@@ -2210,6 +2224,11 @@ func _start_match(team: int) -> void:
 			prep_left = -1.0
 	barricades_left = [Stats.BARRICADE_TEAM, Stats.BARRICADE_TEAM]
 	kill_feed = []
+	# Merge the scenery that never moves into a few hundred meshes
+	# (scripts/static_batch.gd): ~9,800 draw calls a frame became ~1,500.
+	if not "--no-batch" in OS.get_cmdline_user_args():
+		StaticBatch.run(self)
+	_warm_up_world()   # (a coroutine: a few frames under the loading art)
 	if prep_left >= 0.0:
 		prep_left = Stats.PREP_TIME
 		_build_barrier()
@@ -2247,6 +2266,7 @@ func _build_barrier() -> void:
 	## The fortify barrier: a wall of light down the middle of the field that
 	## nothing crosses until the battle begins.
 	barrier = Node3D.new()
+	barrier.set_meta("no_batch", true)   # falls when the fight starts
 	add_child(barrier)
 	var length: float = map_half.y * 2.0 + 12.0
 	var body := StaticBody3D.new()
@@ -2843,6 +2863,7 @@ func _build_panes() -> void:
 		cam.fov = camera.fov
 		view.add_child(cam)
 		cam.make_current()
+		Season.attach_weather(cam, season)
 		var h = Hud.new()
 		h.game = self
 		h.local_unit = u
@@ -3984,8 +4005,11 @@ func select_map(index: int) -> void:
 	## Pick a map on the title screen. The Moonlit Wildwood only changes the
 	## light; a map with other ground (Ember Pass) rebuilds the world, so the
 	## scene restarts on the title with the new map saved.
-	var built: String = "volcano" if vmap else "wildwood"
-	var want: String = "volcano" if Stats.MAPS[index][1] == "volcano" else "wildwood"
+	# Day and night share one world; Ember Pass and the two seasons each
+	# build their own.
+	var built: String = "volcano" if vmap else (season if season != "" else "wildwood")
+	var kind: String = Stats.MAPS[index][1]
+	var want: String = kind if kind in ["volcano", "winter", "twilight"] else "wildwood"
 	map_variant = index
 	if want != built:
 		_save_settings()
@@ -4378,7 +4402,7 @@ func _material(color: Color) -> StandardMaterial3D:
 func _pbr(prefix: String, scale: float, tint: Color = Color.WHITE, ext: String = "jpg") -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	# A swapped texture is already dark and cool, so it takes only a light soot.
-	var dim: Color = Color(0.9, 0.86, 0.84) if tex_swap.has(prefix) else soot
+	var dim: Color = swap_dim if tex_swap.has(prefix) else soot
 	# The match world's style copy of the texture (scripts/visual/style_profile.gd);
 	# the menus, built with world_style off, keep the originals.
 	var style: Dictionary = StyleProfile.TEX.get(prefix, {}) if world_style and not tex_swap.has(prefix) and ext == "jpg" else {}
@@ -4749,7 +4773,8 @@ func _add_ground_detail() -> void:
 	var leaf := PlaneMesh.new()
 	leaf.size = Vector2(0.34, 0.26)
 	var sets := [
-		["flower", flower, StyleProfile.FLOWERS, 0.4], ["tuft", tuft, StyleProfile.TUFTS, 0.0], ["stone", stone, 50, 0.0], ["cap", cap, 80, 0.26], ["leaf", leaf, 140, 0.02]]
+		["flower", flower, StyleProfile.FLOWERS if season != "winter" else 0, 0.4], ["tuft", tuft, StyleProfile.TUFTS, 0.0], ["stone", stone, 50, 0.0],
+		["cap", cap, 80 if season != "twilight" else 240, 0.26], ["leaf", leaf, 140 if season != "winter" else 0, 0.02]]
 	for s in sets:
 		var placed: Array = []
 		var tries := 0
@@ -4787,8 +4812,8 @@ func _add_ground_detail() -> void:
 					# among white daisies and cornflowers, each patch mixed.
 					col = [Color(1.0, 0.98, 0.92), Color(1.0, 0.98, 0.92), Color(1.0, 0.86, 0.25), Color(1.0, 0.86, 0.25), Color(0.36, 0.52, 1.0),
 						Color(0.36, 0.52, 1.0), Color(1.0, 0.56, 0.78), Color(1.0, 0.56, 0.78), Color(0.72, 0.5, 1.0), Color(0.98, 0.36, 0.3)][r.randi() % 10]
-					if elf_side and r.randf() < 0.12:
-						col = Color(0.45, 0.95, 1.0)  # glowing wildwood bloom
+					if (elf_side and r.randf() < 0.12) or (season == "twilight" and r.randf() < 0.35):
+						col = Color(0.45, 0.95, 1.0)  # glowing wildwood bloom (Twilight Grove: everywhere)
 				"tuft":
 					# A shade under the meadow, so the turf reads lush, not spiky.
 					basis = basis.scaled(Vector3(1.4, 1.0, 1.4))
@@ -4800,7 +4825,7 @@ func _add_ground_detail() -> void:
 						col = Color(0.55, 0.62, 0.5)
 				"cap":
 					col = Color(0.85, 0.25, 0.2) if r.randf() < 0.6 else Color(0.8, 0.65, 0.45)
-					if elf_side and r.randf() < 0.4:
+					if (elf_side and r.randf() < 0.4) or season == "twilight":
 						col = Color(0.45, 0.85, 0.95)
 				"leaf":
 					col = [Color(0.8, 0.45, 0.15), Color(0.65, 0.3, 0.1), Color(0.85, 0.65, 0.2), Color(0.4, 0.55, 0.2)][r.randi() % 4]
@@ -6199,6 +6224,7 @@ const ELF_BARK := Color(0.8, 0.62, 0.47)       # was Color(0.72, 0.7, 0.58), oli
 const ELF_MOONSTONE := Color(0.84, 0.87, 0.95)  # pale blue-white stone
 const ELF_GLOW := Color(0.6, 1.0, 0.72)        # crystal light: the reference's green crystals (was moon-blue 0.62, 0.8, 1.0)
 var soot := Color.WHITE   # while Ember Pass's castles are built: darkens every textured surface
+var swap_dim := Color(0.9, 0.86, 0.84)   # the tint a swapped texture takes (Ember Pass's soot; white for the seasons)
 var tex_swap := {}        # ...and swaps textures that clash with the lava light (the Elves' bark and sandstone)
 var grey := false    # while the Humans' castle is being built: grey stone
 
@@ -8652,6 +8678,7 @@ func _add_waterwheel(pos: Vector3, sx: float) -> void:
 	axle.rotation.z = PI / 2.0
 	axle.position.x = sx * 1.5
 	hub.add_child(axle)
+	hub.set_meta("no_batch", true)   # turns
 	var tw := create_tween().set_loops()
 	tw.tween_property(hub, "rotation:x", TAU * sx, 7.0).from(0.0)
 
@@ -8721,6 +8748,7 @@ func _add_clouds() -> void:
 		var n := _prop("hex/" + sp[1], sp[0], sp[2], float(i) * 0.9)
 		if n == null:
 			continue
+		n.set_meta("no_batch", true)   # drifts (scripts/static_batch.gd leaves it alone)
 		var tw := create_tween().set_loops()
 		var drift := Vector3(7.0 if i % 2 == 0 else -7.0, 0, 0)
 		tw.tween_property(n, "position", sp[0] + drift, 36.0 + i * 3.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -10091,7 +10119,9 @@ func _apply_map_variant() -> void:
 			_style_light()
 		return
 	var dark := night()
-	if dark:
+	if season != "":
+		_season_light()
+	elif dark:
 		sky_material.sky_top_color = Color(0.02, 0.04, 0.1)
 		sky_material.sky_horizon_color = Color(0.1, 0.14, 0.28)
 		sky_material.ground_bottom_color = Color(0.03, 0.05, 0.06)
@@ -10144,6 +10174,61 @@ func _apply_map_variant() -> void:
 		_style_light()
 
 
+func _season_light() -> void:
+	## Stonekeep Fortress: a low, cold winter sun over bright snow, blue
+	## shade and a pale haze. Twilight Grove: the sun just above the
+	## horizon, magenta sky, violet shade, and the glows doing the work.
+	if season == "winter":
+		sky_material.sky_top_color = Color(0.52, 0.66, 0.86)
+		sky_material.sky_horizon_color = Color(0.88, 0.92, 0.97)
+		sky_material.ground_bottom_color = Color(0.74, 0.8, 0.88)
+		sky_material.ground_horizon_color = Color(0.86, 0.9, 0.95)
+		world_environment.ambient_light_energy = 0.34
+		world_environment.ambient_light_sky_contribution = 0.4
+		world_environment.ambient_light_color = Color(0.66, 0.78, 1.0)
+		world_environment.fog_light_color = Color(0.84, 0.9, 0.98)
+		world_environment.fog_density = 0.0034
+		world_environment.glow_intensity = 0.5
+		world_environment.glow_hdr_threshold = 1.15
+		world_environment.adjustment_saturation = 1.0
+		world_environment.adjustment_contrast = 1.08
+		world_environment.adjustment_brightness = 0.98
+		world_environment.tonemap_exposure = 0.88   # snow is bright: keep it off white-out
+		sun_light.light_color = Color(1.0, 0.92, 0.82)
+		sun_light.light_energy = 1.3
+		sun_light.rotation_degrees = Vector3(-34, -40, 0)
+		sun_light.shadow_opacity = 0.85
+		sun_light.light_angular_distance = 0.8
+		sun_light.shadow_blur = 0.9
+		if fill_light:
+			fill_light.light_color = Color(0.55, 0.68, 1.0)
+			fill_light.light_energy = 0.16
+	elif season == "twilight":
+		sky_material.sky_top_color = Color(0.2, 0.12, 0.4)
+		sky_material.sky_horizon_color = Color(1.0, 0.55, 0.55)
+		sky_material.ground_bottom_color = Color(0.14, 0.1, 0.22)
+		sky_material.ground_horizon_color = Color(0.6, 0.36, 0.5)
+		world_environment.ambient_light_energy = 0.58
+		world_environment.ambient_light_sky_contribution = 0.35
+		world_environment.ambient_light_color = Color(0.66, 0.58, 1.0)
+		world_environment.fog_light_color = Color(0.9, 0.5, 0.7)
+		world_environment.fog_density = 0.0024
+		world_environment.glow_intensity = 0.9
+		world_environment.glow_hdr_threshold = 0.95
+		world_environment.adjustment_saturation = 1.06
+		world_environment.adjustment_contrast = 1.06
+		world_environment.adjustment_brightness = 1.04
+		sun_light.light_color = Color(1.0, 0.66, 0.52)
+		sun_light.light_energy = 1.35
+		sun_light.rotation_degrees = Vector3(-34, -62, 0)
+		sun_light.shadow_opacity = 0.8
+		sun_light.light_angular_distance = 1.0
+		sun_light.shadow_blur = 1.0
+		if fill_light:
+			fill_light.light_color = Color(0.56, 0.6, 1.0)
+			fill_light.light_energy = 0.24
+
+
 func _style_light() -> void:
 	## The style guide's light on top of the map's own: a warm golden sun,
 	## coloured (not black) shade that still reads with ambient occlusion,
@@ -10154,6 +10239,8 @@ func _style_light() -> void:
 	if vmap:
 		world_environment.ambient_light_energy = StyleProfile.EMBER.ambient_energy
 		return
+	if season != "":
+		return   # the season's own light (_season_light)
 	if night():
 		world_environment.ambient_light_energy = StyleProfile.NIGHT.ambient_energy
 		sun_light.light_energy = StyleProfile.NIGHT.sun_energy
@@ -10413,6 +10500,11 @@ func _build_volcano() -> void:
 
 
 func _finish_world() -> void:
+	if season != "":
+		# Stonekeep Fortress / Twilight Grove: the season's grade over the
+		# finished world, then its own scenery.
+		Season.grade(self, season)
+		Season.decorate(self, season, {"half": RIVER_HALF, "y": 0.03, "bridges": BRIDGES, "island": ISLAND_R})
 	_apply_map_variant()
 	camera = Camera3D.new()
 	camera.rotation_degrees = Vector3(-50, 0, 0)
@@ -10420,6 +10512,7 @@ func _finish_world() -> void:
 	camera.position = Vector3(0, 40, 26)
 	add_child(camera)
 	camera.make_current()
+	Season.attach_weather(camera, season)
 	_add_ink()
 	if OS.has_feature("web"):
 		_trim_web_shadows()
@@ -10643,6 +10736,42 @@ func _warm_up_menus(land_on: String = "title") -> void:
 		menu_tab = 0
 		m.screen = land_on
 	menus_warming = false
+
+
+func _warm_up_world() -> void:
+	## Under the loading art, point the camera at every part of the map for a
+	## couple of frames, so each material's shaders (and their shadow-pass
+	## versions) compile now and not mid-fight. On a fresh install, or after
+	## an update changes a shader, the first match stalled half a second a
+	## dozen times in its first 15 s while new scenery came into view
+	## (claude-faisallaptop 2026-10-16). With the shader cache warm this
+	## takes a dozen quick frames.
+	if not is_instance_valid(loading_layer) or DisplayServer.get_name() == "headless" or player == null:
+		return
+	if loading_tween:
+		loading_tween.pause()
+	var keep := cam_lock
+	var spots := []
+	for x in [-100.0, -66.0, -33.0, 0.0, 33.0, 66.0, 100.0]:
+		for z in [-28.0, 0.0, 28.0]:
+			spots.append(Vector3(x, 0, z))
+	for spot in spots:
+		if not is_instance_valid(loading_layer) or not playing:
+			break
+		cam_lock = spot
+		cam_pos = spot + CAMERA_OFFSET * cam_zoom
+		for pane in panes:
+			pane.cam_pos = cam_pos
+		await RenderingServer.frame_post_draw
+		await RenderingServer.frame_post_draw
+	cam_lock = keep
+	if player:
+		cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom
+		for pane in panes:
+			if is_instance_valid(pane.unit):
+				pane.cam_pos = pane.unit.global_position + CAMERA_OFFSET * cam_zoom * pane.zoom
+	if loading_tween and loading_tween.is_valid():
+		loading_tween.play()
 
 
 func _warm_up_effects() -> void:

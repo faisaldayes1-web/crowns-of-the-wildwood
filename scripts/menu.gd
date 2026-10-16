@@ -16,7 +16,7 @@ const Role = Stats.Role
 
 # Map cards: [title, thumbnail, Stats.MAPS index or -1 for coming soon].
 const MAP_CARDS := [["THE WILDWOOD", "map_wildwood", 0], ["MOONLIT WILDWOOD", "map_moonlit", 1],
-	["STONEKEEP FORTRESS", "map_stonekeep", -1], ["EMBER PASS", "map_ember", 2], ["TWILIGHT GROVE", "map_twilight", -1]]
+	["STONEKEEP FORTRESS", "map_stonekeep", 3], ["EMBER PASS", "map_ember", 2], ["TWILIGHT GROVE", "map_twilight", 4]]
 const DIFFICULTIES := [["CASUAL", "Relaxed, good for new players", "Easy", "crown"], ["NORMAL", "Classic experience", "Normal", "crown"],
 	["HARDCORE", "For the bravest", "Hard", "skull"]]
 const CHAR_TABS := [["APPEARANCE", "appearance"], ["HAIR", "hair"], ["FACE", "face"], ["ARMOR", "tunic"], ["COLORS", "palette"], ["EMBLEM", "emblem"]]
