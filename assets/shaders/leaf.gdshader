@@ -8,16 +8,21 @@ uniform vec4 top_color : source_color = vec4(0.50, 0.75, 0.30, 1.0);
 uniform float height : hint_range(0.1, 10.0) = 2.0;
 uniform float sway : hint_range(0.0, 0.3) = 0.06;
 uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
+// A whole crown made of several clumps shades as one: the gradient runs on
+// world height from crown_base over `height`, not per clump (where every
+// clump got its own dark underside and the tree read as a pile of balls).
+uniform bool world_gradient = false;
+uniform float crown_base = 0.0;
 
 varying float h;
 varying vec3 wpos;
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	h = VERTEX.y;
+	h = world_gradient ? wpos.y - crown_base - height * 0.5 : VERTEX.y;
 	float w = sin(TIME * 1.3 + wpos.x * 0.7 + wpos.z * 0.5) * sway;
-	VERTEX.x += w * clamp(VERTEX.y / height + 0.5, 0.0, 1.0);
-	VERTEX.z += w * 0.5 * clamp(VERTEX.y / height + 0.5, 0.0, 1.0);
+	VERTEX.x += w * clamp(h / height + 0.5, 0.0, 1.0);
+	VERTEX.z += w * 0.5 * clamp(h / height + 0.5, 0.0, 1.0);
 }
 
 void fragment() {

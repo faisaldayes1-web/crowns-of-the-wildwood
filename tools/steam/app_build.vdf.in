@@ -1,0 +1,23 @@
+"AppBuild"
+{
+	"AppID" "@APP_ID@"
+	"Desc" "@DESC@"
+	"ContentRoot" "@CONTENT_ROOT@"
+	"BuildOutput" "@BUILD_OUTPUT@"
+	"SetLive" ""
+	"Preview" "@PREVIEW@"
+	"Depots"
+	{
+		"@DEPOT_ID@"
+		{
+			"FileMapping"
+			{
+				"LocalPath" "*"
+				"DepotPath" "."
+				"recursive" "1"
+			}
+			"FileExclusion" "steam_appid.txt"
+			"FileExclusion" "*.pdb"
+		}
+	}
+}
