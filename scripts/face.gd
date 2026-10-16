@@ -173,7 +173,14 @@ static func no_eyes(skin: Texture2D) -> Texture2D:
 	return out
 
 
+static var hair_cache := {}
+
+
 static func hair_color(skin: Texture2D) -> Color:
+	## Cached per skin: get_image() reads the texture back from the GPU, and
+	## every model rebuild (respawn, class pick, promotion) asked again.
+	if hair_cache.has(skin):
+		return hair_cache[skin]
 	var img: Image = skin.get_image()
 	if img == null:
 		return Color(0.35, 0.2, 0.1)
@@ -181,7 +188,8 @@ static func hair_color(skin: Texture2D) -> Color:
 		img = img.duplicate()
 		img.decompress()
 	var c := img.get_pixel(img.get_width() / 16 * 3, img.get_height() / 8)
-	return c.darkened(0.15)
+	hair_cache[skin] = c.darkened(0.15)
+	return hair_cache[skin]
 
 
 func _mat(tex: Texture2D, tint: Color = Color.WHITE) -> StandardMaterial3D:

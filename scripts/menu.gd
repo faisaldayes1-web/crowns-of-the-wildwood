@@ -16,7 +16,7 @@ const Role = Stats.Role
 
 # Map cards: [title, thumbnail, Stats.MAPS index or -1 for coming soon].
 const MAP_CARDS := [["THE WILDWOOD", "map_wildwood", 0], ["MOONLIT WILDWOOD", "map_moonlit", 1],
-	["STONEKEEP FORTRESS", "map_stonekeep", -1], ["EMBER PASS", "map_ember", 2], ["TWILIGHT GROVE", "map_twilight", -1]]
+	["STONEKEEP FORTRESS", "map_stonekeep", 3], ["EMBER PASS", "map_ember", 2], ["TWILIGHT GROVE", "map_twilight", 4]]
 const DIFFICULTIES := [["CASUAL", "Relaxed, good for new players", "Easy", "crown"], ["NORMAL", "Classic experience", "Normal", "crown"],
 	["HARDCORE", "For the bravest", "Hard", "skull"]]
 const CHAR_TABS := [["APPEARANCE", "appearance"], ["HAIR", "hair"], ["FACE", "face"], ["ARMOR", "tunic"], ["COLORS", "palette"], ["EMBLEM", "emblem"]]
@@ -566,8 +566,11 @@ func _draw_map() -> void:
 
 
 func _card_open(i: int) -> bool:
+	## Every built map is open; the Moonlit Wildwood waits for account level
+	## UNLOCK_LEVEL. (Stonekeep Fortress and Twilight Grove are open to all
+	## for now: whether they unlock later is Faisal's call.)
 	var m: int = MAP_CARDS[i][2]
-	return m == 0 or m == 2 or (m == 1 and game.unlocked())
+	return m >= 0 and (m != 1 or game.unlocked())
 
 
 func _map_card(r: Rect2, i: int) -> void:

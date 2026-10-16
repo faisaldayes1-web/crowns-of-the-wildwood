@@ -10,6 +10,7 @@ const Guide = preload("res://scripts/guide.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Scoreboard = preload("res://scripts/scoreboard.gd")
 const Store = preload("res://scripts/store.gd")
+const Season = preload("res://scripts/visual/season.gd")
 const Role = Stats.Role
 
 const INK := Color(0.09, 0.1, 0.15, 0.92)
@@ -204,10 +205,24 @@ func _process(_delta: float) -> void:
 			holding_since = 0.0 if holding_since < 0.0 else holding_since + _delta
 		else:
 			holding_since = -1.0
-		game.menu_tick()
 		if not pane:
+			# Once a frame, by the window's own HUD: the split-screen panes'
+			# HUDs ran it again each (five times a frame with four players).
+			game.menu_tick()
 			_tick_notices(_delta)
-		_hide_world_prompts()
+			_hide_world_prompts()
+	if pane and game and game.panes.size() > 1 and not game.game_over:
+		# Split screen: each pane's HUD redraws every other frame, the panes
+		# taking turns (claude-faisallaptop 2026-10-16: every pane redrawing
+		# its whole HUD each frame cost ~2 ms a pane). At 60 fps that is
+		# still 30 redraws a second per player; the last one stays on screen
+		# in between.
+		var slot := 0
+		for k in game.panes.size():
+			if game.panes[k].hud == self:
+				slot = k
+		if (Engine.get_process_frames() + slot) % 2 != 0:
+			return
 	queue_redraw()
 
 
@@ -1505,6 +1520,11 @@ func _minimap_frame(c: Vector2, r: float) -> Dictionary:
 		"pt": Time.get_ticks_msec() / 1000.0, "fx": game.CASTLE_X - game.CASTLE_DEPTH}
 
 
+func _mm_season(col: Color) -> Color:
+	## The chart's meadow and woods in the map's season (snow, dusk).
+	return Season.surface(game.season, col) if game.season != "" else col
+
+
 func _minimap_static(c: Vector2, r: float) -> void:
 	## The painted chart: the valley (or Ember Pass) from above, clipped to
 	## the minimap circle. Nothing here moves during a match (the lava
@@ -1523,9 +1543,9 @@ func _minimap_static(c: Vector2, r: float) -> void:
 		_volcano_field(c, r, m, clip, sx, sz, pt)
 	else:
 		# Ground: deep forest green, the open field a lighter meadow.
-		draw_circle(c, r, Color(0.2, 0.38, 0.15))
+		draw_circle(c, r, _mm_season(Color(0.2, 0.38, 0.15)))
 		var field := Rect2(c - Vector2(hx * sx, hz * sz), Vector2(hx * sx, hz * sz) * 2.0)
-		_mm_rect(field, clip, Color(0.36, 0.6, 0.24))
+		_mm_rect(field, clip, _mm_season(Color(0.36, 0.6, 0.24)))
 		# Woodland blobs filling the ground outside the field.
 		for i in 150:
 			var a := fmod(i * 2.39996, TAU)
@@ -1534,25 +1554,25 @@ func _minimap_static(c: Vector2, r: float) -> void:
 			if field.grow(-2.0).has_point(q) or d > r - 2.0:
 				continue
 			var tr := r * (0.045 + 0.025 * fmod(i * 0.618034, 1.0))
-			draw_circle(q + Vector2(1, 1.5), tr, Color(0.08, 0.17, 0.06, 0.6))
-			draw_circle(q, tr, Color(0.17, 0.4, 0.14) if i % 3 else Color(0.25, 0.48, 0.17))
-			draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.45, Color(0.4, 0.62, 0.25, 0.6))
+			draw_circle(q + Vector2(1, 1.5), tr, _mm_season(Color(0.08, 0.17, 0.06, 0.6)))
+			draw_circle(q, tr, _mm_season(Color(0.17, 0.4, 0.14)) if i % 3 else _mm_season(Color(0.25, 0.48, 0.17)))
+			draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.45, _mm_season(Color(0.4, 0.62, 0.25, 0.6)))
 		# Sunlit patches on the meadow.
 		for i in 14:
 			var a := fmod(i * 2.39996 + 0.7, TAU)
 			var d := r * 0.75 * sqrt((i + 0.5) / 14.0)
 			var q := c + Vector2(cos(a), sin(a) * 0.6) * d
 			if field.has_point(q):
-				draw_circle(q, r * (0.07 + 0.03 * fmod(i * 0.618, 1.0)), Color(0.55, 0.78, 0.33, 0.28))
+				draw_circle(q, r * (0.07 + 0.03 * fmod(i * 0.618, 1.0)), _mm_season(Color(0.55, 0.78, 0.33, 0.28)))
 		# Trees on the field.
 		for t in game.map_trees:
 			var q: Vector2 = m.call(t)
 			var tr: float = (2.6 if t.y > 0.5 else 1.9) * sx * 1.25
 			if (q - c).length() > r - tr * 0.5:
 				continue
-			draw_circle(q + Vector2(0.8, 1.2), tr, Color(0.06, 0.14, 0.05, 0.55))
-			draw_circle(q, tr, Color(0.16, 0.42, 0.14) if t.y > 0.5 else Color(0.22, 0.5, 0.17))
-			draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.42, Color(0.42, 0.68, 0.28, 0.7))
+			draw_circle(q + Vector2(0.8, 1.2), tr, _mm_season(Color(0.06, 0.14, 0.05, 0.55)))
+			draw_circle(q, tr, _mm_season(Color(0.16, 0.42, 0.14)) if t.y > 0.5 else _mm_season(Color(0.22, 0.5, 0.17)))
+			draw_circle(q - Vector2(tr, tr) * 0.3, tr * 0.42, _mm_season(Color(0.42, 0.68, 0.28, 0.7)))
 		# Roads and tracks: a dark edge under tan dirt.
 		var road := Color(0.8, 0.66, 0.43)
 		for p in game.map_paths:
@@ -1586,8 +1606,10 @@ func _minimap_static(c: Vector2, r: float) -> void:
 		# The river (drawn a little wider than life so it reads), then bridges.
 		var rh: float = maxf(game.RIVER_HALF * sx * 1.7, r * 0.055)
 		_mm_rect(Rect2(c.x - rh - 2.0, c.y - r, 2.0 * rh + 4.0, 2.0 * r), clip, Color(0.62, 0.55, 0.36))
-		_mm_rect(Rect2(c.x - rh, c.y - r, 2.0 * rh, 2.0 * r), clip, Color(0.13, 0.45, 0.95))
-		_mm_rect(Rect2(c.x - rh * 0.35, c.y - r, rh * 0.7, 2.0 * r), clip, Color(0.4, 0.72, 1.0, 0.55))
+		var river_deep: Color = Color(0.13, 0.45, 0.95) if game.season == "" else Season.water(game.season, true)
+		var river_lit: Color = Color(0.4, 0.72, 1.0, 0.55) if game.season == "" else Season.water(game.season, false) * Color(1, 1, 1, 0.55)
+		_mm_rect(Rect2(c.x - rh, c.y - r, 2.0 * rh, 2.0 * r), clip, river_deep)
+		_mm_rect(Rect2(c.x - rh * 0.35, c.y - r, rh * 0.7, 2.0 * r), clip, river_lit)
 		for i in game.BRIDGES.size():
 			if i == 1:
 				continue
@@ -6730,12 +6752,13 @@ func _draw_title_play(panel: Rect2) -> void:
 	var row_y := fy + 240
 	_text(Vector2(left, row_y + 14), "MAP", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in Stats.MAPS.size():
-		var b := Rect2(left + 50 + i * 128, row_y, 122, 34)
+		# Five maps fit before the couch picker (it starts at left + 450).
+		var b := Rect2(left + 50 + i * 79, row_y, 75, 34)
 		var on: bool = game.map_variant == i
 		var locked: bool = i == 1 and not game.unlocked()
-		var tile: Color = [Color(0.2, 0.55, 0.3), Color(0.25, 0.25, 0.55), Color(0.62, 0.22, 0.08)][mini(i, 2)]
+		var tile: Color = [Color(0.2, 0.55, 0.3), Color(0.25, 0.25, 0.55), Color(0.62, 0.22, 0.08), Color(0.45, 0.6, 0.78), Color(0.52, 0.24, 0.6)][mini(i, 4)]
 		_chunky(b, tile if not locked else Color(0.3, 0.3, 0.34), on, b.has_point(_mouse()))
-		_text(b.position + Vector2(0, 22), Stats.MAPS[i][0].to_upper(), 12 if Stats.MAPS[i][0].length() <= 11 else 9, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 3)
+		_text(b.position + Vector2(0, 22), Stats.MAPS[i][0].to_upper(), 9 if Stats.MAPS[i][0].length() <= 9 else 7, Color.WHITE if not locked else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 3)
 		if locked:
 			_text(b.position + Vector2(0, 32), "LEVEL %d" % Stats.UNLOCK_LEVEL, 7, Color(1.0, 0.75, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
 		hero_buttons.append([b, "map", i])

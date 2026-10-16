@@ -308,7 +308,7 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - **Files:** merge of `release/v0.4.0-alpha`; `scripts/character_model.gd`, `scripts/unit.gd`,
   `scripts/net.gd`, `scripts/skill_fx.gd`, `scripts/game.gd`
 - **Tunables:** none
-- **Revert:** `git revert -m 1 HASH-PENDING`
+- **Revert:** `git revert -m 1 cc92436`
 
 ### 2026-10-10 09:58 UTC · 2a24c42 · iPad: steady 30 fps instead of jumpy frames
 - What: on the web, if a match runs under ~52 fps for 4 s the game caps itself at a steady 30 fps (every frame gets exactly two 60 Hz physics steps), instead of alternating 0/1/2 steps that made units jump. Graphics still drop to Low below 26 fps.
@@ -351,3 +351,10 @@ of its own). To undo a change, run its revert line on the branch, then re-run `t
 - What: menu clicks were found by polling the left button once a frame, so a click pressed and released inside one slow browser frame was never seen. `game._input` now latches every left press (`click_latched`) and the menu tick treats it as a click. Tested: a same-frame mousedown+mouseup on PLAY did nothing on 35a2315 and opens SELECT MAP with the fix.
 - Files: scripts/game.gd
 - Revert: `git revert 1c719b7`
+## 2026-10-14 12:55 UTC · `HASH-PENDING` · Catch up with the alpha again
+
+- **What:** merged `release/v0.4.0-alpha` (82a3d77) into this branch so the smoke-test fix
+  merges into the alpha cleanly. Only this changelog conflicted: both histories kept.
+- **Files:** merge of `release/v0.4.0-alpha`; `docs/changelog/online-platforms.md`
+- **Tunables:** none
+- **Revert:** `git revert -m 1 HASH-PENDING`

@@ -686,6 +686,7 @@ func _build_fire_objective() -> void:
 	torus.rings = 64
 	torus.ring_segments = 6
 	ring_mat = StandardMaterial3D.new()
+	ring_mat.set_meta("no_batch", true)   # recoloured live (_animate)
 	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring_mat.albedo_color = Color(1.6, 0.9, 0.3)
 	ring_mat.emission_enabled = true
@@ -712,6 +713,7 @@ func _build_fire_objective() -> void:
 	game._add_fire(c + Vector3(0, 0.05, 0), 6.0)
 	# The burning crystal, floating and turning over the font.
 	core = Node3D.new()
+	core.set_meta("no_batch", true)   # spins and bobs (scripts/static_batch.gd)
 	core.position = c + Vector3(0, 2.6, 0)
 	game.add_child(core)
 	for k in 5:

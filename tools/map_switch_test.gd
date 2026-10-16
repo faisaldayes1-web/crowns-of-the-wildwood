@@ -1,7 +1,8 @@
 extends SceneTree
 ## Moving from map to map (Faisal 2026-10-15: "did you fix the bugs and
 ## crashes when moving from map to map"). Through the menu, picks every map
-## pair in both directions (Wildwood, Moonlit Wildwood, Ember Pass), plays
+## pair in both directions (Wildwood, Moonlit Wildwood, Ember Pass, and since
+## 2026-10-16 Stonekeep Fortress and Twilight Grove), plays
 ## back-to-back matches without restarting the game (finish, CONTINUE, pick
 ## another map, play again), solo and split-screen, and checks after each
 ## step: the right screen and map, the right world (Ember Pass ground or the
@@ -12,8 +13,9 @@ extends SceneTree
 ##     xvfb-run -a godot --path . --rendering-driver opengl3 --resolution 640x360 --script tools/map_switch_test.gd -- --debug-unlock
 
 const Stats = preload("res://scripts/stats.gd")
-const CARD := {0: 0, 1: 1, 2: 3}   # map_variant -> SELECT MAP card
-const NAMES := {0: "Wildwood", 1: "Moonlit", 2: "Ember Pass"}
+const CARD := {0: 0, 1: 1, 2: 3, 3: 2, 4: 4}   # map_variant -> SELECT MAP card
+const NAMES := {0: "Wildwood", 1: "Moonlit", 2: "Ember Pass", 3: "Stonekeep", 4: "Twilight"}
+const SEASON := {0: "", 1: "", 2: "", 3: "winter", 4: "twilight"}
 
 var fails := 0
 var base_children := 0
@@ -47,7 +49,7 @@ func _state_ok(g, v: int, screen: String, what: String) -> void:
 	var m = g.main_menu
 	check(m != null and m.screen == screen, "%s: on %s (got %s)" % [what, screen, m.screen if m else "no menu"])
 	check(g.map_variant == v, "%s: map is %s (got %d)" % [what, NAMES[v], g.map_variant])
-	check((g.vmap != null) == (v == 2), "%s: the %s world is built" % [what, "Ember Pass" if v == 2 else "Wildwood"])
+	check((g.vmap != null) == (v == 2) and g.season == SEASON[v], "%s: the %s world is built" % [what, NAMES[v]])
 	check(m != null and m.map_pick == CARD[v], "%s: the %s card is picked" % [what, NAMES[v]])
 	check(root.get_child_count() == base_children, "%s: one game scene in the tree (%d nodes under root, was %d)" % [what, root.get_child_count(), base_children])
 	check(is_equal_approx(g.sfx.sound_volume, 0.3) and is_equal_approx(g.sfx.music_volume, 0.25),
@@ -111,11 +113,11 @@ func _init() -> void:
 	# Start from the Wildwood (a saved Ember Pass pick opens there).
 	if g.map_variant != 0:
 		g = await _pick(0)
-	# Every pair, both directions: 0>1>2>0>2>1>0.
-	for v in [1, 2, 0, 2, 1, 0]:
+	# Every pair, both directions, across the five maps.
+	for v in [1, 2, 0, 2, 1, 0, 3, 4, 3, 2, 4, 1, 3, 0, 4, 0]:
 		g = await _pick(v)
 	# Back-to-back matches on different maps without restarting.
-	for step in [[2, false], [0, false], [1, false], [2, false], [2, true], [0, true], [1, false]]:
+	for step in [[2, false], [0, false], [1, false], [2, false], [2, true], [0, true], [1, false], [3, false], [4, false], [3, true], [4, true], [0, false]]:
 		g = await _pick(step[0]) if g.map_variant != step[0] else g
 		if g.main_menu.screen != "map":
 			g.main_menu._press("play", null)
