@@ -98,6 +98,7 @@ var touch_rects: Array = []      # [rect, action] for the ability tiles and corn
 var bake_mode := ""              # set on a copy: which layer it draws
 var bake_args: Array = []        # the copy's draw arguments (centre, radius)
 var _bakes: Dictionary = {}      # name -> {vp, hud, key, px}
+var _pin_ready: Dictionary = {}  # map pin look -> frame its bake was asked for (_map_pin)
 var _frame_rect: TextureRect     # shows the baked screen frame behind the HUD
 var _layers: Dictionary = {}     # baked layer name -> its TextureRect behind the HUD
 # The player panel and the top bar are baked too: their art changes only
@@ -1290,6 +1291,8 @@ func _draw_bake() -> void:
 			_minimap_static(bake_args[0], bake_args[1])
 		"minimap_ring":
 			_minimap_ring(bake_args[0], bake_args[1])
+		"map_pin":
+			_map_pin_shapes(bake_args[0], bake_args[1], bake_args[2], bake_args[3])
 		"frame":
 			_screen_frame()
 		"panel":
@@ -1983,7 +1986,45 @@ func _map_label(at: Vector2, txt: String, col: Color) -> void:
 func _map_pin(kind: String, q: Vector2, s: float, rim: Color = Color(1.0, 0.8, 0.3)) -> void:
 	## A round map marker: a dark badge in a coloured rim, lit from the top
 	## left, with a small symbol (potion, turret, watch post, crossing, door,
-	## spawn).
+	## spawn). Each look (kind, size, rim) is drawn once into a small baked
+	## texture and stamped from then on: drawn live, the ~24 pins on the
+	## split-screen minimaps cost 1.4 ms a frame (claude-faisallaptop
+	## 2026-10-17). Until its bake has rendered, a look is drawn live.
+	var half := Vector2(s, s) * 1.6
+	# Baked at twice the size (stamped down, it keeps the thin highlight a
+	# 1:1 bake lost to filtering), once per look for every HUD: each bake is
+	# a SubViewport holding a HUD copy, and the four split-screen panes
+	# making their own when the first turret went up stalled ~250 ms. The
+	# window's HUD owns them and bakes the match's looks under the loading
+	# art (prewarm_pins).
+	var owner = game.hud if game and is_instance_valid(game.hud) and game.hud.bake_mode == "" else self
+	var tex: Texture2D = owner.pin_texture(kind, s, rim)
+	if tex:
+		draw_texture_rect(tex, Rect2(q - half, half * 2.0), false)
+	else:
+		_map_pin_shapes(kind, q, s, rim)
+
+
+func pin_texture(kind: String, s: float, rim: Color) -> Texture2D:
+	## The baked look of a map pin, or null until it has rendered.
+	var half := Vector2(s, s) * 1.6
+	var key := "pin|%s|%.1f|%s" % [kind, s, rim.to_html()]
+	var tex := _bake(key, half * 4.0, [kind, s, rim], "map_pin", [kind, half * 2.0, s * 2.0, rim])
+	if tex == null:
+		return null
+	if not _pin_ready.has(key):
+		_pin_ready[key] = Engine.get_frames_drawn()   # it renders within a frame or two
+	return tex if Engine.get_frames_drawn() - int(_pin_ready[key]) > 2 else null
+
+
+func prewarm_pins() -> void:
+	## The minimap's pin looks, baked under the loading art.
+	pin_texture("potion", 4.2, Color(0.95, 0.4, 0.45))
+	for t in 2:
+		pin_texture("turret", 4.2, _team_color(t))
+
+
+func _map_pin_shapes(kind: String, q: Vector2, s: float, rim: Color) -> void:
 	draw_circle(q + Vector2(0, s * 0.2), s * 1.08, Color(0, 0, 0, 0.45))
 	draw_circle(q, s, rim.darkened(0.3))
 	draw_circle(q, s * 0.8, Color(0.13, 0.09, 0.08))
