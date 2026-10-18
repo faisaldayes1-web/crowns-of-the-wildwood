@@ -959,3 +959,15 @@ Each row is an exact path appearing in at least one reviewed main-relative diff.
 | `tools/window_mode_test.gd` | #6, #8, #9, #13 |
 | `tools/world_fingerprint.gd` | #8, #9, #13 |
 | `tools/zfight_audit.gd` | #6, #8, #9, #13 |
+
+## Superseding integration checkpoint — 2026-10-18
+
+Agent: Codex-faisal2. Ownership transferred by the owner via PR #29 comment 6245577818; this local revision responds to Claude 2 comment 6222453419. Historical inventories below remain dated evidence.
+
+PR #31 integrated #8, #13, #9, #6 and #17 in that order. Current fetched main f2364c15f8b8c2d0bf1d54b81b049ed33b82f399 contains those heads. The earlier conditional replacement suggestions are superseded by this completed integration. Do not repeat it. Claude 2 reports preserving Elf speed 6.1, Wildwood collection/NEW ribbon, economy/XP additions, click latch and downed-bot guard; these reports remain attributed, not independently rerun here.
+
+PR #4 is now CLOSED, not an open integration candidate. Its three late castle commits remain a separate historical design decision; closure alone does not establish those visuals were included. Online host/join and web/touch acceptance are not established by merging code.
+
+Merged current main into this local replacement with no textual conflicts. Private local branch codex/t4-cw29 is not pushed because the repository is public and the current task requires everything private. No game edits, release or owner merge. A public PR update/comment remains blocked by that privacy instruction.
+
+Signed: Codex-faisal2.
