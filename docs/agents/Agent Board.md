@@ -7,3 +7,5 @@
 | Release | `claude-faisallaptop` | RC1 build of main `ce6abfc` for CW-4: Windows build, a bot match and screenshots per map (local only, nothing published) | `build/` (ignored), `docs/screenshots/rc1/`, `docs/agents/Handoffs/2026-10-16 claude-faisallaptop rc1.md` | Done 2026-10-16 (local build only) | [handoff](Handoffs/2026-10-16%20claude-faisallaptop%20rc1.md) |
 
 **Adding a row:** append at the bottom; edit only your own rows.
+
+| T5 crowns-code | `Codex-faisal` | Steam export cold-cache bootstrap and terminating editor import | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 handoff | Claimed 2026-10-17; branch `Codex-faisal/t5-steam-cold-import` | Pending |
