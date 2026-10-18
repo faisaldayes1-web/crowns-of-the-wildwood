@@ -206,7 +206,7 @@ func _on_peer_connected(id: int) -> void:
 	if not is_host():
 		return
 	print("NET peer %d connected" % id)
-	_relax_timeout(id)
+	_relax_timeout(id, true)   # it builds our world now
 	status = _host_line()
 	_welcome.rpc_id(id, world_seed, game.map_variant if game else 0)
 
@@ -227,14 +227,22 @@ func _host_line() -> String:
 	return "%s · %d joined" % [where, peer_count()]
 
 
-func _relax_timeout(id: int) -> void:
+func _relax_timeout(id: int, loading: bool = false) -> void:
 	## Starting a match builds a lot in one frame (seconds on a slow machine
 	## or a tablet); ENet's default 5 s timeout would drop the link meanwhile.
+	## While a joiner builds the host's world (after a welcome) neither side
+	## answers for that long: building the Wildwood took 8 s on a quiet
+	## RTX 5080 laptop and 85 s on a busy one, and the 20 s floor dropped
+	## the joiner mid-load (claude-faisallaptop 2026-10-17). So the link
+	## waits up to 3 minutes until the joiner reports its world built.
 	var mp = multiplayer.multiplayer_peer
 	if mp is ENetMultiplayerPeer:
 		var p: ENetPacketPeer = mp.get_peer(id)
 		if p:
-			p.set_timeout(64, 20000, 60000)
+			if loading:
+				p.set_timeout(64, 180000, 180000)
+			else:
+				p.set_timeout(64, 20000, 60000)
 
 
 func _on_connected() -> void:
@@ -269,6 +277,7 @@ func _welcome(seed_value: int, map: int) -> void:
 	welcomed = true
 	status = "Connected to %s · waiting for the host to start" % host_ip
 	print("NET welcomed: seed %d map %d" % [seed_value, map])
+	_relax_timeout(1, true)   # the rebuild below can take long
 	get_tree().reload_current_scene()
 
 
@@ -276,6 +285,7 @@ func rewelcome() -> void:
 	## The host's scene reloaded (back from a match, or a map with other
 	## ground): send every joiner the world again so theirs matches.
 	for id in multiplayer.get_peers():
+		_relax_timeout(id, true)   # each rebuilds our world now
 		_welcome.rpc_id(id, world_seed, game.map_variant if game else 0)
 
 
@@ -304,6 +314,7 @@ func _client_ready(hero_name: String, look: Dictionary) -> void:
 	peer_looks[id] = look
 	if not ready_peers.has(id):
 		ready_peers.append(id)
+	_relax_timeout(id)   # built: back to the usual timeout
 	print("NET peer %d ready" % id)
 	if game and game.playing:
 		_seat(id)   # joined mid-match: take a bot's place now
@@ -334,6 +345,7 @@ func _chat(text: String, team_only: bool) -> void:
 func client_ready() -> void:
 	## The client's game has built the host's world.
 	if is_client() and welcomed:
+		_relax_timeout(1)
 		_client_ready.rpc_id(1, game.hero_name if game else "", game.hero_custom() if game else {})
 
 
