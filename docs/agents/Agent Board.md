@@ -10,3 +10,4 @@
 
 | T5 crowns-code | `Codex-faisal` | Steam export cold-cache bootstrap and terminating editor import | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 handoff | Claimed 2026-10-17; branch `Codex-faisal/t5-steam-cold-import` | Pending |
 | T5 crowns-code | `Codex-faisal` | Steam builder App ID and output-path validation | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 guards handoff | Claimed 2026-10-17; stacked on cold-import PR | Pending |
+| T5 crowns-code | `Codex-faisal` | Offline Steam readiness preflight and checklist | `tools/steam/check_depot.py`, `tools/tests/test_steam_depot.py`, `docs/steam-readiness.md`, own T5 readiness handoff | Claimed 2026-10-17; stacked on build guards | Pending |
