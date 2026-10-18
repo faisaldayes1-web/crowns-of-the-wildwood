@@ -2136,6 +2136,11 @@ func _show_loading(hold: float) -> void:
 
 func _start_match(team: int) -> void:
 	_show_loading(1.0)
+	if net and net.online():
+		# Building the match can take long on a slow or busy machine: the
+		# online links wait for it, then go back to the usual timeout.
+		net.long_timeouts()
+		get_tree().create_timer(15.0).timeout.connect(net.normal_timeouts)
 	player_team = team
 	if net and net.online():
 		couch_players = 1   # couch and online together come later (docs/online-plan.md, N4)

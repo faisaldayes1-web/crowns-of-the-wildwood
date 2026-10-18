@@ -245,6 +245,22 @@ func _relax_timeout(id: int, loading: bool = false) -> void:
 				p.set_timeout(64, 20000, 60000)
 
 
+func long_timeouts() -> void:
+	## A match starts (the batching, units and effects all build in one go):
+	## every link waits up to 3 minutes until normal_timeouts().
+	if not online():
+		return
+	for id in multiplayer.get_peers():
+		_relax_timeout(id, true)
+
+
+func normal_timeouts() -> void:
+	if not online():
+		return
+	for id in multiplayer.get_peers():
+		_relax_timeout(id)
+
+
 func _on_connected() -> void:
 	_relax_timeout(1)
 	status = "Connected to %s · loading the host's world" % host_ip
