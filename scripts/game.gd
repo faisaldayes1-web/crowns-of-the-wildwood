@@ -2136,6 +2136,11 @@ func _show_loading(hold: float) -> void:
 
 func _start_match(team: int) -> void:
 	_show_loading(1.0)
+	if net and net.online():
+		# Building the match can take long on a slow or busy machine: the
+		# online links wait for it, then go back to the usual timeout.
+		net.long_timeouts()
+		get_tree().create_timer(15.0).timeout.connect(net.normal_timeouts)
 	player_team = team
 	if net and net.online():
 		couch_players = 1   # couch and online together come later (docs/online-plan.md, N4)
@@ -10755,18 +10760,25 @@ func _warm_up_menus(land_on: String = "title") -> void:
 		return
 	var m = main_menu
 	menus_warming = true
+	var tree := get_tree()
 	for scr in ["character", "store", "map"]:
-		await get_tree().process_frame
-		if not is_instance_valid(loading_layer) or main_menu != m or playing:
+		await tree.process_frame
+		# An online joiner's scene reloads when the host welcomes it: this
+		# game node is then gone (get_tree() was null: a script error).
+		if not is_inside_tree() or not is_instance_valid(loading_layer) or main_menu != m or playing:
 			menus_warming = false
 			return
 		m.screen = scr
-	await get_tree().process_frame
+	await tree.process_frame
+	if not is_inside_tree():
+		return
 	if main_menu == m and not playing:
 		menu_open = true
 		menu_tab = 5   # SETTINGS
 	for i in 2:
-		await get_tree().process_frame
+		await tree.process_frame
+	if not is_inside_tree():
+		return
 	if main_menu == m and not playing:
 		menu_open = false
 		menu_tab = 0
