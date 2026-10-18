@@ -98,9 +98,57 @@ func _play(v: int, couch: bool):
 	return g
 
 
+const BACKUP := "user://controls.cfg.map_test_backup"
+
+const LOCK := "user://settings_test.lock"
+
+
+static func take_lock() -> bool:
+	## Tests that rewrite the settings file take turns: two at once broke
+	## each other's map picks (2026-10-17). A lock older than 90 minutes is
+	## a killed run's and is taken over.
+	if FileAccess.file_exists(LOCK):
+		var age := Time.get_unix_time_from_system() - FileAccess.get_modified_time(LOCK)
+		if age < 90 * 60:
+			return false
+	var f := FileAccess.open(LOCK, FileAccess.WRITE)
+	f.store_string(str(OS.get_process_id()))
+	f.close()
+	return true
+
+
+static func drop_lock() -> void:
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(LOCK))
+
+
+func _put_back(cfg: String) -> void:
+	## The player's settings, from the on-disk backup (also after a run that
+	## was killed before it could restore them: claude-faisallaptop
+	## 2026-10-17, a timed-out run left its test volumes in the settings).
+	if not FileAccess.file_exists(BACKUP):
+		return
+	var b := FileAccess.get_file_as_bytes(BACKUP)
+	if b.is_empty():
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))
+	else:
+		var f := FileAccess.open(cfg, FileAccess.WRITE)
+		f.store_buffer(b)
+		f.close()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(BACKUP))
+
+
 func _init() -> void:
+	if not take_lock():
+		print("map switch test: SKIPPED, another settings test is running (%s)" % LOCK)
+		quit(2)
+		return
 	var cfg := "user://controls.cfg"
+	_put_back(cfg)
 	var saved := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
+	var bf := FileAccess.open(BACKUP, FileAccess.WRITE)
+	bf.store_buffer(saved)
+	bf.close()
 	var g = load("res://scenes/main.tscn").instantiate()
 	root.add_child(g)
 	current_scene = g
@@ -123,12 +171,7 @@ func _init() -> void:
 			g.main_menu._press("play", null)
 		g = await _play(step[0], step[1])
 	g._flush_save()
-	if saved.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(saved)
-		f.close()
+	_put_back(cfg)
+	drop_lock()
 	print("map switch test: %d failure(s)" % fails)
 	quit(1 if fails > 0 else 0)
