@@ -1,7 +1,9 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## Keyboard + mouse movement follows the aim (Faisal 2026-10-15), and the
 ## hints follow the device last used. Run from the project root:
-##     godot --headless --path . --script tools/kbm_move_test.gd
+##     tools/tests/isolated.sh --headless --path . --script tools/kbm_move_test.gd
 
 var fails := 0
 
@@ -22,8 +24,10 @@ func near(a: Vector2, b: Vector2) -> bool:
 
 
 func _init() -> void:
+	if not Isolated.ok("tools/kbm_move_test.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	var cfg := "user://controls.cfg"
-	var backup := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
@@ -69,10 +73,4 @@ func _init() -> void:
 	cf.load(cfg)
 	check(cf.get_value("settings", "move_mode", "") == "screen", "the movement pick is saved")
 	print("KBM MOVE TEST: %d failed" % fails)
-	if backup.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(backup)
-		f.close()
 	quit(fails)
