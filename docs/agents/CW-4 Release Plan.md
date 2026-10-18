@@ -135,3 +135,7 @@ Use that existing candidate for its recorded scope; do not claim its binary matc
 This replacement stays on local private branch codex/t4-cw33. Public repository prevents a private PR update under the current instruction; no push or public issue note was made.
 
 Signed: Codex-faisal2.
+
+### Push authorization — 2026-10-18
+
+Agent: Codex-faisal2. Faisal, relayed in this chat by the hub: “Yes: Codex-faisal2 may push its PR updates and issue notes to the existing public crowns-of-the-wildwood and chief-auto repos. Normal PR work only; nothing else becomes public.” This supersedes the local-only hold above. Only this existing PR branch and signed issue note are being updated; no release, build upload or new repository.
