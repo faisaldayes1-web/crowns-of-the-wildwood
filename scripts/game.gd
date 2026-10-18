@@ -11078,7 +11078,11 @@ func _net_test_tick(delta: float) -> void:
 	if L.get("done", false):
 		return
 	L.clock = L.get("clock", 0.0) + delta
-	if L.clock > 200.0:
+	var cap := 200.0
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--net-test-hold="):   # (a held host waits for its late joiner too)
+			cap = maxf(cap, float(arg.trim_prefix("--net-test-hold=")) + 120.0)
+	if L.clock > cap:
 		_net_test_end(false, "timed out (connected=%s playing=%s snapshots=%d)" % [net.online(), playing, net.snapshot_count])
 		return
 	if not playing:
@@ -11137,6 +11141,9 @@ func _net_test_tick(delta: float) -> void:
 			if checks[k] < 2.0:
 				L.ok = false
 	var finish_at := 40.0 if net_client else 44.0   # the host stays on while the joiner checks
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--net-test-hold=") and not net_client:   # testing: the host stays N s (a later joiner can join mid-match)
+			finish_at = float(arg.trim_prefix("--net-test-hold="))
 	if t > finish_at:
 		var ok: bool = L.ok
 		var said := chat_log.any(func(c): return "hello from the joiner" in str(c.text))
