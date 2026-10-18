@@ -8,3 +8,4 @@
 
 **Adding a row:** append at the bottom; edit only your own rows.
 | T5 crowns-code | `Codex-faisal` | Preserve primary save when backup creation fails | `scripts/save_file.gd`, `tools/save_write_test.gd`, own T5 save handoff | Claimed 2026-10-17; independent of Steam stack | Pending |
+| T5 crowns-code | `Codex-faisal` | Correct dodge recovery tutorial text to approved source constant | `scripts/guide.gd`, own T5 guide handoff | Claimed 2026-10-17; stacked on save fix | Pending |
