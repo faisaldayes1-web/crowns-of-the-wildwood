@@ -29,8 +29,11 @@ func _init() -> void:
 	check(m.screen == "map", "PLAY opens SELECT MAP")
 	# Every built map is open now (Stonekeep, card 2, since #31); the
 	# Moonlit Wildwood (card 1) stays locked below account level 10.
-	m._press("map_card", 1)
-	check(game.unlocked() or m.map_pick == 0, "a locked map cannot be picked")
+	if game.unlocked():
+		print("SKIP  a locked map cannot be picked (the Moonlit Wildwood is unlocked here)")
+	else:
+		m._press("map_card", 1)
+		check(m.map_pick == 0, "a locked map cannot be picked")
 	m._press("difficulty", "Hard")
 	check(game.bot_difficulty == "Hard", "HARDCORE sets the Hard bots")
 	# The live game may be fixed at 4v4 (no team size buttons); then the
