@@ -1,9 +1,11 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## Clicks every control of the main menu, the OPTIONS board and the in-match
 ## PAUSED board headlessly and checks each one does what it says and is
 ## saved. Taps go through game.touch_tap, the same path a click or a finger
 ## takes, at the centre of the rect the HUD drew. Run from the project root:
-##     godot --headless --path . --script tools/options_menu_test.gd
+##     tools/tests/isolated.sh --headless --path . --script tools/options_menu_test.gd
 
 const Stats = preload("res://scripts/stats.gd")
 
@@ -56,8 +58,9 @@ func find(list: Array, key) -> Rect2:
 
 
 func _init() -> void:
-	var cfg := "user://controls.cfg"
-	var backup := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
+	if not Isolated.ok("tools/options_menu_test.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game   # so LEAVE MATCH can reload it like the real game
@@ -425,13 +428,6 @@ func _init() -> void:
 		await frames(3)
 		check(not is_instance_valid(game) or not game.game_over, "summary: CONTINUE goes back to the title")
 
-	if backup.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))   # else the next run loads this test's settings from the backup
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(backup)
-		f.close()
 	print("options menu: %d failure(s)" % fails)
 	quit(1 if fails > 0 else 0)
 
