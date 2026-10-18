@@ -7,34 +7,13 @@ extends SceneTree
 ## player. Input is simulated with Input.parse_input_event, so this does not
 ## replace a test with real controllers (it shows the game routes each
 ## device to the right player).
-##     godot --headless --path . --script tools/pad_split_test.gd
-## The settings file is backed up to disk first and restored at the end
-## (also on the next run if this one was killed); a lock file keeps two
-## settings-writing tests from running at once.
+##     tools/tests/isolated.sh --headless --path . --script tools/pad_split_test.gd
+## It saves settings and plays a match, so it runs only in a throwaway user
+## dir (tools/tests/isolated.sh; it refuses otherwise and exits 2) and never
+## touches the real save.
 ## claude-faisallaptop 2026-10-17.
 
-const CFG := "user://controls.cfg"
-const BACKUP := "user://controls.cfg.pad_test_backup"
-
-const LOCK := "user://settings_test.lock"
-
-
-static func take_lock() -> bool:
-	## Tests that rewrite the settings file take turns: two at once broke
-	## each other's map picks (2026-10-17). A lock older than 90 minutes is
-	## a killed run's and is taken over.
-	if FileAccess.file_exists(LOCK):
-		var age := Time.get_unix_time_from_system() - FileAccess.get_modified_time(LOCK)
-		if age < 90 * 60:
-			return false
-	var f := FileAccess.open(LOCK, FileAccess.WRITE)
-	f.store_string(str(OS.get_process_id()))
-	f.close()
-	return true
-
-
-static func drop_lock() -> void:
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(LOCK))
+const Isolated = preload("res://tools/tests/isolated.gd")
 
 var fails := 0
 
@@ -85,27 +64,10 @@ func positions(g) -> Array:
 	return g.locals.map(func(u): return u.global_position)
 
 
-func _restore() -> void:
-	if FileAccess.file_exists(BACKUP):
-		var b := FileAccess.get_file_as_bytes(BACKUP)
-		if b.is_empty():
-			DirAccess.remove_absolute(ProjectSettings.globalize_path(CFG))
-		else:
-			var f := FileAccess.open(CFG, FileAccess.WRITE)
-			f.store_buffer(b)
-			f.close()
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(BACKUP))
-
-
 func _init() -> void:
-	if not take_lock():
-		print("pad split test: SKIPPED, another settings test is running (%s)" % LOCK)
+	if not Isolated.ok("tools/pad_split_test.gd"):
 		quit(2)
 		return
-	_restore()   # a killed earlier run left its backup: put the player's settings back first
-	var f := FileAccess.open(BACKUP, FileAccess.WRITE)
-	f.store_buffer(FileAccess.get_file_as_bytes(CFG) if FileAccess.file_exists(CFG) else PackedByteArray())
-	f.close()
 	var g = load("res://scenes/main.tscn").instantiate()
 	root.add_child(g)
 	current_scene = g
@@ -180,7 +142,5 @@ func _init() -> void:
 	check(mb[2] > 0.5 and mb[0] < 0.4 and mb[1] < 0.4 and mb[3] < 0.4, "pad 1's B dodges player 3 only (moved %s)" % str(mb.map(func(x): return snappedf(x, 0.01))))
 	g._finish(0)
 	await frames(10)
-	_restore()
-	drop_lock()
 	print("pad split test: %d failure(s)" % fails)
 	quit(1 if fails > 0 else 0)

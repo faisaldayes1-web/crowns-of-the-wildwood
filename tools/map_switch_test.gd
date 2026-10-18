@@ -8,11 +8,14 @@ extends SceneTree
 ## step: the right screen and map, the right world (Ember Pass ground or the
 ## Wildwood), one game scene in the tree, and the volume and settings kept.
 ## The runner should also grep the log for SCRIPT ERROR.
+## It plays matches and saves, so it runs only in a throwaway user dir
+## (tools/tests/isolated.sh; it refuses otherwise and exits 2).
 ## (--debug-unlock opens the Moonlit Wildwood, a level-10 unlock):
-##     godot --headless --path . --script tools/map_switch_test.gd -- --debug-unlock
-##     xvfb-run -a godot --path . --rendering-driver opengl3 --resolution 640x360 --script tools/map_switch_test.gd -- --debug-unlock
+##     tools/tests/isolated.sh --headless --path . --script tools/map_switch_test.gd -- --debug-unlock
+##     xvfb-run -a tools/tests/isolated.sh --path . --rendering-driver opengl3 --resolution 640x360 --script tools/map_switch_test.gd -- --debug-unlock
 
 const Stats = preload("res://scripts/stats.gd")
+const Isolated = preload("res://tools/tests/isolated.gd")
 const CARD := {0: 0, 1: 1, 2: 3, 3: 2, 4: 4}   # map_variant -> SELECT MAP card
 const NAMES := {0: "Wildwood", 1: "Moonlit", 2: "Ember Pass", 3: "Stonekeep", 4: "Twilight"}
 const SEASON := {0: "", 1: "", 2: "", 3: "winter", 4: "twilight"}
@@ -98,57 +101,10 @@ func _play(v: int, couch: bool):
 	return g
 
 
-const BACKUP := "user://controls.cfg.map_test_backup"
-
-const LOCK := "user://settings_test.lock"
-
-
-static func take_lock() -> bool:
-	## Tests that rewrite the settings file take turns: two at once broke
-	## each other's map picks (2026-10-17). A lock older than 90 minutes is
-	## a killed run's and is taken over.
-	if FileAccess.file_exists(LOCK):
-		var age := Time.get_unix_time_from_system() - FileAccess.get_modified_time(LOCK)
-		if age < 90 * 60:
-			return false
-	var f := FileAccess.open(LOCK, FileAccess.WRITE)
-	f.store_string(str(OS.get_process_id()))
-	f.close()
-	return true
-
-
-static func drop_lock() -> void:
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(LOCK))
-
-
-func _put_back(cfg: String) -> void:
-	## The player's settings, from the on-disk backup (also after a run that
-	## was killed before it could restore them: claude-faisallaptop
-	## 2026-10-17, a timed-out run left its test volumes in the settings).
-	if not FileAccess.file_exists(BACKUP):
-		return
-	var b := FileAccess.get_file_as_bytes(BACKUP)
-	if b.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(b)
-		f.close()
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(BACKUP))
-
-
 func _init() -> void:
-	if not take_lock():
-		print("map switch test: SKIPPED, another settings test is running (%s)" % LOCK)
+	if not Isolated.ok("tools/map_switch_test.gd"):
 		quit(2)
 		return
-	var cfg := "user://controls.cfg"
-	_put_back(cfg)
-	var saved := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
-	var bf := FileAccess.open(BACKUP, FileAccess.WRITE)
-	bf.store_buffer(saved)
-	bf.close()
 	var g = load("res://scenes/main.tscn").instantiate()
 	root.add_child(g)
 	current_scene = g
@@ -171,7 +127,5 @@ func _init() -> void:
 			g.main_menu._press("play", null)
 		g = await _play(step[0], step[1])
 	g._flush_save()
-	_put_back(cfg)
-	drop_lock()
 	print("map switch test: %d failure(s)" % fails)
 	quit(1 if fails > 0 else 0)
