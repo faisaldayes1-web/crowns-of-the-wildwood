@@ -188,6 +188,22 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 	return out
 
 
+static var res_cache := {}
+
+
+static func _load(path: String) -> Resource:
+	## The character scenes, skins and gear, kept loaded. Nothing else held
+	## them, so Godot freed each one when the last model using it went and
+	## every rebuild (respawn, class pick, promotion) read the .glb from disk
+	## again: ~7 ms of the ~10 ms a rebuild took (claude-faisallaptop
+	## 2026-10-17).
+	var r: Resource = res_cache.get(path)
+	if r == null:
+		r = load(path)
+		res_cache[path] = r
+	return r
+
+
 func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, rank: int = 1) -> void:
 	for child in get_children():
 		child.queue_free()
@@ -198,7 +214,7 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 		c.skin = custom.body
 		c.hat = false
 		c.bare = true
-	var inst: Node3D = load(SCENES[c.scene]).instantiate()
+	var inst: Node3D = _load(SCENES[c.scene]).instantiate()
 	add_child(inst)
 	model_root = inst
 	inst.scale = Vector3.ONE * c.scale
@@ -237,7 +253,7 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 
 	# Team colour skin on every mesh, on faceted (flat-shaded) copies of the
 	# meshes so the low-poly angles read crisp, like the reference art.
-	var skin: Texture2D = load("res://assets/characters/skins/%s_%s.png" % [c.skin, "elf" if team == 0 else "human"])
+	var skin: Texture2D = _load("res://assets/characters/skins/%s_%s.png" % [c.skin, "elf" if team == 0 else "human"])
 	var plain_skin: Texture2D = skin
 	skin = customised_skin(skin, c.skin, custom)
 	# Weapons keep their own metal (a STORE weapon skin recolours them; the
@@ -309,7 +325,7 @@ func _add_class_flair(role: int, variant: String) -> void:
 	## around the Healer.
 	match role:
 		Role.RANGER:
-			var quiver: Node3D = load("res://assets/props/gear/quiver.gltf").instantiate()
+			var quiver: Node3D = _load("res://assets/props/gear/quiver.gltf").instantiate()
 			quiver.position = Vector3(0.14, 1.05, 0.22)
 			quiver.rotation = Vector3(0.35, 0, -0.25)
 			quiver.scale = Vector3.ONE * 1.1
@@ -611,7 +627,7 @@ func _add_rank_flair(team: int, role: int, rank: int) -> void:
 			var head := _attach_to_head()
 			_box(head, Vector3(0.06, 0.55, 0.14), Vector3(0.24, 0.9, -0.1), Vector3(0, 0, 0.6), cloth)
 			if rank >= 3:
-				var bundle: Node3D = load("res://assets/props/gear/arrow_bundle.gltf").instantiate()
+				var bundle: Node3D = _load("res://assets/props/gear/arrow_bundle.gltf").instantiate()
 				bundle.position = Vector3(0.08, 1.28, 0.28)
 				bundle.rotation = Vector3(0.5, 0, -0.25)
 				bundle.scale = Vector3.ONE * 1.1

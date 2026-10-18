@@ -8,11 +8,14 @@ extends SceneTree
 ## step: the right screen and map, the right world (Ember Pass ground or the
 ## Wildwood), one game scene in the tree, and the volume and settings kept.
 ## The runner should also grep the log for SCRIPT ERROR.
+## It plays matches and saves, so it runs only in a throwaway user dir
+## (tools/tests/isolated.sh; it refuses otherwise and exits 2).
 ## (--debug-unlock opens the Moonlit Wildwood, a level-10 unlock):
-##     godot --headless --path . --script tools/map_switch_test.gd -- --debug-unlock
-##     xvfb-run -a godot --path . --rendering-driver opengl3 --resolution 640x360 --script tools/map_switch_test.gd -- --debug-unlock
+##     tools/tests/isolated.sh --headless --path . --script tools/map_switch_test.gd -- --debug-unlock
+##     xvfb-run -a tools/tests/isolated.sh --path . --rendering-driver opengl3 --resolution 640x360 --script tools/map_switch_test.gd -- --debug-unlock
 
 const Stats = preload("res://scripts/stats.gd")
+const Isolated = preload("res://tools/tests/isolated.gd")
 const CARD := {0: 0, 1: 1, 2: 3, 3: 2, 4: 4}   # map_variant -> SELECT MAP card
 const NAMES := {0: "Wildwood", 1: "Moonlit", 2: "Ember Pass", 3: "Stonekeep", 4: "Twilight"}
 const SEASON := {0: "", 1: "", 2: "", 3: "winter", 4: "twilight"}
@@ -99,8 +102,9 @@ func _play(v: int, couch: bool):
 
 
 func _init() -> void:
-	var cfg := "user://controls.cfg"
-	var saved := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
+	if not Isolated.ok("tools/map_switch_test.gd"):
+		quit(2)
+		return
 	var g = load("res://scenes/main.tscn").instantiate()
 	root.add_child(g)
 	current_scene = g
@@ -123,12 +127,5 @@ func _init() -> void:
 			g.main_menu._press("play", null)
 		g = await _play(step[0], step[1])
 	g._flush_save()
-	if saved.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(saved)
-		f.close()
 	print("map switch test: %d failure(s)" % fails)
 	quit(1 if fails > 0 else 0)

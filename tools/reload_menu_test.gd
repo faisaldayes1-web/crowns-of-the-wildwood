@@ -1,4 +1,6 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## The two scene reloads the menus go through, with a window (the menu
 ## warm-up that caused both bugs only runs with one):
 ##  - picking Ember Pass rebuilds the world and must come back to SELECT MAP
@@ -8,7 +10,7 @@ extends SceneTree
 ##    volume sliders on the Settings tab the warm-up shows ("finish a game
 ##    it sends you to the main menu with the volume maxed").
 ## Run from the project root:
-##     xvfb-run -a godot --path . --rendering-driver opengl3 --script tools/reload_menu_test.gd
+##     xvfb-run -a tools/tests/isolated.sh --path . --rendering-driver opengl3 --script tools/reload_menu_test.gd
 
 const Stats = preload("res://scripts/stats.gd")
 
@@ -31,8 +33,9 @@ func _game():
 
 
 func _init() -> void:
-	var cfg := "user://controls.cfg"
-	var saved := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
+	if not Isolated.ok("tools/reload_menu_test.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
@@ -94,11 +97,5 @@ func _init() -> void:
 	Input.parse_input_event(up)
 	await _frames(2)
 	game._flush_save()
-	if saved.is_empty():
-		DirAccess.remove_absolute(cfg)
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(saved)
-		f.close()
 	print("reload_menu_test: %s" % ("OK" if fails == 0 else "%d failures" % fails))
 	quit(1 if fails else 0)
