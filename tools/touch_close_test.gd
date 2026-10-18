@@ -1,10 +1,12 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## Every panel can be shut with a finger (Faisal 2026-10-14: on the iPad the
 ## wood upgrade strip and the training panel would not close). Taps are real
 ## InputEventScreenTouch events, so Godot also sends its emulated mouse click
 ## the way an iPad does; a panel that reacts to both toggles twice. Also
 ## checks the Controls tab's layout pick. Run from the project root:
-##     godot --headless --path . --script tools/touch_close_test.gd
+##     tools/tests/isolated.sh --headless --path . --script tools/touch_close_test.gd
 
 const Stats = preload("res://scripts/stats.gd")
 
@@ -52,8 +54,10 @@ func rect_for(action) -> Rect2:
 
 
 func _init() -> void:
+	if not Isolated.ok("tools/touch_close_test.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	var cfg := "user://controls.cfg"
-	var backup := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
 	game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
@@ -215,10 +219,4 @@ func _init() -> void:
 	game.apply_control_layout()
 
 	print("TOUCH CLOSE TEST: %d failed" % fails)
-	if backup.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(backup)
-		f.close()
 	quit(fails)
