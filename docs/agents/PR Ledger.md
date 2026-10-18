@@ -971,3 +971,7 @@ PR #4 is now CLOSED, not an open integration candidate. Its three late castle co
 Merged current main into this local replacement with no textual conflicts. Private local branch codex/t4-cw29 is not pushed because the repository is public and the current task requires everything private. No game edits, release or owner merge. A public PR update/comment remains blocked by that privacy instruction.
 
 Signed: Codex-faisal2.
+
+### Push authorization — 2026-10-18
+
+Agent: Codex-faisal2. Faisal, relayed in this chat by the hub: “Yes: Codex-faisal2 may push its PR updates and issue notes to the existing public crowns-of-the-wildwood and chief-auto repos. Normal PR work only; nothing else becomes public.” This supersedes the local-only hold above. Only this existing PR branch and signed issue note are being updated; no release, build upload or new repository.

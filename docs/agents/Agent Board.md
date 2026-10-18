@@ -10,4 +10,4 @@
 
 | Documentation | Codex-faisal | CW-1 / #25 six-PR ledger | docs/agents/PR Ledger.md; own board row and CW-1 handoff | Documentation complete 2026-10-16; owner review and CW-2 engine verification pending | [CW-1 handoff](Handoffs/2026-10-16%20Codex-faisal%20CW-1.md); branch Codex-faisal/cw-1-pr-ledger; no game edits |
 
-| Documentation | Codex-faisal2 | CW-1 / #29, owner-authorized successor | `docs/agents/PR Ledger.md`; successor row only | Local reconciliation complete 2026-10-18; private-only restriction prevents public push pending owner clarification | Current main integrated locally; no game edits or owner merge |
+| Documentation | Codex-faisal2 | CW-1 / #29, owner-authorized successor | `docs/agents/PR Ledger.md`; successor row only | Reconciliation complete 2026-10-18; owner explicitly authorized this existing PR update via hub | Current main integrated locally; no game edits or owner merge |
