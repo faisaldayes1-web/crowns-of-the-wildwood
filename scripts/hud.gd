@@ -98,6 +98,8 @@ var touch_rects: Array = []      # [rect, action] for the ability tiles and corn
 var bake_mode := ""              # set on a copy: which layer it draws
 var bake_args: Array = []        # the copy's draw arguments (centre, radius)
 var _bakes: Dictionary = {}      # name -> {vp, hud, key, px}
+var _pin_tex: Dictionary = {}    # map pin look -> its stamped texture (_map_pin)
+var _pin_wait: Dictionary = {}   # map pin look -> frame its bake was asked for
 var _frame_rect: TextureRect     # shows the baked screen frame behind the HUD
 var _layers: Dictionary = {}     # baked layer name -> its TextureRect behind the HUD
 # The player panel and the top bar are baked too: their art changes only
@@ -1290,6 +1292,8 @@ func _draw_bake() -> void:
 			_minimap_static(bake_args[0], bake_args[1])
 		"minimap_ring":
 			_minimap_ring(bake_args[0], bake_args[1])
+		"map_pin":
+			_map_pin_shapes(bake_args[0], bake_args[1], bake_args[2], bake_args[3])
 		"frame":
 			_screen_frame()
 		"panel":
@@ -1983,7 +1987,44 @@ func _map_label(at: Vector2, txt: String, col: Color) -> void:
 func _map_pin(kind: String, q: Vector2, s: float, rim: Color = Color(1.0, 0.8, 0.3)) -> void:
 	## A round map marker: a dark badge in a coloured rim, lit from the top
 	## left, with a small symbol (potion, turret, watch post, crossing, door,
-	## spawn).
+	## spawn). Each look (kind, size, rim) is drawn once into a small baked
+	## texture and stamped from then on: drawn live, the ~24 pins on the
+	## split-screen minimaps cost 1.4 ms a frame (claude-faisallaptop
+	## 2026-10-17).
+	var half := Vector2(s, s) * 1.6
+	var key := "pin|%s|%.1f|%s" % [kind, s, rim.to_html()]
+	var tex: Texture2D = _pin_tex.get(key)
+	if tex:
+		draw_texture_rect(tex, Rect2(q - half, half * 2.0), false)
+		return
+	# Not ready yet: bake it (a SubViewport renders it next frame), draw it
+	# live meanwhile, and once rendered keep a straight-alpha copy (the
+	# viewport's own texture is premultiplied and stamped darker).
+	# Baked at twice the size: stamped down to size it keeps the thin
+	# highlight that bilinear filtering blurred out of a 1:1 bake.
+	var baked := _bake(key, half * 4.0, [kind, s, rim], "map_pin", [kind, half * 2.0, s * 2.0, rim])
+	if baked:
+		var since: int = _pin_wait.get(key, -1)
+		if since < 0:
+			_pin_wait[key] = Engine.get_frames_drawn()
+		elif Engine.get_frames_drawn() - since > 3:
+			var img := baked.get_image()
+			if img and not img.is_empty():
+				img.convert(Image.FORMAT_RGBA8)
+				for y in img.get_height():
+					for x in img.get_width():
+						var c := img.get_pixel(x, y)
+						if c.a > 0.0:
+							img.set_pixel(x, y, Color(c.r / c.a, c.g / c.a, c.b / c.a, c.a))
+				_pin_tex[key] = ImageTexture.create_from_image(img)
+				var b: Dictionary = _bakes.get(key, {})
+				if not b.is_empty():
+					b.vp.queue_free()   # the copy is kept; the viewport is not needed
+					_bakes.erase(key)
+	_map_pin_shapes(kind, q, s, rim)
+
+
+func _map_pin_shapes(kind: String, q: Vector2, s: float, rim: Color) -> void:
 	draw_circle(q + Vector2(0, s * 0.2), s * 1.08, Color(0, 0, 0, 0.45))
 	draw_circle(q, s, rim.darkened(0.3))
 	draw_circle(q, s * 0.8, Color(0.13, 0.09, 0.08))

@@ -10123,6 +10123,9 @@ func apply_graphics() -> void:
 		# redraws every shadow caster once per pane, and a quarter-screen
 		# pane cannot show the extra detail).
 		sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+		# ...and only out to 45 m: a quarter-screen pane sees less ground, and
+		# the casters past it were ~2,000 draws a frame across four panes.
+		sun_light.directional_shadow_max_distance = 45.0
 	if DisplayServer.get_name() != "headless":
 		# Only switch when the setting disagrees with the window: a maximized
 		# window is not "windowed", and forcing WINDOWED on every call (match
