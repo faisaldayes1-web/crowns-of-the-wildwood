@@ -1,7 +1,9 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## The window keeps its mode (full screen, maximized) through a match and
 ## back: run with a display (not headless), e.g. under xvfb-run:
-##     xvfb-run -a sh -c 'openbox & godot --path . --script tools/window_mode_test.gd'
+##     xvfb-run -a sh -c 'openbox & tools/tests/isolated.sh --path . --script tools/window_mode_test.gd'
 ## (a window manager is needed for "maximized" to mean anything).
 
 var fails := 0
@@ -14,8 +16,9 @@ func check(ok: bool, what: String) -> void:
 
 
 func _init() -> void:
-	var cfg := "user://controls.cfg"
-	var saved := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
+	if not Isolated.ok("tools/window_mode_test.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	for i in 5:
@@ -48,9 +51,5 @@ func _init() -> void:
 		for i in 10:
 			await process_frame
 		check(DisplayServer.window_get_mode() == mode, "%s survives the reload after a match (mode %d)" % [want, DisplayServer.window_get_mode()])
-	if saved.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-	else:
-		FileAccess.open(cfg, FileAccess.WRITE).store_buffer(saved)
 	print("window mode: %d failure(s)" % fails)
 	quit()
