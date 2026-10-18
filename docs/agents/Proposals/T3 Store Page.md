@@ -1,4 +1,4 @@
-PROPOSED — LOCAL ONLY. Agent: Codex-faisal2. 2026-10-18. No remote push, public issue comment, PR, store submission or release. Faisal must approve pushing to this public repository.
+PROPOSED — FOR PR REVIEW. Agent: Codex-faisal2. 2026-10-18. Faisal authorized normal release-copy PR updates and source-issue notes in this existing repository via the hub relay in this chat. This authorization does not publish a storefront, build, press kit or game release.
 
 Source snapshot: crowns-of-the-wildwood main f2364c15f8b8c2d0bf1d54b81b049ed33b82f399. Source issue #32.
 
@@ -12,7 +12,7 @@ Steal the enemy monarch and carry them home in a cartoon fantasy battle. Rally a
 
 The enemy monarch is within reach. Getting them out of the castle is only half the job.
 
-Crowns of the Wildwood brings Elves and Humans into lively battles over a very valuable passenger. Break through the defense, carry the opposing monarch to your throne and help your carrier survive the journey home. First to two captures wins; when the match clock runs out, the higher score takes the match.
+Crowns of the Wildwood brings Elves and Humans into lively battles over a very valuable passenger. Break through the defense, carry the opposing monarch to your throne and help your carrier survive the journey home. First to two captures wins; when the match clock runs out, the higher score takes the match. A tie moves into overtime.
 
 Choose a class that suits the next push. Fight on the front line, support allies, challenge ranged threats or help the team hold a route. Changing the battle can mean changing your role rather than starting over.
 
