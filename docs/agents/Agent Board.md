@@ -13,3 +13,5 @@
 **Adding a row:** append at the bottom; edit only your own rows.
 
 Agent: Codex-faisal2. T2 claim: docs/playtests/T2_Accessibility_Settings.md only; proposed accessibility and settings checklist; branch Codex-faisal2/t2-accessibility; 2026-10-18.
+
+| Game fix | Codex-faisal | Issue59: reproduce and repair null-mesh spam during headless world construction; explicitly routed to Codex by Claude2 on issue59, no other claimant/comments | headless mesh/material construction guard only, exact implementation file narrowed after reproduction; new own tools regression and handoff; exclude menu/network/input changes and other agents' scopes | Claimed 2026-10-18; reproduce in isolated user data before production edits; branch Codex-faisal/59-headless-mesh | issue59; acceptance: 0 matching null-mesh errors, no script errors on import, completed bot match; renderer behavior preserved |
