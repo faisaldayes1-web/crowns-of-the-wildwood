@@ -16,6 +16,8 @@ No implementation or certification is supplied. For each row tick PASS / FAIL / 
 
 ## Game-specific trial
 
+Before rebind/reset/restart, use a maintainer-configured isolated user-data directory, or obtain a complete maintainer-provided controls/settings backup with a verified restoration procedure. Bindings live in user://controls.cfg; selecting a disposable player profile alone does not isolate them. Never reset normal bindings or assume a new game creates a separate settings store. Record the isolation/backup method without publishing user paths or backup contents.
+
 Play ordinary two-local capture attempt with shake/rumble reduced and enlarged UI if available; inspect four-pane legibility separately. Online-room and iPad accessibility require separate sessions, not inferred from desktop tests.
 
 ## Review record
