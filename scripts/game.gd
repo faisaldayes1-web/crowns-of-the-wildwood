@@ -317,6 +317,12 @@ var net_slot := Vector2i(-1, -1)  # client: the (team, lineup slot) the host gav
 
 
 func _ready() -> void:
+	if DisplayServer.get_name() == "headless":
+		var mesh_guard := preload("res://scripts/headless_mesh_lifetime.gd").watch
+		if not get_tree().node_added.is_connected(mesh_guard):
+			get_tree().node_added.connect(mesh_guard)
+		for mesh_node in find_children("*", "MeshInstance3D", true, false):
+			mesh_guard.call(mesh_node)
 	randomize()
 	var fixed_seed := false
 	_show_loading(1.2)
