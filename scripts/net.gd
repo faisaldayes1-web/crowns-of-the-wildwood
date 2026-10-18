@@ -29,7 +29,9 @@ var port := DEFAULT_PORT
 var host_ip := "127.0.0.1"
 var status := ""               # one line for the title screen
 var long_links := {}           # peer id -> true while that link waits up to 3 min (_relax_timeout)
-var _soon := {}                # peer id -> true while _normal_soon waits
+var long_since := {}           # peer id -> Time.get_ticks_msec() when that link went long
+var _long_gen := {}            # peer id -> bumped each time that link goes long (cancels a pending _normal_soon)
+var _soon := {}                # peer id -> the _long_gen a pending _normal_soon waits on
 var ready_peers: Array = []    # host: joiners whose world is built and who wait for a slot
 var assigned := {}             # host: peer id -> unit index this match
 var pending_start := {}        # client: {team, slot, map} from the host, kept until the game is ready
@@ -190,6 +192,8 @@ func leave() -> void:
 	mode = Mode.OFFLINE
 	ready_peers = []
 	long_links = {}
+	long_since = {}
+	_soon = {}
 	assigned = {}
 	pending_start = {}
 	_early = []
@@ -220,6 +224,8 @@ func _on_peer_disconnected(id: int) -> void:
 	print("NET peer %d left" % id)
 	ready_peers.erase(id)
 	long_links.erase(id)
+	long_since.erase(id)
+	_soon.erase(id)
 	if assigned.has(id) and game:
 		game.net_release_unit(assigned[id])
 	assigned.erase(id)
@@ -231,7 +237,7 @@ func _host_line() -> String:
 	return "%s · %d joined" % [where, peer_count()]
 
 
-func _relax_timeout(id: int, loading: bool = false, wait_ms: int = 180000) -> void:
+func _relax_timeout(id: int, loading: bool = false) -> void:
 	## Starting a match builds a lot in one frame (seconds on a slow machine
 	## or a tablet); ENet's default 5 s timeout would drop the link meanwhile.
 	## While a joiner builds the host's world (after a welcome) neither side
@@ -244,58 +250,67 @@ func _relax_timeout(id: int, loading: bool = false, wait_ms: int = 180000) -> vo
 	## from that joiner, the joiner on the first input it sends (both only
 	## once a match is playing). (A fixed 15 s timer after the match start
 	## put a joiner still building its world back on 20 s: review of #45.)
-	## wait_ms: 3 minutes for a world build, 90 s for a match start (shorter,
-	## so a peer that died just then gives its seat back sooner).
 	if loading:
+		if not long_links.has(id):
+			long_since[id] = Time.get_ticks_msec()
 		long_links[id] = true
+		_long_gen[id] = int(_long_gen.get(id, 0)) + 1
 	else:
 		long_links.erase(id)
+		long_since.erase(id)
 	var mp = multiplayer.multiplayer_peer
 	if mp is ENetMultiplayerPeer:
 		var p: ENetPacketPeer = mp.get_peer(id)
 		if p:
 			if loading:
-				p.set_timeout(64, wait_ms, wait_ms)
+				p.set_timeout(64, 180000, 180000)
 			else:
 				p.set_timeout(64, 20000, 60000)
 
 
-const MATCH_WAIT_MS := 90000
-
-
-const SETTLE_S := 30.0   # how long a link stays patient after it comes back
+const SETTLE_S := 30.0       # a link stays patient this long after it comes back,
+const SETTLE_MAX_S := 300.0  # plus as long as it waited, up to this in all
 
 
 func _normal_soon(id: int) -> void:
-	## Back to the usual timeout SETTLE_S seconds from now, not at once:
-	## right after a long build (a joiner rebuilding the world took 168 s
-	## while the host played on, or a slow match start) the link still holds
-	## reliable packets that went unanswered all that time; switched to the
-	## 20 s timeout at once (or 5 s later) the link was dropped while it
-	## caught up (claude-faisallaptop 2026-10-18).
-	if _soon.has(id):
+	## Back to the usual timeout later, not at once. While one end stalled
+	## (a slow world build or match start; tested with --debug-slow-build),
+	## the other kept resending its reliable packets, doubling the wait
+	## between tries each time. So after the stall a packet can still come
+	## due up to about as long as the stall lasted, and ENet then counts its
+	## age from its last try, made during the stall: on the 20 s timeout by
+	## then, the link drops. (A fixed 30 s settle dropped a mid-match joiner
+	## 30 s after its 100 s stall.) So the link stays patient for SETTLE_S
+	## plus the time it waited. If the link goes long again meanwhile (a
+	## match start right after the world build), this one is cancelled and
+	## the next call starts over (claude-faisallaptop 2026-10-18).
+	var gen: int = int(_long_gen.get(id, 0))
+	if int(_soon.get(id, -1)) == gen:
 		return   # already on its way back
-	_soon[id] = true
-	await get_tree().create_timer(SETTLE_S).timeout
+	_soon[id] = gen
+	var waited := (Time.get_ticks_msec() - int(long_since.get(id, Time.get_ticks_msec()))) / 1000.0
+	await get_tree().create_timer(minf(SETTLE_S + waited, SETTLE_MAX_S)).timeout
+	if int(_soon.get(id, -1)) != gen:
+		return   # cancelled (the link left) or replaced
 	_soon.erase(id)
-	if online() and long_links.has(id):
+	if online() and long_links.has(id) and int(_long_gen.get(id, 0)) == gen:
 		_relax_timeout(id)
 
 
 func long_timeouts() -> void:
 	## A match starts (the batching, units and effects all build in one go):
-	## the links that will play it wait up to 90 s, each until input flows on
-	## it again. On the host that is the joiners being seated (ready ones);
-	## a joiner still building our world keeps its own longer wait, and one
-	## left without a seat stays on the usual timeout.
+	## the links that will play it wait up to 3 minutes, each until input
+	## flows on it again. On the host that is the joiners being seated (ready
+	## ones); a joiner still building our world already waits, and one left
+	## without a seat stays on the usual timeout.
 	if not online():
 		return
 	if is_client():
-		_relax_timeout(1, true, MATCH_WAIT_MS)
+		_relax_timeout(1, true)
 		return
 	for id in multiplayer.get_peers():
 		if id in ready_peers:
-			_relax_timeout(id, true, MATCH_WAIT_MS)
+			_relax_timeout(id, true)
 
 
 func _on_connected() -> void:
@@ -371,7 +386,7 @@ func _client_ready(hero_name: String, look: Dictionary) -> void:
 	# running match and now builds that (review of #57: the host dropped a
 	# mid-match joiner 60 s into a slow match start).
 	if game != null and game.playing:
-		_relax_timeout(id, true, MATCH_WAIT_MS)   # it builds the match next
+		_relax_timeout(id, true)   # it builds the match next
 	else:
 		_normal_soon(id)
 	print("NET peer %d ready" % id)
