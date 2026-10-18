@@ -15,6 +15,7 @@ set -euo pipefail
 [[ -z "${GODOT_CALL_LOG:-}" ]] || echo called >> "$GODOT_CALL_LOG"
 case " $* " in
   *' --import '*)
+    if [[ "${FAIL_PHASE:-}" == import ]]; then echo 'ERROR: fixture import failure' >&2; exit 0; fi
     [[ -d .godot ]]
     grep -qx 'res://addons/godotsteam/godotsteam.gdextension' .godot/extension_list.cfg
     [[ " $* " == *' --editor '* && " $* " == *' --quit '* ]]
@@ -22,8 +23,12 @@ case " $* " in
     ;;
   *' --export-release '*)
     out="${@: -1}"
-    touch "$out" "$(dirname "$out")/steam_api64.dll" \
-      "$(dirname "$out")/libgodotsteam.windows.template_release.x86_64.dll"
+    for file in "$out" "$(dirname "$out")/steam_api64.dll" \
+      "$(dirname "$out")/libgodotsteam.windows.template_release.x86_64.dll"; do
+      printf 'fixture' > "$file"
+    done
+    if [[ "${FAIL_PHASE:-}" == export ]]; then echo 'ERROR: fixture export failure' >&2; exit 0; fi
+    if [[ "${FAIL_PHASE:-}" == empty ]]; then : > "$out"; fi
     ;;
   *) exit 90 ;;
 esac
@@ -42,6 +47,7 @@ for cache in cold warm; do
     }
   grep -q 'STEAM BUILD OK' "$FIXTURE/$cache.log"
   [[ ! -e "$FIXTURE/output-$cache/steam_appid.txt" ]]
+  [[ -f "$FIXTURE/output-$cache.logs/import.log" && -f "$FIXTURE/output-$cache.logs/export.log" ]]
   echo "PASS: $cache cache bootstrap and terminating import"
 done
 
@@ -71,3 +77,18 @@ echo 'PASS: invalid inputs rejected before Godot; existing output preserved'
 [[ -f "$FIXTURE/relative output/CrownsOfTheWildwood.exe" ]]
 [[ "$(cat "$FIXTURE/relative output/steam_appid.txt")" == 480 ]]
 echo 'PASS: relative output with spaces and explicit Spacewar development build'
+
+for phase in import export empty; do
+  if FAIL_PHASE="$phase" GODOT="$FIXTURE/fake-godot" bash "$FIXTURE/tools/steam/build_steam.sh" \
+    --app-id=123456 "$FIXTURE/failure-$phase" > "$FIXTURE/failure-$phase.log" 2>&1; then
+    echo "FAIL: accepted $phase failure"; exit 1
+  fi
+  [[ -f "$FIXTURE/failure-$phase.logs/import.log" ]]
+  if [[ "$phase" == import ]]; then
+    [[ ! -e "$FIXTURE/failure-$phase.logs/export.log" ]]
+    grep -q 'fixture import failure' "$FIXTURE/failure-$phase.logs/import.log"
+  else
+    [[ -f "$FIXTURE/failure-$phase.logs/export.log" ]]
+  fi
+  echo "PASS: $phase failure rejected with logs retained"
+done
