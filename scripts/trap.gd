@@ -54,6 +54,8 @@ func setup(p_game, p_team: int, pos: Vector3, a: Dictionary) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if game.net_client:
+		return   # online: the host's trap snaps; this copy goes when the host's does
 	life -= delta
 	if life <= 0.0:
 		queue_free()

@@ -1,0 +1,781 @@
+extends RefCounted
+## The STORE (main menu): spend the gold from match rewards on cosmetic items
+## for your own hero (hair colours, armour tints, capes and scarves, cape
+## dyes, hats, weapon skins and banner pieces), and open the Match Chests
+## each match banks. Looks only: nothing sold here changes a fight.
+##
+## The catalogue is Stats.STORE_ITEMS; ownership is game.owned_items
+## ("kind:index" keys, saved with the account). The static functions below
+## are the ownership rules everyone uses (menu.gd, hud.gd, game.gd); the
+## instance is the screen, drawn by menu.gd through the HUD.
+
+const Stats = preload("res://scripts/stats.gd")
+const Role = Stats.Role
+
+# Kind -> [the game variable that wears it, the Stats table, free entries below this index].
+const KINDS := {
+	"hair": ["hero_hair", "HERO_HAIR", Stats.HERO_HAIR_FREE],
+	"hair_style": ["hero_hair_style", "HERO_HAIR_STYLES", Stats.HERO_HAIR_STYLE_FREE],
+	"trim": ["hero_trim", "HERO_TRIM", Stats.HERO_TRIM_FREE],
+	"outfit": ["hero_outfit", "HERO_OUTFITS", 1],
+	"hat": ["hero_hat", "HERO_HATS", 1],
+	"cape": ["hero_cape", "HERO_CAPES", 1],
+	"weapon": ["hero_weapon", "WEAPON_SKINS", 1],
+	"banner_bg": ["banner_bg", "BANNER_BACKGROUNDS", Stats.BANNER_BG_FREE],
+	"banner_emblem": ["banner_emblem", "BANNER_EMBLEMS", Stats.BANNER_EMBLEM_FREE],
+	"banner_frame": ["banner_frame", "BANNER_FRAMES", Stats.BANNER_FRAME_FREE],
+}
+# The store's tabs: [title, menu icon, kinds shown, preview class].
+const TABS := [["HAIR", "hair", ["hair_style", "hair"], Role.BASE], ["ARMOUR", "tunic", ["outfit"], Role.BASE],
+	["CAPES & DYES", "palette", ["cape", "trim"], Role.BASE], ["HATS", "crown", ["hat"], Role.BASE],
+	["WEAPONS", "swords", ["weapon"], Role.KNIGHT],
+	["BANNER CLOTH", "emblem", ["banner_bg"], Role.BASE], ["EMBLEMS", "emblem", ["banner_emblem"], Role.BASE],
+	["FRAMES", "emblem", ["banner_frame"], Role.BASE]]
+const PER_PAGE := 9           # three rows of three cards; more turn pages
+# Swatch colours for the gear with no colour of its own (hats, capes).
+const HAT_SWATCH := [Color(0.3, 0.3, 0.34), Color(0.75, 0.2, 0.18), Color(0.86, 0.72, 0.42), Color(0.35, 0.68, 0.3),
+	Color(0.95, 0.55, 0.7), Color(0.32, 0.22, 0.62), Color(0.62, 0.65, 0.7), Color(1.0, 0.8, 0.28),
+	Color(0.55, 0.36, 0.2), Color(0.85, 0.2, 0.15), Color(0.95, 0.55, 0.2), Color(0.6, 0.42, 0.26), Color(1.0, 0.82, 0.3)]
+const CAPE_SWATCH := [Color(0.3, 0.3, 0.34), Color(0.8, 0.3, 0.25), Color(0.5, 0.36, 0.22), Color(0.3, 0.62, 0.28),
+	Color(0.62, 0.1, 0.16), Color(1.0, 0.5, 0.15),
+	Color(0.36, 0.55, 0.26), Color(0.78, 0.36, 0.14), Color(0.2, 0.45, 0.85), Color(0.1, 0.2, 0.26)]
+const KIND_LABEL := {"hair": "Hair Colour", "hair_style": "Hair Style", "trim": "Cape Dye", "outfit": "Armour Tint", "hat": "Hat", "cape": "Cape",
+	"weapon": "Weapon Skin", "banner_bg": "Banner Background", "banner_emblem": "Banner Emblem", "banner_frame": "Banner Frame"}
+
+
+# --- Ownership (static: shared by the menu, the HUD and the game) ------------------
+
+static func key(kind: String, i: int) -> String:
+	return "%s:%d" % [kind, i]
+
+
+static func item_for(kind: String, i: int) -> Array:
+	## The STORE_ITEMS entry selling this, or [] when it is not sold (free).
+	for it in Stats.STORE_ITEMS:
+		if it[0] == kind and it[1] == i:
+			return it
+	return []
+
+
+static func price(it: Array) -> int:
+	return int(Stats.RARITIES[it[2]][2])
+
+
+static func owns(game, kind: String, i: int) -> bool:
+	if not KINDS.has(kind) or i < int(KINDS[kind][2]) or item_for(kind, i).is_empty():
+		return true
+	return key(kind, i) in game.owned_items or "--debug-store-all" in OS.get_cmdline_user_args()
+
+
+static func table(kind: String) -> Array:
+	match kind:
+		"hair": return Stats.HERO_HAIR
+		"hair_style": return Stats.HERO_HAIR_STYLES
+		"trim": return Stats.HERO_TRIM
+		"outfit": return Stats.HERO_OUTFITS
+		"hat": return Stats.HERO_HATS
+		"cape": return Stats.HERO_CAPES
+		"weapon": return Stats.WEAPON_SKINS
+		"banner_bg": return Stats.BANNER_BACKGROUNDS
+		"banner_emblem": return Stats.BANNER_EMBLEMS
+		"banner_frame": return Stats.BANNER_FRAMES
+	return []
+
+
+static func item_name(kind: String, i: int) -> String:
+	var row = table(kind)[i]
+	if row is String:
+		return String(row).replace("_", " ").capitalize()
+	return String(row[0])
+
+
+static func equipped(game, kind: String) -> int:
+	return int(game.get(KINDS[kind][0]))
+
+
+static func equip(game, kind: String, i: int) -> void:
+	game.set(KINDS[kind][0], i)
+	game._save_settings()
+
+
+static func locked_toast(game, kind: String, i: int) -> void:
+	## A locked choice was clicked: open the store on it (or say where it is).
+	if game.main_menu and not game.playing:
+		game.main_menu.open_store(kind, i)
+		return
+	var it := item_for(kind, i)
+	game.toast("%s is in the STORE for %d gold" % [item_name(kind, i), price(it)], Color(1.0, 0.82, 0.4))
+
+
+static func drop_unowned(game) -> void:
+	## After loading: anything worn but not owned goes back to the default.
+	for kind in KINDS:
+		if not owns(game, kind, equipped(game, kind)):
+			game.set(KINDS[kind][0], 0)
+
+
+static func buy(game, kind: String, i: int) -> bool:
+	var it := item_for(kind, i)
+	if it.is_empty() or owns(game, kind, i) or game.account_gold < price(it):
+		return false
+	game.account_gold -= price(it)
+	game.owned_items.append(key(kind, i))
+	equip(game, kind, i)   # also saves
+	return true
+
+
+static func open_chest(game, rng: RandomNumberGenerator = null) -> Array:
+	## Opens one Match Chest: an item not yet owned, picked by rarity weight,
+	## or Stats.CHEST_GOLD gold when everything is owned. Returns the item
+	## ([kind, index, rarity]) or [] for the gold.
+	if game.account_chests <= 0:
+		return []
+	if rng == null:
+		rng = RandomNumberGenerator.new()
+		rng.randomize()
+	game.account_chests -= 1
+	var pool: Array = Stats.STORE_ITEMS.filter(func(it): return not owns(game, it[0], it[1]))
+	if pool.is_empty():
+		game.account_gold += Stats.CHEST_GOLD
+		game._save_settings()
+		return []
+	var total := 0
+	for it in pool:
+		total += int(Stats.RARITIES[it[2]][3])
+	var roll := rng.randi_range(0, total - 1)
+	var got: Array = pool[0]
+	for it in pool:
+		roll -= int(Stats.RARITIES[it[2]][3])
+		if roll < 0:
+			got = it
+			break
+	game.owned_items.append(key(got[0], got[1]))
+	game._save_settings()
+	return got
+
+
+static func swatch_color(kind: String, i: int, team: int = 0) -> Color:
+	## The colour a choice is shown as on a tile.
+	match kind:
+		"hair": return Stats.HERO_HAIR[i][1]
+		"trim":
+			var c: Color = Stats.HERO_TRIM[i][1]
+			return Stats.FACTIONS[team].color if c.a == 0.0 else c
+		"outfit", "weapon":
+			var c: Color = table(kind)[i][1]
+			return Color(0.62, 0.65, 0.7) if c.a == 0.0 else c
+		"hat": return HAT_SWATCH[i % HAT_SWATCH.size()]
+		"cape": return CAPE_SWATCH[i % CAPE_SWATCH.size()]
+		"banner_bg": return Stats.BANNER_BACKGROUNDS[i][2].lerp(Stats.BANNER_BACKGROUNDS[i][1], 0.4)
+		"banner_frame": return Stats.BANNER_FRAMES[i][1]
+	return Color(0.2, 0.2, 0.24)
+
+
+static func wear(custom: Dictionary, kind: String, i: int) -> Dictionary:
+	## `custom` (game.hero_custom()) with one item tried on.
+	var c := custom.duplicate()
+	match kind:
+		"hair": c.hair = Stats.HERO_HAIR[i][1]
+		"hair_style": c.hair_style = i
+		"trim":
+			if i == 0:
+				c.erase("trim")
+			else:
+				c.trim = Stats.HERO_TRIM[i][1]
+		"outfit": c.outfit = i
+		"hat": c.hat = Stats.HERO_HATS[i][1]
+		"cape": c.cape = Stats.HERO_CAPES[i][1]
+		"weapon": c.weapon = i
+	for k in ["outfit", "weapon", "hat", "cape"]:
+		if c.has(k) and (c[k] is int and c[k] == 0 or c[k] is String and c[k] == ""):
+			c.erase(k)
+	return c
+
+
+# --- The screen --------------------------------------------------------------------
+
+var game
+var menu                     # menu.gd (its drawing helpers)
+var h
+var tab := 0
+var page := 0
+var pick: Array = []         # the item on show: [kind, index, rarity]
+var flash := 0.0             # gold flash after a purchase
+var reveal: Array = []       # a chest just opened: [item or [], time opened]
+var icons := {}              # item icon textures by path (null when there is none)
+var instant_turn := "--shot-frame=" in " ".join(OS.get_cmdline_user_args())   # renders: no easing
+
+
+func _init(g, m) -> void:
+	game = g
+	menu = m
+
+
+func items_in(t: int) -> Array:
+	## A tab's items, the rarest first (Legendary leads the page).
+	var kinds: Array = TABS[t][2]
+	var out: Array = Stats.STORE_ITEMS.filter(func(it): return it[0] in kinds)
+	out.sort_custom(func(a, b):
+		var ta: int = TIER_RANK.get(a[2], 0)
+		var tb: int = TIER_RANK.get(b[2], 0)
+		if ta != tb:
+			return ta > tb
+		if a[0] != b[0]:
+			return kinds.find(a[0]) < kinds.find(b[0])
+		return a[1] < b[1])
+	return out
+
+
+func show(kind: String = "", i: int = -1) -> void:
+	## Open on an item (from a locked choice in Create Your Character).
+	reveal = []
+	pick = []
+	if kind != "":
+		for t in TABS.size():
+			if kind in TABS[t][2]:
+				tab = t
+		pick = item_for(kind, i)
+	page = maxi(items_in(tab).find(pick), 0) / PER_PAGE
+	if pick.is_empty():
+		var first := items_in(tab)
+		pick = first[0] if not first.is_empty() else []
+
+
+func preview_role() -> int:
+	return TABS[tab][3]
+
+
+func preview_custom() -> Dictionary:
+	var c: Dictionary = game.hero_custom()
+	if not pick.is_empty() and not pick[0].begins_with("banner"):
+		c = wear(c, pick[0], pick[1])
+	return c
+
+
+func draw(hud, stage, team: int) -> void:
+	h = hud
+	flash = maxf(flash - h.get_process_delta_time(), 0.0)
+	if pick.is_empty():
+		show()
+	if stage:
+		stage.show_hero(team, preview_role(), preview_custom(), 1)
+		# Capes hang at the back: turn the hero round to show them.
+		var want := 2.5 if not pick.is_empty() and pick[0] == "cape" else 0.0
+		var top: String = pick[2] if pick.size() > 2 else ""
+		var t := Time.get_ticks_msec() / 1000.0
+		if top == "legendary" and not instant_turn:
+			# Legendary: a slow turntable all the way round.
+			stage.hero_spin = fmod(t * 0.8, TAU)
+		else:
+			if top == "epic" and not instant_turn:
+				want += sin(t * 0.9) * 0.8   # Epic: a slow sway to show it off
+			stage.hero_spin = want if instant_turn else lerpf(stage.hero_spin, want, minf(h.get_process_delta_time() * 5.0, 1.0))
+	menu.plaque(632, 22, "STORE", 420)
+	menu.icon("crown", Vector2(632, 20), 46)
+	_wallet(Rect2(1012, 14, 240, 58))
+	_chests(Rect2(28, 14, 300, 58))
+	# Tabs down the left, like Create Your Character's.
+	h._ivy(Vector2(52, 128 + TABS.size() * 62 - 6), Vector2(0, -1), TABS.size() * 62.0 - 14.0, 41)
+	for i in TABS.size():
+		var r := Rect2(60, 128 + i * 62, 272, 52)
+		var sel := tab == i
+		var ov: bool = menu.button(r, "store_tab", i)
+		var rr := r.grow(2) if ov else r
+		menu.nine("panel_row", rr, 14, 14, 14, 14)
+		if sel:
+			menu.icon("arrow_right", rr.position + Vector2(rr.size.x - 22, rr.size.y / 2.0), 22, Color(1.0, 0.86, 0.45))
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.32, 0.22, 0.08, 0.55)
+			sb.set_corner_radius_all(8)
+			sb.set_border_width_all(3)
+			sb.border_color = Color(1.0, 0.78, 0.3)
+			sb.shadow_color = Color(1.0, 0.7, 0.2, 0.45)
+			sb.shadow_size = 10
+			h.draw_style_box(sb, rr)
+		menu.icon(TABS[i][1], rr.position + Vector2(32, rr.size.y / 2.0), 38)
+		menu.ttext(rr.position + Vector2(62, rr.size.y / 2.0 + 7), TABS[i][0], 19, Color(1.0, 0.92, 0.65) if sel else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		var have := items_in(i).filter(func(it): return owns(game, it[0], it[1])).size()
+		h._text(Vector2(rr.end.x - 96, rr.position.y + rr.size.y / 2.0 + 5), "%d/%d" % [have, items_in(i).size()], 11, Color(0.85, 0.82, 0.72), HORIZONTAL_ALIGNMENT_RIGHT, 60, 2)
+	_grid(Rect2(832, 122, 430, 452))
+	_detail(Rect2(832, 586, 430, 106))
+	menu.wood_button(Rect2(60, 652, 160, 52), "BACK", "back", null, "", 20)
+	if flash > 0.0:
+		_purchased()
+	if not reveal.is_empty():
+		_draw_reveal()
+
+
+func _purchased() -> void:
+	## Just bought: a gold ribbon pops over the hero, sparkles round it.
+	var k := clampf(flash / 2.0, 0.0, 1.0)
+	var a := clampf(flash / 0.5, 0.0, 1.0)
+	var pop := 1.0 + 0.25 * sin(clampf((2.0 - flash) / 0.25, 0.0, 1.0) * PI)
+	var c := Vector2(500, 150)
+	h.draw_set_transform(c, 0.0, Vector2(pop, pop))
+	var band := Rect2(-150, -26, 300, 52)
+	h._plate(band, Color(0.55, 0.32, 0.05, 0.95 * a), Color(1.0, 0.85, 0.35, a), 12, 3)
+	menu.ttext(Vector2(-150, 12), "PURCHASED!", 30, Color(1.0, 0.95, 0.75, a), HORIZONTAL_ALIGNMENT_CENTER, 300, 6)
+	h.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	for n in 10:
+		var ang := TAU * n / 10.0 + (1.0 - k) * 2.0
+		var p := c + Vector2(cos(ang) * 190.0, sin(ang) * 70.0) * (1.4 - k * 0.4)
+		h.draw_circle(p, 4.0 + 3.0 * k, Color(1.0, 0.9, 0.4, a))
+
+
+func _wallet(r: Rect2) -> void:
+	menu.slate(r)
+	var pulse := clampf(flash / 2.0, 0.0, 1.0)
+	h._icon("coin", r.position + Vector2(34, r.size.y / 2.0), 11.0 + 2.0 * pulse, Color.WHITE)
+	var gt: String = "%s GOLD" % menu.gold_text(game.account_gold)
+	var gs: int = menu.fit_size(gt, 28, r.end.x - 16 - (r.position.x + 62))
+	menu.ttext(Vector2(r.position.x + 62, r.position.y + r.size.y / 2.0 + gs * 0.36), gt, gs, Color(1.0, 0.85, 0.35).lerp(Color.WHITE, pulse), HORIZONTAL_ALIGNMENT_LEFT, -1, 6)
+
+
+func _chests(r: Rect2) -> void:
+	menu.slate(r)
+	var n: int = game.account_chests
+	var bob := sin(Time.get_ticks_msec() / 260.0) * 2.0 if n > 0 else 0.0
+	h._icon("chest", r.position + Vector2(36, r.size.y / 2.0 + bob), 11.0, Color.WHITE, n == 0)
+	menu.ttext(Vector2(r.position.x + 66, r.position.y + 28), "MATCH CHESTS", 16, Color(1.0, 0.92, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+	h._text(Vector2(r.position.x + 66, r.position.y + 47), "x%d  ·  one per match" % n, 12, Color(0.9, 0.88, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var b := Rect2(r.end.x - 92, r.position.y + 12, 80, r.size.y - 24)
+	var ov: bool = menu.button(b, "store_chest") and n > 0
+	menu.nine("btn_green" if n > 0 else "btn_green_off", b.grow(2) if ov else b, 48, 20, 48, 20)
+	menu.ttext(Vector2(b.position.x, b.position.y + 26), "OPEN", 17, Color.WHITE if n > 0 else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 4)
+
+
+func _grid(panel: Rect2) -> void:
+	menu.slate(panel)
+	var pr := Rect2(panel.get_center().x - 165, panel.position.y - 22, 330, 48)
+	menu.nine("plaque", pr, 110, 24, 110, 24)
+	menu.ttext(Vector2(pr.position.x, pr.position.y + 33), TABS[tab][0], 22, Color(1.0, 0.86, 0.45), HORIZONTAL_ALIGNMENT_CENTER, pr.size.x, 5)
+	var all := items_in(tab)
+	var pages := maxi(ceili(all.size() / float(PER_PAGE)), 1)
+	page = clampi(page, 0, pages - 1)
+	var items := all.slice(page * PER_PAGE, (page + 1) * PER_PAGE)
+	if pages > 1:
+		# Page arrows under the cards.
+		var y := panel.end.y - 40
+		for k in 2:
+			var b := Rect2(panel.position.x + 20 if k == 0 else panel.end.x - 120, y, 100, 30)
+			var on := page > 0 if k == 0 else page < pages - 1
+			menu.wood_button(b, "< BACK" if k == 0 else "MORE >", "store_page", -1 if k == 0 else 1, "", 14, false, on)
+		menu.ttext(Vector2(panel.position.x, y + 22), "PAGE %d / %d" % [page + 1, pages], 15, Color(1.0, 0.88, 0.6), HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 4)
+	var cols := 3
+	var rows := maxi(ceili(items.size() / float(cols)), 3) if pages > 1 else ceili(items.size() / float(cols))
+	var cw := (panel.size.x - 40.0 - (cols - 1) * 10.0) / cols
+	var ch := minf(116.0, (panel.size.y - 62.0 - (rows - 1) * 8.0) / maxf(rows, 1))
+	for n in items.size():
+		var it: Array = items[n]
+		var r := Rect2(panel.position.x + 20 + (n % cols) * (cw + 10), panel.position.y + 44 + (n / cols) * (ch + 8), cw, ch)
+		_card(r, it)
+
+
+func _card(r: Rect2, it: Array) -> void:
+	var kind: String = it[0]
+	var i: int = it[1]
+	var rar: Array = Stats.RARITIES[it[2]]
+	var have := owns(game, kind, i)
+	var worn := have and equipped(game, kind) == i
+	var sel := pick == it
+	var ov: bool = menu.button(r, "store_pick", it)
+	var t := Time.get_ticks_msec() / 1000.0 + r.position.x * 0.013 + r.position.y * 0.007
+	var tier: int = TIER_RANK.get(it[2], 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.11, 0.12, 0.15).lerp(rar[1].darkened(0.6), 0.35 + 0.12 * tier)
+	sb.set_corner_radius_all(8)
+	sb.set_border_width_all((3 if sel else 2) + (1 if tier >= 2 else 0))
+	sb.border_color = Color(1.0, 0.85, 0.4) if sel else (rar[1].lightened(0.2) if ov else rar[1].darkened(0.25 - 0.1 * tier))
+	if sel or tier >= 2:
+		# Epic and Legendary cards glow even when not picked, breathing.
+		sb.shadow_color = Color(rar[1], 0.6 if sel else 0.25 + 0.15 * tier + 0.12 * sin(t * 2.4))
+		sb.shadow_size = 10 if sel else 4 + 3 * tier
+	h.draw_style_box(sb, r)
+	if tier >= 1:
+		# Rare and up: a thin brass line inside the frame.
+		var inner := StyleBoxFlat.new()
+		inner.bg_color = Color(0, 0, 0, 0)
+		inner.set_corner_radius_all(6)
+		inner.set_border_width_all(1)
+		inner.border_color = Color(1.0, 0.85, 0.5, 0.25 + 0.15 * tier)
+		h.draw_style_box(inner, r.grow(-5))
+	# A rarity strip along the top edge.
+	h.draw_rect(Rect2(r.position + Vector2(6, 4), Vector2(r.size.x - 12, 4)), rar[1])
+	# The item's picture fills the card above its name and price, over a
+	# soft glow in the rarity colour.
+	var side := minf(r.size.x - 16.0, r.size.y - 40.0)
+	var pic := Rect2(r.position.x + (r.size.x - side) / 2.0, r.position.y + 9, side, side)
+	var gc := pic.get_center()
+	if tier >= 3:
+		# Legendary: slow golden rays turning behind the item.
+		_rays(gc, side * 0.62, t * 0.5, Color(rar[1], 0.16))
+	if icon_tex(kind, i):
+		var pulse := (0.5 + 0.5 * sin(t * 2.0)) * (0.06 if tier >= 2 else 0.0)
+		for k in 6:
+			h.draw_circle(gc, side * (0.5 - k * 0.07), Color(rar[1], 0.05 + k * 0.025 + pulse))
+	thumb(pic, kind, i)
+	if tier >= 2:
+		_shine(r, t, 3.4 if tier == 2 else 2.4)
+		_sparkles(r, t, 3 if tier == 2 else 6, rar[1].lightened(0.4))
+		if tier >= 3:
+			_braces(r, Color(1.0, 0.85, 0.4))
+		var tag := Rect2(r.get_center().x - 40, r.position.y - 7, 80, 16)
+		h._plate(tag, rar[1].darkened(0.35), rar[1].lightened(0.35), 5, 1)
+		h._text(Vector2(tag.position.x, tag.position.y + 12), rar[0].to_upper(), 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 1)
+	if key(kind, i) in Stats.STORE_NEW and not have:
+		# The newest stock wears a green NEW ribbon in the top corner.
+		var nr := Rect2(r.position + Vector2(7, 12), Vector2(36, 15))
+		h._plate(nr, Color(0.2, 0.5, 0.22), Color(0.6, 0.95, 0.5), 4, 1)
+		h._text(Vector2(nr.position.x, nr.position.y + 11), "NEW", 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, nr.size.x, 1)
+	h._text(Vector2(r.position.x + 4, r.end.y - 22), item_name(kind, i).to_upper(), 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 8, 2)
+	var by := r.end.y - 7
+	if worn:
+		h._icon("check", Vector2(r.position.x + r.size.x / 2.0 - 36, by - 5), 4.0, Color(0.5, 1.0, 0.45))
+		h._text(Vector2(r.position.x, by), "EQUIPPED", 11, Color(0.55, 1.0, 0.45), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+	elif have:
+		h._text(Vector2(r.position.x, by), "OWNED", 11, Color(0.8, 0.9, 1.0), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+	else:
+		var p := "%d" % price(it)
+		var tw: float = h._text_width(p, 13)
+		var cx := r.position.x + r.size.x / 2.0
+		h._icon("coin", Vector2(cx - tw / 2.0 - 9, by - 5), 3.6, Color.WHITE)
+		h._text(Vector2(cx - tw / 2.0 + 3, by), p, 13, Color(1.0, 0.85, 0.35) if game.account_gold >= price(it) else Color(0.85, 0.6, 0.5), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+# Rarity looks on the cards: 0 Common, 1 Rare (brass inner line), 2 Epic
+# (breathing glow, a light sweep, a few sparkles, a tag), 3 Legendary (all
+# that, more sparkles, turning rays and brass corner braces).
+const TIER_RANK := {"common": 0, "rare": 1, "epic": 2, "legendary": 3}
+
+
+func _rays(c: Vector2, rad: float, turn: float, col: Color) -> void:
+	for k in 12:
+		var a := turn + TAU * k / 12.0
+		h.draw_colored_polygon(PackedVector2Array([c, c + Vector2.from_angle(a - 0.09) * rad, c + Vector2.from_angle(a + 0.09) * rad]),
+			Color(col, col.a * (1.0 if k % 2 == 0 else 0.55)))
+
+
+func _shine(r: Rect2, t: float, period: float) -> void:
+	## A light band sweeping across the card every `period` seconds.
+	var k := fmod(t, period) / 0.7   # the sweep itself takes 0.7 s
+	if k > 1.0:
+		return
+	var x := lerpf(r.position.x - 40.0, r.end.x + 20.0, k)
+	var pts := PackedVector2Array([Vector2(x + 18, r.position.y + 3), Vector2(x + 40, r.position.y + 3),
+		Vector2(x + 18, r.end.y - 3), Vector2(x - 4, r.end.y - 3)])
+	for n in pts.size():
+		pts[n].x = clampf(pts[n].x, r.position.x + 3, r.end.x - 3)
+	h.draw_colored_polygon(pts, Color(1, 1, 1, 0.13 * sin(k * PI)))
+
+
+func _sparkles(r: Rect2, t: float, n: int, col: Color) -> void:
+	## Little four-point stars twinkling at fixed spots round the item.
+	for k in n:
+		var seed := float(k) * 2.399 + r.position.x * 0.01
+		var p := r.position + Vector2(r.size.x * (0.12 + 0.76 * fposmod(sin(seed * 12.9) * 43.7, 1.0)),
+			r.size.y * (0.1 + 0.55 * fposmod(sin(seed * 78.2) * 17.3, 1.0)))
+		var tw := maxf(sin(t * 2.6 + seed * 3.0), 0.0)
+		if tw <= 0.05:
+			continue
+		var s := 2.0 + 4.0 * tw
+		h.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -s), p + Vector2(s * 0.25, 0), p + Vector2(0, s), p + Vector2(-s * 0.25, 0)]), Color(col, tw))
+		h.draw_colored_polygon(PackedVector2Array([p + Vector2(-s, 0), p + Vector2(0, s * 0.25), p + Vector2(s, 0), p + Vector2(0, -s * 0.25)]), Color(col, tw))
+
+
+func _braces(r: Rect2, col: Color) -> void:
+	## Brass corner braces, as on the game's menu boards.
+	var L := 14.0
+	for c in [[r.position, Vector2(1, 1)], [Vector2(r.end.x, r.position.y), Vector2(-1, 1)],
+			[Vector2(r.position.x, r.end.y), Vector2(1, -1)], [r.end, Vector2(-1, -1)]]:
+		var o: Vector2 = c[0] + c[1] * 2.0
+		var d: Vector2 = c[1]
+		h.draw_polyline(PackedVector2Array([o + Vector2(0, d.y * L), o, o + Vector2(d.x * L, 0)]), Color(0.25, 0.15, 0.05), 5.0)
+		h.draw_polyline(PackedVector2Array([o + Vector2(0, d.y * L), o, o + Vector2(d.x * L, 0)]), col, 3.0)
+		h.draw_circle(o, 3.0, col.lightened(0.3))
+
+
+func icon_tex(kind: String, i: int) -> Texture2D:
+	## The item rendered on the real model (tools/render_store_icons.gd), or null.
+	var path := "res://assets/ui/store/%s_%d.png" % [kind, i]
+	if not icons.has(path):
+		icons[path] = load(path) if ResourceLoader.exists(path) else null
+	return icons[path]
+
+
+func thumb(r: Rect2, kind: String, i: int) -> void:
+	## A picture of a choice: the item rendered on the hero when it is big
+	## enough to read, else a dyed disc, a banner piece or a drawn outline.
+	var tx := icon_tex(kind, i) if minf(r.size.x, r.size.y) >= 48.0 else null
+	if tx:
+		var sq := minf(r.size.x, r.size.y)
+		h.draw_texture_rect(tx, Rect2(r.get_center() - Vector2(sq, sq) / 2.0, Vector2(sq, sq)), false)
+		return
+	var c := r.get_center()
+	var rad := minf(r.size.x, r.size.y) / 2.0
+	var col := swatch_color(kind, i)
+	match kind:
+		"banner_bg", "banner_frame":
+			var bg_i: int = i if kind == "banner_bg" else game.banner_bg
+			var fr_i: int = i if kind == "banner_frame" else 1
+			var big := rad >= 24.0
+			var br := Rect2(c - Vector2(rad * 0.95, rad * 0.75), Vector2(rad * 1.9, rad * 1.5)) if big else Rect2(c - Vector2(rad * 1.6, rad * 0.7), Vector2(rad * 3.2, rad * 1.4))
+			var bgd: Array = Stats.BANNER_BACKGROUNDS[bg_i]
+			h._plate(br, bgd[1], Stats.BANNER_FRAMES[fr_i][1], 6, (5 if big else 3) if kind == "banner_frame" else 2)
+			# The painted cloth (UI & Art's banner art), its middle as the editor shows it.
+			var tex: Texture2D = h._banner_tex(str(bgd[3])) if bgd.size() > 3 else null
+			var inner := br.grow(-4 if kind == "banner_bg" else -6)
+			if tex:
+				var tw := float(tex.get_width())
+				var th := float(tex.get_height())
+				var cw := minf(tw * 0.4, th * inner.size.x / inner.size.y)
+				h.draw_texture_rect_region(tex, inner, Rect2((tw - cw) / 2.0, 0, cw, th))
+			else:
+				h.draw_rect(Rect2(br.position + Vector2(4, 4), Vector2(br.size.x - 8, br.size.y * 0.4)), Color(bgd[2], 0.4))
+			if big and kind == "banner_frame":
+				_braces(br.grow(3), Stats.BANNER_FRAMES[fr_i][1].lightened(0.2))
+		"banner_emblem":
+			h.draw_circle(c, rad, Color(0.05, 0.05, 0.08, 0.8))
+			h.draw_arc(c, rad, 0, TAU, 32, Color(1.0, 0.8, 0.3), 2.0)
+			h._icon(Stats.BANNER_EMBLEMS[i], c, rad * 0.32, Color.WHITE)
+		"hair_style":
+			menu.h = h
+			menu.hair_thumb(c + Vector2(0, rad * 0.1), i, rad / 13.0)
+		"hat":
+			_hat_glyph(c, rad, i, col)
+		"cape":
+			_cape_glyph(c, rad, i, col)
+		"weapon":
+			var glow: float = Stats.WEAPON_SKINS[i][2]
+			if glow > 0.0:
+				h.draw_circle(c, rad, Color(col, 0.25))
+			_sword_glyph(c, rad, col)
+		"outfit":
+			_plate_glyph(c, rad, col)
+		_:
+			h.draw_circle(c, rad, Color(0.05, 0.04, 0.03))
+			h.draw_circle(c, rad - 3, col)
+			h.draw_circle(c + Vector2(-rad * 0.3, -rad * 0.3), rad * 0.22, Color(1, 1, 1, 0.3))
+
+
+func _sword_glyph(c: Vector2, rad: float, col: Color) -> void:
+	## A sword at a slant in the skin's metal.
+	var ink := Color(0.08, 0.06, 0.05)
+	var d := Vector2(0.7, -0.7)
+	var n := Vector2(0.7, 0.7)
+	var tip := c + d * rad * 1.0
+	var base := c - d * rad * 0.35
+	var blade := PackedVector2Array([base + n * rad * 0.13, tip + n * rad * 0.03, tip + d * rad * 0.12, tip - n * rad * 0.03, base - n * rad * 0.13])
+	h.draw_colored_polygon(blade, col)
+	h.draw_polyline(blade + PackedVector2Array([blade[0]]), ink, 1.5)
+	h.draw_line(c - d * rad * 0.1 + n * rad * 0.42, c - d * rad * 0.1 - n * rad * 0.42, col.darkened(0.35), rad * 0.16)
+	h.draw_line(c - d * rad * 0.45, c - d * rad * 0.85, Color(0.45, 0.28, 0.14), rad * 0.13)
+	h.draw_circle(c - d * rad * 0.9, rad * 0.1, col.darkened(0.2))
+
+
+func _plate_glyph(c: Vector2, rad: float, col: Color) -> void:
+	## A breastplate in the tint.
+	var ink := Color(0.08, 0.06, 0.05)
+	var p := PackedVector2Array([c + Vector2(-rad * 0.75, -rad * 0.7), c + Vector2(-rad * 0.3, -rad * 0.8), c + Vector2(0, -rad * 0.55),
+		c + Vector2(rad * 0.3, -rad * 0.8), c + Vector2(rad * 0.75, -rad * 0.7), c + Vector2(rad * 0.62, rad * 0.35),
+		c + Vector2(0, rad * 0.85), c + Vector2(-rad * 0.62, rad * 0.35)])
+	h.draw_colored_polygon(p, col)
+	h.draw_polyline(p + PackedVector2Array([p[0]]), ink, 1.5)
+	h.draw_line(c + Vector2(0, -rad * 0.5), c + Vector2(0, rad * 0.75), col.darkened(0.3), 2.0)
+	h.draw_colored_polygon(PackedVector2Array([c + Vector2(-rad * 0.5, -rad * 0.5), c + Vector2(-rad * 0.15, -rad * 0.45), c + Vector2(-rad * 0.3, rad * 0.2)]), Color(1, 1, 1, 0.25))
+
+
+func _hat_glyph(c: Vector2, rad: float, i: int, col: Color) -> void:
+	var ink := Color(0.08, 0.06, 0.05)
+	var style: String = Stats.HERO_HATS[i][1]
+	h.draw_circle(c + Vector2(0, rad * 0.35), rad * 0.55, Color(0.95, 0.8, 0.68))   # a head to wear it
+	match style:
+		"straw", "wizard":
+			h.draw_rect(Rect2(c + Vector2(-rad, -rad * 0.05), Vector2(rad * 2.0, rad * 0.18)), col.darkened(0.15))
+			if style == "wizard":
+				h.draw_colored_polygon(PackedVector2Array([c + Vector2(-rad * 0.5, 0), c + Vector2(rad * 0.5, 0), c + Vector2(rad * 0.15, -rad * 1.05)]), col)
+				h.draw_circle(c + Vector2(0, -rad * 0.35), rad * 0.1, Color(1.0, 0.85, 0.3))
+			else:
+				h.draw_rect(Rect2(c + Vector2(-rad * 0.5, -rad * 0.5), Vector2(rad, rad * 0.5)), col)
+				h.draw_rect(Rect2(c + Vector2(-rad * 0.5, -rad * 0.15), Vector2(rad, rad * 0.1)), Color(0.75, 0.2, 0.18))
+		"cap":
+			h.draw_colored_polygon(PackedVector2Array([c + Vector2(-rad * 0.6, 0), c + Vector2(rad * 0.6, 0), c + Vector2(rad * 0.4, -rad * 0.45), c + Vector2(-rad * 0.45, -rad * 0.5)]), col)
+			h.draw_line(c + Vector2(rad * 0.3, -rad * 0.35), c + Vector2(rad * 0.95, -rad * 1.0), Color(1.0, 0.95, 0.85), 4.0)
+		"horns":
+			h.draw_circle(c + Vector2(0, -rad * 0.05), rad * 0.55, col)
+			for sx in [-1.0, 1.0]:
+				h.draw_colored_polygon(PackedVector2Array([c + Vector2(sx * rad * 0.4, -rad * 0.2), c + Vector2(sx * rad * 0.6, -rad * 0.05), c + Vector2(sx * rad * 1.0, -rad * 0.85)]), Color(0.95, 0.9, 0.78))
+		"circlet", "flowers", "gold":
+			h.draw_rect(Rect2(c + Vector2(-rad * 0.6, -rad * 0.2), Vector2(rad * 1.2, rad * 0.16)), col.darkened(0.1))
+			for k in 5:
+				var p := c + Vector2(-rad * 0.5 + k * rad * 0.25, -rad * 0.25)
+				var pc: Color = col if style != "flowers" else [Color(1, 0.6, 0.75), Color.WHITE, Color(1, 0.88, 0.3)][k % 3]
+				h.draw_circle(p, rad * (0.13 if style != "gold" else 0.08), pc)
+			if style == "gold":
+				h.draw_circle(c + Vector2(0, -rad * 0.18), rad * 0.12, Color(0.9, 0.2, 0.3))
+		_:
+			h.draw_line(c + Vector2(-rad * 0.6, -rad * 0.6), c + Vector2(rad * 0.6, rad * 0.6), Color(0.85, 0.82, 0.78), 3.0)
+	h.draw_arc(c + Vector2(0, rad * 0.35), rad * 0.55, 0, TAU, 24, ink, 1.5)
+
+
+func _cape_glyph(c: Vector2, rad: float, i: int, col: Color) -> void:
+	var style: String = Stats.HERO_CAPES[i][1]
+	if style == "scarf":
+		h.draw_rect(Rect2(c + Vector2(-rad * 0.6, -rad * 0.6), Vector2(rad * 1.2, rad * 0.35)), col)
+		h.draw_colored_polygon(PackedVector2Array([c + Vector2(rad * 0.2, -rad * 0.3), c + Vector2(rad * 0.5, -rad * 0.3), c + Vector2(rad * 0.75, rad * 0.9), c + Vector2(rad * 0.45, rad * 0.9)]), col.darkened(0.2))
+		return
+	var poly := PackedVector2Array([c + Vector2(-rad * 0.45, -rad * 0.8), c + Vector2(rad * 0.45, -rad * 0.8), c + Vector2(rad * 0.85, rad * 0.9), c + Vector2(-rad * 0.85, rad * 0.9)])
+	h.draw_colored_polygon(poly, col)
+	h.draw_polyline(poly + PackedVector2Array([poly[0]]), Color(0.08, 0.06, 0.05), 1.5)
+	match style:
+		"royal":
+			h.draw_rect(Rect2(c + Vector2(-rad * 0.85, rad * 0.75), Vector2(rad * 1.7, rad * 0.15)), Color(1.0, 0.8, 0.3))
+			h.draw_rect(Rect2(c + Vector2(-rad * 0.55, -rad * 0.9), Vector2(rad * 1.1, rad * 0.22)), Color(0.96, 0.94, 0.9))
+		"ember":
+			h.draw_rect(Rect2(c + Vector2(-rad * 0.85, rad * 0.72), Vector2(rad * 1.7, rad * 0.18)), Color(1.0, 0.75, 0.2))
+		"leaf":
+			for k in 4:
+				h.draw_circle(c + Vector2(-rad * 0.6 + k * rad * 0.4, rad * 0.88), rad * 0.16, col.lightened(0.25))
+
+
+func _detail(r: Rect2) -> void:
+	## The picked item: name, rarity and what it is, and BUY / EQUIP.
+	if pick.is_empty():
+		return
+	var kind: String = pick[0]
+	var i: int = pick[1]
+	var rar: Array = Stats.RARITIES[pick[2]]
+	menu.slate(r)
+	var tier: int = TIER_RANK.get(pick[2], 0)
+	if tier >= 2:
+		# Epic and Legendary: the card gleams in the rarity colour.
+		var t := Time.get_ticks_msec() / 1000.0
+		var glow := StyleBoxFlat.new()
+		glow.bg_color = Color(0, 0, 0, 0)
+		glow.set_corner_radius_all(10)
+		glow.set_border_width_all(2)
+		glow.border_color = Color(rar[1], 0.55 + 0.2 * sin(t * 2.4))
+		glow.shadow_color = Color(rar[1], 0.3)
+		glow.shadow_size = 8
+		h.draw_style_box(glow, r.grow(-2))
+		_shine(r, t, 3.0)
+		_sparkles(r, t, 4 if tier == 2 else 7, rar[1].lightened(0.4))
+		if tier >= 3:
+			_braces(r, Color(1.0, 0.85, 0.4))
+	if kind.begins_with("banner"):
+		# Banner pieces show on the banner itself, over the hero's head.
+		var b := {"name": game.hero_name if game.hero_name.strip_edges() != "" else "You", "bg": game.banner_bg, "emblem": game.banner_emblem,
+			"frame": game.banner_frame, "title": Stats.BANNER_TITLES[game.banner_title][1], "level": game.account_level(), "team": 0}
+		b[kind.trim_prefix("banner_")] = i
+		h._draw_banner(Rect2(390, 104, 400, 66), b)
+	menu.ttext(Vector2(r.position.x + 20, r.position.y + 34), item_name(kind, i).to_upper(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	h._text(Vector2(r.position.x + 20, r.position.y + 56), "%s  ·  %s" % [rar[0].to_upper(), KIND_LABEL[kind]], 12, rar[1].lightened(0.15), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var note := "Looks only: no effect in a fight."
+	match kind:
+		"hat": note = "Worn while you have no class hat on."
+		"weapon": note = "Recolours every class's weapons."
+		"cape": note = "Hangs on every class, in your cape dye."
+		"trim": note = "Dyes your cape, sash and scarf."
+	h._text(Vector2(r.position.x + 20, r.position.y + 76), note, 11, Color(0.85, 0.83, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# Kept inside the card with a margin: the green button's arrows reach
+	# past its rect.
+	var b := Rect2(r.end.x - 202, r.position.y + 22, 170, 54)
+	var have := owns(game, kind, i)
+	if not have:
+		var cost := price(pick)
+		var can: bool = game.account_gold >= cost
+		var ov: bool = menu.button(b, "store_buy") and can
+		menu.nine("btn_green" if can else "btn_green_off", b.grow(3) if ov else b, 48, 20, 48, 20, Color(1.12, 1.12, 1.12) if ov else Color.WHITE)
+		menu.ttext(Vector2(b.position.x + 38, b.position.y + 36), "BUY", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+		h._icon("coin", Vector2(b.position.x + 100, b.position.y + 27), 4.5, Color.WHITE)
+		menu.ttext(Vector2(b.position.x + 112, b.position.y + 35), "%d" % cost, 18, Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		if not can:
+			h._text(Vector2(b.position.x, b.end.y + 13), "Need %d more gold" % (cost - game.account_gold), 11, Color(1.0, 0.7, 0.6), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+	elif equipped(game, kind) != i:
+		menu.wood_button(b, "EQUIP", "store_equip", null, "", 22)
+	else:
+		var off: bool = kind in ["outfit", "hat", "cape", "weapon", "trim"]
+		if off:
+			menu.wood_button(b, "TAKE OFF", "store_unequip", null, "", 20)
+		else:
+			menu.option_box(b, true, false)
+			menu.ttext(Vector2(b.position.x, b.position.y + 36), "EQUIPPED", 20, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 4)
+	h._text(Vector2(r.position.x + 20, r.end.y - 12), "Also in Create Your Character once owned", 10, Color(0.7, 0.68, 0.62), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+
+
+func _draw_reveal() -> void:
+	## A chest just opened: the chest bursts, then the card it held.
+	var t: float = (Time.get_ticks_msec() / 1000.0) - float(reveal[1])
+	h.draw_rect(Rect2(Vector2.ZERO, h.size), Color(0, 0, 0, 0.7))
+	menu.button(Rect2(Vector2.ZERO, h.size), "store_reveal_close")
+	var c := Vector2(h.size.x / 2.0, h.size.y / 2.0 - 10)
+	var it: Array = reveal[0]
+	var col: Color = Stats.RARITIES[it[2]][1] if not it.is_empty() else Color(1.0, 0.8, 0.3)
+	# Rays.
+	var k := clampf(t / 0.5, 0.0, 1.0)
+	for n in 12:
+		var a := TAU * n / 12.0 + t * 0.4
+		var p := PackedVector2Array([c, c + Vector2(cos(a - 0.08), sin(a - 0.08)) * 300.0 * k, c + Vector2(cos(a + 0.08), sin(a + 0.08)) * 300.0 * k])
+		h.draw_colored_polygon(p, Color(col, 0.18))
+	if t < 0.55:
+		var shake := sin(t * 60.0) * 5.0 * (t / 0.55)
+		h._icon("chest", c + Vector2(shake, 0), 26.0 + t * 10.0, Color.WHITE)
+		return
+	var pop := minf((t - 0.55) / 0.2, 1.0)
+	var card := Rect2(c - Vector2(150, 150) * pop, Vector2(300, 300) * pop)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.1, 0.14).lerp(col.darkened(0.6), 0.4)
+	sb.set_corner_radius_all(14)
+	sb.set_border_width_all(4)
+	sb.border_color = col
+	sb.shadow_color = Color(col, 0.7)
+	sb.shadow_size = 24
+	h.draw_style_box(sb, card)
+	if pop < 1.0:
+		return
+	menu.ttext(Vector2(card.position.x, card.position.y + 46), "NEW!" if not it.is_empty() else "GOLD!", 30, Color(1.0, 0.9, 0.5), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 6)
+	if it.is_empty():
+		h._icon("coin", c + Vector2(0, 0), 24.0, Color.WHITE)
+		menu.ttext(Vector2(card.position.x, card.end.y - 60), "+%d GOLD" % Stats.CHEST_GOLD, 26, Color(1.0, 0.85, 0.35), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 5)
+		h._text(Vector2(card.position.x, card.end.y - 32), "You own everything in the store!", 12, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
+	else:
+		thumb(Rect2(c.x - 75, c.y - 98, 150, 150), it[0], it[1])
+		menu.ttext(Vector2(card.position.x, card.end.y - 70), item_name(it[0], it[1]).to_upper(), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 5)
+		h._text(Vector2(card.position.x, card.end.y - 46), "%s  ·  %s" % [Stats.RARITIES[it[2]][0].to_upper(), KIND_LABEL[it[0]]], 13, col.lightened(0.2), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
+		h._text(Vector2(card.position.x, card.end.y - 22), "Added to your collection: tap to try it on", 11, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
+
+
+func press(id: String, arg) -> void:
+	match id:
+		"store_page":
+			page += int(arg)
+		"store_tab":
+			tab = int(arg)
+			page = 0
+			var first := items_in(tab)
+			pick = first[0] if not first.is_empty() else []
+		"store_pick":
+			pick = arg
+		"store_buy":
+			if not pick.is_empty() and buy(game, pick[0], pick[1]):
+				flash = 2.0
+				game.sfx.ui("rank_up", -4.0)
+				game.toast("Bought %s! It's on." % item_name(pick[0], pick[1]), Color(1.0, 0.85, 0.4))
+		"store_equip":
+			if not pick.is_empty() and owns(game, pick[0], pick[1]):
+				equip(game, pick[0], pick[1])
+		"store_unequip":
+			if not pick.is_empty():
+				equip(game, pick[0], 0)
+		"store_chest":
+			if game.account_chests > 0:
+				var got := open_chest(game)
+				reveal = [got, Time.get_ticks_msec() / 1000.0]
+				game.sfx.ui("rank_up", -2.0)
+		"store_reveal_close":
+			var t: float = (Time.get_ticks_msec() / 1000.0) - float(reveal[1]) if not reveal.is_empty() else 9.0
+			if t < 0.8:
+				return   # let the chest finish opening
+			var it: Array = reveal[0] if not reveal.is_empty() else []
+			reveal = []
+			if not it.is_empty():
+				show(it[0], it[1])
