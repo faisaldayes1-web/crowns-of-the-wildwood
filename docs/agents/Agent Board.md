@@ -8,7 +8,7 @@
 
 **Adding a row:** append at the bottom; edit only your own rows.
 
-| T5 crowns-code | `Codex-faisal` | Steam export cold-cache bootstrap and terminating editor import | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 handoff | Claimed 2026-10-17; branch `Codex-faisal/t5-steam-cold-import` | Pending |
-| T5 crowns-code | `Codex-faisal` | Steam builder App ID and output-path validation | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 guards handoff | Claimed 2026-10-17; stacked on cold-import PR | Pending |
-| T5 crowns-code | `Codex-faisal` | Offline Steam readiness preflight and checklist | `tools/steam/check_depot.py`, `tools/tests/test_steam_depot.py`, `docs/steam-readiness.md`, own T5 readiness handoff | Claimed 2026-10-17; stacked on build guards | Pending |
-| T5 crowns-code | `Codex-faisal` | Retained Steam build logs and diagnostic failure gates | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, `docs/steam-readiness.md`, own T5 evidence handoff | Claimed 2026-10-17; stacked on readiness | Pending |
+| T5 crowns-code | `Codex-faisal` | Steam export cold-cache bootstrap and terminating editor import | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 handoff | PR #37 awaiting review; implementation complete | Pending |
+| T5 crowns-code | `Codex-faisal` | Steam builder App ID and output-path validation | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 guards handoff | PR #38 awaiting review; implementation complete | Pending |
+| T5 crowns-code | `Codex-faisal` | Offline Steam readiness preflight and checklist | `tools/steam/check_depot.py`, `tools/tests/test_steam_depot.py`, `docs/steam-readiness.md`, own T5 readiness handoff | PR #39 awaiting review; implementation complete | Pending |
+| T5 crowns-code | `Codex-faisal` | Retained Steam build logs and diagnostic failure gates | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, `docs/steam-readiness.md`, own T5 evidence handoff | PR #40 awaiting review; implementation complete | Pending |
