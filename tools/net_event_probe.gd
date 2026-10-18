@@ -6,6 +6,8 @@ var queued := 0
 var peak_queue := 0
 var next_report := 0
 var stalled := false
+var chat_sent_at := -1
+var chat_received := false
 const Isolated = preload("res://tools/tests/isolated.gd")
 
 func _initialize() -> void:
@@ -22,6 +24,17 @@ func _observe() -> void:
 	var net = root.get_node_or_null("Net")
 	if net == null:
 		return
+	if net.is_client() and is_instance_valid(net.game):
+		if net.game.net_test_log.get("chat", false) and chat_sent_at < 0:
+			chat_sent_at = Time.get_ticks_msec()
+		if chat_sent_at >= 0 and not chat_received and net.game.chat_log.any(func(c): return "hello from the joiner" in str(c.text)):
+			chat_received = true
+			var latency := Time.get_ticks_msec() - chat_sent_at
+			print("EVENT_PROBE chat echo latency_ms=%d" % latency)
+			for arg in OS.get_cmdline_user_args():
+				if arg.begins_with("--event-latency-limit-ms=") and latency > int(arg.trim_prefix("--event-latency-limit-ms=")):
+					print("EVENT_PROBE FAIL chat latency exceeds requested limit")
+					net.game.net_test_log.ok = false
 	if not stalled and net.is_client() and is_instance_valid(net.game) and net.game.net_test_log.get("t", 0.0) > 10.0:
 		stalled = true
 		for arg in OS.get_cmdline_user_args():
@@ -38,6 +51,8 @@ func _observe() -> void:
 	print("EVENT_PROBE t=%d mode=%d depth=%d mute=%d queued=%d peak=%d received=%d snapshots=%d early=%d peers=%s" % [
 		now, net.mode, net.depth, net.mute, queued, peak_queue, net.events_in,
 		net.snapshot_count, net._early.size(), net.multiplayer.get_peers()])
+	if net.get("_loading_events") != null:
+		print("EVENT_PROBE loading backlogs=%s ready=%s" % [net._loading_events.values().map(func(a): return a.size()), net._event_ready.keys()])
 	var peer = net.multiplayer.multiplayer_peer
 	if peer is ENetMultiplayerPeer:
 		for id in net.multiplayer.get_peers():

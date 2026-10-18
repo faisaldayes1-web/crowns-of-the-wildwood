@@ -11124,7 +11124,14 @@ func _net_test_tick(delta: float) -> void:
 		L.shot = true
 		var dir: Vector3 = player.facing if player.facing.length() > 0.1 else Vector3(0, 0, -1)
 		spawn_shot(player, dir.normalized(), {"damage": 0, "gate_damage": 0, "range": 6.0}, Color(1, 1, 1))
-	if t > (9.0 if net_client else 7.0) and not L.has("moved"):
+	# A deliberately slow-loading joiner cannot move seven seconds after
+	# the host starts. Measure its movement only after input actually arrives;
+	# still fail at the deadline if it never becomes playable.
+	if not net_client and int(L.remote) >= 0 and not L.has("remote_running"):
+		if not units[int(L.remote)].net_input.is_empty():
+			L.remote_running = t
+	var movement_due := t > 9.0 if net_client else (L.has("remote_running") and t - float(L.remote_running) > 7.0)
+	if movement_due and not L.has("moved"):
 		L.moved = true
 		var moved := func(i: int) -> float:
 			var a: Vector3 = L.start[i]
@@ -11151,7 +11158,7 @@ func _net_test_tick(delta: float) -> void:
 		if arg.begins_with("--net-test-hold=") and not net_client:   # testing: the host stays N s (a later joiner can join mid-match)
 			finish_at = float(arg.trim_prefix("--net-test-hold="))
 	if t > finish_at:
-		var ok: bool = L.ok
+		var ok: bool = L.ok and L.get("moved", false)
 		var said := chat_log.any(func(c): return "hello from the joiner" in str(c.text))
 		print("NETTEST %s: joiner's chat line %s" % [who, "arrived" if said else "MISSING"])
 		ok = ok and said
