@@ -1,9 +1,11 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## Clicks through the STORE headlessly, the way a player would: opens it
 ## from the title, visits every tab, buys an item, wears and takes it off,
 ## opens a Match Chest, and checks a locked choice in Create Your Character
 ## opens the store on it. Run from the project root:
-##     godot --headless --path . --script tools/store_menu_test.gd
+##     tools/tests/isolated.sh --headless --path . --script tools/store_menu_test.gd
 
 const Stats = preload("res://scripts/stats.gd")
 const Store = preload("res://scripts/store.gd")
@@ -34,8 +36,10 @@ func tap_id(id: String, arg = null) -> bool:
 
 
 func _init() -> void:
+	if not Isolated.ok("tools/store_menu_test.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	var cfg := "user://controls.cfg"
-	var backup := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
 	game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
@@ -105,12 +109,5 @@ func _init() -> void:
 	m.back()
 	await frames(2)
 	check(m.screen == "title", "BACK leaves the store")
-	if backup.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))   # else the next run loads this test's settings from the backup
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(backup)
-		f.close()
 	print("store menu: %d failure(s)" % fails)
 	quit(1 if fails else 0)

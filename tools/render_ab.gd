@@ -32,6 +32,10 @@ func _switch(what: String, on: bool) -> void:
 	match what:
 		"sun_shadow":
 			game.sun_light.shadow_enabled = on
+		"shadow_45m":
+			game.sun_light.directional_shadow_max_distance = 45.0 if on else 70.0
+		"shadow_35m":
+			game.sun_light.directional_shadow_max_distance = 35.0 if on else 70.0
 		"2_splits":
 			game.sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if on else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 		"ssao":
@@ -67,7 +71,7 @@ func _init() -> void:
 	var t0 := Time.get_ticks_msec()
 	while Time.get_ticks_msec() - t0 < SETTLE * 1000.0:
 		await process_frame
-	var exps := {"sun_shadow": false, "2_splits": true, "lamp_shadows": false, "omni_lights": false, "multimesh": false, "ssao": false, "ssil": false}
+	var exps := {"shadow_45m": true, "shadow_35m": true, "sun_shadow": false, "2_splits": true, "lamp_shadows": false, "omni_lights": false, "multimesh": false, "ssao": false, "ssil": false}
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--ab="):
 			var keep := {}
