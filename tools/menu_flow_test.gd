@@ -1,8 +1,10 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## Walks the main menu headlessly: title -> SELECT MAP -> READY UP -> match,
 ## with a 2v2, a joined second player and a side switch, and checks what the
 ## match spawned. Run from the project root:
-##     godot --headless --path . --script tools/menu_flow_test.gd
+##     tools/tests/isolated.sh --headless --path . --script tools/menu_flow_test.gd
 
 var fails := 0
 
@@ -14,9 +16,9 @@ func check(ok: bool, what: String) -> void:
 
 
 func _init() -> void:
-	# The menus save as they go: keep the player's own settings file safe.
-	var cfg := "user://controls.cfg"
-	var saved := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
+	if not Isolated.ok("tools/menu_flow_test.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	for i in 5:
@@ -25,8 +27,10 @@ func _init() -> void:
 	check(m != null and m.screen == "title", "the game opens on the title")
 	m._press("play", null)
 	check(m.screen == "map", "PLAY opens SELECT MAP")
-	m._press("map_card", 2)
-	check(m.map_pick == 0, "a coming-soon map cannot be picked")
+	# Every built map is open now (Stonekeep, card 2, since #31); the
+	# Moonlit Wildwood (card 1) stays locked below account level 10.
+	m._press("map_card", 1)
+	check(game.unlocked() or m.map_pick == 0, "a locked map cannot be picked")
 	m._press("difficulty", "Hard")
 	check(game.bot_difficulty == "Hard", "HARDCORE sets the Hard bots")
 	# The live game may be fixed at 4v4 (no team size buttons); then the
@@ -94,12 +98,5 @@ func _init() -> void:
 		var mp: Vector2 = game.mouse_for(game.locals[0])
 		check(mp.x > 0.0 and mp.x <= float(game.panes[0].view.size.x) + 0.5, "the mouse over player 2's pane stays in player 1's pane (%s)" % str(mp))
 		check(game.panes[0].zoom > 1.0 and game.panes[0].hud.size.y > game.panes[0].hud.size.x, "vertical split: tall panes pull the camera back and get a tall HUD")
-	if saved.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg + ".bak"))   # else the next run loads this test's settings from the backup
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(saved)
-		f.close()
 	print("menu flow: %d failure(s)" % fails)
 	quit(1 if fails > 0 else 0)

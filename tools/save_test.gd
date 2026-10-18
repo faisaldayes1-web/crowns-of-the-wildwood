@@ -1,9 +1,11 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## Headless checks for the save file (scripts/save_file.gd) and the account's
 ## progress surviving: a restart, a damaged save, RESET TO DEFAULT on the
 ## controls, and a progress code carried to another device. Run from the
 ## project root (it uses its own user:// folder when XDG_DATA_HOME is set):
-##     godot --headless --path . --script tools/save_test.gd
+##     tools/tests/isolated.sh --headless --path . --script tools/save_test.gd
 
 const SaveFile = preload("res://scripts/save_file.gd")
 const PATH := "user://controls.cfg"
@@ -23,6 +25,9 @@ func frames(n: int = 2) -> void:
 
 
 func _init() -> void:
+	if not Isolated.ok("tools/save_test.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	var backup := FileAccess.get_file_as_bytes(PATH) if FileAccess.file_exists(PATH) else PackedByteArray()
 	# The players' own saves move aside while the test runs.
 	var pdir := ProjectSettings.globalize_path("user://profiles")
