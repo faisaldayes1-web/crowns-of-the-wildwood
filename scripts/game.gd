@@ -10790,6 +10790,8 @@ func _warm_up_world() -> void:
 	if loading_tween:
 		loading_tween.pause()
 	await _warm_up_models()
+	if hud:
+		hud.prewarm_pins()
 	var keep := cam_lock
 	var spots := []
 	for x in [-100.0, -66.0, -33.0, 0.0, 33.0, 66.0, 100.0]:
