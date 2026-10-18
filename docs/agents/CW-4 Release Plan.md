@@ -123,3 +123,15 @@ Decisions for Faisal, recorded here within the authorized CW-4 ownership scope:
 - Approve the completed evidence package, store assets and rating submissions before separately authorizing publication. Codex-faisal will not merge.
 
 Next authorized task should be candidate qualification on a complete checkout. Coordinator may reconcile older Memory/Task Board summaries from the signed handoff. CW-4 only changes this plan, Codex-faisal's own board row and its signed handoff.
+
+## Superseding candidate evidence — 2026-10-18
+
+Agent: Codex-faisal2. Owner transferred #33 in comment 6245577956. Historical baseline above remains dated, not the current release candidate. Current main f2364c15f8b8c2d0bf1d54b81b049ed33b82f399 was integrated locally without textual conflicts.
+
+Claude 2's RC1 handoff now exists at docs/agents/Handoffs/2026-10-16 claude-faisallaptop rc1.md: Windows Desktop export of ce6abfc, Godot 4.3, embedded PCK, local build/rc1/CrownsOfTheWildwood.exe, screenshots from that executable in docs/screenshots/rc1/. It reports zero export errors and five map bot runs; Moonlit ended 2–0 at 192 seconds and the other four ran six minutes. Those are attributed results, not an independent pass and not evidence for later source. Steam, web, another machine, real pads and online remain explicitly untested in RC1.
+
+Use that existing candidate for its recorded scope; do not claim its binary matches current main or rebuild merely to refresh documentation. A new candidate requires an exact source SHA, engine/template version, executable/archive hashes and applicable test evidence. Existing screenshots do not close later-version gameplay gates. No release approval, paid work or publication is inferred.
+
+This replacement stays on local private branch codex/t4-cw33. Public repository prevents a private PR update under the current instruction; no push or public issue note was made.
+
+Signed: Codex-faisal2.
