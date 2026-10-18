@@ -27,7 +27,10 @@ static func write(cfg: ConfigFile, path: String) -> Error:
 		DirAccess.remove_absolute(tmp)
 		return ERR_FILE_CORRUPT
 	if FileAccess.file_exists(path):
-		DirAccess.copy_absolute(path, path + ".bak")
+		err = DirAccess.copy_absolute(path, path + ".bak")
+		if err != OK:
+			DirAccess.remove_absolute(tmp)
+			return err
 	return DirAccess.rename_absolute(tmp, path)
 
 
