@@ -319,8 +319,10 @@ var net_slot := Vector2i(-1, -1)  # client: the (team, lineup slot) the host gav
 func _ready() -> void:
 	# These resources survive scene reloads, but must be released while the
 	# rendering server is still alive when the root tree exits.
-	if not get_tree().root.tree_exiting.is_connected(_release_menu_art):
-		get_tree().root.tree_exiting.connect(_release_menu_art)
+	var release_art := Callable(get_script(), "_release_menu_art")
+	if not get_tree().root.tree_exiting.is_connected(release_art):
+		get_tree().root.set_meta("crowns_menu_art_owner", get_script())
+		get_tree().root.tree_exiting.connect(release_art)
 	if DisplayServer.get_name() == "headless":
 		var mesh_guard := preload("res://scripts/headless_mesh_lifetime.gd").watch
 		if not get_tree().node_added.is_connected(mesh_guard):
@@ -398,7 +400,7 @@ func _ready() -> void:
 		swap_dim = Color.WHITE
 	# Scene transitions build incrementally. Disable gameplay and hold the
 	# existing loading art until both world construction and menu warm-up finish.
-	_stream_world = reopen_screen != "" and DisplayServer.get_name() != "headless"
+	_stream_world = reopen_screen != "" and DisplayServer.get_name() != "headless" and is_instance_valid(loading_layer)
 	if _stream_world:
 		menus_warming = true
 		process_mode = Node.PROCESS_MODE_DISABLED
@@ -2156,6 +2158,8 @@ func _show_loading(hold: float) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shot") or arg == "--demo" or arg == "--audit":
 			return   # screenshots and headless tests see the game itself
+	if loading_tween and loading_tween.is_valid():
+		loading_tween.kill()   # a replaced layer must not keep a fade callback
 	if is_instance_valid(loading_layer):   # the last one frees itself after its fade
 		loading_layer.queue_free()
 	loading_layer = CanvasLayer.new()
