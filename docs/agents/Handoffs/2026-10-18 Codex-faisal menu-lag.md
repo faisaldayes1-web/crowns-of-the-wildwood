@@ -31,3 +31,17 @@ A subsequent baseline rerun with warmed driver caches still measured 1523.936 ms
 3. Visual capture: separate fixed-30-fps Movie Maker navigation using the HUD hit-test/cursor path, all 14 navigation actions completed. AVI contains 326 decodable JPEG frames (10.87 s); Ready Up still visually inspected. Recorder exited 1 after navigation, so graceful shutdown is not claimed. Fixed-rate video is a demonstration, not timing evidence. Final headless editor import exited 0 without logged errors after rerunning outside the sandbox save restriction.
 
 Local CSV and video are in this PM chat's outputs directory. No merge, build publication, dependency changes or paid generation. Meshy/PixelLab spend: 0.
+
+## Completion delivered — Codex-faisal / Crowns PM
+
+Playable source: 5a289dc. Godot 4.3 retained, matching the existing desktop runtime. Bounded eight-model preview cache plus startup preparation of all character/store tabs removes repeated model construction and first-category stalls. PR61/62 network/headless sources unchanged.
+
+Desktop: Play Crowns - Menu Fix.lnk -> Crowns - Menu Fix - 5a289dc/Play.cmd. Pack, runtime, launcher and manifest copied and hash-verified. Old desktop build preserved; launcher retains existing Crowns playtest save location.
+
+4.3 before/after first visits (milliseconds, action to next frame drawn): Customize 32.276 -> 24.608; Store 35.642 -> 26.673; Capes/Dyes 1555.249 -> 28.475; Weapons 189.055 -> 33.372; Ready Up 252.055 -> 23.253. 144 source transitions max 36.602 ms; same 144 transitions against exported pack max 46.862 ms, exit 0. Full table: menu-complete.csv. Sequential runs share driver caches; not a universal latency guarantee.
+
+Options, Store, lobby flow, and rendered reload suites exit 0 with zero failures. Reload preserves Ember selection and held-button volume protection. Bot completed t=609 in overtime, Elves win, no logged errors. Final import clean, exit 0. Online screen exercised without sending requests; no new live-network certification.
+
+Packaged Movie Maker capture completed 19 navigation actions including costly store categories and Ready Up. Recorder crashed during exit teardown after completing navigation; normal packaged test exited 0. Existing cleanup warnings remain. Extracted frames validated separately and animated preview supplied. Fixed-30-fps capture illustrates behavior; timing measurements are separate.
+
+No merge or public release. Meshy/PixelLab spend 0.
