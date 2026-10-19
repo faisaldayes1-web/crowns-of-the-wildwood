@@ -10771,15 +10771,34 @@ func _warm_up_menus(land_on: String = "title") -> void:
 		return
 	var m = main_menu
 	menus_warming = true
+	# Keep first-use model/shader work behind the loading art. Ready Up
+	# builds four fighters and pedestals and must be included in this pass.
+	var warm_tween := loading_tween
+	if warm_tween and warm_tween.is_valid():
+		warm_tween.pause()
 	var tree := get_tree()
-	for scr in ["character", "store", "map"]:
+	for scr in ["character", "store", "map", "lobby"]:
 		await tree.process_frame
 		# An online joiner's scene reloads when the host welcomes it: this
 		# game node is then gone (get_tree() was null: a script error).
 		if not is_inside_tree() or not is_instance_valid(loading_layer) or main_menu != m or playing:
 			menus_warming = false
+			if warm_tween and warm_tween.is_valid():
+				warm_tween.play()
 			return
+		var saved_sides := lobby_sides.duplicate()
+		var saved_players := couch_players
+		var saved_ready: Array = m.readied.duplicate()
+		if scr == "lobby":
+			m._enter_lobby()
 		m.screen = scr
+		# A process frame alone does not establish that the new screen drew.
+		await RenderingServer.frame_post_draw
+		if scr == "lobby" and is_inside_tree() and main_menu == m:
+			m.screen = "map"
+			lobby_sides = saved_sides
+			couch_players = saved_players
+			m.readied = saved_ready
 	await tree.process_frame
 	if not is_inside_tree():
 		return
@@ -10795,6 +10814,8 @@ func _warm_up_menus(land_on: String = "title") -> void:
 		menu_tab = 0
 		m.screen = land_on
 	menus_warming = false
+	if warm_tween and warm_tween.is_valid():
+		warm_tween.play()
 
 
 func _warm_up_world() -> void:
