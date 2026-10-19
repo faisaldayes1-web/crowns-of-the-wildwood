@@ -10794,6 +10794,30 @@ func _warm_up_menus(land_on: String = "title") -> void:
 		m.screen = scr
 		# A process frame alone does not establish that the new screen drew.
 		await RenderingServer.frame_post_draw
+		if scr == "character" and is_inside_tree() and main_menu == m:
+			var saved_tab: int = m.char_tab
+			for tab in m.CHAR_TABS.size():
+				if not is_inside_tree() or main_menu != m or playing:
+					break
+				m.char_tab = tab
+				await tree.process_frame
+				await RenderingServer.frame_post_draw
+			if is_inside_tree() and main_menu == m:
+				m.char_tab = saved_tab
+		if scr == "store" and is_inside_tree() and main_menu == m:
+			var saved_tab: int = m.store.tab
+			var saved_page: int = m.store.page
+			var saved_pick: Array = m.store.pick.duplicate()
+			for tab in m.store.TABS.size():
+				if not is_inside_tree() or main_menu != m or playing:
+					break
+				m.store.press("store_tab", tab)
+				await tree.process_frame
+				await RenderingServer.frame_post_draw
+			if is_inside_tree() and main_menu == m:
+				m.store.tab = saved_tab
+				m.store.page = saved_page
+				m.store.pick = saved_pick
 		if scr == "lobby" and is_inside_tree() and main_menu == m:
 			m.screen = "map"
 			lobby_sides = saved_sides

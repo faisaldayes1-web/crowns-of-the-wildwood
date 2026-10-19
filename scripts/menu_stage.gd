@@ -23,6 +23,8 @@ var hall: Node3D
 var title_cast: Node3D       # the battle scene behind the title (title_diorama.gd)
 var hero: Node3D             # the character creator's model
 var hero_key := ""
+var hero_cache: Dictionary = {}
+const HERO_CACHE_LIMIT := 8
 var hero_spin := 0.0            # extra turn (radians): the STORE turns the hero to show a cape
 var hero_turn := 0.0            # the player's own turn of the hero (drag, arrows, right stick)
 var hero_turn_goal := 0.0       # the arrows turn toward this; a drag sets both
@@ -223,14 +225,26 @@ func show_hero(team: int, role: int, custom: Dictionary, rank: int) -> void:
 	if key != hero_key:
 		hero_key = key
 		if hero:
-			hero.queue_free()
-		hero = CharacterModel.new()
-		add_child(hero)
-		hero.setup(team, role, "", custom, rank)
-		hero.scale = Vector3.ONE * 1.0
-		# Rarity sparkles are sized for the match camera; this one is close.
-		for p in hero.find_children("RarityAura", "CPUParticles3D", true, false):
-			p.mesh.size *= 0.3
+			hero.hide()
+			hero.process_mode = Node.PROCESS_MODE_DISABLED
+		if hero_cache.has(key):
+			hero = hero_cache[key]
+			# Refresh insertion order for bounded least-recently-used retention.
+			hero_cache.erase(key)
+		else:
+			hero = CharacterModel.new()
+			add_child(hero)
+			hero.setup(team, role, "", custom, rank)
+			hero.scale = Vector3.ONE
+			# Rarity sparkles are sized for the match camera; this one is close.
+			for p in hero.find_children("RarityAura", "CPUParticles3D", true, false):
+				p.mesh.size *= 0.3
+		hero_cache[key] = hero
+		hero.process_mode = Node.PROCESS_MODE_INHERIT
+		if hero_cache.size() > HERO_CACHE_LIMIT:
+			var oldest = hero_cache.keys()[0]
+			hero_cache[oldest].queue_free()
+			hero_cache.erase(oldest)
 	hero.visible = screen in ["character", "store"]
 	hero.global_position = _floor_at(Vector2(0.39, 0.86))
 	if rug == null:
