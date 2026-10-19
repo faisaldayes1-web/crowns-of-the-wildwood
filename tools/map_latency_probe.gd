@@ -50,6 +50,9 @@ func run() -> void:
 	root.add_child(game)
 	current_scene = game
 	await settle()
+	if current_scene.map_variant != 0:
+		current_scene.select_map(0)
+		await settle()
 	var targets := [1,2,3,4,0,2,4,1,3,0,3,1,4,2,0,4,3,2,1,0]
 	if "--map-profile" in OS.get_cmdline_user_args(): targets = [2,3]
 	var capture := "--capture-maps" in OS.get_cmdline_user_args()
@@ -68,7 +71,13 @@ func run() -> void:
 		game.needs_name = false
 		game.name_editing = false
 		game.main_menu.go("map")
+		if capture:
+			while CARD[target] >= game.main_menu.map_first + 4:
+				game.main_menu._press("map_page", 1)
+			while CARD[target] < game.main_menu.map_first:
+				game.main_menu._press("map_page", -1)
 		await process_frame
+		if capture: await RenderingServer.frame_post_draw
 		var source: int = game.map_variant
 		worst_frame = 0
 		last_frame = Time.get_ticks_usec()
@@ -101,6 +110,10 @@ func run() -> void:
 		metadata.store_string(JSON.stringify(capture_rows))
 		metadata.close()
 		capture_dir = ""
+	# Measurements end above; let the loading fade and renderer finish before teardown.
+	while is_instance_valid(current_scene.loading_layer):
+		await process_frame
+	await create_timer(1.0).timeout
 	current_scene.queue_free()
 	current_scene = null
 	for i in 4: await process_frame

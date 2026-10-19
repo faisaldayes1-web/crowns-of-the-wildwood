@@ -528,6 +528,8 @@ func _reload_scene() -> void:
 
 func _exit_tree() -> void:
 	if not _preserve_menu_art_on_reload:
+		# Retire the last worker task before its captured script/resources unload.
+		_flush_save()
 		_release_menu_art()
 	if net and net.game == self:
 		net.game = null
