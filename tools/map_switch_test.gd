@@ -118,14 +118,17 @@ func _init() -> void:
 	if g.map_variant != 0:
 		g = await _pick(0)
 	# Every pair, both directions, across the five maps.
-	for v in [1, 2, 0, 2, 1, 0, 3, 4, 3, 2, 4, 1, 3, 0, 4, 0]:
+	for v in [1, 2, 3, 4, 0, 2, 4, 1, 3, 0, 3, 1, 4, 2, 0, 4, 3, 2, 1, 0]:
 		g = await _pick(v)
 	# Back-to-back matches on different maps without restarting.
-	for step in [[2, false], [0, false], [1, false], [2, false], [2, true], [0, true], [1, false], [3, false], [4, false], [3, true], [4, true], [0, false]]:
+	for step in [[2, false], [0, false], [1, false], [2, false], [2, true], [0, true], [1, true], [3, false], [4, false], [3, true], [4, true], [0, false]]:
 		g = await _pick(step[0]) if g.map_variant != step[0] else g
 		if g.main_menu.screen != "map":
 			g.main_menu._press("play", null)
 		g = await _play(step[0], step[1])
 	g._flush_save()
 	print("map switch test: %d failure(s)" % fails)
+	g.queue_free()
+	current_scene = null
+	await _frames(4)
 	quit(1 if fails > 0 else 0)

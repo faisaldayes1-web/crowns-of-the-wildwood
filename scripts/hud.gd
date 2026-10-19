@@ -48,17 +48,19 @@ var local_unit = null   # couch play: the local player this HUD belongs to (null
 var pane := false       # couch play: drawn inside one player's pane
 var couch_buttons: Array = []   # title: [rect, "more"|"less"|"mode"]
 var font: Font
-var bar_font: Font     # round bold face for the top bar (Lilita One, OFL)
-var topbar_tex: Texture2D   # the top bar art (tools/make_topbar.py)
-var title_font: Font   # chunky cartoon display face for the big banners (Luckiest Guy, Apache 2.0)
-var logo: Texture2D
-var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
-var skill_art: Dictionary = {}   # hexagon skill tiles and shield faces (assets/ui/skills)
+# Read-only artwork is shared by the window, split-screen HUDs and rebuilt
+# maps. In particular the top-bar image only needs its cutout processed once.
+static var bar_font: Font     # round bold face for the top bar (Lilita One, OFL)
+static var topbar_tex: Texture2D   # the top bar art (tools/make_topbar.py)
+static var title_font: Font   # chunky cartoon display face for the big banners (Luckiest Guy, Apache 2.0)
+static var logo: Texture2D
+static var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
+static var skill_art: Dictionary = {}   # hexagon skill tiles and shield faces (assets/ui/skills)
 var touch_ui := false            # touch-screen layout: big thumb buttons, no keycaps (see _touch_cluster)
 var next_slot_art := ""          # set just before _slot(): the skill art to draw for it
-var clean_icons: Dictionary = {}  # kind -> the icon without its painted halo, for the ability bar (tools/center_icons.py)
-var strips: Dictionary = {}  # slug -> Texture2D, Faisal's painted skill-row art (tools/make_skill_strips.py)
-var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
+static var clean_icons: Dictionary = {}  # kind -> the icon without its painted halo, for the ability bar (tools/center_icons.py)
+static var strips: Dictionary = {}  # slug -> Texture2D, Faisal's painted skill-row art (tools/make_skill_strips.py)
+static var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
 var touch_close := Rect2()          # the UPGRADES board's CLOSE button on touch screens
@@ -82,7 +84,7 @@ var quick_deny := -10.0             # when a quick upgrade was refused (in comba
 var quick_close := Rect2()          # the LEVEL UP strip's X (screen coordinates)
 var quick_hidden := ""              # the strip's contents when its X was pressed: hidden until they change
 var corner_buttons: Array = []     # [rect, "menu" | "scoreboard"] the HUD corner squares (mouse clicks)
-var menu_tex: Dictionary = {}      # assets/ui/menu art used by the pause menu
+static var menu_tex: Dictionary = {}      # assets/ui/menu art used by the pause menu
 var variant_buttons: Array = []   # [rect, role, index]
 var tab_buttons: Array = []
 var tab_ids: Array = []
@@ -131,7 +133,7 @@ func _ready() -> void:
 	font = ThemeDB.fallback_font
 	title_font = load("res://assets/fonts/LuckiestGuy-Regular.ttf")
 	bar_font = load("res://assets/fonts/LilitaOne-Regular.ttf")
-	if ResourceLoader.exists("res://assets/ui/topbar/topbar.png"):
+	if topbar_tex == null and ResourceLoader.exists("res://assets/ui/topbar/topbar.png"):
 		topbar_tex = load("res://assets/ui/topbar/topbar.png")
 		# No parchment strip under the bar (Faisal 09:25 2026-10-09: "take
 		# out the steal their crown ... banner"): clear it between the crests.
@@ -149,7 +151,7 @@ func _ready() -> void:
 	var dir := DirAccess.open("res://assets/ui/icons")
 	if dir:
 		for file in dir.get_files():
-			if file.ends_with(".png"):
+			if file.ends_with(".png") and not icons.has(file.trim_suffix(".png")):
 				icons[file.trim_suffix(".png")] = load("res://assets/ui/icons/%s" % file)
 			elif file.ends_with(".png.import"):
 				var kind := file.trim_suffix(".png.import")
@@ -6474,7 +6476,7 @@ func _draw_banner(rect: Rect2, b: Dictionary, weapon: String = "") -> void:
 		_banner_fx(rect, tiers[best], trim, ec, u)
 
 
-var _banner_textures: Dictionary = {}
+static var _banner_textures: Dictionary = {}
 
 
 func _banner_tex(pattern: String) -> Texture2D:
