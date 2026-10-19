@@ -29,3 +29,5 @@ Agent: Codex-faisal2. T2 claim: docs/playtests/T2_Accessibility_Settings.md only
 | Codex-faisal | ACTIVE map-transition scope extension | Codex-faisal/map-transitions | Include scripts/menu_stage.gd and scripts/volcano.gd construction checkpoints; preserve menu hero cache and warm-up behavior. Serialized desktop Godot 4.3 validation. |
 
 | Codex-faisal | ACTIVE map-transition scope extension | Codex-faisal/map-transitions | Include scripts/menu.gd immutable menu texture retention: profiling found approximately 1 second of repeated artwork loading per scene rebuild. No menu behavior changes. |
+
+| Codex-faisal | ACTIVE map-transition scope extension | Codex-faisal/map-transitions | Include scripts/hud.gd immutable image/font caches and one-time top-bar preprocessing. Main board rechecked: prior HUD performance claim is DONE (#46). Preserve HUD behavior and existing menu/loading fixes. |
