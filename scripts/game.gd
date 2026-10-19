@@ -316,13 +316,10 @@ var net_test_log := {}
 var net_slot := Vector2i(-1, -1)  # client: the (team, lineup slot) the host gave us
 
 
+var _preserve_menu_art_on_reload := false
+
+
 func _ready() -> void:
-	# These resources survive scene reloads, but must be released while the
-	# rendering server is still alive when the root tree exits.
-	var release_art := Callable(get_script(), "_release_menu_art")
-	if not get_tree().root.tree_exiting.is_connected(release_art):
-		get_tree().root.set_meta("crowns_menu_art_owner", get_script())
-		get_tree().root.tree_exiting.connect(release_art)
 	if DisplayServer.get_name() == "headless":
 		var mesh_guard := preload("res://scripts/headless_mesh_lifetime.gd").watch
 		if not get_tree().node_added.is_connected(mesh_guard):
@@ -522,7 +519,16 @@ func _ready() -> void:
 		_net_ready_hooks()
 
 
+func _reload_scene() -> void:
+	# Retain immutable UI artwork only across an intentional scene replacement.
+	_preserve_menu_art_on_reload = true
+	if get_tree().reload_current_scene() != OK:
+		_preserve_menu_art_on_reload = false
+
+
 func _exit_tree() -> void:
+	if not _preserve_menu_art_on_reload:
+		_release_menu_art()
 	if net and net.game == self:
 		net.game = null
 	# Menu and Store are RefCounted and point at each other. Break that
@@ -626,7 +632,7 @@ func _process(delta: float) -> void:
 			if summary and not summary.done():
 				summary.skip()
 			else:
-				get_tree().reload_current_scene()
+				_reload_scene()
 		return
 
 	if net_client:
@@ -1492,7 +1498,7 @@ func quit_to_title() -> void:
 	get_tree().paused = false
 	if net:
 		net.leave()
-	get_tree().reload_current_scene()
+	_reload_scene()
 
 
 func apply_control_layout() -> void:
@@ -2842,7 +2848,7 @@ func net_button(what: String) -> void:
 		"join":
 			if net.is_client():
 				net.leave()
-				get_tree().reload_current_scene()   # back to our own world
+				_reload_scene()   # back to our own world
 			else:
 				var parts := net_ip.strip_edges().split(":")
 				net.join(parts[0], int(parts[1]) if parts.size() > 1 else net.DEFAULT_PORT)
@@ -4109,7 +4115,7 @@ func select_map(index: int) -> void:
 		_save_settings()
 		if main_menu:
 			reopen_screen = main_menu.screen
-		get_tree().reload_current_scene()
+		_reload_scene()
 		return
 	_apply_map_variant()
 
