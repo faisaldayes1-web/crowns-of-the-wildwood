@@ -27,3 +27,5 @@ Agent: Codex-faisal2. T2 claim: docs/playtests/T2_Accessibility_Settings.md only
 | Map transitions | Codex-faisal | Crowns PM direct owner request: fix map switching lag; preserve menu and loading fixes | scripts/game.gd map selection/world construction; new tools/map_latency_probe.gd; existing map switching regression only as needed; own handoff/evidence | Claimed on Codex-faisal/map-transitions stacked on PR64 df0cb3f; desktop Godot 4.3 serialized | All 20 directed map pairs correct, measured stalls reduced, menu/loading regressions and bot pass |
 
 | Codex-faisal | ACTIVE map-transition scope extension | Codex-faisal/map-transitions | Include scripts/menu_stage.gd and scripts/volcano.gd construction checkpoints; preserve menu hero cache and warm-up behavior. Serialized desktop Godot 4.3 validation. |
+
+| Codex-faisal | ACTIVE map-transition scope extension | Codex-faisal/map-transitions | Include scripts/menu.gd immutable menu texture retention: profiling found approximately 1 second of repeated artwork loading per scene rebuild. No menu behavior changes. |
