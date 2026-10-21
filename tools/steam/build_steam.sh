@@ -36,7 +36,7 @@ echo "== copying the project to $WORK"
 (cd "$ROOT" && git ls-files -z | xargs -0 -I{} cp --parents {} "$WORK/")
 # Reuse the imported assets so the export does not re-import everything.
 [ -d "$ROOT/.godot" ] && cp -r "$ROOT/.godot" "$WORK/.godot"
-mkdir -p "$WORK/addons/godotsteam"
+mkdir -p "$WORK/.godot" "$WORK/addons/godotsteam"
 cp -r "$ROOT/tools/steam/godotsteam/win64" "$ROOT/tools/steam/godotsteam/linux64" \
 	"$ROOT/tools/steam/godotsteam/license.txt" "$WORK/addons/godotsteam/"
 cp "$ROOT/tools/steam/godotsteam/godotsteam.gdextension.in" "$WORK/addons/godotsteam/godotsteam.gdextension"
@@ -46,7 +46,7 @@ if [ "$APP_ID" != "0" ]; then
 fi
 
 echo "== importing (app id $APP_ID)"
-(cd "$WORK" && timeout 1200 "$GODOT" --headless --path . --import >"$WORK/import.log" 2>&1) || {
+(cd "$WORK" && timeout 1200 "$GODOT" --headless --path . --import --editor --quit >"$WORK/import.log" 2>&1) || {
 	tail -20 "$WORK/import.log"; echo "import failed"; exit 1; }
 if grep -qE "SCRIPT ERROR|Parse Error" "$WORK/import.log"; then
 	grep -E "SCRIPT ERROR|Parse Error" "$WORK/import.log" | head; exit 1

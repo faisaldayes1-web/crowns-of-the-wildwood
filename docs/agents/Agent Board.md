@@ -48,3 +48,10 @@ Agent: Codex-faisal. Owner-requested framework cutover, 2026-10-20. Claim: `AGEN
 | Codex-faisal | DONE map-transition scope extension | Codex-faisal/map-transitions | Include scripts/menu.gd immutable menu texture retention: profiling found approximately 1 second of repeated artwork loading per scene rebuild. No menu behavior changes. |
 
 | Codex-faisal | DONE map-transition scope extension | Codex-faisal/map-transitions | Include scripts/hud.gd immutable image/font caches and one-time top-bar preprocessing. Main board rechecked: prior HUD performance claim is DONE (#46). Preserve HUD behavior and existing menu/loading fixes. |
+
+## Codex-faisal integration record, PR 37
+
+Agent: Codex-faisal. Incoming branch records preserved below; no existing owner or current main claim reassigned.
+
+| Integration | `claude-faisallaptop` | CW-2 integration (#8, #13, #9, #6, #17) + 2 new maps + visual pass + lag fix, one PR | branch `claude-faisallaptop/int1`; `scripts/game.gd`, `scripts/stats.gd`, map/visual/perf code, `docs/agents/Handoffs/2026-10-16 claude-faisallaptop int1.md` | PR #31 for review, 2026-10-16 | [handoff](Handoffs/2026-10-16%20claude-faisallaptop%20int1.md) |
+| T5 crowns-code | `Codex-faisal` | Steam export cold-cache bootstrap and terminating editor import | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 handoff | Claimed 2026-10-17; branch `Codex-faisal/t5-steam-cold-import` | Pending |
