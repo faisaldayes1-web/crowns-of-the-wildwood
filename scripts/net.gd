@@ -52,6 +52,9 @@ var relay: RelayPeer           # while a room is being created or joined
 var depth := 0                 # >0 inside an effect that is already recorded
 var mute := 0                  # >0 while building something the joiners build themselves
 var _out: Array = []           # [peer id or 0 for everyone, target, method, args]
+var _event_ready := {}         # peer -> first playing input received for this seat
+var _loading_events := {}      # peer -> ordered events held while it builds the match
+const MAX_LOADING_EVENTS := 16384
 var events_in := 0             # client: events replayed (smoke test)
 var events_by := {}            # client: replayed events by kind (smoke test)
 const REPLAY := {
@@ -195,6 +198,8 @@ func leave() -> void:
 	long_since = {}
 	_soon = {}
 	assigned = {}
+	_event_ready.clear()
+	_loading_events.clear()
 	pending_start = {}
 	_early = []
 	snapshot = {}
@@ -229,6 +234,8 @@ func _on_peer_disconnected(id: int) -> void:
 	if assigned.has(id) and game:
 		game.net_release_unit(assigned[id])
 	assigned.erase(id)
+	_event_ready.erase(id)
+	_loading_events.erase(id)
 	status = _host_line()
 
 
@@ -401,6 +408,11 @@ func _input_state(move: Vector2, aim: Vector3, held: Array, counts: Dictionary) 
 		_normal_soon(id)   # the joiner is playing: its link is live again
 	if not is_host() or not game or not assigned.has(id):
 		return
+	# The client only sends input after net_start_client has built the match.
+	# Until then it cannot poll ENet: sending effects during that stall can
+	# leave a reliable packet on a long retry delay even while fresh snapshots
+	# arrive. Release its ordered backlog at the next normal physics flush.
+	_event_ready[id] = true
 	var u = game.units[assigned[id]]
 	u.net_input = {"move": move.limit_length(1.0), "aim": aim, "held": held, "counts": counts}
 
@@ -503,14 +515,27 @@ func _dec(v):
 
 
 func _flush_events() -> void:
-	if _out.is_empty():
+	if _out.is_empty() and _loading_events.is_empty():
 		return
-	for id in assigned:
-		var batch: Array = []
+	for id in assigned.keys():
+		var batch: Array = _loading_events.get(id, [])
 		var team: int = game.units[assigned[id]].team
 		for e in _out:
 			if (e[0] == 0 or e[0] == id) and (e[4] < 0 or e[4] == team):
 				batch.append([e[1], e[2], e[3]])
+		if not _event_ready.has(id):
+			if batch.size() > MAX_LOADING_EVENTS:
+				# Bound memory for a peer that never finishes loading. Do not
+				# silently discard gameplay events and leave it in a broken match.
+				push_warning("NET peer %d exceeded the loading event limit; reconnect required" % id)
+				multiplayer.multiplayer_peer.disconnect_peer(id)
+				game.net_release_unit(assigned[id])
+				assigned.erase(id)
+				_loading_events.erase(id)
+			else:
+				_loading_events[id] = batch
+			continue
+		_loading_events.erase(id)
 		# In slices: a slow frame (a tablet building the match) can gather
 		# hundreds of events, and one packet must stay small for the relay.
 		for i in range(0, batch.size(), EVENT_SLICE):
@@ -562,6 +587,8 @@ func _events(batch: Array) -> void:
 func on_match_started() -> void:
 	## Host: the match began; seat everyone who is waiting.
 	assigned = {}
+	_event_ready.clear()
+	_loading_events.clear()
 	for id in ready_peers:
 		_seat(id)
 
@@ -573,6 +600,8 @@ func _seat(id: int) -> void:
 		_normal_soon(id)   # nothing to build: the usual timeout
 		return
 	assigned[id] = idx
+	_event_ready.erase(id)
+	_loading_events[id] = []
 	game.net_claim_unit(idx, id, peer_names.get(id, ""), peer_looks.get(id, {}))
 	var names: Array = game.units.map(func(u): return u.display_name)
 	_match_start.rpc_id(id, idx / game.team_size, idx % game.team_size, game.map_variant, names)

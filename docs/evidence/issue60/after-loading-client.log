@@ -1,0 +1,60 @@
+isolated user dir: C:\Temp\cw60-tests\crowns-tests\run-hIygX9 (left in place; clear /c/Temp/cw60-tests/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/net_event_probe.gd: user dir C:/Temp/cw60-tests/crowns-tests/run-hIygX9/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+NET ready
+NET joining 127.0.0.1:25001
+EVENT_PROBE t=5436 mode=2 depth=0 mute=0 queued=0 peak=0 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE loading backlogs=[] ready=[]
+NET connected to host
+NET welcomed: seed 4029776199 map 3
+NET ready
+EVENT_PROBE t=10454 mode=2 depth=0 mute=0 queued=0 peak=0 received=0 snapshots=0 early=0 peers=[1]
+EVENT_PROBE loading backlogs=[] ready=[]
+EVENT_PROBE peer=1 rtt_ms=457.0 loss=0.0000
+NET slot: team 1 slot 0
+BATCH merged 8350 scenery meshes (1528 left alone) into 1323 meshes; 2092 materials became 523; 580 ms (338 ms reading meshes)
+EVENT_PROBE t=36995 mode=2 depth=0 mute=0 queued=0 peak=0 received=0 snapshots=0 early=0 peers=[1]
+EVENT_PROBE loading backlogs=[] ready=[]
+EVENT_PROBE peer=1 rtt_ms=457.0 loss=0.0000
+NETTEST client: match running, my unit is team 1 slot 0
+WARNING: Target object freed before starting, aborting Tweener.
+     at: start (scene/animation/tween.cpp:550)
+ERROR: Lambda capture at index 0 was freed. Passed "null" instead.
+   at: call (modules/gdscript/gdscript_lambda_callable.cpp:108)
+EVENT_PROBE chat echo latency_ms=0
+EVENT_PROBE t=41997 mode=2 depth=0 mute=0 queued=0 peak=0 received=171 snapshots=125 early=0 peers=[1]
+EVENT_PROBE loading backlogs=[] ready=[]
+EVENT_PROBE peer=1 rtt_ms=3493.0 loss=0.0625
+NETTEST client: own unit moved 7.44 m
+NETTEST client: a bot moved 107.98 m
+NETTEST client: host player moved 9.15 m
+EVENT_PROBE t=47006 mode=2 depth=0 mute=0 queued=0 peak=0 received=416 snapshots=225 early=0 peers=[1]
+EVENT_PROBE loading backlogs=[] ready=[]
+EVENT_PROBE peer=1 rtt_ms=1058.0 loss=0.0625
+EVENT_PROBE t=52026 mode=2 depth=0 mute=0 queued=0 peak=0 received=676 snapshots=326 early=0 peers=[1]
+EVENT_PROBE loading backlogs=[] ready=[]
+EVENT_PROBE peer=1 rtt_ms=287.0 loss=0.0551
+EVENT_PROBE t=57027 mode=2 depth=0 mute=0 queued=0 peak=0 received=943 snapshots=426 early=0 peers=[1]
+EVENT_PROBE loading backlogs=[] ready=[]
+EVENT_PROBE peer=1 rtt_ms=83.0 loss=0.0551
+EVENT_PROBE t=62040 mode=2 depth=0 mute=0 queued=0 peak=0 received=1166 snapshots=526 early=0 peers=[1]
+EVENT_PROBE loading backlogs=[] ready=[]
+EVENT_PROBE peer=1 rtt_ms=30.0 loss=0.0482
+EVENT_PROBE t=67042 mode=2 depth=0 mute=0 queued=0 peak=0 received=1213 snapshots=626 early=0 peers=[1]
+EVENT_PROBE loading backlogs=[] ready=[]
+EVENT_PROBE peer=1 rtt_ms=16.0 loss=0.0482
+EVENT_PROBE t=72044 mode=2 depth=0 mute=0 queued=0 peak=0 received=1375 snapshots=726 early=0 peers=[1]
+EVENT_PROBE loading backlogs=[] ready=[]
+EVENT_PROBE peer=1 rtt_ms=14.0 loss=0.0421
+NETTEST client: joiner's chat line arrived
+NETTEST client: events 1424 (effects 407, animations 205, sounds 402, shots 102, looks 25, skill casts 26)
+NETTEST client: kill feed 3, entities 3, chat lines 13
+NETTEST client PASS: snapshots=822
+ERROR: 66 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 13 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 57 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)
