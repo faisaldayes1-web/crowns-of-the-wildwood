@@ -1,0 +1,68 @@
+{
+  "agent": "Codex-faisal",
+  "task": "crowns-of-the-wildwood#60",
+  "testedSource": "e406591cee49fb2fc6095ddf78055e0445989d76",
+  "engine": "Godot 4.3 stable 77dcf97d8",
+  "transport": "local ENet, isolated user directories",
+  "originalNineEventFailureReproduced": false,
+  "before": {
+    "eventualClientResult": "PASS",
+    "loadingDelaySeconds": 25,
+    "clientSamples": [
+      {
+        "timeMs": 42095,
+        "snapshots": 124,
+        "events": 24
+      },
+      {
+        "timeMs": 47097,
+        "snapshots": 224,
+        "events": 24
+      }
+    ],
+    "hostResult": "FAIL: smoke measured joiner movement before loading completed"
+  },
+  "after": {
+    "clientExit": 0,
+    "loadingDelaySeconds": 25,
+    "chat": "Received within the same diagnostic sampling frame; not a wire-level zero-ms measurement",
+    "clientSamples": [
+      {
+        "timeMs": 41997,
+        "snapshots": 125,
+        "events": 171
+      },
+      {
+        "timeMs": 47006,
+        "snapshots": 225,
+        "events": 416
+      }
+    ],
+    "hostExit": 0
+  },
+  "acceptance": [
+    {
+      "result": "PASS",
+      "group": 1,
+      "checks": "Ordered loading backlog released after playing input; delayed host/client movement, chat and effects passed"
+    },
+    {
+      "result": "PASS",
+      "group": 2,
+      "checks": "Normal Moonlit and Stonekeep ENet host/client passed; 818/819 snapshots; effects/chat present"
+    },
+    {
+      "result": "PASS",
+      "group": 3,
+      "checks": "Clean import with no script errors; complete seed7 bot match Humans1-1 at614s overtime; zero engine errors in bot log"
+    }
+  ],
+  "limitations": [
+    "Original reporter 9-event case still needs confirmation; issue60 remains open",
+    "No internet/relay/three-peer/physical-device qualification",
+    "Existing online lambda/tween and shutdown resource warnings retained; not introduced as fixed",
+    "Loading-buffer overflow limit inspected but not stress-tested"
+  ],
+  "published": false,
+  "merged": false
+}

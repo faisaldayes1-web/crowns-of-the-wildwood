@@ -4,8 +4,8 @@ extends SceneTree
 ## Host side; start a plain joiner next to it:
 ##     godot --headless --path . --script tools/net_map_switch_test.gd -- --port=24620 --debug-unlock &
 ##     godot --headless --path . -- --join=127.0.0.1:24620
-## The joiner's log should say "NET welcomed: ... map N" for 0, 2 and 1: a
-## change of ground rebuilds the joiner's world. Moonlit -> Wildwood only
+## The joiner's log should say "NET welcomed: ... map N" for 0, 2, 3, 4 and 1:
+## a change of ground rebuilds the joiner's world. Moonlit -> Wildwood only
 ## changes the light, which the match start sends (net_start_client).
 
 var fails := 0
@@ -46,13 +46,16 @@ func _init() -> void:
 			break
 		await process_frame
 	check(not net.multiplayer.get_peers().is_empty(), "the joiner connected")
-	for v in [2, 1, 0]:
+	# Every map, including Stonekeep Fortress (3) and Twilight Grove (4),
+	# which build their own world like Ember Pass (2026-10-17).
+	for v in [2, 3, 1, 4, 0]:
 		await _settle()
 		g = current_scene
 		g.main_menu._press("play", null)
-		g.main_menu._press("map_card", {0: 0, 1: 1, 2: 3}[v])
+		g.main_menu._press("map_card", {0: 0, 1: 1, 2: 3, 3: 2, 4: 4}[v])
 		g = await _settle()
-		check(g.map_variant == v and (g.vmap != null) == (v == 2) and net.is_host(), "host switched to map %d and still hosts" % v)
+		check(g.map_variant == v and (g.vmap != null) == (v == 2) and g.season == ["", "", "", "winter", "twilight"][v] and net.is_host(),
+			"host switched to map %d and still hosts" % v)
 		check(not net.multiplayer.get_peers().is_empty(), "the joiner is still in the room on map %d" % v)
 		for i in 120:
 			await process_frame

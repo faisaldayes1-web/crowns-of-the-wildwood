@@ -1,5 +1,9 @@
 # Agents: Crowns of the Wildwood (Elves vs Humans)
 
+## Active framework route
+Agent: Codex-faisal. Faisal requested the full central framework cutover. Read [ORY_WORKFLOW.md](ORY_WORKFLOW.md) for the current game-specific workflow before implementation or development advice. Existing project contracts and ownership/approval rules below remain in force; this route supersedes older generic workflow orientation, not those gates.
+
+
 Shared rules for every AI agent on this repo (Claude, Claude 2, ChatGPT/Codex). Faisal owns the game and approves design, art, spending and merges to `main`.
 
 ## Agents
