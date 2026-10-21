@@ -58,7 +58,9 @@ var join_pads: Array = []    # lobby: the pad device of local players 2-4, in jo
 var p1_pad := -1             # the pad player 1 last used in the menus
 var room_entry := ""         # online: the room code being typed or tapped in
 var font_title: Font
-var tex := {}
+# Immutable artwork is shared across scene reloads. Releasing it with each
+# menu forced every map switch to decode/upload the same images again.
+static var tex := {}
 var store                    # store.gd: the STORE screen
 
 

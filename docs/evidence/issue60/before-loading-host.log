@@ -1,0 +1,66 @@
+isolated user dir: C:\Temp\cw60-tests\crowns-tests\run-Gh3m2i (left in place; clear /c/Temp/cw60-tests/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/net_event_probe.gd: user dir C:/Temp/cw60-tests/crowns-tests/run-Gh3m2i/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+NET ready
+NET hosting on port 24991
+EVENT_PROBE t=5460 mode=1 depth=0 mute=0 queued=0 peak=0 received=0 snapshots=0 early=0 peers=[]
+NET peer 1151285556 connected
+EVENT_PROBE t=10467 mode=1 depth=0 mute=0 queued=0 peak=0 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=12.0 loss=0.0000
+NET peer 1151285556 ready
+BATCH merged 8350 scenery meshes (1528 left alone) into 1323 meshes; 2092 materials became 523; 580 ms (335 ms reading meshes)
+WARNING: Sending 2544 bytes unreliably which is above the MTU (1392), this will result in higher packet loss
+     at: put_packet (modules/enet/enet_multiplayer_peer.cpp:366)
+NETTEST host: match running, my unit is team 0 slot 0
+EVENT_PROBE t=15472 mode=1 depth=0 mute=0 queued=1 peak=1 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=2749.0 loss=0.0000
+EVENT_PROBE t=20482 mode=1 depth=0 mute=0 queued=10 peak=2 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=2749.0 loss=0.0126
+NETTEST host: own unit moved 9.15 m
+NETTEST host: a bot moved 28.05 m
+NETTEST host: joiner's unit moved 0.00 m
+EVENT_PROBE t=25484 mode=1 depth=0 mute=0 queued=19 peak=5 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=2749.0 loss=0.0126
+EVENT_PROBE t=30500 mode=1 depth=0 mute=0 queued=27 peak=5 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=2749.0 loss=0.0146
+EVENT_PROBE t=35504 mode=1 depth=0 mute=0 queued=33 peak=5 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=2749.0 loss=0.0146
+EVENT_PROBE t=40512 mode=1 depth=0 mute=0 queued=48 peak=5 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=2749.0 loss=0.0146
+EVENT_PROBE t=45530 mode=1 depth=0 mute=0 queued=206 peak=19 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=25.0 loss=0.0146
+EVENT_PROBE t=50532 mode=1 depth=0 mute=0 queued=382 peak=19 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=11.0 loss=0.0152
+EVENT_PROBE t=55542 mode=1 depth=0 mute=0 queued=550 peak=20 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=8.0 loss=0.0152
+EVENT_PROBE t=60545 mode=1 depth=0 mute=0 queued=789 peak=20 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=8.0 loss=0.0164
+EVENT_PROBE t=65553 mode=1 depth=0 mute=0 queued=911 peak=20 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=8.0 loss=0.0164
+EVENT_PROBE t=70562 mode=1 depth=0 mute=0 queued=1100 peak=20 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=8.0 loss=0.0143
+EVENT_PROBE t=75564 mode=1 depth=0 mute=0 queued=1317 peak=20 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=8.0 loss=0.0143
+EVENT_PROBE t=80583 mode=1 depth=0 mute=0 queued=1529 peak=20 received=0 snapshots=0 early=0 peers=[1151285556]
+EVENT_PROBE peer=1151285556 rtt_ms=8.0 loss=0.0125
+NET peer 1151285556 left
+EVENT_PROBE t=85585 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE t=90592 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE t=95595 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE t=100598 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE t=105600 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE t=110619 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE t=115628 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE t=120630 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE t=125633 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+EVENT_PROBE t=130649 mode=1 depth=0 mute=0 queued=1552 peak=20 received=0 snapshots=0 early=0 peers=[]
+NETTEST host: joiner's chat line arrived
+NETTEST host FAIL: peers=0
+ERROR: 55 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 6 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 60 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)
