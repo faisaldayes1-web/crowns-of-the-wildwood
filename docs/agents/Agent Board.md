@@ -59,7 +59,6 @@ Agent: Codex-faisal. Incoming branch records preserved below; no existing owner 
 
 ## Codex-faisal integration record, PR 41
 
-Agent: Codex-faisal. Incoming branch records preserved below; no existing owner or current main claim reassigned.
 
 | T5 crowns-code | `Codex-faisal` | Preserve primary save when backup creation fails | `scripts/save_file.gd`, `tools/save_write_test.gd`, own T5 save handoff | Claimed 2026-10-17; independent of Steam stack | Pending |
 | T5 crowns-code | `Codex-faisal` | Correct dodge recovery tutorial text to approved source constant | `scripts/guide.gd`, own T5 guide handoff | Claimed 2026-10-17; stacked on save fix | Pending |
@@ -67,15 +66,18 @@ Agent: Codex-faisal. Incoming branch records preserved below; no existing owner 
 
 ## Codex-faisal integration record, PR 44
 
-Agent: Codex-faisal. Incoming branch records preserved below; no existing owner or current main claim reassigned.
 
 | T5 crowns-code | `Codex-faisal` | Preserve primary save when backup creation fails | `scripts/save_file.gd`, `tools/save_write_test.gd`, own T5 save handoff | PR #41 awaiting review; implementation complete | Pending |
 | T5 crowns-code | `Codex-faisal` | Correct dodge recovery tutorial text to approved source constant | `scripts/guide.gd`, own T5 guide handoff | PR #42 awaiting review; implementation complete | Pending |
 | T5 crowns-code | `Codex-faisal` | Explicit non-resource licence notice inclusion in export presets | `export_presets.cfg`, `tools/export_notices_test.gd`, own T5 notices handoff | PR #43 awaiting review; implementation complete | Pending |
 | T5 crowns-code | `Codex-faisal` | Source-derived effective baseline balance report | `tools/balance_report.gd`, own T5 balance-report handoff | PR #44 awaiting review; implementation complete | Pending |
 
+| Writing T3 | `Codex-faisal` | RC2 store copy, achievement list, balance review and patch notes | branch `Codex-faisal/t3-crowns-rc2-writing`; `docs/release/rc2-writing.md`; own T3 handoff and board row only | Claimed 2026-10-17; PROPOSED | Pending |
+
+## Codex-faisal integration record, PR 39
+
+Agent: Codex-faisal. Incoming branch records preserved below; no existing owner or current main claim reassigned.
+
 ## Codex-faisal depot repair integration, PR39
-
 Agent: Codex-faisal. Existing claim records retained below; no owner reassignment. Fixed Windows root/nested junction rejection; baseline fails both real fixtures, corrected checker passes all8 tests. No Steam/Godot qualification or upload.
-
 | T5 crowns-code | `Codex-faisal` | Offline Steam readiness preflight and checklist | `tools/steam/check_depot.py`, `tools/tests/test_steam_depot.py`, `docs/steam-readiness.md`, own T5 readiness handoff | Claimed 2026-10-17; stacked on build guards | Pending |
