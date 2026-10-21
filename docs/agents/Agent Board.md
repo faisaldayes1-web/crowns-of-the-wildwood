@@ -29,6 +29,8 @@ Overnight T3 claim 2026-10-18 — Agent: Codex-faisal2. T3 Crowns of the Wildwoo
 
 Overnight T3 claim 2026-10-18 — Agent: Codex-faisal2. T3 Crowns of the Wildwood Patch Notes. Own new `docs/agents/Proposals/T3 Patch Notes.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Patch Notes.md` only; writing PROPOSED; no runtime edits.
 
+Overnight T3 claim 2026-10-18 — Agent: Codex-faisal2. T3 Crowns of the Wildwood Achievement Descriptions. Own new `docs/agents/Proposals/T3 Achievement Descriptions.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Achievement Descriptions.md` only; writing PROPOSED; no runtime edits.
+
 Agent: Codex-faisal2. T2 claim: docs/playtests/T2_Accessibility_Settings.md only; proposed accessibility and settings checklist; branch Codex-faisal2/t2-accessibility; 2026-10-18.
 
 Agent: Codex-faisal. Owner-requested framework cutover, 2026-10-20. Claim: `AGENTS.md`, `CLAUDE.md`, NEW `ORY_WORKFLOW.md`, and this own appended board record only. Task: #66. Branch: `agent/Codex-faisal/66-framework-cutover`. No runtime/art/shared gameplay claims or reassignment. Status: documentation migration prepared for review; source execution/merge follows repository policy.
