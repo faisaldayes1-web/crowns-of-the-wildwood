@@ -56,3 +56,9 @@ Agent: Codex-faisal. Incoming branch records preserved below; no existing owner 
 | Integration | `claude-faisallaptop` | CW-2 integration (#8, #13, #9, #6, #17) + 2 new maps + visual pass + lag fix, one PR | branch `claude-faisallaptop/int1`; `scripts/game.gd`, `scripts/stats.gd`, map/visual/perf code, `docs/agents/Handoffs/2026-10-16 claude-faisallaptop int1.md` | PR #31 for review, 2026-10-16 | [handoff](Handoffs/2026-10-16%20claude-faisallaptop%20int1.md) |
 | T5 crowns-code | `Codex-faisal` | Steam export cold-cache bootstrap and terminating editor import | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 handoff | Claimed 2026-10-17; branch `Codex-faisal/t5-steam-cold-import` | Pending |
 | T5 crowns-code | `Codex-faisal` | Steam builder App ID and output-path validation | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 guards handoff | Claimed 2026-10-17; stacked on cold-import PR | Pending |
+
+## Codex-faisal integration record, PR 41
+
+Agent: Codex-faisal. Incoming branch records preserved below; no existing owner or current main claim reassigned.
+
+| T5 crowns-code | `Codex-faisal` | Preserve primary save when backup creation fails | `scripts/save_file.gd`, `tools/save_write_test.gd`, own T5 save handoff | Claimed 2026-10-17; independent of Steam stack | Pending |
