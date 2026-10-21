@@ -12,6 +12,7 @@ touch "$FIXTURE/tools/steam/godotsteam/"{license.txt,godotsteam.gdextension.in}
 cat > "$FIXTURE/fake-godot" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
+[[ -z "${GODOT_CALL_LOG:-}" ]] || echo called >> "$GODOT_CALL_LOG"
 case " $* " in
   *' --import '*)
     [[ -d .godot ]]
@@ -36,10 +37,37 @@ for cache in cold warm; do
     echo cached > "$FIXTURE/.godot/warm-marker"
   fi
   GODOT="$FIXTURE/fake-godot" bash "$FIXTURE/tools/steam/build_steam.sh" \
-    --app-id=480 "$FIXTURE/output-$cache" > "$FIXTURE/$cache.log" 2>&1 || {
+    --app-id=123456 "$FIXTURE/output-$cache" > "$FIXTURE/$cache.log" 2>&1 || {
       cat "$FIXTURE/$cache.log"; exit 1;
     }
   grep -q 'STEAM BUILD OK' "$FIXTURE/$cache.log"
   [[ ! -e "$FIXTURE/output-$cache/steam_appid.txt" ]]
   echo "PASS: $cache cache bootstrap and terminating import"
 done
+
+export GODOT_CALL_LOG="$FIXTURE/godot-calls"
+reject() {
+  if GODOT="$FIXTURE/fake-godot" bash "$FIXTURE/tools/steam/build_steam.sh" "$@" > "$FIXTURE/reject.log" 2>&1; then
+    echo "FAIL: expected rejection: $*"; exit 1
+  fi
+  [[ ! -e "$GODOT_CALL_LOG" ]]
+}
+for id in 0 -1 abc '12/34' ''; do
+  reject "--app-id=$id" "$FIXTURE/invalid-output"
+done
+reject --app-id=480 "$FIXTURE/invalid-output"
+reject --typo "$FIXTURE/invalid-output"
+reject --app-id=123456 "$FIXTURE/one" "$FIXTURE/two"
+echo preserve > "$FIXTURE/output-cold/sentinel"
+reject --app-id=123456 "$FIXTURE/output-cold"
+[[ "$(cat "$FIXTURE/output-cold/sentinel")" == preserve ]]
+[[ ! -e "$FIXTURE/invalid-output" ]]
+echo 'PASS: invalid inputs rejected before Godot; existing output preserved'
+
+(cd "$FIXTURE" && GODOT="$FIXTURE/fake-godot" bash tools/steam/build_steam.sh \
+  --dev --app-id=480 'relative output' > relative.log 2>&1) || {
+    cat "$FIXTURE/relative.log"; exit 1;
+  }
+[[ -f "$FIXTURE/relative output/CrownsOfTheWildwood.exe" ]]
+[[ "$(cat "$FIXTURE/relative output/steam_appid.txt")" == 480 ]]
+echo 'PASS: relative output with spaces and explicit Spacewar development build'
