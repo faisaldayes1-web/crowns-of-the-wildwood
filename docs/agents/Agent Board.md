@@ -15,6 +15,10 @@
 
 Agent: Codex-faisal2. T2 claim: docs/playtests/T2_Morning_20_Minutes.md only; 20-minute morning playtest for Faisal; branch Codex-faisal2/t2-morning-playtest; 2026-10-18.
 
+| Documentation | Codex-faisal | CW-1 / #25 six-PR ledger | docs/agents/PR Ledger.md; own board row and CW-1 handoff | Documentation complete 2026-10-16; owner review and CW-2 engine verification pending | [CW-1 handoff](Handoffs/2026-10-16%20Codex-faisal%20CW-1.md); branch Codex-faisal/cw-1-pr-ledger; no game edits |
+
+| Documentation | Codex-faisal2 | CW-1 / #29, owner-authorized successor | `docs/agents/PR Ledger.md`; successor row only | Reconciliation complete 2026-10-18; owner explicitly authorized this existing PR update via hub | Current main integrated locally; no game edits or owner merge |
+
 | Release planning | `Codex-faisal` | CW-4 PROPOSED release checklist; docs only | `docs/agents/CW-4 Release Plan.md`, own CW-4 handoff and board row | PROPOSED ready for docs review 2026-10-16; runtime validation blocked by sparse checkout | [CW-4 handoff](Handoffs/2026-10-16%20Codex-faisal%20CW-4.md) |
 
 | Documentation | Codex-faisal2 | CW-4 / #33, owner-authorized successor | `docs/agents/CW-4 Release Plan.md`; successor row only | Reconciliation complete 2026-10-18; owner explicitly authorized this existing PR update via hub | Current main integrated locally; no game edits or owner merge |
