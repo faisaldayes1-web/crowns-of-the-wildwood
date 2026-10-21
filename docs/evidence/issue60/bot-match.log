@@ -1,0 +1,631 @@
+isolated user dir: C:\Temp\cw60-tests\crowns-tests\run-yIIy6M (left in place; clear /c/Temp/cw60-tests/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+BATCH merged 8278 scenery meshes (1526 left alone) into 1285 meshes; 2085 materials became 518; 609 ms (362 ms reading meshes)
+   econ team0 pool 0 wood 0 ore  gathered { "wood": 0, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+   econ team1 pool 0 wood 0 ore  gathered { "wood": 0, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+t=0s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 0 / 0
+   team0 Elf (-85.4, 0, -4) hearts=4 dead=false job=prep
+   team0 Elf (-85.4, 0, -2.1) hearts=4 dead=false job=prep
+   team0 Elf (-85.5, 0, -0.1) hearts=4 dead=false job=prep
+   team0 Elf (-85.5, 0, 1.9) hearts=4 dead=false job=prep
+   team1 Human (85.4, -2.4, -4) hearts=4 dead=false job=prep
+   team1 Human (85.4, -2.4, -2.1) hearts=4 dead=false job=prep
+   team1 Human (85.5, -2.4, -0.1) hearts=4 dead=false job=prep
+   team1 Human (85.5, -2.4, 1.9) hearts=4 dead=false job=prep
+BUMP t=0 team1 Knight at (74.1, -2.4, -8.8) job=prep target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3786[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+BUMP t=0 team1 Knight at (74.1, -2.4, -8.8) job=prep target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3786[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+Battle begins: barricades 2/2, traps 3, turrets 0/0
+   econ team0 pool 0 wood 0 ore  gathered { "wood": 3, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+   econ team1 pool 0 wood 0 ore  gathered { "wood": 3, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+t=30s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 0 / 0
+   team0 Knight (-38.3, 0, 6.7) hearts=4 dead=false job=gather
+   team0 Ranger (8.2, 0.1, 0.4) hearts=3 dead=false job=attack
+   team0 Mage (-8.7, 0.1, 1.1) hearts=4 dead=false job=attack
+   team0 Healer (-11.1, 0, 2.4) hearts=4 dead=false job=support
+   team1 Knight (38.1, 0, -6.9) hearts=4 dead=false job=gather
+   team1 Ranger (0.4, 0.5, -1.6) hearts=1 dead=false job=attack
+   team1 Mage (20.6, 0, 4) hearts=4 dead=false job=attack
+   team1 Healer (19.2, 0, -4.8) hearts=4 dead=false job=support
+KILL t=10 kteam=0 krole=2 klevel=1 kmastery=0 vteam=1 vrole=2 vlevel=1 vmastery=0 kfire=0 burn=0
+DOWN t=10 team1 Ranger ally=18 foes=0
+FINISH t=12 team1 Ranger by=Healer
+ECON t=13 team1 deposit by Garrick pool 4 wood 0 ore
+ECON t=14 team1 pad turret
+KILL t=14 kteam=0 krole=4 klevel=1 kmastery=0 vteam=1 vrole=3 vlevel=1 vmastery=0 kfire=0 burn=0
+DOWN t=14 team1 Mage ally=10 foes=1
+ECON t=14 team0 deposit by Aelith pool 4 wood 0 ore
+ECON t=16 team0 pad turret
+KILL t=17 kteam=0 krole=4 klevel=3 kmastery=2 vteam=1 vrole=4 vlevel=2 vmastery=1 kfire=0 burn=0
+DOWN t=17 team1 Healer ally=14 foes=2
+KILL t=19 kteam=1 krole=1 klevel=2 kmastery=1 vteam=0 vrole=2 vlevel=3 vmastery=2 kfire=0 burn=0
+DOWN t=19 team0 Ranger ally=6 foes=1
+FINISH t=19 team1 Healer by=Healer
+BUMP t=23 team1 Knight at (18.9, 0, 4) job=gather target=(12.5, 0, 5.1) hits=["@StaticBody3D@7039[(0.9, 0.3, 0.9)]@(18.5, 0.3, 4)"]
+REVIVE t=23 team0 Ranger by=Cleric healer=true
+ECON t=28 team0 deposit by Aelith pool 5 wood 0 ore
+REVIVE t=28 team1 Mage by=Knight healer=false
+BUMP t=32 team1 Mage at (3.8, 0, 6.3) job=attack target=(0, 0.5, 2.4) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 6.4)"]
+BUMP t=36 team1 Mage at (3.8, 0, 6.4) job=attack target=(0, 0.5, 2.4) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 6.4)"]
+BUMP t=36 team1 Mage at (3.8, 0, 6.5) job=attack target=(0, 0.5, 2.4) hits=["@StaticBody3D@383[(0.4, 2, 10.1)]@(3.4, 1.2, 6.6)"]
+   econ team0 pool 5 wood 0 ore  gathered { "wood": 11, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 1 wood 0 ore  gathered { "wood": 8, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=60s  score 0-0  monarchs 0 / 0  doors 200 / 106  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Knight (-30.4, 0, 9) hearts=4 dead=false job=gather
+   team0 Sharpshooter (41.2, 0, 0.7) hearts=4 dead=false job=attack
+   team0 Mage (41.2, 0, -2.9) hearts=4 dead=false job=attack
+   team0 Cleric (40.2, 0, 4.8) hearts=4 dead=false job=support
+   team1 Knight (29.9, 0, 5.2) hearts=3 dead=false job=gather
+   team1 Ranger (-8.5, 0.1, 0.9) hearts=3 dead=false job=attack
+   team1 Mage (6.1, 0.5, 1) hearts=2 dead=false job=attack
+   team1 Healer (47.8, 0, 0.8) hearts=4 dead=false job=support
+KILL t=43 kteam=0 krole=3 klevel=3 kmastery=2 vteam=1 vrole=1 vlevel=4 vmastery=3 kfire=0 burn=0
+DOWN t=43 team1 Vanguard ally=8 foes=3
+ECON t=45 team0 deposit by Aelith pool 9 wood 0 ore
+FINISH t=45 team1 Vanguard by=Cleric
+BUMP t=48 team0 Knight at (-34.9, 0, -3.9) job=gather target=(-28, 0, -5.4) hits=["@StaticBody3D@6971[(0.9, 0.3, 0.9)]@(-34.5, 0.3, -3.9)"]
+KILL t=51 kteam=0 krole=2 klevel=5 kmastery=4 vteam=1 vrole=4 vlevel=3 vmastery=3 kfire=0 burn=0
+DOWN t=51 team1 Dark Priest ally=41 foes=2
+FINISH t=53 team1 Dark Priest by=Sharpshooter
+Door broken: Humans t=56
+ECON t=63 team0 deposit by Aelith pool 13 wood 0 ore
+KILL t=64 kteam=0 krole=3 klevel=5 kmastery=4 vteam=1 vrole=1 vlevel=2 vmastery=3 kfire=0 burn=0
+DOWN t=64 team1 Vanguard ally=14 foes=2
+KILL t=67 kteam=0 krole=2 klevel=6 kmastery=5 vteam=1 vrole=3 vlevel=2 vmastery=1 kfire=0 burn=0
+DOWN t=67 team1 Mage ally=28 foes=0
+FINISH t=69 team1 Vanguard by=Sharpshooter
+   econ team0 pool 13 wood 0 ore  gathered { "wood": 17, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 1 wood 0 ore  gathered { "wood": 10, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=90s  score 0-0  monarchs 0 / 0  doors 200 / 0  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Knight (-38.3, 0, 6.8) hearts=4 dead=false job=gather
+   team0 Sharpshooter (58.3, 0, -3.6) hearts=4 dead=false job=attack
+   team0 Frostweaver (57.6, 0, 0) hearts=4 dead=false job=attack
+   team0 Cleric (56.7, 0, 2.7) hearts=4 dead=false job=support
+   team1 Vanguard (59.1, 0, -3.7) hearts=0 dead=true job=defend
+   team1 Ranger (2.8, 0.5, 1.3) hearts=3 dead=false job=defend
+   team1 Mage (46.4, 0, -2.6) hearts=0 dead=false job=defend
+   team1 Dark Priest (66, 0, -5.6) hearts=4 dead=false job=support
+KILL t=71 kteam=0 krole=2 klevel=6 kmastery=5 vteam=1 vrole=4 vlevel=1 vmastery=3 kfire=0 burn=0
+DOWN t=71 team1 Dark Priest ally=47 foes=3
+FINISH t=74 team1 Dark Priest by=Frostweaver
+FINISH t=77 team1 Mage by=Sharpshooter
+ECON t=78 team0 deposit by Aelith pool 17 wood 0 ore
+KILL t=79 kteam=0 krole=4 klevel=6 kmastery=5 vteam=1 vrole=2 vlevel=2 vmastery=1 kfire=0 burn=0
+DOWN t=79 team1 Ranger ally=28 foes=1
+BUMP t=79 team1 Vanguard at (74.1, -2.4, -8.8) job=defend target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3786[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+SKIP t=82 team1 Ranger
+KILL t=86 kteam=0 krole=3 klevel=6 kmastery=5 vteam=1 vrole=1 vlevel=3 vmastery=5 kfire=0 burn=0
+DOWN t=86 team1 Vanguard ally=18 foes=3
+FINISH t=89 team1 Vanguard by=Frostweaver
+KILL t=94 kteam=0 krole=2 klevel=6 kmastery=5 vteam=1 vrole=3 vlevel=2 vmastery=2 kfire=0 burn=0
+DOWN t=94 team1 Mage ally=10 foes=1
+KILL t=95 kteam=0 krole=2 klevel=6 kmastery=5 vteam=1 vrole=4 vlevel=2 vmastery=4 kfire=0 burn=0
+DOWN t=95 team1 Dark Priest ally=13 foes=3
+FINISH t=97 team1 Mage by=Frostweaver
+FINISH t=99 team1 Dark Priest by=Sharpshooter
+KILL t=99 kteam=0 krole=3 klevel=6 kmastery=5 vteam=1 vrole=2 vlevel=2 vmastery=2 kfire=0 burn=0
+DOWN t=99 team1 Ranger ally=25 foes=0
+   econ team0 pool 17 wood 0 ore  gathered { "wood": 20, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 1 wood 0 ore  gathered { "wood": 10, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=120s  score 0-0  monarchs 0 / 1  doors 200 / 0  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Knight (50, 0, -0.5) hearts=4 dead=false job=escort
+   team0 Sharpshooter (56.1, 0, -1.8) hearts=4 dead=false job=escort
+   team0 Frostweaver (57.3, 0, -0.2) hearts=4 dead=false job=attack
+   team0 Cleric (50.7, 0, -0.1) hearts=3 dead=false job=support
+   team1 Human (77.2, -2.4, -7.4) hearts=4 dead=false job=recover
+   team1 Ranger (58.6, 0, 7.7) hearts=0 dead=false job=recover
+   team1 Mage (61, 0, 5.4) hearts=0 dead=true job=defend
+   team1 Dark Priest (58.3, 0, -4.8) hearts=0 dead=true job=support
+BUMP t=101 team1 Vanguard at (74.1, -2.4, -8.8) job=recover target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3786[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+BUMP t=101 team1 Vanguard at (74.1, -2.4, -8.8) job=recover target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3786[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+SKIP t=102 team1 Ranger
+BUMP t=120 team0 Knight at (-59.9, 0.7, -1.4) job=escort target=(-63.5, 0.9, 0) hits=["@StaticBody3D@1331[(2.4, 1.2, 0.3)]@(-59.9, 1.2, -1.8)"]
+Capture: Elves  (score 1 - 0) t=120
+KILL t=125 kteam=0 krole=3 klevel=6 kmastery=5 vteam=1 vrole=1 vlevel=1 vmastery=5 kfire=0 burn=0
+DOWN t=125 team1 Vanguard ally=39 foes=2
+FINISH t=127 team1 Vanguard by=Cleric
+   econ team0 pool 17 wood 0 ore  gathered { "wood": 20, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 1 wood 0 ore  gathered { "wood": 13, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=150s  score 1-0  monarchs 0 / 0  doors 200 / 0  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-13.4, 0, 0.6) hearts=4 dead=false job=attack
+   team0 Sharpshooter (21.2, 0, 0.2) hearts=3 dead=false job=attack
+   team0 Frostweaver (-20.6, 0, -4) hearts=4 dead=false job=attack
+   team0 Cleric (-23.6, 0, 1) hearts=4 dead=false job=support
+   team1 Vanguard (-27.6, 0, 1.8) hearts=0 dead=true job=attack
+   team1 Ranger (52.6, 0, 4.3) hearts=4 dead=false job=defend
+   team1 Mage (25.8, 0, -2.3) hearts=2 dead=false job=gather
+   team1 Dark Priest (28.2, 0, -2.9) hearts=4 dead=false job=support
+KILL t=130 kteam=0 krole=2 klevel=6 kmastery=5 vteam=1 vrole=3 vlevel=1 vmastery=2 kfire=0 burn=0
+DOWN t=130 team1 Mage ally=2 foes=0
+BUMP t=132 team0 Sharpshooter at (33.1, 0, 3.2) job=attack target=(50.8, 0, 0) hits=["@StaticBody3D@7072[(0.9, 0.3, 0.9)]@(33.5, 0.3, 3.2)"]
+REVIVE t=132 team1 Mage by=Dark Priest healer=true
+KILL t=136 kteam=1 krole=2 klevel=2 kmastery=3 vteam=0 vrole=2 vlevel=6 vmastery=5 kfire=0 burn=0
+DOWN t=136 team0 Sharpshooter ally=22 foes=0
+FINISH t=139 team0 Sharpshooter by=Dark Priest
+KILL t=144 kteam=1 krole=2 klevel=3 kmastery=4 vteam=0 vrole=1 vlevel=4 vmastery=3 kfire=0 burn=0
+DOWN t=144 team0 Warden ally=10 foes=1
+FINISH t=147 team0 Warden by=Sharpshooter
+ECON t=149 team1 deposit by Brom pool 5 wood 0 ore
+KILL t=151 kteam=1 krole=3 klevel=3 kmastery=4 vteam=0 vrole=3 vlevel=6 vmastery=5 kfire=0 burn=0
+DOWN t=151 team0 Frostweaver ally=21 foes=0
+KILL t=157 kteam=1 krole=4 klevel=3 kmastery=6 vteam=0 vrole=4 vlevel=6 vmastery=5 kfire=0 burn=0
+DOWN t=157 team0 Cleric ally=42 foes=0
+   econ team0 pool 17 wood 0 ore  gathered { "wood": 20, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 5 wood 0 ore  gathered { "wood": 16, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=180s  score 1-0  monarchs 0 / 0  doors 200 / 200  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-76.5, 0, -6.3) hearts=4 dead=false job=attack
+   team0 Sharpshooter (-44.7, 0, 2.4) hearts=4 dead=false job=attack
+   team0 Frostweaver (-21.1, 0, -9.5) hearts=0 dead=false job=attack
+   team0 Cleric (-18.9, 0, -9.2) hearts=0 dead=false job=support
+   team1 Vanguard (-19.1, 0, 1.9) hearts=4 dead=false job=attack
+   team1 Sharpshooter (38.3, 0, -6.7) hearts=4 dead=false job=gather
+   team1 Frostweaver (-29.2, 0, 0.4) hearts=4 dead=false job=attack
+   team1 Dark Priest (-27.8, 0, -2) hearts=4 dead=false job=support
+SKIP t=160 team0 Frostweaver
+SKIP t=160 team0 Cleric
+ECON t=163 team1 deposit by Brom pool 9 wood 0 ore
+KILL t=167 kteam=1 krole=4 klevel=5 kmastery=8 vteam=0 vrole=2 vlevel=4 vmastery=5 kfire=0 burn=0
+DOWN t=167 team0 Sharpshooter ally=11 foes=2
+KILL t=172 kteam=1 krole=4 klevel=5 kmastery=8 vteam=0 vrole=1 vlevel=2 vmastery=3 kfire=0 burn=0
+DOWN t=172 team0 Warden ally=41 foes=2
+SKIP t=175 team0 Sharpshooter
+FINISH t=175 team0 Warden by=Frostweaver
+ECON t=178 team1 deposit by Brom pool 13 wood 0 ore
+Door broken: Elves t=185
+   econ team0 pool 17 wood 0 ore  gathered { "wood": 20, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 13 wood 0 ore  gathered { "wood": 24, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=210s  score 1-0  monarchs 1 / 0  doors 0 / 200  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-64.7, 0, 5) hearts=4 dead=false job=recover
+   team0 Sharpshooter (-71, 0, -0.2) hearts=4 dead=false job=recover
+   team0 Frostweaver (-61.5, 0, 5.8) hearts=4 dead=false job=recover
+   team0 Cleric (-60.3, 0, 4.9) hearts=3 dead=false job=support
+   team1 Vanguard (-61.3, 0.9, 0.4) hearts=4 dead=false job=escort
+   team1 Sharpshooter (30.6, 0, -9.6) hearts=4 dead=false job=gather
+   team1 Frostweaver (-57, 0, 2.3) hearts=3 dead=false job=escort
+   team1 Dark Priest (-52.6, 0, -0.3) hearts=4 dead=false job=support
+KILL t=195 kteam=0 krole=2 klevel=2 kmastery=5 vteam=1 vrole=3 vlevel=6 vmastery=7 kfire=0 burn=0
+DOWN t=195 team1 Frostweaver ally=18 foes=3
+BUMP t=195 team0 Cleric at (-56.5, 0, 2.9) job=support target=(-49.8, 0, 2.8) hits=["@StaticBody3D@1283[(0.9, 0.3, 0.9)]@(-56.1, 0.3, 2.9)"]
+ECON t=195 team1 deposit by Brom pool 17 wood 0 ore
+BUMP t=196 team0 Cleric at (-57, 0, 4.1) job=support target=(-53.1, 0, 5.9) hits=["@StaticBody3D@1223[(0.8, 2.6, 4)]@(-57.1, 1.2, 4.5)"]
+BUMP t=196 team1 Sharpshooter at (50.5, 0, -3.5) job=attack target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=196 team1 Sharpshooter at (50.5, 0, -3.5) job=attack target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=197 team1 Sharpshooter at (50.5, 0, -3.5) job=attack target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=197 team1 Sharpshooter at (50.5, 0, -3.5) job=attack target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+FINISH t=197 team1 Frostweaver by=Cleric
+ECON t=197 team0 door rebuild hp=100
+BUMP t=197 team1 Sharpshooter at (50.5, 0, -3.5) job=attack target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=198 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=198 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=198 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=199 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=199 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=199 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+ECON t=199 team0 door repair hp=135
+BUMP t=200 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=200 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=200 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=201 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(20, 0, -2.1) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=201 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=201 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=201 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=202 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=202 team0 Sharpshooter at (-20.6, 0, 1.4) job=recover target=(-21.5, 0, -1) hits=["@StaticBody3D@3860[(1, 1.2, 4)]@(-20.5, 1.2, 1)", "@StaticBody3D@49[(138, 1, 132)]@(-20.6, 0, 1.4)"]
+BUMP t=202 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=202 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=203 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=203 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=203 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=204 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=204 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=204 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=205 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=205 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=205 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=206 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=206 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=206 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=207 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=207 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=207 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=207 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=208 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=208 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=208 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=209 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=209 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=209 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+KILL t=209 kteam=1 krole=4 klevel=6 kmastery=9 vteam=0 vrole=1 vlevel=1 vmastery=3 kfire=0 burn=0
+DOWN t=209 team0 Warden ally=10 foes=1
+BUMP t=210 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=210 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(53.5, 0, 0) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+BUMP t=210 team1 Sharpshooter at (50.5, 0, -3.5) job=escort target=(50.5, 0, 0.6) hits=["@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)", "@StaticBody3D@49[(138, 1, 132)]@(50.5, 0, -3.5)"]
+Capture: Humans  (score 1 - 1) t=212
+REVIVE t=214 team0 Warden by=Cleric healer=true
+KILL t=218 kteam=1 krole=4 klevel=6 kmastery=9 vteam=0 vrole=2 vlevel=3 vmastery=6 kfire=0 burn=0
+DOWN t=218 team0 Sharpshooter ally=6 foes=0
+   econ team0 pool 8 wood 0 ore  gathered { "wood": 20, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 1, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 17 wood 0 ore  gathered { "wood": 25, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=240s  score 1-1  monarchs 0 / 0  doors 135 / 181  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (47.7, 0, 6.3) hearts=3 dead=false job=attack
+   team0 Sharpshooter (41.2, 0, 3.1) hearts=0 dead=false job=attack
+   team0 Frostweaver (-10.2, 0, -17.2) hearts=3 dead=false job=gather
+   team0 Cleric (38.7, 0, 3) hearts=4 dead=false job=support
+   team1 Vanguard (12.6, 0, -0.5) hearts=4 dead=false job=attack
+   team1 Sharpshooter (10.5, 0, -0.2) hearts=4 dead=false job=attack
+   team1 Frostweaver (44.9, 0, -2.6) hearts=4 dead=false job=attack
+   team1 Dark Priest (43.6, 0, -3.9) hearts=4 dead=false job=support
+KILL t=221 kteam=1 krole=4 klevel=6 kmastery=9 vteam=0 vrole=4 vlevel=6 vmastery=7 kfire=0 burn=0
+DOWN t=221 team0 Cleric ally=8 foes=0
+REVIVE t=226 team0 Sharpshooter by=Warden healer=false
+REVIVE t=230 team0 Cleric by=Sharpshooter healer=false
+BUMP t=234 team0 Sharpshooter at (34.9, 0, 3.3) job=defend target=(20, 0, 4.1) hits=["@StaticBody3D@7072[(0.9, 0.3, 0.9)]@(34.5, 0.3, 3.3)"]
+BUMP t=235 team0 Sharpshooter at (33.8, 0, 6.4) job=defend target=(20, 0, 4.1) hits=["@Node3D@11590/@StaticBody3D@11592@(33.6, 1.2, 6.7)"]
+KILL t=235 kteam=1 krole=4 klevel=6 kmastery=9 vteam=0 vrole=3 vlevel=5 vmastery=6 kfire=0 burn=0
+DOWN t=235 team0 Frostweaver ally=45 foes=0
+SKIP t=238 team0 Frostweaver
+ECON t=242 team1 door repair hp=119
+Door broken: Elves t=244
+BUMP t=247 team1 Vanguard at (-59.9, 0.7, -1.4) job=attack target=(-63.5, 0.9, 0) hits=["@StaticBody3D@1331[(2.4, 1.2, 0.3)]@(-59.9, 1.2, -1.8)"]
+BUMP t=247 team1 Vanguard at (-59.9, 0.7, -1.4) job=attack target=(-63.5, 0.9, 0) hits=["@StaticBody3D@1353[(0.7, 3.5, 0.3)]@(-60.3, 1.9, -1.4)", "@StaticBody3D@1331[(2.4, 1.2, 0.3)]@(-59.9, 1.2, -1.8)"]
+   econ team0 pool 8 wood 0 ore  gathered { "wood": 24, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 1, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 14 wood 0 ore  gathered { "wood": 25, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=270s  score 1-1  monarchs 1 / 0  doors 0 / 119  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-1.3, 0.5, -2.7) hearts=4 dead=false job=recover
+   team0 Sharpshooter (20.5, 0, 3.8) hearts=4 dead=false job=recover
+   team0 Elf (-85.1, 0, 0.6) hearts=4 dead=false job=recover
+   team0 Cleric (0.2, 0.5, -1.2) hearts=4 dead=false job=support
+   team1 Vanguard (-56.7, 0, -0.3) hearts=4 dead=false job=escort
+   team1 Sharpshooter (-59.1, 0.4, 0.4) hearts=4 dead=false job=escort
+   team1 Frostweaver (-7.1, 0, -3.2) hearts=2 dead=false job=gather
+   team1 Dark Priest (-23.6, 0, 1.4) hearts=4 dead=false job=support
+KILL t=252 kteam=0 krole=4 klevel=6 kmastery=7 vteam=1 vrole=3 vlevel=5 vmastery=8 kfire=0 burn=0
+DOWN t=252 team1 Frostweaver ally=27 foes=1
+ECON t=254 team0 door rebuild hp=100
+FINISH t=255 team1 Frostweaver by=Warden
+KILL t=260 kteam=0 krole=1 klevel=4 kmastery=6 vteam=1 vrole=1 vlevel=6 vmastery=10 kfire=0 burn=0
+DOWN t=260 team1 Vanguard ally=14 foes=1
+FINISH t=263 team1 Vanguard by=Warden
+BUMP t=268 team1 Dark Priest at (-18.5, 0, -2.8) job=support target=(-16, 0, -12) hits=["@StaticBody3D@6938[(0.9, 0.3, 0.9)]@(-18.5, 0.3, -3.2)"]
+ECON t=277 team0 deposit by Sylvara pool 6 wood 0 ore
+ECON t=278 team0 door repair hp=135
+Door broken: Humans t=279
+   econ team0 pool 3 wood 0 ore  gathered { "wood": 28, "ore": 0 }  bought { "hat": 0, "repair": 2, "rebuild": 2, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 14 wood 0 ore  gathered { "wood": 25, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=300s  score 1-1  monarchs 0 / 0  doors 135 / 0  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (49.8, 0, 2.9) hearts=3 dead=false job=attack
+   team0 Sharpshooter (44.5, 0, 0.3) hearts=4 dead=false job=attack
+   team0 Frostweaver (-39.1, 0, -5.2) hearts=4 dead=false job=gather
+   team0 Cleric (-19.9, 0, 2.7) hearts=4 dead=false job=support
+   team1 Vanguard (73.3, -0.9, -0.5) hearts=4 dead=false job=defend
+   team1 Sharpshooter (-0.7, 0.5, -1.6) hearts=4 dead=false job=attack
+   team1 Frostweaver (59.5, 0, -3.5) hearts=4 dead=false job=defend
+   team1 Dark Priest (-18.5, 0, -9.3) hearts=4 dead=false job=support
+KILL t=285 kteam=1 krole=1 klevel=4 kmastery=10 vteam=0 vrole=2 vlevel=5 vmastery=8 kfire=0 burn=0
+DOWN t=285 team0 Sharpshooter ally=5 foes=1
+KILL t=286 kteam=1 krole=1 klevel=5 kmastery=11 vteam=0 vrole=1 vlevel=6 vmastery=8 kfire=0 burn=0
+DOWN t=286 team0 Warden ally=69 foes=1
+SKIP t=289 team0 Sharpshooter
+FINISH t=289 team0 Warden by=Vanguard
+ECON t=290 team1 door rebuild hp=100
+ECON t=291 team1 deposit by Garrick pool 10 wood 0 ore
+ECON t=292 team0 deposit by Sylvara pool 7 wood 0 ore
+ECON t=292 team1 door repair hp=135
+KILL t=297 kteam=0 krole=3 klevel=4 kmastery=7 vteam=1 vrole=2 vlevel=6 vmastery=7 kfire=0 burn=0
+DOWN t=297 team1 Sharpshooter ally=15 foes=0
+REVIVE t=301 team1 Sharpshooter by=Dark Priest healer=true
+ECON t=305 team1 deposit by Garrick pool 11 wood 0 ore
+BUMP t=306 team0 Cleric at (-59.9, 0.7, 1.4) job=support target=(-59.4, 0, 5.8) hits=["@StaticBody3D@1338[(2.4, 1.2, 0.3)]@(-59.9, 1.2, 1.8)"]
+BUMP t=306 team0 Cleric at (-59.9, 0.7, 1.4) job=support target=(-59.4, 0, 5.8) hits=["@StaticBody3D@1362[(0.7, 3.5, 0.3)]@(-60.3, 1.9, 1.4)", "@StaticBody3D@1338[(2.4, 1.2, 0.3)]@(-59.9, 1.2, 1.8)"]
+   econ team0 pool 7 wood 0 ore  gathered { "wood": 36, "ore": 0 }  bought { "hat": 0, "repair": 2, "rebuild": 2, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 11 wood 0 ore  gathered { "wood": 29, "ore": 0 }  bought { "hat": 0, "repair": 2, "rebuild": 1, "turret": 1, "tend": 0 }  hats []
+t=330s  score 1-1  monarchs 0 / 0  doors 135 / 135  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-52.1, 0, 2.5) hearts=4 dead=false job=attack
+   team0 Sharpshooter (-40.8, 0, 2.4) hearts=4 dead=false job=attack
+   team0 Frostweaver (-30.6, 0, 8.7) hearts=2 dead=false job=gather
+   team0 Cleric (-48.6, 0, 0.9) hearts=4 dead=false job=support
+   team1 Vanguard (34.9, 0, 5.9) hearts=3 dead=false job=gather
+   team1 Sharpshooter (-35.3, 0, 8.5) hearts=2 dead=false job=attack
+   team1 Frostweaver (-29.3, 0, 0.5) hearts=4 dead=false job=attack
+   team1 Dark Priest (19.6, 0, -2) hearts=4 dead=false job=support
+KILL t=312 kteam=0 krole=2 klevel=3 kmastery=8 vteam=1 vrole=2 vlevel=6 vmastery=7 kfire=0 burn=0
+DOWN t=312 team1 Sharpshooter ally=7 foes=1
+FINISH t=314 team1 Sharpshooter by=Cleric
+KILL t=317 kteam=0 krole=2 klevel=4 kmastery=9 vteam=1 vrole=3 vlevel=3 vmastery=8 kfire=0 burn=0
+DOWN t=317 team1 Frostweaver ally=26 foes=0
+ECON t=319 team1 deposit by Garrick pool 15 wood 0 ore
+SKIP t=320 team1 Frostweaver
+ECON t=320 team0 deposit by Sylvara pool 11 wood 0 ore
+BUMP t=320 team0 Cleric at (-5.1, 0, 3.9) job=support target=(1.8, 0.5, 3.8) hits=["@StaticBody3D@390@(-4.8, 0.5, 3.6)"]
+BUMP t=324 team0 Sharpshooter at (17.5, 0, 2.8) job=attack target=(16, 0, 12) hits=["@StaticBody3D@7039[(0.9, 0.3, 0.9)]@(17.5, 0.3, 3.2)"]
+ECON t=335 team0 deposit by Sylvara pool 15 wood 0 ore
+ECON t=336 team1 deposit by Garrick pool 19 wood 0 ore
+   econ team0 pool 15 wood 0 ore  gathered { "wood": 40, "ore": 0 }  bought { "hat": 0, "repair": 2, "rebuild": 2, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 19 wood 0 ore  gathered { "wood": 37, "ore": 0 }  bought { "hat": 0, "repair": 2, "rebuild": 1, "turret": 1, "tend": 0 }  hats []
+t=360s  score 1-1  monarchs 0 / 0  doors 133 / 133  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (19.7, 0, 3.9) hearts=4 dead=false job=attack
+   team0 Sharpshooter (29.1, 0, 0.8) hearts=4 dead=false job=attack
+   team0 Frostweaver (-35.4, 0, -6.9) hearts=4 dead=false job=gather
+   team0 Cleric (27.8, 0, 4) hearts=4 dead=false job=support
+   team1 Vanguard (31.5, 0, -7.8) hearts=3 dead=false job=attack
+   team1 Sharpshooter (29.6, 0, -11.9) hearts=3 dead=false job=attack
+   team1 Frostweaver (45.5, 0, -2.4) hearts=4 dead=false job=attack
+   team1 Dark Priest (34.4, 0, -9.2) hearts=4 dead=false job=support
+ECON t=351 team0 deposit by Sylvara pool 19 wood 0 ore
+KILL t=357 kteam=0 krole=3 klevel=5 kmastery=8 vteam=1 vrole=2 vlevel=4 vmastery=7 kfire=0 burn=0
+DOWN t=357 team1 Sharpshooter ally=9 foes=1
+KILL t=357 kteam=1 krole=4 klevel=6 kmastery=9 vteam=0 vrole=3 vlevel=6 vmastery=9 kfire=0 burn=0
+DOWN t=357 team0 Frostweaver ally=59 foes=0
+FINISH t=361 team0 Frostweaver by=Frostweaver
+REVIVE t=361 team1 Sharpshooter by=Dark Priest healer=true
+ECON t=367 team1 door repair hp=80
+Door broken: Elves t=369
+   econ team0 pool 19 wood 0 ore  gathered { "wood": 44, "ore": 0 }  bought { "hat": 0, "repair": 2, "rebuild": 2, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 16 wood 0 ore  gathered { "wood": 37, "ore": 0 }  bought { "hat": 0, "repair": 3, "rebuild": 1, "turret": 1, "tend": 0 }  hats []
+t=390s  score 1-1  monarchs 0 / 0  doors 0 / 80  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (13, 0, -0.5) hearts=4 dead=false job=defend
+   team0 Sharpshooter (12.8, 0, 4) hearts=3 dead=false job=defend
+   team0 Frostweaver (-37.8, 0, 0.5) hearts=0 dead=true job=attack
+   team0 Cleric (18.6, 0, 5.7) hearts=4 dead=false job=support
+   team1 Vanguard (-49.8, 0, 1.7) hearts=4 dead=false job=attack
+   team1 Sharpshooter (-43.1, 0, 2.7) hearts=4 dead=false job=attack
+   team1 Frostweaver (3.4, 0.5, 2.8) hearts=2 dead=false job=gather
+   team1 Dark Priest (-35.7, 0, 1.2) hearts=4 dead=false job=support
+BUMP t=372 team0 Cleric at (11.9, 0, 3.1) job=support target=(6.1, 0.3, 4.3) hits=["@StaticBody3D@3828[(1, 1.2, 3.5)]@(11.5, 1.2, 3.2)"]
+BUMP t=375 team0 Cleric at (3.8, 0, 5.4) job=support target=(-0.8, 0.5, 5.7) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.4)"]
+KILL t=376 kteam=0 krole=2 klevel=6 kmastery=11 vteam=1 vrole=3 vlevel=3 vmastery=10 kfire=0 burn=0
+DOWN t=376 team1 Frostweaver ally=36 foes=1
+BUMP t=376 team0 Cleric at (3.8, 0, 5.2) job=support target=(-2.4, 0.5, 5.8) hits=["@StaticBody3D@390@(3.6, 0.5, 4.8)"]
+BUMP t=376 team0 Cleric at (3.8, 0, 5.2) job=support target=(9.6, 0, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)", "@StaticBody3D@390@(3.6, 0.5, 4.8)"]
+ECON t=377 team0 door rebuild hp=100
+ECON t=379 team0 door repair hp=135
+FINISH t=379 team1 Frostweaver by=Sharpshooter
+BUMP t=384 team1 Sharpshooter at (-20.9, 0, 1.1) job=escort target=(-9.7, 0.2, 0.9) hits=["@StaticBody3D@3860[(1, 1.2, 4)]@(-20.5, 1.2, 1)"]
+KILL t=384 kteam=0 krole=4 klevel=6 kmastery=7 vteam=1 vrole=1 vlevel=6 vmastery=12 kfire=0 burn=0
+DOWN t=384 team1 Vanguard ally=15 foes=3
+FINISH t=387 team1 Vanguard by=Cleric
+BUMP t=392 team1 Sharpshooter at (-19.1, 0, 0.8) job=gather target=(-20.3, 0, 0.5) hits=["@StaticBody3D@3860[(1, 1.2, 4)]@(-19.5, 1.2, 0.8)"]
+   econ team0 pool 10 wood 0 ore  gathered { "wood": 47, "ore": 0 }  bought { "hat": 0, "repair": 3, "rebuild": 3, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 16 wood 0 ore  gathered { "wood": 37, "ore": 0 }  bought { "hat": 0, "repair": 3, "rebuild": 1, "turret": 1, "tend": 0 }  hats []
+t=420s  score 1-1  monarchs 0 / 0  doors 135 / 80  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (39.6, 0, 0) hearts=2 dead=false job=attack
+   team0 Sharpshooter (40.1, 0, 3) hearts=2 dead=false job=attack
+   team0 Frostweaver (-33.7, 0, -5) hearts=4 dead=false job=gather
+   team0 Cleric (-11.3, 0, -8.3) hearts=4 dead=false job=support
+   team1 Human (79.3, -2.4, -7.2) hearts=4 dead=false job=attack
+   team1 Sharpshooter (-19.9, 0, 1.6) hearts=4 dead=false job=gather
+   team1 Frostweaver (40.4, 0, -3) hearts=4 dead=false job=attack
+   team1 Dark Priest (30, 0, -2.5) hearts=4 dead=false job=support
+BUMP t=401 team1 Vanguard at (74.1, -2.4, -8.8) job=defend target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3786[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+BUMP t=401 team1 Vanguard at (74.1, -2.4, -8.8) job=defend target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3786[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+KILL t=403 kteam=1 krole=3 klevel=2 kmastery=11 vteam=0 vrole=1 vlevel=5 vmastery=9 kfire=0 burn=0
+DOWN t=403 team0 Warden ally=11 foes=2
+ECON t=405 team0 deposit by Sylvara pool 14 wood 0 ore
+FINISH t=405 team0 Warden by=Dark Priest
+BUMP t=413 team1 Dark Priest at (3.8, 0, -6.4) job=support target=(9.6, 0, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, -6.4)"]
+ECON t=420 team0 deposit by Sylvara pool 18 wood 0 ore
+Door broken: Humans t=423
+KILL t=425 kteam=1 krole=1 klevel=4 kmastery=12 vteam=0 vrole=2 vlevel=6 vmastery=11 kfire=0 burn=0
+DOWN t=425 team0 Sharpshooter ally=65 foes=1
+KILL t=426 kteam=1 krole=2 klevel=5 kmastery=8 vteam=0 vrole=3 vlevel=5 vmastery=10 kfire=0 burn=0
+DOWN t=426 team0 Frostweaver ally=16 foes=0
+FINISH t=428 team0 Sharpshooter by=Vanguard
+ECON t=429 team1 door rebuild hp=100
+   econ team0 pool 18 wood 0 ore  gathered { "wood": 52, "ore": 0 }  bought { "hat": 0, "repair": 3, "rebuild": 3, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 10 wood 0 ore  gathered { "wood": 37, "ore": 0 }  bought { "hat": 0, "repair": 3, "rebuild": 2, "turret": 1, "tend": 0 }  hats []
+t=450s  score 1-1  monarchs 0 / 0  doors 135 / 100  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-32, 0, -1.9) hearts=3 dead=false job=attack
+   team0 Sharpshooter (52.3, 0, 1.1) hearts=0 dead=true job=attack
+   team0 Frostweaver (-30.6, 0, -2.3) hearts=0 dead=false job=attack
+   team0 Cleric (-18.5, 0, -14.3) hearts=4 dead=false job=support
+   team1 Vanguard (53.1, 0, -4.3) hearts=4 dead=false job=attack
+   team1 Sharpshooter (-9.900001, 0, -0.3) hearts=4 dead=false job=gather
+   team1 Frostweaver (-29.9, 0, 8.400001) hearts=4 dead=false job=attack
+   team1 Dark Priest (-6.5, 0.4, -0.6) hearts=4 dead=false job=support
+ECON t=431 team1 door repair hp=135
+REVIVE t=432 team0 Frostweaver by=Warden healer=false
+KILL t=434 kteam=0 krole=3 klevel=5 kmastery=10 vteam=1 vrole=4 vlevel=6 vmastery=9 kfire=0 burn=0
+DOWN t=434 team1 Dark Priest ally=12 foes=1
+FINISH t=437 team1 Dark Priest by=Warden
+KILL t=439 kteam=1 krole=2 klevel=6 kmastery=9 vteam=0 vrole=3 vlevel=6 vmastery=11 kfire=0 burn=0
+DOWN t=439 team0 Frostweaver ally=17 foes=0
+KILL t=440 kteam=0 krole=4 klevel=6 kmastery=7 vteam=1 vrole=1 vlevel=5 vmastery=13 kfire=0 burn=0
+DOWN t=440 team1 Vanguard ally=28 foes=1
+FINISH t=443 team1 Vanguard by=Warden
+REVIVE t=446 team0 Frostweaver by=Cleric healer=true
+ECON t=450 team1 deposit by Brom pool 11 wood 0 ore
+BUMP t=457 team1 Vanguard at (74.1, -2.4, -8.8) job=attack target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3786[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+BUMP t=457 team1 Vanguard at (74.1, -2.4, -8.8) job=attack target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3786[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+Door broken: Elves t=459
+   econ team0 pool 18 wood 0 ore  gathered { "wood": 52, "ore": 0 }  bought { "hat": 0, "repair": 3, "rebuild": 3, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 11 wood 0 ore  gathered { "wood": 44, "ore": 0 }  bought { "hat": 0, "repair": 4, "rebuild": 2, "turret": 1, "tend": 0 }  hats []
+t=480s  score 1-1  monarchs 0 / 0  doors 0 / 135  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (19.5, 0, -2) hearts=4 dead=false job=attack
+   team0 Sharpshooter (-53.7, 0, 5.2) hearts=4 dead=false job=defend
+   team0 Frostweaver (28.9, 0, 0.7) hearts=4 dead=false job=attack
+   team0 Cleric (17.7, 0, 0.6) hearts=4 dead=false job=support
+   team1 Vanguard (79.9, -2.4, -1.9) hearts=4 dead=false job=attack
+   team1 Sharpshooter (38.3, 0, -6.7) hearts=4 dead=false job=gather
+   team1 Frostweaver (-45.7, 0, 1.2) hearts=4 dead=false job=attack
+   team1 Dark Priest (51.3, 0, 0.2) hearts=4 dead=false job=support
+KILL t=463 kteam=1 krole=3 klevel=5 kmastery=14 vteam=0 vrole=2 vlevel=4 vmastery=11 kfire=0 burn=0
+DOWN t=463 team0 Sharpshooter ally=51 foes=0
+ECON t=464 team1 deposit by Brom pool 15 wood 0 ore
+SKIP t=466 team0 Sharpshooter
+KILL t=475 kteam=0 krole=1 klevel=4 kmastery=10 vteam=1 vrole=3 vlevel=6 vmastery=15 kfire=0 burn=0
+DOWN t=475 team1 Frostweaver ally=38 foes=1
+FINISH t=478 team1 Frostweaver by=Warden
+ECON t=479 team1 deposit by Brom pool 19 wood 0 ore
+KILL t=485 kteam=1 krole=2 klevel=6 kmastery=9 vteam=0 vrole=3 vlevel=6 vmastery=11 kfire=0 burn=0
+DOWN t=485 team0 Frostweaver ally=63 foes=0
+ECON t=487 team0 deposit by Aelith pool 22 wood 0 ore
+KILL t=488 kteam=0 krole=1 klevel=5 kmastery=11 vteam=1 vrole=4 vlevel=5 vmastery=10 kfire=0 burn=0
+DOWN t=488 team1 Dark Priest ally=9 foes=1
+SKIP t=488 team0 Frostweaver
+BUMP t=489 team0 Cleric at (-62.6, 0.9, -3.4) job=support target=(-59.8, 0, 0) hits=["@StaticBody3D@1319[(6.9, 0.9, 8.900001)]@(-62.6, 0.9, -3.4)"]
+   econ team0 pool 22 wood 0 ore  gathered { "wood": 52, "ore": 0 }  bought { "hat": 0, "repair": 3, "rebuild": 3, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 19 wood 0 ore  gathered { "wood": 49, "ore": 0 }  bought { "hat": 0, "repair": 4, "rebuild": 2, "turret": 1, "tend": 0 }  hats []
+t=510s  score 1-1  monarchs 1 / 0  doors 0 / 135  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-55.3, 0, -1.3) hearts=4 dead=false job=recover
+   team0 Sharpshooter (-59.9, 0, 6.7) hearts=4 dead=false job=recover
+   team0 Frostweaver (16.4, 0, -3.3) hearts=0 dead=true job=defend
+   team0 Cleric (-61.3, 0.9, -3.4) hearts=4 dead=false job=support
+   team1 Vanguard (-53.2, 0, 0.5) hearts=4 dead=false job=escort
+   team1 Sharpshooter (14.2, 0, 3) hearts=4 dead=false job=escort
+   team1 Frostweaver (-57.8, 0, -0.3) hearts=0 dead=true job=attack
+   team1 Dark Priest (-56.7, 0, -7.4) hearts=0 dead=false job=support
+BUMP t=490 team0 Cleric at (-61.3, 0.9, -3.4) job=support target=(-59.8, 0, 0) hits=["@StaticBody3D@1350[(0.5, 3.2, 2.7)]@(-60.9, 2.1, -3.4)"]
+KILL t=493 kteam=0 krole=1 klevel=6 kmastery=12 vteam=1 vrole=1 vlevel=4 vmastery=14 kfire=0 burn=0
+DOWN t=493 team1 Vanguard ally=30 foes=1
+SKIP t=495 team1 Dark Priest
+BUMP t=496 team0 Cleric at (-39.6, 0, 2.8) job=support target=(-37.4, 0, 3.5) hits=["@StaticBody3D@14072[(3.2, 1.1, 0.4)]@(-39.3, 1.1, 3)"]
+ECON t=496 team0 door rebuild hp=100
+FINISH t=496 team1 Vanguard by=Warden
+ECON t=498 team0 door repair hp=135
+BUMP t=501 team0 Elf at (-83.5, 0, -2.7) job=attack target=(-81.4, 0, -9) hits=["@StaticBody3D@2059[(0.9, 0.3, 0.9)]@(-83.5, 0.3, -3.1)"]
+KILL t=512 kteam=0 krole=3 klevel=4 kmastery=11 vteam=1 vrole=2 vlevel=6 vmastery=9 kfire=0 burn=0
+DOWN t=512 team1 Sharpshooter ally=17 foes=0
+KILL t=515 kteam=0 krole=3 klevel=5 kmastery=12 vteam=1 vrole=3 vlevel=4 vmastery=15 kfire=0 burn=0
+DOWN t=515 team1 Frostweaver ally=85 foes=0
+BUMP t=516 team0 Cleric at (-18.9, 0, 3.3) job=support target=(-15.4, 0, 2.8) hits=["@StaticBody3D@6954[(0.9, 0.3, 0.9)]@(-18.5, 0.3, 3.3)"]
+SKIP t=518 team1 Sharpshooter
+SKIP t=518 team1 Frostweaver
+   econ team0 pool 13 wood 0 ore  gathered { "wood": 56, "ore": 0 }  bought { "hat": 0, "repair": 4, "rebuild": 4, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 19 wood 0 ore  gathered { "wood": 49, "ore": 0 }  bought { "hat": 0, "repair": 4, "rebuild": 2, "turret": 1, "tend": 0 }  hats []
+t=540s  score 1-1  monarchs 0 / 0  doors 118 / 135  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (7.9, 0.2, 0.3) hearts=4 dead=false job=attack
+   team0 Sharpshooter (-44.5, 0, 0.4) hearts=4 dead=false job=gather
+   team0 Frostweaver (-6.2, 0.5, 0.1) hearts=4 dead=false job=attack
+   team0 Cleric (-10.3, 0, 2.5) hearts=4 dead=false job=support
+   team1 Vanguard (24.6, 0, -2) hearts=4 dead=false job=attack
+   team1 Sharpshooter (-41.1, 0, -5.3) hearts=0 dead=true job=attack
+   team1 Frostweaver (-32, 0, -4.1) hearts=0 dead=true job=attack
+   team1 Dark Priest (44.3, 0, -1.1) hearts=4 dead=false job=support
+ECON t=521 team0 deposit by Faelar pool 17 wood 0 ore
+KILL t=525 kteam=1 krole=1 klevel=2 kmastery=14 vteam=0 vrole=1 vlevel=6 vmastery=12 kfire=0 burn=0
+DOWN t=525 team0 Warden ally=7 foes=2
+REVIVE t=529 team0 Warden by=Cleric healer=true
+KILL t=531 kteam=1 krole=1 klevel=4 kmastery=16 vteam=0 vrole=2 vlevel=4 vmastery=13 kfire=0 burn=0
+DOWN t=531 team0 Sharpshooter ally=24 foes=1
+FINISH t=534 team0 Sharpshooter by=Vanguard
+BUMP t=540 team1 Dark Priest at (-17.3, 0.2, -3.2) job=support target=(-20, 0, -4.1) hits=["@StaticBody3D@6938[(0.9, 0.3, 0.9)]@(-17.5, 0.3, -3.2)"]
+Door broken: Humans t=541
+KILL t=544 kteam=0 krole=3 klevel=6 kmastery=13 vteam=1 vrole=3 vlevel=2 vmastery=15 kfire=0 burn=0
+DOWN t=544 team1 Frostweaver ally=3 foes=0
+ECON t=544 team1 pad fix
+   econ team0 pool 17 wood 0 ore  gathered { "wood": 56, "ore": 0 }  bought { "hat": 0, "repair": 4, "rebuild": 4, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 18 wood 0 ore  gathered { "wood": 49, "ore": 0 }  bought { "hat": 0, "repair": 4, "rebuild": 2, "turret": 1, "tend": 1 }  hats []
+t=570s  score 1-1  monarchs 0 / 1  doors 118 / 0  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (43.7, 0, -0.8) hearts=4 dead=false job=escort
+   team0 Sharpshooter (-63.9, 0, 5.9) hearts=4 dead=false job=attack
+   team0 Frostweaver (60.4, 0, 0.1) hearts=4 dead=false job=escort
+   team0 Cleric (44.5, 0, 1.7) hearts=4 dead=false job=support
+   team1 Vanguard (-2.8, 0.5, 1.2) hearts=4 dead=false job=recover
+   team1 Sharpshooter (60.7, 0, -6.7) hearts=3 dead=false job=recover
+   team1 Frostweaver (59.1, 0, -3.7) hearts=0 dead=false job=recover
+   team1 Dark Priest (20.7, 0, -1.5) hearts=4 dead=false job=support
+KILL t=551 kteam=0 krole=3 klevel=6 kmastery=13 vteam=1 vrole=2 vlevel=4 vmastery=9 kfire=0 burn=0
+DOWN t=551 team1 Sharpshooter ally=33 foes=0
+FINISH t=553 team1 Frostweaver by=Frostweaver
+SKIP t=554 team1 Sharpshooter
+ECON t=556 team1 door rebuild hp=100
+KILL t=557 kteam=1 krole=1 klevel=5 kmastery=17 vteam=0 vrole=1 vlevel=6 vmastery=12 kfire=0 burn=0
+DOWN t=557 team0 Warden ally=16 foes=1
+FINISH t=559 team0 Warden by=Dark Priest
+BUMP t=561 team1 Vanguard at (17.1, 0, -3.4) job=defend target=(50.8, 0, 0) hits=["@StaticBody3D@7023[(0.9, 0.3, 0.9)]@(17.5, 0.3, -3.4)"]
+KILL t=567 kteam=1 krole=1 klevel=6 kmastery=18 vteam=0 vrole=2 vlevel=3 vmastery=14 kfire=0 burn=0
+DOWN t=567 team0 Sharpshooter ally=12 foes=2
+FINISH t=570 team0 Sharpshooter by=Vanguard
+KILL t=573 kteam=1 krole=3 klevel=1 kmastery=15 vteam=0 vrole=3 vlevel=6 vmastery=13 kfire=0 burn=0
+DOWN t=573 team0 Frostweaver ally=12 foes=1
+Door broken: Humans t=573
+ECON t=574 team1 door rebuild hp=100
+FINISH t=576 team0 Frostweaver by=Frostweaver
+ECON t=576 team1 door repair hp=135
+   econ team0 pool 17 wood 0 ore  gathered { "wood": 56, "ore": 0 }  bought { "hat": 0, "repair": 4, "rebuild": 4, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 3 wood 0 ore  gathered { "wood": 53, "ore": 0 }  bought { "hat": 0, "repair": 5, "rebuild": 4, "turret": 1, "tend": 1 }  hats []
+t=600s  score 1-1  monarchs 0 / 0  doors 118 / 135  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-51.1, 0, 2.5) hearts=4 dead=false job=attack
+   team0 Elf (-85.2, 0, -2.7) hearts=4 dead=false job=attack
+   team0 Frostweaver (41, 0, -0.4) hearts=0 dead=true job=attack
+   team0 Cleric (25.8, 0, -12.7) hearts=4 dead=false job=support
+   team1 Vanguard (23.9, 0, -4.4) hearts=4 dead=false job=gather
+   team1 Sharpshooter (23.8, 0, -1.6) hearts=4 dead=false job=attack
+   team1 Frostweaver (26.3, 0, -1.4) hearts=3 dead=false job=attack
+   team1 Dark Priest (29.9, 0, -7.2) hearts=4 dead=false job=support
+ECON t=584 team1 deposit by Garrick pool 7 wood 0 ore
+KILL t=591 kteam=1 krole=2 klevel=3 kmastery=10 vteam=0 vrole=1 vlevel=5 vmastery=13 kfire=0 burn=0
+DOWN t=591 team0 Warden ally=9 foes=2
+BUMP t=591 team1 Sharpshooter at (-3.8, 0, -5.2) job=attack target=(-11, 0, -2.2) hits=["@StaticBody3D@332[(0.4, 1, 12.8)]@(-3.4, 0.4, -5.2)"]
+FINISH t=594 team0 Warden by=Sharpshooter
+BUMP t=596 team0 Cleric at (-3.8, 0, 5.2) job=support target=(-9.6, 0, 0) hits=["@StaticBody3D@332[(0.4, 1, 12.8)]@(-3.4, 0.4, 5.2)"]
+ECON t=598 team1 deposit by Garrick pool 11 wood 0 ore
+Door broken: Elves t=600
+Door broken: Humans t=600
+Overtime
+KILL t=601 kteam=1 krole=2 klevel=4 kmastery=11 vteam=0 vrole=3 vlevel=4 vmastery=13 kfire=0 burn=0
+KILL t=602 kteam=1 krole=1 klevel=6 kmastery=18 vteam=0 vrole=2 vlevel=2 vmastery=15 kfire=0 burn=0
+   econ team0 pool 17 wood 0 ore  gathered { "wood": 56, "ore": 0 }  bought { "hat": 0, "repair": 4, "rebuild": 4, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 11 wood 0 ore  gathered { "wood": 57, "ore": 0 }  bought { "hat": 0, "repair": 5, "rebuild": 4, "turret": 1, "tend": 1 }  hats []
+t=630s  score 1-1  monarchs 0 / 0  doors 0 / 0  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-5.6, 0, -5.4) hearts=0 dead=true job=attack
+   team0 Sharpshooter (27.8, 0, -2) hearts=0 dead=true job=attack
+   team0 Frostweaver (-46.4, 0, 1.3) hearts=0 dead=true job=attack
+   team0 Cleric (-47.2, 0, 1) hearts=3 dead=false job=support
+   team1 Vanguard (-15, 0, 1.6) hearts=4 dead=false job=attack
+   team1 Sharpshooter (-57.5, 0, 0) hearts=4 dead=false job=attack
+   team1 Frostweaver (-57.4, 0, 0) hearts=4 dead=false job=attack
+   team1 Dark Priest (-55.7, 0, -0.5) hearts=4 dead=false job=support
+KILL t=614 kteam=1 krole=1 klevel=6 kmastery=18 vteam=0 vrole=4 vlevel=6 vmastery=7 kfire=0 burn=0
+Match over: Elves 1, Humans 1
+RESULT winner=Humans score=1-1 t=614 overtime=true turrets=1/1 turret_kills=0/1 raid_deaths=3/3
+STAT team=0 class=Warden kills=4 deaths=8 assists=3 dmg=57 heal=0 caps=1 level=3 revives=2 revived=2
+STAT team=0 class=Sharpshooter kills=11 deaths=10 assists=14 dmg=113 heal=0 caps=0 level=1 revives=1 revived=2
+STAT team=0 class=Frostweaver kills=12 deaths=8 assists=11 dmg=100 heal=0 caps=0 level=2 revives=0 revived=2
+STAT team=0 class=Cleric kills=6 deaths=3 assists=11 dmg=73 heal=157 caps=0 level=4 revives=4 revived=1
+STAT team=1 class=Vanguard kills=10 deaths=8 assists=7 dmg=98 heal=0 caps=1 level=6 revives=1 revived=0
+STAT team=1 class=Sharpshooter kills=7 deaths=8 assists=12 dmg=121 heal=0 caps=0 level=6 revives=0 revived=2
+STAT team=1 class=Frostweaver kills=4 deaths=11 assists=14 dmg=100 heal=0 caps=0 level=4 revives=0 revived=2
+STAT team=1 class=DarkPriest kills=8 deaths=6 assists=9 dmg=113 heal=86 caps=0 level=6 revives=3 revived=0
+ECONSUM team=0 wood_gathered=56 ore_gathered=0 hats=0 repairs=4 rebuilds=4 turrets=1 tends=0 pool=17/0
+ECONSUM team=1 wood_gathered=57 ore_gathered=0 hats=0 repairs=5 rebuilds=4 turrets=1 tends=1 pool=11/0

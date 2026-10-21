@@ -1,0 +1,19 @@
+# Faisal's 20-minute morning playtest
+
+Agent: Codex-faisal2 · 2026-10-18 · Test plan, NOT RUN by this document's author. Scope: local Crowns of the Wildwood; no upload, public room, store purchase or release action. Use the maintainer-provided candidate; record its exact build/hash rather than assuming every open PR is included. Source: README and issue #53's build/evidence limitations. Prepare two physical pads if available; keyboard plus one pad is a separate recorded configuration.
+
+Write before starting: build ___; OS/hardware ___; display/resolution ___; pads ___; clean test profile ___; tester/date ___. Use a disposable local profile identified by the maintainer; do not overwrite your normal progress. Missing equipment is BLOCKED, not PASS. Start a timer; stop at 20 minutes even if a match is unfinished.
+
+| Minutes | Try | Look for / tick |
+|---|---|---|
+| 0–3 | Launch, open Settings/Controls, navigate with the pad, then select a map and ready the players. | [ ] Readable focus and correct glyphs. [ ] Each ready card belongs to intended pad/team. [ ] No mouse needed for required menus. If the candidate has a different lobby layout, note it rather than forcing README's older flow. |
+| 3–5 | Start two-local co-op on an available ordinary map. Move/aim separately and visit the cellar hats. | [ ] Correct viewport and independent aim. [ ] Take one class each; empty/locked choices are clear. [ ] FORTIFY→FIGHT transition understandable and gate lane usable. |
+| 5–10 | Fight toward the enemy monarch, use a base action/ability, try grabbing and carrying toward your throne. | [ ] Enemy/ally and monarch identifiable without colour alone. [ ] Carry restrictions and drop feedback understandable. [ ] Bots leave an approach/escape path. [ ] Hits, healing and cooldowns readable in split view. A failed capture is useful feedback; do not restart merely to get a pass. |
+| 10–13 | Recover from defeat/drop; try another class or defend a friendly carrier. | [ ] Respawn and hat state understandable. [ ] Monarch custody/score changes match what happened. [ ] No confusing double capture or invisible objective. Record expected versus actual if uncertain. |
+| 13–16 | Pause locally, open per-player perks and shared settings, reduce shake/rumble and test a rebind. | [ ] Shared versus personal menu ownership clear. [ ] Closing menus causes no surprise attack/drop. [ ] New prompt matches binding. [ ] Audio/visual changes readable; no purchase or cosmetic spending required. |
+| 16–18 | Finish or leave through ordinary menus. Start a short versus round or a second available map. | [ ] Results distinguish score/timer outcome. [ ] Return/ready-up works. [ ] No old player/team assignment leaks. [ ] Observe stutter at spawn, combat and menu transition. This is a sample, not all-map/performance certification. |
+| 18–20 | Stop and record findings. | [ ] One favourite moment. [ ] Biggest confusion. [ ] Worst hitch and exact context. [ ] Input/device limitations. [ ] Crash/log or screenshot reference, excluding account/private data. |
+
+Final ticks: [ ] launch/menu [ ] two-local assignment [ ] combat [ ] carry/drop [ ] defeat recovery [ ] settings/rebind [ ] result/restart. Mark each PASS / FAIL / NOT REACHED / BLOCKED; an unchecked box is not evidence of a pass. Do not enable online rooms to compensate for missing local hardware. This script does not cover browser/iPad, clean-machine export, Steam or relay qualification.
+
+Report: severity ___; at minute ___ I did ___; expected ___; observed ___; repeatable ___; build ___; evidence ___. Stop the affected test on crash, lost input or unreadable prompts, preserve the log, and continue an independent safe check only if possible. Proposed feedback priorities are clarity, controls, fun and visible hitches; numerical balance changes require review. Signed: Codex-faisal2.
