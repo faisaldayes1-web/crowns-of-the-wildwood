@@ -23,6 +23,8 @@ var hall: Node3D
 var title_cast: Node3D       # the battle scene behind the title (title_diorama.gd)
 var hero: Node3D             # the character creator's model
 var hero_key := ""
+var hero_cache: Dictionary = {}
+const HERO_CACHE_LIMIT := 8
 var hero_spin := 0.0            # extra turn (radians): the STORE turns the hero to show a cape
 var hero_turn := 0.0            # the player's own turn of the hero (drag, arrows, right stick)
 var hero_turn_goal := 0.0       # the arrows turn toward this; a drag sets both
@@ -134,9 +136,11 @@ func build(g) -> void:
 	add_child(cam)
 	hall = Node3D.new()
 	add_child(hall)
-	_build_hall()
+	await game._world_build_frame()
+	await _build_hall()
 	title_cast = TitleDiorama.new()
 	add_child(title_cast)
+	await game._world_build_frame()
 	_build_backdrop()
 
 
@@ -223,14 +227,26 @@ func show_hero(team: int, role: int, custom: Dictionary, rank: int) -> void:
 	if key != hero_key:
 		hero_key = key
 		if hero:
-			hero.queue_free()
-		hero = CharacterModel.new()
-		add_child(hero)
-		hero.setup(team, role, "", custom, rank)
-		hero.scale = Vector3.ONE * 1.0
-		# Rarity sparkles are sized for the match camera; this one is close.
-		for p in hero.find_children("RarityAura", "CPUParticles3D", true, false):
-			p.mesh.size *= 0.3
+			hero.hide()
+			hero.process_mode = Node.PROCESS_MODE_DISABLED
+		if hero_cache.has(key):
+			hero = hero_cache[key]
+			# Refresh insertion order for bounded least-recently-used retention.
+			hero_cache.erase(key)
+		else:
+			hero = CharacterModel.new()
+			add_child(hero)
+			hero.setup(team, role, "", custom, rank)
+			hero.scale = Vector3.ONE
+			# Rarity sparkles are sized for the match camera; this one is close.
+			for p in hero.find_children("RarityAura", "CPUParticles3D", true, false):
+				p.mesh.size *= 0.3
+		hero_cache[key] = hero
+		hero.process_mode = Node.PROCESS_MODE_INHERIT
+		if hero_cache.size() > HERO_CACHE_LIMIT:
+			var oldest = hero_cache.keys()[0]
+			hero_cache[oldest].queue_free()
+			hero_cache.erase(oldest)
 	hero.visible = screen in ["character", "store"]
 	hero.global_position = _floor_at(Vector2(0.39, 0.86))
 	if rug == null:
@@ -666,43 +682,61 @@ func _build_hall() -> void:
 	var stone: Material = game._pbr("greystone", 0.3, Color(0.86, 0.8, 0.72)) if ResourceLoader.exists("res://assets/textures/greystone_color.jpg") \
 		else game._stone(Color(0.74, 0.73, 0.74), 0.3)
 	var floor_mat: Material = game._plank_dark(Color(0.72, 0.56, 0.44))
+	await game._world_build_frame()
 	game._add_block(c + Vector3(0, -0.1, 0), Vector3(30, 0.2, 24), Color.GRAY, false, floor_mat)
 	# Back wall, side walls angled in a little, and a dark ceiling to keep the sky out.
+	await game._world_build_frame()
 	game._add_block(c + Vector3(0, 4.5, -6.5), Vector3(30, 9, 1.0), Color.GRAY, false, stone)
 	for s in [-1.0, 1.0]:
+		await game._world_build_frame()
 		game._add_block(c + Vector3(s * 11.0, 4.5, 2.0), Vector3(1.0, 9, 18), Color.GRAY, false, stone)
+	await game._world_build_frame()
 	game._add_block(c + Vector3(0, 9.2, 0), Vector3(30, 0.4, 24), Color.GRAY, false, game._plank_dark())
 	# Timber posts and a beam along the back wall.
 	var timber: Material = game._timber(Color(0.75, 0.6, 0.45))
 	for x in [-8.5, -3.2, 3.2, 8.5]:
+		await game._world_build_frame()
 		game._add_block(c + Vector3(x, 3.5, -5.8), Vector3(0.5, 7.0, 0.5), Color.GRAY, false, timber)
+	await game._world_build_frame()
 	game._add_block(c + Vector3(0, 6.9, -5.8), Vector3(22, 0.5, 0.6), Color.GRAY, false, timber)
 	for s in [-1.0, 1.0]:
+		await game._world_build_frame()
 		game._add_block(c + Vector3(s * 10.3, 6.9, 1.0), Vector3(0.6, 0.5, 15), Color.GRAY, false, timber)
 	# Warm wood panelling round the lower walls.
 	var panel: Material = game._plank_dark(Color(0.8, 0.6, 0.45))
+	await game._world_build_frame()
 	game._add_block(c + Vector3(0, 0.8, -5.92), Vector3(21.0, 1.6, 0.16), Color.GRAY, false, panel)
+	await game._world_build_frame()
 	game._add_block(c + Vector3(0, 1.64, -5.84), Vector3(21.0, 0.1, 0.3), Color.GRAY, false, timber)
 	for s in [-1.0, 1.0]:
+		await game._world_build_frame()
 		game._add_block(c + Vector3(s * 10.42, 0.8, 2.0), Vector3(0.16, 1.6, 17.0), Color.GRAY, false, panel)
+		await game._world_build_frame()
 		game._add_block(c + Vector3(s * 10.36, 1.64, 2.0), Vector3(0.3, 0.1, 17.0), Color.GRAY, false, timber)
 	# Red and blue crown banners between the posts and down the side walls.
 	for b in [[-5.85, "red", 4.2], [-1.6, "blue", 3.2], [1.6, "blue", 3.2], [5.85, "red", 4.2]]:
+		await game._world_build_frame()
 		_hall_banner(b[1], c + Vector3(b[0], 6.4, -5.95), b[2], 0.0)
 	for s in [-1.0, 1.0]:
 		for z in [-2.6, 1.0, 4.6]:
+			await game._world_build_frame()
 			_hall_banner("red" if z == 1.0 else "blue", c + Vector3(s * 10.3, 5.6, z), 3.2, -s * PI / 2.0)
 	# A tall arched window over the throne, sunlight pouring in.
+	await game._world_build_frame()
 	_window(c + Vector3(0, 4.0, -5.94))
+	await game._world_build_frame()
 	_throne(c + Vector3(0, 0, -4.9))
 	# Candle stands along the walls.
 	for p in [Vector3(-7.4, 0, -5.3), Vector3(-4.4, 0, -5.3), Vector3(4.4, 0, -5.3), Vector3(7.4, 0, -5.3),
 			Vector3(-9.8, 0, 2.2), Vector3(9.8, 0, 2.2)]:
+		await game._world_build_frame()
 		game._add_candle_stand(c + p)
 	# Candle wheels hung from the beams, and candelabras on the walls.
 	for x in [-5.0, 5.0]:
+		await game._world_build_frame()
 		_candle_wheel(c + Vector3(x, 5.4, -1.5))
 	for x in [-7.2, -3.6, 3.6, 7.2]:
+		await game._world_build_frame()
 		_candelabra(c + Vector3(x, 3.4, -5.85))
 	# A warm key light on the fighters and the hero, from above the camera.
 	var key := SpotLight3D.new()
@@ -719,17 +753,25 @@ func _build_hall() -> void:
 	key.look_at(c + Vector3(0, 0.8, 0.0))
 	# Torches on the posts.
 	for x in [-8.5, -3.2, 3.2, 8.5]:
+		await game._world_build_frame()
 		game._add_wall_torch(c + Vector3(x, 2.4, -5.5), Vector3(0, 0, 1))
+		await game._world_build_frame()
 		_flame(c + Vector3(x, 2.4, -5.5), Vector3(0, 0, 1))
 	for s in [-1.0, 1.0]:
+		await game._world_build_frame()
 		game._add_wall_torch(c + Vector3(s * 10.45, 2.4, 1.5), Vector3(-s, 0, 0))
+		await game._world_build_frame()
 		_flame(c + Vector3(s * 10.45, 2.4, 1.5), Vector3(-s, 0, 0))
 	# Fire bowls either side of the middle (they flank the SELECT MAP panel).
 	for s in [-1.0, 1.0]:
+		await game._world_build_frame()
 		game._add_brazier(c + Vector3(s * 6.4, 0, 1.2))
 	# Warm fill so the hall reads bright and friendly, not a dungeon.
+	await game._world_build_frame()
 	game._add_light(c + Vector3(0, 5.5, 3.0), Color(1.0, 0.7, 0.45), 1.2, 16.0)
+	await game._world_build_frame()
 	game._add_light(c + Vector3(-6, 3.0, -3.0), Color(1.0, 0.7, 0.45), 1.2, 9.0)
+	await game._world_build_frame()
 	game._add_light(c + Vector3(6, 3.0, -3.0), Color(1.0, 0.7, 0.45), 1.2, 9.0)
 	# Clutter in the corners: barrels, crates, a weapon rack, chests.
 	game.prop_solid = false
@@ -739,10 +781,13 @@ func _build_hall() -> void:
 			["dungeon/chest", Vector3(-9.6, 0, 0.0), 1.3, PI / 2.0], ["dungeon/keg_decorated", Vector3(9.6, 0, -1.6), 1.2, -PI / 2.0],
 			["dungeon/box_stacked", Vector3(9.4, 0, 2.8), 1.2, -0.3], ["dungeon/barrel_small", Vector3(-9.4, 0, 3.4), 1.2, 0.0],
 			["dungeon/barrel_large", Vector3(-9.0, 0, 6.2), 1.3, 0.6], ["dungeon/crates_stacked", Vector3(9.0, 0, 6.0), 1.2, 0.2]]:
+		await game._world_build_frame()
 		game._prop(p[0], c + p[1], p[2], p[3])
 	# A blue runner with gold edges down the middle (the lobby's walkway).
+	await game._world_build_frame()
 	game._add_block(c + Vector3(0, 0.015, 1.5), Vector3(4.2, 0.03, 13.0), Color.GRAY, false, game._carpet(Color(0.16, 0.26, 0.62)))
 	for s in [-1.0, 1.0]:
+		await game._world_build_frame()
 		game._add_block(c + Vector3(s * 1.95, 0.032, 1.5), Vector3(0.14, 0.01, 13.0), Color.GRAY, false, game._gold())
 	game.mossy = was_mossy
 	# The world's name tags (door health, the monarchs) stay hidden behind the menu.
@@ -757,4 +802,5 @@ func _build_hall() -> void:
 		n.reparent(hall, true)
 	# Suits of armour either side of the throne.
 	for x in [-2.6, 2.6]:
+		await game._world_build_frame()
 		_armour_stand(c + Vector3(x, 0, -5.1))
