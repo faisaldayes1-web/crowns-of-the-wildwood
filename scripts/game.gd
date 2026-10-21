@@ -316,6 +316,9 @@ var net_test_log := {}
 var net_slot := Vector2i(-1, -1)  # client: the (team, lineup slot) the host gave us
 
 
+var _preserve_menu_art_on_reload := false
+
+
 func _ready() -> void:
 	if DisplayServer.get_name() == "headless":
 		var mesh_guard := preload("res://scripts/headless_mesh_lifetime.gd").watch
@@ -392,8 +395,17 @@ func _ready() -> void:
 	if season != "":
 		tex_swap = Season.tex_swaps(season)   # snow or dusk meadow under everything
 		swap_dim = Color.WHITE
+	# Scene transitions build incrementally. Disable gameplay and hold the
+	# existing loading art until both world construction and menu warm-up finish.
+	_stream_world = reopen_screen != "" and DisplayServer.get_name() != "headless" and is_instance_valid(loading_layer)
+	if _stream_world:
+		menus_warming = true
+		process_mode = Node.PROCESS_MODE_DISABLED
+		if loading_tween and loading_tween.is_valid():
+			loading_tween.pause()
+		await _world_build_frame()
 	world_style = true   # the match world follows the style profile; the menus built below do not
-	_build_world()
+	await _build_world()
 	world_style = false
 	if net and not fixed_seed:
 		randomize()
@@ -455,7 +467,9 @@ func _ready() -> void:
 	main_menu = MainMenu.new(self)
 	menu_stage = MenuStage.new()
 	add_child(menu_stage)
-	menu_stage.build(self)
+	await menu_stage.build(self)
+	_stream_world = false
+	process_mode = Node.PROCESS_MODE_INHERIT
 	menu_stage.activate()
 	main_menu.stage = menu_stage
 	# The warm-up flips through the screens, so it is told where to land:
@@ -505,9 +519,40 @@ func _ready() -> void:
 		_net_ready_hooks()
 
 
+func _reload_scene() -> void:
+	# Retain immutable UI artwork only across an intentional scene replacement.
+	_preserve_menu_art_on_reload = true
+	if get_tree().reload_current_scene() != OK:
+		_preserve_menu_art_on_reload = false
+
+
 func _exit_tree() -> void:
+	if not _preserve_menu_art_on_reload:
+		# Retire the last worker task before its captured script/resources unload.
+		_flush_save()
+		_release_menu_art()
 	if net and net.game == self:
 		net.game = null
+	# Menu and Store are RefCounted and point at each other. Break that
+	# cycle on reload so repeated map switches do not retain every old UI.
+	if main_menu and main_menu.store:
+		main_menu.store.menu = null
+		main_menu.store.game = null
+
+
+static func _release_menu_art() -> void:
+	MainMenu.tex.clear()
+	Hud.icons.clear()
+	Hud.clean_icons.clear()
+	Hud.strips.clear()
+	Hud.cards.clear()
+	Hud.skill_art.clear()
+	Hud.menu_tex.clear()
+	Hud._banner_textures.clear()
+	Hud.topbar_tex = null
+	Hud.logo = null
+	Hud.bar_font = null
+	Hud.title_font = null
 
 
 func _net_ready_hooks() -> void:
@@ -589,7 +634,7 @@ func _process(delta: float) -> void:
 			if summary and not summary.done():
 				summary.skip()
 			else:
-				get_tree().reload_current_scene()
+				_reload_scene()
 		return
 
 	if net_client:
@@ -1455,7 +1500,7 @@ func quit_to_title() -> void:
 	get_tree().paused = false
 	if net:
 		net.leave()
-	get_tree().reload_current_scene()
+	_reload_scene()
 
 
 func apply_control_layout() -> void:
@@ -2092,7 +2137,24 @@ func _flat_dist(a: Vector3, b: Vector3) -> float:
 
 const LOADING_SCREENS := ["res://assets/ui/loading_1.jpg", "res://assets/ui/loading_2.jpg"]
 var loading_layer: CanvasLayer
+var loading_label: Label
 var loading_tween: Tween   # its hold-then-fade; _warm_up_world holds it while it sweeps
+var _stream_world := false
+var _world_frame_deadline := 0
+
+
+func _world_build_frame() -> void:
+	# All scene-tree mutations stay on the main thread. A completed chunk
+	# yields real frames, rather than dropping OS input in a blocking build.
+	if _stream_world and Time.get_ticks_usec() >= _world_frame_deadline:
+		if is_instance_valid(loading_label):
+			loading_label.text = "LOADING" + ".".repeat(1 + (Time.get_ticks_msec() / 300) % 3)
+		await get_tree().process_frame
+		# A 32 ms work budget keeps loading responsive without spending a
+		# full extra rendered frame after each tiny construction operation.
+		_world_frame_deadline = Time.get_ticks_usec() + 32000
+
+
 var _alive_ms := 0   # last time _keep_window_alive answered the OS
 var _alive_frame := -1   # the frame _keep_window_alive last saw, and when it began
 var _alive_frame_start := 0
@@ -2104,6 +2166,8 @@ func _show_loading(hold: float) -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--shot") or arg == "--demo" or arg == "--audit":
 			return   # screenshots and headless tests see the game itself
+	if loading_tween and loading_tween.is_valid():
+		loading_tween.kill()   # a replaced layer must not keep a fade callback
 	if is_instance_valid(loading_layer):   # the last one frees itself after its fade
 		loading_layer.queue_free()
 	loading_layer = CanvasLayer.new()
@@ -2121,6 +2185,7 @@ func _show_loading(hold: float) -> void:
 	bg.add_child(art)
 	var label := Label.new()
 	label.text = "LOADING..."
+	loading_label = label
 	label.add_theme_font_size_override("font_size", 26)
 	label.add_theme_color_override("font_color", Color(1.0, 0.92, 0.65))
 	label.add_theme_color_override("font_outline_color", Color(0.12, 0.08, 0.04))
@@ -2785,7 +2850,7 @@ func net_button(what: String) -> void:
 		"join":
 			if net.is_client():
 				net.leave()
-				get_tree().reload_current_scene()   # back to our own world
+				_reload_scene()   # back to our own world
 			else:
 				var parts := net_ip.strip_edges().split(":")
 				net.join(parts[0], int(parts[1]) if parts.size() > 1 else net.DEFAULT_PORT)
@@ -3289,6 +3354,10 @@ func menu_tabs() -> Array:
 
 func menu_tick() -> void:
 	## Called every frame by the HUD, which keeps running while paused.
+	if _stream_world:
+		click_latched = false
+		click_was = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		return
 	quit_armed = maxf(quit_armed - get_process_delta_time(), 0.0) if menu_open else 0.0
 	if game_over:
 		return
@@ -3578,6 +3647,8 @@ func _input(event: InputEvent) -> void:
 
 func menu_input(event: InputEvent) -> void:
 	## Raw key events from the HUD: typing in chat and rebinding controls.
+	if _stream_world:
+		return
 	# Remember whether player 1 is on the keyboard or a pad, so keycaps and
 	# hints show the right names.
 	if main_menu and not playing and main_menu.pad_event(event):
@@ -4046,7 +4117,7 @@ func select_map(index: int) -> void:
 		_save_settings()
 		if main_menu:
 			reopen_screen = main_menu.screen
-		get_tree().reload_current_scene()
+		_reload_scene()
 		return
 	_apply_map_variant()
 
@@ -4554,11 +4625,19 @@ func _dirt() -> StandardMaterial3D:
 	return _pbr("dirt", 0.17)
 
 
+# Retain PackedScenes during one build, so repeated props do not reopen the
+# scene file. Keep this per world: Season.grade mutates shared mesh materials.
+var prop_scenes := {}
+
+
 func _prop(name: String, pos: Vector3, scale: float = 1.0, rot_y: float = 0.0) -> Node3D:
 	## Places a KayKit model (CC0). `name` is "hex/tree_single_A",
 	## "dungeon/banner_green" or "gear/staff" under assets/props.
 	var ext := ".glb" if name.begins_with("dungeon/") else ".gltf"
-	var scene: PackedScene = load("res://assets/props/%s%s" % [name, ext])
+	var path := "res://assets/props/%s%s" % [name, ext]
+	if not prop_scenes.has(path):
+		prop_scenes[path] = load(path)
+	var scene: PackedScene = prop_scenes[path]
 	var inst: Node3D = scene.instantiate()
 	inst.position = pos
 	inst.scale = Vector3.ONE * scale
@@ -8100,17 +8179,28 @@ func _add_blocker(pos: Vector3, radius: float, height: float = 3.0) -> void:
 func _build_outskirts() -> void:
 	for sx in [-1.0, 1.0]:
 		var team := 0 if sx < 0.0 else 1
-		_build_hamlet(team, sx)
+		await _world_build_frame()
+		await _build_hamlet(team, sx)
+		await _world_build_frame()
 		_build_farm(team, sx)
+		await _world_build_frame()
 		_build_works(team, sx)
+	await _world_build_frame()
 	_add_road_lanterns()
+	await _world_build_frame()
 	_add_road_dressing()
+	await _world_build_frame()
 	_add_river_plants()
+	await _world_build_frame()
 	_add_barrow(Vector3(-30, 0, 22))
 	# (No watermills: Faisal 08:20, "random useless building".)
+	await _world_build_frame()
 	_add_field_rocks()
+	await _world_build_frame()
 	_add_clouds()
+	await _world_build_frame()
 	_add_ground_patches()
+	await _world_build_frame()
 	_add_ambient_life()
 
 
@@ -8154,40 +8244,59 @@ func _build_hamlet(team: int, sx: float) -> void:
 		back = [["treehouse", -5.0, 1.1], ["well", 0.5, 3.4], ["archeryrange", 6.5, 3.6]]
 	for b in row:
 		if b[0] == "treehouse":
+			await _world_build_frame()
 			_add_treehouse(Vector3(ox + sx * b[1], 0, oz - 0.5), int(b[1] * 7.0) + 11, b[2])
 		else:
+			await _world_build_frame()
 			_add_house(b[0], team, Vector3(ox + sx * b[1], 0, oz), b[2], face)
 	for b in back:
 		if b[0] == "treehouse":
+			await _world_build_frame()
 			_add_treehouse(Vector3(ox + sx * b[1], 0, oz - 6.5), int(b[1] * 5.0) + 23, b[2])
 		else:
+			await _world_build_frame()
 			_add_house(b[0], team, Vector3(ox + sx * b[1], 0, oz - 5.5), b[2], face, b[0] == "blacksmith")
 	if team == 0:
 		for k in 4:
+			await _world_build_frame()
 			_add_mushrooms(Vector3(ox + sx * (-12.0 + k * 7.0), 0, oz + 1.6 + (k % 2) * 0.8), 500 + k)
+		await _world_build_frame()
 		_add_fireflies(Vector3(ox, 0, oz - 3.0))
 	# Chickens scratching about the lane.
 	for k in 4:
+		await _world_build_frame()
 		_add_critter("chicken", Vector3(ox - 7.0 + k * 4.0, 0, oz + 2.4), Rect2(ox - 9.0, oz + 1.9, 18.0, 1.1), 700 + k)
 	# Market clutter, a cart, fences along the lane, lanterns at the corners.
+	await _world_build_frame()
 	_prop("hex/crate_A_big", Vector3(ox + sx * -7.2, 0, oz - 2.9), 4.0, 0.3)
+	await _world_build_frame()
 	_prop("hex/sack", Vector3(ox + sx * -6.3, 0, oz - 2.7), 4.0, 1.0)
+	await _world_build_frame()
 	_prop("hex/barrel", Vector3(ox + sx * -4.0, 0, oz - 3.0), 4.0)
+	await _world_build_frame()
 	_prop("hex/wheelbarrow", Vector3(ox + sx * 1.2, 0, oz - 2.6), 4.0, 0.6)
+	await _world_build_frame()
 	_prop("hex/crate_open", Vector3(ox + sx * 12.3, 0, oz - 1.6), 4.0, 0.2)
+	await _world_build_frame()
 	_prop("hex/resource_lumber" if team == 0 else "hex/resource_stone", Vector3(ox + sx * 12.6, 0, oz - 3.8), 4.0, 0.0)
 	for x in [ox - 13.2, ox + 13.2]:
 		if team == 0:
+			await _world_build_frame()
 			_add_lantern(Vector3(x, 0, oz + 3.0), 2.4)
 		else:
+			await _world_build_frame()
 			_prop("halloween/post_lantern", Vector3(x, 0, oz + 3.0), 0.75)
+			await _world_build_frame()
 			_add_light(Vector3(x, 2.4, oz + 3.0), Color(1.0, 0.75, 0.4), 1.1, 7.0)
 	# Trees hugging the village.
 	for k in 6:
 		var tx: float = ox - 14.0 + k * 5.8
+		await _world_build_frame()
 		_prop("hex/trees_%s_medium" % ["A", "B"][k % 2], Vector3(tx + (k % 2) * 1.5, 0, oz - 9.5), 4.2, float(k))
 	for x in [ox - 15.5, ox + 15.5]:
+		await _world_build_frame()
 		_prop("hex/tree_single_A", Vector3(x, 0, oz - 2.0), 4.6, x)
+		await _world_build_frame()
 		_prop("hex/tree_single_B", Vector3(x, 0, oz - 6.5), 4.2, x * 0.7)
 
 
@@ -9190,19 +9299,25 @@ func _build_castle(team: int) -> void:
 	# (Faisal 06:00 2026-10-09, "the front textures are not even uniform"):
 	# the Elves' cream pavers, the same slabs cool-tinted for the Humans.
 	# (Its top at 0.024 clears the road cores that run in under the gate.)
+	await _world_build_frame()
 	_add_block(Vector3(cx, 0.014, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _pavers() if mossy else _pbr("pavers", 0.22, Color(0.9, 0.9, 0.9)))
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
 	for zs in [-1.0, 1.0]:
+		await _world_build_frame()
 		_add_wall(Vector3(fx, WALL_H / 2.0, zs * (dh + 2.2 + seg / 2.0)), Vector3(1, WALL_H, seg), false)
 		# The Humans' camera-facing side wall is a low parapet, so the yard
 		# reads as an open courtyard from the game camera (Faisal's 03:34 brief).
 		var wh: float = 1.5 if (team == 1 and zs > 0.0) else WALL_H
+		await _world_build_frame()
 		_add_wall(Vector3(cx, wh / 2.0, zs * hz), Vector3(CASTLE_DEPTH * 2 + 1, wh, 1))
 		# The gatehouse: a tower either side of the door.
+		await _world_build_frame()
 		_add_tower(Vector3(fx, 0, zs * (dh + 1.1)), team, side, 2.2, 5.0, false)
+		await _world_build_frame()
 		_add_pennant(team, Vector3(fx - side * 1.12, 4.4, zs * (dh + 1.1)), Vector3(-side, 0, 0), 1.3, 2.8, zs > 0.0)
+		await _world_build_frame()
 		_add_torch(Vector3(fx - side * 2.0, 0, zs * (dh + 0.6)))
 		if team == 0:   # (the Humans' gate keeps its lions and tower pennants only: Faisal 06:00, "cluttered")
 			# Against the wall beside the gatehouse, off the road and the
@@ -9211,24 +9326,33 @@ func _build_castle(team: int) -> void:
 			# turned to face the road (Faisal 11:29: "facing towards the road
 			# and not clipping into the building").
 			var bp := Vector3(fx - side * 3.4, 0, zs * (dh + 3.6))
+			await _world_build_frame()
 			_add_banner_pole(team, bp, PI if zs > 0.0 else 0.0)
 		# Corner towers.
+		await _world_build_frame()
 		_add_tower(Vector3(fx, 0, zs * hz), team, side)
+		await _world_build_frame()
 		_add_tower(Vector3(bx, 0, zs * hz), team, side)
 	# The back wall has an opening at the middle for the stairs up from the cellar.
 	var seg_b := hz - 1.8
 	for zs in [-1.0, 1.0]:
+		await _world_build_frame()
 		_add_wall(Vector3(bx, WALL_H / 2.0, zs * (1.8 + seg_b / 2.0)), Vector3(1, WALL_H, seg_b))
+	await _world_build_frame()
 	_add_block(Vector3(bx, WALL_H - 0.35, 0), Vector3(1, 0.7, 3.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# The rampart: a timber deck along the front wall, a stone parapet with
 	# crenellations on the outside and a railing on the yard side.
+	await _world_build_frame()
 	_add_block(Vector3(fx, WALK_Y - 0.3, 0), Vector3(2.4, 0.6, hz * 2 - 2.0), Color.WHITE, true, _timber())
+	await _world_build_frame()
 	_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.25, 0), Vector3(0.3, 0.5, hz * 2 - 2.0), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	for k in 9:
 		var pz := -hz + 1.0 + k * (hz * 2 - 2.0) / 8.0
 		if absf(pz) > dh + 2.4 and absf(pz) < hz - 1.4:
+			await _world_build_frame()
 			_add_block(Vector3(fx - side * 1.05, WALK_Y + 0.75, pz), Vector3(0.34, 0.5, 0.9), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# The door's lintel: a timber beam and the team crest over the gate.
+	await _world_build_frame()
 	_add_block(Vector3(fx, WALK_Y - 0.7, 0), Vector3(1.4, 0.3, dh * 2 + 0.6), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
 	# (No railing along the rampart's inner edge: nothing fence-like inside the walls.)
 
@@ -9238,6 +9362,7 @@ func _build_castle(team: int) -> void:
 		var z: float = zs * (hz - 2.5)
 		var bottom := Vector3(fx + side * (KEEP_SETBACK - 1.5), 0.0, z)
 		var top := Vector3(fx + side * 1.2, WALK_Y, z)
+		await _world_build_frame()
 		_add_stairs(bottom + Vector3(0, -0.3, 0), top, 2.2, _timber(), 0.0)
 		ramps[team].append({"bottom": bottom, "top": top})
 	# Archer posts on the rampart, either side of the gatehouse.
@@ -9254,6 +9379,7 @@ func _build_castle(team: int) -> void:
 	var khz := KEEP_HALF_Z
 	var kdepth := absf(bx - kx)
 	var kcx := (kx + bx) / 2.0
+	await _world_build_frame()
 	_add_block(Vector3(kcx, 0.03, 0), Vector3(kdepth, 0.04, khz * 2), Color.WHITE, false, _pavers() if mossy else _pbr("flagstone_grey", 0.7, Color(0.9, 0.9, 0.94)))
 	# Side walls, each with a side door near the back (a second way out of the keep).
 	# The Elves' keep is an open court (Faisal's 2026-10-09 brief): its side
@@ -9263,49 +9389,67 @@ func _build_castle(team: int) -> void:
 	var kh: float = 1.4 if team == 0 else KEEP_H
 	for zs in [-1.0, 1.0]:
 		var khs: float = 1.3 if (team == 1 and zs > 0.0) else kh   # the Humans' camera-facing wall is a low one
+		await _world_build_frame()
 		_add_wall(Vector3(kx + side * (kdepth - 4.5) / 2.0, khs / 2.0, zs * khz), Vector3(kdepth - 4.5, khs, 0.8))
+		await _world_build_frame()
 		_add_wall(Vector3(bx - side * 0.75, khs / 2.0, zs * khz), Vector3(1.5, khs, 0.8), false)
 		if khs == kh:
 			_add_block(Vector3(bx - side * 3.0, kh - 0.3, zs * khz), Vector3(3.0, 0.6, 0.9), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))  # lintel
 	var kseg := khz - KEEP_DOOR_HALF
 	var kzc := KEEP_DOOR_HALF + kseg / 2.0
 	for zs in [-1.0, 1.0]:
+		await _world_build_frame()
 		_add_wall(Vector3(kx, KEEP_H / 2.0, zs * kzc), Vector3(0.8, KEEP_H, kseg))
 		# Corner pillars of the keep.
 		# (1.42 wide: a hair proud of the walls they cap, whose faces they shared.)
+		await _world_build_frame()
 		_add_block(Vector3(kx, KEEP_H / 2.0 + 0.4, zs * khz), Vector3(1.42, KEEP_H + 0.8, 1.42), Color.WHITE, true, _ashlar())
+		await _world_build_frame()
 		_add_block(Vector3(bx - side * 0.2, kh / 2.0 + 0.4, zs * khz), Vector3(1.42, kh + 0.8, 1.42), Color.WHITE, true, _ashlar())
 		# Banners either side of the archway and torches on the arch pillars.
+		await _world_build_frame()
 		_add_banner(team, Vector3(kx - side * 0.4, -0.2, zs * (KEEP_DOOR_HALF + 1.6)), Vector3(-side, 0, 0), 0.75, true)
+		await _world_build_frame()
 		_add_wall_torch(Vector3(kx - side * 0.4, 1.5, zs * (KEEP_DOOR_HALF + 0.3)), Vector3(-side, 0, 0))
 	# Arch over the doorway, well above head height: stone, so from above the
 	# keep's front reads as one wall line, with a timber beam underneath.
+	await _world_build_frame()
 	_add_block(Vector3(kx, KEEP_H - 0.05, 0), Vector3(0.8, 0.5, KEEP_DOOR_HALF * 2 + 0.8), Color.WHITE, false, _ashlar())
+	await _world_build_frame()
 	_add_block(Vector3(kx, KEEP_H - 0.42, 0), Vector3(0.9, 0.24, KEEP_DOOR_HALF * 2 + 0.8), Color.WHITE, false, _timber(Color(0.7, 0.6, 0.5)))
+	await _world_build_frame()
 	_add_block(Vector3(kx, KEEP_H + 0.3, 0), Vector3(1.0, 0.2, KEEP_DOOR_HALF * 2 + 1.0), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
 	for k in 7:
+		await _world_build_frame()
 		_add_block(Vector3(kx, KEEP_H + 0.7, -KEEP_DOOR_HALF + 0.75 + k * 1.25), Vector3(0.8, 0.6, 0.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	# A rug up the yard's lane to the archway, and one from the archway to the throne.
 	# One runner from the gate to the archway on both sides: the route reads
 	# at a glance and nothing else lies on the yard (the Elves had a cobble
 	# lane, lawns and beds here until Faisal's 06:00 2026-10-09 "cluttered").
+	await _world_build_frame()
 	_add_rug(Vector3((in_x + kx) / 2.0, 0.025, 0), Vector2(absf(kx - in_x) - 0.5, 3.4), color)
+	await _world_build_frame()
 	_add_emblem_decal(Vector3((in_x + kx) / 2.0, 0.072, 0), 2.2, team)
 	if team != 0:   # (the Elves' stairs up to the crown room take its place)
 		# (Laid 1 cm above the keep floor: at 0.05 its top was the floor's top.)
+		await _world_build_frame()
 		_add_rug(Vector3(kx + side * 3.0, 0.06, 0), Vector2(5.0, 2.8), color)
+		await _world_build_frame()
 		_add_emblem_decal(Vector3(kx + side * 1.6, 0.107, 0), 1.7, team)
 
 	# The yard stays open: lanterns (Elves) or nothing but the gatehouse
 	# banners (Humans). Faisal: the base was too busy.
 	if team == 0:
+		await _world_build_frame()
 		_dress_elf_yard(team, fx, kx, side, hz)
 	# Banners on the yard side of the gatehouse towers.
 	for zs in [-1.0, 1.0]:
+		await _world_build_frame()
 		_add_banner(team, Vector3(fx + side * 1.1, 0.2, zs * (dh + 1.1)), Vector3(side, 0, 0), 0.6)
 	# Inside the keep: columns along the side walls, torches, stacked stores at the back.
 	for zs in [-1.0, 1.0]:
 		if team == 0 or zs < 0.0:
+			await _world_build_frame()
 			_add_wall_torch(Vector3(kx + side * 1.2, kh - 0.5 if team == 0 else 1.6, zs * (khz - 0.4)), Vector3(0, 0, -zs))
 	# Faction flavour: the Humans post iron braziers (the Elves' walls stay
 	# clean: no bushes against them since 06:00 2026-10-09).
@@ -9314,6 +9458,7 @@ func _build_castle(team: int) -> void:
 	else:
 		# (The two standing torches by the archway went: it has its wall
 		# torches and banners already.)
+		await _world_build_frame()
 		_dress_human_castle(team, fx, kx, side, dh)
 
 	# The throne room: a walled hall at the heart of the keep with the
@@ -9321,6 +9466,7 @@ func _build_castle(team: int) -> void:
 	# the enemy. Carry the enemy monarch here to score.
 	var throne := Vector3(kx + side * 6.0, ROOM_RAISE if team == 0 else 0.0, 0)
 	thrones.append(throne)
+	await _world_build_frame()
 	_build_throne_room(team, throne, side, color)
 	var vault = Vault.new()
 	add_child(vault)
@@ -9333,10 +9479,13 @@ func _build_castle(team: int) -> void:
 		cover_points.append(throne + Vector3(-side * 4.0, 0, z))
 	for z in [-(dh + 2.6), dh + 2.6]:
 		cover_points.append(Vector3(fx + side * 1.6, 0, z))
+	await _world_build_frame()
 	_furnish_keep(team, kx, bx, side, throne)
+	await _world_build_frame()
 	_polish_keep(team, kx, side, throne)
 
-	_build_cellar(team, bx, side)
+	await _world_build_frame()
+	await _build_cellar(team, bx, side)
 
 	var ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()
@@ -9714,14 +9863,19 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	var wall_h := top - CELLAR_Y
 	var wall_y := CELLAR_Y + wall_h / 2.0
 	if open:
+		await _world_build_frame()
 		_add_block(Vector3(cx, fy - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), Color.WHITE, true, _pavers())
+		await _world_build_frame()
 		_add_elf_courtyard_fence(bx, side, hz)
 	else:
+		await _world_build_frame()
 		_add_block(Vector3(cx, CELLAR_Y - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), Color.WHITE, true, _flagstone(Color(0.9, 0.86, 0.8)))
 		# The Elves' courtyard is walled in trimmed hedge (the Wildbloom reference).
 		hedge_tops = team == 0
+		await _world_build_frame()
 		_add_wall(Vector3(bx + side * (CELLAR_DEPTH + 0.5), wall_y, 0), Vector3(1, wall_h, hz * 2 + 1))
 		for zs in [-1.0, 1.0]:
+			await _world_build_frame()
 			_add_wall(Vector3(cx, wall_y, zs * (hz + 0.5)), Vector3(CELLAR_DEPTH + 2.0, wall_h, 1))
 		hedge_tops = false
 	# A cobbled lane from the spawn circle to the foot of the stairs (Elves);
@@ -9730,23 +9884,29 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	if open:
 		pass
 	elif team == 0:
+		await _world_build_frame()
 		_add_block(Vector3(bx + side * 10.4, CELLAR_Y + 0.012, 0), Vector3(3.8, 0.024, 3.2), Color.WHITE, false, _pbr("cobble", 0.55, Color(0.9, 0.86, 0.78)))
 	else:
+		await _world_build_frame()
 		_add_rug(Vector3(bx + side * 10.6, CELLAR_Y + 0.012, 0), Vector2(4.2, 2.6), color)
+		await _world_build_frame()
 		_add_emblem_decal(Vector3(bx + side * 10.6, CELLAR_Y + 0.06, 0), 1.7, team)
 	for zs in [-1.0, 1.0]:
 		if open:
 			break   # no walls to hang anything on
 		# Under the castle's back wall: solid below ground except at the stairs.
 		var seg := hz + 0.5 - 1.8
+		await _world_build_frame()
 		_add_block(Vector3(bx, CELLAR_Y / 2.0, zs * (1.8 + seg / 2.0)), Vector3(1, -CELLAR_Y, seg), Color.WHITE, true, _ashlar())
 		# Torches and banners along the south wall; the north wall holds the
 		# class alcoves.
 		if zs > 0.0:
 			for k in range(1, 5):   # (k = 0 sat right over the shelves)
 				var tx := bx + side * (1.5 + k * 3.8)
+				await _world_build_frame()
 				_add_wall_torch(Vector3(tx, CELLAR_Y + 1.6, zs * (hz - 0.05)), Vector3(0, 0, -zs))
 			for px in [7.2, 11.0, 14.8]:   # between the torches (they burned through the cloth at 5.3, 9.0, 12.9)
+				await _world_build_frame()
 				_add_pennant(team, Vector3(bx + side * px, CELLAR_Y + 3.0, zs * (hz - 0.05)), Vector3(0, 0, -zs), 1.1, 2.0, px == 11.0)
 			# Flower beds and stores along the south wall (the courtyard reference);
 			# the Humans drill here instead: an armoury rack, targets and dummies.
@@ -9756,11 +9916,15 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 				# (World & Maps' finding), so the beds that hugged it at hz-1.4
 				# were never seen in play; the lawn and table further along
 				# already dress the visible strip.
+				await _world_build_frame()
 				_add_flower_bed(Vector3(bx + side * 3.4, CELLAR_Y, zs * (hz - 2.9)), Vector2(2.0, 1.1), 303)
 			# (The Humans' drill corner, rack and dummy, went (Faisal 2026-10-09 08:14, circled as clipping or out of place).)
 			if team == 0:
+				await _world_build_frame()
 				_prop("dungeon/crates_stacked", Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 0.3 * side)
+				await _world_build_frame()
 				_add_blocker(Vector3(bx + side * 17.0, CELLAR_Y, zs * (hz - 1.8)), 0.7, 1.5)
+				await _world_build_frame()
 				_prop("dungeon/barrel_large", Vector3(bx + side * 17.2, CELLAR_Y, zs * (hz - 4.6)), 0.8)
 	# Stone fire pillars round the spawn circle (both factions: the reference's
 	# torches on stone pillars) and the faction's banners on poles behind it.
@@ -9768,9 +9932,11 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	if team == 0:
 		for zs in [-1.0, 1.0]:
 			for pxo in [12.0, 17.0]:
+				await _world_build_frame()
 				_add_stone_brazier(Vector3(bx + side * pxo, fy, zs * 3.6))
 			# Open courtyard: back to the west fence, facing across the yard to
 			# the castle wall (Faisal 08:35 2026-10-09).
+			await _world_build_frame()
 			_add_banner_pole(team, Vector3(bx + side * 17.2, fy, zs * 6.2), atan2(-side, 0.0) if open else 0.0)
 	# The stairs: a straight flight up the middle into the keep. The open
 	# courtyard is level with the keep, so a threshold strip marks the way in.
@@ -9778,9 +9944,12 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	if open:
 		# The ground has a gap under the old stairs' top (x 69..70.5 on the
 		# lane): a solid paved sill fills it, with the threshold strip on top.
+		await _world_build_frame()
 		_add_block(Vector3(bx - side * 0.9, -0.044, 0), Vector3(3.4, 0.1, 3.8), Color.WHITE, true, _pavers())
+		await _world_build_frame()
 		_add_block(Vector3(bx + side * 1.0, 0.02, 0), Vector3(1.8, 0.04, 3.6), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
 	else:
+		await _world_build_frame()
 		_add_stairs(st[0], st[1], 3.2, _ashlar(Color(0.9, 0.86, 0.78)), 0.0)
 		# (The low walls along the stairs went (Faisal 2026-10-09 08:14, circled as clipping or out of place): from the camera they
 		# read as loose slabs cutting through the steps.)
@@ -9810,7 +9979,9 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		field.material_override = fm
 		field.position = Vector3(bx, 1.45, 0)
 		add_child(field)
+		await _world_build_frame()
 		_add_crystal(Vector3(bx - side * 0.2, 0, -2.3), 0.7)
+		await _world_build_frame()
 		_add_crystal(Vector3(bx - side * 0.2, 0, 2.3), 0.7)
 	else:
 		# The Humans' ward: a sheet of blue light (no portcullis, nothing
@@ -9831,9 +10002,11 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# the back wall either side of the opening, clear of the diagonal from
 		# the stairs' top to the galleries' back corners and of the wall art.
 		for zs in [-1.0, 1.0]:
+			await _world_build_frame()
 			_add_stone_lion(Vector3(bx - side * 0.7, 0, zs * 2.4), Vector3(-side, 0, 0), 0.8)
 	# The spawn circle at the far end: a glowing team-coloured ring on the floor.
 	var spawn := Vector3(bx + side * 14.5, fy, 0)
+	await _world_build_frame()
 	_add_runes(spawn, 2.1, color)
 	var ring := MeshInstance3D.new()
 	var rm2 := TorusMesh.new()
@@ -9849,10 +10022,13 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring.material_override = ring_mat
 	add_child(ring)
+	await _world_build_frame()
 	_furnish_cellar(team, bx, side)
 	if open:
+		await _world_build_frame()
 		_dress_elf_open_courtyard(team, bx, side)
 	elif team == 0:
+		await _world_build_frame()
 		_dress_elf_courtyard(team, bx, side)
 	# The class room: six alcoves in a row along the north wall, facing the
 	# camera, each with its class's name on a sign, its hat on a pedestal and
@@ -9869,12 +10045,16 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# stuff", Faisal 09:06 2026-10-09. Each sign stands on its own posts.)
 		for k in order.size():
 			var p := Vector3(xs[k], fy, -(hz - 2.0))
+			await _world_build_frame()
 			_add_class_alcove(team, order[k], p)
+			await _world_build_frame()
 			_add_station(team, order[k], p)
 	else:
 		for k in order.size():
 			var p := Vector3(bx + side * (2.0 + k * 2.9), CELLAR_Y, -(hz - 1.6))
+			await _world_build_frame()
 			_add_class_alcove(team, order[k], p)
+			await _world_build_frame()
 			_add_station(team, order[k], p)
 	# The Upgrade Station (perk menu) and the Wildwood Guide by the back wall;
 	# in the open courtyard the station and its workshop take the south-east
@@ -9889,17 +10069,24 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# spawning in").
 		var up := Vector3(bx + side * 2.8, fy, -3.4)
 		var to_spawn := Vector3(bx + side * 14.5, fy, 0) - up
+		await _world_build_frame()
 		_add_upgrade_pad(team, up, atan2(to_spawn.x, to_spawn.z), true)
 	elif team == 0:
+		await _world_build_frame()
 		_add_upgrade_pad(team, Vector3(bx + side * 1.1, CELLAR_Y, -5.0))
 	if team == 0 and not open:
 		# The workshop corner round the Upgrade Station: shelves of supplies
 		# against the west wall, crates and a barrel (the brief's grouped
 		# workshop props; off the stairs lane and the class row).
+		await _world_build_frame()
 		_prop("dungeon/shelves", Vector3(bx + side * 0.9, CELLAR_Y, -7.7), 0.7, PI / 2.0 if side < 0.0 else -PI / 2.0)
+		await _world_build_frame()
 		_prop("dungeon/bottle_A_labeled_green", Vector3(bx + side * 0.9, CELLAR_Y + 0.95, -7.5), 0.5)
+		await _world_build_frame()
 		_prop("dungeon/bottle_B_green", Vector3(bx + side * 0.9, CELLAR_Y + 0.95, -7.95), 0.5)
+		await _world_build_frame()
 		_prop("dungeon/crates_stacked", Vector3(bx + side * 1.0, CELLAR_Y, -2.9), 0.6, 0.2)
+		await _world_build_frame()
 		_prop("dungeon/barrel_large", Vector3(bx + side * 2.7, CELLAR_Y, -7.6), 0.7)
 	elif team != 0:
 		# The Humans' station stands like the Elves' did: its board backs onto
@@ -9912,6 +10099,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		# the orange circle with it").
 		var hup := Vector3(bx + side * 3.2, CELLAR_Y, -4.6)
 		var h_to_spawn := Vector3(bx + side * 14.5, CELLAR_Y, 0) - hup
+		await _world_build_frame()
 		_add_upgrade_pad(team, hup, atan2(h_to_spawn.x, h_to_spawn.z), true)
 	var g := Guide.new()
 	add_child(g)
@@ -10412,7 +10600,8 @@ func _build_world() -> void:
 	add_child(fill)
 
 	if Stats.MAPS[map_variant][1] == "volcano":
-		_build_volcano()
+		await _world_build_frame()
+		await _build_volcano()
 		return
 	# Ground, in pieces so each castle's spawn cellar can be sunk behind it.
 	var gx := map_half.x + 40.0
@@ -10422,13 +10611,17 @@ func _build_world() -> void:
 	var hz := CELLAR_HALF_Z + 0.5
 	var grass := Color(0.42, 0.62, 0.3)
 	var lane := CASTLE_X + CASTLE_DEPTH - 2.0  # the stairs' top reaches in this far
+	await _world_build_frame()
 	_add_block(Vector3(0, -0.5, 0), Vector3(lane * 2, 1, gz * 2), grass, true, _grass())
 	for sx in [-1.0, 1.0]:
 		for zs in [-1.0, 1.0]:
+			await _world_build_frame()
 			_add_block(Vector3(sx * (lane + h0) / 2.0, -0.5, zs * (1.9 + gz) / 2.0), Vector3(h0 - lane, 1, gz - 1.9), grass, true, _grass())
 	for sx in [-1.0, 1.0]:
+		await _world_build_frame()
 		_add_block(Vector3(sx * (h1 + gx) / 2.0, -0.5, 0), Vector3(gx - h1, 1, gz * 2), grass, true, _grass())
 		for zs in [-1.0, 1.0]:
+			await _world_build_frame()
 			_add_block(Vector3(sx * (h0 + h1) / 2.0, -0.5, zs * (hz + gz) / 2.0), Vector3(h1 - h0, 1, gz - hz), grass, true, _grass())
 	# A dirt road from door to door, with a worn patch at each door and in the middle.
 	# The road: rutted dirt from bridge to door, cobbled aprons at each door,
@@ -10437,7 +10630,9 @@ func _build_world() -> void:
 	var road := _stones()
 	# The main road: a cobbled path door to door through the shrine, with
 	# paved aprons at the doors.
+	await _world_build_frame()
 	_add_path(Vector3(-fxr, 0, 0), Vector3(-ISLAND_R - 2.0, 0, 0), 5.4, road, 0.0)
+	await _world_build_frame()
 	_add_path(Vector3(ISLAND_R + 2.0, 0, 0), Vector3(fxr, 0, 0), 5.4, road, 0.0)
 	for sx in [-1.0, 1.0]:
 		# (The flagstone apron over the cobbles at each door went: one paving
@@ -10450,21 +10645,32 @@ func _build_world() -> void:
 		var dirt := _stones()
 		var nb: float = BRIDGES[0]
 		var sb: float = BRIDGES[2]
+		await _world_build_frame()
 		_add_path(Vector3(sx * (fxr - 4.0), 0, -3.0), Vector3(sx * 30.0, 0, nb - 3.0), 3.4, dirt, 0.0)
+		await _world_build_frame()
 		_add_path(Vector3(sx * 30.0, 0, nb - 3.0), Vector3(sx * (RIVER_HALF + 1.5), 0, nb), 3.4, dirt, 0.0)
+		await _world_build_frame()
 		_add_path(Vector3(sx * (fxr - 4.0), 0, 3.0), Vector3(sx * 26.0, 0, sb + 2.0), 3.4, dirt, 0.0)
+		await _world_build_frame()
 		_add_path(Vector3(sx * 26.0, 0, sb + 2.0), Vector3(sx * (RIVER_HALF + 1.5), 0, sb), 3.4, dirt, 0.0)
 		# Road dressing: milestones on the verge, signposts at the path
 		# bends and an abandoned cart by the roadside.
 		# (Two milestones a side; the roadside caravan pile was clutter and went.)
 		# (The milestones gave way to the stone braziers in _add_road_dressing.)
+		await _world_build_frame()
 		_add_signpost(Vector3(sx * 31.5, 0, nb - 5.2), -sx)
+		await _world_build_frame()
 		_add_signpost(Vector3(sx * 27.5, 0, sb + 4.3), sx)
+	await _world_build_frame()
 	_add_river()
 
-	_build_castle(0)
-	_build_castle(1)
+	await _world_build_frame()
+	await _build_castle(0)
+	await _world_build_frame()
+	await _build_castle(1)
+	await _world_build_frame()
 	_add_cover()
+	await _world_build_frame()
 	_add_heal_orbs()
 
 	# Mirrored groves in the contested middle, leaving the roads clear, and
@@ -10474,23 +10680,34 @@ func _build_world() -> void:
 		Vector3(4, 0, -32), Vector3(10, 0, -34), Vector3(18, 0, -31), Vector3(24, 0, -34), Vector3(32, 0, -30), Vector3(40, 0, -33), Vector3(46, 0, -28),
 		Vector3(3, 0, -16), Vector3(16, 0, -11), Vector3(36, 0, -14), Vector3(8, 0, 32), Vector3(30, 0, 33), Vector3(44, 0, 30), Vector3(34, 0, 24)]
 	for p in grove:
+		await _world_build_frame()
 		_add_tree(p)
+		await _world_build_frame()
 		_add_tree(-p)
+		await _world_build_frame()
 		_add_bush(p + Vector3(1.8, 0, 0.6), int(p.x * 3 + p.z))
+		await _world_build_frame()
 		_add_bush(-p + Vector3(-1.8, 0, -0.6), int(p.x * 5 + p.z))
 	for p in [Vector3(12, 0, 14), Vector3(-12, 0, -14), Vector3(26, 0, 14), Vector3(-26, 0, -14), Vector3(58, 0, 22), Vector3(-58, 0, -22), Vector3(9, 0, -25), Vector3(-9, 0, 25)]:
+		await _world_build_frame()
 		_add_fireflies(p)
 	# The Wildwood half glows: more fireflies and mushroom rings on the elven side.
 	for p in [Vector3(-50, 0, 12), Vector3(-50, 0, -12), Vector3(-38, 0, 5), Vector3(-30, 0, -20), Vector3(-42, 0, 26), Vector3(-20, 0, 18)]:
+		await _world_build_frame()
 		_add_fireflies(p)
 	for i in 8:
 		var mp := Vector3(-16.0 - i * 6.0, 0, (7.5 + float(i % 3) * 5.0) * (1.0 if i % 2 == 0 else -1.0))
+		await _world_build_frame()
 		_add_mushrooms(mp, 100 + i)
 	# Woods on the castle flanks.
 	for p in [Vector3(52, 0, 19), Vector3(60, 0, 22), Vector3(68, 0, 18), Vector3(46, 0, 24), Vector3(56, 0, 30)]:
+		await _world_build_frame()
 		_add_tree(p, true)
+		await _world_build_frame()
 		_add_tree(-p, true)
+		await _world_build_frame()
 		_add_tree(Vector3(p.x, 0, -p.z), true)
+		await _world_build_frame()
 		_add_tree(Vector3(-p.x, 0, p.z), true)
 	# A staggered inner tree line along the north and south edges thickens
 	# the forest without touching the lanes (clear of the river and the ruins).
@@ -10505,42 +10722,53 @@ func _build_world() -> void:
 				if Vector2(t.x - p.x, t.z - p.z).length() < 5.0:
 					crowded = true
 			if not crowded:
+				await _world_build_frame()
 				_add_tree(p, i % 4 == 0)
+	await _world_build_frame()
 	_add_ground_detail()
 	# A tree line and hills beyond the playable edge, so the world has a
 	# horizon; the hamlets and farms sit in gaps in it.
 	for i in 22:
 		var x := -84.0 + i * 8.0
 		if absf(x) < 42.0:
+			await _world_build_frame()
 			_prop("hex/trees_%s_medium" % ["A", "B"][i % 2], Vector3(x, 0, 40.0 + (i % 3) * 1.5), 4.0, float(i))
+			await _world_build_frame()
 			_prop("hex/trees_%s_medium" % ["B", "A"][i % 2], Vector3(x + 3.0, 0, -40.0 - (i % 3) * 1.5), 4.0, float(i))
 	for i in 7:
 		# Hills beyond the far edges, but not behind the farms and villages.
 		var hx := -60.0 + i * 20.0
 		if absf(hx) < 42.0:
+			await _world_build_frame()
 			_prop("hex/hill_single_%s" % ["A", "B", "C"][i % 3], Vector3(hx, -0.2, 60.0), 12.0, float(i))
 		if absf(hx + 10.0) < 42.0:
+			await _world_build_frame()
 			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
-	_build_outskirts()
-	_add_back_forest()
+	await _world_build_frame()
+	await _build_outskirts()
+	await _world_build_frame()
+	await _add_back_forest()
 	if not "--no-economy" in OS.get_cmdline_user_args():   # testing: a match without wood and ore (balance baselines)
 		economy = Economy.new()
 		add_child(economy)
 		economy.build(self)
-	_finish_world()
+	await _world_build_frame()
+	await _finish_world()
 
 
 func _build_volcano() -> void:
 	## Ember Pass: the same two castles on basalt plateaus over a lava sea,
 	## joined by bridges (scripts/volcano.gd builds everything else).
 	vmap = Volcano.new(self)
-	vmap.build()
+	await vmap.build()
 	# Soot-dark castles: the lava's red light turns pale stone, bark and
 	# moss glaring yellow and green.
 	soot = Color(0.52, 0.46, 0.44)
 	tex_swap = {"bark": "elfbark", "flagstone_moss": "flagstone_elf"}
-	_build_castle(0)
-	_build_castle(1)
+	await _world_build_frame()
+	await _build_castle(0)
+	await _world_build_frame()
+	await _build_castle(1)
 	soot = Color.WHITE
 	tex_swap = {}
 	for p in vmap.heal_orb_spots():
@@ -10548,7 +10776,8 @@ func _build_volcano() -> void:
 		add_child(orb)
 		orb.setup(self, p)
 		heal_orbs.append(orb)
-	_finish_world()
+	await _world_build_frame()
+	await _finish_world()
 
 
 func _finish_world() -> void:
@@ -10557,6 +10786,7 @@ func _finish_world() -> void:
 		# finished world, then its own scenery.
 		Season.grade(self, season)
 		Season.decorate(self, season, {"half": RIVER_HALF, "y": 0.03, "bridges": BRIDGES, "island": ISLAND_R})
+	await _world_build_frame()
 	_apply_map_variant()
 	camera = Camera3D.new()
 	camera.rotation_degrees = Vector3(-50, 0, 0)
@@ -10565,15 +10795,19 @@ func _finish_world() -> void:
 	add_child(camera)
 	camera.make_current()
 	Season.attach_weather(camera, air_kind())
+	await _world_build_frame()
 	_add_ink()
 	if OS.has_feature("web"):
+		await _world_build_frame()
 		_trim_web_shadows()
 	elif world_style:
 		# Desktop too, at a smaller size (style pass 2026-10-14): buds,
 		# candles, pebbles and bolts under 0.3 m throw shadows no one sees
 		# from the gameplay camera, and each is a draw in every sun cascade.
+		await _world_build_frame()
 		_trim_web_shadows(0.3)
-	_unfight_coplanar()
+	await _world_build_frame()
+	await _unfight_coplanar()
 
 
 func _unfight_coplanar() -> void:
@@ -10590,7 +10824,7 @@ func _unfight_coplanar() -> void:
 	## the check runs again on the moved world, up to four rounds.
 	var total := 0
 	for _pass in 4:
-		var n := _unfight_round()
+		var n := await _unfight_round()
 		total += n
 		if n == 0:
 			break
@@ -10602,6 +10836,7 @@ func _unfight_round() -> int:
 	var moved := {}
 	var faces := {}
 	for mi in find_children("*", "MeshInstance3D", true, false):
+		await _world_build_frame()
 		if not mi.is_visible_in_tree() or not (mi.mesh is BoxMesh or mi.mesh is QuadMesh or mi.mesh is PlaneMesh or mi.mesh is CylinderMesh):
 			continue
 		var mat: Material = mi.material_override
@@ -10653,11 +10888,34 @@ func _unfight_round() -> int:
 				faces[key] = []
 			faces[key].append([plane, Rect2(Vector2(lo[u], lo[w]), Vector2(hi[u] - lo[u], hi[w] - lo[w])), mi, wn, depth, nl])
 	for key in faces:
+		await _world_build_frame()
 		var list: Array = faces[key]
 		var parts: PackedStringArray = key.split("|")
 		var other: Array = faces.get("%s|%s|%d" % [parts[0], parts[1], int(parts[2]) + 1], [])
+		# Broad phase: only faces sharing a spatial cell can overlap. Keep
+		# the original pair order: earlier repairs affect later moved checks.
+		var combined := list + other
+		var cells := {}
+		for j in combined.size():
+			var rect: Rect2 = combined[j][1]
+			for x in range(floori(rect.position.x / 4.0), floori(rect.end.x / 4.0) + 1):
+				for y in range(floori(rect.position.y / 4.0), floori(rect.end.y / 4.0) + 1):
+					var cell := Vector2i(x, y)
+					if not cells.has(cell):
+						cells[cell] = []
+					cells[cell].append(j)
 		for i in list.size():
-			for j in range(i + 1, list.size() + other.size()):
+			await _world_build_frame()
+			var nearby := {}
+			var rect: Rect2 = list[i][1]
+			for x in range(floori(rect.position.x / 4.0), floori(rect.end.x / 4.0) + 1):
+				for y in range(floori(rect.position.y / 4.0), floori(rect.end.y / 4.0) + 1):
+					for j in cells[Vector2i(x, y)]:
+						if j > i:
+							nearby[j] = true
+			var candidates := nearby.keys()
+			candidates.sort()
+			for j in candidates:
 				var a: Array = list[i]
 				var b: Array = list[j] if j < list.size() else other[j - list.size()]
 				var ka := "%d|%s|%s" % [a[2].get_instance_id(), parts[0], parts[1]]
@@ -10734,6 +10992,7 @@ func _add_back_forest() -> void:
 					continue
 				if ax > 108.0 and az < 34.0:
 					continue   # the mountains
+				await _world_build_frame()
 				_add_tree(p, r.randf() < 0.3)
 			gx += 4.4
 

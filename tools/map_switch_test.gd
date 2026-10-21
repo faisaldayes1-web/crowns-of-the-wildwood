@@ -22,6 +22,7 @@ const SEASON := {0: "", 1: "", 2: "", 3: "winter", 4: "twilight"}
 
 var fails := 0
 var base_children := 0
+var captured := {}
 
 
 func check(ok: bool, what: String) -> void:
@@ -88,6 +89,22 @@ func _play(v: int, couch: bool):
 	if couch:
 		check(g.couch_active and g.panes.size() == 2, "%s: two panes" % what)
 	await _frames(40)
+	# Verify the match reaches the playable view, not merely playing=true
+	# while shader warm-up is still hidden behind the loading artwork.
+	var deadline := Time.get_ticks_msec() + 120000
+	while is_instance_valid(g.loading_layer) and Time.get_ticks_msec() < deadline:
+		await process_frame
+	check(not is_instance_valid(g.loading_layer), "%s: loading completes" % what)
+	var clock_before: float = g.prep_left + g.time_left
+	await create_timer(0.6).timeout
+	check(g.prep_left + g.time_left < clock_before and is_instance_valid(g.player), "%s: playable simulation advances" % what)
+	var evidence := OS.get_environment("CROWNS_MAP_EVIDENCE")
+	if evidence == "": evidence = OS.get_user_data_dir().path_join("map-evidence")
+	if evidence != "" and not couch and not captured.has(v) and DisplayServer.get_name() != "headless":
+		DirAccess.make_dir_recursive_absolute(evidence)
+		await RenderingServer.frame_post_draw
+		root.get_texture().get_image().save_png(evidence.path_join("map-%d-playable.png" % v))
+		captured[v] = true
 	g._finish(0)
 	await _frames(10)
 	check(g.game_over and g.summary != null, "%s: the match ends on the summary" % what)
@@ -118,14 +135,21 @@ func _init() -> void:
 	if g.map_variant != 0:
 		g = await _pick(0)
 	# Every pair, both directions, across the five maps.
-	for v in [1, 2, 0, 2, 1, 0, 3, 4, 3, 2, 4, 1, 3, 0, 4, 0]:
+	var route := [1, 2, 3, 4, 0, 2, 4, 1, 3, 0, 3, 1, 4, 2, 0, 4, 3, 2, 1, 0]
+	if "--loading-replacement" in OS.get_cmdline_user_args(): route = [2, 3]
+	for v in route:
 		g = await _pick(v)
 	# Back-to-back matches on different maps without restarting.
-	for step in [[2, false], [0, false], [1, false], [2, false], [2, true], [0, true], [1, false], [3, false], [4, false], [3, true], [4, true], [0, false]]:
+	var matches := [[2, false], [0, false], [1, false], [2, false], [2, true], [0, true], [1, true], [3, false], [4, false], [3, true], [4, true], [0, false]]
+	if "--loading-replacement" in OS.get_cmdline_user_args(): matches = [[3, false], [2, true]]
+	for step in matches:
 		g = await _pick(step[0]) if g.map_variant != step[0] else g
 		if g.main_menu.screen != "map":
 			g.main_menu._press("play", null)
 		g = await _play(step[0], step[1])
 	g._flush_save()
 	print("map switch test: %d failure(s)" % fails)
+	g.queue_free()
+	current_scene = null
+	await _frames(4)
 	quit(1 if fails > 0 else 0)
