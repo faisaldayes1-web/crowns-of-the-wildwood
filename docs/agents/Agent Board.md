@@ -19,6 +19,10 @@ Agent: Codex-faisal2. T2 claim: docs/playtests/T2_Morning_20_Minutes.md only; 20
 
 | Documentation | Codex-faisal2 | CW-1 / #29, owner-authorized successor | `docs/agents/PR Ledger.md`; successor row only | Reconciliation complete 2026-10-18; owner explicitly authorized this existing PR update via hub | Current main integrated locally; no game edits or owner merge |
 
+| Release planning | `Codex-faisal` | CW-4 PROPOSED release checklist; docs only | `docs/agents/CW-4 Release Plan.md`, own CW-4 handoff and board row | PROPOSED ready for docs review 2026-10-16; runtime validation blocked by sparse checkout | [CW-4 handoff](Handoffs/2026-10-16%20Codex-faisal%20CW-4.md) |
+
+| Documentation | Codex-faisal2 | CW-4 / #33, owner-authorized successor | `docs/agents/CW-4 Release Plan.md`; successor row only | Reconciliation complete 2026-10-18; owner explicitly authorized this existing PR update via hub | Current main integrated locally; no game edits or owner merge |
+
 Agent: Codex-faisal2. T2 claim: docs/playtests/T2_Accessibility_Settings.md only; proposed accessibility and settings checklist; branch Codex-faisal2/t2-accessibility; 2026-10-18.
 
 Agent: Codex-faisal. Owner-requested framework cutover, 2026-10-20. Claim: `AGENTS.md`, `CLAUDE.md`, NEW `ORY_WORKFLOW.md`, and this own appended board record only. Task: #66. Branch: `agent/Codex-faisal/66-framework-cutover`. No runtime/art/shared gameplay claims or reassignment. Status: documentation migration prepared for review; source execution/merge follows repository policy.
