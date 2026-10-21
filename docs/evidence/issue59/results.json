@@ -1,0 +1,17 @@
+{
+  "agent": "Codex-faisal",
+  "production": "a7c8961",
+  "baseline": "3ddbb2e",
+  "godot": "4.3.stable.official.77dcf97d8",
+  "before_null_mesh_errors": 1742,
+  "after_null_mesh_errors": 0,
+  "before_fingerprint": "FINGERPRINT colliders=704 shapes=696 lines=1473 sha256=b3a44308e9ac566212b0e3f5a4349c836ea49e3f56e8bca08682ba3329412beb",
+  "after_fingerprint": "FINGERPRINT colliders=704 shapes=696 lines=1473 sha256=b3a44308e9ac566212b0e3f5a4349c836ea49e3f56e8bca08682ba3329412beb",
+  "bot_result": "RESULT winner=Humans score=1-2 t=600 overtime=true turrets=1/1 turret_kills=0/1 raid_deaths=3/2",
+  "bot_engine_errors": 0,
+  "regression_runner": "PASS lifetime and world; C:/Temp/cw59-regression/0b0fd03800; 0 engine/script errors",
+  "baseline_error_excerpt": [
+    "ERROR: Parameter \"m\" is null.",
+    "   at: mesh_get_surface_count (servers/rendering/dummy/storage/mesh_storage.h:120)"
+  ]
+}

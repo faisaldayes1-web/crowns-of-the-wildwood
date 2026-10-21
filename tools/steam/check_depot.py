@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 
 REQUIRED = (
@@ -12,33 +13,48 @@ REQUIRED = (
 )
 
 
+def linked(path: Path) -> bool:
+    return path.is_symlink() or getattr(path, "is_junction", lambda: False)()
+
+
 def inspect_depot(root: Path) -> dict:
     errors = []
     files = []
-    if root.is_symlink() or not root.is_dir():
+    if linked(root) or not root.is_dir():
         return {"status": "FAIL", "errors": ["Depot must be a real directory"], "files": []}
     try:
         for name in REQUIRED:
             path = root / name
-            if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
+            if linked(path) or not path.is_file() or path.stat().st_size == 0:
                 errors.append(f"Missing, empty or linked required file: {name}")
-        for path in sorted(root.rglob("*")):
-            relative = path.relative_to(root).as_posix()
-            if path.is_symlink():
-                errors.append(f"Linked entry is not a self-contained depot file: {relative}")
-                continue
-            if not path.is_file():
-                continue
-            if path.name.casefold() == "steam_appid.txt":
-                errors.append(f"Development App ID file must not ship: {relative}")
-            digest = hashlib.sha256()
-            with path.open("rb") as stream:
-                for block in iter(lambda: stream.read(1024 * 1024), b""):
-                    digest.update(block)
-            files.append({"path": relative, "bytes": path.stat().st_size, "sha256": digest.hexdigest()})
+        for parent, directories, names in os.walk(
+            root, topdown=True, followlinks=False,
+            onerror=lambda exc: errors.append(f"Cannot inspect depot: {exc}"),
+        ):
+            for name in directories[:]:
+                path = Path(parent) / name
+                if linked(path):
+                    errors.append(f"Linked entry is not a self-contained depot file: {path.relative_to(root).as_posix()}")
+                    directories.remove(name)
+            directories.sort()
+            for name in sorted(names):
+                path = Path(parent) / name
+                relative = path.relative_to(root).as_posix()
+                if linked(path):
+                    errors.append(f"Linked entry is not a self-contained depot file: {relative}")
+                    continue
+                if not path.is_file():
+                    continue
+                if path.name.casefold() == "steam_appid.txt":
+                    errors.append(f"Development App ID file must not ship: {relative}")
+                digest = hashlib.sha256()
+                with path.open("rb") as stream:
+                    for block in iter(lambda: stream.read(1024 * 1024), b""):
+                        digest.update(block)
+                files.append({"path": relative, "bytes": path.stat().st_size, "sha256": digest.hexdigest()})
     except OSError as exc:
         errors.append(f"Cannot inspect depot: {exc}")
-    return {"status": "FAIL" if errors else "PASS", "errors": errors, "files": files}
+    return {"status": "FAIL" if errors else "PASS", "errors": errors, "files": sorted(files, key=lambda item: item["path"])}
 
 
 def main() -> int:

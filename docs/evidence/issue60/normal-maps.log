@@ -1,0 +1,4 @@
+net all maps: logs in /c/Users/Faisal Syed/.codex/.chatgpt-projects/g-p-6acc90e1433481918c590ca1750ee945/crowns-60/../crowns60-normal-after
+map 1 enet | host: NETTEST host PASS: peers=0 | client: NETTEST client PASS: snapshots=818
+map 3 enet | host: NETTEST host PASS: peers=0 | client: NETTEST client PASS: snapshots=819
+NET ALL MAPS PASS
