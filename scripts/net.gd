@@ -28,6 +28,10 @@ var map_variant := -1          # the host's map, sent to joiners (-1: not set)
 var port := DEFAULT_PORT
 var host_ip := "127.0.0.1"
 var status := ""               # one line for the title screen
+var long_links := {}           # peer id -> true while that link waits up to 3 min (_relax_timeout)
+var long_since := {}           # peer id -> Time.get_ticks_msec() when that link went long
+var _long_gen := {}            # peer id -> bumped each time that link goes long (cancels a pending _normal_soon)
+var _soon := {}                # peer id -> the _long_gen a pending _normal_soon waits on
 var ready_peers: Array = []    # host: joiners whose world is built and who wait for a slot
 var assigned := {}             # host: peer id -> unit index this match
 var pending_start := {}        # client: {team, slot, map} from the host, kept until the game is ready
@@ -187,6 +191,9 @@ func leave() -> void:
 	multiplayer.multiplayer_peer = OfflineMultiplayerPeer.new()
 	mode = Mode.OFFLINE
 	ready_peers = []
+	long_links = {}
+	long_since = {}
+	_soon = {}
 	assigned = {}
 	pending_start = {}
 	_early = []
@@ -216,6 +223,9 @@ func _on_peer_disconnected(id: int) -> void:
 		return
 	print("NET peer %d left" % id)
 	ready_peers.erase(id)
+	long_links.erase(id)
+	long_since.erase(id)
+	_soon.erase(id)
 	if assigned.has(id) and game:
 		game.net_release_unit(assigned[id])
 	assigned.erase(id)
@@ -235,6 +245,19 @@ func _relax_timeout(id: int, loading: bool = false) -> void:
 	## RTX 5080 laptop and 85 s on a busy one, and the 20 s floor dropped
 	## the joiner mid-load (claude-faisallaptop 2026-10-17). So the link
 	## waits up to 3 minutes until the joiner reports its world built.
+	## A long-waiting link goes back to the usual timeout when the other end
+	## shows it is running frames again: the host on the first input it gets
+	## from that joiner, the joiner on the first input it sends (both only
+	## once a match is playing). (A fixed 15 s timer after the match start
+	## put a joiner still building its world back on 20 s: review of #45.)
+	if loading:
+		if not long_links.has(id):
+			long_since[id] = Time.get_ticks_msec()
+		long_links[id] = true
+		_long_gen[id] = int(_long_gen.get(id, 0)) + 1
+	else:
+		long_links.erase(id)
+		long_since.erase(id)
 	var mp = multiplayer.multiplayer_peer
 	if mp is ENetMultiplayerPeer:
 		var p: ENetPacketPeer = mp.get_peer(id)
@@ -245,20 +268,49 @@ func _relax_timeout(id: int, loading: bool = false) -> void:
 				p.set_timeout(64, 20000, 60000)
 
 
+const SETTLE_S := 30.0       # a link stays patient this long after it comes back,
+const SETTLE_MAX_S := 300.0  # plus as long as it waited, up to this in all
+
+
+func _normal_soon(id: int) -> void:
+	## Back to the usual timeout later, not at once. While one end stalled
+	## (a slow world build or match start; tested with --debug-slow-build),
+	## the other kept resending its reliable packets, doubling the wait
+	## between tries each time. So after the stall a packet can still come
+	## due up to about as long as the stall lasted, and ENet then counts its
+	## age from its last try, made during the stall: on the 20 s timeout by
+	## then, the link drops. (A fixed 30 s settle dropped a mid-match joiner
+	## 30 s after its 100 s stall.) So the link stays patient for SETTLE_S
+	## plus the time it waited. If the link goes long again meanwhile (a
+	## match start right after the world build), this one is cancelled and
+	## the next call starts over (claude-faisallaptop 2026-10-18).
+	var gen: int = int(_long_gen.get(id, 0))
+	if int(_soon.get(id, -1)) == gen:
+		return   # already on its way back
+	_soon[id] = gen
+	var waited := (Time.get_ticks_msec() - int(long_since.get(id, Time.get_ticks_msec()))) / 1000.0
+	await get_tree().create_timer(minf(SETTLE_S + waited, SETTLE_MAX_S)).timeout
+	if int(_soon.get(id, -1)) != gen:
+		return   # cancelled (the link left) or replaced
+	_soon.erase(id)
+	if online() and long_links.has(id) and int(_long_gen.get(id, 0)) == gen:
+		_relax_timeout(id)
+
+
 func long_timeouts() -> void:
 	## A match starts (the batching, units and effects all build in one go):
-	## every link waits up to 3 minutes until normal_timeouts().
+	## the links that will play it wait up to 3 minutes, each until input
+	## flows on it again. On the host that is the joiners being seated (ready
+	## ones); a joiner still building our world already waits, and one left
+	## without a seat stays on the usual timeout.
 	if not online():
 		return
-	for id in multiplayer.get_peers():
-		_relax_timeout(id, true)
-
-
-func normal_timeouts() -> void:
-	if not online():
+	if is_client():
+		_relax_timeout(1, true)
 		return
 	for id in multiplayer.get_peers():
-		_relax_timeout(id)
+		if id in ready_peers:
+			_relax_timeout(id, true)
 
 
 func _on_connected() -> void:
@@ -330,7 +382,13 @@ func _client_ready(hero_name: String, look: Dictionary) -> void:
 	peer_looks[id] = look
 	if not ready_peers.has(id):
 		ready_peers.append(id)
-	_relax_timeout(id)   # built: back to the usual timeout
+	# Built: back to the usual timeout, unless it is seated straight into a
+	# running match and now builds that (review of #57: the host dropped a
+	# mid-match joiner 60 s into a slow match start).
+	if game != null and game.playing:
+		_relax_timeout(id, true)   # it builds the match next
+	else:
+		_normal_soon(id)
 	print("NET peer %d ready" % id)
 	if game and game.playing:
 		_seat(id)   # joined mid-match: take a bot's place now
@@ -339,6 +397,8 @@ func _client_ready(hero_name: String, look: Dictionary) -> void:
 @rpc("any_peer", "call_remote", "unreliable_ordered")
 func _input_state(move: Vector2, aim: Vector3, held: Array, counts: Dictionary) -> void:
 	var id := multiplayer.get_remote_sender_id()
+	if long_links.has(id):
+		_normal_soon(id)   # the joiner is playing: its link is live again
 	if not is_host() or not game or not assigned.has(id):
 		return
 	var u = game.units[assigned[id]]
@@ -361,7 +421,7 @@ func _chat(text: String, team_only: bool) -> void:
 func client_ready() -> void:
 	## The client's game has built the host's world.
 	if is_client() and welcomed:
-		_relax_timeout(1)
+		_normal_soon(1)
 		_client_ready.rpc_id(1, game.hero_name if game else "", game.hero_custom() if game else {})
 
 
@@ -510,6 +570,7 @@ func _seat(id: int) -> void:
 	var idx: int = game.net_free_slot()
 	if idx < 0:
 		print("NET no free slot for peer %d" % id)
+		_normal_soon(id)   # nothing to build: the usual timeout
 		return
 	assigned[id] = idx
 	game.net_claim_unit(idx, id, peer_names.get(id, ""), peer_looks.get(id, {}))
@@ -551,3 +612,5 @@ func _send_input() -> void:
 			if Input.is_action_just_pressed(k):
 				input_counts[k] += 1
 	_input_state.rpc_id(1, move, p.aim, held, input_counts.duplicate())
+	if long_links.has(1):
+		_normal_soon(1)   # we are playing: the host link is live again
