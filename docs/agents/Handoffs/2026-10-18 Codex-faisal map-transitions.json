@@ -1,0 +1,45 @@
+{
+  "agent": "Codex-faisal",
+  "source": "1da8de366468f2eb7823320c8b4b6ed2caaa23ac",
+  "engine": "Godot 4.3 stable",
+  "renderer": "Vulkan Forward+",
+  "gpu": "RTX 4090",
+  "graphics": "High",
+  "method": "20 directed menu map-card selections. Ready includes scene construction, menu warm-up and six settling frames; loading fade is not included. Longest frame is the maximum process-frame interval during that action. Wall-clock capture is separate and excluded from these timings.",
+  "before_max_frame_ms": 12138.804,
+  "after_max_frame_ms": 283.044,
+  "before_median_ready_ms": 10094.356,
+  "after_median_ready_ms": 7293.7744999999995,
+  "geometry": [
+    {
+      "map": "Wildwood",
+      "count": 26534,
+      "sha256": "6246d62773a28282bfb3fcab0200a41a3386e5b6df3ecd209614352f723ec6ca",
+      "unchanged": true
+    },
+    {
+      "map": "Moonlit Wildwood",
+      "count": 26534,
+      "sha256": "6246d62773a28282bfb3fcab0200a41a3386e5b6df3ecd209614352f723ec6ca",
+      "unchanged": true
+    },
+    {
+      "map": "Ember Pass",
+      "count": 7877,
+      "sha256": "b3c8b0e85c1d1febaaf08da5f905f0ab1cd4e22d0778b9e5e09c13a2ee4af2e9",
+      "unchanged": true
+    },
+    {
+      "map": "Stonekeep Fortress",
+      "count": 22245,
+      "sha256": "d7df3493c66368fc8a7cc85dc4ed9d129637fa790342e714bf89c87088121d23",
+      "unchanged": true
+    },
+    {
+      "map": "Twilight Grove",
+      "count": 27458,
+      "sha256": "c3aab5029d7f522c0e5be8265229479e84db906523d8dc67d7883b02a7ff51da",
+      "unchanged": true
+    }
+  ]
+}

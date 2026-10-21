@@ -1,0 +1,29 @@
+isolated user dir: C:\Temp\cw60-tests\crowns-tests\run-xtItIt (left in place; clear /c/Temp/cw60-tests/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+NET ready
+NET joining 127.0.0.1:25012
+NET connected to host
+NET welcomed: seed 193774586 map 3
+NET ready
+NET slot: team 1 slot 0
+BATCH merged 8350 scenery meshes (1528 left alone) into 1323 meshes; 2092 materials became 523; 706 ms (420 ms reading meshes)
+NETTEST client: match running, my unit is team 1 slot 0
+WARNING: Target object freed before starting, aborting Tweener.
+     at: start (scene/animation/tween.cpp:550)
+ERROR: Lambda capture at index 0 was freed. Passed "null" instead.
+   at: call (modules/gdscript/gdscript_lambda_callable.cpp:108)
+NETTEST client: own unit moved 7.59 m
+NETTEST client: a bot moved 41.09 m
+NETTEST client: host player moved 9.15 m
+NETTEST client: joiner's chat line arrived
+NETTEST client: events 862 (effects 247, animations 101, sounds 230, shots 53, looks 22, skill casts 22)
+NETTEST client: kill feed 2, entities 4, chat lines 12
+NETTEST client PASS: snapshots=819
+ERROR: 66 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 13 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 57 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)
