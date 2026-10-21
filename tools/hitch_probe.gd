@@ -1,9 +1,11 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## Finds stalls: times every menu press and every frame of a short match in
 ## which the player keeps clicking (attack), dodging and using skills, and
 ## prints each frame slower than HITCH_MS with what happened just before.
 ## CPU side only (headless has no GPU work). Run from the project root:
-##     godot --headless --path . --script tools/hitch_probe.gd
+##     tools/tests/isolated.sh --headless --path . --script tools/hitch_probe.gd
 
 const HITCH_MS := 20.0
 
@@ -47,8 +49,9 @@ func key(code: Key) -> void:
 
 
 func _init() -> void:
-	var cfg := "user://controls.cfg"
-	var saved := FileAccess.get_file_as_bytes(cfg) if FileAccess.file_exists(cfg) else PackedByteArray()
+	if not Isolated.ok("tools/hitch_probe.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	process_frame.connect(_frame)
 	var t0 := Time.get_ticks_usec()
 	var game = load("res://scenes/main.tscn").instantiate()
@@ -100,9 +103,4 @@ func _init() -> void:
 		by[f[1]] = by.get(f[1], []) + [snappedf(f[0], 0.1)]
 	for k in by:
 		print("HITCH after %-20s %s" % [k, str(by[k].slice(0, 12))])
-	if saved.is_empty():
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(cfg))
-	else:
-		var f := FileAccess.open(cfg, FileAccess.WRITE)
-		f.store_buffer(saved)
 	quit()

@@ -397,20 +397,32 @@ func _box(at: Vector3, size: Vector3, mat: Material, yaw: float = 0.0, shadow: b
 
 func build() -> void:
 	## Everything but the castles (game.gd builds those as on every map).
+	await game._world_build_frame()
 	_build_floor()
+	await game._world_build_frame()
 	_build_lava()
+	await game._world_build_frame()
 	_build_plateaus()
 	for s in segs:
+		await game._world_build_frame()
 		_build_corridor(s)
 	for i in pos.size():
+		await game._world_build_frame()
 		_build_plaza(i)
+	await game._world_build_frame()
 	_build_fire_objective()
+	await game._world_build_frame()
 	_build_crossing()
 	for t in 2:
+		await game._world_build_frame()
 		_build_watch_post(t)
+	await game._world_build_frame()
 	_build_spires()
+	await game._world_build_frame()
 	_build_volcano()
+	await game._world_build_frame()
 	_build_embers()
+	await game._world_build_frame()
 	_build_demonic()
 
 
