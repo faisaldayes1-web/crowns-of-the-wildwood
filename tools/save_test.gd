@@ -1,9 +1,11 @@
 extends SceneTree
+
+const Isolated = preload("res://tools/tests/isolated.gd")
 ## Headless checks for the save file (scripts/save_file.gd) and the account's
 ## progress surviving: a restart, a damaged save, RESET TO DEFAULT on the
 ## controls, and a progress code carried to another device. Run from the
-## project root (it uses its own user:// folder when XDG_DATA_HOME is set):
-##     godot --headless --path . --script tools/save_test.gd
+## project root, through the wrapper (it refuses the real user dir):
+##     tools/tests/isolated.sh --headless --path . --script tools/save_test.gd
 
 const SaveFile = preload("res://scripts/save_file.gd")
 const PATH := "user://controls.cfg"
@@ -23,12 +25,9 @@ func frames(n: int = 2) -> void:
 
 
 func _init() -> void:
-	var backup := FileAccess.get_file_as_bytes(PATH) if FileAccess.file_exists(PATH) else PackedByteArray()
-	# The players' own saves move aside while the test runs.
-	var pdir := ProjectSettings.globalize_path("user://profiles")
-	var had_players := DirAccess.dir_exists_absolute(pdir)
-	if had_players:
-		DirAccess.rename_absolute(pdir, pdir + ".testbak")
+	if not Isolated.ok("tools/save_test.gd"):   # it writes the save: only in a throwaway user dir
+		quit(2)
+		return
 	# --- SaveFile on its own ---------------------------------------------
 	var t := "user://save_test.cfg"
 	var a := ConfigFile.new()
@@ -146,21 +145,6 @@ func _init() -> void:
 		"importing a code adds that player next to the others")
 	game.queue_free()
 	await frames(2)
-	# Put back the user's own save.
-	for p in [PATH + ".bak", PATH + ".tmp", PATH + ".before-import"]:
-		DirAccess.remove_absolute(p)
-	var d := DirAccess.open("user://profiles")
-	if d:
-		for fn in d.get_files():
-			d.remove(fn)
-	DirAccess.remove_absolute(pdir)
-	if had_players:
-		DirAccess.rename_absolute(pdir + ".testbak", pdir)
-	if backup.is_empty():
-		DirAccess.remove_absolute(PATH)
-	else:
-		var w := FileAccess.open(PATH, FileAccess.WRITE)
-		w.store_buffer(backup)
-		w.close()
+	# (No clean-up: the whole user dir is a throwaway one.)
 	print("save test: %d failure(s)" % fails)
 	quit(1 if fails > 0 else 0)

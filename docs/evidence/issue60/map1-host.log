@@ -1,0 +1,24 @@
+isolated user dir: C:\Temp\cw60-tests\crowns-tests\run-eTANGW (left in place; clear /c/Temp/cw60-tests/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+NET ready
+NET hosting on port 25011
+NET peer 1940499844 connected
+NET peer 1940499844 ready
+BATCH merged 8280 scenery meshes (1528 left alone) into 1287 meshes; 2087 materials became 519; 574 ms (339 ms reading meshes)
+WARNING: Sending 2544 bytes unreliably which is above the MTU (1392), this will result in higher packet loss
+     at: put_packet (modules/enet/enet_multiplayer_peer.cpp:366)
+NETTEST host: match running, my unit is team 0 slot 0
+NETTEST host: own unit moved 9.15 m
+NETTEST host: a bot moved 33.28 m
+NETTEST host: joiner's unit moved 7.51 m
+NET peer 1940499844 left
+NETTEST host: joiner's chat line arrived
+NETTEST host PASS: peers=0
+ERROR: 55 RID allocations of type 'PN13RendererDummy14TextureStorage12DummyTextureE' were leaked at exit.
+ERROR: 6 RID allocations of type 'PN18TextServerAdvanced22ShapedTextDataAdvancedE' were leaked at exit.
+ERROR: 1 RID allocations of type 'PN18TextServerAdvanced12FontAdvancedE' were leaked at exit.
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 48 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)
