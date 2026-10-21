@@ -64,3 +64,12 @@ Agent: Codex-faisal. Incoming branch records preserved below; no existing owner 
 | T5 crowns-code | `Codex-faisal` | Preserve primary save when backup creation fails | `scripts/save_file.gd`, `tools/save_write_test.gd`, own T5 save handoff | Claimed 2026-10-17; independent of Steam stack | Pending |
 | T5 crowns-code | `Codex-faisal` | Correct dodge recovery tutorial text to approved source constant | `scripts/guide.gd`, own T5 guide handoff | Claimed 2026-10-17; stacked on save fix | Pending |
 | T5 crowns-code | `Codex-faisal` | Explicit non-resource licence notice inclusion in export presets | `export_presets.cfg`, `tools/export_notices_test.gd`, own T5 notices handoff | Claimed 2026-10-17; stacked on guide | Pending |
+
+## Codex-faisal integration record, PR 44
+
+Agent: Codex-faisal. Incoming branch records preserved below; no existing owner or current main claim reassigned.
+
+| T5 crowns-code | `Codex-faisal` | Preserve primary save when backup creation fails | `scripts/save_file.gd`, `tools/save_write_test.gd`, own T5 save handoff | PR #41 awaiting review; implementation complete | Pending |
+| T5 crowns-code | `Codex-faisal` | Correct dodge recovery tutorial text to approved source constant | `scripts/guide.gd`, own T5 guide handoff | PR #42 awaiting review; implementation complete | Pending |
+| T5 crowns-code | `Codex-faisal` | Explicit non-resource licence notice inclusion in export presets | `export_presets.cfg`, `tools/export_notices_test.gd`, own T5 notices handoff | PR #43 awaiting review; implementation complete | Pending |
+| T5 crowns-code | `Codex-faisal` | Source-derived effective baseline balance report | `tools/balance_report.gd`, own T5 balance-report handoff | PR #44 awaiting review; implementation complete | Pending |
