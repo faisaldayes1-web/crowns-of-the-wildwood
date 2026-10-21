@@ -15,8 +15,9 @@ the nominated candidate has evidence. This checklist does not approve publicatio
   choose a separate path per candidate. Keep the previous candidate intact.
 - [ ] Spacewar 480 is a development test only and requires `--dev`. Do not
   use a development candidate as the shipping candidate.
-- [ ] Retain import/export logs outside the builder's temporary directory
-  before it is removed; current builder cleanup does not retain them automatically.
+- [ ] Archive the builder's `<new-output>.logs/import.log` and `export.log`
+  with the candidate. Logs survive temporary-project cleanup on success/failure;
+  export.log is absent if import failed. Existing log directories are refused.
 - [ ] Run `python tools/steam/check_depot.py <candidate-directory>` and save
   its JSON **outside** that directory. Require exit 0 and review every listed file.
   It checks nonempty EXE/DLL presence, rejects development App ID files and

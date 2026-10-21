@@ -42,6 +42,12 @@ OUT="$(realpath -m -- "$OUT")"
 if [[ -e "$OUT" || -L "$OUT" ]]; then
 	echo "output already exists; choose a new directory: $OUT" >&2; exit 1
 fi
+# Keep evidence outside the depot and outside the disposable project, including
+# on failure. A reused log directory is rejected rather than overwritten.
+LOGS="${OUT}.logs"
+mkdir -p -- "$(dirname "$LOGS")"
+mkdir -- "$LOGS"
+echo "== build logs: $LOGS"
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -59,20 +65,23 @@ if [ "$APP_ID" != "0" ]; then
 fi
 
 echo "== importing (app id $APP_ID)"
-(cd "$WORK" && timeout 1200 "$GODOT" --headless --path . --import --editor --quit >"$WORK/import.log" 2>&1) || {
-	tail -20 "$WORK/import.log"; echo "import failed"; exit 1; }
-if grep -qE "SCRIPT ERROR|Parse Error" "$WORK/import.log"; then
-	grep -E "SCRIPT ERROR|Parse Error" "$WORK/import.log" | head; exit 1
+(cd "$WORK" && timeout 1200 "$GODOT" --headless --path . --import --editor --quit >"$LOGS/import.log" 2>&1) || {
+	tail -20 "$LOGS/import.log"; echo "import failed"; exit 1; }
+if grep -qE 'SCRIPT ERROR|Parse Error|^ERROR:' "$LOGS/import.log"; then
+	grep -m 10 -E 'SCRIPT ERROR|Parse Error|^ERROR:' "$LOGS/import.log"; exit 1
 fi
 
 echo "== exporting Windows Steam to $OUT"
 mkdir -p -- "$(dirname "$OUT")"
 mkdir -- "$OUT"
-(cd "$WORK" && timeout 1200 "$GODOT" --headless --path . --export-release "Windows Steam" "$OUT/CrownsOfTheWildwood.exe" >"$WORK/export.log" 2>&1) || {
-	tail -20 "$WORK/export.log"; echo "export failed"; exit 1; }
+(cd "$WORK" && timeout 1200 "$GODOT" --headless --path . --export-release "Windows Steam" "$OUT/CrownsOfTheWildwood.exe" >"$LOGS/export.log" 2>&1) || {
+	tail -20 "$LOGS/export.log"; echo "export failed"; exit 1; }
+if grep -qE 'SCRIPT ERROR|Parse Error|^ERROR:' "$LOGS/export.log"; then
+	grep -m 10 -E 'SCRIPT ERROR|Parse Error|^ERROR:' "$LOGS/export.log"; exit 1
+fi
 [ "$DEV" = 1 ] && [ "$APP_ID" != "0" ] && echo "$APP_ID" > "$OUT/steam_appid.txt"
 ls -la "$OUT"
 for f in CrownsOfTheWildwood.exe steam_api64.dll libgodotsteam.windows.template_release.x86_64.dll; do
-	[ -f "$OUT/$f" ] || { echo "missing $f"; exit 1; }
+	[ -s "$OUT/$f" ] || { echo "missing or empty $f"; exit 1; }
 done
 echo "STEAM BUILD OK"
