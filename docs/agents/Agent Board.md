@@ -2,14 +2,14 @@
 
 | Group | Agent | Current task | Files owned | State | Handoff |
 |---|---|---|---|---|---|
-| Coordination | `claude-cloud` | Repo joins the studio workflow: AGENTS.md, boards, inbox; CW-1..3 queued | `AGENTS.md`, `CLAUDE.md`, `docs/agents/` | Done 2026-10-16 | — |
+| Coordination | `claude-cloud` | Repo joins the studio workflow: AGENTS.md, boards, inbox; CW-1..3 queued | `AGENTS.md`, `CLAUDE.md`, `docs/agents/` | Done 2026-10-16 | â€” |
 | Integration | `claude-faisallaptop` | CW-2 integration (#8, #13, #9, #6, #17) + 2 new maps + visual pass + lag fix, one PR | branch `claude-faisallaptop/int1`; `scripts/game.gd`, `scripts/stats.gd`, map/visual/perf code, `docs/agents/Handoffs/2026-10-16 claude-faisallaptop int1.md` | Done: #31 merged | [handoff](Handoffs/2026-10-16%20claude-faisallaptop%20int1.md) |
 | Release | `claude-faisallaptop` | RC1 build of main `ce6abfc` for CW-4: Windows build, a bot match and screenshots per map (local only, nothing published) | `build/` (ignored), `docs/screenshots/rc1/`, `docs/agents/Handoffs/2026-10-16 claude-faisallaptop rc1.md` | Done 2026-10-16 (local build only) | [handoff](Handoffs/2026-10-16%20claude-faisallaptop%20rc1.md) |
-| Performance | `claude-faisallaptop` | 4-player split-screen hitches (CW-4 T09: >= 30 fps 1% low proposed) | `scripts/hud.gd` map pins, `scripts/character_model.gd` resource cache, pane shadows in `scripts/game.gd` | Done: #46 merged | — |
-| Online | `claude-faisallaptop` | Online play on all five maps (ENet + relay), CW-4 T07 | `scripts/game.gd` (`_warm_up_menus`), test tools | Done: #45 and #57 merged (#57: stalled and mid-match joiners keep their link; `tools/net_midjoin.sh`) | — |
-| Input | `claude-faisallaptop` | Gamepad split-screen checks, CW-4 T06 (simulated pads; physical pads need Faisal) | test tools, input fixes if found | Done: #47 merged (physical pads still need Faisal) | — |
-| Tests | `claude-faisallaptop` | Every save-writing test runs only in a throwaway user dir (follow-up to #47's review) | `tools/tests/isolated.sh`, `tools/tests/isolated.gd`, the save-writing tests in `tools/` (`hitch_probe`, `kbm_move_test`, `menu_flow_test`, `options_menu_test`, `reload_menu_test`, `save_test`, `store_menu_test`, `touch_close_test`, `window_mode_test`) | Done: #58 merged | — |
-| Release | `claude-faisallaptop` | Windows build of main `3ddbb2e` for Faisal's desktop (local only, nothing published) | `build/2026-10-18-main-3ddbb2e/` (ignored), zip in Faisal's OneDrive builds folder | Done 2026-10-18 (status on #53) | — |
+| Performance | `claude-faisallaptop` | 4-player split-screen hitches (CW-4 T09: >= 30 fps 1% low proposed) | `scripts/hud.gd` map pins, `scripts/character_model.gd` resource cache, pane shadows in `scripts/game.gd` | Done: #46 merged | â€” |
+| Online | `claude-faisallaptop` | Online play on all five maps (ENet + relay), CW-4 T07 | `scripts/game.gd` (`_warm_up_menus`), test tools | Done: #45 and #57 merged (#57: stalled and mid-match joiners keep their link; `tools/net_midjoin.sh`) | â€” |
+| Input | `claude-faisallaptop` | Gamepad split-screen checks, CW-4 T06 (simulated pads; physical pads need Faisal) | test tools, input fixes if found | Done: #47 merged (physical pads still need Faisal) | â€” |
+| Tests | `claude-faisallaptop` | Every save-writing test runs only in a throwaway user dir (follow-up to #47's review) | `tools/tests/isolated.sh`, `tools/tests/isolated.gd`, the save-writing tests in `tools/` (`hitch_probe`, `kbm_move_test`, `menu_flow_test`, `options_menu_test`, `reload_menu_test`, `save_test`, `store_menu_test`, `touch_close_test`, `window_mode_test`) | Done: #58 merged | â€” |
+| Release | `claude-faisallaptop` | Windows build of main `3ddbb2e` for Faisal's desktop (local only, nothing published) | `build/2026-10-18-main-3ddbb2e/` (ignored), zip in Faisal's OneDrive builds folder | Done 2026-10-18 (status on #53) | â€” |
 
 **Adding a row:** append at the bottom; edit only your own rows.
 
@@ -23,13 +23,13 @@ Agent: Codex-faisal2. T2 claim: docs/playtests/T2_Morning_20_Minutes.md only; 20
 
 | Documentation | Codex-faisal2 | CW-4 / #33, owner-authorized successor | `docs/agents/CW-4 Release Plan.md`; successor row only | Reconciliation complete 2026-10-18; owner explicitly authorized this existing PR update via hub | Current main integrated locally; no game edits or owner merge |
 
-Overnight T3 claim 2026-10-18 — Agent: Codex-faisal2. T3 Crowns of the Wildwood Store Page. Own new `docs/agents/Proposals/T3 Store Page.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Store Page.md` only; writing PROPOSED; no runtime edits.
+Overnight T3 claim 2026-10-18 â€” Agent: Codex-faisal2. T3 Crowns of the Wildwood Store Page. Own new `docs/agents/Proposals/T3 Store Page.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Store Page.md` only; writing PROPOSED; no runtime edits.
 
-Overnight T3 claim 2026-10-18 — Agent: Codex-faisal2. T3 Crowns of the Wildwood Press Kit. Own new `docs/agents/Proposals/T3 Press Kit.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Press Kit.md` only; writing PROPOSED; no runtime edits.
+Overnight T3 claim 2026-10-18 â€” Agent: Codex-faisal2. T3 Crowns of the Wildwood Press Kit. Own new `docs/agents/Proposals/T3 Press Kit.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Press Kit.md` only; writing PROPOSED; no runtime edits.
 
-Overnight T3 claim 2026-10-18 — Agent: Codex-faisal2. T3 Crowns of the Wildwood Patch Notes. Own new `docs/agents/Proposals/T3 Patch Notes.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Patch Notes.md` only; writing PROPOSED; no runtime edits.
+Overnight T3 claim 2026-10-18 â€” Agent: Codex-faisal2. T3 Crowns of the Wildwood Patch Notes. Own new `docs/agents/Proposals/T3 Patch Notes.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Patch Notes.md` only; writing PROPOSED; no runtime edits.
 
-Overnight T3 claim 2026-10-18 — Agent: Codex-faisal2. T3 Crowns of the Wildwood Achievement Descriptions. Own new `docs/agents/Proposals/T3 Achievement Descriptions.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Achievement Descriptions.md` only; writing PROPOSED; no runtime edits.
+Overnight T3 claim 2026-10-18 â€” Agent: Codex-faisal2. T3 Crowns of the Wildwood Achievement Descriptions. Own new `docs/agents/Proposals/T3 Achievement Descriptions.md` and `docs/agents/Handoffs/2026-10-18 Codex-faisal2 T3 Achievement Descriptions.md` only; writing PROPOSED; no runtime edits.
 
 Agent: Codex-faisal2. T2 claim: docs/playtests/T2_Accessibility_Settings.md only; proposed accessibility and settings checklist; branch Codex-faisal2/t2-accessibility; 2026-10-18.
 
@@ -90,3 +90,4 @@ Agent: Codex-faisal. Incoming branch records preserved below; no existing owner 
 | T5 crowns-code | `Codex-faisal` | Steam builder App ID and output-path validation | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, own T5 guards handoff | PR #38 awaiting review; implementation complete | Pending |
 | T5 crowns-code | `Codex-faisal` | Offline Steam readiness preflight and checklist | `tools/steam/check_depot.py`, `tools/tests/test_steam_depot.py`, `docs/steam-readiness.md`, own T5 readiness handoff | PR #39 awaiting review; implementation complete | Pending |
 | T5 crowns-code | `Codex-faisal` | Retained Steam build logs and diagnostic failure gates | `tools/steam/build_steam.sh`, `tools/tests/steam_build_test.sh`, `docs/steam-readiness.md`, own T5 evidence handoff | PR #40 awaiting review; implementation complete | Pending |
+| Wave5 sound | Codex-faisal | Owner Wave5 sound/polish: positional effects audible to all local couch seats | scripts/sfx.gd; tools/couch_audio_test.gd; docs/agents/Handoffs/2026-10-25 Codex-faisal couch-audio.md; scoped evidence | READY PR #70; main current; 30 audio/lifecycle checks, 41 combat checks on both packs, full bot, native SFX-bus gates and before/after captures; no assets changed | Import, audio regression, bot and rendered evidence |

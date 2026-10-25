@@ -1,0 +1,58 @@
+[
+  {
+    "test": "audio-combat",
+    "exit": 0,
+    "seconds": 28.39000000001397,
+    "script_errors": false,
+    "tail": [
+      "TEST PASS hit_confirm_ranged",
+      "TEST PASS aim_assist_bends",
+      "TEST PASS aim_assist_ignores_clear_miss",
+      "TEST PASS deny_cue_throttled",
+      "DOWN t=25 team1 Human ally=19 foes=1",
+      "TEST PASS finisher_started",
+      "DOWN t=25 team0 Healer ally=20 foes=0",
+      "TEST PASS finisher_cancelled_when_striker_falls",
+      "TEST PASS downed_body_not_frozen",
+      "TEST PASS blink_stops_short_of_block",
+      "BUMP t=25 team1 Human at (-22.8, 0, -6) job=attack target=(-9.6, 0, 0) hits=[\"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\"]",
+      "BUMP t=26 team1 Human at (-22.8, 0, -6) job=attack target=(-9.6, 0, 0) hits=[\"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\", \"@StaticBody3D@4382@(-22.5, 1.2, -6)\"]",
+      "TEST PASS unstick_frees_wedged_body",
+      "TEST PASS follow_keeps_distance",
+      "TEST PASS impacts_scale_with_quality",
+      "TESTS DONE failures=0",
+      "WARNING: ObjectDB instances leaked at exit (run with --verbose for details).",
+      "     at: cleanup (core/object/object.cpp:2284)",
+      "ERROR: 8 resources still in use at exit (run with --verbose for details).",
+      "   at: clear (core/io/resource.cpp:604)"
+    ]
+  },
+  {
+    "test": "audio-bot",
+    "exit": 0,
+    "seconds": 177.68800000002375,
+    "script_errors": false,
+    "tail": [
+      "BUMP t=316 team1 Sharpshooter at (-55.1, 0.2, -4.1) job=escort target=(-47.2, 0, 0) hits=[\"@StaticBody3D@15356@(-54.9, 1.4, -4.4)\", \"@StaticBody3D@15356@(-54.9, 1.4, -4.4)\", \"@StaticBody3D@15356@(-54.9, 1.4, -4.4)\"]",
+      "ECON t=322 team0 door rebuild hp=100",
+      "ECON t=324 team0 door repair hp=135",
+      "BUMP t=327 team0 Trapper at (-39.7, 0, 3) job=recover target=(-20, 0, 2.1) hits=[\"@StaticBody3D@14072[(3.2, 1.1, 0.4)]@(-39.3, 1.1, 3)\"]",
+      "KILL t=328 kteam=0 krole=3 klevel=3 kmastery=9 vteam=1 vrole=3 vlevel=6 vmastery=11 kfire=0 burn=0",
+      "DOWN t=328 team1 Frostweaver ally=31 foes=0",
+      "BUMP t=330 team0 Dark Priest at (-34.9, 0, 3.3) job=support target=(-30.8, 0, 3.1) hits=[\"@StaticBody3D@6987[(0.9, 0.3, 0.9)]@(-34.5, 0.3, 3.3)\"]",
+      "Capture: Humans  (score 0 - 2) t=330",
+      "Match over: Elves 0, Humans 2",
+      "RESULT winner=Humans score=0-2 t=330 overtime=false turrets=1/1 turret_kills=1/0 raid_deaths=0/0",
+      "STAT team=0 class=Warden kills=5 deaths=8 assists=1 dmg=61 heal=0 caps=0 level=1 revives=1 revived=1",
+      "STAT team=0 class=Trapper kills=3 deaths=6 assists=5 dmg=60 heal=0 caps=0 level=2 revives=1 revived=2",
+      "STAT team=0 class=Pyromancer kills=3 deaths=7 assists=2 dmg=52 heal=0 caps=0 level=4 revives=1 revived=0",
+      "STAT team=0 class=DarkPriest kills=0 deaths=6 assists=3 dmg=37 heal=33 caps=0 level=2 revives=1 revived=1",
+      "STAT team=1 class=Vanguard kills=6 deaths=2 assists=3 dmg=23 heal=0 caps=2 level=6 revives=0 revived=1",
+      "STAT team=1 class=Sharpshooter kills=14 deaths=4 assists=5 dmg=88 heal=0 caps=0 level=6 revives=0 revived=1",
+      "STAT team=1 class=Frostweaver kills=4 deaths=4 assists=16 dmg=58 heal=0 caps=0 level=4 revives=0 revived=0",
+      "STAT team=1 class=DarkPriest kills=3 deaths=1 assists=5 dmg=28 heal=104 caps=0 level=6 revives=2 revived=0",
+      "ECONSUM team=0 wood_gathered=32 ore_gathered=0 hats=0 repairs=3 rebuilds=2 turrets=1 tends=2 pool=1/0",
+      "ECONSUM team=1 wood_gathered=32 ore_gathered=0 hats=0 repairs=1 rebuilds=1 turrets=1 tends=0 pool=20/0"
+    ]
+  }
+]
