@@ -16,4 +16,18 @@ PASS solo near impact unchanged
 PASS removed seat safely ignored
 PASS empty panes fall back to primary listener
 PASS disabled sound remains muted
-COUCH AUDIO: 16 checks, 0 failures
+PASS proxy belongs to first active pane viewport
+PASS only selected pane gains audio
+PASS proxy starts at primary listener transform
+PASS proxy synchronizes moved and rotated listener
+PASS couch to solo restores original disabled flags
+PASS root listener remains current for solo
+PASS solo transition disposes pane proxy
+PASS deleted viewport falls back to next valid pane
+PASS replacement restores old pane and enables new pane
+PASS cleanup preserves originally enabled audio flag
+PASS replacement proxy is disposed after leaving couch
+PASS SFX exit restores surviving pane audio flag
+PASS SFX exit disposes proxy outside its own subtree
+PASS all positional and lifecycle checks completed
+COUCH AUDIO: 30 checks, 0 failures
