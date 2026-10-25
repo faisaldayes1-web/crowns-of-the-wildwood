@@ -11,13 +11,14 @@ Native bot ticks no longer duplicate and strip a plan that is only consumed by t
 ## Verification and limits
 
 - `git diff --check`: clean for runtime patch.
-- Independent focused regression is being prepared against actual `unit.gd`; its result must be recorded before acceptance.
+- Independent focused regression against actual `unit.gd`: **969 assertions, zero failures** in official Godot 4.3 on GitHub. The 224 attack combinations and controlled native/web policy cases passed.
+- [Actual GitHub qualification](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/actions/runs/40172468082) on source `bc1404b`: clean import; focused regression; full seed7 bot match, Humans 1-0 at simulation time 600 seconds, eight STAT records. The tested merge tree equals the source-head tree. Downloaded logs contain no error, warning or leak diagnostics; see `ci-qualification.md` for exact hashes and provenance. Subsequent commits are documentation only.
 - No local Godot command has run for this candidate. Current shared queue has no Codex3 task/slot for Prince or Crowns. Its CLI restricts admission/reservation to the coordinator. Local isolated-check authorization was requested from Faisal; report `1792912521-599bd3` also gives the hub concrete scope and the completed Rampart/Idle results under the owner reporting rule.
-- This is an allocation-count reduction visible in source, not a measured FPS or frame-time improvement. Import, full bot match, browser export, native before/after profiles and built-game screenshot comparison are pending. Keep any PR DRAFT.
+- This is an allocation-count reduction visible in source, not a measured FPS or frame-time improvement. Browser export, native before/after profiles and built-game screenshot comparison remain pending. [PR69](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/69) stays DRAFT.
 - Existing issue #68 Skeleton3D disconnect errors and #60 ENet reliability are separate scopes; neither is claimed fixed.
 
 ## Prepared qualification
 
 Use a unique worktree and marked disposable save root under `C:/Temp/`, with APPDATA and CROWNS_TEST_USER_BASE pointed there. Preserve the real save. Reserve the applicable engine job or obtain explicit owner authorization; serialize native rendered runs across the laptop and record concurrent process/load conditions.
 
-Run headless import, `tools/unit_allocation_test.gd` and the existing seed7 full bot match; use the same Godot 4.3 executable for baseline and candidate. Profile baseline `87df448` and runtime `2fe1479` with existing `tools/match_profile.gd`, identical seed/map/gfx/resolution/warmup/duration, native solo and two-player split. Capture actual baseline and candidate frames beside the existing game reference; report any Skeleton3D errors and leaks accurately. Only claim a frame-time gain if the repeated measured evidence supports it. Hub review precedes merge.
+GitHub has completed headless import, `tools/unit_allocation_test.gd` and the existing seed7 full bot match. For remaining rendered qualification use the same Godot 4.3 executable for baseline and candidate. Profile baseline `87df448` and runtime `2fe1479` with existing `tools/match_profile.gd`, identical seed/map/gfx/resolution/warmup/duration, native solo and two-player split. Capture actual baseline and candidate frames beside the existing game reference; report any Skeleton3D errors and leaks accurately. Only claim a frame-time gain if the repeated measured evidence supports it. Hub review precedes merge.
