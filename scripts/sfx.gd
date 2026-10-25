@@ -108,6 +108,28 @@ func _db(volume: float) -> float:
 	return linear_to_db(maxf(volume, 0.0001))
 
 
+func _mix_position(pos: Vector3) -> Vector3:
+	## Couch seats share one speaker mix. Hear each event once, relative to the
+	## nearest local seat, without making distant events globally audible.
+	if not is_instance_valid(listener):
+		return pos
+	var game = get_parent()
+	if not game or not game.get("couch_active"):
+		return pos
+	var nearest := listener.global_position
+	var distance := nearest.distance_squared_to(pos)
+	for pane in game.panes:
+		var unit = pane.get("unit")
+		if not is_instance_valid(unit) or not unit.is_inside_tree():
+			continue
+		var seat: Vector3 = unit.global_position + Vector3.UP
+		var candidate := seat.distance_squared_to(pos)
+		if candidate < distance:
+			nearest = seat
+			distance = candidate
+	return listener.global_position + (pos - nearest)
+
+
 func play(name: String, pos: Vector3, db: float = 0.0, jitter: float = 0.08) -> void:
 	## A sound at a place in the world. Repeats of the same clip within 40 ms
 	## merge into one so a volley of hits is not a wall of noise.
@@ -116,7 +138,8 @@ func play(name: String, pos: Vector3, db: float = 0.0, jitter: float = 0.08) -> 
 		net.rec("sfx", "play", [name, pos, db, jitter])
 	if not enabled or not streams.has(name):
 		return
-	if listener and listener.global_position.distance_to(pos) > HEAR_RANGE:
+	var mixed_pos := _mix_position(pos)
+	if listener and listener.global_position.distance_to(mixed_pos) > HEAR_RANGE:
 		return
 	var now := Time.get_ticks_msec()
 	if _last.get(name, -1000) > now - 40:
@@ -125,7 +148,7 @@ func play(name: String, pos: Vector3, db: float = 0.0, jitter: float = 0.08) -> 
 	for p in pool_3d:
 		if not p.playing:
 			p.stream = streams[name]
-			p.global_position = pos
+			p.global_position = mixed_pos
 			p.volume_db = db + _db(sound_volume)
 			p.pitch_scale = randf_range(1.0 - jitter, 1.0 + jitter)
 			p.play()

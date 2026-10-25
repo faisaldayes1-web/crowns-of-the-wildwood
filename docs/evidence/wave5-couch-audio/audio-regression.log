@@ -1,0 +1,19 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+PASS real impact clip loaded
+PASS seat 1 nearby impact starts exactly once
+PASS seat 1 preserves relative direction and distance
+PASS seat 2 nearby impact starts exactly once
+PASS seat 2 preserves relative direction and distance
+PASS seat 3 nearby impact starts exactly once
+PASS seat 3 preserves relative direction and distance
+PASS seat 4 nearby impact starts exactly once
+PASS seat 4 preserves relative direction and distance
+PASS far from every seat remains culled
+PASS overlapping listeners do not double the sound
+PASS solo ignores inactive couch seats
+PASS solo near impact unchanged
+PASS removed seat safely ignored
+PASS empty panes fall back to primary listener
+PASS disabled sound remains muted
+COUCH AUDIO: 16 checks, 0 failures

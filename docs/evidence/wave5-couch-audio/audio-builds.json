@@ -1,0 +1,36 @@
+[
+  {
+    "label": "before",
+    "exit": 0,
+    "sfx_sha256": "17f9753870251215416da07bd728517ebf3a2e2105b5d605b1b1e13c93ae2f65",
+    "pack": "C:\\ORY-Cache\\qa\\wave5-Codex-faisal\\crowns-audio-before.pck",
+    "pack_sha256": "214a970a14bd7a465a964f325be19bb3b0c87a635f3223ccb2a34976977ce22e",
+    "tail": [
+      "\tsavepack: step 101: Storing File: res://scripts/vault.gd.remap",
+      "\tsavepack: step 101: Storing File: res://scripts/volcano.gd.remap",
+      "\tsavepack: step 101: Storing File: res://scenes/main.tscn.remap",
+      "\tsavepack: step 101: Storing File: res://.godot/global_script_class_cache.cfg",
+      "\tsavepack: step 101: Storing File: res://assets/ui/splash.png",
+      "\tsavepack: step 101: Storing File: res://.godot/uid_cache.bin",
+      "\tsavepack: step 101: Storing File: res://project.binary",
+      "savepack: end"
+    ]
+  },
+  {
+    "label": "after",
+    "exit": 0,
+    "sfx_sha256": "60f81037067fc47ba44db8d56a786cbb90ec6131388d26d5768873d35469947e",
+    "pack": "C:\\ORY-Cache\\qa\\wave5-Codex-faisal\\crowns-audio-after.pck",
+    "pack_sha256": "cf15c11caa6661576a65ea4a9a451cf5ea451a30d901b6724dada04956928b84",
+    "tail": [
+      "\tsavepack: step 101: Storing File: res://scripts/vault.gd.remap",
+      "\tsavepack: step 101: Storing File: res://scripts/volcano.gd.remap",
+      "\tsavepack: step 101: Storing File: res://scenes/main.tscn.remap",
+      "\tsavepack: step 101: Storing File: res://.godot/global_script_class_cache.cfg",
+      "\tsavepack: step 101: Storing File: res://assets/ui/splash.png",
+      "\tsavepack: step 101: Storing File: res://.godot/uid_cache.bin",
+      "\tsavepack: step 101: Storing File: res://project.binary",
+      "savepack: end"
+    ]
+  }
+]
