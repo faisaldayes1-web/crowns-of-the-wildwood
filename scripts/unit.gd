@@ -978,13 +978,12 @@ func ranked_at(a: Dictionary, track: int, r: int) -> Dictionary:
 
 
 func attack_stats() -> Dictionary:
+	# Keep one private copy: ranged/Might edits must not change the class kit.
 	var s := ranked(stats(), 0).duplicate()
 	s.cost = Stats.BASE_ATTACK_COST   # basic attacks are free; cooldowns pace them
 	if s.attack == "arrow" or s.attack == "spell":
-		s = s.duplicate()
 		s.cooldown = s.cooldown * Stats.RANGED_ATTACK_SLOW
 	if buff == "Might" and buff_timer > 0.0:
-		s = s.duplicate()
 		s.damage = s.damage + 1
 	return s
 
@@ -2641,8 +2640,9 @@ func _physics_process(delta: float) -> void:
 			_bot_plan = {}
 		else:
 			plan = _bot_think(delta)
-			_bot_plan = plan.duplicate()
-			_bot_plan.erase("ability")
+			if OS.has_feature("web"):
+				_bot_plan = plan.duplicate()
+				_bot_plan.erase("ability")
 		move = plan.move
 		wants_attack = plan.attack
 		wants_block = plan.get("block", false)
