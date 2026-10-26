@@ -2901,6 +2901,10 @@ func _bind_couch_input() -> void:
 	# a device no pad has (NO_PAD); otherwise player 2's controller would
 	# move and aim player 1 too. Alone, player 1 answers to any pad again.
 	var p1_device: int = p1_pad if p1_pad >= 0 or couch_players <= 1 else NO_PAD
+	# Agent: Codex-faisal3/bugtest. Shared pause belongs to player1, matching their assigned pad.
+	for ev in InputMap.action_get_events("menu"):
+		if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
+			ev.device = p1_device
 	for action in COUCH_ACTIONS:
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventJoypadButton or ev is InputEventJoypadMotion:
