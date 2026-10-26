@@ -1,0 +1,1040 @@
+{
+  "agent": "Codex-faisal3/bugtest",
+  "at": "2026-10-26T14:16:36.575272+00:00",
+  "source_sha": "0963f03bc52f7dcca786e2a3bc3703a74b7edde2",
+  "source_files_sha256": {
+    "project.godot": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+    "scripts/game.gd": "711c5e88f0673c1f3f4fc8d5fc32360297ca17da5ab4d18096de6c5e35cdbfe0",
+    "scripts/menu.gd": "72b462fbf2d1a6aaa2cc4ba1102417f891dce932f30d07341da93b1146c90cfd"
+  },
+  "package_artifacts": {
+    "build\\crowns.exe": {
+      "bytes": 174401728,
+      "sha256": "c5268570ba69f18fb95b7a8db8f93561e6d84e72a9813eb1c68e03702266448d"
+    }
+  },
+  "fresh_import_and_export": [
+    {
+      "exit": 0,
+      "seconds": 49.81,
+      "log": "C:\\Temp\\bugtest\\cycles\\20261026T140320Z\\crowns\\import.log",
+      "step": "import",
+      "status": "PASS",
+      "errors": [],
+      "error_count": 0,
+      "input_checks": [],
+      "input_results": [],
+      "input_scenario_passed": false
+    },
+    {
+      "exit": 0,
+      "seconds": 11.31,
+      "log": "C:\\Temp\\bugtest\\cycles\\20261026T140320Z\\crowns\\windows-export.log",
+      "step": "windows-export",
+      "status": "PASS",
+      "errors": [],
+      "error_count": 0,
+      "input_checks": [],
+      "input_results": [],
+      "input_scenario_passed": false
+    }
+  ],
+  "native_summaries": [
+    {
+      "step": "native-four-versus",
+      "seconds": 324.19,
+      "checks": 67,
+      "all_checks_pass": true,
+      "exit": 0,
+      "overall_status": "FAIL",
+      "error_count": 1138,
+      "error_families": {
+        "Skeleton3D nonexistent disconnect": 1137,
+        "ERROR: 11 resources still in use at exit (run with --verbose for details).": 1
+      },
+      "natural_outcome": {
+        "barricade_plans": 0,
+        "clock": 600,
+        "game_over": true,
+        "gate_hp": [
+          0,
+          0
+        ],
+        "human_hits": [
+          [
+            false,
+            false,
+            false,
+            false
+          ],
+          [
+            false,
+            false,
+            true,
+            false
+          ],
+          [
+            false,
+            true,
+            false,
+            true
+          ],
+          [
+            false,
+            false,
+            true,
+            false
+          ]
+        ],
+        "label": "natural match route ended",
+        "native_events": 6747,
+        "players": [
+          {
+            "caps": 0,
+            "carrying": false,
+            "damage": 25,
+            "dead": false,
+            "deaths": 1,
+            "device": 7,
+            "downed": false,
+            "hearts": 4,
+            "kills": 0,
+            "position": "(50.23422, 0.000942, -7.9991)",
+            "role": 1,
+            "slot": 0,
+            "team": 0,
+            "travelled": 1865.55598645278
+          },
+          {
+            "caps": 0,
+            "carrying": true,
+            "damage": 2,
+            "dead": false,
+            "deaths": 8,
+            "device": 0,
+            "downed": false,
+            "hearts": 4,
+            "kills": 0,
+            "position": "(-31.05839, 0.000251, 1.565893)",
+            "role": 1,
+            "slot": 1,
+            "team": 1,
+            "travelled": 1709.97320891113
+          },
+          {
+            "caps": 1,
+            "carrying": true,
+            "damage": 5,
+            "dead": false,
+            "deaths": 2,
+            "device": 1,
+            "downed": false,
+            "hearts": 4,
+            "kills": 0,
+            "position": "(61.35151, 0.000165, -3.550323)",
+            "role": 1,
+            "slot": 2,
+            "team": 0,
+            "travelled": 999.422029307054
+          },
+          {
+            "caps": 0,
+            "carrying": false,
+            "damage": 2,
+            "dead": false,
+            "deaths": 8,
+            "device": 2,
+            "downed": false,
+            "hearts": 4,
+            "kills": 0,
+            "position": "(67.75317, 0.000601, -0.082049)",
+            "role": 1,
+            "slot": 3,
+            "team": 1,
+            "travelled": 1453.84036747523
+          }
+        ],
+        "score": [
+          1,
+          0
+        ],
+        "time_left": 0,
+        "vault_hp": [
+          0,
+          0
+        ]
+      },
+      "wallets": [
+        {
+          "actual_user_path": "C:/Temp/bugtest/cycles/20261026T140320Z/crowns/profiles/four-versus/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+          "phase": "before",
+          "wallet": {
+            "chests": 0,
+            "gold": 0,
+            "shards": 0,
+            "xp": 0
+          }
+        },
+        {
+          "gain": 2150,
+          "phase": "earned",
+          "reward_gold": 300,
+          "reward_shards": 25,
+          "score": [
+            1,
+            0
+          ],
+          "wallet": {
+            "chests": 1,
+            "gold": 300,
+            "shards": 25,
+            "xp": 2150
+          },
+          "winner": 0
+        }
+      ],
+      "unsupported_lines": [
+        "BUGTEST_UNSUPPORTED player1 crown pickup not qualified",
+        "BUGTEST_UNSUPPORTED player1 crown capture not qualified",
+        "BUGTEST_UNSUPPORTED player2 crown capture not qualified",
+        "BUGTEST_UNSUPPORTED player4 crown capture not qualified"
+      ],
+      "native_result": [
+        {
+          "failures": 0,
+          "full_match": true,
+          "native_events": 6747,
+          "scope": "Actual unchanged main Windows package, four virtual native pads7/0/1/2, two humans plus two ordinary bots per team, normal mouse lobby, natural fortify/objective/outcome/rewards, native R tally/title/rejoin/rematch start. Read-only navigation/state planning. No direct game/menu/prep/outcome APIs or property writes; no physical/rendered/performance claim. Second round start only, no forced outcome/reward."
+        }
+      ],
+      "actual_game_path_matches_probe": true
+    },
+    {
+      "step": "native-four-coop",
+      "seconds": 320.47,
+      "checks": 54,
+      "all_checks_pass": true,
+      "exit": 0,
+      "overall_status": "FAIL",
+      "error_count": 1594,
+      "error_families": {
+        "Skeleton3D nonexistent disconnect": 1594
+      },
+      "natural_outcome": {
+        "clock": 720,
+        "game_over": true,
+        "gate_hp": [
+          0,
+          0
+        ],
+        "label": "natural match route ended",
+        "native_events": 4353,
+        "players": [
+          {
+            "caps": 0,
+            "carrying": false,
+            "damage": 3,
+            "dead": false,
+            "deaths": 4,
+            "device": 7,
+            "downed": false,
+            "hearts": 4,
+            "kills": 0,
+            "position": "(-67.84998, 0.000943, -4.450512)",
+            "role": 1,
+            "slot": 0,
+            "travelled": 780.884235695703
+          },
+          {
+            "caps": 0,
+            "carrying": false,
+            "damage": 2,
+            "dead": false,
+            "deaths": 11,
+            "device": 0,
+            "downed": false,
+            "hearts": 4,
+            "kills": 0,
+            "position": "(-67.84985, 0.000942, -4.451619)",
+            "role": 1,
+            "slot": 1,
+            "travelled": 1321.69008378399
+          },
+          {
+            "caps": 0,
+            "carrying": false,
+            "damage": 1,
+            "dead": true,
+            "deaths": 16,
+            "device": 1,
+            "downed": false,
+            "hearts": 0,
+            "kills": 0,
+            "position": "(-58.30088, 0.000942, -5.211449)",
+            "role": 1,
+            "slot": 2,
+            "travelled": 1529.99860639824
+          },
+          {
+            "caps": 0,
+            "carrying": false,
+            "damage": 3,
+            "dead": true,
+            "deaths": 14,
+            "device": 2,
+            "downed": false,
+            "hearts": 0,
+            "kills": 1,
+            "position": "(-58.30088, 0.000941, 5.964364)",
+            "role": 1,
+            "slot": 3,
+            "travelled": 1519.01955804566
+          }
+        ],
+        "score": [
+          0,
+          0
+        ],
+        "time_left": 0,
+        "vault_hp": [
+          10,
+          10
+        ]
+      },
+      "wallets": [
+        {
+          "actual_user_path": "C:/Temp/bugtest/cycles/20261026T140320Z/crowns/profiles/four-coop/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+          "phase": "before",
+          "wallet": {
+            "chests": 0,
+            "gold": 0,
+            "shards": 0,
+            "xp": 0
+          }
+        },
+        {
+          "gain": 429,
+          "phase": "earned",
+          "reward_gold": 250,
+          "reward_shards": 20,
+          "score": [
+            0,
+            0
+          ],
+          "wallet": {
+            "chests": 1,
+            "gold": 250,
+            "shards": 20,
+            "xp": 429
+          },
+          "winner": -1
+        }
+      ],
+      "unsupported_lines": [],
+      "native_result": [
+        {
+          "failures": 0,
+          "full_match": true,
+          "native_events": 4353,
+          "scope": "Actual unchanged main Windows package, four virtual native pads7/0/1/2, normal mouse lobby, natural fortify/objective/outcome/rewards, native R tally/title/rejoin/rematch start. Read-only navigation/state planning. No direct game/menu/prep/outcome APIs or property writes; no physical/rendered/performance claim. Second round start only, no forced outcome/reward."
+        }
+      ],
+      "actual_game_path_matches_probe": true
+    }
+  ],
+  "native_checks": {
+    "native-four-versus": [
+      {
+        "label": "normal packaged menu objects loaded",
+        "pass": true
+      },
+      {
+        "label": "normal menu assigns player1 to pad7",
+        "pass": true
+      },
+      {
+        "label": "normal map opens split lobby",
+        "pass": true
+      },
+      {
+        "label": "pad0 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad0 chooses alternating versus team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad0 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "pad1 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad1 chooses alternating versus team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad1 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "pad2 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad2 chooses alternating versus team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad2 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "normal lobby preserves exact joined-pad order",
+        "pass": true
+      },
+      {
+        "label": "actual match creates four local actors and panes",
+        "pass": true
+      },
+      {
+        "label": "actual match retains all four controller ownership bindings",
+        "pass": true
+      },
+      {
+        "label": "normal lobby creates two human players per opposing team",
+        "pass": true
+      },
+      {
+        "label": "team0 has two humans and two ordinary fill bots",
+        "pass": true
+      },
+      {
+        "label": "team1 has two humans and two ordinary fill bots",
+        "pass": true
+      },
+      {
+        "label": "natural fortify phase finishes without prep/time override",
+        "pass": true
+      },
+      {
+        "label": "all four actor/controller/pane bindings survive full normal route",
+        "pass": true
+      },
+      {
+        "label": "opposing team assignments survive actual combat and respawns",
+        "pass": true
+      },
+      {
+        "label": "observed native combat never credits friendly local-player hits",
+        "pass": true
+      },
+      {
+        "label": "opposing human controllers damage actual opposing human actors",
+        "pass": true
+      },
+      {
+        "label": "player1 travels through actual collision world via owned native pad",
+        "pass": true
+      },
+      {
+        "label": "player1 takes actual Knight hat via native RB",
+        "pass": true
+      },
+      {
+        "label": "player1 naturally recovers after down/death",
+        "pass": true
+      },
+      {
+        "label": "player1 native attacks damage actual enemies",
+        "pass": true
+      },
+      {
+        "label": "player2 travels through actual collision world via owned native pad",
+        "pass": true
+      },
+      {
+        "label": "player2 takes actual Knight hat via native RB",
+        "pass": true
+      },
+      {
+        "label": "player2 naturally picks up enemy crown",
+        "pass": true
+      },
+      {
+        "label": "player2 naturally recovers after down/death",
+        "pass": true
+      },
+      {
+        "label": "player2 native attacks damage actual enemies",
+        "pass": true
+      },
+      {
+        "label": "player3 travels through actual collision world via owned native pad",
+        "pass": true
+      },
+      {
+        "label": "player3 takes actual Knight hat via native RB",
+        "pass": true
+      },
+      {
+        "label": "player3 naturally picks up enemy crown",
+        "pass": true
+      },
+      {
+        "label": "player3 naturally carries crown home",
+        "pass": true
+      },
+      {
+        "label": "player3 naturally recovers after down/death",
+        "pass": true
+      },
+      {
+        "label": "player3 native attacks damage actual enemies",
+        "pass": true
+      },
+      {
+        "label": "player4 travels through actual collision world via owned native pad",
+        "pass": true
+      },
+      {
+        "label": "player4 takes actual Knight hat via native RB",
+        "pass": true
+      },
+      {
+        "label": "player4 naturally picks up enemy crown",
+        "pass": true
+      },
+      {
+        "label": "player4 naturally recovers after down/death",
+        "pass": true
+      },
+      {
+        "label": "player4 native attacks damage actual enemies",
+        "pass": true
+      },
+      {
+        "label": "normal full match produces actual result summary",
+        "pass": true
+      },
+      {
+        "label": "actual match banks exact XP/rewards and one chest on primary account",
+        "pass": true
+      },
+      {
+        "label": "normal result R skips actual tally",
+        "pass": true
+      },
+      {
+        "label": "normal second result R reloads actual title scene",
+        "pass": true
+      },
+      {
+        "label": "normal scene reload retains exact earned account wallet",
+        "pass": true
+      },
+      {
+        "label": "normal menu assigns player1 to pad7",
+        "pass": true
+      },
+      {
+        "label": "normal map opens split lobby",
+        "pass": true
+      },
+      {
+        "label": "pad0 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad0 chooses alternating versus team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad0 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "pad1 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad1 chooses alternating versus team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad1 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "pad2 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad2 chooses alternating versus team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad2 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "normal lobby preserves exact joined-pad order",
+        "pass": true
+      },
+      {
+        "label": "actual match creates four local actors and panes",
+        "pass": true
+      },
+      {
+        "label": "actual match retains all four controller ownership bindings",
+        "pass": true
+      },
+      {
+        "label": "normal lobby creates two human players per opposing team",
+        "pass": true
+      },
+      {
+        "label": "team0 has two humans and two ordinary fill bots",
+        "pass": true
+      },
+      {
+        "label": "team1 has two humans and two ordinary fill bots",
+        "pass": true
+      },
+      {
+        "label": "normal fourpad rematch starts fresh fortify clock and score",
+        "pass": true
+      },
+      {
+        "label": "starting another normal round grants no duplicate match reward",
+        "pass": true
+      }
+    ],
+    "native-four-coop": [
+      {
+        "label": "normal packaged menu objects loaded",
+        "pass": true
+      },
+      {
+        "label": "normal menu assigns player1 to pad7",
+        "pass": true
+      },
+      {
+        "label": "normal map opens split lobby",
+        "pass": true
+      },
+      {
+        "label": "pad0 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad0 chooses allied team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad0 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "pad1 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad1 chooses allied team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad1 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "pad2 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad2 chooses allied team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad2 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "normal lobby preserves exact joined-pad order",
+        "pass": true
+      },
+      {
+        "label": "actual match creates four local actors and panes",
+        "pass": true
+      },
+      {
+        "label": "actual match retains all four controller ownership bindings",
+        "pass": true
+      },
+      {
+        "label": "natural fortify phase finishes without prep/time override",
+        "pass": true
+      },
+      {
+        "label": "all four actor/controller/pane bindings survive full normal route",
+        "pass": true
+      },
+      {
+        "label": "player1 travels through actual collision world via owned native pad",
+        "pass": true
+      },
+      {
+        "label": "player1 takes actual Knight hat via native RB",
+        "pass": true
+      },
+      {
+        "label": "player1 naturally recovers after down/death",
+        "pass": true
+      },
+      {
+        "label": "player1 native attacks damage actual enemies",
+        "pass": true
+      },
+      {
+        "label": "player2 travels through actual collision world via owned native pad",
+        "pass": true
+      },
+      {
+        "label": "player2 takes actual Knight hat via native RB",
+        "pass": true
+      },
+      {
+        "label": "player2 naturally recovers after down/death",
+        "pass": true
+      },
+      {
+        "label": "player2 native attacks damage actual enemies",
+        "pass": true
+      },
+      {
+        "label": "player3 travels through actual collision world via owned native pad",
+        "pass": true
+      },
+      {
+        "label": "player3 takes actual Knight hat via native RB",
+        "pass": true
+      },
+      {
+        "label": "player3 naturally recovers after down/death",
+        "pass": true
+      },
+      {
+        "label": "player3 native attacks damage actual enemies",
+        "pass": true
+      },
+      {
+        "label": "player4 travels through actual collision world via owned native pad",
+        "pass": true
+      },
+      {
+        "label": "player4 takes actual Knight hat via native RB",
+        "pass": true
+      },
+      {
+        "label": "player4 naturally recovers after down/death",
+        "pass": true
+      },
+      {
+        "label": "player4 native attacks damage actual enemies",
+        "pass": true
+      },
+      {
+        "label": "normal full match produces actual result summary",
+        "pass": true
+      },
+      {
+        "label": "actual match banks exact XP/rewards and one chest on primary account",
+        "pass": true
+      },
+      {
+        "label": "normal result R skips actual tally",
+        "pass": true
+      },
+      {
+        "label": "normal second result R reloads actual title scene",
+        "pass": true
+      },
+      {
+        "label": "normal scene reload retains exact earned account wallet",
+        "pass": true
+      },
+      {
+        "label": "normal menu assigns player1 to pad7",
+        "pass": true
+      },
+      {
+        "label": "normal map opens split lobby",
+        "pass": true
+      },
+      {
+        "label": "pad0 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad0 chooses allied team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad0 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "pad1 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad1 chooses allied team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad1 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "pad2 owns normal joined slot",
+        "pass": true
+      },
+      {
+        "label": "pad2 chooses allied team through native input",
+        "pass": true
+      },
+      {
+        "label": "pad2 readies normal slot",
+        "pass": true
+      },
+      {
+        "label": "normal lobby preserves exact joined-pad order",
+        "pass": true
+      },
+      {
+        "label": "actual match creates four local actors and panes",
+        "pass": true
+      },
+      {
+        "label": "actual match retains all four controller ownership bindings",
+        "pass": true
+      },
+      {
+        "label": "normal fourpad rematch starts fresh fortify clock and score",
+        "pass": true
+      },
+      {
+        "label": "starting another normal round grants no duplicate match reward",
+        "pass": true
+      }
+    ]
+  },
+  "actual_path_qualifications": {
+    "four-versus": {
+      "qualified": true,
+      "records": [
+        {
+          "actual": "C:/Temp/bugtest/cycles/20261026T140320Z/crowns/profiles/four-versus/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+          "agent": "Codex-faisal3/bugtest",
+          "expected_prefix": "C:/Temp/bugtest/cycles/20261026T140320Z/crowns/profiles/four-versus/APPDATA"
+        }
+      ]
+    },
+    "four-coop": {
+      "qualified": true,
+      "records": [
+        {
+          "actual": "C:/Temp/bugtest/cycles/20261026T140320Z/crowns/profiles/four-coop/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+          "agent": "Codex-faisal3/bugtest",
+          "expected_prefix": "C:/Temp/bugtest/cycles/20261026T140320Z/crowns/profiles/four-coop/APPDATA"
+        }
+      ]
+    }
+  },
+  "fixture_hashes": {
+    "four-versus": {
+      "path": "C:\\Temp\\bugtest\\cycles\\20261026T140320Z\\crowns\\four-versus.gd",
+      "sha256": "afd69203584be94b0dfa8257c2bc62c2ff9add084dde46184fc4d324d8473746"
+    },
+    "four-coop": {
+      "path": "C:\\Temp\\bugtest\\cycles\\20261026T140320Z\\crowns\\four-coop.gd",
+      "sha256": "403cb8cd99d6a6000d3e5b1d1a4bdf8d3edc238592b24f01d7868e8eaa84136a"
+    }
+  },
+  "reward_summary": [
+    {
+      "step": "native-earned-chest-open",
+      "seconds": 6.28,
+      "checks": 8,
+      "all_checks_pass": true,
+      "exit": 0,
+      "overall_status": "FAIL",
+      "error_count": 57,
+      "error_families": {
+        "Skeleton3D nonexistent disconnect": 57
+      },
+      "wallets": [
+        {
+          "phase": "loaded",
+          "wallet": {
+            "chests": 1,
+            "gold": 250,
+            "owned": [],
+            "shards": 20,
+            "xp": 429
+          }
+        },
+        {
+          "phase": "opened",
+          "reveal": [
+            [
+              "banner_frame",
+              6,
+              "rare"
+            ],
+            4.238
+          ],
+          "wallet": {
+            "chests": 0,
+            "gold": 250,
+            "owned": [
+              "banner_frame:6"
+            ],
+            "shards": 20,
+            "xp": 429
+          }
+        }
+      ],
+      "result": [
+        {
+          "failures": 0,
+          "scope": "Native store opens real match-earned chest; timed reveal/back; no reward/state injection or direct store APIs; headless only"
+        }
+      ]
+    },
+    {
+      "step": "native-reward-restart",
+      "seconds": 4.91,
+      "checks": 4,
+      "all_checks_pass": true,
+      "exit": 0,
+      "overall_status": "FAIL",
+      "error_count": 51,
+      "error_families": {
+        "Skeleton3D nonexistent disconnect": 50,
+        "ERROR: 2 resources still in use at exit (run with --verbose for details).": 1
+      },
+      "wallets": [
+        {
+          "phase": "loaded",
+          "wallet": {
+            "chests": 0,
+            "gold": 250,
+            "owned": [
+              "banner_frame:6"
+            ],
+            "shards": 20,
+            "xp": 429
+          }
+        }
+      ],
+      "result": [
+        {
+          "failures": 0,
+          "scope": "Separate-process native earned reward and opened chest persistence"
+        }
+      ]
+    }
+  ],
+  "reward_checks": {
+    "native-earned-chest-open": [
+      {
+        "label": "normal package title loads saved profile",
+        "pass": true
+      },
+      {
+        "label": "native restart retains earned XP gold and shards",
+        "pass": true
+      },
+      {
+        "label": "native restart retains exact chest count and collection",
+        "pass": true
+      },
+      {
+        "label": "normal completed match actually earned one chest and XP",
+        "pass": true
+      },
+      {
+        "label": "native title Store opens actual store",
+        "pass": true
+      },
+      {
+        "label": "native OPEN consumes earned chest and grants one unowned item",
+        "pass": true
+      },
+      {
+        "label": "native click dismisses actual timed chest reveal",
+        "pass": true
+      },
+      {
+        "label": "native Back returns from store to title",
+        "pass": true
+      }
+    ],
+    "native-reward-restart": [
+      {
+        "label": "normal package title loads saved profile",
+        "pass": true
+      },
+      {
+        "label": "native restart retains earned XP gold and shards",
+        "pass": true
+      },
+      {
+        "label": "native restart retains exact chest count and collection",
+        "pass": true
+      },
+      {
+        "label": "restarted native store retains consumed chest and earned item",
+        "pass": true
+      }
+    ]
+  },
+  "reward_fixture_sha256": "c4521ae8505408b5ca1bf096f861389fa97ee290e9c14ef39bc93d6fda237934",
+  "reward_actual_path": {
+    "qualified": true,
+    "records": [
+      {
+        "actual": "C:/Temp/bugtest/cycles/20261026T141546Z/crowns/isolated-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+        "agent": "Codex-faisal3/bugtest",
+        "expected_prefix": "C:/Temp/bugtest/cycles/20261026T141546Z/crowns/isolated-profile/APPDATA"
+      }
+    ],
+    "agent": "Codex-faisal3/bugtest"
+  },
+  "ordinary_unchanged": true,
+  "original_genuine_profile_unchanged": true,
+  "overall_status": "FAIL",
+  "known_issue": 68,
+  "files_sha256": {
+    "import.log": "03e8162d72784995dfe7dce911e62f4c29f0c130e8d10c099cd92231e61a4103",
+    "windows-export.log": "735201f6b2f35d453267f5474893d6a5ee73273d6c5141875a4d7f8d2d6f4233",
+    "four-versus-actual-user-path.log": "586f505f28de9680391e9d8d21bb6fab2ad02e1cfe05e4a9453ab61383c93a9a",
+    "native-four-versus.log": "f6b03d0c7b644a044f7750a8f09090356b01aefd7c51ecbdd9e3d6e3815c4739",
+    "four-coop-actual-user-path.log": "de3fd3b4e2e288f57e5bd9dcaa73bf63d21e0fe47636951a73d6502bd9b74b4b",
+    "native-four-coop.log": "df3ff9e718779b806d717a388a0858baa5603e0e73335567b98721de1cbc197c",
+    "reward-actual-packaged-user-path.log": "a3408a7bf8b3efbfd09bf15b95ec38ad8abf1f517037d9bf344da5cfd6df987c",
+    "reward-native-earned-chest-open.log": "2e520fd0b5eecc58ef8b925238ae40cc2bf4675475e517727f7216390395d1a7",
+    "reward-native-reward-restart.log": "14ba8cb3f19c618f246c68026ad51c810f2c7f38dff97acd72cfb726a5f27e66",
+    "four-versus-input.gd": "afd69203584be94b0dfa8257c2bc62c2ff9add084dde46184fc4d324d8473746",
+    "four-coop-input.gd": "403cb8cd99d6a6000d3e5b1d1a4bdf8d3edc238592b24f01d7868e8eaa84136a",
+    "reward-input.gd": "c4521ae8505408b5ca1bf096f861389fa97ee290e9c14ef39bc93d6fda237934",
+    "actual-user-path-probe.gd": "8e41dab857f672ab91cb2bae233e2ba8aedca2788bf176f4596f945f4e47b03b",
+    "native-runner.py": "b4d276bbc0c14d09ec796eebadf171b210bd015a24e39f5c207e2af96a284232",
+    "reward-runner.py": "ea20f8fc4bb041b9913b1ddf1c85744b93013a04442f5647a31f6745a6c285f6"
+  },
+  "limits": "Headless package/native virtual inputs only, no render/physical/animation/style/performance/second fullmatch acceptance. Fixed60 engine simulation, not measured60FPS. Ordinary natural fullmatch outcome and normal rematch start, no direct game/menu/start/prep/time/position/health/resource/outcome writes. Gameplay/failure signatures separated. No assets/runtime/binary/queue/developer edit or merge. Cumulative travelled distance includes natural respawn displacements. Unsupported lines and actual observed check labels retained; no all-route coverage inferred."
+}
