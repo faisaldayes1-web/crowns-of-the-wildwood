@@ -1,0 +1,1197 @@
+{
+  "agent": "Codex-faisal3/bugtest",
+  "baseline_source": "d2f72a4920b253aed0b239ec16bd68fe301e2550",
+  "candidate_runtime": "89ad45da07840bab6ef2107a17c64a3a320f9e96",
+  "routes": [
+    {
+      "label": "before-keyboard",
+      "source_sha": "d2f72a4920b253aed0b239ec16bd68fe301e2550",
+      "artifact_hashes": {
+        "build\\crowns.exe": {
+          "bytes": 174401568,
+          "sha256": "f643fbdcc9a1af4e662366a5af8a7146eee3c035fb14d989236ff233e23e9d47"
+        }
+      },
+      "bot_sha256": "4e95b950f1967766a9e7c8f26c95f0b01fc9d3df535fa637971d7dd7669ffea0",
+      "source_files_sha256": {
+        "project.godot": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+        "scripts/game.gd": "339d6652c8315e3b29b04a927fc033a20274d888fa127d52cab126adf2035df1",
+        "scripts/menu.gd": "72b462fbf2d1a6aaa2cc4ba1102417f891dce932f30d07341da93b1146c90cfd"
+      },
+      "ordinary_unchanged": true,
+      "exit": 1,
+      "seconds": 13.89,
+      "overall_status": "FAIL",
+      "error_count": 199,
+      "first_error_examples": [
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917529167111>'. Signal: 'skeleton_updated', callable: ''.",
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917529167111>'. Signal: 'skeleton_updated', callable: ''.",
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917529167111>'. Signal: 'skeleton_updated', callable: ''."
+      ],
+      "checks": [
+        {
+          "label": "normal packaged objects loaded",
+          "pass": true
+        },
+        {
+          "label": "normal split lobby with player1 keyboard",
+          "pass": true
+        },
+        {
+          "label": "pad0 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad0 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad0 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad0 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "pad1 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad1 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad1 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad1 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "pad2 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad2 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad2 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad2 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "three pads retain join order",
+          "pass": true
+        },
+        {
+          "label": "normal match has four local players/panes",
+          "pass": true
+        },
+        {
+          "label": "normal bindings give player1 keyboard and each joined pad its owner",
+          "pass": true
+        },
+        {
+          "label": "natural20second fortify phase elapsed",
+          "pass": true
+        },
+        {
+          "label": "pad0 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "pad1 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "pad2 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "keyboard moves player1 only",
+          "pass": true
+        },
+        {
+          "label": "unjoined pad9 moves nobody",
+          "pass": true
+        },
+        {
+          "label": "secondary pad0 cannot take player1 shared pause",
+          "pass": false
+        },
+        {
+          "label": "player1 keyboard closes secondary-opened pause",
+          "pass": true
+        },
+        {
+          "label": "secondary pad1 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "secondary pad2 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 keyboard opens documented shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 keyboard resumes shared pause",
+          "pass": true
+        }
+      ],
+      "input_results": [
+        {
+          "failures": 1,
+          "scope": "Actual package normal mouse menus, three queued virtual pads joining/readying/side selection, four-player movement and README player1 pause ownership. Natural20s prep. No gameplay/menu/property/start/outcome API writes; no physical device, rendered or fullmatch claim."
+        }
+      ],
+      "observations": [
+        {
+          "connected": [],
+          "scope": "virtual queued engine events only"
+        },
+        {
+          "label": "pad0-stick",
+          "meters": [
+            0,
+            6.10015869140625,
+            0,
+            0
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-85.5, 0, 0), (-85.5, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "pad1-stick",
+          "meters": [
+            0,
+            0,
+            6.10015869140625,
+            0
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-79.39984, 0, 0), (-85.5, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "pad2-stick",
+          "meters": [
+            0,
+            0,
+            0,
+            6.10015869140625
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "keyboard-player1",
+          "meters": [
+            6.04536199569702,
+            0,
+            0,
+            0
+          ],
+          "positions": "[(-88.84905, 0.000936, 1.043226), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "unjoined-pad9",
+          "meters": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "positions": "[(-88.84905, 0.000936, 1.043226), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "bound_pads": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "device": 0,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 0,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": true,
+          "owner": 2,
+          "tree_paused": true
+        },
+        {
+          "bound_pads": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "device": 1,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 0,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 3,
+          "tree_paused": false
+        },
+        {
+          "bound_pads": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "device": 2,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 0,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 4,
+          "tree_paused": false
+        }
+      ],
+      "raw_log_sha256": "cf0a5576cc8721614b0b041b596293f3a30f9f77a688ddf5f48bc88833e7645f"
+    },
+    {
+      "label": "before-pad7",
+      "source_sha": "d2f72a4920b253aed0b239ec16bd68fe301e2550",
+      "artifact_hashes": {
+        "build\\crowns.exe": {
+          "bytes": 174401568,
+          "sha256": "f643fbdcc9a1af4e662366a5af8a7146eee3c035fb14d989236ff233e23e9d47"
+        }
+      },
+      "bot_sha256": "c0963b2601ed562fcf52e7b5fea99cd3c781bafa2519cf0603a2c56369514dff",
+      "source_files_sha256": {
+        "project.godot": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+        "scripts/game.gd": "339d6652c8315e3b29b04a927fc033a20274d888fa127d52cab126adf2035df1",
+        "scripts/menu.gd": "72b462fbf2d1a6aaa2cc4ba1102417f891dce932f30d07341da93b1146c90cfd"
+      },
+      "ordinary_unchanged": true,
+      "exit": 1,
+      "seconds": 15.2,
+      "overall_status": "FAIL",
+      "error_count": 199,
+      "first_error_examples": [
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920029001412>'. Signal: 'skeleton_updated', callable: ''.",
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920029001412>'. Signal: 'skeleton_updated', callable: ''.",
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920029001412>'. Signal: 'skeleton_updated', callable: ''."
+      ],
+      "checks": [
+        {
+          "label": "normal packaged objects loaded",
+          "pass": true
+        },
+        {
+          "label": "normal menu pad7 becomes player1 pad",
+          "pass": true
+        },
+        {
+          "label": "normal split lobby with player1 keyboard",
+          "pass": true
+        },
+        {
+          "label": "pad0 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad0 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad0 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad0 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "pad1 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad1 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad1 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad1 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "pad2 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad2 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad2 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad2 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "three pads retain join order",
+          "pass": true
+        },
+        {
+          "label": "normal match has four local players/panes",
+          "pass": true
+        },
+        {
+          "label": "normal bindings give player1 owned pad7 and each joined pad its owner",
+          "pass": true
+        },
+        {
+          "label": "natural20second fortify phase elapsed",
+          "pass": true
+        },
+        {
+          "label": "pad0 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "pad1 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "pad2 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "keyboard moves player1 only",
+          "pass": true
+        },
+        {
+          "label": "unjoined pad9 moves nobody",
+          "pass": true
+        },
+        {
+          "label": "secondary pad0 cannot take player1 shared pause",
+          "pass": false
+        },
+        {
+          "label": "player1 keyboard closes secondary-opened pause",
+          "pass": true
+        },
+        {
+          "label": "secondary pad1 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "secondary pad2 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 keyboard opens documented shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 keyboard resumes shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 owned pad7 opens shared pause",
+          "pass": false
+        }
+      ],
+      "input_results": [
+        {
+          "failures": 2,
+          "scope": "Actual package normal mouse menus, three queued virtual pads joining/readying/side selection, four-player movement and README player1 pause ownership. Natural20s prep. No gameplay/menu/property/start/outcome API writes; no physical device, rendered or fullmatch claim."
+        }
+      ],
+      "observations": [
+        {
+          "connected": [],
+          "scope": "virtual queued engine events only"
+        },
+        {
+          "label": "pad0-stick",
+          "meters": [
+            0,
+            6.10015869140625,
+            0,
+            0
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-85.5, 0, 0), (-85.5, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "pad1-stick",
+          "meters": [
+            0,
+            0,
+            6.10015869140625,
+            0
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-79.39984, 0, 0), (-85.5, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "pad2-stick",
+          "meters": [
+            0,
+            0,
+            0,
+            6.10015869140625
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "keyboard-player1",
+          "meters": [
+            6.04536199569702,
+            0,
+            0,
+            0
+          ],
+          "positions": "[(-88.84905, 0.000936, 1.043226), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "unjoined-pad9",
+          "meters": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "positions": "[(-88.84905, 0.000936, 1.043226), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "bound_pads": [
+            7,
+            0,
+            1,
+            2
+          ],
+          "device": 0,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 0,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": true,
+          "owner": 2,
+          "tree_paused": true
+        },
+        {
+          "bound_pads": [
+            7,
+            0,
+            1,
+            2
+          ],
+          "device": 1,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 0,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 3,
+          "tree_paused": false
+        },
+        {
+          "bound_pads": [
+            7,
+            0,
+            1,
+            2
+          ],
+          "device": 2,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 0,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 4,
+          "tree_paused": false
+        },
+        {
+          "bound_pads": [
+            7,
+            0,
+            1,
+            2
+          ],
+          "device": 7,
+          "menu_open": false,
+          "tree_paused": false
+        }
+      ],
+      "raw_log_sha256": "2b85a5b2ff8e63ce1d9731087404edbd3093aaa99e5ed723c49a1e3b5ba32e06"
+    },
+    {
+      "label": "after-keyboard",
+      "source_sha": "89ad45da07840bab6ef2107a17c64a3a320f9e96",
+      "artifact_hashes": {
+        "build\\crowns.exe": {
+          "bytes": 174401904,
+          "sha256": "16d67146550da6724838e1d6e408d8c9d536ecc2a72f6e6bc7554b2a030e20d6"
+        }
+      },
+      "bot_sha256": {
+        "keyboard-owner": {
+          "path": "C:\\Temp\\bugtest\\cycles\\20261026T100419Z\\crowns\\keyboard-owner.gd",
+          "sha256": "4e95b950f1967766a9e7c8f26c95f0b01fc9d3df535fa637971d7dd7669ffea0"
+        },
+        "pad7-owner": {
+          "path": "C:\\Temp\\bugtest\\cycles\\20261026T100419Z\\crowns\\pad7-owner.gd",
+          "sha256": "c0963b2601ed562fcf52e7b5fea99cd3c781bafa2519cf0603a2c56369514dff"
+        }
+      },
+      "source_files_sha256": {
+        "project.godot": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+        "scripts/game.gd": "190245e68454dea40b74c91a601786e9afdae41a9ae2056a8f149b01f5fde5f2",
+        "scripts/menu.gd": "72b462fbf2d1a6aaa2cc4ba1102417f891dce932f30d07341da93b1146c90cfd"
+      },
+      "ordinary_unchanged": true,
+      "exit": 0,
+      "seconds": 14.11,
+      "overall_status": "FAIL",
+      "error_count": 198,
+      "first_error_examples": [
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917529167111>'. Signal: 'skeleton_updated', callable: ''.",
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917529167111>'. Signal: 'skeleton_updated', callable: ''.",
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917529167111>'. Signal: 'skeleton_updated', callable: ''."
+      ],
+      "checks": [
+        {
+          "label": "normal packaged objects loaded",
+          "pass": true
+        },
+        {
+          "label": "normal split lobby with player1 keyboard",
+          "pass": true
+        },
+        {
+          "label": "pad0 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad0 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad0 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad0 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "pad1 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad1 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad1 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad1 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "pad2 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad2 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad2 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad2 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "three pads retain join order",
+          "pass": true
+        },
+        {
+          "label": "normal match has four local players/panes",
+          "pass": true
+        },
+        {
+          "label": "normal bindings give player1 keyboard and each joined pad its owner",
+          "pass": true
+        },
+        {
+          "label": "natural20second fortify phase elapsed",
+          "pass": true
+        },
+        {
+          "label": "pad0 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "pad1 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "pad2 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "keyboard moves player1 only",
+          "pass": true
+        },
+        {
+          "label": "unjoined pad9 moves nobody",
+          "pass": true
+        },
+        {
+          "label": "secondary pad0 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "secondary pad1 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "secondary pad2 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 keyboard opens documented shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 keyboard resumes shared pause",
+          "pass": true
+        }
+      ],
+      "input_results": [
+        {
+          "failures": 0,
+          "scope": "Actual package normal mouse menus, three queued virtual pads joining/readying/side selection, four-player movement and README player1 pause ownership. Natural20s prep. No gameplay/menu/property/start/outcome API writes; no physical device, rendered or fullmatch claim."
+        }
+      ],
+      "observations": [
+        {
+          "connected": [],
+          "scope": "virtual queued engine events only"
+        },
+        {
+          "label": "pad0-stick",
+          "meters": [
+            0,
+            6.10015869140625,
+            0,
+            0
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-85.5, 0, 0), (-85.5, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "pad1-stick",
+          "meters": [
+            0,
+            0,
+            6.10015869140625,
+            0
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-79.39984, 0, 0), (-85.5, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "pad2-stick",
+          "meters": [
+            0,
+            0,
+            0,
+            6.10015869140625
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "keyboard-player1",
+          "meters": [
+            6.04536199569702,
+            0,
+            0,
+            0
+          ],
+          "positions": "[(-88.84905, 0.000936, 1.043226), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "unjoined-pad9",
+          "meters": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "positions": "[(-88.84905, 0.000936, 1.043226), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "bound_pads": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "device": 0,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 99,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 2,
+          "tree_paused": false
+        },
+        {
+          "bound_pads": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "device": 1,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 99,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 3,
+          "tree_paused": false
+        },
+        {
+          "bound_pads": [
+            -1,
+            0,
+            1,
+            2
+          ],
+          "device": 2,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 99,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 4,
+          "tree_paused": false
+        }
+      ],
+      "raw_log_sha256": "402c60ea27dd02d88ea647c076fa18ecbccb69bb0847a5d2ade62d9315e0e69a"
+    },
+    {
+      "label": "after-pad7",
+      "source_sha": "89ad45da07840bab6ef2107a17c64a3a320f9e96",
+      "artifact_hashes": {
+        "build\\crowns.exe": {
+          "bytes": 174401904,
+          "sha256": "16d67146550da6724838e1d6e408d8c9d536ecc2a72f6e6bc7554b2a030e20d6"
+        }
+      },
+      "bot_sha256": {
+        "keyboard-owner": {
+          "path": "C:\\Temp\\bugtest\\cycles\\20261026T100419Z\\crowns\\keyboard-owner.gd",
+          "sha256": "4e95b950f1967766a9e7c8f26c95f0b01fc9d3df535fa637971d7dd7669ffea0"
+        },
+        "pad7-owner": {
+          "path": "C:\\Temp\\bugtest\\cycles\\20261026T100419Z\\crowns\\pad7-owner.gd",
+          "sha256": "c0963b2601ed562fcf52e7b5fea99cd3c781bafa2519cf0603a2c56369514dff"
+        }
+      },
+      "source_files_sha256": {
+        "project.godot": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+        "scripts/game.gd": "190245e68454dea40b74c91a601786e9afdae41a9ae2056a8f149b01f5fde5f2",
+        "scripts/menu.gd": "72b462fbf2d1a6aaa2cc4ba1102417f891dce932f30d07341da93b1146c90cfd"
+      },
+      "ordinary_unchanged": true,
+      "exit": 0,
+      "seconds": 13.92,
+      "overall_status": "FAIL",
+      "error_count": 198,
+      "first_error_examples": [
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920029001410>'. Signal: 'skeleton_updated', callable: ''.",
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920029001410>'. Signal: 'skeleton_updated', callable: ''.",
+        "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920029001410>'. Signal: 'skeleton_updated', callable: ''."
+      ],
+      "checks": [
+        {
+          "label": "normal packaged objects loaded",
+          "pass": true
+        },
+        {
+          "label": "normal menu pad7 becomes player1 pad",
+          "pass": true
+        },
+        {
+          "label": "normal split lobby with player1 keyboard",
+          "pass": true
+        },
+        {
+          "label": "pad0 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad0 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad0 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad0 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "pad1 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad1 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad1 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad1 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "pad2 joins own slot",
+          "pass": true
+        },
+        {
+          "label": "pad2 joins unready",
+          "pass": true
+        },
+        {
+          "label": "pad2 chooses allied side normally",
+          "pass": true
+        },
+        {
+          "label": "pad2 readies own slot",
+          "pass": true
+        },
+        {
+          "label": "three pads retain join order",
+          "pass": true
+        },
+        {
+          "label": "normal match has four local players/panes",
+          "pass": true
+        },
+        {
+          "label": "normal bindings give player1 owned pad7 and each joined pad its owner",
+          "pass": true
+        },
+        {
+          "label": "natural20second fortify phase elapsed",
+          "pass": true
+        },
+        {
+          "label": "pad0 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "pad1 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "pad2 moves only its joined player",
+          "pass": true
+        },
+        {
+          "label": "keyboard moves player1 only",
+          "pass": true
+        },
+        {
+          "label": "unjoined pad9 moves nobody",
+          "pass": true
+        },
+        {
+          "label": "secondary pad0 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "secondary pad1 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "secondary pad2 cannot take player1 shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 keyboard opens documented shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 keyboard resumes shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 owned pad7 opens shared pause",
+          "pass": true
+        },
+        {
+          "label": "player1 owned pad7 resumes shared pause",
+          "pass": true
+        }
+      ],
+      "input_results": [
+        {
+          "failures": 0,
+          "scope": "Actual package normal mouse menus, three queued virtual pads joining/readying/side selection, four-player movement and README player1 pause ownership. Natural20s prep. No gameplay/menu/property/start/outcome API writes; no physical device, rendered or fullmatch claim."
+        }
+      ],
+      "observations": [
+        {
+          "connected": [],
+          "scope": "virtual queued engine events only"
+        },
+        {
+          "label": "pad0-stick",
+          "meters": [
+            0,
+            6.10015869140625,
+            0,
+            0
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-85.5, 0, 0), (-85.5, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "pad1-stick",
+          "meters": [
+            0,
+            0,
+            6.10015869140625,
+            0
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-79.39984, 0, 0), (-85.5, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "pad2-stick",
+          "meters": [
+            0,
+            0,
+            0,
+            6.10015869140625
+          ],
+          "positions": "[(-85.42227, 0, -3.937092), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "keyboard-player1",
+          "meters": [
+            6.04536199569702,
+            0,
+            0,
+            0
+          ],
+          "positions": "[(-88.84905, 0.000936, 1.043226), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "label": "unjoined-pad9",
+          "meters": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "positions": "[(-88.84905, 0.000936, 1.043226), (-79.39984, 0, -2), (-79.39984, 0, 0), (-79.39984, 0, 2)]",
+          "prep": 0
+        },
+        {
+          "bound_pads": [
+            7,
+            0,
+            1,
+            2
+          ],
+          "device": 0,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 7,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 2,
+          "tree_paused": false
+        },
+        {
+          "bound_pads": [
+            7,
+            0,
+            1,
+            2
+          ],
+          "device": 1,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 7,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 3,
+          "tree_paused": false
+        },
+        {
+          "bound_pads": [
+            7,
+            0,
+            1,
+            2
+          ],
+          "device": 2,
+          "menu_events": [
+            {
+              "device": 0,
+              "text": "Escape (Physical)"
+            },
+            {
+              "device": 7,
+              "text": "Joypad Button 6 (Start, Xbox Menu, Nintendo +)"
+            }
+          ],
+          "menu_open": false,
+          "owner": 4,
+          "tree_paused": false
+        },
+        {
+          "bound_pads": [
+            7,
+            0,
+            1,
+            2
+          ],
+          "device": 7,
+          "menu_open": true,
+          "tree_paused": true
+        }
+      ],
+      "raw_log_sha256": "cc5a36c1ac29b132aefd3e407298c3b6595b47dd911de451797189cc00d87c86"
+    }
+  ],
+  "storage_qualification": {
+    "keyboard-owner": {
+      "qualified": true,
+      "records": [
+        {
+          "actual": "C:/Temp/bugtest/cycles/20261026T100419Z/crowns/profiles/keyboard-owner/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+          "agent": "Codex-faisal3/bugtest",
+          "expected_prefix": "C:/Temp/bugtest/cycles/20261026T100419Z/crowns/profiles/keyboard-owner/APPDATA"
+        }
+      ]
+    },
+    "pad7-owner": {
+      "qualified": true,
+      "records": [
+        {
+          "actual": "C:/Temp/bugtest/cycles/20261026T100419Z/crowns/profiles/pad7-owner/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+          "agent": "Codex-faisal3/bugtest",
+          "expected_prefix": "C:/Temp/bugtest/cycles/20261026T100419Z/crowns/profiles/pad7-owner/APPDATA"
+        }
+      ]
+    }
+  },
+  "candidate_overall_status": "FAIL",
+  "candidate_input_scenarios_passed": true,
+  "package_upload": false,
+  "rendered_capture_available": false
+}

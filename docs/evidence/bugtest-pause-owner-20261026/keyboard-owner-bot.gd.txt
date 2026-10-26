@@ -1,0 +1,140 @@
+# Agent: Codex-faisal3/bugtest. Package-native mouse/key bot; no menu calls/forced layout.
+extends SceneTree
+var app
+var failures := 0
+func _initialize() -> void:
+	_run.call_deferred()
+func frames(count: int) -> void:
+	for i in count:
+		if FileAccess.file_exists("C:/Temp/ory-remote/Codex-faisal3-bugtest.PAUSE"):
+			print("BUGTEST_PAUSED local stop file retained");quit(3);return
+		await process_frame
+func check(ok: bool,label: String) -> void:
+	print("BUGTEST_CHECK ",JSON.stringify({"label":label,"pass":ok}))
+	if not ok: failures += 1
+func snapshot(label: String) -> void:
+	var buttons := []
+	if app.hud != null:
+		for item in app.hud.menu_buttons:
+			buttons.append({"id":item[1],"rect":str(item[0]),"arg":str(item[2])})
+	print("BUGTEST_STATE ",JSON.stringify({"label":label,"display":DisplayServer.get_name(),"screen":app.main_menu.screen,"overlay":app.main_menu.overlay,"playing":app.playing,"buttons":buttons}))
+func click(id: String,arg_filter=null) -> bool:
+	var point := Vector2(-1,-1)
+	for item in app.hud.menu_buttons:
+		if item[1] == id and (arg_filter==null or item[2]==arg_filter):
+			point = item[0].get_center()
+			break
+	if point.x < 0:
+		print("BUGTEST_UNSUPPORTED missing live hit region ",id)
+		return false
+	var motion := InputEventMouseMotion.new()
+	motion.position = point
+	motion.global_position = point
+	Input.parse_input_event(motion)
+	await frames(3)
+	var down := InputEventMouseButton.new()
+	down.position = point
+	down.global_position = point
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	Input.parse_input_event(down)
+	await frames(3)
+	var up := InputEventMouseButton.new()
+	up.position = point
+	up.global_position = point
+	up.button_index = MOUSE_BUTTON_LEFT
+	up.pressed = false
+	Input.parse_input_event(up)
+	await frames(30)
+	print("BUGTEST_INPUT mouse ",id," at ",point)
+	return true
+func key(code: Key,pressed: bool) -> void:
+	var event := InputEventKey.new()
+	event.keycode = code
+	event.physical_keycode = code
+	event.pressed = pressed
+	Input.parse_input_event(event)
+# Agent: Codex-faisal3/bugtest. Native queued pad events; state/positions observed read-only.
+func pad_button(device: int, button: JoyButton, pressed: bool) -> void:
+	var ev := InputEventJoypadButton.new()
+	ev.device = device
+	ev.button_index = button
+	ev.pressed = pressed
+	Input.parse_input_event(ev)
+	print("BUGTEST_INPUT pad-button ",device," ",button," ",pressed)
+func pad_tap(device: int, button: JoyButton) -> void:
+	pad_button(device,button,true);await frames(3)
+	pad_button(device,button,false);await frames(8)
+func stick(device: int,value: float) -> void:
+	var ev := InputEventJoypadMotion.new()
+	ev.device = device
+	ev.axis = JOY_AXIS_LEFT_X
+	ev.axis_value = value
+	Input.parse_input_event(ev)
+	print("BUGTEST_INPUT pad-axis ",device," ",value)
+func positions() -> Array:
+	return app.locals.map(func(u): return u.global_position)
+func movement(before: Array,label: String) -> Array:
+	var out := []
+	for k in app.locals.size():out.append(app.locals[k].global_position.distance_to(before[k]))
+	print("BUGTEST_MOVEMENT ",JSON.stringify({"label":label,"meters":out,"positions":str(positions()),"prep":app.prep_left}))
+	return out
+# Agent: Codex-faisal3/bugtest. Normal UI and virtual event routing; README assigns shared pause to player1.
+func _run() -> void:
+	root.size=Vector2i(1280,720)
+	change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"))
+	await frames(150);app=current_scene
+	check(app!=null and app.main_menu!=null and app.hud!=null,"normal packaged objects loaded")
+	if app==null:quit(1);return
+	print("BUGTEST_DEVICES ",JSON.stringify({"connected":Input.get_connected_joypads(),"scope":"virtual queued engine events only"}))
+	if not await click("play"):quit(92);return
+	if not await click("split",true):quit(92);return
+	if not await click("to_lobby"):quit(92);return
+	check(app.main_menu.screen=="lobby" and app.couch_players==1,"normal split lobby with player1 keyboard")
+	for d in [0,1,2]:
+		await pad_tap(d,JOY_BUTTON_A)
+		check(app.couch_players==d+2 and app.main_menu.join_pads.has(d),"pad%d joins own slot"%d)
+		check(not app.main_menu.readied[d+1],"pad%d joins unready"%d)
+		await pad_tap(d,JOY_BUTTON_DPAD_LEFT)
+		check(app.lobby_sides[d+1]==0,"pad%d chooses allied side normally"%d)
+		await pad_tap(d,JOY_BUTTON_A)
+		check(app.main_menu.readied[d+1],"pad%d readies own slot"%d)
+	check(app.main_menu.join_pads==[0,1,2],"three pads retain join order")
+	snapshot("four-player-ready")
+	if not await click("start"):quit(92);return
+	await frames(120)
+	check(app.playing and app.couch_active and app.locals.size()==4 and app.panes.size()==4,"normal match has four local players/panes")
+	check(app.bound_pads==[-1,0,1,2],"normal bindings give player1 keyboard and each joined pad its owner")
+	if not app.playing or app.locals.size()!=4:quit(1);return
+	for i in 1800:
+		if app.prep_left<=0:break
+		await frames(1)
+	check(app.prep_left<=0,"natural20second fortify phase elapsed")
+	for d in [0,1,2]:
+		var before:=positions()
+		stick(d,1.0);await frames(60);stick(d,0.0);await frames(10)
+		var mv:=movement(before,"pad%d-stick"%d)
+		var own_only:bool=mv[d+1]>0.5
+		for k in 4:
+			if k!=d+1 and mv[k]>=0.4:own_only=false
+		check(own_only,"pad%d moves only its joined player"%d)
+	var before:=positions()
+	key(KEY_D,true);await frames(60);key(KEY_D,false);await frames(10)
+	var mv:=movement(before,"keyboard-player1")
+	check(mv[0]>0.5 and mv[1]<0.4 and mv[2]<0.4 and mv[3]<0.4,"keyboard moves player1 only")
+	before=positions();stick(9,1.0);await frames(60);stick(9,0.0);await frames(10)
+	mv=movement(before,"unjoined-pad9")
+	check(mv.all(func(x):return x<0.4),"unjoined pad9 moves nobody")
+	for d in [0,1,2]:
+		await pad_tap(d,JOY_BUTTON_START)
+		print("BUGTEST_PAUSE ",JSON.stringify({"device":d,"owner":d+2,"menu_open":app.menu_open,"tree_paused":paused,"bound_pads":app.bound_pads,"menu_events":InputMap.action_get_events("menu").map(func(e):return {"device":e.device,"text":e.as_text()})}))
+		check(not app.menu_open and not paused,"secondary pad%d cannot take player1 shared pause"%d)
+		if app.menu_open:
+			key(KEY_ESCAPE,true);await frames(3);key(KEY_ESCAPE,false);await frames(12)
+			check(not app.menu_open and not paused,"player1 keyboard closes secondary-opened pause")
+	key(KEY_ESCAPE,true);await frames(3);key(KEY_ESCAPE,false);await frames(12)
+	check(app.menu_open and paused,"player1 keyboard opens documented shared pause")
+	key(KEY_ESCAPE,true);await frames(3);key(KEY_ESCAPE,false);await frames(12)
+	check(not app.menu_open and not paused,"player1 keyboard resumes shared pause")
+	print("BUGTEST_RESULT ",JSON.stringify({"failures":failures,"scope":"Actual package normal mouse menus, three queued virtual pads joining/readying/side selection, four-player movement and README player1 pause ownership. Natural20s prep. No gameplay/menu/property/start/outcome API writes; no physical device, rendered or fullmatch claim."}))
+	quit(0 if failures==0 else 1)
