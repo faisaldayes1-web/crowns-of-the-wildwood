@@ -15,8 +15,8 @@ func _initialize() -> void:
 	check(hud._chat_display_text(keyboard) == keyboard.text, "desktop keyboard instructions preserved")
 	check(hud._chat_display_text(fortify) == fortify.text, "desktop fortify preserved")
 	hud.touch_ui = true
-	check(hud._chat_display_text(keyboard) == "Drag left to move.\nTap actions to fight.", "touch fight onboarding")
-	check(hud._chat_display_text(fortify) == "Fortify your base\nbefore the barrier falls.", "touch fortify onboarding")
+	check(hud._chat_display_text(keyboard) == "Drag left to move. Tap actions to fight.", "touch fight onboarding")
+	check(hud._chat_display_text(fortify) == "Fortify your base before the barrier falls.", "touch fortify onboarding")
 	check(keyboard == original, "stored history not rewritten")
 	var player := keyboard.duplicate()
 	player.who = "Player 2"

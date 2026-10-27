@@ -6,7 +6,7 @@ func _chat_display_text(message: Dictionary) -> String:
 	if not touch_ui or message.get("who", "") != "":
 		return text
 	if text.begins_with("Click to attack, Q and E for abilities, Space to dodge,"):
-		return "Drag left to move.\nTap actions to fight."
+		return "Drag left to move. Tap actions to fight."
 	if text.begins_with("FORTIFY! Build turrets, set traps and raise barricades ("):
-		return "Fortify your base\nbefore the barrier falls."
+		return "Fortify your base before the barrier falls."
 	return text
