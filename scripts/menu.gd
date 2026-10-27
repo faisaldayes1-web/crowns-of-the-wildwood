@@ -1723,4 +1723,3 @@ func start() -> void:
 	game.join_pads = join_pads.duplicate()
 	game.p1_pad_device = p1_pad
 	game._start_match(game.lobby_sides[0])
-
