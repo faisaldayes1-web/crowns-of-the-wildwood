@@ -14,13 +14,14 @@ save=Path('C:/rt')/('cwv-'+a.name);save.mkdir(parents=True,exist_ok=True)
 env=os.environ.copy();env.update(APPDATA=str(save),CROWNS_TEST_USER_BASE=str(save),CROWNS_CAPTURE_DIR=str(out),CROWNS_VISUAL_OUT=str(out))
 extra=a.args[1:] if a.args[:1]==['--'] else a.args
 cmd=[a.exe,'--path',a.source,'--log-file',str(out/'engine.log'),*extra]
+revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=a.source,text=True).strip()
+diff=subprocess.check_output(['git','diff','--stat'],cwd=a.source,text=True).strip()
 start=time.monotonic()
 r=subprocess.run(cmd,cwd=a.source,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=a.timeout)
 (out/'stdout.log').write_text(r.stdout,encoding='utf-8')
 body=(out/'engine.log').read_text(encoding='utf-8') if (out/'engine.log').exists() else r.stdout
-revision=subprocess.check_output(['git','rev-parse','HEAD'],cwd=a.source,text=True).strip()
-diff=subprocess.check_output(['git','diff','--stat'],cwd=a.source,text=True).strip()
-report=dict(agent='Codex-faisal',source=a.source,revision=revision,working_diff=diff,command=cmd,exit=r.returncode,seconds=round(time.monotonic()-start,2),errors=body.count('ERROR:'),script_errors=body.count('SCRIPT ERROR'),passes=body.count('PASS'),failures=body.count('FAIL'),user_data_base=str(save),results=[x for x in body.splitlines() if x.startswith(('RESULT','CAPTURE','MAP_EXPORT','PROF frames'))])
+revision_after=subprocess.check_output(['git','rev-parse','HEAD'],cwd=a.source,text=True).strip()
+report=dict(agent='Codex-faisal',source=a.source,revision=revision,revision_after=revision_after,source_changed_during_run=revision!=revision_after,working_diff=diff,command=cmd,exit=r.returncode,seconds=round(time.monotonic()-start,2),errors=body.count('ERROR:'),script_errors=body.count('SCRIPT ERROR'),passes=body.count('PASS'),failures=body.count('FAIL'),user_data_base=str(save),results=[x for x in body.splitlines() if x.startswith(('RESULT','CAPTURE','MAP_EXPORT','PROF frames'))])
 (out/'result.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report),flush=True)
 raise SystemExit(r.returncode)
