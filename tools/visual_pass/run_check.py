@@ -9,7 +9,7 @@ p.add_argument('--timeout',type=int,default=600)
 p.add_argument('args',nargs=argparse.REMAINDER)
 a=p.parse_args()
 out=Path(a.out)/a.name;out.mkdir(parents=True,exist_ok=True)
-save=Path('C:/rt')/('cwv-'+a.name);save.mkdir(parents=True,exist_ok=True)
+save=Path('C:/Temp')/('cwv-'+a.name);save.mkdir(parents=True,exist_ok=True)
 (save/'.crowns-throwaway-user-dir').touch()
 env=os.environ.copy();env.update(APPDATA=str(save),CROWNS_TEST_USER_BASE=str(save),CROWNS_CAPTURE_DIR=str(out),CROWNS_VISUAL_OUT=str(out))
 extra=a.args[1:] if a.args[:1]==['--'] else a.args
