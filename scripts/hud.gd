@@ -6277,13 +6277,25 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 	Scoreboard.draw_table(self, rect, live)
 
 
+func _chat_display_text(message: Dictionary) -> String:
+	# Only adapt system onboarding; never rewrite another player's chat.
+	var text: String = message.text
+	if not touch_ui or message.get("who", "") != "":
+		return text
+	if text.begins_with("Click to attack, Q and E for abilities, Space to dodge,"):
+		return "Drag left to move.\nTap actions to fight."
+	if text.begins_with("FORTIFY! Build turrets, set traps and raise barricades ("):
+		return "Fortify your base\nbefore the barrier falls."
+	return text
+
+
 func _draw_chat() -> void:
 	## The chat log in the reference's style: each message is a row with the
 	## speaker's portrait, their name in team colour, the match clock and the
 	## line; while typing it sits in a panel with All/Team tabs and an input
 	## box with a send arrow. Idle, recent rows fade out over the field.
 	var top: float = 382.0 if game.rosters_visible else 130.0
-	var rect := Rect2(14, top, 290, size.y - 166 - top)
+	var rect := Rect2(14, top, 380 if touch_ui else 290, size.y - 166 - top)
 	var now := Time.get_ticks_msec() / 1000.0
 	var typing: bool = game.chat_open
 	if not game.chat_visible and not typing:
@@ -6322,7 +6334,11 @@ func _draw_chat() -> void:
 		var m: Dictionary = lines[i]
 		var alpha := 1.0 if typing else clampf((14.0 - (now - m.time)) / 3.0, 0.0, 1.0)
 		var named: bool = m.who != ""
-		var body_h := _paragraph_height(m.text, 11, tw, 13.0)
+		var body := _chat_display_text(m)
+		var touch_hint := touch_ui and not named and body != m.text
+		var body_size := 22 if touch_hint else 11
+		var line_height := 26.0 if touch_hint else 13.0
+		var body_h := _paragraph_height(body, body_size, tw, line_height)
 		var h: float = maxf(36.0, body_h + (22.0 if named else 10.0))
 		y -= h + 4
 		if y < rect.position.y + tab_h + 4:
@@ -6347,7 +6363,7 @@ func _draw_chat() -> void:
 			_paragraph(row.position + Vector2(40, 29), m.text, 11, Color(0.92, 0.92, 0.95, alpha), tw, 13.0, 1)
 		else:
 			_icon("crown", row.position + Vector2(20, h / 2.0), 6, Color(GOLD.r, GOLD.g, GOLD.b, 0.8 * alpha))
-			_paragraph(row.position + Vector2(40, h / 2.0 + 4), m.text, 11, col, tw, 13.0, 1)
+			_paragraph(row.position + Vector2(40, 4 + body_size if touch_hint else h / 2.0 + 4), body, body_size, col, tw, line_height, 1)
 	if typing:
 		var box := Rect2(rect.position + Vector2(8, rect.size.y - 30), Vector2(rect.size.x - 56, 24))
 		_plate(box, Color(0.12, 0.13, 0.2, 0.98), GOLD_DARK, 6, 1)
