@@ -1,0 +1,10 @@
+{
+  "agent": "Codex-faisal/crowns",
+  "game_source": "9b985b2",
+  "source_claim_commit": "e3a657f",
+  "template_sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+  "package_exe_sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+  "package_pck_sha256": "336de1f62a28406c32403d95b5675ae598ed1f3dc5cdfb9991bd7d05cc340e77",
+  "package_pck_bytes": 92304368,
+  "mode": "external PCK; local opt-in only"
+}

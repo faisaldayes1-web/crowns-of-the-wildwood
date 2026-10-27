@@ -1,0 +1,20 @@
+Godot Engine v4.3.stable.custom_build.77dcf97d8 (2024-08-14 23:00:16 UTC) - https://godotengine.org
+
+tools/kbm_move_test.gd: user dir C:/ORY-Cache/qa/crowns-68-package-20261027/userdata-kbm_move_test/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+NET ready
+BATCH merged 8487 scenery meshes (1528 left alone) into 1297 meshes; 2095 materials became 522; 748 ms (471 ms reading meshes)
+PASS  W walks toward the cursor (east)
+PASS  S backs away from it
+PASS  D steps to the right of the aim
+PASS  A steps to the left of the aim
+PASS  with the cursor on the player, W walks up the screen
+PASS  UP THE SCREEN keeps W walking up
+PASS  a gamepad's stick is never turned
+PASS  moving the mouse switches the hints back to keys
+PASS  a pad button switches the hints to the pad
+PASS  the movement pick is saved
+KBM MOVE TEST: 0 failed
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: ObjectDB::cleanup (core\object\object.cpp:2284)
+ERROR: 10 resources still in use at exit (run with --verbose for details).
+   at: ResourceCache::clear (core\io\resource.cpp:604)
