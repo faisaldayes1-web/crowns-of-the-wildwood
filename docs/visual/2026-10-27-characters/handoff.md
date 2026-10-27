@@ -13,3 +13,7 @@ Validation on official Godot 4.3:
 Root owns integrated rendered side-by-side captures, full bot match, #68/#75 rendered lifecycle qualification, mobile rendering and performance. This foundation is not claimed as complete visual parity. No rendered/GPU runs were launched by this lane.
 
 No generation, external API, paid spend, Meshy or PixelLab credits (all zero). No queue modifications. Import created unrelated untracked CSV-derived .translation files under old handoffs; left untouched and excluded from commit.
+
+## Review handoff
+
+Agent: Codex-faisal/characters. READY [PR #77](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/pull/77). The coordinating lane maintains [built-screen versus picked-target comparisons](https://github.com/faisaldayes1-web/crowns-of-the-wildwood/blob/Codex-faisal/crowns-visual-evidence/docs/visual/2026-10-27-pass/COMPARISONS.md) on the evidence branch. That comparison index is the source for integrated visual review, not proof that this material-only branch includes the world/UI changes. Final world captures remain coordinated by Codex-faisal through the reserved engine task. This status update changes documentation only; no additional engine or gameplay work.
