@@ -326,20 +326,21 @@ func _draw_title() -> void:
 		var lw := 390.0
 		var lh := lw * logo.get_height() / float(logo.get_width())
 		h.draw_texture_rect(logo, Rect2(w / 2.0 - lw / 2.0, 62, lw, minf(lh, 220.0)), false)
-	var x := w - 270.0
-	var y: float = h.size.y - 370.0
-	var play := Rect2(x - 8, y, 262, 62)
+	var touch: bool = game.touch_active
+	var x := w - (350.0 if touch else 270.0)
+	var y: float = 148.0 if touch else h.size.y - 370.0
+	var play := Rect2(x - 8, y, 338 if touch else 262, 80 if touch else 62)
 	var hover := button(play, "play")
 	nine("btn_play_blue", play.grow(3) if hover else play, 48, 20, 48, 20)
-	icon("swords", play.position + Vector2(42, 31), 36)
-	ttext(play.position + Vector2(80, 42), "PLAY", 30)
+	icon("swords", play.position + Vector2(42, play.size.y / 2.0), 36)
+	ttext(play.position + Vector2(80, play.size.y / 2.0 + 11), "PLAY", 30)
 	var ids := ["customize", "settings", "tutorial", "credits", "exit"]
 	var glyphs := ["tunic", "gear", "book", "trophy", "exit"]
 	for i in ids.size():
-		wood_button(Rect2(x, y + 66 + i * 52, 246, 48), "CLICK AGAIN" if i == 4 and exit_armed > 0 else str(ids[i]).to_upper(), ids[i], null, glyphs[i], 21)
-	wood_button(Rect2(24, h.size.y - 62, 166, 46), "STORE", "store", null, "crown", 21)
-	wood_button(Rect2(202, h.size.y - 62, 180, 46), "ONLINE", "online", null, "gamepad", 21)
-	wood_button(Rect2(24, h.size.y - 112, 220, 40), "LV %d  %s" % [game.account_level(), game.hero_name], "progress", null, "", 16)
+		wood_button(Rect2(x, y + (86 if touch else 66) + i * (86 if touch else 52), 322 if touch else 246, 80 if touch else 48), "CLICK AGAIN" if i == 4 and exit_armed > 0 else str(ids[i]).to_upper(), ids[i], null, glyphs[i], 27 if touch else 21)
+	wood_button(Rect2(24, h.size.y - (90 if touch else 62), 200 if touch else 166, 80 if touch else 46), "STORE", "store", null, "crown", 21)
+	wood_button(Rect2(236 if touch else 202, h.size.y - (90 if touch else 62), 220 if touch else 180, 80 if touch else 46), "ONLINE", "online", null, "gamepad", 21)
+	wood_button(Rect2(24, h.size.y - (178 if touch else 112), 300 if touch else 220, 80 if touch else 40), "LV %d  %s" % [game.account_level(), game.hero_name], "progress", null, "", 16)
 
 
 # --- Online -----------------------------------------------------------------------
@@ -459,6 +460,7 @@ func _draw_online() -> void:
 # --- Select Map -------------------------------------------------------------------
 
 func _draw_map() -> void:
+	var touch: bool = game.touch_active
 	# Pick A: expansive map cards above one three-column command shelf.
 	plaque(h.size.x / 2.0, 14, "SELECT MAP", 400)
 	var cw := 250.0
@@ -467,41 +469,41 @@ func _draw_map() -> void:
 	for k in 4:
 		var i := map_first + k
 		if i < MAP_CARDS.size():
-			_map_card(Rect2(left + k * (cw + gap), 112, cw, 270), i)
+			_map_card(Rect2(left + k * (cw + gap), 100 if touch else 112, cw, 200 if touch else 270), i)
 	for side in [-1, 1]:
 		var can: bool = map_first > 0 if side < 0 else map_first + 4 < MAP_CARDS.size()
-		var ac := Vector2(h.size.x / 2.0 + side * 568, 248)
+		var ac := Vector2(h.size.x / 2.0 + side * 568, 200 if touch else 248)
 		if can:
-			var over := button(Rect2(ac - Vector2(24, 34), Vector2(48, 68)), "map_page", side)
+			var over := button(Rect2(ac - Vector2(40 if touch else 24, 50 if touch else 34), Vector2(80 if touch else 48, 100 if touch else 68)), "map_page", side)
 			icon("arrow_left" if side < 0 else "arrow_right", ac, 54 if over else 46)
-	slate(Rect2(24, 444, h.size.x - 48, 208))
+	slate(Rect2(24, 330 if touch else 444, h.size.x - 48, 302 if touch else 208))
 	for dx in [480, 800]:
-		h.draw_line(Vector2(dx, 466), Vector2(dx, 632), Color("d8aa47"), 2)
-	ttext(Vector2(58, 476), "DIFFICULTY", 22, Color("d8aa47"))
+		h.draw_line(Vector2(dx, 350 if touch else 466), Vector2(dx, 616 if touch else 632), Color("d8aa47"), 2)
+	ttext(Vector2(58, 364 if touch else 476), "DIFFICULTY", 22, Color("d8aa47"))
 	for i in DIFFICULTIES.size():
 		var d: Array = DIFFICULTIES[i]
-		var r := Rect2(58, 486 + i * 51, 390, 46)
+		var r := Rect2(58, (378 if touch else 486) + i * (86 if touch else 51), 390, 82 if touch else 46)
 		var on: bool = game.bot_difficulty == d[2]
 		option_box(r, on, button(r, "difficulty", d[2]), Color("28744a"))
-		icon(d[3], r.position + Vector2(26, 23), 32)
-		ttext(r.position + Vector2(56, 31 if game.touch_active else 20), d[0], 26 if game.touch_active else 19)
+		icon(d[3], r.position + Vector2(26, r.size.y / 2.0), 32)
+		ttext(r.position + Vector2(56, r.size.y / 2.0 + 9 if touch else 20), d[0], 26 if game.touch_active else 19)
 		if not game.touch_active:
 			label(r.position + Vector2(56, 37), d[1], 12)
-	ttext(Vector2(490, 478), "TEAM SIZE", 22, Color("d8aa47"), HORIZONTAL_ALIGNMENT_CENTER, 300)
-	var tr := Rect2(526, 512, 228, 55)
+	ttext(Vector2(490, 364 if touch else 478), "TEAM SIZE", 22, Color("d8aa47"), HORIZONTAL_ALIGNMENT_CENTER, 300)
+	var tr := Rect2(526, 414 if touch else 512, 228, 82 if touch else 55)
 	option_box(tr, true, false, Color("d8aa47"))
-	ttext(Vector2(tr.position.x, tr.position.y + 37), "%dv%d" % [game.TEAM_SIZE, game.TEAM_SIZE], 27, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tr.size.x)
-	h._text(Vector2(490, 604), "Bots fill any empty seats", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 300)
-	ttext(Vector2(818, 478), "SPLIT SCREEN", 22, Color("d8aa47"), HORIZONTAL_ALIGNMENT_CENTER, 400)
+	ttext(Vector2(tr.position.x, tr.get_center().y + 10), "%dv%d" % [game.TEAM_SIZE, game.TEAM_SIZE], 27, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tr.size.x)
+	h._text(Vector2(490, 550 if touch else 604), "Bots fill any empty seats", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 300)
+	ttext(Vector2(818, 364 if touch else 478), "SPLIT SCREEN", 22, Color("d8aa47"), HORIZONTAL_ALIGNMENT_CENTER, 400)
 	for k in 2:
-		var r := Rect2(850 + k * 175, 516, 156, 54)
+		var r := Rect2(850 + k * 175, 414 if touch else 516, 156, 82 if touch else 54)
 		var on: bool = _split_on() == (k == 1)
 		option_box(r, on, button(r, "split", k == 1), Color("d8aa47"))
-		ttext(r.position + Vector2(0, 36), ["OFF", "ON"][k], 24, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
+		ttext(r.position + Vector2(0, r.size.y / 2.0 + 9), ["OFF", "ON"][k], 24, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x)
 	if _split_on():
-		_layout_picker(Rect2(830, 594, 376, 34))
-	green_button(Rect2(h.size.x / 2.0 - 190, 642, 380, 70), "START MATCH", "to_lobby", _card_open(map_pick))
-	wood_button(Rect2(40, 660, 150, 50), "BACK", "back", null, "", 20)
+		_layout_picker(Rect2(830, 540 if touch else 594, 376, 82 if touch else 34))
+	green_button(Rect2(h.size.x / 2.0 - 190, 636 if touch else 642, 380, 80 if touch else 70), "START MATCH", "to_lobby", _card_open(map_pick))
+	wood_button(Rect2(40, 636 if touch else 660, 220 if touch else 150, 80 if touch else 50), "BACK", "back", null, "", 20)
 
 
 func _card_open(i: int) -> bool:
@@ -1034,7 +1036,7 @@ func _draw_lobby() -> void:
 		if s.kind == "none":
 			continue
 		# Tag.
-		var tag := Rect2(cx - 104, 372 if touch else 454, 208, 40)
+		var tag := Rect2(cx - 104, 362 if touch else 454, 208, 40)
 		var tcol: Color = s.get("color", Color(0.4, 0.4, 0.45))
 		var title := ""
 		match s.kind:
@@ -1046,7 +1048,7 @@ func _draw_lobby() -> void:
 		nine("tag", tag, 14, 14, 14, 14, tcol.lightened(0.15))
 		ttext(Vector2(tag.position.x, tag.position.y + 32), title, 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 5)
 		# Name plate.
-		var plate := Rect2(cx - 120, 412 if touch else 496, 240, 230 if touch else 118)
+		var plate := Rect2(cx - 120, 402 if touch else 496, 240, 230 if touch else 118)
 		slate(plate)
 		match s.kind:
 			"local":
@@ -1079,10 +1081,10 @@ func _draw_lobby() -> void:
 	var note := "%s on %s  ·  %s" % [sizes, MAP_CARDS[map_pick][0].capitalize(), DIFFICULTIES[maxi(["Easy", "Normal", "Hard"].find(game.bot_difficulty), 0)][0].capitalize()]
 	if extra > 0:
 		note += "  ·  +%d more bot%s" % [extra, "" if extra == 1 else "s"]
-	h._text(Vector2(0, 636 if not touch else 364), note, 13, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
-	slate(Rect2(20, 644, h.size.x - 40, 72))
-	wood_button(Rect2(40, 652, 290, 54), "BACK", "back", null, "", 22)
-	green_button(Rect2(h.size.x - 452, 646, 400, 68), "START MATCH" if all_ready else "WAITING...", "start", all_ready)
+	h._text(Vector2(0, 636 if not touch else 354), note, 13, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
+	slate(Rect2(20, 632 if touch else 644, h.size.x - 40, 84 if touch else 72))
+	wood_button(Rect2(40, 636 if touch else 652, 290, 80 if touch else 54), "BACK", "back", null, "", 22)
+	green_button(Rect2(h.size.x - 452, 636 if touch else 646, 400, 80 if touch else 68), "START MATCH" if all_ready else "WAITING...", "start", all_ready)
 	if game.couch_players == 2:
 		_layout_picker(Rect2(h.size.x / 2.0 - 230, 662, 340, 34))
 
@@ -1113,7 +1115,7 @@ func _side_chip(r: Rect2, k: int, team: int) -> void:
 		sb.set_border_width_all(2 if on or ov else 1)
 		sb.border_color = Color(1.0, 0.85, 0.4) if on else (Color(0.8, 0.7, 0.5) if ov else Color(0.3, 0.3, 0.32))
 		h.draw_style_box(sb, cr)
-		h._text(Vector2(cr.position.x, cr.get_center().y + 5), "ELVES" if side == 0 else "HUMANS", 11, Color.WHITE if on else Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_CENTER, cr.size.x, 2)
+		h._text(Vector2(cr.position.x, cr.get_center().y + 5), "ELVES" if side == 0 else "HUMANS", 20 if game.touch_active else 11, Color.WHITE if on else Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_CENTER, cr.size.x, 2)
 
 
 func _ready_bar(r: Rect2, is_ready: bool, k: int) -> void:
@@ -1127,7 +1129,7 @@ func _ready_bar(r: Rect2, is_ready: bool, k: int) -> void:
 	sb.border_color = Color(0.45, 0.9, 0.35) if is_ready else (Color(0.85, 0.75, 0.5) if ov else Color(0.45, 0.45, 0.5))
 	h.draw_style_box(sb, r)
 	icon("check" if is_ready else "wait", r.position + Vector2(16, r.size.y / 2.0), 30)
-	h._text(Vector2(r.position.x + 20, r.get_center().y + 5), "Ready" if is_ready else "Not ready", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 20, 2)
+	h._text(Vector2(r.position.x + 20, r.get_center().y + 5), "Ready" if is_ready else "Not ready", 22 if game.touch_active else 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 20, 2)
 
 
 # --- Overlays -------------------------------------------------------------------------
