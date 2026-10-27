@@ -34,7 +34,7 @@ Fresh desktop/mobile captures and menu/touch checks at `bb5534219626e46417f6eb9c
 
 Independent mobile review found tiny keyboard-specific instructional copy in the touch fixture. PR78 corrected it with larger touch-specific instructions; final3c83b96 images are independently reviewed. The follow-up uses ordinary spacing and native wrapping; visual fidelity still has the documented environment and geometry gaps. The bounded natural-combat fixture completed at bb55342: exit0, zero errors,100.33 seconds including setup. Its enemy-proximity frame and60-second gathering frame are retained under checks/combat-push-20261027. No hit or crown capture is proven; visible_carrier_observed=false.
 
-Final acceptance remains open. PR78/79 stay draft while visual gaps remain; no automatic merge or picked-set vault move is authorized by these checks. Physical mobile performance and native input still require device testing.
+Historical evidence-refresh status: PR78/79 remained draft at that time. The October27 owner finish push now supersedes that review-state hold as recorded below. Final visual acceptance, picked-set vault moves, physical mobile performance and native input remain open.
 
 ## Shader-cache path failures
 
@@ -55,3 +55,11 @@ The approved-picks goal now has implemented world/character/UI PRs and actual be
 No paid API, Meshy, PixelLab or ComfyUI generation. One built-in imagegen precise-object edit removes UI/logo from selected titleA. Generated file copied to C:/ORY-Cache/style-options/crowns-clean-title-Codex-faisal/title-a-clean-v1.png, then integrated separately as assets/ui/menu/title_picked_a_clean.png. Full prompt/source/hash is in world PR's title-backdrop-provenance.json. External generation credit spend: zero.
 
 Historical prior implementation session: reports to claude-faisal were sent with PR76-79 and reservation paths. No external messages were sent during this evidence refresh.
+
+## PR finish disposition, October 27
+
+Agent: Codex-faisal/crowns_pr_finish. Owner explicitly ordered owned PRs finished and marked READY. Current main93365c9 is integrated into77/78/79 by history-preserving merges because AGENTS.md prohibits force-push. Append-only claims and both sides of goal evidence were retained.
+
+[Independent retained-evidence audit](finish-20261027/audit.json):41 checks pass, including34 image hashes, final desktop/phone/touch run results, and four implementation-file comparisons. Current main plus77/78 matches the rendered3c83b96 runtime across scripts/assets/scenes/project.godot except trailing blank lines in two files. The screenshots therefore remain applicable to the combined implementation; individual branches do not claim to contain the other lane. No new engine execution or after-capture was fabricated. Final touch23 and fourteen captures pass at3c83b96; menu25, bot and import keep their original earlier revisions.
+
+READY means implementation/evidence is ready for host review and merge_ready.py, not full target fidelity or release acceptance. The documented target gaps are future visual work; no new art direction was invented. Issue68/runtime/performance and physical-device qualification remain separate. No new PR, paid API, generation credits, build upload or main merge. The three other open PRs belong to Codex-faisal3 and were untouched.
