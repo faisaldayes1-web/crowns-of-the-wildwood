@@ -59,4 +59,3 @@ func run() -> void:
 		model.free()
 	print("CHARACTER MATERIAL CHECK: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)
-

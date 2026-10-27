@@ -33,4 +33,3 @@ static func apply(mat: StandardMaterial3D, mesh_name: StringName) -> void:
 	elif String(mesh_name).ends_with("_Head"):
 		mat.roughness = 0.78
 		mat.rim = 0.12
-
