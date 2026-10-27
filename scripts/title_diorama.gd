@@ -251,9 +251,9 @@ func _keep() -> void:
 
 func _tower(pos: Vector3, team: int, side: float, width: float, height: float) -> void:
 	game._add_tower(pos, team, side, width, height, false)
-	var stone := game._material(Color("d8c49a"))
+	var stone: StandardMaterial3D = game._material(Color("d8c49a"))
 	stone.roughness = 0.94
-	var pale := game._material(Color("e5d5b6"))
+	var pale: StandardMaterial3D = game._material(Color("e5d5b6"))
 	pale.roughness = 0.94
 	# Broad, bevelled corner blocks separate the miniature's silhouette from
 	# its flat textured core. Deterministic and non-colliding.
@@ -274,7 +274,7 @@ func _tower(pos: Vector3, team: int, side: float, width: float, height: float) -
 	st.add_vertex(Vector3(0.9, -0.22, 0))
 	st.add_vertex(Vector3(0, -0.46, 0))
 	st.generate_normals()
-	var cloth := game._cloth(Color("315b9c"))
+	var cloth: StandardMaterial3D = game._cloth(Color("315b9c"))
 	cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_mesh(st.commit(), tip + Vector3(0.04, 1.42, 0), cloth)
 
