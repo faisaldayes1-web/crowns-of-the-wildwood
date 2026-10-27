@@ -9,6 +9,7 @@ const Role = Stats.Role
 const Face = preload("res://scripts/face.gd")
 const OutfitFlair = preload("res://scripts/outfit_flair.gd")
 const StoreGear = preload("res://scripts/store_gear.gd")
+const CharacterMaterials = preload("res://scripts/visual/character_material_profile.gd")
 
 const SCENES := {
 	"knight": "res://assets/characters/Knight.glb",
@@ -230,10 +231,10 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	# the characters pop from the ground the way the reference art does.
 	outline = StandardMaterial3D.new()
 	outline.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	outline.albedo_color = Color(0.09, 0.07, 0.1)
+	outline.albedo_color = CharacterMaterials.OUTLINE
 	outline.cull_mode = BaseMaterial3D.CULL_FRONT
 	outline.grow = true
-	outline.grow_amount = 0.022
+	outline.grow_amount = CharacterMaterials.OUTLINE_WIDTH
 
 	# Only the gear this class uses.
 	for name in ALL_GEAR:
@@ -270,17 +271,15 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 				var dup: StandardMaterial3D = mat.duplicate()
 				dup.albedo_texture = weapon_skin if held else skin
 				dup.albedo_color = tint * custom.get("look", Color.WHITE)
+				CharacterMaterials.apply(dup, mesh.name)
+				# Store finishes override the base material, including roughness.
 				if held and weapon_look[1].a > 0.0:
 					StoreGear.skin_weapon(dup, weapon_look)
-				dup.rim_enabled = true
-				dup.rim = 0.35
-				dup.rim_tint = 0.6
 				if custom.has("look"):
 					# The Shadowborn look: a violet glow along the edges.
 					dup.emission_enabled = true
 					dup.emission = Color(0.35, 0.15, 0.6)
 					dup.emission_energy_multiplier = 0.25
-				dup.roughness = 0.75
 				dup.next_pass = outline
 				mesh.set_surface_override_material(i, dup)
 				flash_mats.append(dup)
