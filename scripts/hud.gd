@@ -345,7 +345,10 @@ func _draw() -> void:
 		else:
 			_draw_minimap(Vector2(124, 208 if _corner_score() else 124), 100.0)
 		if game.economy and _me():
-			game.economy.draw_counter(self, _me())   # team wood and ore (economy.gd)
+			if _corner_score():
+				draw_set_transform(Vector2(0, 84))
+			game.economy.draw_counter(self, _me())   # team stock stays below the relocated map
+			draw_set_transform(Vector2.ZERO)
 	_draw_dizzy_marks()
 	_draw_toasts()
 	if _me() and not game.guide_open:
@@ -2529,22 +2532,25 @@ func _ivy(start: Vector2, dir: Vector2, length: float, seed_i: int) -> void:
 
 
 func _corner_score() -> bool:
-	return not _narrow() and not touch_ui and game.prep_left <= 0.0 and not game.menu_open and _banner_kind() != "class"
+	return not _narrow()
 
 
 func _draw_scoreboard() -> void:
 	if _corner_score():
 		for team in 2:
-			var r := Rect2(24 if team == 0 else size.x - 264, 14, 240, 66)
+			var r := Rect2(24 if team == 0 else size.x - (360 if touch_ui else 264), 14, 240, 66)
 			_plate(r, Color("28744a") if team == 0 else Color("315b9c"), Color("d8aa47"), 14, 3)
+			_icon("crest_elf" if team == 0 else "crest_human", r.position + Vector2(34, 33), 26, CREAM)
 			_text(r.position + Vector2(0, 25), "ELVES" if team == 0 else "HUMANS", 19, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
 			_text(r.position + Vector2(0, 55), str(game.score[team]), 30, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
 		var clock := Rect2(size.x / 2.0 - 100, 10, 200, 80)
 		_plate(clock, Color("27364a"), Color("d8aa47"), 16, 3)
-		_crown(Vector2(size.x / 2.0, 14), 10, GOLD)
-		_text(clock.position + Vector2(0, 30), "OVERTIME" if game.overtime else "BATTLE", 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 200, 3)
-		var sec := maxi(0, int(game.time_left))
+		_crown(Vector2(size.x / 2.0, 14), 1.0, GOLD)
+		_text(clock.position + Vector2(0, 30), "FORTIFY" if game.prep_left > 0.0 else ("OVERTIME" if game.overtime else "BATTLE"), 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 200, 3)
+		var sec := maxi(0, ceili(game.prep_left) if game.prep_left > 0.0 else int(game.time_left))
 		_text(clock.position + Vector2(0, 66), "%d:%02d" % [sec / 60, sec % 60], 32, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 200, 3)
+		if game.prep_left > 0.0:
+			_text(Vector2(size.x / 2.0 - 250, 110), "Build defenses before the barrier falls.", 16, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 500, 3)
 		return
 	## The top bar: its art, names, scores, clock and the line under it are
 	## baked (they change at most a few times a second); the twinkles and the
@@ -3610,10 +3616,10 @@ func _draw_player_panel(p) -> void:
 	var buttons_w := 3.0 * 42.0 + 2.0 * 8.0
 	var bx := W - 22.0 - buttons_w
 	_corner_buttons(Vector2(bx, H - 89))
-	_ability_strip(p, Rect2(Vector2(W / 2.0 - 220.0, H - 224), Vector2(440, 210)))
+	_ability_strip(p, Rect2(Vector2(W / 2.0 - 200.0, H - 142), Vector2(540, 126)))
 	if _lv():
 		if game.economy:
-			game.economy.draw_hat_slot(self, p, Rect2(Vector2(bx - 30.0 - 470.0, H - 122), Vector2(470, 110)))   # the upgraded hat's move
+			game.economy.draw_hat_slot(self, p, Rect2(Vector2(W / 2.0 + 440.0, H - 140), Vector2(90, 110)))   # the upgraded hat's move
 		_status_tags(p, panel)
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
@@ -4087,21 +4093,29 @@ func _draw_xp_bar(p, bar: Rect2) -> void:
 
 
 func _ability_strip(p, strip: Rect2) -> void:
-	# Codex-faisal/ui: picked C radial cluster. Six actions retain their
-	# native cooldown/energy/binding and clickable rectangles.
+	# Pick C: a shallow hex arc on a slate silhouette, keeping the world open.
 	if _st():
-		game_board(strip.grow(-8))
-	var c := strip.get_center()
-	var at := [c + Vector2(-30, -100), c + Vector2(-124, -64), c + Vector2(64, -64),
-		c + Vector2(-174, 30), c + Vector2(-66, 30), c + Vector2(150, 30)]
-	_move_slots(p, at, [60.0, 60.0, 60.0, 52.0, 52.0, 52.0])
-	# Shield classes still need independent access to perks.
+		var outline := PackedVector2Array()
+		for v in [Vector2(0, 48), Vector2(84, 10), Vector2(270, -12), Vector2(456, 10), Vector2(540, 48), Vector2(526, 118), Vector2(14, 118)]:
+			outline.append(strip.position + v)
+		draw_colored_polygon(outline, Color(0.08, 0.11, 0.15, 0.96))
+		outline.append(outline[0])
+		draw_polyline(outline, Color("d8aa47"), 3.0, true)
+		_ivy(strip.position + Vector2(12, 74), Vector2(0, -1), 38, 3)
+		_ivy(strip.position + Vector2(528, 74), Vector2(0, -1), 38, 6)
+	var at := []
+	var offsets := [Vector2(35, 28), Vector2(115, 12), Vector2(195, 0), Vector2(275, 0), Vector2(355, 12), Vector2(435, 28)]
 	if p.can_block():
-		var pos := c + Vector2(42, 30)
+		offsets = [Vector2(10, 28), Vector2(86, 12), Vector2(162, 0), Vector2(238, 0), Vector2(314, 12), Vector2(466, 40)]
+	for v in offsets:
+		at.append(strip.position + v)
+	_move_slots(p, at, [52.0, 52.0, 52.0, 52.0, 52.0, 52.0])
+	if p.can_block():
+		var pos := strip.position + Vector2(390, 28)
 		next_slot_art = "perks"
 		_slot(pos, 52.0, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
 		if not pane:
-			touch_rects.append([Rect2(pos * hud_scale, Vector2(52, 74) * hud_scale), "rank_menu"])
+			touch_rects.append([Rect2(pos * hud_scale, Vector2(52, 83) * hud_scale), "rank_menu"])
 
 
 func _strip_board(strip: Rect2) -> void:
@@ -7254,16 +7268,16 @@ func _draw_class_banner(p) -> void:
 	if p.class_banner <= 0.0:
 		return
 	var fit := minf(size.x / 1280.0, 1.0)
-	var c := Vector2(size.x / 2.0, 204.0 * fit)
-	draw_set_transform(c, 0.0, Vector2(fit, fit))
+	var c := Vector2(size.x / 2.0, 174.0 * fit)
+	draw_set_transform(c, 0.0, Vector2(fit * 0.82, fit * 0.82))
 	for side in [-1, 1]:
-		var rr := Rect2(side * 116.0 - 46.0, -36, 92, 110)
+		var rr := Rect2(side * 92.0 - 34.0, -24, 68, 86)
 		_plate(rr, Color("27364a"), Color("d8aa47"), 8, 2)
-		_icon("bow" if side < 0 else "staff", rr.get_center(), 25, CREAM)
+		_class_card(rr.get_center(), 26, p.team, Role.RANGER if side < 0 else Role.MAGE)
 	var card := Rect2(-76, -62, 152, 158)
 	_plate(card.grow(4), Color("80532e"), GOLD, 10, 3)
 	_plate(card, Color("27364a"), Color("d8aa47"), 8, 2)
-	_icon(_class_icon(p.role), Vector2(0, -12), 34, GOLD)
+	_class_card(Vector2(0, -12), 34, p.team, p.role)
 	_text(Vector2(-76, 48), "YOU ARE NOW", 17, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 152, 3)
 	_text(Vector2(-76, 78), p.role_name().to_upper(), 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 152, 3)
 	draw_set_transform(Vector2.ZERO)
