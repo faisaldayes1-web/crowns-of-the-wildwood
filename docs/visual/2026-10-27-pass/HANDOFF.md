@@ -24,7 +24,7 @@ Menu25 and bounded encounter results remain at earlier bb55342; the full natural
 
 Clean import; seven desktop captures; seven phone-size captures; 25 menu-flow assertions; 16 character-material checks; actual4096px clean/labelled map export plus bounds; stable full bot match completed naturally Elves2–0 at simulated375 with zero errors. Raw logs/results are retained. Existing menu-anchor warnings are visible in the raw menu log.
 
-The first rendered touch fixture passed23 assertions but logged a finished-Tween startup error. The test used a five-frame startup guess; a bounded readiness wait was subsequently committed. The fresh bb55342 touch run passed23 with zero errors; the original failing run remains history and must not be described as clean. The follow-up instructional-copy correction still requires its own capture.
+The first rendered touch fixture passed23 assertions but logged a finished-Tween startup error. The test used a five-frame startup guess; a bounded readiness wait was subsequently committed. The fresh bb55342 touch run passed23 with zero errors; the original failing run remains history and must not be described as clean. The follow-up instructional-copy correction is now captured and qualified at final3c83b96.
 
 ## Renderer validation update
 
