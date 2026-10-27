@@ -1,0 +1,55 @@
+{
+  "agent": "Codex-faisal",
+  "capture_bounds": {
+    "max_x": 96,
+    "max_z": 96,
+    "min_x": -96,
+    "min_z": -96
+  },
+  "image_size": [
+    4096,
+    4096
+  ],
+  "landmarks": [
+    {
+      "name": "ELVEN CASTLE",
+      "x": -60,
+      "z": 0
+    },
+    {
+      "name": "HUMAN CASTLE",
+      "x": 60,
+      "z": 0
+    },
+    {
+      "name": "NORTH BRIDGE",
+      "x": 0,
+      "z": -20
+    },
+    {
+      "name": "CROWN SHRINE",
+      "x": 0,
+      "z": 0
+    },
+    {
+      "name": "SOUTH BRIDGE",
+      "x": 0,
+      "z": 20
+    }
+  ],
+  "map_variant": 0,
+  "notes": "Existing playable map, no topology expansion. Square map includes margin beyond north/south playable bounds. Dynamic units, monarchs, guides, turrets, labels and particle effects hidden for clean export.",
+  "playable_bounds": {
+    "max_x": 84,
+    "max_z": 36,
+    "min_x": -84,
+    "min_z": -36
+  },
+  "source": "actual Godot World3D orthographic viewport",
+  "world_axes": {
+    "down": "+Z",
+    "north": "-Z",
+    "right": "+X"
+  },
+  "world_to_uv": "u=(x-min_x)/(max_x-min_x); v=(z-min_z)/(max_z-min_z)"
+}
