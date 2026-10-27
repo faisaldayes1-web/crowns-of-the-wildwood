@@ -44,7 +44,8 @@ func _init():
 	root.add_child(vp)
 	var cam := Camera3D.new()
 	vp.add_child(cam)
-	var half_extent: float = maxf(g.map_half.x, g.map_half.y)
+	# Cellar scenery extends beyond the gameplay clamp; retain it in the image.
+	var half_extent: float = maxf(g.map_half.x, g.map_half.y) + 12.0
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
 	cam.size = half_extent * 2.0
 	cam.far = 500.0
