@@ -26,6 +26,15 @@ func _init():
 		quit(3)
 		return
 	paused = true
+	# Omit dynamic actors and gameplay labels from reusable map textures.
+	for actor in g.units + g.monarchs + g.guides + g.blessings + g.turrets:
+		if is_instance_valid(actor) and actor is Node3D:
+			actor.hide()
+	for node in g.find_children("*", "Node3D", true, false):
+		if node is Label3D or node is GPUParticles3D or node is CPUParticles3D:
+			node.hide()
+		elif node.get_script() and node.get_script().resource_path in ["res://scripts/projectile.gd", "res://scripts/fx.gd", "res://scripts/skill_fx.gd"]:
+			node.hide()
 	# Render the live World3D through a separate viewport: no HUD canvas layers.
 	var vp := SubViewport.new()
 	vp.size = Vector2i(4096, 4096)
@@ -75,13 +84,16 @@ func _init():
 	for i in 3:
 		await process_frame
 	await RenderingServer.frame_post_draw
-	vp.get_texture().get_image().save_png(out.path_join("wildwood-labelled-4096.png"))
+	err = vp.get_texture().get_image().save_png(out.path_join("wildwood-labelled-4096.png"))
+	if err != OK:
+		quit(4)
+		return
 	var data := {"agent":"Codex-faisal", "source":"actual Godot World3D orthographic viewport", "map_variant":g.map_variant,
 		"image_size":[4096,4096], "world_axes":{"right":"+X", "down":"+Z", "north":"-Z"},
 		"capture_bounds":{"min_x":-half_extent,"max_x":half_extent,"min_z":-half_extent,"max_z":half_extent},
 		"playable_bounds":{"min_x":-g.map_half.x,"max_x":g.map_half.x,"min_z":-g.map_half.y,"max_z":g.map_half.y},
 		"world_to_uv":"u=(x-min_x)/(max_x-min_x); v=(z-min_z)/(max_z-min_z)", "landmarks":landmarks,
-		"notes":"Existing playable map, no topology expansion. Square map includes margin beyond north/south playable bounds. Live units are frozen at capture time."}
+		"notes":"Existing playable map, no topology expansion. Square map includes margin beyond north/south playable bounds. Dynamic units, monarchs, guides, turrets, labels and particle effects hidden for clean export."}
 	FileAccess.open(out.path_join("wildwood-bounds.json"), FileAccess.WRITE).store_string(JSON.stringify(data, "  "))
 	print("MAP_EXPORT PASS 4096 clean, labelled, bounds; playable half=",g.map_half)
 	paused = false
