@@ -1,0 +1,15 @@
+{
+  "agent": "Codex-faisal3/bugtest",
+  "at": "2026-10-27T02:16:22.429681+00:00",
+  "raw_job": "C:\\Temp\\bugtest\\jobs\\crowns-native-downed-skip.json",
+  "classification": "TESTER external .gd parse error, before any native menu/gameplay input",
+  "checks": 0,
+  "errors": [
+    "SCRIPT ERROR: Parse Error: Cannot infer the type of \"tangent\" variable because the value doesn't have a set type.",
+    "ERROR: Failed to load script \"C:/Temp/bugtest/cycles/20261027T021527Z/crowns/native-downed-skip.gd\" with error \"Parse error\"."
+  ],
+  "correction": "Explicit Vector3 type for read-only steering tangent; game source untouched",
+  "original_fixture_sha256": "13a338d09940cbe75a19f3b2a3634acb878ec1199d559afda0a3d13b00f00263",
+  "corrected_fixture_sha256": "3a5e226103d03a87fe64c571d5dda48266483217cb33a5c48d6f1404aed135e7",
+  "raw_frozen_harness": "C:\\Temp\\bugtest\\cycles\\20261027T021527Z\\crowns\\executed-harness"
+}
