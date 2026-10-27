@@ -5544,7 +5544,7 @@ func _draw_game_menu() -> void:
 	var ids: Array = game.menu_tabs()
 	var tw := (R.size.x - 40.0 - (ids.size() - 1) * 8.0) / ids.size()
 	for i in ids.size():
-		var tab := Rect2(Vector2(R.position.x + 20.0 + i * (tw + 8.0), R.position.y + 40.0), Vector2(tw, 46.0))
+		var tab := Rect2(Vector2(R.position.x + 20.0 + i * (tw + 8.0), R.position.y + 40.0), Vector2(tw, 72.0))
 		var on: bool = game.menu_tab == ids[i]
 		_plate(tab, Color(0.22, 0.16, 0.06, 0.98) if on else Color(0.1, 0.11, 0.13, 0.97), GOLD if on else Color(0.3, 0.28, 0.24), 9, 3 if on else 1)
 		if on:
@@ -5552,8 +5552,8 @@ func _draw_game_menu() -> void:
 		var label: String = TABS[ids[i]]
 		var lw := _text_width(label, 15)
 		var ix := tab.get_center().x - (lw + 34.0) / 2.0
-		_tab_glyph(ids[i], Vector2(ix + 12.0, tab.get_center().y), GOLD if on else CREAM)
-		_text(Vector2(ix + 32.0, tab.get_center().y + 6.0), label, 15, GOLD if on else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		_tab_glyph(ids[i], Vector2(tab.get_center().x, tab.position.y + 24), GOLD if on else CREAM)
+		_text(Vector2(tab.position.x, tab.end.y - 13), label, 15, GOLD if on else CREAM, HORIZONTAL_ALIGNMENT_CENTER, tab.size.x, 3)
 		tab_buttons.append(tab)
 		tab_ids.append(ids[i])
 	var body := _menu_body()
@@ -5569,20 +5569,23 @@ func _draw_game_menu() -> void:
 		6: _menu_audio(body)
 	# The foot: LEAVE MATCH (click twice), the key hint and RESUME.
 	if in_match and not game.demo:
-		quit_button = Rect2(R.position + Vector2(18, R.size.y - 46), Vector2(230, 38))
+		quit_button = Rect2(cx - 342, R.end.y - 62, 292, 48)
 		var arm: bool = game.quit_armed > 0.0
 		_big_button(quit_button, "SURE? CLICK AGAIN" if arm else "LEAVE MATCH", Color(0.62, 0.12, 0.08), Color(0.85, 0.3, 0.18), "exit")
 	if in_match:
-		resume_button = Rect2(R.end.x - 18 - 230, R.end.y - 46, 230, 38)
+		resume_button = Rect2(cx + 50, R.end.y - 62, 292, 48)
 		_big_button(resume_button, "RESUME", Color(0.1, 0.24, 0.62), Color(0.3, 0.5, 0.95), "play")
+	if in_match:
+		_ring_button(Vector2(cx, R.end.y - 38), 34)
+		_map_glyph(Vector2(cx, R.end.y - 38), 1.8)
 	var footer := "Esc / Start resumes   |   ← → switch tabs" if in_match else "Esc closes   |   ← → switch tabs"
-	_text(Vector2(R.position.x, R.end.y - 20), footer, 12, Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
+	_text(Vector2(R.position.x, R.end.y + 18), footer, 12, Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
 
 
 func _menu_body() -> Rect2:
 	## The open tab's page area, between the tab row and the foot buttons.
 	var R := _menu_rect()
-	return Rect2(R.position + Vector2(18, 96), Vector2(R.size.x - 36, R.size.y - (150.0 if game.playing else 130.0)))
+	return Rect2(R.position + Vector2(18, 122), Vector2(R.size.x - 36, R.size.y - (192.0 if game.playing else 156.0)))
 
 
 func _menu_icon(name: String) -> Texture2D:
