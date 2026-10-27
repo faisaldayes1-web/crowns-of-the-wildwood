@@ -63,7 +63,7 @@ func _exit_tree() -> void:
 
 const ENV_KEYS := ["ambient_light_energy", "ambient_light_color", "ambient_light_sky_contribution", "tonemap_exposure",
 	"glow_intensity", "glow_bloom", "glow_hdr_threshold", "adjustment_saturation", "adjustment_contrast",
-	"adjustment_brightness", "fog_enabled", "fog_light_color", "ssil_intensity"]
+	"adjustment_brightness", "fog_enabled", "fog_light_color", "ssil_intensity", "sky"]
 var env_saved := {}
 var mood := ""
 
@@ -114,8 +114,17 @@ func _set_mood(want: String) -> void:
 			game.fill_light.light_energy = 0.0
 	else:
 		# A golden afternoon: warm sun, rich colour, a soft glow on the light.
-		env.ambient_light_energy = 0.7
-		env.ambient_light_color = Color(0.85, 0.85, 0.75)
+		env.ambient_light_energy = 0.32
+		env.ambient_light_color = Color(0.58, 0.68, 0.88)
+		env.ambient_light_sky_contribution = 0.25
+		env.fog_enabled = false
+		# Keep this title sky local so returning to a map restores its own mood.
+		if env.sky:
+			env.sky = env.sky.duplicate()
+			if env.sky.sky_material is ProceduralSkyMaterial:
+				env.sky.sky_material = env.sky.sky_material.duplicate()
+				env.sky.sky_material.sky_top_color = Color(0.12, 0.38, 0.8)
+				env.sky.sky_material.sky_horizon_color = Color(0.44, 0.68, 0.94)
 		env.adjustment_saturation = StyleProfile.DAY.saturation
 		env.adjustment_contrast = 1.12
 		env.glow_intensity = 0.65

@@ -13,3 +13,11 @@ Agent: Codex-faisal/world. This is a partial build toward the approved target, n
 Validation: Godot 4.3 headless import completed without script errors. Headless native-title smoke reached menu ready; 707 static scenery meshes became 106, 341 materials became 39 (98-105 ms batching). Animated crown/beam excluded; fighters/projectiles built after batching; title processing disabled off-title. Geometry probe confirms all generated bevel normals face outward. Root owns final rendered comparisons, full bot match and integrated mobile/performance qualification.
 
 Headless smoke reported 747,903,502 static bytes and 16,277 nodes at menu-ready (11,422 ms including intentional 3-second probe wait); these are not GPU draw/memory measurements. Exit reported ObjectDB/resource cleanup warnings, forwarded to root's parallel #75 work. No renderer success claim is made from headless execution.
+
+## Render-driven revision
+
+Agent: Codex-faisal/world. Viewed root's actual desktop/01-title.png and desktop/04-match-spawn.png under C:/ORY-Cache/qa/crowns-visual-pass-Codex-faisal. First native title was visibly below target: giant legacy roof flag props, flat grey stone, low camera, oversized foreground knight overlapping right-hand actions, pale overfilled sky. It is not accepted as target fidelity.
+
+Revised native title raises camera from (0,5.2,13.5) to (0,9,17), looks toward (0,6,-17), reduces foreground hero to 1.15 scale and places him at 60% width. Replaces legacy scale-7 roof flags with small native poles and pennants, retains warm stone instead of grey conversion, adds physical bevelled corner courses and foundation/cornice blocks to towers, and uses a stronger blue sky with lower cool ambient fill. Actual courtyard gains two carved masonry courses and alternating cap blocks underneath its existing timber boundary. Original colliders and class station positions remain unchanged.
+
+This revision is source-reviewed only until root runs the serialized engine/render lane. It needs another actual capture before any quality acceptance. Prior import/boot results do not validate this revision. Added geometry is static and eligible for existing batching; new frame/memory counts must be measured after integration.

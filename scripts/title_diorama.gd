@@ -15,8 +15,8 @@ const CharacterModel = preload("res://scripts/character_model.gd")
 const Role = Stats.Role
 
 const ORIGIN := Vector3(0, 0, -430)
-const CAM_FROM := Vector3(0, 5.2, 13.5)   # relative to ORIGIN
-const CAM_AT := Vector3(0, 6.8, -14.0)
+const CAM_FROM := Vector3(0, 9.0, 17.0)   # relative to ORIGIN
+const CAM_AT := Vector3(0, 6.0, -17.0)
 const CAM_FOV := 52.0
 
 var game
@@ -58,7 +58,7 @@ func build(g) -> void:
 		made.append(game.get_child(i))
 	for n in made:
 		n.reparent(self, true)
-	_grey_stone()
+	# Preserve the warm stone family; old grey conversion is archived below.
 	# Keep moving crown/beam out of the existing scenery batcher.
 	if crown:
 		crown.set_meta("no_batch", true)
@@ -229,12 +229,12 @@ func _keep() -> void:
 		_mesh(_box(Vector3(0.08, 5.6, 0.08)), P(-1.2 + k * 0.6, 7.6, -27.92), game._iron())
 	game._add_light(P(0, 7.5, -26.8), Color(1.0, 0.8, 0.4), 1.0, 6.0)
 	# Towers: two tall ones at the gate, two at the corners, two behind.
-	game._add_tower(P(-5.2, 4.8, -28.6), 1, -1.0, 2.8, 10.5)
-	game._add_tower(P(5.2, 4.8, -28.6), 1, 1.0, 2.8, 10.5)
-	game._add_tower(P(-10.5, 4.8, -31.0), 1, -1.0, 3.0, 8.0)
-	game._add_tower(P(10.5, 4.8, -31.0), 1, 1.0, 3.0, 8.0)
-	game._add_tower(P(-3.5, 4.8, -35.0), 1, -1.0, 3.4, 14.0)
-	game._add_tower(P(3.5, 4.8, -35.0), 1, 1.0, 3.4, 14.0)
+	_tower(P(-5.2, 4.8, -28.6), 1, -1.0, 2.8, 10.5)
+	_tower(P(5.2, 4.8, -28.6), 1, 1.0, 2.8, 10.5)
+	_tower(P(-10.5, 4.8, -31.0), 1, -1.0, 3.0, 8.0)
+	_tower(P(10.5, 4.8, -31.0), 1, 1.0, 3.0, 8.0)
+	_tower(P(-3.5, 4.8, -35.0), 1, -1.0, 3.4, 14.0)
+	_tower(P(3.5, 4.8, -35.0), 1, 1.0, 3.4, 14.0)
 	game._add_block(P(0, 10.0, -36), Vector3(7, 10, 5), Color.WHITE, false, stone)
 	# Blue lion banners down the gatehouse and the curtain wall.
 	for x in [-2.6, 2.6]:
@@ -247,6 +247,36 @@ func _keep() -> void:
 	for x in [-11.0, -7.0, -2.2, 2.2, 7.0, 11.0]:
 		_torch(P(x, 3.2, -18.6))
 	_crown()
+
+
+func _tower(pos: Vector3, team: int, side: float, width: float, height: float) -> void:
+	game._add_tower(pos, team, side, width, height, false)
+	var stone := game._material(Color("d8c49a"))
+	stone.roughness = 0.94
+	var pale := game._material(Color("e5d5b6"))
+	pale.roughness = 0.94
+	# Broad, bevelled corner blocks separate the miniature's silhouette from
+	# its flat textured core. Deterministic and non-colliding.
+	var rows := maxi(1, int(height / 0.7))
+	for row in rows:
+		var h := height / rows
+		for xs in [-1.0, 1.0]:
+			for zs in [-1.0, 1.0]:
+				game._picked_carved_block(pos + Vector3(xs * (width * 0.5 - 0.2), (row + 0.5) * h, zs * (width * 0.5 - 0.2)), Vector3(0.58, h - 0.035, 0.58), pale if row % 3 == 0 else stone)
+	game._picked_carved_block(pos + Vector3(0, 0.15, 0), Vector3(width + 0.35, 0.3, width + 0.35), stone)
+	game._picked_carved_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.55, 0.28, width + 0.55), pale)
+	# Small readable pennant; the old prop was seven times the model scale.
+	var tip := pos + Vector3(0, height + 2.25, 0)
+	_mesh(_cyl(0.035, 0.045, 1.5, 6), tip + Vector3(0, 0.75, 0), game._gold())
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.add_vertex(Vector3(0, 0, 0))
+	st.add_vertex(Vector3(0.9, -0.22, 0))
+	st.add_vertex(Vector3(0, -0.46, 0))
+	st.generate_normals()
+	var cloth := game._cloth(Color("315b9c"))
+	cloth.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_mesh(st.commit(), tip + Vector3(0.04, 1.42, 0), cloth)
 
 
 func _box(size: Vector3) -> BoxMesh:
@@ -409,10 +439,10 @@ func _human_walls() -> void:
 	game._add_wall(P(-9.0, 1.5, -6.0), Vector3(1.6, 3.0, 12.0))
 	game._add_wall(P(-11.5, 4.6, -18.0), Vector3(1.6, 3.2, 12.0))
 	game._add_wall(P(-15.5, 7.6, -30.0), Vector3(1.6, 3.2, 12.0))
-	game._add_tower(P(-9.2, 0, 0.6), 1, -1.0, 2.6, 4.6)
-	game._add_tower(P(-11.6, 3.0, -11.6), 1, -1.0, 2.8, 5.0)
-	game._add_tower(P(-15.6, 6.0, -23.8), 1, -1.0, 2.8, 5.4)
-	game._add_tower(P(-19.0, 6.0, -37.0), 1, -1.0, 3.2, 8.0)
+	_tower(P(-9.2, 0, 0.6), 1, -1.0, 2.6, 4.6)
+	_tower(P(-11.6, 3.0, -11.6), 1, -1.0, 2.8, 5.0)
+	_tower(P(-15.6, 6.0, -23.8), 1, -1.0, 2.8, 5.4)
+	_tower(P(-19.0, 6.0, -37.0), 1, -1.0, 3.2, 8.0)
 	# Wooden scaffolds and a siege ladder against the walls.
 	game._prop("hex/building_scaffolding", P(-7.2, 0, -9.5), 2.6, PI / 2.0)
 	game._prop("hex/building_scaffolding", P(-9.8, 3.0, -21.0), 2.4, PI / 2.0)
@@ -427,7 +457,7 @@ func _human_walls() -> void:
 	# The high castle on the far cliff, upper left.
 	game._prop("hex/mountain_C_grass", P(-30, -0.5, -50), 9.0, 0.6)
 	for p in [P(-26, 12.0, -48), P(-31, 13.0, -45), P(-22, 11.0, -52)]:
-		game._add_tower(p, 1, -1.0, 3.0, 7.0)
+		_tower(p, 1, -1.0, 3.0, 7.0)
 	game._add_wall(P(-26.5, 14.0, -47.5), Vector3(8.0, 3.0, 1.4))
 
 
@@ -532,14 +562,14 @@ func place_heroes(cam: Camera3D, vp: Vector2) -> void:
 	## Puts the two big heroes at fixed screen spots, whatever the aspect.
 	# As in the key art: the Knight seen from behind, bottom right, looking up at the castle.
 	hero_ranger.visible = false
-	for pair in [[hero_knight, Vector2(0.78, 1.04), P(-3, 0, -26), 0.0]]:
+	for pair in [[hero_knight, Vector2(0.60, 1.04), P(-3, 0, -26), 0.0]]:
 		var p: Vector2 = vp * pair[1]
 		var o := cam.project_ray_origin(p)
 		var d := cam.project_ray_normal(p)
 		var pos: Vector3 = o + d * ((0.0 - o.y) / d.y) if absf(d.y) > 0.001 else o + d * 6.0
 		var m = pair[0]
 		m.global_position = pos
-		m.scale = Vector3.ONE * 1.8
+		m.scale = Vector3.ONE * 1.15
 		var aim: Vector3 = pair[2]
 		m.look_at(Vector3(aim.x, pos.y, aim.z), Vector3.UP)
 		m.rotation.y += pair[3]
