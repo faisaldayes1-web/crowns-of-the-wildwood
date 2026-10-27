@@ -24,4 +24,4 @@ revision_after=subprocess.check_output(['git','rev-parse','HEAD'],cwd=a.source,t
 report=dict(agent='Codex-faisal',source=a.source,revision=revision,revision_after=revision_after,source_changed_during_run=revision!=revision_after,working_diff=diff,command=cmd,exit=r.returncode,seconds=round(time.monotonic()-start,2),errors=body.count('ERROR:'),script_errors=body.count('SCRIPT ERROR'),passes=body.count('PASS'),failures=body.count('FAIL'),user_data_base=str(save),results=[x for x in body.splitlines() if x.startswith(('RESULT','CAPTURE','MAP_EXPORT','PROF frames'))])
 (out/'result.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps(report),flush=True)
-raise SystemExit(r.returncode)
+raise SystemExit(r.returncode or (1 if report['errors'] or report['script_errors'] else 0))
