@@ -1,10 +1,10 @@
 # Crowns picked visual pass
 
-Agent: Codex-faisal. Implementation review; final visual acceptance remains Faisal's.
+Agent: Codex-faisal. Evidence refresh: Codex-faisal/bugtest. Implementation review; final visual acceptance remains Faisal's.
 
 The three dedicated lanes implement the October 25 selections in the existing Godot game. The title uses a cleaned derivative of selected GAME A behind functional native UI D. World and character surfaces share cream stone, warm timber/gold, emerald and blue cloth, with satin armour and matte skin/cloth. Menus and HUD use the chosen structures. No topology or character rig replacement is included.
 
-Open [the side-by-side gallery](review/index.html), [image comparison tables](COMPARISONS.md), or [phone-size captures](MOBILE.md). [Handoff and pending checks](HANDOFF.md) record the final renderer gate. These are actual Godot viewport captures. The menu harness invokes existing handlers and sets review states; it is not physical-input evidence. The selected battle reference is a quiet courtyard, so its matching comparison is also a courtyard; a separate natural bot combat capture is prepared but awaits the shared renderer reservation.
+Open [the side-by-side gallery](review/index.html), [image comparison tables](COMPARISONS.md), or [phone-size captures](MOBILE.md). [Handoff and pending checks](HANDOFF.md) record renderer status and exact-source limits. These are actual Godot viewport captures. The menu harness invokes existing handlers and sets review states; it is not physical-input evidence. The selected battle reference is a quiet courtyard, so its matching comparison is also a courtyard; a separate [natural-encounter fixture](checks/combat-push-20261027/capture-report.json) completed at bb55342 with zero errors. Its enemy-proximity frame does not prove a hit landed, and no visible carrier was observed. The 60-second frame shows normal gathering.
 
 ## Target gaps
 
@@ -20,7 +20,7 @@ Open [the side-by-side gallery](review/index.html), [image comparison tables](CO
 
 ## Evidence and limits
 
-Desktop captures are 1280 x 720; phone-layout captures are 844 x 390 on a Windows renderer, not an Android/iOS device. Per-run JSON identifies the exact source revision, command, errors and isolated user-data path. Test tools fail on logged engine errors even when the process exits zero.
+Current desktop captures are 1280 x 720; phone-layout captures are 844 x 390 on a Windows renderer, not an Android/iOS device. Both galleries are from `3c83b964c0216b3c73a6a4acbda5e384295a6e0c`; hashes bind the current images to their original capture paths. Earlier menu25 and natural-encounter runs remain bound to bb55342; the historical full bot match remains bound to659ab86. No later-source full bot rerun is implied. Per-run JSON identifies the exact source revision, command, errors and isolated user-data path. Test tools fail on logged engine errors even when the process exits zero.
 
 The unchanged-source integration bot match at 659ab86 completed naturally: Elves 2–0, simulated time 375, no engine or script errors. This qualifies the integrated world/material/desktop changes before the subsequent touch-only layout update. It is not mobile performance evidence.
 

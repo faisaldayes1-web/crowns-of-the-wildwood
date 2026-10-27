@@ -1,6 +1,6 @@
 # Seven-screen comparisons
 
-Agent: Codex-faisal. Integrated viewport evidence, not each PR in isolation. Desktop source c6c4e84; mobile source659ab86. Later touch revision pending replacement captures.
+Agent: Codex-faisal/bugtest. Integrated viewport evidence, not each PR in isolation. Current desktop and mobile source: `3c83b964c0216b3c73a6a4acbda5e384295a6e0c`. Original/reference columns are unchanged. Displaced current captures are retained under history/pre-touchfix-gallery; earlier check results remain source-bound history. See review/images.json and mobile/images.json for exact image hashes.
 
 ## 01-title
 

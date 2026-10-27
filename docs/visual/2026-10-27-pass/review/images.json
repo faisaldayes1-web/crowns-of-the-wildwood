@@ -1,5 +1,5 @@
 {
-  "agent": "Codex-faisal",
+  "agent": "Codex-faisal/bugtest",
   "images": [
     {
       "screen": "01-title",
@@ -25,9 +25,10 @@
     {
       "screen": "01-title",
       "label": "Current built game",
-      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\desktop-final\\01-title.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\01-title.png",
       "file": "01-title-3.png",
-      "sha256": "0aae5cc5acefa9b143430ea56f7c2453bb2ae4a723720b5ced5fc41269333aaa"
+      "sha256": "0aae5cc5acefa9b143430ea56f7c2453bb2ae4a723720b5ced5fc41269333aaa",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
     },
     {
       "screen": "02-map",
@@ -53,9 +54,10 @@
     {
       "screen": "02-map",
       "label": "Current built game",
-      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\desktop-final\\02-map.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\02-map.png",
       "file": "02-map-3.png",
-      "sha256": "05a93d37a454e56679ae9afade3fc95042b1571e8f898e34a68c3471f968cc3d"
+      "sha256": "af888bde5a16c35972bb51bec9a289ba09068663d51e58fd4d1c84327ae9a874",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
     },
     {
       "screen": "03-ready",
@@ -74,9 +76,10 @@
     {
       "screen": "03-ready",
       "label": "Current built game",
-      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\desktop-final\\03-ready.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\03-ready.png",
       "file": "03-ready-2.png",
-      "sha256": "b07613092c55ad7c6ac3fe4683f51881f5d3d408d093dd07f9bef22ca9668465"
+      "sha256": "db2fa6037e8acf6a40ebeeeda1ce07e0ce7e677adb54d7922e70bd1c44fd612a",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
     },
     {
       "screen": "04-match-spawn",
@@ -102,9 +105,10 @@
     {
       "screen": "04-match-spawn",
       "label": "Current built game",
-      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\desktop-final\\04-match-spawn.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\04-match-spawn.png",
       "file": "04-match-spawn-3.png",
-      "sha256": "5384dd2e1e0c9b8239f284754f152cbeab30a6204a8c8b99c7481f642d087b26"
+      "sha256": "7ca69ae8e9653548d9d7a0baf474faf6541694932d8a6cea12776ee59976b57f",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
     },
     {
       "screen": "05-live-battle",
@@ -130,9 +134,10 @@
     {
       "screen": "05-live-battle",
       "label": "Current built game",
-      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\desktop-final\\05-live-battle.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\05-live-battle.png",
       "file": "05-live-battle-3.png",
-      "sha256": "fe9e612e1a5ceadab793facc272fbe7ac49d135b527a3b344c028005b7cae650"
+      "sha256": "fa8b7e6da1faf46c0f6d8be0dcd35f94d19354935593053abe5900d3b8056753",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
     },
     {
       "screen": "06-paused-map",
@@ -158,9 +163,10 @@
     {
       "screen": "06-paused-map",
       "label": "Current built game",
-      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\desktop-final\\06-paused-map.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\06-paused-map.png",
       "file": "06-paused-map-3.png",
-      "sha256": "0b3fc0f5a6338689877e5e996473abcd2e496d020751319ba6a1d53d1b8d54d4"
+      "sha256": "a6bdcfd9467e31e910d3b879cfb0c7bb960dc0c12345b9611a86311307b13310",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
     },
     {
       "screen": "07-class-knight",
@@ -186,9 +192,10 @@
     {
       "screen": "07-class-knight",
       "label": "Current built game",
-      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\desktop-final\\07-class-knight.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\07-class-knight.png",
       "file": "07-class-knight-3.png",
-      "sha256": "1707cb30ef055eb8aa7ecd65d54f467fe81b14e0d55e92ad36e3ea868c49a8ea"
+      "sha256": "0920f1e8ec5803010ef9ed5a710bbe6e4e8ab9ec76574ebfd07cb411b65f3714",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
     }
   ]
 }

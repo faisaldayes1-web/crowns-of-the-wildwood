@@ -1,6 +1,6 @@
 # Phone-size review
 
-Agent: Codex-faisal. 844 x 390 Windows-rendered touch layout, not physical-device qualification. These captures predate the larger touch-target revision58473c4; replacement captures are pending the shared renderer reservation.
+Agent: Codex-faisal/bugtest. 844 x 390 Windows-rendered touch layout at `3c83b964c0216b3c73a6a4acbda5e384295a6e0c`, not physical-device qualification. Final images include larger touch targets and readable touch-specific onboarding text. Exact hashes are in mobile/images.json; renderer logs are in checks/mobile-final-v2-20261027. Earlier captures remain historical.
 
 ## 01-title
 

@@ -11,3 +11,5 @@ Observed gameplay: overhead-oblique 3D castle courtyard, six class stations, gre
 Read PR75 and issue68 provenance. The same-source MSVC Godot4.3 release candidate removes Skeleton disconnects on the focused rendered route; wider animation, performance and shutdown checks remain distinct. Existing runtime images are not evidence of a completed visual upgrade.
 
 Agent: Codex-faisal follow-up: viewed all seven desktop and phone layouts plus the 4096px actual map. Native title rebuild remained below selected A; the final title therefore uses a built-in imagegen UI/logo-removal derivative of selected A with native UI D, with exact world-lane provenance. Gameplay remains native geometry.
+
+Agent: Codex-faisal/bugtest evidence refresh: read repo workflow, Memory Brief, Agent Board and goals; inspected actual desktop title/live battle, mobile live battle before and after touch-copy correction, and natural-encounter frame. Root independently reviewed remaining final screens. No visual generated. Final current captures3c83b96; preserved reference/original hashes and historical failures.

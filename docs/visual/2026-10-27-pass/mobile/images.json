@@ -1,0 +1,41 @@
+{
+  "agent": "Codex-faisal/bugtest",
+  "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c",
+  "images": [
+    {
+      "file": "01-title.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\mobile-final-v2-20261027\\01-title.png",
+      "sha256": "ed835e19426e38aa9ac32b54301d799f123527e9a5f7dcf961f926b2b7cc2d10"
+    },
+    {
+      "file": "02-map.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\mobile-final-v2-20261027\\02-map.png",
+      "sha256": "3b9b482421ee4c7f681eaa8ba01b0e03be1e88794930d7ed891e794d7de6f96c"
+    },
+    {
+      "file": "03-ready.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\mobile-final-v2-20261027\\03-ready.png",
+      "sha256": "5f19ed44bac38fc19983cefa608ad48755f52cdee6f9e5da0a6dca09b3e1bf86"
+    },
+    {
+      "file": "04-match-spawn.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\mobile-final-v2-20261027\\04-match-spawn.png",
+      "sha256": "60b4a54304495e3b6e1609d72dca6500c014cff78e2081552feee23772af73f0"
+    },
+    {
+      "file": "05-live-battle.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\mobile-final-v2-20261027\\05-live-battle.png",
+      "sha256": "d856e66888923ab51e04dad6e2bd1daa83ea2b70014da8f0c262fe3ceb8346a9"
+    },
+    {
+      "file": "06-paused-map.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\mobile-final-v2-20261027\\06-paused-map.png",
+      "sha256": "8d9d340b234abfda25969a11d4ba4eae016d9cb30f4f70f9260ef714667e7b03"
+    },
+    {
+      "file": "07-class-knight.png",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\mobile-final-v2-20261027\\07-class-knight.png",
+      "sha256": "871196325503d516daded291580de804291b1280fdf42f69cb4411dc93d0de04"
+    }
+  ]
+}
