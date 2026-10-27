@@ -1,0 +1,47 @@
+Godot Engine v4.3.stable.custom_build.77dcf97d8 (2024-08-14 23:00:16 UTC) - https://godotengine.org
+
+Codex-faisal/characters animation acceptance: user dir C:/rt/c68-anim-headless/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+NET ready
+PASS main menu exists
+BATCH merged 8280 scenery meshes (1528 left alone) into 1287 meshes; 2087 materials became 519; 850 ms (526 ms reading meshes)
+PASS real match/player ready
+PASS loading completes
+PASS 01-idle selects Idle
+PASS 01-idle sample 0 bones/attachments finite
+PASS 01-idle sample 1 bones/attachments finite
+PASS 01-idle sample 2 bones/attachments finite
+PASS 01-idle sample 3 bones/attachments finite
+PASS 01-idle animation time advances
+PASS 02-run selects Running_A
+PASS 02-run sample 0 bones/attachments finite
+PASS 02-run sample 1 bones/attachments finite
+PASS 02-run sample 2 bones/attachments finite
+PASS 02-run sample 3 bones/attachments finite
+PASS 02-run animation time advances
+PASS 03-attack selects 1H_Melee_Attack_Slice_Horizontal
+PASS 03-attack sample 0 bones/attachments finite
+PASS 03-attack sample 1 bones/attachments finite
+PASS 03-attack sample 2 bones/attachments finite
+PASS 03-attack sample 3 bones/attachments finite
+PASS 03-attack animation time advances
+PASS 04-recover-run selects Running_A
+PASS 04-recover-run sample 0 bones/attachments finite
+PASS 04-recover-run sample 1 bones/attachments finite
+PASS 04-recover-run sample 2 bones/attachments finite
+PASS 04-recover-run sample 3 bones/attachments finite
+PASS 04-recover-run animation time advances
+PASS real unit death state
+PASS 05-death selects Death_A
+PASS 05-death sample 0 bones/attachments finite
+PASS 05-death sample 1 bones/attachments finite
+PASS 05-death sample 2 bones/attachments finite
+PASS 05-death sample 3 bones/attachments finite
+PASS 05-death animation time advances
+PASS real respawn restores base class/alive
+PASS 06-respawn-knight selects Idle
+PASS 06-respawn-knight sample 0 bones/attachments finite
+PASS 06-respawn-knight sample 1 bones/attachments finite
+PASS 06-respawn-knight sample 2 bones/attachments finite
+PASS 06-respawn-knight sample 3 bones/attachments finite
+PASS 06-respawn-knight animation time advances
+ANIMATION ACCEPTANCE: 41 checks 0 failures
