@@ -8,9 +8,9 @@ Agent: Codex-faisal. 2026-10-27. Not a final visual-acceptance claim.
 - Character materials: PR77, `Codex-faisal/characters/crowns-picked-pass`.
 - Menus/HUD: draft PR78, `Codex-faisal/ui/crowns-picked-pass`.
 - Tooling and evidence: draft PR79, `Codex-faisal/crowns-visual-evidence`.
-- Skeleton runtime acceptance continues separately in PR75; no runtime replacement or main merge.
+- Skeleton runtime evidence PR75 merged on 2026-10-27 at 08:36:49Z; issue68 remains open. No runtime replacement or visual implementation merge is claimed.
 
-All PRs target main0963f03 and were checked mergeable. World precedes UI because the new title controls require its clean backdrop. The combined integration is `Codex-faisal/crowns-visual-pass` at C:/ORY-Cache/worktrees/crowns-visual-pass. The evidence branch contains no combined gameplay implementation; it has tools, records, screenshots and the actual map export.
+The original PRs targeted main0963f03. PR79 now includes main e7ae8b2 (merged PR75); its append-only Agent Board conflict was resolved preserving all rows from both parents. PR76-78 still require their owners to reconcile main; their previous mergeability is no longer current. World precedes UI because the new title controls require its clean backdrop. The combined integration is `Codex-faisal/crowns-visual-pass` at C:/ORY-Cache/worktrees/crowns-visual-pass. The evidence branch contains no combined gameplay implementation; it has tools, records, screenshots and the actual map export.
 
 Read COMPARISONS.md, MOBILE.md and REVIEW.md for seven screens, source revisions and remaining target gaps. The phone images explicitly predate the last touch sizing update. No picks were marked accepted or vaulted.
 

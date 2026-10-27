@@ -1,0 +1,21 @@
+{
+  "agent": "Codex-faisal/characters",
+  "command": [
+    "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+    "--resolution",
+    "1280x720",
+    "--main-pack",
+    "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+    "--script",
+    "C:\\ORY-Cache\\qa\\crowns-68-followup-Codex-faisal\\animation\\animation.gd",
+    "--log-file",
+    "C:\\ORY-Cache\\qa\\crowns-68-followup-Codex-faisal\\animation\\rendered.engine.log"
+  ],
+  "appdata": "C:\\rt\\c68-anim-render",
+  "exit": 0,
+  "engine_errors": 0,
+  "skeleton_disconnects": 0,
+  "warnings": [],
+  "exe_sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+  "pack_sha256": "b4e17b616cf68a6d59db5dbb615a15e04dd7e787ae19ecf02487e538322ac3e7"
+}
