@@ -9628,6 +9628,10 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 	## 3.3 m hedge wall hid the first 2.5 m.
 	var ox := bx + side * (CELLAR_DEPTH + 0.5)
 	var kerb := _ashlar(Color(0.93, 0.9, 0.84))
+	var carved_stone := _material(StyleProfile.STONE)
+	carved_stone.roughness = 0.94
+	var cap_stone := _material(StyleProfile.STONE.lightened(0.12))
+	cap_stone.roughness = 0.94
 	var lines := [
 		[Vector3(bx + side * 0.5, 0, -(hz + 0.5)), Vector3(ox, 0, -(hz + 0.5))],
 		[Vector3(bx + side * 0.5, 0, hz + 0.5), Vector3(ox, 0, hz + 0.5)],
@@ -9642,6 +9646,19 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 		_add_block(Vector3(c.x, 0.15, c.z), size, Color.WHITE, true, kerb)
 		_add_invisible_wall(Vector3(c.x, 1.0, c.z), Vector3(size.x, 1.4, size.z))
 		_add_picket_fence(a + Vector3(0, 0.3, 0), b + Vector3(0, 0.3, 0))
+		# Pick D: modular low masonry under the timber, inside the existing
+		# invisible boundary. Raised visual detail does not alter collision.
+		var stones := maxi(1, int(length / 0.9))
+		for k in stones:
+			var p: Vector3 = a.lerp(b, (k + 0.5) / stones)
+			for course in 2:
+				var block_size := Vector3(length / stones - 0.035, 0.38, 0.55) if along_x else Vector3(0.55, 0.38, length / stones - 0.035)
+				_picked_carved_block(p + Vector3(0, 0.49 + course * 0.4, 0), block_size, carved_stone if (k + course) % 3 else cap_stone)
+			if k % 4 == 0:
+				_picked_carved_block(p + Vector3(0, 1.17, 0), Vector3(0.76, 0.28, 0.76), cap_stone)
+			else:
+				var cap_size := Vector3(length / stones - 0.02, 0.1, 0.64) if along_x else Vector3(0.64, 0.1, length / stones - 0.02)
+				_picked_carved_block(p + Vector3(0, 1.1, 0), cap_size, cap_stone)
 	# Kerb posts at the three outer corners.
 	for p in [Vector3(ox, 0, -(hz + 0.5)), Vector3(ox, 0, hz + 0.5)]:
 		_add_block(p + Vector3(0, 0.35, 0), Vector3(0.7, 0.7, 0.7), Color.WHITE, false, kerb)
