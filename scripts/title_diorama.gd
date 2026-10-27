@@ -20,6 +20,7 @@ const CAM_AT := Vector3(0, 6.8, -14.0)
 const CAM_FOV := 52.0
 
 var game
+var scene_rng := RandomNumberGenerator.new()
 var fighters: Array = []   # [model, kind, next action time]
 var shots: Array = []      # [node, from, to, height, period, phase, spin]
 var crown: Node3D
@@ -486,12 +487,12 @@ func _fighter(team: int, role: int, pos: Vector3, face: Vector3, kind: String, s
 			m.hold("Spellcasting")
 		"block":
 			m.hold("Blocking")
-	fighters.append([m, kind, randf() * 2.0])
+	fighters.append([m, kind, scene_rng.randf() * 2.0])
 	return m
 
 
 func _armies() -> void:
-	seed(12)
+	scene_rng.seed = 12
 	var east := P(6, 0, -6)
 	var west := P(-6, 0, -6)
 	# Humans on the ramparts, shooting and casting across at the forest.

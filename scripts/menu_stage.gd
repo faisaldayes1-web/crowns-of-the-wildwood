@@ -34,6 +34,7 @@ var lobby_keys: Array = ["", "", "", ""]
 var pedestals: Array = []    # [node, ring material, light] per lobby slot
 var screen := ""
 var t := 0.0
+var title_viewport_size := Vector2.ZERO
 var hidden_labels: Array = []
 var rug: Node3D              # the round rug under the character creator's hero
 var backdrop: CanvasLayer    # the title's painted background (animated)
@@ -152,6 +153,8 @@ func activate() -> void:
 
 func _process(delta: float) -> void:
 	t += delta
+	if screen == "title" and get_viewport().get_visible_rect().size != title_viewport_size:
+		place_title_cast()
 	if screen == "lobby":
 		for i in pedestals.size():
 			# A slow pulse in each pedestal's ring.
@@ -199,6 +202,8 @@ func show_screen(name: String) -> void:
 			cam.fov = 40.0
 			cam.global_position = HALL + Vector3(0, 2.2, 11.2)
 			cam.look_at(HALL + Vector3(0, 1.35, 0.0))
+	if name == "title":
+		place_title_cast()
 	if hero:
 		hero.visible = name in ["character", "store"]
 	for i in 4:
@@ -361,7 +366,8 @@ func _make_pedestal(color: Color) -> Array:
 
 func place_title_cast() -> void:
 	if title_cast.visible:
-		title_cast.place_heroes(cam, get_viewport().get_visible_rect().size)
+		title_viewport_size = get_viewport().get_visible_rect().size
+		title_cast.place_heroes(cam, title_viewport_size)
 
 
 func _build_backdrop() -> void:
