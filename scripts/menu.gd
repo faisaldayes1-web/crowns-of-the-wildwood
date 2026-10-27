@@ -275,9 +275,9 @@ func draw(hud) -> void:
 			"progress": _draw_progress()
 			"players": _draw_players()
 	if game.cursor_shown:
-		var hint := "%s select  Â·  %s back" % [h._k("ui_confirm"), h._k("ui_back")]
+		var hint := "%s select  ·  %s back" % [h._k("ui_confirm"), h._k("ui_back")]
 		if screen == "lobby" and game.couch_players < 4 and game.couch_players > 1 or screen == "lobby" and _split_on():
-			hint += "  Â·  other pads press %s to join" % h._k("ui_confirm")
+			hint += "  ·  other pads press %s to join" % h._k("ui_confirm")
 		h._text(Vector2(0, h.size.y - 8), hint, 11, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
 
 
@@ -814,7 +814,7 @@ func mark_thumb(r: Rect2, i: int, on: bool) -> void:
 
 func _tab_hair(panel: Rect2) -> void:
 	var y := panel.position.y + 86
-	label(Vector2(panel.position.x + 26, y), "HAIR COLOUR  Â·  %s" % Stats.HERO_HAIR[game.hero_hair][0], 15)
+	label(Vector2(panel.position.x + 26, y), "HAIR COLOUR  ·  %s" % Stats.HERO_HAIR[game.hero_hair][0], 15)
 	for i in Stats.HERO_HAIR.size():
 		var c := Vector2(panel.position.x + 62 + (i % 4) * 102, y + 46 + (i / 4) * 78)
 		var r := Rect2(c - Vector2(30, 30), Vector2(60, 60))
@@ -827,7 +827,7 @@ func _tab_hair(panel: Rect2) -> void:
 		if not have:
 			_price_tag(c + Vector2(0, 2), "hair", i)
 		h._text(Vector2(c.x - 50, c.y + 44), Stats.HERO_HAIR[i][0].to_upper(), 11, Color.WHITE if on else Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	label(Vector2(panel.position.x + 26, y + 258), "HAIR STYLE  Â·  %s" % Stats.HERO_HAIR_STYLES[game.hero_hair_style], 15)
+	label(Vector2(panel.position.x + 26, y + 258), "HAIR STYLE  ·  %s" % Stats.HERO_HAIR_STYLES[game.hero_hair_style], 15)
 	for i in Stats.HERO_HAIR_STYLES.size():
 		var r := Rect2(panel.position.x + 26 + i * 74, y + 274, 64, 64)
 		swatch(r, Color(0.2, 0.21, 0.24), game.hero_hair_style == i, "hair_style", i)
@@ -915,7 +915,7 @@ func _tab_armor(panel: Rect2) -> void:
 			icon("lock", r.position + Vector2(r.size.x - 18, 16), 22)
 	# STORE gear: what you own is worn on a click, the rest opens the store.
 	y += 84
-	for row in [["ARMOUR TINT", "outfit"], ["HAT  Â·  no class hat on", "hat"], ["CAPE & SCARF", "cape"], ["WEAPON SKIN", "weapon"]]:
+	for row in [["ARMOUR TINT", "outfit"], ["HAT  ·  no class hat on", "hat"], ["CAPE & SCARF", "cape"], ["WEAPON SKIN", "weapon"]]:
 		label(Vector2(panel.position.x + 26, y), row[0], 13)
 		var kind: String = row[1]
 		var n: int = Store.table(kind).size()
@@ -934,7 +934,7 @@ func _tab_armor(panel: Rect2) -> void:
 				h.draw_rect(r.grow(-2), Color(0, 0, 0, 0.45))
 				icon("lock", r.end - Vector2(9, 9), 16)
 		y += 60
-	label(Vector2(panel.position.x + 26, y), "GEAR RANK  Â·  preview what promotions earn", 13)
+	label(Vector2(panel.position.x + 26, y), "GEAR RANK  ·  preview what promotions earn", 13)
 	for k in 4:
 		var r := Rect2(panel.position.x + 26 + k * 102, y + 8, 92, 40)
 		var ov := button(r, "rank", k + 1)
@@ -944,7 +944,7 @@ func _tab_armor(panel: Rect2) -> void:
 
 func _tab_colors(panel: Rect2) -> void:
 	var y := panel.position.y + 86
-	label(Vector2(panel.position.x + 26, y), "TRIM  Â·  %s" % Stats.HERO_TRIM[game.hero_trim][0], 15)
+	label(Vector2(panel.position.x + 26, y), "TRIM  ·  %s" % Stats.HERO_TRIM[game.hero_trim][0], 15)
 	for i in Stats.HERO_TRIM.size():
 		var c := Vector2(panel.position.x + 62 + (i % 4) * 102, y + 50 + (i / 4) * 86)
 		var r := Rect2(c - Vector2(36, 30), Vector2(72, 60))
@@ -1026,13 +1026,14 @@ func _draw_lobby() -> void:
 		stage.show_lobby(slots)
 	plaque(h.size.x / 2.0, 14, "READY UP", 380)
 	var all_ready := true
+	var touch: bool = game.touch_active
 	for i in 4:
 		var cx: float = h.size.x * (0.15 + i * 0.233)
 		var s: Dictionary = slots[i] if i < slots.size() else {"kind": "none"}
 		if s.kind == "none":
 			continue
 		# Tag.
-		var tag := Rect2(cx - 104, 454, 208, 40)
+		var tag := Rect2(cx - 104, 372 if touch else 454, 208, 40)
 		var tcol: Color = s.get("color", Color(0.4, 0.4, 0.45))
 		var title := ""
 		match s.kind:
@@ -1044,7 +1045,7 @@ func _draw_lobby() -> void:
 		nine("tag", tag, 14, 14, 14, 14, tcol.lightened(0.15))
 		ttext(Vector2(tag.position.x, tag.position.y + 32), title, 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 5)
 		# Name plate.
-		var plate := Rect2(cx - 120, 496, 240, 118)
+		var plate := Rect2(cx - 120, 412 if touch else 496, 240, 230 if touch else 118)
 		slate(plate)
 		match s.kind:
 			"local":
@@ -1052,32 +1053,32 @@ func _draw_lobby() -> void:
 				ttext(Vector2(plate.position.x, plate.position.y + 30), nm, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 4)
 				var lv := "Lv %d" % game.account_level() if s.k == 0 else "Guest"
 				h._text(Vector2(plate.position.x, plate.position.y + 50), lv, 14, Color(0.55, 0.95, 0.45), HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 3)
-				_side_chip(Rect2(plate.position.x + 14, plate.position.y + 58, plate.size.x - 28, 22), s.k, s.team)
-				_ready_bar(Rect2(plate.position.x + 14, plate.position.y + 84, plate.size.x - 28, 28), s.readied, s.k)
+				_side_chip(Rect2(plate.position.x + 14, plate.position.y + 62, plate.size.x - 28, 80 if touch else 22), s.k, s.team)
+				_ready_bar(Rect2(plate.position.x + 14, plate.position.y + (146 if touch else 84), plate.size.x - 28, 80 if touch else 28), s.readied, s.k)
 				if not s.readied:
 					all_ready = false
 				if s.k > 0:
 					var x := Rect2(plate.end.x - 26, plate.position.y + 6, 20, 20)
 					var ov := button(x, "kick", s.k)
-					h._text(x.position + Vector2(0, 15), "âœ•", 13, Color(1, 0.5, 0.45) if ov else Color(0.7, 0.6, 0.55), HORIZONTAL_ALIGNMENT_CENTER, 20, 2)
+					h._text(x.position + Vector2(0, 15), "✕", 13, Color(1, 0.5, 0.45) if ov else Color(0.7, 0.6, 0.55), HORIZONTAL_ALIGNMENT_CENTER, 20, 2)
 			"bot":
 				ttext(Vector2(plate.position.x, plate.position.y + 30), s.name, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 4)
-				h._text(Vector2(plate.position.x, plate.position.y + 50), "BOT  Â·  %s" % game.bot_difficulty.to_upper(), 12, Color(0.75, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 3)
+				h._text(Vector2(plate.position.x, plate.position.y + 50), "BOT  ·  %s" % game.bot_difficulty.to_upper(), 12, Color(0.75, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 3)
 				var side_name: String = Stats.FACTIONS[s.team].name.to_upper()
 				h._text(Vector2(plate.position.x, plate.position.y + 72), side_name, 12, Stats.FACTIONS[s.team].color.lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 3)
-				_ready_bar(Rect2(plate.position.x + 14, plate.position.y + 84, plate.size.x - 28, 28), true, -1)
+				_ready_bar(Rect2(plate.position.x + 14, plate.position.y + (146 if touch else 84), plate.size.x - 28, 80 if touch else 28), true, -1)
 			"join":
 				var r := Rect2(plate.position.x + 14, plate.position.y + 14, plate.size.x - 28, plate.size.y - 28)
 				var ov := button(r, "add_player", null)
 				option_box(r, false, ov)
-				ttext(Vector2(r.position.x, r.position.y + 36), "PRESS %s TO JOIN" % ("A" if game.pad_style != "ps" else "âœ•"), 17, Color(1.0, 0.9, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+				ttext(Vector2(r.position.x, r.position.y + 36), "PRESS %s TO JOIN" % ("A" if game.pad_style != "ps" else "✕"), 17, Color(1.0, 0.9, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
 				h._text(Vector2(r.position.x, r.position.y + 62), "or click to add a gamepad player", 11, Color(0.8, 0.8, 0.76), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 	var sizes := "%dv%d" % [game.team_size, game.team_size]
 	var extra: int = game.team_size * 2 - slots.filter(func(s): return s.kind != "join").size()
-	var note := "%s on %s  Â·  %s" % [sizes, MAP_CARDS[map_pick][0].capitalize(), DIFFICULTIES[maxi(["Easy", "Normal", "Hard"].find(game.bot_difficulty), 0)][0].capitalize()]
+	var note := "%s on %s  ·  %s" % [sizes, MAP_CARDS[map_pick][0].capitalize(), DIFFICULTIES[maxi(["Easy", "Normal", "Hard"].find(game.bot_difficulty), 0)][0].capitalize()]
 	if extra > 0:
-		note += "  Â·  +%d more bot%s" % [extra, "" if extra == 1 else "s"]
-	h._text(Vector2(0, 638), note, 13, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
+		note += "  ·  +%d more bot%s" % [extra, "" if extra == 1 else "s"]
+	h._text(Vector2(0, 636 if not touch else 364), note, 13, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
 	slate(Rect2(20, 644, h.size.x - 40, 72))
 	wood_button(Rect2(40, 652, 290, 54), "BACK", "back", null, "", 22)
 	green_button(Rect2(h.size.x - 452, 646, 400, 68), "START MATCH" if all_ready else "WAITING...", "start", all_ready)
@@ -1111,7 +1112,7 @@ func _side_chip(r: Rect2, k: int, team: int) -> void:
 		sb.set_border_width_all(2 if on or ov else 1)
 		sb.border_color = Color(1.0, 0.85, 0.4) if on else (Color(0.8, 0.7, 0.5) if ov else Color(0.3, 0.3, 0.32))
 		h.draw_style_box(sb, cr)
-		h._text(Vector2(cr.position.x, cr.position.y + 16), "ELVES" if side == 0 else "HUMANS", 11, Color.WHITE if on else Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_CENTER, cr.size.x, 2)
+		h._text(Vector2(cr.position.x, cr.get_center().y + 5), "ELVES" if side == 0 else "HUMANS", 11, Color.WHITE if on else Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_CENTER, cr.size.x, 2)
 
 
 func _ready_bar(r: Rect2, is_ready: bool, k: int) -> void:
@@ -1125,7 +1126,7 @@ func _ready_bar(r: Rect2, is_ready: bool, k: int) -> void:
 	sb.border_color = Color(0.45, 0.9, 0.35) if is_ready else (Color(0.85, 0.75, 0.5) if ov else Color(0.45, 0.45, 0.5))
 	h.draw_style_box(sb, r)
 	icon("check" if is_ready else "wait", r.position + Vector2(16, r.size.y / 2.0), 30)
-	h._text(Vector2(r.position.x + 20, r.position.y + 19), "Ready" if is_ready else "Not ready", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 20, 2)
+	h._text(Vector2(r.position.x + 20, r.get_center().y + 5), "Ready" if is_ready else "Not ready", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 20, 2)
 
 
 # --- Overlays -------------------------------------------------------------------------
@@ -1137,7 +1138,7 @@ func _overlay_frame(title: String) -> Rect2:
 	var x := Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34)
 	var ov := button(x, "close", null)
 	h._plate(x, Color(0.5, 0.14, 0.12) if ov else Color(0.38, 0.1, 0.09), Color(0.85, 0.65, 0.3), 6, 2)
-	h._text(x.position + Vector2(0, 24), "âœ•", 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, x.size.x, 0)
+	h._text(x.position + Vector2(0, 24), "✕", 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, x.size.x, 0)
 	return frame.grow(-40)
 
 
@@ -1268,7 +1269,7 @@ func _draw_howto() -> void:
 	var x := Rect2(card.end.x - 74, card.position.y + 24, 48, 48)
 	var xov := button(x, "close")
 	h._plate(x, Color(0.5, 0.14, 0.12) if xov else Color(0.38, 0.1, 0.09), Color(0.85, 0.65, 0.3), 8, 2)
-	h._text(x.position + Vector2(0, 34), "âœ•", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, x.size.x, 0)
+	h._text(x.position + Vector2(0, 34), "✕", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, x.size.x, 0)
 	# The picture on the left, as big as the card allows.
 	var bottom := 92.0
 	var ih := body.size.y - bottom - 10.0
@@ -1316,7 +1317,7 @@ func _draw_howto() -> void:
 	var nov := button(nx, "howto_step", 1)
 	var nr := nx.grow(3) if nov else nx
 	nine("btn_green", nr, 48, 20, 48, 20, Color(1.12, 1.12, 1.12) if nov else Color.WHITE)
-	ttext(Vector2(nr.position.x, nr.get_center().y + 11), "LET'S PLAY!" if last else "NEXT  â–¶", 32, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, nr.size.x, 6)
+	ttext(Vector2(nr.position.x, nr.get_center().y + 11), "LET'S PLAY!" if last else "NEXT  ▶", 32, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, nr.size.x, 6)
 	var dots := HOWTO.size()
 	var gap := 34.0
 	var d0 := vw / 2.0 - (dots - 1) * gap / 2.0
