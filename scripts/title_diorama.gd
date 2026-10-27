@@ -33,22 +33,40 @@ func build(g) -> void:
 	game = g
 	var before: int = game.get_child_count()
 	var was_mossy: bool = game.mossy
+	var was_style: bool = game.world_style
+	var was_solid: bool = game.prop_solid
+	game.world_style = true
 	game.mossy = false
 	game.prop_solid = false
 	_ground()
+	await game._world_build_frame()
 	_keep()
+	await game._world_build_frame()
 	_waterfall_and_stream()
 	_human_walls()
+	await game._world_build_frame()
 	_forest()
+	await game._world_build_frame()
 	_backdrop()
 	_town()
 	game.mossy = was_mossy
+	game.world_style = was_style
+	game.prop_solid = was_solid
 	var made: Array = []
 	for i in range(before, game.get_child_count()):
 		made.append(game.get_child(i))
 	for n in made:
 		n.reparent(self, true)
 	_grey_stone()
+	# Keep moving crown/beam out of the existing scenery batcher.
+	if crown:
+		crown.set_meta("no_batch", true)
+	if beam:
+		beam.set_meta("no_batch", true)
+	if not "--no-batch" in OS.get_cmdline_user_args():
+		var batch := preload("res://scripts/static_batch.gd").run(self)
+		print("TITLE_SCENERY_BATCH ", batch)
+	await game._world_build_frame()
 	_armies()
 	_projectiles()
 
@@ -65,8 +83,8 @@ func _grey_stone() -> void:
 		if not swapped.has(m):
 			var g: StandardMaterial3D = m.duplicate()
 			if grey:
-				g.albedo_texture = load("res://assets/textures/greystone_color.jpg")
-				g.normal_texture = load("res://assets/textures/greystone_normal.jpg")
+				g.albedo_texture = load("res://assets/textures/style/greystone_color.jpg")
+				g.normal_texture = load("res://assets/textures/style/greystone_normal.jpg")
 				g.albedo_color = Color(0.85, 0.85, 0.88)
 			else:
 				var c: Color = m.albedo_color

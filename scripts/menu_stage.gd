@@ -7,6 +7,7 @@ extends Node3D
 ## Characters are placed from screen positions (see `_floor_at`), so they
 ## line up with the 2D menu whatever the window size.
 
+const StyleProfile = preload("res://scripts/visual/style_profile.gd")
 const Stats = preload("res://scripts/stats.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
 const TitleDiorama = preload("res://scripts/title_diorama.gd")
@@ -97,15 +98,15 @@ func _set_mood(want: String) -> void:
 		env.ambient_light_sky_contribution = 0.0
 		# (Warmer and a touch brighter since 2026-10-09, after the
 		# create-character reference's candle-lit hall.)
-		env.ambient_light_color = Color(0.62, 0.5, 0.4)
+		env.ambient_light_color = Color(0.62, 0.65, 0.73)
 		env.ambient_light_energy = 0.55
 		env.tonemap_exposure = 0.92
 		env.glow_intensity = 0.8
 		env.glow_bloom = 0.1
 		env.glow_hdr_threshold = 0.95
 		env.adjustment_saturation = 1.08
-		env.adjustment_contrast = 1.2
-		env.adjustment_brightness = 0.95
+		env.adjustment_contrast = 1.08
+		env.adjustment_brightness = 1.0
 		env.fog_enabled = false
 		game.sun_light.light_energy = 0.0
 		if game.fill_light:
@@ -114,12 +115,12 @@ func _set_mood(want: String) -> void:
 		# A golden afternoon: warm sun, rich colour, a soft glow on the light.
 		env.ambient_light_energy = 0.7
 		env.ambient_light_color = Color(0.85, 0.85, 0.75)
-		env.adjustment_saturation = 1.32
+		env.adjustment_saturation = StyleProfile.DAY.saturation
 		env.adjustment_contrast = 1.12
 		env.glow_intensity = 0.65
 		env.fog_light_color = Color(0.92, 0.9, 0.82)
-		game.sun_light.light_color = Color(1.0, 0.84, 0.6)
-		game.sun_light.light_energy = 1.5
+		game.sun_light.light_color = StyleProfile.DAY.sun_color
+		game.sun_light.light_energy = StyleProfile.DAY.sun_energy
 
 
 func _flame(pos: Vector3, out: Vector3) -> void:
@@ -141,7 +142,8 @@ func build(g) -> void:
 	title_cast = TitleDiorama.new()
 	add_child(title_cast)
 	await game._world_build_frame()
-	_build_backdrop()
+	await title_cast.build(game)
+	# Retain the old painted backdrop as an archived fallback, not a live layer.
 
 
 func activate() -> void:
@@ -164,10 +166,9 @@ func show_screen(name: String) -> void:
 		return
 	screen = name
 	hero_spin = 0.0
-	title_cast.visible = false
-	backdrop.visible = name == "title"
-	if name == "title":
-		_place_embers()
+	title_cast.visible = name == "title"
+	title_cast.process_mode = Node.PROCESS_MODE_INHERIT if name == "title" else Node.PROCESS_MODE_DISABLED
+	hall.visible = name != "title"
 	_set_mood("title" if name == "title" else "hall")
 	if rug:
 		rug.visible = name in ["character", "store"]
@@ -676,6 +677,8 @@ func _build_hall() -> void:
 	## barrels and crates. Built with the world's own helpers, then moved here.
 	var before: int = game.get_child_count()
 	var was_mossy: bool = game.mossy
+	var was_style: bool = game.world_style
+	game.world_style = true
 	game.mossy = false
 	var c := HALL
 	# Grey castle stone (the greystone texture where the art pass has made it).
@@ -790,6 +793,7 @@ func _build_hall() -> void:
 		await game._world_build_frame()
 		game._add_block(c + Vector3(s * 1.95, 0.032, 1.5), Vector3(0.14, 0.01, 13.0), Color.GRAY, false, game._gold())
 	game.mossy = was_mossy
+	game.world_style = was_style
 	# The world's name tags (door health, the monarchs) stay hidden behind the menu.
 	for l in game.find_children("*", "Label3D", true, false):
 		if l.visible:
