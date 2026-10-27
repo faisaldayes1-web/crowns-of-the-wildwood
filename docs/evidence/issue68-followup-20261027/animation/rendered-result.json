@@ -1,0 +1,86 @@
+{
+	"agent": "Codex-faisal/characters",
+	"checks": 41,
+	"failures": 0,
+	"limitations": [
+		"Player decisions disabled for deterministic animation exercise; no controller/network acceptance",
+		"Finite transforms and advancing animation clocks do not establish natural deformation or visual quality",
+		"Exact unchanged main pack; not the visual implementation candidate"
+	],
+	"phases": [
+		{
+			"expected": "Idle",
+			"phase": "01-idle",
+			"root_bone_pose_changed": false,
+			"sample_times": [
+				0.109239363636364,
+				0.245454545454545,
+				0.378787878787879,
+				0.511024878787879
+			],
+			"time_before": 0.0410575454545456
+		},
+		{
+			"expected": "Running_A",
+			"phase": "02-run",
+			"root_bone_pose_changed": true,
+			"sample_times": [
+				0.0619696666666667,
+				0.197534333333333,
+				0.332727666666667,
+				0.466376
+			],
+			"time_before": 0
+		},
+		{
+			"expected": "1H_Melee_Attack_Slice_Horizontal",
+			"phase": "03-attack",
+			"root_bone_pose_changed": true,
+			"sample_times": [
+				0.106198934915821,
+				0.322652804807901,
+				0.53125974124972,
+				0.746279477787097
+			],
+			"time_before": 0
+		},
+		{
+			"expected": "Running_A",
+			"phase": "04-recover-run",
+			"root_bone_pose_changed": true,
+			"sample_times": [
+				0.0606060606060606,
+				0.191403636363636,
+				0.32810096969697,
+				0.461454303030303
+			],
+			"time_before": 0
+		},
+		{
+			"expected": "Death_A",
+			"phase": "05-death",
+			"root_bone_pose_changed": true,
+			"sample_times": [
+				0.0816495303384463,
+				0.258038723868529,
+				0.431491650839647,
+				0.607661577711105
+			],
+			"time_before": 0
+		},
+		{
+			"expected": "Idle",
+			"phase": "06-respawn-knight",
+			"root_bone_pose_changed": false,
+			"sample_times": [
+				0.0874543333333333,
+				0.225736,
+				0.365349666666667,
+				0.498683
+			],
+			"time_before": 0.02149
+		}
+	],
+	"rendered_sequence": true,
+	"renderer": "Windows"
+}

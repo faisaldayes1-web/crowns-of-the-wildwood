@@ -19,3 +19,15 @@ Actual APIs exercised: menu start, unit.set_role(KNIGHT), model.revive, model.up
 Boundaries: player decision processing is deliberately disabled to isolate animation playback. AnimationPlayer and the real match run normally. This does not test actual movement distance, input, natural animation/deformation, equipment clipping, multiplayer, all classes, four-player performance, mobile or visual quality. The headless result does not qualify the renderer. Death/respawn use real unit APIs but do not simulate health damage or wait out the respawn countdown. The unchanged pack is not the new visual-pass candidate.
 
 No GPU run or rendered output by this helper. No paid calls, generated assets, credits or queue changes.
+
+## Rendered review addition
+
+Agent: Codex-faisal/characters. Reviewed root-produced rendered evidence on 2026-10-27; this helper did not launch another engine run.
+
+The root's rendered candidate run reports 41 checks / 0 failures, exit 0, no engine errors, no Skeleton disconnects and no warnings (rendered-run.json). It exported 24 actual 1280x720 gameplay-camera PNGs. Candidate runtime and unchanged pack hashes match the headless run.
+
+Personally viewed these 16 original PNGs: 01-idle-00/01; 02-run-01/02/03; 03-attack-01/02/03; 04-recover-run-01/02; 05-death-01/02/03; 06-respawn-knight-01/02/03.
+
+At the real overhead gameplay scale, the Knight helmet/body remain assembled in idle, sampled run, recovery and respawn. The adjacent attack samples show the sword changing angle at the hand, without obvious separation or an exploded mesh. Adjacent death samples show the body tipping backward, with helmet, sword and shield remaining with the body. Respawn samples restore an upright, assembled Knight and the live health HUD. No obvious detached limb/equipment or stretched mesh is visible in these reviewed stills.
+
+This is limited visual inspection of sparse gameplay-camera stills. The large helmet obscures much of the body/feet in run frames; the almost identical sampled run silhouettes do not establish stride quality, foot contact or smooth transitions. Player translation/decisions were frozen by the harness. The frame sample span does not cover a full death settling or every animation phase. HUD FPS numbers vary during synchronous capture and do not constitute a controlled performance benchmark. No claim of smoothness, complete deformation/attachment correctness, full animation-set coverage, actual input, mobile or multiplayer acceptance is made. This evidence concerns the unchanged #75 candidate pack, not the new material/world/UI implementation.
