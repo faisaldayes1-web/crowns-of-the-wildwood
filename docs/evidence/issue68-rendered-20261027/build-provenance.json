@@ -1,0 +1,22 @@
+{
+  "agent": "Codex-faisal/crowns",
+  "command": [
+    "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\venv\\Scripts\\python.exe",
+    "-m",
+    "SCons",
+    "platform=windows",
+    "target=template_release",
+    "arch=x86_64",
+    "lto=none",
+    "production=yes",
+    "cxxflags=/D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR",
+    "-j8"
+  ],
+  "exit": 0,
+  "engine_source": "77dcf97d82cbfe4e4615475fa52ca03da645dbd8",
+  "engine_diff": "",
+  "template_sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+  "template_bytes": 59884544,
+  "game_source": "0963f03bc52f7dcca786e2a3bc3703a74b7edde2",
+  "pack_sha256": "b4e17b616cf68a6d59db5dbb615a15e04dd7e787ae19ecf02487e538322ac3e7"
+}

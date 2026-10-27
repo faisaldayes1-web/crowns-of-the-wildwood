@@ -1,0 +1,202 @@
+[
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-0-class-0.png",
+    "bytes": 1198523,
+    "sha256": "8a98b0d06e6c3da17edc7be37e158114469e20b68c2f5c2ff1743d9e92c79d7c"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-0-class-1.png",
+    "bytes": 1220405,
+    "sha256": "033682fcfd909c779fab188f3b19f4043b46f8e1af23dd963184f1d3f1840ce8"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-0-class-2.png",
+    "bytes": 1216054,
+    "sha256": "1cf2a85765277b0ccc0dfa570dec2fad11fb72f702b8c1cd0c0b91bc3991910e"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-0-class-3.png",
+    "bytes": 1211032,
+    "sha256": "332f7236cbe155b2d739c3b03d687e2cbb4b8fb0737446295bdc644ef9befb68"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-0-playable.png",
+    "bytes": 1200903,
+    "sha256": "978c12279ffd3acdd80d2341ef29707e319f4f1270652ad335d68cf09c5024f1"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-3-class-0.png",
+    "bytes": 1138942,
+    "sha256": "3755743e6150c859af15cc83d967575630bfd8d98b9fafd086e1c6b6e189415d"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-3-class-1.png",
+    "bytes": 1154760,
+    "sha256": "e3e3c895a0fa5241ed8ecd834b3a300f876fab8b6d87382982026d12d922b99a"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-3-class-2.png",
+    "bytes": 1149197,
+    "sha256": "a2c4ad86d8553ecda0e9cea51d062da21640266584d140a2a465348b0f62bf51"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-3-class-3.png",
+    "bytes": 1147998,
+    "sha256": "a92261974d0a62f63612e21214e8728c299e4ae534b81f2c7199c950c823a08d"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official\\map-3-playable.png",
+    "bytes": 1154972,
+    "sha256": "7719dda53eaea7c63b5bdab0b13fc5b4c80fb5225e477b5e319978f6ff163b61"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-0-class-0.png",
+    "bytes": 1191313,
+    "sha256": "db7cc145bae471ecf44aa49ffa2b3e50fa581a9749ea59a8e4acea62f84a8d16"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-0-class-1.png",
+    "bytes": 1209843,
+    "sha256": "f72ba7d454c1e927ab77d1aba268be4303f9e64d28edc79c87c6fe92d3d5672d"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-0-class-2.png",
+    "bytes": 1202442,
+    "sha256": "36e564f0fecbfbd806e195580d7c31550567b59063cef4892cc7021b8984c3d7"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-0-class-3.png",
+    "bytes": 1200900,
+    "sha256": "73b8a155f5764fdc81a7ce99207e1b7fb1ff16b93c94dbf05fb145337a74c288"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-0-playable.png",
+    "bytes": 1205716,
+    "sha256": "b4fccb73fff6e90d8b56b76cb2d54f61126ed4a50f1c5932884d1d50ff4a1437"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-3-class-0.png",
+    "bytes": 1138834,
+    "sha256": "dcf121972b4d77880cd7124ef54323f9fba76b142799d7db36c9969dc76ac7bc"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-3-class-1.png",
+    "bytes": 1154934,
+    "sha256": "1cd398eda91f6e2805c63e17489eb61f3f873cc8ed0235861864b03ba9075502"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-3-class-2.png",
+    "bytes": 1149151,
+    "sha256": "0903c9a720b51a8a178585887c8653fd3fcff3fe2277c207c261c4f227ed0878"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-3-class-3.png",
+    "bytes": 1149150,
+    "sha256": "13c1f67d60933e07801079c7d75a5f96da5ecaf62ba089e85f9982122b416f8d"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc\\map-3-playable.png",
+    "bytes": 1155801,
+    "sha256": "7c2f2e7634d0ac43c7124954f9ba00f0745f0c836ded04215da3a638ecb361d5"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-0-class-0.png",
+    "bytes": 1198185,
+    "sha256": "9846b71caf039cd5b13ba65815f209fb789a7d0ca9c4d6c57120236e7a7c8c4b"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-0-class-1.png",
+    "bytes": 1220150,
+    "sha256": "c2fac9c60fff454d4ec92faa5f02d90d242a402017c1156c62a6cbbdf05f58ee"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-0-class-2.png",
+    "bytes": 1214470,
+    "sha256": "60bf784d99a73dca062b8408f551e963ff18108ad5e65de740cc0b695ffc0314"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-0-class-3.png",
+    "bytes": 1210915,
+    "sha256": "8aba3f0d5d9d6b568a30e159d7facd82c1b6e22164cd33fa5529cde715cd461e"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-0-playable.png",
+    "bytes": 1201032,
+    "sha256": "f8bc523d3bf8094dc92247379fad2db0eee096465c7004b2a081374fed9d2bee"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-3-class-0.png",
+    "bytes": 1137205,
+    "sha256": "06fce0bc4806a42dd7af1c15abedc106f764805099315463b0cbd289bb9caac8"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-3-class-1.png",
+    "bytes": 1154494,
+    "sha256": "25de46d0b85900aed2d154c4bd91dc5111cd3736db5c5e0db91e15a9ce08fda8"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-3-class-2.png",
+    "bytes": 1148472,
+    "sha256": "d9b45bb72cc7d1fd606fcaf00d97492df968f7fc5f55da15ae881bf542f5e983"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-3-class-3.png",
+    "bytes": 1146337,
+    "sha256": "82aa1a87f9910d15892d5eab3654f42f48e288e8bf5907876030ecf06ae14e05"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\map-3-playable.png",
+    "bytes": 1155127,
+    "sha256": "5ab8f9010dc05471f25f2090b2d7f2c40d0ab0183a77febb7cdbfc5cc3b16f2e"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-0-class-0.png",
+    "bytes": 1199569,
+    "sha256": "2efcdfd02e07fed0cefd70f5f24dd0d1ef128eee39f496bb97036b4ec41b85c4"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-0-class-1.png",
+    "bytes": 1219640,
+    "sha256": "7622f5996641539b0dc1e51535ec242c4832dd555ef08ca4c09863478563e000"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-0-class-2.png",
+    "bytes": 1215967,
+    "sha256": "1e9c212ffac203334afae4032d252f9a57869de289d947534095256facff0ed6"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-0-class-3.png",
+    "bytes": 1211086,
+    "sha256": "3c85785205d35c637b612d05c11f4752e28a23819f63740871d2b7d622402562"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-0-playable.png",
+    "bytes": 1200707,
+    "sha256": "432d549fc46d93ae5ddd473c3dfafdf808b84653451402b3afd740ba046b8700"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-3-class-0.png",
+    "bytes": 1138932,
+    "sha256": "301b82ecf86eaede9380b14b402a88e91703771bfacbf695167290a5022d14f2"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-3-class-1.png",
+    "bytes": 1152794,
+    "sha256": "966737552aeed35495e4b74ecca2d6dcc49a1827e5cf0627d028d5e836e85aae"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-3-class-2.png",
+    "bytes": 1150013,
+    "sha256": "a758c697c566be8d65f39c03572d414d1d2aa0cb515c374a38d3faec36091012"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-3-class-3.png",
+    "bytes": 1148508,
+    "sha256": "fa892071e55232088170ddc20ea8b1e3d48ad5bcc2e6cd5e4ad98ace7bc1eedc"
+  },
+  {
+    "path": "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\map-3-playable.png",
+    "bytes": 1154503,
+    "sha256": "552c06367c4d11606883606fad0103a17b3811ce75b14aab53dfb578ac962959"
+  }
+]
