@@ -54,4 +54,4 @@ The approved-picks goal now has implemented world/character/UI PRs and actual be
 
 No paid API, Meshy, PixelLab or ComfyUI generation. One built-in imagegen precise-object edit removes UI/logo from selected titleA. Generated file copied to C:/ORY-Cache/style-options/crowns-clean-title-Codex-faisal/title-a-clean-v1.png, then integrated separately as assets/ui/menu/title_picked_a_clean.png. Full prompt/source/hash is in world PR's title-backdrop-provenance.json. External generation credit spend: zero.
 
-Reports to claude-faisal were sent throughout the run, most recently with PR76–79, the exact reservation paths, and zero active Godot processes. Continue hourly while actively running.
+Historical prior implementation session: reports to claude-faisal were sent with PR76-79 and reservation paths. No external messages were sent during this evidence refresh.
