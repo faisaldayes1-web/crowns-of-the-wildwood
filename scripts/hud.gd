@@ -3754,6 +3754,14 @@ func _touch_cluster(p, W: float, H: float) -> void:
 	for i in 6:
 		at.append(centres[i] - Vector2(sizes[i], sizes[i]) / 2.0)
 	_move_slots(p, at, sizes)
+	# Shield users retain a separate large Perks touch target; Block still
+	# occupies its original native move slot. Fits left of the thumb arc.
+	if p.can_block():
+		var perks := Vector2(W - 618, H - 98)
+		next_slot_art = "perks"
+		_slot(perks - Vector2(42, 42), 84.0, "vigor", Color(0.78, 0.1, 0.16), "", "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
+		if not pane:
+			touch_rects.append([Rect2((perks - Vector2(48, 48)) * hud_scale, Vector2(96, 96) * hud_scale), "rank_menu"])
 	# The hat move (G) when the hat carries one: a round button left of the arc.
 	if p.abilities().size() > 2 and not p.dead:
 		var gc := Vector2(W - 470, H - 222)
@@ -4084,12 +4092,12 @@ func _ability_strip(p, strip: Rect2) -> void:
 	if _st():
 		game_board(strip.grow(-8))
 	var c := strip.get_center()
-	var at := [c + Vector2(-30, -84), c + Vector2(-124, -36), c + Vector2(64, -36),
-		c + Vector2(-160, 40), c + Vector2(-48, 40), c + Vector2(112, 40)]
+	var at := [c + Vector2(-30, -100), c + Vector2(-124, -64), c + Vector2(64, -64),
+		c + Vector2(-174, 30), c + Vector2(-66, 30), c + Vector2(150, 30)]
 	_move_slots(p, at, [60.0, 60.0, 60.0, 52.0, 52.0, 52.0])
 	# Shield classes still need independent access to perks.
 	if p.can_block():
-		var pos := c + Vector2(32, 40)
+		var pos := c + Vector2(42, 30)
 		next_slot_art = "perks"
 		_slot(pos, 52.0, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
 		if not pane:

@@ -16,3 +16,10 @@ Capture harness stages deterministic states and calls menu handlers; screenshots
 ## Validation before integration
 
 Headless full import passed with no script errors (C:/ORY-Cache/qa/crowns-ui-import-final.log). Isolated menu_flow_test passed with 0 failures, including map/lobby actions, ready gating, two-player controller routing and split layout changes. Capture script check-only passed. Rendered hit geometry, native title, full bot match and side-by-side images remain integration checks. The live reference capture is explicitly a staged quiet courtyard in battle phase, not combat-action evidence. `--capture-touch` enables the native touch layout for an additional viewport run.
+
+## Mathematical layout audit
+Agent: Codex-faisal/ui
+
+At 1280x720, the first radial arrangement put bottom labels at y724. The revised rows end at y714, with side labels ending y628 and the lower row starting y631. Lower action labels have 108-unit centre spacing. Pause board ends y698; action footer ends y684, central medallion y694, keyboard hint baseline y716. Map action rectangles end at y712 (start) and y710 (back); lobby cards end y614 desktop and y642 touch, clear of the command shelf starting y644.
+
+At physical 844x390, native canvas_items/expand uses approximately 1558x720 logical units (scale 0.542); web KEEP uses a 1280x720 letterboxed canvas at the same height scale. Bounds fit both. Touch-ready faction and ready controls now use 80-unit rows (~43 physical pixels) instead of 22/28. Shield users get a distinct 96-unit Perks touch target (~52 physical pixels) separate from Block and the existing thumb arc. Ready text is vertically centred. Existing map difficulty/menu utility targets remain smaller than 44 physical pixels on this phone; this audit does not claim universal touch-target compliance. No engine run during root's rendered lane.
