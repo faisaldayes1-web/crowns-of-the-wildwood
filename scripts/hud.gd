@@ -5578,7 +5578,7 @@ func _draw_game_menu() -> void:
 	var ids: Array = game.menu_tabs()
 	var tw := (R.size.x - 40.0 - (ids.size() - 1) * 8.0) / ids.size()
 	for i in ids.size():
-		var tab := Rect2(Vector2(R.position.x + 20.0 + i * (tw + 8.0), R.position.y + 40.0), Vector2(tw, 72.0))
+		var tab := Rect2(Vector2(R.position.x + 20.0 + i * (tw + 8.0), R.position.y + 40.0), Vector2(tw, 82.0 if touch_ui else 72.0))
 		var on: bool = game.menu_tab == ids[i]
 		_plate(tab, Color(0.22, 0.16, 0.06, 0.98) if on else Color(0.1, 0.11, 0.13, 0.97), GOLD if on else Color(0.3, 0.28, 0.24), 9, 3 if on else 1)
 		if on:
@@ -5603,15 +5603,15 @@ func _draw_game_menu() -> void:
 		6: _menu_audio(body)
 	# The foot: LEAVE MATCH (click twice), the key hint and RESUME.
 	if in_match and not game.demo:
-		quit_button = Rect2(cx - 342, R.end.y - 62, 292, 48)
+		quit_button = Rect2(cx - 342, R.end.y - (86 if touch_ui else 62), 292, 80 if touch_ui else 48)
 		var arm: bool = game.quit_armed > 0.0
 		_big_button(quit_button, "SURE? CLICK AGAIN" if arm else "LEAVE MATCH", Color(0.62, 0.12, 0.08), Color(0.85, 0.3, 0.18), "exit")
 	if in_match:
-		resume_button = Rect2(cx + 50, R.end.y - 62, 292, 48)
+		resume_button = Rect2(cx + 50, R.end.y - (86 if touch_ui else 62), 292, 80 if touch_ui else 48)
 		_big_button(resume_button, "RESUME", Color(0.1, 0.24, 0.62), Color(0.3, 0.5, 0.95), "play")
 	if in_match:
-		_ring_button(Vector2(cx, R.end.y - 38), 34)
-		_map_glyph(Vector2(cx, R.end.y - 38), 1.8)
+		_ring_button(Vector2(cx, R.end.y - (46 if touch_ui else 38)), 34)
+		_map_glyph(Vector2(cx, R.end.y - (46 if touch_ui else 38)), 1.8)
 	var footer := "Esc / Start resumes   |   ← → switch tabs" if in_match else "Esc closes   |   ← → switch tabs"
 	_text(Vector2(R.position.x, R.end.y + 18), footer, 12, Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
 
@@ -5619,7 +5619,7 @@ func _draw_game_menu() -> void:
 func _menu_body() -> Rect2:
 	## The open tab's page area, between the tab row and the foot buttons.
 	var R := _menu_rect()
-	return Rect2(R.position + Vector2(18, 122), Vector2(R.size.x - 36, R.size.y - (192.0 if game.playing else 156.0)))
+	return Rect2(R.position + Vector2(18, 132 if touch_ui else 122), Vector2(R.size.x - 36, R.size.y - ((226.0 if touch_ui else 192.0) if game.playing else (166.0 if touch_ui else 156.0))))
 
 
 func _menu_icon(name: String) -> Texture2D:
@@ -5669,7 +5669,7 @@ func _pause_map_rect() -> Rect2:
 	## Where the pause menu's map view sits (it is drawn by a clipped copy of
 	## this HUD so it can zoom without spilling over the board).
 	var body := _menu_body()
-	return Rect2(body.position + Vector2(4, 34), Vector2(700, body.size.y - 80))
+	return Rect2(body.position + Vector2(4, 34), Vector2(700, body.size.y - (136 if touch_ui else 80)))
 
 
 func _menu_map_page(body: Rect2, now: float) -> void:
@@ -5692,15 +5692,15 @@ func _menu_map_page(body: Rect2, now: float) -> void:
 		add_child(map_view)
 	# The view's own child draws over this HUD, so - / + and the status tag
 	# sit just under it rather than on it.
-	var mz := Rect2(vp.position + Vector2(10, vp.size.y + 10), Vector2(30, 28))
+	var mz := Rect2(vp.position + Vector2(10, vp.size.y + 10), Vector2(82 if touch_ui else 30, 82 if touch_ui else 28))
 	for k in 2:
-		var b := Rect2(mz.position + Vector2(k * 38, 0), mz.size)
+		var b := Rect2(mz.position + Vector2(k * (90 if touch_ui else 38), 0), mz.size)
 		_plate(b, Color(0.12, 0.12, 0.14), Color(0.55, 0.5, 0.4), 6, 2)
 		draw_line(b.get_center() + Vector2(-7, 0), b.get_center() + Vector2(7, 0), CREAM, 3.0)
 		if k == 1:
 			draw_line(b.get_center() + Vector2(0, -7), b.get_center() + Vector2(0, 7), CREAM, 3.0)
 		zoom_buttons.append([b, -1 if k == 0 else 1])
-	_text(Vector2(mz.position.x + 82, mz.end.y - 9), "ZOOM  ×%.1f" % map_zoom, 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(mz.position.x + (188 if touch_ui else 82), mz.end.y - 9), "ZOOM  ×%.1f" % map_zoom, 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	_home_pill(Rect2(vp.get_center().x - 95, vp.end.y + 8, 190, 30), _my_team())
 	# The side card.
 	var card := Rect2(vp.end.x + 16, body.position.y, body.end.x - vp.end.x - 16, body.size.y + 4)
