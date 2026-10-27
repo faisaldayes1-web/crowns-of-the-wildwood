@@ -1,0 +1,52 @@
+{
+  "agent": "Codex-faisal",
+  "template_sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+  "pack_sha256": "b4e17b616cf68a6d59db5dbb615a15e04dd7e787ae19ecf02487e538322ac3e7",
+  "results": [
+    {
+      "mode": "immediate",
+      "exit": 0,
+      "command": [
+        "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+        "--headless",
+        "--verbose",
+        "--main-pack",
+        "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+        "--script",
+        "C:\\ORY-Cache\\qa\\crowns-68-followup-Codex-faisal\\shutdown.gd",
+        "--log-file",
+        "C:\\ORY-Cache\\qa\\crowns-68-followup-Codex-faisal\\immediate.log"
+      ],
+      "errors": 1,
+      "skeleton_errors": 0,
+      "leaks": [
+        "Leaked instance: OggPacketSequence:9223372085777139267 - Resource path: res://assets/music/menu.ogg::OggPacketSequence_tyqyt",
+        "Leaked instance: AudioStreamOggVorbis:9223372085793916484 - Resource path: res://assets/music/menu.ogg",
+        "Leaked instance: AudioStreamPlaybackOggVorbis:9223372884406202757",
+        "Leaked instance: OggPacketSequencePlayback:9223372884422979974",
+        "Resource still in use: res://assets/music/menu.ogg::OggPacketSequence_tyqyt (OggPacketSequence)",
+        "Resource still in use: res://assets/music/menu.ogg (AudioStreamOggVorbis)"
+      ],
+      "user_path_verified": true
+    },
+    {
+      "mode": "drain",
+      "exit": 0,
+      "command": [
+        "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+        "--headless",
+        "--verbose",
+        "--main-pack",
+        "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+        "--script",
+        "C:\\ORY-Cache\\qa\\crowns-68-followup-Codex-faisal\\shutdown.gd",
+        "--log-file",
+        "C:\\ORY-Cache\\qa\\crowns-68-followup-Codex-faisal\\drain.log"
+      ],
+      "errors": 0,
+      "skeleton_errors": 0,
+      "leaks": [],
+      "user_path_verified": true
+    }
+  ]
+}

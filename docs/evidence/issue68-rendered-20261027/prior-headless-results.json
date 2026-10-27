@@ -1,0 +1,189 @@
+[
+  {
+    "name": "baseline-probe-imported",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-codex-faisal\\templates\\windows_release_x86_64.exe",
+      "--headless",
+      "--path",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\probe-project",
+      "--script",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\probe-project\\probe.gd",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\baseline-probe-imported.engine.log"
+    ],
+    "exit": 0,
+    "seconds": 0.83,
+    "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
+    "errors": 3,
+    "disconnects": 3,
+    "passes": 0,
+    "failures": 0,
+    "cases": 3,
+    "result": []
+  },
+  {
+    "name": "msvc-probe-imported",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+      "--headless",
+      "--path",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\probe-project",
+      "--script",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\probe-project\\probe.gd",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\msvc-probe-imported.engine.log"
+    ],
+    "exit": 0,
+    "seconds": 0.36,
+    "sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+    "errors": 0,
+    "disconnects": 0,
+    "passes": 0,
+    "failures": 0,
+    "cases": 3,
+    "result": []
+  },
+  {
+    "name": "baseline-startup",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-codex-faisal\\templates\\windows_release_x86_64.exe",
+      "--headless",
+      "--main-pack",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+      "--quit-after",
+      "180",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\baseline-startup.engine.log"
+    ],
+    "exit": 0,
+    "seconds": 23.28,
+    "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13",
+    "errors": 43,
+    "disconnects": 43,
+    "passes": 0,
+    "failures": 0,
+    "cases": 0,
+    "result": []
+  },
+  {
+    "name": "msvc-startup",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+      "--headless",
+      "--main-pack",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+      "--quit-after",
+      "180",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\msvc-startup.engine.log"
+    ],
+    "exit": 0,
+    "seconds": 8.03,
+    "sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+    "errors": 1,
+    "disconnects": 0,
+    "passes": 0,
+    "failures": 0,
+    "cases": 0,
+    "result": []
+  },
+  {
+    "name": "msvc-menu_flow_test.gd",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+      "--headless",
+      "--main-pack",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+      "--script",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\menu_flow_test.gd",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\msvc-menu_flow_test.gd.engine.log",
+      "--",
+      "--debug-unlock"
+    ],
+    "exit": 0,
+    "seconds": 8.03,
+    "sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+    "errors": 1,
+    "disconnects": 0,
+    "passes": 25,
+    "failures": 0,
+    "cases": 0,
+    "result": []
+  },
+  {
+    "name": "msvc-map_switch_test.gd",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+      "--headless",
+      "--main-pack",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+      "--script",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\map_switch_test.gd",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\msvc-map_switch_test.gd.engine.log",
+      "--",
+      "--debug-unlock"
+    ],
+    "exit": 0,
+    "seconds": 204.52,
+    "sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+    "errors": 0,
+    "disconnects": 0,
+    "passes": 378,
+    "failures": 0,
+    "cases": 0,
+    "result": []
+  },
+  {
+    "name": "msvc-kbm_move_test.gd",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+      "--headless",
+      "--main-pack",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+      "--script",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\kbm_move_test.gd",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\msvc-kbm_move_test.gd.engine.log",
+      "--",
+      "--debug-unlock"
+    ],
+    "exit": 0,
+    "seconds": 7.97,
+    "sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+    "errors": 1,
+    "disconnects": 0,
+    "passes": 10,
+    "failures": 0,
+    "cases": 0,
+    "result": []
+  },
+  {
+    "name": "msvc-bot",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+      "--headless",
+      "--main-pack",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+      "--fixed-fps",
+      "60",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\msvc-bot.engine.log",
+      "--",
+      "--demo",
+      "--seed=7"
+    ],
+    "exit": 0,
+    "seconds": 240.58,
+    "sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+    "errors": 0,
+    "disconnects": 0,
+    "passes": 0,
+    "failures": 0,
+    "cases": 0,
+    "result": [
+      "RESULT winner=Humans score=0-1 t=600 overtime=false turrets=1/1 turret_kills=2/1 raid_deaths=7/5"
+    ]
+  }
+]
