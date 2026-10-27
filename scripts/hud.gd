@@ -6335,7 +6335,7 @@ func _draw_chat() -> void:
 		var alpha := 1.0 if typing else clampf((14.0 - (now - m.time)) / 3.0, 0.0, 1.0)
 		var named: bool = m.who != ""
 		var body := _chat_display_text(m)
-		var touch_hint := touch_ui and not named and body != m.text
+		var touch_hint: bool = touch_ui and not named and body != m.text
 		var body_size := 22 if touch_hint else 11
 		var line_height := 26.0 if touch_hint else 13.0
 		var body_h := _paragraph_height(body, body_size, tw, line_height)
