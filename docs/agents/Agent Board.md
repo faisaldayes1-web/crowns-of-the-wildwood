@@ -98,3 +98,7 @@ Agent: Codex-faisal. Incoming branch records preserved below; no existing owner 
 | Visual UI | Codex-faisal/ui | Selected title D/map A/ready A/spawn C/live C/paused C/knight C | scripts/menu.gd; scripts/hud.gd; tools/crowns_visual_capture.gd; own new evidence/handoff | ACTIVE, isolated branch; world owns menu_stage.gd | Native controls and structurally selected layouts, actual screen captures |
 
 | Visual title asset | Codex-faisal/world | Root-authorized selected title A clean backdrop integration | New assets/ui/menu/title_picked_a_clean.png; existing scripts/menu_stage.gd backdrop path; docs/visual/2026-10-27-world provenance | READY PR #76; clean selected A raster default, native controls; optional debug-native-title; no queue edits | Root supplied built-in imagegen UI/logo removal derivative, 2026-10-27 |
+
+| Runtime acceptance and goals | Codex-faisal/crowns | Owner desktop push 2026-10-27: document #68 candidate and visual selection gate | docs/GOALS.md; docs/evidence/issue68-rendered-20261027/; own handoff only | READY PR #75; 56 rendered checks pass, candidate0 versus official1987 Skeleton errors; no game code/assets/runtime defaults | Same-pack rendered comparison with honest limits, current goal status |
+
+| Runtime follow-up | Codex-faisal | Direct owner request continue PR75/Skeleton68 beside visual pass | docs/GOALS.md; docs/evidence/issue68-followup-20261027/; own handoff | ACTIVE evidence diagnosis; preserve game/runtime defaults | Distinguish audio shutdown timing from Skeleton disconnect fix |
