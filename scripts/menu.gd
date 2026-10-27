@@ -484,8 +484,9 @@ func _draw_map() -> void:
 		var on: bool = game.bot_difficulty == d[2]
 		option_box(r, on, button(r, "difficulty", d[2]), Color("28744a"))
 		icon(d[3], r.position + Vector2(26, 23), 32)
-		ttext(r.position + Vector2(56, 20), d[0], 19)
-		label(r.position + Vector2(56, 37), d[1], 12)
+		ttext(r.position + Vector2(56, 31 if game.touch_active else 20), d[0], 26 if game.touch_active else 19)
+		if not game.touch_active:
+			label(r.position + Vector2(56, 37), d[1], 12)
 	ttext(Vector2(490, 478), "TEAM SIZE", 22, Color("d8aa47"), HORIZONTAL_ALIGNMENT_CENTER, 300)
 	var tr := Rect2(526, 512, 228, 55)
 	option_box(tr, true, false, Color("d8aa47"))
