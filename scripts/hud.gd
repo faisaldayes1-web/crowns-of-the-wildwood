@@ -343,7 +343,7 @@ func _draw() -> void:
 		if _narrow():
 			_draw_minimap(Vector2(88, 90), 68.0)
 		else:
-			_draw_minimap(Vector2(124, 124), 100.0)
+			_draw_minimap(Vector2(124, 208 if _corner_score() else 124), 100.0)
 		if game.economy and _me():
 			game.economy.draw_counter(self, _me())   # team wood and ore (economy.gd)
 	_draw_dizzy_marks()
@@ -2528,7 +2528,24 @@ func _ivy(start: Vector2, dir: Vector2, length: float, seed_i: int) -> void:
 		draw_polyline(leaf, Color(0.08, 0.18, 0.04), 1.0)
 
 
+func _corner_score() -> bool:
+	return not _narrow() and not touch_ui and game.prep_left <= 0.0 and not game.menu_open and _banner_kind() != "class"
+
+
 func _draw_scoreboard() -> void:
+	if _corner_score():
+		for team in 2:
+			var r := Rect2(24 if team == 0 else size.x - 264, 14, 240, 66)
+			_plate(r, Color("28744a") if team == 0 else Color("315b9c"), Color("d8aa47"), 14, 3)
+			_text(r.position + Vector2(0, 25), "ELVES" if team == 0 else "HUMANS", 19, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
+			_text(r.position + Vector2(0, 55), str(game.score[team]), 30, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
+		var clock := Rect2(size.x / 2.0 - 100, 10, 200, 80)
+		_plate(clock, Color("27364a"), Color("d8aa47"), 16, 3)
+		_crown(Vector2(size.x / 2.0, 14), 10, GOLD)
+		_text(clock.position + Vector2(0, 30), "OVERTIME" if game.overtime else "BATTLE", 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 200, 3)
+		var sec := maxi(0, int(game.time_left))
+		_text(clock.position + Vector2(0, 66), "%d:%02d" % [sec / 60, sec % 60], 32, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 200, 3)
+		return
 	## The top bar: its art, names, scores, clock and the line under it are
 	## baked (they change at most a few times a second); the twinkles and the
 	## Ember Pass flame move every frame and are drawn live on top.
@@ -3566,7 +3583,7 @@ func _draw_player_panel(p) -> void:
 		# baked layers (the bottom row, the right-hand column); this pass
 		# then paints just the bars, cooldowns and numbers over them.
 		var key := _panel_key(p)
-		var bottom := Rect2(0, size.y - (480.0 if touch_ui else 180.0) * k, size.x, (480.0 if touch_ui else 180.0) * k)
+		var bottom := Rect2(0, size.y - (480.0 if touch_ui else 260.0) * k, size.x, (480.0 if touch_ui else 260.0) * k)
 		var right := Rect2(size.x - 130.0 * k, 0, 130.0 * k, 340.0 * k)
 		panel_pass = ""
 		if _layer("panel_bottom", bottom, key, "panel", [p]) and _layer("panel_right", right, key, "panel", [p]):
@@ -3593,7 +3610,7 @@ func _draw_player_panel(p) -> void:
 	var buttons_w := 3.0 * 42.0 + 2.0 * 8.0
 	var bx := W - 22.0 - buttons_w
 	_corner_buttons(Vector2(bx, H - 89))
-	_ability_strip(p, Rect2(Vector2(bx - 30.0 - 470.0, H - 122), Vector2(470, 110)))
+	_ability_strip(p, Rect2(Vector2(W / 2.0 - 220.0, H - 224), Vector2(440, 210)))
 	if _lv():
 		if game.economy:
 			game.economy.draw_hat_slot(self, p, Rect2(Vector2(bx - 30.0 - 470.0, H - 122), Vector2(470, 110)))   # the upgraded hat's move
@@ -4062,12 +4079,21 @@ func _draw_xp_bar(p, bar: Rect2) -> void:
 
 
 func _ability_strip(p, strip: Rect2) -> void:
-	## The ability bar on its own gold-framed wooden board: attack, dodge,
-	## the two class abilities, perks (or block for shield classes) and grab,
-	## each slot with its keycap under the icon and its name below.
+	# Codex-faisal/ui: picked C radial cluster. Six actions retain their
+	# native cooldown/energy/binding and clickable rectangles.
 	if _st():
-		_strip_board(strip)
-	_strip_slots(p, strip)
+		game_board(strip.grow(-8))
+	var c := strip.get_center()
+	var at := [c + Vector2(-30, -84), c + Vector2(-124, -36), c + Vector2(64, -36),
+		c + Vector2(-160, 40), c + Vector2(-48, 40), c + Vector2(112, 40)]
+	_move_slots(p, at, [60.0, 60.0, 60.0, 52.0, 52.0, 52.0])
+	# Shield classes still need independent access to perks.
+	if p.can_block():
+		var pos := c + Vector2(32, 40)
+		next_slot_art = "perks"
+		_slot(pos, 52.0, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
+		if not pane:
+			touch_rects.append([Rect2(pos * hud_scale, Vector2(52, 74) * hud_scale), "rank_menu"])
 
 
 func _strip_board(strip: Rect2) -> void:
@@ -7214,61 +7240,22 @@ func _twinkles(now: float, a: float, spots: Array) -> void:
 
 
 func _draw_class_banner(p) -> void:
-	## "YOU ARE NOW / ELF KNIGHT": a ribbon in the class colour with the
-	## class hex tile on top and a parchment scroll naming the kit, for a few
-	## seconds after the player puts a class hat on.
-	var t: float = CLASS_BANNER_TIME - p.class_banner
-	if t < 0.0 or p.class_banner <= 0.0:
+	if p.class_banner <= 0.0:
 		return
-	var now := Time.get_ticks_msec() / 1000.0
-	var fade := clampf(p.class_banner / 0.5, 0.0, 1.0)
-	var pop := 1.0 + (0.22 * sin(clampf(t / 0.4, 0.0, 1.0) * PI) if t < 0.4 else 0.0)
-	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
-	var s := minf(t / 0.14, 1.0) * pop * fit * 0.8 * BANNER_SIZE * (0.9 + 0.1 * fade)
-	var a := clampf(t / 0.15, 0.0, 1.0) * fade
-	if s < 0.05:
-		return
-	var role: int = p.role
-	var rc: Color = Stats.ROLES[role].color
-	var light := Color(rc.r * 0.75 + 0.1, rc.g * 0.75 + 0.1, rc.b * 0.75 + 0.1, a)
-	var deep := Color(rc.r * 0.3, rc.g * 0.3, rc.b * 0.3, a)
-	# (Sits a little lower than the crown banner so the class tile on top
-	# clears the objective line.)
-	draw_set_transform(Vector2(size.x / 2.0, 184.0 * fit + sin(now * 2.2) * 2.0 - (1.0 - fade) * 30.0), 0.04 - 0.012 * sin(now * 1.7), Vector2(s, s))
-	var ink := Color(0.12, 0.07, 0.03, a)
-	# Shards in the class colour and gold flying out behind the ribbon.
-	for k in 14:
-		var ang := -PI + (k + 0.5) * TAU / 14.0
-		if absf(sin(ang)) > 0.6:
-			continue
-		var drift := fmod(now * 0.5 + k * 0.37, 1.0)
-		var d := Vector2(cos(ang) * 1.45, sin(ang)) * (140.0 + 36.0 * drift + 16.0 * (k % 3))
-		var dir := d.normalized()
-		var side := Vector2(-dir.y, dir.x)
-		var ln := 14.0 + 9.0 * (k % 2)
-		var wd := 4.5 + 2.0 * ((k + 1) % 3)
-		var col := Color(rc.r, rc.g, rc.b, a * (1.0 - drift * 0.7)) if k % 2 == 0 else Color(1.0, 0.86, 0.25, a * (1.0 - drift * 0.7))
-		draw_colored_polygon(PackedVector2Array([d - dir * ln, d + side * wd, d + dir * ln, d - side * wd]), col)
-	var half := 190.0
-	_cloth_ribbon(half, -56.0, 36.0, light, deep, a, now)
-	for sx in [-1.0, 1.0]:
-		_inked_star(Vector2(sx * (half - 30.0), -12.0), 10.0 + sin(now * 4.0 + sx) * 1.5, Color(1.0, 0.8, 0.22, a), ink)
-	_title_text(Vector2(-half, -16.0), "YOU ARE NOW", 30, Color(1.0, 0.97, 0.88, a), Color(deep.r, deep.g, deep.b, a), ink, half * 2.0)
-	_title_text(Vector2(-half, 28.0), p.role_name().to_upper(), 44, Color(1.0, 0.84, 0.18, a), Color(0.9, 0.42, 0.04, a), ink, half * 2.0)
-	# The class on a glossy hex tile above the ribbon, in its colour.
-	var hc := Vector2(0, -88.0 + sin(now * 4.0) * 2.0)
-	for i in 3:
-		draw_circle(hc, 44.0 - i * 9.0, Color(rc.r, rc.g, rc.b, 0.08 * a))
-	_hex_tile(hc, 30.0, Color(0.35, 0.2, 0.04, a), Color(rc.r * 0.7, rc.g * 0.7, rc.b * 0.7, a), false, true)
-	_icon(_class_icon(role), hc, 15.0, Color(1, 1, 1, a))
-	# What the kit does: attack and the two ability keys.
-	var st: Dictionary = p.stats()
-	var hint: String = "%s %s" % [_k("attack"), st.attack_name]
-	for i in mini(2, st.abilities.size()):
-		hint += "  ·  %s %s" % [_k("ability_1" if i == 0 else "ability_2"), st.abilities[i].name]
-	_scroll_hint(58.0, maxf(_text_width(hint, 15) + 56.0, 300.0), hint, a)
-	_twinkles(now, a, [Vector2(-230, -60), Vector2(222, -50), Vector2(-130, -100), Vector2(150, -95), Vector2(60, 86)])
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	var fit := minf(size.x / 1280.0, 1.0)
+	var c := Vector2(size.x / 2.0, 204.0 * fit)
+	draw_set_transform(c, 0.0, Vector2(fit, fit))
+	for side in [-1, 1]:
+		var rr := Rect2(side * 116.0 - 46.0, -36, 92, 110)
+		_plate(rr, Color("27364a"), Color("d8aa47"), 8, 2)
+		_icon("bow" if side < 0 else "staff", rr.get_center(), 25, CREAM)
+	var card := Rect2(-76, -62, 152, 158)
+	_plate(card.grow(4), Color("80532e"), GOLD, 10, 3)
+	_plate(card, Color("27364a"), Color("d8aa47"), 8, 2)
+	_icon(_class_icon(p.role), Vector2(0, -12), 34, GOLD)
+	_text(Vector2(-76, 48), "YOU ARE NOW", 17, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 152, 3)
+	_text(Vector2(-76, 78), p.role_name().to_upper(), 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 152, 3)
+	draw_set_transform(Vector2.ZERO)
 
 
 func _draw_rankup_flourish() -> void:
