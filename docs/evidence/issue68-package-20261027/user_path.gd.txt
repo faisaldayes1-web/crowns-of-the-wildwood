@@ -1,0 +1,9 @@
+extends SceneTree
+
+func _init() -> void:
+	var base := OS.get_environment("CROWNS_TEST_USER_BASE").replace("\\", "/")
+	var actual := OS.get_user_data_dir().replace("\\", "/")
+	print("Codex-faisal/crowns: actual user dir: ", actual)
+	var safe := actual.to_lower().begins_with(base.to_lower() + "/") and FileAccess.file_exists(base + "/.crowns-throwaway-user-dir")
+	print("PASS isolated package path" if safe else "FAIL isolated package path")
+	quit(0 if safe else 1)
