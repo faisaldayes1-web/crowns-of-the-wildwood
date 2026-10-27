@@ -1,0 +1,14 @@
+{
+  "agent": "Codex-faisal/world",
+  "source_pick": "GAME-01-title-A.png",
+  "integration_asset": "assets\\ui\\menu\\title_picked_a_clean.png",
+  "sha256": "ca3f4e7ae1c4af626bbbeb429627c0137a21ff1c435cbd1017e2ef72e8e28312",
+  "generator": "built-in imagegen",
+  "generated_output": "C:/Users/Faisal Syed/.codex/generated_images/01a17c5e-669b-7950-8812-8c424e673536/exec-4b173fef-9037-4737-986f-84aa4d8627df.png",
+  "transparent_background": false,
+  "paid_apis_used": false,
+  "Meshy_credits_spent": 0,
+  "PixelLab_credits_spent": 0,
+  "prompt": "Use case: precise-object-edit. Input image is the edit target, the already approved Crowns of the Wildwood title A. Create a clean game-title background by removing ALL overlaid interface: the central title/logo, every menu button, label, account/status card, icon and text. Naturally reconstruct the scenery hidden beneath these overlays. Preserve the exact camera, composition, architecture, terrain, foreground knight, props, materials, lighting and rendering style of the supplied image wherever not covered by UI. Do not redesign the scene, introduce other IP, add objects, text, logos, borders, or controls. Full opaque landscape background for native game controls to be placed on top.",
+  "inspection": "Viewed supplied derivative before integration; no baked UI/logo/text visible. Runtime screenshot pending root serialized render."
+}

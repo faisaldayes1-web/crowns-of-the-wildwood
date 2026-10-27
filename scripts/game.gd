@@ -7098,7 +7098,7 @@ func _cloth(color: Color) -> StandardMaterial3D:
 
 
 func _gold() -> StandardMaterial3D:
-	var m := _material(Color(0.95, 0.78, 0.3))
+	var m := _material(StyleProfile.GOLD)
 	m.metallic = 0.7
 	m.roughness = 0.35
 	return m
@@ -9628,6 +9628,10 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 	## 3.3 m hedge wall hid the first 2.5 m.
 	var ox := bx + side * (CELLAR_DEPTH + 0.5)
 	var kerb := _ashlar(Color(0.93, 0.9, 0.84))
+	var carved_stone := _material(StyleProfile.STONE)
+	carved_stone.roughness = 0.94
+	var cap_stone := _material(StyleProfile.STONE.lightened(0.12))
+	cap_stone.roughness = 0.94
 	var lines := [
 		[Vector3(bx + side * 0.5, 0, -(hz + 0.5)), Vector3(ox, 0, -(hz + 0.5))],
 		[Vector3(bx + side * 0.5, 0, hz + 0.5), Vector3(ox, 0, hz + 0.5)],
@@ -9642,10 +9646,32 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 		_add_block(Vector3(c.x, 0.15, c.z), size, Color.WHITE, true, kerb)
 		_add_invisible_wall(Vector3(c.x, 1.0, c.z), Vector3(size.x, 1.4, size.z))
 		_add_picket_fence(a + Vector3(0, 0.3, 0), b + Vector3(0, 0.3, 0))
+		# Pick D: modular low masonry under the timber, inside the existing
+		# invisible boundary. Raised visual detail does not alter collision.
+		var stones := maxi(1, int(length / 0.9))
+		for k in stones:
+			var p: Vector3 = a.lerp(b, (k + 0.5) / stones)
+			for course in 2:
+				var block_size := Vector3(length / stones - 0.035, 0.38, 0.55) if along_x else Vector3(0.55, 0.38, length / stones - 0.035)
+				_picked_carved_block(p + Vector3(0, 0.49 + course * 0.4, 0), block_size, carved_stone if (k + course) % 3 else cap_stone)
+			if k % 4 == 0:
+				_picked_carved_block(p + Vector3(0, 1.17, 0), Vector3(0.76, 0.28, 0.76), cap_stone)
+			else:
+				var cap_size := Vector3(length / stones - 0.02, 0.1, 0.64) if along_x else Vector3(0.64, 0.1, length / stones - 0.02)
+				_picked_carved_block(p + Vector3(0, 1.1, 0), cap_size, cap_stone)
 	# Kerb posts at the three outer corners.
 	for p in [Vector3(ox, 0, -(hz + 0.5)), Vector3(ox, 0, hz + 0.5)]:
 		_add_block(p + Vector3(0, 0.35, 0), Vector3(0.7, 0.7, 0.7), Color.WHITE, false, kerb)
 		_add_block(p + Vector3(0, 0.76, 0), Vector3(0.8, 0.12, 0.8), Color.WHITE, false, _ashlar(Color(0.96, 0.94, 0.9)))
+
+
+func _picked_carved_block(pos: Vector3, size: Vector3, mat: Material) -> void:
+	# Agent: Codex-faisal/world. Visual only; gameplay anchors stay intact.
+	var block := MeshInstance3D.new()
+	block.mesh = preload("res://scripts/visual/carved_block.gd").mesh(size)
+	block.material_override = mat
+	block.position = pos
+	add_child(block)
 
 
 func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
@@ -9660,28 +9686,9 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	var bronze := _material(Color(0.7, 0.5, 0.26))
 	bronze.metallic = 0.6
 	bronze.roughness = 0.4
-	var slab := MeshInstance3D.new()
-	var sm := CylinderMesh.new()
-	sm.top_radius = 1.06
-	sm.bottom_radius = 1.16
-	sm.height = 0.14
-	sm.radial_segments = 8
-	slab.mesh = sm
-	slab.position = pos + Vector3(0, 0.07, 0)
-	slab.rotation.y = PI / 8.0
-	slab.material_override = sand2
-	add_child(slab)
-	var tier := MeshInstance3D.new()
-	var tm := CylinderMesh.new()
-	tm.top_radius = 0.7
-	tm.bottom_radius = 0.8
-	tm.height = 0.1
-	tm.radial_segments = 8
-	tier.mesh = tm
-	tier.position = pos + Vector3(0, 0.19, 0)
-	tier.rotation.y = PI / 8.0
-	tier.material_override = sand
-	add_child(tier)
+	# Pick D: layered square, softly carved masonry under the original hat.
+	_picked_carved_block(pos + Vector3(0, 0.07, 0), Vector3(2.24, 0.14, 2.24), sand2)
+	_picked_carved_block(pos + Vector3(0, 0.19, 0), Vector3(1.6, 0.1, 1.6), sand)
 	var band := MeshInstance3D.new()
 	var bm := TorusMesh.new()
 	bm.inner_radius = 0.44
@@ -9699,12 +9706,15 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	# frame, the class emblem above and the class NAME below it in bold gold
 	# on dark (Faisal 09:06 2026-10-09).
 	for xs in [-0.86, 0.86]:
-		_add_block(Vector3(pos.x + xs, pos.y + 1.3, zb - 0.04), Vector3(0.12, 2.6, 0.12), Color.WHITE, false, mid)
-		_add_block(Vector3(pos.x + xs, pos.y + 2.64, zb - 0.04), Vector3(0.18, 0.08, 0.18), Color.WHITE, false, _gold())
+		_add_block(Vector3(pos.x + xs, pos.y + 1.3, zb - 0.04), Vector3(0.24, 2.6, 0.24), Color.WHITE, false, mid)
+		_add_block(Vector3(pos.x + xs, pos.y + 2.64, zb - 0.04), Vector3(0.32, 0.08, 0.32), Color.WHITE, false, _gold())
 	_add_block(Vector3(pos.x, pos.y + 1.95, zb - 0.02), Vector3(1.62, 1.07, 0.04), Color.WHITE, false, dark)
-	_add_block(Vector3(pos.x, pos.y + 1.95, zb), Vector3(1.5, 0.95, 0.06), Color.WHITE, false, _cloth(Color(0.12, 0.44, 0.25)))
+	_add_block(Vector3(pos.x, pos.y + 1.95, zb), Vector3(1.5, 0.95, 0.06), Color.WHITE, false, _cloth(StyleProfile.ELF_CLOTH))
 	for yy in [1.5, 2.4]:
 		_add_block(Vector3(pos.x, pos.y + yy, zb + 0.01), Vector3(1.56, 0.07, 0.08), Color.WHITE, false, _gold())
+	# Modular crossbeam and layered cloth hem behind the station.
+	_picked_carved_block(Vector3(pos.x, pos.y + 2.55, zb - 0.04), Vector3(2.08, 0.18, 0.3), mid)
+	_add_block(Vector3(pos.x, pos.y + 1.34, zb), Vector3(1.5, 0.1, 0.06), Color.WHITE, false, _cloth(StyleProfile.ELF_CLOTH.darkened(0.12)))
 	# The name plate: a dark strip across the panel's lower third.
 	_add_block(Vector3(pos.x, pos.y + 1.68, zb + 0.04), Vector3(1.44, 0.3, 0.03), Color.WHITE, false, dark)
 	var name := Label3D.new()

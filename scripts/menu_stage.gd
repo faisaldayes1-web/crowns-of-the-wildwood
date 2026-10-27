@@ -7,6 +7,7 @@ extends Node3D
 ## Characters are placed from screen positions (see `_floor_at`), so they
 ## line up with the 2D menu whatever the window size.
 
+const StyleProfile = preload("res://scripts/visual/style_profile.gd")
 const Stats = preload("res://scripts/stats.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
 const TitleDiorama = preload("res://scripts/title_diorama.gd")
@@ -33,6 +34,8 @@ var lobby_keys: Array = ["", "", "", ""]
 var pedestals: Array = []    # [node, ring material, light] per lobby slot
 var screen := ""
 var t := 0.0
+var title_viewport_size := Vector2.ZERO
+var native_title := "--debug-native-title" in OS.get_cmdline_user_args()
 var hidden_labels: Array = []
 var rug: Node3D              # the round rug under the character creator's hero
 var backdrop: CanvasLayer    # the title's painted background (animated)
@@ -61,7 +64,7 @@ func _exit_tree() -> void:
 
 const ENV_KEYS := ["ambient_light_energy", "ambient_light_color", "ambient_light_sky_contribution", "tonemap_exposure",
 	"glow_intensity", "glow_bloom", "glow_hdr_threshold", "adjustment_saturation", "adjustment_contrast",
-	"adjustment_brightness", "fog_enabled", "fog_light_color", "ssil_intensity"]
+	"adjustment_brightness", "fog_enabled", "fog_light_color", "ssil_intensity", "sky"]
 var env_saved := {}
 var mood := ""
 
@@ -97,29 +100,38 @@ func _set_mood(want: String) -> void:
 		env.ambient_light_sky_contribution = 0.0
 		# (Warmer and a touch brighter since 2026-10-09, after the
 		# create-character reference's candle-lit hall.)
-		env.ambient_light_color = Color(0.62, 0.5, 0.4)
+		env.ambient_light_color = Color(0.62, 0.65, 0.73)
 		env.ambient_light_energy = 0.55
 		env.tonemap_exposure = 0.92
 		env.glow_intensity = 0.8
 		env.glow_bloom = 0.1
 		env.glow_hdr_threshold = 0.95
 		env.adjustment_saturation = 1.08
-		env.adjustment_contrast = 1.2
-		env.adjustment_brightness = 0.95
+		env.adjustment_contrast = 1.08
+		env.adjustment_brightness = 1.0
 		env.fog_enabled = false
 		game.sun_light.light_energy = 0.0
 		if game.fill_light:
 			game.fill_light.light_energy = 0.0
 	else:
 		# A golden afternoon: warm sun, rich colour, a soft glow on the light.
-		env.ambient_light_energy = 0.7
-		env.ambient_light_color = Color(0.85, 0.85, 0.75)
-		env.adjustment_saturation = 1.32
+		env.ambient_light_energy = 0.32
+		env.ambient_light_color = Color(0.58, 0.68, 0.88)
+		env.ambient_light_sky_contribution = 0.25
+		env.fog_enabled = false
+		# Keep this title sky local so returning to a map restores its own mood.
+		if env.sky:
+			env.sky = env.sky.duplicate()
+			if env.sky.sky_material is ProceduralSkyMaterial:
+				env.sky.sky_material = env.sky.sky_material.duplicate()
+				env.sky.sky_material.sky_top_color = Color(0.12, 0.38, 0.8)
+				env.sky.sky_material.sky_horizon_color = Color(0.44, 0.68, 0.94)
+		env.adjustment_saturation = StyleProfile.DAY.saturation
 		env.adjustment_contrast = 1.12
 		env.glow_intensity = 0.65
 		env.fog_light_color = Color(0.92, 0.9, 0.82)
-		game.sun_light.light_color = Color(1.0, 0.84, 0.6)
-		game.sun_light.light_energy = 1.5
+		game.sun_light.light_color = StyleProfile.DAY.sun_color
+		game.sun_light.light_energy = StyleProfile.DAY.sun_energy
 
 
 func _flame(pos: Vector3, out: Vector3) -> void:
@@ -141,7 +153,10 @@ func build(g) -> void:
 	title_cast = TitleDiorama.new()
 	add_child(title_cast)
 	await game._world_build_frame()
-	_build_backdrop()
+	if native_title:
+		await title_cast.build(game)
+	else:
+		_build_backdrop()
 
 
 func activate() -> void:
@@ -150,6 +165,8 @@ func activate() -> void:
 
 func _process(delta: float) -> void:
 	t += delta
+	if native_title and screen == "title" and get_viewport().get_visible_rect().size != title_viewport_size:
+		place_title_cast()
 	if screen == "lobby":
 		for i in pedestals.size():
 			# A slow pulse in each pedestal's ring.
@@ -164,10 +181,11 @@ func show_screen(name: String) -> void:
 		return
 	screen = name
 	hero_spin = 0.0
-	title_cast.visible = false
-	backdrop.visible = name == "title"
-	if name == "title":
-		_place_embers()
+	title_cast.visible = name == "title" and native_title
+	title_cast.process_mode = Node.PROCESS_MODE_INHERIT if title_cast.visible else Node.PROCESS_MODE_DISABLED
+	if backdrop:
+		backdrop.visible = name == "title"
+	hall.visible = name != "title"
 	_set_mood("title" if name == "title" else "hall")
 	if rug:
 		rug.visible = name in ["character", "store"]
@@ -198,6 +216,8 @@ func show_screen(name: String) -> void:
 			cam.fov = 40.0
 			cam.global_position = HALL + Vector3(0, 2.2, 11.2)
 			cam.look_at(HALL + Vector3(0, 1.35, 0.0))
+	if name == "title":
+		place_title_cast()
 	if hero:
 		hero.visible = name in ["character", "store"]
 	for i in 4:
@@ -360,10 +380,28 @@ func _make_pedestal(color: Color) -> Array:
 
 func place_title_cast() -> void:
 	if title_cast.visible:
-		title_cast.place_heroes(cam, get_viewport().get_visible_rect().size)
+		title_viewport_size = get_viewport().get_visible_rect().size
+		title_cast.place_heroes(cam, title_viewport_size)
 
 
 func _build_backdrop() -> void:
+	# Agent: Codex-faisal/world. Approved title A, UI/logo removed using
+	# built-in imagegen. All controls/logo remain independent native UI.
+	# No legacy waterfall masks: those coordinates belonged to another image.
+	backdrop = CanvasLayer.new()
+	backdrop.layer = -1
+	add_child(backdrop)
+	var bg := TextureRect.new()
+	bg.texture = load("res://assets/ui/menu/title_picked_a_clean.png")
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backdrop.add_child(bg)
+	backdrop.visible = false
+
+
+func _build_legacy_backdrop() -> void:
 	## The title's painted background on a layer under the menu: its water
 	## and torches animate in assets/shaders/title_bg.gdshader, and embers
 	## drift up from each torch.
@@ -676,6 +714,8 @@ func _build_hall() -> void:
 	## barrels and crates. Built with the world's own helpers, then moved here.
 	var before: int = game.get_child_count()
 	var was_mossy: bool = game.mossy
+	var was_style: bool = game.world_style
+	game.world_style = true
 	game.mossy = false
 	var c := HALL
 	# Grey castle stone (the greystone texture where the art pass has made it).
@@ -790,6 +830,7 @@ func _build_hall() -> void:
 		await game._world_build_frame()
 		game._add_block(c + Vector3(s * 1.95, 0.032, 1.5), Vector3(0.14, 0.01, 13.0), Color.GRAY, false, game._gold())
 	game.mossy = was_mossy
+	game.world_style = was_style
 	# The world's name tags (door health, the monarchs) stay hidden behind the menu.
 	for l in game.find_children("*", "Label3D", true, false):
 		if l.visible:

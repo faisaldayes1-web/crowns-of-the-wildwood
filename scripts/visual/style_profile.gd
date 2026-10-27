@@ -4,10 +4,9 @@ extends RefCounted
 ## values every world builder in game.gd and volcano.gd reads, so stone,
 ## timber, bark, foliage, ground, water and light follow one grammar.
 ##
-## Only the match world uses it: game.gd switches it on while _build_world /
-## _build_volcano run (world_style) and applies the light grade once the
-## match starts (style_live). The menus, the title diorama and the castle
-## hall are built later with the style off, so they keep their old look.
+## Match worlds and the native menu title/hall share the material grammar.
+## World light grades remain map-specific; the hall uses a warm key with
+## cooler ambient fill and the title uses the shared daylight sun.
 ##
 ## Grammar (world units = metres at the game's UV scales):
 ##   cobble ~0.8 m, wall block ~0.5 x 0.8 m, floor slab ~1 m, plank ~0.25 m,
@@ -84,3 +83,12 @@ const NIGHT := {
 const EMBER := {
 	"ambient_energy": 0.34,
 }
+
+# Approved 2026-10-25 picks: a single miniature material family.
+# Agent: Codex-faisal/world. Faction identity stays green/blue everywhere.
+const STONE := Color("d8c49a")
+const TIMBER := Color("80532e")
+const GOLD := Color("d8aa47")
+const ELF_CLOTH := Color("28744a")
+const HUMAN_CLOTH := Color("315b9c")
+const COOL_SHADOW := Color("27364a")
