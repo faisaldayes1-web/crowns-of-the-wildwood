@@ -1,0 +1,76 @@
+[
+  {
+    "agent": "Codex-faisal/crowns",
+    "name": "official",
+    "exit": 0,
+    "seconds": 50.3,
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-codex-faisal\\templates\\windows_release_x86_64.exe",
+      "--main-pack",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+      "--resolution",
+      "1280x720",
+      "--windowed",
+      "--script",
+      "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\rendered.gd",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\official-short\\engine.log",
+      "--",
+      "--debug-unlock"
+    ],
+    "errors": 1987,
+    "disconnects": 1987,
+    "passes": 56,
+    "failures": 0,
+    "images": [
+      "map-0-class-0.png",
+      "map-0-class-1.png",
+      "map-0-class-2.png",
+      "map-0-class-3.png",
+      "map-0-playable.png",
+      "map-3-class-0.png",
+      "map-3-class-1.png",
+      "map-3-class-2.png",
+      "map-3-class-3.png",
+      "map-3-playable.png"
+    ],
+    "sha256": "66b26ad96df7458ea917b632a73ac7c88bb058db24dbd11a457fd50435ab7b13"
+  },
+  {
+    "agent": "Codex-faisal/crowns",
+    "name": "msvc",
+    "exit": 0,
+    "seconds": 51.75,
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+      "--main-pack",
+      "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\crowns-main.exe",
+      "--resolution",
+      "1280x720",
+      "--windowed",
+      "--script",
+      "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\rendered.gd",
+      "--log-file",
+      "C:\\ORY-Cache\\qa\\crowns-68-rendered-Codex-faisal\\msvc-short\\engine.log",
+      "--",
+      "--debug-unlock"
+    ],
+    "errors": 0,
+    "disconnects": 0,
+    "passes": 56,
+    "failures": 0,
+    "images": [
+      "map-0-class-0.png",
+      "map-0-class-1.png",
+      "map-0-class-2.png",
+      "map-0-class-3.png",
+      "map-0-playable.png",
+      "map-3-class-0.png",
+      "map-3-class-1.png",
+      "map-3-class-2.png",
+      "map-3-class-3.png",
+      "map-3-playable.png"
+    ],
+    "sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a"
+  }
+]
