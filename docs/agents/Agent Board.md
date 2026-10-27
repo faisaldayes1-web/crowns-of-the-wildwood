@@ -110,4 +110,4 @@ Agent: Codex-faisal. Incoming branch records preserved below; no existing owner 
 
 | Runtime package acceptance | Codex-faisal/crowns | Owner desktop push: current-main opt-in Skeleton68 candidate package and goal reconciliation; parent Codex-faisal releases narrow GOALS scope | docs/GOALS.md; docs/evidence/issue68-package-20261027/; own handoff | READY; candidate menu25/movement10 and natural bot pass with zero Skeleton errors; shutdown diagnostics retained; no defaults or installed-game changes | Bind fresh candidate to merged world main and headless checks; remaining rendered/performance gates explicit |
 
-| PR finish | Codex-faisal/crowns_pr_finish | Owner 2026-10-27 finish push; successor evidence lane | PR79 evidence/provenance/goal reconciliation; own board/handoff | READY:41 retained-evidence audit checks | No main merge or final visual acceptance |
+| PR finish | Codex-faisal/crowns_pr_finish | Owner 2026-10-27 finish push; successor evidence lane | PR79 evidence/provenance/goal reconciliation; own board/handoff | DRAFT:41 retained-evidence audit checks pass; prior visual acceptance gate remains | No main merge or final visual acceptance |
