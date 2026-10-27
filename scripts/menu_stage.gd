@@ -35,6 +35,7 @@ var pedestals: Array = []    # [node, ring material, light] per lobby slot
 var screen := ""
 var t := 0.0
 var title_viewport_size := Vector2.ZERO
+var native_title := "--debug-native-title" in OS.get_cmdline_user_args()
 var hidden_labels: Array = []
 var rug: Node3D              # the round rug under the character creator's hero
 var backdrop: CanvasLayer    # the title's painted background (animated)
@@ -152,8 +153,10 @@ func build(g) -> void:
 	title_cast = TitleDiorama.new()
 	add_child(title_cast)
 	await game._world_build_frame()
-	await title_cast.build(game)
-	# Retain the old painted backdrop as an archived fallback, not a live layer.
+	if native_title:
+		await title_cast.build(game)
+	else:
+		_build_backdrop()
 
 
 func activate() -> void:
@@ -162,7 +165,7 @@ func activate() -> void:
 
 func _process(delta: float) -> void:
 	t += delta
-	if screen == "title" and get_viewport().get_visible_rect().size != title_viewport_size:
+	if native_title and screen == "title" and get_viewport().get_visible_rect().size != title_viewport_size:
 		place_title_cast()
 	if screen == "lobby":
 		for i in pedestals.size():
@@ -178,8 +181,10 @@ func show_screen(name: String) -> void:
 		return
 	screen = name
 	hero_spin = 0.0
-	title_cast.visible = name == "title"
-	title_cast.process_mode = Node.PROCESS_MODE_INHERIT if name == "title" else Node.PROCESS_MODE_DISABLED
+	title_cast.visible = name == "title" and native_title
+	title_cast.process_mode = Node.PROCESS_MODE_INHERIT if title_cast.visible else Node.PROCESS_MODE_DISABLED
+	if backdrop:
+		backdrop.visible = name == "title"
 	hall.visible = name != "title"
 	_set_mood("title" if name == "title" else "hall")
 	if rug:
@@ -380,6 +385,23 @@ func place_title_cast() -> void:
 
 
 func _build_backdrop() -> void:
+	# Agent: Codex-faisal/world. Approved title A, UI/logo removed using
+	# built-in imagegen. All controls/logo remain independent native UI.
+	# No legacy waterfall masks: those coordinates belonged to another image.
+	backdrop = CanvasLayer.new()
+	backdrop.layer = -1
+	add_child(backdrop)
+	var bg := TextureRect.new()
+	bg.texture = load("res://assets/ui/menu/title_picked_a_clean.png")
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backdrop.add_child(bg)
+	backdrop.visible = false
+
+
+func _build_legacy_backdrop() -> void:
 	## The title's painted background on a layer under the menu: its water
 	## and torches animate in assets/shaders/title_bg.gdshader, and embers
 	## drift up from each torch.
