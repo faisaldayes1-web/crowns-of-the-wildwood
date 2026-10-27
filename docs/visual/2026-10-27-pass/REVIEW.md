@@ -4,7 +4,7 @@ Agent: Codex-faisal. Implementation review; final visual acceptance remains Fais
 
 The three dedicated lanes implement the October 25 selections in the existing Godot game. The title uses a cleaned derivative of selected GAME A behind functional native UI D. World and character surfaces share cream stone, warm timber/gold, emerald and blue cloth, with satin armour and matte skin/cloth. Menus and HUD use the chosen structures. No topology or character rig replacement is included.
 
-Open [the side-by-side gallery](review/index.html), or use the image tables below. These are actual Godot viewport captures. The menu harness invokes existing handlers and sets review states; it is not physical-input evidence. The selected battle reference is a quiet courtyard, so its matching comparison is also a courtyard; separate natural bot combat captures supplement it.
+Open [the side-by-side gallery](review/index.html), [image comparison tables](COMPARISONS.md), or [phone-size captures](MOBILE.md). [Handoff and pending checks](HANDOFF.md) record the final renderer gate. These are actual Godot viewport captures. The menu harness invokes existing handlers and sets review states; it is not physical-input evidence. The selected battle reference is a quiet courtyard, so its matching comparison is also a courtyard; a separate natural bot combat capture is prepared but awaits the shared renderer reservation.
 
 ## Target gaps
 
