@@ -1,0 +1,28 @@
+"""Agent: Codex-faisal3/bugtest. Independent red/green import/match/export audit."""
+from pathlib import Path
+import json,hashlib,re,sys,datetime as dt,subprocess
+sys.path.insert(0,'C:/Temp/bugtest');import runner
+r=runner.ROOT;job=json.loads((r/'jobs/crowns-archive-import-fix.json').read_text());out=Path(job['output']);repo=Path(job['repo']);checks=[]
+def ck(name,value):
+ checks.append(dict(name=name,passed=bool(value)))
+ if not value:raise AssertionError(name)
+ck('Original controller preserves strict match shutdown failure',job['status']=='EXITED' and job['step']=='natural-production-ai-seed7' and len(job['results'])==3 and job['results'][2]['status']=='FAIL' and 'error' in job)
+baseline=json.loads((r/'jobs/crowns-main-9b-headless-build.json').read_text());red=baseline['results'][0];raw_red=Path(red['log']).read_text(encoding='utf-8',errors='replace')
+ck('Red same main source9b, exit0 with four real script/parse errors',baseline['source_sha']==job['base_source_sha'] and red['exit']==0 and red['status']=='FAIL' and len(red['errors'])==4 and all(x in raw_red for x in red['errors']))
+preexisting=json.loads((r/'setup/crowns-archive-preexisting-source.json').read_text());ck('Archive errors predate visual merge76',all(x['previous_e7ae_exists'] for x in preexisting['previous_files']) and not preexisting['evidence_files_changed_in76'])
+logs={}
+for step in job['results']:
+ name=step['step'];body=Path(step['log']).read_text(encoding='utf-8',errors='replace');logs[name]=body
+ if name=='natural-production-ai-seed7':
+  ck(name+' normal completion exit0 with exactly retained shutdown resource error, no script/parse errors',step['status']=='FAIL' and step['exit']==0 and step['errors']==['ERROR: 10 resources still in use at exit (run with --verbose for details).'] and not re.search(r'SCRIPT ERROR|Parse Error',body) and step['source_unchanged'] and step['ordinary_profile_unchanged'])
+ else:ck(name+' exits0, no raw error lines, source and ordinary profile unchanged',step['status']=='PASS' and step['exit']==0 and not re.search(r'^ERROR:|SCRIPT ERROR|Parse Error',body,re.M) and step['source_unchanged'] and step['ordinary_profile_unchanged'])
+probe=json.loads(next(x for x in logs['actual-user-data-path'].splitlines() if x.startswith('BUGTEST_USER_PATH ')).split(' ',1)[1]);ck('Actual engine user-data dir below private profile before match',probe['actual'].startswith(job['profile_env']['APPDATA'].replace('\\','/')+'/') and job['results'][1]['step']=='actual-user-data-path')
+match=logs['natural-production-ai-seed7'];cmd=match.splitlines()[1];ck('README normal production AI seed7/fixed60, no shortened clock or forced play',all(x in cmd for x in ['--headless','--fixed-fps 60','--quit-after 45000','--demo','--seed=7']) and not any(x in cmd for x in ['--debug-time','--play','--script','--selftest']))
+result=re.findall(r'^RESULT .+',match,re.M);stats=re.findall(r'^STAT .+',match,re.M);ck('One natural completed match and eight normal unit statistics',len(result)==1 and len(stats)==8 and 'Match over:' in match and 'Battle begins:' in match)
+before=json.loads((out/'source-before.json').read_text())['files_sha256'];ck('Every tracked baseline byte and added ignore file unchanged through testing',all(hashlib.sha256((repo/p).read_bytes()).hexdigest()==h for p,h in before.items()))
+tracked=subprocess.check_output(['git','status','--porcelain','--untracked-files=no'],cwd=repo,creationflags=subprocess.CREATE_NO_WINDOW).decode();ck('No tracked baseline modifications',not tracked.strip())
+export=json.loads((r/'jobs/crowns-archive-local-export.json').read_text());step=export['results'][0];export_body=Path(step['log']).read_text(encoding='utf-8',errors='replace');ck('Separate canonical local export completes with no raw errors and unchanged source',export['status']=='EXITED' and export['step']=='complete' and step['status']=='PASS' and step['exit']==0 and step['source_unchanged'] and not re.search(r'^ERROR:|SCRIPT ERROR|Parse Error',export_body,re.M))
+artifact=Path(export['artifact']['path']);ck('Local only artifact matches recorded hash and size',artifact.stat().st_size==export['artifact']['bytes'] and hashlib.sha256(artifact.read_bytes()).hexdigest()==export['artifact']['sha256'])
+ck('No live exact-linked tester engines or orphan children before publication',not runner.checkout_processes(repo))
+summary=dict(agent='Codex-faisal3/bugtest',at=dt.datetime.now(dt.timezone.utc).isoformat(),checks=checks,passed=len(checks),failed=0,base_source=job['base_source_sha'],runtime_change='None; docs/evidence/.gdignore only',result=result,stats=stats,phase_seconds={x['step']:x['seconds'] for x in job['results']+export['results']},raw_errors={x['step']:x['errors'] for x in job['results']},raw_warnings={x['step']:x['warnings'] for x in job['results']},actual_user_data=probe['actual'],artifact=export['artifact'],overall_diagnostic_status='FAIL: retained shutdown10-resource error and ObjectDB leak warning; original strict controller preserved',import_fix_status='PASS: 4 archived parse/script errors before, none after',natural_match_functional_status='PASS: normal600s Humans1-0, exit0, no script/parse errors; diagnostic FAIL retained',scope='Headless cold import, actual private data-path probe, unmodified production AI match and local Windows release export only. No new rendered/native player input/physical controller/network/all-map/balance/performance/style/release acceptance; lifecycle issue68 and prior73/74 remain separate. Audit checks validate the evidence classification, not a globally clean game.')
+runner.atomic_json(r/'setup/crowns-archive-import-audit.json',summary);print(json.dumps(summary,indent=2))

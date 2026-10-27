@@ -1,0 +1,28 @@
+{
+  "agent": "Codex-faisal3/bugtest",
+  "runner_pid": 9324,
+  "repo": "C:\\Temp\\bugtest\\crowns-archive-import-fix",
+  "output": "C:\\Temp\\bugtest\\cycles\\20261027T133036Z\\crowns-archive-import-fix\\local-export",
+  "status": "EXITED",
+  "step": "complete",
+  "source_sha": "9b985b200f5ae4c59ef128cb405ea2db6c37cd1b",
+  "started_at": "2026-10-27T13:36:42.013773+00:00",
+  "results": [
+    {
+      "step": "local-Windows-release-export",
+      "status": "PASS",
+      "errors": [],
+      "source_unchanged": true,
+      "exit": 0,
+      "seconds": 11.41,
+      "log": "C:\\Temp\\bugtest\\cycles\\20261027T133036Z\\crowns-archive-import-fix\\local-export\\local-Windows-release-export.log"
+    }
+  ],
+  "scope": "Local canonical Windows release export only; original match diagnostic FAIL preserved, no player launch or binary upload.",
+  "artifact": {
+    "path": "C:\\Temp\\bugtest\\cycles\\20261027T133036Z\\crowns-archive-import-fix\\local-export\\Crowns.exe",
+    "sha256": "700437b0f3cc91188c1f7ea2de693312fb3dd37ce65e660d919845875ef9cf59",
+    "bytes": 176517744
+  },
+  "ended_at": "2026-10-27T13:36:55.595533+00:00"
+}

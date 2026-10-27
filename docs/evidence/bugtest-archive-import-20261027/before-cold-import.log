@@ -1,0 +1,12 @@
+Agent: Codex-faisal3/bugtest
+Command: C:\Users\faisal\Tools\godot-4.3\Godot_v4.3-stable_win64_console.exe --headless --editor --path C:\Temp\bugtest\crowns-main-9b985b --import --quit
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+SCRIPT ERROR: Parse Error: Preload file "C:/ORY-Cache/qa/crowns-68-msvc-Codex-faisal/isolated.gd" does not exist.
+          at: GDScript::reload (res://docs/evidence/issue68-followup-20261027/animation/animation.gd:3)
+ERROR: Failed to load script "res://docs/evidence/issue68-followup-20261027/animation/animation.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2936)
+SCRIPT ERROR: Parse Error: Preload file "C:/ORY-Cache/qa/crowns-68-rendered-Codex-faisal/isolated.gd" does not exist.
+          at: GDScript::reload (res://docs/evidence/issue68-rendered-20261027/rendered.gd:18)
+ERROR: Failed to load script "res://docs/evidence/issue68-rendered-20261027/rendered.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2936)

@@ -1,0 +1,109 @@
+{
+  "agent": "Codex-faisal3/bugtest",
+  "at": "2026-10-27T13:37:02.820898+00:00",
+  "checks": [
+    {
+      "name": "Original controller preserves strict match shutdown failure",
+      "passed": true
+    },
+    {
+      "name": "Red same main source9b, exit0 with four real script/parse errors",
+      "passed": true
+    },
+    {
+      "name": "Archive errors predate visual merge76",
+      "passed": true
+    },
+    {
+      "name": "cold-headless-import exits0, no raw error lines, source and ordinary profile unchanged",
+      "passed": true
+    },
+    {
+      "name": "actual-user-data-path exits0, no raw error lines, source and ordinary profile unchanged",
+      "passed": true
+    },
+    {
+      "name": "natural-production-ai-seed7 normal completion exit0 with exactly retained shutdown resource error, no script/parse errors",
+      "passed": true
+    },
+    {
+      "name": "Actual engine user-data dir below private profile before match",
+      "passed": true
+    },
+    {
+      "name": "README normal production AI seed7/fixed60, no shortened clock or forced play",
+      "passed": true
+    },
+    {
+      "name": "One natural completed match and eight normal unit statistics",
+      "passed": true
+    },
+    {
+      "name": "Every tracked baseline byte and added ignore file unchanged through testing",
+      "passed": true
+    },
+    {
+      "name": "No tracked baseline modifications",
+      "passed": true
+    },
+    {
+      "name": "Separate canonical local export completes with no raw errors and unchanged source",
+      "passed": true
+    },
+    {
+      "name": "Local only artifact matches recorded hash and size",
+      "passed": true
+    },
+    {
+      "name": "No live exact-linked tester engines or orphan children before publication",
+      "passed": true
+    }
+  ],
+  "passed": 14,
+  "failed": 0,
+  "base_source": "9b985b200f5ae4c59ef128cb405ea2db6c37cd1b",
+  "runtime_change": "None; docs/evidence/.gdignore only",
+  "result": [
+    "RESULT winner=Humans score=0-1 t=600 overtime=false turrets=1/1 turret_kills=1/2 raid_deaths=7/1"
+  ],
+  "stats": [
+    "STAT team=0 class=Vanguard kills=6 deaths=8 assists=5 dmg=62 heal=0 caps=0 level=6 revives=0 revived=0",
+    "STAT team=0 class=Sharpshooter kills=11 deaths=15 assists=9 dmg=79 heal=0 caps=0 level=1 revives=1 revived=5",
+    "STAT team=0 class=Frostweaver kills=7 deaths=7 assists=15 dmg=127 heal=0 caps=0 level=3 revives=2 revived=2",
+    "STAT team=0 class=DarkPriest kills=6 deaths=6 assists=6 dmg=70 heal=168 caps=0 level=4 revives=5 revived=1",
+    "STAT team=1 class=Warden kills=6 deaths=7 assists=10 dmg=88 heal=0 caps=1 level=5 revives=0 revived=0",
+    "STAT team=1 class=Trapper kills=12 deaths=5 assists=8 dmg=87 heal=0 caps=0 level=5 revives=0 revived=0",
+    "STAT team=1 class=Pyromancer kills=11 deaths=12 assists=8 dmg=134 heal=0 caps=0 level=3 revives=0 revived=2",
+    "STAT team=1 class=DarkPriest kills=5 deaths=6 assists=10 dmg=113 heal=72 caps=0 level=4 revives=2 revived=0"
+  ],
+  "phase_seconds": {
+    "cold-headless-import": 39.48,
+    "actual-user-data-path": 0.98,
+    "natural-production-ai-seed7": 228.0,
+    "local-Windows-release-export": 11.41
+  },
+  "raw_errors": {
+    "cold-headless-import": [],
+    "actual-user-data-path": [],
+    "natural-production-ai-seed7": [
+      "ERROR: 10 resources still in use at exit (run with --verbose for details)."
+    ]
+  },
+  "raw_warnings": {
+    "cold-headless-import": [],
+    "actual-user-data-path": [],
+    "natural-production-ai-seed7": [
+      "WARNING: ObjectDB instances leaked at exit (run with --verbose for details)."
+    ]
+  },
+  "actual_user_data": "C:/Temp/bugtest/cycles/20261027T133036Z/crowns-archive-import-fix/private-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+  "artifact": {
+    "path": "C:\\Temp\\bugtest\\cycles\\20261027T133036Z\\crowns-archive-import-fix\\local-export\\Crowns.exe",
+    "sha256": "700437b0f3cc91188c1f7ea2de693312fb3dd37ce65e660d919845875ef9cf59",
+    "bytes": 176517744
+  },
+  "overall_diagnostic_status": "FAIL: retained shutdown10-resource error and ObjectDB leak warning; original strict controller preserved",
+  "import_fix_status": "PASS: 4 archived parse/script errors before, none after",
+  "natural_match_functional_status": "PASS: normal600s Humans1-0, exit0, no script/parse errors; diagnostic FAIL retained",
+  "scope": "Headless cold import, actual private data-path probe, unmodified production AI match and local Windows release export only. No new rendered/native player input/physical controller/network/all-map/balance/performance/style/release acceptance; lifecycle issue68 and prior73/74 remain separate. Audit checks validate the evidence classification, not a globally clean game."
+}

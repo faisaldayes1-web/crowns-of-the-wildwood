@@ -1,0 +1,35 @@
+{
+  "agent": "Codex-faisal3/bugtest",
+  "previous_source": "e7ae8b247bc8f564e9135c845384ec353029c893",
+  "previous_files": [
+    {
+      "path": "docs/evidence/issue68-followup-20261027/animation/animation.gd",
+      "previous_e7ae_exists": true,
+      "absolute_preloads": [
+        "const Isolated = preload(\"C:/ORY-Cache/qa/crowns-68-msvc-Codex-faisal/isolated.gd\")",
+        "const Stats = preload(\"res://scripts/stats.gd\")"
+      ]
+    },
+    {
+      "path": "docs/evidence/issue68-rendered-20261027/rendered.gd",
+      "previous_e7ae_exists": true,
+      "absolute_preloads": [
+        "const Stats = preload(\"res://scripts/stats.gd\")",
+        "const Isolated = preload(\"C:/ORY-Cache/qa/crowns-68-rendered-Codex-faisal/isolated.gd\")"
+      ]
+    }
+  ],
+  "merge76_files": [
+    "assets/ui/menu/title_picked_a_clean.png",
+    "docs/agents/Agent Board.md",
+    "docs/visual/2026-10-27-world/gaps.md",
+    "docs/visual/2026-10-27-world/look.md",
+    "docs/visual/2026-10-27-world/title-backdrop-provenance.json",
+    "scripts/game.gd",
+    "scripts/menu_stage.gd",
+    "scripts/title_diorama.gd",
+    "scripts/visual/carved_block.gd",
+    "scripts/visual/style_profile.gd"
+  ],
+  "evidence_files_changed_in76": []
+}
