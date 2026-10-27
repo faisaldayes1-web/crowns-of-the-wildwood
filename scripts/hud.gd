@@ -2537,18 +2537,30 @@ func _corner_score() -> bool:
 
 func _draw_scoreboard() -> void:
 	if _corner_score():
+		var tf: Font = bar_font if bar_font else font
+		var ink := Color(0.2, 0.07, 0.04)
 		for team in 2:
-			var r := Rect2(24 if team == 0 else size.x - (360 if touch_ui else 264), 14, 240, 66)
-			_plate(r, Color("28744a") if team == 0 else Color("315b9c"), Color("d8aa47"), 14, 3)
-			_icon("crest_elf" if team == 0 else "crest_human", r.position + Vector2(34, 33), 26, CREAM)
-			_text(r.position + Vector2(0, 25), "ELVES" if team == 0 else "HUMANS", 19, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
-			_text(r.position + Vector2(0, 55), str(game.score[team]), 30, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
-		var clock := Rect2(size.x / 2.0 - 100, 10, 200, 80)
-		_plate(clock, Color("27364a"), Color("d8aa47"), 16, 3)
-		_crown(Vector2(size.x / 2.0, 14), 1.0, GOLD)
-		_text(clock.position + Vector2(0, 30), "FORTIFY" if game.prep_left > 0.0 else ("OVERTIME" if game.overtime else "BATTLE"), 18, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 200, 3)
+			var r := Rect2(30 if team == 0 else size.x - (384 if touch_ui else 288), 17, 260, 62)
+			_score_band(r, SCORE_BANDS[team])
+			var crest := Vector2(r.position.x + 26 if team == 0 else r.end.x - 20, 54)
+			_ivy(Vector2(r.end.x - 6 if team == 0 else r.position.x + 6, 22), Vector2(0, 1), 52, 4 + team)
+			_crest_shield(crest, 64, 78, team)
+			var tx: float = r.position.x + (164 if team == 0 else 98)
+			_bar_text(Vector2(tx, 40), "ELVES" if team == 0 else "HUMANS", tf, 19, CREAM, ink, 5)
+			_bar_text(Vector2(tx, 71), str(game.score[team]), tf, 35, CREAM, ink, 6)
+		var clock := Rect2(size.x / 2.0 - 110, 0, 220, 98)
+		if topbar_tex:
+			# Reuse the approved scalloped gold clock/crown art independently
+			# from its original joined banner. Pixels below 163 are the old scroll.
+			draw_texture_rect_region(topbar_tex, clock, Rect2(548, 0, 366, 163))
+		else:
+			_ornate_clock(Rect2(clock.position + Vector2(12, 12), Vector2(196, 76)))
+			_crown_glyph(Vector2(size.x / 2.0, 9), 20.0, 0.6)
+		_ivy(clock.position + Vector2(6, 60), Vector2(0, -1), 38, 7)
+		_ivy(clock.position + Vector2(214, 60), Vector2(0, -1), 38, 5)
+		_bar_text(Vector2(size.x / 2.0, 42), "FORTIFY" if game.prep_left > 0.0 else ("OVERTIME" if game.overtime else "BATTLE"), tf, 18, GOLD, ink, 4)
 		var sec := maxi(0, ceili(game.prep_left) if game.prep_left > 0.0 else int(game.time_left))
-		_text(clock.position + Vector2(0, 66), "%d:%02d" % [sec / 60, sec % 60], 32, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 200, 3)
+		_bar_text(Vector2(size.x / 2.0, 78), "%d:%02d" % [sec / 60, sec % 60], tf, 38, CREAM, ink, 5)
 		if game.prep_left > 0.0:
 			_text(Vector2(size.x / 2.0 - 250, 110), "Build defenses before the barrier falls.", 16, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 500, 3)
 		return
@@ -4106,7 +4118,7 @@ func _ability_strip(p, strip: Rect2) -> void:
 	var at := []
 	var offsets := [Vector2(35, 28), Vector2(115, 12), Vector2(195, 0), Vector2(275, 0), Vector2(355, 12), Vector2(435, 28)]
 	if p.can_block():
-		offsets = [Vector2(10, 28), Vector2(86, 12), Vector2(162, 0), Vector2(238, 0), Vector2(314, 12), Vector2(466, 40)]
+		offsets = [Vector2(10, 28), Vector2(86, 12), Vector2(162, 0), Vector2(238, 0), Vector2(314, 12), Vector2(466, 34)]
 	for v in offsets:
 		at.append(strip.position + v)
 	_move_slots(p, at, [52.0, 52.0, 52.0, 52.0, 52.0, 52.0])
