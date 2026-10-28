@@ -32,6 +32,7 @@ var downed_timer := 0.0       # bleed-out seconds left
 var downed_total := 0.0
 var downed_by = null          # who knocked us down (kill credit already given)
 var down_weapon := ""         # what they knocked us down with (for the death banner)
+var skip_release_required := false # a held interact cannot carry across the fall
 var skip_hold := 0.0          # seconds interact has been held to skip
 var revive_progress := 0.0    # 0..1, filled by whoever is reviving us
 var revive_by = null          # the teammate reviving us this frame
@@ -1669,6 +1670,7 @@ func _go_down(attacker) -> void:
 	downed_total = Stats.DOWNED_TIME
 	downed_timer = downed_total
 	downed_by = attacker
+	skip_release_required = (is_player or remote_peer > 0) and _held("interact")
 	skip_hold = 0.0
 	revive_progress = 0.0
 	revive_by = null
@@ -1708,6 +1710,7 @@ func _end_downed() -> void:
 	downed = false
 	downed_timer = 0.0
 	downed_by = null
+	skip_release_required = false
 	skip_hold = 0.0
 	revive_progress = 0.0
 	revive_by = null
@@ -2013,7 +2016,9 @@ func _downed_process(delta: float) -> void:
 			move = Vector3(stick.x, 0, stick.y)
 			# Hold interact to give up and respawn (not from a press held
 			# over from before the fall).
-			if _held("interact") and downed_total - downed_timer > 0.4:
+			if not _held("interact"):
+				skip_release_required = false
+			if _held("interact") and not skip_release_required and downed_total - downed_timer > 0.4:
 				skip_hold += delta
 			else:
 				skip_hold = 0.0
