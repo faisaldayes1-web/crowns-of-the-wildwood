@@ -1,0 +1,14 @@
+{
+  "agent": "Codex-faisal/build_delivery",
+  "parent": "Codex-faisal",
+  "task": "T-2fc4d3bca959",
+  "source": "5779746052cc7840e1a440952887038c959ce19f",
+  "original_raw_log": "C:\\Games\\ORY-Current\\Crowns-of-the-Wildwood\\history\\20261028-021511-5779746-Codex-faisal\\_logs\\import.log",
+  "raw_log_sha256": "84c1788a05aafd6c6125434b927bba29f8d9d88aea04fe6f05436497216a25d2",
+  "raw_log_bytes": 8529,
+  "packet_log": "logs/import-longpath-failed.log",
+  "strict_errors": 35,
+  "process_exit": 0,
+  "qualified": false,
+  "note": "Failed import despite exit0:35strict errors. Separate short-path same-source retry0/errors0; earlier worktree/cache/logs preserved, no safe-save/security/antivirus changes."
+}

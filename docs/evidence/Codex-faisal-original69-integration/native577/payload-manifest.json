@@ -1,0 +1,14 @@
+{
+  "agent": "Codex-faisal",
+  "source": "5779746052cc7840e1a440952887038c959ce19f",
+  "files": [
+    {
+      "target": "Game",
+      "path": "CrownsOfTheWildwood.exe",
+      "bytes": 152186640,
+      "sha256": "07e59c43cb141f627a0d7d2fb589228479023caa5563ef2ae90470c3af6ece98"
+    }
+  ],
+  "bytes": 152186640,
+  "build_receipt": "C:\\Games\\ORY-Current\\Crowns-of-the-Wildwood\\history\\20261028-022016-5779746-Codex-faisal\\BUILD.json"
+}

@@ -1,0 +1,42 @@
+{
+  "agent": "Codex-faisal/build_delivery",
+  "parent": "Codex-faisal",
+  "task": "T-2fc4d3bca959",
+  "kind": "Native evidence only; compiled source remains577",
+  "claim": "Existing Root docs/agents/Agent Board.md original69integration row at577; explicit Root delegation of native577 evidence subtree",
+  "source": "5779746052cc7840e1a440952887038c959ce19f",
+  "source_tree": "501ef3d1fdc3a1c70cde7b0d80f7494ad08d8775",
+  "runtime_equivalent_to": "a50737ec6228383b3904161d72883c969d664eed",
+  "runtime_equivalence": {
+    "head": "5779746052cc7840e1a440952887038c959ce19f",
+    "tree": "501ef3d1fdc3a1c70cde7b0d80f7494ad08d8775",
+    "equivalent_from": "a50737ec6228383b3904161d72883c969d664eed",
+    "equivalent_from_tree": "11a972b71a762d347ee14cc701cc753fe03ae740",
+    "changed_paths": [
+      "docs/agents/Agent Board.md",
+      "docs/evidence/Codex-faisal-original69-integration/Crowns69-web-delivery-review-20261028.md",
+      "docs/evidence/Codex-faisal-original69-integration/integration-binding.json",
+      "docs/evidence/Codex-faisal-original69-integration/review-bindings.json"
+    ],
+    "all_other_tracked_blobs_modes_unchanged": true,
+    "tracked_worktree_clean": true
+  },
+  "compiled_exe_sha256": "07e59c43cb141f627a0d7d2fb589228479023caa5563ef2ae90470c3af6ece98",
+  "compiled_exe_bytes": 152186640,
+  "exe_in_packet": false,
+  "manifest": "payload-manifest.json",
+  "manifest_byte_sha256": "d9d0c8d81a2c82152a2ac90ad8980ece844c8463816eab98d2fc0b1b5e0fab12",
+  "manifest_canonical_sha256": "37380f64aa1767dcc838a8f710569ecb12aad5dc8921eac70d6a55f0937a7fd8",
+  "runtime_template_sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+  "runtime_template_source": "Unmodified officialGodot4.3 source77dcf97; existing build-specific MSVC template only, not globaldefaults approval",
+  "actual_exit": 0,
+  "elapsed_seconds": 20.04700000002049,
+  "producer_reported_pid": 6556,
+  "pid_limit": "Parent Root actualprocess report; packed-qualification.json lacksPID; no invented second supervisor receipt",
+  "frames": 7,
+  "scope": "state-staged title/map/ready/quietcourtyard battleHUD/pause/class; no naturalcombat/fullmatch/physical/performance/finalart approval",
+  "profiling": "Eight-run A/B profiling not started; automaticapproval review rejected profiling action, pendingFaisaldecision",
+  "desktop_bugtest46": "not run",
+  "new_engine_tests_replays": 0,
+  "created_utc": "2026-10-28T09:42:24.327416+00:00"
+}
