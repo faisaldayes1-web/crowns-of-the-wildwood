@@ -1,0 +1,42 @@
+{
+  "agent": "Codex-faisal",
+  "game": "crowns",
+  "repo": "crowns-of-the-wildwood",
+  "ref": "Codex-faisal/original69-current-integration",
+  "base_commit": "5779746052cc7840e1a440952887038c959ce19f",
+  "built": "20261028-021511-5779746-Codex-faisal",
+  "ok": false,
+  "targets": [
+    {
+      "target": "Game",
+      "exit": 1,
+      "exe": "C:\\Games\\ORY-Current\\Crowns-of-the-Wildwood\\history\\20261028-021511-5779746-Codex-faisal\\Game\\CrownsOfTheWildwood.exe",
+      "exists": false
+    }
+  ],
+  "steps": [
+    {
+      "phase": "import",
+      "exit": 0,
+      "timed_out": false,
+      "error_count": 35,
+      "first_errors": [
+        "ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.",
+        "ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.",
+        "ERROR: Attempting to parent and popup a dialog that already has a parent.",
+        "ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.",
+        "ERROR: Attempting to parent and popup a dialog that already has a parent.",
+        "ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.",
+        "ERROR: Attempting to parent and popup a dialog that already has a parent.",
+        "ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash."
+      ],
+      "log": "C:\\Games\\ORY-Current\\Crowns-of-the-Wildwood\\history\\20261028-021511-5779746-Codex-faisal\\_logs\\import.log"
+    }
+  ],
+  "merged_prs_locally": [],
+  "worktree": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\crowns69-current-integration",
+  "user_data": "C:\\Temp\\c1-cw-69build",
+  "runtime_template": "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+  "runtime_template_sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+  "note": "Exact reviewed source with build-specific same-version Godot4.3 template, global defaults unchanged. Existing source-bound checks retained; final visual/physical/performance acceptance not inferred."
+}

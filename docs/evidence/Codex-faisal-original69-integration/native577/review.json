@@ -1,0 +1,228 @@
+{
+  "agent": "Codex-faisal/build_delivery",
+  "task": "T-2fc4d3bca959",
+  "status": "approved narrow packaged-native route only",
+  "source": "5779746052cc7840e1a440952887038c959ce19f",
+  "source_runtime_equivalent_to": "a50737ec6228383b3904161d72883c969d664eed",
+  "source_equivalence": "Independent gitdiff only docs/agents Board and3newdocs evidence; tracked buildworktreeclean and HEAD577",
+  "artifact": "C:\\Games\\ORY-Current\\Crowns-of-the-Wildwood\\history\\20261028-022016-5779746-Codex-faisal\\Game\\CrownsOfTheWildwood.exe",
+  "artifact_sha256": "07e59c43cb141f627a0d7d2fb589228479023caa5563ef2ae90470c3af6ece98",
+  "payload": {
+    "source": "5779746052cc7840e1a440952887038c959ce19f",
+    "files": 1,
+    "bytes": 152186640,
+    "status": "passed"
+  },
+  "manifest": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\build-crowns69-short-payload.json",
+  "manifest_byte_sha256": "d9d0c8d81a2c82152a2ac90ad8980ece844c8463816eab98d2fc0b1b5e0fab12",
+  "manifest_canonical_sha256": "37380f64aa1767dcc838a8f710569ecb12aad5dc8921eac70d6a55f0937a7fd8",
+  "runtime_template": "C:\\ORY-Cache\\qa\\crowns-68-msvc-Codex-faisal\\godot\\bin\\godot.windows.template_release.x86_64.exe",
+  "runtime_template_sha256": "dba29f8fae628f56bf2155c7d79a6c9801fffaac799a936a3429edbc0d024d3a",
+  "template_limit": "Per-build sameGodot4.3 official77dcf97 customMSVC template; not global-template/default approval",
+  "build_receipt": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\build-crowns69-short-result.json",
+  "build_receipt_sha256": "727eae9996f6e52a13371398738c41dd0a4a10c8bc328af1c09cbbf4adc05aaf",
+  "qualification_receipt": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\crowns69-current-packed-qualification.json",
+  "qualification_receipt_sha256": "6c6d62b26f8f27ec683747de28b598dd001188420c341bda15fc4616969a628c",
+  "external_exit": 0,
+  "elapsed_seconds": 20.04700000002049,
+  "pid": 6556,
+  "pid_evidence": "Coordinator Root actual-process report; qualification JSON records exit/elapsed but does not include pid",
+  "profile": "C:\\Temp\\c1-cw-69packed",
+  "command": [
+    "C:\\Games\\ORY-Current\\Crowns-of-the-Wildwood\\history\\20261028-022016-5779746-Codex-faisal\\Game\\CrownsOfTheWildwood.exe",
+    "--rendering-method",
+    "forward_plus",
+    "--resolution",
+    "1280x720",
+    "--script",
+    "C:\\Temp\\c1-cw-69packed\\packed_capture.gd"
+  ],
+  "capture_fixture": "C:\\Temp\\c1-cw-69packed\\packed_capture.gd",
+  "capture_fixture_sha256": "45bd9ed93f2d48895e616140624c344b958da990456d2095f820324cce4f49df",
+  "logs": [
+    {
+      "phase": "player",
+      "path": "C:\\Temp\\c1-cw-69packed\\player.log",
+      "sha256": "9a9520103530ee0ece07a6f6960f3104e852222553ff90cb2424171e79277d78",
+      "bytes": 581,
+      "lines": 13,
+      "diagnostics": [],
+      "strict_error_lines": []
+    },
+    {
+      "phase": "import",
+      "path": "C:\\Games\\ORY-Current\\Crowns-of-the-Wildwood\\history\\20261028-022016-5779746-Codex-faisal\\_logs\\import.log",
+      "sha256": "4baf4c984becce5dc78acadc5991bc9c3b4bd96a2d38767ac14365b6aa36486c",
+      "bytes": 73,
+      "lines": 2,
+      "diagnostics": [],
+      "strict_error_lines": []
+    },
+    {
+      "phase": "export",
+      "path": "C:\\Games\\ORY-Current\\Crowns-of-the-Wildwood\\history\\20261028-022016-5779746-Codex-faisal\\_logs\\export.log",
+      "sha256": "95cde427c666daa17b19d6d7f2fb978981f396bee829f679a906d1e54379bce1",
+      "bytes": 207928,
+      "lines": 2171,
+      "diagnostics": [],
+      "strict_error_lines": []
+    }
+  ],
+  "frames": [
+    {
+      "path": "C:\\Temp\\c1-cw-69packed\\captures\\01-title.png",
+      "size": [
+        1280,
+        720
+      ],
+      "nonblank": true,
+      "sha256": "0aae5cc5acefa9b143430ea56f7c2453bb2ae4a723720b5ced5fc41269333aaa",
+      "independently_hash_verified": true,
+      "independently_viewed": true,
+      "luminance_mean": 119.7453515625,
+      "luminance_sd": 63.835468358058776
+    },
+    {
+      "path": "C:\\Temp\\c1-cw-69packed\\captures\\02-map.png",
+      "size": [
+        1280,
+        720
+      ],
+      "nonblank": true,
+      "sha256": "af888bde5a16c35972bb51bec9a289ba09068663d51e58fd4d1c84327ae9a874",
+      "independently_hash_verified": true,
+      "independently_viewed": true,
+      "luminance_mean": 77.87380316840277,
+      "luminance_sd": 54.2673428373073
+    },
+    {
+      "path": "C:\\Temp\\c1-cw-69packed\\captures\\03-ready.png",
+      "size": [
+        1280,
+        720
+      ],
+      "nonblank": true,
+      "sha256": "ce1de5a4671d8ac117154d14a469bf8b8de01237fcf279de7edca1b62f06082b",
+      "independently_hash_verified": true,
+      "independently_viewed": true,
+      "luminance_mean": 85.51023763020834,
+      "luminance_sd": 46.82138426079667
+    },
+    {
+      "path": "C:\\Temp\\c1-cw-69packed\\captures\\04-match-spawn.png",
+      "size": [
+        1280,
+        720
+      ],
+      "nonblank": true,
+      "sha256": "e6caf1cd17aa69a7d865c471d987db5fa1cdc388670493133ae384610df32793",
+      "independently_hash_verified": true,
+      "independently_viewed": true,
+      "luminance_mean": 119.12789496527778,
+      "luminance_sd": 54.80688846382532
+    },
+    {
+      "path": "C:\\Temp\\c1-cw-69packed\\captures\\05-live-battle.png",
+      "size": [
+        1280,
+        720
+      ],
+      "nonblank": true,
+      "sha256": "4405d515740d82e9d770f94e8b7b7a6ef28b0eb9f17ddea90caaf90afde94150",
+      "independently_hash_verified": true,
+      "independently_viewed": true,
+      "luminance_mean": 118.97102322048612,
+      "luminance_sd": 54.71668654866948
+    },
+    {
+      "path": "C:\\Temp\\c1-cw-69packed\\captures\\06-paused-map.png",
+      "size": [
+        1280,
+        720
+      ],
+      "nonblank": true,
+      "sha256": "733ec725f6252a876d8f556233cf70971143bbf389778d8851bc38b9638021f6",
+      "independently_hash_verified": true,
+      "independently_viewed": true,
+      "luminance_mean": 64.001337890625,
+      "luminance_sd": 45.073082838920016
+    },
+    {
+      "path": "C:\\Temp\\c1-cw-69packed\\captures\\07-class-knight.png",
+      "size": [
+        1280,
+        720
+      ],
+      "nonblank": true,
+      "sha256": "6507f22eb7ee9d0d0fed41bb2f7b4acd780330ea3651ce0bece3f0526c4966c5",
+      "independently_hash_verified": true,
+      "independently_viewed": true,
+      "luminance_mean": 117.84082682291667,
+      "luminance_sd": 55.16976949365505
+    }
+  ],
+  "frame_observations": [
+    {
+      "frame": "01-title",
+      "observation": "Actual crisp1280x720 title/background and readablePlay/Customize/Settings/Tutorial/Credits/Exit controls."
+    },
+    {
+      "frame": "02-map",
+      "observation": "Four mapcards, firstselected, Moonlit lockedlevel10; Normaldifficulty/4v4/splitscreenOFF and start/back controls visible."
+    },
+    {
+      "frame": "03-ready",
+      "observation": "P1/ally/twofoe previews, readylabels and Normal4v4/+4bots text visible; no physicaljoin/input proof."
+    },
+    {
+      "frame": "04-match-spawn",
+      "observation": "Actual colored courtyard/classstations/minimap/teamHUD, fortify0:17,100/100health visible."
+    },
+    {
+      "frame": "05-live-battle",
+      "observation": "Same quietcourtyard in scripted battlephase9:48; minorbotpositionchanges, no naturalcombat/action demonstrated."
+    },
+    {
+      "frame": "06-paused-map",
+      "observation": "Pauseoverlay, map/legend/objective and resume/leave controls readable; hitrects checkedprogrammatically, no physicalinput."
+    },
+    {
+      "frame": "07-class-knight",
+      "observation": "Knightbanner/model/portrait and changedabilitybar visible following directset_role; stagedclassroute, not naturalclassselection."
+    }
+  ],
+  "failure_history": {
+    "receipt": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\build-crowns69-result.json",
+    "status": "failed and preserved",
+    "long_path_import_exit": 0,
+    "long_path_strict_errors": 35,
+    "export": "not accepted/not performed after strictimportfailure",
+    "diagnosis": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\reviews\\Crowns69-native-long-path-diagnosis.json",
+    "short_path_retry": "same577source separate shortworktree/freshprofile import0/errors0 export0/errors0; no policy/safe-save/antivirus downgrade",
+    "raw_import_log": "C:\\Games\\ORY-Current\\Crowns-of-the-Wildwood\\history\\20261028-021511-5779746-Codex-faisal\\_logs\\import.log",
+    "raw_import_log_sha256": "84c1788a05aafd6c6125434b927bba29f8d9d88aea04fe6f05436497216a25d2",
+    "independently_counted_strict_errors": 35
+  },
+  "limits": [
+    "Sevenstate-staged screenshots, programmaticmenuhandler/classselection and advancingclock; quietcourtyard battleHUD only.",
+    "Not naturalcombat, fullmatch/win/loss, physicalinput/controllers, resolutionmatrix or finalvisual/art acceptance.",
+    "Incidental19/35FPS labels andbatchtiming are not profiling or performance acceptance.",
+    "Original69eight-run A/B profiling has not started; blocked by automaticapproval review pendingFaisaldecision.",
+    "Finaldesktopbugtest46cases not run.",
+    "No reviewerengine/player/test/replay/merge/protectedsource change."
+  ],
+  "source_git_proof": {
+    "head": "5779746052cc7840e1a440952887038c959ce19f",
+    "tree": "501ef3d1fdc3a1c70cde7b0d80f7494ad08d8775",
+    "equivalent_from": "a50737ec6228383b3904161d72883c969d664eed",
+    "equivalent_from_tree": "11a972b71a762d347ee14cc701cc753fe03ae740",
+    "changed_paths": [
+      "docs/agents/Agent Board.md",
+      "docs/evidence/Codex-faisal-original69-integration/Crowns69-web-delivery-review-20261028.md",
+      "docs/evidence/Codex-faisal-original69-integration/integration-binding.json",
+      "docs/evidence/Codex-faisal-original69-integration/review-bindings.json"
+    ],
+    "all_other_tracked_blobs_modes_unchanged": true,
+    "tracked_worktree_clean": true
+  }
+}

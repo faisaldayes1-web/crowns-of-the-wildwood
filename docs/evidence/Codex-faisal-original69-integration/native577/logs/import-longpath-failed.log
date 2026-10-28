@@ -1,0 +1,72 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)
+ERROR: Safe save failed. This may be a permissions problem, but also may happen because you are running a paranoid antivirus. If this is the case, please switch to Windows Defender or disable the 'safe save' option in editor settings. This makes it work, but increases the risk of file corruption in a crash.
+   at: (drivers/windows/file_access_windows.cpp:256)
+ERROR: Attempting to parent and popup a dialog that already has a parent.
+   at: (scene/main/window.cpp:1889)

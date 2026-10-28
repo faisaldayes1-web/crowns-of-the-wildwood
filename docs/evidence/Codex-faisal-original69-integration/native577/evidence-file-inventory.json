@@ -1,0 +1,117 @@
+{
+  "agent": "Codex-faisal/build_delivery",
+  "source": "5779746052cc7840e1a440952887038c959ce19f",
+  "files": [
+    {
+      "path": "build-result.json",
+      "bytes": 1625,
+      "sha256": "727eae9996f6e52a13371398738c41dd0a4a10c8bc328af1c09cbbf4adc05aaf"
+    },
+    {
+      "path": "captures/01-title.png",
+      "bytes": 1587452,
+      "sha256": "0aae5cc5acefa9b143430ea56f7c2453bb2ae4a723720b5ced5fc41269333aaa"
+    },
+    {
+      "path": "captures/02-map.png",
+      "bytes": 880855,
+      "sha256": "af888bde5a16c35972bb51bec9a289ba09068663d51e58fd4d1c84327ae9a874"
+    },
+    {
+      "path": "captures/03-ready.png",
+      "bytes": 955556,
+      "sha256": "ce1de5a4671d8ac117154d14a469bf8b8de01237fcf279de7edca1b62f06082b"
+    },
+    {
+      "path": "captures/04-match-spawn.png",
+      "bytes": 1171774,
+      "sha256": "e6caf1cd17aa69a7d865c471d987db5fa1cdc388670493133ae384610df32793"
+    },
+    {
+      "path": "captures/05-live-battle.png",
+      "bytes": 1167028,
+      "sha256": "4405d515740d82e9d770f94e8b7b7a6ef28b0eb9f17ddea90caaf90afde94150"
+    },
+    {
+      "path": "captures/06-paused-map.png",
+      "bytes": 447596,
+      "sha256": "733ec725f6252a876d8f556233cf70971143bbf389778d8851bc38b9638021f6"
+    },
+    {
+      "path": "captures/07-class-knight.png",
+      "bytes": 1165763,
+      "sha256": "6507f22eb7ee9d0d0fed41bb2f7b4acd780330ea3651ce0bece3f0526c4966c5"
+    },
+    {
+      "path": "failure-longpath-build-receipt.json",
+      "bytes": 3351,
+      "sha256": "d6702f8a870988c15e7fb70fa47e0857cddf14be4a737e25792dccfd14788964"
+    },
+    {
+      "path": "failure-longpath-log-reference.json",
+      "bytes": 725,
+      "sha256": "b8a288b757601d4988286fd65eb1af713255f9ca893fc91611213de587d5a351"
+    },
+    {
+      "path": "fixtures/isolated.gd",
+      "bytes": 1826,
+      "sha256": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3"
+    },
+    {
+      "path": "fixtures/packed_capture.gd",
+      "bytes": 3527,
+      "sha256": "45bd9ed93f2d48895e616140624c344b958da990456d2095f820324cce4f49df"
+    },
+    {
+      "path": "logs/export-short.log",
+      "bytes": 207928,
+      "sha256": "95cde427c666daa17b19d6d7f2fb978981f396bee829f679a906d1e54379bce1"
+    },
+    {
+      "path": "logs/import-longpath-failed.log",
+      "bytes": 8529,
+      "sha256": "84c1788a05aafd6c6125434b927bba29f8d9d88aea04fe6f05436497216a25d2"
+    },
+    {
+      "path": "logs/import-short.log",
+      "bytes": 73,
+      "sha256": "4baf4c984becce5dc78acadc5991bc9c3b4bd96a2d38767ac14365b6aa36486c"
+    },
+    {
+      "path": "logs/player.log",
+      "bytes": 581,
+      "sha256": "9a9520103530ee0ece07a6f6960f3104e852222553ff90cb2424171e79277d78"
+    },
+    {
+      "path": "packed-qualification.json",
+      "bytes": 3349,
+      "sha256": "6c6d62b26f8f27ec683747de28b598dd001188420c341bda15fc4616969a628c"
+    },
+    {
+      "path": "payload-manifest.json",
+      "bytes": 452,
+      "sha256": "d9d0c8d81a2c82152a2ac90ad8980ece844c8463816eab98d2fc0b1b5e0fab12"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2567,
+      "sha256": "df7681bf080bad3b7ba2056cee9097004827101859549186f52c507da76d6d7d"
+    },
+    {
+      "path": "review.json",
+      "bytes": 10336,
+      "sha256": "3e761a797ce2ec2376253d30b0377143e65cc38b1bb7c12b6dabf4fb2a519687"
+    },
+    {
+      "path": "review.md",
+      "bytes": 5183,
+      "sha256": "be1318054414a782c69c04d51f885b41a4131a444e346eca972dca6a695d0d8c"
+    },
+    {
+      "path": "source-binding.json",
+      "bytes": 2496,
+      "sha256": "3f67ff2f19c7dcd810d4c53e4cf836fcb02a284caa59597690d5704ac808eac0"
+    }
+  ],
+  "scope": "All packet files except this inventory itself; original source/payload files unmodified"
+}
