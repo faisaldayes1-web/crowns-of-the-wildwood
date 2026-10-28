@@ -1,0 +1,156 @@
+{
+  "agent": "Codex-faisal/gameplay_review",
+  "task": "T-2fc4d3bca959",
+  "review_date": "2026-10-28",
+  "sources": {
+    "baseline": "4055075edcdf35f2902276ef538bd7ce2f3dfe99",
+    "candidate": "a50737ec6228383b3904161d72883c969d664eed",
+    "candidate_tree": "11a972b71a762d347ee14cc701cc753fe03ae740",
+    "original_head": "3b3292f565d64989d4df8f0abd2cf5563fd5719f",
+    "original_base": "87df44898dd45850654ea73dca2a18eafdc432ca",
+    "main_and_original_are_ancestors": true,
+    "unit_blob": "2cdba911996dd922732a3eb97ff40b18761766a5",
+    "regression_blob": "fe2d179cfd4407b0006f115a9ee0bbb70a5593bf",
+    "docs_ignore_blob": "3815b3c3d9840b489a5f1682687e9a47e1069dbe",
+    "historical_source": "bc1404bb9f9103ab50378925b98d61b8ad093d13",
+    "historical_source_unit_and_regression_equal_original_head": true,
+    "historical_test_replayed": false
+  },
+  "release": {
+    "assets": [
+      {
+        "digest": "sha256:28e4c083be54d60c097fedaaf635a9945a50c75be5025e26b8d61c1126a1c3fe",
+        "id": 684129444,
+        "name": "Crowns69-Codex2-after-Web.zip",
+        "size": 100883344
+      },
+      {
+        "digest": "sha256:0fc9bf72ce0ebeeb6a35e748ded8bebf28c4427607ccdd5b4d1a261c471099ef",
+        "id": 684129441,
+        "name": "Crowns69-Codex2-before-Web.zip",
+        "size": 100883242
+      },
+      {
+        "digest": "sha256:68ee1d5b6a99b8dab3b43b075aee3df79a12d56d783c135027cfd7adcbb1fafc",
+        "id": 684136124,
+        "name": "Crowns69-Codex2-composed-source.bundle",
+        "size": 17406
+      },
+      {
+        "digest": "sha256:0dd37902b447c8bebd513dd380bbb00aaf5bfd4db2aa8535b874568fcf6c8305",
+        "id": 684129443,
+        "name": "Crowns69-Codex2-evidence.zip",
+        "size": 4620907
+      },
+      {
+        "digest": "sha256:3bba610f67c62f477c1b1b8d4353b5b6406fc7869d11aed6a32298c5e3a78dd7",
+        "id": 684136125,
+        "name": "Crowns69-Codex2-supplement-002-delivery.md",
+        "size": 5381
+      },
+      {
+        "digest": "sha256:f21ba5fbbdef0a07655ee57129962541990be3d2c48e378dec97f4678867b994",
+        "id": 684136126,
+        "name": "Crowns69-Codex2-supplement-002-evidence.zip",
+        "size": 8594388
+      },
+      {
+        "digest": "sha256:33094228a63316ffb482449a22f47b66f1f4cf2f9225ab36c634188a017f814c",
+        "id": 684136123,
+        "name": "Crowns69-Codex2-this-chat-readback.json",
+        "size": 662
+      },
+      {
+        "digest": "sha256:75e0ad376c3645559fba4fe306f79620e652a0a754752480cc39ad1d4117cff2",
+        "id": 684129442,
+        "name": "Crowns69-Codex2-transfer-manifest.json",
+        "size": 493
+      }
+    ],
+    "draft": true,
+    "id": 426346074,
+    "prerelease": false,
+    "tag_name": "private-crowns69-qualification-20261028"
+  },
+  "independently_downloaded": [
+    "Crowns69-Codex2-composed-source.bundle",
+    "Crowns69-Codex2-evidence.zip",
+    "Crowns69-Codex2-supplement-002-evidence.zip"
+  ],
+  "not_downloaded": [
+    "Crowns69-Codex2-before-Web.zip",
+    "Crowns69-Codex2-after-Web.zip"
+  ],
+  "downloaded_digests_match_release": true,
+  "embedded_bundle_matches_standalone": true,
+  "extraction": {
+    "entry_bindings": "extracted-entry-bindings.json",
+    "file_count": 47,
+    "all_streams_read_and_sha256_recorded": true,
+    "path_casealias_special_mode_checks": true,
+    "no_explicit_independent_crc_claim": true
+  },
+  "browser": {
+    "original": {
+      "packet": "original-packet",
+      "interval": [
+        "2026-10-28T06:54:52.396Z",
+        "2026-10-28T06:56:13.056Z"
+      ],
+      "route": "-- --demo --seed=7",
+      "profile_suffix": "qualification2",
+      "cases": 2,
+      "rendered_frames_viewed": 4,
+      "wrapper_exit": 1,
+      "edge_exit_codes": [
+        0,
+        0
+      ],
+      "page_console_error_count": 0,
+      "pageerror_count": 0,
+      "response_statuses_all_200": true,
+      "requestfailed_hook": false,
+      "raw_shutdown_gpu_errors_retained": true,
+      "payload_unchanged": "producer local manifest comparison"
+    },
+    "supplement002": {
+      "packet": "supplement-002",
+      "interval": [
+        "2026-10-28T06:55:09.464Z",
+        "2026-10-28T06:56:26.466Z"
+      ],
+      "route": "-- --demo --seed=7 --map=0 --gfx=2",
+      "profile_suffix": "002",
+      "cases": 2,
+      "rendered_frames_viewed": 4,
+      "loading_frames_viewed": 2,
+      "wrapper_exit": 0,
+      "captured_error_events": 0,
+      "response_statuses_all_200": true,
+      "contexts_servers_closed": true,
+      "initial_404_preserved": true
+    },
+    "same_grant_overlap": true,
+    "exclusive_resource_discipline": "FAILED",
+    "combined_pass_count": null,
+    "functional_short_route": "accepted within recorded scope",
+    "web_per_tick_ability_trace": "not instrumented",
+    "native_or_browser_performance": "not accepted",
+    "release_commit": "da466e2506a9da710db9da0ba9df81ebb0728773",
+    "idle_receipts_reviewed": true
+  },
+  "disposition": {
+    "source": "approve bounded composition; no new source blockers",
+    "web": "short export/load/render evidence accepted",
+    "pr": "OPEN DRAFT mergeable=false at metadata read",
+    "merge_authorized": false,
+    "remaining": "matched exclusive native profiling; normal conflict/integration review and owner readiness decision",
+    "physical_and_final_art": "unaccepted"
+  },
+  "limits": [
+    "No engine launch, test replay, source edits or PR mutation.",
+    "Full Web payload hashes are release metadata and producer readback, not independently downloaded payload proof.",
+    "Original wrapper1 and supplement0 remain separate outcomes.",
+    "Historical969 assertions remain on bc1404b; not new-source execution."
+  ]
+}
