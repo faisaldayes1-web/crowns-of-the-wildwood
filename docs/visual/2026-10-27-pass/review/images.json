@@ -1,0 +1,201 @@
+{
+  "agent": "Codex-faisal/bugtest",
+  "images": [
+    {
+      "screen": "01-title",
+      "label": "Original built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-20261024-Codex-faisal\\01-title.png",
+      "file": "01-title-0.png",
+      "sha256": "61b1861e732e3aaee3ac1b3fbf120528a85de0eec7c4347b1c33ae9372f8aa37"
+    },
+    {
+      "screen": "01-title",
+      "label": "GAME pick A",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-01-title-A.png",
+      "file": "01-title-1.png",
+      "sha256": "0f1a473aa32fd66fd3a3e2392ac1820db096a7ff5e28e2e42b40cdb2bfa29e89"
+    },
+    {
+      "screen": "01-title",
+      "label": "UI pick D",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-01-title-D.png",
+      "file": "01-title-2.png",
+      "sha256": "c7cdcbf852f2cebfe4567c2f2163d79aa56598d7665f8091a3ff48c64dd8314f"
+    },
+    {
+      "screen": "01-title",
+      "label": "Current built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\01-title.png",
+      "file": "01-title-3.png",
+      "sha256": "0aae5cc5acefa9b143430ea56f7c2453bb2ae4a723720b5ced5fc41269333aaa",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
+    },
+    {
+      "screen": "02-map",
+      "label": "Original built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-20261024-Codex-faisal\\02-map.png",
+      "file": "02-map-0.png",
+      "sha256": "9401deb30c099da8174ccad71f6ab9aea6a5cf0e27467ead932f82cb728d6ed1"
+    },
+    {
+      "screen": "02-map",
+      "label": "GAME pick A",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-02-map-A.png",
+      "file": "02-map-1.png",
+      "sha256": "60ce7602ade15d5174f47b051a396367b14447f34b9f5058e980ef7006a5e206"
+    },
+    {
+      "screen": "02-map",
+      "label": "UI pick A",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-02-map-A.png",
+      "file": "02-map-2.png",
+      "sha256": "1eb10811b493169557a07b0bd8a8f7dcb396a614270abe61bb52c062c40628d8"
+    },
+    {
+      "screen": "02-map",
+      "label": "Current built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\02-map.png",
+      "file": "02-map-3.png",
+      "sha256": "af888bde5a16c35972bb51bec9a289ba09068663d51e58fd4d1c84327ae9a874",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
+    },
+    {
+      "screen": "03-ready",
+      "label": "Original built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-20261024-Codex-faisal\\03-ready.png",
+      "file": "03-ready-0.png",
+      "sha256": "877875de69ce6c861563e7789076ef216c0f145c524e36586424fbc2bb3d671f"
+    },
+    {
+      "screen": "03-ready",
+      "label": "UI pick A",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-03-ready-A.png",
+      "file": "03-ready-1.png",
+      "sha256": "580636d9c0d00b04afa032dc8c462c45a2fdd58c7dd21a015c5383500dd44fa6"
+    },
+    {
+      "screen": "03-ready",
+      "label": "Current built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\03-ready.png",
+      "file": "03-ready-2.png",
+      "sha256": "db2fa6037e8acf6a40ebeeeda1ce07e0ce7e677adb54d7922e70bd1c44fd612a",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
+    },
+    {
+      "screen": "04-match-spawn",
+      "label": "Original built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-20261024-Codex-faisal\\04-match-spawn.png",
+      "file": "04-match-spawn-0.png",
+      "sha256": "9060145481c595812309f1b72be424ebbe728b618c4e8d38ad7bf5850490b3e2"
+    },
+    {
+      "screen": "04-match-spawn",
+      "label": "GAME pick D",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-04-match-spawn-D-v2.png",
+      "file": "04-match-spawn-1.png",
+      "sha256": "b13d5391156c04d7d76915bd20dd5f41af9bf4ca7a0a2e7ad68e338acba94b53"
+    },
+    {
+      "screen": "04-match-spawn",
+      "label": "UI pick C",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-04-match-spawn-C.png",
+      "file": "04-match-spawn-2.png",
+      "sha256": "2493eeeb65046749f185fd6076c5c46daf0d4d5cfb136cd8de171f9b34d11f83"
+    },
+    {
+      "screen": "04-match-spawn",
+      "label": "Current built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\04-match-spawn.png",
+      "file": "04-match-spawn-3.png",
+      "sha256": "7ca69ae8e9653548d9d7a0baf474faf6541694932d8a6cea12776ee59976b57f",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
+    },
+    {
+      "screen": "05-live-battle",
+      "label": "Original built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-20261024-Codex-faisal\\05-live-battle.png",
+      "file": "05-live-battle-0.png",
+      "sha256": "4c26b0bdf8809a01fc48ac2a58ffb8f6c604a2ae2a6bae907996571cfa3e26bb"
+    },
+    {
+      "screen": "05-live-battle",
+      "label": "GAME pick A",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-05-live-battle-A-v2.png",
+      "file": "05-live-battle-1.png",
+      "sha256": "aa059cac804e7ed4eb41b70aaa8c4f906fe1bfd0eaa8a677e2890470d7f14c6c"
+    },
+    {
+      "screen": "05-live-battle",
+      "label": "UI pick C",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-05-live-battle-C.png",
+      "file": "05-live-battle-2.png",
+      "sha256": "a105313f8f24e468e4ee2ab694e2c69f6a4fc9b74fe4f592ba0f466a411ea13e"
+    },
+    {
+      "screen": "05-live-battle",
+      "label": "Current built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\05-live-battle.png",
+      "file": "05-live-battle-3.png",
+      "sha256": "fa8b7e6da1faf46c0f6d8be0dcd35f94d19354935593053abe5900d3b8056753",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
+    },
+    {
+      "screen": "06-paused-map",
+      "label": "Original built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-20261024-Codex-faisal\\06-paused-map.png",
+      "file": "06-paused-map-0.png",
+      "sha256": "7ee6ee96e5c8f239b9203261bcec089bcc324c10d7aa7107cc3c02e21882f745"
+    },
+    {
+      "screen": "06-paused-map",
+      "label": "GAME pick B",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-06-paused-map-B-v2.png",
+      "file": "06-paused-map-1.png",
+      "sha256": "dc48b78249c8751cbb8de5eae853bb2585df93bc887949b280c64c5ff41cb319"
+    },
+    {
+      "screen": "06-paused-map",
+      "label": "UI pick C",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-06-paused-map-C.png",
+      "file": "06-paused-map-2.png",
+      "sha256": "6b4ce4d73d72d77fb7644c1a6052686cbc166a4ca8bef78d6083dde4d69f96b6"
+    },
+    {
+      "screen": "06-paused-map",
+      "label": "Current built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\06-paused-map.png",
+      "file": "06-paused-map-3.png",
+      "sha256": "a6bdcfd9467e31e910d3b879cfb0c7bb960dc0c12345b9611a86311307b13310",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
+    },
+    {
+      "screen": "07-class-knight",
+      "label": "Original built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-20261024-Codex-faisal\\07-class-knight.png",
+      "file": "07-class-knight-0.png",
+      "sha256": "75e517b7f337f7ab334f404528e399eac471bb38975405a139b4fb9cffbffba7"
+    },
+    {
+      "screen": "07-class-knight",
+      "label": "GAME pick B",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-07-class-knight-B-v2.png",
+      "file": "07-class-knight-1.png",
+      "sha256": "e8783d6ccee5e311b7989b5961e4666eacaa39f0b9fd2d10c8c43457cf7022e4"
+    },
+    {
+      "screen": "07-class-knight",
+      "label": "UI pick C",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-07-class-knight-C-v2.png",
+      "file": "07-class-knight-2.png",
+      "sha256": "d4fb6568f247c93d637a8bde9a8a298fb2a22f08ef8559e43cace3ffe1ce8b79"
+    },
+    {
+      "screen": "07-class-knight",
+      "label": "Current built game",
+      "source": "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\07-class-knight.png",
+      "file": "07-class-knight-3.png",
+      "sha256": "0920f1e8ec5803010ef9ed5a710bbe6e4e8ab9ec76574ebfd07cb411b65f3714",
+      "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c"
+    }
+  ]
+}

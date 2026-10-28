@@ -1,0 +1,7 @@
+{
+  "agent": "Codex-faisal/ui",
+  "hit_rect_checks_pass": true,
+  "live_battle_fixture": "quiet courtyard battle-phase HUD comparison; no combat action claimed",
+  "state_staging": true,
+  "viewport": "(1280, 720)"
+}

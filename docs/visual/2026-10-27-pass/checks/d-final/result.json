@@ -1,0 +1,36 @@
+{
+  "agent": "Codex-faisal",
+  "source": "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+  "revision": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c",
+  "revision_after": "3c83b964c0216b3c73a6a4acbda5e384295a6e0c",
+  "source_changed_during_run": false,
+  "working_diff": "",
+  "command": [
+    "C:/Tools/Godot/Godot_v4.3-stable_win64_console.exe",
+    "--path",
+    "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+    "--log-file",
+    "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\d-final\\engine.log",
+    "--resolution",
+    "1280x720",
+    "--windowed",
+    "--script",
+    "tools/crowns_visual_capture.gd"
+  ],
+  "exit": 0,
+  "seconds": 20.75,
+  "errors": 0,
+  "script_errors": 0,
+  "passes": 0,
+  "failures": 0,
+  "user_data_base": "C:\\Temp\\cwv-crowns-final\\d-final",
+  "results": [
+    "CAPTURE 01-title",
+    "CAPTURE 02-map",
+    "CAPTURE 03-ready",
+    "CAPTURE 04-match-spawn",
+    "CAPTURE 05-live-battle",
+    "CAPTURE 06-paused-map",
+    "CAPTURE 07-class-knight"
+  ]
+}

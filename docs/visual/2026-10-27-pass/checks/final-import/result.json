@@ -1,0 +1,26 @@
+{
+  "agent": "Codex-faisal",
+  "source": "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+  "revision": "c6c4e847d677b2cdf95d43ec3250807140dcccc1",
+  "revision_after": "c6c4e847d677b2cdf95d43ec3250807140dcccc1",
+  "source_changed_during_run": false,
+  "working_diff": "",
+  "command": [
+    "C:/Tools/Godot/Godot_v4.3-stable_win64_console.exe",
+    "--path",
+    "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+    "--log-file",
+    "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\final-import\\engine.log",
+    "--headless",
+    "--editor",
+    "--import"
+  ],
+  "exit": 0,
+  "seconds": 12.0,
+  "errors": 0,
+  "script_errors": 0,
+  "passes": 0,
+  "failures": 0,
+  "user_data_base": "C:\\rt\\cwv-final-import",
+  "results": []
+}

@@ -61,7 +61,14 @@ func _init() -> void:
 	game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
-	await frames(5)
+	# Agent: Codex-faisal. Wait for rendered menu warm-up, not a frame guess.
+	var deadline := Time.get_ticks_msec() + 120000
+	while game.main_menu == null or game.menus_warming or is_instance_valid(game.loading_layer):
+		if Time.get_ticks_msec() > deadline:
+			check(false, "bounded menu startup completes")
+			quit(1)
+			return
+		await process_frame
 	hud = game.hud
 	hud.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	hud.size = Vector2(1280, 720)
@@ -76,7 +83,13 @@ func _init() -> void:
 	m._press("team_size", 1)
 	m._press("to_lobby", null)
 	m.start()
-	await frames(10)
+	deadline = Time.get_ticks_msec() + 120000
+	while not game.playing or is_instance_valid(game.loading_layer):
+		if Time.get_ticks_msec() > deadline:
+			check(false, "bounded match startup completes")
+			quit(1)
+			return
+		await process_frame
 	check(game.playing, "a 1v1 match starts")
 	var p = game.player
 	p.spawn_protect = 999.0

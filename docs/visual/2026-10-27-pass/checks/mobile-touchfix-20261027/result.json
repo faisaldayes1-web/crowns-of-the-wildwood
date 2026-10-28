@@ -1,0 +1,30 @@
+{
+  "agent": "Codex-faisal",
+  "source": "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+  "revision": "6ad7085ef0b78a4e86d0c7701916069180cdfac2",
+  "revision_after": "6ad7085ef0b78a4e86d0c7701916069180cdfac2",
+  "source_changed_during_run": false,
+  "working_diff": "",
+  "command": [
+    "C:/Tools/Godot/Godot_v4.3-stable_win64_console.exe",
+    "--path",
+    "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+    "--log-file",
+    "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\mobile-touchfix-20261027\\engine.log",
+    "--resolution",
+    "844x390",
+    "--windowed",
+    "--script",
+    "tools/crowns_visual_capture.gd",
+    "--",
+    "--capture-touch"
+  ],
+  "exit": 4294967295,
+  "seconds": 41.97,
+  "errors": 6,
+  "script_errors": 4,
+  "passes": 0,
+  "failures": 0,
+  "user_data_base": "C:\\Temp\\cwv-crowns-final\\mobile-touchfix-20261027",
+  "results": []
+}
