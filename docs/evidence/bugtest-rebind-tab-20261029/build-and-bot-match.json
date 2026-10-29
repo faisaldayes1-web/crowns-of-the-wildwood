@@ -1,0 +1,57 @@
+{
+  "runtime_commit": "fe29bbd31137b530bcfd4c39d12f145d0d4248d3",
+  "parent_commit": "4055075edcdf35f2902276ef538bd7ce2f3dfe99",
+  "production_file_sha256": "65c59b1a73310de5fbe3f84cc4380b88f16394b899e552503bc7201d0fbdf132",
+  "artifact_sha256": "6306c052d299db080e81799e59aaf32c74c3254b3ba6ef980a1796d54f728cd4",
+  "artifact_bytes": 176516400,
+  "canonical_bot_results": [
+    "RESULT winner=Elves score=2-0 t=554 overtime=false turrets=1/1 turret_kills=0/0 raid_deaths=7/4"
+  ],
+  "raw_overall": "FAIL",
+  "steps": [
+    {
+      "step": "idle-main-fetch",
+      "exit": 0,
+      "seconds": 2.06,
+      "raw_errors": 0,
+      "original_log_sha256": "ad85a68c02ec49da8a1b5fa0889ef6138363a2157f7933835f8b4b5f95acb05f"
+    },
+    {
+      "step": "isolated-candidate-worktree",
+      "exit": 0,
+      "seconds": 5.45,
+      "raw_errors": 0,
+      "original_log_sha256": "006893027c1dc6d0ad938e27cb8f9b0a5d611da8277b07ae65a1efd26fa27f1b"
+    },
+    {
+      "step": "cold-headless-import",
+      "exit": 0,
+      "seconds": 159.84,
+      "raw_errors": 0,
+      "original_log_sha256": "f74f7d93024739af64b2b5320972fa572a65a477b1e98499c96c92923539c306"
+    },
+    {
+      "step": "Windows-release-export",
+      "exit": 0,
+      "seconds": 104.0,
+      "raw_errors": 0,
+      "original_log_sha256": "6ee007364c425e566df92f994d6af6f77da67dd70368e621edcf0a8cd6b56f0e"
+    },
+    {
+      "step": "actual-candidate-userdata-probe",
+      "exit": 0,
+      "seconds": 3.95,
+      "raw_errors": 0,
+      "original_log_sha256": "b05823a5dfcc44cfe6b9e3be9bf09aa1b9545e9a15079addaeb9c40b107ae8e6"
+    },
+    {
+      "step": "canonical-README-bot-match",
+      "exit": 0,
+      "seconds": 711.86,
+      "raw_errors": 1565,
+      "original_log_sha256": "e78ada03891e42194f7cccdcda875aba67d042b9794b9a6e88e2e506d0a859ea"
+    }
+  ],
+  "scope": "Issue85 isolated scripts/game.gd tab-navigation eaten guard only. No art/scene/restyle/shareddeveloper/queue edits. Cold headless import, Windows release export, actual private player userdata probe before canonical README demo seed7/fixed60/quit45000. Demo is source-owned AI regression, not real-input proof; identical frozen nativeV2 red/green follows separately. All raw diagnostics preserved, no rendered/device/fullstyle/performance acceptance.",
+  "agent": "Codex-faisal3/bugtest"
+}

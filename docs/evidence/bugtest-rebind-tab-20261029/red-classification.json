@@ -1,0 +1,30 @@
+{
+  "source_sha": "4055075edcdf35f2902276ef538bd7ce2f3dfe99",
+  "passed": 12,
+  "failed": 1,
+  "events": 20,
+  "snapshots": 4,
+  "compound_predicate": {
+    "rebinding_finished": true,
+    "options_remains_open": true,
+    "stays_on_controls": false,
+    "intended_map_exact": true,
+    "controls_section_persisted": true,
+    "all_account_profile_core_unchanged": true,
+    "unrelated_cfg_unchanged": true,
+    "no_match_or_pause": true
+  },
+  "before_tab": 4,
+  "after_tab": 5,
+  "reason": "Actual A binding press persisted intended mapping but also drove unguarded menu_left navigation Controls4?Classes5. Source _input sets swallow_frame after _rebind; lower menu_tick tab-navigation block ignores eaten while title block checks it.",
+  "source_evidence": {
+    "input_lines": "game.gd3676-3694",
+    "menu_tab_lines": "game.gd3445-3451",
+    "source_sha256": "bbc8dac3f02dde1df6748e180cb0d2b4b50a165fd1989abc6ec85d585f648c50"
+  },
+  "raw_errors": 759,
+  "raw_overall": "FAIL",
+  "fresh_pngs": 0,
+  "rendered": false,
+  "agent": "Codex-faisal3/bugtest"
+}

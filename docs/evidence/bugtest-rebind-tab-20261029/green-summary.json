@@ -1,0 +1,52 @@
+{
+  "source_sha": "fe29bbd31137b530bcfd4c39d12f145d0d4248d3",
+  "raw_true": 39,
+  "raw_false": 0,
+  "native_events": 57,
+  "snapshots": 15,
+  "mapper_probes": 10,
+  "held_bind_actual_frames": 33,
+  "original_genuine_core_and_cfg_qualified": true,
+  "actual_private_userdata_before_copy_and_input": true,
+  "source_files_guarded": 1893,
+  "prior_files_guarded": 573,
+  "frozen_files_guarded": 9,
+  "raw_overall": "FAIL",
+  "fresh_pngs": 0,
+  "rendered": false,
+  "limits": "Normal Controls cancel/conflict/reset and natural three-EXE persistence with actual queued mapper probes. Readonly event descriptors omit deadzones and obscure properties; no live-match movement/rendered labels/physical controls/audio/performance/full-game acceptance. Historical headless errors remain raw overall FAIL when present.",
+  "proofs": [
+    {
+      "phase": "first",
+      "checks": 17,
+      "events": 26,
+      "states": 7,
+      "mapper_probes": 4,
+      "record": "C:\\Temp\\bugtest\\cycles\\20261029T102546Z\\crowns85-candidate-rebind-reset\\native-rebind-reset.json",
+      "record_sha256": "78fa15fcffd521cd28554ef5a9379a39deb35ef279a7155591bf0a9757e6d0fc"
+    },
+    {
+      "phase": "restart",
+      "checks": 13,
+      "events": 19,
+      "states": 5,
+      "mapper_probes": 4,
+      "record": "C:\\Temp\\bugtest\\cycles\\20261029T102546Z\\crowns85-candidate-rebind-reset\\native-rebind-reset-restart.json",
+      "record_sha256": "93dae949fef6b03da815c59b2d8aaaeaee7da2765b9daff548acda8c2ee02613"
+    },
+    {
+      "phase": "final",
+      "checks": 9,
+      "events": 12,
+      "states": 3,
+      "mapper_probes": 2,
+      "record": "C:\\Temp\\bugtest\\cycles\\20261029T102546Z\\crowns85-candidate-rebind-reset\\native-rebind-reset-final.json",
+      "record_sha256": "57ebb99e91351e6420e671d60a267eda46e8072ee21168b93e88d785877b027b"
+    }
+  ],
+  "raw_diagnostic_signatures": {
+    "ERROR: Not supported by this display server.": 1828,
+    "ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#ID>'. Signal: 'skeleton_updated', callable: ''.": 129
+  },
+  "agent": "Codex-faisal3/bugtest"
+}

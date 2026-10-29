@@ -1,0 +1,21 @@
+{
+  "at": "2026-10-29T10:42:50.086397+00:00",
+  "original_auditor_sha256": "a85910ca945f298c3ff9942431534e3071be094b8ec32ed4446f56573fcb8179",
+  "first_exit": 1,
+  "original_exception": "KeyError: 'difficulty'",
+  "original_stop_line": 142,
+  "original_earned_sha256": "85ffff0f3125a04614f9f2ecbf142a687c6a80650035df1703861bdbb8d756da",
+  "original_receipt_has_top_level_difficulty": false,
+  "original_cfg_has_settings_bot_difficulty": true,
+  "actual_initial_cfg_exactly_equals_earned_cfg": true,
+  "difficulty_equals_original_cfg": true,
+  "raw_native_checks": 39,
+  "raw_native_failures": 0,
+  "corrected_auditor_sha256": "9c020da2d5620567d3bc7b370e6035bfbe6118afe1f27c72a62fd5e1634cbbf0",
+  "change": "Only older-receipt difficulty schema comparison: all common core fields exact; difficulty derived from original CFG settings and complete CFG/hash equality retained. Every per-phase difficulty/core/source/profile/event/map/count/diagnostic/process assertion unchanged.",
+  "game_replayed": false,
+  "test_fixture_changed": false,
+  "production_changed": false,
+  "original_failure_retained": true,
+  "agent": "Codex-faisal3/bugtest"
+}

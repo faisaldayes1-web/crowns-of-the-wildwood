@@ -1,0 +1,202 @@
+# Agent: Codex-faisal3/bugtest. V2 source-admitted route: mapper probes only inside Controls; A normal menu alias recovered by actual Right. Original fixture never executed.
+# Agent: Codex-faisal3/bugtest. Native settings hit-region driver; readonly settings/profile/file witnesses.
+extends SceneTree
+var app
+var receipt:=""
+var p1:=""
+var p2:=""
+var first_proof:=""
+var restart:=false
+var failures:=0
+var q:={"agent":"Codex-faisal3/bugtest","checks":[],"events":[],"states":[],"completed":false,"focus_bootstraps":0,"rendered":false,"tester_termination":true}
+func _initialize()->void:_run.call_deferred()
+func write_record()->void:
+	q.failures=failures
+	if not receipt.is_empty():
+		var f:=FileAccess.open(receipt,FileAccess.WRITE)
+		if f:f.store_string(JSON.stringify(q,"  "))
+func check(ok:bool,label:String)->bool:
+	q.checks.append({"label":label,"pass":ok});print("BUGTEST_CHECK ",JSON.stringify(q.checks[-1]))
+	if not ok:failures+=1
+	write_record();return ok
+func frames(n:int)->void:
+	for i in n:
+		if FileAccess.file_exists("C:/Temp/ory-remote/Codex-faisal3-bugtest.PAUSE"):q.error="PAUSE retained";write_record();quit(3);return
+		await process_frame
+func equal(a,b)->bool:return JSON.parse_string(JSON.stringify(a))==JSON.parse_string(JSON.stringify(b))
+func cfg(path:String)->Dictionary:
+	var c:=ConfigFile.new();var e:=c.load(path)
+	if e!=OK:return {"load_error":e,"path":path}
+	var v:={}
+	for section in c.get_sections():
+		v[section]={}
+		for k in c.get_section_keys(section):v[section][k]=c.get_value(section,k)
+	return v
+func profiles()->Dictionary:
+	var v:={}
+	for f in DirAccess.get_files_at("user://profiles"):
+		if f.ends_with(".cfg"):v[f.trim_suffix(".cfg")]=cfg("user://profiles/"+f)
+	return v
+func preferences()->Dictionary:return {"pad_style":app.pad_style,"split_layout":app.split_layout}
+func wallet()->Dictionary:return {"xp":app.account_xp,"gold":app.account_gold,"shards":app.account_shards,"chests":app.account_chests,"owned":app.owned_items.duplicate(true)}
+func gear()->Dictionary:return {"hair_style":app.hero_hair_style,"hair":app.hero_hair,"weapon":app.hero_weapon,"outfit":app.hero_outfit,"hat":app.hero_hat,"cape":app.hero_cape,"trim":app.hero_trim}
+func state(label:String)->Dictionary:
+	var s:={"label":label,"profile":app.profile_id,"name":app.hero_name,"difficulty":app.bot_difficulty,"prefs":preferences(),"wallet":wallet(),"gear":gear(),"audio":{"sound":app.sfx.sound_volume,"music":app.sfx.music_volume},"cfg":cfg("user://controls.cfg"),"profiles":profiles(),"menu_open":app.menu_open,"menu_tab":app.menu_tab,"screen":app.main_menu.screen,"overlay":app.main_menu.overlay,"playing":app.playing,"tree_paused":paused,"controls_sha256":FileAccess.get_sha256("user://controls.cfg")}
+	q.states.append(s);write_record();print("BUGTEST_PREF_STATE ",JSON.stringify(s));return s
+func menu_point(id:String,arg=null,match_arg:=false)->Vector2:
+	for row in app.hud.menu_buttons:
+		if row[1]==id and (not match_arg or equal(row[2],arg)):return row[0].get_center()
+	return Vector2(-1,-1)
+func toggle_point(id:String)->Vector2:
+	for row in app.hud.toggle_buttons:
+		if row[1]==id:return row[0].get_center()
+	return Vector2(-1,-1)
+func pointer(point:Vector2,label:String)->bool:
+	if not check(Rect2(Vector2.ZERO,Vector2(root.size)).has_point(point),"actual recorded native hit-region within viewport: "+label):return false
+	var m:=InputEventMouseMotion.new();m.position=point;m.global_position=point;record_input({"kind":"motion","target":label,"point":[point.x,point.y]});write_record();Input.parse_input_event(m);await frames(1)
+	for pressed in [true,false]:
+		var e:=InputEventMouseButton.new();e.position=point;e.global_position=point;e.button_index=MOUSE_BUTTON_LEFT;e.pressed=pressed;record_input({"kind":"mouse","target":label,"point":[point.x,point.y],"pressed":pressed});write_record();Input.parse_input_event(e);await frames(2)
+	await frames(12);return true
+func menu_click(id:String,arg=null,match_arg:=false)->bool:return await pointer(menu_point(id,arg,match_arg),"menu:"+id+(":"+str(arg) if match_arg else ""))
+func escape()->void:
+	for pressed in [true,false]:
+		var e:=InputEventKey.new();e.keycode=KEY_ESCAPE;e.physical_keycode=KEY_ESCAPE;e.pressed=pressed;record_input({"kind":"key","key":"Escape","pressed":pressed});write_record();Input.parse_input_event(e);await frames(3)
+	await frames(8)
+func switch_to(id:String)->bool:
+	if not await menu_click("players"):return false
+	if not await menu_click("player_play",id,true):return false
+	if not await menu_click("close"):return false
+	return check(app.profile_id==id and app.main_menu.screen=="title" and app.main_menu.overlay=="" and not app.menu_open,"native PlayAs/Close exactprofile "+id)
+func finish(code:int,reason:String)->void:
+	q.completed=code==0 and failures==0;q.reason=reason;write_record();print("BUGTEST_RESULT ",JSON.stringify({"agent":"Codex-faisal3/bugtest","failures":failures,"checks":q.checks.size(),"native_events":q.events.size(),"completed":q.completed,"tester_termination":true,"rendered":false}));quit(code)
+const Rules=preload("res://scripts/stats.gd")
+func key_event(code:Key,pressed:bool)->void:
+	var e:=InputEventKey.new();e.keycode=code;e.physical_keycode=code;e.pressed=pressed;record_input({"kind":"key","key":OS.get_keycode_string(code),"keycode":int(code),"pressed":pressed,"frame":Engine.get_process_frames()});write_record();Input.parse_input_event(e)
+func tap(code:Key)->void:
+	key_event(code,true);await frames(3);key_event(code,false);await frames(8)
+func same_core(a:Dictionary,b:Dictionary)->bool:
+	for k in ["profile","name","prefs","wallet","gear","audio","profiles"]:
+		if not equal(a[k],b[k]):return false
+	return true
+func tabs_step(code:Key,want:int,label:String,baseline:Dictionary)->bool:
+	await tap(code);var s:=state(label)
+	if not check(app.menu_open and app.menu_tab==want and equal(app.hud.tab_ids,[5,4,1,6]),"native tab route "+label+" expected"+str(want)):return false
+	if not check(s.difficulty==baseline.difficulty and equal(s.cfg,baseline.cfg) and s.controls_sha256==baseline.controls_sha256 and same_core(s,baseline),"Options arrows preserveTitle difficulty/fullcfgbytes/profiles "+label):return false
+	return true
+
+# Agent: Codex-faisal3/bugtest. Input/config witnesses only; no model/InputMap/save setters.
+func record_input(row:Dictionary)->void:
+	row.sequence=q.events.size()+1;row.frame=Engine.get_process_frames();row.real_usec=Time.get_ticks_usec();q.events.append(row)
+func describe_event(ev:InputEvent)->Dictionary:
+	var v:={"kind":ev.get_class(),"device":ev.device}
+	if ev is InputEventKey:
+		v.code=int(ev.physical_keycode if ev.physical_keycode!=0 else ev.keycode)
+		v.shift=ev.shift_pressed;v.ctrl=ev.ctrl_pressed;v.alt=ev.alt_pressed;v.meta=ev.meta_pressed
+	elif ev is InputEventMouseButton:v.code=int(ev.button_index)
+	elif ev is InputEventJoypadButton:v.code=int(ev.button_index)
+	elif ev is InputEventJoypadMotion:v.axis=int(ev.axis);v.value=ev.axis_value
+	else:v.text=ev.as_text()
+	return v
+func event_less(a:Dictionary,b:Dictionary)->bool:return JSON.stringify(a)<JSON.stringify(b)
+func maps()->Dictionary:
+	var v:={}
+	for action in InputMap.get_actions():
+		var list:Array=[]
+		for ev in InputMap.action_get_events(action):list.append(describe_event(ev))
+		list.sort_custom(event_less);v[str(action)]=list
+	return v
+func witness(label:String)->Dictionary:
+	var s:=state(label);s.maps=maps();s.rebinding=app.rebinding;q.states[q.states.size()-1]=s;write_record();return s
+func no_controls(c:Dictionary)->Dictionary:
+	var v:=c.duplicate(true);v.erase("controls");return v
+func basic_unchanged(a:Dictionary,b:Dictionary)->bool:
+	return same_core(a,b) and a.difficulty==b.difficulty and equal(no_controls(a.cfg),no_controls(b.cfg)) and not a.playing and not a.tree_paused
+func binding_point(action:String)->Vector2:
+	for row in app.hud.bind_buttons:
+		if row[1]==action:return row[0].get_center()
+	return Vector2(-1,-1)
+func open_controls()->bool:
+	await tap(KEY_O);await tap(KEY_RIGHT)
+	return check(app.menu_open and app.menu_tab==4 and app.rebinding=="" and app.hud.controls_group==0,"native O/Right opens Controls movement group")
+func arm(action:String)->bool:
+	if not await pointer(binding_point(action),"bind:"+action):return false
+	return check(app.rebinding==action and app.menu_open and app.menu_tab==4,"native row click arms only "+action+"; selecting click was swallowed")
+func probe_key(code:Key,up:bool,left:bool,label:String)->bool:
+	key_event(code,true);await frames(3)
+	var got:={"label":label,"up":Input.is_action_pressed("move_up"),"left":Input.is_action_pressed("move_left"),"frame":Engine.get_process_frames()}
+	q.mapping_probes.append(got);write_record()
+	var ok:=check(got.up==up and got.left==left,"actual queued key mapper "+label)
+	key_event(code,false);await frames(8);return ok
+func expected_conflict(original:Dictionary)->Dictionary:
+	var v:=original.duplicate(true)
+	for entry in app.REBINDABLE:
+		var action:String=entry[0];var keep:Array=[]
+		for item in original[action]:
+			if item.kind=="InputEventKey" and (action=="move_up" or int(item.code)==int(KEY_A)):continue
+			keep.append(item.duplicate(true))
+		if action=="move_up":keep.append({"kind":"InputEventKey","device":0,"code":int(KEY_A),"shift":false,"ctrl":false,"alt":false,"meta":false})
+		keep.sort_custom(event_less);v[action]=keep
+	return v
+func _run()->void:
+	var prefix_path:="";var phase:="first"
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--bugtest-user-prefix="):prefix_path=a.trim_prefix("--bugtest-user-prefix=").replace("\\","/").trim_suffix("/")
+		if a.begins_with("--bugtest-receipt="):receipt=a.trim_prefix("--bugtest-receipt=")
+		if a.begins_with("--bugtest-first-proof="):first_proof=a.trim_prefix("--bugtest-first-proof=")
+		if a.begins_with("--bugtest-phase="):phase=a.trim_prefix("--bugtest-phase=")
+	q.phase=phase;q.mapping_probes=[];var actual:=OS.get_user_data_dir().replace("\\","/");q.storage={"actual":actual,"default_profile":ProjectSettings.globalize_path("user://profiles/p1.cfg")};print("BUGTEST_STORAGE ",JSON.stringify(q.storage))
+	if not check(phase in ["first","restart","final"] and not prefix_path.is_empty() and actual.begins_with(prefix_path+"/") and q.storage.default_profile.replace("\\","/")==actual+"/profiles/p1.cfg","actual private Godot userdata/default profile before native input"):finish(92,"userdata");return
+	root.size=Vector2i(1280,720);change_scene_to_file(ProjectSettings.get_setting("application/run/main_scene"));await frames(5);app=current_scene;var deadline:=Time.get_ticks_msec()+120000
+	while app!=null and (app.main_menu==null or app.menus_warming or is_instance_valid(app.loading_layer)):
+		if Time.get_ticks_msec()>deadline:finish(92,"normal startup deadline");return
+		await frames(1)
+	await frames(3)
+	if not check(app!=null and not app.playing and not app.menu_open and app.main_menu.screen=="title" and not app.name_editing,"normal current405 title with genuine name editor closed"):finish(1,"startup");return
+	var initial:=witness("initial "+phase);q.initial=initial
+	if phase=="first":
+		if not check(not initial.cfg.has("controls") and initial.profile=="p1" and initial.profiles.size()==2,"genuine untouched default controls and two earned profiles"):finish(1,"baseline");return
+		if not await open_controls():finish(1,"open controls before mapper probes");return
+		if not await probe_key(KEY_W,true,false,"default W maps up"):finish(1,"baseline W");return
+		if not await probe_key(KEY_A,false,true,"default A maps left"):finish(1,"baseline A");return
+		await tap(KEY_RIGHT);var routed:=witness("Controls restored after A alias first")
+		if not check(app.menu_open and app.menu_tab==4 and equal(routed.maps,initial.maps) and equal(routed.cfg,initial.cfg) and routed.controls_sha256==initial.controls_sha256 and basic_unchanged(routed,initial),"normal A alias then Right preserves all saved state inside Controls"):finish(1,"first alias route");return
+		if not await arm("move_up"):finish(1,"arm cancel");return
+		await tap(KEY_ESCAPE);var canceled:=witness("Escape cancels binding")
+		if not check(app.rebinding=="" and app.menu_open and app.menu_tab==4 and equal(canceled.maps,initial.maps) and equal(canceled.cfg,initial.cfg) and canceled.controls_sha256==initial.controls_sha256 and basic_unchanged(canceled,initial),"native Escape cancels only pending rebind; full map/CFG bytes/profile preserved"):finish(1,"cancel");return
+		if not await arm("move_up"):finish(1,"arm actual bind");return
+		key_event(KEY_A,true);await frames(3);var changed:=witness("native move_up A conflict bind")
+		if not check(app.rebinding=="" and app.menu_open and app.menu_tab==4 and equal(changed.maps,expected_conflict(initial.maps)) and changed.cfg.has("controls") and basic_unchanged(changed,initial),"native A bind replaces only up keyboard and removes left A; other key/mouse/pad/motion maps and account intact"):key_event(KEY_A,false);finish(1,"bind conflict");return
+		await frames(30);var held:=witness("native bind key held thirty more frames")
+		if not check(equal(held.maps,changed.maps) and equal(held.cfg,changed.cfg) and held.controls_sha256==changed.controls_sha256 and basic_unchanged(held,initial),"held native bind produces no extra map/save/account mutation"):key_event(KEY_A,false);finish(1,"held bind");return
+		key_event(KEY_A,false);await frames(8)
+		if not await probe_key(KEY_A,true,false,"changed A maps up not left"):finish(1,"changed A");return
+		if not await probe_key(KEY_W,false,false,"old W no longer maps up"):finish(1,"changed W");return
+		await tap(KEY_ESCAPE);q.changed=witness("native binding saved before separate executable")
+		if not check(not app.menu_open and equal(q.changed.maps,changed.maps) and equal(q.changed.cfg,changed.cfg) and basic_unchanged(q.changed,initial),"close Controls preserves only intended binding change"):finish(1,"first final");return
+	else:
+		var first:Dictionary=JSON.parse_string(FileAccess.get_file_as_string(first_proof))
+		if not check(first.completed and first.phase=="first","frozen first-phase receipt qualified before dependent restart"):finish(1,"first proof");return
+		if phase=="restart":
+			if not check(equal(initial.maps,first.changed.maps) and equal(initial.cfg,first.changed.cfg) and basic_unchanged(initial,first.initial),"separate executable loads actual changed controls with all other map/account/profile state preserved"):finish(1,"restart map");return
+			if not await open_controls():finish(1,"restart Controls before mapper probes");return
+			if not await probe_key(KEY_A,true,false,"restart A still maps up not left"):finish(1,"restart A");return
+			if not await probe_key(KEY_W,false,false,"restart old W remains unbound"):finish(1,"restart W");return
+			await tap(KEY_RIGHT);var routed:=witness("Controls restored after A alias restart")
+			if not check(app.menu_open and app.menu_tab==4 and equal(routed.maps,initial.maps) and equal(routed.cfg,initial.cfg) and routed.controls_sha256==initial.controls_sha256 and basic_unchanged(routed,initial),"normal restart A alias then Right preserves saved changed map and account"):finish(1,"restart alias route");return
+			if not await pointer(app.hud.reset_button.get_center(),"normal Reset Controls"):finish(1,"reset point");return
+			var reset:=witness("native Reset Controls")
+			if not check(app.rebinding=="" and app.menu_open and app.menu_tab==4 and equal(reset.maps,first.initial.maps) and equal(reset.cfg,first.initial.cfg) and not reset.cfg.has("controls") and basic_unchanged(reset,first.initial),"native Reset restores complete observed default map/CFG without deleting earned account/profiles/settings"):finish(1,"reset semantics");return
+			if not await probe_key(KEY_W,true,false,"reset W maps up"):finish(1,"reset W");return
+			if not await probe_key(KEY_A,false,true,"reset A maps left"):finish(1,"reset A");return
+			await tap(KEY_ESCAPE);q.reset=witness("native reset saved before final executable")
+			if not check(not app.menu_open and equal(q.reset.maps,first.initial.maps) and equal(q.reset.cfg,first.initial.cfg) and basic_unchanged(q.reset,first.initial),"normal Controls close after reset preserves exact default state"):finish(1,"reset final");return
+		else:
+			if not check(equal(initial.maps,first.initial.maps) and equal(initial.cfg,first.initial.cfg) and basic_unchanged(initial,first.initial),"third executable persists default binding reset and genuine full account/profile state"):finish(1,"final defaults");return
+			if not await open_controls():finish(1,"final Controls before mapper probes");return
+			if not await probe_key(KEY_W,true,false,"final W maps up"):finish(1,"final W");return
+			if not await probe_key(KEY_A,false,true,"final A maps left"):finish(1,"final A");return
+			await tap(KEY_RIGHT);var routed:=witness("Controls restored after A alias final")
+			if not check(app.menu_open and app.menu_tab==4 and equal(routed.maps,initial.maps) and equal(routed.cfg,initial.cfg) and routed.controls_sha256==initial.controls_sha256 and basic_unchanged(routed,initial),"normal final A alias then Right preserves reset map and saved account"):finish(1,"final alias route");return
+			await tap(KEY_ESCAPE)
+			if not check(not app.menu_open and app.rebinding=="","final native O/Right/Escape route remains usable"):finish(1,"final UI");return
+	q.final=witness("final "+phase);finish(0,"Native Controls cancel/conflict/held-input/reset/restart mapper witnesses only;0 PNG/no rendered/physical/audio/performance/fullmatch acceptance")

@@ -1,0 +1,189 @@
+"""Agent: Codex-faisal3/bugtest. Read original finite native evidence; never replay."""
+from pathlib import Path
+import datetime as dt
+import hashlib
+import json
+import os
+import re
+import subprocess
+import sys
+sys.path[:0] = ['C:/Temp/bugtest', 'C:/Temp/bugtest/setup']
+import runner
+from source_bound_adoption import efficient_checkout
+
+r = runner.ROOT
+read = lambda p: json.loads(Path(p).read_text(encoding='utf-8-sig'))
+sha = lambda p: hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+def tree_hashes(folder):
+    p = Path(folder)
+    return {str(f.relative_to(p)): sha(f) for f in p.rglob('*') if f.is_file()} if p.exists() else {}
+
+def map_sets(value):
+    return {k: sorted(json.dumps(x, sort_keys=True) for x in v) for k, v in value.items()}
+
+def core(s):
+    return {k: s[k] for k in ['profile', 'name', 'difficulty', 'prefs', 'wallet', 'gear', 'audio', 'profiles']}
+
+def non_controls(s):
+    return {k: v for k, v in s['cfg'].items() if k != 'controls'}
+
+def native_events(q, spec):
+    events = q['events']
+    expected = []
+    for kind, value, hold in spec:
+        if kind == 'key':
+            expected.extend([('key', value, True, hold), ('key', value, False, None)])
+        else:
+            expected.extend([('motion', value, None, 1), ('mouse', value, True, 2), ('mouse', value, False, None)])
+    assert len(events) == len(expected)
+    for i, (e, (kind, value, pressed, hold)) in enumerate(zip(events, expected)):
+        assert e['sequence'] == i + 1 and e['kind'] == kind
+        assert e['key' if kind == 'key' else 'target'] == value
+        assert isinstance(e['frame'], int) and e['frame'] >= 0 and e['real_usec'] >= 0
+        if pressed is not None:
+            assert e['pressed'] is pressed
+        if kind == 'key':
+            assert isinstance(e['keycode'], int) and e['keycode'] > 0
+            if value in ['A', 'W', 'O']:
+                assert e['keycode'] == ord(value)
+            if pressed:
+                assert events[i + 1]['keycode'] == e['keycode']
+        else:
+            assert len(e['point']) == 2 and 0 <= e['point'][0] < 1280 and 0 <= e['point'][1] < 720
+            if hold is not None:
+                assert events[i + 1]['point'] == e['point']
+        if hold is not None:
+            assert events[i + 1]['frame'] - e['frame'] == hold
+    assert all(b['frame'] >= a['frame'] and b['real_usec'] >= a['real_usec'] for a, b in zip(events, events[1:]))
+
+def diagnostic(line):
+    return re.sub(r'Skeleton3D:<Skeleton3D#\d+>', 'Skeleton3D:<Skeleton3D#ID>', line)
+
+def main():
+    jp = r/'jobs/crowns85-candidate-rebind-reset.json'
+    assert jp.exists(), 'Prepared auditor only: original native job does not exist'
+    j = read(jp)
+    assert j['status'] == 'EXITED' and not j.get('error')
+    assert j['source_artifact_unchanged'] and j['ordinary_unchanged'] and j['all_prior_profile_fixtures_unchanged']
+    assert len(j['results']) == 5
+    p = read(r/'setup/next-crowns85-candidate-rebind-reset-plan.json')
+    prepared = read(r/'setup/crowns85-candidate-rebind-reset-prepared.json')
+    o, repo = Path(j['output']), Path(j['repo'])
+    assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repo, creationflags=subprocess.CREATE_NO_WINDOW).decode().strip() == j['source_sha'] == p['source_sha']
+    assert len(j['source_files_sha256']) == 1893
+    assert all(sha(repo/k) == v for k, v in j['source_files_sha256'].items())
+    assert sha(Path(j['artifact']['path'])) == j['artifact']['sha256']
+    assert all(sha(k) == v for k, v in j['protected_files_before'].items())
+    assert all(sha(k) == v for k, v in j['frozen_files_before'].items())
+    assert tree_hashes(j['original_profile']) == j['original_profile_before']
+    assert tree_hashes(Path(os.environ['APPDATA'])/'Godot/app_userdata') == j['ordinary_before']
+    assert sha(o/'executed-controller.py') == sha(prepared['controller']) == prepared['controller_sha256']
+    assert sha(j['fixture']) == j['fixture_sha256'] == prepared['fixture_sha256']
+    assert sha(p['genuine_proof']) == p['genuine_proof_sha256'] and sha(p['genuine_cfg']) == p['genuine_cfg_sha256']
+    assert j['storage_qualification']['qualified']
+    actual = Path(j['storage_qualification']['actual_profile']).parent.parent.resolve()
+    assert actual.is_relative_to((o/'private-profile/APPDATA').resolve())
+    old = read(r/'jobs/crowns405-native-keyboard-options.json')
+    allowed = {diagnostic(line) for result in old['results'] for line in result['errors']}
+    raw_errors, proofs, phases = [], [], []
+    labels = ['native-rebind-reset', 'native-rebind-reset-restart', 'native-rebind-reset-final']
+    k = lambda name, hold=3: ('key', name, hold)
+    mouse = lambda name: ('pointer', name, 0)
+    specs = [
+        [k('O'), k('Right'), k('W'), k('A'), k('Right'), mouse('bind:move_up'), k('Escape'), mouse('bind:move_up'), k('A', 33), k('A'), k('W'), k('Escape')],
+        [k('O'), k('Right'), k('A'), k('W'), k('Right'), mouse('normal Reset Controls'), k('W'), k('A'), k('Escape')],
+        [k('O'), k('Right'), k('W'), k('A'), k('Right'), k('Escape')],
+    ]
+    probe_values = [[(True, False), (False, True), (True, False), (False, False)], [(True, False), (False, False), (True, False), (False, True)], [(True, False), (False, True)]]
+    for result in j['results']:
+        text = Path(result['log']).read_text(encoding='utf-8', errors='replace')
+        lines = text.splitlines()
+        errors = [v for v in lines if re.search(r'^ERROR:|SCRIPT ERROR|Parse Error', v)]
+        assert errors == result['errors'] and all(diagnostic(v) in allowed for v in errors), 'Unexpected diagnostic: classify original evidence, never replay for green'
+        assert result['exit'] == 0
+        raw_errors += errors
+        if result['step'] not in labels:
+            continue
+        index = labels.index(result['step'])
+        q = read(result['native_receipt'])
+        assert q['phase'] == ['first', 'restart', 'final'][index] and q['completed'] and q['failures'] == 0 and not q.get('error')
+        assert q['rendered'] is False and q['tester_termination'] and q['focus_bootstraps'] == 0
+        assert len(q['checks']) == [17, 13, 9][index] and all(x['pass'] for x in q['checks'])
+        assert q['checks'] == result['checks']
+        logged_checks = [json.loads(v.split('BUGTEST_CHECK ', 1)[1]) for v in lines if v.startswith('BUGTEST_CHECK ')]
+        summaries = [json.loads(v.split('BUGTEST_RESULT ', 1)[1]) for v in lines if v.startswith('BUGTEST_RESULT ')]
+        assert logged_checks == q['checks'] and summaries == result['summaries'] and len(summaries) == 1
+        assert result['functional_pass'] and summaries[0]['completed'] and summaries[0]['failures'] == 0
+        assert summaries[0]['checks'] == len(q['checks']) and summaries[0]['native_events'] == len(q['events'])
+        assert summaries[0]['rendered'] is False and summaries[0]['tester_termination']
+        assert len(q['states']) == [7, 5, 3][index]
+        assert result['actual_path_matches_probe'] and Path(q['storage']['actual']).resolve() == actual
+        assert Path(q['storage']['default_profile']).resolve() == actual/'profiles/p1.cfg'
+        native_events(q, specs[index])
+        assert [(v['up'], v['left']) for v in q['mapping_probes']] == probe_values[index]
+        press_indices = [[4, 6, 20, 22], [4, 6, 13, 15], [4, 6]][index]
+        assert all(probe['frame'] - q['events'][i]['frame'] == 3 for probe, i in zip(q['mapping_probes'], press_indices))
+        for state in q['states']:
+            assert core(state) == core(q['initial']) and non_controls(state) == non_controls(q['initial'])
+            assert not state['playing'] and not state['tree_paused'] and state['profile'] == 'p1'
+        logged_states = [json.loads(v.split('BUGTEST_PREF_STATE ', 1)[1]) for v in lines if v.startswith('BUGTEST_PREF_STATE ')]
+        # The fixture emits the state immediately before appending readonly maps/rebinding.
+        assert [{a: b for a, b in s.items() if a not in ['maps', 'rebinding']} for s in q['states']] == logged_states
+        phases.append(q)
+        proofs.append(dict(phase=q['phase'],checks=len(q['checks']),events=len(q['events']),states=len(q['states']),mapper_probes=len(q['mapping_probes']),record=result['native_receipt'],record_sha256=sha(result['native_receipt'])))
+    assert len(phases) == 3 and [z['step'] for z in j['results']] == ['actual-user-path', 'external-fixture-parse', *labels]
+    first, restart, final = phases
+    initial, routed, canceled, changed, held, saved, last = first['states']
+    for phase in phases:
+        alias=phase['states'][1];assert alias['menu_open'] and alias['menu_tab']==4 and alias['rebinding']==''
+        assert map_sets(alias['maps'])==map_sets(phase['initial']['maps']) and alias['cfg']==phase['initial']['cfg'] and alias['controls_sha256']==phase['initial']['controls_sha256']
+    earned = read(p['genuine_proof'])['final']
+    # The already-qualified older receipt has no top-level difficulty field.
+    # Preserve the full CFG equality and prove difficulty from its original settings.
+    assert 'difficulty' not in earned and earned['cfg']['settings']['bot_difficulty'] == initial['difficulty']
+    assert {k:v for k,v in core(initial).items() if k != 'difficulty'} == {k:earned[k] for k in core(initial) if k != 'difficulty'}
+    assert initial['cfg'] == earned['cfg'] and initial['controls_sha256'] == earned['controls_sha256']
+    assert set(initial['profiles']) == {'p1', 'p2'} and 'controls' not in initial['cfg']
+    assert canceled['cfg'] == initial['cfg'] and canceled['controls_sha256'] == initial['controls_sha256'] and map_sets(canceled['maps']) == map_sets(initial['maps'])
+    assert canceled['menu_open'] and canceled['menu_tab'] == 4 and canceled['rebinding'] == ''
+    source_text = (repo/'scripts/game.gd').read_text(encoding='utf-8')
+    rebindable = json.loads(source_text.split('const REBINDABLE :=', 1)[1].split('const MENU_TABS', 1)[0].strip())
+    expected = json.loads(json.dumps(initial['maps']))
+    for action, _ in rebindable:
+        expected[action] = [v for v in expected[action] if not (v['kind'] == 'InputEventKey' and (action == 'move_up' or v['code'] == 65))]
+    expected['move_up'].append(dict(kind='InputEventKey',device=0,code=65,shift=False,ctrl=False,alt=False,meta=False))
+    assert map_sets(changed['maps']) == map_sets(expected) and 'controls' in changed['cfg']
+    for state in [changed, held]:
+        assert state['menu_open'] and state['menu_tab'] == 4 and state['rebinding'] == ''
+    for state in [held, saved, last, restart['initial']]:
+        assert map_sets(state['maps']) == map_sets(changed['maps']) and state['cfg'] == changed['cfg'] and state['controls_sha256'] == changed['controls_sha256']
+    assert first['changed'] == saved and first['final'] == last and not saved['menu_open']
+    for q in [restart, final]:
+        assert core(q['initial']) == core(initial) and non_controls(q['initial']) == non_controls(initial)
+    for state in restart['states'][2:] + final['states']:
+        assert map_sets(state['maps']) == map_sets(initial['maps']) and state['cfg'] == initial['cfg'] and 'controls' not in state['cfg']
+    assert restart['reset'] == restart['states'][3] and not restart['reset']['menu_open']
+    assert not final['final']['menu_open'] and final['final']['rebinding'] == ''
+    assert sha(actual/'controls.cfg') == final['final']['controls_sha256']
+    process_records = list(o.glob('*.process.json'))
+    assert len(process_records) == 5
+    for path in process_records:
+        proc = read(path)
+        assert proc['status'] == 'EXITED' and proc['exit'] == 0 and '--headless' in proc['command'] and Path(proc['source_repo']).resolve() == repo.resolve()
+    rows = runner.process_inventory()
+    records = list((r/'cycles').rglob('*.process.json')) + list((r/'setup').rglob('*.process.json'))
+    groups = {g: efficient_checkout(runner.tester_repo(g), rows, records) for g in runner.ROSTER}
+    groups['mobile112-candidate'] = efficient_checkout(r/'mobile112-pause-history-fix', rows, records)
+    groups['Prince-owner-package'] = efficient_checkout(Path(read(r/'jobs/prince6ce9-owner-package-download.json')['package_root'])/'Game', rows, records)
+    identity = read(r/'setup/crowns85-candidate-rebind-reset-launch.json')['controller_identity']
+    assert not any(groups.values()) and not any(runner.same_process(identity, row) for row in rows)
+    assert not list(o.rglob('*.png'))
+    result = dict(agent='Codex-faisal3/bugtest',at=dt.datetime.now(dt.timezone.utc).isoformat(),job=str(jp),source_sha=j['source_sha'],output=str(o),bounded_case_complete=True,raw_true=39,raw_false=0,native_events=57,snapshots=15,mapper_probes=10,proofs=proofs,guards='PASS',held_bind_actual_frames=33,original_genuine_core_and_cfg_qualified=True,actual_private_userdata_before_copy_and_input=True,source_files_guarded=len(j['source_files_sha256']),prior_files_guarded=len(j['protected_files_before']),frozen_files_guarded=len(j['frozen_files_before']),raw_errors=raw_errors,raw_overall=j['overall_status'],all10_idle_counts={k:len(v) for k,v in groups.items()},exact_controller_absent=identity,process_records=[str(p) for p in process_records],fresh_pngs=0,rendered=False,native_replay=False,new_game_bug=False,limits='Normal Controls cancel/conflict/reset and natural three-EXE persistence with actual queued mapper probes. Readonly event descriptors omit deadzones and obscure properties; no live-match movement/rendered labels/physical controls/audio/performance/full-game acceptance. Historical headless errors remain raw overall FAIL when present.')
+    assert j['overall_status'] == ('FAIL' if raw_errors else 'PASS')
+    target = r/'setup/crowns85-candidate-rebind-reset-closeout.json'
+    runner.atomic_json(target, result)
+    print('AUDIT original native records only', target, '39/0 checks;57 queued input events;raw', j['overall_status'])
+
+if __name__ == '__main__':
+    main()
