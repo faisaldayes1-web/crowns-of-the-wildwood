@@ -10718,6 +10718,12 @@ func _style_light() -> void:
 	## touch more colour. Day, the Moonlit Wildwood and Ember Pass each keep
 	## their mood; only the match world gets it (style_live, set at the
 	## match start), so the menus' lighting is untouched.
+	# Worlds are reused between matches: restore the original occlusion on
+	# non-day variants, rather than leaking the day grade into night/Ember.
+	var daylight: bool = not vmap and season == "" and not night()
+	world_environment.ssao_radius = StyleProfile.DAY.ao_radius if daylight else 1.1
+	world_environment.ssao_intensity = StyleProfile.DAY.ao_intensity if daylight else 3.2
+	world_environment.ssao_power = StyleProfile.DAY.ao_power if daylight else 1.2
 	if vmap:
 		world_environment.ambient_light_energy = StyleProfile.EMBER.ambient_energy
 		return

@@ -69,10 +69,13 @@ const WATER_OPEN_FOAM := 0.25  # foam keeps to the banks; open-water patches rea
 
 # Light grades, applied when the match starts (never on the menus).
 const DAY := {
-	"sun_color": Color(1.0, 0.9, 0.74), "sun_energy": 1.45,
-	"ambient_energy": 0.22, "ambient_color": Color(0.58, 0.64, 0.86), "ambient_sky": 0.3,
-	"saturation": 1.15, "contrast": 1.1, "brightness": 1.0,
-	"fog_color": Color(0.96, 0.86, 0.68), "fill_energy": 0.12,
+	# Native matched-camera comparison: cream stone retains its local colour;
+	# softer contact shade separates the blocks without a muddy yellow cast.
+	"sun_color": Color(1.0, 0.96, 0.88), "sun_energy": 1.30,
+	"ambient_energy": 0.35, "ambient_color": Color(0.60, 0.68, 0.82), "ambient_sky": 0.40,
+	"saturation": 1.08, "contrast": 1.08, "brightness": 1.0,
+	"fog_color": Color(0.96, 0.86, 0.68), "fill_energy": 0.16,
+	"ao_radius": 0.8, "ao_intensity": 1.6, "ao_power": 1.1,
 }
 # Night readability (visual pass 2026-10-16, claude-faisallaptop): a brighter
 # moon and a little more ambient, so units, paths and walls read in the
