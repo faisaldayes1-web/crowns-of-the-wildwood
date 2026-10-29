@@ -8,6 +8,7 @@ const SaveFile = preload("res://scripts/save_file.gd")
 var failures := 0
 var baseline := false
 var evidence := ""
+var expected_hidden := false
 
 
 func check(ok: bool, message: String) -> void:
@@ -25,6 +26,7 @@ func _init() -> void:
 		quit(2)
 		return
 	baseline = "--loading-baseline" in OS.get_cmdline_user_args()
+	expected_hidden = "--expect-hidden-world" in OS.get_cmdline_user_args()
 	evidence = OS.get_environment("CROWNS_LOADING_EVIDENCE")
 	if evidence.is_empty():
 		evidence = OS.get_user_data_dir().path_join("loading-evidence")
@@ -41,6 +43,11 @@ func capture(name: String) -> void:
 func settle(phase: String, began: int, previous_id: int = 0):
 	var deadline := Time.get_ticks_msec() + 180000
 	var stream_frames := 0
+	var hidden_frames := 0
+	var bad_warm_frames := 0
+	var warm_screens := {}
+	var character_tabs := {}
+	var store_tabs := {}
 	var first_draw := -1
 	var worst_gap := 0
 	var last := began
@@ -56,7 +63,7 @@ func settle(phase: String, began: int, previous_id: int = 0):
 		await RenderingServer.frame_post_draw
 		var now := Time.get_ticks_msec()
 		if now - last >= 1000:
-			print("LOAD_GAP phase=%s stage=%s ms=%d" % [phase, stage, now - last])
+			print("LOAD_GAP phase=%s stage=%s ms=%d disabled_3d=%s" % [phase, stage, now - last, root.disable_3d])
 		worst_gap = maxi(worst_gap, now - last)
 		last = now
 		if first_draw < 0:
@@ -66,17 +73,35 @@ func settle(phase: String, began: int, previous_id: int = 0):
 			continue
 		if g._stream_world:
 			stream_frames += 1
+			if root.disable_3d:
+				hidden_frames += 1
+		if g.menus_warming and not g._stream_world and g.main_menu != null:
+			if root.disable_3d:
+				bad_warm_frames += 1
+			var menu = g.main_menu
+			warm_screens[menu.screen] = true
+			if menu.screen == "character":
+				character_tabs[menu.char_tab] = true
+			if menu.screen == "store":
+				store_tabs[menu.store.tab] = true
 		if not loading_shot and is_instance_valid(g.loading_layer):
 			capture(phase + "-loading")
 			loading_shot = true
 		if g.main_menu != null and not g.menus_warming and not is_instance_valid(g.loading_layer):
-			print("LOAD_TIMING phase=%s baseline=%s first_draw_ms=%d ready_ms=%d max_postdraw_gap_ms=%d stream_frames=%d" %
-				[phase, baseline, first_draw, now - began, worst_gap, stream_frames])
+			print("LOAD_TIMING phase=%s baseline=%s first_draw_ms=%d ready_ms=%d max_postdraw_gap_ms=%d stream_frames=%d hidden_frames=%d source=%s" %
+				[phase, baseline, first_draw, now - began, worst_gap, stream_frames, hidden_frames, OS.get_environment("CROWNS_LOADING_LABEL")])
 			check(loading_shot, phase + " loading artwork drew")
 			check(stream_frames == 0 if baseline else stream_frames >= 2,
 				phase + (" records the original blocking build" if baseline else " draws frames during world construction"))
 			check(g.main_menu.screen == "title" and not g.playing and not g._stream_world,
 				phase + " lands on an interactive title")
+			check(hidden_frames == stream_frames if expected_hidden else hidden_frames == 0,
+				phase + " uses the expected construction-only 3D state")
+			check(not root.disable_3d and bad_warm_frames == 0, phase + " restores 3D before menu warm-up")
+			check(warm_screens.has("character") and warm_screens.has("store") and warm_screens.has("map") and warm_screens.has("lobby"),
+				phase + " still draws every required menu warm-up screen")
+			check(character_tabs.size() == g.main_menu.CHAR_TABS.size() and store_tabs.size() == g.main_menu.store.TABS.size(),
+				phase + " still draws every character/store warm-up tab")
 			capture(phase + "-title")
 			return g
 	check(false, phase + " completes within 180 seconds")
@@ -102,24 +127,39 @@ func _run() -> void:
 	root.add_child(game)
 	current_scene = game
 	if "--loading-play-only" in OS.get_cmdline_user_args():
+		var demo_route := "--demo" in OS.get_cmdline_user_args()
+		var route := "rendered --demo" if demo_route else "direct --play"
 		var play_deadline := Time.get_ticks_msec() + 180000
 		var play_stream_frames := 0
+		var play_hidden_frames := 0
+		var play_bad_warm_frames := 0
 		var play_loading_shot := false
 		while (not game.playing or is_instance_valid(game.loading_layer)) and Time.get_ticks_msec() < play_deadline:
 			await RenderingServer.frame_post_draw
 			if game._stream_world and is_instance_valid(game.loading_layer):
 				play_stream_frames += 1
+				if root.disable_3d:
+					play_hidden_frames += 1
 				if not play_loading_shot:
 					capture("direct-play-loading")
 					play_loading_shot = true
-		check(play_stream_frames >= 2 and play_loading_shot, "direct --play draws loading frames during construction")
+			if game.playing and root.disable_3d:
+				play_bad_warm_frames += 1
+		if demo_route:
+			check(play_stream_frames == 0 and not play_loading_shot,
+				route + " preserves its intentional loading-art bypass")
+		else:
+			check(play_stream_frames >= 2 and play_loading_shot, route + " draws loading frames during construction")
+		check(play_hidden_frames == play_stream_frames if expected_hidden else play_hidden_frames == 0,
+			route + " uses the expected construction-only 3D state")
+		check(not root.disable_3d and play_bad_warm_frames == 0, route + " leaves match rendering enabled")
 		check(game.playing and game.player != null and not is_instance_valid(game.loading_layer),
-			"direct --play reaches the visible match")
+			route + " reaches the visible match")
 		check(not game._stream_world and not game.menus_warming and game.process_mode == Node.PROCESS_MODE_INHERIT,
-			"direct --play never remains in the menu construction gate")
+			route + " never remains in the menu construction gate")
 		var clock_before: float = game.prep_left + game.time_left
 		await create_timer(0.4).timeout
-		check(game.prep_left + game.time_left < clock_before, "direct --play simulation advances")
+		check(game.prep_left + game.time_left < clock_before, route + " simulation advances")
 		capture("direct-play")
 		game._flush_save()
 		game.queue_free()
@@ -135,8 +175,12 @@ func _run() -> void:
 	check(game.account_xp == 530 and game.account_gold == 600 and game.profile_id == "p1", "cold boot retains player progress")
 	game._start_match(0)
 	var deadline := Time.get_ticks_msec() + 180000
+	var bad_match_warm_frames := 0
 	while is_instance_valid(game.loading_layer) and Time.get_ticks_msec() < deadline:
 		await RenderingServer.frame_post_draw
+		if root.disable_3d:
+			bad_match_warm_frames += 1
+	check(bad_match_warm_frames == 0 and not root.disable_3d, "match model/world/effects warm-up keeps 3D enabled")
 	check(not is_instance_valid(game.loading_layer) and game.player != null, "match loading finishes before summary")
 	if is_instance_valid(game.loading_layer) or game.player == null:
 		quit(1)
