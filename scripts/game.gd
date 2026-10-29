@@ -407,6 +407,7 @@ func _ready() -> void:
 	if _stream_world:
 		menus_warming = true
 		process_mode = Node.PROCESS_MODE_DISABLED
+		_suspend_loading_3d()
 		if loading_tween and loading_tween.is_valid():
 			loading_tween.pause()
 		await _world_build_frame()
@@ -464,6 +465,7 @@ func _ready() -> void:
 	if "--play" in OS.get_cmdline_user_args():
 		# This route skips menu_stage.build and its construction-gate cleanup.
 		# The world is complete; let the match process and its loading tween run.
+		_restore_loading_3d()
 		_stream_world = false
 		process_mode = Node.PROCESS_MODE_INHERIT
 		menus_warming = false
@@ -483,6 +485,10 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_INHERIT
 	menu_stage.activate()
 	main_menu.stage = menu_stage
+	# Position the menu camera before enabling 3D, then keep every existing
+	# menu/model/world shader warm-up enabled. Only construction was hidden.
+	menu_stage.show_screen(main_menu.screen)
+	_restore_loading_3d()
 	# The warm-up flips through the screens, so it is told where to land:
 	# picking Ember Pass reloads the scene and must come back to SELECT MAP,
 	# not the title (Faisal 2026-10-15: "switch maps to ember and hit play
@@ -538,6 +544,7 @@ func _reload_scene() -> void:
 
 
 func _exit_tree() -> void:
+	_restore_loading_3d()  # an interrupted build must not change its caller's viewport
 	if not _preserve_menu_art_on_reload:
 		# Retire the last worker task before its captured script/resources unload.
 		_flush_save()
@@ -2225,6 +2232,25 @@ var loading_label: Label
 var loading_tween: Tween   # its hold-then-fade; _warm_up_world holds it while it sweeps
 var _stream_world := false
 var _world_frame_deadline := 0
+var _loading_viewport: Viewport
+var _loading_previous_disable_3d := false
+
+
+func _suspend_loading_3d() -> void:
+	# The opaque CanvasLayer still draws. Do not render/compile the unbatched
+	# world as construction yields; the actual warm-ups run after restoration.
+	if is_instance_valid(_loading_viewport):
+		return
+	_loading_viewport = get_viewport()
+	if is_instance_valid(_loading_viewport):
+		_loading_previous_disable_3d = _loading_viewport.disable_3d
+		_loading_viewport.disable_3d = true
+
+
+func _restore_loading_3d() -> void:
+	if is_instance_valid(_loading_viewport):
+		_loading_viewport.disable_3d = _loading_previous_disable_3d
+	_loading_viewport = null
 
 
 func _world_build_frame() -> void:

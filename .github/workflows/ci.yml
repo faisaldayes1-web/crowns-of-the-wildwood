@@ -59,6 +59,9 @@ jobs:
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/$test.log"
             grep -Eq 'test: .*0 failure\(s\)$' "ci-logs/$test.log"
           done
+          timeout 120 bash tools/tests/isolated.sh --headless --path . --script tools/loading_viewport_test.gd 2>&1 | tee ci-logs/loading-viewport.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/loading-viewport.log
+          grep -q '^loading viewport test: 0 failure(s)$' ci-logs/loading-viewport.log
       - name: Full seeded bot match
         shell: bash
         run: |
@@ -71,7 +74,7 @@ jobs:
         shell: bash
         env:
           LIBGL_ALWAYS_SOFTWARE: "1"
-          CROWNS_LOADING_COMPARE: ${{ github.head_ref == 'Codex-faisal3/crowns-responsive-loading-1029' }}
+          CROWNS_LOADING_COMPARE: ${{ github.head_ref == 'Codex-faisal3/crowns-loading-viewport-1029' }}
           CROWNS_LOADING_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
@@ -81,6 +84,9 @@ jobs:
             local label="$1" project="$2"
             shift 2
             export CROWNS_LOADING_EVIDENCE="$GITHUB_WORKSPACE/ci-logs/loading-$label"
+            export CROWNS_LOADING_LABEL="$label"
+            export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-cache-$label"
+            mkdir -p "$MESA_SHADER_CACHE_DIR"
             mkdir -p "$CROWNS_LOADING_EVIDENCE"
             timeout 600 xvfb-run -a bash tools/tests/isolated.sh --path "$project" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$project/tools/loading_progress_test.gd" -- --seed=7 --gfx=0 "$@" 2>&1 | tee "ci-logs/loading-$label.log"
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/loading-$label.log"
@@ -96,12 +102,15 @@ jobs:
             cp tools/loading_progress_test.gd "$baseline/tools/loading_progress_test.gd"
             timeout 600 bash tools/tests/isolated.sh --headless --editor --path "$baseline" --import 2>&1 | tee ci-logs/loading-baseline-import.log
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/loading-baseline-import.log
-            run_probe baseline "$baseline" --loading-baseline
+            run_probe baseline "$baseline"
           fi
-          run_probe candidate "$GITHUB_WORKSPACE"
+          run_probe candidate "$GITHUB_WORKSPACE" --expect-hidden-world
           export CROWNS_LOADING_EVIDENCE="$GITHUB_WORKSPACE/ci-logs/loading-direct-play"
+          export CROWNS_LOADING_LABEL="direct-play"
+          export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-cache-direct-play"
+          mkdir -p "$MESA_SHADER_CACHE_DIR"
           mkdir -p "$CROWNS_LOADING_EVIDENCE"
-          timeout 300 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/loading_progress_test.gd" -- --seed=7 --gfx=0 --play --loading-play-only 2>&1 | tee ci-logs/loading-direct-play.log
+          timeout 300 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/loading_progress_test.gd" -- --seed=7 --gfx=0 --play --loading-play-only --expect-hidden-world 2>&1 | tee ci-logs/loading-direct-play.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/loading-direct-play.log
           grep -q '^loading progress test: 0 failure(s)$' ci-logs/loading-direct-play.log
           test -s "$CROWNS_LOADING_EVIDENCE/direct-play.png"
