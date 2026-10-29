@@ -403,7 +403,7 @@ func _ready() -> void:
 		swap_dim = Color.WHITE
 	# Menu boot and scene transitions build incrementally. Direct --play
 	# returns before menu-stage teardown of this gate, so keeps its old path.
-	# existing loading art until both world construction and menu warm-up finish.
+	# Hold the existing loading art until construction and menu warm-up finish.
 	_stream_world = DisplayServer.get_name() != "headless" and is_instance_valid(loading_layer) and "--play" not in OS.get_cmdline_user_args()
 	if _stream_world:
 		menus_warming = true
