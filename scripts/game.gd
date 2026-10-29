@@ -401,9 +401,10 @@ func _ready() -> void:
 	if season != "":
 		tex_swap = Season.tex_swaps(season)   # snow or dusk meadow under everything
 		swap_dim = Color.WHITE
-	# Cold boot and scene transitions build incrementally. Disable gameplay and hold the
+	# Menu boot and scene transitions build incrementally. Direct --play
+	# returns before menu-stage teardown of this gate, so keeps its old path.
 	# existing loading art until both world construction and menu warm-up finish.
-	_stream_world = DisplayServer.get_name() != "headless" and is_instance_valid(loading_layer)
+	_stream_world = DisplayServer.get_name() != "headless" and is_instance_valid(loading_layer) and "--play" not in OS.get_cmdline_user_args()
 	if _stream_world:
 		menus_warming = true
 		process_mode = Node.PROCESS_MODE_DISABLED

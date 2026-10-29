@@ -92,6 +92,26 @@ func _run() -> void:
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
 	current_scene = game
+	if "--loading-play-only" in OS.get_cmdline_user_args():
+		var play_deadline := Time.get_ticks_msec() + 180000
+		while (not game.playing or is_instance_valid(game.loading_layer)) and Time.get_ticks_msec() < play_deadline:
+			await RenderingServer.frame_post_draw
+		check(game.playing and game.player != null and not is_instance_valid(game.loading_layer),
+			"direct --play reaches the visible match")
+		check(not game._stream_world and game.process_mode == Node.PROCESS_MODE_INHERIT,
+			"direct --play never remains in the menu construction gate")
+		var clock_before: float = game.prep_left + game.time_left
+		await create_timer(0.4).timeout
+		check(game.prep_left + game.time_left < clock_before, "direct --play simulation advances")
+		capture("direct-play")
+		game._flush_save()
+		game.queue_free()
+		current_scene = null
+		for i in 4:
+			await process_frame
+		print("loading progress test: %d failure(s)" % failures)
+		quit(1 if failures else 0)
+		return
 	game = await settle("cold", began)
 	if game == null:
 		return

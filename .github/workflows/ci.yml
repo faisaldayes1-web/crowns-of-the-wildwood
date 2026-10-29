@@ -99,6 +99,12 @@ jobs:
             run_probe baseline "$baseline" --loading-baseline
           fi
           run_probe candidate "$GITHUB_WORKSPACE"
+          export CROWNS_LOADING_EVIDENCE="$GITHUB_WORKSPACE/ci-logs/loading-direct-play"
+          mkdir -p "$CROWNS_LOADING_EVIDENCE"
+          timeout 300 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/loading_progress_test.gd" -- --seed=7 --gfx=0 --play --loading-play-only 2>&1 | tee ci-logs/loading-direct-play.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/loading-direct-play.log
+          grep -q '^loading progress test: 0 failure(s)$' ci-logs/loading-direct-play.log
+          test -s "$CROWNS_LOADING_EVIDENCE/direct-play.png"
       - name: Keep logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
