@@ -102,6 +102,8 @@ static func _arrays(mesh: Mesh, s: int, cache: Dictionary) -> Array:
 			if a.is_empty():
 				a = _lighter(mesh).get_mesh_arrays()
 				cache[pkey] = a
+		elif s == 0 and mesh.has_meta(&"batch_arrays"):
+			a = mesh.get_meta(&"batch_arrays")   # game.gd _keep_arrays: no GPU read-back
 		else:
 			a = mesh.surface_get_arrays(s)
 		cache[key] = a
@@ -209,6 +211,7 @@ static func run(game: Node3D) -> Dictionary:
 			made += 1
 	# Only now, with every mesh copied, do the originals let go of theirs.
 	for mi in batched:
+		mi.mesh.remove_meta(&"batch_arrays")   # merged: free the CPU copy
 		mi.set_meta("batched_mesh", mi.mesh)
 		mi.mesh = null
 	var info := {"nodes": batched.size(), "skipped": skipped, "materials_in": canon_of.size(), "materials_out": canon.size(),
