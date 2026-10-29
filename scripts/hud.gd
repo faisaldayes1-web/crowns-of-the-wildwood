@@ -6295,11 +6295,16 @@ func _draw_scoreboard_table(rect: Rect2, live: bool = false) -> void:
 func _chat_display_text(message: Dictionary) -> String:
 	# Only adapt system onboarding; never rewrite another player's chat.
 	var text: String = message.text
-	if not touch_ui or message.get("who", "") != "":
+	if message.get("who", "") != "":
 		return text
 	if text.begins_with("Click to attack, Q and E for abilities, Space to dodge,"):
-		return "Drag left to move. Tap actions to fight."
-	if text.begins_with("FORTIFY! Build turrets, set traps and raise barricades ("):
+		if touch_ui:
+			return "Drag left to move. Tap actions to fight."
+		if game.player != null and game.on_pad(game.player):
+			return "Left stick moves with the camera. %s attacks; %s interacts; %s dodges." % [_k("attack"), _k("interact"), _k("dodge")]
+		var movement := "Directional keys move; " if game.pc_movement == "wasd" else ""
+		return movement + "%s moves/interacts. %s + %s attacks in place; %s attacks. %s dodges. Force Move never attacks." % [_k("move_interact"), _k("force_hold"), _k("move_interact"), _k("attack"), _k("dodge")]
+	if touch_ui and text.begins_with("FORTIFY! Build turrets, set traps and raise barricades ("):
 		return "Fortify your base before the barrier falls."
 	return text
 

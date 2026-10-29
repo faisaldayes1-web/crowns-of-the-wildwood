@@ -160,7 +160,9 @@ func resolve(frame: Dictionary, route: Callable = Callable()) -> Dictionary:
 		cancel()
 		return result
 	var delta := maxf(float(frame.get("delta", 0.016667)), 0.000001)
-	if previous_position != Vector3.INF and position.distance_to(previous_position) < 0.002:
+	# Ground/floor recovery may bob vertically while XZ is completely blocked.
+	# Only progress in the plane we drive can reset the stuck-goal timer.
+	if previous_position != Vector3.INF and Vector2(position.x - previous_position.x, position.z - previous_position.z).length() < 0.002:
 		stalled_seconds += delta
 	else:
 		stalled_seconds = 0.0

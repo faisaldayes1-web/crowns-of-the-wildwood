@@ -20,9 +20,16 @@ Root audit evidence is in `hub-status-audit-20261027/reviews/` beside the centra
 - `Crowns-movement-native-adapters/actual-adapter-result.json`: actual save transaction and second load, remapping, progression preservation and exact selected-object dispatch; 27 passed / 0 failed, exit 0, raw errors absent. Fixture uses Game without its world-building `_ready`, so this is not a full game run.
 - Independent source reviews found and drove fixes for generic-F dispatch, UI tap leakage, through-floor arrival, save migration and ore's collision/reach mismatch. Ore now uses the existing gathering reach, with an interior margin.
 
+## Additional completed qualification
+
+- Actual Godot 4.3: 64 movement checks, including a reproduced collision stall caused by floor-recovery Y motion; the timer now measures planar XZ progress. This does not change arrival reach, route or speed.
+- Real Forward+/Vulkan ore collider fixture: old reach collides and cancels, corrected existing gathering reach produces one selected-target action. Exit 0, no raw errors. Earlier dummy-renderer fixture errors and the failed pre-fix attempt remain in the audit; this is not the original69 material repair.
+- Two actual local ENet peers: 16 ordered receiver scenarios and 17 authenticated sends cover selected target, spoof/assignment, replay and rate limiting. Both engine processes exit 0 without raw errors. This is a loopback adapter qualification, not a complete network match.
+- Five actual HUD text-adapter checks: PC/WASD/pad onboarding matches the new bindings; touch and player chat remain unchanged.
+
 ## Remaining qualification
 
-Actual ore-collider approach, real network peers, rendered controls/ordinary player journey and controller hardware feel are separate from the checks above. Do not call this a completed visual pass or final build yet. Do not replay unchanged original 969 checks as new evidence.
+Rendered controls, ordinary player journey and controller hardware feel remain separate from the focused checks above. The collider fixture uses the actual ResourceNode and CharacterBody with the source-bound unit capsule; it does not instantiate the complete Unit controller. No full fresh-save ending journey is claimed. Do not call this a completed visual pass or final build yet. Do not replay unchanged original 969 checks as new evidence.
 
 The pre-existing main renderer/material failure is independently tracked under original PR 69. Two bounded real Forward+/Vulkan character-lifetime probes completed without native errors; they do not reproduce or fix the full-match failure at 105 seconds. No character art/material/shader/cache/backend modification is included here, and no performance improvement is claimed.
 
