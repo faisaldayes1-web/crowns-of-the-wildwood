@@ -1,0 +1,204 @@
+{
+  "agent": "Codex-faisal",
+  "started": "2026-10-29T11:45:52.939262+00:00",
+  "source_pins": {
+    "scripts/hud.gd": "09063c83a756d7955e6996cab0e833506953b6eabe029e564c89eaaa11299620",
+    "scripts/player_movement.gd": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4",
+    "scripts/game.gd": "6dfbc8ff29ac94ca2e2c5e4d714e1fb0ba7afc1ed544f01b4adae19c19051054",
+    "scripts/unit.gd": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153",
+    "scripts/net.gd": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967",
+    "scripts/menu.gd": "a0addae4e31079e19d551d6c5feebce29c191d3757490398fd8f1f062e4bfd2c",
+    "scenes/main.tscn": "d62a80935f21109465f733d7e7c8bbc49af507c7170d169425033a62596a648d",
+    "project.godot": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+    "tools/tests/isolated.gd": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3",
+    "tools/crowns_visual_capture.gd": "e65d5d25ff5df651f922c1a79e575b625a74bbb0f313ad6c91ef787a1c29dd3a",
+    "tools/options_menu_test.gd": "7ef6d95413b3ea45d87e577dd440db03e82bae8eca37ac22f3b7fedb480d0259",
+    "scripts/visual/style_profile.gd": "7e08ee6a9ee0c981317579ca25a4bec89b91ef82a5e331a22db2007fa003fd94"
+  },
+  "fixture_sha256": "0d58424f66c2983426004f8827fe73f8d5a80df6f69feb5ec7e1b889639caddc",
+  "command": [
+    "C:\\Tools\\Godot\\Godot_v4.3-stable_win64.exe",
+    "--path",
+    "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\crowns69-current-integration",
+    "--rendering-method",
+    "forward_plus",
+    "--rendering-driver",
+    "vulkan",
+    "--windowed",
+    "--resolution",
+    "1280x720",
+    "--script",
+    "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\reviews\\Crowns-daylight-compare\\daylight_compare.gd"
+  ],
+  "profile": "C:\\Temp\\cv1",
+  "game_acceptance": false,
+  "lease_immediately_before_launch": "8be1aff329d8261f901577e4c10e790adf7734f4b6983cbccf768d50bf107161",
+  "pid": 34572,
+  "exit": 0,
+  "terminal": "2026-10-29T11:46:11.991164+00:00",
+  "log_sha256": "25d1e9d467190e6b88c46f62cea860bca1a6b0cd0e5b8776eb904e3691f22e56",
+  "raw_errors": [],
+  "actual_forward_vulkan": true,
+  "events": [
+    {
+      "exit": 0,
+      "limits": "Staged same-camera daylight art experiment, not gameplay/performance/material qualification",
+      "pid": 34572,
+      "reason": "THREE_NATIVE_COMPARISON_FRAMES_REQUIRE_VISUAL_REVIEW",
+      "shots": [
+        {
+          "camera": {
+            "far": 4000,
+            "fov": 40,
+            "near": 0.0500000007450581,
+            "player_position": "(-77.24122, 0.000941, -10.84906)",
+            "prep_left": 17.6636824444443,
+            "projection": 0,
+            "size": 1,
+            "time_left": 600,
+            "transform": "[X: (1, 0, 0), Y: (0, 0.642788, -0.766044), Z: (0, 0.766044, 0.642788), O: (-77.96239, 19.00092, 5.158343)]"
+          },
+          "grade": {
+            "environment": {
+              "adjustment_brightness": 1,
+              "adjustment_contrast": 1.10000002384186,
+              "adjustment_enabled": true,
+              "adjustment_saturation": 1.14999997615814,
+              "ambient_light_color": "(0.58, 0.64, 0.86, 1)",
+              "ambient_light_energy": 0.219999998807907,
+              "ambient_light_sky_contribution": 0.300000011920929,
+              "ambient_light_source": 3,
+              "ssao_enabled": true,
+              "ssao_intensity": 3.20000004768372,
+              "ssao_power": 1.20000004768372,
+              "ssao_radius": 1.10000002384186
+            },
+            "fill_energy": 0.119999997317791,
+            "sun_color": "(1, 0.9, 0.74, 1)",
+            "sun_energy": 1.45000004768372
+          },
+          "label": "01-baseline",
+          "sha256": "8f8ac27c01be07a00451cef3778686234305d1c5534490e01870b9aaa9a4126d",
+          "simulation_paused": true,
+          "viewport": "(1280, 720)"
+        },
+        {
+          "camera": {
+            "far": 4000,
+            "fov": 40,
+            "near": 0.0500000007450581,
+            "player_position": "(-77.24122, 0.000941, -10.84906)",
+            "prep_left": 17.6636824444443,
+            "projection": 0,
+            "size": 1,
+            "time_left": 600,
+            "transform": "[X: (1, 0, 0), Y: (0, 0.642788, -0.766044), Z: (0, 0.766044, 0.642788), O: (-77.96239, 19.00092, 5.158343)]"
+          },
+          "grade": {
+            "environment": {
+              "adjustment_brightness": 1,
+              "adjustment_contrast": 1.08000004291534,
+              "adjustment_enabled": true,
+              "adjustment_saturation": 1.08000004291534,
+              "ambient_light_color": "(0.6, 0.68, 0.82, 1)",
+              "ambient_light_energy": 0.349999994039536,
+              "ambient_light_sky_contribution": 0.400000005960464,
+              "ambient_light_source": 3,
+              "ssao_enabled": true,
+              "ssao_intensity": 1.60000002384186,
+              "ssao_power": 1.10000002384186,
+              "ssao_radius": 0.800000011920929
+            },
+            "fill_energy": 0.159999996423721,
+            "sun_color": "(1, 0.96, 0.88, 1)",
+            "sun_energy": 1.29999995231628
+          },
+          "label": "02-trial",
+          "sha256": "77d29bdb1eb1c274d36e2c89467ff36d23f11492ca7d7aece18e2b000161ee92",
+          "simulation_paused": true,
+          "viewport": "(1280, 720)"
+        },
+        {
+          "camera": {
+            "far": 4000,
+            "fov": 40,
+            "near": 0.0500000007450581,
+            "player_position": "(-77.24122, 0.000941, -10.84906)",
+            "prep_left": 17.6636824444443,
+            "projection": 0,
+            "size": 1,
+            "time_left": 600,
+            "transform": "[X: (1, 0, 0), Y: (0, 0.642788, -0.766044), Z: (0, 0.766044, 0.642788), O: (-77.96239, 19.00092, 5.158343)]"
+          },
+          "grade": {
+            "environment": {
+              "adjustment_brightness": 1,
+              "adjustment_contrast": 1.10000002384186,
+              "adjustment_enabled": true,
+              "adjustment_saturation": 1.14999997615814,
+              "ambient_light_color": "(0.58, 0.64, 0.86, 1)",
+              "ambient_light_energy": 0.219999998807907,
+              "ambient_light_sky_contribution": 0.300000011920929,
+              "ambient_light_source": 3,
+              "ssao_enabled": true,
+              "ssao_intensity": 3.20000004768372,
+              "ssao_power": 1.20000004768372,
+              "ssao_radius": 1.10000002384186
+            },
+            "fill_energy": 0.119999997317791,
+            "sun_color": "(1, 0.9, 0.74, 1)",
+            "sun_energy": 1.45000004768372
+          },
+          "label": "03-restored",
+          "sha256": "2d7eeb804fd675dc52ca596a74a0a66314da534b535f98762e07161a879ded8f",
+          "simulation_paused": true,
+          "viewport": "(1280, 720)"
+        }
+      ]
+    }
+  ],
+  "images": {
+    "01-baseline.png": {
+      "sha256": "8f8ac27c01be07a00451cef3778686234305d1c5534490e01870b9aaa9a4126d",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "bytes": 1204175,
+      "png_signature": true
+    },
+    "02-trial.png": {
+      "sha256": "77d29bdb1eb1c274d36e2c89467ff36d23f11492ca7d7aece18e2b000161ee92",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "bytes": 1200672,
+      "png_signature": true
+    },
+    "03-restored.png": {
+      "sha256": "2d7eeb804fd675dc52ca596a74a0a66314da534b535f98762e07161a879ded8f",
+      "dimensions": [
+        1280,
+        720
+      ],
+      "bytes": 1204304,
+      "png_signature": true
+    }
+  },
+  "source_after": {
+    "scripts/hud.gd": "09063c83a756d7955e6996cab0e833506953b6eabe029e564c89eaaa11299620",
+    "scripts/player_movement.gd": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4",
+    "scripts/game.gd": "6dfbc8ff29ac94ca2e2c5e4d714e1fb0ba7afc1ed544f01b4adae19c19051054",
+    "scripts/unit.gd": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153",
+    "scripts/net.gd": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967",
+    "scripts/menu.gd": "a0addae4e31079e19d551d6c5feebce29c191d3757490398fd8f1f062e4bfd2c",
+    "scenes/main.tscn": "d62a80935f21109465f733d7e7c8bbc49af507c7170d169425033a62596a648d",
+    "project.godot": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+    "tools/tests/isolated.gd": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3",
+    "tools/crowns_visual_capture.gd": "e65d5d25ff5df651f922c1a79e575b625a74bbb0f313ad6c91ef787a1c29dd3a",
+    "tools/options_menu_test.gd": "7ef6d95413b3ea45d87e577dd440db03e82bae8eca37ac22f3b7fedb480d0259",
+    "scripts/visual/style_profile.gd": "7e08ee6a9ee0c981317579ca25a4bec89b91ef82a5e331a22db2007fa003fd94"
+  },
+  "qualified_for_visual_review": true
+}

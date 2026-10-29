@@ -1,0 +1,115 @@
+{
+  "agent": "Codex-faisal/build_delivery",
+  "parent_agent": "Codex-faisal",
+  "task": "T-2fc4d3bca959",
+  "utc": "2026-10-29T11:54:55.963677+00:00",
+  "disposition": "APPROVE_BOUNDED_THREE_HUNK_SOURCE_AND_NATIVE_VISUAL_FIXTURE_PREPARATION_NOT_EXECUTED",
+  "fixture_sha256": "038ff868e888608f0f832240917fe127851fc0764bff23472480d61a3486e792",
+  "runner_sha256": "c20e2c6d0dabe641b1af538638f73bf68ba2c396c331fd8bc8c11a90613ec7d6",
+  "engine_sha256": "b554ba80fb2ad8f1817bc21242ac8adbb9e41f806c49ad5cc73603db71fee32f",
+  "engine_bytes": 132918392,
+  "source_pins": {
+    "scripts/hud.gd": "e8dd43f7048a54701e0dd3ed9a0edb95f133560cdfea264cefb863daaa5568b0",
+    "scripts/player_movement.gd": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4",
+    "scripts/game.gd": "5a2993e4d70ff81a8a21578872ecd0d5d4164710826a7ac42bff467545b21965",
+    "scripts/unit.gd": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153",
+    "scripts/net.gd": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967",
+    "scripts/menu.gd": "a0addae4e31079e19d551d6c5feebce29c191d3757490398fd8f1f062e4bfd2c",
+    "scenes/main.tscn": "d62a80935f21109465f733d7e7c8bbc49af507c7170d169425033a62596a648d",
+    "project.godot": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+    "tools/tests/isolated.gd": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3",
+    "tools/crowns_visual_capture.gd": "e65d5d25ff5df651f922c1a79e575b625a74bbb0f313ad6c91ef787a1c29dd3a",
+    "tools/options_menu_test.gd": "7ef6d95413b3ea45d87e577dd440db03e82bae8eca37ac22f3b7fedb480d0259",
+    "scripts/visual/style_profile.gd": "f7e02f43e54c35f6ac72440b89d65d595c8f7bea08fa997d5647465b36f550f6"
+  },
+  "source_origins": {
+    "scripts/hud.gd": {
+      "warm": "e8dd43f7048a54701e0dd3ed9a0edb95f133560cdfea264cefb863daaa5568b0",
+      "author": "e8dd43f7048a54701e0dd3ed9a0edb95f133560cdfea264cefb863daaa5568b0"
+    },
+    "scripts/player_movement.gd": {
+      "warm": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4",
+      "author": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4"
+    },
+    "scripts/game.gd": {
+      "warm": "5a2993e4d70ff81a8a21578872ecd0d5d4164710826a7ac42bff467545b21965",
+      "author": "5a2993e4d70ff81a8a21578872ecd0d5d4164710826a7ac42bff467545b21965"
+    },
+    "scripts/unit.gd": {
+      "warm": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153",
+      "author": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153"
+    },
+    "scripts/net.gd": {
+      "warm": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967",
+      "author": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967"
+    },
+    "scripts/menu.gd": {
+      "warm": "a0addae4e31079e19d551d6c5feebce29c191d3757490398fd8f1f062e4bfd2c",
+      "author": "a0addae4e31079e19d551d6c5feebce29c191d3757490398fd8f1f062e4bfd2c"
+    },
+    "scenes/main.tscn": {
+      "warm": "d62a80935f21109465f733d7e7c8bbc49af507c7170d169425033a62596a648d",
+      "author": null
+    },
+    "project.godot": {
+      "warm": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+      "author": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815"
+    },
+    "tools/tests/isolated.gd": {
+      "warm": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3",
+      "author": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3"
+    },
+    "tools/crowns_visual_capture.gd": {
+      "warm": "e65d5d25ff5df651f922c1a79e575b625a74bbb0f313ad6c91ef787a1c29dd3a",
+      "author": "e65d5d25ff5df651f922c1a79e575b625a74bbb0f313ad6c91ef787a1c29dd3a"
+    },
+    "tools/options_menu_test.gd": {
+      "warm": "7ef6d95413b3ea45d87e577dd440db03e82bae8eca37ac22f3b7fedb480d0259",
+      "author": "7ef6d95413b3ea45d87e577dd440db03e82bae8eca37ac22f3b7fedb480d0259"
+    },
+    "scripts/visual/style_profile.gd": {
+      "warm": "f7e02f43e54c35f6ac72440b89d65d595c8f7bea08fa997d5647465b36f550f6",
+      "author": "f7e02f43e54c35f6ac72440b89d65d595c8f7bea08fa997d5647465b36f550f6"
+    }
+  },
+  "fixture": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\reviews\\Crowns-reference-daylight-native\\visual_native.gd",
+  "runner": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\run_crowns_visual_native.py",
+  "profile": "C:/Temp/cv2",
+  "warm": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\crowns69-current-integration",
+  "parent_manifest_sha256": "59391c55088a4109196eab8da55a30601b8941fb74fd38bb0b6a27cd47463672",
+  "reviewed_production_diff_sha256": "c966db4c3e4da43cbf286b08a898f1fbdda5750b6048d3aa7758fc77a62b11b3",
+  "changed_paths": [
+    "scripts/game.gd",
+    "scripts/hud.gd",
+    "scripts/visual/style_profile.gd"
+  ],
+  "source_review": {
+    "daylight": "DAY exact selected comparison trial values, fog color unchanged. AO reads DAY only for no-vmap/no-season/non-night; non-day entry restores legacy1.1/3.2/1.2 before early returns. Existing season/Ember/night mood branches retained.",
+    "score": "_corner_score now not _narrow() and size.x<1180; unchanged _narrow threshold1140 preserves compact behavior. Seven boundary expected outputs match actual source.",
+    "fixture": "Actual main/menu handlers/warm waits then pause. ActualGame._style_light called7times in independent unready method probe; season/Ember guard covers AO and Ember ambient only. ActualHUD._corner_score seven widths. Probe nodes freed. No visual mesh construction in method probe.",
+    "runner": "Fresh cv2 APPDATA/LOCALAPPDATA/XDG+marker and Isolated guard; working WINDOWED host/owner/W/P checked immediately before direct GUI launch; strict Forward+/Vulkan/rawerrors;112+5+3 boundedownedcleanup. Actual3PNG dimensions/hash/signature, same ownedPID/exit0 and sourceafter checks retained.",
+    "static": "Python syntax only. All author-present refs equal warm raw hashes,12refs pinned. Git HEAD diff exactly3hunks/3paths. No engine/parser/native test invoked."
+  },
+  "expected_images": {
+    "01-day-desktop.png": [
+      1280,
+      720
+    ],
+    "02-day-wide.png": [
+      1440,
+      810
+    ],
+    "03-day-compact.png": [
+      960,
+      540
+    ]
+  },
+  "limits": [
+    "Source only; Root must inspect actual3images, image sizes, raw logs, variant marker and exits. No native PASS inferred.",
+    "Method-level day/night/season/Ember and7widths only, not full map journeys/hardware/input/performance/finalart acceptance.",
+    "Resize intentionally changes framing; no same-camera equality requirement in this visual variant. Shader TIME/temporal effects may advance.",
+    "Root must establish priorchild release/no conflicting window. Runner does not independently inventory processes.",
+    "Only12named source files checked, not fullproject/import/untracked parity. Isolated game save writes allowed.",
+    "Flags/livegrade recorded; specific method fields asserted, not every non-day color. Earlier actual enginev1 parser failure preserved by Root."
+  ]
+}

@@ -2532,7 +2532,10 @@ func _ivy(start: Vector2, dir: Vector2, length: float, seed_i: int) -> void:
 
 
 func _corner_score() -> bool:
-	return not _narrow()
+	# The selected desktop reference joins both banners around the clock.
+	# Below 1180px the separate layout keeps that strip clear of the minimap;
+	# split panes retain their existing compact layout.
+	return not _narrow() and size.x < 1180.0
 
 
 func _draw_scoreboard() -> void:
