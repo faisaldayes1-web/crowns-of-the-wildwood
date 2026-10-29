@@ -127,6 +127,7 @@ func _run() -> void:
 	root.add_child(game)
 	current_scene = game
 	if "--loading-play-only" in OS.get_cmdline_user_args():
+		var route := "rendered --demo" if "--demo" in OS.get_cmdline_user_args() else "direct --play"
 		var play_deadline := Time.get_ticks_msec() + 180000
 		var play_stream_frames := 0
 		var play_hidden_frames := 0
@@ -143,17 +144,17 @@ func _run() -> void:
 					play_loading_shot = true
 			if game.playing and root.disable_3d:
 				play_bad_warm_frames += 1
-		check(play_stream_frames >= 2 and play_loading_shot, "direct --play draws loading frames during construction")
+		check(play_stream_frames >= 2 and play_loading_shot, route + " draws loading frames during construction")
 		check(play_hidden_frames == play_stream_frames if expected_hidden else play_hidden_frames == 0,
-			"direct --play uses the expected construction-only 3D state")
-		check(not root.disable_3d and play_bad_warm_frames == 0, "direct --play restores 3D before actual match warm-up")
+			route + " uses the expected construction-only 3D state")
+		check(not root.disable_3d and play_bad_warm_frames == 0, route + " restores 3D before actual match warm-up")
 		check(game.playing and game.player != null and not is_instance_valid(game.loading_layer),
-			"direct --play reaches the visible match")
+			route + " reaches the visible match")
 		check(not game._stream_world and not game.menus_warming and game.process_mode == Node.PROCESS_MODE_INHERIT,
-			"direct --play never remains in the menu construction gate")
+			route + " never remains in the menu construction gate")
 		var clock_before: float = game.prep_left + game.time_left
 		await create_timer(0.4).timeout
-		check(game.prep_left + game.time_left < clock_before, "direct --play simulation advances")
+		check(game.prep_left + game.time_left < clock_before, route + " simulation advances")
 		capture("direct-play")
 		game._flush_save()
 		game.queue_free()

@@ -105,16 +105,17 @@ jobs:
             run_probe baseline "$baseline"
           fi
           run_probe candidate "$GITHUB_WORKSPACE" --expect-hidden-world
-          export CROWNS_LOADING_EVIDENCE="$GITHUB_WORKSPACE/ci-logs/loading-direct-play"
-          export CROWNS_LOADING_LABEL="direct-play"
-          export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-cache-direct-play"
-          mkdir -p "$MESA_SHADER_CACHE_DIR"
-          mkdir -p "$CROWNS_LOADING_EVIDENCE"
-          timeout 300 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/loading_progress_test.gd" -- --seed=7 --gfx=0 --play --loading-play-only --expect-hidden-world 2>&1 | tee ci-logs/loading-direct-play.log
-          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/loading-direct-play.log
-          grep -q '^loading progress test: 0 failure(s)$' ci-logs/loading-direct-play.log
-          test -s "$CROWNS_LOADING_EVIDENCE/direct-play.png"
-          test -s "$CROWNS_LOADING_EVIDENCE/direct-play-loading.png"
+          for route in play demo; do
+            export CROWNS_LOADING_EVIDENCE="$GITHUB_WORKSPACE/ci-logs/loading-direct-$route"
+            export CROWNS_LOADING_LABEL="direct-$route"
+            export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-cache-direct-$route"
+            mkdir -p "$MESA_SHADER_CACHE_DIR" "$CROWNS_LOADING_EVIDENCE"
+            timeout 300 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/loading_progress_test.gd" -- --seed=7 --gfx=0 "--$route" --loading-play-only --expect-hidden-world 2>&1 | tee "ci-logs/loading-direct-$route.log"
+            ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/loading-direct-$route.log"
+            grep -q '^loading progress test: 0 failure(s)$' "ci-logs/loading-direct-$route.log"
+            test -s "$CROWNS_LOADING_EVIDENCE/direct-play.png"
+            test -s "$CROWNS_LOADING_EVIDENCE/direct-play-loading.png"
+          done
       - name: Keep logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

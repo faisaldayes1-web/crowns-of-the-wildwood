@@ -432,6 +432,11 @@ func _ready() -> void:
 		if arg.begins_with("--shot-frame="):
 			shot_frame = int(arg.trim_prefix("--shot-frame="))
 	if demo:
+		# Rendered bot demos also skip the menu's construction-gate cleanup.
+		_restore_loading_3d()
+		_stream_world = false
+		process_mode = Node.PROCESS_MODE_INHERIT
+		menus_warming = false
 		_start_match(0)
 		if "--selftest" in OS.get_cmdline_user_args():  # headless combat checks (tests/combat_test.gd)
 			var t: Node = load("res://tests/combat_test.gd").new()
