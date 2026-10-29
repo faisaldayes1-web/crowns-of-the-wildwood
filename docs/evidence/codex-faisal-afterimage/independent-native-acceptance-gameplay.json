@@ -1,0 +1,250 @@
+{
+  "agent": "Codex-faisal/gameplay_review",
+  "task": "T-2fc4d3bca959",
+  "disposition": "APPROVE_CHANGED_FX_NARROW_NATIVE_QUALIFICATION_FULLMATCH_STILL_REQUIRED",
+  "receipt_sha256": "668064f2b0be5cf436915d8d6e8bb0ee1d60235b7ffae499a54ad4713e31a226",
+  "fixture_sha256": "a96234b042cd2bfd108fc2c6ba9d8f983e227e276746ede7e8dd96976c05b309",
+  "runner_sha256": "80afcee1d66e3d283f455b9e91b67b3cbde24538eecff3ee53e07219f0a0f359",
+  "actual_engine_sha256": "8c54c617d4837958f2d5ee5020e900820db52371d5c826d9e6b5e5de1e939a1e",
+  "actual_fx_sha256": "f0f5cb2e8c14bca70969b25b805fc4951489ef49703a66ed3fb88eccb9f8a466",
+  "actual_result": {
+    "started": "2026-10-29T12:39:47.628879+00:00",
+    "ended": "2026-10-29T12:40:01.320788+00:00",
+    "pid": 54168,
+    "exit": 0,
+    "elapsed_seconds": 13.702999999979511,
+    "raw_errors": false,
+    "actual_forward_vulkan": true,
+    "inputs_unchanged": true,
+    "diagnostic_completed_clean": true
+  },
+  "runtime_pid_from_records": [
+    97320
+  ],
+  "raw_hashes_independently_verified": {
+    "actual-stdout.log": "6537d02a8c0eea0b660d5e302778d167768605be90c62a6ebc1e27ce581cb401",
+    "actual-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "actual-player.log": "dc9abd3c44130989eea7b8adebd2c1e3401d5726af6b61e4e07a1c24d9893bb3"
+  },
+  "stderr_empty": true,
+  "all42_before_after_pins_match_frozen_source_pins": true,
+  "critical_record_counts": {
+    "afterimage_checked": 27,
+    "matrix_snapshot": 24,
+    "matrix_retired": 24,
+    "matrix_png": 6,
+    "terminal": 1
+  },
+  "all_critical_records_identical_in_player_and_stdout": true,
+  "matrix_unique_cases": [
+    [
+      0,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      4
+    ],
+    [
+      0,
+      2,
+      1
+    ],
+    [
+      0,
+      2,
+      4
+    ],
+    [
+      0,
+      3,
+      1
+    ],
+    [
+      0,
+      3,
+      4
+    ],
+    [
+      0,
+      4,
+      1
+    ],
+    [
+      0,
+      4,
+      4
+    ],
+    [
+      0,
+      5,
+      1
+    ],
+    [
+      0,
+      5,
+      4
+    ],
+    [
+      0,
+      6,
+      1
+    ],
+    [
+      0,
+      6,
+      4
+    ],
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      4
+    ],
+    [
+      1,
+      2,
+      1
+    ],
+    [
+      1,
+      2,
+      4
+    ],
+    [
+      1,
+      3,
+      1
+    ],
+    [
+      1,
+      3,
+      4
+    ],
+    [
+      1,
+      4,
+      1
+    ],
+    [
+      1,
+      4,
+      4
+    ],
+    [
+      1,
+      5,
+      1
+    ],
+    [
+      1,
+      5,
+      4
+    ],
+    [
+      1,
+      6,
+      1
+    ],
+    [
+      1,
+      6,
+      4
+    ]
+  ],
+  "ghosts": {
+    "original_overlap_ghosts": 3,
+    "additional_afterimage_matrix_ghosts": 24,
+    "all27_ids_unique": true,
+    "all_visible_and_no_excluded_descendants": true,
+    "matrix_pose_max_error": 0,
+    "all24_actual_resource_transform_matches": true,
+    "all24_fx_retirement_children_zero": true
+  },
+  "terminal": {
+    "afterimage_checks": 27,
+    "all_actual_effect_timers_retired": true,
+    "draw_count": 1882,
+    "effect_children_before_world_free": 0,
+    "elapsed_ms": 11855,
+    "events_dropped": 2177,
+    "exit_requested": 0,
+    "haste_retired": true,
+    "limits": "Reduction only; no full Unit death/physics/network/gameplay/performance proof; clean reduction does not resolve fullmatch39errors.",
+    "matrix_cases": 24,
+    "matrix_pngs": 6,
+    "op": "terminal",
+    "phase": "whole_world_retirement",
+    "pid": 97320,
+    "process_frame": 1881,
+    "status": "COMPLETE_DIAGNOSTIC_NOT_GAME_ACCEPTANCE",
+    "tracked_rows": 384,
+    "unix_seconds": 1793277601.031
+  },
+  "pngs": [
+    {
+      "name": "matrix_t1_r1_rank4_source.png",
+      "sha256": "8a7184fd088862d70e3ef01957d9644faaf72b909fe446e0dec2d26dd43bbb4b",
+      "bytes": 270323,
+      "width": 960,
+      "height": 540,
+      "all_chunk_crc_valid": true,
+      "idat_decompresses": true
+    },
+    {
+      "name": "matrix_t1_r1_rank4_ghost.png",
+      "sha256": "e4c7eda5f08f2abc63551274464d1f8daf031f9821d16c3a2491d1421a922e51",
+      "bytes": 270151,
+      "width": 960,
+      "height": 540,
+      "all_chunk_crc_valid": true,
+      "idat_decompresses": true
+    },
+    {
+      "name": "matrix_t1_r3_rank4_source.png",
+      "sha256": "89c56ea373c03c52246cd1a3e2a5dbf1765c636ede18d805cf638f58b23114a8",
+      "bytes": 269832,
+      "width": 960,
+      "height": 540,
+      "all_chunk_crc_valid": true,
+      "idat_decompresses": true
+    },
+    {
+      "name": "matrix_t1_r3_rank4_ghost.png",
+      "sha256": "926cf0504841bbf81cf3144a3f8962cf4d125b251e70b64529febdbfd1deeff1",
+      "bytes": 268621,
+      "width": 960,
+      "height": 540,
+      "all_chunk_crc_valid": true,
+      "idat_decompresses": true
+    },
+    {
+      "name": "matrix_t1_r6_rank4_source.png",
+      "sha256": "c6293f3384b877690f0e8381563eadf31e2fcba5a93b5e45273fc1a0cc075434",
+      "bytes": 263728,
+      "width": 960,
+      "height": 540,
+      "all_chunk_crc_valid": true,
+      "idat_decompresses": true
+    },
+    {
+      "name": "matrix_t1_r6_rank4_ghost.png",
+      "sha256": "c5d84d2d7c041361867af56c33625e4012c612d5550b3199a79a38726c4fd749",
+      "bytes": 264925,
+      "width": 960,
+      "height": 540,
+      "all_chunk_crc_valid": true,
+      "idat_decompresses": true
+    }
+  ],
+  "bounded_trace_limit": "Observer reached384 tracked-resource rows and dropped2177 noncritical events. This limits lifetime trace completeness; no claim of complete resource/deletion history. All required27 ghost,24 unique snapshot,24 retired,6 PNG and1 complete terminal records are present in BOTH raw streams and were independently checked. Drop count is not native errors or missing critical acceptance evidence.",
+  "visual_scope": "Six actual own-viewport PNG hashes/dimensions/chunkCRCs/decompression verified. Root separately inspected all6 visible silhouettes/gear and expected translucency. This reviewer does not infer final art approval from pixel files or numerical pose checks.",
+  "conclusion": "Original bounded3-afterimage overlap now completes cleanly plus24 additional actual afterimage snapshots covering2teams/6combatroles/rank1+4 with visible/currentpose and retirement assertions. All inherited raw-error/process-exit/source-binding guards remain satisfied. Accept this changed-FX native check; it is not original fullmatch/profiling/performance qualification or proof of unique engine-level lifetime cause. Prior original renderer failures and intermediate assertion/parse failures remain preserved.",
+  "review_actions": "Read existing artifacts only; no engine, replay, source/game edits, network/queue/PR changes or new native execution."
+}
