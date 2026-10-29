@@ -973,8 +973,10 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		else:
 			_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
 			if label != "":
-				_text(Vector2(rect.position.x - 22, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
-					HORIZONTAL_ALIGNMENT_CENTER, size_px + 44, 3)
+				# No wider than the 72 px slot pitch: "Shadow Dash" and "Smoke Bomb"
+				# ran together as one phrase (FE-03). A long name shrinks instead.
+				_text(Vector2(rect.position.x - 8, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
+					HORIZONTAL_ALIGNMENT_CENTER, size_px + 16, 3)
 	if not _lv():
 		return
 	if remaining > 0.0:
@@ -3678,6 +3680,9 @@ func _draw_quick_upgrade(p) -> void:
 	## you have been out of the fight for a few seconds (Faisal 06:04
 	## 2026-10-10: "the only way to safely upgrade is to go back to base").
 	if p == null or p.dead or p.downed or game.rank_open or game.menu_open or game.demo:
+		return
+	# The Veteran Training panel is open: the strip sat on its TRAIN button (FE-02).
+	if game.economy and game.economy.get("training_open") == true:
 		return
 	var tracks: Array = []
 	for t in 4:
@@ -6394,12 +6399,14 @@ func _draw_chat() -> void:
 		# Tabs.
 		var labels := ["All", "Team"]
 		for i in labels.size():
-			var tab := Rect2(rect.position + Vector2(10 + i * 92, 8), Vector2(84, 22))
+			var tab := Rect2(rect.position + Vector2(10 + i * 70, 8), Vector2(64, 22))
 			var on: bool = game.chat_tab == i
 			_plate(tab, Color(0.16, 0.14, 0.1, 0.98) if on else Color(0.1, 0.11, 0.16, 0.9), GOLD if on else Color(0.3, 0.32, 0.4), 6, 1)
 			_text(tab.position + Vector2(0, 16), labels[i], 12, CREAM if on else GREY, HORIZONTAL_ALIGNMENT_CENTER, tab.size.x, 1)
 			chat_buttons.append([tab, str(i)])
-		_text(rect.position + Vector2(0, 24), "Enter sends · Esc cancels", 9, GREY, HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 10, 1)
+		# Right of the two (narrower) tabs: it ran into Team (FE-06). It
+		# shrinks rather than overlap if the panel is ever narrower.
+		_text(rect.position + Vector2(10 + labels.size() * 70, 24), "Enter sends · Esc cancels", 9, GREY, HORIZONTAL_ALIGNMENT_RIGHT, rect.size.x - 20 - labels.size() * 70, 1)
 	# Rows from the bottom up so the newest sits above the input.
 	var y := rect.end.y - input_h - 8
 	var tw: float = rect.size.x - 62
@@ -6436,7 +6443,10 @@ func _draw_chat() -> void:
 			_paragraph(row.position + Vector2(40, 29), m.text, 11, Color(0.92, 0.92, 0.95, alpha), tw, 13.0, 1)
 		else:
 			_icon("crown", row.position + Vector2(20, h / 2.0), 6, Color(GOLD.r, GOLD.g, GOLD.b, 0.8 * alpha))
-			_paragraph(row.position + Vector2(40, 4 + body_size if touch_hint else h / 2.0 + 4), body, body_size, col, tw, line_height, 1)
+			# Centre the whole block: the first line used to sit at the middle
+			# whatever the line count, so a third line hung below the row (FE-01).
+			var first: float = 4.0 + body_size if touch_hint else (h - body_h) / 2.0 + line_height * 0.8
+			_paragraph(row.position + Vector2(40, first), body, body_size, col, tw, line_height, 1)
 	if typing:
 		var box := Rect2(rect.position + Vector2(8, rect.size.y - 30), Vector2(rect.size.x - 56, 24))
 		_plate(box, Color(0.12, 0.13, 0.2, 0.98), GOLD_DARK, 6, 1)
