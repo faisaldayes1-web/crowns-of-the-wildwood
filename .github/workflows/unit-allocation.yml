@@ -1,0 +1,95 @@
+# Agent: Codex-faisal3/crowns-ci-verify
+name: Unit allocation regression
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/unit-allocation.yml
+      - project.godot
+      - scripts/**
+      - scenes/**
+      - assets/**
+      - tools/unit_allocation_test.gd
+      - tools/tests/isolated.*
+  push:
+    branches:
+      - agent/Codex-faisal3/crowns-performance-20261025
+    paths:
+      - .github/workflows/unit-allocation.yml
+      - project.godot
+      - scripts/**
+      - scenes/**
+      - assets/**
+      - tools/unit_allocation_test.gd
+      - tools/tests/isolated.*
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unit-allocation-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  godot43:
+    name: Godot 4.3 import, allocation and bot match
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GODOT: /tmp/crowns-godot/Godot_v4.3-stable_linux.x86_64
+      TMPDIR: /tmp
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Record candidate and install official Godot 4.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-logs /tmp/crowns-godot
+          {
+            git rev-parse HEAD
+            printf 'event=%s head=%s\n' "$GITHUB_EVENT_NAME" "$GITHUB_SHA"
+            uname -a
+          } | tee ci-logs/candidate.log
+          release=https://github.com/godotengine/godot-builds/releases/download/4.3-stable
+          archive=Godot_v4.3-stable_linux.x86_64.zip
+          curl -fL --retry 3 "$release/$archive" -o "/tmp/crowns-godot/$archive" 2>&1 | tee ci-logs/download.log
+          curl -fL --retry 3 "$release/SHA512-SUMS.txt" -o /tmp/crowns-godot/SHA512-SUMS.txt 2>&1 | tee -a ci-logs/download.log
+          # Pin the published SHA-512 as well as checking the downloaded release manifest.
+          expected=fd52bb4ba8acc30ca5accd1c566d470ad7282f891ccc0995dfafabcf92bcf76280ce182bf9d80ebd885f3ed2165d01e1fc3f2928436b15498dfbd98656c2a45a
+          grep -E "^[[:xdigit:]]{128}  $archive$" /tmp/crowns-godot/SHA512-SUMS.txt | tee ci-logs/checksum.log
+          test "$(cut -d ' ' -f1 ci-logs/checksum.log)" = "$expected"
+          (cd /tmp/crowns-godot && sha512sum --check "$GITHUB_WORKSPACE/ci-logs/checksum.log") | tee ci-logs/checksum-verification.log
+          unzip -q "/tmp/crowns-godot/$archive" -d /tmp/crowns-godot
+          chmod +x "$GODOT"
+          "$GODOT" --version | tee ci-logs/engine-version.log
+          grep -Eq '^4\.3\.stable\.' ci-logs/engine-version.log
+      - name: Clean headless import
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e .godot
+          timeout 300 bash tools/tests/isolated.sh --headless --editor --path . --import 2>&1 | tee ci-logs/import.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log
+      - name: Isolated allocation regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120 bash tools/tests/isolated.sh --headless --path . --script tools/unit_allocation_test.gd 2>&1 | tee ci-logs/unit-allocation.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL ' ci-logs/unit-allocation.log
+          grep -Eq '^UNIT_ALLOCATION_RESULT assertions=[1-9][0-9]* failures=0$' ci-logs/unit-allocation.log
+      - name: Full seeded bot match
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1000 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 45000 -- --demo --seed=7 2>&1 | tee ci-logs/bot-match.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' ci-logs/bot-match.log
+          grep -Eq '^RESULT winner=.+ score=[0-9]+-[0-9]+ t=[0-9]+ overtime=' ci-logs/bot-match.log
+          grep -q '^STAT ' ci-logs/bot-match.log
+      - name: Retain actual logs including failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crowns-unit-allocation-${{ github.event_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-logs/
+          if-no-files-found: warn
+          retention-days: 14
