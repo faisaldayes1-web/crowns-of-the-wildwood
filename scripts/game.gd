@@ -76,7 +76,7 @@ const MONARCH_TITLES := ["Elven Crown", "Human Crown"]
 const CONTROLS_PATH := "user://controls.cfg"
 const PROFILE_DIR := "user://profiles"   # one save per named player (save_file.gd)
 # Actions the player can rebind in the Controls menu (and what to call them).
-const REBINDABLE := [["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"], ["ability_3", "Upgraded hat move"],
+const REBINDABLE := [["move_interact", "Move / interact"], ["force_move", "Force move"], ["force_hold", "Force hold / stand still"], ["attack", "Base attack"], ["block", "Block"], ["ability_1", "Ability Q"], ["ability_2", "Ability E"], ["ability_3", "Upgraded hat move"],
 	["dodge", "Dodge"], ["interact", "Grab / drop"], ["rank_menu", "Perks & ranks"], ["scoreboard", "Scoreboard (hold)"],
 	["chat", "Chat"], ["chat_toggle", "Show / hide chat"], ["roster_toggle", "Show / hide team rosters"], ["menu", "Pause menu"], ["move_up", "Move up"], ["move_down", "Move down"],
 	["move_left", "Move left"], ["move_right", "Move right"], ["cmd_attack", "Call: Attack!"], ["cmd_defend", "Call: Defend!"],
@@ -267,7 +267,13 @@ var touch                      # on-screen touch controls (touch.gd), for the we
 var touch_active := false      # a finger has touched the screen: aim follows the move stick, not the mouse
 var control_layout := "auto"   # Controls tab (Faisal 2026-10-14: a touch-screen laptop got the iPad layout): "auto", "keyboard", "controller", "touch"
 const CONTROL_LAYOUTS := ["auto", "keyboard", "controller", "touch"]
-var move_mode := "aim"         # keyboard + mouse: "aim" (W walks toward the cursor) or "screen" (W walks up the screen)
+var move_mode := "screen"         # keyboard + mouse: "aim" (W walks toward the cursor) or "screen" (W walks up the screen)
+var pc_movement := "click"  # click-to-move by default; "wasd" adds directional keyboard movement
+var combine_move_attack := false  # walking past an enemy must not silently attack it
+var wheel_zoom := false  # off: wheel bindings force-move; on: wheel zooms instead
+var movement_primary_blocked := false
+var movement_consumed_tap_frame := -1
+var movement_force_pulse := false
 var touch_tap := Vector2(-1, -1)  # where a finger tapped a menu this frame (the click polling below would miss a short tap)
 var message_label: Label
 var banner: Label
@@ -1043,32 +1049,99 @@ func steam_unlock(id: String, u = null) -> void:
 		steam.unlock(id)
 
 
-func try_interact(u) -> void:
+func pointer_descriptor(u, selected) -> Array:
+	# Only public, stable identities. Never send instance IDs or method names.
+	if not is_instance_valid(selected) or not selected.is_inside_tree() or selected.is_queued_for_deletion():
+		return []
+	if guides[u.team] == selected:
+		return ["guide", 0]
+	for role in seals[u.team]:
+		if seals[u.team][role] == selected:
+			return ["seal", int(role)]
+	if monarchs.size() > 1 and monarchs[1 - u.team] == selected:
+		return ["crown", 0]
+	if economy != null:
+		var index: int = economy.nodes.find(selected)
+		if index >= 0:
+			return ["resource", index]
+	return []
+
+
+func pointer_node(u, descriptor: Array):
+	if descriptor.size() != 2 or not descriptor[0] is String or not descriptor[1] is int:
+		return null
+	var index: int = descriptor[1]
+	match descriptor[0]:
+		"guide":
+			return guides[u.team] if index == 0 else null
+		"seal":
+			return seals[u.team].get(index)
+		"crown":
+			return monarchs[1 - u.team] if index == 0 and monarchs.size() > 1 else null
+		"resource":
+			if economy != null and index >= 0 and index < economy.nodes.size():
+				return economy.nodes[index]
+	return null
+
+
+func pointer_reach(u, selected) -> float:
+	var descriptor := pointer_descriptor(u, selected)
+	if descriptor.is_empty():
+		return 0.0
+	match descriptor[0]:
+		"guide": return Guide.TALK_RANGE - 0.1
+		"seal": return Stats.SEAL_REACH - 0.1
+		"crown": return Unit.PICKUP_RANGE - 0.1
+		"resource": return float(Stats.ECONOMY.reach) - 0.1
+	return 0.0
+
+
+func try_pointer_interact(u, selected) -> bool:
+	if u.dead or u.downed or u.carrying != null or pointer_descriptor(u, selected).is_empty():
+		return false
+	var offset: Vector3 = selected.global_position - u.global_position
+	if absf(offset.y) > 0.6 or Vector2(offset.x, offset.z).length() > pointer_reach(u, selected):
+		return false
+	if economy != null and selected in economy.nodes:
+		if selected.in_reach(u):
+			economy.start_work(u, selected)
+			return true
+		return false
+	try_interact(u, selected)
+	return true
+
+
+func try_interact(u, selected = null) -> void:
 	if u.dead or u.downed:
 		return
 	# Every press reaches out; the result below answers it with a pop
 	# (SkillFx.grab_hit) or a whiff (SkillFx.grab_miss). Looks only.
 	SkillFx.grab(u)
-	if u.carrying:
+	if u.carrying and selected == null:
 		drop_monarch(u)
 		return
-	if u.is_player and guides[u.team] and guides[u.team].in_reach(u):
-		guide_toggle()
+	if u.is_player and guides[u.team] and guides[u.team].in_reach(u) and (selected == null or selected == guides[u.team]):
+		if u == player:
+			guide_toggle()
 		SkillFx.grab_hit(u, guides[u.team].global_position + Vector3(0, 1.6, 0), Color(0.6, 1.0, 0.6))
 		return
-	if economy and economy.try_interact(u):
+	if selected == null and economy and economy.try_interact(u):
 		return   # gathering, hat machine upgrades, door repairs, turret pads
 	for role in seals[u.team]:
 		var seal = seals[u.team][role]
-		if seal.in_reach(u):
+		if seal.in_reach(u) and (selected == null or selected == seal):
 			if u.role == role:
+				if selected != null and economy != null and u == player and not seal.locked and economy._training_listed(u):
+					economy.training_open = true
+					sfx.ui("ui_open", -6.0)
+					return
 				toast("You already carry the %s's seal" % seal.class_title(), Color(1.0, 0.8, 0.5))
 				SkillFx.grab_miss(u)
 			else:
 				seal.take(u)
 				SkillFx.grab_hit(u, seal.global_position + Vector3(0, 1.2, 0))
 			return
-	if prep_left > 0.0:
+	if prep_left > 0.0 and selected == null:
 		# The fortify phase: F raises a barricade.
 		if plant_barricade(u):
 			SkillFx.grab_hit(u, SkillFx.grab_point(u), Color(0.85, 0.65, 0.4))
@@ -1076,6 +1149,8 @@ func try_interact(u) -> void:
 			SkillFx.grab_miss(u)
 		return
 	var m = monarchs[1 - u.team]
+	if selected != null and (selected != m or prep_left > 0.0 or u.carrying != null):
+		return
 	if m.state != Monarch.State.CARRIED and _flat_dist(u.global_position, m.global_position) < Unit.PICKUP_RANGE:
 		if m.state == Monarch.State.HOME and vaults[1 - u.team].is_locked():
 			if u.is_player:
@@ -1531,7 +1606,11 @@ func toggle_setting(key: String) -> void:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
 		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
 		"move_aim", "move_screen":
-			move_mode = key.trim_prefix("move_")
+			move_mode = "screen"
+		"pc_click", "pc_wasd":
+			pc_movement = key.trim_prefix("pc_")
+		"combine_move_attack": combine_move_attack = not combine_move_attack
+		"wheel_zoom": wheel_zoom = not wheel_zoom
 		"layout_auto", "layout_keyboard", "layout_controller", "layout_touch":
 			control_layout = key.trim_prefix("layout_")
 			apply_control_layout()
@@ -3644,9 +3723,124 @@ func menu_tick() -> void:
 	touch_tap = Vector2(-1, -1)
 
 
+
+func movement_ui_hit() -> bool:
+	if hud == null:
+		return false
+	var pointer := menu_mouse()
+	if hud.quick_close.has_point(pointer):
+		return true
+	for group in [hud.quick_buttons, hud.corner_buttons, hud.chat_buttons]:
+		for button in group:
+			if button[0].has_point(pointer):
+				return true
+	return economy != null and economy.mouse_on_button()
+
+
+func mouse_in_player_pane(u) -> bool:
+	if not couch_active:
+		return true
+	var pointer := get_viewport().get_mouse_position()
+	for pane in panes:
+		if pane.unit == u:
+			return pane.rect.has_point(pointer)
+	return false
+
+
+func movement_ground_point(u) -> Vector3:
+	if not mouse_in_player_pane(u):
+		return Vector3.INF
+	var cam: Camera3D = camera_for(u)
+	if cam == null:
+		return Vector3.INF
+	var pointer: Vector2 = mouse_for(u)
+	var origin := cam.project_ray_origin(pointer)
+	var query := PhysicsRayQueryParameters3D.create(origin, origin + cam.project_ray_normal(pointer) * 500.0, 1)
+	query.exclude = [u.get_rid()]
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty() or hit.normal.dot(Vector3.UP) < 0.55:
+		return Vector3.INF
+	var point: Vector3 = hit.position
+	if vmap != null and not vmap.walkable(point, 0.4):
+		return Vector3.INF
+	return point
+
+
+func mouse_movement_choice(u, point: Vector3) -> Dictionary:
+	if not point.is_finite():
+		return {}
+	# Selection is explicit. Ordinary ground clicks never drop the crown or
+	# trigger the generic prep-stage barricade fallback in try_interact.
+	var candidates: Array = []
+	if guides[u.team] != null:
+		candidates.append(guides[u.team])
+	for seal in seals[u.team].values():
+		candidates.append(seal)
+	if monarchs.size() > 1:
+		var crown = monarchs[1 - u.team]
+		if crown != null and crown.state != Monarch.State.CARRIED and u.carrying == null:
+			candidates.append(crown)
+	if economy != null and u.carrying == null:
+		candidates.append_array(economy.nodes)
+	var best = null
+	var nearest := 1.3
+	for node in candidates:
+		if not is_instance_valid(node) or not node.is_inside_tree():
+			continue
+		var distance := Vector2(node.global_position.x - point.x, node.global_position.z - point.z).length()
+		if distance < nearest and absf(node.global_position.y - point.y) <= 0.6:
+			nearest = distance
+			best = node
+	if best != null and u.carrying == null:
+		return {"kind": "interact", "position": best.global_position, "node": best}
+	if combine_move_attack:
+		for enemy in units:
+			if enemy == u or enemy.team == u.team or enemy.dead:
+				continue
+			var distance := Vector2(enemy.global_position.x - point.x, enemy.global_position.z - point.z).length()
+			if distance < 1.3:
+				return {"kind": "attack", "position": enemy.global_position, "node": enemy}
+	return {}
+
+
+func non_primary_attack_held(u) -> bool:
+	return mapped_action_held(u._a("attack"), [MOUSE_BUTTON_LEFT])
+
+
+func mapped_action_held(action: StringName, excluded_mouse: Array) -> bool:
+	# Saved/custom LMB attack mappings cannot make a move-only click attack.
+	for event in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			if (event.physical_keycode != 0 and Input.is_physical_key_pressed(event.physical_keycode)) or (event.keycode != 0 and Input.is_key_pressed(event.keycode)):
+				return true
+		elif event is InputEventMouseButton and not event.button_index in excluded_mouse:
+			if Input.is_mouse_button_pressed(event.button_index):
+				return true
+		elif event is InputEventJoypadButton or event is InputEventJoypadMotion:
+			for device in Input.get_connected_joypads():
+				if event.device >= 0 and event.device != device:
+					continue
+				if event is InputEventJoypadButton and Input.is_joy_button_pressed(device, event.button_index):
+					return true
+				if event is InputEventJoypadMotion and Input.get_joy_axis(device, event.axis) * signf(event.axis_value) > 0.25:
+					return true
+	return false
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		click_latched = true
+	if event.is_action_released("move_interact"):
+		movement_primary_blocked = false
+	if event.is_action_pressed("move_interact") and (menu_blocks_input(player) or movement_ui_hit() or not playing or not mouse_in_player_pane(player)):
+		movement_primary_blocked = true
+		movement_consumed_tap_frame = Engine.get_physics_frames() + 1
+	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		if playing and not menu_blocks_input(player) and not movement_ui_hit():
+			if wheel_zoom:
+				cam_zoom = clampf(cam_zoom + (-0.08 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 0.08), 0.7, 1.6)
+			elif event.is_action_pressed("force_move"):
+				movement_force_pulse = true
 
 
 func menu_input(event: InputEvent) -> void:
@@ -4078,6 +4272,10 @@ func _pad_name(button: int, kind: String = "xbox") -> String:
 func _rebind(action: String, event: InputEvent) -> void:
 	## Replace the action's bindings of the event's kind (keyboard, mouse or
 	## gamepad button) with this one, and take it off any other action.
+	if (action == "attack" and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) or (action == "block" and event is InputEventKey and (event.physical_keycode == KEY_SHIFT or event.keycode == KEY_SHIFT)):
+		rebinding = ""
+		toast("Left click is Move/Interact; use Combine or Shift to attack. Shift is Force Hold.", Color(1.0, 0.8, 0.5))
+		return
 	var fresh: InputEvent
 	if event is InputEventKey:
 		fresh = InputEventKey.new()
@@ -4127,6 +4325,12 @@ func select_map(index: int) -> void:
 
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		movement_force_pulse = false
+		movement_primary_blocked = true
+		for unit in locals:
+			if is_instance_valid(unit) and unit.has_method("cancel_click_movement"):
+				unit.cancel_click_movement()
 	if what == NOTIFICATION_WM_CLOSE_REQUEST and not demo:
 		_save_settings()   # closing the window keeps everything
 		_flush_save()
@@ -4272,6 +4476,7 @@ func delete_profile(id: String) -> bool:
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	_read_save(cfg)
+	_write_control_bindings(cfg)  # migration and schema are one save transaction
 	cfg.set_value("settings", "bot_difficulty", bot_difficulty)
 	cfg.set_value("settings", "sound_volume", sfx.sound_volume)
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
@@ -4290,7 +4495,11 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
 	cfg.set_value("settings", "control_layout", control_layout)
-	cfg.set_value("settings", "move_mode", move_mode)
+	cfg.set_value("settings", "move_mode", "screen")
+	cfg.set_value("settings", "movement_schema", 1)
+	cfg.set_value("settings", "pc_movement", pc_movement)
+	cfg.set_value("settings", "combine_move_attack", combine_move_attack)
+	cfg.set_value("settings", "wheel_zoom", wheel_zoom)
 	cfg.set_value("settings", "hero_name", hero_name)
 	cfg.set_value("settings", "hero_hair", hero_hair)
 	cfg.set_value("settings", "hero_trim", hero_trim)
@@ -4375,6 +4584,12 @@ func _write_save(cfg: ConfigFile) -> Error:
 func _save_controls() -> void:
 	var cfg := ConfigFile.new()
 	_read_save(cfg)
+	_write_control_bindings(cfg)
+	cfg.set_value("settings", "movement_schema", 1)
+	_write_save(cfg)
+
+
+func _write_control_bindings(cfg: ConfigFile) -> void:
 	for entry in REBINDABLE:
 		var list: Array = []
 		for ev in InputMap.action_get_events(entry[0]):
@@ -4385,9 +4600,6 @@ func _save_controls() -> void:
 			elif ev is InputEventJoypadButton:
 				list.append({"t": "pad", "c": ev.button_index})
 		cfg.set_value("controls", entry[0], list)
-	_write_save(cfg)
-
-
 func _load_controls() -> void:
 	var cfg := ConfigFile.new()
 	if _read_save(cfg) != OK:
@@ -4420,9 +4632,12 @@ func _load_controls() -> void:
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
 	control_layout = cfg.get_value("settings", "control_layout", "auto")
-	move_mode = cfg.get_value("settings", "move_mode", "aim")
-	if move_mode not in ["aim", "screen"]:
-		move_mode = "aim"
+	move_mode = "screen"  # owner-confirmed camera-relative axes supersede the old aim-relative default
+	pc_movement = str(cfg.get_value("settings", "pc_movement", "click"))
+	if pc_movement not in ["click", "wasd"]:
+		pc_movement = "click"
+	combine_move_attack = bool(cfg.get_value("settings", "combine_move_attack", false))
+	wheel_zoom = bool(cfg.get_value("settings", "wheel_zoom", false))
 	if control_layout not in CONTROL_LAYOUTS:
 		control_layout = "auto"
 	apply_control_layout()
@@ -4479,6 +4694,17 @@ func _load_controls() -> void:
 					ev.button_index = int(item.c)
 			if ev:
 				InputMap.action_add_event(entry[0], ev)
+
+
+	# Migrate only conflicting legacy defaults in memory; never erase the account
+	# or unrelated remaps. Saving remains the existing explicit settings path.
+	if int(cfg.get_value("settings", "movement_schema", 0)) < 1:
+		for ev in InputMap.action_get_events("attack"):
+			if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+				InputMap.action_erase_event("attack", ev)
+		for ev in InputMap.action_get_events("block"):
+			if ev is InputEventKey and ev.physical_keycode == KEY_SHIFT:
+				InputMap.action_erase_event("block", ev)
 
 
 func _reset_controls() -> void:
@@ -11323,8 +11549,11 @@ func _setup_input() -> void:
 	_add_action("aim_right", [], [], JOY_AXIS_RIGHT_X, 1.0)
 	_add_action("aim_up", [], [], JOY_AXIS_RIGHT_Y, -1.0)
 	_add_action("aim_down", [], [], JOY_AXIS_RIGHT_Y, 1.0)
-	_add_action("attack", [KEY_J], [JOY_BUTTON_A], JOY_AXIS_TRIGGER_RIGHT, 1.0, [MOUSE_BUTTON_LEFT])
-	_add_action("block", [KEY_SHIFT, KEY_K], [JOY_BUTTON_LEFT_SHOULDER], JOY_AXIS_TRIGGER_LEFT, 1.0, [MOUSE_BUTTON_RIGHT])
+	_add_action("move_interact", [], [], -1, 0.0, [MOUSE_BUTTON_LEFT])
+	_add_action("force_move", [], [], -1, 0.0, [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN, MOUSE_BUTTON_XBUTTON1])
+	_add_action("force_hold", [KEY_SHIFT], [])
+	_add_action("attack", [KEY_J], [JOY_BUTTON_A], JOY_AXIS_TRIGGER_RIGHT, 1.0)
+	_add_action("block", [KEY_K], [JOY_BUTTON_LEFT_SHOULDER], JOY_AXIS_TRIGGER_LEFT, 1.0, [MOUSE_BUTTON_RIGHT])
 	_add_action("ability_1", [KEY_Q], [JOY_BUTTON_X])
 	_add_action("ability_2", [KEY_E], [JOY_BUTTON_Y])
 	_add_action("ability_3", [KEY_G], [JOY_BUTTON_LEFT_STICK])   # the upgraded hat's move (economy.gd)

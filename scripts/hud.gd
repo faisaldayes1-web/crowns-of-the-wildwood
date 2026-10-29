@@ -5900,6 +5900,7 @@ func _menu_classes(body: Rect2) -> void:
 
 
 const CONTROL_GROUPS := [
+	["POINTER", "dodge", ["move_interact", "force_move", "force_hold"]],
 	["MOVEMENT", "dodge", ["move_up", "move_down", "move_left", "move_right", "dodge"]],
 	["COMBAT", "sword", ["attack", "block", "ability_1", "ability_2"]],
 	["INTERACTION", "upgrade", ["interact", "rank_menu"]],
@@ -5959,17 +5960,31 @@ func _menu_controls(body: Rect2) -> void:
 		_keycap(Vector2(px, row.get_center().y), game.binding_text(action, "pad", pad_kind), 96)
 		bind_buttons.append([row, action])
 	if controls_group == 0:
-		# How W/A/S/D steer with the mouse (Faisal 2026-10-15).
-		var mr := Rect2(R.position.x + 10, R.position.y + 50 + actions.size() * 40, R.size.x - 20, 40)
-		_opt_slot(mr)
-		_text(mr.position + Vector2(14, 25), "Keyboard movement", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		var opts := [["aim", "TOWARD THE CURSOR"], ["screen", "UP THE SCREEN"]]
+		var top := R.position.y + 50 + actions.size() * 40
+		var preset := Rect2(R.position.x + 10, top, R.size.x - 20, 34)
+		_opt_slot(preset)
+		_text(preset.position + Vector2(14, 23), "PC movement", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var options := [["click", "CLICK TO MOVE"], ["wasd", "WASD"]]
 		for i in 2:
-			var ob := Rect2(mr.position.x + 200 + i * 196, mr.position.y + 6, 188, 28)
-			_opt_button(ob, opts[i][1], game.move_mode == opts[i][0])
-			toggle_buttons.append([ob, "move_" + opts[i][0]])
-		_text(Vector2(mr.position.x + 14, mr.end.y + 18), "Toward the cursor: W walks where the mouse points, S backs off, A and D circle. Gamepads and touch always move by the stick.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, mr.size.x - 28, 2)
-	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), ("Tap a row, then press the key or button you want; tap again to cancel." if game.touch_active else "Click a row, then press the key, mouse button or gamepad button you want; Esc cancels.") + " Fixed: the mouse and right stick aim, the left stick moves, 1-6 or the D-pad spend perk points.",
+			var button := Rect2(preset.position.x + 200 + i * 164, preset.position.y + 3, 156, 28)
+			_opt_button(button, options[i][1], game.pc_movement == options[i][0])
+			toggle_buttons.append([button, "pc_" + options[i][0]])
+		var combine := Rect2(R.position.x + 10, top + 40, R.size.x - 20, 34)
+		_opt_slot(combine)
+		_text(combine.position + Vector2(14, 23), "Combine move / interact / basic attack", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var combine_button := Rect2(combine.end.x - 112, combine.position.y + 3, 100, 28)
+		_opt_button(combine_button, "ON" if game.combine_move_attack else "OFF", game.combine_move_attack)
+		toggle_buttons.append([combine_button, "combine_move_attack"])
+		var wheel := Rect2(R.position.x + 10, top + 80, R.size.x - 20, 34)
+		_opt_slot(wheel)
+		_text(wheel.position + Vector2(14, 23), "Zoom on mouse wheel", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var wheel_button := Rect2(wheel.end.x - 112, wheel.position.y + 3, 100, 28)
+		_opt_button(wheel_button, "ON" if game.wheel_zoom else "OFF", game.wheel_zoom)
+		toggle_buttons.append([wheel_button, "wheel_zoom"])
+		_paragraph(Vector2(R.position.x + 14, top + 132), "Left click moves or interacts. With Combine OFF, it never attacks. Hold Shift + left click to attack in place; J is a separate basic attack. Force Move never attacks or interacts. Wheel bindings force-move while wheel zoom is OFF.", 11, GREY, R.size.x - 28, 14.0)
+	elif controls_group == 1:
+		_paragraph(Vector2(R.position.x + 14, R.position.y + 58 + actions.size() * 40), "WASD uses the current player's camera: W goes up the screen, D goes right. Gamepad left-stick movement and right-stick aim use each player's own camera. Change PC movement on the POINTER tab.", 11, GREY, R.size.x - 28, 14.0)
+	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), ("Tap a row, then press the key or button you want; tap again to cancel." if game.touch_active else "Click a row, then press the key, mouse button or gamepad button you want; Esc cancels.") + " Mouse/right stick aim independently; controller movement follows the screen. 1-6 or the D-pad spend perk points.",
 		11, Color(0.72, 0.72, 0.78), R.size.x - 32, 13.0)
 	reset_button = Rect2(body.position.x + 232 + (R.size.x - 220) / 2.0, body.end.y - 38, 220, 34)
 	_opt_button(reset_button, "RESET TO DEFAULT", false)
