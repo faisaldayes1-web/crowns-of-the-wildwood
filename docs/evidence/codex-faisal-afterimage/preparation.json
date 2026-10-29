@@ -1,0 +1,18 @@
+{
+  "agent": "Codex-faisal/gameplay_review",
+  "task": "T-2fc4d3bca959",
+  "disposition": "PREPARED_NEW24_AFTERIMAGE_MATRIX_FOR_ROOT_INDEPENDENT_REVIEW_NO_RUN",
+  "fixture_sha256": "a96234b042cd2bfd108fc2c6ba9d8f983e227e276746ede7e8dd96976c05b309",
+  "runner_sha256": "80afcee1d66e3d283f455b9e91b67b3cbde24538eecff3ee53e07219f0a0f359",
+  "final_fx_sha256": "f0f5cb2e8c14bca70969b25b805fc4951489ef49703a66ed3fb88eccb9f8a466",
+  "pins_file_sha256": "bcdefc432361d3deb14d8b61b6f6f77076465826b9cbb34984160a54b4104dc6",
+  "fresh_profile": "C:/Temp/cm6j",
+  "extension_sha256": "cd02ae175c66b9fceced05f76923b399e9568d0dfe8cf0daf0d64795dd299d3c",
+  "v8_readback_sha256": "c276ef772e54c262614c7bd991fd7f872d4a24f1b45392cba6eb8664ebfc023c",
+  "matrix": "After original exact3ghost overlap/actualeffectsretired, actual CharacterModel.setup creates24 NEW afterimage cases:2teams x6combatroles(Knight/Ranger/Mage/Healer/Engineer/Rogue) xrank1/4, emptyvariant/custom. Each actual Fx.afterimage call uses same checked helper and requires exactly1newghost/visiblemesh/0excludednodes. Independent source-vsclone visible mesh-resource/world-transform multiset match rejects missing/extra/replaced meshes or transformdifference>1e-5; all finite. Wait actual life+.05 +2postdraws and requireFxchildren0 eachcase. This is24 actual afterimage snapshots, not old model-rebuild-test replay.",
+  "captures": "Exactly6 own root-viewport PNGs: human rank4 Knight/Rogue/Mage eachsource+ghost. Same fixed fixture camera/light. Source captured beforeafterimage; source hidden onlyafter synchronous posematch for isolated ghost capture. No OSscreen/input/personaldata. Existing file refusesoverwrite; Imageempty/writefail rejects fixture. Files saved only explicit MATRIX_OUTPUT_DIR under own audit packet; eachphase logs SHA/dimensions.",
+  "preservation": "Original v8 initial overlap function/three checked calls/retirement assertion bytes unchanged until appendedmatrix hook; reverse newconstants/extension/hook/terminalfields +profile/pin recovers v8 exactsource. Runner onlyFXpin/profile/fixtureSHA changed. Other41pins and originalofficialengine SHA,35s internal/40s external ceiling, lease/isolation/raw/nativeexit gates unchanged.",
+  "timing": "Matrix adds bounded24 xlife(.15normally,.4for3capturedcases)+.05 plus2draws and setup/capture costs. No ceiling increase. Actual ceiling failure remains failure; no assumed runtimepass. All24 snapshot andretired records plusmatrix24/png6/afterimage27 terminal required by fixture.",
+  "known_limits": "Visible mesh transform/resource identity is numerical pose snapshot evidence; it does not compare every skeleton animation track or establish perceived art quality. Underlying models/standard6roles only; original first3cases cover actual promotedFrost/Pyro/Dark overlap. No full Unit death/controller/physics/network/performance claim. Observers can perturb scheduling. Root independent fixture review/native grant still required.",
+  "execution": "Prepared only; Python AST source parsing and exacthash comparisons by reviewer, no Godot parser/engine/native. All earlier raw/source preserved. No game/asset/cache/backend edits; only own fixture artifacts. Fullmatch qualification remains separately required."
+}

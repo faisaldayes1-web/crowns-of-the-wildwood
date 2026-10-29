@@ -1,0 +1,9 @@
+{
+  "agent": "Codex-faisal",
+  "scope": "Only fx.gd _x_afterimage and private clone pruning helper",
+  "source_sha256": "f0f5cb2e8c14bca70969b25b805fc4951489ef49703a66ed3fb88eccb9f8a466",
+  "root_review": "Approved exact source and fixture; actual6PNGs reviewed: source and ghost Knight/Mage/Rogue retain silhouettes and equipment. Rendered matrix confirms no omitted effect counted as pass.",
+  "regression": "Original overlap clean then24 NEW actualafterimage snapshots, both teams/six combat roles/ranks1and4; source/clone visible mesh resource+world transform oracle <=1e-5, all27ghost calls visible, allretire.",
+  "trace_limit": "Metadata observer bounded384rows,2177noncritical events dropped. Critical matrix/ghost/retired/PNG/terminal records are separately checked; not an exhaustive RID lifetime trace.",
+  "not_proved": "No offending RID identified; no full rendered match, performance matrix, physical input, final art acceptance or new packed player yet."
+}

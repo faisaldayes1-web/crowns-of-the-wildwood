@@ -1,0 +1,76 @@
+{
+  "agent": "Codex-faisal/gameplay_review",
+  "task": "T-2fc4d3bca959",
+  "disposition": "NARROW_V8_NATIVE_REPRODUCTION_REPAIR_CHECK_CONFIRMED_NOT_FULLMATCH",
+  "actual_bound_fx_sha256": "7e071d96b806dd46d14ae79f5454593de504f9f79366ea305fc4ca7dada42238",
+  "final_print_free_fx_sha256": "f0f5cb2e8c14bca70969b25b805fc4951489ef49703a66ed3fb88eccb9f8a466",
+  "final_success_path_equivalence": "Reinstating exactly2 failure-only print lines reconstructs actual v8 FX SHA7e071d96 exactly. No other source bytes differ.",
+  "actual_hashes": {
+    "actual-result.json": "8744cb2dad809f0014e0440ec0ecd37173aeb9b4da431da8769ef3cd0488900c",
+    "actual-stdout.log": "45effd087bb7ced9b6ed33d76c8487db890b170e895d005a5dbee55212d203e0",
+    "actual-stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "actual-player.log": "6fcf164d01f5b68100f2e214aab3aa504d0724d1f99c7da93f5e5c4a95a4b181"
+  },
+  "result": {
+    "fixture_sha256": "18c5679c0d3e002ac762b2b2aefd3c7097e5da8f5df5a146bcf1a2add52ed1b4",
+    "runner_sha256": "a47927c6a2b48237780593487d7874bbfa56647e4d3d74bbebdf1e8c8f34689e",
+    "engine_sha256": "8c54c617d4837958f2d5ee5020e900820db52371d5c826d9e6b5e5de1e939a1e",
+    "exit": 0,
+    "elapsed_seconds": 5.967999999993481,
+    "raw_errors": false,
+    "actual_forward_vulkan": true,
+    "inputs_unchanged": true,
+    "diagnostic_completed_clean": true
+  },
+  "three_ghosts": [
+    {
+      "ghost_id": 52009371195,
+      "ghost_path": "/root/@Node3D@2/Fx/_Node3D_6",
+      "mesh_count": 21,
+      "visible_meshes": 18,
+      "valid": true,
+      "unwanted": [],
+      "elapsed_ms": 1542,
+      "process_frame": 1
+    },
+    {
+      "ghost_id": 53485766267,
+      "ghost_path": "/root/@Node3D@2/Fx/@Node3D@22",
+      "mesh_count": 21,
+      "visible_meshes": 18,
+      "valid": true,
+      "unwanted": [],
+      "elapsed_ms": 1558,
+      "process_frame": 1
+    },
+    {
+      "ghost_id": 65699579707,
+      "ghost_path": "/root/@Node3D@2/Fx/@Node3D@46",
+      "mesh_count": 21,
+      "visible_meshes": 18,
+      "valid": true,
+      "unwanted": [],
+      "elapsed_ms": 1822,
+      "process_frame": 45
+    }
+  ],
+  "terminal": {
+    "afterimage_checks": 3,
+    "all_actual_effect_timers_retired": true,
+    "draw_count": 580,
+    "effect_children_before_world_free": 0,
+    "elapsed_ms": 4291,
+    "events_dropped": 0,
+    "exit_requested": 0,
+    "haste_retired": true,
+    "limits": "Reduction only; no full Unit death/physics/network/gameplay/performance proof; clean reduction does not resolve fullmatch39errors.",
+    "op": "terminal",
+    "phase": "whole_world_retirement",
+    "pid": 65792,
+    "process_frame": 579,
+    "status": "COMPLETE_DIAGNOSTIC_NOT_GAME_ACCEPTANCE",
+    "tracked_rows": 116,
+    "unix_seconds": 1793277044.017
+  },
+  "limits": "Actual3-call overlap reduction now clean versus original same-sequence native renderer failure. Constructor/internal-child pairing failures preserved as prior failed attempts. This is not proof which cleanup subfactor caused repair, not original fullmatch/performance/art acceptance, and not replay of original8profiling matrix."
+}

@@ -745,15 +745,15 @@ func afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 func _x_afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 	## A see-through copy of the body in its current pose that fades where it
 	## stood: dashes and blinks leave a trail of these.
-	if model == null or not is_instance_valid(model):
+	if model == null or not is_instance_valid(model) or model.is_queued_for_deletion():
 		return
 	var ghost: Node3D = model.duplicate(0)
-	for n in ghost.find_children("*", "AnimationPlayer", true, false):
-		n.queue_free()
-	for n in ghost.find_children("*", "Label3D", true, false):
-		n.queue_free()
-	for n in ghost.find_children("*", "GPUParticles3D", true, false) + ghost.find_children("*", "CPUParticles3D", true, false) + ghost.find_children("*", "Light3D", true, false):
-		n.queue_free()
+	# A role change can leave the former rig queued beside its replacement.
+	# Snapshot only the live pose; remove nonvisual/simulation children while
+	# the clone is still off tree, before they register rendering resources.
+	if not _prune_afterimage(model, ghost):
+		ghost.free()
+		return
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -762,6 +762,9 @@ func _x_afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 	m.disable_receive_shadows = true
 	for mi in ghost.find_children("*", "MeshInstance3D", true, false):
 		mi.material_override = m
+		mi.material_overlay = null
+		for surface in mi.get_surface_override_material_count():
+			mi.set_surface_override_material(surface, null)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(ghost)
 	ghost.global_transform = model.global_transform
@@ -770,6 +773,29 @@ func _x_afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 	tw.tween_property(m, "albedo_color:a", 0.0, life).set_ease(Tween.EASE_IN)
 	tw.tween_property(ghost, "scale", ghost.scale * 1.06, life)
 	tw.chain().tween_callback(ghost.queue_free)
+
+
+func _prune_afterimage(source: Node, snapshot: Node) -> bool:
+	# duplicate(0) omits script-constructor-owned children and validates node
+	# names. Pair the children that actually survived that operation instead
+	# of assuming the two child arrays have identical indices or lengths.
+	var originals := {}
+	# Native duplication also copies internal rig children, sometimes making
+	# them ordinary children in the clone (e.g. the physical-bone simulator).
+	for child in source.get_children(true):
+		var key := String(child.name).validate_node_name()
+		if originals.has(key):
+			return false
+		originals[key] = child
+	for copy in snapshot.get_children(true):
+		var child: Node = originals.get(String(copy.name))
+		if child == null or child.get_class() != copy.get_class():
+			return false
+		if child.is_queued_for_deletion() or child is AnimationPlayer or child is Label3D or child is GPUParticles3D or child is CPUParticles3D or child is Light3D:
+			copy.free()
+		elif not _prune_afterimage(child, copy):
+			return false
+	return true
 
 
 func trail_ghosts(model: Node3D, color: Color, count: int = 4, every: float = 0.05, life: float = 0.35) -> void:
