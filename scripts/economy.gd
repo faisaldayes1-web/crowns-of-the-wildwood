@@ -1579,7 +1579,9 @@ func draw_action_card(hud, me) -> void:
 	var touch: bool = hud.get("touch_ui") == true
 	var W: float = hud.size.x
 	var H: float = hud.size.y
-	var card := Rect2(Vector2(W / 2.0 - 300.0, H - (490.0 if touch else 282.0)), Vector2(600, 112))
+	# (Above the LEVEL UP strip and its name tag, at H-224..H-138 by the ability bar:
+	# at H-282 the card's + button was under it, FE-02.)
+	var card := Rect2(Vector2(W / 2.0 - 300.0, H - (490.0 if touch else 346.0)), Vector2(600, 112))
 	_wood_board(hud, card, 4, true)
 	# Hex tile with the move's (or the job's) painted icon.
 	var hc := card.position + Vector2(62, 56)
