@@ -1629,7 +1629,7 @@ func toggle_setting(key: String) -> void:
 		"pad_style_prev": pad_style = {"auto": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
 		"split_vertical", "split_horizontal": set_split_layout(key.trim_prefix("split_"))
 		"test_sound":
-			sfx.ui("ui_confirm", 0.0)
+			sfx.ui("ui_open", 0.0)   # (there is no ui_confirm clip: the button was silent, AUD-01)
 			return
 		"gfx":
 			gfx_quality = (gfx_quality + 1) % GFX_NAMES.size()
@@ -3574,6 +3574,8 @@ func menu_tick() -> void:
 		confirm_block = false
 	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or touch_tap.x >= 0.0 or (cursor_shown and Input.is_action_pressed("ui_confirm") and not confirm_block)
 	if not click:
+		if slider_drag >= 0:
+			_save_settings()   # once, on release: it rewrote the save every frame of a drag (AUD-02)
 		slider_drag = -1
 	if click and hud and menu_open and not menus_warming:
 		# Volume sliders follow the mouse while the button is held, but only
@@ -3596,7 +3598,6 @@ func menu_tick() -> void:
 				sfx.apply_volumes()
 				if not click_was:
 					sfx.ui("ui_click", -4.0)
-				_save_settings()
 	# A press that came and went between two frames (a quick click or tap
 	# while a slow browser frame was drawing) is caught by _input below;
 	# polling the button alone missed it (Faisal 2026-10-14: menus "still

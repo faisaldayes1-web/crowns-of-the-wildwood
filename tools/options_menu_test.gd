@@ -201,6 +201,11 @@ func _init() -> void:
 	check(absf(game.sfx.sound_volume - 0.75) < 0.05, "Audio tab: the sound slider sets the volume (%.2f)" % game.sfx.sound_volume)
 	check(find(hud.toggle_buttons, "test_sound").size.x > 0.0, "Audio tab: there is a test-sound button")
 	await tap(find(hud.toggle_buttons, "test_sound"))
+	var heard := false
+	for pl in game.sfx.pool_ui:
+		if pl.playing and pl.stream != null and pl.stream == game.sfx.streams.get("ui_open"):
+			heard = true
+	check(heard, "Audio tab: the test-sound button plays a sound (AUD-01: its clip did not exist)")
 	game.menu_tab = 4
 	await frames()
 	await _controls_page()
@@ -485,6 +490,23 @@ func _settings_page(where: String) -> void:
 		await tap(Rect2(s.position + Vector2(s.size.x * 0.3 - 2, 0), Vector2(4, s.size.y)))
 		var v: float = game.sfx.sound_volume if k == "sound" else game.sfx.music_volume
 		check(absf(v - 0.3) < 0.05 and absf(float(saved("settings", k + "_volume")) - v) < 0.01, "%s settings: the %s slider sets %.2f and is saved" % [where, k, v])
+	# A held drag follows the pointer but writes the save once, on release
+	# (AUD-02: it rewrote the whole save every frame of the drag).
+	var sl: Rect2 = find(hud.volume_sliders, "music")
+	var before = saved("settings", "music_volume")
+	game.cursor_shown = true
+	game.cursor = sl.position + Vector2(sl.size.x * 0.8, sl.size.y / 2.0)
+	Input.action_press("ui_confirm")
+	await frames(3)
+	game.cursor = sl.position + Vector2(sl.size.x * 0.6, sl.size.y / 2.0)
+	await frames(3)
+	var held: float = game.sfx.music_volume
+	check(absf(held - 0.6) < 0.05, "%s settings: a held drag follows the pointer (%.2f)" % [where, held])
+	check(saved("settings", "music_volume") == before, "%s settings: nothing is saved while the slider is held" % where)
+	Input.action_release("ui_confirm")
+	await frames(3)
+	check(absf(float(saved("settings", "music_volume")) - held) < 0.01, "%s settings: releasing the slider saves %.2f" % [where, held])
+	game.cursor_shown = false
 
 
 func _controls_page() -> void:
