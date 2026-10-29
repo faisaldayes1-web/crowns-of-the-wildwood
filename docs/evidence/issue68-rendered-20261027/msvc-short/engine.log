@@ -1,0 +1,69 @@
+Godot Engine v4.3.stable.custom_build.77dcf97d8 (2024-08-14 23:00:16 UTC) - https://godotengine.org
+Vulkan 1.4.341 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4090
+
+tools/map_switch_test.gd: user dir C:/rt/c68r-msvc/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+NET ready
+NET ready
+PASS  Wildwood -> Stonekeep: on map (got map)
+PASS  Wildwood -> Stonekeep: map is Stonekeep (got 3)
+PASS  Wildwood -> Stonekeep: the Stonekeep world is built
+PASS  Wildwood -> Stonekeep: the Stonekeep card is picked
+PASS  Wildwood -> Stonekeep: one game scene in the tree (3 nodes under root, was 3)
+PASS  Wildwood -> Stonekeep: volume kept (sound 0.30, music 0.25)
+PASS  Wildwood -> Stonekeep: bot difficulty kept
+NET ready
+PASS  Stonekeep -> Wildwood: on map (got map)
+PASS  Stonekeep -> Wildwood: map is Wildwood (got 0)
+PASS  Stonekeep -> Wildwood: the Wildwood world is built
+PASS  Stonekeep -> Wildwood: the Wildwood card is picked
+PASS  Stonekeep -> Wildwood: one game scene in the tree (3 nodes under root, was 3)
+PASS  Stonekeep -> Wildwood: volume kept (sound 0.30, music 0.25)
+PASS  Stonekeep -> Wildwood: bot difficulty kept
+BATCH merged 8280 scenery meshes (1529 left alone) into 1287 meshes; 2087 materials became 520; 1529 ms (1323 ms reading meshes)
+PASS  Wildwood match starts
+PASS  Wildwood match: on the right map
+PASS  Wildwood match: loading completes
+PASS  Wildwood match: playable simulation advances
+PASS  Wildwood match: class role 1 applied
+PASS  Wildwood match: class role 2 applied
+PASS  Wildwood match: class role 3 applied
+PASS  Wildwood match: class role 0 applied
+PASS  Wildwood match: the match ends on the summary
+NET ready
+PASS  after the Wildwood match: on title (got title)
+PASS  after the Wildwood match: map is Wildwood (got 0)
+PASS  after the Wildwood match: the Wildwood world is built
+PASS  after the Wildwood match: the Wildwood card is picked
+PASS  after the Wildwood match: one game scene in the tree (3 nodes under root, was 3)
+PASS  after the Wildwood match: volume kept (sound 0.30, music 0.25)
+PASS  after the Wildwood match: bot difficulty kept
+PASS  after the Wildwood match: back to one player, not playing
+NET ready
+PASS  Wildwood -> Stonekeep: on map (got map)
+PASS  Wildwood -> Stonekeep: map is Stonekeep (got 3)
+PASS  Wildwood -> Stonekeep: the Stonekeep world is built
+PASS  Wildwood -> Stonekeep: the Stonekeep card is picked
+PASS  Wildwood -> Stonekeep: one game scene in the tree (3 nodes under root, was 3)
+PASS  Wildwood -> Stonekeep: volume kept (sound 0.30, music 0.25)
+PASS  Wildwood -> Stonekeep: bot difficulty kept
+BATCH merged 8350 scenery meshes (1531 left alone) into 1323 meshes; 2092 materials became 524; 1436 ms (1227 ms reading meshes)
+PASS  Stonekeep match (split-screen) starts
+PASS  Stonekeep match (split-screen): on the right map
+PASS  Stonekeep match (split-screen): two panes
+PASS  Stonekeep match (split-screen): loading completes
+PASS  Stonekeep match (split-screen): playable simulation advances
+PASS  Stonekeep match (split-screen): class role 1 applied
+PASS  Stonekeep match (split-screen): class role 2 applied
+PASS  Stonekeep match (split-screen): class role 3 applied
+PASS  Stonekeep match (split-screen): class role 0 applied
+PASS  Stonekeep match (split-screen): the match ends on the summary
+NET ready
+PASS  after the Stonekeep match (split-screen): on title (got title)
+PASS  after the Stonekeep match (split-screen): map is Stonekeep (got 3)
+PASS  after the Stonekeep match (split-screen): the Stonekeep world is built
+PASS  after the Stonekeep match (split-screen): the Stonekeep card is picked
+PASS  after the Stonekeep match (split-screen): one game scene in the tree (3 nodes under root, was 3)
+PASS  after the Stonekeep match (split-screen): volume kept (sound 0.30, music 0.25)
+PASS  after the Stonekeep match (split-screen): bot difficulty kept
+PASS  after the Stonekeep match (split-screen): back to one player, not playing
+map switch test: 0 failure(s)

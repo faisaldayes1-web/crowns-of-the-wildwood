@@ -1,0 +1,5 @@
+Agent: Codex-faisal3/bugtest
+Command: C:\Temp\bugtest\cycles\20261026T100419Z\crowns\build\crowns.exe --headless --script C:\Temp\bugtest\setup\godot_user_path_probe.gd -- --bugtest-user-prefix=C:\Temp\bugtest\cycles\20261026T100419Z\crowns\profiles\pad7-owner\APPDATA
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+BUGTEST_USER_PATH {"actual":"C:/Temp/bugtest/cycles/20261026T100419Z/crowns/profiles/pad7-owner/APPDATA/Godot/app_userdata/Crowns of the Wildwood","agent":"Codex-faisal3/bugtest","expected_prefix":"C:/Temp/bugtest/cycles/20261026T100419Z/crowns/profiles/pad7-owner/APPDATA"}

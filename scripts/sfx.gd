@@ -29,6 +29,9 @@ var streams := {}
 var pool_3d: Array = []
 var pool_ui: Array = []
 var listener: AudioListener3D
+var _pane_listener: AudioListener3D
+var _pane_viewport: SubViewport
+var _pane_audio_was_enabled := false
 var music: AudioStreamPlayer          # title / menus theme
 var battle: AudioStreamPlayer         # the synced battle stems
 var sting_player: AudioStreamPlayer
@@ -102,10 +105,70 @@ func _ready() -> void:
 
 func set_listener(pos: Vector3) -> void:
 	listener.global_position = pos + Vector3(0, 1.0, 0)
+	_sync_pane_listener()
+
+
+func _clear_pane_listener() -> void:
+	if is_instance_valid(_pane_viewport):
+		_pane_viewport.audio_listener_enable_3d = _pane_audio_was_enabled
+	if is_instance_valid(_pane_listener):
+		_pane_listener.queue_free()
+	_pane_listener = null
+	_pane_viewport = null
+
+
+func _sync_pane_listener() -> void:
+	## Godot 4.3 finds 3D listeners through current cameras. Couch play turns
+	## off the root camera, so its listener alone cannot produce audio.
+	var target: SubViewport
+	var game = get_parent()
+	if game and game.get("couch_active"):
+		for pane in game.panes:
+			var view = pane.get("view")
+			if is_instance_valid(view) and view is SubViewport and not view.is_queued_for_deletion():
+				target = view
+				break
+	if target != _pane_viewport or not is_instance_valid(_pane_listener):
+		_clear_pane_listener()
+		if target:
+			_pane_viewport = target
+			_pane_audio_was_enabled = target.audio_listener_enable_3d
+			_pane_listener = AudioListener3D.new()
+			target.add_child(_pane_listener)
+			target.audio_listener_enable_3d = true
+			_pane_listener.make_current()
+	if is_instance_valid(_pane_listener):
+		_pane_listener.global_transform = listener.global_transform
+
+
+func _exit_tree() -> void:
+	_clear_pane_listener()
 
 
 func _db(volume: float) -> float:
 	return linear_to_db(maxf(volume, 0.0001))
+
+
+func _mix_position(pos: Vector3) -> Vector3:
+	## Couch seats share one speaker mix. Hear each event once, relative to the
+	## nearest local seat, without making distant events globally audible.
+	if not is_instance_valid(listener):
+		return pos
+	var game = get_parent()
+	if not game or not game.get("couch_active"):
+		return pos
+	var nearest := listener.global_position
+	var distance := nearest.distance_squared_to(pos)
+	for pane in game.panes:
+		var unit = pane.get("unit")
+		if not is_instance_valid(unit) or not unit.is_inside_tree():
+			continue
+		var seat: Vector3 = unit.global_position + Vector3.UP
+		var candidate := seat.distance_squared_to(pos)
+		if candidate < distance:
+			nearest = seat
+			distance = candidate
+	return listener.global_position + (pos - nearest)
 
 
 func play(name: String, pos: Vector3, db: float = 0.0, jitter: float = 0.08) -> void:
@@ -116,7 +179,9 @@ func play(name: String, pos: Vector3, db: float = 0.0, jitter: float = 0.08) -> 
 		net.rec("sfx", "play", [name, pos, db, jitter])
 	if not enabled or not streams.has(name):
 		return
-	if listener and listener.global_position.distance_to(pos) > HEAR_RANGE:
+	_sync_pane_listener()
+	var mixed_pos := _mix_position(pos)
+	if listener and listener.global_position.distance_to(mixed_pos) > HEAR_RANGE:
 		return
 	var now := Time.get_ticks_msec()
 	if _last.get(name, -1000) > now - 40:
@@ -125,7 +190,7 @@ func play(name: String, pos: Vector3, db: float = 0.0, jitter: float = 0.08) -> 
 	for p in pool_3d:
 		if not p.playing:
 			p.stream = streams[name]
-			p.global_position = pos
+			p.global_position = mixed_pos
 			p.volume_db = db + _db(sound_volume)
 			p.pitch_scale = randf_range(1.0 - jitter, 1.0 + jitter)
 			p.play()

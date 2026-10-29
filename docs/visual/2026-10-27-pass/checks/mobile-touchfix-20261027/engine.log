@@ -1,0 +1,16 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.341 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4090
+
+crowns_visual_capture: user dir C:/Temp/cwv-crowns-final/mobile-touchfix-20261027/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+USER SCRIPT ERROR: Parse Error: Cannot infer the type of "touch_hint" variable because the value doesn't have a set type.
+   at: GDScript::reload (res://scripts/hud.gd:6338)
+USER SCRIPT ERROR: Compile Error: 
+   at: GDScript::reload (res://scripts/game.gd:-1)
+ERROR: Failed to load script "res://scripts/game.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript.cpp:2936)
+USER ERROR: Invalid Task ID
+   at: wait_for_task_completion (core/object/worker_thread_pool.cpp:369)
+USER SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+   at: _build_hud (res://scripts/game.gd:11273)
+USER SCRIPT ERROR: Invalid assignment of property or key 'visible' with value of type 'bool' on a base object of type 'Nil'.
+   at: _ready (res://scripts/game.gd:465)

@@ -1,0 +1,30 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.341 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4090
+
+tools/touch_close_test.gd: user dir C:/Temp/cwv-crowns-final/touch-final-v2-20261027/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+NET ready
+PASS  Auto on a computer starts on the keyboard layout, even with a touch screen
+BATCH merged 8487 scenery meshes (1529 left alone) into 1297 meshes; 2095 materials became 523; 1397 ms (1149 ms reading meshes)
+PASS  a 1v1 match starts
+PASS  a real touch turns the touch layout on
+PASS  the LEVEL UP strip draws an X on touch
+PASS  tapping the X closes the LEVEL UP strip
+PASS  closing the strip spent nothing
+PASS  a new point brings the strip back
+PASS  one tap on a LEVEL UP tile spends exactly one point (2 -> 1)
+PASS  the training panel draws an X on touch
+PASS  tapping the X closes the training panel
+PASS  the X is there whatever the hat carries
+PASS  one tap on the TRAINING slot opens the panel
+PASS  a second tap on the slot closes it
+PASS  the touch layout has a pause button
+PASS  tapping pause opens the menu
+PASS  tapping the X closes the pause menu
+PASS  a tap closes the chat box
+PASS  Controls shows the CONTROL LAYOUT choices
+PASS  KEYBOARD & MOUSE turns the touch layout off
+PASS  the layout pick is saved
+PASS  a tap still works the menu, and TOUCH brings the thumb layout back
+PASS  a tap on a Controls row starts the rebind
+PASS  the next tap cancels it and the key stays as it was
+TOUCH CLOSE TEST: 0 failed

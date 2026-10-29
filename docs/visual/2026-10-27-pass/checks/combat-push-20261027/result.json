@@ -1,0 +1,36 @@
+{
+  "agent": "Codex-faisal",
+  "source": "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+  "revision": "bb5534219626e46417f6eb9c2c1595d8e2a5b688",
+  "revision_after": "bb5534219626e46417f6eb9c2c1595d8e2a5b688",
+  "source_changed_during_run": false,
+  "working_diff": "",
+  "command": [
+    "C:/Tools/Godot/Godot_v4.3-stable_win64_console.exe",
+    "--path",
+    "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+    "--log-file",
+    "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\combat-push-20261027\\engine.log",
+    "--resolution",
+    "1280x720",
+    "--windowed",
+    "--script",
+    "C:/ORY-Cache/qa/crowns-combat-capture-Codex-faisal/capture.gd",
+    "--",
+    "--demo",
+    "--no-prep",
+    "--seed=7",
+    "--debug-end"
+  ],
+  "exit": 0,
+  "seconds": 100.33,
+  "errors": 0,
+  "script_errors": 0,
+  "passes": 0,
+  "failures": 0,
+  "user_data_base": "C:\\Temp\\cwv-crowns-final\\combat-push-20261027",
+  "results": [
+    "CAPTURE {\"animation\":\"1H_Melee_Attack_Chop\",\"elapsed_seconds\":25.981,\"file\":\"01-natural-encounter.png\",\"followed_dead\":false,\"followed_team\":0,\"followed_unit\":\"Aelith\",\"match_clock\":24,\"nearest_visible_enemy_distance\":8.98741817474365,\"reason\":\"followed bot within 9m of living visible enemy; unforced encounter\",\"save_error\":0,\"score\":[0,0]}",
+    "CAPTURE {\"animation\":\"1H_Melee_Attack_Chop\",\"elapsed_seconds\":60.01,\"file\":\"02-battle-at-60s.png\",\"followed_dead\":false,\"followed_team\":0,\"followed_unit\":\"Aelith\",\"match_clock\":58,\"nearest_visible_enemy_distance\":-1,\"reason\":\"unchanged native followed camera at 60 elapsed seconds\",\"save_error\":0,\"score\":[0,0]}"
+  ]
+}

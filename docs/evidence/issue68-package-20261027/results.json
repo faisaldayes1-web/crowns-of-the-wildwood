@@ -1,0 +1,78 @@
+[
+  {
+    "name": "export-pack",
+    "command": [
+      "C:\\Tools\\Godot\\Godot_v4.3-stable_win64_console.exe",
+      "--headless",
+      "--path",
+      "C:\\ORY-Cache\\worktrees\\crowns-68-current-package",
+      "--export-pack",
+      "Windows Desktop",
+      "C:\\ORY-Cache\\qa\\crowns-68-package-20261027\\CrownsCandidate.pck"
+    ],
+    "exit": 0,
+    "seconds": 11.23,
+    "errors": 0,
+    "skeleton_errors": 0,
+    "passes": 0,
+    "failures": 0,
+    "result": []
+  },
+  {
+    "name": "menu_flow_test",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-package-20261027\\CrownsCandidate.exe",
+      "--headless",
+      "--script",
+      "C:\\ORY-Cache\\qa\\crowns-68-package-20261027\\menu_flow_test.gd",
+      "--",
+      "--debug-unlock"
+    ],
+    "exit": 0,
+    "seconds": 6.62,
+    "errors": 1,
+    "skeleton_errors": 0,
+    "passes": 25,
+    "failures": 0,
+    "result": []
+  },
+  {
+    "name": "kbm_move_test",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-package-20261027\\CrownsCandidate.exe",
+      "--headless",
+      "--script",
+      "C:\\ORY-Cache\\qa\\crowns-68-package-20261027\\kbm_move_test.gd",
+      "--",
+      "--debug-unlock"
+    ],
+    "exit": 0,
+    "seconds": 6.11,
+    "errors": 1,
+    "skeleton_errors": 0,
+    "passes": 10,
+    "failures": 0,
+    "result": []
+  },
+  {
+    "name": "natural-seed7-bot",
+    "command": [
+      "C:\\ORY-Cache\\qa\\crowns-68-package-20261027\\CrownsCandidate.exe",
+      "--headless",
+      "--fixed-fps",
+      "60",
+      "--",
+      "--demo",
+      "--seed=7"
+    ],
+    "exit": 0,
+    "seconds": 56.05,
+    "errors": 0,
+    "skeleton_errors": 0,
+    "passes": 0,
+    "failures": 0,
+    "result": [
+      "RESULT winner=Humans score=0-2 t=218 overtime=false turrets=1/1 turret_kills=0/0 raid_deaths=0/0"
+    ]
+  }
+]

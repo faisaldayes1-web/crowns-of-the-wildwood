@@ -1,0 +1,42 @@
+[
+  {
+    "label": "before",
+    "exit": 0,
+    "evidence": [
+      "PACK_AUDIO seats=2 distance=171.016845703125 p2_impact_voices=0",
+      "MIX_SIGNAL frames=15360 peak=0 active_voices=0",
+      "CAPTURE C:/ORY-Cache/qa/wave5-Codex-faisal/audio-signal-before.png result=0",
+      "UI_CONTROL peak=0.41038852930069 root_listener=true camera=<Object#null>",
+      "SIGNAL_GATES p1=0 p2=0 far=0 muted=0 solo=0.50170314311981 restored=0",
+      "PASS SIGNAL_GATES"
+    ],
+    "tail": [
+      "PACK_AUDIO seats=2 distance=171.016845703125 p2_impact_voices=0",
+      "MIX_SIGNAL frames=15360 peak=0 active_voices=0",
+      "CAPTURE C:/ORY-Cache/qa/wave5-Codex-faisal/audio-signal-before.png result=0",
+      "UI_CONTROL peak=0.41038852930069 root_listener=true camera=<Object#null>",
+      "SIGNAL_GATES p1=0 p2=0 far=0 muted=0 solo=0.50170314311981 restored=0",
+      "PASS SIGNAL_GATES"
+    ]
+  },
+  {
+    "label": "after",
+    "exit": 0,
+    "evidence": [
+      "PACK_AUDIO seats=2 distance=171.016845703125 p2_impact_voices=1",
+      "MIX_SIGNAL frames=15360 peak=0.50170314311981 active_voices=1",
+      "CAPTURE C:/ORY-Cache/qa/wave5-Codex-faisal/audio-signal-after.png result=0",
+      "UI_CONTROL peak=0.41038852930069 root_listener=true camera=<Object#null>",
+      "SIGNAL_GATES p1=0.50170314311981 p2=0.50170314311981 far=0 muted=0 solo=0.50170314311981 restored=0.50170314311981",
+      "PASS SIGNAL_GATES"
+    ],
+    "tail": [
+      "PACK_AUDIO seats=2 distance=171.016845703125 p2_impact_voices=1",
+      "MIX_SIGNAL frames=15360 peak=0.50170314311981 active_voices=1",
+      "CAPTURE C:/ORY-Cache/qa/wave5-Codex-faisal/audio-signal-after.png result=0",
+      "UI_CONTROL peak=0.41038852930069 root_listener=true camera=<Object#null>",
+      "SIGNAL_GATES p1=0.50170314311981 p2=0.50170314311981 far=0 muted=0 solo=0.50170314311981 restored=0.50170314311981",
+      "PASS SIGNAL_GATES"
+    ]
+  }
+]

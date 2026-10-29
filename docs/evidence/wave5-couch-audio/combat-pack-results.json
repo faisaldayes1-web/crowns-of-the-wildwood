@@ -1,0 +1,16 @@
+[
+  {
+    "label": "before",
+    "exit": 0,
+    "passes": 41,
+    "completed": true,
+    "diagnostics": []
+  },
+  {
+    "label": "after",
+    "exit": 0,
+    "passes": 41,
+    "completed": true,
+    "diagnostics": []
+  }
+]

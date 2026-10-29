@@ -1,0 +1,141 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.341 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4090
+
+BATCH merged 8485 scenery meshes (1527 left alone) into 1295 meshes; 2093 materials became 522; 1556 ms (1318 ms reading meshes)
+t=0s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 0 / 0
+   team0 Elf (-85.5, 0, -4) hearts=4 dead=false job=attack
+   team0 Elf (-85.5, 0, -2) hearts=4 dead=false job=attack
+   team0 Elf (-85.5, 0, 0) hearts=4 dead=false job=attack
+   team0 Elf (-85.5, 0, 2) hearts=4 dead=false job=support
+   team1 Human (85.5, -2.4, -4) hearts=4 dead=false job=attack
+   team1 Human (85.5, -2.4, -2) hearts=4 dead=false job=attack
+   team1 Human (85.5, -2.4, 0) hearts=4 dead=false job=attack
+   team1 Human (85.5, -2.4, 2) hearts=4 dead=false job=support
+   econ team0 pool 0 wood 0 ore  gathered { "wood": 3, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+   econ team1 pool 0 wood 0 ore  gathered { "wood": 3, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+t=30s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 0 / 0
+   team0 Knight (-38.8, 0, 3.9) hearts=4 dead=false job=gather
+   team0 Ranger (4.5, 0.5, 2.7) hearts=2 dead=false job=attack
+   team0 Mage (-4.4, 0.5, 0.7) hearts=4 dead=false job=attack
+   team0 Healer (-15, 0, 2.6) hearts=4 dead=false job=support
+   team1 Knight (8.400001, 0, 2.7) hearts=3 dead=false job=attack
+   team1 Ranger (39.1, 0, -4.9) hearts=4 dead=false job=gather
+   team1 Mage (7.6, 0.2, -0.2) hearts=3 dead=false job=attack
+   team1 Healer (21.9, 0, -2.1) hearts=4 dead=false job=support
+KILL t=17 kteam=1 krole=1 klevel=1 kmastery=0 vteam=0 vrole=2 vlevel=1 vmastery=0 kfire=0 burn=0
+DOWN t=17 team0 Ranger ally=8 foes=1
+ECON t=20 team1 deposit by Brom pool 4 wood 0 ore
+ECON t=21 team0 deposit by Aelith pool 4 wood 0 ore
+ECON t=22 team0 pad turret
+ECON t=22 team1 pad turret
+REVIVE t=23 team0 Ranger by=Healer healer=true
+CAPTURE {"animation":"1H_Melee_Attack_Chop","elapsed_seconds":25.981,"file":"01-natural-encounter.png","followed_dead":false,"followed_team":0,"followed_unit":"Aelith","match_clock":24,"nearest_visible_enemy_distance":8.98741817474365,"reason":"followed bot within 9m of living visible enemy; unforced encounter","save_error":0,"score":[0,0]}
+KILL t=27 kteam=1 krole=2 klevel=2 kmastery=1 vteam=0 vrole=3 vlevel=2 vmastery=1 kfire=0 burn=0
+DOWN t=27 team0 Mage ally=8 foes=0
+KILL t=29 kteam=0 krole=4 klevel=3 kmastery=2 vteam=1 vrole=4 vlevel=1 vmastery=0 kfire=0 burn=0
+DOWN t=29 team1 Healer ally=30 foes=1
+KILL t=29 kteam=1 krole=2 klevel=3 kmastery=2 vteam=0 vrole=2 vlevel=2 vmastery=1 kfire=0 burn=0
+DOWN t=29 team0 Ranger ally=23 foes=0
+BUMP t=30 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@390@(5.6, 0.5, 2.3)"]
+BUMP t=31 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+SKIP t=32 team1 Healer
+BUMP t=32 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+SKIP t=32 team0 Ranger
+SKIP t=32 team0 Mage
+BUMP t=33 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+BUMP t=34 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+BUMP t=35 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+BUMP t=36 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+t=60s  score 0-0  monarchs 0 / 0  doors 142 / 200  turrets 1 / 1
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   team0 Knight (-42.5, 0, -6) hearts=4 dead=false job=defend
+   team0 Ranger (31.2, 0, -0.4) hearts=0 dead=true job=attack
+   team0 Mage (32.1, 0, 0.8) hearts=0 dead=true job=attack
+   team0 Healer (4.5, 0, 4.6) hearts=4 dead=false job=support
+   team1 Knight (-48.2, 0, -2.8) hearts=2 dead=false job=attack
+   team1 Trapper (35, 0, 5.9) hearts=2 dead=false job=gather
+   team1 Mage (-43.5, 0, -8.8) hearts=1 dead=false job=attack
+   team1 Healer (8.1, 0.2, -1) hearts=0 dead=true job=support
+BUMP t=37 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+KILL t=37 kteam=0 krole=1 klevel=2 kmastery=1 vteam=1 vrole=3 vlevel=2 vmastery=1 kfire=0 burn=0
+DOWN t=37 team1 Mage ally=9 foes=1
+BUMP t=38 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+KILL t=38 kteam=0 krole=1 klevel=3 kmastery=2 vteam=1 vrole=1 vlevel=3 vmastery=2 kfire=0 burn=0
+DOWN t=38 team1 Knight ally=81 foes=1
+BUMP t=39 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+BUMP t=40 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+BUMP t=41 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+SKIP t=41 team1 Knight
+SKIP t=41 team1 Mage
+BUMP t=42 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+ECON t=42 team1 deposit by Brom pool 5 wood 0 ore
+BUMP t=43 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+BUMP t=44 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+BUMP t=44 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+BUMP t=46 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+BUMP t=46 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+BUMP t=48 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+BUMP t=48 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+ECON t=49 team0 deposit by Aelith pool 5 wood 0 ore
+BUMP t=49 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+BUMP t=50 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+BUMP t=51 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+   econ team0 pool 5 wood 0 ore  gathered { "wood": 8, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 5 wood 0 ore  gathered { "wood": 11, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=90s  score 0-0  monarchs 0 / 0  doors 136 / 200  turrets 1 / 1
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   team0 Vanguard (-35.4, 0, -6.9) hearts=4 dead=false job=gather
+   team0 Ranger (-27.2, 0, 2.2) hearts=4 dead=false job=attack
+   team0 Mage (-34, 0, 2.3) hearts=4 dead=false job=attack
+   team0 Healer (5.9, 0, 2.4) hearts=4 dead=false job=support
+   team1 Human (75.5, -2.4, -8.5) hearts=4 dead=false job=attack
+   team1 Trapper (30.6, 0, -9.5) hearts=4 dead=false job=gather
+   team1 Mage (79, -2.2, -1.2) hearts=4 dead=false job=attack
+   team1 Healer (51.3, 0, 0) hearts=4 dead=false job=support
+BUMP t=52 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+BUMP t=53 team1 Knight at (74.1, -2.4, -8.8) job=attack target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3993[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+BUMP t=53 team1 Knight at (74.1, -2.4, -8.8) job=attack target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@3993[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+BUMP t=53 team0 Healer at (3.8, 0, 5.2) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@387[(0.4, 1, 12.8)]@(3.4, 0.4, 5.2)"]
+BUMP t=54 team0 Healer at (5.9, 0, 2.4) job=support target=(2.4, 0.5, 0) hits=["@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+BUMP t=55 team0 Healer at (5.9, 0, 2.4) job=support target=(9.6, 0, 0) hits=["@StaticBody3D@390@(5.6, 0.5, 2.3)", "@StaticBody3D@528[(4, 0.4, 3.6)]@(5.9, 0.5, 2)"]
+ECON t=58 team1 deposit by Brom pool 9 wood 0 ore
+CAPTURE {"animation":"1H_Melee_Attack_Chop","elapsed_seconds":60.01,"file":"02-battle-at-60s.png","followed_dead":false,"followed_team":0,"followed_unit":"Aelith","match_clock":58,"nearest_visible_enemy_distance":-1,"reason":"unchanged native followed camera at 60 elapsed seconds","save_error":0,"score":[0,0]}
+KILL t=64 kteam=0 krole=2 klevel=2 kmastery=2 vteam=1 vrole=3 vlevel=1 vmastery=1 kfire=0 burn=0
+DOWN t=64 team1 Mage ally=3 foes=1
+REVIVE t=66 team1 Mage by=Healer healer=true
+KILL t=66 kteam=1 krole=2 klevel=4 kmastery=3 vteam=0 vrole=2 vlevel=2 vmastery=2 kfire=0 burn=0
+DOWN t=66 team0 Ranger ally=9 foes=1
+   econ team0 pool 5 wood 0 ore  gathered { "wood": 12, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 9 wood 0 ore  gathered { "wood": 12, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=120s  score 0-0  monarchs 0 / 0  doors 136 / 200  turrets 1 / 1
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   team0 Vanguard (-27.4, 0, -10.5) hearts=4 dead=false job=gather
+   team0 Ranger (29, 0, -9.1) hearts=0 dead=false job=attack
+   team0 Mage (22.4, 0, -8.1) hearts=1 dead=false job=attack
+   team0 Cleric (22.1, 0, 1.5) hearts=4 dead=false job=support
+   team1 Knight (22.2, 0, -5.5) hearts=4 dead=false job=attack
+   team1 Trapper (37.1, 0, -7.1) hearts=4 dead=false job=gather
+   team1 Mage (23.8, 0, -5) hearts=4 dead=false job=attack
+   team1 Healer (29, 0, -3) hearts=4 dead=false job=support
+KILL t=69 kteam=1 krole=2 klevel=5 kmastery=4 vteam=0 vrole=3 vlevel=1 vmastery=1 kfire=0 burn=0
+DOWN t=69 team0 Mage ally=7 foes=1
+FINISH t=70 team0 Ranger by=Mage
+REVIVE t=72 team0 Mage by=Cleric healer=true
+KILL t=76 kteam=0 krole=4 klevel=4 kmastery=3 vteam=1 vrole=4 vlevel=3 vmastery=2 kfire=0 burn=0
+DOWN t=76 team1 Healer ally=5 foes=1
+BUMP t=77 team1 Knight at (20.6, 0, 3.4) job=attack target=(20.9, 0, -0.8) hits=["@StaticBody3D@4062[(1, 1.2, 4)]@(20.5, 1.2, 3)"]
+FINISH t=78 team1 Healer by=Pyromancer
+t=150s  score 0-0  monarchs 0 / 0  doors 136 / 200  turrets 1 / 1
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   team0 Vanguard (-27.4, 0, -10.5) hearts=4 dead=false job=gather
+   team0 Ranger (-58.3, 0, 2.6) hearts=4 dead=false job=attack
+   team0 Pyromancer (32.8, 0, 0.4) hearts=4 dead=false job=attack
+   team0 Cleric (31, 0, 3) hearts=4 dead=false job=support
+   team1 Knight (-25.4, 0, 0.9) hearts=3 dead=false job=attack
+   team1 Trapper (34.3, 0, -11.4) hearts=4 dead=false job=gather
+   team1 Frostweaver (-33.7, 0, 0.4) hearts=4 dead=false job=attack
+   team1 Healer (20.9, 0, -0.8) hearts=0 dead=true job=support

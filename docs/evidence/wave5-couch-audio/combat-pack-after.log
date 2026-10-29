@@ -1,0 +1,77 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+BATCH merged 8278 scenery meshes (1526 left alone) into 1285 meshes; 2085 materials became 518; 1395 ms (874 ms reading meshes)
+   econ team0 pool 0 wood 0 ore  gathered { "wood": 0, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+   econ team1 pool 0 wood 0 ore  gathered { "wood": 0, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+t=0s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 0 / 0
+   team0 Elf (-85.4, 0, -4) hearts=4 dead=false job=prep
+   team0 Elf (-85.4, 0, -2.1) hearts=4 dead=false job=prep
+   team0 Elf (-85.5, 0, -0.1) hearts=4 dead=false job=prep
+   team0 Elf (-85.5, 0, 1.9) hearts=4 dead=false job=prep
+   team1 Human (85.4, -2.4, -4) hearts=4 dead=false job=prep
+   team1 Human (85.4, -2.4, -2.1) hearts=4 dead=false job=prep
+   team1 Human (85.5, -2.4, -0.1) hearts=4 dead=false job=prep
+   team1 Human (85.5, -2.4, 1.9) hearts=4 dead=false job=prep
+TEST PASS venom_fang_kit
+TEST PASS venom_fang_hits
+TEST PASS venom_fang_slows
+TEST PASS fx_hit_drawn
+TEST PASS fx_hit_flash
+TEST PASS fx_hitstop_on
+TEST PASS venom_fang_slow_lasts
+TEST PASS fx_slow_aura_on
+TEST PASS fx_hitstop_ends
+TEST PASS fx_flash_ends
+TEST PASS venom_fang_slow_expires
+TEST PASS fx_slow_aura_off
+TEST PASS venom_fang_no_stack
+TEST PASS no_slow_role1
+TEST PASS no_slow_role0
+KILL t=0 kteam=0 krole=6 klevel=2 kmastery=1 vteam=1 vrole=0 vlevel=1 vmastery=0 kfire=0 burn=0
+DOWN t=0 team1 Human ally=153 foes=1
+TEST PASS slow_cleared_on_death
+TEST PASS fx_blast_heal_drawn
+TEST PASS fx_cleanup
+TEST PASS shots_stop_on_walls_and_doors
+TEST PASS rampart_archer_hits_below
+TEST PASS splash_hits_outside_wall
+TEST PASS splash_blocked_by_wall
+Battle begins: barricades 0/0, traps 4, turrets 0/0
+   econ team0 pool 0 wood 0 ore  gathered { "wood": 0, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+   econ team1 pool 0 wood 0 ore  gathered { "wood": 0, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+t=30s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 0 / 0
+   team0 Healer (-20, 0, 3) hearts=4 dead=false job=gather
+   team0 Ranger (0, -60, 0) hearts=4 dead=false job=attack
+   team0 Mage (0, -60, 0) hearts=4 dead=false job=attack
+   team0 Healer (0, -60, 0) hearts=4 dead=false job=support
+   team1 Human (0, -60, 0) hearts=0 dead=true job=prep
+   team1 Trapper (-20, 0, 3) hearts=4 dead=false job=gather
+   team1 Human (47.4, 0, -6.8) hearts=3 dead=false job=attack
+   team1 Healer (0, -60, 0) hearts=4 dead=false job=support
+skills cast=72
+TEST PASS skills_all_cast
+TEST PASS skills_body_restored
+TEST PASS skills_fx_cleanup
+TEST PASS grab_feedback_once
+TEST PASS grab_body_restored
+KILL t=24 kteam=0 krole=4 klevel=3 kmastery=2 vteam=1 vrole=4 vlevel=1 vmastery=0 kfire=0 burn=0
+DOWN t=24 team1 Healer ally=19 foes=1
+TEST PASS death_fling
+TEST PASS death_fling_reset
+TEST PASS hit_confirm_not_melee
+TEST PASS hit_confirm_ranged
+TEST PASS aim_assist_bends
+TEST PASS aim_assist_ignores_clear_miss
+TEST PASS deny_cue_throttled
+DOWN t=25 team1 Human ally=19 foes=1
+TEST PASS finisher_started
+DOWN t=25 team0 Healer ally=20 foes=0
+TEST PASS finisher_cancelled_when_striker_falls
+TEST PASS downed_body_not_frozen
+TEST PASS blink_stops_short_of_block
+BUMP t=25 team1 Human at (-22.8, 0, -6) job=attack target=(-9.6, 0, 0) hits=["@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)"]
+BUMP t=26 team1 Human at (-22.8, 0, -6) job=attack target=(-9.6, 0, 0) hits=["@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)", "@StaticBody3D@4382@(-22.5, 1.2, -6)"]
+TEST PASS unstick_frees_wedged_body
+TEST PASS follow_keeps_distance
+TEST PASS impacts_scale_with_quality
+TESTS DONE failures=0

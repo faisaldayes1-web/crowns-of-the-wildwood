@@ -21,7 +21,13 @@ func _init() -> void:
 		return
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
-	for i in 5:
+	# Agent: Codex-faisal. Native rendered startup may outlast five frames.
+	var deadline := Time.get_ticks_msec() + 120000
+	while game.main_menu == null or game.menus_warming or is_instance_valid(game.loading_layer):
+		if Time.get_ticks_msec() > deadline:
+			check(false, "bounded menu startup completes")
+			quit(1)
+			return
 		await process_frame
 	var m = game.main_menu
 	check(m != null and m.screen == "title", "the game opens on the title")

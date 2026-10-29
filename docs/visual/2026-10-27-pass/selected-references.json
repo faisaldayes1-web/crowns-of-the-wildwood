@@ -1,0 +1,124 @@
+{
+  "agent": "Codex-faisal",
+  "authority": "Faisal direct session instruction 2026-10-27, picks dated 2026-10-25",
+  "status": "selected; implementation acceptance pending",
+  "references": [
+    {
+      "id": "GAME-01-title-A",
+      "file": "GAME-01-title-A.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-01-title-A.png",
+      "sha256": "0f1a473aa32fd66fd3a3e2392ac1820db096a7ff5e28e2e42b40cdb2bfa29e89",
+      "screen": "01-title",
+      "set": "GAME",
+      "variant": "A"
+    },
+    {
+      "id": "GAME-02-map-A",
+      "file": "GAME-02-map-A.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-02-map-A.png",
+      "sha256": "60ce7602ade15d5174f47b051a396367b14447f34b9f5058e980ef7006a5e206",
+      "screen": "02-map",
+      "set": "GAME",
+      "variant": "A"
+    },
+    {
+      "id": "GAME-04-match-spawn-D",
+      "file": "GAME-04-match-spawn-D-v2.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-04-match-spawn-D-v2.png",
+      "sha256": "b13d5391156c04d7d76915bd20dd5f41af9bf4ca7a0a2e7ad68e338acba94b53",
+      "screen": "04-match-spawn",
+      "set": "GAME",
+      "variant": "D"
+    },
+    {
+      "id": "GAME-05-live-battle-A",
+      "file": "GAME-05-live-battle-A-v2.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-05-live-battle-A-v2.png",
+      "sha256": "aa059cac804e7ed4eb41b70aaa8c4f906fe1bfd0eaa8a677e2890470d7f14c6c",
+      "screen": "05-live-battle",
+      "set": "GAME",
+      "variant": "A"
+    },
+    {
+      "id": "GAME-06-paused-map-B",
+      "file": "GAME-06-paused-map-B-v2.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-06-paused-map-B-v2.png",
+      "sha256": "dc48b78249c8751cbb8de5eae853bb2585df93bc887949b280c64c5ff41cb319",
+      "screen": "06-paused-map",
+      "set": "GAME",
+      "variant": "B"
+    },
+    {
+      "id": "GAME-07-class-knight-B",
+      "file": "GAME-07-class-knight-B-v2.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\GAME-07-class-knight-B-v2.png",
+      "sha256": "e8783d6ccee5e311b7989b5961e4666eacaa39f0b9fd2d10c8c43457cf7022e4",
+      "screen": "07-class-knight",
+      "set": "GAME",
+      "variant": "B"
+    },
+    {
+      "id": "UI-01-title-D",
+      "file": "UI-01-title-D.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-01-title-D.png",
+      "sha256": "c7cdcbf852f2cebfe4567c2f2163d79aa56598d7665f8091a3ff48c64dd8314f",
+      "screen": "01-title",
+      "set": "UI",
+      "variant": "D"
+    },
+    {
+      "id": "UI-02-map-A",
+      "file": "UI-02-map-A.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-02-map-A.png",
+      "sha256": "1eb10811b493169557a07b0bd8a8f7dcb396a614270abe61bb52c062c40628d8",
+      "screen": "02-map",
+      "set": "UI",
+      "variant": "A"
+    },
+    {
+      "id": "UI-03-ready-A",
+      "file": "UI-03-ready-A.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-03-ready-A.png",
+      "sha256": "580636d9c0d00b04afa032dc8c462c45a2fdd58c7dd21a015c5383500dd44fa6",
+      "screen": "03-ready",
+      "set": "UI",
+      "variant": "A"
+    },
+    {
+      "id": "UI-04-match-spawn-C",
+      "file": "UI-04-match-spawn-C.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-04-match-spawn-C.png",
+      "sha256": "2493eeeb65046749f185fd6076c5c46daf0d4d5cfb136cd8de171f9b34d11f83",
+      "screen": "04-match-spawn",
+      "set": "UI",
+      "variant": "C"
+    },
+    {
+      "id": "UI-05-live-battle-C",
+      "file": "UI-05-live-battle-C.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-05-live-battle-C.png",
+      "sha256": "a105313f8f24e468e4ee2ab694e2c69f6a4fc9b74fe4f592ba0f466a411ea13e",
+      "screen": "05-live-battle",
+      "set": "UI",
+      "variant": "C"
+    },
+    {
+      "id": "UI-06-paused-map-C",
+      "file": "UI-06-paused-map-C.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-06-paused-map-C.png",
+      "sha256": "6b4ce4d73d72d77fb7644c1a6052686cbc166a4ca8bef78d6083dde4d69f96b6",
+      "screen": "06-paused-map",
+      "set": "UI",
+      "variant": "C"
+    },
+    {
+      "id": "UI-07-class-knight-C",
+      "file": "UI-07-class-knight-C-v2.png",
+      "source": "C:\\ORY-Cache\\style-options\\crowns-goals\\UI-07-class-knight-C-v2.png",
+      "sha256": "d4fb6568f247c93d637a8bde9a8a298fb2a22f08ef8559e43cace3ffe1ce8b79",
+      "screen": "07-class-knight",
+      "set": "UI",
+      "variant": "C"
+    }
+  ]
+}

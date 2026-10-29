@@ -1,0 +1,34 @@
+[
+  {
+    "label": "before",
+    "exit": 0,
+    "evidence": [
+      "PACK_AUDIO seats=2 distance=171.016845703125 p2_impact_voices=0",
+      "CAPTURE C:/ORY-Cache/qa/wave5-Codex-faisal/audio-before.png result=0"
+    ],
+    "tail": [
+      "WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). ",
+      "If you want to set size, change the anchors or consider using set_deferred().",
+      "     at: _set_size (scene/gui/control.cpp:1448)",
+      "BATCH merged 8280 scenery meshes (1530 left alone) into 1287 meshes; 2087 materials became 520; 752 ms (436 ms reading meshes)",
+      "PACK_AUDIO seats=2 distance=171.016845703125 p2_impact_voices=0",
+      "CAPTURE C:/ORY-Cache/qa/wave5-Codex-faisal/audio-before.png result=0"
+    ]
+  },
+  {
+    "label": "after",
+    "exit": 0,
+    "evidence": [
+      "PACK_AUDIO seats=2 distance=171.016845703125 p2_impact_voices=1",
+      "CAPTURE C:/ORY-Cache/qa/wave5-Codex-faisal/audio-after.png result=0"
+    ],
+    "tail": [
+      "WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). ",
+      "If you want to set size, change the anchors or consider using set_deferred().",
+      "     at: _set_size (scene/gui/control.cpp:1448)",
+      "BATCH merged 8280 scenery meshes (1530 left alone) into 1287 meshes; 2087 materials became 520; 718 ms (414 ms reading meshes)",
+      "PACK_AUDIO seats=2 distance=171.016845703125 p2_impact_voices=1",
+      "CAPTURE C:/ORY-Cache/qa/wave5-Codex-faisal/audio-after.png result=0"
+    ]
+  }
+]

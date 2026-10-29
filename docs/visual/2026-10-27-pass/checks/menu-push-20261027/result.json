@@ -1,0 +1,28 @@
+{
+  "agent": "Codex-faisal",
+  "source": "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+  "revision": "bb5534219626e46417f6eb9c2c1595d8e2a5b688",
+  "revision_after": "bb5534219626e46417f6eb9c2c1595d8e2a5b688",
+  "source_changed_during_run": false,
+  "working_diff": "",
+  "command": [
+    "C:/Tools/Godot/Godot_v4.3-stable_win64_console.exe",
+    "--path",
+    "C:\\ORY-Cache\\worktrees\\crowns-visual-pass",
+    "--log-file",
+    "C:\\ORY-Cache\\qa\\crowns-visual-pass-Codex-faisal\\menu-push-20261027\\engine.log",
+    "--resolution",
+    "1280x720",
+    "--windowed",
+    "--script",
+    "tools/menu_flow_test.gd"
+  ],
+  "exit": 0,
+  "seconds": 15.94,
+  "errors": 0,
+  "script_errors": 0,
+  "passes": 25,
+  "failures": 0,
+  "user_data_base": "C:\\Temp\\cwv-crowns-final\\menu-push-20261027",
+  "results": []
+}
