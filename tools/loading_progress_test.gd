@@ -46,8 +46,17 @@ func settle(phase: String, began: int, previous_id: int = 0):
 	var last := began
 	var loading_shot := false
 	while Time.get_ticks_msec() < deadline:
+		var stage := "startup-inclusive"
+		if first_draw >= 0:
+			var before = current_scene
+			if before != null and is_instance_valid(before):
+				stage = "world" if before._stream_world else ("menus" if before.menus_warming else "other")
+				if before.main_menu != null:
+					stage += ":" + str(before.main_menu.screen)
 		await RenderingServer.frame_post_draw
 		var now := Time.get_ticks_msec()
+		if now - last >= 1000:
+			print("LOAD_GAP phase=%s stage=%s ms=%d" % [phase, stage, now - last])
 		worst_gap = maxi(worst_gap, now - last)
 		last = now
 		if first_draw < 0:
@@ -106,7 +115,7 @@ func _run() -> void:
 		check(play_stream_frames >= 2 and play_loading_shot, "direct --play draws loading frames during construction")
 		check(game.playing and game.player != null and not is_instance_valid(game.loading_layer),
 			"direct --play reaches the visible match")
-		check(not game._stream_world and game.process_mode == Node.PROCESS_MODE_INHERIT,
+		check(not game._stream_world and not game.menus_warming and game.process_mode == Node.PROCESS_MODE_INHERIT,
 			"direct --play never remains in the menu construction gate")
 		var clock_before: float = game.prep_left + game.time_left
 		await create_timer(0.4).timeout
