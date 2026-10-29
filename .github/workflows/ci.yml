@@ -60,7 +60,7 @@ jobs:
             grep -Eq 'test: .*0 failure\(s\)$' "ci-logs/$test.log"
           done
           timeout 120 bash tools/tests/isolated.sh --headless --path . --script tools/loading_viewport_test.gd 2>&1 | tee ci-logs/loading-viewport.log
-          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/loading-viewport.log
+          ! grep -E 'ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/loading-viewport.log
           grep -q '^loading viewport test: 0 failure(s)$' ci-logs/loading-viewport.log
       - name: Full seeded bot match
         shell: bash

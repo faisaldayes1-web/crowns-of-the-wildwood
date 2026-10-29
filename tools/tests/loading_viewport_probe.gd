@@ -3,4 +3,6 @@ extends "res://scripts/game.gd"
 
 
 func _ready() -> void:
-	pass
+	# The inherited per-frame game loop creates a compass mesh even without
+	# a world. Keep this lifecycle-only probe from running that unrelated loop.
+	process_mode = Node.PROCESS_MODE_DISABLED
