@@ -3541,12 +3541,12 @@ func menu_tick() -> void:
 					guide_pick(i)
 		elif _rank_pressed() and not demo:
 			pass  # handled in _rank_pressed
-		elif not rank_open and not eaten and not demo:
-			_quick_upgrades()
 		elif Input.is_action_just_pressed("chat") and player and not demo and not eaten:
 			chat_open = true
 			chat_text = ""
 			rank_open = false
+		elif not rank_open and not eaten and not demo:
+			_quick_upgrades()
 		if Input.is_action_just_pressed("chat_toggle") and not menu_open and not eaten:
 			chat_visible = not chat_visible
 			_save_settings()
@@ -11356,6 +11356,23 @@ func _add_ink() -> void:
 	ink_on = true
 
 
+func _drawn_frame() -> void:
+	## Wait for the next drawn frame, but never forever: a minimized or
+	## not-presenting window (alt-tab, a window bigger than the screen)
+	## stops frame_post_draw, and the warm-ups then held the loading art
+	## and menus_warming up for minutes. Give up after 30 undrawn frames.
+	var drawn := [false]
+	var mark := func() -> void: drawn[0] = true
+	RenderingServer.frame_post_draw.connect(mark, CONNECT_ONE_SHOT)
+	var tree := get_tree()
+	for i in 30:
+		await tree.process_frame
+		if drawn[0] or not is_inside_tree():
+			break
+	if RenderingServer.frame_post_draw.is_connected(mark):
+		RenderingServer.frame_post_draw.disconnect(mark)
+
+
 func _warm_up_menus(land_on: String = "title") -> void:
 	## The first visit to a menu screen loaded its art, built the hero and
 	## compiled its shaders on the spot: a visible stutter on each first
@@ -11387,7 +11404,7 @@ func _warm_up_menus(land_on: String = "title") -> void:
 			m._enter_lobby()
 		m.screen = scr
 		# A process frame alone does not establish that the new screen drew.
-		await RenderingServer.frame_post_draw
+		await _drawn_frame()
 		if scr == "character" and is_inside_tree() and main_menu == m:
 			var saved_tab: int = m.char_tab
 			for tab in m.CHAR_TABS.size():
@@ -11395,7 +11412,7 @@ func _warm_up_menus(land_on: String = "title") -> void:
 					break
 				m.char_tab = tab
 				await tree.process_frame
-				await RenderingServer.frame_post_draw
+				await _drawn_frame()
 			if is_inside_tree() and main_menu == m:
 				m.char_tab = saved_tab
 		if scr == "store" and is_inside_tree() and main_menu == m:
@@ -11407,7 +11424,7 @@ func _warm_up_menus(land_on: String = "title") -> void:
 					break
 				m.store.press("store_tab", tab)
 				await tree.process_frame
-				await RenderingServer.frame_post_draw
+				await _drawn_frame()
 			if is_inside_tree() and main_menu == m:
 				m.store.tab = saved_tab
 				m.store.page = saved_page
@@ -11465,8 +11482,8 @@ func _warm_up_world() -> void:
 		cam_pos = spot + CAMERA_OFFSET * cam_zoom
 		for pane in panes:
 			pane.cam_pos = cam_pos
-		await RenderingServer.frame_post_draw
-		await RenderingServer.frame_post_draw
+		await _drawn_frame()
+		await _drawn_frame()
 	cam_lock = keep
 	if player:
 		cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom
@@ -11502,8 +11519,8 @@ func _warm_up_models() -> void:
 		var l: Array = looks[i]
 		m.setup(l[0], l[1], l[2], {}, l[3])
 		models.append(m)
-	await RenderingServer.frame_post_draw
-	await RenderingServer.frame_post_draw
+	await _drawn_frame()
+	await _drawn_frame()
 	rack.queue_free()
 
 

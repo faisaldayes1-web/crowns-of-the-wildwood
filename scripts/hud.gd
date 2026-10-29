@@ -412,8 +412,9 @@ func nav_rects() -> Array:
 	for list in [menu_live, title_buttons, faction_buttons, hero_buttons, couch_buttons, tab_buttons, bind_buttons,
 			difficulty_buttons, toggle_buttons, guide_buttons, chat_buttons, variant_buttons, volume_sliders, group_buttons, class_buttons]:
 		for b in list:
-			if b[0].size.x > 0.0:
-				out.append(b[0])
+			var r = b[0] if b is Array else b   # tab_buttons holds bare rects
+			if r.size.x > 0.0:
+				out.append(r)
 	for r in rank_buttons:
 		if r.size.x > 0.0:
 			out.append(r)
