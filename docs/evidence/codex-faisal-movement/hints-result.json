@@ -1,0 +1,6 @@
+{
+  "agent": "Codex-faisal",
+  "exit": 0,
+  "stdout": "Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org\r\n\r\nPASS PC onboarding matches new safe bindings\r\nPASS WASD onboarding describes directional input\r\nPASS controller onboarding describes camera movement\r\nPASS touch onboarding preserved\r\nPASS player chat is never rewritten\r\nC1_MOVEMENT_HINTS_RESULT {\"failed\":0,\"limits\":\"functional text only, no rendered layout or hardware\",\"passed\":5}\r\n",
+  "stderr": ""
+}

@@ -1,0 +1,46 @@
+{
+  "agent": "Codex-faisal/gameplay_review",
+  "parent": "Codex-faisal",
+  "task": "T-2fc4d3bca959",
+  "date": "2026-10-29",
+  "disposition": "ACCEPT_BOUNDED_ORE_PHYSICS_ADAPTER_QUALIFICATION",
+  "fixture_sha256": "8b056ad7bdd31dadfaee9186b41b2114cfa75fc02ae6e00c371cd9dd114f0506",
+  "actual_result_sha256": "13bc8641328992561edb9b3709df69ad058a8507c79152bcef3a3078eecd0c39",
+  "evidence": {
+    "actual_external_exit": 0,
+    "raw_errors": false,
+    "stderr": "",
+    "startup_header": "Vulkan 1.4.341 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4090",
+    "display_server": "Windows",
+    "configured_method": "forward_plus",
+    "isolated_user": "c:/temp/c69o1/d/godot/app_userdata/crowns of the wildwood",
+    "rendered_fixture_frames": 553,
+    "old_1_1_comparator": {
+      "case_ticks": 102,
+      "actual_ore_contact_ticks": 50,
+      "min_centre_distance": 1.31249940395355,
+      "pointer_events": 0,
+      "goal_cancelled": true
+    },
+    "fixed_2_1_arrival": {
+      "case_ticks": 38,
+      "emission_distance": 2.09999990463257,
+      "actual_resource_in_reach": true,
+      "pointer_sequence": 1,
+      "pointer_events": 1,
+      "ore_contact_ticks": 0,
+      "stopped_post_event_idle_ticks": 8,
+      "goal_cancelled": true
+    },
+    "terminal_status": "FIXTURE_COMPLETE_EXTERNAL_RAW_ERROR_AND_EXIT_REVIEW_REQUIRED",
+    "total_physics_ticks": 146
+  },
+  "interpretation": [
+    "Actual production-renderer startup is established by the preserved native Vulkan/Forward+ header, not merely configured settings. A real Windows display server and553post-draw observations while the actual ore was in tree satisfy the fixture's renderer evidence boundary; no pixel/art inspection is implied.",
+    "Same unchanged strict physics oracles completed. Old unreachable threshold witnesses actual collision and stationary-goal cancellation; fixed legal threshold emits exact selected resource once before physical collision, using existing ResourceNode.in_reach and dispatcher, followed by eight stopped idle frames.",
+    "Complete terminal is reached only after the unchanged negative dispatcher checks return true. The actual external exit0, empty stderr and raw_errors=false are recorded separately from that terminal in the producer receipt.",
+    "This qualifies actual ResourceNode collider + source-bound Unit capsule adapter, repaired XZ intent timeout and exact selected resource dispatch under pinned sources. Full Unit/controller/navigation, ordinary gameplay/network lifecycle, actual gathering work progression, physical controller, render fidelity and performance remain outside this fixture.",
+    "Earlier dummy-renderer raw failures remain preserved. This result changes only the test backend to production Forward+/Vulkan; it does not repair or qualify the distinct Crowns69 long profiling/material-null failure or original eight-run performance matrix."
+  ],
+  "reviewer_actions": "Read-only independent receipt/ordered record consumption. No engine, parser or tests run by reviewer. Root retains current scheduling/release authority."
+}

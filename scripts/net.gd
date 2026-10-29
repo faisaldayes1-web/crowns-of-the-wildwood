@@ -38,7 +38,10 @@ var pending_start := {}        # client: {team, slot, map} from the host, kept u
 var snapshot := {}             # client: the latest snapshot from the host
 var snapshot_count := 0        # client: snapshots received (smoke test)
 var welcomed := false          # client: the host's welcome came in (the scene reloads once on it)
-const HELD_ACTIONS := ["attack", "block", "interact"]
+const HELD_ACTIONS := ["attack", "block", "interact", "force_move", "force_hold"]
+var pointer_received := {}  # authenticated peer -> {unit, sequence, at}
+var pointer_sent_unit := 0
+var pointer_sent_sequence := -1
 var input_counts := {"attack": 0, "interact": 0, "ability_1": 0, "ability_2": 0, "ability_3": 0, "dodge": 0}
 var game                       # the running game.gd, registered by its _ready
 var cli_done := false          # --host / --join from the command line were handled (once per run)
@@ -234,6 +237,7 @@ func _on_peer_disconnected(id: int) -> void:
 	if assigned.has(id) and game:
 		game.net_release_unit(assigned[id])
 	assigned.erase(id)
+	pointer_received.erase(id)
 	_event_ready.erase(id)
 	_loading_events.erase(id)
 	status = _host_line()
@@ -415,6 +419,30 @@ func _input_state(move: Vector2, aim: Vector3, held: Array, counts: Dictionary) 
 	_event_ready[id] = true
 	var u = game.units[assigned[id]]
 	u.net_input = {"move": move.limit_length(1.0), "aim": aim, "held": held, "counts": counts}
+
+
+@rpc("any_peer", "call_remote", "reliable")
+func _pointer_interaction(descriptor: Array, sequence: int) -> void:
+	# A click is an exact target request, not generic F. The host owns the
+	# actor, resolves only a small allowlisted identity and rechecks reach/state.
+	var id := multiplayer.get_remote_sender_id()
+	if not is_host() or game == null or not game.playing or not assigned.has(id):
+		return
+	var index: int = assigned[id]
+	if index < 0 or index >= game.units.size() or sequence < 1:
+		return
+	var u = game.units[index]
+	if not is_instance_valid(u) or u.remote_peer != id:
+		return
+	var now := Time.get_ticks_msec()
+	var previous: Dictionary = pointer_received.get(id, {})
+	if previous.get("unit", 0) == u.get_instance_id():
+		if sequence <= int(previous.get("sequence", 0)) or now - int(previous.get("at", 0)) < 100:
+			return
+	pointer_received[id] = {"unit": u.get_instance_id(), "sequence": sequence, "at": now}
+	var selected = game.pointer_node(u, descriptor)
+	if is_instance_valid(selected):
+		game.try_pointer_interact(u, selected)
 
 
 func send_chat(text: String, team_only: bool) -> void:
@@ -631,14 +659,24 @@ func _send_input() -> void:
 	var move := Vector2.ZERO
 	var held: Array = []
 	if not game.menu_blocks_input(p):
-		move = Input.get_vector("move_left", "move_right", "move_up", "move_down")
-		if p and p.has_method("aim_relative"):
-			move = p.aim_relative(move)   # W toward the cursor (unit.gd), as offline
+		var controls: Dictionary = p.local_controls()
+		move = controls.move  # identical camera/world intent as offline
+		var selected = controls.get("pointer_target")
+		var sequence: int = controls.get("pointer_sequence", 0)
+		if is_instance_valid(selected) and (pointer_sent_unit != p.get_instance_id() or sequence != pointer_sent_sequence):
+			pointer_sent_unit = p.get_instance_id()
+			pointer_sent_sequence = sequence
+			var descriptor: Array = game.pointer_descriptor(p, selected)
+			if not descriptor.is_empty():
+				if selected == game.guides[p.team] or (descriptor[0] == "seal" and p.role == descriptor[1]):
+					game.try_pointer_interact(p, selected)  # client-local guide/training UI
+				else:
+					_pointer_interaction.rpc_id(1, descriptor, sequence)
 		for k in HELD_ACTIONS:
-			if Input.is_action_pressed(k):
+			if p._held(k):
 				held.append(k)
 		for k in input_counts:
-			if Input.is_action_just_pressed(k):
+			if p._tap(k):
 				input_counts[k] += 1
 	_input_state.rpc_id(1, move, p.aim, held, input_counts.duplicate())
 	if long_links.has(1):

@@ -1,0 +1,286 @@
+{
+  "agent": "Codex-faisal",
+  "started": "2026-10-29T11:18:45.143040+00:00",
+  "script_sha256": "997b11af7076b354cd20500d64c41a84a1856d9c33a01d34c1ea03d0ac5f4e8d",
+  "token_sha256": "31e9d472d6cea473fe2a03db280424d4759e1aed8475fe38c1bf39cb132f8818",
+  "loopback_only": true,
+  "children": {
+    "host": {
+      "pid": 42680,
+      "started": "2026-10-29T11:18:45.149550+00:00",
+      "profile": "C:/Temp/c69r1/host-a",
+      "exit": 0,
+      "raw_sha256": "5a94d8183570ece3adb8f69856363215a58ff692d91b679c4c50c30c8814bf03",
+      "raw_errors": false,
+      "terminal_records": [
+        {
+          "actual_peer_id": 450389944,
+          "checks": 83,
+          "completed_cases": 16,
+          "elapsed_ms": 3799,
+          "exit_requested": 0,
+          "limits": "ENet loopback receiver/actual resource dispatch adapter only; no full game/network lifecycle/hardware/save/performance qualification.",
+          "op": "terminal",
+          "pid": 39100,
+          "records": [
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 1674,
+                "sequence": 10,
+                "unit": 39912998249
+              },
+              "case": "valid_assigned",
+              "observed_ms": 1674,
+              "work_actor_id": 39912998249,
+              "work_count": 1,
+              "work_target_id": 39929775469
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 1674,
+                "sequence": 10,
+                "unit": 39912998249
+              },
+              "case": "duplicate",
+              "observed_ms": 1818,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 1674,
+                "sequence": 10,
+                "unit": 39912998249
+              },
+              "case": "stale",
+              "observed_ms": 1957,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 2088,
+                "sequence": 11,
+                "unit": 39912998249
+              },
+              "case": "unknown_target",
+              "observed_ms": 2088,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 2220,
+                "sequence": 12,
+                "unit": 39912998249
+              },
+              "case": "wrong_descriptor_type",
+              "observed_ms": 2220,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 2349,
+                "sequence": 13,
+                "unit": 39912998249
+              },
+              "case": "far",
+              "observed_ms": 2349,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 2488,
+                "sequence": 14,
+                "unit": 39912998249
+              },
+              "case": "carrying",
+              "observed_ms": 2488,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 2626,
+                "sequence": 15,
+                "unit": 39912998249
+              },
+              "case": "dead",
+              "observed_ms": 2626,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 2626,
+                "sequence": 15,
+                "unit": 39912998249
+              },
+              "case": "unassigned",
+              "observed_ms": 2757,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 2626,
+                "sequence": 15,
+                "unit": 39912998249
+              },
+              "case": "wrong_actor_sender",
+              "observed_ms": 2894,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 2626,
+                "sequence": 15,
+                "unit": 39912998249
+              },
+              "case": "invalid_assigned_index",
+              "observed_ms": 3033,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 2626,
+                "sequence": 15,
+                "unit": 39912998249
+              },
+              "case": "not_playing",
+              "observed_ms": 3172,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 3309,
+                "sequence": 22,
+                "unit": 39912998249
+              },
+              "case": "valid_recovered",
+              "observed_ms": 3309,
+              "work_actor_id": 39912998249,
+              "work_count": 1,
+              "work_target_id": 39929775469
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 3446,
+                "sequence": 30,
+                "unit": 39912998249
+              },
+              "case": "rate_guard",
+              "observed_ms": 3447,
+              "work_actor_id": 39912998249,
+              "work_count": 1,
+              "work_target_id": 39929775469
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 3577,
+                "sequence": 32,
+                "unit": 39912998249
+              },
+              "case": "valid_after_rate",
+              "observed_ms": 3577,
+              "work_actor_id": 39912998249,
+              "work_count": 1,
+              "work_target_id": 39929775469
+            },
+            {
+              "actual_control_remote_sender_id": 450389944,
+              "actual_net_pointer_received_key": 450389944,
+              "actual_net_received": {
+                "at": 3577,
+                "sequence": 32,
+                "unit": 39912998249
+              },
+              "case": "zero_sequence",
+              "observed_ms": 3710,
+              "work_actor_id": 0,
+              "work_count": 0,
+              "work_target_id": 0
+            }
+          ],
+          "role": "host",
+          "status": "HOST_FIXTURE_COMPLETE_EXTERNAL_RAW_EXIT_REVIEW_REQUIRED",
+          "unix_seconds": 1793272729.294
+        }
+      ]
+    },
+    "client": {
+      "pid": 16028,
+      "started": "2026-10-29T11:18:46.699391+00:00",
+      "profile": "C:/Temp/c69r1/client-a",
+      "exit": 0,
+      "raw_sha256": "7134560afb0b7e9cccc6862c629ff44457f71fef3fdf8725c337ab47cbaac079",
+      "raw_errors": false,
+      "terminal_records": [
+        {
+          "actual_peer_id": 0,
+          "checks": 20,
+          "completed_cases": 0,
+          "elapsed_ms": 2359,
+          "exit_requested": 0,
+          "limits": "ENet loopback receiver/actual resource dispatch adapter only; no full game/network lifecycle/hardware/save/performance qualification.",
+          "op": "terminal",
+          "pid": 17156,
+          "records": [],
+          "role": "client",
+          "status": "CLIENT_FIXTURE_COMPLETE_EXTERNAL_RAW_EXIT_REVIEW_REQUIRED",
+          "unix_seconds": 1793272729.205
+        }
+      ]
+    }
+  },
+  "game_acceptance": false,
+  "terminal": "2026-10-29T11:18:49.480797+00:00",
+  "launcher_failure": null,
+  "qualified": true
+}

@@ -4,6 +4,7 @@ extends CharacterBody3D
 ## class station in their castle. Dying resets you to the plain form and
 ## wipes the experience you earned this life. All numbers live in stats.gd.
 
+const PlayerMovement = preload("res://scripts/player_movement.gd")
 const Stats = preload("res://scripts/stats.gd")
 const Turret = preload("res://scripts/turret.gd")
 const Monarch = preload("res://scripts/monarch.gd")
@@ -14,6 +15,10 @@ const Role = Stats.Role
 
 const GRAVITY := 20.0
 const PICKUP_RANGE := 1.8
+
+var click_movement = PlayerMovement.new()
+var _local_controls_frame := -1
+var _local_controls_result: Dictionary = {}
 
 var game
 var team := 0
@@ -2321,7 +2326,7 @@ func _update_player_aim(move: Vector3) -> void:
 	var cam: Camera3D = game.camera_for(self)
 	var mouse: Vector2 = game.mouse_for(self) if has_mouse else last_mouse
 	var stick := Input.get_vector(_a("aim_left"), _a("aim_right"), _a("aim_up"), _a("aim_down"))
-	if stick.length() > 0.3 or game.touch_active:
+	if stick.length() > 0.3 or game.touch_active or game.on_pad(self):
 		aim_mode = "stick"
 	elif has_mouse and mouse != last_mouse:
 		aim_mode = "mouse"
@@ -2329,7 +2334,8 @@ func _update_player_aim(move: Vector3) -> void:
 	match aim_mode:
 		"stick":
 			if stick.length() > 0.3:
-				aim = Vector3(stick.x, 0, stick.y).normalized()
+				var direction := PlayerMovement.camera_motion(stick, cam.global_basis)
+				aim = Vector3(direction.x, 0, direction.y).normalized()
 				if game.touch_active:
 					# Touch aim assist: a drag within 30 degrees of an enemy
 					# locks onto it (a thumb is never as exact as a mouse).
@@ -2360,6 +2366,14 @@ func _update_player_aim(move: Vector3) -> void:
 			if move.length() > 0.05:
 				aim = move.normalized()
 			aim_point = global_position + aim * 6.0
+	if click_movement.target_kind == "attack" and click_movement.target_ref != null:
+		var selected = click_movement.target_ref.get_ref()
+		if is_instance_valid(selected) and not selected.dead:
+			var toward: Vector3 = selected.global_position - global_position
+			toward.y = 0.0
+			if toward.length_squared() > 0.0001:
+				aim = toward.normalized()
+				aim_point = selected.global_position
 
 
 func _assist_aim(raw: Vector3) -> Vector3:
@@ -2407,6 +2421,10 @@ func _auto_aim(along: Vector3 = Vector3.ZERO) -> Vector3:
 
 
 func _physics_process(delta: float) -> void:
+	if is_player and (dead or downed):
+		cancel_click_movement()
+	if is_player and game != null and game.menu_blocks_input(self):
+		attack_buffer = 0.0
 	if game == null or not game.playing:
 		return
 	if game.net_client:
@@ -2590,6 +2608,8 @@ func _physics_process(delta: float) -> void:
 			# a moment and swings as soon as it can (no lost clicks).
 			if _tap("attack"):
 				attack_buffer = ATTACK_BUFFER
+			if _held("force_move"):
+				attack_buffer = 0.0
 			wants_attack = _held("attack") or attack_buffer > 0.0
 			if remote_peer <= 0 and game.economy and game.economy.mouse_on_button():
 				wants_attack = false   # a click on the economy card's button buys, it does not swing
@@ -2609,6 +2629,10 @@ func _physics_process(delta: float) -> void:
 				wants_attack = false
 			elif _tap("interact"):
 				game.try_interact(self)
+			elif remote_peer <= 0:
+				var selected = local_controls().get("pointer_target")
+				if is_instance_valid(selected):
+					game.try_pointer_interact(self, selected)
 			# A press just before a skill or the dodge is ready still counts:
 			# it waits up to INPUT_BUFFER seconds and fires the moment it can.
 			if _tap("ability_1"):
@@ -2765,37 +2789,79 @@ func _net_read_taps() -> void:
 
 func _stick() -> Vector2:
 	if remote_peer > 0:
-		return net_input.get("move", Vector2.ZERO)
-	return aim_relative(Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down")))
+		return net_input.get("move", Vector2.ZERO)  # host already receives world-space intent
+	return local_controls().move
 
 
 func aim_relative(keys: Vector2) -> Vector2:
-	## Keyboard and mouse (Faisal 2026-10-15: "when you aim with your mouse,
-	## your movement should also go that way"): W walks toward the cursor,
-	## S backs away from it, A and D step round it. The Controls tab's
-	## MOVEMENT pick turns it back to screen directions; pads and touch keep
-	## screen directions (their stick already points where you go).
-	if game == null or game.move_mode != "aim" or aim_mode != "mouse" or not has_mouse or game.on_pad(self) or game.touch_active:
-		return keys
-	if keys == Vector2.ZERO:
-		return keys
-	var to := Vector2(aim_point.x - global_position.x, aim_point.z - global_position.z)
-	if to.length() < 0.9:
-		return keys   # the cursor on top of us: no clear "forward", keep screen directions
-	var fwd := to.normalized()
-	var right := Vector2(-fwd.y, fwd.x)
-	return (right * keys.x + fwd * -keys.y).limit_length(1.0)
+	# Kept as a compatibility adapter; directions now follow this seat's camera,
+	# never the aim cursor or another local player's camera.
+	var cam: Camera3D = game.camera_for(self) if game != null else null
+	return PlayerMovement.camera_motion(keys, cam.global_basis if cam != null else Basis.IDENTITY)
+
+
+func cancel_click_movement() -> void:
+	click_movement.cancel()
+	_local_controls_frame = -1
+	_local_controls_result = {}
+
+
+func local_controls() -> Dictionary:
+	var blocked: bool = game == null or dead or downed or game.menu_blocks_input(self)
+	if blocked:
+		cancel_click_movement()
+		return {"move": Vector2.ZERO, "attack": false, "attack_tap": false, "interact": false, "interact_tap": false}
+	var frame := Engine.get_physics_frames()
+	if _local_controls_frame == frame:
+		return _local_controls_result
+	_local_controls_frame = frame
+	var raw := Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+	var pc: bool = has_mouse and not game.on_pad(self) and not game.touch_active
+	if pc and game.pc_movement != "wasd":
+		raw = Vector2.ZERO
+	var mouse: bool = pc and game.mouse_in_player_pane(self)
+	var primary: bool = pc and Input.is_action_pressed(_a("move_interact"))
+	var primary_tap: bool = pc and Input.is_action_just_pressed(_a("move_interact"))
+	var pulse: bool = pc and game.movement_force_pulse
+	if pc:
+		game.movement_force_pulse = false
+	var ground: Vector3 = game.movement_ground_point(self) if mouse else Vector3.INF
+	var choice: Dictionary = game.mouse_movement_choice(self, ground) if mouse and primary_tap else {}
+	var selected = choice.get("node")
+	if selected == null and click_movement.target_ref != null:
+		selected = click_movement.target_ref.get_ref()
+	var interaction_reach: float = game.pointer_reach(self, selected) if is_instance_valid(selected) else 1.1
+	var cam: Camera3D = game.camera_for(self)
+	var attack: bool = game.non_primary_attack_held(self) if pc else Input.is_action_pressed(_a("attack"))
+	var speed_hint: float = Stats.FACTIONS[team].speed * stats().speed * vigor_speed()
+	var data := {"position": global_position, "keys": raw, "basis": cam.global_basis if cam != null else Basis.IDENTITY,
+		"mouse": mouse, "keyboard": game.pc_movement == "wasd", "primary": primary, "primary_tap": primary_tap,
+		"hold": pc and Input.is_action_pressed(_a("force_hold")),
+		"force": pc and game.mapped_action_held(_a("force_move"), [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]),
+		"force_pulse": pulse, "ground": ground, "choice": choice,
+		"attack": attack, "attack_tap": attack and Input.is_action_just_pressed(_a("attack")),
+		"interact": Input.is_action_pressed(_a("interact")), "interact_tap": Input.is_action_just_pressed(_a("interact")),
+		"attack_reach": maxf(0.4, float(attack_stats().get("range", 1.2)) * 0.85),
+		"interaction_reach": interaction_reach,
+		"speed": speed_hint, "delta": get_physics_process_delta_time(),
+		"blocked": pc and ((game.movement_primary_blocked and primary) or (primary_tap and frame <= game.movement_consumed_tap_frame) or (game.movement_ui_hit() and (primary or primary_tap or pulse)))}
+	_local_controls_result = click_movement.resolve(data, game.route_point)
+	return _local_controls_result
 
 
 func _held(action: String) -> bool:
 	if remote_peer > 0:
 		return action in net_input.get("held", [])
+	if action in ["attack", "interact", "force_move", "force_hold"]:
+		return bool(local_controls().get(action, false))
 	return Input.is_action_pressed(_a(action))
 
 
 func _tap(action: String) -> bool:
 	if remote_peer > 0:
 		return action in net_taps
+	if action in ["attack", "interact"]:
+		return bool(local_controls()[action + "_tap"])
 	return Input.is_action_just_pressed(_a(action))
 
 
@@ -2913,7 +2979,7 @@ func _net_puppet(delta: float) -> void:
 		global_position = global_position.lerp(net_pos, minf(1.0, delta * 15.0))
 		return
 	if is_player:
-		var stick := Input.get_vector(_a("move_left"), _a("move_right"), _a("move_up"), _a("move_down"))
+		var stick: Vector2 = local_controls().move
 		_update_player_aim(Vector3(stick.x, 0, stick.y))
 	if flash_timer > 0.0:
 		flash_timer = maxf(flash_timer - delta, 0.0)

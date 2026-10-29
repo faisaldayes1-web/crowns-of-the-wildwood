@@ -1,0 +1,298 @@
+{
+  "agent": "Codex-faisal/build_delivery",
+  "parent_agent": "Codex-faisal",
+  "task": "T-2fc4d3bca959",
+  "reviewed_utc": "2026-10-29T11:23:10.094370+00:00",
+  "disposition": "ACCEPT_NARROW_ACTUAL_ENET_RECEIVER_ADAPTER_EVIDENCE",
+  "evidence": {
+    "actual-result.json": {
+      "sha256": "34d187a154f5bf980437eef68c540a770d58347ba3e2df40580453d3c7e5b18b",
+      "bytes": 10086
+    },
+    "actual-host.log": {
+      "sha256": "5a94d8183570ece3adb8f69856363215a58ff692d91b679c4c50c30c8814bf03",
+      "bytes": 13277
+    },
+    "actual-client.log": {
+      "sha256": "7134560afb0b7e9cccc6862c629ff44457f71fef3fdf8725c337ab47cbaac079",
+      "bytes": 2929
+    },
+    "codex_faisal_pointer_rpc_test.gd": {
+      "sha256": "997b11af7076b354cd20500d64c41a84a1856d9c33a01d34c1ea03d0ac5f4e8d",
+      "bytes": 20434
+    },
+    "source-pins.json": {
+      "sha256": "0b822b44f53969b3d54010c7ccee2e739c2e4288aa5dcdec5730ee8c357a16b0",
+      "bytes": 2146
+    },
+    "preparation-review.json": {
+      "sha256": "21b344867d1ffc8c21c5850af6d8033a1a93ffa040b9ca3aa34366da5abec77f",
+      "bytes": 13916
+    },
+    "independent-source-review-gameplay.json": {
+      "sha256": "4078aebac901f8ee23f977a023b1a42d3cc59f9c43ad6dea3d049c4e7b774927",
+      "bytes": 5716
+    },
+    "run_crowns_pointer_rpc.py": {
+      "sha256": "c392e19eecc6880fbf8df515f554179a60abeaca2acc95a1c4e3e230a0f0520c",
+      "bytes": 4492
+    },
+    "queue-crowns-pointer-rpc.json": {
+      "sha256": "bddc4d9238ae561cb57d2646f479d90c795afee9d9fb65edceb808d3dbf7aa57",
+      "bytes": 1369
+    }
+  },
+  "source_binding": {
+    "exact_script_sha256": "997b11af7076b354cd20500d64c41a84a1856d9c33a01d34c1ea03d0ac5f4e8d",
+    "both_startup10pins_equal_prepared_manifest": true,
+    "currentwarm10rawpins_equal_startup": true,
+    "pins": {
+      "scripts/player_movement.gd": {
+        "raw_sha256": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4",
+        "canonical_lf_sha256": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4"
+      },
+      "scripts/game.gd": {
+        "raw_sha256": "ad61fd8cd083bfb3e9610511d80f91122be5af6f03ea3d583d4506c82d16288d",
+        "canonical_lf_sha256": "ad61fd8cd083bfb3e9610511d80f91122be5af6f03ea3d583d4506c82d16288d"
+      },
+      "scripts/unit.gd": {
+        "raw_sha256": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153",
+        "canonical_lf_sha256": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153"
+      },
+      "scripts/net.gd": {
+        "raw_sha256": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967",
+        "canonical_lf_sha256": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967"
+      },
+      "scripts/hud.gd": {
+        "raw_sha256": "09063c83a756d7955e6996cab0e833506953b6eabe029e564c89eaaa11299620",
+        "canonical_lf_sha256": "09063c83a756d7955e6996cab0e833506953b6eabe029e564c89eaaa11299620"
+      },
+      "scripts/resource_node.gd": {
+        "raw_sha256": "aed2e1461093c5ad97845ef9825a30fb8f181f9be0b761d134d3e3820dcaf07c",
+        "canonical_lf_sha256": "74b9fbbaac841ea618c700e49fec1628b079c99f6fdc63c21ca4dee111340452"
+      },
+      "scripts/stats.gd": {
+        "raw_sha256": "33dabb236720f5d2919299655867e41e67e2a06141d948ccdffd7675f4e68772",
+        "canonical_lf_sha256": "e722176a6e6116bdf66097d2b4c93ee77e0fa71595083732238b5a89e4317538"
+      },
+      "scripts/guide.gd": {
+        "raw_sha256": "152d023b2bf0abc41cb6156f0cc60076a8edddb298c71558ad2a3f7036931f38",
+        "canonical_lf_sha256": "cf5297b949209d486e6b6924d31f54a2b31a1121601f745e7bfe0b19af41b60b"
+      },
+      "project.godot": {
+        "raw_sha256": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+        "canonical_lf_sha256": "ffe5028df79707129ace921a5700784de4ad0852421505416770552516800f3f"
+      },
+      "scripts/economy.gd": {
+        "raw_sha256": "cbf2c28a96c7ac1af79108c27f9d6cc9cfa9f56a89f0c42c03d797c6ba3ff8f0",
+        "canonical_lf_sha256": "baa393255112b2fab4134e1702852a7cbaf59c1ab70cadb00414ebbd562cb1eb"
+      }
+    },
+    "limit": "Ten explicit source/startup guards/current bytes verified; launcher did not emit full project/import/untracked before-after snapshots, so no broader snapshot proof is inferred."
+  },
+  "session": {
+    "started": "2026-10-29T11:18:45.143040+00:00",
+    "terminal": "2026-10-29T11:18:49.480797+00:00",
+    "shared_run_token_sha256": "31e9d472d6cea473fe2a03db280424d4759e1aed8475fe38c1bf39cb132f8818",
+    "real_client_peer_id": 450389944,
+    "actor_id": 39912998249,
+    "resource_id": 39929775469,
+    "loopback": "127.0.0.1:24769",
+    "actual_profiles": {
+      "host": "c:/temp/c69r1/host-a/godot/app_userdata/crowns of the wildwood",
+      "client": "c:/temp/c69r1/client-a/godot/app_userdata/crowns of the wildwood"
+    }
+  },
+  "process_results": {
+    "host_launcher_pid": 42680,
+    "host_engine_pid": 39100,
+    "client_launcher_pid": 16028,
+    "client_engine_pid": 17156,
+    "both_launcher_observed_exits": 0,
+    "both_engine_requested_exits": 0,
+    "launcher_failure": null,
+    "raw_errors_host": 0,
+    "raw_errors_client": 0,
+    "log_hashes_match_receipt": true,
+    "both_matching_role_terminals_and_handshake": true,
+    "host_fixture_elapsed_ms": 3799,
+    "client_fixture_elapsed_ms": 2359,
+    "host_assertion_evaluations": 83,
+    "client_assertion_evaluations": 20,
+    "game_acceptance": false
+  },
+  "wrapper_exit_binding": {
+    "explanation": "42680/16028 are console wrappers;39100/17156 are actual Godot PIDs from raw logs. Both wrappers wait/exit0 with no timeout/kill/failure. Official4.3 wrapper assigns paired engine to kill-on-close Job, waits active-process-zero, then returns engine GetExitCodeProcess; together with matching native terminals this supports actual through-exit0. Direct separate engine-handle exit records were not saved.",
+    "primary_source": "https://github.com/godotengine/godot/blob/4.3-stable/platform/windows/console_wrapper_windows.cpp",
+    "installed_binary_hashes_now": {
+      "Godot_v4.3-stable_win64_console.exe": {
+        "sha256": "8c54c617d4837958f2d5ee5020e900820db52371d5c826d9e6b5e5de1e939a1e",
+        "bytes": 198264
+      },
+      "Godot_v4.3-stable_win64.exe": {
+        "sha256": "b554ba80fb2ad8f1817bc21242ac8adbb9e41f806c49ad5cc73603db71fee32f",
+        "bytes": 132918392
+      }
+    },
+    "limit": "Binary hashes above are current readback, not invented at-launch attestation. Actual log banner is4.3stableofficial77dcf97d8. No cleanup-timeout path tested here."
+  },
+  "counts_and_oracles": {
+    "host_observed_stages": 16,
+    "client_completed_ordered_stages_from_frozen_terminal_checks": 16,
+    "source_bound_client_Net_rpc_send_calls": 17,
+    "direct_rejected_packet_counter_present": false,
+    "count_limit": "17 calls follow exact frozen completed16-stage client path with two-send rate burst; not17 independently logged receiver entries.",
+    "positive_actual_work_cases": [
+      "valid_assigned",
+      "valid_recovered",
+      "rate_guard",
+      "valid_after_rate"
+    ],
+    "negative_actual_work_cases": [
+      "duplicate",
+      "stale",
+      "unknown_target",
+      "wrong_descriptor_type",
+      "far",
+      "carrying",
+      "dead",
+      "unassigned",
+      "wrong_actor_sender",
+      "invalid_assigned_index",
+      "not_playing",
+      "zero_sequence"
+    ],
+    "all_sender_keys_match_actual_transport_client": true,
+    "sequence_states": [
+      10,
+      10,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      15,
+      15,
+      15,
+      15,
+      22,
+      30,
+      32,
+      32
+    ],
+    "rate": {
+      "first_actual_receiver_at_ms": 3446,
+      "marker_ms": 3446,
+      "ack_observed_ms": 3447,
+      "first_to_ack_ms": 1,
+      "retained_sequence": 30,
+      "source_asserted_work_sentinel_not_reset": true,
+      "later_sequence32_accepted": true
+    },
+    "per_case": [
+      {
+        "case": "valid_assigned",
+        "receiver_sequence": 10,
+        "work_count": 1,
+        "observed_ms": 1674
+      },
+      {
+        "case": "duplicate",
+        "receiver_sequence": 10,
+        "work_count": 0,
+        "observed_ms": 1818
+      },
+      {
+        "case": "stale",
+        "receiver_sequence": 10,
+        "work_count": 0,
+        "observed_ms": 1957
+      },
+      {
+        "case": "unknown_target",
+        "receiver_sequence": 11,
+        "work_count": 0,
+        "observed_ms": 2088
+      },
+      {
+        "case": "wrong_descriptor_type",
+        "receiver_sequence": 12,
+        "work_count": 0,
+        "observed_ms": 2220
+      },
+      {
+        "case": "far",
+        "receiver_sequence": 13,
+        "work_count": 0,
+        "observed_ms": 2349
+      },
+      {
+        "case": "carrying",
+        "receiver_sequence": 14,
+        "work_count": 0,
+        "observed_ms": 2488
+      },
+      {
+        "case": "dead",
+        "receiver_sequence": 15,
+        "work_count": 0,
+        "observed_ms": 2626
+      },
+      {
+        "case": "unassigned",
+        "receiver_sequence": 15,
+        "work_count": 0,
+        "observed_ms": 2757
+      },
+      {
+        "case": "wrong_actor_sender",
+        "receiver_sequence": 15,
+        "work_count": 0,
+        "observed_ms": 2894
+      },
+      {
+        "case": "invalid_assigned_index",
+        "receiver_sequence": 15,
+        "work_count": 0,
+        "observed_ms": 3033
+      },
+      {
+        "case": "not_playing",
+        "receiver_sequence": 15,
+        "work_count": 0,
+        "observed_ms": 3172
+      },
+      {
+        "case": "valid_recovered",
+        "receiver_sequence": 22,
+        "work_count": 1,
+        "observed_ms": 3309
+      },
+      {
+        "case": "rate_guard",
+        "receiver_sequence": 30,
+        "work_count": 1,
+        "observed_ms": 3447
+      },
+      {
+        "case": "valid_after_rate",
+        "receiver_sequence": 32,
+        "work_count": 1,
+        "observed_ms": 3577
+      },
+      {
+        "case": "zero_sequence",
+        "receiver_sequence": 32,
+        "work_count": 0,
+        "observed_ms": 3710
+      }
+    ]
+  },
+  "limits": [
+    "Actual Net autoload RPC receiver and real ENet loopback + actual un-readied Game/ResourceNode predicates/Economy.start_work only. ResourceNode.setup/visual/collider/physics lifecycle and economy progression excluded.",
+    "Normal Net snapshots/relay and match welcome/reload callbacks disabled only in fixture. Unassigned is same genuine client removed from assigned registry, not third attacker/platform login.",
+    "No ordinary send_input/UI/camera, internet relay/loss, rematch/reseat/reconnect generation, full Unit/controller, persistence/hardware/render/material/performance or full game acceptance.",
+    "No engine/test/network/source edit by independent readback. Prior adapter27/0 and renderer no-repro evidence retain separate original limits."
+  ]
+}
