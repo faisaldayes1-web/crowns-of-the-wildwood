@@ -127,7 +127,8 @@ func _run() -> void:
 	root.add_child(game)
 	current_scene = game
 	if "--loading-play-only" in OS.get_cmdline_user_args():
-		var route := "rendered --demo" if "--demo" in OS.get_cmdline_user_args() else "direct --play"
+		var demo_route := "--demo" in OS.get_cmdline_user_args()
+		var route := "rendered --demo" if demo_route else "direct --play"
 		var play_deadline := Time.get_ticks_msec() + 180000
 		var play_stream_frames := 0
 		var play_hidden_frames := 0
@@ -144,10 +145,14 @@ func _run() -> void:
 					play_loading_shot = true
 			if game.playing and root.disable_3d:
 				play_bad_warm_frames += 1
-		check(play_stream_frames >= 2 and play_loading_shot, route + " draws loading frames during construction")
+		if demo_route:
+			check(play_stream_frames == 0 and not play_loading_shot,
+				route + " preserves its intentional loading-art bypass")
+		else:
+			check(play_stream_frames >= 2 and play_loading_shot, route + " draws loading frames during construction")
 		check(play_hidden_frames == play_stream_frames if expected_hidden else play_hidden_frames == 0,
 			route + " uses the expected construction-only 3D state")
-		check(not root.disable_3d and play_bad_warm_frames == 0, route + " restores 3D before actual match warm-up")
+		check(not root.disable_3d and play_bad_warm_frames == 0, route + " leaves match rendering enabled")
 		check(game.playing and game.player != null and not is_instance_valid(game.loading_layer),
 			route + " reaches the visible match")
 		check(not game._stream_world and not game.menus_warming and game.process_mode == Node.PROCESS_MODE_INHERIT,

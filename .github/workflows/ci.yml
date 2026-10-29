@@ -114,7 +114,11 @@ jobs:
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/loading-direct-$route.log"
             grep -q '^loading progress test: 0 failure(s)$' "ci-logs/loading-direct-$route.log"
             test -s "$CROWNS_LOADING_EVIDENCE/direct-play.png"
-            test -s "$CROWNS_LOADING_EVIDENCE/direct-play-loading.png"
+            if [ "$route" = play ]; then
+              test -s "$CROWNS_LOADING_EVIDENCE/direct-play-loading.png"
+            else
+              test ! -e "$CROWNS_LOADING_EVIDENCE/direct-play-loading.png"
+            fi
           done
       - name: Keep logs
         if: always()
