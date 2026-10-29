@@ -520,6 +520,35 @@ func _fit_paragraph(box: Rect2, text: String, font_size: int, color: Color) -> v
 		_text(Vector2(box.position.x, top + i * lh), lines[i], fs, color, HORIZONTAL_ALIGNMENT_LEFT, box.size.x, 2)
 
 
+func _paragraph_in(box: Rect2, text: String, font_size: int, min_size: int, color: Color) -> void:
+	## Word-wrapped text from the top of box that never leaves it: the line
+	## spacing tightens, then the size steps down no further than min_size,
+	## and only then does a last line end in "…". (_fit_paragraph shrinks to
+	## 7, too small to read on a phone.) claude-faisal3 2026-10-29.
+	var fs := min_size
+	var lh := float(min_size)
+	var lines := _wrap(text, min_size, box.size.x)
+	var fitted := false
+	for s in range(font_size, min_size - 1, -1):
+		var wrapped := _wrap(text, s, box.size.x)
+		for spacing in [s + 1.0, float(s)]:
+			if (wrapped.size() - 1) * spacing + s * 1.05 <= box.size.y:
+				fs = s
+				lh = spacing
+				lines = wrapped
+				fitted = true
+				break
+		if fitted:
+			break
+	if not fitted:
+		var most := maxi(int((box.size.y - fs * 1.05) / lh) + 1, 1)
+		if lines.size() > most:
+			lines = lines.slice(0, most)
+			lines[most - 1] = str(lines[most - 1]).rstrip(" ,.;:") + "…"
+	for i in lines.size():
+		_text(Vector2(box.position.x, box.position.y + fs * 0.8 + i * lh), lines[i], fs, color, HORIZONTAL_ALIGNMENT_LEFT, box.size.x, 2)
+
+
 func _wrap(text: String, font_size: int, width: float) -> Array:
 	## The text broken into lines no wider than `width`, remembered (the chat
 	## re-wraps the same rows every frame).
@@ -5270,8 +5299,18 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -
 				name = str(abil[t - 1].name) if available else "No %s skill yet" % ["", "Q", "E"][t]
 				desc = str(abil[t - 1].get("desc", "")) if available else ("Pick a class at the stations to learn one." if view == Role.BASE else "")
 		var tx := tile.end.x + 10.0
-		_text(Vector2(tx, row.position.y + 20), name, 17, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-		_paragraph(Vector2(tx, row.position.y + 34), desc, 10, Color(0.86, 0.86, 0.82) if available else GREY, art.position.x - tx - 8.0, 11.0)
+		# The pause tab's rows are ~41 tall: a smaller, higher name leaves the
+		# description two whole lines. The description stays inside its row,
+		# above the board's LV strip (claude-faisal3 2026-10-29, UI-03: Vigor
+		# and Wind Dash ran out of their rows at every size).
+		var compact := row.size.y < 50.0
+		var name_y := row.position.y + (15.0 if compact else 20.0)
+		_text(Vector2(tx, name_y), name, 15 if compact else 17, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, art.position.x - tx - 8.0, 4)
+		var desc_end := row.end.y - (19.0 if board and available else 2.0)
+		_paragraph_in(Rect2(tx, name_y + 3.0, art.position.x - tx - 8.0, desc_end - name_y - 3.0), desc, 10, 9, Color(0.86, 0.86, 0.82) if available else GREY)
+		# Cost and the + button.
+		var bs := minf(row.size.y - 26.0, 40.0)
+		var btn := Rect2(row.end.x - bs - 12.0, row.end.y - bs - 6.0, bs, bs)
 		if available:
 			var lv := Rect2((tx if board else art.position.x + 8.0), row.end.y - 17, 30, 13)
 			_plate(lv, Color(0.2, 0.15, 0.06), GOLD_DARK, 3, 1)
@@ -5279,10 +5318,14 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -
 			for k in Stats.MAX_RANK:
 				var pip := Rect2(lv.end.x + 5 + k * 20, lv.position.y + 2, 16, 9)
 				_plate(pip, tint if k < r else Color(0.12, 0.13, 0.15), tint.darkened(0.25) if k < r else Color(0.4, 0.37, 0.3), 4, 1)
-			_text(Vector2(art.position.x + 8, (row.end.y - 7.0) if board else (art.position.y + 14.0)), _rank_desc_for(p, view, t, r), 9, GOLD if not maxed else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		# Cost and the + button.
-		var bs := minf(row.size.y - 26.0, 40.0)
-		var btn := Rect2(row.end.x - bs - 12.0, row.end.y - bs - 6.0, bs, bs)
+			# The next rank's effect: it ends before the + button and its keycap
+			# and sits on a dark band so the painted strip does not swallow it.
+			var nx := art.position.x + 8.0
+			var ny := (row.end.y - 7.0) if board else (art.position.y + 14.0)
+			var nw := btn.position.x - 14.0 - nx
+			var next_text := _rank_desc_for(p, view, t, r)
+			draw_rect(Rect2(nx - 4.0, ny - 10.0, minf(_text_width(next_text, 9), nw) + 8.0, 13.0), Color(0.02, 0.02, 0.03, 0.72))
+			_text(Vector2(nx, ny), next_text, 9, GOLD if not maxed else CREAM, HORIZONTAL_ALIGNMENT_LEFT, nw, 2)
 		if available and not maxed:
 			var coin := Vector2(btn.position.x - 44.0, btn.get_center().y)
 			draw_circle(coin, 6.0, ink)
@@ -5615,8 +5658,15 @@ func _draw_game_menu() -> void:
 	if in_match:
 		_ring_button(Vector2(cx, R.end.y - (46 if touch_ui else 38)), 34)
 		_map_glyph(Vector2(cx, R.end.y - (46 if touch_ui else 38)), 1.8)
-	var footer := "Esc / Start resumes   |   ← → switch tabs" if in_match else "Esc closes   |   ← → switch tabs"
-	_text(Vector2(R.position.x, R.end.y + 18), footer, 12, Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
+	# The key hint, under the board. It ran off the bottom of a 1200x540
+	# phone (UI-01): keep it on screen, on a dark band over the world, and
+	# not at all on touch, which has no Esc or arrow keys.
+	if not touch_ui:
+		var footer := "Esc / Start resumes   |   ← → switch tabs" if in_match else "Esc closes   |   ← → switch tabs"
+		var fy := minf(R.end.y + 18.0, size.y - 5.0)
+		var fw := _text_width(footer, 12) + 24.0
+		_plate(Rect2(cx - fw / 2.0, fy - 12.0, fw, 16.0), Color(0.04, 0.04, 0.05, 0.75), Color(0, 0, 0, 0), 6, 0)
+		_text(Vector2(R.position.x, fy), footer, 12, Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
 
 
 func _menu_body() -> Rect2:
