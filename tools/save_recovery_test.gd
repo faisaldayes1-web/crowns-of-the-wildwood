@@ -17,7 +17,12 @@ func check(ok: bool, message: String) -> void:
 
 func put(path: String, text: String) -> void:
 	var file := FileAccess.open(path, FileAccess.WRITE)
-	file.store_string(text)
+	if text == "<NUL>":
+		var zeros := PackedByteArray()
+		zeros.resize(900)
+		file.store_buffer(zeros)
+	else:
+		file.store_string(text)
 	file.close()
 
 
@@ -38,7 +43,7 @@ func _init() -> void:
 	check(DirAccess.make_dir_recursive_absolute(directory + "/profiles") == OK, "create isolated fixture")
 	var corruption := {
 		"empty": "",
-		"nul": "\u0000".repeat(900),
+		"nul": "<NUL>",
 		"garbage": "@@garbage\n",
 		"parse-error": "[profile]\naccount_xp=\"unfinished",
 		"unrelated": "[unrelated]\nvalue=530\n",
@@ -48,7 +53,7 @@ func _init() -> void:
 	}
 	for kind in ["controls.cfg", "profiles/p1.cfg"]:
 		for label in corruption:
-			var path := directory + "/" + kind
+			var path: String = directory + "/" + kind
 			# Start each case independently, with a good 530 XP backup.
 			put(path, fixture().encode_to_text())
 			check(SaveFile.write(fixture(900), path) == OK, kind + " seed " + label)
