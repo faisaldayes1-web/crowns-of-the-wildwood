@@ -401,9 +401,9 @@ func _ready() -> void:
 	if season != "":
 		tex_swap = Season.tex_swaps(season)   # snow or dusk meadow under everything
 		swap_dim = Color.WHITE
-	# Scene transitions build incrementally. Disable gameplay and hold the
-	# existing loading art until both world construction and menu warm-up finish.
-	_stream_world = reopen_screen != "" and DisplayServer.get_name() != "headless" and is_instance_valid(loading_layer)
+	# Cold boot and scene transitions build incrementally.
+	# Hold the existing loading art until construction and menu warm-up finish.
+	_stream_world = DisplayServer.get_name() != "headless" and is_instance_valid(loading_layer)
 	if _stream_world:
 		menus_warming = true
 		process_mode = Node.PROCESS_MODE_DISABLED
@@ -462,6 +462,11 @@ func _ready() -> void:
 				owned_items.append(Store.key(kv[0], int(kv[1])))
 				Store.equip(self, kv[0], int(kv[1]))
 	if "--play" in OS.get_cmdline_user_args():
+		# This route skips menu_stage.build and its construction-gate cleanup.
+		# The world is complete; let the match process and its loading tween run.
+		_stream_world = false
+		process_mode = Node.PROCESS_MODE_INHERIT
+		menus_warming = false
 		_start_match(0)  # testing: straight into a match with a (idle) local player
 		if "--fxshow" in OS.get_cmdline_user_args():  # combat effects showcase (tests/fx_showcase.gd)
 			var show: Node = load("res://tests/fx_showcase.gd").new()

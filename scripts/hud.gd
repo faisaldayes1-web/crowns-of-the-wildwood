@@ -244,7 +244,7 @@ func _click_end(at: Vector2) -> void:
 		s.show_board = not s.show_board
 	elif s.continue_rect.has_point(at):
 		if s.done():
-			get_tree().reload_current_scene()
+			game._reload_scene()
 		else:
 			s.skip()
 
