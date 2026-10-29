@@ -67,6 +67,38 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' ci-logs/bot-match.log
           grep -Eq '^RESULT winner=.+ score=[0-9]+-[0-9]+ t=[0-9]+ overtime=' ci-logs/bot-match.log
           grep -q '^STAT ' ci-logs/bot-match.log
+      - name: Rendered loading progress and summary return
+        shell: bash
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          CROWNS_LOADING_COMPARE: ${{ github.head_ref == 'Codex-faisal3/crowns-responsive-loading-1029' }}
+          CROWNS_LOADING_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgl1-mesa-dri
+          run_probe() {
+            local label="$1" project="$2"
+            shift 2
+            export CROWNS_LOADING_EVIDENCE="$GITHUB_WORKSPACE/ci-logs/loading-$label"
+            mkdir -p "$CROWNS_LOADING_EVIDENCE"
+            timeout 600 xvfb-run -a bash tools/tests/isolated.sh --path "$project" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$project/tools/loading_progress_test.gd" -- --seed=7 --gfx=0 "$@" 2>&1 | tee "ci-logs/loading-$label.log"
+            ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/loading-$label.log"
+            grep -q '^loading progress test: 0 failure(s)$' "ci-logs/loading-$label.log"
+            test "$(find "$CROWNS_LOADING_EVIDENCE" -name '*.png' | wc -l)" -eq 5
+          }
+          # Retain a one-time same-runner comparison for this fix PR. Future
+          # PRs/main keep the regression without requiring the old defect.
+          if [ "$CROWNS_LOADING_COMPARE" = true ]; then
+            git fetch --depth=1 origin "$CROWNS_LOADING_BASE"
+            baseline="$RUNNER_TEMP/crowns-loading-baseline"
+            git worktree add --detach "$baseline" "$CROWNS_LOADING_BASE"
+            cp tools/loading_progress_test.gd "$baseline/tools/loading_progress_test.gd"
+            timeout 600 bash tools/tests/isolated.sh --headless --editor --path "$baseline" --import 2>&1 | tee ci-logs/loading-baseline-import.log
+            ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/loading-baseline-import.log
+            run_probe baseline "$baseline" --loading-baseline
+          fi
+          run_probe candidate "$GITHUB_WORKSPACE"
       - name: Keep logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

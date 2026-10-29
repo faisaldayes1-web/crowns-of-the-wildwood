@@ -401,9 +401,9 @@ func _ready() -> void:
 	if season != "":
 		tex_swap = Season.tex_swaps(season)   # snow or dusk meadow under everything
 		swap_dim = Color.WHITE
-	# Scene transitions build incrementally. Disable gameplay and hold the
+	# Cold boot and scene transitions build incrementally. Disable gameplay and hold the
 	# existing loading art until both world construction and menu warm-up finish.
-	_stream_world = reopen_screen != "" and DisplayServer.get_name() != "headless" and is_instance_valid(loading_layer)
+	_stream_world = DisplayServer.get_name() != "headless" and is_instance_valid(loading_layer)
 	if _stream_world:
 		menus_warming = true
 		process_mode = Node.PROCESS_MODE_DISABLED
