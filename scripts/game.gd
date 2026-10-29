@@ -2337,6 +2337,11 @@ func _fade_loading_now() -> void:
 
 func _start_match(team: int) -> void:
 	_show_loading(1.0)
+	# The match is built within this frame (seconds, with the batching): draw
+	# the loading art now, or the title just clicked sits frozen until it is
+	# all done (claude-faisal3 2026-10-29, PERF-04; tools/match_start_art_test.gd).
+	if is_instance_valid(loading_layer) and DisplayServer.get_name() != "headless":
+		RenderingServer.force_draw()
 	if net and net.online():
 		# Building the match can take long on a slow or busy machine: the
 		# online links wait for it, each until input flows on it again.
@@ -5320,7 +5325,7 @@ func _petal_mesh() -> ArrayMesh:
 			st.add_vertex(c + Vector3(cos(a1), 0, sin(a1)) * 0.105)
 			st.set_normal(Vector3.UP)
 			st.add_vertex(c + Vector3(cos(a0), 0, sin(a0)) * 0.105)
-	return st.commit()
+	return StaticBatch.kept_mesh(st)
 
 
 func _tuft_mesh() -> ArrayMesh:
@@ -5336,7 +5341,7 @@ func _tuft_mesh() -> ArrayMesh:
 		for v in [-side, tip, side, side, tip, -side]:
 			st.set_normal(n)
 			st.add_vertex(v)
-	return st.commit()
+	return StaticBatch.kept_mesh(st)
 
 
 func _open_ground(p: Vector3) -> bool:
@@ -5708,7 +5713,7 @@ func _pine_tier_mesh(seed: int, radius: float, height: float) -> ArrayMesh:
 		st.add_vertex(p0)
 		st.add_vertex(p1)
 	st.generate_normals()
-	var m := st.commit()
+	var m := StaticBatch.kept_mesh(st)
 	pine_tiers[key] = m
 	return m
 
@@ -5780,7 +5785,7 @@ func _rock_mesh(seed: int, radius: float, jitter: float = 0.22) -> ArrayMesh:
 	st.create_from_arrays(arrays)
 	st.deindex()
 	st.generate_normals()
-	return _keep_arrays(st)
+	return StaticBatch.kept_mesh(st)
 
 
 static var _rock_unit := []   # [unit sphere vertices, first vertex at each place, its arrays]
@@ -5804,17 +5809,6 @@ static func _build_rock_unit() -> void:
 			seen[key] = i
 		first.append(seen[key])
 	_rock_unit = [verts, first, arrays]
-
-
-static func _keep_arrays(st: SurfaceTool) -> ArrayMesh:
-	## st's mesh, keeping a CPU copy of its arrays for scripts/static_batch.gd,
-	## which otherwise reads every generated mesh back from the GPU at match
-	## start. (The batch drops the copy once it has merged the mesh.)
-	var arrays := st.commit_to_arrays()
-	var m := ArrayMesh.new()
-	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	m.set_meta(&"batch_arrays", arrays)
-	return m
 
 
 func _add_bush(pos: Vector3, seed: int) -> void:
@@ -6054,7 +6048,7 @@ func _lily_pad_mesh(radius: float) -> ArrayMesh:
 		st.add_vertex(Vector3(cos(t1), 0.0, sin(t1)) * radius + Vector3(0, 0.025, 0))
 		st.set_normal(Vector3.UP)
 		st.add_vertex(Vector3(cos(t0), 0.0, sin(t0)) * radius + Vector3(0, 0.025, 0))
-	return st.commit()
+	return StaticBatch.kept_mesh(st)
 
 
 func _add_water_lily(pos: Vector3, petal: Material, rot: float) -> void:
