@@ -1,0 +1,67 @@
+# Agent: claude-faisal3. Main CI gate for the 2026-10-29 release-candidate push:
+# a clean headless import, the combat self-test and a seeded full bot match.
+name: Crowns CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: crowns-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  godot43:
+    name: Godot 4.3 import, self-test and bot match
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GODOT: /tmp/crowns-godot/Godot_v4.3-stable_linux.x86_64
+      TMPDIR: /tmp
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install official Godot 4.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-logs /tmp/crowns-godot
+          release=https://github.com/godotengine/godot-builds/releases/download/4.3-stable
+          archive=Godot_v4.3-stable_linux.x86_64.zip
+          curl -fsSL --retry 3 "$release/$archive" -o "/tmp/crowns-godot/$archive"
+          expected=fd52bb4ba8acc30ca5accd1c566d470ad7282f891ccc0995dfafabcf92bcf76280ce182bf9d80ebd885f3ed2165d01e1fc3f2928436b15498dfbd98656c2a45a
+          echo "$expected  /tmp/crowns-godot/$archive" | sha512sum --check
+          unzip -q "/tmp/crowns-godot/$archive" -d /tmp/crowns-godot
+          chmod +x "$GODOT"
+          "$GODOT" --version | tee ci-logs/engine-version.log
+      - name: Clean headless import
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 bash tools/tests/isolated.sh --headless --editor --path . --import 2>&1 | tee ci-logs/import.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log
+      - name: Combat self-test
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 30000 -- --demo --selftest 2>&1 | tee ci-logs/selftest.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^TEST FAIL' ci-logs/selftest.log
+          grep -Eq '^TESTS DONE failures=0$' ci-logs/selftest.log
+      - name: Full seeded bot match
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 1200 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 45000 -- --demo --seed=7 2>&1 | tee ci-logs/bot-match.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' ci-logs/bot-match.log
+          grep -Eq '^RESULT winner=.+ score=[0-9]+-[0-9]+ t=[0-9]+ overtime=' ci-logs/bot-match.log
+          grep -q '^STAT ' ci-logs/bot-match.log
+      - name: Keep logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crowns-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-logs/
+          retention-days: 14
