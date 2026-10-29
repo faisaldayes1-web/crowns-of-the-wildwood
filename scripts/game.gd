@@ -3442,7 +3442,7 @@ func menu_tick() -> void:
 				for i in 2:
 					if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
 						rank_player.choose_variant(rank_player.role, i)
-	if menu_open and rebinding == "" and not chat_open:
+	if menu_open and rebinding == "" and not chat_open and not eaten:
 		var tabs := menu_tabs()
 		var at := maxi(tabs.find(menu_tab), 0)
 		if Input.is_action_just_pressed("menu_left"):
