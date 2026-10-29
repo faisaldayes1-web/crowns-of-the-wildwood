@@ -5756,30 +5756,65 @@ func _tree_bark() -> StandardMaterial3D:
 
 func _rock_mesh(seed: int, radius: float, jitter: float = 0.22) -> ArrayMesh:
 	## A faceted, lumpy sphere: boulders, rubble and leaf blobs.
+	## (claude-faisal3 2026-10-29 loading pass: the world makes ~2,700 of
+	## these, 3 s of every world build. The sphere and its seams are now
+	## worked out once, and the mesh is built from arrays: the old route went
+	## through a temporary ArrayMesh, a GPU upload and read-back per blob.
+	## Same rocks for the same seeds: tools/rock_mesh_test.gd.)
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
+	if _rock_unit.is_empty():
+		_build_rock_unit()
+	var unit: PackedVector3Array = _rock_unit[0]
+	var first: PackedInt32Array = _rock_unit[1]
+	# Jitter each unique position the same way so the surface stays closed
+	# (in first-seen order, as before, so a seed keeps its rock).
+	var verts := PackedVector3Array()
+	verts.resize(unit.size())
+	for i in unit.size():
+		var f := first[i]
+		verts[i] = unit[i] * (radius * (1.0 + r.randf_range(-jitter, jitter))) if f == i else verts[f]
+	var arrays: Array = _rock_unit[2].duplicate()
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	var st := SurfaceTool.new()
+	st.create_from_arrays(arrays)
+	st.deindex()
+	st.generate_normals()
+	return _keep_arrays(st)
+
+
+static var _rock_unit := []   # [unit sphere vertices, first vertex at each place, its arrays]
+
+
+static func _build_rock_unit() -> void:
+	## The 9 x 5 sphere every rock starts from, at radius 1 (a rock is it
+	## scaled), and for each vertex the first vertex at the same place.
 	var sphere := SphereMesh.new()
-	sphere.radius = radius
-	sphere.height = radius * 2.0
+	sphere.radius = 1.0
+	sphere.height = 2.0
 	sphere.radial_segments = 9
 	sphere.rings = 5
 	var arrays := sphere.get_mesh_arrays()
 	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-	# Jitter each unique position the same way so the surface stays closed.
-	var moved := {}
+	var first := PackedInt32Array()
+	var seen := {}
 	for i in verts.size():
 		var key := verts[i].snapped(Vector3.ONE * 0.001)
-		if not moved.has(key):
-			moved[key] = verts[i] * (1.0 + r.randf_range(-jitter, jitter))
-		verts[i] = moved[key]
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	var st := SurfaceTool.new()
-	var tmp := ArrayMesh.new()
-	tmp.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	st.create_from(tmp, 0)
-	st.deindex()
-	st.generate_normals()
-	return st.commit()
+		if not seen.has(key):
+			seen[key] = i
+		first.append(seen[key])
+	_rock_unit = [verts, first, arrays]
+
+
+static func _keep_arrays(st: SurfaceTool) -> ArrayMesh:
+	## st's mesh, keeping a CPU copy of its arrays for scripts/static_batch.gd,
+	## which otherwise reads every generated mesh back from the GPU at match
+	## start. (The batch drops the copy once it has merged the mesh.)
+	var arrays := st.commit_to_arrays()
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	m.set_meta(&"batch_arrays", arrays)
+	return m
 
 
 func _add_bush(pos: Vector3, seed: int) -> void:
