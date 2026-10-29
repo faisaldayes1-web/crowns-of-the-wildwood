@@ -50,6 +50,15 @@ jobs:
           timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 30000 -- --demo --selftest 2>&1 | tee ci-logs/selftest.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^TEST FAIL' ci-logs/selftest.log
           grep -Eq '^TESTS DONE failures=0$' ci-logs/selftest.log
+      - name: Save recovery and progression regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in save_write_test save_recovery_test save_test; do
+            timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script "tools/$test.gd" 2>&1 | tee "ci-logs/$test.log"
+            ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/$test.log"
+            grep -Eq 'test: .*0 failure\(s\)$' "ci-logs/$test.log"
+          done
       - name: Full seeded bot match
         shell: bash
         run: |
