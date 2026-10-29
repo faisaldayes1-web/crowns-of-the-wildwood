@@ -1,0 +1,659 @@
+{
+  "agent": "Codex-faisal/build_delivery",
+  "started": "2026-10-29T11:37:55.508552+00:00",
+  "fixture_sha256": "2fef54b6ec4c986d57ad2ceed775592b58d83ddca0b0cf3ed2206ff9c5493a22",
+  "engine_sha256": "b554ba80fb2ad8f1817bc21242ac8adbb9e41f806c49ad5cc73603db71fee32f",
+  "lease_before": {
+    "owner": "Codex-faisal",
+    "job": {
+      "mode": "windowed",
+      "worktree": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\crowns69-current-integration",
+      "user_data": "C:/Temp/cm5",
+      "isolation_evidence": "Fresh marked cm5 with all APPDATA/LOCALAPPDATA/XDG guards, own full warmcheckout/cache only; finite focused1280x720Forward+/Vulkan mainmenu-to-Controlspanels. Harness staging/capturedhitrects, no OSinput/globalmouse/personalprofile or natural journey claim; sourcepins reviewed beforelaunch.",
+      "render_windows": false
+    },
+    "state_sha256": "d67a01f2fc35d0b1b67f8c85e1603808618b3039b7a86fb57c4f85794d7776ca"
+  },
+  "source_before": {
+    "scripts/hud.gd": {
+      "warm": "09063c83a756d7955e6996cab0e833506953b6eabe029e564c89eaaa11299620",
+      "author": "09063c83a756d7955e6996cab0e833506953b6eabe029e564c89eaaa11299620"
+    },
+    "scripts/player_movement.gd": {
+      "warm": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4",
+      "author": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4"
+    },
+    "scripts/game.gd": {
+      "warm": "ad61fd8cd083bfb3e9610511d80f91122be5af6f03ea3d583d4506c82d16288d",
+      "author": "ad61fd8cd083bfb3e9610511d80f91122be5af6f03ea3d583d4506c82d16288d"
+    },
+    "scripts/unit.gd": {
+      "warm": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153",
+      "author": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153"
+    },
+    "scripts/net.gd": {
+      "warm": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967",
+      "author": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967"
+    },
+    "scripts/menu.gd": {
+      "warm": "a0addae4e31079e19d551d6c5feebce29c191d3757490398fd8f1f062e4bfd2c",
+      "author": "a0addae4e31079e19d551d6c5feebce29c191d3757490398fd8f1f062e4bfd2c"
+    },
+    "scenes/main.tscn": {
+      "warm": "d62a80935f21109465f733d7e7c8bbc49af507c7170d169425033a62596a648d",
+      "author": null
+    },
+    "project.godot": {
+      "warm": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+      "author": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815"
+    },
+    "tools/tests/isolated.gd": {
+      "warm": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3",
+      "author": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3"
+    },
+    "tools/crowns_visual_capture.gd": {
+      "warm": "e65d5d25ff5df651f922c1a79e575b625a74bbb0f313ad6c91ef787a1c29dd3a",
+      "author": "e65d5d25ff5df651f922c1a79e575b625a74bbb0f313ad6c91ef787a1c29dd3a"
+    },
+    "tools/options_menu_test.gd": {
+      "warm": "7ef6d95413b3ea45d87e577dd440db03e82bae8eca37ac22f3b7fedb480d0259",
+      "author": "7ef6d95413b3ea45d87e577dd440db03e82bae8eca37ac22f3b7fedb480d0259"
+    }
+  },
+  "engine_inventory_before": [],
+  "profile": "C:\\Temp\\cm5",
+  "game_or_hardware_acceptance": false,
+  "lease_immediately_before_launch": {
+    "owner": "Codex-faisal",
+    "job": {
+      "mode": "windowed",
+      "worktree": "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\crowns69-current-integration",
+      "user_data": "C:/Temp/cm5",
+      "isolation_evidence": "Fresh marked cm5 with all APPDATA/LOCALAPPDATA/XDG guards, own full warmcheckout/cache only; finite focused1280x720Forward+/Vulkan mainmenu-to-Controlspanels. Harness staging/capturedhitrects, no OSinput/globalmouse/personalprofile or natural journey claim; sourcepins reviewed beforelaunch.",
+      "render_windows": false
+    },
+    "state_sha256": "d67a01f2fc35d0b1b67f8c85e1603808618b3039b7a86fb57c4f85794d7776ca"
+  },
+  "command": [
+    "C:\\Tools\\Godot\\Godot_v4.3-stable_win64.exe",
+    "--path",
+    "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\crowns69-current-integration",
+    "--rendering-method",
+    "forward_plus",
+    "--rendering-driver",
+    "vulkan",
+    "--windowed",
+    "--resolution",
+    "1280x720",
+    "--script",
+    "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\reviews\\Crowns-controls-render\\codex_faisal_controls_render.gd"
+  ],
+  "pid": 67728,
+  "process_started": "2026-10-29T11:37:55.607277+00:00",
+  "exit": 0,
+  "terminal": "2026-10-29T11:38:15.197381+00:00",
+  "native_elapsed_seconds": 19.57799999997951,
+  "raw_sha256": "987d81a9a6fac0bfaffbf47bf0c7575433635d8e75ff58a6149fdce18df84a65",
+  "raw_errors": [],
+  "raw_warnings": [],
+  "actual_forward_vulkan": true,
+  "images": {
+    "01-pointer.png": {
+      "sha256": "c186de994d702b1fd6209fc922d4de7a537cad5af8ffbd98e9478760a83ccd8c",
+      "bytes": 462794,
+      "width": 1280,
+      "height": 720
+    },
+    "02-movement.png": {
+      "sha256": "07b6197963074b1a2116c251d8514007089b15f34328c49799b1910fa3d94222",
+      "bytes": 451300,
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "terminal_records": [
+    {
+      "checks": 69,
+      "elapsed_ms": 17849,
+      "exit_requested": 0,
+      "limits": "Two staged Controls panels/geometry/viewport only; not physical controls, hardware, full journey or visual acceptance.",
+      "op": "terminal",
+      "panels": [
+        {
+          "binding_rows": [
+            "move_interact",
+            "force_move",
+            "force_hold"
+          ],
+          "filename": "01-pointer.png",
+          "group": 0,
+          "group_buttons": [
+            {
+              "index": 0,
+              "label": "POINTER",
+              "rect": [
+                143,
+                226,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 1,
+              "label": "MOVEMENT",
+              "rect": [
+                143,
+                270,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 2,
+              "label": "COMBAT",
+              "rect": [
+                143,
+                314,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 3,
+              "label": "INTERACTION",
+              "rect": [
+                143,
+                358,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 4,
+              "label": "TEAM CALLS",
+              "rect": [
+                143,
+                402,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 5,
+              "label": "INTERFACE",
+              "rect": [
+                143,
+                446,
+                220,
+                38
+              ]
+            }
+          ],
+          "image_height": 720,
+          "image_width": 1280,
+          "label": "POINTER",
+          "sampled_rgb_colors": 182,
+          "sha256": "c186de994d702b1fd6209fc922d4de7a537cad5af8ffbd98e9478760a83ccd8c",
+          "state_staging": true,
+          "toggles": {
+            "combine_move_attack": [
+              1015,
+              439,
+              100,
+              28
+            ],
+            "layout_auto": [
+              143,
+              522,
+              220,
+              24
+            ],
+            "layout_controller": [
+              143,
+              578,
+              220,
+              24
+            ],
+            "layout_keyboard": [
+              143,
+              550,
+              220,
+              24
+            ],
+            "layout_touch": [
+              143,
+              606,
+              220,
+              24
+            ],
+            "pc_click": [
+              585,
+              399,
+              156,
+              28
+            ],
+            "pc_wasd": [
+              749,
+              399,
+              156,
+              28
+            ],
+            "wheel_zoom": [
+              1015,
+              479,
+              100,
+              28
+            ]
+          },
+          "viewport_size": "(1280, 720)",
+          "window_size_api": "(1280, 720)"
+        },
+        {
+          "binding_rows": [
+            "move_up",
+            "move_down",
+            "move_left",
+            "move_right",
+            "dodge"
+          ],
+          "filename": "02-movement.png",
+          "group": 1,
+          "group_buttons": [
+            {
+              "index": 0,
+              "label": "POINTER",
+              "rect": [
+                143,
+                226,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 1,
+              "label": "MOVEMENT",
+              "rect": [
+                143,
+                270,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 2,
+              "label": "COMBAT",
+              "rect": [
+                143,
+                314,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 3,
+              "label": "INTERACTION",
+              "rect": [
+                143,
+                358,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 4,
+              "label": "TEAM CALLS",
+              "rect": [
+                143,
+                402,
+                220,
+                38
+              ]
+            },
+            {
+              "index": 5,
+              "label": "INTERFACE",
+              "rect": [
+                143,
+                446,
+                220,
+                38
+              ]
+            }
+          ],
+          "image_height": 720,
+          "image_width": 1280,
+          "label": "MOVEMENT",
+          "sampled_rgb_colors": 174,
+          "sha256": "07b6197963074b1a2116c251d8514007089b15f34328c49799b1910fa3d94222",
+          "state_staging": true,
+          "toggles": {
+            "layout_auto": [
+              143,
+              522,
+              220,
+              24
+            ],
+            "layout_controller": [
+              143,
+              578,
+              220,
+              24
+            ],
+            "layout_keyboard": [
+              143,
+              550,
+              220,
+              24
+            ],
+            "layout_touch": [
+              143,
+              606,
+              220,
+              24
+            ]
+          },
+          "viewport_size": "(1280, 720)",
+          "window_size_api": "(1280, 720)"
+        }
+      ],
+      "pid": 67728,
+      "status": "CONTROLS_FIXTURE_COMPLETE_VISUAL_REVIEW_REQUIRED",
+      "unix_seconds": 1793273894.835
+    }
+  ],
+  "panels": [
+    {
+      "binding_rows": [
+        "move_interact",
+        "force_move",
+        "force_hold"
+      ],
+      "elapsed_ms": 17491,
+      "filename": "01-pointer.png",
+      "group": 0,
+      "group_buttons": [
+        {
+          "index": 0,
+          "label": "POINTER",
+          "rect": [
+            143,
+            226,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 1,
+          "label": "MOVEMENT",
+          "rect": [
+            143,
+            270,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 2,
+          "label": "COMBAT",
+          "rect": [
+            143,
+            314,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 3,
+          "label": "INTERACTION",
+          "rect": [
+            143,
+            358,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 4,
+          "label": "TEAM CALLS",
+          "rect": [
+            143,
+            402,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 5,
+          "label": "INTERFACE",
+          "rect": [
+            143,
+            446,
+            220,
+            38
+          ]
+        }
+      ],
+      "image_height": 720,
+      "image_width": 1280,
+      "label": "POINTER",
+      "op": "panel_captured",
+      "pid": 67728,
+      "sampled_rgb_colors": 182,
+      "sha256": "c186de994d702b1fd6209fc922d4de7a537cad5af8ffbd98e9478760a83ccd8c",
+      "state_staging": true,
+      "toggles": {
+        "combine_move_attack": [
+          1015,
+          439,
+          100,
+          28
+        ],
+        "layout_auto": [
+          143,
+          522,
+          220,
+          24
+        ],
+        "layout_controller": [
+          143,
+          578,
+          220,
+          24
+        ],
+        "layout_keyboard": [
+          143,
+          550,
+          220,
+          24
+        ],
+        "layout_touch": [
+          143,
+          606,
+          220,
+          24
+        ],
+        "pc_click": [
+          585,
+          399,
+          156,
+          28
+        ],
+        "pc_wasd": [
+          749,
+          399,
+          156,
+          28
+        ],
+        "wheel_zoom": [
+          1015,
+          479,
+          100,
+          28
+        ]
+      },
+      "unix_seconds": 1793273894.478,
+      "viewport_size": "(1280, 720)",
+      "window_size_api": "(1280, 720)"
+    },
+    {
+      "binding_rows": [
+        "move_up",
+        "move_down",
+        "move_left",
+        "move_right",
+        "dodge"
+      ],
+      "elapsed_ms": 17598,
+      "filename": "02-movement.png",
+      "group": 1,
+      "group_buttons": [
+        {
+          "index": 0,
+          "label": "POINTER",
+          "rect": [
+            143,
+            226,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 1,
+          "label": "MOVEMENT",
+          "rect": [
+            143,
+            270,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 2,
+          "label": "COMBAT",
+          "rect": [
+            143,
+            314,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 3,
+          "label": "INTERACTION",
+          "rect": [
+            143,
+            358,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 4,
+          "label": "TEAM CALLS",
+          "rect": [
+            143,
+            402,
+            220,
+            38
+          ]
+        },
+        {
+          "index": 5,
+          "label": "INTERFACE",
+          "rect": [
+            143,
+            446,
+            220,
+            38
+          ]
+        }
+      ],
+      "image_height": 720,
+      "image_width": 1280,
+      "label": "MOVEMENT",
+      "op": "panel_captured",
+      "pid": 67728,
+      "sampled_rgb_colors": 174,
+      "sha256": "07b6197963074b1a2116c251d8514007089b15f34328c49799b1910fa3d94222",
+      "state_staging": true,
+      "toggles": {
+        "layout_auto": [
+          143,
+          522,
+          220,
+          24
+        ],
+        "layout_controller": [
+          143,
+          578,
+          220,
+          24
+        ],
+        "layout_keyboard": [
+          143,
+          550,
+          220,
+          24
+        ],
+        "layout_touch": [
+          143,
+          606,
+          220,
+          24
+        ]
+      },
+      "unix_seconds": 1793273894.584,
+      "viewport_size": "(1280, 720)",
+      "window_size_api": "(1280, 720)"
+    }
+  ],
+  "source_after": {
+    "scripts/hud.gd": {
+      "warm": "09063c83a756d7955e6996cab0e833506953b6eabe029e564c89eaaa11299620",
+      "author": "09063c83a756d7955e6996cab0e833506953b6eabe029e564c89eaaa11299620"
+    },
+    "scripts/player_movement.gd": {
+      "warm": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4",
+      "author": "ef0a7de44e4bbf3589fd3d29678045cc5626946ccb1dfc72810473ecd7d2a6e4"
+    },
+    "scripts/game.gd": {
+      "warm": "ad61fd8cd083bfb3e9610511d80f91122be5af6f03ea3d583d4506c82d16288d",
+      "author": "ad61fd8cd083bfb3e9610511d80f91122be5af6f03ea3d583d4506c82d16288d"
+    },
+    "scripts/unit.gd": {
+      "warm": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153",
+      "author": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153"
+    },
+    "scripts/net.gd": {
+      "warm": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967",
+      "author": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967"
+    },
+    "scripts/menu.gd": {
+      "warm": "a0addae4e31079e19d551d6c5feebce29c191d3757490398fd8f1f062e4bfd2c",
+      "author": "a0addae4e31079e19d551d6c5feebce29c191d3757490398fd8f1f062e4bfd2c"
+    },
+    "scenes/main.tscn": {
+      "warm": "d62a80935f21109465f733d7e7c8bbc49af507c7170d169425033a62596a648d",
+      "author": null
+    },
+    "project.godot": {
+      "warm": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815",
+      "author": "660bd969ee1d633b327581d266647200b6016db34dc235172cd1adff99abe815"
+    },
+    "tools/tests/isolated.gd": {
+      "warm": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3",
+      "author": "28f90c266b928d1dfbe612c94e68232d8f2743c43ff7c4d53bb6c396a71358e3"
+    },
+    "tools/crowns_visual_capture.gd": {
+      "warm": "e65d5d25ff5df651f922c1a79e575b625a74bbb0f313ad6c91ef787a1c29dd3a",
+      "author": "e65d5d25ff5df651f922c1a79e575b625a74bbb0f313ad6c91ef787a1c29dd3a"
+    },
+    "tools/options_menu_test.gd": {
+      "warm": "7ef6d95413b3ea45d87e577dd440db03e82bae8eca37ac22f3b7fedb480d0259",
+      "author": "7ef6d95413b3ea45d87e577dd440db03e82bae8eca37ac22f3b7fedb480d0259"
+    }
+  },
+  "failure": null,
+  "qualified_for_independent_visual_review": true,
+  "limits": "Only two staged Controls panels and native geometry/viewport checks; actual screenshots still need Root visual review. No physical input, hardware, full journey, material or performance acceptance."
+}

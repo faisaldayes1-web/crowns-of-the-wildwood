@@ -4228,6 +4228,8 @@ func _mouse_name(button: int) -> String:
 		MOUSE_BUTTON_LEFT: return "LMB"
 		MOUSE_BUTTON_RIGHT: return "RMB"
 		MOUSE_BUTTON_MIDDLE: return "MMB"
+		MOUSE_BUTTON_WHEEL_UP: return "Wheel↑"
+		MOUSE_BUTTON_WHEEL_DOWN: return "Wheel↓"
 		MOUSE_BUTTON_XBUTTON1: return "M4"
 		MOUSE_BUTTON_XBUTTON2: return "M5"
 	return "M%d" % button

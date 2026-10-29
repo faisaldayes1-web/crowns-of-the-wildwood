@@ -27,9 +27,11 @@ Root audit evidence is in `hub-status-audit-20261027/reviews/` beside the centra
 - Two actual local ENet peers: 16 ordered receiver scenarios and 17 authenticated sends cover selected target, spoof/assignment, replay and rate limiting. Both engine processes exit 0 without raw errors. This is a loopback adapter qualification, not a complete network match.
 - Five actual HUD text-adapter checks: PC/WASD/pad onboarding matches the new bindings; touch and player chat remain unchanged.
 
+- Actual Controls main-menu render: both Pointer and Movement panels pass native layout bounds and exit without raw errors. Root reviewed the actual PNGs. The resulting wheel/thumb ambiguity was fixed in the existing mouse-label formatter; a second Pointer-only render verifies the actual `Wheel↑ / Wheel↓ / M4` text is 114px inside its 130px keycap, with clean engine exit.
+
 ## Remaining qualification
 
-Rendered controls, ordinary player journey and controller hardware feel remain separate from the focused checks above. The collider fixture uses the actual ResourceNode and CharacterBody with the source-bound unit capsule; it does not instantiate the complete Unit controller. No full fresh-save ending journey is claimed. Do not call this a completed visual pass or final build yet. Do not replay unchanged original 969 checks as new evidence.
+Ordinary player journey and controller hardware feel remain separate from the focused checks above. The collider fixture uses the actual ResourceNode and CharacterBody with the source-bound unit capsule; it does not instantiate the complete Unit controller. No full fresh-save ending journey is claimed. Do not call this a completed visual pass or final build yet. Do not replay unchanged original 969 checks as new evidence.
 
 The pre-existing main renderer/material failure is independently tracked under original PR 69. Two bounded real Forward+/Vulkan character-lifetime probes completed without native errors; they do not reproduce or fix the full-match failure at 105 seconds. No character art/material/shader/cache/backend modification is included here, and no performance improvement is claimed.
 
