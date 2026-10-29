@@ -115,6 +115,45 @@ func _init() -> void:
 	game.account_xp = 0
 	game._load_controls()
 	check(game.account_xp == 4321, "the imported progress is saved")
+	# SAV-02: an unreadable current-player file must leave controls.cfg's
+	# embedded progress intact, including after the next autosave/restart.
+	var recovery_id: String = game.profile_id
+	for damage in ["", "\u0000".repeat(900), "@@garbage\n", "[settings]\nhero_name=\"Broken\"\n"]:
+		game._save_settings()
+		game._flush_save()
+		var player_path: String = game.profile_path(recovery_id)
+		DirAccess.remove_absolute(player_path + ".bak")
+		f = FileAccess.open(player_path, FileAccess.WRITE)
+		f.store_string(damage)
+		f.close()
+		game.account_xp = 0
+		game.account_gold = 0
+		game._load_controls()
+		check(game.account_xp == 4321 and game.account_gold == 950 and game.hero_hat == 2,
+			"corrupt player file recovers embedded progress (%d bytes)" % damage.length())
+		game._save_settings()
+		game.account_xp = 0
+		game._load_controls()
+		check(game.account_xp == 4321 and game.profile_id == recovery_id,
+			"recovered player progress survives autosave and restart")
+	# SAV-01: a valid device backup keeps the selected player, not a new p2.
+	for damage in ["", "\u0000".repeat(900), "@@garbage\n"]:
+		game._save_settings()
+		game._save_settings()
+		game._flush_save()
+		var good_backup := FileAccess.get_file_as_bytes(PATH + ".bak")
+		f = FileAccess.open(PATH, FileAccess.WRITE)
+		f.store_string(damage)
+		f.close()
+		game.account_xp = 0
+		game._load_controls()
+		game._ensure_profile()
+		check(game.account_xp == 4321 and game.profile_id == recovery_id,
+			"corrupt controls recovers selected player (%d bytes)" % damage.length())
+		game._save_settings()
+		game._flush_save()
+		check(FileAccess.get_file_as_bytes(PATH + ".bak") == good_backup,
+			"recovery autosave never rotates corrupt controls over good backup")
 
 	# --- Named players --------------------------------------------------------
 	var first: String = game.profile_id
