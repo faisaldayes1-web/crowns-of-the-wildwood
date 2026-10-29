@@ -1,0 +1,25 @@
+{
+  "agent": "Codex-faisal",
+  "source": {
+    "scripts/player_movement.gd": "cf5f5b1953d673afb4b035db5976b4a34b648e064f143bb5379cd25df7fcaa8e",
+    "scripts/unit.gd": "0beb6d1bdc5268db24640c7beace8b6161a59234493eca4824dd99b5f44b9153",
+    "scripts/game.gd": "ad61fd8cd083bfb3e9610511d80f91122be5af6f03ea3d583d4506c82d16288d",
+    "scripts/net.gd": "da604af6e513113b724ec5f718292da4a540c914632c7b3504346cfb2fb46967",
+    "scripts/hud.gd": "45582a0281e738d4b67432e42c603128f7b2e0df737a418a977d9449383f60af"
+  },
+  "test_sha256": "03387c734713b34a8d4211f9ac41ae16bb47074b047417e02f43976683abf6ef",
+  "command": [
+    "C:/Tools/Godot/Godot_v4.3-stable_win64_console.exe",
+    "--headless",
+    "--path",
+    "C:\\Users\\Faisal Syed\\.codex\\.chatgpt-projects\\g-p-6acc90e1433481918c590ca1750ee945\\hub-status-audit-20261027\\crowns69-current-integration",
+    "--script",
+    "res://tools/codex_faisal_movement_test.gd"
+  ],
+  "started": "2026-10-29T10:51:34.361317+00:00",
+  "exit": 0,
+  "stdout": "Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org\r\n\r\nPASS default LMB moves/interacts\r\nPASS default LMB cannot basic attack\r\nPASS Shift force-hold separate from block\r\nPASS both wheel directions force move\r\nPASS thumb button force move\r\nPASS safe click preset defaults\r\nPASS legacy test save written to isolated profile\r\nPASS legacy LMB removed without losing attack key\r\nPASS legacy Shift block removed without losing block key\r\nPASS migration preserves remap and progression\r\nPASS legacy aim-relative preference upgrades to screen directions\r\nPASS settings transaction persists movement schema\r\nPASS second load cannot restore old LMB/Shift conflicts\r\nPASS second load preserves selected mode/custom key/progression\r\nPASS forbidden LMB attack rebind is explicit and non-destructive\r\nPASS force move can rebind to second thumb button\r\nPASS pointer descriptor binds exact known resource\r\nPASS descriptor resolves same resource\r\nPASS pointer descriptor rejects negative/typed/method injection\r\nPASS ore uses existing gathering reach outside solid collider\r\nPASS click dispatch works exact resource at legal reach\r\nPASS selected click cannot drop a carried crown\r\nPASS click cannot interact through another floor\r\nPASS out-of-range target rejected again at dispatch\r\nPASS dead actor cannot interact\r\nPASS selected prep interaction stays resource work, never generic barricade\r\nPASS unknown object cannot dispatch a command\r\nC1_MOVEMENT_ADAPTER_RESULT {\"agent\":\"Codex-faisal\",\"failed\":0,\"limits\":\"headless adapter/save/exact-dispatch checks, not natural playthrough/controller hardware/network peers\",\"passed\":27}\r\n",
+  "stderr": "",
+  "terminal": "2026-10-29T10:51:35.767507+00:00",
+  "raw_errors": false
+}
