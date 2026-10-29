@@ -105,6 +105,7 @@ jobs:
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/loading-direct-play.log
           grep -q '^loading progress test: 0 failure(s)$' ci-logs/loading-direct-play.log
           test -s "$CROWNS_LOADING_EVIDENCE/direct-play.png"
+          test -s "$CROWNS_LOADING_EVIDENCE/direct-play-loading.png"
       - name: Keep logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -94,8 +94,16 @@ func _run() -> void:
 	current_scene = game
 	if "--loading-play-only" in OS.get_cmdline_user_args():
 		var play_deadline := Time.get_ticks_msec() + 180000
+		var play_stream_frames := 0
+		var play_loading_shot := false
 		while (not game.playing or is_instance_valid(game.loading_layer)) and Time.get_ticks_msec() < play_deadline:
 			await RenderingServer.frame_post_draw
+			if game._stream_world and is_instance_valid(game.loading_layer):
+				play_stream_frames += 1
+				if not play_loading_shot:
+					capture("direct-play-loading")
+					play_loading_shot = true
+		check(play_stream_frames >= 2 and play_loading_shot, "direct --play draws loading frames during construction")
 		check(game.playing and game.player != null and not is_instance_valid(game.loading_layer),
 			"direct --play reaches the visible match")
 		check(not game._stream_world and game.process_mode == Node.PROCESS_MODE_INHERIT,
