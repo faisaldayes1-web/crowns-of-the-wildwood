@@ -52,6 +52,7 @@ func settle(phase: String, began: int, previous_id: int = 0):
 	var worst_gap := 0
 	var last := began
 	var loading_shot := false
+	var title_ready := -1   # the first frame the title was built and warmed under the art
 	while Time.get_ticks_msec() < deadline:
 		var stage := "startup-inclusive"
 		if first_draw >= 0:
@@ -84,6 +85,8 @@ func settle(phase: String, began: int, previous_id: int = 0):
 				character_tabs[menu.char_tab] = true
 			if menu.screen == "store":
 				store_tabs[menu.store.tab] = true
+		if title_ready < 0 and g.main_menu != null and not g.menus_warming and not g._stream_world:
+			title_ready = now
 		if not loading_shot and is_instance_valid(g.loading_layer):
 			capture(phase + "-loading")
 			loading_shot = true
@@ -91,6 +94,12 @@ func settle(phase: String, began: int, previous_id: int = 0):
 			print("LOAD_TIMING phase=%s baseline=%s first_draw_ms=%d ready_ms=%d max_postdraw_gap_ms=%d stream_frames=%d hidden_frames=%d source=%s" %
 				[phase, baseline, first_draw, now - began, worst_gap, stream_frames, hidden_frames, OS.get_environment("CROWNS_LOADING_LABEL")])
 			check(loading_shot, phase + " loading artwork drew")
+			# claude-faisal3 2026-10-29: the paused minimum hold (1.2 s) plus a
+			# 0.6 s fade ran only after everything was ready.
+			var tail := now - title_ready if title_ready >= 0 else -1
+			print("LOAD_TAIL phase=%s ms=%d" % [phase, tail])
+			if not baseline:
+				check(tail >= 0 and tail < 1000, phase + " loading art is gone within 1 s of a ready title (%d ms)" % tail)
 			check(stream_frames == 0 if baseline else stream_frames >= 2,
 				phase + (" records the original blocking build" if baseline else " draws frames during world construction"))
 			check(g.main_menu.screen == "title" and not g.playing and not g._stream_world,
@@ -173,6 +182,7 @@ func _run() -> void:
 	if game == null:
 		return
 	check(game.account_xp == 530 and game.account_gold == 600 and game.profile_id == "p1", "cold boot retains player progress")
+	var match_began := Time.get_ticks_msec()
 	game._start_match(0)
 	var deadline := Time.get_ticks_msec() + 180000
 	var bad_match_warm_frames := 0
@@ -180,6 +190,7 @@ func _run() -> void:
 		await RenderingServer.frame_post_draw
 		if root.disable_3d:
 			bad_match_warm_frames += 1
+	print("MATCH_TIMING ready_ms=%d" % (Time.get_ticks_msec() - match_began))
 	check(bad_match_warm_frames == 0 and not root.disable_3d, "match model/world/effects warm-up keeps 3D enabled")
 	check(not is_instance_valid(game.loading_layer) and game.player != null, "match loading finishes before summary")
 	if is_instance_valid(game.loading_layer) or game.player == null:

@@ -2313,6 +2313,26 @@ func _show_loading(hold: float) -> void:
 			layer.queue_free())
 
 
+func _fade_loading_now() -> void:
+	## A build or warm-up has already held the loading art for seconds: fade
+	## it now. Resuming the paused tween ran its whole minimum hold (1-1.2 s)
+	## after everything was ready, then a 0.6 s fade: 1.6-1.8 s of waiting on
+	## a finished title or match (claude-faisal3 2026-10-29).
+	if not is_instance_valid(loading_layer):
+		return
+	if loading_tween and loading_tween.is_valid():
+		loading_tween.kill()
+	var layer := loading_layer
+	var bg := layer.get_child(0) as CanvasItem
+	var tw := create_tween()
+	loading_tween = tw
+	if bg:
+		tw.tween_property(bg, "modulate:a", 0.0, 0.3)
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(layer):
+			layer.queue_free())
+
+
 # --- Match setup -----------------------------------------------------------
 
 func _start_match(team: int) -> void:
@@ -11377,7 +11397,9 @@ func _warm_up_menus(land_on: String = "title") -> void:
 		menu_tab = 0
 		m.screen = land_on
 	menus_warming = false
-	if warm_tween and warm_tween.is_valid():
+	if warm_tween and warm_tween.is_valid() and warm_tween == loading_tween:
+		_fade_loading_now()
+	elif warm_tween and warm_tween.is_valid():
 		warm_tween.play()
 
 
@@ -11417,7 +11439,7 @@ func _warm_up_world() -> void:
 			if is_instance_valid(pane.unit):
 				pane.cam_pos = pane.unit.global_position + CAMERA_OFFSET * cam_zoom * pane.zoom
 	if loading_tween and loading_tween.is_valid():
-		loading_tween.play()
+		_fade_loading_now()
 
 
 func _warm_up_models() -> void:
