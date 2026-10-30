@@ -222,6 +222,34 @@ func slate(r: Rect2, name: String = "panel_slate") -> void:
 	nine(name, r, 14, 14, 14, 14)
 
 
+func board(r: Rect2) -> void:
+	## The picked family's big board (Paused C, Map A shelf): a dark slate
+	## panel in a dark-wood rim with a gold edge, gold corner brackets and
+	## leafy vines on the corners. The overlays (Credits, Progress, Players)
+	## and Play Online use it, so every board in the game reads as one set.
+	var now := Time.get_ticks_msec() / 1000.0
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0)
+	sb.set_corner_radius_all(20)
+	sb.shadow_color = Color(0, 0, 0, 0.5)
+	sb.shadow_size = 14
+	sb.shadow_offset = Vector2(0, 5)
+	h.draw_style_box(sb, r.grow(6))
+	h._plate(r.grow(6), h.WOOD_DARK, h.GOLD_DARK, 18, 3)
+	# The slate itself without _plate's half-height sheen: on a board this
+	# tall its hard edge ran straight through the text.
+	var inner := StyleBoxFlat.new()
+	inner.bg_color = Color(0.06, 0.07, 0.07, 0.97)
+	inner.set_corner_radius_all(14)
+	inner.set_border_width_all(2)
+	inner.border_color = Color(0.3, 0.2, 0.08)
+	h.draw_style_box(inner, r)
+	h.draw_rect(Rect2(r.position + Vector2(16, 3), Vector2(r.size.x - 32, 1)), Color(1.0, 0.85, 0.5, 0.25))
+	h.draw_rect(r.grow(-7), Color(0.62, 0.44, 0.16, 0.3), false, 1.0)
+	h._gold_corners(r.grow(4), 30.0, 7.0)
+	h._board_vines(r, now)
+
+
 func option_box(r: Rect2, selected: bool, hover: bool, accent: Color = Color(0.45, 0.9, 0.3)) -> void:
 	## A dark option tile; selected ones glow in the accent colour.
 	var sb := StyleBoxFlat.new()
@@ -410,7 +438,7 @@ func _code_boxes(center_x: float, y: float, text: String, box: float, caret: boo
 func _draw_online() -> void:
 	var net = game.net
 	var frame := Rect2(82, 46, h.size.x - 164, 600)
-	nine("frame_big", frame, 40, 40, 40, 40)
+	board(frame)
 	plaque(h.size.x / 2.0, 14, "PLAY ONLINE", 420)
 	var cx: float = h.size.x / 2.0
 	var hosting: bool = net != null and net.is_host()
@@ -1190,16 +1218,18 @@ func _ready_bar(r: Rect2, is_ready: bool, k: int) -> void:
 
 func _overlay_frame(title: String) -> Rect2:
 	var frame := Rect2(150, 70, h.size.x - 300, 590)
-	nine("frame_big", frame, 40, 40, 40, 40)
+	board(frame)
 	plaque(h.size.x / 2.0, 38, title, 380)
 	_overlay_close_x(frame, button(Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34), "close", null))
 	return frame.grow(-40)
 
 
 func _overlay_close_x(frame: Rect2, ov: bool) -> void:
+	# The brass-ringed X of the pause board (Paused C), lit under the pointer.
 	var x := Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34)
-	h._plate(x, Color(0.5, 0.14, 0.12) if ov else Color(0.38, 0.1, 0.09), Color(0.85, 0.65, 0.3), 6, 2)
-	h._text(x.position + Vector2(0, 24), "✕", 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, x.size.x, 0)
+	if ov:
+		h._ring_button(x.get_center(), 13.0, 1.0)   # the hover glow under the ring
+	h.x_button(x.get_center(), 13.0)
 
 
 func _draw_credits() -> void:

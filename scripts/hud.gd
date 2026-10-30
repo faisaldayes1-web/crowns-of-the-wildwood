@@ -7170,18 +7170,28 @@ func _draw_title_hero(panel: Rect2) -> void:
 
 
 func _draw_title_progress(panel: Rect2, header: bool = true) -> void:
-	## PROGRESS: account level, rank ladder and the level-10 unlocks.
-	_chunky(panel, Color(0.22, 0.14, 0.34))
+	## PROGRESS: account level, rank ladder and the level-10 unlocks. In the
+	## PROGRESS overlay it sits straight on the overlay's slate board (the
+	## picked family's palette: slate, leather, brass, gold), not on a purple card.
+	if header:
+		_dark_frame(panel, 12)
 	if header:   # the PROGRESS overlay already carries the title on its ribbon (UI-09)
 		_text(panel.position + Vector2(0, 30), "PROGRESS", 20, GOLD, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 4)
 	var level: int = game.account_level()
 	var span: Array = Stats.account_span(game.account_xp)
 	var lx := panel.position.x + 30
 	var badge := Vector2(lx + 50, panel.position.y + 110)
-	draw_circle(badge, 50, Color(0.08, 0.06, 0.12))
-	draw_circle(badge, 44, Color(0.95, 0.6, 0.2))
-	_text(badge + Vector2(-50, 14), str(level), 36, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100, 5)
-	_text(badge + Vector2(-50, 34), "LEVEL", 9, Color(0.15, 0.08, 0.1), HORIZONTAL_ALIGNMENT_CENTER, 100, 0)
+	# The level medallion: a brass ring round a dark disc with a laurel, like the HUD's LV badge.
+	draw_circle(badge + Vector2(0, 4), 52, Color(0, 0, 0, 0.4))
+	draw_circle(badge, 51, Color(0.3, 0.17, 0.04))
+	draw_circle(badge, 48, BRASS)
+	draw_arc(badge, 47, PI * 1.05, PI * 1.9, 32, GOLD.lightened(0.35), 2.0)
+	draw_circle(badge, 42, Color(0.13, 0.08, 0.05))
+	_arc_polygon(badge, 42, PI, TAU, Color(1, 0.9, 0.7, 0.06))
+	for side in [-1.0, 1.0]:
+		_laurel(badge + Vector2(0, 2), side, 0.5, 34.0, 30.0)
+	_text(badge + Vector2(-50, 12), str(level), 34, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 100, 5)
+	_text(badge + Vector2(-50, 32), "LEVEL", 9, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
 	_text(Vector2(lx + 120, panel.position.y + 92), Stats.rank_title(level).to_upper(), 24, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	_text(Vector2(lx + 120, panel.position.y + 112), "%d XP on your account" % game.account_xp, 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var bar := Rect2(lx + 120, panel.position.y + 122, 330, 16)
@@ -7195,23 +7205,32 @@ func _draw_title_progress(panel: Rect2, header: bool = true) -> void:
 		var entry: Array = Stats.RANK_TITLES[i]
 		var reached: bool = level >= entry[0]
 		var b := Rect2(lx + i * 82, panel.position.y + 204, 76, 40)
-		_chunky(b, Color(0.95, 0.6, 0.2) if reached else Color(0.25, 0.22, 0.3), level >= entry[0] and (i == Stats.RANK_TITLES.size() - 1 or level < Stats.RANK_TITLES[i + 1][0]))
-		_text(b.position + Vector2(0, 17), "LV %d" % entry[0], 9, Color.WHITE if reached else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+		var current: bool = reached and (i == Stats.RANK_TITLES.size() - 1 or level < Stats.RANK_TITLES[i + 1][0])
+		# Reached ranks are gold plates (the current one lifted and glowing), the rest leather.
+		if reached:
+			if current:
+				_glow_frame(b.grow(2), GOLD)
+			_hud_button(b, "", 9, true)
+		else:
+			_leather(b, 7)
+		var ink := Color(0.25, 0.14, 0.03) if reached else Color(0.8, 0.74, 0.62)
+		_text(b.position + Vector2(0, 17), "LV %d" % entry[0], 9, ink, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 0 if reached else 2)
 		var rt: String = entry[1].to_upper()
 		var rs := 8
 		while rs > 6 and _text_width(rt, rs) > b.size.x - 8.0:   # CROWNBREAKER poked out (NUM-09)
 			rs -= 1
-		_text(b.position + Vector2(0, 32), rt, rs, Color.WHITE if reached else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+		_text(b.position + Vector2(0, 32), rt, rs, ink, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 0 if reached else 2)
 	# Unlocks.
 	_text(Vector2(lx, panel.position.y + 276), "LEVEL %d UNLOCKS" % Stats.UNLOCK_LEVEL, 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in Stats.UNLOCKS.size():
 		var u: Array = Stats.UNLOCKS[i]
 		var row := Rect2(lx, panel.position.y + 284 + i * 50, panel.size.x - 60, 44)
 		var open: bool = game.unlocked()
-		_chunky(row, Color(0.2, 0.45, 0.3) if open else Color(0.25, 0.22, 0.3))
-		_icon("class_rogue" if u[0] == "class" else ("cape" if u[0] == "look" else "moon"), row.position + Vector2(26, 22), 11, Color.WHITE if open else GREY)
-		_text(row.position + Vector2(50, 19), u[1].to_upper(), 13, Color.WHITE if open else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-		_text(row.position + Vector2(50, 34), u[2], 9, CREAM if open else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+		_leather(row, 8, open, Color(0.45, 0.9, 0.35) if open else BRASS_DIM)
+		var lit := Color.WHITE if open else Color(0.85, 0.8, 0.7)
+		_icon("class_rogue" if u[0] == "class" else ("cape" if u[0] == "look" else "moon"), row.position + Vector2(26, 22), 11, Color.WHITE if open else Color(0.75, 0.72, 0.68))
+		_text(row.position + Vector2(50, 19), u[1].to_upper(), 13, lit, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		_text(row.position + Vector2(50, 34), u[2], 9, CREAM if open else Color(0.72, 0.68, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 		_text(row.position + Vector2(0, 27), "UNLOCKED" if open else "LOCKED", 10, Color(0.6, 1.0, 0.6) if open else Color(1.0, 0.7, 0.5), HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 14, 2)
 
 
