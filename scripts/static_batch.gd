@@ -245,10 +245,15 @@ static func run(game: Node3D) -> Dictionary:
 	var seen := 0
 	for n in game.find_children("*", "MeshInstance3D", true, false):
 		seen += 1
-		if seen % 64 == 0:
+		if seen % 4 == 0:
 			# (Built behind the title, the batch waits a frame between slices
-			# so the menus stay smooth; at a match start this never waits.)
+			# so the menus stay smooth; at a match start this never waits.
+			# Checked every 4 meshes: every 64 let a slice run 85-130 ms on
+			# the read-backs, the title's worst hitches. The check itself
+			# costs nothing until the slice is used up.)
 			await _slice(game)
+		if not is_instance_valid(n):   # freed by the live menus while the batch waited
+			continue
 		var mi := n as MeshInstance3D
 		if mi.mesh == null or not mi.is_visible_in_tree() or mi.skin != null or mi.material_overlay != null:
 			continue
