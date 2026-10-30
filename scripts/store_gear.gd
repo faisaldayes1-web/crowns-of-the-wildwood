@@ -363,7 +363,8 @@ static func _cape(body: Node3D, style: String, cloth: Color, outline: Material) 
 		"firefly": col = Color(0.08, 0.17, 0.22)
 	var mat := _mat(col, outline)
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var long: float = {"royal": 1.05, "firefly": 1.08, "moss": 0.72}.get(style, 0.95)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
+	var long: float = {"royal": 1.05, "firefly": 1.08, "moss": 0.8}.get(style, 0.95)
 	var root := Node3D.new()
 	root.position = Vector3(0, 1.12, -0.26)
 	body.add_child(root)
@@ -412,6 +413,11 @@ static func _cape(body: Node3D, style: String, cloth: Color, outline: Material) 
 				var u := (k / 8.0) * 2.0 - 1.0
 				_add(root, _ball(0.09, 6), _mat(greens[k % 3], null), _on_cloth(u, 1.0, long) + Vector3(0, 0.02, 0), Vector3.ZERO, Vector3(1.1, 0.8, 0.8))
 			_add(root, _torus(0.2, 0.32), _mat(greens[0], outline), Vector3(0, 0.03, 0.12), Vector3.ZERO, Vector3(1.1, 0.9, 0.9))
+			# A darker felted lining just inside the sheet, so the short shawl
+			# reads as solid cloth from every side instead of see-through.
+			var lining := _mat(col.darkened(0.35), null)
+			lining.cull_mode = BaseMaterial3D.CULL_DISABLED
+			_add(root, _cloth_mesh(0.6, 0.92, long - 0.03, 0.1, 0.2), lining, Vector3(0, -0.01, 0.03))
 		"autumn":
 			# A hem of falling leaves in the autumn ramp.
 			var cols := [Color(1.0, 0.72, 0.2), Color(0.95, 0.45, 0.12), Color(0.8, 0.2, 0.12)]

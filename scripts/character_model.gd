@@ -141,6 +141,8 @@ const CELLS := {
 static var custom_cache := {}
 static var flat_cache := {}   # mesh resource path -> faceted copy (see _flat_mesh)
 var model_root: Node3D
+const BOOK_SCALE := 0.75
+const BOOK_SHIFT := Vector3(0, 0, 0.22)
 var weapon_finish: Array = []   # the worn STORE weapon skin (Stats.WEAPON_SKINS entry); [] for none
 
 # Chunky proportions (Faisal's character reference, 2026-10-09): a big head,
@@ -513,6 +515,35 @@ func _add_weapon_art(team: int, role: int, rank: int) -> void:
 			var bulge := 0.32
 			var segs := 8
 			var limb := gold if rank >= 4 else wood
+			# Skin trim (bands at the grip, mid-limbs and tips): every STORE skin
+			# shows on the bow even when its colour is close to plain wood, and
+			# the two wood-toned skins get their own limb finish (Bronze: polished
+			# metal; Oakheart: dark heartwood with pale amber inlay).
+			var trim: StandardMaterial3D = null
+			if not weapon_finish.is_empty():
+				var fin: Color = weapon_finish[1]
+				trim = StandardMaterial3D.new()
+				trim.albedo_color = fin.lightened(0.25)
+				trim.metallic = 0.6
+				trim.roughness = 0.3
+				if float(weapon_finish[2]) > 0.0:
+					trim.emission_enabled = true
+					trim.emission = fin
+					trim.emission_energy_multiplier = float(weapon_finish[2]) + 0.5
+				match String(weapon_finish[0]):
+					"Bronze":
+						limb = StandardMaterial3D.new()
+						limb.albedo_color = Color(0.86, 0.5, 0.2)
+						limb.metallic = 0.9
+						limb.roughness = 0.22
+						trim.albedo_color = Color(0.36, 0.2, 0.1)
+						trim.metallic = 0.7
+					"Oakheart":
+						limb = StandardMaterial3D.new()
+						limb.albedo_color = Color(0.2, 0.11, 0.05)
+						limb.roughness = 0.7
+						trim.albedo_color = Color(1.0, 0.78, 0.35)
+						trim.metallic = 0.5
 			var prev := Vector3(-half, 0.05, -0.05)
 			for i in range(1, segs + 1):
 				var t: float = -1.0 + 2.0 * i / segs
@@ -537,6 +568,12 @@ func _add_weapon_art(team: int, role: int, rank: int) -> void:
 			_prism(bow, Vector3(0.06, 0.12, 0.03), Vector3(0, 0.06, 0.88), Vector3(PI / 2.0, 0, 0), steel)
 			for sx in [-1.0, 1.0]:
 				_box(bow, Vector3(0.06, 0.012, 0.1), Vector3(sx * 0.035, 0.06, -0.06), Vector3(0, 0, sx * 0.5), cloth)
+			if trim != null:
+				_box(bow, Vector3(0.13, 0.15, 0.2), Vector3(0, 0.05, bulge - 0.05), Vector3.ZERO, trim)
+				for t in [-0.62, 0.62]:
+					_box(bow, Vector3(0.13, 0.11, 0.11), Vector3(t * half, 0.05, bulge * (1.0 - t * t) - 0.05), Vector3.ZERO, trim)
+				for sx in [-1.0, 1.0]:
+					_box(bow, Vector3(0.11, 0.09, 0.09), Vector3(sx * half, 0.05, -0.05), Vector3.ZERO, trim)
 			if rank >= 2:
 				for t in [-0.5, 0.5]:
 					_box(bow, Vector3(0.12, 0.1, 0.1), Vector3(t * half, 0.05, bulge * 0.75 - 0.05), Vector3.ZERO, cloth)
@@ -546,6 +583,14 @@ func _add_weapon_art(team: int, role: int, rank: int) -> void:
 					_prism(bow, Vector3(0.08, 0.16, 0.03), Vector3(sx * half * 0.8, 0.14, 0.05), Vector3(0, 0, sx * 0.6), leaf)
 			if rank >= 4:
 				_sphere(bow, 0.06, Vector3(0, 0.13, bulge - 0.05), _glow(team_col.lightened(0.4), 2.0))
+		Role.HEALER:
+			# The open book is held out past the hip in front of the cape line
+			# instead of trailing back through it (P3 art pass).
+			var book := _gear_node("Spellbook_open")
+			if book != null:
+				for m in _meshes(book):
+					m.scale *= BOOK_SCALE
+					m.position += BOOK_SHIFT
 		Role.KNIGHT:
 			var sword := _gear_node("1H_Sword")
 			if sword == null:
@@ -921,11 +966,23 @@ func _add_hair_style(style: int, color: Color, cover: String = "") -> void:
 			else:
 				# A round bun knotted at the nape, sticking straight out behind
 				# (under the Mage hat's brim it sits lower, on the collar).
+				if cover == "helmet":
+					return  # a closed helm hides the knot completely
 				if cover == "wizard":
 					nape_y = -0.22
-				_hair_piece(head, _ball(0.27, 8), Vector3(0, nape_y + 0.04, nape_z - 0.06), Vector3.ZERO, hair, Vector3(1.0, 0.9, 0.9))
-				_hair_piece(head, _cyl(0.19, 0.21, 0.08, 8), Vector3(0, nape_y + 0.04, nape_z - 0.3), Vector3(PI / 2.0, 0, 0), tie)
-				_hair_piece(head, _ball(0.18, 7), Vector3(0, nape_y + 0.04, nape_z - 0.44), Vector3.ZERO, hair)
+				if full:
+					# Under a hood: a small neat bun snug against the nape, tucked
+					# up under the rim with a band and a short tuft, so it reads as
+					# part of the head rather than a lump on the shoulder.
+					var by := 0.0
+					var bz := -0.5
+					_hair_piece(head, _ball(0.16, 8), Vector3(0, by, bz), Vector3.ZERO, hair, Vector3(1.0, 0.9, 0.6))
+					_hair_piece(head, _cyl(0.1, 0.12, 0.05, 8), Vector3(0, by, bz - 0.09), Vector3(PI / 2.0, 0, 0), tie)
+					_hair_piece(head, _cyl(0.07, 0.02, 0.2, 6), Vector3(0, by - 0.16, bz - 0.04), Vector3(0.2, 0, 0), hair)
+				else:
+					_hair_piece(head, _ball(0.27, 8), Vector3(0, nape_y + 0.04, nape_z - 0.06), Vector3.ZERO, hair, Vector3(1.0, 0.9, 0.9))
+					_hair_piece(head, _cyl(0.19, 0.21, 0.08, 8), Vector3(0, nape_y + 0.04, nape_z - 0.3), Vector3(PI / 2.0, 0, 0), tie)
+					_hair_piece(head, _ball(0.18, 7), Vector3(0, nape_y + 0.04, nape_z - 0.44), Vector3.ZERO, hair)
 
 func _add_crown() -> void:
 	var att := _attach_to_head()
