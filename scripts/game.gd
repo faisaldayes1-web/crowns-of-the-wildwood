@@ -4385,6 +4385,11 @@ func _short_key(name: String) -> String:
 		"Right": return "→"
 		"Up": return "↑"
 		"Down": return "↓"
+	# Long key names got cut to six letters ("PAGEDO", "BACKSL", NUM-07).
+	var long_names := {"pageup": "PG UP", "pagedown": "PG DN", "backslash": "\\", "capslock": "CAPS",
+		"insert": "INS", "delete": "DEL", "numlock": "NUM", "scrolllock": "SCRL", "print": "PRT"}
+	if long_names.has(name.to_lower()):
+		return long_names[name.to_lower()]
 	return name.to_upper().left(6)
 
 
