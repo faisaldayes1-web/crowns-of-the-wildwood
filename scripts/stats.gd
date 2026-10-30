@@ -64,8 +64,8 @@ const BOUNTY_BUFF := "Might"
 # rest are bought in the STORE (STORE_ITEMS below).
 const HERO_HAIR := [["Blond", Color(0.93, 0.8, 0.4)], ["Brown", Color(0.4, 0.25, 0.12)], ["Black", Color(0.12, 0.1, 0.12)],
 	["Red", Color(0.75, 0.2, 0.1)], ["Silver", Color(0.85, 0.85, 0.9)], ["Moss", Color(0.35, 0.6, 0.3)],
-	["Copper", Color(0.85, 0.42, 0.16)], ["Rose", Color(0.95, 0.5, 0.65)], ["Midnight", Color(0.16, 0.22, 0.55)],
-	["Frost", Color(0.7, 0.9, 1.0)], ["Violet", Color(0.55, 0.3, 0.85)], ["Ember", Color(1.0, 0.55, 0.12)]]
+	["Copper", Color(0.66, 0.36, 0.22)], ["Rose", Color(0.95, 0.5, 0.65)], ["Midnight", Color(0.16, 0.22, 0.55)],
+	["Frost", Color(0.42, 0.78, 1.0)], ["Violet", Color(0.55, 0.3, 0.85)], ["Ember", Color(1.0, 0.34, 0.04)]]
 const HERO_HAIR_FREE := 6
 # Hair styles (Create Your Character): the model's own cut, then the modelled
 # styles character_model._add_hair_style adds on the head bone. The first
@@ -210,14 +210,14 @@ const HERO_CAPES := [["None", ""], ["Long Scarf", "scarf"], ["Traveller's Cape",
 	["Royal Mantle", "royal"], ["Ember Mantle", "ember"],
 	["Moss Shawl", "moss"], ["Autumn Cloak", "autumn"], ["Riverweave Cape", "river"], ["Firefly Mantle", "firefly"]]
 # [name, metal colour, glow energy]
-const HERO_OUTFITS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.8, 0.5, 0.25), 0.0], ["Verdant", Color(0.35, 0.7, 0.4), 0.0],
+const HERO_OUTFITS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.66, 0.42, 0.2), 0.0], ["Verdant", Color(0.15, 0.72, 0.52), 0.0],
 	["Crimson", Color(0.8, 0.2, 0.2), 0.0], ["Gilded", Color(1.0, 0.8, 0.3), 0.0], ["Frost", Color(0.65, 0.88, 1.0), 0.25],
 	["Obsidian", Color(0.28, 0.22, 0.36), 0.15],
-	["Mossy", Color(0.45, 0.62, 0.3), 0.0], ["Riverstone", Color(0.4, 0.62, 0.9), 0.0], ["Autumn Leaf", Color(0.95, 0.55, 0.2), 0.15]]
-const WEAPON_SKINS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.85, 0.55, 0.3), 0.0], ["Wildwood", Color(0.45, 0.8, 0.4), 0.0],
-	["Gilded", Color(1.0, 0.82, 0.3), 0.0], ["Frostbite", Color(0.6, 0.9, 1.0), 0.3], ["Ember", Color(1.0, 0.5, 0.15), 0.35],
+	["Mossy", Color(0.52, 0.56, 0.22), 0.0], ["Riverstone", Color(0.4, 0.62, 0.9), 0.0], ["Autumn Leaf", Color(0.95, 0.36, 0.1), 0.15]]
+const WEAPON_SKINS := [["Classic", Color.TRANSPARENT, 0.0], ["Bronze", Color(0.72, 0.42, 0.2), 0.0], ["Wildwood", Color(0.45, 0.8, 0.4), 0.0],
+	["Gilded", Color(1.0, 0.82, 0.3), 0.0], ["Frostbite", Color(0.6, 0.9, 1.0), 0.3], ["Ember", Color(1.0, 0.26, 0.06), 0.5],
 	["Shadow", Color(0.45, 0.3, 0.7), 0.3],
-	["Oakheart", Color(0.66, 0.45, 0.26), 0.0], ["Riverglass", Color(0.35, 0.7, 1.0), 0.2], ["Autumn Gold", Color(1.0, 0.62, 0.2), 0.3],
+	["Oakheart", Color(0.42, 0.3, 0.16), 0.0], ["Riverglass", Color(0.35, 0.7, 1.0), 0.2], ["Autumn Gold", Color(1.0, 0.62, 0.2), 0.3],
 	["Firefly", Color(0.75, 1.0, 0.45), 0.5]]
 # Rarities: [name, colour, price in gold, chest weight].
 const RARITIES := {"common": ["Common", Color(0.78, 0.8, 0.82), 300, 60], "rare": ["Rare", Color(0.35, 0.65, 1.0), 600, 28],

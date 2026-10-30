@@ -141,6 +141,7 @@ const CELLS := {
 static var custom_cache := {}
 static var flat_cache := {}   # mesh resource path -> faceted copy (see _flat_mesh)
 var model_root: Node3D
+var weapon_finish: Array = []   # the worn STORE weapon skin (Stats.WEAPON_SKINS entry); [] for none
 
 # Chunky proportions (Faisal's character reference, 2026-10-09): a big head,
 # oversized mitten hands and big boots. The animations only drive bone
@@ -183,7 +184,7 @@ static func customised_skin(skin: Texture2D, skin_name: String, custom: Dictiona
 					var v := minf(target.v * (p.v / vmax) * 1.15, 1.0)
 					img.set_pixel(x, y, Color.from_hsv(target.h, target.s, v, p.a))
 	if int(custom.get("outfit", 0)) > 0:
-		StoreGear.tint_metal(img, CELLS[skin_name], Stats.HERO_OUTFITS[int(custom.outfit)][1])
+		StoreGear.tint_metal(img, CELLS[skin_name], Stats.HERO_OUTFITS[int(custom.outfit)][1], skin_name == "rogue")
 	var out := ImageTexture.create_from_image(img)
 	custom_cache[key] = out
 	return out
@@ -261,6 +262,7 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	# armour tint does not).
 	var weapon_skin: Texture2D = customised_skin(plain_skin, c.skin, StoreGear.without_outfit(custom)) if custom.has("outfit") else skin
 	var weapon_look: Array = Stats.WEAPON_SKINS[int(custom.get("weapon", 0))]
+	weapon_finish = weapon_look if weapon_look[1].a > 0.0 else []
 	flash_mats = []
 	for mesh in _meshes(inst):
 		var held := StoreGear.in_gear(mesh, inst, ALL_GEAR)
@@ -290,10 +292,12 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 			if bi >= 0:
 				skeleton.set_bone_pose_scale(bi, Vector3.ONE * CHUNKY[bone])
 		_add_face(inst, c.scene, team, role, custom, skin)
-		if c.ears:
+		var cover := headgear(inst, c, custom)
+		if c.ears and not cover in ["helmet", "hood", "bear"]:
+			# Elf ears tuck inside a closed helmet, hood or bear hood (ITEM-11).
 			_add_ears(team, custom.get("skin", Color(0.97, 0.84, 0.72)))
 		if int(custom.get("hair_style", 0)) > 0 and variant == "":
-			_add_hair_style(int(custom.hair_style), custom.get("hair", Face.hair_color(skin)))
+			_add_hair_style(int(custom.hair_style), custom.get("hair", Face.hair_color(skin)), cover)
 		if c.crown:
 			_add_crown()
 	_add_class_flair(role, variant)
@@ -316,6 +320,26 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 			if anim.has_animation(name):
 				anim.get_animation(name).loop_mode = Animation.LOOP_LINEAR
 		play_loop(idle_anim)
+
+
+const OPEN_HATS := ["circlet", "flowers", "gold", "autumn", "antlers", "sovereign"]
+
+
+static func headgear(inst: Node3D, c: Dictionary, custom: Dictionary) -> String:
+	## What covers the head, for the hair styles and ears to fit round it:
+	## "helmet" (Knight), "hood" (Ranger, Rogue), "bear" (Engineer), "wizard"
+	## (the Mage's hat), "hat" (a closed STORE hat), "crown" (an open STORE
+	## crown or circlet) or "" (bare).
+	if c.get("bare", false):
+		var hat: String = custom.get("hat", "")
+		return "" if hat == "" else ("crown" if hat in OPEN_HATS else "hat")
+	if c.scene == "rogue_hooded":
+		return "hood"
+	for pair in [["Knight_Helmet", "helmet"], ["Barbarian_Hat", "bear"], ["Mage_Hat", "wizard"]]:
+		var n := inst.find_child(pair[0], true, false) as Node3D
+		if n and n.visible:
+			return pair[1]
+	return ""
 
 
 func _add_class_flair(role: int, variant: String) -> void:
@@ -435,6 +459,19 @@ func _add_weapon_art(team: int, role: int, rank: int) -> void:
 	iron.albedo_color = Color(0.4, 0.42, 0.47)
 	iron.metallic = 0.6
 	iron.roughness = 0.4
+	if not weapon_finish.is_empty():
+		# A STORE weapon skin recolours the built bow and hammer too (ITEM-06),
+		# like the pack weapons it is painted on in setup().
+		# Plain colours (no texture to multiply), so the finish is blended in.
+		for m in [wood, iron, gold]:
+			var fin: Color = weapon_finish[1]
+			m.albedo_color = m.albedo_color.lerp(fin, 0.75 if m != gold else 0.4)
+			m.metallic = 0.45
+			m.roughness = 0.4
+			if float(weapon_finish[2]) > 0.0:
+				m.emission_enabled = true
+				m.emission = fin
+				m.emission_energy_multiplier = float(weapon_finish[2])
 	match role:
 		Role.ENGINEER:
 			# A hammer (or sledge) on the axe holder: the packs have no hammer.
@@ -793,14 +830,16 @@ static func _ball(r: float, seg: int = 7) -> SphereMesh:
 	return m
 
 
-func _add_hair_style(style: int, color: Color) -> void:
+func _add_hair_style(style: int, color: Color, cover: String = "") -> void:
 	## Modelled hair styles beyond the model's own cut (Stats.HERO_HAIR_STYLES,
 	## Faisal 09:14 2026-10-09 "add more hairstyles"): chunky faceted pieces
-	## on the head bone, kept to the back and sides so they still show under
-	## every class hat and helmet. Head-bone space (measured from the KayKit
-	## heads): +z is the face, the head and its own hair span about
-	## x -0.55..0.55, y -0.08..0.95, z -0.52..0.52, so every piece sits on or
-	## outside that box.
+	## on the head bone. Head-bone space (measured from the KayKit heads): +z
+	## is the face, the head and its own hair span about x -0.55..0.55,
+	## y -0.08..0.95, z -0.52..0.52. Under headgear (`cover`, see headgear())
+	## each style has a fitted cut so nothing pokes through it (ITEM-01/03):
+	## the Knight helmet, the hoods and the bear hood reach x +-0.57,
+	## z -0.54..0.74 and down to the neck, so the hair starts below and
+	## behind their rims; hats only hide the crown of the head.
 	var head := _attach_to_head()
 	var hair := StandardMaterial3D.new()
 	hair.albedo_color = color
@@ -811,39 +850,79 @@ func _add_hair_style(style: int, color: Color) -> void:
 	var tie := StandardMaterial3D.new()
 	tie.albedo_color = color.darkened(0.55)
 	tie.next_pass = outline
+	var full := cover in ["helmet", "hood", "bear"]   # covers the whole head to the neck
+	var hatted := full or cover in ["wizard", "hat"]   # covers the top of the head
+	# Where hair can come out from under the headgear at the back of the neck.
+	# The Mage hat's wide brim droops to the neck at the back, so hair leaves it low too.
+	var low := full or cover == "wizard"
+	var nape_y := 0.04 if full else (-0.02 if low else 0.36)
+	var nape_z := -0.68 if full else -0.62
 	# Each style has its own outline from the front three-quarter view of
 	# the customizer (Faisal 05:58 2026-10-10 "the hairs look too similar"):
 	# a tail flicking out to one side, a curtain to the chest, two plaits in
-	# front of the shoulders, a tall knot on top.
+	# front of the shoulders, a tall knot on top (a bun at the nape when a
+	# hat sits on top).
 	match style:
 		1:  # Ponytail: a high knot and a long tail that swings out past the right shoulder.
-			_hair_piece(head, _ball(0.2, 7), Vector3(0.1, 0.9, -0.5), Vector3.ZERO, hair)
-			_hair_piece(head, _cyl(0.14, 0.14, 0.1, 7), Vector3(0.18, 0.86, -0.66), Vector3(-1.1, 0, -0.4), tie)
-			_hair_piece(head, _cyl(0.2, 0.16, 0.5, 7), Vector3(0.42, 0.66, -0.78), Vector3(-0.6, 0, -0.9), hair)
-			_hair_piece(head, _cyl(0.16, 0.1, 0.5, 6), Vector3(0.74, 0.26, -0.7), Vector3(-0.2, 0, -0.35), hair)
-			_hair_piece(head, _cyl(0.1, 0.0, 0.4, 6), Vector3(0.84, -0.16, -0.6), Vector3(0.1, 0, -0.1), hair)
+			if not hatted:
+				_hair_piece(head, _ball(0.2, 7), Vector3(0.1, 0.9, -0.5), Vector3.ZERO, hair)
+				_hair_piece(head, _cyl(0.14, 0.14, 0.1, 7), Vector3(0.18, 0.86, -0.66), Vector3(-1.1, 0, -0.4), tie)
+				_hair_piece(head, _cyl(0.2, 0.16, 0.5, 7), Vector3(0.42, 0.66, -0.78), Vector3(-0.6, 0, -0.9), hair)
+				_hair_piece(head, _cyl(0.16, 0.1, 0.5, 6), Vector3(0.74, 0.26, -0.7), Vector3(-0.2, 0, -0.35), hair)
+				_hair_piece(head, _cyl(0.1, 0.0, 0.4, 6), Vector3(0.84, -0.16, -0.6), Vector3(0.1, 0, -0.1), hair)
+			else:
+				# Tied low at the nape, out under the rim, then the same swing to the right.
+				var y := nape_y
+				var z := nape_z
+				_hair_piece(head, _cyl(0.15, 0.15, 0.12, 7), Vector3(0.06, y, z), Vector3(-1.2, 0, -0.3), tie)
+				_hair_piece(head, _cyl(0.2, 0.16, 0.5, 7), Vector3(0.3, y - 0.14, z - 0.08), Vector3(-0.6, 0, -1.1), hair)
+				_hair_piece(head, _cyl(0.16, 0.1, 0.5, 6), Vector3(0.62, y - 0.46, z - 0.02), Vector3(-0.2, 0, -0.45), hair)
+				_hair_piece(head, _cyl(0.1, 0.0, 0.4, 6), Vector3(0.74, y - 0.86, z + 0.06), Vector3(0.1, 0, -0.1), hair)
 		2:  # Long: a full curtain over the back to the waist and thick locks down the chest.
+			var top := 0.7 if not hatted else (0.5 if not low else 0.06)
+			var lz := -0.56 if not full else -0.66
+			var ll := 1.5 if not low else 1.15
+			# Narrower under a closed helmet or hood, so the curtain hangs behind
+			# the shoulders instead of fanning out beside them.
+			var spread := 0.17 if not full else 0.13
 			for i in range(-3, 4):
-				var lx := i * 0.17
-				_hair_piece(head, _cyl(0.15, 0.1, 1.5, 6), Vector3(lx, -0.05, -0.56 + absf(lx) * 0.2), Vector3(-0.08, 0, i * 0.06), hair)
+				var lx := i * spread
+				_hair_piece(head, _cyl(0.15, 0.1, ll, 6), Vector3(lx, top - ll / 2.0, lz + absf(lx) * 0.2), Vector3(-0.08, 0, i * 0.06), hair)
 			for side in [-1.0, 1.0]:
-				# Rounded locks that taper and curl in a little at the ends (straight
-				# cylinders read as planks either side of the face).
-				_hair_piece(head, _ball(0.17, 8), Vector3(side * 0.6, 0.6, -0.02), Vector3.ZERO, hair, Vector3(1.0, 1.3, 1.0))
-				_hair_piece(head, _cyl(0.16, 0.12, 0.55, 9), Vector3(side * 0.64, 0.2, 0.04), Vector3(0.1, 0, side * 0.1), hair)
-				_hair_piece(head, _cyl(0.12, 0.04, 0.6, 9), Vector3(side * 0.62, -0.32, 0.18), Vector3(0.35, 0, -side * 0.12), hair)
-				_hair_piece(head, _ball(0.07, 6), Vector3(side * 0.58, -0.6, 0.3), Vector3.ZERO, hair)
+				if not full:
+					# Rounded locks that taper and curl in a little at the ends (straight
+					# cylinders read as planks either side of the face).
+					_hair_piece(head, _ball(0.17, 8), Vector3(side * 0.6, 0.6 if not hatted else 0.5, -0.02), Vector3.ZERO, hair, Vector3(1.0, 1.3, 1.0))
+					_hair_piece(head, _cyl(0.16, 0.12, 0.55, 9), Vector3(side * 0.64, 0.2, 0.04), Vector3(0.1, 0, side * 0.1), hair)
+					_hair_piece(head, _cyl(0.12, 0.04, 0.6, 9), Vector3(side * 0.62, -0.32, 0.18), Vector3(0.35, 0, -side * 0.12), hair)
+					_hair_piece(head, _ball(0.07, 6), Vector3(side * 0.58, -0.6, 0.3), Vector3.ZERO, hair)
+				else:
+					# Locks falling from under the rim down the chest.
+					_hair_piece(head, _cyl(0.15, 0.12, 0.45, 9), Vector3(side * 0.46, -0.2, 0.2), Vector3(0.25, 0, side * 0.08), hair)
+					_hair_piece(head, _cyl(0.12, 0.04, 0.55, 9), Vector3(side * 0.47, -0.62, 0.32), Vector3(0.35, 0, -side * 0.1), hair)
+					_hair_piece(head, _ball(0.07, 6), Vector3(side * 0.45, -0.9, 0.42), Vector3.ZERO, hair)
 		3:  # Braids: two thick plaits of beads hanging in front of the shoulders to the belt.
 			for side in [-1.0, 1.0]:
-				for k in 7:
+				# Under a closed helmet or hood the plaits start below its rim.
+				for k in range(2 if full else 0, 7):
 					var r := 0.16 - k * 0.01
-					_hair_piece(head, _ball(r, 6), Vector3(side * (0.62 + k * 0.01), 0.42 - k * 0.2, 0.18 + k * 0.04), Vector3(0, k * 0.6, 0), hair, Vector3(1.0, 0.85, 1.0))
+					var bx: float = side * ((0.5 if full else 0.62) + k * 0.01 + (0.06 if full and k > 3 else 0.0))
+					_hair_piece(head, _ball(r, 6), Vector3(bx, 0.42 - k * 0.2, 0.18 + k * 0.04 + (0.08 if full else 0.0)), Vector3(0, k * 0.6, 0), hair, Vector3(1.0, 0.85, 1.0))
 				_hair_piece(head, _cyl(0.09, 0.09, 0.09, 6), Vector3(side * 0.7, -1.0, 0.46), Vector3.ZERO, tie)
 				_hair_piece(head, _cyl(0.04, 0.14, 0.26, 6), Vector3(side * 0.7, -1.17, 0.46), Vector3(PI, 0, 0), hair)
 		4:  # Top knot: a tall stacked knot standing up from the crown with a band round it.
-			_hair_piece(head, _ball(0.34, 8), Vector3(0, 1.1, -0.2), Vector3(0.2, 0, 0), hair, Vector3(1.0, 0.8, 1.0))
-			_hair_piece(head, _cyl(0.24, 0.27, 0.1, 8), Vector3(0, 1.3, -0.2), Vector3(0.2, 0, 0), tie)
-			_hair_piece(head, _ball(0.24, 7), Vector3(0, 1.48, -0.24), Vector3(0.2, 0, 0), hair, Vector3(1.0, 0.9, 1.0))
+			if not hatted:
+				# Inside an open crown it stands a little further forward and slimmer.
+				var k := 0.82 if cover == "crown" else 1.0
+				var kz := -0.08 if cover == "crown" else -0.2
+				_hair_piece(head, _ball(0.34 * k, 8), Vector3(0, 1.1, kz), Vector3(0.2, 0, 0), hair, Vector3(1.0, 0.8, 1.0))
+				_hair_piece(head, _cyl(0.24 * k, 0.27 * k, 0.1, 8), Vector3(0, 1.3, kz), Vector3(0.2, 0, 0), tie)
+				_hair_piece(head, _ball(0.24 * k, 7), Vector3(0, 1.48, kz - 0.04), Vector3(0.2, 0, 0), hair, Vector3(1.0, 0.9, 1.0))
+			else:
+				# A round bun knotted at the nape, sticking straight out behind.
+				_hair_piece(head, _ball(0.27, 8), Vector3(0, nape_y + 0.04, nape_z - 0.06), Vector3.ZERO, hair, Vector3(1.0, 0.9, 0.9))
+				_hair_piece(head, _cyl(0.19, 0.21, 0.08, 8), Vector3(0, nape_y + 0.04, nape_z - 0.3), Vector3(PI / 2.0, 0, 0), tie)
+				_hair_piece(head, _ball(0.18, 7), Vector3(0, nape_y + 0.04, nape_z - 0.44), Vector3.ZERO, hair)
 
 func _add_crown() -> void:
 	var att := _attach_to_head()

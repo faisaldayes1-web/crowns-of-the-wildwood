@@ -26,9 +26,11 @@ static func in_gear(node: Node, root: Node, gear_names: Array) -> bool:
 	return false
 
 
-static func tint_metal(img: Image, cells: Dictionary, target: Color) -> void:
+static func tint_metal(img: Image, cells: Dictionary, target: Color, leather: bool = false) -> void:
 	## The armour tint: every grey (metal) cell of the 8x4 palette grid that is
-	## not hair, skin or trim takes the tint's hue, keeping its shading.
+	## not hair, skin or trim takes the tint's hue, keeping its shading. With
+	## `leather` (the Ranger and Rogue skins, whose armour is leather, not
+	## plate: ITEM-05) the brown leather cells take it too.
 	var cw: int = img.get_width() / 8
 	var ch: int = img.get_height() / 4
 	var skip: Array = []
@@ -41,14 +43,15 @@ static func tint_metal(img: Image, cells: Dictionary, target: Color) -> void:
 			var x0 := col * cw
 			var y0 := row * ch
 			var probe := img.get_pixel(x0 + cw / 2, y0 + ch / 2)
-			if probe.s > 0.16 or probe.v < 0.25:
+			var is_leather := leather and probe.h > 0.02 and probe.h < 0.09 and probe.s > 0.4 and probe.s < 0.7 and probe.v > 0.5 and probe.v < 0.75
+			if (probe.s > 0.16 or probe.v < 0.25) and not is_leather:
 				continue   # leather, cloth, gold or the dark eye cell
 			for y in range(y0, y0 + ch):
 				for x in range(x0, x0 + cw):
 					var p := img.get_pixel(x, y)
-					var v := clampf(p.v * (0.55 + target.v * 0.6), 0.0, 1.0)
-					var tinted := Color.from_hsv(target.h, target.s * 0.75, v, p.a)
-					img.set_pixel(x, y, p.lerp(tinted, 0.8))
+					var v := clampf(p.v * (0.55 + target.v * 0.6) * (1.25 if is_leather else 1.0), 0.0, 1.0)
+					var tinted := Color.from_hsv(target.h, target.s * 0.9, v, p.a)
+					img.set_pixel(x, y, p.lerp(tinted, 0.88))
 
 
 static func skin_weapon(mat: StandardMaterial3D, look: Array) -> void:
@@ -68,7 +71,18 @@ static func dress(model: Node3D, inst: Node3D, skeleton: Skeleton3D, custom: Dic
 		var att := BoneAttachment3D.new()
 		att.bone_name = "head"
 		skeleton.add_child(att)
-		_hat(att, hat, outline)
+		# Fitted to the build's own hair (ITEM-02: the Sturdy body's hair is
+		# fuller at the back), and open crowns and circlets sit up on the hair
+		# instead of sinking into it (ITEM-10).
+		var fit := Node3D.new()
+		var body: String = custom.get("body", "rogue")
+		fit.scale = Vector3.ONE * {"knight": 1.16, "barbarian": 1.08}.get(body, 1.0)
+		fit.position = Vector3(0, 0, -0.04) if body == "knight" else Vector3.ZERO
+		if hat in ["circlet", "flowers", "gold", "autumn", "antlers", "sovereign"]:
+			fit.position.y += 0.12
+			fit.scale *= Vector3(1.12, 1.0, 1.12)
+		att.add_child(fit)
+		_hat(fit, hat, outline)
 	var cape: String = custom.get("cape", "")
 	if cape == "":
 		return
@@ -79,7 +93,7 @@ static func dress(model: Node3D, inst: Node3D, skeleton: Skeleton3D, custom: Dic
 		_scarf(body, cloth, outline)
 		return
 	# A STORE cape replaces the pack's own capes.
-	for name in ["Knight_Cape", "Rogue_Cape"]:
+	for name in ["Knight_Cape", "Rogue_Cape", "Barbarian_Cape", "Mage_Cape"]:
 		var own := inst.find_child(name, true, false)
 		if own:
 			own.visible = false
