@@ -1445,7 +1445,7 @@ func _draw_players() -> void:
 	var ny := body.position.y + 78 + mini(list.size(), MAX_PLAYERS) * 58 + 6
 	if list.size() < MAX_PLAYERS:
 		wood_button(Rect2(x, ny, 220, 44), "+ NEW PLAYER", "player_new", null, "", 18)
-	var tip := "Type your name, then press Enter." if game.name_editing else "Select your name to change it. DELETE asks twice and cannot be undone."
+	var tip := "Type your name, then press Enter." if game.name_editing else "Select your name to change it." + (" DELETE asks twice and cannot be undone." if list.size() > 1 else "")
 	h._text(Vector2(x + 236, ny + 28), tip, 11, Color(0.8, 0.78, 0.72), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	h._text(Vector2(body.position.x, body.end.y - 6), "Saved on this device. To take a player to another device, use EXPORT CODE on the PROGRESS screen (open it from the level chip).",
 		11, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
