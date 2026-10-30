@@ -366,10 +366,7 @@ func _draw_title(sz: Vector2, lt: float, a: float) -> void:
 	_art("loading_1", sz, lt, a, 0.42)
 	var cx := sz.x / 2.0
 	var cy := sz.y * 0.46
-	var crown: Texture2D = tex.get("crown")
-	if crown:
-		var s := 96.0
-		h.draw_texture_rect(crown, Rect2(cx - s / 2.0, cy - 170, s, s), false, Color(1, 1, 1, a))
+	# No crown icon here: it sat on top of the key art's own logo.
 	var w := minf(sz.x - 120.0, 1100.0)
 	var fs := _fit(font_title, TITLE, 68, w)
 	_ttext(Vector2(cx - w / 2.0, cy), TITLE, fs, Color(1.0, 0.84, 0.42), a, w, 9)
@@ -468,13 +465,11 @@ func _draw_thanks(sz: Vector2, lt: float, a: float) -> void:
 	_art("loading_2", sz, lt, a, 0.3)
 	h.draw_rect(Rect2(Vector2.ZERO, sz), Color(0, 0, 0, 0.25 * a))
 	var cx := sz.x / 2.0
+	# The key art already carries the logo; a second one on top read as a double image.
 	var logo: Texture2D = tex.get("logo")
 	var top := sz.y * 0.16
 	if logo:
-		var lw := minf(440.0, sz.x - 160.0)
-		var lh := lw * logo.get_height() / float(logo.get_width())
-		h.draw_texture_rect(logo, Rect2(cx - lw / 2.0, top, lw, lh), false, Color(1, 1, 1, a))
-		top += lh
+		top += minf(440.0, sz.x - 160.0) * logo.get_height() / float(logo.get_width())
 	var w := minf(sz.x - 120.0, 1000.0)
 	var ty := top + 96.0
 	_ttext(Vector2(cx - w / 2.0, ty), THANKS, _fit(font_title, THANKS, 58, w), Color(1.0, 0.84, 0.42), a, w, 9)
