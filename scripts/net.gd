@@ -342,6 +342,7 @@ func _on_server_disconnected() -> void:
 	status = "The host left the game"
 	if game:
 		get_tree().paused = false
+		game.finish_world_now()
 		get_tree().reload_current_scene()
 
 
@@ -357,6 +358,8 @@ func _welcome(seed_value: int, map: int) -> void:
 	status = "Connected to %s · waiting for the host to start" % host_ip
 	print("NET welcomed: seed %d map %d" % [seed_value, map])
 	_relax_timeout(1, true)   # the rebuild below can take long
+	if game:
+		game.finish_world_now()
 	get_tree().reload_current_scene()
 
 

@@ -110,7 +110,7 @@ jobs:
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/loading-baseline-import.log
             run_probe baseline "$baseline"
           fi
-          run_probe candidate "$GITHUB_WORKSPACE" --expect-hidden-world
+          run_probe candidate "$GITHUB_WORKSPACE" --expect-hidden-world --world-behind
           for route in play demo; do
             export CROWNS_LOADING_EVIDENCE="$GITHUB_WORKSPACE/ci-logs/loading-direct-$route"
             export CROWNS_LOADING_LABEL="direct-$route"
@@ -129,9 +129,14 @@ jobs:
           # The loading art is drawn as soon as a match is started from the title (PERF-04).
           export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-cache-match-start"
           mkdir -p "$MESA_SHADER_CACHE_DIR"
-          timeout 400 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/match_start_art_test.gd" -- --seed=7 --gfx=0 2>&1 | tee ci-logs/match-start-art.log
+          timeout 400 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/match_start_art_test.gd" -- --seed=7 --gfx=0 --world-behind 2>&1 | tee ci-logs/match-start-art.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/match-start-art.log
           grep -q '^match start art test: 0 failure(s)$' ci-logs/match-start-art.log
+          # The title comes up before the match world (PERF-05); a reload or a
+          # quit mid-build finishes the world first, with nothing leaked at exit.
+          timeout 600 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/world_behind_test.gd" -- --seed=7 --gfx=0 --world-behind 2>&1 | tee ci-logs/world-behind.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Leaked instance|were leaked|ObjectDB instances leaked' ci-logs/world-behind.log
+          grep -q '^world behind test: 0 failure(s)$' ci-logs/world-behind.log
       - name: Keep logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

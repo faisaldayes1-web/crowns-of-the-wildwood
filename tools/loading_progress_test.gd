@@ -188,7 +188,7 @@ func _run() -> void:
 	var bad_match_warm_frames := 0
 	while is_instance_valid(game.loading_layer) and Time.get_ticks_msec() < deadline:
 		await RenderingServer.frame_post_draw
-		if root.disable_3d:
+		if root.disable_3d and game.world_ready:   # (not while the rest of the world builds)
 			bad_match_warm_frames += 1
 	print("MATCH_TIMING ready_ms=%d" % (Time.get_ticks_msec() - match_began))
 	check(bad_match_warm_frames == 0 and not root.disable_3d, "match model/world/effects warm-up keeps 3D enabled")
@@ -221,6 +221,21 @@ func _run() -> void:
 		if child.scene_file_path == "res://scenes/main.tscn":
 			mains += 1
 	check(mains == 1, "summary return leaves exactly one game scene")
+	# The match world builds behind the live title (PERF-05): how smooth the
+	# title stays meanwhile, and that it finishes.
+	var behind_began := Time.get_ticks_msec()
+	var gaps: Array[int] = []
+	var prev := behind_began
+	while not game.world_ready and Time.get_ticks_msec() < behind_began + 120000:
+		await RenderingServer.frame_post_draw
+		var now := Time.get_ticks_msec()
+		gaps.append(now - prev)
+		prev = now
+	gaps.sort()
+	if not gaps.is_empty():
+		print("WORLD_BEHIND ms=%d frames=%d p50=%d p95=%d max=%d over100=%d" % [Time.get_ticks_msec() - behind_began, gaps.size(),
+			gaps[gaps.size() / 2], gaps[gaps.size() * 95 / 100], gaps[-1], gaps.filter(func(g): return g > 100).size()])
+	check(game.world_ready, "the match world finishes building behind the title")
 	game._flush_save()
 	game.queue_free()
 	current_scene = null

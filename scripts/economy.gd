@@ -50,11 +50,16 @@ var bought := [{"hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0}, {"
 
 func build(p_game) -> void:
 	game = p_game
+	# (Slices: the match world can be built behind the live menus, see
+	# game.gd _build_world_behind. Outside that this never waits.)
 	for spot in TREE_SPOTS:
+		await game._world_build_frame()
 		_place_pair("wood", spot)
 	for spot in ORE_SPOTS:
+		await game._world_build_frame()
 		_place_pair("ore" if Stats.ECONOMY.ore_on else "wood", spot)
 	for team in 2:
+		await game._world_build_frame()
 		_lift_door_bar(game.gates[team])
 		_build_depot(team)
 		_build_pads(team)

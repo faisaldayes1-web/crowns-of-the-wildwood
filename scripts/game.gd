@@ -412,7 +412,11 @@ func _ready() -> void:
 			loading_tween.pause()
 		await _world_build_frame()
 	world_style = true   # the match world follows the style profile; the menus built below do not
-	await _build_world()
+	if _world_can_wait():
+		_build_world_sky()
+		world_ready = false
+	else:
+		await _build_world()
 	world_style = false
 	if net and not fixed_seed:
 		randomize()
@@ -534,9 +538,70 @@ func _ready() -> void:
 			main_menu.readied = [true, true, true, true]
 	if net:
 		_net_ready_hooks()
+	if not world_ready:
+		_build_world_behind()
+
+
+func _world_can_wait() -> bool:
+	## Whether the title may come up before the match world is built. Online
+	## games, test routes and renders keep the world-first order.
+	if not _stream_world or net_client or (net and net.online()):
+		return false
+	# Tools run with --script (audits, censuses, probes) look at the built
+	# world from the title on; only the ones asking with --world-behind
+	# (tools/world_behind_test.gd) see the player's order.
+	if get_tree().get_script() != null and not "--world-behind" in OS.get_cmdline_user_args():
+		return false
+	for arg in OS.get_cmdline_user_args():
+		if arg in ["--demo", "--play", "--audit", "--selftest"] or arg.begins_with("--shot") or arg.begins_with("--debug-"):
+			return false
+	return true
+
+
+func _build_world_behind() -> void:
+	## The match world, built a slice a frame behind the live menus.
+	_world_behind = true
+	while menus_warming and not _world_rush:   # the menu warm-up first, under the loading art
+		await _world_slice
+	# A half-built world must not run (the economy's labels, the volcano):
+	# each piece is held still until the whole world is there.
+	get_tree().node_added.connect(_hold_world_piece)
+	world_style = true
+	_world_frame_deadline = Time.get_ticks_usec() + WORLD_SLICE_USEC
+	await _build_world_land()
+	world_style = false
+	_world_behind = false
+	get_tree().node_added.disconnect(_hold_world_piece)
+	for held in _world_held:
+		if is_instance_valid(held[0]):
+			held[0].process_mode = held[1]
+	_world_held = []
+	apply_graphics()   # the world's lamps take the quality setting
+	world_ready = true
+	world_finished.emit()
+
+
+func _hold_world_piece(n: Node) -> void:
+	if world_style and n.get_parent() == self:   # (world_style: a world slice, not the menus)
+		_world_held.append([n, n.process_mode])
+		n.process_mode = Node.PROCESS_MODE_DISABLED
+
+
+func finish_world_now() -> void:
+	## Before this scene goes (a reload, a map switch, quitting): a world
+	## still building behind the menus is finished at once. Its paused steps
+	## would otherwise outlive the scene holding renderer resources, and
+	## Godot 4.3 crashed on exit freeing them.
+	if not _world_behind:
+		return
+	var t0 := Time.get_ticks_msec()
+	_world_rush = true
+	_world_slice.emit()
+	print("WORLD finished at once in %d ms" % (Time.get_ticks_msec() - t0))
 
 
 func _reload_scene() -> void:
+	finish_world_now()
 	# Retain immutable UI artwork only across an intentional scene replacement.
 	_preserve_menu_art_on_reload = true
 	if get_tree().reload_current_scene() != OK:
@@ -606,6 +671,10 @@ func _net_ready_hooks() -> void:
 
 
 func _process(delta: float) -> void:
+	if _world_behind:
+		_world_slice.emit()
+	if _match_waiting:
+		return   # a match is waiting for the world under the loading art
 	if debug_kill and player and not player.kill_banner.is_empty():
 		player.kill_banner.time = Time.get_ticks_msec() / 1000.0 - 0.7
 		for k in kill_feed:
@@ -625,7 +694,7 @@ func _process(delta: float) -> void:
 	_update_compass()
 	if net_test:
 		_net_test_tick(delta)
-	if vmap:
+	if vmap and world_ready:
 		vmap.tick(delta)
 	if not playing and not game_over:
 		if name_editing or ip_editing or menu_open or net_client:
@@ -2233,6 +2302,17 @@ var loading_label: Label
 var loading_tween: Tween   # its hold-then-fade; _warm_up_world holds it while it sweeps
 var _stream_world := false
 var _world_frame_deadline := 0
+# claude-faisal3 2026-10-29 (PERF-05): the title no longer waits for the
+# match world. It is built behind the menus in slices of WORLD_SLICE_USEC a
+# frame; a match started before it is done waits under the loading art.
+signal world_finished
+signal _world_slice   # each frame while the world builds behind the menus
+const WORLD_SLICE_USEC := 10000
+var world_ready := true
+var _world_behind := false
+var _match_waiting := false
+var _world_rush := false   # finish_world_now: no more slices, build the rest at once
+var _world_held := []   # [node, its process mode]: world pieces kept still until the world is whole
 var _loading_viewport: Viewport
 var _loading_previous_disable_3d := false
 
@@ -2255,6 +2335,16 @@ func _restore_loading_3d() -> void:
 
 
 func _world_build_frame() -> void:
+	if _world_behind:
+		if not _world_rush and Time.get_ticks_usec() >= _world_frame_deadline:
+			# Menus built between slices (the hero, store previews) keep
+			# their own look. (Nothing may leave this scene with the world
+			# half built: finish_world_now.)
+			world_style = false
+			await _world_slice
+			world_style = true
+			_world_frame_deadline = Time.get_ticks_usec() + (32000 if _match_waiting else WORLD_SLICE_USEC)
+		return
 	# All scene-tree mutations stay on the main thread. A completed chunk
 	# yields real frames, rather than dropping OS input in a blocking build.
 	if _stream_world and Time.get_ticks_usec() >= _world_frame_deadline:
@@ -2337,6 +2427,21 @@ func _fade_loading_now() -> void:
 # --- Match setup -----------------------------------------------------------
 
 func _start_match(team: int) -> void:
+	if not world_ready:
+		# Started before the world finished building behind the menus: the
+		# loading art covers the rest of the build, then the match starts.
+		if _match_waiting:
+			return
+		_match_waiting = true
+		_show_loading(1.0)
+		if loading_tween and loading_tween.is_valid():
+			loading_tween.pause()
+		_suspend_loading_3d()   # only the art draws while the rest is built
+		await world_finished
+		_restore_loading_3d()
+		_match_waiting = false
+		if playing:
+			return
 	_show_loading(1.0)
 	# The match is built within this frame (seconds, with the batching): draw
 	# the loading art now, or the title just clicked sits frozen until it is
@@ -2789,6 +2894,8 @@ func net_start_client(start: Dictionary) -> void:
 	## Client: the host gave us a slot; build the match around it.
 	if playing:
 		return
+	if not world_ready:
+		await world_finished
 	net_slot = Vector2i(start.team, start.slot)
 	if start.map != map_variant:
 		map_variant = start.map
@@ -4391,6 +4498,8 @@ func _notification(what: int) -> void:
 		for unit in locals:
 			if is_instance_valid(unit) and unit.has_method("cancel_click_movement"):
 				unit.cancel_click_movement()
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		finish_world_now()
 	if what == NOTIFICATION_WM_CLOSE_REQUEST and not demo:
 		_save_settings()   # closing the window keeps everything
 		_flush_save()
@@ -5176,6 +5285,7 @@ func _add_ground_detail() -> void:
 		["flower", flower, StyleProfile.FLOWERS if season != "winter" else 0, 0.4], ["tuft", tuft, StyleProfile.TUFTS, 0.0], ["stone", stone, 50, 0.0],
 		["cap", cap, 80 if season != "twilight" else 240, 0.26], ["leaf", leaf, 140 if season != "winter" else 0, 0.02]]
 	for s in sets:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		var placed: Array = []
 		var tries := 0
 		while placed.size() < s[2] and tries < s[2] * 12:
@@ -5922,6 +6032,7 @@ func _add_river() -> void:
 	var placed := 0
 	var tries := 0
 	while placed < LILY_CLUSTERS and tries < 200:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		tries += 1
 		var cz := lr.randf_range(-map_half.y + 1.0, map_half.y - 1.0)
 		if _near_bridge(cz, 2.0):
@@ -5946,6 +6057,7 @@ func _add_river() -> void:
 	# render's stacked-block banks), a pebbly strip behind it and a few boulders.
 	var kerb := _pbr("rock", 0.45, Color(0.92, 0.9, 0.86))
 	for sx in [-1.0, 1.0]:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		_add_block(Vector3(sx * (RIVER_HALF + 1.0), 0.012, 0), Vector3(1.6, 0.01, length), Color(0.6, 0.5, 0.35), false, _pbr("cobble", 0.6, Color(0.92, 0.86, 0.74)))
 		var k := 0
 		var z := -map_half.y - 2.0
@@ -5980,6 +6092,7 @@ func _add_river() -> void:
 	var rim_mat := _flagstone(Color(0.93, 0.89, 0.82))
 	var rim_r := ISLAND_R - 0.25
 	for zs in [-1.0, 1.0]:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		for k in 10:
 			var phi := deg_to_rad(-40.5 + 9.0 * k)
 			var c := Vector3(rim_r * sin(phi), 0.75, zs * rim_r * cos(phi))
@@ -6000,6 +6113,7 @@ func _add_river() -> void:
 			add_child(seg)
 	# Bridges: a plank deck with rails and posts.
 	for i in BRIDGES.size():
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		if i == 1:
 			continue  # the shrine island is the middle crossing
 		var bz: float = BRIDGES[i]
@@ -6232,6 +6346,7 @@ func _add_cover() -> void:
 	var crates := ["dungeon/box_large", "dungeon/box_large", "dungeon/barrel_large", "dungeon/box_large", "dungeon/barrel_large"]
 	var crate_scale := {"dungeon/box_large": 0.72, "dungeon/barrel_large": 0.56}
 	for bi in barricades.size():
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		var b: Array = barricades[bi]
 		for m in [1.0, -1.0]:
 			var c: Vector3 = b[0] * m
@@ -6267,6 +6382,7 @@ func _add_cover() -> void:
 	var boulders := [Vector3(9, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -10.5), Vector3(38, 0, 10),
 		Vector3(8, 0, 28), Vector3(17, 0, 25), Vector3(14, 0, -36), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(40, 0, 24)]
 	for p0 in boulders:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		# Off the cobbled paths (Faisal 11:29: "move this rock out of the
 		# road", the boulder on the Forest Path by the Elf gate): step it
 		# away from the road until it clears every path.
@@ -7976,6 +8092,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	var wall_h: float = 1.3 if elven else ROOM_H
 	var wall_t: float = 0.7 if elven else 0.5
 	for zs in [-1.0, 1.0]:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		# The Humans' camera-facing wall is a waist-high balustrade (the Elves'
 		# are a parapet on both sides): the crown, its dais and anyone in the
 		# room stay visible from the game camera.
@@ -7997,6 +8114,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	# runs on top read as "random greenery", Faisal 08:17 2026-10-09).
 	var ecap := _ashlar(Color(0.96, 0.94, 0.9))
 	for zs in [-1.0, 1.0]:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		if elven:
 			_add_block(Vector3(cx, wall_h + 0.08 + fy, zs * hz), Vector3(depth + wall_t, 0.16, wall_t + 0.14), Color.WHITE, false, ecap)
 		else:
@@ -8006,6 +8124,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	else:
 		_add_block(Vector3(back_x, ROOM_H + 0.08 + fy, 0), Vector3(0.7, 0.16, hz * 2 + 0.7), Color.WHITE, false, cap)
 	for zs in [-1.0, 1.0]:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		_add_block(Vector3(front_x, ROOM_H + 0.08 + fy, zs * (hz / 2.0 + ROOM_DOOR_HALF / 2.0)), Vector3(0.7, 0.16, hz - ROOM_DOOR_HALF), Color.WHITE, false, ecap if elven else cap)
 	audit_label = ""
 	# A carpet runner from the doors to a round, three-tier dais in the middle
@@ -8022,6 +8141,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	var tier_mat := _ashlar(Color(0.95, 0.92, 0.86))
 	var trim := _gold() if not elven else _moon_silver()
 	for t in 3:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		var r := 2.2 - t * 0.55
 		var step := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
@@ -8072,6 +8192,7 @@ func _build_throne_room(team: int, throne: Vector3, side: float, color: Color) -
 	# banner poles round the dais instead.)
 	# Banners, crests, torches and the treasury.
 	for zs in [-1.0, 1.0]:
+		await _world_build_frame()   # (built behind the menus: no long frame)
 		if not elven:
 			if _room_wall_h(team, zs) == ROOM_H:
 				_add_pennant(team, Vector3(cx - side * 0.2, ROOM_H - 0.05 + fy, zs * (hz - 0.25)), Vector3(0, 0, -zs), 1.0, 1.8)
@@ -9781,7 +9902,7 @@ func _build_castle(team: int) -> void:
 	var throne := Vector3(kx + side * 6.0, ROOM_RAISE if team == 0 else 0.0, 0)
 	thrones.append(throne)
 	await _world_build_frame()
-	_build_throne_room(team, throne, side, color)
+	await _build_throne_room(team, throne, side, color)
 	var vault = Vault.new()
 	add_child(vault)
 	vault.setup(self, team, throne, side)
@@ -10832,6 +10953,13 @@ func _style_light() -> void:
 
 
 func _build_world() -> void:
+	_build_world_sky()
+	await _build_world_land()
+
+
+func _build_world_sky() -> void:
+	## The sky, fog and sun: the menus are lit by them too, so they come
+	## first even when the land waits (_build_world_behind).
 	var env := WorldEnvironment.new()
 	var environment := Environment.new()
 	var sky := Sky.new()
@@ -10929,6 +11057,8 @@ func _build_world() -> void:
 	fill.light_energy = 0.15
 	add_child(fill)
 
+
+func _build_world_land() -> void:
 	if Stats.MAPS[map_variant][1] == "volcano":
 		await _world_build_frame()
 		await _build_volcano()
@@ -10992,14 +11122,14 @@ func _build_world() -> void:
 		await _world_build_frame()
 		_add_signpost(Vector3(sx * 27.5, 0, sb + 4.3), sx)
 	await _world_build_frame()
-	_add_river()
+	await _add_river()
 
 	await _world_build_frame()
 	await _build_castle(0)
 	await _world_build_frame()
 	await _build_castle(1)
 	await _world_build_frame()
-	_add_cover()
+	await _add_cover()
 	await _world_build_frame()
 	_add_heal_orbs()
 
@@ -11055,7 +11185,7 @@ func _build_world() -> void:
 				await _world_build_frame()
 				_add_tree(p, i % 4 == 0)
 	await _world_build_frame()
-	_add_ground_detail()
+	await _add_ground_detail()
 	# A tree line and hills beyond the playable edge, so the world has a
 	# horizon; the hamlets and farms sit in gaps in it.
 	for i in 22:
@@ -11081,7 +11211,7 @@ func _build_world() -> void:
 	if not "--no-economy" in OS.get_cmdline_user_args():   # testing: a match without wood and ore (balance baselines)
 		economy = Economy.new()
 		add_child(economy)
-		economy.build(self)
+		await economy.build(self)
 	await _world_build_frame()
 	await _finish_world()
 
