@@ -198,6 +198,8 @@ var _fps_frames := 0           # automatic quality: frames counted in the curren
 var _fps_since := 0            # ...since this time (msec), 0 = not counting
 var _fps_last := 0             # the previous frame's time (msec): a long stall restarts the window
 var fullscreen := false
+var window_mode := "windowed"   # Settings > Display: "windowed", "borderless" (fullscreen window) or "exclusive"
+const WINDOW_MODES := ["windowed", "borderless", "exclusive"]
 var vsync_on := true          # Settings: wait for the display refresh (no tearing)
 var fps_cap := 0              # Settings: frame-rate limit, 0 = none
 const FPS_CAPS := [0, 30, 60, 120, 144, 240]
@@ -1739,7 +1741,9 @@ func toggle_setting(key: String) -> void:
 			gfx_picked = true
 			apply_graphics()
 		"fullscreen":
-			fullscreen = not fullscreen
+			# Display: Windowed -> Borderless -> Fullscreen (exclusive) -> Windowed.
+			window_mode = WINDOW_MODES[(WINDOW_MODES.find(window_mode) + 1) % WINDOW_MODES.size()]
+			fullscreen = window_mode != "windowed"
 			apply_graphics()
 		"vsync":
 			vsync_on = not vsync_on
@@ -3681,7 +3685,14 @@ func menu_tick() -> void:
 		scoreboard_open = (Input.is_action_pressed("scoreboard") or debug_score) and not menu_open and not rank_open
 		if menu_open:
 			if Input.is_action_just_pressed("quit_match") and rebinding == "":
-				quit_to_title()
+				# Two presses, like the LEAVE MATCH button: one stray pad Y (or
+				# Backspace) used to throw the match and its rewards away.
+				if quit_armed > 0.0:
+					quit_to_title()
+					return   # the scene reloads: nothing below may touch this node's tree
+				else:
+					quit_armed = 3.0
+					sfx.ui("ui_click", -4.0)
 		elif guide_open and not eaten:
 			if Input.is_action_just_pressed("menu"):
 				guide_close()
@@ -4717,6 +4728,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "fps_intro_done", fps_intro_done)
 	cfg.set_value("settings", "howto_seen", howto_seen)
 	cfg.set_value("settings", "fullscreen", fullscreen)
+	cfg.set_value("settings", "window_mode", window_mode)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
 	cfg.set_value("settings", "control_layout", control_layout)
@@ -4858,6 +4870,10 @@ func _load_controls() -> void:
 		# preset (older visits saved the old Low default).
 		gfx_quality = mini(gfx_quality, 1) if gfx_picked else 1
 	fullscreen = cfg.get_value("settings", "fullscreen", false)
+	window_mode = str(cfg.get_value("settings", "window_mode", "borderless" if fullscreen else "windowed"))
+	if window_mode not in WINDOW_MODES:
+		window_mode = "borderless" if fullscreen else "windowed"
+	fullscreen = window_mode != "windowed"
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
 	control_layout = cfg.get_value("settings", "control_layout", "auto")
@@ -10839,9 +10855,16 @@ func apply_graphics() -> void:
 		# (Faisal 2026-10-10: "goes into smaller window").
 		var mode := DisplayServer.window_get_mode()
 		var is_full := mode in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
-		if fullscreen and not is_full:
+		# Code that only flips `fullscreen` (older saves, tests) still works.
+		if not fullscreen:
+			window_mode = "windowed"
+		elif window_mode == "windowed":
+			window_mode = "borderless"
+		if window_mode == "borderless" and mode != DisplayServer.WINDOW_MODE_FULLSCREEN:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-		elif not fullscreen and is_full:
+		elif window_mode == "exclusive" and mode != DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN:
+			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+		elif window_mode == "windowed" and is_full:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 		# VSync and the frame cap (Settings > DISPLAY), saved like the rest.
 		if not OS.has_feature("web"):
