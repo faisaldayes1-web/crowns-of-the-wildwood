@@ -3579,6 +3579,8 @@ func _quick_upgrades() -> void:
 	## Spend a point in the field without opening UPGRADES: 1-4 (or the
 	## D-pad, or the HUD's level-up tiles) buy that skill's next rank once
 	## you have been out of the fight for Stats.QUICK_UPGRADE_CALM seconds.
+	if Input.is_action_pressed("scoreboard"):
+		return   # scoreboard + D-pad are the team calls
 	for u in locals:
 		if u == null or u.dead or u.downed or u.points <= 0:
 			continue
@@ -3730,6 +3732,12 @@ func menu_tick() -> void:
 			for kind in ["attack", "defend", "help"]:
 				if Input.is_action_just_pressed("cmd_" + kind):
 					call_command(kind)
+			# A pad has no free buttons for the calls: hold the scoreboard
+			# (Back / Create) and press the D-pad: up Attack, left Defend, right To me.
+			if Input.is_action_pressed("scoreboard"):
+				for pair in [["rank_1", "attack"], ["rank_2", "defend"], ["rank_3", "help"]]:
+					if Input.is_action_just_pressed(pair[0]):
+						call_command(pair[1])
 		if rank_open and rank_player == null:
 			rank_player = player
 		if rank_open and rank_player:
@@ -4115,6 +4123,10 @@ func menu_input(event: InputEvent) -> void:
 				_rebind(rebinding, event)
 			swallow_frame = Engine.get_process_frames()
 		elif (event is InputEventMouseButton or event is InputEventJoypadButton) and event.pressed:
+			_rebind(rebinding, event)
+			swallow_frame = Engine.get_process_frames()
+		elif event is InputEventJoypadMotion and _is_trigger(event) and absf(event.axis_value) > 0.5:
+			# LT / RT are axes, not buttons: they could not be picked before.
 			_rebind(rebinding, event)
 			swallow_frame = Engine.get_process_frames()
 		return
@@ -4538,17 +4550,75 @@ func _rebind(action: String, event: InputEvent) -> void:
 	elif event is InputEventJoypadButton:
 		fresh = InputEventJoypadButton.new()
 		fresh.button_index = event.button_index
+	elif event is InputEventJoypadMotion and _is_trigger(event):
+		fresh = InputEventJoypadMotion.new()
+		fresh.axis = event.axis
+		fresh.axis_value = 1.0
 	else:
 		return
+	# The binding this one replaces (same kind: keyboard, mouse, or the pad,
+	# where buttons and triggers count as one kind).
+	var old: InputEvent = null
+	for ev in InputMap.action_get_events(action):
+		if _bind_kind(ev) == _bind_kind(fresh):
+			if old == null:
+				old = ev
+			InputMap.action_erase_event(action, ev)
+	# Another action on the same key swaps to the replaced one instead of
+	# silently losing its binding (a pad Y on Ability Q left Ability E with none).
 	for entry in REBINDABLE:
+		if entry[0] == action:
+			continue
 		for ev in InputMap.action_get_events(entry[0]):
-			if entry[0] == action and ev.get_class() == fresh.get_class():
+			if ev.is_match(fresh, true):
 				InputMap.action_erase_event(entry[0], ev)
-			elif entry[0] != action and ev.is_match(fresh, true):
-				InputMap.action_erase_event(entry[0], ev)
+				var label := _action_label(entry[0])
+				if old != null and not old.is_match(fresh, true):
+					InputMap.action_add_event(entry[0], old)
+					toast("%s swapped to %s" % [label, binding_text(entry[0], "pad" if _bind_kind(old) == "pad" else "key")], Color(1.0, 0.85, 0.5))
+				else:
+					toast("%s is now unbound: give it a new key" % label, Color(1.0, 0.65, 0.5))
 	InputMap.action_add_event(action, fresh)
 	rebinding = ""
 	_save_controls()
+
+
+static func _is_trigger(ev: InputEvent) -> bool:
+	return ev is InputEventJoypadMotion and ev.axis in [JOY_AXIS_TRIGGER_LEFT, JOY_AXIS_TRIGGER_RIGHT]
+
+
+static func _bind_kind(ev: InputEvent) -> String:
+	## Which column of the Controls tab an event belongs to.
+	if ev is InputEventKey:
+		return "key"
+	if ev is InputEventMouseButton:
+		return "mouse"
+	if ev is InputEventJoypadButton or _is_trigger(ev):
+		return "pad"
+	return "other"
+
+
+func pad_binding_hint(action: String, kind: String = "") -> String:
+	## The Controls tab's gamepad column: the binding, or how to reach the
+	## action without one (team calls are a scoreboard + D-pad chord).
+	var t := binding_text(action, "pad", kind)
+	if t != "-":
+		return t
+	var k := kind if kind != "" else pad_kind(local_pad(0))
+	match action:
+		"cmd_attack": return "%s + %s" % [pad_label("scoreboard", k), _pad_name(JOY_BUTTON_DPAD_UP, k)]
+		"cmd_defend": return "%s + %s" % [pad_label("scoreboard", k), _pad_name(JOY_BUTTON_DPAD_LEFT, k)]
+		"cmd_help": return "%s + %s" % [pad_label("scoreboard", k), _pad_name(JOY_BUTTON_DPAD_RIGHT, k)]
+		"move_interact", "force_move", "force_hold": return "MOUSE ONLY"
+		"chat", "chat_toggle", "roster_toggle": return "KEYBOARD ONLY"
+	return t
+
+
+func _action_label(action: String) -> String:
+	for entry in REBINDABLE:
+		if entry[0] == action:
+			return str(entry[1])
+	return action
 
 
 func cycle_difficulty(step: int) -> void:
@@ -4856,7 +4926,10 @@ func _write_control_bindings(cfg: ConfigFile) -> void:
 				list.append({"t": "mouse", "c": ev.button_index})
 			elif ev is InputEventJoypadButton:
 				list.append({"t": "pad", "c": ev.button_index})
+			elif _is_trigger(ev):
+				list.append({"t": "axis", "c": ev.axis})
 		cfg.set_value("controls", entry[0], list)
+	cfg.set_value("settings", "bindings_axes", 1)   # this save lists the triggers too
 func _load_controls() -> void:
 	var cfg := ConfigFile.new()
 	if _read_save(cfg) != OK:
@@ -4939,11 +5012,13 @@ func _load_controls() -> void:
 	hero_outfit = clampi(int(cfg.get_value("settings", "hero_outfit", 0)), 0, Stats.HERO_OUTFITS.size() - 1)
 	hero_weapon = clampi(int(cfg.get_value("settings", "hero_weapon", 0)), 0, Stats.WEAPON_SKINS.size() - 1)
 	Store.drop_unowned(self)   # a save edited by hand cannot wear what was never bought
+	var axes_saved: bool = int(cfg.get_value("settings", "bindings_axes", 0)) >= 1
 	for entry in REBINDABLE:
 		if not cfg.has_section_key("controls", entry[0]):
 			continue
 		for ev in InputMap.action_get_events(entry[0]):
-			if ev is InputEventKey or ev is InputEventMouseButton or ev is InputEventJoypadButton:
+			# Saves from before triggers were written keep the default triggers.
+			if ev is InputEventKey or ev is InputEventMouseButton or ev is InputEventJoypadButton or (axes_saved and _is_trigger(ev)):
 				InputMap.action_erase_event(entry[0], ev)
 		for item in cfg.get_value("controls", entry[0]):
 			var ev: InputEvent
@@ -4957,6 +5032,10 @@ func _load_controls() -> void:
 				"pad":
 					ev = InputEventJoypadButton.new()
 					ev.button_index = int(item.c)
+				"axis":
+					ev = InputEventJoypadMotion.new()
+					ev.axis = int(item.c)
+					ev.axis_value = 1.0
 			if ev:
 				InputMap.action_add_event(entry[0], ev)
 

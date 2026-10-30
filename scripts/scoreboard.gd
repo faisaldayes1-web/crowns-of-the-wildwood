@@ -40,8 +40,16 @@ static func draw_overlay(h) -> void:
 	wood(h, tab, 8, 2)
 	h._text(Vector2(tab.position.x, tab.position.y + 23), "SCOREBOARD", 16, GOLD.lerp(Color.WHITE, 0.2), HORIZONTAL_ALIGNMENT_CENTER, tab.size.x, 4)
 	draw_table(h, Rect2(rect.position + Vector2(18, 22), Vector2(rect.size.x - 36, table_h)), true)
-	h._text(Vector2(rect.position.x, rect.end.y - 12), "Score: kill %d · assist %d · capture %d · heart healed %d · heart of damage %d · rank point %d" % [Stats.SCORE_KILL,
-		Stats.SCORE_ASSIST, Stats.SCORE_CAPTURE, Stats.SCORE_HEAL, Stats.SCORE_DAMAGE, Stats.SCORE_UPGRADE], 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+
+	if game.on_pad(h.local_unit) and game.playing:
+		# A pad's team calls live here: hold the board and press the D-pad.
+		# (In place of the score legend, inside the panel: below it sat the LEVEL UP strip.)
+		var kind: String = game.pad_kind(game.local_pad(0))
+		var hint := "Team calls:  %s Attack!   %s Defend!   %s To me!" % [game._pad_name(JOY_BUTTON_DPAD_UP, kind), game._pad_name(JOY_BUTTON_DPAD_LEFT, kind), game._pad_name(JOY_BUTTON_DPAD_RIGHT, kind)]
+		h._text(Vector2(rect.position.x, rect.end.y - 11), hint, 13, GOLD.lerp(Color.WHITE, 0.3), HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
+	else:
+		h._text(Vector2(rect.position.x, rect.end.y - 12), "Score: kill %d · assist %d · capture %d · heart healed %d · heart of damage %d · rank point %d" % [Stats.SCORE_KILL,
+			Stats.SCORE_ASSIST, Stats.SCORE_CAPTURE, Stats.SCORE_HEAL, Stats.SCORE_DAMAGE, Stats.SCORE_UPGRADE], 10, GREY, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 2)
 
 
 static func table_height(rows: int, row_h: float) -> float:
