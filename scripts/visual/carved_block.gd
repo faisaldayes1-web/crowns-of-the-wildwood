@@ -28,7 +28,7 @@ static func mesh(size: Vector3, bevel: float = 0.08) -> ArrayMesh:
 		_tri(st, Vector3(0, y, 0), rings[3][j], rings[3][i])
 		_tri(st, Vector3(0, -y, 0), rings[0][i], rings[0][j])
 	st.generate_normals()
-	return st.commit()
+	return preload("res://scripts/static_batch.gd").kept_mesh(st)   # (a CPU copy for the match-start batching)
 
 static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3) -> void:
 	st.set_smooth_group(-1)

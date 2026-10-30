@@ -65,6 +65,9 @@ jobs:
           timeout 120 bash tools/tests/isolated.sh --headless --path . --script tools/rock_mesh_test.gd 2>&1 | tee ci-logs/rock-mesh.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/rock-mesh.log
           grep -q '^rock mesh test: 0 failure(s)$' ci-logs/rock-mesh.log
+          timeout 120 bash tools/tests/isolated.sh --headless --path . --script tools/batch_primitive_test.gd 2>&1 | tee ci-logs/batch-primitive.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/batch-primitive.log
+          grep -q '^batch primitive test: 0 failure(s)$' ci-logs/batch-primitive.log
       - name: Full seeded bot match
         shell: bash
         run: |
@@ -123,6 +126,12 @@ jobs:
               test ! -e "$CROWNS_LOADING_EVIDENCE/direct-play-loading.png"
             fi
           done
+          # The loading art is drawn as soon as a match is started from the title (PERF-04).
+          export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-cache-match-start"
+          mkdir -p "$MESA_SHADER_CACHE_DIR"
+          timeout 400 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/match_start_art_test.gd" -- --seed=7 --gfx=0 2>&1 | tee ci-logs/match-start-art.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/match-start-art.log
+          grep -q '^match start art test: 0 failure(s)$' ci-logs/match-start-art.log
       - name: Keep logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -89,9 +89,10 @@ static func _sig(o: Object, cache: Dictionary) -> String:
 
 
 static func _arrays(mesh: Mesh, s: int, cache: Dictionary) -> Array:
-	## A surface's vertex arrays. Primitive meshes rebuild theirs on the CPU;
-	## ArrayMesh surfaces live on the GPU and are read back once per mesh
-	## (props share theirs between every copy).
+	## A surface's vertex arrays. Mesh surfaces live on the GPU and are read
+	## back once per mesh (props share theirs between every copy); primitive
+	## meshes too (get_mesh_arrays is a read-back), except boxes and
+	## cylinders, worked out on the CPU from one read-back per grid.
 	var key := "%d|%d" % [mesh.get_instance_id(), s]
 	var a: Array = cache.get(key, [])
 	if a.is_empty():
@@ -100,14 +101,113 @@ static func _arrays(mesh: Mesh, s: int, cache: Dictionary) -> Array:
 			var pkey := _sig(mesh, cache)
 			a = cache.get(pkey, [])
 			if a.is_empty():
-				a = _lighter(mesh).get_mesh_arrays()
+				a = _scaled_primitive(mesh)
+				if a.is_empty():
+					a = _lighter(mesh).get_mesh_arrays()
 				cache[pkey] = a
 		elif s == 0 and mesh.has_meta(&"batch_arrays"):
-			a = mesh.get_meta(&"batch_arrays")   # game.gd _keep_arrays: no GPU read-back
+			a = mesh.get_meta(&"batch_arrays")   # kept_mesh: no GPU read-back
 		else:
 			a = mesh.surface_get_arrays(s)
 		cache[key] = a
 	return a
+
+
+static var _unit_shapes := {}   # grid key -> the read-back arrays of a unit box or cylinder
+
+
+static func _unit_shape(key: String, make: Callable) -> Array:
+	## (A new primitive is a renderer mesh and a queued build: made only once.)
+	var a: Array = _unit_shapes.get(key, [])
+	if a.is_empty():
+		a = (make.call() as PrimitiveMesh).get_mesh_arrays()
+		_unit_shapes[key] = a
+	return a
+
+
+static func kept_mesh(st: SurfaceTool) -> ArrayMesh:
+	## st's mesh, keeping a CPU copy of its arrays for run(), which otherwise
+	## reads every generated mesh back from the GPU at match start (~1 ms
+	## each). run() drops the copy once it has merged the mesh.
+	var arrays := st.commit_to_arrays()
+	var m := ArrayMesh.new()
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	m.set_meta(&"batch_arrays", arrays)
+	return m
+
+
+static func _scaled_primitive(mesh: PrimitiveMesh) -> Array:
+	## claude-faisal3 2026-10-29 loading pass: ~1,500 unique boxes and
+	## cylinders were read back from the GPU at match start (~0.4 ms each).
+	## A box is its unit box scaled; a cylinder is its unit cylinder with each
+	## ring moved to its height and radius and the side normals recomputed as
+	## Godot makes them (scene/resources/3d/primitive_meshes.cpp, 4.3). Index,
+	## UV and tangent arrays are the unit shape's. tools/batch_primitive_test.gd
+	## checks them against the read-back. [] = not one of these: read it back.
+	if mesh.flip_faces or mesh.add_uv2:
+		return []
+	if mesh is BoxMesh:
+		var b: BoxMesh = mesh
+		var t := _unit_shape("box|%d|%d|%d" % [b.subdivide_width, b.subdivide_height, b.subdivide_depth], func() -> PrimitiveMesh:
+			var unit := BoxMesh.new()
+			unit.subdivide_width = b.subdivide_width
+			unit.subdivide_height = b.subdivide_height
+			unit.subdivide_depth = b.subdivide_depth
+			return unit)
+		if t.is_empty():
+			return []
+		var out := t.duplicate()
+		out[Mesh.ARRAY_VERTEX] = Transform3D(Basis.from_scale(b.size), Vector3.ZERO) * (t[Mesh.ARRAY_VERTEX] as PackedVector3Array)
+		return out
+	if mesh is CylinderMesh:
+		var c: CylinderMesh = mesh
+		if c.height <= 0.0:
+			return []
+		var segs := c.radial_segments
+		var rings := c.rings
+		if segs >= 48:   # as _lighter
+			segs = clampi(int(12.0 + maxf(c.top_radius, c.bottom_radius) * 16.0), 12, 32)
+			rings = mini(rings, 1)
+		var top_cap := c.cap_top and c.top_radius > 0.0
+		var bottom_cap := c.cap_bottom and c.bottom_radius > 0.0
+		var t := _unit_shape("cyl|%d|%d|%s|%s" % [segs, rings, top_cap, bottom_cap], func() -> PrimitiveMesh:
+			var unit := CylinderMesh.new()
+			unit.top_radius = 1.0
+			unit.bottom_radius = 1.0
+			unit.height = 1.0
+			unit.radial_segments = segs
+			unit.rings = rings
+			unit.cap_top = top_cap
+			unit.cap_bottom = bottom_cap
+			return unit)
+		if t.is_empty():
+			return []
+		var tv: PackedVector3Array = t[Mesh.ARRAY_VERTEX]
+		var tn: PackedVector3Array = t[Mesh.ARRAY_NORMAL]
+		var verts := PackedVector3Array()
+		var normals := PackedVector3Array()
+		verts.resize(tv.size())
+		normals.resize(tv.size())
+		var h := c.height
+		var side_y := (c.bottom_radius - c.top_radius) / h
+		for i in tv.size():
+			var p := tv[i]
+			if absf(tn[i].y) < 0.5:   # the side: ring v from the unit height
+				var v := 0.5 - p.y
+				var r := c.top_radius + (c.bottom_radius - c.top_radius) * v
+				verts[i] = Vector3(p.x * r, h * 0.5 - h * v, p.z * r)
+				normals[i] = Vector3(p.x, side_y, p.z).normalized()
+			elif tn[i].y > 0.0:   # the top cap
+				verts[i] = Vector3(p.x * c.top_radius, h * 0.5, p.z * c.top_radius)
+				normals[i] = tn[i]
+			else:
+				verts[i] = Vector3(p.x * c.bottom_radius, h * -0.5, p.z * c.bottom_radius)
+				normals[i] = tn[i]
+		var out := t.duplicate()
+		out[Mesh.ARRAY_VERTEX] = verts
+		out[Mesh.ARRAY_NORMAL] = normals
+		return out
+	return []
 
 
 static func _lighter(mesh: PrimitiveMesh) -> PrimitiveMesh:
