@@ -2016,7 +2016,7 @@ func _downed_process(delta: float) -> void:
 	var move := Vector3.ZERO
 	if is_player or remote_peer > 0:
 		_net_read_taps()
-		if not game.menu_blocks_input(self):
+		if not game.menu_blocks_movement(self):
 			var stick := _stick()
 			move = Vector3(stick.x, 0, stick.y)
 			# Hold interact to give up and respawn (not from a press held
@@ -2807,7 +2807,7 @@ func cancel_click_movement() -> void:
 
 
 func local_controls() -> Dictionary:
-	var blocked: bool = game == null or dead or downed or game.menu_blocks_input(self)
+	var blocked: bool = game == null or dead or downed or game.menu_blocks_movement(self)
 	if blocked:
 		cancel_click_movement()
 		return {"move": Vector2.ZERO, "attack": false, "attack_tap": false, "interact": false, "interact_tap": false}
