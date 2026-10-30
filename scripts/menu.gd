@@ -1147,8 +1147,9 @@ func _draw_lobby() -> void:
 			"bot":
 				ttext(Vector2(plate.position.x, plate.position.y + 30), s.name, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 4)
 				h._text(Vector2(plate.position.x, plate.position.y + 50), "BOT  ·  %s" % game.bot_difficulty.to_upper(), 12, Color(0.75, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 3)
-				var side_name: String = Stats.FACTIONS[s.team].name.to_upper()
-				h._text(Vector2(plate.position.x, plate.position.y + 72), side_name, 12, Stats.FACTIONS[s.team].color.lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 3)
+				# Their side on the same ELVES | HUMANS chip pair as a player's
+				# (Ready A), drawn only: a bot's side is not picked here.
+				_side_pair(Rect2(plate.position.x + 14, plate.position.y + 62, plate.size.x - 28, 80 if touch else 22), s.team)
 				_ready_bar(Rect2(plate.position.x + 14, plate.position.y + (146 if touch else 84), plate.size.x - 28, 80 if touch else 28), true, -1)
 			"join":
 				var r := Rect2(plate.position.x + 14, plate.position.y + 14, plate.size.x - 28, plate.size.y - 28)
@@ -1196,6 +1197,20 @@ func _side_chip(r: Rect2, k: int, team: int) -> void:
 		sb.set_corner_radius_all(5)
 		sb.set_border_width_all(2 if on or ov else 1)
 		sb.border_color = Color(1.0, 0.85, 0.4) if on else (Color(0.8, 0.7, 0.5) if ov else Color(0.3, 0.3, 0.32))
+		h.draw_style_box(sb, cr)
+		h._text(Vector2(cr.position.x, cr.get_center().y + 5.5), "ELVES" if side == 0 else "HUMANS", 20 if game.touch_active else 13, Color.WHITE if on else Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_CENTER, cr.size.x, 2)
+
+
+func _side_pair(r: Rect2, team: int) -> void:
+	## The ELVES | HUMANS chips of _side_chip, drawn without buttons (a bot's side).
+	for side in 2:
+		var cr := Rect2(r.position.x + side * r.size.x / 2.0, r.position.y, r.size.x / 2.0 - 2, r.size.y)
+		var on := team == side
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Stats.FACTIONS[side].color.darkened(0.25) if on else Color(0.15, 0.15, 0.18)
+		sb.set_corner_radius_all(5)
+		sb.set_border_width_all(2 if on else 1)
+		sb.border_color = Color(1.0, 0.85, 0.4) if on else Color(0.3, 0.3, 0.32)
 		h.draw_style_box(sb, cr)
 		h._text(Vector2(cr.position.x, cr.get_center().y + 5.5), "ELVES" if side == 0 else "HUMANS", 20 if game.touch_active else 13, Color.WHITE if on else Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_CENTER, cr.size.x, 2)
 
