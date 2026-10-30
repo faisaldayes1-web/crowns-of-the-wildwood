@@ -6082,26 +6082,28 @@ func _menu_settings(body: Rect2) -> void:
 	# DISPLAY: five switches, then fullscreen and the graphics quality.
 	y = _opt_section(Vector2(x, y), w, "DISPLAY", "leaf", 82.0)
 	var toggles := [["Screen Shake", game.screen_shake, "shake"], ["Damage Numbers", game.damage_numbers, "numbers"],
-		["FPS Counter", game.show_fps, "fps"], ["Chat Log", game.chat_visible, "chat"], ["Player Rosters", game.rosters_visible, "rosters"],
-		["VSync", game.vsync_on, "vsync"]]
+		["FPS Counter", game.show_fps, "fps"], ["Chat Log", game.chat_visible, "chat"], ["Player Rosters", game.rosters_visible, "rosters"]]
 	var tw := (w - 24.0 - (toggles.size() - 1) * 8.0) / toggles.size()
 	for i in toggles.size():
 		_toggle(Rect2(x + 12 + i * (tw + 8), y, tw, 36), toggles[i][0], toggles[i][1], toggles[i][2])
+	# Second row: Fullscreen, VSync, the frame-rate cap (click to step through
+	# Off / 30 / 60 / 120 / 144 / 240), then the graphics preset. VSync as a
+	# sixth switch in the first row squeezed "Damage Numbers" until it clipped.
 	_toggle(Rect2(x + 12, y + 44, tw, 36), "Fullscreen", game.fullscreen, "fullscreen")
-	# The frame-rate cap: click to step through Off / 30 / 60 / 120 / 144 / 240.
-	var cap := Rect2(x + 20 + tw, y + 44, tw, 36)
+	_toggle(Rect2(x + 20 + tw, y + 44, tw, 36), "VSync", game.vsync_on, "vsync")
+	var cap := Rect2(x + 28 + 2 * tw, y + 44, 150, 36)
 	_opt_slot(cap)
 	_text(cap.position + Vector2(12, 24), "Frame Cap", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var capb := Rect2(cap.end.x - 70, cap.position.y + 5, 62, 26)
+	var capb := Rect2(cap.end.x - 62, cap.position.y + 5, 54, 26)
 	_opt_button(capb, "OFF" if game.fps_cap == 0 else str(game.fps_cap), game.fps_cap != 0)
 	toggle_buttons.append([cap, "fps_cap"])
-	var gq := Rect2(x + 28 + 2 * tw, y + 44, w - 40 - 2 * tw, 36)
+	var gq := Rect2(cap.end.x + 8, y + 44, x + w - 12 - (cap.end.x + 8), 36)
 	_opt_slot(gq)
 	_opt_glyph("gfx", gq.position + Vector2(22, 18), GOLD)
-	_text(gq.position + Vector2(42, 24), "Graphics Quality", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var qw: float = (gq.size.x - 190.0 - 3 * 8.0) / game.GFX_NAMES.size()
+	_text(gq.position + Vector2(42, 24), "Graphics", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var qw: float = (gq.size.x - 122.0 - 3 * 8.0) / game.GFX_NAMES.size()
 	for i in game.GFX_NAMES.size():
-		var b := Rect2(gq.position.x + 182 + i * (qw + 8), gq.position.y + 5, qw, 26)
+		var b := Rect2(gq.position.x + 114 + i * (qw + 8), gq.position.y + 5, qw, 26)
 		_opt_button(b, game.GFX_NAMES[i], game.gfx_quality == i)
 		toggle_buttons.append([b, "gfx_%d" % i])
 	y += 82 + gap
