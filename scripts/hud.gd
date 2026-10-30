@@ -6103,20 +6103,31 @@ func _menu_settings(body: Rect2) -> void:
 	_opt_slot(desc)
 	_text(desc.position + Vector2(14, 23), Stats.BOT_TUNING[game.bot_difficulty].desc, 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, desc.size.x - 20, 2)
 	y += 38 + gap
-	# TEAM CALLS.
-	y = _opt_section(Vector2(x, y), w, "TEAM CALLS", "horn", 76.0)
-	var calls := [[_k("cmd_attack"), "ATTACK!", "Everyone pushes the enemy door now, no waiting at the rally."],
-		[_k("cmd_defend"), "DEFEND!", "Three bots come home to hold the castle."],
-		[_k("cmd_help"), "TO ME!", "The two nearest bots come to where you called."]]
-	for i in calls.size():
-		var cy: float = y + 10 + i * 20
-		_keycap(Vector2(x + 52, cy), calls[i][0], 30, false, not game.on_pad(local_unit))
-		_text(Vector2(x + 82, cy + 6), calls[i][1], 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		_text(Vector2(x + 210, cy + 5), calls[i][2], 12, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		if i < 2:
-			draw_line(Vector2(x + 30, cy + 10), Vector2(x + w - 30, cy + 10), Color(1, 1, 1, 0.06), 1.0)
-	_text(Vector2(x + 30, y + 72), "Bots follow a call for %d seconds: rebind the keys in the Controls tab." % int(Stats.COMMAND_TIME), 11, Color(0.68, 0.7, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	y += 76 + gap
+	# TEAM CALLS. In a match the LEAVE / RESUME bar takes 36 px of the page,
+	# so the calls fold into one row (UI-05: the GAMEPAD row sat under the bar).
+	var compact := body.size.y < 440.0
+	var calls_h := 26.0 if compact else 76.0
+	y = _opt_section(Vector2(x, y), w, "TEAM CALLS", "horn", calls_h)
+	var calls := [[_k("cmd_attack"), "ATTACK!", "Everyone pushes the enemy door now, no waiting at the rally.", "push their door"],
+		[_k("cmd_defend"), "DEFEND!", "Three bots come home to hold the castle.", "3 bots hold home"],
+		[_k("cmd_help"), "TO ME!", "The two nearest bots come to where you called.", "2 bots come to you"]]
+	if compact:
+		var cw := (w - 40.0) / 3.0
+		for i in calls.size():
+			var cx: float = x + 20 + i * cw
+			_keycap(Vector2(cx + 32, y + 10), calls[i][0], 30, false, not game.on_pad(local_unit))
+			_text(Vector2(cx + 62, y + 16), calls[i][1], 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(Vector2(cx + 140, y + 15), calls[i][3], 12, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_LEFT, cw - 145, 2)
+	else:
+		for i in calls.size():
+			var cy: float = y + 10 + i * 20
+			_keycap(Vector2(x + 52, cy), calls[i][0], 30, false, not game.on_pad(local_unit))
+			_text(Vector2(x + 82, cy + 6), calls[i][1], 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(Vector2(x + 210, cy + 5), calls[i][2], 12, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			if i < 2:
+				draw_line(Vector2(x + 30, cy + 10), Vector2(x + w - 30, cy + 10), Color(1, 1, 1, 0.06), 1.0)
+		_text(Vector2(x + 30, y + 72), "Bots follow a call for %d seconds: rebind the keys in the Controls tab." % int(Stats.COMMAND_TIME), 11, Color(0.68, 0.7, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	y += calls_h + gap
 	# GAMEPAD.
 	y = _opt_section(Vector2(x, y), w, "GAMEPAD", "horn", 40.0)
 	_toggle(Rect2(x + 12, y + 2, 210, 36), "Rumble", game.rumble_on, "rumble")

@@ -275,10 +275,13 @@ func draw(hud) -> void:
 			"progress": _draw_progress()
 			"players": _draw_players()
 	if game.cursor_shown:
-		var hint := "%s select  ·  %s back" % [h._k("ui_confirm"), h._k("ui_back")]
+		# The pointer is a gamepad's, so name its buttons even before a pad
+		# player is known (UI-07: the keyboard lookup gave "-" for both).
+		var kind: String = game.pad_kind(game.local_pad(0))
+		var hint := "%s select  ·  %s back" % [game.pad_label("ui_confirm", kind), game.pad_label("ui_back", kind)]
 		if screen == "lobby" and game.couch_players < 4 and game.couch_players > 1 or screen == "lobby" and _split_on():
-			hint += "  ·  other pads press %s to join" % h._k("ui_confirm")
-		h._text(Vector2(0, h.size.y - 8), hint, 11, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
+			hint += "  ·  other pads press %s to join" % game.pad_label("ui_confirm", kind)
+		h._text(Vector2(0, h.size.y - 8), hint, 13, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_CENTER, h.size.x, 3)
 
 
 # --- Title ------------------------------------------------------------------------
@@ -900,7 +903,9 @@ func _tab_face(panel: Rect2) -> void:
 		swatch(r, Stats.HERO_SKINS[game.hero_skin][1], on, "face", i)
 		face_thumb(Rect2(r.position + Vector2(8, 12), Vector2(r.size.x - 16, 80)), i)
 		ttext(Vector2(r.position.x, r.position.y + 124), Stats.HERO_FACES[i][0].to_upper(), 18, Color.WHITE if on else Color(0.9, 0.9, 0.9), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-		h._paragraph(Vector2(r.position.x + 8, r.position.y + 146), Stats.HERO_FACES[i][1], 11, Color(1, 1, 1, 0.9), r.size.x - 16, 13.0)
+		# A dark backing so the blurb reads on light skin tones too (UI-10).
+		h.draw_rect(Rect2(r.position.x + 5, r.position.y + 132, r.size.x - 10, r.size.y - 137), Color(0.05, 0.03, 0.02, 0.55))
+		h._paragraph(Vector2(r.position.x + 8, r.position.y + 146), Stats.HERO_FACES[i][1], 12, Color(1, 1, 1, 0.95), r.size.x - 16, 13.0)
 
 
 func _tab_armor(panel: Rect2) -> void:
@@ -957,7 +962,7 @@ func _tab_colors(panel: Rect2) -> void:
 		if not have:
 			_price_tag(c + Vector2(0, 2), "trim", i)
 		h._text(Vector2(c.x - 50, c.y + 46), Stats.HERO_TRIM[i][0].to_upper(), 11, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	h._paragraph(Vector2(panel.position.x + 26, y + 272), "Trim colours your cape and sash on every class. TEAM keeps your side's colour. Locked dyes are in the STORE.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
+	h._paragraph(Vector2(panel.position.x + 26, y + 292), "Trim colours your cape and sash on every class. TEAM keeps your side's colour. Locked dyes are in the STORE.", 12, Color(0.82, 0.82, 0.78), panel.size.x - 52, 16.0)
 
 
 func _tab_emblem(panel: Rect2) -> void:
@@ -1138,11 +1143,14 @@ func _overlay_frame(title: String) -> Rect2:
 	var frame := Rect2(150, 70, h.size.x - 300, 590)
 	nine("frame_big", frame, 40, 40, 40, 40)
 	plaque(h.size.x / 2.0, 38, title, 380)
+	_overlay_close_x(frame, button(Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34), "close", null))
+	return frame.grow(-40)
+
+
+func _overlay_close_x(frame: Rect2, ov: bool) -> void:
 	var x := Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34)
-	var ov := button(x, "close", null)
 	h._plate(x, Color(0.5, 0.14, 0.12) if ov else Color(0.38, 0.1, 0.09), Color(0.85, 0.65, 0.3), 6, 2)
 	h._text(x.position + Vector2(0, 24), "✕", 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, x.size.x, 0)
-	return frame.grow(-40)
 
 
 func _draw_credits() -> void:
@@ -1350,6 +1358,9 @@ func _draw_progress() -> void:
 	var body := _overlay_frame("PROGRESS")
 	var panel := body.grow(10)
 	h._draw_title_progress(panel)
+	# The progress board paints over the frame's close button: draw it again on top (UI-09).
+	var frame := body.grow(40)
+	_overlay_close_x(frame, Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34).has_point(h.get_local_mouse_position()))
 	# SAVED PROGRESS: it saves itself; the code moves it to another device.
 	var lx := panel.position.x + 30
 	var y := panel.position.y + 446
