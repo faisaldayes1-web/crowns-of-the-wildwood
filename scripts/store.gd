@@ -764,7 +764,7 @@ func _draw_reveal() -> void:
 		thumb(Rect2(c.x - 75, c.y - 98, 150, 150), it[0], it[1])
 		menu.ttext(Vector2(card.position.x, card.end.y - 70), item_name(it[0], it[1]).to_upper(), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 5)
 		h._text(Vector2(card.position.x, card.end.y - 46), "%s  ·  %s" % [Stats.RARITIES[it[2]][0].to_upper(), KIND_LABEL[it[0]]], 13, col.lightened(0.2), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
-		h._text(Vector2(card.position.x, card.end.y - 22), "Added to your collection: tap to try it on", 11, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
+		h._text(Vector2(card.position.x, card.end.y - 22), "Added to your collection: %s to try it on" % ("tap" if game.touch_active else "press " + game.pad_label("ui_confirm", game.pad_kind(game.local_pad(0))) if game.on_pad(null) else "click"), 11, Color(0.9, 0.9, 0.86), HORIZONTAL_ALIGNMENT_CENTER, card.size.x, 2)
 
 
 func press(id: String, arg) -> void:

@@ -781,7 +781,8 @@ func _process(delta: float) -> void:
 			# A finger on the summary's buttons (a mouse click goes through hud._input).
 			hud._click_end(touch_tap)
 			touch_tap = Vector2(-1, -1)
-		if Input.is_action_just_pressed("restart") or Input.is_action_just_pressed("ui_back"):
+		if Input.is_action_just_pressed("restart") or Input.is_action_just_pressed("ui_back") \
+				or (Input.is_action_just_pressed("ui_confirm") and summary and summary.elapsed() > 1.0):   # A too, not an attack mashed into the end
 			# The first press skips the tally; once it has played, go on.
 			# (B too: a pad player reaches for it to leave a screen, UI-22.)
 			if summary and not summary.done():
@@ -2830,15 +2831,30 @@ func menu_mouse() -> Vector2:
 	return cursor if cursor_shown else get_viewport().get_mouse_position()
 
 
+func end_name_entry() -> void:
+	## A pad player's name is done (DONE, Start, or B on an empty name). An
+	## empty name becomes "Hero" so the first-run prompt doesn't return.
+	name_editing = false
+	hero_name = hero_name.strip_edges()
+	if hero_name == "":
+		hero_name = "Hero"
+	_save_settings()
+	swallow_frame = Engine.get_process_frames()
+	confirm_block = true   # the same A press must not also click the button under the cursor
+
+
 func in_menus() -> bool:
 	## Whether a screen of buttons is up (title, pause menu, guide, end screen).
-	return (not playing or menu_open or game_over or guide_open) and not rank_open and rebinding == "" and not chat_open and not name_editing
+	return (not playing or menu_open or game_over or guide_open) and not rank_open and rebinding == "" and not chat_open \
+		and (not name_editing or main_menu != null and main_menu.pad_keys_on())   # a pad names its hero on the letter pad
 
 
 func _pad_nav() -> void:
 	## Move the gamepad cursor: the D-pad (or a stick flick) jumps to the next
 	## button in that direction, the stick held steers it freely, and the
 	## Circle / B button backs out of the pause menu or the guide.
+	if hud != null and rebinding != "" and menu_open:
+		return   # waiting for a key: the cursor stays on the row, ready for the next one
 	if hud == null or not in_menus():
 		cursor_shown = false
 		return
@@ -2862,7 +2878,9 @@ func _pad_nav() -> void:
 			return  # the first press only shows the cursor
 	if not cursor_shown:
 		return
-	if pressed != Vector2.ZERO:
+	if pressed.y == 0.0 and pressed.x != 0.0 and _nudge_slider(pressed.x):
+		nav_repeat = 0.4   # left / right on a volume slider turns it, like a console menu
+	elif pressed != Vector2.ZERO:
 		_snap_cursor(pressed.normalized())
 		nav_repeat = 0.4
 	elif stick.length() > 0.3:
@@ -2876,7 +2894,8 @@ func _pad_nav() -> void:
 	else:
 		nav_repeat = 0.0
 	cursor = cursor.clamp(Vector2.ZERO, get_viewport().get_visible_rect().size)
-	if Input.is_action_just_pressed("ui_back") and Engine.get_process_frames() != lobby_pad_frame:
+	if Input.is_action_just_pressed("ui_back") and Engine.get_process_frames() != lobby_pad_frame and not name_editing \
+			and Engine.get_process_frames() != swallow_frame:   # B on the letter pad rubs out a letter (or ends the name), not the screen
 		if not playing and not menu_open and main_menu:
 			main_menu.back()
 		elif menu_open:
@@ -2885,6 +2904,24 @@ func _pad_nav() -> void:
 			sfx.ui("ui_click", -4.0)
 		elif guide_open:
 			guide_close()
+
+
+func _nudge_slider(dir: float) -> bool:
+	## The pad cursor on a volume slider: a tenth of the way left or right.
+	for sl in hud.volume_sliders:
+		if sl[0].grow(6).has_point(cursor):
+			var v := clampf(snappedf((sfx.sound_volume if sl[1] == "sound" else sfx.music_volume) + 0.1 * signf(dir), 0.1), 0.0, 1.0)
+			if sl[1] == "sound":
+				sfx.sound_volume = v
+			else:
+				sfx.music_volume = v
+			sfx.apply_volumes()
+			sfx.ui("ui_click", -4.0)
+			_save_settings()
+			# Keep the cursor on the bar, over the new value.
+			cursor.x = sl[0].position.x + 2.0 + v * (sl[0].size.x - 4.0)
+			return true
+	return false
 
 
 func _snap_cursor(dir: Vector2) -> void:
@@ -3826,8 +3863,10 @@ func menu_tick() -> void:
 		elif guide_open and not eaten:
 			if Input.is_action_just_pressed("menu"):
 				guide_close()
+			# The number keys pick a topic. Not on a pad: rank_1-4 are also its
+			# D-pad, which moves the cursor here (a press down opened topic 4).
 			for i in Guide.TOPICS.size():
-				if Input.is_action_just_pressed("rank_%d" % (i + 1)):
+				if Input.is_action_just_pressed("rank_%d" % (i + 1)) and not pad_active:
 					guide_pick(i)
 		elif _rank_pressed() and not demo:
 			pass  # handled in _rank_pressed
@@ -3868,7 +3907,9 @@ func menu_tick() -> void:
 				for i in 2:
 					if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
 						rank_player.choose_variant(rank_player.role, i)
-	if menu_open and rebinding == "" and not chat_open:
+	if menu_open and rebinding == "" and not chat_open and not eaten:
+		# Not on a press a rebind just took: binding Move up to A (or a pad
+		# button to LB / RB) switched the tab as well (#85).
 		var tabs := menu_tabs()
 		var at := maxi(tabs.find(menu_tab), 0)
 		if Input.is_action_just_pressed("menu_left"):
@@ -3886,6 +3927,8 @@ func menu_tick() -> void:
 	# Mouse clicks on menu buttons (the HUD records where it drew them). A
 	# gamepad drives the same buttons through its cursor.
 	_pad_nav()
+	if eaten:
+		confirm_block = true   # a pad A a rebind or name entry just took is not also a click
 	if confirm_block and not Input.is_action_pressed("ui_confirm"):
 		confirm_block = false
 	var click := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) or touch_tap.x >= 0.0 or (cursor_shown and Input.is_action_pressed("ui_confirm") and not confirm_block)
@@ -3925,7 +3968,9 @@ func menu_tick() -> void:
 		click_latched = false
 	if menus_warming:
 		pressed_now = false
-	if pressed_now and hud and rebinding == "":
+	if pressed_now and hud and rebinding == "" and not eaten and name_editing and main_menu and main_menu.pad_keys_on():
+		main_menu.tick(true, menu_mouse())   # the pad's letter pad: only its keys answer
+	elif pressed_now and hud and rebinding == "" and not eaten:
 		var mouse := menu_mouse()
 		if not playing and not menu_open and main_menu and not name_editing:
 			main_menu.tick(true, mouse)
@@ -4246,6 +4291,18 @@ func menu_input(event: InputEvent) -> void:
 			_rebind(rebinding, event)
 			swallow_frame = Engine.get_process_frames()
 		return
+	if name_editing and event is InputEventJoypadButton and event.pressed and main_menu and main_menu.pad_keys_on() and not playing:
+		# The pad's letter pad (menu.gd): A presses the key under the cursor
+		# (a click, below), B rubs out a letter, Start keeps the name.
+		if event.button_index == JOY_BUTTON_B and hero_name != "":
+			hero_name = hero_name.left(hero_name.length() - 1)
+			swallow_frame = Engine.get_process_frames()
+			return
+		if event.button_index in [JOY_BUTTON_B, JOY_BUTTON_START]:
+			end_name_entry()
+			return
+		if event.button_index == JOY_BUTTON_A:
+			return
 	if name_editing and event is InputEventJoypadButton and event.pressed and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_START]:
 		# A pad has no letters: its confirm/back/start ends the name entry
 		# instead of leaving a pad-only player stuck on the prompt (RT-01).

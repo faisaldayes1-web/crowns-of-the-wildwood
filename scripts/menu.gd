@@ -60,6 +60,9 @@ var readied := [true, false, false, false]   # lobby: local players 2-4 ready up
 var join_pads: Array = []    # lobby: the pad device of local players 2-4, in join order
 var p1_pad := -1             # the pad player 1 last used in the menus
 var room_entry := ""         # online: the room code being typed or tapped in
+const NAME_KEYS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ-'"   # the pad's letter pad for a hero name
+var kb_from := -1            # where the letter pad's buttons start in h.menu_buttons (-1: not drawn)
+var kb_was_on := false
 var font_title: Font
 # Immutable artwork is shared across scene reloads. Releasing it with each
 # menu forced every map switch to decode/upload the same images again.
@@ -94,6 +97,9 @@ func go(to: String) -> void:
 
 func back() -> void:
 	## Esc / Circle / B: close an overlay, else one screen back.
+	if screen == "store" and overlay == "" and not store.reveal.is_empty():
+		store.press("store_reveal_close", null)   # first the opened chest, like A
+		return
 	if overlay == "howto":
 		_howto_done()
 	if overlay != "":
@@ -273,6 +279,7 @@ func draw(hud) -> void:
 		"online": _draw_online()
 		_: _draw_title()
 	overlay_from = h.menu_buttons.size()
+	kb_from = -1
 	if overlay != "":
 		h.draw_rect(Rect2(Vector2.ZERO, h.size), Color(0, 0, 0, 0.55))
 		match overlay:
@@ -281,7 +288,11 @@ func draw(hud) -> void:
 			"howto": _draw_howto()
 			"progress": _draw_progress()
 			"players": _draw_players()
-	if game.cursor_shown:
+	var kb_on := pad_keys_on()
+	if kb_on:
+		_draw_name_keys()
+	kb_was_on = kb_on
+	if game.cursor_shown and not kb_on:
 		# The pointer is a gamepad's, so name its buttons even before a pad
 		# player is known (UI-07: the keyboard lookup gave "-" for both).
 		var kind: String = game.pad_kind(game.local_pad(0))
@@ -347,7 +358,7 @@ func _draw_title() -> void:
 	var ids := ["customize", "settings", "tutorial", "credits", "exit"]
 	var glyphs := ["tunic", "gear", "book", "trophy", "exit"]
 	for i in ids.size():
-		wood_button(Rect2(x, y + (86 if touch else 66) + i * (86 if touch else 52), 322 if touch else 246, 80 if touch else 48), "CLICK AGAIN" if i == 4 and exit_armed > 0 else str(ids[i]).to_upper(), ids[i], null, glyphs[i], 27 if touch else 21)
+		wood_button(Rect2(x, y + (86 if touch else 66) + i * (86 if touch else 52), 322 if touch else 246, 80 if touch else 48), _again_label() if i == 4 and exit_armed > 0 else str(ids[i]).to_upper(), ids[i], null, glyphs[i], 27 if touch else 21)
 	wood_button(Rect2(24, h.size.y - (90 if touch else 62), 200 if touch else 166, 80 if touch else 46), "STORE", "store", null, "crown", 21)
 	wood_button(Rect2(236 if touch else 202, h.size.y - (90 if touch else 62), 220 if touch else 180, 80 if touch else 46), "ONLINE", "online", null, "gamepad", 21)
 	wood_button(Rect2(24, h.size.y - (178 if touch else 112), 300 if touch else 260, 80 if touch else 40), "LV %d  %s" % [game.account_level(), game.hero_name], "progress", null, "", 16)
@@ -1009,7 +1020,7 @@ func _tab_emblem(panel: Rect2) -> void:
 	if game.name_editing and int(Time.get_ticks_msec() / 400) % 2 == 0:
 		shown += "|"
 	elif shown == "" and not game.name_editing:
-		shown = "click to name your hero"
+		shown = "select to name your hero"
 	h._text(field.position + Vector2(10, 19), shown, 14, Color.WHITE if game.hero_name != "" or game.name_editing else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 	h.hero_buttons.append([field, "name", 0])
 	h._draw_banner_editor(Vector2(panel.position.x + 22, y + 46), panel.size.x - 44)
@@ -1115,8 +1126,9 @@ func _draw_lobby() -> void:
 				var r := Rect2(plate.position.x + 14, plate.position.y + 14, plate.size.x - 28, plate.size.y - 28)
 				var ov := button(r, "add_player", null)
 				option_box(r, false, ov)
-				ttext(Vector2(r.position.x, r.position.y + 36), "PRESS %s TO JOIN" % ("A" if game.pad_style != "ps" else "✕"), 17, Color(1.0, 0.9, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-				h._text(Vector2(r.position.x, r.position.y + 62), "or click to add a gamepad player", 11, Color(0.8, 0.8, 0.76), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+				var jk: String = game.pad_kind(game.local_pad(0))
+				ttext(Vector2(r.position.x, r.position.y + 36), "PRESS %s TO JOIN" % ("✕" if jk == "ps" else game.pad_label("ui_confirm", jk)), 17, Color(1.0, 0.9, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+				h._text(Vector2(r.position.x, r.position.y + 62), "or select this to add a gamepad player", 11, Color(0.8, 0.8, 0.76), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 	var sizes := "%dv%d" % [game.team_size, game.team_size]
 	var extra: int = game.team_size * 2 - slots.filter(func(s): return s.kind != "join").size()
 	var note := "%s on %s  ·  %s" % [sizes, MAP_CARDS[map_pick][0].capitalize(), DIFFICULTIES[maxi(["Easy", "Normal", "Hard"].find(game.bot_difficulty), 0)][0].capitalize()]
@@ -1475,7 +1487,8 @@ func _draw_players() -> void:
 	var ny := body.position.y + 78 + mini(list.size(), MAX_PLAYERS) * 58 + 6
 	if list.size() < MAX_PLAYERS:
 		wood_button(Rect2(x, ny, 220, 44), "+ NEW PLAYER", "player_new", null, "", 18)
-	var tip := "Type your name, then press Enter." if game.name_editing else "Select your name to change it." + (" DELETE asks twice and cannot be undone." if list.size() > 1 else "")
+	var typing := "Type your name, then press Enter." if not game.on_pad(null) else "Pick letters with %s; %s keeps the name." % [game.pad_label("ui_confirm", game.pad_kind(game.local_pad(0))), game.pad_label("menu", game.pad_kind(game.local_pad(0)))]
+	var tip := typing if game.name_editing else "Select your name to change it." + (" DELETE asks twice and cannot be undone." if list.size() > 1 else "")
 	h._text(Vector2(x + 236, ny + 28), tip, 11, Color(0.8, 0.78, 0.72), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	h._text(Vector2(body.position.x, body.end.y - 6), "Saved on this device. To take a player to another device, use EXPORT CODE on the PROGRESS screen (open it from the level chip).",
 		11, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
@@ -1521,6 +1534,8 @@ func tick(clicked: bool, mouse: Vector2) -> void:
 	# Under an overlay only its own buttons answer: the title's planks
 	# behind it would otherwise take the click first.
 	var from := overlay_from if overlay != "" else 0
+	if kb_from >= 0 and pad_keys_on():
+		from = kb_from   # naming a hero on a pad: only the letter pad answers
 	for i in range(from, h.menu_buttons.size()):
 		var b: Array = h.menu_buttons[i]
 		if b[0].has_point(mouse):
@@ -1531,6 +1546,57 @@ func tick(clicked: bool, mouse: Vector2) -> void:
 func open_store(kind: String = "", i: int = -1) -> void:
 	store.show(kind, i)
 	go("store")
+
+
+func pad_keys_on() -> bool:
+	## A pad player naming their hero has no keys in their hands: they get a
+	## letter pad (Faisal 2026-10-30: every screen fully usable on a pad).
+	return game.name_editing and game.on_pad(null) and not game.playing and not OS.has_feature("web")
+
+
+func _name_case(ch: String) -> String:
+	## Capital at the start of each word, small letters after.
+	var nm: String = game.hero_name
+	return ch.to_upper() if nm == "" or nm.ends_with(" ") or nm.ends_with("-") else ch.to_lower()
+
+
+func _draw_name_keys() -> void:
+	## The letter pad, over the bottom of the screen: the name as typed, the
+	## letters, then SPACE / DELETE / DONE. The cursor starts on A.
+	var cols := 10
+	var kw := 54.0
+	var kh := 44.0
+	var gap := 6.0
+	var rows := ceili(NAME_KEYS.length() / float(cols))
+	var w := cols * kw + (cols - 1) * gap
+	var tall := 64.0 + (rows + 1) * (kh + gap) + 14.0
+	var panel := Rect2(h.size.x / 2.0 - w / 2.0 - 22.0, h.size.y - tall - 34.0, w + 44.0, tall)
+	h.draw_rect(Rect2(Vector2.ZERO, h.size), Color(0, 0, 0, 0.45))
+	slate(panel)
+	var shown: String = game.hero_name + ("|" if int(Time.get_ticks_msec() / 400) % 2 == 0 else " ")
+	ttext(Vector2(panel.position.x, panel.position.y + 44), shown, 28, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 5)
+	var x0 := panel.position.x + 22.0
+	var y0 := panel.position.y + 64.0
+	kb_from = h.menu_buttons.size()
+	for i in NAME_KEYS.length():
+		var r := Rect2(x0 + (i % cols) * (kw + gap), y0 + (i / cols) * (kh + gap), kw, kh)
+		option_box(r, false, button(r, "name_key", NAME_KEYS[i]))
+		ttext(Vector2(r.position.x, r.position.y + 31), _name_case(NAME_KEYS[i]), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 3)
+	var by := y0 + rows * (kh + gap)
+	var kind: String = game.pad_kind(game.local_pad(0))
+	wood_button(Rect2(x0, by, 3 * kw + 2 * gap, kh), "SPACE", "name_key", " ", "", 18)
+	wood_button(Rect2(x0 + 3 * (kw + gap), by, 3 * kw + 2 * gap, kh), "DELETE (%s)" % game.pad_label("ui_back", kind), "name_del", null, "", 16)
+	green_button(Rect2(x0 + 6 * (kw + gap), by - 3, 4 * kw + 3 * gap, kh + 6), "DONE (%s)" % game.pad_label("menu", kind), "name_done", true, false)
+	if not kb_was_on:
+		game.cursor = h.menu_buttons[kb_from][0].get_center()
+		game.cursor_shown = true
+
+
+func _again_label() -> String:
+	## EXIT's second-press label, in the words of what is in the player's hand.
+	if game.on_pad(null):
+		return "PRESS %s AGAIN" % game.pad_label("ui_confirm", game.pad_kind(game.local_pad(0)))
+	return "TAP AGAIN" if game.touch_active else "CLICK AGAIN"
 
 
 func _press(id: String, arg) -> void:
@@ -1584,6 +1650,15 @@ func _press(id: String, arg) -> void:
 		"progress": overlay = "progress"
 		"players": overlay = "players"
 		"player_name": _ask_name(false)
+		"name_key":
+			var ch: String = str(arg)
+			var nm: String = game.hero_name
+			if nm.length() < Stats.HERO_NAME_MAX and not (ch == " " and (nm == "" or nm.ends_with(" "))):
+				game.hero_name = nm + (" " if ch == " " else _name_case(ch))
+		"name_del":
+			game.hero_name = game.hero_name.left(maxi(game.hero_name.length() - 1, 0))
+		"name_done":
+			game.end_name_entry()
 		"player_new":
 			if game.list_profiles().size() < MAX_PLAYERS:
 				_ask_name(true)

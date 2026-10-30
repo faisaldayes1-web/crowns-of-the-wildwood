@@ -444,7 +444,7 @@ func _buttons(h, cx: float, y: float) -> void:
 			_leaf(h, base + Vector2(side * 2, 2 - k * 10), Vector2(side, -0.35 - k * 0.5).normalized(), 20 - k * 4, LEAF.darkened(0.15 * k))
 	h._plate(continue_rect, fill, Color(0.75, 0.55, 0.18), 8, 3)
 	h.draw_rect(Rect2(continue_rect.position + Vector2(6, 5), Vector2(continue_rect.size.x - 12, 14)), Color(1, 1, 1, 0.14))
-	h._keycap(continue_rect.position + Vector2(34, 24), h._k("restart"), 40)
+	h._keycap(continue_rect.position + Vector2(34, 24), h._k("ui_confirm") if game.on_pad(h.local_unit) else h._k("restart"), 40)
 	_bold(h, Vector2(continue_rect.position.x + 50, continue_rect.position.y + 32), "CONTINUE" if ready else "SKIP", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, continue_rect.size.x - 60, 4)
 
 
