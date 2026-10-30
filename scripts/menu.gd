@@ -368,8 +368,9 @@ func _draw_title() -> void:
 	slate(Rect2(0, 0, w, 48))
 	icon("crown", Vector2(28, 24), 32)
 	ttext(Vector2(54, 32), "CROWNS OF THE WILDWOOD", 25)
-	wood_button(Rect2(w - 360, 5, 185, 38), "%s GOLD" % gold_text(game.account_gold), "store", null, "crown", 15)
-	wood_button(Rect2(w - 170, 5, 160, 38), "PLAYERS", "players", null, "gamepad", 15)
+	_telemetry(Rect2(w - 372, 5, 200, 38), "coin", gold_text(game.account_gold), "GOLD", "store")
+	h.draw_rect(Rect2(w - 166, 12, 2, 24), Color(0.85, 0.66, 0.3, 0.7))
+	_telemetry(Rect2(w - 158, 5, 148, 38), "gamepad", "", "PLAYERS", "players")
 	var logo: Texture2D = load("res://assets/ui/logo.png")
 	if logo:
 		var lw := 390.0
@@ -390,6 +391,30 @@ func _draw_title() -> void:
 	wood_button(Rect2(24, h.size.y - (90 if touch else 62), 200 if touch else 166, 80 if touch else 46), "STORE", "store", null, "crown", 21)
 	wood_button(Rect2(236 if touch else 202, h.size.y - (90 if touch else 62), 220 if touch else 180, 80 if touch else 46), "ONLINE", "online", null, "gamepad", 21)
 	wood_button(Rect2(24, h.size.y - (178 if touch else 112), 300 if touch else 260, 80 if touch else 40), "LV %d  %s" % [game.account_level(), game.hero_name], "progress", null, "", 16)
+
+
+func _telemetry(r: Rect2, ic: String, value: String, unit: String, id: String) -> void:
+	## Title D's top-bar readout: an icon, a big number and a small gold unit
+	## on the dark bar itself (no plank), still a button (opens the store / players).
+	var hover := button(r, id)
+	if hover:
+		_bg_hover(r, 8)
+	var x := r.position.x + 8
+	if ic == "coin":
+		h._icon("coin", Vector2(x + 13, r.get_center().y), 7.5, Color.WHITE)
+	else:
+		icon(ic, Vector2(x + 13, r.get_center().y), 28)
+	x += 32
+	var room := r.end.x - 8 - x
+	var us := 13
+	var uw: float = font_title.get_string_size(unit, HORIZONTAL_ALIGNMENT_LEFT, -1, us).x if font_title else 50.0
+	if value != "":
+		# A big purse shrinks to stay inside its readout (NUM-01).
+		var vs := fit_size(value, 22, room - uw - 8)
+		ttext(Vector2(x, r.get_center().y + vs * 0.36), value, vs, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+		x += font_title.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, vs).x + 8 if font_title else 60.0
+	us = fit_size(unit, us, r.end.x - 6 - x)
+	ttext(Vector2(x, r.get_center().y + us * 0.36), unit, us, Color(1.0, 0.8, 0.3), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 
 
 # --- Online -----------------------------------------------------------------------
