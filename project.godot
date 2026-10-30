@@ -16,6 +16,7 @@ config/features=PackedStringArray("4.3", "Forward Plus")
 
 [autoload]
 
+BootLoader="*res://scripts/boot_loader.gd"
 Net="*res://scripts/net.gd"
 SteamHub="*res://scripts/steam.gd"
 
