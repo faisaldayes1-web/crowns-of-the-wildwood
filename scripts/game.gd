@@ -325,6 +325,18 @@ var net_slot := Vector2i(-1, -1)  # client: the (team, lineup slot) the host gav
 var _preserve_menu_art_on_reload := false
 
 
+func _set_min_window() -> void:
+	## A desktop window can't be dragged smaller than the 1280x720 layout
+	## (UI-14: it went down to 64x64 and shrank every menu), or than the screen
+	## it is on. Tests that ask for a size (--resolution, user args) keep it.
+	if DisplayServer.get_name() == "headless" or OS.has_feature("web") or OS.has_feature("mobile"):
+		return
+	if "--resolution" in OS.get_cmdline_args() or not OS.get_cmdline_user_args().is_empty():
+		return
+	var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen()).size
+	get_window().min_size = Vector2i(mini(1280, usable.x), mini(720, usable.y))
+
+
 func _ready() -> void:
 	if DisplayServer.get_name() == "headless":
 		var mesh_guard := preload("res://scripts/headless_mesh_lifetime.gd").watch
@@ -334,6 +346,7 @@ func _ready() -> void:
 			mesh_guard.call(mesh_node)
 	randomize()
 	var fixed_seed := false
+	_set_min_window()
 	_show_loading(1.2)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="):

@@ -7474,8 +7474,11 @@ func _draw_rankup_flourish() -> void:
 	for sx in [-1.0, 1.0]:
 		_inked_star(Vector2(sx * (half - 30.0), -8.0), 10.0 + sin(now * 4.0 + sx) * 1.5, Color(1.0, 0.95, 0.6, a), ink)
 	_title_text(Vector2(-half, 18.0), "PROMOTED!" if promoted else "RANK UP!", 48, Color(1.0, 0.97, 0.88, a), Color(0.8, 0.4, 0.05, a), ink, half * 2.0)
-	var hint: String = ("You are now a %s" % game.levelup_text) if promoted else ("Level %d  ·  +1 perk point  ·  %s to spend it" % [game.levelup_level, _k("rank_menu")])
-	_scroll_hint(54.0, maxf(_text_width(hint, 15) + 56.0, 300.0), hint, a, "" if promoted else "vigor")
+	# The points you can spend now, as the LEVEL UP strip counts them (UI-20:
+	# "+1 perk point" here while the strip said "+2 POINTS"), a size bigger.
+	var pts: int = maxi(int(_me().points), 1) if _me() else 1
+	var hint: String = ("You are now a %s" % game.levelup_text) if promoted else ("Level %d  ·  %d perk point%s  ·  %s to spend" % [game.levelup_level, pts, "" if pts == 1 else "s", _k("rank_menu")])
+	_scroll_hint(54.0, maxf(_text_width(hint, 17) + 56.0, 300.0), hint, a, "" if promoted else "vigor", 17)
 	_twinkles(now, a, [Vector2(-210, -120), Vector2(205, -110), Vector2(-120, -160), Vector2(130, -150), Vector2(0, -170), Vector2(-90, 70), Vector2(100, 76)])
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
