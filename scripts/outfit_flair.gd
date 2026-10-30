@@ -121,3 +121,56 @@ static func _palette(team_col: Color, gold_hem: bool) -> Texture2D:
 	var tex := ImageTexture.create_from_image(img)
 	tabard_palettes[key] = tex
 	return tex
+
+
+# Team head pieces (claude-faisal/headband): what the match camera sees of a unit is
+# mostly the top of its head, so the classes whose headgear is not team coloured wear
+# a team piece there. Modelled in Blender on the KayKit headgear
+# (assets/characters/headband/build_headband.py) in the model's rest space, and hung
+# on the head bone through its inverse rest so they ride every animation.
+# Knight: a crest over the helmet (the rank plume grows out of it from rank 2) and a
+# band round it. Engineer: a band round the bear hood and caps on the bear ears.
+# Healer: a cloth headband. Promotions tint the whole skin and wash the team colour
+# out of the Mage hat and the Ranger/Rogue hood, so promoted Mages, Rangers and Rogues
+# get a band there too. Colour: the tabard's 2x1 palette (team colour; the trim is a
+# darker team colour, or gold from rank 2).
+const HEADBAND := "res://assets/characters/headband/headband.glb"
+const HEAD_PIECES := {"knight": ["Knight_Crest", "Knight_Band"], "bear": ["Bear_Band", "Bear_Ears"],
+	"healer": ["Healer_Band"], "mage": ["Mage_Band"], "hood": ["Hood_Band"]}
+static var head_meshes := {}
+
+
+static func headband(skeleton: Skeleton3D, key: String, team_col: Color, gold_trim: bool,
+		outline: Material) -> StandardMaterial3D:
+	## Adds the head pieces for `key` (HEAD_PIECES) on the head bone; returns their
+	## material (for the hit flash), or null.
+	if skeleton == null or not HEAD_PIECES.has(key):
+		return null
+	if head_meshes.is_empty():
+		var root: Node = (load(HEADBAND) as PackedScene).instantiate()
+		for list in HEAD_PIECES.values():
+			for piece in list:
+				var src := root.find_child(piece, true, false) as MeshInstance3D
+				if src:
+					head_meshes[piece] = src.mesh
+		root.free()
+	var n := _bone_node(skeleton, "head")
+	if n == null:
+		return null
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = _palette(team_col, gold_trim)
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	mat.roughness = 0.85
+	mat.rim_enabled = true
+	mat.rim = 0.25
+	mat.rim_tint = 0.45
+	mat.next_pass = outline
+	n.name = "TeamHead"
+	for piece in HEAD_PIECES[key]:
+		if head_meshes.has(piece):
+			var mi := MeshInstance3D.new()
+			mi.name = piece
+			mi.mesh = head_meshes[piece]
+			mi.material_override = mat
+			n.add_child(mi)
+	return mat
