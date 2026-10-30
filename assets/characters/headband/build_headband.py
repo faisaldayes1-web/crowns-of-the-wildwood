@@ -3,11 +3,11 @@
 #   blender -b --factory-startup --python build_headband.py -- <out.glb> [preview_dir]
 # Every piece is ray-cast onto the rest-pose headgear it rides on, so it wraps the real
 # surface instead of floating as a flat sticker:
-#   Knight_Crest  a horsehair crest ridge over the helmet top, brow to nape (the match
-#                 camera looks down on the helmet top, so this is the Knight's team read)
-#   Knight_Band   a band round the helmet above the visor, at its widest girth
-#   Bear_Band     a band tied round the Engineer's bear hood above the bear's eyes
-#   Bear_Ears     caps over the bear ears (the top of the hood from above)
+#   Team_Knight   a horsehair crest ridge over the helmet top, brow to nape (the match
+#                 camera looks down on the helmet top, so this is the Knight's team read),
+#                 plus a band round the helmet above the visor, at its widest girth
+#   Team_Bear     a band tied round the Engineer's bear hood above the bear's eyes, plus
+#                 caps over the bear ears (the top of the hood from above)
 #   Healer_Band   a cloth headband over the Healer's hair, knotted at the back
 #   Mage_Band     a team band over the Mage hat's own band (promotions: their tint washes
 #                 the team colour out of the hat)
@@ -220,23 +220,35 @@ def ear_caps(b, bvh, centres, rad, h, n=10):
             b.f([rows[-1][i], rows[-1][(i + 1) % n], apex], TEAM)
 
 
+def hull(b, pts, u):
+    """A closed convex solid round `pts` (bmesh convex hull, outward normals)."""
+    bm = bmesh.new()
+    for p in pts:
+        bm.verts.new(p)
+    res = bmesh.ops.convex_hull(bm, input=bm.verts)
+    for g in res.get("geom_interior", []) + res.get("geom_unused", []):
+        if isinstance(g, bmesh.types.BMVert) and g.is_valid:
+            bm.verts.remove(g)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    idx = {v: b.v(v.co) for v in bm.verts}
+    for f in bm.faces:
+        b.f([idx[v] for v in f.verts], u)
+    bm.free()
+
+
 def knot(b, at, size):
-    """A small faceted knot (an octahedron) with two tails hanging down and back."""
+    """A small faceted knot with two short tails hanging down the back of the head."""
     x, y, z = at
     s = size
-    pts = [b.v((x + s, y, z)), b.v((x - s, y, z)), b.v((x, y + s * 0.8, z)), b.v((x, y - s * 0.4, z)),
-           b.v((x, y, z + s * 0.8)), b.v((x, y, z - s * 0.8))]
-    px, nx, py, ny, pz, nz = pts
-    for tri in ((px, py, pz), (py, nx, pz), (nx, ny, pz), (ny, px, pz), (py, px, nz), (nx, py, nz), (ny, nx, nz), (px, ny, nz)):
-        b.f(list(tri), TEAM)
-    for side, ln, sw in ((-1, 0.36, 0.25), (1, 0.30, -0.15)):
-        w, t = 0.075, 0.025
-        top = Vector((x + side * 0.05, y + 0.02, z - 0.02))
-        bot = top + Vector((side * sw * ln, 0.13, -ln))
-        q = [b.v(top + Vector((-w, -t, 0))), b.v(top + Vector((w, -t, 0))), b.v(bot + Vector((w * 1.2, -t, 0))), b.v(bot + Vector((-w * 1.2, -t, 0))),
-             b.v(top + Vector((-w, t, 0))), b.v(top + Vector((w, t, 0))), b.v(bot + Vector((w * 1.2, t, 0))), b.v(bot + Vector((-w * 1.2, t, 0)))]
-        for f in ((0, 1, 2, 3), (5, 4, 7, 6), (4, 0, 3, 7), (1, 5, 6, 2), (3, 2, 6, 7)):
-            b.f([q[i] for i in f], TEAM if f != (3, 2, 6, 7) else TRIM)
+    hull(b, [Vector((x + s, y, z)), Vector((x - s, y, z)), Vector((x, y + s * 0.8, z)), Vector((x, y - s * 0.4, z)),
+             Vector((x, y, z + s * 0.8)), Vector((x, y, z - s * 0.8))], TEAM)
+    for side, ln, sw in ((-1, 0.34, 0.35), (1, 0.28, 0.25)):
+        w, t = 0.065, 0.022
+        top = Vector((x + side * 0.05, y - 0.01, z - 0.03))
+        bot = top + Vector((side * sw * ln, 0.06, -ln))
+        hull(b, [top + Vector((-w, -t, 0)), top + Vector((w, -t, 0)), top + Vector((-w, t, 0)), top + Vector((w, t, 0)),
+                 bot + Vector((-w * 1.15, -t, 0)), bot + Vector((w * 1.15, -t, 0)), bot + Vector((-w * 1.15, t, 0)),
+                 bot + Vector((w * 1.15, t, 0))], TEAM)
 
 
 built = []
@@ -244,18 +256,14 @@ built = []
 kn, kb = load("Knight", "Knight_Helmet")
 b = Builder()
 crest(b, kb, centre=(-0.04, 1.86), th0=math.radians(-48), th1=math.radians(112), h=0.17, w_lo=0.075, w_hi=0.16)
-built.append(b.object("Knight_Crest"))
-b = Builder()
 band(b, kb, 1.86, 1.97, centre=(0.0, -0.05), off=0.018, depth=0.04, bulge=0.014)
-built.append(b.object("Knight_Band"))
+built.append(b.object("Team_Knight"))   # crest + band: one mesh, one draw
 # --- Engineer (bear hood) -----------------------------------------------------------
 bn, bb = load("Barbarian", "Barbarian_Hat")
 b = Builder()
 band(b, bb, 2.02, 2.12, centre=(0.0, -0.08), off=0.016, depth=0.04, bulge=0.014)
-built.append(b.object("Bear_Band"))
-b = Builder()
 ear_caps(b, bb, [(-0.42, 0.06, 2.3), (0.42, 0.06, 2.3)], rad=0.17, h=0.045)
-built.append(b.object("Bear_Ears"))
+built.append(b.object("Team_Bear"))   # band + ear caps: one mesh
 # --- Healer (Mage body, bare head) ---------------------------------------------------
 mn, mb = load("Mage", "Mage_Head")
 b = Builder()

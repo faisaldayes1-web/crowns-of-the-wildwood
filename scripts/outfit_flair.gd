@@ -135,7 +135,7 @@ static func _palette(team_col: Color, gold_hem: bool) -> Texture2D:
 # get a band there too. Colour: the tabard's 2x1 palette (team colour; the trim is a
 # darker team colour, or gold from rank 2).
 const HEADBAND := "res://assets/characters/headband/headband.glb"
-const HEAD_PIECES := {"knight": ["Knight_Crest", "Knight_Band"], "bear": ["Bear_Band", "Bear_Ears"],
+const HEAD_PIECES := {"knight": ["Team_Knight"], "bear": ["Team_Bear"],
 	"healer": ["Healer_Band"], "mage": ["Mage_Band"], "hood": ["Hood_Band"]}
 static var head_meshes := {}
 
