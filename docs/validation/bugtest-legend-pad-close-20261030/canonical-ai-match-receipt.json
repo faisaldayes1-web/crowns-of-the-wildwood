@@ -1,0 +1,33 @@
+{
+  "source_sha": "cbbf0cc4385bb8138e2eeb1225a914af6504de34",
+  "candidate_game_sha256": "22455d4753408ac38a4570ef109db2e0483999207a6d9e6b3d5ec7ea57ec8370",
+  "job_sha256": "9110342f30dabf8f0290cc5979f521ece4138323c1209e65f26263d350df9955",
+  "functional_match_complete": true,
+  "result": [
+    "RESULT winner=Elves score=2-0 t=285 overtime=false turrets=1/1 turret_kills=0/1 raid_deaths=2/0"
+  ],
+  "unit_stats": [
+    "STAT team=0 class=Warden kills=3 deaths=3 assists=3 dmg=38 heal=0 caps=2 level=5 revives=0 revived=0",
+    "STAT team=0 class=Sharpshooter kills=5 deaths=3 assists=9 dmg=57 heal=0 caps=0 level=4 revives=1 revived=0",
+    "STAT team=0 class=Frostweaver kills=8 deaths=2 assists=7 dmg=66 heal=0 caps=0 level=6 revives=0 revived=2",
+    "STAT team=0 class=DarkPriest kills=3 deaths=0 assists=5 dmg=34 heal=81 caps=0 level=6 revives=1 revived=0",
+    "STAT team=1 class=Vanguard kills=2 deaths=8 assists=1 dmg=54 heal=0 caps=0 level=2 revives=0 revived=1",
+    "STAT team=1 class=Trapper kills=4 deaths=4 assists=0 dmg=38 heal=0 caps=0 level=3 revives=0 revived=1",
+    "STAT team=1 class=Frostweaver kills=2 deaths=4 assists=5 dmg=39 heal=0 caps=0 level=3 revives=0 revived=1",
+    "STAT team=1 class=Cleric kills=0 deaths=3 assists=4 dmg=29 heal=37 caps=0 level=3 revives=3 revived=0"
+  ],
+  "raw_status": "PASS",
+  "raw_error_count": 0,
+  "unique_error_samples": [],
+  "actual_private_userdata": {
+    "actual": "C:/Temp/bugtest/cycles/20261030T205006Z/crowns128-canonical-bot-match/private-ai-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+    "agent": "Codex-faisal3/bugtest",
+    "expected_prefix": "C:/Temp/bugtest/cycles/20261030T205006Z/crowns128-canonical-bot-match/private-ai-profile/APPDATA"
+  },
+  "profile_copy": false,
+  "raw_log_sha256": "f970eb66e44ca12d8f9898417b296f505c2285750438199a5a899c2af261db75",
+  "raw_log_bytes": 24565,
+  "compressed_full_log": "canonical-seed7-full.log.gz",
+  "simulation": "Canonical README --demo --seed=7 --fixed-fps60 --quit-after45000. AI-only fixedstep; no native human input/physical/render/perf/earnedaccount acceptance.",
+  "agent": "Codex-faisal3/bugtest"
+}

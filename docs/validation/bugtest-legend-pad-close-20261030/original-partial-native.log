@@ -1,0 +1,34 @@
+Agent: Codex-faisal3/bugtest
+Command: C:\Users\faisal\Tools\godot-4.3\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\Temp\bugtest\crowns-credits-main-cbbf0cc4 --script C:\Temp\bugtest\cycles\20261030T203820Z\crowns-credits-cbbf0cc4-source-native\native-credits-source.gd -- --bugtest-user-prefix=C:\Temp\bugtest\cycles\20261030T203820Z\crowns-credits-cbbf0cc4-source-native\fresh-private-source-profile\APPDATA --bugtest-receipt=C:\Temp\bugtest\cycles\20261030T203820Z\crowns-credits-cbbf0cc4-source-native\native-cycle.json --bugtest-phase=cycle --bugtest-prior=
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+BUGTEST_CHECK {"label":"actual private source-runtime userData before main/input","pass":true}
+BUGTEST_CHECK {"label":"headless normal time: rendered/physical/audio explicitly unsupported","pass":true}
+NET ready
+BUGTEST_CHECK {"label":"normal Title ready under unchanged source headless first-name rule","pass":true}
+BUGTEST_CHECK {"label":"fresh unseeded below-level20 account has unseen and locked legend","pass":true}
+BUGTEST_CHECK {"label":"actual current HUD input region: normal PROGRESS","pass":true}
+BUGTEST_CHECK {"label":"normal PROGRESS exposes source locked WATCH LEGEND region","pass":true}
+BUGTEST_CHECK {"label":"actual current HUD input region: locked WATCH LEGEND","pass":true}
+BUGTEST_CHECK {"label":"ordinary locked legend click gives no ceremony or progression","pass":true}
+BUGTEST_CHECK {"label":"actual current HUD input region: normal CREDITS","pass":true}
+BUGTEST_CHECK {"label":"normal CREDITS exposes ROLL CREDITS","pass":true}
+BUGTEST_CHECK {"label":"actual current HUD input region: first natural ROLL CREDITS","pass":true}
+LEGEND start mode=roll level=1
+BUGTEST_CHECK {"label":"normal ROLL CREDITS starts fresh unforced roll without progression mutation: first natural ROLL CREDITS","pass":true}
+BUGTEST_CHECK {"label":"modal legend consumes Left without underlying difficulty/account mutation","pass":true}
+LEGEND done
+BUGTEST_CHECK {"label":"natural roll/thanks completes to originating credits without seen flag/reward/menu activation","pass":true}
+BUGTEST_CHECK {"label":"actual current HUD input region: second roll keyboard skip","pass":true}
+LEGEND start mode=roll level=1
+BUGTEST_CHECK {"label":"normal ROLL CREDITS starts fresh unforced roll without progression mutation: second roll keyboard skip","pass":true}
+BUGTEST_CHECK {"label":"first normal Escape fast-forwards only the roll","pass":true}
+LEGEND done
+BUGTEST_CHECK {"label":"second Escape closes legend and closing press does not close underlying credits","pass":true}
+BUGTEST_CHECK {"label":"actual current HUD input region: third roll pad advance","pass":true}
+LEGEND start mode=roll level=1
+BUGTEST_CHECK {"label":"normal ROLL CREDITS starts fresh unforced roll without progression mutation: third roll pad advance","pass":true}
+BUGTEST_CHECK {"label":"normal pad A advances only legend to thanks","pass":true}
+LEGEND done
+BUGTEST_CHECK {"label":"normal pad B closes thanks without acting on underlying credits","pass":false}
+BUGTEST_FAILURE pad close

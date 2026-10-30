@@ -1,0 +1,24 @@
+Agent: Codex-faisal3/bugtest
+Command: C:\Users\faisal\Tools\godot-4.3\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\Temp\bugtest\crowns128-legend-pad-back-fix --script C:\Temp\bugtest\cycles\20261030T204527Z\crowns128-pad-close-candidate\native-pad-close-identical.gd -- --bugtest-user-prefix=C:\Temp\bugtest\cycles\20261030T204527Z\crowns128-pad-close-candidate\fresh-private-candidate-profile\APPDATA --bugtest-receipt=C:\Temp\bugtest\cycles\20261030T204527Z\crowns128-pad-close-candidate\native-candidate.json --bugtest-phase=cycle
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+BUGTEST_CHECK {"label":"actual private source-runtime userData before main/input","pass":true}
+BUGTEST_CHECK {"label":"headless normal time: rendered/physical/audio explicitly unsupported","pass":true}
+NET ready
+BUGTEST_CHECK {"label":"normal Title ready under unchanged source headless first-name rule","pass":true}
+BUGTEST_CHECK {"label":"diagnostic fresh unseeded level1 before any input","pass":true}
+BUGTEST_CHECK {"label":"actual current HUD input region: normal CREDITS only diagnostic","pass":true}
+BUGTEST_CHECK {"label":"diagnostic opens credits through production pointer","pass":true}
+BUGTEST_CHECK {"label":"actual current HUD input region: diagnostic fresh roll","pass":true}
+LEGEND start mode=roll level=1
+BUGTEST_CHECK {"label":"normal ROLL CREDITS starts fresh unforced roll without progression mutation: diagnostic fresh roll","pass":true}
+BUGTEST_CHECK {"label":"diagnostic normal pad A advances to thanks","pass":true}
+LEGEND done
+BUGTEST_CHECK {"label":"diagnostic conclusively classifies pad-close state without bypass","pass":true}
+BUGTEST_CHECK {"label":"normal Escape closes final overlay to Title","pass":true}
+BUGTEST_CHECK {"label":"actual current HUD input region: first normal EXIT arm","pass":true}
+BUGTEST_CHECK {"label":"first actual EXIT click only arms confirmation","pass":true}
+BUGTEST_RESULT {"agent":"Codex-faisal3/bugtest","checks":13,"completed":true,"events":15,"failures":0,"phase":"cycle","production_quit_requested":true,"rendered":false,"states":25}
+BUGTEST_CHECK {"label":"actual current HUD input region: second normal EXIT confirm","pass":true}
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)

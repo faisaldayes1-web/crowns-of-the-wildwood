@@ -2876,7 +2876,7 @@ func _pad_nav() -> void:
 	else:
 		nav_repeat = 0.0
 	cursor = cursor.clamp(Vector2.ZERO, get_viewport().get_visible_rect().size)
-	if Input.is_action_just_pressed("ui_back") and Engine.get_process_frames() != lobby_pad_frame:
+	if Input.is_action_just_pressed("ui_back") and Engine.get_process_frames() != lobby_pad_frame and Engine.get_process_frames() != swallow_frame:
 		if not playing and not menu_open and main_menu:
 			main_menu.back()
 		elif menu_open:
