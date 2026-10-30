@@ -26,9 +26,11 @@ const CREDITS := [
 	["A GAME BY", "Faisal"],
 	["BUILT WITH", "Godot Engine 4 (MIT licence)"],
 	["CHARACTERS, PROPS AND GEAR", "KayKit Adventurers, Dungeon, Medieval Hexagon, Halloween, Furniture and Restaurant packs by Kay Lousberg (CC0)"],
-	["TITLE LETTERING", "Lilita One by Juan Montoreano (SIL Open Font License)"],
-	["LOGO AND CARD ART", "Supplied by the project owner"],
-	["TEXTURES, ICONS, SOUND AND MUSIC", "Made by the game's own generator scripts"],
+	["LETTERING", "Lilita One by Juan Montoreano (SIL Open Font License) · Luckiest Guy by Astigmatic (Apache License 2.0)"],
+	["LOGO, KEY AND CARD ART", "Supplied by the project owner"],
+	["TEXTURES, ICONS, SOUND AND MUSIC", "Made by the game's own generator scripts; music played with VSCO 2 Community Edition samples by Versilian Studios (CC0)"],
+	["STEAM VERSION", "GodotSteam by GP Garcia and contributors (MIT) · Steamworks SDK by Valve"],
+	["LICENCES", "Full third-party notices are in THIRD-PARTY-NOTICES.txt beside the game"],
 ]
 
 var game
@@ -1190,11 +1192,11 @@ func _overlay_close_x(frame: Rect2, ov: bool) -> void:
 
 func _draw_credits() -> void:
 	var body := _overlay_frame("CREDITS")
-	var y := body.position.y + 70
+	var y := body.position.y + 64
 	for c in CREDITS:
 		ttext(Vector2(body.position.x, y), c[0], 18, Color(1.0, 0.8, 0.38), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 4)
-		var used: float = _centered_paragraph(Vector2(body.position.x + 60, y + 24), c[1], 14, body.size.x - 120)
-		y += 46 + used
+		var used: float = _centered_paragraph(Vector2(body.position.x + 60, y + 22), c[1], 14, body.size.x - 120)
+		y += 52 + used   # eight rows with breathing room (licences and the Steam version were added)
 
 
 func _centered_paragraph(pos: Vector2, text: String, size: int, width: float) -> float:

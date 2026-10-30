@@ -80,8 +80,11 @@ if grep -qE 'SCRIPT ERROR|Parse Error|^ERROR:' "$LOGS/export.log"; then
 	grep -m 10 -E 'SCRIPT ERROR|Parse Error|^ERROR:' "$LOGS/export.log"; exit 1
 fi
 [ "$DEV" = 1 ] && [ "$APP_ID" != "0" ] && echo "$APP_ID" > "$OUT/steam_appid.txt"
+# Licence notices ship beside the exe (Godot's MIT terms, the fonts, GodotSteam, Steamworks).
+(cd "$ROOT" && timeout 300 "$GODOT" --headless --path . --script tools/write_notices.gd -- "$OUT/THIRD-PARTY-NOTICES.txt" --steam >"$LOGS/notices.log" 2>&1) || {
+	tail -20 "$LOGS/notices.log"; echo "notices failed"; exit 1; }
 ls -la "$OUT"
-for f in CrownsOfTheWildwood.exe steam_api64.dll libgodotsteam.windows.template_release.x86_64.dll; do
+for f in CrownsOfTheWildwood.exe steam_api64.dll libgodotsteam.windows.template_release.x86_64.dll THIRD-PARTY-NOTICES.txt; do
 	[ -s "$OUT/$f" ] || { echo "missing or empty $f"; exit 1; }
 done
 echo "STEAM BUILD OK"
