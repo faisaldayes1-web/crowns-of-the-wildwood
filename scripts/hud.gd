@@ -6511,8 +6511,22 @@ func _draw_chat() -> void:
 		if y < rect.position.y + tab_h + 4:
 			break
 		var row := Rect2(rect.position.x + 6, y, rect.size.x - 12, h)
-		draw_rect(row, Color(0.08, 0.09, 0.14, (0.75 if typing else 0.6) * alpha))
-		draw_rect(row, Color(0.3, 0.32, 0.4, 0.5 * alpha), false, 1.0)
+		# Each row on the family's dark slate in a thin brass rim (Knight C's
+		# objective ribbon), not a flat blue-grey box.
+		var rsb := StyleBoxFlat.new()
+		rsb.bg_color = Color(0.07, 0.07, 0.07, (0.86 if typing else 0.74) * alpha)
+		rsb.set_corner_radius_all(6)
+		rsb.set_border_width_all(1)
+		rsb.border_color = Color(BRASS, 0.75 * alpha)
+		draw_style_box(rsb, row)
+		draw_rect(Rect2(row.position + Vector2(6, 2), Vector2(row.size.x - 12, 1)), Color(1, 0.9, 0.6, 0.18 * alpha))
+		if not named:
+			# A system line (onboarding, phase news) gets gold scroll ends.
+			for ex in [row.position.x + 1.0, row.end.x - 1.0]:
+				var sx := 1.0 if ex < row.get_center().x else -1.0
+				var e := PackedVector2Array([Vector2(ex, row.position.y + 4), Vector2(ex - sx * 5.0, row.get_center().y), Vector2(ex, row.end.y - 4), Vector2(ex + sx * 3.0, row.get_center().y)])
+				draw_colored_polygon(e, Color(BRASS, alpha))
+				draw_circle(Vector2(ex - sx * 5.0, row.get_center().y), 2.2, Color(GOLD.lightened(0.3), alpha))
 		var col: Color = m.color
 		col.a = alpha
 		if named:
