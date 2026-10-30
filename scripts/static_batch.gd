@@ -242,7 +242,13 @@ static func run(game: Node3D) -> Dictionary:
 	var cache := {}
 	var batched: Array[MeshInstance3D] = []
 	var skipped := 0
+	var seen := 0
 	for n in game.find_children("*", "MeshInstance3D", true, false):
+		seen += 1
+		if seen % 64 == 0:
+			# (Built behind the title, the batch waits a frame between slices
+			# so the menus stay smooth; at a match start this never waits.)
+			await _slice(game)
 		var mi := n as MeshInstance3D
 		if mi.mesh == null or not mi.is_visible_in_tree() or mi.skin != null or mi.material_overlay != null:
 			continue
@@ -304,6 +310,7 @@ static func run(game: Node3D) -> Dictionary:
 	game.add_child(holder)
 	var made := 0
 	for key in buckets:
+		await _slice(game)
 		var b: Dictionary = buckets[key]
 		var start := 0
 		while start < b.items.size():
@@ -319,6 +326,11 @@ static func run(game: Node3D) -> Dictionary:
 	print("BATCH merged %d scenery meshes (%d left alone) into %d meshes; %d materials became %d; %d ms (%d ms reading meshes)" % [
 		info.nodes, info.skipped, info.meshes_out, info.materials_in, info.materials_out, info.ms, t_collect])
 	return info
+
+
+static func _slice(game: Node) -> void:
+	if game.has_method("_world_build_frame"):   # (the title diorama batches itself too)
+		await game._world_build_frame()
 
 
 static func _emit(holder: Node3D, b: Dictionary, start: int) -> int:

@@ -65,5 +65,10 @@ func _run() -> void:
 	check(drawn_at >= 0 and drawn_at < returned_at, "a frame is drawn before the match build ends")
 	check(art_drawn, "that frame has the loading art up")
 	check(art_ms < 500.0, "the art is drawn within 0.5 s of the start (%.0f ms)" % art_ms)
+	var deadline_ready := Time.get_ticks_msec() + 120000
+	while is_instance_valid(game.loading_layer) and Time.get_ticks_msec() < deadline_ready:
+		await process_frame
+	print("MATCH_READY ms=%.0f" % ((Time.get_ticks_usec() - called_at) / 1000.0))
+	check(not is_instance_valid(game.loading_layer), "the loading art goes once the match is ready")
 	print("match start art test: %d failure(s)" % failures)
 	quit(1 if failures else 0)
