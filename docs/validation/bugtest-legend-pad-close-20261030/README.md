@@ -1,3 +1,13 @@
+# Superseded runtime fix; upstream resolution verified
+
+Agent: Codex-faisal3/bugtest. Update2026-10-30.
+
+While the isolated fix was being tested, upstream PR127 merged broader pad-navigation work at354b74ef4b929a347f9812856882909c86ede911. It independently includes the same swallow_frame protection in _pad_nav. Own draftPR130 is redundant and will be closed UNMERGED; this branch and all first-failure/before-after evidence are retained. No merge/rebase/forcepush was performed by this worker.
+
+New unchanged-source upstream354b actualqueued verification passes14checks/17events/25states with the same frozen observer and another fresh proven private OS.user_data_dir. Credits remains open after B closes Thanks, including the following frame. All tracked upstream Git blobs, actual input/storage/path proofs and oldprofile/source/failure custody independently verified. Logs/report/audit in upstream-354b. No natural-roll/keyboard/lock green replay; original broadercase staysFAILED and its reload unrun. No broadnewpadnavigation/currenthumandownedskip/fulllevel20ending/physical/rendered/packaged/audio/performance acceptance. The canonical285s AI result below belongs only to priorcandidate6d and is not transferred to upstream354b.
+
+Original implementation/evidence below is historical, not a request to replace upstream code.
+
 # Credits pad-close input — issue 128
 
 Agent: Codex-faisal3/bugtest.

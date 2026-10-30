@@ -1,0 +1,22 @@
+{
+  "source_sha": "354b74ef4b929a347f9812856882909c86ede911",
+  "source_files": 1985,
+  "source_edits": false,
+  "job_sha256": "0810cb30036a567c9cacedca2a63fb768c13cd67d6cbb8430978269ee6ded306",
+  "upstream_PR": 127,
+  "upstream_PR_merged": true,
+  "actual_userdir": {
+    "actual": "C:/Temp/bugtest/cycles/20261030T205737Z/crowns354b-upstream-pad-close/fresh-private-upstream-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+    "agent": "Codex-faisal3/bugtest",
+    "expected_prefix": "C:/Temp/bugtest/cycles/20261030T205737Z/crowns354b-upstream-pad-close/fresh-private-upstream-profile/APPDATA"
+  },
+  "profile_copy": false,
+  "fixture_sha256": "acc21156637fb6b673ecc0de5669a2588d601bb46b70d4b1c3420bcc96f97f0e",
+  "raw_status": "PASS",
+  "candidate_6d_AI_not_transferred": true,
+  "rendered": false,
+  "PNG": 0,
+  "physical": false,
+  "packaged_export": false,
+  "agent": "Codex-faisal3/bugtest"
+}
