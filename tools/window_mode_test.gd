@@ -15,14 +15,23 @@ func check(ok: bool, what: String) -> void:
 		fails += 1
 
 
+func _menu_ready(game) -> void:
+	## The world and menus build over several frames behind the loading art:
+	## wait for the title before pressing its buttons (main_menu was null 5
+	## frames in, UI-13).
+	for i in 3600:
+		if game.main_menu != null and not game.menus_warming and not is_instance_valid(game.loading_layer):
+			return
+		await process_frame
+
+
 func _init() -> void:
 	if not Isolated.ok("tools/window_mode_test.gd"):   # it writes the save: only in a throwaway user dir
 		quit(2)
 		return
 	var game = load("res://scenes/main.tscn").instantiate()
 	root.add_child(game)
-	for i in 5:
-		await process_frame
+	await _menu_ready(game)
 	for want in ["maximized", "fullscreen"]:
 		if want == "maximized":
 			game.fullscreen = false
@@ -48,6 +57,7 @@ func _init() -> void:
 			await process_frame
 		game = load("res://scenes/main.tscn").instantiate()   # what the end of a match does (scene reload)
 		root.add_child(game)
+		await _menu_ready(game)
 		for i in 10:
 			await process_frame
 		check(DisplayServer.window_get_mode() == mode, "%s survives the reload after a match (mode %d)" % [want, DisplayServer.window_get_mode()])

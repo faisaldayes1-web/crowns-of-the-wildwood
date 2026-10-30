@@ -647,8 +647,9 @@ func _process(delta: float) -> void:
 			# A finger on the summary's buttons (a mouse click goes through hud._input).
 			hud._click_end(touch_tap)
 			touch_tap = Vector2(-1, -1)
-		if Input.is_action_just_pressed("restart"):
+		if Input.is_action_just_pressed("restart") or Input.is_action_just_pressed("ui_back"):
 			# The first press skips the tally; once it has played, go on.
+			# (B too: a pad player reaches for it to leave a screen, UI-22.)
 			if summary and not summary.done():
 				summary.skip()
 			else:
