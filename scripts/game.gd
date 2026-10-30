@@ -10889,7 +10889,10 @@ func apply_graphics() -> void:
 	# (FSR needs Forward+; the Compatibility renderer scales bilinear.)
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 and RenderingServer.get_rendering_device() != null else Viewport.SCALING_3D_MODE_BILINEAR
 	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 8192][q]
-	RenderingServer.directional_shadow_atlas_set_size([2048, 4096, 8192, 8192][q], true)
+	# High takes the 4096 sun map (four 2048 cascades): from the match camera it
+	# looks the same as 8192 and costs ~3.6 ms less GPU a frame, the step that
+	# kept High under 60 fps (PERF-03). Ultra keeps 8192.
+	RenderingServer.directional_shadow_atlas_set_size([2048, 4096, 4096, 8192][q], true)
 	RenderingServer.directional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
 	RenderingServer.positional_soft_shadow_filter_set_quality([RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW, RenderingServer.SHADOW_QUALITY_SOFT_HIGH, RenderingServer.SHADOW_QUALITY_SOFT_ULTRA][q])
 	# Clean, smooth edges at every preset: the low soft-shadow filters
