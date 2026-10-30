@@ -259,7 +259,9 @@ func draw(hud, stage, team: int) -> void:
 	flash = maxf(flash - h.get_process_delta_time(), 0.0)
 	if pick.is_empty():
 		show()
+	var ox: float = menu._char_x()   # centred on a 21:9 window, like Create Your Character
 	if stage:
+		stage.hero_frac_x = (0.39 * 1280.0 + ox) / maxf(h.size.x, 1.0)
 		stage.show_hero(team, preview_role(), preview_custom(), 1)
 		# Capes hang at the back: turn the hero round to show them.
 		var want := 2.5 if not pick.is_empty() and pick[0] == "cape" else 0.0
@@ -272,14 +274,14 @@ func draw(hud, stage, team: int) -> void:
 			if top == "epic" and not instant_turn:
 				want += sin(t * 0.9) * 0.8   # Epic: a slow sway to show it off
 			stage.hero_spin = want if instant_turn else lerpf(stage.hero_spin, want, minf(h.get_process_delta_time() * 5.0, 1.0))
-	menu.plaque(632, 22, "STORE", 420)
-	menu.icon("crown", Vector2(632, 20), 46)
-	_wallet(Rect2(1012, 14, 240, 58))
-	_chests(Rect2(28, 14, 340, 58))
+	menu.plaque(632 + ox, 22, "STORE", 420)
+	menu.icon("crown", Vector2(632 + ox, 20), 46)
+	_wallet(Rect2(1012 + ox, 14, 240, 58))
+	_chests(Rect2(28 + ox, 14, 340, 58))
 	# Tabs down the left, like Create Your Character's.
-	h._ivy(Vector2(52, 128 + TABS.size() * 62 - 6), Vector2(0, -1), TABS.size() * 62.0 - 14.0, 41)
+	h._ivy(Vector2(52 + ox, 128 + TABS.size() * 62 - 6), Vector2(0, -1), TABS.size() * 62.0 - 14.0, 41)
 	for i in TABS.size():
-		var r := Rect2(60, 128 + i * 62, 272, 52)
+		var r := Rect2(60 + ox, 128 + i * 62, 272, 52)
 		var sel := tab == i
 		var ov: bool = menu.button(r, "store_tab", i)
 		var rr := r.grow(2) if ov else r
@@ -298,9 +300,9 @@ func draw(hud, stage, team: int) -> void:
 		menu.ttext(rr.position + Vector2(62, rr.size.y / 2.0 + 7), TABS[i][0], 19, Color(1.0, 0.92, 0.65) if sel else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		var have := items_in(i).filter(func(it): return owns(game, it[0], it[1])).size()
 		h._text(Vector2(rr.end.x - 96, rr.position.y + rr.size.y / 2.0 + 5), "%d/%d" % [have, items_in(i).size()], 11, Color(0.85, 0.82, 0.72), HORIZONTAL_ALIGNMENT_RIGHT, 60, 2)
-	_grid(Rect2(832, 122, 430, 452))
-	_detail(Rect2(832, 586, 430, 106))
-	menu.wood_button(Rect2(60, 652, 160, 52), "BACK", "back", null, "", 20)
+	_grid(Rect2(832 + ox, 122, 430, 452))
+	_detail(Rect2(832 + ox, 586, 430, 106))
+	menu.wood_button(Rect2(60 + ox, 652, 160, 52), "BACK", "back", null, "", 20)
 	if flash > 0.0:
 		_purchased()
 	if not reveal.is_empty():
@@ -312,7 +314,7 @@ func _purchased() -> void:
 	var k := clampf(flash / 2.0, 0.0, 1.0)
 	var a := clampf(flash / 0.5, 0.0, 1.0)
 	var pop := 1.0 + 0.25 * sin(clampf((2.0 - flash) / 0.25, 0.0, 1.0) * PI)
-	var c := Vector2(500, 150)
+	var c := Vector2(500 + menu._char_x(), 150)
 	h.draw_set_transform(c, 0.0, Vector2(pop, pop))
 	var band := Rect2(-150, -26, 300, 52)
 	h._plate(band, Color(0.55, 0.32, 0.05, 0.95 * a), Color(1.0, 0.85, 0.35, a), 12, 3)
@@ -670,8 +672,16 @@ func _detail(r: Rect2) -> void:
 			"frame": game.banner_frame, "title": Stats.BANNER_TITLES[game.banner_title][1], "level": game.account_level(), "team": 0}
 		b[kind.trim_prefix("banner_")] = i
 		h._draw_banner(Rect2(390, 104, 400, 66), b)
-	menu.ttext(Vector2(r.position.x + 20, r.position.y + 34), item_name(kind, i).to_upper(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
-	h._text(Vector2(r.position.x + 20, r.position.y + 56), "%s  ·  %s" % [rar[0].to_upper(), KIND_LABEL[kind]], 12, rar[1].lightened(0.15), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# The name and the rarity line stop short of the BUY button (its arrow
+	# reaches ~12 px left of its rect) instead of running under it.
+	var text_w: float = r.size.x - 232.0 - 12.0 - 20.0
+	var nm: String = item_name(kind, i).to_upper()
+	menu.ttext(Vector2(r.position.x + 20, r.position.y + 34), nm, menu.fit_size(nm, 22, text_w), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	var rl := "%s  ·  %s" % [rar[0].to_upper(), KIND_LABEL[kind]]
+	var rs := 12
+	while rs > 9 and h._text_width(rl, rs) > text_w:
+		rs -= 1
+	h._text(Vector2(r.position.x + 20, r.position.y + 56), rl, rs, rar[1].lightened(0.15), HORIZONTAL_ALIGNMENT_LEFT, text_w, 2)
 	var note := "Looks only: no effect in a fight."
 	match kind:
 		"hat": note = "Worn while you have no class hat on."

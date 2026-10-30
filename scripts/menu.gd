@@ -562,14 +562,18 @@ func _map_card(r: Rect2, i: int) -> void:
 
 func _draw_character() -> void:
 	if stage:
+		# The layout is drawn for 1280 wide: on a wider window (21:9) centre it,
+		# hero included, instead of leaving it against the left edge.
+		stage.hero_frac_x = (0.39 * 1280.0 + _char_x()) / maxf(h.size.x, 1.0)
 		stage.show_hero(preview_team, preview_role, game.hero_custom(), preview_rank)
-	plaque(632, 22, "CREATE YOUR CHARACTER", 600)
-	icon("crown", Vector2(632, 20), 46)
+	var ox := _char_x()
+	plaque(632 + ox, 22, "CREATE YOUR CHARACTER", 600)
+	icon("crown", Vector2(632 + ox, 20), 46)
 	# Tabs down the left, an ivy vine climbing their left edge (Faisal's
 	# create-character reference, 2026-10-09).
-	h._ivy(Vector2(52, 128 + CHAR_TABS.size() * 62 - 6), Vector2(0, -1), CHAR_TABS.size() * 62.0 - 14.0, 31)
+	h._ivy(Vector2(52 + ox, 128 + CHAR_TABS.size() * 62 - 6), Vector2(0, -1), CHAR_TABS.size() * 62.0 - 14.0, 31)
 	for i in CHAR_TABS.size():
-		var r := Rect2(60, 128 + i * 62, 272, 52)
+		var r := Rect2(60 + ox, 128 + i * 62, 272, 52)
 		var sel := char_tab == i
 		var ov := button(r, "char_tab", i)
 		var rr := r.grow(2) if ov else r
@@ -592,7 +596,7 @@ func _draw_character() -> void:
 			icon("lock", rr.position + Vector2(rr.size.x - 24, rr.size.y / 2.0), 24)
 	# Side switch under the hero: a green stag plate and a blue crown plate.
 	for k in 2:
-		var r := Rect2(410 + k * 202, 630, 196, 56)
+		var r := Rect2(410 + ox + k * 202, 630, 196, 56)
 		var on := preview_team == k
 		var ov := button(r, "preview_team", k)
 		var rr := r.grow(2) if ov else r
@@ -611,7 +615,7 @@ func _draw_character() -> void:
 		ttext(Vector2(rr.position.x + 64, rr.position.y + 38), "ELF" if k == 0 else "HUMAN", 24, Color.WHITE if on else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, rr.size.x - 76, 5)
 	_hero_turner()
 	# The panel on the right.
-	var panel := Rect2(832, 110, 430, 480)
+	var panel := Rect2(832 + ox, 110, 430, 480)
 	slate(panel)
 	# The open tab's name on a wood plaque over the panel's top edge, ivy
 	# sprigs at both ends, as in the reference.
@@ -628,7 +632,16 @@ func _draw_character() -> void:
 		3: _tab_armor(panel)
 		4: _tab_colors(panel)
 		5: _tab_emblem(panel)
-	green_button(Rect2(876, 604, 340, 70), "CONFIRM", "confirm", true, false)
+	green_button(Rect2(876 + ox, 604, 340, 70), "CONFIRM", "confirm", true, false)
+
+
+func _char_x() -> float:
+	## How far the 1280-wide character and store layouts shift right to sit centred.
+	return maxf(0.0, (h.size.x - 1280.0) / 2.0) if screen in ["character", "store"] else 0.0
+
+
+func _hero_area() -> Rect2:
+	return Rect2(HERO_AREA.position + Vector2(_char_x(), 0), HERO_AREA.size)
 
 
 func _hero_turner() -> void:
@@ -638,7 +651,7 @@ func _hero_turner() -> void:
 	## arrows either side (a tap turns 45 degrees).
 	if stage == null:
 		return
-	var area := HERO_AREA
+	var area := _hero_area()
 	var m: Vector2 = h._mouse()
 	var held := Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 	if held and (turn_drag or (area.has_point(m) and not turn_was_held)):
@@ -659,7 +672,7 @@ func _hero_turner() -> void:
 		stage.hero_turn += stick * h.get_process_delta_time() * 3.2
 		stage.hero_turn_goal = stage.hero_turn
 	for k in 2:
-		var c := Vector2(HERO_AREA.position.x + 18.0 if k == 0 else HERO_AREA.end.x - 18.0, 560.0)
+		var c := Vector2(_hero_area().position.x + 18.0 if k == 0 else _hero_area().end.x - 18.0, 560.0)
 		var r := Rect2(c - Vector2(24, 24), Vector2(48, 48))
 		var ov := button(r, "hero_turn", -1 if k == 0 else 1)
 		h.draw_circle(c + Vector2(0, 3), 25, Color(0, 0, 0, 0.35))
@@ -673,7 +686,7 @@ func _hero_turner() -> void:
 		h.draw_colored_polygon(PackedVector2Array([tip + Vector2(sgn * 5.0, -4.0), tip + Vector2(-sgn * 5.0, -4.0), tip + Vector2(0, 5.0)]), col)
 	var hint := "Right stick to turn" if game.pad_active else "Drag to turn"
 	var tw: float = h._text_width(hint, 13) + 24.0
-	var pill := Rect2(HERO_AREA.get_center().x - tw / 2.0, 549, tw, 22)
+	var pill := Rect2(_hero_area().get_center().x - tw / 2.0, 549, tw, 22)
 	h._plate(pill, Color(0.08, 0.05, 0.03, 0.8), Color(0.62, 0.48, 0.24), 11, 1)
 	h._text(Vector2(pill.position.x, pill.end.y - 6), hint, 13, Color(1.0, 0.94, 0.8), HORIZONTAL_ALIGNMENT_CENTER, pill.size.x, 2)
 
@@ -1359,7 +1372,7 @@ static func tutorial_image(i: int) -> Texture2D:
 func _draw_progress() -> void:
 	var body := _overlay_frame("PROGRESS")
 	var panel := body.grow(10)
-	h._draw_title_progress(panel)
+	h._draw_title_progress(panel, false)
 	# The progress board paints over the frame's close button: draw it again on top (UI-09).
 	var frame := body.grow(40)
 	_overlay_close_x(frame, Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34).has_point(h.get_local_mouse_position()))
@@ -1432,7 +1445,7 @@ func _draw_players() -> void:
 	var ny := body.position.y + 78 + mini(list.size(), MAX_PLAYERS) * 58 + 6
 	if list.size() < MAX_PLAYERS:
 		wood_button(Rect2(x, ny, 220, 44), "+ NEW PLAYER", "player_new", null, "", 18)
-	var tip := "Type your name, then press Enter." if game.name_editing else "Tap your name to change it. DELETE asks twice and cannot be undone."
+	var tip := "Type your name, then press Enter." if game.name_editing else "Select your name to change it. DELETE asks twice and cannot be undone."
 	h._text(Vector2(x + 236, ny + 28), tip, 11, Color(0.8, 0.78, 0.72), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	h._text(Vector2(body.position.x, body.end.y - 6), "Saved on this device. To take a player to another device, use EXPORT CODE on the PROGRESS screen (open it from the level chip).",
 		11, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
