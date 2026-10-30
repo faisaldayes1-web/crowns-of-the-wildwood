@@ -202,6 +202,8 @@ func wood_button(r: Rect2, label: String, id: String, arg = null, ic: String = "
 	if ic != "":
 		icon(ic, Vector2(rr.position.x + 34, rr.get_center().y), rr.size.y * 0.7, mod)
 		tx = rr.position.x + 64
+	# Shrink a long label (big gold, a 12-letter name) to stay on the plank (NUM-01, NUM-10).
+	size = fit_size(label, size, rr.end.x - 16 - tx)
 	ttext(Vector2(tx, rr.get_center().y + size * 0.36), label, size, Color(1, 0.97, 0.9) if enabled else Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
 
 
@@ -322,7 +324,7 @@ func _draw_title() -> void:
 	slate(Rect2(0, 0, w, 48))
 	icon("crown", Vector2(28, 24), 32)
 	ttext(Vector2(54, 32), "CROWNS OF THE WILDWOOD", 25)
-	wood_button(Rect2(w - 330, 5, 155, 38), "%s GOLD" % gold_text(game.account_gold), "store", null, "crown", 15)
+	wood_button(Rect2(w - 360, 5, 185, 38), "%s GOLD" % gold_text(game.account_gold), "store", null, "crown", 15)
 	wood_button(Rect2(w - 170, 5, 160, 38), "PLAYERS", "players", null, "gamepad", 15)
 	var logo: Texture2D = load("res://assets/ui/logo.png")
 	if logo:
@@ -343,7 +345,7 @@ func _draw_title() -> void:
 		wood_button(Rect2(x, y + (86 if touch else 66) + i * (86 if touch else 52), 322 if touch else 246, 80 if touch else 48), "CLICK AGAIN" if i == 4 and exit_armed > 0 else str(ids[i]).to_upper(), ids[i], null, glyphs[i], 27 if touch else 21)
 	wood_button(Rect2(24, h.size.y - (90 if touch else 62), 200 if touch else 166, 80 if touch else 46), "STORE", "store", null, "crown", 21)
 	wood_button(Rect2(236 if touch else 202, h.size.y - (90 if touch else 62), 220 if touch else 180, 80 if touch else 46), "ONLINE", "online", null, "gamepad", 21)
-	wood_button(Rect2(24, h.size.y - (178 if touch else 112), 300 if touch else 220, 80 if touch else 40), "LV %d  %s" % [game.account_level(), game.hero_name], "progress", null, "", 16)
+	wood_button(Rect2(24, h.size.y - (178 if touch else 112), 300 if touch else 260, 80 if touch else 40), "LV %d  %s" % [game.account_level(), game.hero_name], "progress", null, "", 16)
 
 
 # --- Online -----------------------------------------------------------------------

@@ -408,7 +408,15 @@ func _board_panel(h, r: Rect2, _t: float) -> void:
 				h.draw_rect(row, Color(0, 0, 0, 0.12))
 			var ty: float = row.get_center().y + 5.0
 			_bold(h, row.position + Vector2(8, ty - row.position.y), "%d." % (i + 1), 11, Color(0.85, 0.82, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-			_bold(h, row.position + Vector2(26, ty - row.position.y), u.display_name, 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, block.size.x * 0.32 - 60, 2)
+			# A name too wide for its column ends in an ellipsis instead of a hard cut (NUM-11).
+			var name_w: float = block.size.x * 0.32 - 60
+			var shown_name: String = u.display_name
+			var nf: Font = h.bar_font if h.bar_font else h.font
+			if nf.get_string_size(shown_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x > name_w:
+				while shown_name.length() > 1 and nf.get_string_size(shown_name + "…", HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x > name_w:
+					shown_name = shown_name.left(shown_name.length() - 1)
+				shown_name += "…"
+			_bold(h, row.position + Vector2(26, ty - row.position.y), shown_name, 12, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, name_w, 2)
 			var values := [str(game.unit_score(u)), str(u.kills), str(u.deaths), str(u.assists), str(u.captures), str(u.damage_dealt), _ping(u)]
 			for c in BOARD_COLS.size():
 				var cx: float = block.position.x + block.size.x * BOARD_COLS[c][1]

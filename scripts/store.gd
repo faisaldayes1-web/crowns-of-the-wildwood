@@ -275,7 +275,7 @@ func draw(hud, stage, team: int) -> void:
 	menu.plaque(632, 22, "STORE", 420)
 	menu.icon("crown", Vector2(632, 20), 46)
 	_wallet(Rect2(1012, 14, 240, 58))
-	_chests(Rect2(28, 14, 300, 58))
+	_chests(Rect2(28, 14, 340, 58))
 	# Tabs down the left, like Create Your Character's.
 	h._ivy(Vector2(52, 128 + TABS.size() * 62 - 6), Vector2(0, -1), TABS.size() * 62.0 - 14.0, 41)
 	for i in TABS.size():
@@ -340,10 +340,11 @@ func _chests(r: Rect2) -> void:
 	h._icon("chest", r.position + Vector2(36, r.size.y / 2.0 + bob), 11.0, Color.WHITE, n == 0)
 	menu.ttext(Vector2(r.position.x + 66, r.position.y + 28), "MATCH CHESTS", 16, Color(1.0, 0.92, 0.7), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	h._text(Vector2(r.position.x + 66, r.position.y + 47), "x%d  ·  one per match" % n, 12, Color(0.9, 0.88, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var b := Rect2(r.end.x - 92, r.position.y + 12, 80, r.size.y - 24)
+	# Wide enough that the green pill between the arrow ends holds OPEN (NUM-03: at 80 px it shrank to a bump).
+	var b := Rect2(r.end.x - 150, r.position.y + 8, 140, r.size.y - 16)
 	var ov: bool = menu.button(b, "store_chest") and n > 0
 	menu.nine("btn_green" if n > 0 else "btn_green_off", b.grow(2) if ov else b, 48, 20, 48, 20)
-	menu.ttext(Vector2(b.position.x, b.position.y + 26), "OPEN", 17, Color.WHITE if n > 0 else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 4)
+	menu.ttext(Vector2(b.position.x, b.position.y + 28), "OPEN", menu.fit_size("OPEN", 17, b.size.x - 84), Color.WHITE if n > 0 else Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 4)
 
 
 func _grid(panel: Rect2) -> void:
@@ -680,16 +681,26 @@ func _detail(r: Rect2) -> void:
 	h._text(Vector2(r.position.x + 20, r.position.y + 76), note, 11, Color(0.85, 0.83, 0.78), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	# Kept inside the card with a margin: the green button's arrows reach
 	# past its rect.
-	var b := Rect2(r.end.x - 202, r.position.y + 22, 170, 54)
+	var b := Rect2(r.end.x - 232, r.position.y + 22, 200, 54)
 	var have := owns(game, kind, i)
 	if not have:
 		var cost := price(pick)
 		var can: bool = game.account_gold >= cost
 		var ov: bool = menu.button(b, "store_buy") and can
 		menu.nine("btn_green" if can else "btn_green_off", b.grow(3) if ov else b, 48, 20, 48, 20, Color(1.12, 1.12, 1.12) if ov else Color.WHITE)
-		menu.ttext(Vector2(b.position.x + 38, b.position.y + 36), "BUY", 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
-		h._icon("coin", Vector2(b.position.x + 100, b.position.y + 27), 4.5, Color.WHITE)
-		menu.ttext(Vector2(b.position.x + 112, b.position.y + 35), "%d" % cost, 18, Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
+		# BUY, the coin and the price centred on the green pill between the
+		# arrow ends, shrunk together to fit (NUM-02: 4-digit prices spilled off).
+		var inner := b.grow_individual(-42, 0, -42, 0)
+		var price_s := "%d" % cost
+		var fs := 22
+		while fs > 12 and menu.font_title and menu.font_title.get_string_size("BUY", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 22 + menu.font_title.get_string_size(price_s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 4).x > inner.size.x:
+			fs -= 1
+		var bw: float = menu.font_title.get_string_size("BUY", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x if menu.font_title else 40.0
+		var pw: float = menu.font_title.get_string_size(price_s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs - 4).x if menu.font_title else 40.0
+		var bx := inner.get_center().x - (bw + 22 + pw) / 2.0
+		menu.ttext(Vector2(bx, b.position.y + 35), "BUY", fs, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+		h._icon("coin", Vector2(bx + bw + 11, b.position.y + 27), 4.5, Color.WHITE)
+		menu.ttext(Vector2(bx + bw + 22, b.position.y + 35), price_s, fs - 4, Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 		if not can:
 			h._text(Vector2(b.position.x, b.end.y + 13), "Need %d more gold" % (cost - game.account_gold), 11, Color(1.0, 0.7, 0.6), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 	elif equipped(game, kind) != i:

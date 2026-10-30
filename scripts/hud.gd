@@ -998,7 +998,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 	# The energy cost in the top-left corner, so you can see which moves
 	# are cheap bread-and-butter and which ones to spend sparingly.
 	if cost > 0.0:
-		var tag := Rect2(rect.position + Vector2(2, 2), Vector2(20, 12))
+		var tag := Rect2(rect.position + Vector2(2, 2), Vector2(maxf(20.0, _text_width(str(int(cost)), 9) + 6.0), 12))
 		draw_rect(tag, Color(0, 0, 0, 0.55))
 		_text(tag.position + Vector2(0, 10), str(int(cost)), 9, cost_color if usable else cost_color.darkened(0.4), HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 0)
 	# Rank pips in the top-right corner.
@@ -3148,7 +3148,7 @@ func _draw_kill_feed() -> void:
 		kc.a = a
 		vc.a = a
 		draw_rect(Rect2(x - kw - vw - 62, y - 9, kw + vw + 68, 18), Color(0.05, 0.05, 0.08, 0.45 * a))
-		_text(Vector2(x - vw, y - 7), k.victim, 11, vc, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(x - vw, y + 4), k.victim, 11, vc, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)   # baseline inside the y-9..y+9 strip (NUM-05)
 		_icon(_class_icon(k.vrole), Vector2(x - vw - 10, y), 6, vc)
 		if k.get("finish", false):
 			# A finisher: crossed red blades instead of the sword.
@@ -3156,7 +3156,7 @@ func _draw_kill_feed() -> void:
 				draw_line(Vector2(x - vw - 28, y) + Vector2(-5 * sg, -5), Vector2(x - vw - 28, y) + Vector2(5 * sg, 5), Color(1.0, 0.3, 0.25, a), 2.5)
 		else:
 			_icon("sword", Vector2(x - vw - 28, y), 6, Color(1.0, 0.85, 0.3, a))
-		_text(Vector2(x - vw - 46 - kw, y - 7), k.killer, 11, kc, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(x - vw - 46 - kw, y + 4), k.killer, 11, kc, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_icon(_class_icon(k.krole), Vector2(x - vw - 56 - kw, y), 6, kc)
 		y += 20.0
 		shown += 1
@@ -3755,7 +3755,8 @@ func _draw_quick_upgrade(p) -> void:
 		var icon: String = _attack_icon(p.role, p.stats()) if t == 0 else ("vigor" if t == 3 else str(abil[t - 1].get("icon", abil[t - 1].kind)))
 		_hex_tile(hc, 19.0, BRASS if ready else Color(0.45, 0.42, 0.38), Color(0.62, 0.4, 0.14), false, ready)
 		_icon(icon, hc, 9.0, Color.WHITE, not ready)
-		_keycap(hc + Vector2(15, -17), _k("rank_%d" % (t + 1)), 18)
+		var qk := _k("rank_%d" % (t + 1))
+		_keycap(hc + Vector2(15, -17), qk, maxf(18.0, _text_width(qk, 10) + 8.0))   # pad names ("D-right") outgrew 18 px (NUM-04)
 		_text(Vector2(hc.x - tw / 2.0, y + bh - 9), "LV %d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_CENTER, tw, 2)
 		var r := Rect2(hc - Vector2(tw / 2.0, 26), Vector2(tw, 56))
 		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
@@ -3875,7 +3876,7 @@ func _status_tags(p, panel: Rect2) -> void:
 	## Tags above the player panel: a blessing or spawn protection, a rank
 	## point waiting and the veteran streak.
 	var tag_x := panel.position.x - 40.0
-	var tag_y := panel.position.y - 34.0
+	var tag_y := panel.position.y - 48.0   # clear of the hero name drawn at panel.y - 12 (NUM-06)
 	if p.buff != "" and p.buff_timer > 0.0:
 		var bc: Color = Stats.BLESSING_KINDS[p.buff].color
 		var badge := Rect2(Vector2(tag_x, tag_y), Vector2(222, 24))
@@ -3893,11 +3894,12 @@ func _status_tags(p, panel: Rect2) -> void:
 		tag_x += 178.0
 	if p.points > 0 and not p.dead:
 		var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() / 150.0)
-		var badge := Rect2(Vector2(tag_x, tag_y), Vector2(132, 24))
+		var rank_label := "%s  RANK UP  +%d" % [_k("rank_menu"), p.points]
+		var badge := Rect2(Vector2(tag_x, tag_y), Vector2(maxf(132.0, _text_width(rank_label, 11) + 36.0), 24))
 		_plate(badge, Color(0.55, 0.4, 0.05, pulse), GOLD, 8, 1)
 		_icon("xp", badge.position + Vector2(14, 12), 7, Color.WHITE)
-		_text(badge.position + Vector2(26, 17), "%s  RANK UP  +%d" % [_k("rank_menu"), p.points], 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		tag_x += 140.0
+		_text(badge.position + Vector2(26, 17), rank_label, 11, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		tag_x += badge.size.x + 8.0
 	if p.veteran > 0 and not p.dead:
 		var vb := Rect2(Vector2(maxf(tag_x, panel.end.x - 224.0), tag_y), Vector2(224, 24))
 		var vc := Color(1.0, 0.55, 0.2) if p.veteran == 2 else Color(1.0, 0.85, 0.3)
@@ -7121,7 +7123,11 @@ func _draw_title_progress(panel: Rect2) -> void:
 		var b := Rect2(lx + i * 82, panel.position.y + 204, 76, 40)
 		_chunky(b, Color(0.95, 0.6, 0.2) if reached else Color(0.25, 0.22, 0.3), level >= entry[0] and (i == Stats.RANK_TITLES.size() - 1 or level < Stats.RANK_TITLES[i + 1][0]))
 		_text(b.position + Vector2(0, 17), "LV %d" % entry[0], 9, Color.WHITE if reached else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
-		_text(b.position + Vector2(0, 32), entry[1].to_upper(), 8, Color.WHITE if reached else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
+		var rt: String = entry[1].to_upper()
+		var rs := 8
+		while rs > 6 and _text_width(rt, rs) > b.size.x - 8.0:   # CROWNBREAKER poked out (NUM-09)
+			rs -= 1
+		_text(b.position + Vector2(0, 32), rt, rs, Color.WHITE if reached else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 2)
 	# Unlocks.
 	_text(Vector2(lx, panel.position.y + 276), "LEVEL %d UNLOCKS" % Stats.UNLOCK_LEVEL, 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	for i in Stats.UNLOCKS.size():
