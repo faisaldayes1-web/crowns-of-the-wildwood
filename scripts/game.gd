@@ -198,6 +198,9 @@ var _fps_frames := 0           # automatic quality: frames counted in the curren
 var _fps_since := 0            # ...since this time (msec), 0 = not counting
 var _fps_last := 0             # the previous frame's time (msec): a long stall restarts the window
 var fullscreen := false
+var vsync_on := true          # Settings: wait for the display refresh (no tearing)
+var fps_cap := 0              # Settings: frame-rate limit, 0 = none
+const FPS_CAPS := [0, 30, 60, 120, 144, 240]
 const GFX_NAMES := ["LOW", "MEDIUM", "HIGH", "ULTRA"]
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
 var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox" or "ps"
@@ -325,6 +328,25 @@ var net_slot := Vector2i(-1, -1)  # client: the (team, lineup slot) the host gav
 var _preserve_menu_art_on_reload := false
 
 
+func _set_min_window() -> void:
+	## A desktop window can't be dragged smaller than the 1280x720 layout
+	## (UI-14: it went down to 64x64 and shrank every menu), or than the screen
+	## it is on. Tests that ask for a size (--resolution, user args) keep it.
+	if DisplayServer.get_name() == "headless" or OS.has_feature("web") or OS.has_feature("mobile"):
+		return
+	if "--resolution" in OS.get_cmdline_args() or not OS.get_cmdline_user_args().is_empty():
+		return
+	var screen := DisplayServer.window_get_current_screen()
+	var usable := DisplayServer.screen_get_usable_rect(screen)
+	get_window().min_size = Vector2i(mini(1280, usable.size.x), mini(720, usable.size.y))
+	# The project opens 1920x1080: on a smaller desktop (the Steam Deck's
+	# 1280x800) that window ran off the screen. Fit it and centre it.
+	var win := get_window()
+	if win.mode == Window.MODE_WINDOWED and (win.size.x > usable.size.x or win.size.y > usable.size.y):
+		win.size = Vector2i(mini(win.size.x, usable.size.x), mini(win.size.y, usable.size.y))
+		win.position = usable.position + (usable.size - win.size) / 2
+
+
 func _ready() -> void:
 	if DisplayServer.get_name() == "headless":
 		var mesh_guard := preload("res://scripts/headless_mesh_lifetime.gd").watch
@@ -334,6 +356,7 @@ func _ready() -> void:
 			mesh_guard.call(mesh_node)
 	randomize()
 	var fixed_seed := false
+	_set_min_window()
 	_show_loading(1.2)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="):
@@ -1717,6 +1740,12 @@ func toggle_setting(key: String) -> void:
 			apply_graphics()
 		"fullscreen":
 			fullscreen = not fullscreen
+			apply_graphics()
+		"vsync":
+			vsync_on = not vsync_on
+			apply_graphics()
+		"fps_cap":
+			fps_cap = FPS_CAPS[(FPS_CAPS.find(fps_cap) + 1) % FPS_CAPS.size()]
 			apply_graphics()
 	sfx.ui("ui_click", -4.0)
 	_save_settings()
@@ -4681,6 +4710,8 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "screen_shake", screen_shake)
 	cfg.set_value("settings", "damage_numbers", damage_numbers)
 	cfg.set_value("settings", "show_fps", show_fps)
+	cfg.set_value("settings", "vsync", vsync_on)
+	cfg.set_value("settings", "fps_cap", fps_cap)
 	cfg.set_value("settings", "gfx_quality", gfx_quality)
 	cfg.set_value("settings", "gfx_picked", gfx_picked)
 	cfg.set_value("settings", "fps_intro_done", fps_intro_done)
@@ -4814,6 +4845,10 @@ func _load_controls() -> void:
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
 	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
+	vsync_on = cfg.get_value("settings", "vsync", true)
+	fps_cap = int(cfg.get_value("settings", "fps_cap", 0))
+	if fps_cap not in FPS_CAPS:
+		fps_cap = 0
 	fps_intro_done = cfg.get_value("settings", "fps_intro_done", false)
 	howto_seen = cfg.get_value("settings", "howto_seen", false)
 	gfx_quality = clampi(int(cfg.get_value("settings", "gfx_quality", 2)), 0, GFX_NAMES.size() - 1)
@@ -10808,6 +10843,10 @@ func apply_graphics() -> void:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 		elif not fullscreen and is_full:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		# VSync and the frame cap (Settings > DISPLAY), saved like the rest.
+		if not OS.has_feature("web"):
+			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_on else DisplayServer.VSYNC_DISABLED)
+			Engine.max_fps = fps_cap
 
 
 func _apply_map_variant() -> void:

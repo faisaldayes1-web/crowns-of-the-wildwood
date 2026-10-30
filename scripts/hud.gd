@@ -6083,17 +6083,27 @@ func _menu_settings(body: Rect2) -> void:
 	y = _opt_section(Vector2(x, y), w, "DISPLAY", "leaf", 82.0)
 	var toggles := [["Screen Shake", game.screen_shake, "shake"], ["Damage Numbers", game.damage_numbers, "numbers"],
 		["FPS Counter", game.show_fps, "fps"], ["Chat Log", game.chat_visible, "chat"], ["Player Rosters", game.rosters_visible, "rosters"]]
-	var tw := (w - 24.0 - 4 * 8.0) / 5.0
+	var tw := (w - 24.0 - (toggles.size() - 1) * 8.0) / toggles.size()
 	for i in toggles.size():
 		_toggle(Rect2(x + 12 + i * (tw + 8), y, tw, 36), toggles[i][0], toggles[i][1], toggles[i][2])
+	# Second row: Fullscreen, VSync, the frame-rate cap (click to step through
+	# Off / 30 / 60 / 120 / 144 / 240), then the graphics preset. VSync as a
+	# sixth switch in the first row squeezed "Damage Numbers" until it clipped.
 	_toggle(Rect2(x + 12, y + 44, tw, 36), "Fullscreen", game.fullscreen, "fullscreen")
-	var gq := Rect2(x + 20 + tw, y + 44, w - 32 - tw, 36)
+	_toggle(Rect2(x + 20 + tw, y + 44, tw, 36), "VSync", game.vsync_on, "vsync")
+	var cap := Rect2(x + 28 + 2 * tw, y + 44, 150, 36)
+	_opt_slot(cap)
+	_text(cap.position + Vector2(12, 24), "Frame Cap", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var capb := Rect2(cap.end.x - 62, cap.position.y + 5, 54, 26)
+	_opt_button(capb, "OFF" if game.fps_cap == 0 else str(game.fps_cap), game.fps_cap != 0)
+	toggle_buttons.append([cap, "fps_cap"])
+	var gq := Rect2(cap.end.x + 8, y + 44, x + w - 12 - (cap.end.x + 8), 36)
 	_opt_slot(gq)
 	_opt_glyph("gfx", gq.position + Vector2(22, 18), GOLD)
-	_text(gq.position + Vector2(42, 24), "Graphics Quality", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var qw: float = (gq.size.x - 190.0 - 3 * 8.0) / game.GFX_NAMES.size()
+	_text(gq.position + Vector2(42, 24), "Graphics", 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var qw: float = (gq.size.x - 122.0 - 3 * 8.0) / game.GFX_NAMES.size()
 	for i in game.GFX_NAMES.size():
-		var b := Rect2(gq.position.x + 182 + i * (qw + 8), gq.position.y + 5, qw, 26)
+		var b := Rect2(gq.position.x + 114 + i * (qw + 8), gq.position.y + 5, qw, 26)
 		_opt_button(b, game.GFX_NAMES[i], game.gfx_quality == i)
 		toggle_buttons.append([b, "gfx_%d" % i])
 	y += 82 + gap
@@ -6285,6 +6295,11 @@ func _opt_glyph(kind: String, c: Vector2, col: Color) -> void:
 				var o := Vector2(-8 + k * 8, 0 if k == 1 else 2)
 				draw_circle(c + o + Vector2(0, -5), 3.5, CREAM)
 				draw_colored_polygon(PackedVector2Array([c + o + Vector2(-5, 8), c + o + Vector2(-4, 1), c + o + Vector2(4, 1), c + o + Vector2(5, 8)]), CREAM)
+		"vsync":
+			# A screen with a steady horizontal sweep line: frames in step with the display.
+			_plate(Rect2(c - Vector2(11, 9), Vector2(22, 15)), Color(0.08, 0.1, 0.14), CREAM, 2, 2)
+			draw_line(c + Vector2(-7, -3), c + Vector2(7, -3), col, 2.0)
+			draw_line(c + Vector2(-7, 2), c + Vector2(7, 2), col, 2.0)
 		"fullscreen":
 			_plate(Rect2(c - Vector2(11, 9), Vector2(22, 15)), Color(0.08, 0.1, 0.14), CREAM, 2, 2)
 			draw_line(c + Vector2(0, 6), c + Vector2(0, 10), CREAM, 2.0)
@@ -7474,8 +7489,11 @@ func _draw_rankup_flourish() -> void:
 	for sx in [-1.0, 1.0]:
 		_inked_star(Vector2(sx * (half - 30.0), -8.0), 10.0 + sin(now * 4.0 + sx) * 1.5, Color(1.0, 0.95, 0.6, a), ink)
 	_title_text(Vector2(-half, 18.0), "PROMOTED!" if promoted else "RANK UP!", 48, Color(1.0, 0.97, 0.88, a), Color(0.8, 0.4, 0.05, a), ink, half * 2.0)
-	var hint: String = ("You are now a %s" % game.levelup_text) if promoted else ("Level %d  ·  +1 perk point  ·  %s to spend it" % [game.levelup_level, _k("rank_menu")])
-	_scroll_hint(54.0, maxf(_text_width(hint, 15) + 56.0, 300.0), hint, a, "" if promoted else "vigor")
+	# The points you can spend now, as the LEVEL UP strip counts them (UI-20:
+	# "+1 perk point" here while the strip said "+2 POINTS"), a size bigger.
+	var pts: int = maxi(int(_me().points), 1) if _me() else 1
+	var hint: String = ("You are now a %s" % game.levelup_text) if promoted else ("Level %d  ·  %d perk point%s  ·  %s to spend" % [game.levelup_level, pts, "" if pts == 1 else "s", _k("rank_menu")])
+	_scroll_hint(54.0, maxf(_text_width(hint, 17) + 56.0, 300.0), hint, a, "" if promoted else "vigor", 17)
 	_twinkles(now, a, [Vector2(-210, -120), Vector2(205, -110), Vector2(-120, -160), Vector2(130, -150), Vector2(0, -170), Vector2(-90, 70), Vector2(100, 76)])
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
