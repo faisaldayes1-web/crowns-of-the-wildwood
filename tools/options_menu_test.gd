@@ -510,11 +510,15 @@ func _settings_page(where: String) -> void:
 
 
 func _controls_page() -> void:
-	check(hud.group_buttons.size() == 5, "controls: five action groups")
+	# POINTER joined the groups (hud.CONTROL_GROUPS): count them rather than a fixed 5.
+	check(hud.group_buttons.size() == hud.CONTROL_GROUPS.size() and hud.group_buttons.size() >= 6, "controls: one button per action group (%d)" % hud.group_buttons.size())
 	for i in hud.group_buttons.size():
 		await tap(hud.group_buttons[i][0])
 		check(hud.controls_group == i and hud.bind_buttons.size() > 0, "controls: group %d opens its bindings" % i)
-	hud.controls_group = 1
+	# Ability Q lives in COMBAT (index 2 since POINTER was added); find its group by name.
+	for gi in hud.CONTROL_GROUPS.size():
+		if "ability_1" in hud.CONTROL_GROUPS[gi][2]:
+			hud.controls_group = gi
 	await frames()
 	var r: Rect2 = find(hud.bind_buttons, "ability_1")
 	await tap(r)
