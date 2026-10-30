@@ -261,6 +261,7 @@ const SPLIT_HUD_SHARE := 0.26   # most of a pane's height the HUD's top bar + bo
 const SPLIT_HUD_ROWS := 260.0   # those two rows' height in HUD units
 const SPLIT_HUD_WIDTH := 1240.0 # HUD units the bottom row needs across
 var rank_player = null          # whose perk menu is open
+var rank_from_pad := false      # the perk menu was opened by stepping on the Upgrade Station (it lets you walk off)
 const COUCH_MAX := 4
 const NO_PAD := 99              # a pad device id nothing uses: binds an action to no gamepad
 const COUCH_ACTIONS := ["move_left", "move_right", "move_up", "move_down", "aim_left", "aim_right", "aim_up", "aim_down",
@@ -3535,6 +3536,7 @@ func _tick_tutorial() -> void:
 			if not on_upgrade_pad and not menu_open and not chat_open:
 				rank_open = true
 				rank_player = u
+				rank_from_pad = true
 	if not on_pad and on_upgrade_pad and rank_open:
 		rank_open = false
 	on_upgrade_pad = on_pad
@@ -3548,6 +3550,15 @@ func menu_blocks_input(u = null) -> bool:
 	return menu_open or chat_open or guide_open or (rank_open and (u == null or rank_player == null or rank_player == u))
 
 
+func menu_blocks_movement(u = null) -> bool:
+	## Like menu_blocks_input, but the perk menu the Upgrade Station opens
+	## leaves you free to walk: it closes when you step off (GP-05: it held
+	## the player still on the pad until R or the right stick closed it).
+	if rank_open and rank_from_pad and not (menu_open or chat_open or guide_open):
+		return false
+	return menu_blocks_input(u)
+
+
 func _rank_pressed() -> bool:
 	## Any local player pressing their perk key opens (or closes) their menu.
 	for u in locals:
@@ -3559,6 +3570,7 @@ func _rank_pressed() -> bool:
 			else:
 				rank_open = true
 				rank_player = u
+				rank_from_pad = false   # opened on purpose: it holds the controls until closed
 			return true
 	return false
 
@@ -3946,6 +3958,14 @@ func movement_ui_hit() -> bool:
 		for button in group:
 			if button[0].has_point(pointer):
 				return true
+	if rank_open:
+		# The perk menu's rows and class tabs: a click there buys, not walks.
+		for r in hud.rank_buttons:
+			if r is Rect2 and r.has_point(pointer):
+				return true
+		for b in hud.rank_tab_buttons:
+			if b[0].has_point(pointer):
+				return true
 	return economy != null and economy.mouse_on_button()
 
 
@@ -4044,11 +4064,11 @@ func _input(event: InputEvent) -> void:
 		click_latched = true
 	if event.is_action_released("move_interact"):
 		movement_primary_blocked = false
-	if event.is_action_pressed("move_interact") and (menu_blocks_input(player) or movement_ui_hit() or not playing or not mouse_in_player_pane(player)):
+	if event.is_action_pressed("move_interact") and (menu_blocks_movement(player) or movement_ui_hit() or not playing or not mouse_in_player_pane(player)):
 		movement_primary_blocked = true
 		movement_consumed_tap_frame = Engine.get_physics_frames() + 1
 	if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-		if playing and not menu_blocks_input(player) and not movement_ui_hit():
+		if playing and not menu_blocks_movement(player) and not movement_ui_hit():
 			if wheel_zoom:
 				cam_zoom = clampf(cam_zoom + (-0.08 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 0.08), 0.7, 1.6)
 			elif event.is_action_pressed("force_move"):
