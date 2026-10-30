@@ -569,6 +569,12 @@ func _build_world_behind() -> void:
 	world_style = true
 	_world_frame_deadline = Time.get_ticks_usec() + WORLD_SLICE_USEC
 	await _build_world_land()
+	if not "--no-batch" in OS.get_cmdline_user_args():
+		# The scenery batching (static_batch.gd, ~1 s) waited for the match
+		# start; the world is finished here, so it is done now, in slices.
+		await StaticBatch.run(self)
+		StaticBatch.particles_to_gpu(self)
+		_world_batched = true
 	world_style = false
 	_world_behind = false
 	get_tree().node_added.disconnect(_hold_world_piece)
@@ -2312,6 +2318,7 @@ var world_ready := true
 var _world_behind := false
 var _match_waiting := false
 var _world_rush := false   # finish_world_now: no more slices, build the rest at once
+var _world_batched := false   # the world built behind the title is batched there, not at match start
 var _world_held := []   # [node, its process mode]: world pieces kept still until the world is whole
 var _loading_viewport: Viewport
 var _loading_previous_disable_3d := false
@@ -2546,8 +2553,8 @@ func _start_match(team: int) -> void:
 	kill_feed = []
 	# Merge the scenery that never moves into a few hundred meshes
 	# (scripts/static_batch.gd): ~9,800 draw calls a frame became ~1,500.
-	if not "--no-batch" in OS.get_cmdline_user_args():
-		StaticBatch.run(self)
+	if not "--no-batch" in OS.get_cmdline_user_args() and not _world_batched:
+		await StaticBatch.run(self)   # (never waits here, the match builds in this frame: only behind the title does it slice)
 		StaticBatch.particles_to_gpu(self)
 	_warm_up_world()   # (a coroutine: a few frames under the loading art)
 	if prep_left >= 0.0:

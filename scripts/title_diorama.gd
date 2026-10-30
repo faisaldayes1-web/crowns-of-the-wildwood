@@ -65,7 +65,7 @@ func build(g) -> void:
 	if beam:
 		beam.set_meta("no_batch", true)
 	if not "--no-batch" in OS.get_cmdline_user_args():
-		var batch := preload("res://scripts/static_batch.gd").run(self)
+		var batch: Dictionary = await preload("res://scripts/static_batch.gd").run(self)
 		print("TITLE_SCENERY_BATCH ", batch)
 	await game._world_build_frame()
 	_armies()
