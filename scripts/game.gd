@@ -151,6 +151,7 @@ var hero_weapon := 0            # Stats.WEAPON_SKINS index
 var match_xp := 0               # the player's XP earned this match, over every life
 var summary = null              # the end-of-match screen (match_summary.gd), made when the match ends
 var last_match_gain := 0        # what the last match added (end screen)
+var match_played := 0.0         # seconds this match has run (GP-06: no result bonus for a match ended at once)
 var level_before := 1           # account level before the last match (end screen)
 var name_editing := false
 var levelup_timer := 0.0
@@ -791,6 +792,7 @@ func _process(delta: float) -> void:
 				continue_after_summary()
 		return
 
+	match_played += delta
 	if net_client:
 		# The host runs the match: only the camera, the HUD timers and the
 		# fortify horn (when the snapshot's clock says so) run here.
@@ -2615,6 +2617,7 @@ func _start_match(team: int) -> void:
 	if couch_players > 1 and not demo:
 		_build_panes()
 	playing = true
+	match_played = 0.0
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--debug-time="):
 			time_left = float(arg.trim_prefix("--debug-time="))  # testing: a short clock
@@ -3505,6 +3508,8 @@ func _bank_match_xp(winner: int) -> void:
 	if demo:
 		return
 	var bonus: int = Stats.MATCH_BONUS.draw if winner < 0 else (Stats.MATCH_BONUS.win if winner == player_team else Stats.MATCH_BONUS.loss)
+	if not result_bonus_earned():
+		bonus = 0
 	level_before = account_level()
 	var xp_was := account_xp
 	last_match_gain = match_xp + bonus + summary.bonus_xp()
@@ -3596,6 +3601,12 @@ func legend_finished() -> void:
 	print("LEGEND done")
 	if game_over:
 		_reload_scene()
+
+
+func result_bonus_earned() -> bool:
+	## The Victory / Draw / Played-to-the-end XP needs a real match (GP-06):
+	## one that ended in its first minute pays only what was earned in it.
+	return match_played >= Stats.RESULT_BONUS_MIN_TIME or "--debug-end" in OS.get_cmdline_user_args()
 
 
 func guide_toggle() -> void:

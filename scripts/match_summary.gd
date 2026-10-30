@@ -76,8 +76,9 @@ func capture(g, unit, winner_team: int) -> void:
 	result = "draw" if winner < 0 else ("win" if winner == team else "loss")
 	reward_gold = Stats.MATCH_GOLD[result]
 	reward_shards = Stats.MATCH_SHARDS[result]
-	lines.append([{"win": "Victory", "draw": "Draw", "loss": "Played to the end"}[result], "crown" if result == "win" else "guard",
-		Stats.MATCH_BONUS[result]])
+	if not g.has_method("result_bonus_earned") or g.result_bonus_earned():
+		lines.append([{"win": "Victory", "draw": "Draw", "loss": "Played to the end"}[result], "crown" if result == "win" else "guard",
+			Stats.MATCH_BONUS[result]])
 	started = Time.get_ticks_msec() / 1000.0
 
 
