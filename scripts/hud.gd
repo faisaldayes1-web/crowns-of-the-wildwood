@@ -413,6 +413,10 @@ func _mouse() -> Vector2:
 func nav_rects() -> Array:
 	## Every button drawn this frame, for the gamepad cursor to jump between.
 	var out: Array = []
+	if game.main_menu and game.main_menu.kb_from >= 0 and game.main_menu.pad_keys_on():
+		for b in menu_buttons.slice(game.main_menu.kb_from):   # naming a hero: only the letter pad
+			out.append(b[0])
+		return out
 	var menu_live := menu_buttons
 	if game.main_menu and game.main_menu.overlay != "":
 		menu_live = menu_buttons.slice(game.main_menu.overlay_from)   # not the planks behind an overlay
@@ -427,7 +431,9 @@ func nav_rects() -> Array:
 			out.append(r)
 	for b in rank_tab_buttons:
 		out.append(b[0])
-	for r in [options_button, close_button, reset_button, quit_button]:
+	for b in zoom_buttons:
+		out.append(b[0])
+	for r in [options_button, close_button, reset_button, quit_button, resume_button]:
 		if r.size.x > 0.0:
 			out.append(r)
 	return out
@@ -2462,8 +2468,9 @@ func _draw_guide() -> void:
 			var row := Rect2(tx + (i % cols) * (cw + 12), ty + 14 + (i / cols) * 32, cw, 27)
 			var hover: bool = row.has_point(_mouse())
 			_plate(row, Color(0.9, 0.82, 0.64) if hover else Color(0.93, 0.87, 0.72), Color(0.7, 0.55, 0.3), 6, 1)
-			_keycap(row.position + Vector2(16, 13), str(i + 1), 20)
-			_text(row.position + Vector2(34, 19), Guide.TOPICS[i][0], 13, Color(0.2, 0.12, 0.05), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+			if not game.on_pad(local_unit):
+				_keycap(row.position + Vector2(16, 13), str(i + 1), 20)   # a pad picks with the cursor and A
+			_text(row.position + Vector2(34 if not game.on_pad(local_unit) else 12, 19), Guide.TOPICS[i][0], 13, Color(0.2, 0.12, 0.05), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
 			guide_buttons.append([row, str(i)])
 	else:
 		_paragraph(Vector2(tx, ty), body, 19, Color(0.18, 0.12, 0.06), tw, 26, 0)
@@ -6033,7 +6040,7 @@ func _menu_controls(body: Rect2) -> void:
 		var hover := row.has_point(_mouse())
 		_plate(row, Color(0.45, 0.34, 0.1, 0.5 + 0.4 * pulse) if hot else (Color(0.16, 0.17, 0.21) if hover else Color(0.11, 0.12, 0.15)), GOLD if hot else Color(0.26, 0.26, 0.3), 6, 1)
 		_text(row.position + Vector2(14, 23), names.get(action, action), 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		var key_text: String = "PRESS A KEY…" if hot else game.binding_text(action, "key")
+		var key_text: String = ("PRESS A BUTTON…" if game.on_pad(local_unit) else "PRESS A KEY…") if hot else game.binding_text(action, "key")
 		_keycap(Vector2(kx, row.get_center().y), key_text, 130, false, true)
 		var pad_text: String = game.pad_binding_hint(action, pad_kind)
 		_keycap(Vector2(px, row.get_center().y), pad_text, maxf(96.0, _text_width(pad_text, 11) + 16.0))
@@ -6063,7 +6070,9 @@ func _menu_controls(body: Rect2) -> void:
 		_paragraph(Vector2(R.position.x + 14, top + 132), "Left click moves or interacts. With Combine OFF, it never attacks. Hold Shift + left click to attack in place; J is a separate basic attack. Force Move never attacks or interacts. Wheel bindings force-move while wheel zoom is OFF.", 11, GREY, R.size.x - 28, 14.0)
 	elif controls_group == 1:
 		_paragraph(Vector2(R.position.x + 14, R.position.y + 58 + actions.size() * 40), "WASD uses the current player's camera: W goes up the screen, D goes right. Gamepad left-stick movement and right-stick aim use each player's own camera. Change PC movement on the POINTER tab.", 11, GREY, R.size.x - 28, 14.0)
-	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), ("Tap a row, then press the key or button you want; tap again to cancel." if game.touch_active else "Click a row, then press the key, mouse button, gamepad button or trigger you want; Esc cancels. A key already in use swaps over.") + " Mouse/right stick aim independently; controller movement follows the screen. 1-6 or the D-pad spend perk points.",
+	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), ("Tap a row, then press the key or button you want; tap again to cancel." if game.touch_active
+			else "Pick a row with %s, then press the button, trigger or key you want. A button already in use swaps over." % _k("ui_confirm") if game.on_pad(local_unit)
+			else "Click a row, then press the key, mouse button, gamepad button or trigger you want; Esc cancels. A key already in use swaps over.") + " Mouse/right stick aim independently; controller movement follows the screen. 1-6 or the D-pad spend perk points.",
 		11, Color(0.72, 0.72, 0.78), R.size.x - 32, 13.0)
 	reset_button = Rect2(body.position.x + 232 + (R.size.x - 220) / 2.0, body.end.y - 38, 220, 34)
 	_opt_button(reset_button, "RESET TO DEFAULT", false)
@@ -6253,7 +6262,7 @@ func _menu_audio(body: Rect2) -> void:
 	var test := Rect2(x + 12, y + 122, 220, 36)
 	_opt_button(test, "PLAY A TEST SOUND", false)
 	toggle_buttons.append([test, "test_sound"])
-	_text(Vector2(x + 250, y + 146), "Drag or click a bar to set it. Volumes are saved and apply at once.", 12, Color(0.75, 0.75, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	_text(Vector2(x + 250, y + 146), ("Point at a bar and press %s / %s to set it. Volumes are saved and apply at once." % [_k("nav_left"), _k("nav_right")]) if game.on_pad(local_unit) else "Drag or click a bar to set it. Volumes are saved and apply at once.", 12, Color(0.75, 0.75, 0.8), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _opt_section(pos: Vector2, w: float, label: String, glyph: String, h: float) -> float:
@@ -7134,7 +7143,7 @@ func _draw_title_hero(panel: Rect2) -> void:
 	if game.name_editing and int(Time.get_ticks_msec() / 400) % 2 == 0:
 		shown += "|"
 	elif shown == "" and not game.name_editing:
-		shown = "click to name your hero"
+		shown = "select to name your hero"
 	_text(field.position + Vector2(10, 21), shown, 14, Color.WHITE if game.hero_name != "" or game.name_editing else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 	hero_buttons.append([field, "name", 0])
 	var rows := [["HAIR", Stats.HERO_HAIR, game.hero_hair, "hair"], ["TRIM", Stats.HERO_TRIM, game.hero_trim, "trim"], ["LOOK", Stats.HERO_LOOKS, game.hero_look, "look"]]
