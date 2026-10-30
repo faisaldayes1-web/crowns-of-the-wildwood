@@ -889,7 +889,7 @@ func _add_hair_style(style: int, color: Color, cover: String = "") -> void:
 				var lx := i * spread
 				_hair_piece(head, _cyl(0.15, 0.1, ll, 6), Vector3(lx, top - ll / 2.0, lz + absf(lx) * 0.2), Vector3(-0.08, 0, i * 0.06), hair)
 			for side in [-1.0, 1.0]:
-				if not full:
+				if not low:
 					# Rounded locks that taper and curl in a little at the ends (straight
 					# cylinders read as planks either side of the face).
 					_hair_piece(head, _ball(0.17, 8), Vector3(side * 0.6, 0.6 if not hatted else 0.5, -0.02), Vector3.ZERO, hair, Vector3(1.0, 1.3, 1.0))
@@ -919,7 +919,10 @@ func _add_hair_style(style: int, color: Color, cover: String = "") -> void:
 				_hair_piece(head, _cyl(0.24 * k, 0.27 * k, 0.1, 8), Vector3(0, 1.3, kz), Vector3(0.2, 0, 0), tie)
 				_hair_piece(head, _ball(0.24 * k, 7), Vector3(0, 1.48, kz - 0.04), Vector3(0.2, 0, 0), hair, Vector3(1.0, 0.9, 1.0))
 			else:
-				# A round bun knotted at the nape, sticking straight out behind.
+				# A round bun knotted at the nape, sticking straight out behind
+				# (under the Mage hat's brim it sits lower, on the collar).
+				if cover == "wizard":
+					nape_y = -0.22
 				_hair_piece(head, _ball(0.27, 8), Vector3(0, nape_y + 0.04, nape_z - 0.06), Vector3.ZERO, hair, Vector3(1.0, 0.9, 0.9))
 				_hair_piece(head, _cyl(0.19, 0.21, 0.08, 8), Vector3(0, nape_y + 0.04, nape_z - 0.3), Vector3(PI / 2.0, 0, 0), tie)
 				_hair_piece(head, _ball(0.18, 7), Vector3(0, nape_y + 0.04, nape_z - 0.44), Vector3.ZERO, hair)
