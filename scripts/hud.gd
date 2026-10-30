@@ -5659,7 +5659,9 @@ func _draw_game_menu() -> void:
 	if in_match and not game.demo:
 		quit_button = Rect2(cx - 342, R.end.y - (86 if touch_ui else 62), 292, 80 if touch_ui else 48)
 		var arm: bool = game.quit_armed > 0.0
-		_big_button(quit_button, "SURE? CLICK AGAIN" if arm else "LEAVE MATCH", Color(0.62, 0.12, 0.08), Color(0.85, 0.3, 0.18), "exit")
+		var again := ("SURE? %s AGAIN" % _k("quit_match")) if game.on_pad(local_unit) else "SURE? CLICK AGAIN"
+		_big_button(quit_button, again if arm else "LEAVE MATCH", Color(0.62, 0.12, 0.08), Color(0.85, 0.3, 0.18), "exit")
+
 	if in_match:
 		resume_button = Rect2(cx + 50, R.end.y - (86 if touch_ui else 62), 292, 80 if touch_ui else 48)
 		_big_button(resume_button, "RESUME", Color(0.1, 0.24, 0.62), Color(0.3, 0.5, 0.95), "play")
@@ -5675,10 +5677,14 @@ func _draw_game_menu() -> void:
 		var close_key: String = _k("menu") if on_pad else "Esc"
 		var tab_keys: String = "%s %s" % [_k("menu_left"), _k("menu_right")] if on_pad else "← →"
 		var footer := "%s %s   |   %s switch tabs" % [close_key, "resumes" if in_match else "closes", tab_keys]
+		var leaving: bool = in_match and game.quit_armed > 0.0
+		if leaving:
+			# What leaving costs (rewards are only banked when the match ends).
+			footer = "Leaving now forfeits this match's XP, gold and chest."
 		var fy := minf(R.end.y + 18.0, size.y - 5.0)
 		var fw := _text_width(footer, 12) + 24.0
 		_plate(Rect2(cx - fw / 2.0, fy - 12.0, fw, 16.0), Color(0.04, 0.04, 0.05, 0.75), Color(0, 0, 0, 0), 6, 0)
-		_text(Vector2(R.position.x, fy), footer, 12, Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
+		_text(Vector2(R.position.x, fy), footer, 12, Color(1.0, 0.7, 0.6) if leaving else Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
 
 
 func _menu_body() -> Rect2:
@@ -6089,7 +6095,17 @@ func _menu_settings(body: Rect2) -> void:
 	# Second row: Fullscreen, VSync, the frame-rate cap (click to step through
 	# Off / 30 / 60 / 120 / 144 / 240), then the graphics preset. VSync as a
 	# sixth switch in the first row squeezed "Damage Numbers" until it clipped.
-	_toggle(Rect2(x + 12, y + 44, tw, 36), "Fullscreen", game.fullscreen, "fullscreen")
+	# Display: click to step Windowed -> Borderless -> Fullscreen (exclusive).
+	var disp := Rect2(x + 12, y + 44, tw, 36)
+	_opt_slot(disp)
+	if disp.has_point(_mouse()):
+		draw_rect(disp.grow(-2), Color(1, 1, 1, 0.04))
+	_opt_glyph("fullscreen", disp.position + Vector2(22, 18), GOLD)
+	_text(disp.position + Vector2(42, 24), "Display", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var mode_names := {"windowed": "WINDOW", "borderless": "BORDERLESS", "exclusive": "FULLSCREEN"}
+	var dispb := Rect2(disp.end.x - 86, disp.position.y + 5, 78, 26)
+	_opt_button(dispb, mode_names.get(game.window_mode, "WINDOW"), game.window_mode != "windowed")
+	toggle_buttons.append([disp, "fullscreen"])
 	_toggle(Rect2(x + 20 + tw, y + 44, tw, 36), "VSync", game.vsync_on, "vsync")
 	var cap := Rect2(x + 28 + 2 * tw, y + 44, 150, 36)
 	_opt_slot(cap)
@@ -6247,7 +6263,11 @@ func _opt_button(r: Rect2, label: String, on: bool, skull := Color(0, 0, 0, 0)) 
 	_plate(r, Color(0.5, 0.36, 0.08) if on else (Color(0.2, 0.22, 0.28) if hover else Color(0.14, 0.16, 0.21)), GOLD if on else Color(0.38, 0.36, 0.42), 6, 2 if on else 1)
 	if on:
 		draw_rect(Rect2(r.position + Vector2(3, 3), Vector2(r.size.x - 6, r.size.y * 0.35)), Color(1, 0.9, 0.5, 0.18))
-	var lw := _text_width(label, 14)
+	# Shrink a long label (BORDERLESS) to stay inside its button.
+	var fs := 14
+	while fs > 9 and _text_width(label, fs) > r.size.x - (36.0 if skull.a > 0.0 else 10.0):
+		fs -= 1
+	var lw := _text_width(label, fs)
 	var lx := r.get_center().x - lw / 2.0
 	if skull.a > 0.0:
 		lx += 14.0
@@ -6257,7 +6277,7 @@ func _opt_button(r: Rect2, label: String, on: bool, skull := Color(0, 0, 0, 0)) 
 		draw_rect(Rect2(sc + Vector2(-4, 3), Vector2(8, 5)), skull)
 		draw_circle(sc + Vector2(-2.6, -1.5), 1.8, Color(0.1, 0.06, 0.03))
 		draw_circle(sc + Vector2(2.6, -1.5), 1.8, Color(0.1, 0.06, 0.03))
-	_text(Vector2(lx, r.get_center().y + 5), label, 14, Color(1.0, 0.95, 0.8) if on else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+	_text(Vector2(lx, r.get_center().y + 5), label, fs, Color(1.0, 0.95, 0.8) if on else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 
 
 func _opt_glyph(kind: String, c: Vector2, col: Color) -> void:
