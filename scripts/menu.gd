@@ -1197,6 +1197,10 @@ func _draw_credits() -> void:
 		ttext(Vector2(body.position.x, y), c[0], 18, Color(1.0, 0.8, 0.38), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 4)
 		var used: float = _centered_paragraph(Vector2(body.position.x + 60, y + 22), c[1], 14, body.size.x - 120)
 		y += 52 + used   # eight rows with breathing room (licences and the Steam version were added)
+	# ROLL CREDITS: the ending's credits roll on its own (legend.gd), in the
+	# frame's top-left corner, opposite the close X.
+	var frame := body.grow(40)
+	wood_button(Rect2(frame.position.x + 28, frame.position.y + 22, 196, 42), "ROLL CREDITS", "roll_credits", null, "trophy", 16)
 
 
 func _centered_paragraph(pos: Vector2, text: String, size: int, width: float) -> float:
@@ -1408,6 +1412,10 @@ func _draw_progress() -> void:
 	var bw := 200.0
 	wood_button(Rect2(lx, y + 40, bw, 36), "EXPORT CODE", "progress_export", null, "", 16)
 	wood_button(Rect2(lx + bw + 16, y + 40, bw, 36), "IMPORT CODE", "progress_import", null, "", 16)
+	# The ending (legend.gd), once the account has reached its level.
+	var open: bool = game.legend_unlocked()
+	wood_button(Rect2(panel.end.x - 300, panel.position.y + 70, 260, 46), "WATCH THE LEGEND" if open else "LEGEND AT LV %d" % game.legend_level(),
+		"watch_legend", null, "crown" if open else "lock", 17, false, open)
 	h._text(Vector2(lx + 2 * bw + 34, y + 63), "Import copies the code from the clipboard" if not OS.has_feature("web") else "Import asks you to paste the code", 10, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
 
 
@@ -1569,6 +1577,10 @@ func _press(id: String, arg) -> void:
 			_howto_done()
 			overlay = "tutorial"
 		"credits": overlay = "credits"
+		"roll_credits": game.start_legend("roll")
+		"watch_legend":
+			if game.legend_unlocked():
+				game.start_legend("full")
 		"progress": overlay = "progress"
 		"players": overlay = "players"
 		"player_name": _ask_name(false)

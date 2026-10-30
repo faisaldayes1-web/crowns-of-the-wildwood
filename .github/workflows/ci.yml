@@ -54,7 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for test in save_write_test save_recovery_test save_test; do
+          for test in save_write_test save_recovery_test save_test legend_test; do
             timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script "tools/$test.gd" 2>&1 | tee "ci-logs/$test.log"
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/$test.log"
             grep -Eq 'test: .*0 failure\(s\)$' "ci-logs/$test.log"
