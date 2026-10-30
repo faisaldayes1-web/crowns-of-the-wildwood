@@ -672,8 +672,16 @@ func _detail(r: Rect2) -> void:
 			"frame": game.banner_frame, "title": Stats.BANNER_TITLES[game.banner_title][1], "level": game.account_level(), "team": 0}
 		b[kind.trim_prefix("banner_")] = i
 		h._draw_banner(Rect2(390, 104, 400, 66), b)
-	menu.ttext(Vector2(r.position.x + 20, r.position.y + 34), item_name(kind, i).to_upper(), 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
-	h._text(Vector2(r.position.x + 20, r.position.y + 56), "%s  ·  %s" % [rar[0].to_upper(), KIND_LABEL[kind]], 12, rar[1].lightened(0.15), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# The name and the rarity line stop short of the BUY button (its arrow
+	# reaches ~12 px left of its rect) instead of running under it.
+	var text_w: float = r.size.x - 232.0 - 12.0 - 20.0
+	var nm: String = item_name(kind, i).to_upper()
+	menu.ttext(Vector2(r.position.x + 20, r.position.y + 34), nm, menu.fit_size(nm, 22, text_w), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	var rl := "%s  ·  %s" % [rar[0].to_upper(), KIND_LABEL[kind]]
+	var rs := 12
+	while rs > 9 and h._text_width(rl, rs) > text_w:
+		rs -= 1
+	h._text(Vector2(r.position.x + 20, r.position.y + 56), rl, rs, rar[1].lightened(0.15), HORIZONTAL_ALIGNMENT_LEFT, text_w, 2)
 	var note := "Looks only: no effect in a fight."
 	match kind:
 		"hat": note = "Worn while you have no class hat on."

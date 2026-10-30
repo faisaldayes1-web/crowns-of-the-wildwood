@@ -3715,7 +3715,7 @@ func _draw_quick_upgrade(p) -> void:
 	var bh := 76.0
 	var w := head_w + tracks.size() * tw + extra.size() * ew + 10.0
 	var x := W / 2.0 - w / 2.0 if touch_ui else (W - 22.0 - 142.0 - 30.0 - 235.0) - w / 2.0
-	var y := H - 130.0 - bh if touch_ui else H - 138.0 - bh
+	var y := H - 130.0 - bh if touch_ui else H - 156.0 - bh   # clear of the hotbar hex tops and their cost tags (NUM-08)
 	var shake := 0.0
 	if now - quick_deny < 0.35:
 		shake = sin((now - quick_deny) * 55.0) * 5.0 * (1.0 - (now - quick_deny) / 0.35)
