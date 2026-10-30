@@ -157,6 +157,7 @@ var levelup_timer := 0.0
 var levelup_level := 1
 var levelup_text := ""         # set for a class promotion: the flourish says PROMOTED! and this name
 var pine_tiers := {}   # cached pine tier meshes
+var leaf_clusters := {}  # cached small crown clusters (visual pass 2026-10-30), by seed bucket and size
 var map_trees: Array[Vector3] = []  # for the minimap: y > 0.5 means a big tree
 var map_paths: Array = []           # [from, to, width] of every path for the minimap
 var map_marks: Array = []           # [position, kind] ruins and such
@@ -6060,6 +6061,8 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 		blob.scale = Vector3(1.0, 0.82, 1.0)
 		blob.material_override = leaf
 		tree.add_child(blob)
+	if world_style:
+		_add_crown_clusters(tree, r, leaf, Vector3(0, base_y, 0), radius, 9 if big else 7)
 	# Boughs from the trunk top out into the lower clumps.
 	for i in 3:
 		var off: Vector3 = clumps[i * low / 3][0] * 0.75
@@ -6105,6 +6108,32 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 			bud.position = Vector3(cos(ang) * radius * 0.95, base_y + radius * 0.5 + r.randf_range(-0.6, 0.7), sin(ang) * radius * 0.95)
 			bud.material_override = glow
 			tree.add_child(bud)
+
+
+func _add_crown_clusters(tree: Node3D, r: RandomNumberGenerator, leaf: Material, centre: Vector3, radius: float, count: int) -> void:
+	## Picks Battle A / Spawn D (visual pass 2026-10-30): small leaf
+	## clusters bulging out of a crown's surface, mostly round its shoulders
+	## and top, so the silhouette breaks into many lobes instead of a few big
+	## smooth blobs. The meshes are shared between trees (a dozen shapes per
+	## size step) and merge into the crown's batch, so this adds geometry but
+	## no draw calls. (It draws from its own generator: the trees' shapes and
+	## places stay as they were.)
+	var q := RandomNumberGenerator.new()
+	q.seed = r.seed + 4099
+	for i in count:
+		var a := q.randf() * TAU
+		var up := q.randf_range(0.05, 0.95)
+		var dir := Vector3(cos(a) * (1.0 - up * 0.7), up, sin(a) * (1.0 - up * 0.7)).normalized()
+		var cr := snappedf(radius * q.randf_range(0.26, 0.36), 0.05)
+		var key := "%d|%.2f" % [q.randi() % 12, cr]
+		if not leaf_clusters.has(key):
+			leaf_clusters[key] = _rock_mesh(9100 + leaf_clusters.size() * 7, cr, 0.2)
+		var blob := MeshInstance3D.new()
+		blob.mesh = leaf_clusters[key]
+		blob.position = centre + Vector3(dir.x * radius * 0.92, radius * 0.25 + dir.y * radius * 0.78, dir.z * radius * 0.92)
+		blob.scale = Vector3(1.0, 0.8, 1.0)
+		blob.material_override = leaf
+		tree.add_child(blob)
 
 
 func _add_pine(tree: Node3D, r: RandomNumberGenerator, bark: Material, big: bool, autumn: int = -1) -> void:
@@ -10582,6 +10611,13 @@ func _add_canopy_tree(pos: Vector3, seed: int, k: float = 1.0) -> void:
 	leaf.set_shader_parameter("bottom_color", Color.from_hsv(0.45 + hue, 0.85, 0.16))
 	leaf.set_shader_parameter("top_color", Color.from_hsv(0.33 + hue, 0.74, 0.42))
 	leaf.set_shader_parameter("height", 2.2 * k)
+	if world_style:
+		# One world-space gradient over the whole crown (as the wild trees):
+		# the crown then merges into the static batch instead of drawing
+		# each of its ~20 clumps on its own (visual pass 2026-10-30).
+		leaf.set_shader_parameter("world_gradient", true)
+		leaf.set_shader_parameter("crown_base", pos.y + 1.0 * k)
+		leaf.set_shader_parameter("height", 3.0 * k)
 	var tiers := [[1.85, 1.7, 5], [2.75, 1.3, 4], [3.5, 0.9, 1]]   # tier height, radius, clumps
 	var n_i := 0
 	for tier in tiers:
@@ -10599,6 +10635,9 @@ func _add_canopy_tree(pos: Vector3, seed: int, k: float = 1.0) -> void:
 			blob.material_override = leaf
 			tree.add_child(blob)
 			n_i += 1
+	if world_style:   # lobes round each tier's rim (picks Spawn D / Battle A)
+		_add_crown_clusters(tree, r, leaf, Vector3(0, 1.75 * k, 0), 1.45 * k, 6)
+		_add_crown_clusters(tree, r, leaf, Vector3(0, 2.75 * k, 0), 1.05 * k, 4)
 
 
 func _add_planting_bed(pos: Vector3, size: Vector2, seed: int) -> void:
