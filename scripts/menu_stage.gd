@@ -26,6 +26,7 @@ var hero: Node3D             # the character creator's model
 var hero_key := ""
 var hero_cache: Dictionary = {}
 const HERO_CACHE_LIMIT := 8
+var hero_frac_x := 0.39        # where the hero stands across the screen (the creator centres it on 21:9)
 var hero_spin := 0.0            # extra turn (radians): the STORE turns the hero to show a cape
 var hero_turn := 0.0            # the player's own turn of the hero (drag, arrows, right stick)
 var hero_turn_goal := 0.0       # the arrows turn toward this; a drag sets both
@@ -268,7 +269,7 @@ func show_hero(team: int, role: int, custom: Dictionary, rank: int) -> void:
 			hero_cache[oldest].queue_free()
 			hero_cache.erase(oldest)
 	hero.visible = screen in ["character", "store"]
-	hero.global_position = _floor_at(Vector2(0.39, 0.86))
+	hero.global_position = _floor_at(Vector2(hero_frac_x, 0.86))
 	if rug == null:
 		rug = _round_rug()
 	rug.global_position = hero.global_position + Vector3(0, 0.02, 0)

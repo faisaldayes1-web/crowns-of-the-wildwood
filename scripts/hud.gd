@@ -5670,7 +5670,11 @@ func _draw_game_menu() -> void:
 	# phone (UI-01): keep it on screen, on a dark band over the world, and
 	# not at all on touch, which has no Esc or arrow keys.
 	if not touch_ui:
-		var footer := "Esc / Start resumes   |   ← → switch tabs" if in_match else "Esc closes   |   ← → switch tabs"
+		# Name the keys of whatever the player holds (UI-17: it always said "Esc / Start").
+		var on_pad: bool = game.on_pad(local_unit)
+		var close_key: String = _k("menu") if on_pad else "Esc"
+		var tab_keys: String = "%s %s" % [_k("menu_left"), _k("menu_right")] if on_pad else "← →"
+		var footer := "%s %s   |   %s switch tabs" % [close_key, "resumes" if in_match else "closes", tab_keys]
 		var fy := minf(R.end.y + 18.0, size.y - 5.0)
 		var fw := _text_width(footer, 12) + 24.0
 		_plate(Rect2(cx - fw / 2.0, fy - 12.0, fw, 16.0), Color(0.04, 0.04, 0.05, 0.75), Color(0, 0, 0, 0), 6, 0)
@@ -7096,10 +7100,11 @@ func _draw_title_hero(panel: Rect2) -> void:
 	_draw_banner_editor(Vector2(nx + 430, panel.position.y + 64), panel.end.x - (nx + 430) - 24)
 
 
-func _draw_title_progress(panel: Rect2) -> void:
+func _draw_title_progress(panel: Rect2, header: bool = true) -> void:
 	## PROGRESS: account level, rank ladder and the level-10 unlocks.
 	_chunky(panel, Color(0.22, 0.14, 0.34))
-	_text(panel.position + Vector2(0, 30), "PROGRESS", 20, GOLD, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 4)
+	if header:   # the PROGRESS overlay already carries the title on its ribbon (UI-09)
+		_text(panel.position + Vector2(0, 30), "PROGRESS", 20, GOLD, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 4)
 	var level: int = game.account_level()
 	var span: Array = Stats.account_span(game.account_xp)
 	var lx := panel.position.x + 30
