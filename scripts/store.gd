@@ -26,7 +26,7 @@ const KINDS := {
 	"banner_frame": ["banner_frame", "BANNER_FRAMES", Stats.BANNER_FRAME_FREE],
 }
 # The store's tabs: [title, menu icon, kinds shown, preview class].
-const TABS := [["HAIR", "hair", ["hair_style", "hair"], Role.BASE], ["ARMOUR", "tunic", ["outfit"], Role.BASE],
+const TABS := [["HAIR", "hair", ["hair_style", "hair"], Role.BASE], ["ARMOUR", "tunic", ["outfit"], Role.KNIGHT],
 	["CAPES & DYES", "palette", ["cape", "trim"], Role.BASE], ["HATS", "crown", ["hat"], Role.BASE],
 	["WEAPONS", "swords", ["weapon"], Role.KNIGHT],
 	["BANNER CLOTH", "emblem", ["banner_bg"], Role.BASE], ["EMBLEMS", "emblem", ["banner_emblem"], Role.BASE],
@@ -249,6 +249,8 @@ func preview_custom() -> Dictionary:
 	var c: Dictionary = game.hero_custom()
 	if not pick.is_empty() and not pick[0].begins_with("banner"):
 		c = wear(c, pick[0], pick[1])
+		if pick[0] == "trim" and c.get("cape", "") in ["", "scarf"]:
+			c.cape = "cape"   # a dye needs a cape to show on
 	return c
 
 
