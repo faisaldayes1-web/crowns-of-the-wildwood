@@ -6055,7 +6055,7 @@ func _menu_controls(body: Rect2) -> void:
 		_paragraph(Vector2(R.position.x + 14, top + 132), "Left click moves or interacts. With Combine OFF, it never attacks. Hold Shift + left click to attack in place; J is a separate basic attack. Force Move never attacks or interacts. Wheel bindings force-move while wheel zoom is OFF.", 11, GREY, R.size.x - 28, 14.0)
 	elif controls_group == 1:
 		_paragraph(Vector2(R.position.x + 14, R.position.y + 58 + actions.size() * 40), "WASD uses the current player's camera: W goes up the screen, D goes right. Gamepad left-stick movement and right-stick aim use each player's own camera. Change PC movement on the POINTER tab.", 11, GREY, R.size.x - 28, 14.0)
-	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), ("Tap a row, then press the key or button you want; tap again to cancel." if game.touch_active else "Click a row, then press the key, mouse button or gamepad button you want; Esc cancels.") + " Mouse/right stick aim independently; controller movement follows the screen. 1-6 or the D-pad spend perk points.",
+	_paragraph(Vector2(R.position.x + 16, R.end.y - 38), ("Tap a row, then press the key or button you want; tap again to cancel." if game.touch_active else "Click a row, then press the key, mouse button, gamepad button or trigger you want; Esc cancels. A key already in use swaps over.") + " Mouse/right stick aim independently; controller movement follows the screen. 1-6 or the D-pad spend perk points.",
 		11, Color(0.72, 0.72, 0.78), R.size.x - 32, 13.0)
 	reset_button = Rect2(body.position.x + 232 + (R.size.x - 220) / 2.0, body.end.y - 38, 220, 34)
 	_opt_button(reset_button, "RESET TO DEFAULT", false)
