@@ -1192,11 +1192,11 @@ func _overlay_close_x(frame: Rect2, ov: bool) -> void:
 
 func _draw_credits() -> void:
 	var body := _overlay_frame("CREDITS")
-	var y := body.position.y + 56
+	var y := body.position.y + 64
 	for c in CREDITS:
 		ttext(Vector2(body.position.x, y), c[0], 18, Color(1.0, 0.8, 0.38), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 4)
 		var used: float = _centered_paragraph(Vector2(body.position.x + 60, y + 22), c[1], 14, body.size.x - 120)
-		y += 42 + used   # eight rows fit the frame (licences and the Steam version were added)
+		y += 52 + used   # eight rows with breathing room (licences and the Steam version were added)
 
 
 func _centered_paragraph(pos: Vector2, text: String, size: int, width: float) -> float:
