@@ -1563,6 +1563,7 @@ func _press(id: String, arg) -> void:
 		"exit":
 			if exit_armed > 0.0:
 				game._save_settings()
+				game.finish_world_now()
 				game.get_tree().quit()
 			exit_armed = 3.0
 		"back": back()

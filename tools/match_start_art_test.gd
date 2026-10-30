@@ -46,6 +46,10 @@ func _run() -> void:
 			and not game._stream_world and not is_instance_valid(game.loading_layer)):
 		await process_frame
 	check(game.main_menu != null and not game.playing, "the title is up")
+	# (The world builds behind the title: this checks a start once it is
+	# done, the in-frame build; tools/loading_progress_test.gd starts early.)
+	while not game.world_ready and Time.get_ticks_msec() < deadline:
+		await process_frame
 	for i in 30:
 		await process_frame
 	RenderingServer.frame_post_draw.connect(_post_draw)
