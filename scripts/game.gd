@@ -29,6 +29,7 @@ const StaticBatch = preload("res://scripts/static_batch.gd")
 const Season = preload("res://scripts/visual/season.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
 const MainMenu = preload("res://scripts/menu.gd")
+const Legend = preload("res://scripts/legend.gd")
 const MenuStage = preload("res://scripts/menu_stage.gd")
 const Economy = preload("res://scripts/economy.gd")
 const StyleProfile = preload("res://scripts/visual/style_profile.gd")
@@ -138,6 +139,10 @@ var saved_at := -1.0          # when the save was last written (seconds since st
 var account_gold := 0           # match rewards (Stats.MATCH_GOLD / MATCH_SHARDS), spent in the STORE (store.gd)
 var account_shards := 0
 var account_chests := 0         # unopened Match Chests (opened in the STORE)
+var legend_seen := false        # the LEGEND OF THE WILDWOOD ending has played for this player (legend.gd)
+var legend_sides: Array = [0, 0]                 # matches played as Elves / Humans (the legend names the side)
+var legend_classes: Array = [0, 0, 0, 0, 0, 0, 0]   # matches by main class (Stats.Role): its favourite class
+var legend = null               # legend.gd while the ending or the credits roll is on screen
 var owned_items: Array = []     # STORE items bought or found in chests: "kind:index" keys (Store.key)
 var hero_hat := 0               # Stats.HERO_HATS index (worn with no class hat on)
 var hero_cape := 0              # Stats.HERO_CAPES index
@@ -543,6 +548,30 @@ func _ready() -> void:
 				main_menu.overlay = scr
 			else:
 				main_menu.go(scr)
+		if arg == "--debug-legend" or arg.begins_with("--debug-legend="):
+			# Testing: the ending straight away (=roll: just the credits roll).
+			# Renders: --debug-legend-part=<n> --debug-legend-at=<seconds into
+			# it>, --debug-legend-hold (stop the clock there), --debug-legend-ff.
+			for a2 in OS.get_cmdline_user_args():
+				if a2.begins_with("--debug-legend-hero="):   # renders: side,class (as if most played)
+					var sc := a2.get_slice("=", 1).split(",")
+					legend_sides[clampi(int(sc[0]), 0, 1)] += 1
+					legend_classes[clampi(int(sc[1]) if sc.size() > 1 else 0, 0, legend_classes.size() - 1)] += 1
+			start_legend("roll" if arg == "--debug-legend=roll" else "full")
+			var part := 0
+			var into := 0.0
+			for a2 in OS.get_cmdline_user_args():
+				if a2.begins_with("--debug-legend-part="):
+					part = int(a2.get_slice("=", 1))
+				if a2.begins_with("--debug-legend-at="):
+					into = float(a2.get_slice("=", 1))
+				if a2 == "--debug-legend-hold":
+					legend.hold = true
+				if a2 == "--debug-legend-ff":
+					legend.press_skip()
+				if a2.begins_with("--debug-legend-tour="):
+					legend.tour_dir = a2.get_slice("=", 1)
+			legend.t = legend.seg_start(part) + into
 		if arg.begins_with("--debug-preview-team="):  # renders: the hero's side on the character screen
 			main_menu.preview_team = int(arg.trim_prefix("--debug-preview-team="))
 		if arg.begins_with("--debug-hair-style="):  # renders: a hair style without saving it
@@ -730,6 +759,8 @@ func _process(delta: float) -> void:
 		_net_test_tick(delta)
 	if vmap and world_ready:
 		vmap.tick(delta)
+	if legend or Engine.get_process_frames() == swallow_frame and game_over:
+		return   # the ending is on screen (legend.gd takes the input) or just closed
 	if not playing and not game_over:
 		if name_editing or ip_editing or menu_open or net_client:
 			return
@@ -756,7 +787,7 @@ func _process(delta: float) -> void:
 			if summary and not summary.done():
 				summary.skip()
 			else:
-				_reload_scene()
+				continue_after_summary()
 		return
 
 	if net_client:
@@ -3444,6 +3475,9 @@ func _bank_match_xp(winner: int) -> void:
 	account_gold += summary.reward_gold
 	account_shards += summary.reward_shards
 	account_chests += 1
+	if player:   # the legend's tallies: the side and main class of each match
+		legend_sides[clampi(summary.team, 0, 1)] += 1
+		legend_classes[clampi(summary.main_role, 0, legend_classes.size() - 1)] += 1
 	summary.set_account(xp_was, account_xp)
 	_save_settings()
 	toast("Progress saved", Color(0.6, 1.0, 0.55))
@@ -3454,6 +3488,77 @@ func _bank_match_xp(winner: int) -> void:
 	if now > level_before:
 		if now >= Stats.UNLOCK_LEVEL and level_before < Stats.UNLOCK_LEVEL:
 			chat_system("Account level %d: the Rogue, the Shadowborn look and the Moonlit Wildwood are unlocked!" % now)
+
+
+static func _counts(v, n: int) -> Array:
+	## A saved tally list, n whole numbers long whatever was saved.
+	var out: Array = []
+	for i in n:
+		out.append(maxi(int(v[i]), 0) if (v is Array or v is PackedInt32Array) and i < v.size() and (v[i] is int or v[i] is float) else 0)
+	return out
+
+
+func legend_due() -> bool:
+	## The ending plays once per player: the first time their account stands
+	## at Legend.LEGEND_LEVEL or above after a match.
+	return not demo and not legend_seen and account_level() >= Legend.LEGEND_LEVEL
+
+
+func legend_level() -> int:
+	return Legend.LEGEND_LEVEL
+
+
+func legend_unlocked() -> bool:
+	## PROGRESS offers WATCH THE LEGEND from this level on.
+	return account_level() >= Legend.LEGEND_LEVEL or "--debug-unlock" in OS.get_cmdline_user_args()
+
+
+func continue_after_summary() -> void:
+	## CONTINUE on the match summary: the ending if it is due, else the title.
+	if legend_due():
+		start_legend("full")
+	else:
+		_reload_scene()
+
+
+func start_legend(mode: String = "full") -> void:
+	## "full": LEGEND OF THE WILDWOOD (after the level-20 match, or WATCH THE
+	## LEGEND in PROGRESS); "roll": just the credits roll (ROLL CREDITS).
+	if mode == "full" and not legend_seen:
+		legend_seen = true   # once per player, even if skipped: PROGRESS replays it
+		_save_settings()
+	legend = Legend.new(self, mode)
+	menu_open = false
+	sfx.play_music(false)
+	print("LEGEND start mode=%s level=%d" % [mode, account_level()])
+
+
+func legend_tour_done(dir: String) -> void:
+	## Renders (--debug-legend-tour): after the ending's shots, the title's
+	## CREDITS (with ROLL CREDITS) and PROGRESS (WATCH THE LEGEND), then quit.
+	legend.finish()
+	var size := get_viewport().get_visible_rect().size
+	for ov in ["credits", "progress"]:
+		main_menu.overlay = ov
+		for i in 20:
+			await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png("%s/overlay_%s.png" % [dir, ov])
+	print("LEGEND tour done %dx%d" % [size.x, size.y])
+	_save_settings()
+	_flush_save()
+	finish_world_now()
+	get_tree().quit()
+
+
+func legend_finished() -> void:
+	## The ending is over (or skipped): after a match, on to the title; from
+	## the title's overlays, back to where it was opened.
+	legend = null
+	swallow_frame = Engine.get_process_frames()   # the closing press must not reach the menu behind
+	confirm_block = true
+	print("LEGEND done")
+	if game_over:
+		_reload_scene()
 
 
 func guide_toggle() -> void:
@@ -3663,6 +3768,12 @@ func menu_tick() -> void:
 	if _stream_world:
 		click_latched = false
 		click_was = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		return
+	if legend:
+		# The ending takes every press (legend.input); the menus behind wait.
+		click_latched = false
+		click_was = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		legend.tick(get_process_delta_time())
 		return
 	quit_armed = maxf(quit_armed - get_process_delta_time(), 0.0) if menu_open else 0.0
 	if game_over:
@@ -4856,6 +4967,9 @@ func _save_settings() -> void:
 	cfg.set_value("profile", "account_shards", account_shards)
 	cfg.set_value("profile", "account_chests", account_chests)
 	cfg.set_value("profile", "owned_items", owned_items)
+	cfg.set_value("profile", "legend_seen", legend_seen)
+	cfg.set_value("profile", "legend_sides", legend_sides)
+	cfg.set_value("profile", "legend_classes", legend_classes)
 	cfg.set_value("settings", "hero_hat", hero_hat)
 	cfg.set_value("settings", "hero_cape", hero_cape)
 	cfg.set_value("settings", "hero_outfit", hero_outfit)
@@ -5016,6 +5130,9 @@ func _load_controls() -> void:
 	account_chests = maxi(int(cfg.get_value("profile", "account_chests", 0)), 0)
 	var owned = cfg.get_value("profile", "owned_items", [])
 	owned_items = Array(owned) if owned is Array or owned is PackedStringArray else []
+	legend_seen = bool(cfg.get_value("profile", "legend_seen", false))
+	legend_sides = _counts(cfg.get_value("profile", "legend_sides", []), 2)
+	legend_classes = _counts(cfg.get_value("profile", "legend_classes", []), 7)
 	hero_hat = clampi(int(cfg.get_value("settings", "hero_hat", 0)), 0, Stats.HERO_HATS.size() - 1)
 	hero_cape = clampi(int(cfg.get_value("settings", "hero_cape", 0)), 0, Stats.HERO_CAPES.size() - 1)
 	hero_outfit = clampi(int(cfg.get_value("settings", "hero_outfit", 0)), 0, Stats.HERO_OUTFITS.size() - 1)

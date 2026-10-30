@@ -230,6 +230,9 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if game and game.legend and not pane:
+		game.legend.input(event)   # the ending (legend.gd) takes every press while it plays
+		return
 	if game and not pane:  # the panes would feed every key to the chat twice
 		game.menu_input(event)
 		if game.game_over and game.summary and event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
@@ -244,7 +247,7 @@ func _click_end(at: Vector2) -> void:
 		s.show_board = not s.show_board
 	elif s.continue_rect.has_point(at):
 		if s.done():
-			game._reload_scene()
+			game.continue_after_summary()
 		else:
 			s.skip()
 
@@ -295,6 +298,10 @@ func _draw() -> void:
 	title_buttons = []
 	couch_buttons = []
 	menu_buttons = []
+	if game.legend:
+		if not pane:
+			game.legend.draw(self)   # the ending covers the whole window (legend.gd)
+		return
 	if not game.playing and not game.game_over:
 		_draw_title()
 		if game.menu_open:
