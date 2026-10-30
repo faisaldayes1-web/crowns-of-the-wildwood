@@ -4058,6 +4058,19 @@ func menu_input(event: InputEvent) -> void:
 			_rebind(rebinding, event)
 			swallow_frame = Engine.get_process_frames()
 		return
+	if name_editing and event is InputEventJoypadButton and event.pressed and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_START]:
+		# A pad has no letters: its confirm/back/start ends the name entry
+		# instead of leaving a pad-only player stuck on the prompt (RT-01).
+		# An empty name becomes "Hero" so the first-run prompt doesn't return;
+		# it can be changed any time on PLAYERS or Customize.
+		name_editing = false
+		hero_name = hero_name.strip_edges()
+		if hero_name == "":
+			hero_name = "Hero"
+		_save_settings()
+		swallow_frame = Engine.get_process_frames()
+		confirm_block = true   # the same A press must not also click the button under the cursor
+		return
 	if name_editing and event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_ENTER, KEY_KP_ENTER, KEY_ESCAPE:
