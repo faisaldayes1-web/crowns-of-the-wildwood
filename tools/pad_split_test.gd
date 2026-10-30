@@ -113,7 +113,9 @@ func _init() -> void:
 			if k != d + 1 and mv[k] > 0.4:
 				others = false
 		check(mv[d + 1] > 1.5 and others, "pad %d's stick moves player %d only (moved %s)" % [d, d + 2, str(mv.map(func(x): return snappedf(x, 0.01)))])
-	# The keyboard moves player 1 only.
+	# The keyboard moves player 1 only. Directional keys are the "wasd" PC
+	# movement option; the default is click-to-move.
+	g.pc_movement = "wasd"
 	var before_k := positions(g)
 	key(KEY_D, true)
 	await frames(50)
