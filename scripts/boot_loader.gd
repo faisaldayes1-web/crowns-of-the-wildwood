@@ -1,6 +1,9 @@
 extends Node
-## Cold-launch head start (autoload "BootLoader", listed first so it runs
-## before main.tscn and game.gd's preload graph compile).
+## Cold-launch head start (autoload "BootLoader", listed first). The requests
+## go out from _init(), when Godot creates the autoload: in 4.3 the main scene
+## is loaded and instantiated before any autoload's _ready() runs, so _ready()
+## was too late to overlap main.tscn and game.gd's preload graph compile
+## (Laptop 3 A/B 2026-10-30: game_ready's wait for the loads 307 -> 68 ms cold).
 ##
 ## A release export's cold boot spent ~0.6 s of the main thread decoding the
 ## HUD's ~213 lossless PNGs (hud.gd _ready) and 0.4-0.7 s single frames on
@@ -32,7 +35,7 @@ var pending: Array[String] = []
 var held: Array[Resource] = []
 
 
-func _ready() -> void:
+func _init() -> void:
 	# Web builds may have no worker threads (the request would decode on the
 	# main thread up front), and headless runs draw nothing.
 	if OS.has_feature("web") or DisplayServer.get_name() == "headless":
