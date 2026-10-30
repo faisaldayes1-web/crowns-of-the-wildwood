@@ -74,16 +74,36 @@ func _process(delta: float) -> void:
 	model.scale = Vector3.ONE * (1.25 if carried else 1.5)
 	if rays:
 		rays.visible = carried
-		rays.rotation.z = _t * 0.6
-		rays_mat.albedo_color = Color(1.2, 1.05, 0.8, 0.8 + 0.15 * sin(_t * 5.0))
-		rays.scale = Vector3.ONE * (1.0 + 0.08 * sin(_t * 3.0))
+		if _flat_rays() and carried and carrier:
+			# Day maps: the burst is a gold sunburst on the ground under the
+			# carrier, so it marks them from afar without washing their
+			# model yellow (a billboard over the head covered the carrier).
+			rays.global_position = carrier.global_position + Vector3(0, 0.08, 0)
+			rays.rotation = Vector3(-PI / 2.0, _t * 0.6, 0.0)
+			rays_mat.albedo_color = Color(1.0, 0.7, 0.12, 0.85 + 0.12 * sin(_t * 5.0))
+			rays.scale = Vector3.ONE * 1.35
+		else:
+			rays.rotation.z = _t * 0.6
+			rays_mat.albedo_color = Color(1.2, 1.05, 0.8, 0.8 + 0.15 * sin(_t * 5.0))
+			rays.scale = Vector3.ONE * (1.0 + 0.08 * sin(_t * 3.0))
+	if crown_light:
+		# Worn in daylight, a dimmer glow: two strong gold lights a hand
+		# above the carrier's head burned their model to flat yellow.
+		crown_light.light_energy = 0.5 if (carried and _flat_rays()) else 1.6
 	if aura:
 		aura.position.y = model.position.y + 0.3
 		# At rest the aura is a modest halo, not a mass (Faisal 2026-10-09:
 		# the crown must stay a readable object on its pedestal).
 		aura.scale = Vector3.ONE * ((0.9 if carried else 0.7) + 0.08 * sin(_t * 4.0))
 		aura_mat.albedo_color.a = (0.1 if carried else 0.2) + 0.04 * sin(_t * 4.0)
+		# Day maps: no halo round a worn crown; it tinted the whole carrier
+		# yellow, and the ground sunburst marks them instead.
+		aura.visible = not (carried and _flat_rays())
 		beam_mat.albedo_color.a = (0.3 if carried else 0.12) + 0.05 * sin(_t * 3.0)
+		if carried and _flat_rays():
+			# Seen from the high game camera the beam over a worn crown lies
+			# across the carrier: kept faint on the day maps.
+			beam_mat.albedo_color.a = 0.07 + 0.03 * sin(_t * 3.0)
 	match state:
 		State.HOME:
 			model.position.y = REST_HEIGHT + sin(_t * 2.0) * 0.05
@@ -109,6 +129,19 @@ var aura_mat: StandardMaterial3D
 var beam_mat: StandardMaterial3D
 var rays: MeshInstance3D
 var rays_mat: StandardMaterial3D
+var crown_light: OmniLight3D
+var _flat := -1   # 1: the day maps' ground sunburst (visual pass 2026-10-30), 0: the billboard
+
+
+func _flat_rays() -> bool:
+	if _flat < 0:
+		var g = get_parent()
+		_flat = 1 if g and g.has_method("night") and load("res://scripts/fx.gd").of(g).daylight() else 0
+		if _flat == 1 and rays_mat:
+			rays_mat.billboard_mode = BaseMaterial3D.BILLBOARD_DISABLED
+			rays_mat.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+			rays_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return _flat == 1
 
 
 func _ray_texture() -> ImageTexture:
@@ -254,6 +287,7 @@ func _build_crown(elf: bool) -> Node3D:
 	light.omni_range = 5.0
 	light.position.y = 0.4
 	root.add_child(light)
+	crown_light = light
 	# Sparkles drifting up off it.
 	var p := CPUParticles3D.new()
 	p.amount = 10

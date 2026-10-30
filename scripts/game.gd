@@ -2312,6 +2312,12 @@ func spawn_pillar(where: Vector3, color: Color, height: float = 4.0, duration: f
 	mat.emission_energy_multiplier = 2.0
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	if Fx.of(self).daylight():
+		# Day maps: a pale additive column vanished against cream stone;
+		# the level-up, revive and blessing columns are a normally blended
+		# column of their saturated colour (visual pass 2026-10-30).
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+		mat.albedo_color = Color(Fx.vivid(color).lightened(0.1), 0.36)
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	pillar.material_override = mat

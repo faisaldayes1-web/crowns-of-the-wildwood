@@ -22,6 +22,13 @@ func setup(p_game, pos: Vector3, p_kind: String) -> void:
 	kind = p_kind
 	position = pos
 	color = Stats.BLESSING_KINDS[kind].color
+	# The day maps: additive light vanishes on cream stone and the pale
+	# ring and star read only as ink outlines, so the column is a normally
+	# blended tint and the star and rings take the saturated colour
+	# (visual pass 2026-10-30).
+	var day: bool = load("res://scripts/fx.gd").of(game).daylight()
+	if day:
+		color = load("res://scripts/fx.gd").vivid(color)
 
 	pillar = MeshInstance3D.new()
 	var cyl := CylinderMesh.new()
@@ -34,7 +41,7 @@ func setup(p_game, pos: Vector3, p_kind: String) -> void:
 	var pm := StandardMaterial3D.new()
 	pm.albedo_color = Color(color, 0.18)
 	pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	pm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	pm.blend_mode = BaseMaterial3D.BLEND_MODE_MIX if day else BaseMaterial3D.BLEND_MODE_ADD
 	pm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	pm.cull_mode = BaseMaterial3D.CULL_DISABLED
 	pillar.material_override = pm
@@ -75,7 +82,7 @@ func setup(p_game, pos: Vector3, p_kind: String) -> void:
 	var corem := StandardMaterial3D.new()
 	corem.albedo_color = Color(color, 0.35)
 	corem.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	corem.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	corem.blend_mode = BaseMaterial3D.BLEND_MODE_MIX if day else BaseMaterial3D.BLEND_MODE_ADD
 	corem.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	core.material_override = corem
 	add_child(core)
@@ -87,7 +94,7 @@ func setup(p_game, pos: Vector3, p_kind: String) -> void:
 	for rot in [0.0, PI / 2.0]:
 		var d := MeshInstance3D.new()
 		var prism := PrismMesh.new()
-		prism.size = Vector3(0.5, 0.9, 0.12)
+		prism.size = Vector3(0.5, 0.9, 0.12) if not day else Vector3(0.62, 1.0, 0.24)
 		d.mesh = prism
 		d.rotation.y = rot
 		d.material_override = rm
