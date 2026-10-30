@@ -301,8 +301,8 @@ func draw(hud, stage, team: int) -> void:
 		var have := items_in(i).filter(func(it): return owns(game, it[0], it[1])).size()
 		h._text(Vector2(rr.end.x - 96, rr.position.y + rr.size.y / 2.0 + 5), "%d/%d" % [have, items_in(i).size()], 11, Color(0.85, 0.82, 0.72), HORIZONTAL_ALIGNMENT_RIGHT, 60, 2)
 	_grid(Rect2(832 + ox, 122, 430, 452))
-	_detail(Rect2(832 + ox, 586, 430, 106))
-	menu.wood_button(Rect2(60 + ox, 652, 160, 52), "BACK", "back", null, "", 20)
+	_detail(Rect2(832 + ox, 586 + menu._foot_y(), 430, 106))
+	menu.wood_button(Rect2(60 + ox, 652 + menu._foot_y(), 160, 52), "BACK", "back", null, "", 20)
 	if flash > 0.0:
 		_purchased()
 	if not reveal.is_empty():
