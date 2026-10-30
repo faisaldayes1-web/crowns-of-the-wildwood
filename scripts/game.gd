@@ -3579,6 +3579,8 @@ func _quick_upgrades() -> void:
 	## Spend a point in the field without opening UPGRADES: 1-4 (or the
 	## D-pad, or the HUD's level-up tiles) buy that skill's next rank once
 	## you have been out of the fight for Stats.QUICK_UPGRADE_CALM seconds.
+	if Input.is_action_pressed("scoreboard"):
+		return   # scoreboard + D-pad are the team calls
 	for u in locals:
 		if u == null or u.dead or u.downed or u.points <= 0:
 			continue
@@ -3730,6 +3732,12 @@ func menu_tick() -> void:
 			for kind in ["attack", "defend", "help"]:
 				if Input.is_action_just_pressed("cmd_" + kind):
 					call_command(kind)
+			# A pad has no free buttons for the calls: hold the scoreboard
+			# (Back / Create) and press the D-pad: up Attack, left Defend, right To me.
+			if Input.is_action_pressed("scoreboard"):
+				for pair in [["rank_1", "attack"], ["rank_2", "defend"], ["rank_3", "help"]]:
+					if Input.is_action_just_pressed(pair[0]):
+						call_command(pair[1])
 		if rank_open and rank_player == null:
 			rank_player = player
 		if rank_open and rank_player:
@@ -4588,6 +4596,22 @@ static func _bind_kind(ev: InputEvent) -> String:
 	if ev is InputEventJoypadButton or _is_trigger(ev):
 		return "pad"
 	return "other"
+
+
+func pad_binding_hint(action: String, kind: String = "") -> String:
+	## The Controls tab's gamepad column: the binding, or how to reach the
+	## action without one (team calls are a scoreboard + D-pad chord).
+	var t := binding_text(action, "pad", kind)
+	if t != "-":
+		return t
+	var k := kind if kind != "" else pad_kind(local_pad(0))
+	match action:
+		"cmd_attack": return "%s + %s" % [pad_label("scoreboard", k), _pad_name(JOY_BUTTON_DPAD_UP, k)]
+		"cmd_defend": return "%s + %s" % [pad_label("scoreboard", k), _pad_name(JOY_BUTTON_DPAD_LEFT, k)]
+		"cmd_help": return "%s + %s" % [pad_label("scoreboard", k), _pad_name(JOY_BUTTON_DPAD_RIGHT, k)]
+		"move_interact", "force_move", "force_hold": return "MOUSE ONLY"
+		"chat", "chat_toggle", "roster_toggle": return "KEYBOARD ONLY"
+	return t
 
 
 func _action_label(action: String) -> String:

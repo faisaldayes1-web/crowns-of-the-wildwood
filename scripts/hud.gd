@@ -6002,7 +6002,7 @@ func _menu_controls(body: Rect2) -> void:
 	var ly := L.position.y + CONTROL_GROUPS.size() * 44 + 12
 	_text(Vector2(L.position.x + 4, ly + 12), "CONTROL LAYOUT", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	var layout_names := {"auto": "AUTO", "keyboard": "KEYBOARD & MOUSE", "controller": "CONTROLLER", "touch": "TOUCH"}
-	var lh := clampf((L.end.y - ly - 22.0) / 4.0 - 4.0, 24.0, 32.0)
+	var lh := clampf((L.end.y - ly - 22.0) / 4.0 - 4.0, 18.0, 32.0)   # (in a match the page is short: shrink, don't spill)
 	for i in game.CONTROL_LAYOUTS.size():
 		var id: String = game.CONTROL_LAYOUTS[i]
 		var lb := Rect2(L.position.x, ly + 20 + i * (lh + 4), L.size.x, lh)
@@ -6028,7 +6028,8 @@ func _menu_controls(body: Rect2) -> void:
 		_text(row.position + Vector2(14, 23), names.get(action, action), 14, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		var key_text: String = "PRESS A KEY…" if hot else game.binding_text(action, "key")
 		_keycap(Vector2(kx, row.get_center().y), key_text, 130, false, true)
-		_keycap(Vector2(px, row.get_center().y), game.binding_text(action, "pad", pad_kind), 96)
+		var pad_text: String = game.pad_binding_hint(action, pad_kind)
+		_keycap(Vector2(px, row.get_center().y), pad_text, maxf(96.0, _text_width(pad_text, 11) + 16.0))
 		bind_buttons.append([row, action])
 	if controls_group == 0:
 		var top := R.position.y + 50 + actions.size() * 40
@@ -6059,7 +6060,8 @@ func _menu_controls(body: Rect2) -> void:
 		11, Color(0.72, 0.72, 0.78), R.size.x - 32, 13.0)
 	reset_button = Rect2(body.position.x + 232 + (R.size.x - 220) / 2.0, body.end.y - 38, 220, 34)
 	_opt_button(reset_button, "RESET TO DEFAULT", false)
-	_text(Vector2(body.position.x, body.end.y - 14), "Saved as you change them", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, 220, 2)
+	if ly + 20.0 + 4.0 * (lh + 4.0) <= body.end.y - 24.0:   # only where it clears the layout buttons (UI-08)
+		_text(Vector2(body.position.x, body.end.y - 14), "Saved as you change them", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, 220, 2)
 
 
 func _menu_settings(body: Rect2) -> void:
@@ -6140,9 +6142,9 @@ func _menu_settings(body: Rect2) -> void:
 	var compact := body.size.y < 440.0
 	var calls_h := 26.0 if compact else 76.0
 	y = _opt_section(Vector2(x, y), w, "TEAM CALLS", "horn", calls_h)
-	var calls := [[_k("cmd_attack"), "ATTACK!", "Everyone pushes the enemy door now, no waiting at the rally.", "push their door"],
-		[_k("cmd_defend"), "DEFEND!", "Three bots come home to hold the castle.", "3 bots hold home"],
-		[_k("cmd_help"), "TO ME!", "The two nearest bots come to where you called.", "2 bots come to you"]]
+	var calls := [[_call_key("cmd_attack"), "ATTACK!", "Everyone pushes the enemy door now, no waiting at the rally.", "push their door"],
+		[_call_key("cmd_defend"), "DEFEND!", "Three bots come home to hold the castle.", "3 bots hold home"],
+		[_call_key("cmd_help"), "TO ME!", "The two nearest bots come to where you called.", "2 bots come to you"]]
 	if compact:
 		var cw := (w - 40.0) / 3.0
 		for i in calls.size():
@@ -6198,6 +6200,15 @@ func _menu_settings(body: Rect2) -> void:
 		_text(b.position + Vector2(28, 19), layout.to_upper(), 11, ink, HORIZONTAL_ALIGNMENT_CENTER, b.size.x - 30, 2)
 		toggle_buttons.append([b, "split_" + layout])
 	_fit_paragraph(Rect2(x + 892, y, w - 904, 40), plugged, 10, CREAM)
+
+
+func _call_key(action: String) -> String:
+	## A team call's key, or on a pad the D-pad half of its scoreboard chord.
+	var k := _k(action)
+	if k == "-" and game.on_pad(local_unit):
+		var kind: String = game.pad_kind(game.local_pad(0))
+		return game._pad_name({"cmd_attack": JOY_BUTTON_DPAD_UP, "cmd_defend": JOY_BUTTON_DPAD_LEFT, "cmd_help": JOY_BUTTON_DPAD_RIGHT}[action], kind)
+	return k
 
 
 func _split_glyph(c: Vector2, layout: String, col: Color) -> void:
