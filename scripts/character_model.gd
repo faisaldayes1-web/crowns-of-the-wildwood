@@ -312,6 +312,18 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 	if skeleton:
 		# Epic and Legendary STORE items sparkle when worn.
 		StoreGear.aura(skeleton, custom, c.get("bare", false))
+	if skeleton and not c.get("bare", false):
+		# The team tabard; its back panel gives way to a pack or STORE cape.
+		var cape_on: bool = custom.get("cape", "") not in ["", "scarf"]
+		for name in ["Knight_Cape", "Rogue_Cape", "Barbarian_Cape", "Mage_Cape"]:
+			var own := inst.find_child(name, true, false) as Node3D
+			if own and own.visible:
+				cape_on = true
+		var tab_key: String = {Role.KNIGHT: "knight", Role.HEALER: "healer"}.get(role, "") if variant not in ["queen", "king"] else ""
+		var tab := OutfitFlair.tabard(skeleton, tab_key, Stats.FACTIONS[team].color, rank >= 2, not cape_on, outline)
+		if tab:
+			tab.albedo_color = tint * custom.get("look", Color.WHITE)
+			flash_mats.append(tab)
 	if variant == "" or Stats.VARIANTS.has(role):
 		_add_rank_flair(team, role, rank)
 	if variant == "":
