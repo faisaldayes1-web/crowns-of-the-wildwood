@@ -5350,6 +5350,10 @@ func _add_ground_detail() -> void:
 		var tries := 0
 		while placed.size() < s[2] and tries < s[2] * 12:
 			tries += 1
+			if tries % 32 == 0:
+				# (A whole set's tries in one slice was a 290 ms title hitch:
+				# _open_ground walks every path, mark and tree.)
+				await _world_build_frame()
 			var p: Vector3
 			if s[0] == "leaf" or s[0] == "cap":
 				var t: Vector3 = map_trees[r.randi() % map_trees.size()]
@@ -11683,6 +11687,9 @@ func _warm_up_world() -> void:
 		_fade_loading_now()
 
 
+const WARM_MODEL_SLICE_USEC := 30000
+
+
 func _warm_up_models() -> void:
 	## Every class (and every promotion) once per team, built in front of the
 	## camera under the loading art: the first build of each model loads its
@@ -11700,17 +11707,25 @@ func _warm_up_models() -> void:
 			if Stats.VARIANTS.has(role):
 				for v in Stats.VARIANTS[role]:
 					looks.append([team, role, v.name, 1])
-	var models := []
+	# A few at a time, each lot drawn (and its shaders compiled) before the
+	# next: all ~50 in the Play click's own frame held the loading art
+	# frozen ~1.7 s (claude-faisal3 2026-10-29, PERF-04 rest).
+	var slice_end := Time.get_ticks_usec() + WARM_MODEL_SLICE_USEC
 	for i in looks.size():
+		if i > 0 and Time.get_ticks_usec() >= slice_end:
+			await _drawn_frame()
+			if not is_inside_tree() or not is_instance_valid(rack):
+				return
+			slice_end = Time.get_ticks_usec() + WARM_MODEL_SLICE_USEC
 		var m = CharacterModel.new()
 		rack.add_child(m)
 		m.position = Vector3((i % 8) * 1.2 - 4.2, 0, (i / 8) * 1.2 - 3.0)
 		var l: Array = looks[i]
 		m.setup(l[0], l[1], l[2], {}, l[3])
-		models.append(m)
 	await _drawn_frame()
 	await _drawn_frame()
-	rack.queue_free()
+	if is_instance_valid(rack):
+		rack.queue_free()
 
 
 func _warm_up_effects() -> void:
