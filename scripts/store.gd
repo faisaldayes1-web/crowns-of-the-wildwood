@@ -684,7 +684,7 @@ func _detail(r: Rect2) -> void:
 	h._text(Vector2(r.position.x + 20, r.position.y + 56), rl, rs, rar[1].lightened(0.15), HORIZONTAL_ALIGNMENT_LEFT, text_w, 2)
 	var note := "Looks only: no effect in a fight."
 	match kind:
-		"hat": note = "Worn while you have no class hat on."
+		"hat": note = "Worn before you pick a class."
 		"weapon": note = "Recolours every class's weapons."
 		"cape": note = "Hangs on every class, in your cape dye."
 		"trim": note = "Dyes your cape, sash and scarf."
