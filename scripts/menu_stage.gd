@@ -190,6 +190,12 @@ func show_screen(name: String) -> void:
 	_set_mood("title" if name == "title" else "hall")
 	if rug:
 		rug.visible = name in ["character", "store"]
+	# The hall stands in the match world, 420 m south of the battlefield, and its
+	# cameras look north: with the default 4 km far plane every tree, house and
+	# prop of the map was drawn behind the hall walls (11-17 thousand draw calls,
+	# 20-30 ms a frame on the character, store, map and lobby screens). Nothing
+	# in the hall is more than ~25 m from its cameras.
+	cam.far = 4000.0 if name == "title" else 40.0
 	match name:
 		"title":
 			# Across the stream at the castle and its crown, the two armies either side.
