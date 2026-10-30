@@ -2852,7 +2852,9 @@ func local_controls() -> Dictionary:
 func _held(action: String) -> bool:
 	if remote_peer > 0:
 		return action in net_input.get("held", [])
-	if action in ["attack", "interact", "force_move", "force_hold"]:
+	# Downed: local_controls() is blocked, so read the key itself (hold
+	# interact to skip to the respawn; _downed_process checks the menus).
+	if action in ["attack", "interact", "force_move", "force_hold"] and not downed:
 		return bool(local_controls().get(action, false))
 	return Input.is_action_pressed(_a(action))
 
