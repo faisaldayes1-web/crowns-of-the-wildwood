@@ -203,6 +203,8 @@ const WINDOW_MODES := ["windowed", "borderless", "exclusive"]
 var vsync_on := true          # Settings: wait for the display refresh (no tearing)
 var fps_cap := 0              # Settings: frame-rate limit, 0 = none
 const FPS_CAPS := [0, 30, 60, 120, 144, 240]
+var render_scale := 1.0        # Settings: 3D resolution scale (1.0 = native; the UI always stays sharp)
+const RENDER_SCALES := [1.0, 0.85, 0.75, 0.5]
 const GFX_NAMES := ["LOW", "MEDIUM", "HIGH", "ULTRA"]
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
 var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox" or "ps"
@@ -1748,6 +1750,9 @@ func toggle_setting(key: String) -> void:
 			apply_graphics()
 		"vsync":
 			vsync_on = not vsync_on
+			apply_graphics()
+		"render_scale":
+			render_scale = RENDER_SCALES[(RENDER_SCALES.find(render_scale) + 1) % RENDER_SCALES.size()]
 			apply_graphics()
 		"fps_cap":
 			fps_cap = FPS_CAPS[(FPS_CAPS.find(fps_cap) + 1) % FPS_CAPS.size()]
@@ -4813,6 +4818,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "show_fps", show_fps)
 	cfg.set_value("settings", "vsync", vsync_on)
 	cfg.set_value("settings", "fps_cap", fps_cap)
+	cfg.set_value("settings", "render_scale", render_scale)
 	cfg.set_value("settings", "gfx_quality", gfx_quality)
 	cfg.set_value("settings", "gfx_picked", gfx_picked)
 	cfg.set_value("settings", "fps_intro_done", fps_intro_done)
@@ -4952,6 +4958,9 @@ func _load_controls() -> void:
 	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
 	vsync_on = cfg.get_value("settings", "vsync", true)
 	fps_cap = int(cfg.get_value("settings", "fps_cap", 0))
+	render_scale = float(cfg.get_value("settings", "render_scale", 1.0))
+	if not RENDER_SCALES.has(render_scale):
+		render_scale = 1.0
 	if fps_cap not in FPS_CAPS:
 		fps_cap = 0
 	fps_intro_done = cfg.get_value("settings", "fps_intro_done", false)
@@ -10888,6 +10897,11 @@ func apply_graphics() -> void:
 	vp.scaling_3d_scale = 0.8 if q == 0 else 1.0
 	# (FSR needs Forward+; the Compatibility renderer scales bilinear.)
 	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if q == 0 and RenderingServer.get_rendering_device() != null else Viewport.SCALING_3D_MODE_BILINEAR
+	if render_scale < 1.0:
+		# Settings > 3D Res: the world renders smaller and FSR (Forward+) scales
+		# it up, for weaker PCs and the Steam Deck; the HUD stays full-size.
+		vp.scaling_3d_scale = minf(vp.scaling_3d_scale, render_scale)
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR if RenderingServer.get_rendering_device() != null else Viewport.SCALING_3D_MODE_BILINEAR
 	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 8192][q]
 	# High takes the 4096 sun map (four 2048 cascades): from the match camera it
 	# looks the same as 8192 and costs ~3.6 ms less GPU a frame, the step that
