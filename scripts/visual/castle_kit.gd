@@ -331,9 +331,8 @@ static func tower_dress(g, pos: Vector3, team: int, width: float, height: float,
 		var a: Vector3 = pos + side * (hw + 0.04) - across * (hw + 0.12)
 		var b: Vector3 = pos + side * (hw + 0.04) + across * (hw + 0.12)
 		block_course(g, a, b, 0.0, 0.5, 0.3, grey, seed, 0.6, 1.0, false)
-		# A string course, then the parapet course a little proud with a
-		# merlon at each corner and one in the middle.
-		block_course(g, a, b, height * 0.55, 0.22, 0.24, grey, seed + 3, 0.8, 1.3, false)
+		# The parapet course a little proud, with a merlon at each corner and
+		# one in the middle. (No string course: banners hang down the faces.)
 		var a2: Vector3 = a + side * 0.14
 		var b2: Vector3 = b + side * 0.14
 		block_course(g, a2, b2, height - 0.4, 0.45, 0.4, grey, seed + 1, 0.8, 1.4)

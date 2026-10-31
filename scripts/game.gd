@@ -8062,6 +8062,14 @@ func _castle_kit() -> bool:
 	return world_style and (elf_castle or grey)
 
 
+func _audit_ghost(pos: Vector3, size: Vector3) -> void:
+	## The audit footprint of a pre-kit trim block the castle kit replaced.
+	## Tree, resource and dressing placement read audit_blocks, so the kit
+	## records exactly what the old pieces did and the world's layout (and
+	## its gameplay fingerprint) stays the same.
+	audit_blocks.append([audit_label if audit_label != "" else "block", AABB(pos - size / 2.0, size)])
+
+
 func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	## A solid ashlar wall with a cornice and merlons along its long axis.
 	## The elven castle's walls are trimmed hedges instead (2026-10-08 target).
@@ -8075,6 +8083,25 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 		# plinth course, and ivy on the Elves' walls instead of hedge tops.
 		_add_block(center, body, Color.WHITE, true, CastleKit.wall_mat(self, grey))
 		CastleKit.castle_wall_top(self, center, size, grey, merlons, elf_castle)
+		# (The old trim's audit footprint, as below.)
+		var gl := 0.008 if size.x >= size.z else 0.0
+		var gtop := center.y + size.y / 2.0
+		if grey and size.y >= WALL_H - 0.01:
+			_audit_ghost(Vector3(center.x, center.y - size.y / 2.0 + 0.2 + gl, center.z), Vector3(size.x + 0.36, 0.4, size.z + 0.36))
+		if hedge_tops or mossy:
+			return
+		if grey:
+			_audit_ghost(Vector3(center.x, gtop + 0.15 + gl, center.z), size * Vector3(1, 0, 1) + Vector3(0.24, 0.3, 0.24))
+			_audit_ghost(Vector3(center.x, gtop - 0.08 + gl, center.z), size * Vector3(1, 0, 1) + Vector3(0.12, 0.12, 0.12))
+		else:
+			_audit_ghost(Vector3(center.x, gtop + 0.1 + gl, center.z), size * Vector3(1, 0, 1) + Vector3(0.2, 0.2, 0.2))
+		if merlons:
+			var glen := maxf(size.x, size.z)
+			var gn := maxi(int(glen / 1.3), 1)
+			for k in gn:
+				var t := -glen / 2.0 + (k + 0.5) * glen / gn
+				var gp := Vector3(center.x + t, gtop + 0.5 + gl, center.z) if size.x >= size.z else Vector3(center.x, gtop + 0.5 + gl, center.z + t)
+				_audit_ghost(gp, Vector3(0.6, 0.6, size.z) if size.x >= size.z else Vector3(size.x, 0.6, 0.6))
 		return
 	_add_block(center, body, Color.WHITE, true, _ashlar())
 	var top := center.y + size.y / 2.0
@@ -8149,6 +8176,22 @@ func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height
 		CastleKit.tower_roof(self, pos, team, width, height)
 		if mossy:
 			CastleKit.lantern(self, pos + Vector3(-side * width / 2.0, height - 1.5, 0), Vector3(-side, 0, 0), false)
+		# (The old trim's audit footprint and flag marker, so placement around
+		# the castle stays the same.)
+		_audit_ghost(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5))
+		if grey:
+			_audit_ghost(pos + Vector3(0, 0.262, 0), Vector3(width + 0.5, 0.5, width + 0.5))
+			_audit_ghost(pos + Vector3(0, height * 0.55 + 0.016, 0), Vector3(width + 0.2, 0.16, width + 0.2))
+		if not mossy:
+			for xs in [-1.0, 1.0]:
+				for zs in [-1.0, 1.0]:
+					_audit_ghost(pos + Vector3(xs * (width / 2.0), height + 0.6, zs * (width / 2.0)), Vector3(0.5, 0.6, 0.5))
+		_audit_ghost(pos + Vector3(0, height + 0.38, 0), Vector3(width * 0.95, 0.16, width * 0.95))
+		if flag:
+			var marker := Node3D.new()
+			marker.position = pos + Vector3(0, height + 2.25, 0)
+			add_child(marker)
+			audit_props.append(["hex/flag_%s" % ["green", "blue"][team], marker])
 		return
 	_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(width, height, width), Color.WHITE, true, _ashlar())
 	_add_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
@@ -10682,6 +10725,8 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 			CastleKit.block(self, p + Vector3(0, 0.95, 0), Vector3(1.05, 1.9, 1.05), fm[0])
 			CastleKit.block(self, p + Vector3(0, 1.98, 0), Vector3(1.25, 0.18, 1.25), fm[2])
 			CastleKit.block(self, p + Vector3(0, 2.2, 0), Vector3(0.7, 0.26, 0.7), fm[1])
+			_audit_ghost(p + Vector3(0, 0.35, 0), Vector3(0.7, 0.7, 0.7))
+			_audit_ghost(p + Vector3(0, 0.76, 0), Vector3(0.8, 0.12, 0.8))
 			continue
 		_add_block(p + Vector3(0, 0.35, 0), Vector3(0.7, 0.7, 0.7), Color.WHITE, false, kerb)
 		_add_block(p + Vector3(0, 0.76, 0), Vector3(0.8, 0.12, 0.8), Color.WHITE, false, _ashlar(Color(0.96, 0.94, 0.9)))
