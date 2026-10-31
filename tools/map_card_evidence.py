@@ -24,7 +24,7 @@ ref = Image.open(target).convert('RGB')
 assert ref.size == (2920, 610)
 panels = [Image.open(out/'wildwood/select-screen.png'),
           Image.open(out/'after/select-screen.png'), ref.crop((1950, 60, 2910, 600))]
-for i, (label, panel) in enumerate(zip(['BEFORE - main 354b74e', 'AFTER - actual map renders', 'PICKED TARGET - supplied reference'], panels)):
+for i, (label, panel) in enumerate(zip(['BEFORE - main 0158a9c', 'AFTER - actual map renders', 'PICKED TARGET - supplied reference'], panels)):
     x = 8 + i * 776
     draw.text((x, 10), label, font=font, fill='#f8ebce')
     sheet.paste(panel.convert('RGB').resize((768, 432), Image.Resampling.LANCZOS), (x, 42))
@@ -44,7 +44,7 @@ for name in ['wildwood', 'moonlit', 'stonekeep', 'ember']:
         assert abs(point['pixel_y'] - (point['world_z']+60.75)/121.5*2304) < .01
     records.append({'map': name, 'texture': str(card.relative_to(repo)).replace('\\', '/'),
                     'sha256': hashlib.sha256(card.read_bytes()).hexdigest(), 'bounds_verified': True})
-(out/'manifest.json').write_text(json.dumps({'agent': 'Codex-faisal2', 'geometry_source': '354b74e',
+(out/'manifest.json').write_text(json.dumps({'agent': 'Codex-faisal2', 'geometry_source': '0158a9c',
     'renderer': 'Godot 4.3 official, Forward+, NVIDIA RTX 5080 Laptop',
     'target_sha256': hashlib.sha256(target.read_bytes()).hexdigest(), 'maps': records}, indent=2)+'\n')
 print('PASS: four filtered texture derivatives, card/export dimensions, all landmark coordinate mappings')

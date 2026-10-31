@@ -1,31 +1,31 @@
 {
   "agent": "Codex-faisal2",
-  "geometry_source": "354b74e",
+  "geometry_source": "0158a9c",
   "renderer": "Godot 4.3 official, Forward+, NVIDIA RTX 5080 Laptop",
   "target_sha256": "11bf7245f0b04f26cefaa9d41a243d61aa00a3ea41413d53df75d00ac8fb812d",
   "maps": [
     {
       "map": "wildwood",
       "texture": "assets/ui/menu/map_wildwood.png",
-      "sha256": "443648392b82f85475316844648e0472081c3435258afbd1a17128a4fccb82dc",
+      "sha256": "e7500752939ba0f2d6a514261092a86f69649861a013b5914d0fd7f1177ae8fb",
       "bounds_verified": true
     },
     {
       "map": "moonlit",
       "texture": "assets/ui/menu/map_moonlit.png",
-      "sha256": "cb25da64c573f7b62e4e063eae9358eb1098cc295c0f7994c331597031d01404",
+      "sha256": "4ea914590e5659b16f13ab7b73d17788a2f6ca2acfa0e1faa0c75032bb39f841",
       "bounds_verified": true
     },
     {
       "map": "stonekeep",
       "texture": "assets/ui/menu/map_stonekeep.png",
-      "sha256": "e63e117c727dc2024129735591797995729b23077bd89ceec33d10957301e9e7",
+      "sha256": "d4f1177a9a3ce5fd771ea68b464430f25f10c3c8d9f19b1b3a1abe096d6e6e6a",
       "bounds_verified": true
     },
     {
       "map": "ember",
       "texture": "assets/ui/menu/map_ember.png",
-      "sha256": "441458917f27bd93a8bcad83c889401f208da22bc102784c014bb0684d351d63",
+      "sha256": "223683e75d1aab955f56c4962775d489cd2efac6254bcbdd74237d918ed302a9",
       "bounds_verified": true
     }
   ]
