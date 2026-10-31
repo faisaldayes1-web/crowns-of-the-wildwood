@@ -10720,7 +10720,8 @@ func _pavers() -> StandardMaterial3D:
 	if world_style:
 		# Castle pass 2026-10-31: larger warm-cream flags with a darker joint
 		# and a painted bevel light (tools/make_castle_textures.py).
-		return _pbr("castle_flags", 0.16)
+		# Pass 2 (2026-10-31): a touch less green, toward the picks' cream-peach.
+		return _pbr("castle_flags", 0.16, Color(1.0, 0.95, 0.99))
 	return _pbr("pavers", 0.22, Color(1.0, 0.98, 0.94))
 
 
@@ -10777,7 +10778,11 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 					crests.append(Vector3(bx + side * (9.0 + (k - 2.0) * 2.85), 0, a.z))
 				CastleKit.palisade(self, a, b, 0, Vector3(0, 0, 1), crests, false, 811)
 			else:
-				CastleKit.courtyard_wall(self, a, b, false, 821 + li * 10, 0.3 if li == 1 else 0.44)
+				# Pass 2 (2026-10-31): the west wall, which the camera looks
+				# along, is built tall and thick (outward, away from the yard);
+				# the south wall between the camera and the yard stays low.
+				CastleKit.courtyard_wall(self, a, b, false, 821 + li * 10, 0.3 if li == 1 else 0.44, 4.6,
+					Vector3(side, 0, 0) if li == 2 else Vector3.ZERO)
 			continue
 		_add_picket_fence(a + Vector3(0, 0.3, 0), b + Vector3(0, 0.3, 0))
 		# Pick D: modular low masonry under the timber, inside the existing
@@ -10851,12 +10856,18 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 		_add_block(Vector3(pos.x + xs, pos.y + 1.3, zb - 0.04), Vector3(0.24, 2.6, 0.24), Color.WHITE, false, mid)
 		_add_block(Vector3(pos.x + xs, pos.y + 2.64, zb - 0.04), Vector3(0.32, 0.08, 0.32), Color.WHITE, false, _gold())
 	_add_block(Vector3(pos.x, pos.y + 1.95, zb - 0.02), Vector3(1.62, 1.07, 0.04), Color.WHITE, false, dark)
-	_add_block(Vector3(pos.x, pos.y + 1.95, zb), Vector3(1.5, 0.95, 0.06), Color.WHITE, false, _cloth(StyleProfile.ELF_CLOTH))
+	# Pass 2 (2026-10-31, the picks' station banners): in the match world the
+	# sign's cloth is a deep shade of the class's own awning colour.
+	var sign_cloth: Color = CastleKit.awning_color(role).darkened(0.35) if world_style else StyleProfile.ELF_CLOTH
+	_add_block(Vector3(pos.x, pos.y + 1.95, zb), Vector3(1.5, 0.95, 0.06), Color.WHITE, false, _cloth(sign_cloth))
 	for yy in [1.5, 2.4]:
 		_add_block(Vector3(pos.x, pos.y + yy, zb + 0.01), Vector3(1.56, 0.07, 0.08), Color.WHITE, false, _gold())
 	# Modular crossbeam and layered cloth hem behind the station.
 	_picked_carved_block(Vector3(pos.x, pos.y + 2.55, zb - 0.04), Vector3(2.08, 0.18, 0.3), mid)
-	_add_block(Vector3(pos.x, pos.y + 1.34, zb), Vector3(1.5, 0.1, 0.06), Color.WHITE, false, _cloth(StyleProfile.ELF_CLOTH.darkened(0.12)))
+	_add_block(Vector3(pos.x, pos.y + 1.34, zb), Vector3(1.5, 0.1, 0.06), Color.WHITE, false, _cloth(sign_cloth.darkened(0.12)))
+	if world_style:
+		# A striped market awning in the class colour over the sign.
+		CastleKit.station_awning(self, pos, role, zb)
 	# The name plate: a dark strip across the panel's lower third.
 	_add_block(Vector3(pos.x, pos.y + 1.68, zb + 0.04), Vector3(1.44, 0.3, 0.03), Color.WHITE, false, dark)
 	var name := Label3D.new()

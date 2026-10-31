@@ -34,7 +34,9 @@ static func wall_mat(g, grey: bool) -> StandardMaterial3D:
 	## The wall bodies: courses of big bevelled blocks (tools/make_castle_textures.py).
 	# Grade pass 2026-10-31: a step under white, so the sunlit tops of the
 	# cream walls keep their block joints at the match camera.
-	return g._pbr("castle_blocks_grey" if grey else "castle_blocks", 0.3, Color(0.9, 0.88, 0.86))
+	# Pass 2 (2026-10-31): warmer, browner sandstone (the picks' walls are
+	# warm tan blocks with brown timber, not pale cream).
+	return g._pbr("castle_blocks_grey" if grey else "castle_blocks", 0.3, Color(0.9, 0.88, 0.86) if grey else Color(0.88, 0.76, 0.6))
 
 
 static func face_mats(g, grey: bool) -> Array:
@@ -45,7 +47,8 @@ static func face_mats(g, grey: bool) -> Array:
 	if not c.has(key + str(g.soot)):
 		# (Grade pass 2026-10-31: a wider spread, so the blocks still read
 		# apart under the brighter golden sun; was 1.0 / 0.93 / 1.04.)
-		var tints := [Color(0.95, 0.93, 0.9), Color(0.8, 0.74, 0.66), Color(1.0, 0.95, 0.86)] if not grey \
+		# (Pass 2 2026-10-31: warmer tan and a browner dark shade.)
+		var tints := [Color(0.92, 0.82, 0.66), Color(0.72, 0.58, 0.43), Color(0.98, 0.87, 0.7)] if not grey \
 			else [Color(0.95, 0.95, 0.95), Color(0.76, 0.78, 0.82), Color(1.0, 0.99, 0.97)]
 		var mats := []
 		for t in tints:
@@ -55,7 +58,7 @@ static func face_mats(g, grey: bool) -> Array:
 
 
 static func mortar_mat(g, grey: bool) -> StandardMaterial3D:
-	var m: StandardMaterial3D = g._material((Color(0.22, 0.21, 0.23) if grey else Color(0.3, 0.21, 0.13)) * g.soot)   # darker joints (grade pass)
+	var m: StandardMaterial3D = g._material((Color(0.22, 0.21, 0.23) if grey else Color(0.24, 0.15, 0.09)) * g.soot)   # darker joints (grade pass; pass 2 browner)
 	m.roughness = 1.0
 	return m
 
@@ -263,15 +266,24 @@ static func castle_wall_top(g, center: Vector3, size: Vector3, grey: bool, crene
 			k += r.randf_range(3.2, 5.5)
 
 
-static func courtyard_wall(g, a: Vector3, b: Vector3, grey: bool, seed: int, merlon_h: float = 0.42, post_every: float = 4.6) -> void:
+static func courtyard_wall(g, a: Vector3, b: Vector3, grey: bool, seed: int, merlon_h: float = 0.42, post_every: float = 4.6,
+		tall_out: Vector3 = Vector3.ZERO) -> void:
 	## The open courtyard's low wall on its kerb line a->b: a dark mortar
 	## core, two courses of big bevelled blocks, a crenellated cap and timber
 	## posts with iron-capped tops (picks Spawn D / Battle A).
+	## tall_out (pass 2, 2026-10-31): a side wall the match camera looks
+	## along, not across, is built tall and thick instead: three courses
+	## thickened outward (along tall_out, away from the yard), brown timber
+	## caps on some merlons and tall timber posts. Visual only: the kerb and
+	## invisible wall stay the caller's.
 	var f := _frame(a, b)
 	var along: Vector3 = f[0]
 	var length: float = f[2]
 	var rot := atan2(-along.z, along.x)
 	var mid := (a + b) / 2.0
+	if tall_out != Vector3.ZERO:
+		_tall_courtyard_wall(g, a, b, along, length, rot, grey, seed, tall_out)
+		return
 	var core := Vector3(length, 0.9, 0.5) if absf(along.x) > 0.5 else Vector3(0.5, 0.9, length)
 	_box(g, Vector3(mid.x, 0.3 + 0.45, mid.z), core, mortar_mat(g, grey))
 	block_course(g, a, b, 0.3, 0.46, 0.72, grey, seed, 0.75, 1.3)
@@ -286,6 +298,46 @@ static func courtyard_wall(g, a: Vector3, b: Vector3, grey: bool, seed: int, mer
 		var p := a + along * (k * length / n)
 		block(g, Vector3(p.x, 0.95, p.z), Vector3(0.36, 1.9, 0.86), wood, rot)
 		block(g, Vector3(p.x, 1.94, p.z), Vector3(0.44, 0.1, 0.94), g._timber(Color(0.45, 0.32, 0.21)), rot)
+
+
+static func _tall_courtyard_wall(g, a: Vector3, b: Vector3, along: Vector3, length: float, rot: float, grey: bool, seed: int,
+		out: Vector3) -> void:
+	var sh := out * 0.32   # the wall's centre line, moved outward off the kerb
+	var a0 := a + sh
+	var b0 := b + sh
+	var mid := (a0 + b0) / 2.0
+	var core := Vector3(length, 1.55, 0.86) if absf(along.x) > 0.5 else Vector3(0.86, 1.55, length)
+	_box(g, Vector3(mid.x, 0.3 + 0.78, mid.z), core, mortar_mat(g, grey))
+	block_course(g, a0, b0, 0.3, 0.5, 1.12, grey, seed, 0.8, 1.35)
+	var a2 := a0 + along * 0.4
+	block_course(g, a2, b0, 0.82, 0.5, 1.08, grey, seed + 1, 0.75, 1.25)
+	block_course(g, a0, a2, 0.82, 0.5, 1.08, grey, seed + 2, 0.36, 0.44)
+	block_course(g, a0, b0, 1.34, 0.48, 1.12, grey, seed + 4, 0.8, 1.4)
+	# Crenellations, every other merlon under a brown plank cap.
+	# (The palisade's two timber tints: no new materials to draw.)
+	var wood: Material = g._timber(Color(0.66, 0.5, 0.34))
+	var dark: Material = g._timber(Color(0.5, 0.36, 0.24))
+	var pitch := 1.2
+	var n := maxi(int(round(length / pitch)), 1)
+	var step := length / n
+	var mats := face_mats(g, grey)
+	var r := RandomNumberGenerator.new()
+	r.seed = seed + 5
+	for k in n:
+		var c := a0 + along * ((k + 0.5) * step)
+		var hh := 0.58 * r.randf_range(0.94, 1.0)
+		block(g, Vector3(c.x, 1.82 + hh / 2.0, c.z), Vector3(step * 0.6, hh, 0.98), mats[r.randi() % mats.size()], rot)
+		if k % 3 == 1:
+			block(g, Vector3(c.x, 1.82 + hh + 0.05, c.z), Vector3(step * 0.5, 0.1, 0.9), wood, rot, false)
+	# Tall timber posts through the wall with dark caps. (Banners on its
+	# yard face were tried: at the match camera they showed as slivers on
+	# the wall's edge for a dozen extra draws, so the yard's banners stay on
+	# the castle face and the station awnings.)
+	var np := maxi(int(round(length / 4.2)), 1)
+	for k in np + 1:
+		var p := a0 + along * (k * length / np)
+		block(g, Vector3(p.x, 1.3, p.z), Vector3(0.42, 2.6, 1.24), wood, rot)
+		block(g, Vector3(p.x, 2.64, p.z), Vector3(0.52, 0.12, 1.34), dark, rot)
 
 
 static func palisade(g, a: Vector3, b: Vector3, team: int, face: Vector3, crest_at: Array, grey: bool, seed: int) -> void:
@@ -387,3 +439,119 @@ static func courtyard_castle_face(g, team: int, bx: float, side: float) -> void:
 	for zs in [-1.0, 1.0]:
 		lantern(g, Vector3(face_x, 2.05, zs * 4.6), out, true)
 		g._add_pennant(team, Vector3(face_x + side * 0.02, 2.95, zs * 7.8), out, 1.0, 2.2, zs > 0.0)
+	# Pass 2 (2026-10-31): timber framing on the stone (the picks' walls mix
+	# brown timber with the blocks): a beam under the wall top and posts
+	# between the lanterns and banners, a hand proud of the face.
+	var wood: Material = g._timber(Color(0.66, 0.5, 0.34))   # (the palisade's tints)
+	var dark: Material = g._timber(Color(0.5, 0.36, 0.24))
+	var hz: float = g.CELLAR_HALF_Z
+	block(g, Vector3(face_x + side * 0.07, 3.05, 0.0), Vector3(0.16, 0.22, hz * 2.0 + 0.6), wood)
+	for zs in [-1.0, 1.0]:
+		for z in [6.2, 9.7]:
+			block(g, Vector3(face_x + side * 0.08, 1.5, zs * z), Vector3(0.18, 3.0, 0.32), dark)
+
+
+# --- Market row (pass 2, 2026-10-31) -------------------------------------------
+
+## Each class station's awning colour (picks Spawn D / Battle A: the row reads
+## as a market of class stalls, each under its own colour). Keys: Stats.Role.
+const AWNING := {
+	1: Color(0.2, 0.36, 0.72),    # Knight: royal blue
+	2: Color(0.2, 0.5, 0.22),     # Ranger: forest green
+	3: Color(0.42, 0.22, 0.74),   # Mage: violet
+	4: Color(0.88, 0.64, 0.16),   # Healer: gold
+	5: Color(0.86, 0.44, 0.14),   # Engineer: orange
+	6: Color(0.64, 0.13, 0.17),   # Rogue: crimson
+}
+
+
+static func awning_color(role: int) -> Color:
+	return AWNING.get(role, Color(0.3, 0.5, 0.3))
+
+
+static func _awning_mat(g) -> StandardMaterial3D:
+	var c := _cache(g)
+	if not c.has("awning"):
+		var m := StandardMaterial3D.new()
+		m.vertex_color_use_as_albedo = true
+		m.vertex_color_is_srgb = true
+		m.roughness = 1.0
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED   # thin cloth, seen from above and below
+		c["awning"] = m
+	return c["awning"]
+
+
+static func _quad(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, col: Color) -> void:
+	var n := (p1 - p0).cross(p3 - p0).normalized()
+	if n.y < -0.01 or (absf(n.y) <= 0.01 and n.z < 0.0):
+		n = -n
+	st.set_normal(n)
+	st.set_color(col)
+	for v in [p0, p1, p2, p0, p2, p3]:
+		st.add_vertex(v)
+
+
+static func _beam(st: SurfaceTool, a: Vector3, b: Vector3, w: float, col: Color) -> void:
+	## A square timber from a to b (w thick), four long faces.
+	var axis := (b - a).normalized()
+	var u := axis.cross(Vector3.RIGHT if absf(axis.x) < 0.9 else Vector3.FORWARD).normalized() * (w / 2.0)
+	var v := axis.cross(u).normalized() * (w / 2.0)
+	var corners := [u + v, -u + v, -u - v, u - v]
+	for k in 4:
+		var c0: Vector3 = corners[k]
+		var c1: Vector3 = corners[(k + 1) % 4]
+		var shade := col * (1.0 if (c0 + c1).y > 0.0 else 0.75)
+		shade.a = 1.0
+		_quad(st, a + c0, a + c1, b + c1, b + c0, shade)
+
+
+static func station_awning(g, pos: Vector3, role: int, zb: float) -> void:
+	## A striped market awning over a class station's sign: class colour and
+	## cream stripes sloping out toward the yard from the sign's posts, a
+	## scalloped valance with a gold trim, on two dark timber poles and
+	## brackets. One vertex-coloured mesh per station (cheap to draw).
+	## Everything sits behind (north of) the hat and above the camera's
+	## sight lines onto the sign; visual only, no colliders.
+	var col: Color = awning_color(role)
+	var cream := Color(0.96, 0.9, 0.76)
+	var gold := Color(0.85, 0.66, 0.28)
+	var dark := Color(0.3, 0.2, 0.12)
+	# High and shallow: the match camera looks down at ~50 degrees, so an
+	# awning reaching further out or hanging lower would cover the sign's
+	# emblem and name under it.
+	var back_y := pos.y + 3.32
+	var front_y := pos.y + 3.06
+	var z0 := zb - 0.1
+	var z1 := zb + 0.6
+	var stripes := 5
+	var width := 2.2
+	var sw := width / stripes
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in stripes:
+		var x0 := pos.x - width / 2.0 + k * sw
+		var x1 := x0 + sw
+		var c: Color = col if k % 2 == 0 else cream
+		_quad(st, Vector3(x0, back_y, z0), Vector3(x1, back_y, z0), Vector3(x1, front_y, z1), Vector3(x0, front_y, z1), c)
+		# The valance: a strip and a rounded (scalloped) flap per stripe.
+		var vb := front_y - 0.14
+		_quad(st, Vector3(x0, front_y, z1), Vector3(x1, front_y, z1), Vector3(x1, vb, z1), Vector3(x0, vb, z1), c * 0.92)
+		var xc := (x0 + x1) / 2.0
+		var segs := 6
+		st.set_normal(Vector3(0, 0, 1))
+		st.set_color(c * 0.92)
+		for i in segs:
+			var a0 := PI * i / segs
+			var a1 := PI * (i + 1) / segs
+			st.add_vertex(Vector3(xc, vb, z1))
+			st.add_vertex(Vector3(xc + cos(a0) * sw / 2.0, vb - sin(a0) * sw * 0.32, z1))
+			st.add_vertex(Vector3(xc + cos(a1) * sw / 2.0, vb - sin(a1) * sw * 0.32, z1))
+	_beam(st, Vector3(pos.x - width / 2.0 - 0.02, front_y + 0.02, z1 + 0.03), Vector3(pos.x + width / 2.0 + 0.02, front_y + 0.02, z1 + 0.03), 0.05, gold)
+	for xs in [-1.0, 1.0]:
+		var bx: float = pos.x + xs * (width / 2.0 - 0.05)
+		_beam(st, Vector3(bx, back_y - 0.06, z0), Vector3(bx, front_y - 0.06, z1), 0.08, dark)
+		_beam(st, Vector3(bx, pos.y, z0 - 0.06), Vector3(bx, back_y, z0 - 0.06), 0.1, dark)
+	var mi := MeshInstance3D.new()
+	mi.mesh = StaticBatch.kept_mesh(st)   # (keeps its arrays for the batch: no GPU read-back)
+	mi.material_override = _awning_mat(g)
+	g.add_child(mi)
