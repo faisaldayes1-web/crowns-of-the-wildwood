@@ -233,7 +233,7 @@ func _tree_key(species: String, pos: Vector3, seed: int) -> String:
 		"autumn":
 			return "autumn%d" % (seed % 2)
 		_:
-			if palette in ["day", "night"] and pos.x < -8.0 and seed % 20 == 0:
+			if palette in ["day", "night"] and pos.x < -8.0 and seed % 20 == 0 and not _in_castle(pos, 10.0):   # (none in the spawn camera's view)
 				return "blossom"
 			if palette in ["day", "night"] and pos.x > 8.0 and seed % 9 == 4:
 				return "autumnbroad"
@@ -472,7 +472,7 @@ func _patch_tones() -> Array:
 		"winter":
 			return [Color(0.86, 0.9, 0.98, 0.7), Color(0.74, 0.82, 0.92, 0.6), Color(0.95, 0.97, 1.0, 0.8)]
 		"twilight":
-			return [Color(0.16, 0.42, 0.4, 0.6), Color(0.28, 0.5, 0.42, 0.55), Color(0.3, 0.24, 0.46, 0.45)]
+			return [Color(0.16, 0.42, 0.4, 0.6), Color(0.28, 0.5, 0.42, 0.55), Color(0.2, 0.36, 0.44, 0.45)]
 	# Warm yellow-green, deep cool green, a sunlit lime and a dry straw.
 	return [Color(0.56, 0.68, 0.26, 0.6), Color(0.2, 0.42, 0.16, 0.55), Color(0.5, 0.74, 0.3, 0.55), Color(0.66, 0.62, 0.32, 0.45)]
 
@@ -493,6 +493,7 @@ func _ensure() -> void:
 	mat.shader = load("res://assets/shaders/forest_kit.gdshader")
 	mat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	mat.set_shader_parameter("glow_energy", 2.2 if palette == "twilight" else (1.4 if palette == "night" else 1.0))
+	mat.set_shader_parameter("self_lit", 0.35 if palette == "twilight" else 0.0)
 
 
 func kit_tree(parent: Node3D, key: String, at: Vector3, s: float, yaw: float) -> MeshInstance3D:
@@ -605,12 +606,15 @@ func _hsv(v: Vector3) -> Color:
 func _leaf_ramp(accent: String) -> Array:
 	## [shade under the crown, sunlit top] for broadleaf crowns.
 	if accent == "blossom":
-		return [Color.from_hsv(0.94, 0.62, 0.42), Color.from_hsv(0.95, 0.38, 0.95)]   # cherry pink, not lilac
+		return [Color.from_hsv(0.985, 0.66, 0.5), Color.from_hsv(0.02, 0.42, 1.0)]   # warm coral-pink blossom (the picks' flower pinks), not lilac
 	if accent == "autumn":
 		return [StyleProfile.AUTUMN_BOTTOM, StyleProfile.AUTUMN_TOP]
 	match palette:
 		"twilight":
-			return [Color(0.2, 0.14, 0.36), Color(0.22, 0.86, 0.66)]
+			if accent == "violet":   # one grove tree in three, as an accent
+				return [Color(0.2, 0.2, 0.32), Color(0.46, 0.5, 0.7)]
+			# (Greener than the target teal: the dusk light is magenta.)
+			return [Color(0.03, 0.24, 0.2), Color(0.22, 0.96, 0.58)]
 		"winter":
 			return [Color(0.12, 0.3, 0.22), Color(0.9, 0.94, 1.0)]
 	# The picks' crowns: deep cool green in the shade, warm yellow-green on top.
@@ -624,7 +628,7 @@ func _pine_ramp(accent: String) -> Array:
 		return [StyleProfile.GOLD_BOTTOM, StyleProfile.GOLD_TOP]
 	match palette:
 		"twilight":
-			return [Color(0.16, 0.12, 0.32), Color(0.2, 0.74, 0.58)]
+			return [Color(0.03, 0.22, 0.18), Color(0.2, 0.82, 0.52)]
 		"winter":
 			return [Color(0.1, 0.34, 0.24), Color(0.24, 0.56, 0.36)]
 	return [Color.from_hsv(0.38, 0.84, 0.24), Color.from_hsv(0.3, 0.8, 0.56)]
@@ -755,7 +759,7 @@ func _make_broad(st: SurfaceTool, seed: int, shape: int, accent: String) -> void
 	## dome of leaf clumps (a skirt, a ring and a top knot), ~4.6 m tall.
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
-	var ramp := _leaf_ramp(accent)
+	var ramp := _leaf_ramp("violet" if palette == "twilight" and accent == "" and shape == 1 else accent)
 	var bark := _bark()
 	var trunk_h: float = [1.7, 1.9, 1.55][shape]
 	var crown_r: float = [1.45, 1.25, 1.6][shape]
@@ -895,8 +899,8 @@ func _make_rock(st: SurfaceTool, seed: int, shape: int) -> void:
 	var lo := Color(0.42, 0.42, 0.44)
 	var hi := Color(0.72, 0.71, 0.68)
 	if palette == "twilight":
-		lo = Color(0.3, 0.28, 0.4)
-		hi = Color(0.56, 0.52, 0.66)
+		lo = Color(0.26, 0.3, 0.36)
+		hi = Color(0.52, 0.56, 0.62)
 	var snow := 0.5 if palette == "winter" else -1.0
 	_lobe(st, Vector3(0, 0.45, 0), 0.62, 0.78, seed, lo, hi, 0.0, 0.95, 2.0, 0.24, snow)
 	if shape == 1:

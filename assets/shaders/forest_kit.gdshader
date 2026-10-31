@@ -14,6 +14,7 @@ uniform float leaf_scale = 3.0;
 uniform float leaf_depth = 0.55;
 uniform float rim_strength = 0.3;
 uniform float glow_energy = 1.2;
+uniform float self_lit = 0.0;    // Twilight: leaves keep a little of their own colour under the magenta dusk light
 
 varying vec3 wpos;
 varying vec3 wnorm;
@@ -94,5 +95,7 @@ void fragment() {
 	ROUGHNESS = 1.0;
 	if (kind > 2.5 && kind < 3.5) {
 		EMISSION = COLOR.rgb * glow_energy * smoothstep(0.55, 0.9, COLOR.a);
+	} else if (leafy) {
+		EMISSION = col * self_lit;
 	}
 }
