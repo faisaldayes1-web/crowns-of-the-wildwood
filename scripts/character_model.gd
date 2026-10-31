@@ -324,6 +324,21 @@ func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, 
 		if tab:
 			tab.albedo_color = tint * custom.get("look", Color.WHITE)
 			flash_mats.append(tab)
+	if skeleton and not c.get("bare", false) and variant not in ["queen", "king"]:
+		# The team head piece the match camera sees (OutfitFlair.headband).
+		var head_key := ""
+		match [role, headgear(inst, c, custom)]:
+			[Role.KNIGHT, "helmet"]: head_key = "knight"
+			[Role.ENGINEER, "bear"]: head_key = "bear"
+			[Role.HEALER, ""]: head_key = "healer"
+			[Role.MAGE, "wizard"]: head_key = "mage" if variant != "" else ""
+			[Role.RANGER, "hood"], [Role.ROGUE, "hood"]: head_key = "hood" if variant != "" else ""
+		var band := OutfitFlair.headband(skeleton, head_key, Stats.FACTIONS[team].color, rank >= 2, outline)
+		# A promotion's tint stays off it (it is the team signal), so it skips the hit flash,
+		# which restores the tint.
+		if band and tint == Color.WHITE:
+			band.albedo_color = custom.get("look", Color.WHITE)
+			flash_mats.append(band)
 	if variant == "" or Stats.VARIANTS.has(role):
 		_add_rank_flair(team, role, rank)
 	if variant == "":
