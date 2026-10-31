@@ -33,7 +33,8 @@ func run() -> void:
 	game.howto_seen = true
 	game.main_menu.overlay = ""
 	game.main_menu._press("play", null)
-	await capture("select-screen")
+	if not "--assets-only" in OS.get_cmdline_user_args():
+		await capture("select-screen")
 	if game.main_menu._card_open(1):
 		push_error("Capture must retain the locked Moonlit menu state")
 		quit(1)
@@ -66,6 +67,11 @@ func run() -> void:
 		layer.visible = false
 	for label in root.find_children("*", "Label3D", true, false):
 		label.visible = false
+	# The match can emit shots during its loading fade; omit those transient
+	# objects too so a reusable minimap cannot bake a stray projectile.
+	for node in game.find_children("*", "Node3D", true, false):
+		if node.get_script() and node.get_script().resource_path in ["res://scripts/projectile.gd", "res://scripts/fx.gd", "res://scripts/skill_fx.gd"]:
+			node.hide()
 	var view := SubViewport.new()
 	view.size = Vector2i(1024, 960)
 	view.world_3d = root.world_3d

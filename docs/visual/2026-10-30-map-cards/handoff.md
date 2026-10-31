@@ -17,3 +17,5 @@ Godot_v4.3-stable_win64_console.exe --path . --resolution 1280x720 --script tool
 Map indices: Wildwood 0, Moonlit 1 (also pass `--debug-night`), Stonekeep 3, Ember 2. The night flag changes lighting without unlocking the menu. `python tools/map_card_evidence.py --prepare-textures` filters source renders into runtime textures; reimport afterward. `--menu-only` captures the integrated menu; `--capture-touch` selects its touch layout. `python tools/map_card_evidence.py` assembles the unretouched before/after/target sheet and verifies exports against the filtered textures. The target triptych path is recorded in that script.
 
 Source look and capture choices are in look.md. This is reviewable progress toward the picked target; it does not claim that the game's foliage, masonry or VFX now fully match the target.
+
+Final export hygiene: captures hide transient projectile/Fx/skill-Fx nodes left during the startup fade as well as actors and labels. `--assets-only` refreshes card/map exports without overwriting the retained baseline menu screenshot. PR139 contains the independently validated rune-layer polish follow-through.
