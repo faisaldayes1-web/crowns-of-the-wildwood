@@ -34,6 +34,7 @@ const MenuStage = preload("res://scripts/menu_stage.gd")
 const Economy = preload("res://scripts/economy.gd")
 const StyleProfile = preload("res://scripts/visual/style_profile.gd")
 const CastleKit = preload("res://scripts/visual/castle_kit.gd")
+const ForestKit = preload("res://scripts/visual/forest_kit.gd")
 const Role = Stats.Role
 
 const TEST_TEAM_MAX := 6     # --team-size=N cap for balance batches only
@@ -161,6 +162,7 @@ var levelup_text := ""         # set for a class promotion: the flourish says PR
 var pine_tiers := {}   # cached pine tier meshes
 var leaf_clusters := {}  # cached small crown clusters (visual pass 2026-10-30), by seed bucket and size
 var map_trees: Array[Vector3] = []  # for the minimap: y > 0.5 means a big tree
+var forest_kit = null  # scripts/visual/forest_kit.gd: the match world's tree and ground-dressing look (_kit())
 var map_paths: Array = []           # [from, to, width] of every path for the minimap
 var map_marks: Array = []           # [position, kind] ruins and such
 var playing := false
@@ -6058,7 +6060,10 @@ func _add_tree(pos: Vector3, big: bool = false) -> void:
 		body.add_child(shape)
 		add_child(body)
 		var autumn_prop := _prop("halloween/tree_pine_%s_%s" % [["orange", "yellow"][tree_seed % 2], "large" if big else "medium"], pos + Vector3(0, 0.3, 0), 0.8 if big else 0.95, float(tree_seed))
-		if world_style:
+		if _kit():
+			autumn_prop.visible = false   # (kept, hidden, as below: later trees' spacing checks count it)
+			_kit().tree_at(pos, big, "autumn")
+		elif world_style:
 			# The pack's flat-shaded cone read as another game's tree: in its
 			# place (same spot, same collider, still counted for the spacing
 			# checks) a layered pine like the rest of the wood, in autumn
@@ -6085,6 +6090,9 @@ func _add_tree(pos: Vector3, big: bool = false) -> void:
 		add_child(body)
 		# Deep green layered pines: the pack's pale cone and blob read flat
 		# next to the 2026-10-08 target art.
+		if _kit():
+			_kit().tree_at(pos, big, "pine")
+			return
 		var r := RandomNumberGenerator.new()
 		r.seed = tree_seed
 		var tree := Node3D.new()
@@ -6108,6 +6116,15 @@ func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
 	body.add_child(shape)
 	add_child(body)
 	var seed := absi(int(pos.x * 13 + pos.z * 7))
+	if _kit():
+		# The forest kit draws the tree (same spot and collider); the
+		# Wildwood's mushrooms and fireflies stay with it.
+		var kit_pine: bool = pos.x < -8.0 and seed % 4 == 1
+		_kit().tree_at(pos, big, "pine" if kit_pine else "broad")
+		if pos.x < -8.0 and not kit_pine:
+			if seed % 3 == 0:
+				_add_mushrooms(pos + Vector3(0.9, 0, 0.4), seed)
+		return
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var tree := Node3D.new()
@@ -6375,6 +6392,14 @@ func _leaf_material(r: RandomNumberGenerator, autumn: bool) -> ShaderMaterial:
 	return mat
 
 
+func _kit():
+	## The forest kit (scripts/visual/forest_kit.gd) while the match world is
+	## built, or null (menus, Ember Pass, "--no-forest-kit").
+	if forest_kit == null and ForestKit.enabled(self):
+		forest_kit = ForestKit.new(self)
+	return forest_kit if forest_kit != null and world_style else null
+
+
 func _tree_bark() -> StandardMaterial3D:
 	## Trunks, roots and boughs. In the match world every tree shares one
 	## bark material (it is never changed after): hundreds fewer materials.
@@ -6459,6 +6484,9 @@ func _add_bush(pos: Vector3, seed: int) -> void:
 		var box: AABB = blk[1]
 		if box.size.y >= 0.3 and box.end.y >= 0.3 and pos.x > box.position.x - 1.2 and pos.x < box.end.x + 1.2 and pos.z > box.position.z - 1.2 and pos.z < box.end.z + 1.2:
 			return
+	if _kit():
+		_kit().bush_at(pos, seed)
+		return
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var leaf := _leaf_material(r, false)
@@ -10833,6 +10861,9 @@ func _add_canopy_tree(pos: Vector3, seed: int, k: float = 1.0) -> void:
 	shape.position.y = 1.5
 	body.add_child(shape)
 	add_child(body)
+	if _kit():   # the forest kit's round broadleaf, no taller than this crown was
+		_kit().tree_at(pos, false, "canopy", 4.6 * k)
+		return
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var tree := Node3D.new()
@@ -11918,6 +11949,11 @@ func _finish_world() -> void:
 		# finished world, then its own scenery.
 		Season.grade(self, season)
 		Season.decorate(self, season, {"half": RIVER_HALF, "y": 0.03, "bridges": BRIDGES, "island": ISLAND_R})
+	if forest_kit:
+		# The kit's trees and dressing, after the grade (it has its own
+		# palette per map) and once everything they keep clear of is built.
+		await _world_build_frame()
+		forest_kit.finish()
 	await _world_build_frame()
 	_apply_map_variant()
 	camera = Camera3D.new()
