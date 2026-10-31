@@ -888,8 +888,8 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	## a mid green, a shaded band where the next tier overhangs, and a warm
 	## lit crown on the top tier. Shape 3 is a small, stout pine (the picks'
 	## woods hold many small ones). Stonekeep's carry snow on each tier.
-	## 3 vertices a lobe, 6-8 lobes a tier: ~110-150 triangles a tier
-	## (Low: two lobes fewer a tier).
+	## 3 vertices a lobe, 5-7 lobes a tier: ~75-105 triangles a tier, no
+	## underside (never seen from the match camera; Low: two lobes fewer).
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var ramp := _pine_ramp(accent)
@@ -912,7 +912,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var rr: float = base_r * (1.0 - f * 0.62)
 		var rim_y: float = foot + step * i
 		var h: float = step * (1.55 if not last else 1.75)
-		var lobes: int = maxi(8 - int(f * 2.5 + 0.3) - (2 if low else 0), 5)
+		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - (2 if low else 0), 5)
 		var m := lobes * 3
 		var spin := r.randf() * TAU
 		var t := clampf(rim_y / top, 0.0, 1.0)
@@ -920,8 +920,6 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var c_lit: Color = ramp[1].lerp(ramp[2], 0.55 + 0.35 * t)
 		var c_sh: Color = ramp[0].lerp(ramp[1], 0.7) if not last else ramp[1].lerp(ramp[2], 0.75)
 		var c_top: Color = ramp[2] if last else ramp[1]
-		var c_under: Color = ramp[0] * 0.5
-		c_under.a = 1.0
 		if snow:
 			c_lit = c_lit.lerp(snow_c, 0.82)
 			c_sh = c_sh.lerp(snow_c, 0.35)
@@ -978,7 +976,6 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 				_tri_n(st, u0, u1, l1, nrm[j + 1][k], nrm[j + 1][k1], nrm[j][k1], cu0, cu1, cl1)
 				_tri_n(st, u0, l1, l0, nrm[j + 1][k], nrm[j][k1], nrm[j][k], cu0, cl1, cl0)
 			_tri_n(st, grid[3][k], grid[2][k1], grid[2][k], Vector3.UP, nrm[2][k1], nrm[2][k], c_top, c_sh, c_sh)
-			_tri(st, Vector3(0, rim_y + 0.25 * h, 0), grid[0][k], grid[0][k1], c_under, c_under, c_under, NEEDLE)
 	if palette == "twilight":
 		for i in 6:
 			var a := r.randf() * TAU
