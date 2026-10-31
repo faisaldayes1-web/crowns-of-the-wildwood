@@ -176,8 +176,14 @@ func _build_tree(r: RandomNumberGenerator) -> void:
 	var notch := BoxMesh.new()
 	notch.size = Vector3(0.36, 0.22, 0.12)
 	_mesh(full, notch, Vector3(0, 0.75, 0.36), cut)
-	# Canopy: four faceted leaf blobs, the top one lighter.
-	for k in 4:
+	# Canopy: four faceted leaf blobs, the top one lighter; in the match
+	# world the forest kit's round broadleaf crown instead (Faisal 10-31: the
+	# trees closer to the picks), over the same working trunk.
+	if game.forest_kit != null:
+		var kt = game.forest_kit
+		var shape := r.randi() % 2
+		kt.kit_tree(full, "broad%d" % shape if game.season != "winter" else "pine%d" % shape, Vector3(0, 0.15, 0), 1.3, r.randf() * TAU)
+	for k in (0 if game.forest_kit != null else 4):
 		var a := TAU * k / 3.0 + r.randf() * 0.5
 		var off := Vector3(cos(a) * 0.75, 0, sin(a) * 0.75) if k < 3 else Vector3.ZERO
 		var rad := 1.15 if k < 3 else 1.3
