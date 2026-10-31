@@ -620,6 +620,7 @@ func _world_can_wait() -> bool:
 func _build_world_behind() -> void:
 	## The match world, built a slice a frame behind the live menus.
 	_world_behind = true
+	StaticBatch.load_baked()   # the batch's saved mesh arrays, read on a thread meanwhile
 	while menus_warming and not _world_rush:   # the menu warm-up first, under the loading art
 		await _world_slice
 	# A half-built world must not run (the economy's labels, the volcano):
