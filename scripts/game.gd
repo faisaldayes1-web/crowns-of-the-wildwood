@@ -626,7 +626,8 @@ func _build_world_behind() -> void:
 	# each piece is held still until the whole world is there.
 	get_tree().node_added.connect(_hold_world_piece)
 	world_style = true
-	_world_frame_deadline = Time.get_ticks_usec() + WORLD_SLICE_USEC
+	_world_slice_start = Time.get_ticks_usec()
+	_world_frame_deadline = _world_slice_start + WORLD_SLICE_USEC
 	await _build_world_land()
 	if not "--no-batch" in OS.get_cmdline_user_args():
 		# The scenery batching (static_batch.gd, ~1 s) waited for the match
@@ -2388,6 +2389,8 @@ var loading_label: Label
 var loading_tween: Tween   # its hold-then-fade; _warm_up_world holds it while it sweeps
 var _stream_world := false
 var _world_frame_deadline := 0
+var _world_slice_start := 0   # when the running behind-the-title slice began
+var world_slice_usec := PackedInt32Array()   # each behind-the-title slice's CPU time (tools/title_stutter_probe.gd)
 # claude-faisal3 2026-10-29 (PERF-05): the title no longer waits for the
 # match world. It is built behind the menus in slices of WORLD_SLICE_USEC a
 # frame; a match started before it is done waits under the loading art.
@@ -2428,9 +2431,11 @@ func _world_build_frame() -> void:
 			# their own look. (Nothing may leave this scene with the world
 			# half built: finish_world_now.)
 			world_style = false
+			world_slice_usec.append(Time.get_ticks_usec() - _world_slice_start)
 			await _world_slice
 			world_style = true
-			_world_frame_deadline = Time.get_ticks_usec() + (32000 if _match_waiting else WORLD_SLICE_USEC)
+			_world_slice_start = Time.get_ticks_usec()
+			_world_frame_deadline = _world_slice_start + (32000 if _match_waiting else WORLD_SLICE_USEC)
 		return
 	# All scene-tree mutations stay on the main thread. A completed chunk
 	# yields real frames, rather than dropping OS input in a blocking build.
