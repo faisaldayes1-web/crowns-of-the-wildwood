@@ -9,12 +9,13 @@ extends RefCounted
 ##   violet shade under teal-mint crowns, a violet river, glowing mushroom
 ##   rings and blooms everywhere, drifting motes, and a magenta sunset sky.
 ##
-## Both keep the Wildwood's layout, routes and colliders, so bots, balance and
-## online play are the same as on the Wildwood; only the look changes. The
-## builders in game.gd read `game.season` for the few things they place
-## differently (flowers, fallen leaves, ground textures); everything else is
-## a colour grade over the finished world (grade()), applied before the
-## match starts and before scripts/static_batch.gd merges the scenery.
+## Since 2026-10-31 (claude-faisal/crowns-maps) each has its own layout too:
+## scripts/lanes.gd builds Stonekeep's ridges, ruin and frozen tarns and the
+## Grove's ring, loop and pool. This file still owns the look. The builders
+## in game.gd read `game.season` for the few things they place differently
+## (flowers, fallen leaves, ground textures); everything else is a colour
+## grade over the finished world (grade()), applied before the match starts
+## and before scripts/static_batch.gd merges the scenery.
 
 const Stats = preload("res://scripts/stats.gd")
 const StyleProfile = preload("res://scripts/visual/style_profile.gd")
@@ -274,6 +275,8 @@ static func _ice_floes(game: Node3D, river: Dictionary) -> void:
 	mat.roughness = 0.35
 	mat.metallic_specular = 0.7
 	var half: float = river.half
+	if half <= 0.0:
+		return   # no river (Stonekeep Fortress has its own frozen tarns, scripts/lanes.gd)
 	var water_y: float = river.y
 	var xforms: Array = []
 	var z: float = -game.map_half.y + 2.0

@@ -163,7 +163,12 @@ func _in_castle(p: Vector3, m: float) -> bool:
 func _clear(p: Vector3, m: float) -> bool:
 	## Open ground for decoration: off the river, roads, paths and trails, out
 	## of buildings, castles and yards, and on the ground slab.
-	if absf(p.x) < game.RIVER_HALF + 1.5 + m or Vector2(p.x, p.z).length() < game.ISLAND_R + 1.5 + m:
+	if game.lmap:
+		# Stonekeep Fortress / Twilight Grove (scripts/lanes.gd): no river,
+		# but nothing on their lanes, plazas, tarns, the ruin or the pool.
+		if not game.lmap.decor_ok(p, m):
+			return false
+	elif absf(p.x) < game.RIVER_HALF + 1.5 + m or Vector2(p.x, p.z).length() < game.ISLAND_R + 1.5 + m:
 		return false
 	if absf(p.x) > game.map_half.x + 38.0 or absf(p.z) > game.map_half.y + 28.0:
 		return false
@@ -207,6 +212,14 @@ func finish() -> void:
 
 
 func _add(key: String, xf: Transform3D, tint: Color = Color.WHITE) -> void:
+	if game.lmap and xf.origin.y > -0.5:
+		# Stonekeep's ridges / the Grove's banks: trees, bushes and rocks sit
+		# on the terrain; flat dressing there would only be buried in it.
+		var h: float = game.lmap.height(xf.origin.x, xf.origin.z)
+		if h > 0.05:
+			if key.begins_with("patch") or key.begins_with("flower") or key == "fence":
+				return
+			xf.origin.y = maxf(xf.origin.y, h - 0.15)
 	if not _place.has(key):
 		_place[key] = []
 	_place[key].append([xf, tint])
@@ -357,7 +370,7 @@ func _trail(pts: Array, w: float) -> void:
 	samples.append(pts[pts.size() - 1])
 	for i in samples.size():
 		var p: Vector3 = samples[i]
-		var ok: bool = not _in_castle(p, 1.0) and not _near_built(p, 1.2) and absf(p.x) > game.RIVER_HALF + 4.0 and not game._near_path(p, 0.5) and not _crowded(p, w * 0.5 + 0.3) and absf(p.x) < 108.0
+		var ok: bool = not _in_castle(p, 1.0) and not _near_built(p, 1.2) and (absf(p.x) > game.RIVER_HALF + 4.0 if game.lmap == null else game.lmap.height(p.x, p.z) <= 0.0) and not game._near_path(p, 0.5) and not _crowded(p, w * 0.5 + 0.3) and absf(p.x) < 108.0
 		if ok:
 			run.append(p)
 		if (not ok or i == samples.size() - 1) and run.size() > 2:

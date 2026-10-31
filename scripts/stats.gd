@@ -98,7 +98,10 @@ const HERO_MARKS := [["None", ""], ["Scar", "scar"], ["Claws", "claws"], ["Freck
 # Ember Pass is the volcano map (castles on basalt plateaus over lava, joined
 # by bridges, and the Fire Objective in the middle); open to everyone.
 # Stonekeep Fortress and Twilight Grove (claude-faisallaptop 2026-10-16) are the
-# Wildwood's layout in winter and at dusk (scripts/visual/season.gd).
+# Wildwood in winter and at dusk (scripts/visual/season.gd), each on its own
+# layout since 2026-10-31 (scripts/lanes.gd): Stonekeep a mountain pass with a
+# walled ruin's gate as the chokepoint and two long snow lanes, the Grove a
+# ring round a glowing pool with an outer loop and cross-paths.
 const MAPS := [["Wildwood", "day"], ["Moonlit Wildwood", "night"], ["Ember Pass", "volcano"],
 	["Stonekeep Fortress", "winter"], ["Twilight Grove", "twilight"]]
 

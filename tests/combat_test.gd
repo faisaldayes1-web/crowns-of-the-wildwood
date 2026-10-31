@@ -422,13 +422,16 @@ func _stuck() -> void:
 	v._respawn()
 
 	# Blink into a block taller than the old chest-height ray's gap.
+	# (Open ground: the Wildwood's field, or a forecourt on Stonekeep
+	# Fortress / Twilight Grove, whose field is ridges and trees.)
+	var bp := Vector3(-20, 0, 8) if game.lmap == null else Vector3(-35, 0, 2)
 	var m = _first(0)
 	m.set_role(Role.MAGE)
-	m.global_position = Vector3(-20, 0, 8)
-	var block := _box(Vector3(-16, 0.35, 8), Vector3(2.0, 0.7, 3.0))
+	m.global_position = bp
+	var block := _box(bp + Vector3(4, 0.35, 0), Vector3(2.0, 0.7, 3.0))
 	await _frames(2)
 	m._ability_effect({"kind": "blink", "distance": 4.0}, Vector3(1, 0, 0), Vector3.ZERO, null)
-	_check(m.spot_free(m.global_position, 0.38) and m.global_position.x < -17.0, "blink_stops_short_of_block",
+	_check(m.spot_free(m.global_position, 0.38) and m.global_position.x < bp.x + 3.0, "blink_stops_short_of_block",
 		"landed at %s" % m.global_position)
 	block.queue_free()
 

@@ -25,6 +25,7 @@ const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
 const Volcano = preload("res://scripts/volcano.gd")
+const Lanes = preload("res://scripts/lanes.gd")
 const StaticBatch = preload("res://scripts/static_batch.gd")
 const Season = preload("res://scripts/visual/season.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
@@ -119,6 +120,7 @@ var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
 static var reopen_screen := ""  # a menu screen to reopen after select_map() reloads the scene
 var season := ""               # "winter" (Stonekeep Fortress), "twilight" (Twilight Grove) or "" (scripts/visual/season.gd)
 var vmap = null                 # Ember Pass (the volcano map): its layout, bot routes and Fire Objective; null on the Wildwood
+var lmap = null                 # Stonekeep Fortress / Twilight Grove: their own lanes, terrain and bot routes (scripts/lanes.gd); null elsewhere
 var hero_skin := 1              # Stats.HERO_SKINS index
 var hero_face := 0              # Stats.HERO_FACES index
 var hero_eye := -1              # Stats.HERO_EYES index (-1: the side's own colour)
@@ -316,6 +318,7 @@ var shake_amount := 0.0
 var cam_kick := Vector3.ZERO     # directional jolt (kick_cam), springs back to zero
 var cam_pos := Vector3.ZERO
 var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot for renders
+var cam_top := 0.0              # --debug-topdown=H: renders look straight down from height H (map layout shots)
 var click_was := false
 var slider_drag := -1        # the volume slider the held press started on
 var menus_warming := false   # _warm_up_menus is flipping screens: no clicks
@@ -822,6 +825,8 @@ func _process(delta: float) -> void:
 		_net_test_tick(delta)
 	if vmap and world_ready:
 		vmap.tick(delta)
+	if lmap and world_ready and demo and playing and not game_over:
+		lmap.sample(delta)   # bot matches: where the fighting happens (LANESTAT in the demo report)
 	if legend or Engine.get_process_frames() == swallow_frame and game_over:
 		return   # the ending is on screen (legend.gd takes the input) or just closed
 	if not playing and not game_over:
@@ -1078,6 +1083,8 @@ func _debug_hooks() -> void:
 				debug_score = true
 			if arg.begins_with("--debug-zoom="):
 				cam_zoom = float(arg.trim_prefix("--debug-zoom="))
+			if arg.begins_with("--debug-topdown="):
+				cam_top = float(arg.trim_prefix("--debug-topdown="))
 			if arg.begins_with("--debug-cam="):
 				var c := arg.trim_prefix("--debug-cam=").split(",")
 				cam_lock = Vector3(float(c[0]), 0.0, float(c[1]))
@@ -1186,6 +1193,8 @@ func _demo_summary() -> void:
 	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1]])
 	if vmap:
 		print("FIRESTAT held=%d/%d captures=%d/%d" % [int(vmap.fire_held[0]), int(vmap.fire_held[1]), vmap.fire_captures[0], vmap.fire_captures[1]])
+	if lmap:
+		print("LANESTAT " + lmap.sample_report())
 	for u in units:
 		# The class the bot plays all match (its current role resets on death).
 		var cls: String = Stats.FACTIONS[u.team].roles[u.bot_class]
@@ -1406,6 +1415,8 @@ func turret_spot(team: int, pos: Vector3, builder) -> Vector3:
 		return Vector3.INF
 	if vmap and not vmap.walkable(pos, 0.5):
 		return Vector3.INF  # not out over the lava
+	if lmap and not lmap.walkable(pos, 0.5):
+		return Vector3.INF  # not up on the ridges or in the trees
 	if absf(pos.z) < Stats.DOOR_HALF + 1.3 and absf(pos.x - fx) < 5.0:
 		return Vector3.INF  # keep the door lane clear
 	if pos.y < -0.3:
@@ -1549,7 +1560,7 @@ func _tick_blessings(delta: float) -> void:
 	if blessing_timer > 0.0 or blessings.size() >= 2:
 		return
 	blessing_timer = randf_range(Stats.BLESSING_INTERVAL[0], Stats.BLESSING_INTERVAL[1])
-	var spots: Array = vmap.blessing_spots() if vmap else BLESSING_SPOTS
+	var spots: Array = vmap.blessing_spots() if vmap else (lmap.blessing_spots() if lmap else BLESSING_SPOTS)
 	var spot: Vector3 = spots[randi() % spots.size()]
 	var kinds: Array = Stats.BLESSING_KINDS.keys()
 	spawn_blessing(spot, kinds[randi() % kinds.size()])
@@ -2083,9 +2094,12 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 	# castle doors and keeps below still apply.
 	if vmap:
 		target = vmap.route(from, target)
+	# Stonekeep Fortress / Twilight Grove: over their own plazas and lanes.
+	if lmap:
+		target = lmap.route(from, target)
 	# The shrine plinth is solid: a goal on it (or right beside it) means
 	# standing at its foot, on the side we come from.
-	if vmap == null and _flat_dist(target, Vector3.ZERO) < 1.6:
+	if vmap == null and lmap == null and _flat_dist(target, Vector3.ZERO) < 1.6:
 		var away := Vector3(from.x - target.x, 0, from.z - target.z)
 		if away.length() < 0.1:
 			away = Vector3(0, 0, 1)
@@ -2094,7 +2108,7 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 	# Up on the shrine island and leaving it: the steps are at z 0 on each
 	# side (stone rims close the north and south edges), and the plinth sits
 	# in the middle, so go round it on the side we are already on first.
-	var on_island: bool = vmap == null and from.y > 0.3 and _flat_dist(from, Vector3.ZERO) < ISLAND_R + 0.3
+	var on_island: bool = vmap == null and lmap == null and from.y > 0.3 and _flat_dist(from, Vector3.ZERO) < ISLAND_R + 0.3
 	if on_island and _flat_dist(target, Vector3.ZERO) > ISLAND_R + 0.3:
 		var exit_side := 1.0 if target.x > 0.0 else -1.0
 		if from.x * exit_side < -1.2 and absf(from.z) < 1.6:
@@ -2103,7 +2117,7 @@ func _route_leg(from: Vector3, to: Vector3) -> Vector3:
 			return Vector3(exit_side * 2.4, 0.5, (1.0 if from.z >= 0.0 else -1.0) * 1.8)
 		return Vector3(exit_side * (ISLAND_R + 3.6), 0.0, 0.0)
 	# The river: cross at the bridge closest to the way, entering it square on.
-	if vmap == null and ((from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF)):
+	if vmap == null and lmap == null and ((from.x < -RIVER_HALF and target.x > RIVER_HALF) or (from.x > RIVER_HALF and target.x < -RIVER_HALF)):
 		var bi := 0
 		var best := 1e9
 		for i in BRIDGES.size():
@@ -2869,13 +2883,15 @@ func plant_barricade(u) -> bool:
 	elif _in_cellar(team, u.global_position):
 		why = "Not in the cellar"
 	elif u.global_position.x * side < RIVER_HALF + 3.0:
-		why = "Only on your own side of the river"
+		why = "Only on your own half" if lmap else "Only on your own side of the river"
 	elif absf(u.global_position.z) < 3.0 and absf(u.global_position.x - _front_x(team)) < 9.0:
 		why = "Not in the door lane"
 	elif _inside_castle(team, u.global_position) or absf(u.global_position.x) > CASTLE_X - CASTLE_DEPTH - 1.6:
 		why = "Only outside the walls"
 	elif vmap and not vmap.walkable(u.global_position + u.facing * 1.6, 0.4):
 		why = "Not over the lava"
+	elif lmap and not lmap.walkable(u.global_position + u.facing * 1.6, 0.4):
+		why = "No room to raise it here"
 	if why != "":
 		if u.is_player:
 			toast(why, Color(1.0, 0.8, 0.5))
@@ -2915,6 +2931,17 @@ func _update_camera(delta: float) -> void:
 		return
 	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.global_position) + CAMERA_OFFSET * cam_zoom
 	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
+	if cam_top > 0.0:
+		var over: Vector3 = cam_lock if cam_lock != Vector3.INF else player.global_position
+		camera.rotation_degrees = Vector3(-90, 0, 0)
+		camera.far = maxf(camera.far, cam_top + 50.0)
+		camera.global_position = Vector3(over.x, cam_top, over.z)
+		if world_environment:
+			world_environment.fog_enabled = false
+			world_environment.volumetric_fog_enabled = false
+		if cam_attrs:
+			cam_attrs.dof_blur_far_enabled = false
+		return
 	camera.global_position = cam_pos + jolt
 
 
@@ -4291,6 +4318,8 @@ func movement_ground_point(u) -> Vector3:
 		return Vector3.INF
 	var point: Vector3 = hit.position
 	if vmap != null and not vmap.walkable(point, 0.4):
+		return Vector3.INF
+	if lmap != null and not lmap.walkable(point, 0.4):
 		return Vector3.INF
 	return point
 
@@ -5950,12 +5979,15 @@ func _tuft_mesh() -> ArrayMesh:
 func _open_ground(p: Vector3) -> bool:
 	## Grass that is not a lane: off the roads and paths, out of the river,
 	## the island, the castles and their yards, and not inside a tree trunk.
-	if absf(p.x) < RIVER_HALF + 1.4 or _flat_dist(p, Vector3.ZERO) < ISLAND_R + 1.5:
+	if lmap:
+		if not lmap.walkable(p, 0.6) or lmap.in_flat(p):
+			return false   # the layout's ridges and banks cover the rest (and the ruin's courtyard stays swept)
+	elif absf(p.x) < RIVER_HALF + 1.4 or _flat_dist(p, Vector3.ZERO) < ISLAND_R + 1.5:
 		return false
 	if absf(p.x) > CASTLE_X - CASTLE_DEPTH - 8.0:
 		return false   # a clear band of lawn before each castle (no flower litter up to the gate)
 	for bz in BRIDGES:
-		if absf(p.z - bz) < 4.5 and absf(p.x) < RIVER_HALF + 4.0:
+		if lmap == null and absf(p.z - bz) < 4.5 and absf(p.x) < RIVER_HALF + 4.0:
 			return false
 	for path in map_paths:
 		var a: Vector3 = path[0]
@@ -6003,10 +6035,10 @@ func _tree_spot_ok(pos: Vector3, big: bool) -> bool:
 	## paved courts before the castle doors, and anything built (walls,
 	## houses, fences), so no canopy pokes through a roof or blocks a way in.
 	var crown := 2.6 if big else 2.1
-	if absf(pos.x) < RIVER_HALF + crown or _flat_dist(pos, Vector3.ZERO) < ISLAND_R + crown:
+	if lmap == null and (absf(pos.x) < RIVER_HALF + crown or _flat_dist(pos, Vector3.ZERO) < ISLAND_R + crown):
 		return false
 	for rp in RESERVED_GROUND:
-		if _flat_dist(pos, rp) < 5.5:
+		if lmap == null and _flat_dist(pos, rp) < 5.5:
 			return false
 	for t in map_trees:
 		if _flat_dist(pos, t) < (5.4 if (big or t.y > 0.5) else 3.6):
@@ -6872,6 +6904,8 @@ func in_channel(p: Vector3) -> bool:
 	## anywhere off the plateaus, plazas and bridges (the lava).
 	if vmap:
 		return not vmap.walkable(p)
+	if lmap:
+		return not lmap.walkable(p)   # up on the ridges or in the trees: nobody lands there either
 	if absf(p.x) >= RIVER_HALF - 0.1 or p.y > 0.3:
 		return false
 	if _flat_dist(p, Vector3.ZERO) < ISLAND_R + 0.4:
@@ -6886,11 +6920,16 @@ func _near_bridge(z: float, margin: float) -> bool:
 	return false
 
 
-func _add_cover() -> void:
+const COVER_BARRICADES := [[Vector3(11, 0, 5), 3.5], [Vector3(12, 0, -7), 3.5], [Vector3(20, 0, 1), 4.0],
+	[Vector3(18, 0, 12), 3.0], [Vector3(30, 0, -5), 3.5], [Vector3(28, 0, 8), 3.0], [Vector3(31, 0, 19), 3.0], [Vector3(17, 0, -20), 3.0]]
+const COVER_BOULDERS := [Vector3(9, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -10.5), Vector3(38, 0, 10),
+	Vector3(8, 0, 28), Vector3(17, 0, 25), Vector3(14, 0, -36), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(40, 0, 24)]
+
+
+func _add_cover(barricades: Array = COVER_BARRICADES, boulders: Array = COVER_BOULDERS, ruins: bool = true) -> void:
 	## Low barricades and boulders in the contested middle. Shots stop at
 	## them, so there is always somewhere to duck. Everything is mirrored.
-	var barricades := [[Vector3(11, 0, 5), 3.5], [Vector3(12, 0, -7), 3.5], [Vector3(20, 0, 1), 4.0],
-		[Vector3(18, 0, 12), 3.0], [Vector3(30, 0, -5), 3.5], [Vector3(28, 0, 8), 3.0], [Vector3(31, 0, 19), 3.0], [Vector3(17, 0, -20), 3.0]]
+	## (Stonekeep Fortress and Twilight Grove pass their own, scripts/lanes.gd.)
 	# Three cover designs cycle across the field: supply stacks, timber
 	# palisades and broken ashlar walls, so the middle reads as a battlefield.
 	# Timber crates and casks (dungeon pack: dark planks like the 2026-10-08 target art).
@@ -6931,8 +6970,6 @@ func _add_cover() -> void:
 					_add_palisade(c, length)
 				2:
 					_add_wall_stub(c, length)
-	var boulders := [Vector3(9, 0, -13), Vector3(13, 0, -18), Vector3(22, 0, 14), Vector3(33, 0, -10.5), Vector3(38, 0, 10),
-		Vector3(8, 0, 28), Vector3(17, 0, 25), Vector3(14, 0, -36), Vector3(26, 0, -27), Vector3(40, 0, -22), Vector3(40, 0, 24)]
 	for p0 in boulders:
 		await _world_build_frame()   # (built behind the menus: no long frame)
 		# Off the cobbled paths (Faisal 11:29: "move this rock out of the
@@ -6949,6 +6986,13 @@ func _add_cover() -> void:
 		_add_boulder(-p)
 		cover_points.append(p)
 		cover_points.append(-p)
+		if lmap:
+			# On the narrower lanes walkers must know to step round them
+			# (route_point goes round anything in cover_boxes).
+			for q in [p, -p]:
+				cover_boxes.append(AABB(Vector3(q.x - 1.2, 0, q.z - 1.2), Vector3(2.4, 1.6, 2.4)))
+	if not ruins:
+		return
 	# The Northern Ruins: broken columns and rubble by the north bridge, and
 	# a smaller ruin on the south river path. Mirrored.
 	await _world_build_frame()
@@ -9249,17 +9293,18 @@ func _build_outskirts() -> void:
 		_build_farm(team, sx)
 		await _world_build_frame()
 		await _build_works(team, sx)
-	await _world_build_frame()
-	_add_road_lanterns()
-	await _world_build_frame()
-	_add_road_dressing()
-	await _world_build_frame()
-	_add_river_plants()
-	await _world_build_frame()
-	_add_barrow(Vector3(-30, 0, 22))
-	# (No watermills: Faisal 08:20, "random useless building".)
-	await _world_build_frame()
-	_add_field_rocks()
+	if lmap == null:   # (the field's own dressing; Stonekeep and Twilight dress their lanes in scripts/lanes.gd)
+		await _world_build_frame()
+		_add_road_lanterns()
+		await _world_build_frame()
+		_add_road_dressing()
+		await _world_build_frame()
+		_add_river_plants()
+		await _world_build_frame()
+		_add_barrow(Vector3(-30, 0, 22))
+		# (No watermills: Faisal 08:20, "random useless building".)
+		await _world_build_frame()
+		_add_field_rocks()
 	await _world_build_frame()
 	_add_clouds()
 	await _world_build_frame()
@@ -9274,7 +9319,7 @@ func _add_ground_patches() -> void:
 	for sx in [-1.0, 1.0]:
 		var z := -map_half.y - 2.0
 		while z < map_half.y + 2.0:
-			var blocked := absf(z) < ISLAND_R + 1.5
+			var blocked := lmap != null or absf(z) < ISLAND_R + 1.5   # (no river on Stonekeep / Twilight)
 			for b in BRIDGES:
 				if absf(z - b) < 3.2:
 					blocked = true
@@ -11817,6 +11862,12 @@ func _build_world_land() -> void:
 		for zs in [-1.0, 1.0]:
 			await _world_build_frame()
 			_add_block(Vector3(sx * (h0 + h1) / 2.0, -0.5, zs * (hz + gz) / 2.0), Vector3(h1 - h0, 1, gz - hz), grass, true, _grass())
+	if season != "":
+		# Stonekeep Fortress and Twilight Grove: their own layouts on the same
+		# ground, castles and outskirts (scripts/lanes.gd).
+		lmap = Lanes.new(self, season)
+		await _build_lanes_land()
+		return
 	# A dirt road from door to door, with a worn patch at each door and in the middle.
 	# The road: rutted dirt from bridge to door, cobbled aprons at each door,
 	# and grass creeping in at the edges.
@@ -11950,6 +12001,54 @@ func _build_world_land() -> void:
 	await _finish_world()
 
 
+func _build_lanes_land() -> void:
+	## Stonekeep Fortress / Twilight Grove: the layout's lanes, terrain and set
+	## pieces (scripts/lanes.gd) in place of the Wildwood's river, field paths
+	## and groves; the castles, outskirts, economy and season art are shared.
+	await _world_build_frame()
+	await lmap.build()
+	await _world_build_frame()
+	await _build_castle(0)
+	await _world_build_frame()
+	await _build_castle(1)
+	await _world_build_frame()
+	var cover: Dictionary = lmap.cover()
+	await _add_cover(cover.barricades, cover.boulders, false)
+	for p in lmap.heal_orb_spots():
+		var orb = HealOrb.new()
+		add_child(orb)
+		orb.setup(self, p)
+		heal_orbs.append(orb)
+	# Woods on the castle flanks, as on the Wildwood.
+	for p in [Vector3(52, 0, 19), Vector3(60, 0, 22), Vector3(68, 0, 18), Vector3(46, 0, 24), Vector3(56, 0, 30)]:
+		for q in [p, -p, Vector3(p.x, 0, -p.z), Vector3(-p.x, 0, p.z)]:
+			if lmap.height(q.x, q.z) > 0.0:
+				continue   # the ridges / grove wrap the castle's flank there
+			await _world_build_frame()
+			_add_tree(q, true)
+	await _world_build_frame()
+	await _add_ground_detail()
+	for i in 7:
+		# Hills beyond the far edges.
+		var hx := -60.0 + i * 20.0
+		if absf(hx) < 42.0:
+			await _world_build_frame()
+			_prop("hex/hill_single_%s" % ["A", "B", "C"][i % 3], Vector3(hx, -0.2, 60.0), 12.0, float(i))
+		if absf(hx + 10.0) < 42.0:
+			await _world_build_frame()
+			_prop("hex/hill_single_%s" % ["B", "C", "A"][i % 3], Vector3(hx + 10.0, -0.2, -60.0), 12.0, float(i) + 1.0)
+	await _world_build_frame()
+	await _build_outskirts()
+	await _world_build_frame()
+	await _add_back_forest()
+	if not "--no-economy" in OS.get_cmdline_user_args():
+		economy = Economy.new()
+		add_child(economy)
+		await economy.build(self)
+	await _world_build_frame()
+	await _finish_world()
+
+
 func _build_volcano() -> void:
 	## Ember Pass: the same two castles on basalt plateaus over a lava sea,
 	## joined by bridges (scripts/volcano.gd builds everything else).
@@ -11979,7 +12078,7 @@ func _finish_world() -> void:
 		# Stonekeep Fortress / Twilight Grove: the season's grade over the
 		# finished world, then its own scenery.
 		Season.grade(self, season)
-		Season.decorate(self, season, {"half": RIVER_HALF, "y": 0.03, "bridges": BRIDGES, "island": ISLAND_R})
+		Season.decorate(self, season, {"half": RIVER_HALF if lmap == null else 0.0, "y": 0.03, "bridges": BRIDGES, "island": ISLAND_R})
 	if forest_kit:
 		# The kit's trees and dressing, after the grade (it has its own
 		# palette per map) and once everything they keep clear of is built.
