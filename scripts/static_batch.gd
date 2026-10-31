@@ -495,7 +495,13 @@ static func run(game: Node3D) -> Dictionary:
 			start = _emit(holder, b, start)
 			made += 1
 	# Only now, with every mesh copied, do the originals let go of theirs.
-	for mi in batched:
+	# (Behind the title, 256 a frame: all 8,500 at once was a 55 ms frame.)
+	for k in batched.size():
+		if k % 256 == 255:
+			await _slice(game)
+		var mi = batched[k]
+		if not is_instance_valid(mi) or mi.mesh == null:
+			continue
 		mi.mesh.remove_meta(&"batch_arrays")   # merged: free the CPU copy
 		mi.set_meta("batched_mesh", mi.mesh)
 		mi.mesh = null
@@ -601,6 +607,11 @@ static func particles_to_gpu(game: Node3D) -> int:
 		return 0
 	var done := 0
 	for n in game.find_children("*", "CPUParticles3D", true, false):
+		# (Behind the title, a few a frame: each new GPU particle material is
+		# a shader to build; at a match start this never waits.)
+		await _slice(game)
+		if not is_instance_valid(n):
+			continue
 		var cp := n as CPUParticles3D
 		if cp.one_shot or not cp.emitting or _skip_subtree(cp, game):
 			continue

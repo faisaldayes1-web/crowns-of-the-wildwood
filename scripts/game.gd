@@ -635,7 +635,7 @@ func _build_world_behind() -> void:
 		# The scenery batching (static_batch.gd, ~1 s) waited for the match
 		# start; the world is finished here, so it is done now, in slices.
 		await StaticBatch.run(self)
-		StaticBatch.particles_to_gpu(self)
+		await StaticBatch.particles_to_gpu(self)
 		_world_batched = true
 	world_style = false
 	_world_behind = false
@@ -2687,7 +2687,7 @@ func _start_match(team: int) -> void:
 	# (scripts/static_batch.gd): ~9,800 draw calls a frame became ~1,500.
 	if not "--no-batch" in OS.get_cmdline_user_args() and not _world_batched:
 		await StaticBatch.run(self)   # (never waits here, the match builds in this frame: only behind the title does it slice)
-		StaticBatch.particles_to_gpu(self)
+		await StaticBatch.particles_to_gpu(self)
 	_warm_up_world()   # (a coroutine: a few frames under the loading art)
 	if prep_left >= 0.0:
 		prep_left = Stats.PREP_TIME
@@ -6528,6 +6528,8 @@ func _add_river() -> void:
 				_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][k % 5], Vector3(sx * (RIVER_HALF + 2.0 + fmod(z * 7.3, 1.0) * 0.4), 0, z), 2.5, z)
 			k += 1
 			z += 1.2
+			if k % 8 == 0:
+				await _world_build_frame()   # (claude-faisal/stutter: each bank was one 30-50 ms step behind the title)
 		# Bank walls between the bridges.
 		var edges: Array = [-length / 2.0]
 		for i in BRIDGES.size():
@@ -6537,11 +6539,14 @@ func _add_river() -> void:
 		for i in range(0, edges.size(), 2):
 			var z0: float = edges[i]
 			var z1: float = edges[i + 1]
+			await _world_build_frame()
 			_add_bank_wall(sx, z0, z1, 1.0, 2.0)
 		# Along the island the bank wall stays below the plateau top: it keeps
 		# walkers on the bank out of the water, but anyone up on the shrine
 		# walks straight over it.
+		await _world_build_frame()
 		_add_bank_wall(sx, -ISLAND_R - 0.4, ISLAND_R + 0.4, -0.05, 1.0)
+	await _world_build_frame()
 	_add_island()
 	# Low stone rims on the island's north and south edges so nobody walks
 	# off the shrine into the river channel (there is no way back up).
@@ -6825,6 +6830,7 @@ func _add_cover() -> void:
 			# ashlar walls across the field. (No timber palisades: they read
 			# as stray fences, Faisal 11:27 "did you fix the random fence
 			# issues". The cover and its collider are unchanged.)
+			await _world_build_frame()   # (claude-faisal/stutter: the cover was one 61 ms step behind the title)
 			match kind:
 				0:
 					var n := int(length / 1.15)
@@ -6858,9 +6864,13 @@ func _add_cover() -> void:
 		cover_points.append(-p)
 	# The Northern Ruins: broken columns and rubble by the north bridge, and
 	# a smaller ruin on the south river path. Mirrored.
+	await _world_build_frame()
 	_add_ruins(Vector3(11, 0, -27))
+	await _world_build_frame()
 	_add_ruins(Vector3(-11, 0, 27))
+	await _world_build_frame()
 	_add_ruins(Vector3(-24, 0, -29), true)
+	await _world_build_frame()
 	_add_ruins(Vector3(24, 0, 29), true)
 
 
@@ -9078,7 +9088,7 @@ func _build_outskirts() -> void:
 		await _world_build_frame()
 		_build_farm(team, sx)
 		await _world_build_frame()
-		_build_works(team, sx)
+		await _build_works(team, sx)
 	await _world_build_frame()
 	_add_road_lanterns()
 	await _world_build_frame()
@@ -9093,7 +9103,7 @@ func _build_outskirts() -> void:
 	await _world_build_frame()
 	_add_clouds()
 	await _world_build_frame()
-	_add_ground_patches()
+	await _add_ground_patches()
 	await _world_build_frame()
 	_add_ambient_life()
 
@@ -9111,10 +9121,12 @@ func _add_ground_patches() -> void:
 			if not blocked:
 				_add_block(Vector3(sx * (RIVER_HALF + 0.9), 0.004, z + 2.0), Vector3(1.6, 0.008, 4.0), Color.WHITE, false, sand)
 			z += 4.0
+			await _world_build_frame()   # (claude-faisal/stutter: one 31 ms step behind the title before)
 	var moss := _moss()
 	var r := RandomNumberGenerator.new()
 	r.seed = 606
 	for t in map_trees:
+		await _world_build_frame()
 		if t.x < -8.0 and r.randf() < 0.6:
 			var size := r.randf_range(2.4, 4.2)
 			_add_block(Vector3(t.x + r.randf_range(-0.6, 0.6), 0.003, t.z + r.randf_range(-0.6, 0.6)), Vector3(size, 0.006, size * r.randf_range(0.7, 1.0)), Color.WHITE, false, moss)
@@ -9286,10 +9298,12 @@ func _build_works(team: int, sx: float) -> void:
 	var c := _hex_color(team)
 	var x := sx * 100.0   # clear of the (bigger) spawn cellar
 	_add_house("mine" if team == 1 else "lumbermill", team, Vector3(x, 0, 14.0), 4.0, -PI / 2.0 * sx, team == 1)
+	await _world_build_frame()   # (claude-faisal/stutter: one 55 ms step behind the title before)
 	if team == 1:
 		_add_house("barracks", team, Vector3(x, 0, -14.0), 3.6, -PI / 2.0 * sx)
 	else:
 		_add_treehouse(Vector3(x, 0, -14.0), 53, 1.08)
+	await _world_build_frame()
 	for k in 3:
 		_prop("hex/resource_%s" % ["stone" if team == 1 else "lumber"], Vector3(x - sx * 5.0, 0, 9.5 + k * 2.4), 4.0, float(k) * 0.7)
 	# (The tent and flag gave way to the trees.)
@@ -9302,7 +9316,9 @@ func _build_works(team: int, sx: float) -> void:
 	# the ground beyond the wall reads as woodland, not a busy yard (Faisal
 	# 2026-10-09 08:13 Humans, 08:18 Elves: "flush this area out with trees").
 	for tp in [Vector3(92.5, 0, -9.0), Vector3(94.0, 0, -3.5), Vector3(92.5, 0, 2.0), Vector3(94.0, 0, 7.5), Vector3(97.5, 0, -6.0), Vector3(97.5, 0, 0.5), Vector3(97.0, 0, 6.0), Vector3(92.0, 0, 11.5)]:
+		await _world_build_frame()
 		_add_tree(Vector3(sx * tp.x, 0, tp.z), int(tp.z) % 2 == 0)
+	await _world_build_frame()
 	if team == 1:
 		# Kingdom: drill yard by the barracks and a half-built wall.
 		_prop("hex/weaponrack", Vector3(x + sx * 4.5, 0, -9.0), 4.0, PI / 2.0)
@@ -10380,6 +10396,7 @@ func _build_castle(team: int) -> void:
 
 	await _world_build_frame()
 	await _build_cellar(team, bx, side)
+	await _world_build_frame()
 
 	var ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()
@@ -11017,6 +11034,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		var h_to_spawn := Vector3(bx + side * 14.5, CELLAR_Y, 0) - hup
 		await _world_build_frame()
 		_add_upgrade_pad(team, hup, atan2(h_to_spawn.x, h_to_spawn.z), true)
+	await _world_build_frame()   # (claude-faisal/stutter: the guide and the castle's rest were one 74 ms step)
 	var g := Guide.new()
 	add_child(g)
 	if open:
