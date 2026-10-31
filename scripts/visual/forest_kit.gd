@@ -221,6 +221,7 @@ func finish() -> void:
 	for b in bushes:
 		_bush(b[0], b[1], r, 1.0)
 	_dressing(r)
+	_meadow()
 	_build()
 	if OS.is_debug_build() or "--forest-kit-log" in OS.get_cmdline_user_args():
 		var n := 0
@@ -524,14 +525,91 @@ func _dressing(r: RandomNumberGenerator) -> void:
 			_add("patch", Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(s * 1.3, 1, s)), p), tones[0] if palette == "winter" else Color(0.42, 0.33, 0.2, 0.75))
 
 
+func _meadow() -> void:
+	## Pass 4 (2026-10-31, picks Battle A / Spawn D): the lawn outside the
+	## playable field reads bright and lush: broad sunlit yellow-green patches
+	## over the meadow, dense leafy grass tufts, more flower clumps and low
+	## bushes, so no flat or bare ground shows between the woods. Day and
+	## night maps only (snow and Twilight keep their own ground); its own
+	## random generator, so the rest of the kit's layout is unchanged.
+	## Out of the field only: the playable lawn keeps its tone for gameplay.
+	if palette != "day" and palette != "night":
+		return
+	var r := RandomNumberGenerator.new()
+	r.seed = 41031
+	var fl := 0.4 if low else 1.0
+	var sun := [Color(0.62, 0.76, 0.24, 0.62), Color(0.7, 0.8, 0.3, 0.55), Color(0.52, 0.72, 0.22, 0.6)]
+	for i in int(520 * fl):
+		var p := Vector3(r.randf_range(-118, 118), 0.02 + 0.002 * (i % 3), r.randf_range(-60, 60))
+		if _in_field(p):
+			continue
+		var s := r.randf_range(3.0, 6.5)
+		if not _clear(Vector3(p.x, 0, p.z), 0.5):
+			continue
+		var b := Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(s * r.randf_range(1.0, 1.5), 1.0, s))
+		_add("patch", Transform3D(b, p), sun[r.randi() % sun.size()])
+	var tufts := 0
+	var tries := 0
+	var want := int(3400 * fl)
+	while tufts < want and tries < want * 4:
+		tries += 1
+		var p := Vector3(r.randf_range(-116, 116), 0, r.randf_range(-58, 58))
+		if _in_field(p) or not _clear(p, 0.15):
+			continue
+		tufts += 1
+		var sc := r.randf_range(0.8, 1.35)
+		var v := r.randf_range(0.9, 1.12)
+		_add("tuft%d" % (tufts % 2), Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(sc, sc * r.randf_range(0.85, 1.15), sc)), p), Color(v, v, v * 0.96))
+	var flowers := 0
+	tries = 0
+	want = int(420 * fl)
+	while flowers < want and tries < want * 5:
+		tries += 1
+		var p := Vector3(r.randf_range(-116, 116), 0, r.randf_range(-58, 58))
+		if _in_field(p) or _crowded(p, 0.35) or not _clear(p, 0.3):
+			continue
+		flowers += 1
+		_add("flower%d" % (flowers % 3), Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3.ONE * r.randf_range(0.85, 1.3)), p))
+	for i in int(160 * fl):
+		var p := Vector3(r.randf_range(-116, 116), 0, r.randf_range(-58, 58))
+		if not _in_field(p):
+			_bush(p, i + 7, r, r.randf_range(0.6, 0.95))
+
+
+func _make_tuft(st: SurfaceTool, seed: int, shape: int) -> void:
+	## A lush leafy grass tuft (~0.4 m): two or three soft yellow-green
+	## clumps and a ring of tapered blades, lit tips (pass 4, outside the walls).
+	var r := RandomNumberGenerator.new()
+	r.seed = seed
+	var lo := Color.from_hsv(0.25, 0.8, 0.5)
+	var hi := Color.from_hsv(0.2, 0.68, 1.0)
+	if palette == "night":
+		lo = Color.from_hsv(0.3, 0.72, 0.3)
+		hi = Color.from_hsv(0.25, 0.6, 0.7)
+	for i in 2 + shape:
+		var a := TAU * i / (2.0 + shape) + r.randf()
+		var d := 0.0 if i == 0 else r.randf_range(0.1, 0.16)
+		_lobe(st, Vector3(cos(a) * d, 0.08, sin(a) * d), r.randf_range(0.13, 0.18), 0.75, seed + i * 7, lo, hi, 0.0, 0.24, 0.0, 0.18)
+	var n := 7 + shape * 2
+	for k in n:
+		var a := TAU * k / n + r.randf_range(-0.2, 0.2)
+		var out := Vector3(cos(a), 0, sin(a))
+		var side := Vector3(-out.z, 0, out.x) * 0.045
+		var base := out * 0.06
+		var tip := out * r.randf_range(0.16, 0.26) + Vector3(0, r.randf_range(0.3, 0.46), 0)
+		# Both faces (the kit material culls back faces).
+		_tri(st, base - side, tip, base + side, lo, hi, lo, 0.0)
+		_tri(st, base + side, tip, base - side, lo, hi, lo, 0.0)
+
 func _patch_tones() -> Array:
 	match palette:
 		"winter":
 			return [Color(0.86, 0.9, 0.98, 0.7), Color(0.74, 0.82, 0.92, 0.6), Color(0.95, 0.97, 1.0, 0.8)]
 		"twilight":
 			return [Color(0.16, 0.42, 0.4, 0.6), Color(0.28, 0.5, 0.42, 0.55), Color(0.2, 0.36, 0.44, 0.45)]
-	# Warm yellow-green, deep cool green, a sunlit lime and a dry straw.
-	return [Color(0.56, 0.68, 0.26, 0.6), Color(0.2, 0.42, 0.16, 0.55), Color(0.5, 0.74, 0.3, 0.55), Color(0.66, 0.62, 0.32, 0.45)]
+	# Warm yellow-green, deep cool green, a sunlit lime and a golden meadow
+	# green (pass 4: was a dry straw, which read as bare ground).
+	return [Color(0.56, 0.68, 0.26, 0.6), Color(0.2, 0.42, 0.16, 0.55), Color(0.5, 0.74, 0.3, 0.55), Color(0.64, 0.7, 0.28, 0.45)]
 
 
 # --- Meshes ------------------------------------------------------------------
@@ -584,7 +662,7 @@ func _build() -> void:
 				cells[k] = []
 			cells[k].append(it)
 		var ground: bool = key == "patch"
-		var small: bool = ground or key.begins_with("flower") or key.begins_with("rock") or key.begins_with("bush")
+		var small: bool = ground or key.begins_with("flower") or key.begins_with("rock") or key.begins_with("bush") or key.begins_with("tuft")
 		for k in cells:
 			var items: Array = cells[k]
 			var mm := MultiMesh.new()
@@ -643,6 +721,8 @@ func _mesh_for(key: String) -> ArrayMesh:
 		_make_rock(st, seed, shape)
 	elif key.begins_with("flower"):
 		_make_flowers(st, seed, shape)
+	elif key.begins_with("tuft"):
+		_make_tuft(st, seed, shape)
 	elif key == "fence":
 		_make_fence(st)
 	elif key == "patch":

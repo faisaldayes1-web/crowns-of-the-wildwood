@@ -121,7 +121,7 @@ static func _frame(a: Vector3, b: Vector3) -> Array:
 
 
 static func block_course(g, a: Vector3, b: Vector3, y0: float, h: float, thick: float, grey: bool, seed: int,
-		min_len: float = 0.7, max_len: float = 1.25, shadow: bool = true) -> void:
+		min_len: float = 0.7, max_len: float = 1.25, shadow: bool = true, mats_in: Array = []) -> void:
 	## One course of individual blocks from a to b (their feet at y0), random
 	## lengths, a hand-width gap between them, each its own shade and set a
 	## touch proud or back, so the wall reads as stacked stones.
@@ -131,7 +131,7 @@ static func block_course(g, a: Vector3, b: Vector3, y0: float, h: float, thick: 
 	var length: float = f[2]
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
-	var mats := face_mats(g, grey)
+	var mats := face_mats(g, grey) if mats_in.is_empty() else mats_in
 	var rot := atan2(-along.z, along.x)
 	var t := 0.0
 	while t < length - 0.05:
@@ -282,7 +282,9 @@ static func courtyard_wall(g, a: Vector3, b: Vector3, grey: bool, seed: int, mer
 	var rot := atan2(-along.z, along.x)
 	var mid := (a + b) / 2.0
 	if tall_out != Vector3.ZERO:
-		_tall_courtyard_wall(g, a, b, along, length, rot, grey, seed, tall_out)
+		# Pass 4 (2026-10-31): the tall warm-brown brick wall (was pass 2's
+		# 2.4 m block wall, _tall_courtyard_wall).
+		_brick_wall(g, a, b, along, length, rot, seed, tall_out)
 		return
 	var core := Vector3(length, 0.9, 0.5) if absf(along.x) > 0.5 else Vector3(0.5, 0.9, length)
 	_box(g, Vector3(mid.x, 0.3 + 0.45, mid.z), core, mortar_mat(g, grey))
@@ -391,6 +393,155 @@ static func _flag(st: SurfaceTool, foot: Vector3, col: Color, seed: int) -> void
 	var y0 := -fh * 0.4
 	var y1 := -fh * 0.56
 	_quad(st, p0 + Vector3(0, y0, 0.006), p1 + Vector3(0, y0, 0.006), p1 + Vector3(0, y1, 0.006), p0 + Vector3(0, y1, 0.006), gold)
+
+
+# --- The yard's west wall (pass 4, 2026-10-31) ---------------------------------
+
+static func brick_mats(g) -> Array:
+	## Warm-brown brick (tools/make_castle_textures.py make_castle_brick): the
+	## wall face and merlons, and a darker, browner plinth.
+	var c := _cache(g)
+	if not c.has("brick" + str(g.soot)):
+		c["brick" + str(g.soot)] = [g._pbr("castle_brick", 0.3, Color(0.95, 0.86, 0.78)), g._pbr("castle_brick", 0.3, Color(0.7, 0.6, 0.54))]
+	return c["brick" + str(g.soot)]
+
+
+static func _brick_wall(g, a: Vector3, b: Vector3, along: Vector3, length: float, rot: float, seed: int, out: Vector3) -> void:
+	## The open yard's outer side wall, the one the match camera looks along
+	## (pick Battle A's left wall): a tall, thick warm-brown brick wall, a
+	## darker plinth, a cream coping course, chunky brick merlons with cream
+	## caps, lit braziers on corbels along its yard face and tall team banners
+	## on poles over it. Its yard face stays where pass 2's wall had it
+	## (0.24 m in from the kerb line) and it grows only outward, away from
+	## the yard, so at the match camera it leans away from the yard. Visual
+	## only: the kerb and the invisible wall stay the caller's.
+	const INNER := -0.24
+	const OUTER := 1.4
+	const TOP := 2.9   # the brick body's top (the coping and merlons sit on it)
+	var thick := OUTER - INNER
+	var sh := out * (INNER + OUTER) / 2.0
+	# Run a little past both corner piers, so the corners close.
+	var a0 := a + sh - along * 0.6
+	var b0 := b + sh + along * 0.6
+	var full := length + 1.2
+	var mid := (a0 + b0) / 2.0
+	var bm := brick_mats(g)
+	var cream := face_mats(g, false)
+	var body := Vector3(full, TOP - 0.3, thick) if absf(along.x) > 0.5 else Vector3(thick, TOP - 0.3, full)
+	_box(g, Vector3(mid.x, 0.3 + (TOP - 0.3) / 2.0, mid.z), body, bm[0])
+	# A darker plinth course at the foot (shadowless: it sits in the wall's shade).
+	block_course(g, a0, b0, 0.3, 0.46, thick + 0.14, false, seed, 0.9, 1.5, false, [bm[1]])
+	# A thin cream string course two-thirds up, a hand proud of the brick.
+	block_course(g, a0, b0, 1.96, 0.14, thick + 0.08, false, seed + 1, 1.2, 2.0, false, cream)
+	# The coping: big blocks of the darker brick, proud of both faces.
+	block_course(g, a0, b0, TOP, 0.3, thick + 0.22, false, seed + 2, 0.9, 1.5, true, [bm[1]])
+	# Chunky brick merlons along the outer edge, the wall walk open behind
+	# them on the yard side.
+	var pitch := 1.35
+	var n := maxi(int(round(full / pitch)), 1)
+	var step := full / n
+	var r := RandomNumberGenerator.new()
+	r.seed = seed + 5
+	var mt := 0.86
+	var mo := out * (OUTER - 0.02 - mt / 2.0 - (INNER + OUTER) / 2.0)
+	for k in n:
+		var c := a0 + along * ((k + 0.5) * step) + mo
+		var hh := 0.78 * r.randf_range(0.95, 1.0)
+		block(g, Vector3(c.x, TOP + 0.3 + hh / 2.0, c.z), Vector3(step * 0.56, hh, mt), bm[0], rot)
+	# Braziers on stone corbels along the yard face: an iron bowl and a
+	# flame (game.gd's own fire, so it batches with the yard's), two of the
+	# four with a cheap shadowless light.
+	var iron: Material = g._iron()
+	var fr := [0.17, 0.39, 0.61, 0.83]
+	for i in fr.size():
+		var p: Vector3 = a + along * (length * fr[i])
+		var face := p + out * INNER
+		block(g, Vector3(face.x, 2.38, face.z) - out * 0.22, Vector3(0.62, 0.24, 0.5), cream[0], rot)
+		block(g, Vector3(face.x, 2.16, face.z) - out * 0.12, Vector3(0.4, 0.2, 0.3), cream[1], rot, false)
+		var bowl := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.3
+		cm.bottom_radius = 0.15
+		cm.height = 0.24
+		cm.radial_segments = 10
+		bowl.mesh = cm
+		bowl.position = Vector3(face.x, 2.62, face.z) - out * 0.3
+		bowl.material_override = iron
+		bowl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.add_child(bowl)
+		g._add_fire(Vector3(face.x, 2.68, face.z) - out * 0.3, 1.9)
+		if i == 1 or i == 2:
+			var light := OmniLight3D.new()
+			light.light_color = Color(1.0, 0.66, 0.32)
+			light.light_energy = 1.2
+			light.omni_range = 6.0
+			light.omni_attenuation = 1.3
+			light.shadow_enabled = false
+			light.position = Vector3(face.x, 3.2, face.z) - out * 0.8
+			g.add_child(light)
+	# Tall team banners on poles over the merlons (pick Battle A's banners):
+	# long hanging cloths facing the camera, hung on the pole's outer side so
+	# they lean away from the yard.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var team_c: Color = Stats.FACTIONS[0].color
+	var dir := signf(out.x) if absf(out.x) > 0.5 else 1.0
+	for i in 5:
+		var p: Vector3 = a + along * (length * (0.1 + 0.2 * i)) + out * (OUTER - 0.35)
+		_banner_pole(st, Vector3(p.x, TOP + 0.3, p.z), team_c, dir)
+	var mi := MeshInstance3D.new()
+	mi.mesh = StaticBatch.kept_mesh(st)
+	mi.material_override = _awning_mat(g)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	g.add_child(mi)
+
+
+static func _banner_pole(st: SurfaceTool, foot: Vector3, col: Color, dir: float) -> void:
+	## A dark pole with a gold finial and a crossbar, and a long team-colour
+	## banner hanging from it (flat, facing +z) with a gold hem, a gold
+	## lozenge crest and a swallow-tailed foot. `dir` is the side of the
+	## pole the cloth hangs on (+1 = +x).
+	var dark := Color(0.3, 0.2, 0.12)
+	var gold := Color(0.88, 0.68, 0.28)
+	var h := 2.7
+	_beam(st, foot, foot + Vector3(0, h, 0), 0.09, dark)
+	_beam(st, foot + Vector3(0, h, 0), foot + Vector3(0, h + 0.16, 0), 0.16, gold)
+	var w := 1.05
+	var x0 := foot.x + dir * 0.06
+	var x1 := x0 + dir * w
+	var top := foot.y + h - 0.12
+	var bot := top - 1.75
+	var z := foot.z + 0.07
+	_beam(st, Vector3(x0 - dir * 0.1, top + 0.04, z), Vector3(x1 + dir * 0.1, top + 0.04, z), 0.07, gold)
+	var c := col.lightened(0.04)
+	c.a = 1.0
+	var lo := minf(x0, x1)
+	var hi := maxf(x0, x1)
+	_quad(st, Vector3(lo, top, z), Vector3(hi, top, z), Vector3(hi, bot, z), Vector3(lo, bot, z), c)
+	# The swallow-tailed foot: two points, one under each outer edge.
+	var tail := 0.38
+	var mx := (lo + hi) / 2.0
+	st.set_normal(Vector3(0, 0, 1))
+	st.set_color(c)
+	st.add_vertex(Vector3(lo, bot, z))
+	st.add_vertex(Vector3(mx, bot, z))
+	st.add_vertex(Vector3(lo, bot - tail, z))
+	st.add_vertex(Vector3(mx, bot, z))
+	st.add_vertex(Vector3(hi, bot, z))
+	st.add_vertex(Vector3(hi, bot - tail, z))
+	# A gold hem down both sides and under the crossbar.
+	var e := 0.07
+	_quad(st, Vector3(lo, top, z + 0.005), Vector3(lo + e, top, z + 0.005), Vector3(lo + e, bot, z + 0.005), Vector3(lo, bot, z + 0.005), gold)
+	_quad(st, Vector3(hi - e, top, z + 0.005), Vector3(hi, top, z + 0.005), Vector3(hi, bot, z + 0.005), Vector3(hi - e, bot, z + 0.005), gold)
+	_quad(st, Vector3(lo, top, z + 0.005), Vector3(hi, top, z + 0.005), Vector3(hi, top - e * 1.4, z + 0.005), Vector3(lo, top - e * 1.4, z + 0.005), gold)
+	# A gold lozenge with a darker heart: the crest.
+	var cy := top - 0.62
+	for k in 2:
+		var s := 1.0 - 0.45 * k
+		var cc: Color = gold if k == 0 else col * 0.62
+		cc.a = 1.0
+		var zz := z + 0.01 + 0.005 * k
+		_quad(st, Vector3(mx, cy + 0.36 * s, zz), Vector3(mx + 0.3 * s, cy, zz), Vector3(mx, cy - 0.36 * s, zz), Vector3(mx - 0.3 * s, cy, zz), cc)
 
 
 static func palisade(g, a: Vector3, b: Vector3, team: int, face: Vector3, crest_at: Array, grey: bool, seed: int) -> void:

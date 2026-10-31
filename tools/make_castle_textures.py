@@ -171,6 +171,32 @@ def make_castle_face():
         mst.save(name, color, height, 0.6)
 
 
+def make_castle_brick():
+    """Pass 4 (2026-10-31): the yard's tall west wall in warm-brown brick
+    (pick Battle A's left wall): a running bond of 10 courses a tile, each
+    brick two cells long and every other course offset by a cell (~0.33 x
+    0.67 m at the wall's 0.3 UV), deep joints, each brick its own warm brown."""
+    G = 10
+    owner = -np.ones((G, G), dtype=int)
+    rects = []
+    for cy in range(G):
+        cx = 0
+        if cy % 2 == 1:   # the offset course starts and ends on a half brick
+            owner[cy, 0] = len(rects)
+            rects.append((0, cy, 1, cy + 1))
+            cx = 1
+        while cx < G:
+            w = 2 if cx + 1 < G else 1
+            owner[cy, cx:cx + w] = len(rects)
+            rects.append((cx, cy, cx + w, cy + 1))
+            cx += w
+    ids, t, cu, cv, te, le, vn = _slabs(owner, rects, G, G, joint=5.0, bevel=16.0, wobble=3.0, seed=442)
+    palette = [rgb(0.62, 0.40, 0.25), rgb(0.70, 0.46, 0.29), rgb(0.56, 0.35, 0.22), rgb(0.66, 0.43, 0.28),
+               rgb(0.74, 0.52, 0.34), rgb(0.60, 0.38, 0.26), rgb(0.68, 0.48, 0.32)]
+    color, height, _chip = _paint(ids, t, cu, cv, te, le, vn, len(rects), palette, rgb(0.30, 0.21, 0.15), 443, chips=0.7)
+    mst.save("castle_brick", color, height, 1.0)
+
+
 if __name__ == "__main__":
     os.makedirs(mst.OUT, exist_ok=True)
     for fn in sys.argv[1:] or ["make_castle_flags", "make_castle_blocks", "make_castle_face"]:

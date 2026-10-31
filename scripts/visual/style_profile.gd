@@ -39,6 +39,8 @@ const TEX := {
 	"castle_blocks_grey": {"normal": 1.0, "rough": 0.92},
 	"castle_face": {"normal": 0.6, "rough": 0.92},
 	"castle_face_grey": {"normal": 0.6, "rough": 0.92},
+	# Pass 4 (2026-10-31): the yard's tall west wall in warm-brown brick.
+	"castle_brick": {"normal": 0.9, "rough": 0.94},
 }
 const TEX_DIR := "res://assets/textures/style/"
 
@@ -119,7 +121,8 @@ const GRADE := {
 # The match meadow: lighter and warmer than the texture (target grass is a
 # light yellow-green, not the old mid green). Seasons that swap the grass
 # texture (snow) keep theirs.
-const GRASS_TINT := Color(1.3, 1.12, 1.25)
+# Pass 4 (2026-10-31): a step lighter and more yellow (was 1.3, 1.12, 1.25).
+const GRASS_TINT := Color(1.48, 1.2, 1.05)
 
 # Night readability (visual pass 2026-10-16, claude-faisallaptop): a brighter
 # moon and a little more ambient, so units, paths and walls read in the
