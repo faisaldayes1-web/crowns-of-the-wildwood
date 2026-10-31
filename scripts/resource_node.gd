@@ -177,12 +177,13 @@ func _build_tree(r: RandomNumberGenerator) -> void:
 	notch.size = Vector3(0.36, 0.22, 0.12)
 	_mesh(full, notch, Vector3(0, 0.75, 0.36), cut)
 	# Canopy: four faceted leaf blobs, the top one lighter; in the match
-	# world the forest kit's round broadleaf crown instead (Faisal 10-31: the
-	# trees closer to the picks), over the same working trunk.
+	# world the forest kit's crown instead (Faisal 10-31: the trees closer to
+	# the picks), over the same working trunk. Pass 3: the kit's tiered pine
+	# on every map (was broadleaf), so the wood trees match the woods.
 	if game.forest_kit != null:
 		var kt = game.forest_kit
 		var shape := r.randi() % 2
-		kt.kit_tree(full, "broad%d" % shape if game.season != "winter" else "pine%d" % shape, Vector3(0, 0.15, 0), 1.3, r.randf() * TAU)
+		kt.kit_tree(full, "pine%d" % (shape * 2), Vector3(0, 0.15, 0), 1.2, r.randf() * TAU)
 	for k in (0 if game.forest_kit != null else 4):
 		var a := TAU * k / 3.0 + r.randf() * 0.5
 		var off := Vector3(cos(a) * 0.75, 0, sin(a) * 0.75) if k < 3 else Vector3.ZERO
@@ -214,7 +215,11 @@ func _build_tree(r: RandomNumberGenerator) -> void:
 	sapling.position = Vector3(0.5, 0, -0.3)
 	spent.add_child(sapling)
 	_mesh(sapling, _cyl(0.04, 0.06, 0.8, 5), Vector3(0, 0.4, 0), bark)
-	_mesh(sapling, game._rock_mesh(r.randi(), 0.35, 0.2), Vector3(0, 0.9, 0), _mat(leaf_b, 0.9))
+	var sap_seed := r.randi()
+	if game.forest_kit != null:
+		game.forest_kit.kit_tree(sapling, "pine3", Vector3(0, 0.05, 0), 0.32, 0.0)   # a little pine growing back (pass 3)
+	else:
+		_mesh(sapling, game._rock_mesh(sap_seed, 0.35, 0.2), Vector3(0, 0.9, 0), _mat(leaf_b, 0.9))
 
 
 func _build_deposit(r: RandomNumberGenerator) -> void:
