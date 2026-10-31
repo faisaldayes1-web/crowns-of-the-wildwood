@@ -217,7 +217,7 @@ func _build_tree(r: RandomNumberGenerator) -> void:
 	_mesh(sapling, _cyl(0.04, 0.06, 0.8, 5), Vector3(0, 0.4, 0), bark)
 	var sap_seed := r.randi()
 	if game.forest_kit != null:
-		game.forest_kit.kit_tree(sapling, "pine3", Vector3(0, 0.05, 0), 0.32, 0.0)   # a little pine growing back (pass 3)
+		game.forest_kit.kit_tree(sapling, "pine1", Vector3(0, 0.05, 0), 0.32, 0.0)   # a little pine growing back (pass 3)
 	else:
 		_mesh(sapling, game._rock_mesh(sap_seed, 0.35, 0.2), Vector3(0, 0.9, 0), _mat(leaf_b, 0.9))
 

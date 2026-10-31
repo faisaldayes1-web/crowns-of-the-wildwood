@@ -277,8 +277,9 @@ func _tree_key(species: String, pos: Vector3, seed: int) -> String:
 	## Which mesh: species, palette accent and shape.
 	match species:
 		"pine":
-			# Pass 3: four shapes, the small stout pine3 one time in three.
-			return "pine3" if seed % 3 == 1 else "pine%d" % ((seed / 3) % 3)
+			# Pass 3: the small stout pine1 one time in three (three meshes, as
+			# in pass 2: a fourth would add a MultiMesh in every forest chunk).
+			return "pine1" if seed % 3 == 1 else "pine%d" % (((seed / 3) % 2) * 2)
 		"autumn":
 			return "autumn%d" % (seed % 2)
 		_:
@@ -886,7 +887,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	## clumps, dark notches between them), bulging out and then rounding in
 	## under the tier above: a dark curl under each rim, sunlit lobe tops in
 	## a mid green, a shaded band where the next tier overhangs, and a warm
-	## lit crown on the top tier. Shape 3 is a small, stout pine (the picks'
+	## lit crown on the top tier. Shape 1 is a small, stout pine (the picks'
 	## woods hold many small ones). Stonekeep's carry snow on each tier.
 	## 3 vertices a lobe, 5-7 lobes a tier: ~75-105 triangles a tier, no
 	## underside (never seen from the match camera; Low: two lobes fewer).
@@ -894,10 +895,10 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	r.seed = seed
 	var ramp := _pine_ramp(accent)
 	var bark := _bark()
-	var tiers: int = [5, 5, 6, 4][shape]
-	var base_r: float = [1.7, 1.5, 1.8, 1.3][shape]
-	var top: float = [5.4, 4.6, 6.0, 3.4][shape]
-	var foot: float = [0.75, 0.7, 0.8, 0.5][shape]   # first tier's rim height
+	var tiers: int = [5, 4, 6][shape]
+	var base_r: float = [1.7, 1.3, 1.8][shape]
+	var top: float = [5.4, 3.4, 6.0][shape]
+	var foot: float = [0.75, 0.5, 0.8][shape]   # first tier's rim height
 	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, top * 0.55, 0), 0.2 * base_r / 1.7, 0.08, 6, bark[0], bark[1], 1.0)
 	var snow: bool = palette == "winter"
 	var snow_c := Color(0.93, 0.96, 1.0, 1.0)
