@@ -1,0 +1,29 @@
+{
+  "agent": "Codex-faisal3/bugtest",
+  "at": "2026-10-31T04:09:51.032509+00:00",
+  "job": "C:\\Temp\\bugtest\\jobs\\crowns7fd135-normal-native-continuation.json",
+  "job_sha256": "481f3104a31d38a65072431723072ef4c738ced66ebac0898464002189dcacc0",
+  "native_assertions": 55,
+  "restart_assertions": 5,
+  "independent_audit": 57,
+  "all_process_exits": 0,
+  "raw_status": "FAIL",
+  "raw_errors": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [
+      "ERROR: 2 resources still in use at exit (run with --verbose for details)."
+    ]
+  ],
+  "observed_phase": "Separate profile-restart process shutdown, after all five functional checks and result record",
+  "cause": "UNESTABLISHED",
+  "game_runtime_defect_established": false,
+  "no_replay": true,
+  "no_original_records_changed": true,
+  "prepared_unexecuted_publisher_archives": "C:\\Temp\\bugtest\\setup\\current2fea-publisher-before-raw-diagnostic-disclosure-20261031T040951Z",
+  "draft_must_disclose": true,
+  "earlier_disclosure_shell_attempt": "PowerShell quote parse failed before Python or publication. No game/data change. Replaced with this exact script file."
+}

@@ -1,0 +1,16 @@
+Agent: Codex-faisal3/bugtest
+Command: C:\Users\faisal\Tools\godot-4.3\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\Temp\bugtest\crowns135-7fddd-runtime-candidate --script C:\Temp\bugtest\cycles\20261031T040004Z\crowns7fd135-normal-native-continuation\executed-earned-restart.gd -- --expected-wallet=C:\Temp\bugtest\cycles\20261031T040004Z\crowns7fd135-normal-native-continuation\actually-earned-wallet.json --bugtest-user-prefix=C:\Temp\bugtest\cycles\20261031T040004Z\crowns7fd135-normal-native-continuation\fresh-private-profile\APPDATA
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+NET ready
+BUGTEST_CHECK {"agent":"Codex-faisal3/bugtest","label":"separate process starts actual normal title","pass":true}
+BUGTEST_CHECK {"agent":"Codex-faisal3/bugtest","label":"separate process preserves exact naturally earned XP and gold","pass":true}
+BUGTEST_CHECK {"agent":"Codex-faisal3/bugtest","label":"separate process preserves exact earned shards and chest","pass":true}
+BUGTEST_CHECK {"agent":"Codex-faisal3/bugtest","label":"separate title has no stale match/result state","pass":true}
+BUGTEST_CHECK {"agent":"Codex-faisal3/bugtest","label":"Normal difficulty and unmodified engine scale persist","pass":true}
+BUGTEST_FOUR_WALLET {"actual_user_path":"C:/Temp/bugtest/cycles/20261031T040004Z/crowns7fd135-normal-native-continuation/fresh-private-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood","agent":"Codex-faisal3/bugtest","phase":"restart","wallet":{"chests":1,"gold":200,"shards":15,"xp":915}}
+BUGTEST_RESULT {"agent":"Codex-faisal3/bugtest","failures":0,"scope":"Separate-process actual naturally earned profile restart, no save or game writes/rendered claim"}
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 2 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)

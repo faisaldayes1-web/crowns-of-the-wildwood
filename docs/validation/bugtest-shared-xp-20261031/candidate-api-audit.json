@@ -1,0 +1,221 @@
+{
+  "at": "2026-10-31T03:51:05.182259+00:00",
+  "job": "C:\\Temp\\bugtest\\jobs\\crowns7fd135-candidate-first-api.json",
+  "job_sha256": "a6df9bb7376a624ad31213be0236b54de2ab49e6aa91b58ad57dc2137ce2349d",
+  "native_parent_sha256": "a6df9bb7376a624ad31213be0236b54de2ab49e6aa91b58ad57dc2137ce2349d",
+  "source_sha": "2feaef30bf561ed18a1128581604f207974f998f",
+  "parent_main": "7fddd5a3e379c81aff3487119f44064108488e63",
+  "checks": [
+    {
+      "name": "actual first candidate API job closed PASS",
+      "pass_": true
+    },
+    {
+      "name": "source1518 and frozen/protected files unchanged",
+      "pass_": true
+    },
+    {
+      "name": "preparation and actual engine SHA retained",
+      "pass_": true
+    },
+    {
+      "name": "source preparation audit binds actual candidate",
+      "pass_": true
+    },
+    {
+      "name": "all candidate runtime files independently match Git blobs",
+      "pass_": true
+    },
+    {
+      "name": "only514 docs omitted from logical2032 tree",
+      "pass_": true
+    },
+    {
+      "name": "four expected phases exist",
+      "pass_": true
+    },
+    {
+      "name": "source-bound headless zero-error phase FIRST-candidate-runtime-cold-import",
+      "pass_": true
+    },
+    {
+      "name": "source-bound headless zero-error phase FIRST-candidate-actual-OS-userdir",
+      "pass_": true
+    },
+    {
+      "name": "source-bound headless zero-error phase FIRST-candidate-current15-strict-parse",
+      "pass_": true
+    },
+    {
+      "name": "source-bound headless zero-error phase FIRST-candidate-current15-API-green",
+      "pass_": true
+    },
+    {
+      "name": "actual private userdir proved before API",
+      "pass_": true
+    },
+    {
+      "name": "15 identical labels all pass in actual candidate transcript",
+      "pass_": true
+    },
+    {
+      "name": "original main six expected failures remain preserved",
+      "pass_": true
+    },
+    {
+      "name": "candidate source/art delta remains exactly2 scoped files",
+      "pass_": true
+    },
+    {
+      "name": "scope explicitly synthetic/no gameplay/rendered",
+      "pass_": true
+    }
+  ],
+  "assertions": 16,
+  "all_pass": true,
+  "engine_process_records": [
+    {
+      "pid": 10592,
+      "runner_pid": 33492,
+      "started_at": "2026-10-31T03:48:24.545348+00:00",
+      "command": [
+        "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+        "--headless",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+        "--log-file",
+        "C:\\Temp\\bugtest\\cycles\\20261031T034807Z\\crowns7fd135-candidate-first-api\\FIRST-candidate-runtime-cold-import.engine.log",
+        "--editor",
+        "--import"
+      ],
+      "cwd": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+      "status": "EXITED",
+      "source_repo": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+      "agent": "Codex-faisal3/bugtest",
+      "observed_processes": [
+        {
+          "ProcessId": 10592,
+          "ParentProcessId": 33492,
+          "Name": "Godot_v4.3-stable_win64_console.exe",
+          "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+          "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --log-file C:\\Temp\\bugtest\\cycles\\20261031T034807Z\\crowns7fd135-candidate-first-api\\FIRST-candidate-runtime-cold-import.engine.log --editor --import",
+          "CreationDate": "/Date(1793418504540)/"
+        },
+        {
+          "ProcessId": 11740,
+          "ParentProcessId": 10592,
+          "Name": "conhost.exe",
+          "ExecutablePath": "C:\\WINDOWS\\system32\\conhost.exe",
+          "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+          "CreationDate": "/Date(1793418504549)/"
+        },
+        {
+          "ProcessId": 36972,
+          "ParentProcessId": 10592,
+          "Name": "Godot_v4.3-stable_win64.exe",
+          "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe",
+          "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --log-file C:\\Temp\\bugtest\\cycles\\20261031T034807Z\\crowns7fd135-candidate-first-api\\FIRST-candidate-runtime-cold-import.engine.log --editor --import",
+          "CreationDate": "/Date(1793418504562)/"
+        },
+        {
+          "ProcessId": 29564,
+          "ParentProcessId": 36972,
+          "Name": "keytool.exe",
+          "ExecutablePath": "C:\\Users\\Faisal\\Tools\\Unity\\Editor\\6000.3.26f1\\Editor\\Data\\PlaybackEngines\\AndroidPlayer\\OpenJDK\\bin\\keytool.exe",
+          "CommandLine": "C:\\Users\\Faisal\\Tools\\Unity\\Editor\\6000.3.26f1\\Editor\\Data\\PlaybackEngines\\AndroidPlayer\\OpenJDK\\bin\\keytool.exe -genkey -keystore C:/Temp/bugtest/cycles/20261031T034807Z/crowns7fd135-candidate-first-api/private-API-userdata/APPDATA/Godot/keystores/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname \"cn=Godot, ou=Godot Engine, o=Stichting Godot, c=NL\"",
+          "CreationDate": "/Date(1793418504885)/"
+        },
+        {
+          "ProcessId": 32796,
+          "ParentProcessId": 29564,
+          "Name": "conhost.exe",
+          "ExecutablePath": "C:\\WINDOWS\\system32\\conhost.exe",
+          "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+          "CreationDate": "/Date(1793418504891)/"
+        }
+      ],
+      "exit": 0,
+      "ended_at": "2026-10-31T03:49:09.715296+00:00"
+    },
+    {
+      "pid": 25692,
+      "runner_pid": 33492,
+      "started_at": "2026-10-31T03:49:28.005005+00:00",
+      "command": [
+        "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+        "--headless",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+        "--script",
+        "C:\\Temp\\bugtest\\setup\\godot_user_path_probe.gd",
+        "--",
+        "--bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T034807Z\\crowns7fd135-candidate-first-api\\private-API-userdata\\APPDATA"
+      ],
+      "cwd": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+      "status": "EXITED",
+      "source_repo": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+      "agent": "Codex-faisal3/bugtest",
+      "observed_processes": [],
+      "exit": 0,
+      "ended_at": "2026-10-31T03:49:29.036026+00:00"
+    },
+    {
+      "pid": 14708,
+      "runner_pid": 33492,
+      "started_at": "2026-10-31T03:49:47.428320+00:00",
+      "command": [
+        "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+        "--headless",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+        "--check-only",
+        "--script",
+        "C:\\Temp\\bugtest\\cycles\\20261031T034807Z\\crowns7fd135-candidate-first-api\\executed-current15-API.gd"
+      ],
+      "cwd": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+      "status": "EXITED",
+      "source_repo": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+      "agent": "Codex-faisal3/bugtest",
+      "observed_processes": [],
+      "exit": 0,
+      "ended_at": "2026-10-31T03:49:48.478428+00:00"
+    },
+    {
+      "pid": 21632,
+      "runner_pid": 33492,
+      "started_at": "2026-10-31T03:50:06.961076+00:00",
+      "command": [
+        "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+        "--headless",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+        "--script",
+        "C:\\Temp\\bugtest\\cycles\\20261031T034807Z\\crowns7fd135-candidate-first-api\\executed-current15-API.gd"
+      ],
+      "cwd": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+      "status": "EXITED",
+      "source_repo": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+      "agent": "Codex-faisal3/bugtest",
+      "observed_processes": [],
+      "exit": 0,
+      "ended_at": "2026-10-31T03:50:07.984077+00:00"
+    }
+  ],
+  "actual_private_userdata": {
+    "actual": "C:/Temp/bugtest/cycles/20261031T034807Z/crowns7fd135-candidate-first-api/private-API-userdata/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+    "agent": "Codex-faisal3/bugtest",
+    "expected_prefix": "C:/Temp/bugtest/cycles/20261031T034807Z/crowns7fd135-candidate-first-api/private-API-userdata/APPDATA"
+  },
+  "scope": "Actual first candidate runtime coldimport/privateOSpath/strict15APIgreen and exact scoped Git/source/protected-main custody. Fullmain2031cold/red retained. Sparsecandidate runtimecomplete1518files excludes514documentationfiles only. No native/earned/rendered/device/performance acceptance.",
+  "rendered": false,
+  "PNG": 0,
+  "agent": "Codex-faisal3/bugtest"
+}

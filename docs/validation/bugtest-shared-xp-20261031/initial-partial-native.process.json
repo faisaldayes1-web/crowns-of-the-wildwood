@@ -1,0 +1,48 @@
+{
+  "pid": 6492,
+  "runner_pid": 35312,
+  "started_at": "2026-10-31T03:53:05.681588+00:00",
+  "command": [
+    "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+    "--headless",
+    "--audio-driver",
+    "Dummy",
+    "--path",
+    "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+    "--script",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\executed-normal-match.gd",
+    "--",
+    "--bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA",
+    "--bugtest-user-actual=C:/Temp/bugtest/cycles/20261031T035154Z/crowns7fd135-normal-native/fresh-private-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood"
+  ],
+  "cwd": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+  "status": "RUNNING",
+  "source_repo": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+  "agent": "Codex-faisal3/bugtest",
+  "observed_processes": [
+    {
+      "ProcessId": 6492,
+      "ParentProcessId": 35312,
+      "Name": "Godot_v4.3-stable_win64_console.exe",
+      "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+      "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --script C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\executed-normal-match.gd -- --bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA \"--bugtest-user-actual=C:/Temp/bugtest/cycles/20261031T035154Z/crowns7fd135-normal-native/fresh-private-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood\"",
+      "CreationDate": "/Date(1793418785681)/"
+    },
+    {
+      "ProcessId": 39608,
+      "ParentProcessId": 6492,
+      "Name": "conhost.exe",
+      "ExecutablePath": "C:\\WINDOWS\\system32\\conhost.exe",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+      "CreationDate": "/Date(1793418785687)/"
+    },
+    {
+      "ProcessId": 3344,
+      "ParentProcessId": 6492,
+      "Name": "Godot_v4.3-stable_win64.exe",
+      "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe",
+      "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --script C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\executed-normal-match.gd -- --bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA \"--bugtest-user-actual=C:/Temp/bugtest/cycles/20261031T035154Z/crowns7fd135-normal-native/fresh-private-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood\"",
+      "CreationDate": "/Date(1793418785711)/"
+    }
+  ]
+}

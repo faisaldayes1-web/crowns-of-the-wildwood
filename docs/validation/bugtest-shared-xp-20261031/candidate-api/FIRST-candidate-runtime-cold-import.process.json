@@ -1,0 +1,65 @@
+{
+  "pid": 10592,
+  "runner_pid": 33492,
+  "started_at": "2026-10-31T03:48:24.545348+00:00",
+  "command": [
+    "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+    "--headless",
+    "--audio-driver",
+    "Dummy",
+    "--path",
+    "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+    "--log-file",
+    "C:\\Temp\\bugtest\\cycles\\20261031T034807Z\\crowns7fd135-candidate-first-api\\FIRST-candidate-runtime-cold-import.engine.log",
+    "--editor",
+    "--import"
+  ],
+  "cwd": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+  "status": "EXITED",
+  "source_repo": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+  "agent": "Codex-faisal3/bugtest",
+  "observed_processes": [
+    {
+      "ProcessId": 10592,
+      "ParentProcessId": 33492,
+      "Name": "Godot_v4.3-stable_win64_console.exe",
+      "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+      "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --log-file C:\\Temp\\bugtest\\cycles\\20261031T034807Z\\crowns7fd135-candidate-first-api\\FIRST-candidate-runtime-cold-import.engine.log --editor --import",
+      "CreationDate": "/Date(1793418504540)/"
+    },
+    {
+      "ProcessId": 11740,
+      "ParentProcessId": 10592,
+      "Name": "conhost.exe",
+      "ExecutablePath": "C:\\WINDOWS\\system32\\conhost.exe",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+      "CreationDate": "/Date(1793418504549)/"
+    },
+    {
+      "ProcessId": 36972,
+      "ParentProcessId": 10592,
+      "Name": "Godot_v4.3-stable_win64.exe",
+      "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe",
+      "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --log-file C:\\Temp\\bugtest\\cycles\\20261031T034807Z\\crowns7fd135-candidate-first-api\\FIRST-candidate-runtime-cold-import.engine.log --editor --import",
+      "CreationDate": "/Date(1793418504562)/"
+    },
+    {
+      "ProcessId": 29564,
+      "ParentProcessId": 36972,
+      "Name": "keytool.exe",
+      "ExecutablePath": "C:\\Users\\Faisal\\Tools\\Unity\\Editor\\6000.3.26f1\\Editor\\Data\\PlaybackEngines\\AndroidPlayer\\OpenJDK\\bin\\keytool.exe",
+      "CommandLine": "C:\\Users\\Faisal\\Tools\\Unity\\Editor\\6000.3.26f1\\Editor\\Data\\PlaybackEngines\\AndroidPlayer\\OpenJDK\\bin\\keytool.exe -genkey -keystore C:/Temp/bugtest/cycles/20261031T034807Z/crowns7fd135-candidate-first-api/private-API-userdata/APPDATA/Godot/keystores/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname \"cn=Godot, ou=Godot Engine, o=Stichting Godot, c=NL\"",
+      "CreationDate": "/Date(1793418504885)/"
+    },
+    {
+      "ProcessId": 32796,
+      "ParentProcessId": 29564,
+      "Name": "conhost.exe",
+      "ExecutablePath": "C:\\WINDOWS\\system32\\conhost.exe",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+      "CreationDate": "/Date(1793418504891)/"
+    }
+  ],
+  "exit": 0,
+  "ended_at": "2026-10-31T03:49:09.715296+00:00"
+}

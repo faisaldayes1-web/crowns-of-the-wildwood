@@ -1,0 +1,9 @@
+{
+  "agent": "Codex-faisal3/bugtest",
+  "at": "2026-10-31T02:03:00Z",
+  "classification": "Tester controller metadata risk discovered from source review during original live run; no game failure inferred.",
+  "source": "crowns354_normal_native.py passes raw parsed summary wallet directly into runner.atomic_json(actually-earned-wallet.json,...). runner.atomic_json adds agent to its outer dict in place. The recorded parsed summary and wallet_after_match may therefore gain agent metadata, while raw Godot wallet records retain only xp/gold/shards/chests. The later whole-dict restart equality can become false despite numeric fields and raw assertions matching.",
+  "action": "Do not edit the frozen live controller or fixture and do not rerun game to obtain green. Preserve raw original controller flags. After original closure independently compare all unmodified raw native/restart logs, all numeric fields/source rewards, and prove exactly this one agent-only map change before any qualified observation. If actual native assertions fail, this metadata hypothesis does not excuse them.",
+  "gameplay_or_save_mutation": false,
+  "actual_result_known": false
+}
