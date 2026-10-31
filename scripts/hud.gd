@@ -6910,7 +6910,7 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 	## The banner editor on the HERO tab: a live preview and a row of
 	## swatches for the background, emblem, frame and title.
 	_text(origin + Vector2(0, 0), "YOUR BANNER  ·  the enemy sees it when you kill them", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var preview := Rect2(origin + Vector2(0, 8), Vector2(w, 64))
+	var preview := Rect2(origin + Vector2(0, 8), Vector2(w, 60))
 	var me := {"name": game.hero_name if game.hero_name.strip_edges() != "" else "You", "bg": game.banner_bg, "emblem": game.banner_emblem,
 		"frame": game.banner_frame, "title": Stats.BANNER_TITLES[game.banner_title][1], "level": game.account_level(), "team": 0}
 	for arg in OS.get_cmdline_user_args():
@@ -6921,19 +6921,22 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 				me.emblem = int(v[1])
 				me.frame = int(v[2])
 	_draw_banner(preview, me)
-	var y := origin.y + 84
+	var y := origin.y + 82
 	# The swatches wrap into rows (2026-10-14: many more banners), each
 	# with a thin ring in its rarity colour when it is rare or better.
-	var sw := 22.0
-	var per_row := maxi(int((w - 76.0) / (sw + 3.0)), 6)
+	# UI-11 (2026-10-30): bigger click targets, 24x20 with 23 px rows.
+	var sw := 24.0
+	var sh := 20.0
+	var lx := 70.0     # the row labels' column
+	var per_row := maxi(int((w - lx) / (sw + 2.0)), 6)
 	var rows := [["BACKGROUND", "banner_bg", Stats.BANNER_BACKGROUNDS.size()], ["EMBLEM", "banner_emblem", Stats.BANNER_EMBLEMS.size()],
 		["FRAME", "banner_frame", Stats.BANNER_FRAMES.size()]]
 	for row in rows:
 		var kind: String = row[1]
-		_text(Vector2(origin.x, y), row[0], 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_text(Vector2(origin.x, y + 2), row[0], 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		var n: int = row[2]
 		for i in n:
-			var b := Rect2(origin.x + 76 + (i % per_row) * (sw + 3), y - 11 + (i / per_row) * 21, sw, 17)
+			var b := Rect2(origin.x + lx + (i % per_row) * (sw + 2), y - 11 + (i / per_row) * (sh + 3), sw, sh)
 			var have: bool = Store.owns(game, kind, i)
 			var sel: bool = i == (game.banner_bg if kind == "banner_bg" else (game.banner_emblem if kind == "banner_emblem" else game.banner_frame))
 			var rar := Stats.banner_rarity(kind, i)
@@ -6950,27 +6953,27 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 				"banner_emblem":
 					var locked: bool = Stats.BANNER_EMBLEMS[i] == "class_rogue" and not game.unlocked()
 					_plate(b, INK_LIGHT if not locked else Color(0.2, 0.2, 0.24), GOLD if sel else Color(0.1, 0.1, 0.14), 4, 2 if sel else 1)
-					_icon(Stats.BANNER_EMBLEMS[i], b.get_center(), 4.6, Color.WHITE, locked or not have)
+					_icon(Stats.BANNER_EMBLEMS[i], b.get_center(), 5.6, Color.WHITE, locked or not have)
 				_:
 					var locked: bool = Stats.BANNER_FRAMES[i][0] == "Royal" and not game.unlocked()
 					_plate(b, Stats.BANNER_FRAMES[i][1].darkened(0.0 if have else 0.5) if not locked else Color(0.2, 0.2, 0.24), GOLD if sel else Color(0.1, 0.1, 0.14), 4, 2 if sel else 1)
 			if not have:
 				_store_lock(b)
 			hero_buttons.append([b, kind, i])
-		y += 5 + ceili(float(n) / per_row) * 21
-	_text(Vector2(origin.x, y), "TITLE", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var tx := origin.x + 76
+		y += 3 + ceili(float(n) / per_row) * (sh + 3)
+	_text(Vector2(origin.x, y + 2), "TITLE", 9, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var tx := origin.x + lx
 	var ty := y - 11
 	for i in Stats.BANNER_TITLES.size():
 		var t: Array = Stats.BANNER_TITLES[i]
-		var tw: float = _text_width(t[1].to_upper(), 8) + 12
+		var tw: float = _text_width(t[1].to_upper(), 9) + 12
 		if tx + tw > origin.x + w:
-			tx = origin.x + 76
+			tx = origin.x + lx
 			ty += 22
-		var b := Rect2(tx, ty, tw, 18)
+		var b := Rect2(tx, ty, tw, 19)
 		var have: bool = t[0] <= game.account_level() or "--debug-unlock" in OS.get_cmdline_user_args()
 		_plate(b, INK_LIGHT if have else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_title else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_title else 1)
-		_text(b.position + Vector2(0, 13), t[1].to_upper(), 8, Color.WHITE if have else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
+		_text(b.position + Vector2(0, 13.5), t[1].to_upper(), 9, Color.WHITE if have else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
 		hero_buttons.append([b, "banner_title", i])
 		tx += tw + 4
 
