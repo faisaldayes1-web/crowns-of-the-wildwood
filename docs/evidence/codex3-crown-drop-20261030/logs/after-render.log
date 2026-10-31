@@ -1,0 +1,31 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+OpenGL API 3.3.0 - Build 32.0.101.8860 - Compatibility - Using Device: Intel - Intel(R) Arc(TM) Graphics
+
+codex3_crown_drop_test: user dir C:/Temp/crowns-c3-user-20261030/crown-after-render/appdata/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+WARNING: Screen-space ambient occlusion (SSAO) can only be enabled when using the Forward+ rendering backend.
+   at: environment_set_ssao (servers/rendering/storage/environment_storage.cpp:574)
+WARNING: Screen-space indirect lighting (SSIL) can only be enabled when using the Forward+ rendering backend.
+   at: environment_set_ssil (servers/rendering/storage/environment_storage.cpp:649)
+BATCH merged 10003 scenery meshes (1432 left alone) into 1310 meshes; 2102 materials became 530; 1297 ms (632 ms reading meshes)
+PASS capture rampart-carried
+DROP rampart carrier=(-60, 3.6, -12) crown=(-60, 3.6, -12)
+PASS rampart drop stays on carrier's floor
+PASS capture rampart-dropped
+PASS rampart return approaches home
+PASS rampart return respects homing speed
+PASS rampart return reaches exact home
+DROP cellar carrier=(85.5, -2.4, -4) crown=(85.5, -2.4, -4)
+PASS cellar drop stays on carrier's floor
+PASS capture cellar-dropped
+PASS cellar return approaches home
+PASS cellar return respects homing speed
+PASS cellar return reaches exact home
+PASS vertical return respects homing speed
+PASS vertical return does not teleport home
+PASS vertical return approaches home
+PASS vertical return respects homing speed
+PASS vertical return reaches exact home
+PASS ground return approaches home
+PASS ground return respects homing speed
+PASS ground return reaches exact home
+crown drop test: 0 failure(s)

@@ -56,7 +56,7 @@ func drop_at(where: Vector3) -> void:
 	label.visible = true
 	state = State.DROPPED
 	carrier = null
-	global_position = Vector3(where.x, 0.0, where.z)
+	global_position = where
 
 
 func go_home() -> void:
@@ -116,7 +116,6 @@ func _process(delta: float) -> void:
 		State.DROPPED:
 			model.position.y = DROP_HEIGHT + sin(_t * 3.0) * 0.08
 			var to_home := home - global_position
-			to_home.y = 0.0
 			if to_home.length() < 0.2:
 				go_home()
 			else:

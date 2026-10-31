@@ -1,0 +1,19 @@
+{
+  "agent": "Codex-faisal3",
+  "baseline": "0158a9c27f7e668b7a0a1607ea448fdc9d909668",
+  "engine": "4.3.stable.official.77dcf97d8",
+  "runtime_source_sha256": "1182ce3106a067f457ba0571b16fcce0b8240e2c0006385a152a0e304ce70690",
+  "fixture_sha256": "23f7f30dce89da025773d873aa6e5b69cc203aa515effda16b67eee5e689e7ca",
+  "captures": {
+    "after-cellar-dropped.png": "0d91935604acc532420e379e8eaefbda061d6ff7faf3dcf903f78efd69796493",
+    "after-rampart-carried.png": "42c3feb012f4c7cad8a79b08e6e0a7c464376b937040d0006f7a994618cef4bb",
+    "after-rampart-dropped.png": "b175cd74038d6bc17a68025c65914a385d6aca80dbe4f908d8eabc96cce331d3",
+    "before-cellar-dropped.png": "ec8a0bc54d897fa6860f1c069e32653cbaeb73eb0202e3e40245f8ef4a58dd59",
+    "before-rampart-carried.png": "33a53496eece59dc3ed818fac3256136b2ede28cafbf3b6119810846a12887a1",
+    "before-rampart-dropped.png": "a012f62cf3cc9bf4e8d84ffd8a37f87a86d671b5a5bdf0aec7abcbc30018848b"
+  },
+  "candidate_bot_result": "RESULT winner=Draw score=0-0 t=720 overtime=true turrets=1/1 turret_kills=2/1 raid_deaths=2/7",
+  "combat_assertions": 41,
+  "native_regression_failures": 0,
+  "baseline_native_failures": 4
+}
