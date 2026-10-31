@@ -2455,9 +2455,10 @@ const WORLD_SLICE_USEC := 10000   # the first slice; then _world_slice_budget()
 # claude-faisal/stutter 2026-10-30: a fixed 10 ms slice plus the menus and
 # drawing did not fit a 60 fps frame on an integrated GPU's laptop (the
 # title ran 40-56 fps while the world built). Each slice now takes what the
-# last frames left of WORLD_FRAME_CPU_USEC, between the two limits below.
-const WORLD_FRAME_CPU_USEC := 13500   # a title frame's CPU in all: 60 fps with room
-const WORLD_SLICE_MIN_USEC := 2000
+# last frames left of WORLD_FRAME_CPU_USEC, between the two limits below
+# (with 8 ms of extra menu load the title held 60-65 fps instead of 29-48).
+const WORLD_FRAME_CPU_USEC := 14500   # a title frame's CPU in all: 60 fps (16.7 ms) with room
+const WORLD_SLICE_MIN_USEC := 3000
 const WORLD_SLICE_MAX_USEC := 12000
 var _world_rest_usec := 4000.0   # running average: a frame's CPU besides the slice (menus, drawing)
 var _world_main_usec := 0   # last frame's main-thread CPU, from the draw before it to its own
