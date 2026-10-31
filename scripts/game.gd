@@ -673,7 +673,9 @@ func _preload_world() -> void:
 	if pre == null or not pre.has_meta(key):
 		return
 	for f in pre.get_meta(key):
-		if ResourceLoader.has_cached(f):
+		# (Not the shaders: small to read, and one loaded on a thread was
+		# never freed at exit, Godot 4.3.)
+		if ResourceLoader.has_cached(f) or f.get_extension() == "gdshader":
 			continue
 		if f.get_extension() in ["tscn", "scn", "gltf", "glb", "blend", "fbx", "obj"]:
 			_world_preload_scenes.append(f)

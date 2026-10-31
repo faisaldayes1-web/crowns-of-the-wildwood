@@ -8,7 +8,8 @@ extends Node
 ## Desktop (editor binary, a source checkout):
 ##   tools/tests/isolated.sh --path . --script tools/title_stutter_run.gd -- --world-behind [--probe-press=5] [--probe-shot=x.png]
 ## Release export: added as the last autoload of a probe export only (see
-## C:/Games/ORY-Candidates/Crowns/title-stutter-ab/), then run the exe.
+## C:/Games/ORY-Candidates/Crowns/title-stutter-ab/), then run the exe; on a
+## build without game.gd's slice record the slice lines are empty.
 ##
 ## Args: --probe-press=S  start a match S s after the title (default: never)
 ##       --probe-shot=PNG  a screenshot 4 s into the match
@@ -84,7 +85,7 @@ func _ready() -> void:
 
 func _game():
 	var g = get_tree().current_scene
-	if g == null or not is_instance_valid(g) or not ("world_slice_usec" in g):
+	if g == null or not is_instance_valid(g) or not ("world_ready" in g) or not ("main_menu" in g):
 		return null
 	return g
 
@@ -119,7 +120,7 @@ func _tick() -> void:
 	var since := (ms() - t_title) / 1000.0
 	if not pressed:
 		frames.append([since, d])
-		var sl: PackedInt32Array = g.world_slice_usec
+		var sl: PackedInt32Array = g.world_slice_usec if "world_slice_usec" in g else PackedInt32Array()
 		var n_sl := sl.size()
 		if n_sl != last_slices:
 			last_slices = n_sl
@@ -184,7 +185,7 @@ func _rb(name: String, missing: Variant) -> Variant:
 
 
 func _report_build(g) -> void:
-	var sl: PackedInt32Array = g.world_slice_usec
+	var sl: PackedInt32Array = g.world_slice_usec if "world_slice_usec" in g else PackedInt32Array()
 	var edges := [2, 4, 6, 8, 10, 12, 16, 20, 33, 50, 100]
 	var hist := []
 	hist.resize(edges.size() + 1)
