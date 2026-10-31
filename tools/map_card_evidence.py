@@ -10,10 +10,10 @@ out = repo / 'docs/visual/2026-10-30-map-cards'
 if '--prepare-textures' in sys.argv:
     # Supersample the local renders down before the UI's final reduction.
     # This avoids single-pixel flowers/grass aliasing at small card sizes.
-    for name in ['wildwood', 'moonlit', 'stonekeep', 'ember']:
+    for name in ['wildwood', 'moonlit', 'stonekeep', 'ember', 'twilight']:
         Image.open(out/name/'card.png').resize((512, 480), Image.Resampling.LANCZOS).save(
             repo / f'assets/ui/menu/map_{name}.png')
-    print('Prepared four antialiased 512x480 textures from 1024x960 engine renders')
+    print('Prepared five antialiased 512x480 textures from 1024x960 engine renders')
     sys.exit(0)
 target = Path('C:/Games/ORY-Candidates/Crowns/visual-pass/world/triptych/02-map-hall.png')
 font = ImageFont.truetype('C:/Windows/Fonts/arialbd.ttf', 24)

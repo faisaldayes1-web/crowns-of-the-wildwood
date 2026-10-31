@@ -89,6 +89,11 @@ func run() -> void:
 		cam.size = 61.0
 	elif game.map_variant == 2:
 		cam.size = 64.0
+	for arg in OS.get_cmdline_user_args():   # framing override for the lane maps: --focus-x=N --card-size=N
+		if arg.begins_with("--focus-x="):
+			focus.x = float(arg.trim_prefix("--focus-x="))
+		elif arg.begins_with("--card-size="):
+			cam.size = float(arg.trim_prefix("--card-size="))
 	cam.position = focus + Vector3(0, 80, 56)
 	cam.look_at(focus)
 	cam.make_current()
