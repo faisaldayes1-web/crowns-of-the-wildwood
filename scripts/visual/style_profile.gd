@@ -86,17 +86,46 @@ const DAY := {
 	# key (was a near-white 1.0/0.96/0.88), warmer, slightly lower ambient
 	# so lit and shaded faces separate, a touch more colour, and a wider,
 	# stronger occlusion for soft contact shadows at wall feet and props.
-	"sun_color": Color(1.0, 0.87, 0.68), "sun_energy": 1.32,
-	"ambient_energy": 0.33, "ambient_color": Color(0.70, 0.67, 0.70), "ambient_sky": 0.35,
-	"saturation": 1.15, "contrast": 1.06, "brightness": 1.0,
+	# Grade pass 2026-10-31: a stronger golden key with crisp shadow edges
+	# (blur/angle), less ambient so shadow sides read dark, more colour.
+	"sun_color": Color(1.0, 0.85, 0.62), "sun_energy": 1.5,
+	"shadow_blur": 0.5, "sun_angle": 0.4,
+	"ambient_energy": 0.24, "ambient_color": Color(0.70, 0.67, 0.70), "ambient_sky": 0.35,
+	"saturation": 1.18, "contrast": 1.12, "brightness": 1.0,
 	"fog_color": Color(0.98, 0.84, 0.62), "fill_energy": 0.16,
 	"ao_radius": 1.3, "ao_intensity": 2.2, "ao_power": 1.15,
 }
+# Match-camera grade (claude-faisal/crowns-grade 2026-10-31, picks Spawn D /
+# Live battle A): the frame read washed out and hazy. What did it: soft-light
+# bloom over the bright cream yards (threshold 1.05), the tilt-shift depth of
+# field blurring the woods at the frame edge (38 m+), distance fog, a flat
+# Filmic curve (white 6), bounce light (SSIL) lifting every shadow, and the
+# ink pass's warm corner vignette. Each mood keeps its own colours; this is
+# the post side, applied by game.gd _match_grade() once the match is on.
+#   white: Filmic white point (lower = punchier mids), exposure, glow
+#   (intensity, HDR threshold: only torches and cues bloom), fog density,
+#   bounce light, ink line strength and corner vignette; optional contrast,
+#   saturation and ambient replace the map's own (night: NIGHT below).
+const GRADE := {
+	"day": {"white": 3.0, "exposure": 0.95, "glow": 0.3, "glow_threshold": 1.6, "fog": 0.0, "ssil": 0.4, "ink": 0.6, "vignette": 0.12},
+	"night": {"white": 4.0, "exposure": 0.9, "glow": 0.5, "glow_threshold": 1.3, "fog": 0.0006, "ssil": 0.3, "ink": 0.6, "vignette": 0.22,
+		"contrast": 1.14, "saturation": 1.12},
+	"winter": {"white": 3.0, "exposure": 0.84, "glow": 0.2, "glow_threshold": 1.8, "fog": 0.0005, "ssil": 0.3, "ink": 0.6, "vignette": 0.1,
+		"contrast": 1.16, "saturation": 1.12, "ambient": 0.26},
+	"twilight": {"white": 3.0, "exposure": 0.95, "glow": 0.45, "glow_threshold": 1.35, "fog": 0.0006, "ssil": 0.3, "ink": 0.6, "vignette": 0.14,
+		"contrast": 1.14, "saturation": 1.1, "ambient": 0.42},
+	"ember": {"white": 3.5, "exposure": 1.0, "glow": 0.55, "glow_threshold": 1.3, "fog": 0.0012, "ssil": 0.4, "ink": 0.6, "vignette": 0.14},
+}
+# The match meadow: lighter and warmer than the texture (target grass is a
+# light yellow-green, not the old mid green). Seasons that swap the grass
+# texture (snow) keep theirs.
+const GRASS_TINT := Color(1.3, 1.12, 1.25)
+
 # Night readability (visual pass 2026-10-16, claude-faisallaptop): a brighter
 # moon and a little more ambient, so units, paths and walls read in the
 # Moonlit Wildwood without losing the dark mood (was 0.5 / 0.55 / 0.14).
 const NIGHT := {
-	"ambient_energy": 0.6, "sun_energy": 0.75, "fill_energy": 0.2,
+	"ambient_energy": 0.48, "sun_energy": 0.75, "fill_energy": 0.2,   # grade pass 2026-10-31: was 0.6, the yard read lavender, not night
 }
 const EMBER := {
 	"ambient_energy": 0.34,
