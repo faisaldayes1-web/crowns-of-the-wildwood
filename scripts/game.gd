@@ -656,6 +656,8 @@ func _build_world_behind() -> void:
 	apply_graphics()   # the world's lamps take the quality setting
 	world_ready = true
 	world_finished.emit()
+	if not playing:
+		_prebuild_warm_rack()
 
 
 const WORLD_PRELOAD := "res://assets/world_preload.res"   # per map, from tools/bake_batch_cache.gd
@@ -738,6 +740,10 @@ func _reload_scene() -> void:
 
 
 func _exit_tree() -> void:
+	# A prebuild still waiting for a title frame ends now; left waiting it
+	# outlived the scene (two leaked coroutine states at exit).
+	_prebuild_stop = true
+	_prebuild_tick.emit()
 	_restore_loading_3d()  # an interrupted build must not change its caller's viewport
 	if not _preserve_menu_art_on_reload:
 		# Retire the last worker task before its captured script/resources unload.
@@ -765,6 +771,7 @@ static func _release_menu_art() -> void:
 	Hud.logo = null
 	Hud.bar_font = null
 	Hud.title_font = null
+	Hud._art_loaded = false   # (the next HUD loads it all again)
 
 
 func _net_ready_hooks() -> void:
@@ -802,6 +809,8 @@ func _net_ready_hooks() -> void:
 func _process(delta: float) -> void:
 	if _world_behind:
 		_world_slice.emit()
+	if is_instance_valid(_warm_rack) and not playing:
+		_prebuild_tick.emit()
 	if _match_waiting:
 		return   # a match is waiting for the world under the loading art
 	if debug_kill and player and not player.kill_banner.is_empty():
@@ -2761,13 +2770,12 @@ func _start_match(team: int) -> void:
 	if not "--no-batch" in OS.get_cmdline_user_args() and not _world_batched:
 		await StaticBatch.run(self)   # (never waits here, the match builds in this frame: only behind the title does it slice)
 		await StaticBatch.particles_to_gpu(self)
-	_warm_up_world()   # (a coroutine: a few frames under the loading art)
+	_warm_up_match()   # (a coroutine: the next frames under the loading art)
 	if prep_left >= 0.0:
 		prep_left = Stats.PREP_TIME
 		_build_barrier()
 	else:
 		prep_left = 0.0
-	_warm_up_effects()
 	sfx.ui("match_start")
 	sfx.play_music(true)
 	sfx.play_ambience(true)
@@ -12446,6 +12454,35 @@ func _warm_up_menus(land_on: String = "title") -> void:
 		warm_tween.play()
 
 
+func _warm_up_match() -> void:
+	## The match's warm-ups under the loading art, each in a frame of its
+	## own. The Play click's frame already builds the match (the units, the
+	## setup); the HUD's first match frame (its baked layers: minimap, frame,
+	## panel, top bar), the effects and the first models came on top of it,
+	## so the art sat frozen for one 0.5-0.9 s frame (claude-faisal/crowns-perf04
+	## 2026-10-31, PERF-04; tools/match_start_probe.gd).
+	if not is_instance_valid(loading_layer) or DisplayServer.get_name() == "headless" or player == null:
+		_warm_up_world()   # (they return at once without the art)
+		_warm_up_effects()
+		return
+	if loading_tween:
+		loading_tween.pause()   # the art holds until the warm-ups are done
+	var hud_shown: bool = hud != null and hud.visible
+	if hud_shown:
+		hud.visible = false   # (under the art: nobody sees it)
+	await _drawn_frame()   # the click's frame: the match built, the art drawn
+	if hud_shown and is_instance_valid(hud):
+		hud.visible = true   # the HUD's first match frame, on its own
+	await _drawn_frame()
+	if is_instance_valid(loading_layer) and playing:
+		_warm_up_effects()
+		await _drawn_frame()
+	if is_instance_valid(loading_layer) and playing:
+		await _warm_up_world()   # (it fades the art when done)
+	elif is_instance_valid(loading_layer):
+		_fade_loading_now()
+
+
 func _warm_up_world() -> void:
 	## Under the loading art, point the camera at every part of the map for a
 	## couple of frames, so each material's shaders (and their shadow-pass
@@ -12486,17 +12523,14 @@ func _warm_up_world() -> void:
 
 
 const WARM_MODEL_SLICE_USEC := 30000
+var _warm_rack: Node3D   # the warm-up models, built hidden behind the title (_prebuild_warm_rack)
+var _loading_art: Array = []   # both loading pictures, held once loaded behind the title
+signal _prebuild_tick   # each title frame while the rack is prebuilt (a signal of this node: a
+	# coroutine waiting on the tree's own outlived the scene and leaked at exit)
 
 
-func _warm_up_models() -> void:
-	## Every class (and every promotion) once per team, built in front of the
-	## camera under the loading art: the first build of each model loads its
-	## scene, skins and faces and compiles their shaders (55-65 ms, a visible
-	## hitch when the first bot of the match picked that class up); later
-	## builds reuse all of it (~7 ms).
-	var rack := Node3D.new()
-	add_child(rack)
-	rack.global_position = cam_pos - CAMERA_OFFSET * cam_zoom
+func _warm_looks() -> Array:
+	## Every class (and every promotion) once per team: [team, role, variant, rank].
 	var looks := []
 	for team in 2:
 		for role in Stats.Role.values():
@@ -12505,21 +12539,181 @@ func _warm_up_models() -> void:
 			if Stats.VARIANTS.has(role):
 				for v in Stats.VARIANTS[role]:
 					looks.append([team, role, v.name, 1])
+	return looks
+
+
+func _add_warm_look(rack: Node3D, i: int, look: Array) -> void:
+	var m = CharacterModel.new()
+	rack.add_child(m)
+	m.position = Vector3((i % 8) * 1.2 - 4.2, 0, (i / 8) * 1.2 - 3.0)
+	m.setup(look[0], look[1], look[2], {}, look[3])
+	if look[0] == 1:
+		# Bots wear a faint side glow (unit.gd _apply_side_colors), the player
+		# none: the second team's looks carry it, so both shader versions
+		# compile here and not when the first bot picks a class (cold cache:
+		# a 60-80 ms frame just after the art; claude-faisal/crowns-perf04).
+		for mat in m.flash_mats:
+			mat.emission_enabled = true
+			mat.emission = Color(1.0, 0.18, 0.12)
+			mat.emission_energy_multiplier = 0.1
+
+
+func _title_spare_frame() -> void:
+	## The next title frame with time to spare: after a slow one (over 25 ms)
+	## one more is skipped, up to 30, so a prebuild step never lands on a
+	## frame that is already late.
+	await _prebuild_tick
+	for i in 30:
+		if get_process_delta_time() < 0.025 or _prebuild_off():
+			return
+		await _prebuild_tick
+
+
+var _prebuild_stop := false   # the scene is going: a waiting prebuild ends
+
+
+func _prebuild_off() -> bool:
+	return playing or _prebuild_stop
+
+
+func _prebuild_warm_rack() -> void:
+	## Once the world is built behind the title, the models _warm_up_models
+	## shows under the match's loading art are built here instead, one a
+	## title frame, hidden and still: building them (scenes, faceted meshes,
+	## faces, gear) in the Play click's frames held the art 10 frames of
+	## 50-110 ms (claude-faisal/crowns-perf04 2026-10-31, PERF-04). Each
+	## character scene's meshes are faceted first, a mesh a frame (the
+	## Engineer's took ~35 ms in one go). The match start only shows them.
+	if DisplayServer.get_name() == "headless" or is_instance_valid(_warm_rack):
+		return
+	var rack := Node3D.new()
+	rack.name = "WarmRack"
+	rack.visible = false
+	rack.process_mode = Node.PROCESS_MODE_DISABLED
+	add_child(rack)
+	_warm_rack = rack
+	# The loading art the Play click shows: read from disk in that frame it
+	# took ~30 ms. Read on worker threads now and kept.
+	var art_paths: Array = LOADING_SCREENS.filter(func(p): return not ResourceLoader.has_cached(p) and ResourceLoader.load_threaded_request(p) == OK)
+	for path in CharacterModel.SCENES.values():
+		if not CharacterModel.res_cache.has(path) and not ResourceLoader.has_cached(path):
+			if ResourceLoader.load_threaded_request(path) == OK:
+				while ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+					await _title_spare_frame()
+					if _prebuild_off() or not is_instance_valid(rack):
+						return
+				if ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_LOADED:
+					CharacterModel.res_cache[path] = ResourceLoader.load_threaded_get(path)
+		# (Kept in the tree, hidden and still, so a scene that goes meanwhile
+		# frees it too.)
+		var inst: Node3D = CharacterModel._load(path).instantiate()
+		inst.visible = false
+		inst.process_mode = Node.PROCESS_MODE_DISABLED
+		add_child(inst)
+		var meshes: Array = inst.find_children("*", "MeshInstance3D", true, false)
+		for mi in meshes:
+			await _title_spare_frame()
+			if _prebuild_off() or not is_instance_valid(rack):
+				inst.queue_free()
+				return
+			var flat: Mesh = CharacterModel._flat_mesh(mi.mesh)
+			if flat and "_Head" in str(mi.name):
+				CharacterModel.Face.clean_head(flat)
+		inst.queue_free()
+	for path in art_paths:
+		while ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			await _title_spare_frame()
+			if _prebuild_off() or not is_instance_valid(rack):
+				return
+		if ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_LOADED:
+			_loading_art.append(ResourceLoader.load_threaded_get(path))
+	var looks := _warm_looks()
+	# Each skin's eyeless copy and hair colour (Face.no_eyes, hair_color,
+	# cached): each reads the texture back from the GPU, 5-10 ms, so a step
+	# a frame of their own rather than inside a model's build.
+	var skins := {}
+	for look in looks:
+		var c := CharacterModel.config(look[0], look[1], look[2], look[3])
+		skins["res://assets/characters/skins/%s_%s.png" % [c.skin, "elf" if look[0] == 0 else "human"]] = true
+	for path in skins:
+		var tex: Texture2D = CharacterModel._load(path)
+		if tex == null:
+			continue
+		for step in 2:
+			await _title_spare_frame()
+			if _prebuild_off() or not is_instance_valid(rack):
+				return
+			if step == 0:
+				CharacterModel.Face.no_eyes(tex)
+			else:
+				CharacterModel.Face.hair_color(tex)
+	for i in looks.size():
+		await _title_spare_frame()
+		if _prebuild_off() or not is_instance_valid(rack):
+			return   # Play came first: the match start builds the rest
+		_add_warm_look(rack, i, looks[i])
+	# The player's own hero, as the match spawns it (painted skin, hair,
+	# face): the first unit took ~30 ms of the click's frame. Its painted
+	# skin and that skin's face steps first, then the model itself, for
+	# the caches only (CharacterModel's and Face's), then dropped.
+	for team in 2:
+		var custom := hero_custom()
+		var skin_name: String = CharacterModel.config(team, Stats.Role.BASE, "", 1).skin
+		if custom.has("body") and CharacterModel.SCENES.has(custom.body):
+			skin_name = custom.body
+		var base: Texture2D = CharacterModel._load("res://assets/characters/skins/%s_%s.png" % [skin_name, "elf" if team == 0 else "human"])
+		if base == null:
+			continue
+		await _title_spare_frame()
+		if _prebuild_off() or not is_instance_valid(rack):
+			return
+		var painted: Texture2D = CharacterModel.customised_skin(base, skin_name, custom)
+		for step in 2:
+			await _title_spare_frame()
+			if _prebuild_off() or not is_instance_valid(rack):
+				return
+			if step == 0:
+				CharacterModel.Face.no_eyes(painted)
+			else:
+				CharacterModel.Face.hair_color(painted)
+		await _title_spare_frame()
+		if _prebuild_off() or not is_instance_valid(rack):
+			return
+		var hero = CharacterModel.new()
+		rack.add_child(hero)
+		hero.setup(team, Stats.Role.BASE, "", custom, 1)
+		rack.remove_child(hero)
+		hero.queue_free()
+
+
+func _warm_up_models() -> void:
+	## Every class (and every promotion) once per team, drawn in front of the
+	## camera under the loading art: the first build of each model loads its
+	## scene, skins and faces and compiles their shaders (55-65 ms, a visible
+	## hitch when the first bot of the match picked that class up); later
+	## builds reuse all of it (~7 ms). Behind the title they are built
+	## beforehand (_prebuild_warm_rack); whatever is missing is built here.
+	_prebuild_tick.emit()   # a prebuild still waiting sees the match and stops (and drops its scratch)
+	var rack := _warm_rack
+	_warm_rack = null
+	if not is_instance_valid(rack):
+		rack = Node3D.new()
+		add_child(rack)
+	rack.global_position = cam_pos - CAMERA_OFFSET * cam_zoom
+	rack.visible = true
+	rack.process_mode = Node.PROCESS_MODE_INHERIT
+	var looks := _warm_looks()
 	# A few at a time, each lot drawn (and its shaders compiled) before the
 	# next: all ~50 in the Play click's own frame held the loading art
 	# frozen ~1.7 s (claude-faisal3 2026-10-29, PERF-04 rest).
 	var slice_end := Time.get_ticks_usec() + WARM_MODEL_SLICE_USEC
-	for i in looks.size():
+	for i in range(rack.get_child_count(), looks.size()):
 		if i > 0 and Time.get_ticks_usec() >= slice_end:
 			await _drawn_frame()
 			if not is_inside_tree() or not is_instance_valid(rack):
 				return
 			slice_end = Time.get_ticks_usec() + WARM_MODEL_SLICE_USEC
-		var m = CharacterModel.new()
-		rack.add_child(m)
-		m.position = Vector3((i % 8) * 1.2 - 4.2, 0, (i / 8) * 1.2 - 3.0)
-		var l: Array = looks[i]
-		m.setup(l[0], l[1], l[2], {}, l[3])
+		_add_warm_look(rack, i, looks[i])
 	await _drawn_frame()
 	await _drawn_frame()
 	if is_instance_valid(rack):

@@ -129,8 +129,24 @@ var menu_buttons: Array = []        # [rect, id, arg] drawn by the main menu (me
 var lava_cells: Array = []          # Ember Pass maps: crust plates [centre, polygon, shade] in world x/z
 
 
+static var _art_loaded := false   # the static art below is in (by the first HUD)
+
+
 func _ready() -> void:
 	font = ThemeDB.fallback_font
+	if not _art_loaded:
+		_load_art()
+		_art_loaded = true
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+static func _load_art() -> void:
+	## The fonts, icons, cards and tiles every HUD shares (static). Once is
+	## enough: each baked layer is drawn by a HUD copy (_bake), and every copy
+	## listing the icon folders again and re-checking ~40 files took 12-15 ms,
+	## seven of them in the match's first HUD frame (claude-faisal/crowns-perf04
+	## 2026-10-31, PERF-04).
 	title_font = load("res://assets/fonts/LuckiestGuy-Regular.ttf")
 	bar_font = load("res://assets/fonts/LilitaOne-Regular.ttf")
 	if topbar_tex == null and ResourceLoader.exists("res://assets/ui/topbar/topbar.png"):
@@ -145,7 +161,7 @@ func _ready() -> void:
 			img.fill_rect(Rect2i(176, 163, img.get_width() - 352, img.get_height() - 163), Color(0, 0, 0, 0))
 			topbar_tex = ImageTexture.create_from_image(img)
 	if title_font == null:
-		title_font = font
+		title_font = ThemeDB.fallback_font
 	logo = load("res://assets/ui/logo.png")
 	# Every painted icon in assets/ui/icons (tools/make_icons.py).
 	var dir := DirAccess.open("res://assets/ui/icons")
@@ -186,8 +202,6 @@ func _ready() -> void:
 		var path := "res://assets/ui/skills/%s.png" % key
 		if ResourceLoader.exists(path):
 			skill_art[key] = load(path)
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _process(_delta: float) -> void:
