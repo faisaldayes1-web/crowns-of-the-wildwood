@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-31T03:48:07.213803+00:00",
+  "job": "C:\\Temp\\bugtest\\jobs\\crowns7fd135-runtime-candidate-prepare-continuation.json",
+  "job_sha256": "92d5dcb4c03494ea1d65d2d06147438fa7a293ab4b85d86c4bef8e9ed3d881e4",
+  "candidate_sha": "2feaef30bf561ed18a1128581604f207974f998f",
+  "checks": {
+    "closed_signed_candidate": true,
+    "only_two_scoped_files": true,
+    "all1518_runtime_git_bytes": true,
+    "all_prior_main_profiles_failures_intact": true,
+    "docs514_logically_retained_physically_omitted": true,
+    "2032_logical_tree_clean": true,
+    "same15_fixture_as_actual_main": true,
+    "all_source_assets_unchanged_except_summary": true,
+    "original_sparse_admission_failure_preserved": true
+  },
+  "all_pass": true,
+  "engine_launched": false,
+  "rendered": false,
+  "PNG": 0,
+  "scope": "Source/Git/runtime completeness and protected-baseline audit only; candidate actualimport/API/native pending. Docs omission measured206673672bytes, fullmain2031retained.",
+  "agent": "Codex-faisal3/bugtest"
+}

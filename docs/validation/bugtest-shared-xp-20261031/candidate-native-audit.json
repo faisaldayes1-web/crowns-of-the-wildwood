@@ -1,0 +1,492 @@
+{
+  "agent": "Codex-faisal3/bugtest",
+  "at": "2026-10-31T04:09:03.722380+00:00",
+  "job": "C:\\Temp\\bugtest\\jobs\\crowns7fd135-normal-native-continuation.json",
+  "job_sha256": "481f3104a31d38a65072431723072ef4c738ced66ebac0898464002189dcacc0",
+  "source_sha": "2feaef30bf561ed18a1128581604f207974f998f",
+  "checks": [
+    {
+      "name": "finite original candidate controller completed with all gates",
+      "passed": true
+    },
+    {
+      "name": "all ten registered checkout/process families actually idle",
+      "passed": true
+    },
+    {
+      "name": "exact committed runtime head",
+      "passed": true
+    },
+    {
+      "name": "all candidate tracked source bytes unchanged",
+      "passed": true
+    },
+    {
+      "name": "all1518 actual runtime files independently match Git blobs",
+      "passed": true
+    },
+    {
+      "name": "sparse docs omission is explicit and logical2032tree complete",
+      "passed": true
+    },
+    {
+      "name": "original abrupt partial remains incomplete not fabricated exit",
+      "passed": true
+    },
+    {
+      "name": "fresh actual profile does not reuse interrupted partial profile",
+      "passed": true
+    },
+    {
+      "name": "original prior source profiles failures artifacts unchanged",
+      "passed": true
+    },
+    {
+      "name": "executed fixtures/controller and exact parent frozen",
+      "passed": true
+    },
+    {
+      "name": "ordinary Godot user data unchanged",
+      "passed": true
+    },
+    {
+      "name": "no original profile seeded/copied or altered source in runtime",
+      "passed": true
+    },
+    {
+      "name": "original six source-bound proof parse native and restart steps",
+      "passed": true
+    },
+    {
+      "name": "step source cwd and closed process record FIRST-actual-private-OS-userdir-before-any-play",
+      "passed": true
+    },
+    {
+      "name": "no debug-end demo fixed-fps or seed flags FIRST-actual-private-OS-userdir-before-any-play",
+      "passed": true
+    },
+    {
+      "name": "step source cwd and closed process record FIRST-distinct-Normal-observer-parse",
+      "passed": true
+    },
+    {
+      "name": "no debug-end demo fixed-fps or seed flags FIRST-distinct-Normal-observer-parse",
+      "passed": true
+    },
+    {
+      "name": "step source cwd and closed process record FIRST-distinct-earned-restart-observer-parse",
+      "passed": true
+    },
+    {
+      "name": "no debug-end demo fixed-fps or seed flags FIRST-distinct-earned-restart-observer-parse",
+      "passed": true
+    },
+    {
+      "name": "step source cwd and closed process record FIRST-native-Normal-fullmatch",
+      "passed": true
+    },
+    {
+      "name": "actual native OS identity observed FIRST-native-Normal-fullmatch",
+      "passed": true
+    },
+    {
+      "name": "no debug-end demo fixed-fps or seed flags FIRST-native-Normal-fullmatch",
+      "passed": true
+    },
+    {
+      "name": "step source cwd and closed process record FIRST-separate-process-earned-userdir-proof",
+      "passed": true
+    },
+    {
+      "name": "no debug-end demo fixed-fps or seed flags FIRST-separate-process-earned-userdir-proof",
+      "passed": true
+    },
+    {
+      "name": "step source cwd and closed process record FIRST-separate-process-actual-earned-restart",
+      "passed": true
+    },
+    {
+      "name": "actual native OS identity observed FIRST-separate-process-actual-earned-restart",
+      "passed": true
+    },
+    {
+      "name": "no debug-end demo fixed-fps or seed flags FIRST-separate-process-actual-earned-restart",
+      "passed": true
+    },
+    {
+      "name": "fresh actual user path established before native input",
+      "passed": true
+    },
+    {
+      "name": "native meaningful checks all pass",
+      "passed": true
+    },
+    {
+      "name": "actual named current aggregation and eligibility assertions all pass",
+      "passed": true
+    },
+    {
+      "name": "normal source time and actual two-device input",
+      "passed": true
+    },
+    {
+      "name": "native typed events only and sequential",
+      "passed": true
+    },
+    {
+      "name": "native joystick axes finite in actual stick range",
+      "passed": true
+    },
+    {
+      "name": "normal observed source clock advances without speedup",
+      "passed": true
+    },
+    {
+      "name": "natural complete match end by source rules",
+      "passed": true
+    },
+    {
+      "name": "exactly two actual earned player ledgers recorded",
+      "passed": true
+    },
+    {
+      "name": "independent ledger aggregation equals original observed shared sources",
+      "passed": true
+    },
+    {
+      "name": "training outside current issue not exercised",
+      "passed": true
+    },
+    {
+      "name": "actual category combat reconciles with both natural player ledgers",
+      "passed": true
+    },
+    {
+      "name": "actual category takedowns reconciles with both natural player ledgers",
+      "passed": true
+    },
+    {
+      "name": "actual category crown reconciles with both natural player ledgers",
+      "passed": true
+    },
+    {
+      "name": "actual category siege reconciles with both natural player ledgers",
+      "passed": true
+    },
+    {
+      "name": "actual category support reconciles with both natural player ledgers",
+      "passed": true
+    },
+    {
+      "name": "actual eligibility derives from current60second source rule",
+      "passed": true
+    },
+    {
+      "name": "actual result row is included exactly when eligible",
+      "passed": true
+    },
+    {
+      "name": "observed played seconds advance in real time",
+      "passed": true
+    },
+    {
+      "name": "actual final tally bank and account delta all equal",
+      "passed": true
+    },
+    {
+      "name": "primary stats and accolades remain primary",
+      "passed": true
+    },
+    {
+      "name": "source defined gold shards and one chest unchanged",
+      "passed": true
+    },
+    {
+      "name": "normal result inputs do not bank twice and title EXIT used",
+      "passed": true
+    },
+    {
+      "name": "separate native restart all checks and exact earned wallet",
+      "passed": true
+    },
+    {
+      "name": "controller expected wallet copy metadata cannot mutate raw oracle",
+      "passed": true
+    },
+    {
+      "name": "actual final and postmatch archived profile both earned numeric fields",
+      "passed": true
+    },
+    {
+      "name": "private folder exact final job hashes",
+      "passed": true
+    },
+    {
+      "name": "no gameplay pose clock outcome reward or save API writes",
+      "passed": true
+    },
+    {
+      "name": "all actual engine errors and exits retained raw classification",
+      "passed": true
+    },
+    {
+      "name": "no rendered images or physical acceptance invented",
+      "passed": true
+    }
+  ],
+  "audit_checks": 57,
+  "functional_pass": true,
+  "native_assertions": 55,
+  "restart_assertions": 5,
+  "typed_events": 4730,
+  "states": 30,
+  "actual_result": {
+    "accolades": [
+      {
+        "desc": "Battered enemy doors, turrets and the vault.",
+        "icon": "hammer",
+        "key": "breaker",
+        "name": "Siege Breaker",
+        "need": 40,
+        "xp": 40
+      }
+    ],
+    "agent": "Codex-faisal3/bugtest",
+    "all_player_xp_sources": [
+      {
+        "sources": {
+          "combat": 220,
+          "siege": 88,
+          "support": 30,
+          "takedowns": 30
+        },
+        "team": 0,
+        "unit": 938500716977
+      },
+      {
+        "sources": {
+          "combat": 30,
+          "siege": 3,
+          "support": 374
+        },
+        "team": 0,
+        "unit": 942946679533
+      }
+    ],
+    "bonus_min_seconds": 60,
+    "captures": [
+      0,
+      0
+    ],
+    "clock": 293,
+    "engine_scale": 1,
+    "expected_result_bonus": 100,
+    "last_match_gain": 915,
+    "local0": 938500716977,
+    "match_played": 313.980481111161,
+    "match_xp": 775,
+    "outcome": "loss",
+    "result_bonus_earned": true,
+    "result_rows": [
+      [
+        "Played to the end",
+        "guard",
+        100
+      ]
+    ],
+    "reward_gold": 200,
+    "reward_shards": 15,
+    "score": [
+      0,
+      2
+    ],
+    "score_events": [
+      {
+        "clock": 229,
+        "crown_position": "(-63.5, 0.9, 0)",
+        "crown_state": 0,
+        "game_over": false,
+        "score": [
+          0,
+          1
+        ],
+        "team": 1
+      },
+      {
+        "clock": 293,
+        "crown_position": "(-63.5, 0.9, 0)",
+        "crown_state": 0,
+        "game_over": true,
+        "score": [
+          0,
+          2
+        ],
+        "team": 1
+      }
+    ],
+    "shared_sources": {
+      "combat": 250,
+      "siege": 91,
+      "support": 404,
+      "takedowns": 30
+    },
+    "summary_lines": [
+      [
+        "Combat",
+        "vanguard",
+        250
+      ],
+      [
+        "Takedowns",
+        "takedown",
+        30
+      ],
+      [
+        "Siege",
+        "hammer",
+        91
+      ],
+      [
+        "Support",
+        "mend",
+        404
+      ],
+      [
+        "Accolades",
+        "upgrade",
+        40
+      ],
+      [
+        "Played to the end",
+        "guard",
+        100
+      ]
+    ],
+    "summary_me": 938500716977,
+    "tally_total": 915,
+    "wall_ms_elapsed": 323697,
+    "wallet_after": {
+      "chests": 1,
+      "gold": 200,
+      "shards": 15,
+      "xp": 915
+    },
+    "wallet_before": {
+      "chests": 0,
+      "gold": 0,
+      "shards": 0,
+      "xp": 0
+    },
+    "winner": 1
+  },
+  "actual_genuine_profile": "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\profiles\\p1.cfg",
+  "actual_genuine_profile_sha256": "e9f1145456052df8952296c0899e29e5fd7c7652ab3914bdb61816dce4f48555",
+  "tracked_source_files": 1518,
+  "protected_files": 4645,
+  "all10_idle": {
+    "aethermoor": [],
+    "dualfront": [],
+    "chief-auto": [],
+    "rampart-rally": [],
+    "prince": [],
+    "crowns": [],
+    "mobile-apps": [],
+    "idle-critters": [],
+    "mobile112": [],
+    "Prince-owner-package": []
+  },
+  "source_prior_ordinary_unchanged": true,
+  "raw_status": "FAIL",
+  "raw_errors": [
+    {
+      "step": "FIRST-actual-private-OS-userdir-before-any-play",
+      "errors": []
+    },
+    {
+      "step": "FIRST-distinct-Normal-observer-parse",
+      "errors": []
+    },
+    {
+      "step": "FIRST-distinct-earned-restart-observer-parse",
+      "errors": []
+    },
+    {
+      "step": "FIRST-native-Normal-fullmatch",
+      "errors": []
+    },
+    {
+      "step": "FIRST-separate-process-earned-userdir-proof",
+      "errors": []
+    },
+    {
+      "step": "FIRST-separate-process-actual-earned-restart",
+      "errors": [
+        "ERROR: 2 resources still in use at exit (run with --verbose for details)."
+      ]
+    }
+  ],
+  "warnings": [
+    {
+      "step": "FIRST-actual-private-OS-userdir-before-any-play",
+      "warnings": []
+    },
+    {
+      "step": "FIRST-distinct-Normal-observer-parse",
+      "warnings": []
+    },
+    {
+      "step": "FIRST-distinct-earned-restart-observer-parse",
+      "warnings": []
+    },
+    {
+      "step": "FIRST-native-Normal-fullmatch",
+      "warnings": [
+        "WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). ",
+        "WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). ",
+        "WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). ",
+        "WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). ",
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details)."
+      ]
+    },
+    {
+      "step": "FIRST-separate-process-earned-userdir-proof",
+      "warnings": []
+    },
+    {
+      "step": "FIRST-separate-process-actual-earned-restart",
+      "warnings": [
+        "WARNING: ObjectDB instances leaked at exit (run with --verbose for details)."
+      ]
+    }
+  ],
+  "no_qualified_green_replay": true,
+  "initial_partial_interruption_preserved": true,
+  "rendered": false,
+  "PNG": 0,
+  "physical": false,
+  "audio": false,
+  "performance": false,
+  "training_not_exercised": true,
+  "unsupported": [
+    "BUGTEST_UNSUPPORTED bounded two-human native policy did not complete capture; no softlock/balance bug inferred"
+  ],
+  "evidence_hashes": {
+    "C:\\Temp\\bugtest\\jobs\\crowns7fd135-normal-native-continuation.json": "481f3104a31d38a65072431723072ef4c738ced66ebac0898464002189dcacc0",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\executed-normal-match.gd": "4204cf3dd1246a127bfcb5488a83d92b9bdaa382e106c98ecf99e11884f3fa47",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\executed-earned-restart.gd": "ff72abc6d55110531c83636cbe7f7107e8a57e444dd0b25afb7501bd92b2547a",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\executed-controller.py": "5222e7d10e334d5682e91e523f08a09813c0c2c61189e1132ea588e88d929251",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\profiles\\p1.cfg": "e9f1145456052df8952296c0899e29e5fd7c7652ab3914bdb61816dce4f48555",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-actual-private-OS-userdir-before-any-play.log": "0aeb0c46ebb053018c1720d87cb90a4bfab40c58365a195fb7fe229d0be0cc4c",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-distinct-Normal-observer-parse.log": "d94f1531349cd7a3edaaeacca3b788635ceecb0a65bf644f3cd4adb93c386dec",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-distinct-earned-restart-observer-parse.log": "a0d8cf552d2bb64e07bc63958b68f1b384036f36dac3ef4cad8ea3840af13550",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-native-Normal-fullmatch.log": "b12b9a46d823e8e62cac770741db7b59ed27b2c6df891de0fd5be5b3c885a71b",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-separate-process-earned-userdir-proof.log": "0aeb0c46ebb053018c1720d87cb90a4bfab40c58365a195fb7fe229d0be0cc4c",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-separate-process-actual-earned-restart.log": "3fae60e7b51dbe0742b6bbb590d9fcdcfc03a3022e82e75b6567cfbfaa9e1fda",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-actual-private-OS-userdir-before-any-play.process.json": "d830d679fbd3ad24a3f91098b56f3c5f549fc0da1a0864f4ba20ae26df3e4d96",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-distinct-Normal-observer-parse.process.json": "e45b6ecb53e795300b0e16d10c04b448972a361f8df8f22624b4b449690a70c8",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-distinct-earned-restart-observer-parse.process.json": "1ab7b9715008ad57fd790c9189905becba77de42d42e0811710a649952b7f35a",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-native-Normal-fullmatch.process.json": "8c7249e5e3caa78dfeb9187e485c8777374b1b92e5fe73633e8e9831b6553415",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-separate-process-earned-userdir-proof.process.json": "d115a9cb6b7f883ee5dd206d8b5e6096f38767a7f8275e20dbca9dced055892d",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\FIRST-separate-process-actual-earned-restart.process.json": "31428767622b16b4513e560360a4eb89b72ab40d3ce66701e78dc0dfb2422512"
+  }
+}

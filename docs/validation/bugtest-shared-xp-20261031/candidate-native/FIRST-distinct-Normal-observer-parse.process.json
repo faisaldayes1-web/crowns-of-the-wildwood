@@ -1,0 +1,23 @@
+{
+  "pid": 760,
+  "runner_pid": 32440,
+  "started_at": "2026-10-31T04:00:39.731169+00:00",
+  "command": [
+    "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+    "--headless",
+    "--audio-driver",
+    "Dummy",
+    "--path",
+    "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+    "--check-only",
+    "--script",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\executed-normal-match.gd"
+  ],
+  "cwd": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+  "status": "EXITED",
+  "source_repo": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+  "agent": "Codex-faisal3/bugtest",
+  "observed_processes": [],
+  "exit": 0,
+  "ended_at": "2026-10-31T04:00:40.762939+00:00"
+}

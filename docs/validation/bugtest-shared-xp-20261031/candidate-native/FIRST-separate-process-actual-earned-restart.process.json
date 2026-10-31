@@ -1,0 +1,50 @@
+{
+  "pid": 28900,
+  "runner_pid": 32440,
+  "started_at": "2026-10-31T04:07:40.163564+00:00",
+  "command": [
+    "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+    "--headless",
+    "--audio-driver",
+    "Dummy",
+    "--path",
+    "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+    "--script",
+    "C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\executed-earned-restart.gd",
+    "--",
+    "--expected-wallet=C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\actually-earned-wallet.json",
+    "--bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\fresh-private-profile\\APPDATA"
+  ],
+  "cwd": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+  "status": "EXITED",
+  "source_repo": "C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate",
+  "agent": "Codex-faisal3/bugtest",
+  "observed_processes": [
+    {
+      "ProcessId": 28900,
+      "ParentProcessId": 32440,
+      "Name": "Godot_v4.3-stable_win64_console.exe",
+      "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+      "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --script C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\executed-earned-restart.gd -- --expected-wallet=C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\actually-earned-wallet.json --bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\fresh-private-profile\\APPDATA",
+      "CreationDate": "/Date(1793419660160)/"
+    },
+    {
+      "ProcessId": 33304,
+      "ParentProcessId": 28900,
+      "Name": "conhost.exe",
+      "ExecutablePath": "C:\\WINDOWS\\system32\\conhost.exe",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+      "CreationDate": "/Date(1793419660185)/"
+    },
+    {
+      "ProcessId": 16204,
+      "ParentProcessId": 28900,
+      "Name": "Godot_v4.3-stable_win64.exe",
+      "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe",
+      "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --script C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\executed-earned-restart.gd -- --expected-wallet=C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\actually-earned-wallet.json --bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T040004Z\\crowns7fd135-normal-native-continuation\\fresh-private-profile\\APPDATA",
+      "CreationDate": "/Date(1793419660198)/"
+    }
+  ],
+  "exit": 0,
+  "ended_at": "2026-10-31T04:08:05.609584+00:00"
+}

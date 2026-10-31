@@ -1,0 +1,149 @@
+{
+  "at": "2026-10-31T03:59:24.535944+00:00",
+  "original_job": "C:\\Temp\\bugtest\\jobs\\crowns7fd135-normal-native.json",
+  "original_job_archive": "C:\\Temp\\bugtest\\setup\\crowns2fea-native-interruption-20261031T035924Z\\original-job-RUNNING.json",
+  "original_process_record": "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\FIRST-native-Normal-fullmatch.process.json",
+  "original_process_record_sha256": "aad39a1fb04380a6de9be0eb16d907461ff50beb56b6f0ffb51a2d44862da1f4",
+  "preserved_artifacts": {
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\executed-controller.py": "9ef18baa7638fe949fbc4853372f9171706dad611a636798a9154881c8a539fe",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\executed-earned-restart.gd": "ff72abc6d55110531c83636cbe7f7107e8a57e444dd0b25afb7501bd92b2547a",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\executed-normal-match.gd": "4204cf3dd1246a127bfcb5488a83d92b9bdaa382e106c98ecf99e11884f3fa47",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\FIRST-actual-private-OS-userdir-before-any-play.log": "9e5f9258b9740b0e34f16e4243b311c2fcc8cadf348c09cc9e2012341c619459",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\FIRST-actual-private-OS-userdir-before-any-play.process.json": "aafd633a96a79600cd36740b7da08ca973fecb9e70198627ad72428d5257c758",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\FIRST-distinct-earned-restart-observer-parse.log": "3e51b4b7b2321c37f4a94ab948c01cb935261e6cdb8ff09ae1a232626b114960",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\FIRST-distinct-earned-restart-observer-parse.process.json": "a2b22485ceeca8a9023a8eac10028c29f274cf12860be25a1f0ee9cd9d5d26dc",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\FIRST-distinct-Normal-observer-parse.log": "6f70fd41736f3632712ee6ea200d527141372ea4b1c3bd712a1c99077285b69f",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\FIRST-distinct-Normal-observer-parse.process.json": "92d71eab1ab9b2f892ed848e2b723ebb9ad9361c7b81e87346874cca20ebc5df",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\FIRST-native-Normal-fullmatch.log": "fce6bccffa3079b7d10364aeccf9745eedd9ddd1d3ea9a7d7ac786b7169f5079",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\FIRST-native-Normal-fullmatch.process.json": "aad39a1fb04380a6de9be0eb16d907461ff50beb56b6f0ffb51a2d44862da1f4",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\latest-idle-adoption.json": "3b4dc2b53954663f11f215ad8d294ad3bfb16250100deb5b652b1fbd4e178970",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\results.json": "d26858d9be0b5ad39fad81405f1955402ad02a135227274c7c153abaaf725b4a",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\controls.cfg": "9f18f8a0ab6eeaf9e9abd8fde3b124ebe3a763bc9b12d44b5afb34b4b7c2a640",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\controls.cfg.bak": "a30b07df957bf3d22428f91276f96658433e1c46856b07d7939a8d679ec94594",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\logs\\godot.log": "9ccec8b9f68ee10b7bf8f87481e4448cb9c08f1d73ff7fc7c4550ccd7be964c9",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\logs\\godot2026-10-30T20.52.31.log": "d5df40c457e7d0c1b925a9ed9f7c02527f2bbea5e336a8edfd32385f91f226e3",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\logs\\godot2026-10-30T20.52.48.log": "552a8b7308afeeaa13d27772382204c907145770b2a7869b3a14c79bb747cffa",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\logs\\godot2026-10-30T20.53.05.log": "552a8b7308afeeaa13d27772382204c907145770b2a7869b3a14c79bb747cffa",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\profiles\\p1.cfg": "0f22f3124aa9e456134115bac596d026d68dc4fb8237474fe906c744b646fa17",
+    "C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA\\Godot\\app_userdata\\Crowns of the Wildwood\\profiles\\p1.cfg.bak": "0f22f3124aa9e456134115bac596d026d68dc4fb8237474fe906c744b646fa17"
+  },
+  "observed_absent_exact_identities": [
+    {
+      "ProcessId": 35312,
+      "ParentProcessId": 29356,
+      "Name": "python.exe",
+      "ExecutablePath": "C:\\Users\\Faisal\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+      "CommandLine": "\"C:\\Users\\Faisal\\AppData\\Local\\Programs\\Python\\Python312\\python.exe\" -u -X utf8 C:/Temp/bugtest/crowns7fd135_normal_native.py",
+      "CreationDate": "/Date(1793418714743)/"
+    },
+    {
+      "ProcessId": 6492,
+      "ParentProcessId": 35312,
+      "Name": "Godot_v4.3-stable_win64_console.exe",
+      "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+      "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --script C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\executed-normal-match.gd -- --bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA \"--bugtest-user-actual=C:/Temp/bugtest/cycles/20261031T035154Z/crowns7fd135-normal-native/fresh-private-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood\"",
+      "CreationDate": "/Date(1793418785681)/"
+    },
+    {
+      "ProcessId": 39608,
+      "ParentProcessId": 6492,
+      "Name": "conhost.exe",
+      "ExecutablePath": "C:\\WINDOWS\\system32\\conhost.exe",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+      "CreationDate": "/Date(1793418785687)/"
+    },
+    {
+      "ProcessId": 3344,
+      "ParentProcessId": 6492,
+      "Name": "Godot_v4.3-stable_win64.exe",
+      "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe",
+      "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns135-7fddd-runtime-candidate --script C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\executed-normal-match.gd -- --bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T035154Z\\crowns7fd135-normal-native\\fresh-private-profile\\APPDATA \"--bugtest-user-actual=C:/Temp/bugtest/cycles/20261031T035154Z/crowns7fd135-normal-native/fresh-private-profile/APPDATA/Godot/app_userdata/Crowns of the Wildwood\"",
+      "CreationDate": "/Date(1793418785711)/"
+    }
+  ],
+  "last_state": {
+    "agent": "Codex-faisal3/bugtest",
+    "bonus_min_seconds": 60,
+    "clock": 168,
+    "difficulty": "Normal",
+    "engine_scale": 1,
+    "game_over": false,
+    "gate_hp": [
+      0,
+      135
+    ],
+    "label": "native objective 1800",
+    "match_played": 188.425451412732,
+    "native_events": 2810,
+    "overtime": false,
+    "players": [
+      {
+        "actual_aim": "(0.999994, 0, -0.003336)",
+        "actual_velocity": "(6.917777, 0, -0.708856)",
+        "attack_input": false,
+        "attack_timer": 0,
+        "captures": 0,
+        "carrying": false,
+        "damage": 18,
+        "dead": false,
+        "deaths": 2,
+        "device": 7,
+        "downed": false,
+        "excluded_discontinuity_distance": 132.443023681641,
+        "hearts": 4,
+        "kills": 2,
+        "position": "(-44.77288, 0.000841, 0.079193)",
+        "role": 1,
+        "slot": 0,
+        "travelled_continuous": 405.818923322659
+      },
+      {
+        "actual_aim": "(0.990126, 0, -0.140177)",
+        "actual_velocity": "(3.109431, 0, -1.259945)",
+        "attack_input": false,
+        "attack_timer": 0.249999999999999,
+        "captures": 0,
+        "carrying": false,
+        "damage": 0,
+        "dead": false,
+        "deaths": 2,
+        "device": 0,
+        "downed": false,
+        "excluded_discontinuity_distance": 130.427730992436,
+        "hearts": 4,
+        "kills": 0,
+        "position": "(-51.78196, 0.001169, 1.85661)",
+        "role": 4,
+        "slot": 1,
+        "travelled_continuous": 354.033415822079
+      }
+    ],
+    "prep": 0,
+    "result_bonus_earned": true,
+    "score": [
+      0,
+      0
+    ],
+    "time_left": 431.575778809499,
+    "vault_hp": [
+      10,
+      10
+    ],
+    "wall_ms": 199773
+  },
+  "typed_events": 2905,
+  "actual_result_record": false,
+  "actual_exit_code": null,
+  "termination_cause": "Unknown. Recorded runner and all engine/console identities are absent; source-bound log ends abruptly and original exec session is unavailable. No cause inferred from absent processes.",
+  "classification": "INTERRUPTED_INCOMPLETE",
+  "game_bug": false,
+  "partial_attempt_preserved": true,
+  "green_replay": false,
+  "next_action": "First completed candidate fullmatch still unqualified. Fresh private profile and same reviewed input fixture in a uniquely recorded continuation; preserve partialprofile/rawlogs, keep tool session attached through completion. No replay of qualified main/API cases.",
+  "new_helpers": 0,
+  "new_supervisor": false,
+  "new_schedule": false,
+  "rendered": false,
+  "PNG": 0,
+  "agent": "Codex-faisal3/bugtest"
+}

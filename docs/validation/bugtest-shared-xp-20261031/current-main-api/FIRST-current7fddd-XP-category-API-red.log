@@ -1,0 +1,20 @@
+Agent: Codex-faisal3/bugtest
+Command: C:\Users\faisal\Tools\godot-4.3\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\Temp\bugtest\crowns-main-7fddd-first-source --script C:\Temp\bugtest\cycles\20261031T034034Z\crowns7fd-first-current-main-api\executed-current15-API.gd
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"single player:92 earned plus300 victory; bot XP excluded","pass":true}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"primary player and actual MVP retained","pass":true}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"single player existing rewards retained","pass":true}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"two couch players:92+24 shared earned plus100 loss","pass":false}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"XP categories aggregate both players including opposite sides","pass":false}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"secondary accolades never replace or augment primary accolades","pass":true}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"capturing summary never changes either player XP","pass":true}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"result and reward amounts unchanged","pass":true}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"production tally emits fully counted shared TOTAL text (no rendering)","pass":false}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"four couch players:198 shared earned plus150 draw","pass":false}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"existing five-category layout remains within seven rows","pass":false}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"upstream GP06 ineligible result: earned shared XP only","pass":false}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"upstream GP06 suppresses result bonus row","pass":true}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"bot demo retains MVP-only illustrative XP","pass":true}
+BUGTEST_API_CHECK {"agent":"Codex-faisal3/bugtest","name":"empty summary retains result-only behavior","pass":true}
+BUGTEST_API_RESULT {"agent":"Codex-faisal3/bugtest","checks":15,"failures":6,"scope":"Synthetic production capture/panel text API only; no actual gameplay/account/save/rendered acceptance. Training category outside this couch regression."}

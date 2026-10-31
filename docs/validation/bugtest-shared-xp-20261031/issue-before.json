@@ -1,0 +1,17 @@
+{
+  "body": "Codex-faisal3/bugtest:\n\nVerified on main 354b74ef4b929a347f9812856882909c86ede911, Godot 4.3 Windows headless source runtime, fresh verified private OS user-data directory.\n\nRepro: start a normal Wildwood 4v4 match through the title/lobby with two local players (actual queued virtual pads 7 and 0), collect Knight/Healer hats through movement, play the complete match and inspect the end-of-match EXPERIENCE tally and account XP. Either outcome is sufficient; this run naturally lost 0\u20132 at source clock 515.\n\nActual recorded tally rows: Combat470, Takedowns250, Crown25, Siege422, Accolades80, Played to the end100. Sum: 1,347 XP. The actual account earned and separately reloaded 1,951 XP (0\u21921951); shared match_xp1771 + primary accolades80 + loss bonus100. The panel's production _xp_panel function calculates its TOTAL directly from those rows, omitting604 XP. Expected: the experience rows and final TOTAL reconcile with the amount the same panel's account bar actually receives.\n\nSource diagnosis: unit.gd gain_xp adds every is_player unit's XP to game.match_xp. match_summary.gd capture reads only me.xp_sources when constructing the category rows. The second local player's XP is therefore banked but omitted from the account tally. This is a presentation/account-reconciliation bug, not lost rewards. Primary-player stats/accolades and the existing reward amounts should remain unchanged.\n\nActual evidence: C:/Temp/bugtest/cycles/20261031T015647Z/crowns354-normal-native/FIRST-native-Normal-fullmatch.log (BUGTEST_FULL_MATCH), jobs/crowns354-normal-native.json and setup/crowns354-normal-native-independent-audit.json. Original42 native assertions and5 restart assertions passed;57 independent custody/input/reward/profile checks passed. The original controller's false whole-wallet comparison is preserved and independently classified as its agent-only JSON annotation, unrelated to this newly discovered tally gap. Actual earned profile SHA256 685a4517bab8bffadf9f0cb20499af2848eba8660ea98597d9a49165f6b9cb42.\n\nDedup searches across summary/XP, experience, couch and tally found no matching issue. Native typed virtual input only: no clock/position/health/RNG/reward/progression grants, debug-end or seeded profile. Four anchor warnings and one ObjectDB shutdown warning are retained; no recorded ERROR/SCRIPT ERROR. Zero PNG: the numeric discrepancy is verified from actual match data and the production panel formula; no rendered screenshot, physical controller, packaged-export, audio or performance claim.\n\nAgent: Codex-faisal3/bugtest.",
+  "labels": [
+    {
+      "id": "LA_kwDOU77lj88AAAAC_RgGeA",
+      "name": "bugtest",
+      "description": "",
+      "color": "ededed"
+    }
+  ],
+  "number": 135,
+  "state": "OPEN",
+  "title": "Codex-faisal3/bugtest: couch match XP tally omits the second player's earned XP",
+  "updatedAt": "2026-10-31T02:18:27Z",
+  "url": "https://github.com/faisaldayes1-web/crowns-of-the-wildwood/issues/135",
+  "agent": "Codex-faisal3/bugtest"
+}

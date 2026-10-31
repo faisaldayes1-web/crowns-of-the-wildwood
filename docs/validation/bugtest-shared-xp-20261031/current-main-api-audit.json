@@ -1,0 +1,278 @@
+{
+  "at": "2026-10-31T03:43:21.995169+00:00",
+  "job": "C:\\Temp\\bugtest\\jobs\\crowns7fd-first-current-main-api.json",
+  "job_sha256": "786af139119d8acf519525b79fd0e4d3c7ef237d1fb1cb940873abb7ba9a1f2e",
+  "checks": [
+    {
+      "name": "first job exact7fddd baseline2031 and actual expected red",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "source snapshot/protected prior bytes/frozen files remain intact",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "parent preparation receipt retained exact bytes",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "all2031 baseline files independently match Git blob IDs",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "actual four phases completed in order",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "actual source-bound exit/log FIRST-current7fddd-cold-import",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "headless exact Godot command FIRST-current7fddd-cold-import",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "no unclassified errors in raw stdout FIRST-current7fddd-cold-import",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "actual source-bound exit/log FIRST-actual-OS-userdir-before-API",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "headless exact Godot command FIRST-actual-OS-userdir-before-API",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "no unclassified errors in raw stdout FIRST-actual-OS-userdir-before-API",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "actual source-bound exit/log FIRST-current15-API-strict-parse",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "headless exact Godot command FIRST-current15-API-strict-parse",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "no unclassified errors in raw stdout FIRST-current15-API-strict-parse",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "actual source-bound exit/log FIRST-current7fddd-XP-category-API-red",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "headless exact Godot command FIRST-current7fddd-XP-category-API-red",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "no unclassified errors in raw stdout FIRST-current7fddd-XP-category-API-red",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "first cold import and strict parse exited zero",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "actual OS userdir proof precedes any synthetic API",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "exact15 actual labels are unique and match recorded transcript",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "six exact XP aggregation failures independently observed",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "nine primary reward/identity/immutability/demo/eligibility controls pass",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "actual producer result agrees with transcript",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "production source never edited by baseline",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "no rendered or native gameplay acceptance",
+      "pass_": true,
+      "detail": null
+    },
+    {
+      "name": "ordinary Godot user-data files unchanged",
+      "pass_": true,
+      "detail": null
+    }
+  ],
+  "assertions": 26,
+  "all_pass": true,
+  "actual_red_failures": [
+    "XP categories aggregate both players including opposite sides",
+    "existing five-category layout remains within seven rows",
+    "four couch players:198 shared earned plus150 draw",
+    "production tally emits fully counted shared TOTAL text (no rendering)",
+    "two couch players:92+24 shared earned plus100 loss",
+    "upstream GP06 ineligible result: earned shared XP only"
+  ],
+  "source_sha": "7fddd5a3e379c81aff3487119f44064108488e63",
+  "engine_sha256": "8c54c617d4837958f2d5ee5020e900820db52371d5c826d9e6b5e5de1e939a1e",
+  "step_process_records": [
+    {
+      "pid": 25520,
+      "runner_pid": 41584,
+      "started_at": "2026-10-31T03:40:59.751124+00:00",
+      "command": [
+        "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+        "--headless",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+        "--log-file",
+        "C:\\Temp\\bugtest\\cycles\\20261031T034034Z\\crowns7fd-first-current-main-api\\FIRST-current7fddd-cold-import.engine.log",
+        "--editor",
+        "--import"
+      ],
+      "cwd": "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+      "status": "EXITED",
+      "source_repo": "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+      "agent": "Codex-faisal3/bugtest",
+      "observed_processes": [
+        {
+          "ProcessId": 25520,
+          "ParentProcessId": 41584,
+          "Name": "Godot_v4.3-stable_win64_console.exe",
+          "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+          "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns-main-7fddd-first-source --log-file C:\\Temp\\bugtest\\cycles\\20261031T034034Z\\crowns7fd-first-current-main-api\\FIRST-current7fddd-cold-import.engine.log --editor --import",
+          "CreationDate": "/Date(1793418059749)/"
+        },
+        {
+          "ProcessId": 21512,
+          "ParentProcessId": 25520,
+          "Name": "conhost.exe",
+          "ExecutablePath": "C:\\WINDOWS\\system32\\conhost.exe",
+          "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+          "CreationDate": "/Date(1793418059759)/"
+        },
+        {
+          "ProcessId": 41796,
+          "ParentProcessId": 25520,
+          "Name": "Godot_v4.3-stable_win64.exe",
+          "ExecutablePath": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe",
+          "CommandLine": "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64.exe --headless --audio-driver Dummy --path C:\\Temp\\bugtest\\crowns-main-7fddd-first-source --log-file C:\\Temp\\bugtest\\cycles\\20261031T034034Z\\crowns7fd-first-current-main-api\\FIRST-current7fddd-cold-import.engine.log --editor --import",
+          "CreationDate": "/Date(1793418059772)/"
+        }
+      ],
+      "exit": 0,
+      "ended_at": "2026-10-31T03:41:49.267747+00:00"
+    },
+    {
+      "pid": 42804,
+      "runner_pid": 41584,
+      "started_at": "2026-10-31T03:42:08.650927+00:00",
+      "command": [
+        "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+        "--headless",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+        "--script",
+        "C:\\Temp\\bugtest\\setup\\godot_user_path_probe.gd",
+        "--",
+        "--bugtest-user-prefix=C:\\Temp\\bugtest\\cycles\\20261031T034034Z\\crowns7fd-first-current-main-api\\private-API-userdata\\APPDATA"
+      ],
+      "cwd": "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+      "status": "EXITED",
+      "source_repo": "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+      "agent": "Codex-faisal3/bugtest",
+      "observed_processes": [],
+      "exit": 0,
+      "ended_at": "2026-10-31T03:42:09.810423+00:00"
+    },
+    {
+      "pid": 41012,
+      "runner_pid": 41584,
+      "started_at": "2026-10-31T03:42:29.226906+00:00",
+      "command": [
+        "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+        "--headless",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+        "--check-only",
+        "--script",
+        "C:\\Temp\\bugtest\\cycles\\20261031T034034Z\\crowns7fd-first-current-main-api\\executed-current15-API.gd"
+      ],
+      "cwd": "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+      "status": "EXITED",
+      "source_repo": "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+      "agent": "Codex-faisal3/bugtest",
+      "observed_processes": [],
+      "exit": 0,
+      "ended_at": "2026-10-31T03:42:30.386588+00:00"
+    },
+    {
+      "pid": 43228,
+      "runner_pid": 41584,
+      "started_at": "2026-10-31T03:42:50.959601+00:00",
+      "command": [
+        "C:\\Users\\faisal\\Tools\\godot-4.3\\Godot_v4.3-stable_win64_console.exe",
+        "--headless",
+        "--audio-driver",
+        "Dummy",
+        "--path",
+        "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+        "--script",
+        "C:\\Temp\\bugtest\\cycles\\20261031T034034Z\\crowns7fd-first-current-main-api\\executed-current15-API.gd"
+      ],
+      "cwd": "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+      "status": "EXITED",
+      "source_repo": "C:\\Temp\\bugtest\\crowns-main-7fddd-first-source",
+      "agent": "Codex-faisal3/bugtest",
+      "observed_processes": [],
+      "exit": 1,
+      "ended_at": "2026-10-31T03:42:52.201277+00:00"
+    }
+  ],
+  "actual_private_userdata": {
+    "actual": "C:/Temp/bugtest/cycles/20261031T034034Z/crowns7fd-first-current-main-api/private-API-userdata/APPDATA/Godot/app_userdata/Crowns of the Wildwood",
+    "agent": "Codex-faisal3/bugtest",
+    "expected_prefix": "C:/Temp/bugtest/cycles/20261031T034034Z/crowns7fd-first-current-main-api/private-API-userdata/APPDATA"
+  },
+  "scope": "Currentmain first cold import/privateOSpath/strict15parse and six expected synthetic production-summary omissions. No native input, earned-profile load, rendered frames, package, device or performance acceptance. Original main red retained, never replayed.",
+  "rendered": false,
+  "PNG": 0,
+  "agent": "Codex-faisal3/bugtest"
+}
