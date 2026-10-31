@@ -147,7 +147,7 @@ static func stonekeep() -> Dictionary:
 			["m" + t, "q" + t, 2.4, "nook"], ["m" + t, "r" + t, 2.4, "nook"], ["n" + t, "t" + t, 2.4, "nook"], ["s" + t, "u" + t, 2.4, "nook"]])
 	return {"nodes": nodes, "edges": edges,
 		"rects": [[Vector3.ZERO, Vector2(8.6, 7.0)]],       # the courtyard inside the ruin's walls
-		"flats": [[Vector3.ZERO, Vector2(11.6, 9.6)], [Vector3.ZERO, Vector2(15.6, 3.0)]],   # the ruin and its gate approaches stand on level ground
+		"flats": [[Vector3.ZERO, Vector2(11.6, 9.6)]],   # the ruin stands on level ground
 		"lanes": ["k", "k", "n", "s"]}                      # half the raids take the gate, a quarter each flank
 
 
@@ -533,10 +533,14 @@ func height(x: float, z: float) -> float:
 	## The terrain over the ground at (x, z): 0 on and round the walkable
 	## ground and in the flat zones, rising with the distance off it.
 	var p := Vector3(x, 0, z)
+	var fd := INF
 	for f in flats:
-		if _rect_dist(p, f[0], f[1]) < 0.0:
-			return 0.0
-	var d := field(p)
+		fd = minf(fd, _rect_dist(p, f[0], f[1]))
+	if fd < 0.0:
+		return 0.0
+	# Banks rise from the edge of the level ground, not in a step at it
+	# (a step left the gate approach's paving looking like a floating slab).
+	var d: float = minf(field(p), fd)
 	if d <= 0.0:
 		return -0.15
 	# Toward the mesh's own border it sinks under the ground, so the seam
@@ -586,7 +590,7 @@ func _paths() -> void:
 			continue   # the courtyard is flagged, the gate has a flagstone strip of its own; nooks are left wild
 		if s[3] == "pass":
 			w = 3.4
-		game._add_path(a, b, w, cob, 0.8 if kind == "winter" else 1.2)
+		game._add_path(a, b, w, cob, 0.0 if kind == "winter" else 1.2)   # (no verge on the snow: it read as a slab against the ridges)
 	for i in pos.size():
 		var id: String = ids[i]
 		if id.begins_with("g") or (id == "k" and kind == "winter") or id.begins_with("i"):
@@ -771,6 +775,7 @@ func _build_stonekeep() -> void:
 			game._add_wall(Vector3(sx * 10.0, gh / 2.0, zs * 5.9), Vector3(1.0, gh, 4.2))
 		# Flagstones through the gate and down the pass to its plaza.
 		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(5.6, 0.02, 4.4), Color.WHITE, false, floor_mat)
+		game.map_marks.append([Vector3(sx * 12.8, 0, 0), "gate"])   # (keeps snowmen and drifts out of the gateway)
 		await game._world_build_frame()
 		for zs in [-1.0, 1.0]:
 			_tower(Vector3(sx * 10.0, 0, zs * 3.6), 1.15, 4.6 if zs < 0.0 else 2.2)   # the south one a stump: the gate stays in view
@@ -825,19 +830,47 @@ func _build_stonekeep() -> void:
 		game.add_child(mi)
 	# Snowy pines up on the ridges.
 	var bark = game._tree_bark()
-	for p in _scatter_off(3.2, 30.0, 6.5, 5503, 0.45):
+	for p in _scatter_off(3.0, 30.0, 5.0, 5503, 0.45):
 		n += 1
 		if n % 6 == 0:
 			await game._world_build_frame()
 		var tr := RandomNumberGenerator.new()
 		tr.seed = absi(int(p.x * 13 + p.z * 7))
-		var tree := Node3D.new()
-		tree.position = Vector3(p.x, height(p.x, p.z) - 0.2, p.z)
-		tree.rotation.y = tr.randf() * TAU
-		game.add_child(tree)
-		game._add_pine(tree, tr, bark, tr.randf() < 0.3)
+		var at := Vector3(p.x, height(p.x, p.z) - 0.2, p.z)
+		if game._kit():
+			game._kit().tree_at(at, tr.randf() < 0.3, "pine")   # the forest kit's snowy pines
+		else:
+			var tree := Node3D.new()
+			tree.position = at
+			tree.rotation.y = tr.randf() * TAU
+			game.add_child(tree)
+			game._add_pine(tree, tr, bark, tr.randf() < 0.3)
 		if absf(p.z) < 36.0:
 			game.map_trees.append(Vector3(p.x, 0.0, p.z))
+
+
+func lane_dist(p: Vector3) -> float:
+	## Distance from `p` to the lanes, plazas and courtyards (not the castles'
+	## land), negative on them.
+	var d := INF
+	for i in pos.size():
+		d = minf(d, _flat(p, pos[i]) - rad[i])
+	for s in segs:
+		d = minf(d, _seg_dist(p, pos[s[0]], pos[s[1]]) - s[2])
+	for r in rects:
+		d = minf(d, _rect_dist(p, r[0], r[1]))
+	return d
+
+
+func decor_ok(p: Vector3, m: float) -> bool:
+	## Whether scenery (the forest kit's trees, bushes, rocks, flowers) may
+	## stand at `p` with margin m: off every lane and plaza, out of the
+	## ruin and the pool.
+	if absf(p.x) > MESH_X + 6.0 + m:
+		return true
+	if lane_dist(p) < m + 0.6:
+		return false
+	return not _near_flat(p, m + 0.3)
 
 
 func in_flat(p: Vector3) -> bool:
@@ -1046,13 +1079,16 @@ func _build_grove() -> void:
 		var seed_v := absi(int(p.x * 13 + p.z * 7))
 		if p.x > 6.0 and seed_v % 2 == 0:
 			# The Kingdom's half mixes in dark pines, as on the Wildwood.
-			var tr := RandomNumberGenerator.new()
-			tr.seed = seed_v
-			var tree := Node3D.new()
-			tree.position = at
-			tree.rotation.y = tr.randf() * TAU
-			game.add_child(tree)
-			game._add_pine(tree, tr, bark, big)
+			if game._kit():
+				game._kit().tree_at(at, big, "pine")
+			else:
+				var tr := RandomNumberGenerator.new()
+				tr.seed = seed_v
+				var tree := Node3D.new()
+				tree.position = at
+				tree.rotation.y = tr.randf() * TAU
+				game.add_child(tree)
+				game._add_pine(tree, tr, bark, big)
 			game.map_trees.append(Vector3(p.x, 1.0 if big else 0.0, p.z))
 		else:
 			game._add_tree_grown(at, big)
