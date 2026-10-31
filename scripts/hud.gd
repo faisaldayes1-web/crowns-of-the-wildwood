@@ -7504,22 +7504,100 @@ func _twinkles(now: float, a: float, spots: Array) -> void:
 
 
 func _draw_class_banner(p) -> void:
+	## "YOU ARE NOW <CLASS>" (UI pick Knight C-v2): a carved card in a double
+	## gold frame with clipped corners, the class art square on a navy face,
+	## the team crest set on top, the neighbouring classes tucked behind it
+	## and gold chevrons either side. It pops in over its first 0.2 s.
 	if p.class_banner <= 0.0:
 		return
 	var fit := minf(size.x / 1280.0, 1.0)
-	var c := Vector2(size.x / 2.0, 174.0 * fit)
-	draw_set_transform(c, 0.0, Vector2(fit * 0.82, fit * 0.82))
-	for side in [-1, 1]:
-		var rr := Rect2(side * 92.0 - 34.0, -24, 68, 86)
-		_plate(rr, Color("27364a"), Color("d8aa47"), 8, 2)
-		_class_card(rr.get_center(), 26, p.team, Role.RANGER if side < 0 else Role.MAGE)
-	var card := Rect2(-76, -62, 152, 158)
-	_plate(card.grow(4), Color("80532e"), GOLD, 10, 3)
-	_plate(card, Color("27364a"), Color("d8aa47"), 8, 2)
-	_class_card(Vector2(0, -12), 34, p.team, p.role)
-	_text(Vector2(-76, 48), "YOU ARE NOW", 17, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 152, 3)
-	_text(Vector2(-76, 78), p.role_name().to_upper(), 24, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 152, 3)
+	var c := Vector2(size.x / 2.0, 182.0 * fit)
+	var age: float = p.CLASS_BANNER_TIME - p.class_banner
+	var pop := 1.0 + 0.14 * clampf(1.0 - age / 0.2, 0.0, 1.0)
+	draw_set_transform(c, 0.0, Vector2.ONE * fit * 0.82 * pop)
+	for side in [-1.0, 1.0]:
+		var rr := Rect2(side * 118.0 - 50.0, -50, 100, 112)
+		_carved_frame(rr, 10.0, false)
+		_card_art(rr.grow(-8), p.team, Role.RANGER if side < 0.0 else Role.MAGE, 0.62)
+		# Chevrons pointing out, with a small gold stud inside each.
+		var tip := Vector2(side * 206.0, 6)
+		var chev := PackedVector2Array([tip, tip + Vector2(-side * 20.0, -22), tip + Vector2(-side * 30.0, -22),
+			tip + Vector2(-side * 10.0, 0), tip + Vector2(-side * 30.0, 22), tip + Vector2(-side * 20.0, 22)])
+		var shadow := PackedVector2Array()
+		for q in chev:
+			shadow.append(q + Vector2(0, 3))
+		draw_colored_polygon(shadow, Color(0, 0, 0, 0.45))
+		draw_colored_polygon(chev, GOLD)
+		chev.append(chev[0])
+		draw_polyline(chev, Color(0.28, 0.16, 0.03), 2.0, true)
+		_gold_stud(Vector2(side * 176.0, 6), 5.0)
+	var card := Rect2(-86, -84, 172, 196)
+	_carved_frame(card, 16.0, true)
+	_card_art(Rect2(-60, -70, 120, 120), p.team, p.role, 1.0)
+	# The caption band under the art.
+	var band := Rect2(-74, 52, 148, 52)
+	draw_rect(band, Color(0.06, 0.08, 0.12, 0.92))
+	draw_line(band.position, Vector2(band.end.x, band.position.y), GOLD_DARK, 2.0)
+	_text(Vector2(-74, 68), "YOU ARE NOW", 16, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 148, 4)
+	_text(Vector2(-78, 99), p.role_name().to_upper(), 30, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 156, 6)
+	_crest_shield(Vector2(0, -92), 30, 34, p.team)
+	_gold_stud(Vector2(0, 116), 7.0)
 	draw_set_transform(Vector2.ZERO)
+
+
+func _chamfer(rect: Rect2, k: float) -> PackedVector2Array:
+	## rect with its four corners clipped by k.
+	return PackedVector2Array([rect.position + Vector2(k, 0), Vector2(rect.end.x - k, rect.position.y),
+		Vector2(rect.end.x, rect.position.y + k), rect.end - Vector2(0, k), rect.end - Vector2(k, 0),
+		Vector2(rect.position.x + k, rect.end.y), Vector2(rect.position.x, rect.end.y - k), rect.position + Vector2(0, k)])
+
+
+func _carved_frame(rect: Rect2, k: float, main: bool) -> void:
+	## A gold-framed card face with clipped corners: dark edge, thick gold rim
+	## with a light top line, a dark inner lip and a navy face shaded downward.
+	draw_colored_polygon(_chamfer(Rect2(rect.position + Vector2(0, 5), rect.size).grow(6), k + 3.0), Color(0, 0, 0, 0.4))
+	draw_colored_polygon(_chamfer(rect.grow(6), k + 3.0), Color(0.28, 0.16, 0.03))
+	draw_colored_polygon(_chamfer(rect.grow(4), k + 2.0), BRASS if main else GOLD_DARK)
+	var hi := _chamfer(rect.grow(3), k + 1.5)
+	draw_polyline(PackedVector2Array([hi[7], hi[0], hi[1], hi[2]]), GOLD.lightened(0.4), 1.5)
+	if main:   # the second, inner gold line of the double frame
+		draw_colored_polygon(_chamfer(rect.grow(-1), k - 1.0), Color(0.28, 0.16, 0.03))
+		draw_colored_polygon(_chamfer(rect.grow(-2), k - 1.5), GOLD_DARK)
+	var face := _chamfer(rect.grow(-4 if main else 0), k - (2.0 if main else 0.0))
+	var top := Color("27364a")
+	var cols := PackedColorArray()
+	for q in face:
+		cols.append(top.lerp(Color(0.07, 0.1, 0.16), clampf((q.y - rect.position.y) / rect.size.y, 0.0, 1.0)))
+	draw_polygon(face, cols)
+	if main:
+		for q in [Vector2(rect.position.x, rect.position.y), Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)]:
+			_gold_stud(q + (rect.get_center() - q).sign() * k * 0.35, 4.0)
+
+
+func _gold_stud(c: Vector2, r: float) -> void:
+	## A small gold diamond with a dark edge and a light facet.
+	var d := PackedVector2Array([c + Vector2(0, -r), c + Vector2(r, 0), c + Vector2(0, r), c + Vector2(-r, 0)])
+	var edge := PackedVector2Array()
+	for q in d:
+		edge.append(c + (q - c) * 1.45)
+	draw_colored_polygon(edge, Color(0.28, 0.16, 0.03))
+	draw_colored_polygon(d, GOLD)
+	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -r), c + Vector2(r, 0), c]), GOLD.lightened(0.45))
+
+
+func _card_art(rect: Rect2, team: int, role: int, light: float) -> void:
+	## The class art from the card sheet, square in rect (light < 1 dims it);
+	## the round portrait when the art is missing.
+	var key := _card_key(team, role)
+	if not cards.has(key):
+		_class_card(rect.get_center(), rect.size.x * 0.4, team, role)
+		return
+	var tex: Texture2D = cards[key]
+	var ts := tex.get_size()
+	var side := minf(ts.x, ts.y)
+	draw_texture_rect_region(tex, rect, Rect2(Vector2((ts.x - side) / 2.0, ts.y * 0.04), Vector2(side, side * 0.96)),
+		Color(light, light, light))
+	draw_rect(rect, Color(0.28, 0.16, 0.03), false, 2.0)
 
 
 func _draw_rankup_flourish() -> void:
