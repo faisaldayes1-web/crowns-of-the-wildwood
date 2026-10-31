@@ -202,7 +202,7 @@ func finish() -> void:
 		var n := 0
 		for k in _place:
 			n += _place[k].size()
-		print("FOREST KIT %s: %d placements, %d meshes, %d ms" % [palette, n, _meshes.size(), Time.get_ticks_msec() - t0])
+		print("FOREST KIT %s%s: %d placements, %d meshes, %d ms" % [palette, " low" if low else "", n, _meshes.size(), Time.get_ticks_msec() - t0])
 
 
 func _add(key: String, xf: Transform3D, tint: Color = Color.WHITE) -> void:
@@ -486,6 +486,9 @@ func _ensure() -> void:
 		return
 	palette = game.season if game.season in ["winter", "twilight"] else ("night" if game.night() else "day")
 	low = game.gfx_quality <= 0
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--gfx="):   # (game.gd reads this test flag only after the world is built)
+			low = int(arg.trim_prefix("--gfx=")) <= 0
 	mat = ShaderMaterial.new()
 	mat.shader = load("res://assets/shaders/forest_kit.gdshader")
 	mat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
@@ -702,19 +705,21 @@ func _cyl(st: SurfaceTool, a: Vector3, b: Vector3, ra: float, rb: float, sides: 
 		var b1 := a + d1 * ra
 		var t0 := b + d0 * rb
 		var t1 := b + d1 * rb
+		# (Godot culls counter-clockwise faces: this order faces out.)
 		_v(st, t0, d0, cb, kind)
-		_v(st, b1, d1, ca, kind)
 		_v(st, b0, d0, ca, kind)
-		_v(st, t0, d0, cb, kind)
-		_v(st, t1, d1, cb, kind)
 		_v(st, b1, d1, ca, kind)
+		_v(st, t0, d0, cb, kind)
+		_v(st, b1, d1, ca, kind)
+		_v(st, t1, d1, cb, kind)
 
 
 func _tri(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, c0: Color, c1: Color, c2: Color, kind: float) -> void:
 	var n := (p1 - p0).cross(p2 - p0).normalized()
+	# Emitted p0, p2, p1: the face whose normal is n is the one drawn.
 	_v(st, p0, n, c0, kind)
-	_v(st, p1, n, c1, kind)
 	_v(st, p2, n, c2, kind)
+	_v(st, p1, n, c1, kind)
 
 
 func _box(st: SurfaceTool, c: Vector3, h: Vector3, yaw: float, col: Color, kind: float) -> void:
@@ -738,7 +743,7 @@ func _box(st: SurfaceTool, c: Vector3, h: Vector3, yaw: float, col: Color, kind:
 			p.append(c + bs * v)
 		var nn: Vector3 = bs * n
 		# Front faces wind clockwise seen from outside (Godot).
-		for tri in [[0, 2, 1], [0, 3, 2]]:
+		for tri in [[0, 1, 2], [0, 2, 3]]:
 			for i in tri:
 				_v(st, p[i], nn, shade, kind)
 
@@ -847,9 +852,9 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 			var ca := c_apex
 			if snow:
 				# Snow lies on the upper slope, the drooping tips stay green.
-				ca = snow_c
-				c0 = c0.lerp(snow_c, 0.25 if k % 2 == 0 else 0.75)
-				c1 = c1.lerp(snow_c, 0.25 if (k + 1) % 2 == 0 else 0.75)
+				ca = c_apex.lerp(snow_c, 0.8)
+				c0 = c0.lerp(snow_c, 0.08 if k % 2 == 0 else 0.45)
+				c1 = c1.lerp(snow_c, 0.08 if (k + 1) % 2 == 0 else 0.45)
 			_tri(st, apex, p1, p0, ca, c1, c0, 0.0)
 			_tri(st, under, p0, p1, c_under, c0 * 0.8, c1 * 0.8, 0.0)
 	if palette == "twilight":
@@ -942,11 +947,11 @@ func _make_flowers(st: SurfaceTool, seed: int, shape: int) -> void:
 			var p1 := c + Vector3(cos(a1) * pr, 0.01, sin(a1) * pr)
 			var p2 := c + Vector3(cos(a2) * pr * 0.45, 0.0, sin(a2) * pr * 0.45)
 			_v(st, c + Vector3(0, 0.012, 0), Vector3.UP, eye, kind)
+			_v(st, p1, Vector3.UP, bc, kind)
 			_v(st, p2, Vector3.UP, bc, kind)
-			_v(st, p1, Vector3.UP, bc, kind)
 			_v(st, c + Vector3(0, 0.012, 0), Vector3.UP, eye, kind)
-			_v(st, p1, Vector3.UP, bc, kind)
 			_v(st, p0, Vector3.UP, bc, kind)
+			_v(st, p1, Vector3.UP, bc, kind)
 
 
 func _make_fence(st: SurfaceTool) -> void:
@@ -981,8 +986,8 @@ func _make_patch(st: SurfaceTool, seed: int) -> void:
 		var p0: Vector3 = rim[k]
 		var p1: Vector3 = rim[(k + 1) % n]
 		_v(st, Vector3.ZERO, Vector3.UP, mid, 4.0)
-		_v(st, p1, Vector3.UP, edge, 4.0)
 		_v(st, p0, Vector3.UP, edge, 4.0)
+		_v(st, p1, Vector3.UP, edge, 4.0)
 
 
 func _trail_mesh() -> ArrayMesh:
@@ -1019,10 +1024,10 @@ func _trail_mesh() -> ArrayMesh:
 				var cs := [dirt, worn, worn, dirt]
 				for k in 3:
 					_v(st, prev[k], Vector3.UP, cs[k], 4.0)
-					_v(st, row[k + 1], Vector3.UP, cs[k + 1], 4.0)
 					_v(st, row[k], Vector3.UP, cs[k], 4.0)
-					_v(st, prev[k], Vector3.UP, cs[k], 4.0)
-					_v(st, prev[k + 1], Vector3.UP, cs[k + 1], 4.0)
 					_v(st, row[k + 1], Vector3.UP, cs[k + 1], 4.0)
+					_v(st, prev[k], Vector3.UP, cs[k], 4.0)
+					_v(st, row[k + 1], Vector3.UP, cs[k + 1], 4.0)
+					_v(st, prev[k + 1], Vector3.UP, cs[k + 1], 4.0)
 			prev = row
 	return st.commit()
