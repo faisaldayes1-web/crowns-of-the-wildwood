@@ -4,8 +4,12 @@ name: Crowns CI
 
 on:
   pull_request:
-  push:
-    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'evidence/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,6 +20,7 @@ concurrency:
 
 jobs:
   godot43:
+    if: ${{ github.event.pull_request.draft == false || github.event_name != 'pull_request' }}
     name: Godot 4.3 import, self-test and bot match
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -143,4 +148,4 @@ jobs:
         with:
           name: crowns-ci-${{ github.run_id }}-${{ github.run_attempt }}
           path: ci-logs/
-          retention-days: 14
+          retention-days: 3
