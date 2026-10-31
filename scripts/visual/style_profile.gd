@@ -39,8 +39,8 @@ const TEX := {
 	"castle_blocks_grey": {"normal": 1.0, "rough": 0.92},
 	"castle_face": {"normal": 0.6, "rough": 0.92},
 	"castle_face_grey": {"normal": 0.6, "rough": 0.92},
-	# Pass 4 (2026-10-31): the yard's tall west wall in warm-brown brick.
-	"castle_brick": {"normal": 0.9, "rough": 0.94},
+	# Pass 4 (2026-10-31): the yard's tall west wall in warm tan stone.
+	"castle_ashlar": {"normal": 0.8, "rough": 0.94},
 }
 const TEX_DIR := "res://assets/textures/style/"
 

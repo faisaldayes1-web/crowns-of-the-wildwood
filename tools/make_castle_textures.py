@@ -171,17 +171,17 @@ def make_castle_face():
         mst.save(name, color, height, 0.6)
 
 
-def make_castle_brick():
-    """Pass 4 (2026-10-31): the yard's tall west wall in warm-brown brick
-    (pick Battle A's left wall): a running bond of 10 courses a tile, each
-    brick two cells long and every other course offset by a cell (~0.33 x
-    0.67 m at the wall's 0.3 UV), deep joints, each brick its own warm brown."""
-    G = 10
+def make_castle_ashlar():
+    """Pass 4 (2026-10-31): the yard's tall west wall in warm tan stone (pick
+    Battle A's left wall): a running bond of 8 courses a tile, each block two
+    cells long and every other course offset by a cell (~0.42 x 0.83 m at the
+    wall's 0.3 UV), soft bevels, darker warm mortar, a quiet spread of tans."""
+    G = 8
     owner = -np.ones((G, G), dtype=int)
     rects = []
     for cy in range(G):
         cx = 0
-        if cy % 2 == 1:   # the offset course starts and ends on a half brick
+        if cy % 2 == 1:   # the offset course starts and ends on a half block
             owner[cy, 0] = len(rects)
             rects.append((0, cy, 1, cy + 1))
             cx = 1
@@ -190,11 +190,11 @@ def make_castle_brick():
             owner[cy, cx:cx + w] = len(rects)
             rects.append((cx, cy, cx + w, cy + 1))
             cx += w
-    ids, t, cu, cv, te, le, vn = _slabs(owner, rects, G, G, joint=5.0, bevel=16.0, wobble=3.0, seed=442)
-    palette = [rgb(0.62, 0.40, 0.25), rgb(0.70, 0.46, 0.29), rgb(0.56, 0.35, 0.22), rgb(0.66, 0.43, 0.28),
-               rgb(0.74, 0.52, 0.34), rgb(0.60, 0.38, 0.26), rgb(0.68, 0.48, 0.32)]
-    color, height, _chip = _paint(ids, t, cu, cv, te, le, vn, len(rects), palette, rgb(0.30, 0.21, 0.15), 443, chips=0.7)
-    mst.save("castle_brick", color, height, 1.0)
+    ids, t, cu, cv, te, le, vn = _slabs(owner, rects, G, G, joint=6.0, bevel=22.0, wobble=4.0, seed=452)
+    palette = [rgb(0.84, 0.70, 0.54), rgb(0.80, 0.66, 0.50), rgb(0.87, 0.74, 0.58), rgb(0.78, 0.64, 0.49),
+               rgb(0.83, 0.71, 0.56), rgb(0.86, 0.72, 0.55)]
+    color, height, _chip = _paint(ids, t, cu, cv, te, le, vn, len(rects), palette, rgb(0.38, 0.28, 0.19), 453, chips=0.7)
+    mst.save("castle_ashlar", color, height, 1.0)
 
 
 if __name__ == "__main__":
