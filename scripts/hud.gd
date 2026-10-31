@@ -7511,10 +7511,10 @@ func _draw_class_banner(p) -> void:
 	if p.class_banner <= 0.0:
 		return
 	var fit := minf(size.x / 1280.0, 1.0)
-	var c := Vector2(size.x / 2.0, 182.0 * fit)
+	var c := Vector2(size.x / 2.0, 168.0 * fit)
 	var age: float = p.CLASS_BANNER_TIME - p.class_banner
 	var pop := 1.0 + 0.14 * clampf(1.0 - age / 0.2, 0.0, 1.0)
-	draw_set_transform(c, 0.0, Vector2.ONE * fit * 0.82 * pop)
+	draw_set_transform(c, 0.0, Vector2.ONE * fit * 0.8 * pop)
 	for side in [-1.0, 1.0]:
 		var rr := Rect2(side * 118.0 - 50.0, -50, 100, 112)
 		_carved_frame(rr, 10.0, false)
@@ -7540,7 +7540,7 @@ func _draw_class_banner(p) -> void:
 	draw_line(band.position, Vector2(band.end.x, band.position.y), GOLD_DARK, 2.0)
 	_text(Vector2(-74, 68), "YOU ARE NOW", 16, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 148, 4)
 	_text(Vector2(-78, 99), p.role_name().to_upper(), 30, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 156, 6)
-	_crest_shield(Vector2(0, -92), 30, 34, p.team)
+	_crest_shield(Vector2(0, -96), 36, 40, p.team)
 	_gold_stud(Vector2(0, 116), 7.0)
 	draw_set_transform(Vector2.ZERO)
 
