@@ -114,10 +114,28 @@ func _index_world() -> void:
 		if not is_instance_valid(ap[1]) or not ap[1] is Node3D:
 			continue
 		var q: Vector3 = ap[1].global_position if ap[1].is_inside_tree() else ap[1].position
+		if _swap_prop_tree(str(ap[0]), ap[1], q):
+			continue
 		var k := _key(q, 8.0)
 		if not _props.has(k):
 			_props[k] = []
 		_props[k].append(q)
+
+
+func _swap_prop_tree(name: String, node: Node3D, q: Vector3) -> bool:
+	## Pass 2 (2026-10-31): the KayKit tree clusters out of bounds (the
+	## lumber camp's "trees_*_large" stands) read as bright lime balls next
+	## to the kit's dark pines. On Wildwood and Moonlit they are hidden
+	## (they have no collider: out of bounds, built without prop_solid) and
+	## the fill forest grows over their ground instead. Felled stumps stay.
+	if palette not in ["day", "night"] or _in_field(q):
+		return false
+	if not name.begins_with("hex/tree") or name.ends_with("_cut"):
+		return false
+	if node.find_children("*", "CollisionShape3D", true, false).size() > 0:
+		return false
+	node.visible = false
+	return true
 
 
 func _near_built(p: Vector3, m: float) -> bool:
@@ -209,6 +227,11 @@ func finish() -> void:
 		for k in _place:
 			n += _place[k].size()
 		print("FOREST KIT %s%s: %d placements, %d meshes, %d ms" % [palette, " low" if low else "", n, _meshes.size(), Time.get_ticks_msec() - t0])
+		if "--forest-kit-log" in OS.get_cmdline_user_args():
+			var by := {}
+			for k in _place:
+				by[k] = _place[k].size()
+			print("FOREST KIT keys ", by)
 
 
 func _add(key: String, xf: Transform3D, tint: Color = Color.WHITE) -> void:
@@ -228,10 +251,21 @@ func _add(key: String, xf: Transform3D, tint: Color = Color.WHITE) -> void:
 func _species(pos: Vector3, hint: String, seed: int) -> String:
 	if palette == "winter":
 		return "pine"
-	if hint in ["pine", "broad", "autumn"]:
-		return hint
 	if hint == "canopy":
 		return "broad"
+	if palette in ["day", "night"] and hint in ["", "broad"]:
+		# Pass 2 (2026-10-31, picks Spawn D / Battle A): the woods read as
+		# dense dark conifers. Pines are the majority on both sides; in the
+		# field one tree in three stays broadleaf for variety (the same seeds
+		# as the Wildwood's mushroom trees, so those keep their round crowns).
+		# game.gd's collider for the spot is the same either way.
+		if absf(pos.x) < 8.0:
+			return "pine" if seed % 2 == 0 else "broad"
+		if not _in_field(pos):
+			return "broad" if seed % 6 == 0 else "pine"   # the out-of-bounds woods: five in six
+		return "broad" if seed % 3 == 0 else "pine"
+	if hint in ["pine", "broad", "autumn"]:
+		return hint
 	if pos.x < -8.0:
 		return "pine" if seed % 4 == 1 else "broad"   # the Wildwood: mostly broadleaf
 	if pos.x > 8.0:
@@ -270,8 +304,8 @@ func _tree_cluster(t: Array, r: RandomNumberGenerator) -> void:
 	var max_h: float = t[3]
 	var seed: int = t[4]
 	var species := _species(pos, hint, seed)
-	# Kit trees are ~4.6 m (broadleaf) and ~6 m (pine) at scale 1.
-	var base_h := 6.0 if species in ["pine", "autumn"] else 4.6
+	# Kit trees are ~4.6 m (broadleaf) and ~5.2 m (pine, pass 2) at scale 1.
+	var base_h := 5.2 if species in ["pine", "autumn"] else 4.6
 	var s := (1.12 if big else 0.95) * r.randf_range(0.9, 1.08)
 	if max_h > 0.0:
 		s = minf(s, max_h / base_h)
@@ -291,7 +325,7 @@ func _tree_cluster(t: Array, r: RandomNumberGenerator) -> void:
 			continue
 		_mark(q, 0.7)
 		var sp := species
-		if species != "autumn" and palette != "winter" and r.randf() < 0.3:
+		if species != "autumn" and palette != "winter" and r.randf() < (0.3 if palette == "twilight" else 0.15):   # (pass 2: day and night swap one in seven)
 			sp = "pine" if species == "broad" else "broad"
 		_tree(q, sp, seed + 17 * (i + 1), s * r.randf_range(0.62, 0.86), r)
 	# A low bush or two at the foot of grove trees.
@@ -304,7 +338,11 @@ func _fill_forest(r: RandomNumberGenerator) -> void:
 	## A dense canopy outside the playable field: the out-of-bounds woods
 	## behind the castles and along the north and south edges, on a jittered
 	## grid, around the hamlets, farms and trails.
-	var step := 2.7 if not low else 3.8
+	# Pass 2 (2026-10-31): a closer grid on High (the picks' woods are a
+	# packed canopy of conifers right up to the walls); Low a little sparser
+	# than before (was 3.8), so its frame stays as light with the bigger pines.
+	var step := 2.0 if not low else 4.3
+	var gap := 0.9 if not low else 1.25
 	var hx: float = game.map_half.x
 	var hz: float = game.map_half.y
 	var x := -118.0
@@ -317,14 +355,16 @@ func _fill_forest(r: RandomNumberGenerator) -> void:
 				continue   # the field: only game.gd's own trees there
 			if r.randf() < 0.08:
 				continue   # small clearings
-			if _crowded(p, 1.25) or not _clear(p, 1.4):
+			if _crowded(p, gap + 0.15) or not _clear(p, 1.6):
 				continue
 			var seed := absi(int(p.x * 13 + p.z * 7)) + 5
-			# Near the spawn yards the trees stay low so they never hide the yard.
-			var near_yard := _in_castle(p, 7.0)
+			# Near the spawn yards the trees stay low where they would stand
+			# between the match camera (south, +z) and a yard; beside and
+			# behind a yard they grow full height right up to its wall.
+			var near_yard: bool = _in_castle(p, 7.0) and absf(p.z) > game.CELLAR_HALF_Z - 1.0 and p.z > 0.0
 			var species := _species(p, "", seed)
-			var s := r.randf_range(0.7, 1.12) if not near_yard else r.randf_range(0.6, 0.75)
-			_mark(p, 1.1)
+			var s := r.randf_range(0.78, 1.12) if not near_yard else r.randf_range(0.6, 0.75)
+			_mark(p, gap)
 			_tree(p, species, seed, s, r)
 		x += step
 
@@ -343,7 +383,8 @@ func _trail_layout(r: RandomNumberGenerator) -> void:
 	## south woods.
 	var back: float = game.CASTLE_X + game.CASTLE_DEPTH + game.CELLAR_DEPTH + 1.5
 	for sx in [-1.0, 1.0]:
-		_trail([Vector3(sx * (back + 1.0), 0, 0.0), Vector3(sx * (back + 7.0), 0, 2.5), Vector3(sx * (back + 13.0), 0, 0.5), Vector3(sx * (back + 19.0), 0, 4.0)], 2.4)
+		# (Pass 2: starts 8 m out, so the woods close right up to the yard wall.)
+		_trail([Vector3(sx * (back + 8.0), 0, 2.0), Vector3(sx * (back + 13.0), 0, 0.5), Vector3(sx * (back + 19.0), 0, 4.0)], 2.4)
 		for zs in [-1.0, 1.0]:
 			_trail([Vector3(sx * (back - 2.0), 0, zs * 15.5), Vector3(sx * (back + 5.0), 0, zs * 18.0), Vector3(sx * (back + 12.0), 0, zs * 17.0), Vector3(sx * (back + 20.0), 0, zs * 20.0)], 2.2)
 	for zs in [-1.0, 1.0]:
@@ -633,7 +674,9 @@ func _leaf_ramp(accent: String) -> Array:
 			return [Color(0.12, 0.3, 0.22), Color(0.9, 0.94, 1.0)]
 	# The picks' crowns: deep cool green in the shade, warm yellow-green on top
 	# (grade pass 2026-10-31: sunlit tops a clear step lighter, was v 0.5).
-	return [Color.from_hsv(0.4, 0.86, 0.09), Color.from_hsv(0.26, 0.88, 0.4)]
+	# Pass 2: a step deeper and less lime, so the broadleaf accents sit with
+	# the dark pines (was top hsv 0.26 / 0.88 / 0.4; vertex colours are linear).
+	return [Color.from_hsv(0.4, 0.86, 0.06), Color.from_hsv(0.3, 0.8, 0.22)]
 
 
 func _pine_ramp(accent: String) -> Array:
@@ -646,8 +689,9 @@ func _pine_ramp(accent: String) -> Array:
 			return [Color(0.03, 0.22, 0.18), Color(0.2, 0.82, 0.52)]
 		"winter":
 			return [Color(0.1, 0.34, 0.24), Color(0.24, 0.56, 0.36)]
-	# Grade pass 2026-10-31: deep blue-green inside, vivid yellow-green tips.
-	return [Color.from_hsv(0.44, 0.86, 0.08), Color.from_hsv(0.29, 0.86, 0.38)]
+	# Pass 2 (2026-10-31): the picks' pines are a deep green body with only
+	# the drooping tips a step lighter (were vivid lime tips, v 0.38).
+	return [Color.from_hsv(0.42, 0.85, 0.03), Color.from_hsv(0.31, 0.8, 0.19)]   # (vertex colours are linear: v 0.19 shows as a mid green)
 
 
 func _bark() -> Array:
@@ -742,6 +786,13 @@ func _tri(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, c0: Color, c1:
 	_v(st, p1, n, c1, kind)
 
 
+func _tri_n(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, n0: Vector3, n1: Vector3, n2: Vector3, c0: Color, c1: Color, c2: Color) -> void:
+	## A pine needle triangle with its own (soft) vertex normals, wound like _tri.
+	_v(st, p0, n0, c0, NEEDLE)
+	_v(st, p2, n2, c2, NEEDLE)
+	_v(st, p1, n1, c1, NEEDLE)
+
+
 func _box(st: SurfaceTool, c: Vector3, h: Vector3, yaw: float, col: Color, kind: float) -> void:
 	## An axis box (half extents h) turned by yaw round y.
 	var bs := Basis(Vector3.UP, yaw)
@@ -826,67 +877,83 @@ func _make_broad(st: SurfaceTool, seed: int, shape: int, accent: String) -> void
 
 
 func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
-	## Pick D's conifer: a short visible trunk and five drooping tiers of
-	## needles stepping in to a point, ~6 m tall. Stonekeep's carry snow on
-	## every tier.
+	## Pick D's conifer: a short visible trunk and six or seven full,
+	## drooping skirts of needles stepping in to a point, ~6.4 m tall.
+	## Pass 2 (2026-10-31): each skirt is rounded (a shoulder ring between
+	## its point and its tips, so it bulges like the picks' bushy tiers),
+	## deep green where it runs in under the tier above and lighter only
+	## at the tips. Stonekeep's carry snow on every tier.
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var ramp := _pine_ramp(accent)
 	var bark := _bark()
-	var tiers: int = [5, 4, 6][shape]
-	var base_r: float = [1.55, 1.35, 1.7][shape]
-	var top: float = [6.0, 5.2, 6.4][shape]
-	var foot := 1.0     # first tier's rim height
+	var tiers: int = [5, 5, 6][shape]
+	var base_r: float = [1.75, 1.55, 1.9][shape]
+	var top: float = [5.2, 4.6, 5.7][shape]
+	var foot := 0.75    # first tier's rim height
 	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, top * 0.6, 0), 0.2, 0.08, 6, bark[0], bark[1], 1.0)
 	var snow: bool = palette == "winter"
 	var snow_c := Color(0.93, 0.96, 1.0, 1.0)
+	var n := 10   # tips per skirt (pass 2 perf: 10 keeps the scallop, ~40% fewer triangles than 12 x 7 tiers)
 	for i in tiers:
 		var f := float(i) / tiers
-		var rr: float = base_r * (1.0 - f * 0.78)
-		var rim_y: float = foot + (top - foot - 0.9) * f
-		var apex_y: float = rim_y + (top - foot) / tiers * 1.75
+		var rr: float = base_r * (1.0 - f * 0.8)
+		var rim_y: float = foot + (top - foot - 0.8) * f
+		var apex_y: float = rim_y + (top - foot) / tiers * 1.6
 		if i == tiers - 1:
 			apex_y = top
-		var n := 10
 		var spin := r.randf() * TAU
 		var t_lo: float = clampf(rim_y / top, 0.0, 1.0)
-		var t_hi: float = clampf(apex_y / top, 0.0, 1.0)
-		# Stepped tiers (pick D, grade pass 2026-10-31): each tier is light
-		# at its drooping tips and dark where it runs in under the tier
-		# above, so the cone reads as stacked skirts, not one smooth blob.
-		# Only the top tier is light right up to its point.
-		var c_tip: Color = ramp[0].lerp(ramp[1], 0.62 + t_lo * 0.38)
-		var c_apex: Color = ramp[0].lerp(ramp[1], 0.85 if i == tiers - 1 else 0.05 + t_hi * 0.15)
-		var c_under: Color = ramp[0] * 0.5
+		var lift := 0.08 * t_lo   # upper tiers a touch lighter (more sky)
+		var c_tip: Color = ramp[0].lerp(ramp[1], 0.82 + t_lo * 0.18)
+		var c_sh: Color = ramp[0].lerp(ramp[1], 0.42 + lift)
+		var c_apex: Color = ramp[0].lerp(ramp[1], 0.8 if i == tiers - 1 else 0.12 + lift)
+		var c_under: Color = ramp[0] * 0.45
 		c_under.a = 1.0
 		var apex := Vector3(0, apex_y, 0)
-		var under := Vector3(0, rim_y + 0.25, 0)
+		var under := Vector3(0, rim_y + 0.3, 0)
+		var sh_y: float = rim_y + (apex_y - rim_y) * 0.42
 		var rim := []
+		var sh := []
+		var rn := []   # soft normals: the skirt reads rounded, not as flat sheets
+		var sn := []
 		for k in n * 2:
 			var a := spin + TAU * k / (n * 2)
 			var tip := k % 2 == 0
-			var rad: float = rr * (1.0 if tip else 0.84) * r.randf_range(0.94, 1.06)
-			var y := rim_y - (0.16 if tip else -0.08)
-			rim.append(Vector3(cos(a) * rad, y, sin(a) * rad))
+			var d := Vector3(cos(a), 0, sin(a))
+			var rad: float = rr * (1.0 if tip else 0.8) * r.randf_range(0.92, 1.08)
+			rim.append(d * rad + Vector3(0, rim_y - (0.22 if tip else -0.1) + r.randf_range(-0.05, 0.05), 0))
+			var sr: float = rr * 0.62 * r.randf_range(0.94, 1.06)
+			sh.append(d * sr + Vector3(0, sh_y + r.randf_range(-0.05, 0.05), 0))
+			rn.append((d * 0.95 + Vector3(0, 0.25, 0)).normalized())
+			sn.append((d * 0.6 + Vector3(0, 0.8, 0)).normalized())
+		var an := Vector3.UP
 		for k in n * 2:
+			var k1 := (k + 1) % (n * 2)
 			var p0: Vector3 = rim[k]
-			var p1: Vector3 = rim[(k + 1) % (n * 2)]
-			var c0 := c_tip if k % 2 == 0 else c_tip.lerp(c_apex, 0.35)
-			var c1 := c_tip if (k + 1) % 2 == 0 else c_tip.lerp(c_apex, 0.35)
+			var p1: Vector3 = rim[k1]
+			var s0: Vector3 = sh[k]
+			var s1: Vector3 = sh[k1]
+			var c0 := c_tip if k % 2 == 0 else c_tip.lerp(c_sh, 0.5)
+			var c1 := c_tip if k1 % 2 == 0 else c_tip.lerp(c_sh, 0.5)
+			var cs := c_sh
 			var ca := c_apex
 			if snow:
 				# Snow lies on the upper slope, the drooping tips stay green.
 				ca = c_apex.lerp(snow_c, 0.8)
-				c0 = c0.lerp(snow_c, 0.08 if k % 2 == 0 else 0.45)
-				c1 = c1.lerp(snow_c, 0.08 if (k + 1) % 2 == 0 else 0.45)
-			_tri(st, apex, p1, p0, ca, c1, c0, NEEDLE)
-			_tri(st, under, p0, p1, c_under, c0 * 0.55, c1 * 0.55, NEEDLE)
+				cs = c_sh.lerp(snow_c, 0.6)
+				c0 = c0.lerp(snow_c, 0.08 if k % 2 == 0 else 0.4)
+				c1 = c1.lerp(snow_c, 0.08 if k1 % 2 == 0 else 0.4)
+			_tri_n(st, apex, s1, s0, an, sn[k1], sn[k], ca, cs, cs)
+			_tri_n(st, s0, s1, p1, sn[k], sn[k1], rn[k1], cs, cs, c1)
+			_tri_n(st, s0, p1, p0, sn[k], rn[k1], rn[k], cs, c1, c0)
+			_tri(st, under, p0, p1, c_under, c0 * 0.5, c1 * 0.5, NEEDLE)
 	if palette == "twilight":
 		for i in 6:
 			var a := r.randf() * TAU
 			var f := r.randf_range(0.0, 0.8)
-			var y: float = foot + (top - foot - 0.9) * f
-			var rad: float = base_r * (1.0 - f * 0.78) * 0.95
+			var y: float = foot + (top - foot - 0.8) * f
+			var rad: float = base_r * (1.0 - f * 0.8) * 0.95
 			var bc := Color(0.55, 0.95, 1.0, 1.0) if i % 2 == 0 else Color(1.0, 0.6, 0.9, 1.0)
 			_lobe(st, Vector3(cos(a) * rad, y - 0.15, sin(a) * rad), 0.1, 1.0, seed + 800 + i, bc, bc, 0.0, 1.0, 3.0, 0.1)
 
