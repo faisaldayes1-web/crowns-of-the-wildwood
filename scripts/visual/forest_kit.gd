@@ -277,7 +277,9 @@ func _tree_key(species: String, pos: Vector3, seed: int) -> String:
 	## Which mesh: species, palette accent and shape.
 	match species:
 		"pine":
-			return "pine%d" % (seed % 3)
+			# Pass 3: the small stout pine1 one time in three (three meshes, as
+			# in pass 2: a fourth would add a MultiMesh in every forest chunk).
+			return "pine1" if seed % 3 == 1 else "pine%d" % (((seed / 3) % 2) * 2)
 		"autumn":
 			return "autumn%d" % (seed % 2)
 		_:
@@ -680,18 +682,20 @@ func _leaf_ramp(accent: String) -> Array:
 
 
 func _pine_ramp(accent: String) -> Array:
+	## [shade under the tiers, body, sunlit tier tops] (pass 3: three steps).
 	if accent == "autumn":
-		return [StyleProfile.AUTUMN_BOTTOM, StyleProfile.AUTUMN_TOP]
+		return [StyleProfile.AUTUMN_BOTTOM, StyleProfile.AUTUMN_TOP, StyleProfile.AUTUMN_TOP.lerp(Color(1.0, 0.85, 0.45), 0.35)]
 	if accent == "gold":
-		return [StyleProfile.GOLD_BOTTOM, StyleProfile.GOLD_TOP]
+		return [StyleProfile.GOLD_BOTTOM, StyleProfile.GOLD_TOP, StyleProfile.GOLD_TOP.lerp(Color(1.0, 0.92, 0.55), 0.35)]
 	match palette:
 		"twilight":
-			return [Color(0.03, 0.22, 0.18), Color(0.2, 0.82, 0.52)]
+			return [Color(0.03, 0.22, 0.18), Color(0.12, 0.6, 0.42), Color(0.3, 0.9, 0.6)]
 		"winter":
-			return [Color(0.1, 0.34, 0.24), Color(0.24, 0.56, 0.36)]
-	# Pass 2 (2026-10-31): the picks' pines are a deep green body with only
-	# the drooping tips a step lighter (were vivid lime tips, v 0.38).
-	return [Color.from_hsv(0.42, 0.85, 0.03), Color.from_hsv(0.31, 0.8, 0.19)]   # (vertex colours are linear: v 0.19 shows as a mid green)
+			return [Color(0.06, 0.24, 0.16), Color(0.16, 0.42, 0.28), Color(0.3, 0.56, 0.36)]
+	# Pass 3 (2026-10-31): the picks' pines are a mid green body with clearly
+	# lit, warm yellow-green tops on every tier and dark undersides (pass 2
+	# was a deep green body, tips only a step lighter). Vertex colours are linear.
+	return [Color.from_hsv(0.42, 0.85, 0.022), Color.from_hsv(0.36, 0.84, 0.085), Color.from_hsv(0.28, 0.78, 0.22)]
 
 
 func _bark() -> Array:
@@ -877,85 +881,110 @@ func _make_broad(st: SurfaceTool, seed: int, shape: int, accent: String) -> void
 
 
 func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
-	## Pick D's conifer: a short visible trunk and six or seven full,
-	## drooping skirts of needles stepping in to a point, ~6.4 m tall.
-	## Pass 2 (2026-10-31): each skirt is rounded (a shoulder ring between
-	## its point and its tips, so it bulges like the picks' bushy tiers),
-	## deep green where it runs in under the tier above and lighter only
-	## at the tips. Stonekeep's carry snow on every tier.
+	## Pick D's conifer, pass 3 (2026-10-31): a short visible trunk and five
+	## or six stacked, rounded tiers. Each tier is a puffy cap ringed with
+	## many small cloud-like lobes (a scalloped, drooping rim of round needle
+	## clumps, dark notches between them), bulging out and then rounding in
+	## under the tier above: a dark curl under each rim, sunlit lobe tops in
+	## a mid green, a shaded band where the next tier overhangs, and a warm
+	## lit crown on the top tier. Shape 1 is a small, stout pine (the picks'
+	## woods hold many small ones). Stonekeep's carry snow on each tier.
+	## 3 vertices a lobe, 5-7 lobes a tier: ~75-105 triangles a tier, no
+	## underside (never seen from the match camera; Low: two lobes fewer).
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var ramp := _pine_ramp(accent)
 	var bark := _bark()
-	var tiers: int = [5, 5, 6][shape]
-	var base_r: float = [1.75, 1.55, 1.9][shape]
-	var top: float = [5.2, 4.6, 5.7][shape]
-	var foot := 0.75    # first tier's rim height
-	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, top * 0.6, 0), 0.2, 0.08, 6, bark[0], bark[1], 1.0)
+	var tiers: int = [5, 4, 6][shape]
+	var base_r: float = [1.7, 1.3, 1.8][shape]
+	var top: float = [5.4, 3.4, 6.0][shape]
+	var foot: float = [0.75, 0.5, 0.8][shape]   # first tier's rim height
+	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, top * 0.55, 0), 0.2 * base_r / 1.7, 0.08, 6, bark[0], bark[1], 1.0)
 	var snow: bool = palette == "winter"
 	var snow_c := Color(0.93, 0.96, 1.0, 1.0)
-	var n := 10   # tips per skirt (pass 2 perf: 10 keeps the scallop, ~40% fewer triangles than 12 x 7 tiers)
+	var step: float = (top - foot) / (tiers + 0.3)
+	# One tier's profile, [radius factor, height factor], from the rim up:
+	# the drooping rim, the bulge (the lobes' sunlit tops), the shoulder
+	# under the next tier, the apex.
+	var prof := [[0.9, 0.0], [1.0, 0.24], [0.6, 0.6], [0.0, 1.0]]
 	for i in tiers:
-		var f := float(i) / tiers
-		var rr: float = base_r * (1.0 - f * 0.8)
-		var rim_y: float = foot + (top - foot - 0.8) * f
-		var apex_y: float = rim_y + (top - foot) / tiers * 1.6
-		if i == tiers - 1:
-			apex_y = top
+		var f := float(i) / maxf(tiers - 1, 1)
+		var last := i == tiers - 1
+		var rr: float = base_r * (1.0 - f * 0.62)
+		var rim_y: float = foot + step * i
+		var h: float = step * (1.55 if not last else 1.75)
+		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - (2 if low else 0), 5)
+		var m := lobes * 3
 		var spin := r.randf() * TAU
-		var t_lo: float = clampf(rim_y / top, 0.0, 1.0)
-		var lift := 0.08 * t_lo   # upper tiers a touch lighter (more sky)
-		var c_tip: Color = ramp[0].lerp(ramp[1], 0.82 + t_lo * 0.18)
-		var c_sh: Color = ramp[0].lerp(ramp[1], 0.42 + lift)
-		var c_apex: Color = ramp[0].lerp(ramp[1], 0.8 if i == tiers - 1 else 0.12 + lift)
-		var c_under: Color = ramp[0] * 0.45
-		c_under.a = 1.0
-		var apex := Vector3(0, apex_y, 0)
-		var under := Vector3(0, rim_y + 0.3, 0)
-		var sh_y: float = rim_y + (apex_y - rim_y) * 0.42
-		var rim := []
-		var sh := []
-		var rn := []   # soft normals: the skirt reads rounded, not as flat sheets
-		var sn := []
-		for k in n * 2:
-			var a := spin + TAU * k / (n * 2)
-			var tip := k % 2 == 0
-			var d := Vector3(cos(a), 0, sin(a))
-			var rad: float = rr * (1.0 if tip else 0.8) * r.randf_range(0.92, 1.08)
-			rim.append(d * rad + Vector3(0, rim_y - (0.22 if tip else -0.1) + r.randf_range(-0.05, 0.05), 0))
-			var sr: float = rr * 0.62 * r.randf_range(0.94, 1.06)
-			sh.append(d * sr + Vector3(0, sh_y + r.randf_range(-0.05, 0.05), 0))
-			rn.append((d * 0.95 + Vector3(0, 0.25, 0)).normalized())
-			sn.append((d * 0.6 + Vector3(0, 0.8, 0)).normalized())
-		var an := Vector3.UP
-		for k in n * 2:
-			var k1 := (k + 1) % (n * 2)
-			var p0: Vector3 = rim[k]
-			var p1: Vector3 = rim[k1]
-			var s0: Vector3 = sh[k]
-			var s1: Vector3 = sh[k1]
-			var c0 := c_tip if k % 2 == 0 else c_tip.lerp(c_sh, 0.5)
-			var c1 := c_tip if k1 % 2 == 0 else c_tip.lerp(c_sh, 0.5)
-			var cs := c_sh
-			var ca := c_apex
-			if snow:
-				# Snow lies on the upper slope, the drooping tips stay green.
-				ca = c_apex.lerp(snow_c, 0.8)
-				cs = c_sh.lerp(snow_c, 0.6)
-				c0 = c0.lerp(snow_c, 0.08 if k % 2 == 0 else 0.4)
-				c1 = c1.lerp(snow_c, 0.08 if k1 % 2 == 0 else 0.4)
-			_tri_n(st, apex, s1, s0, an, sn[k1], sn[k], ca, cs, cs)
-			_tri_n(st, s0, s1, p1, sn[k], sn[k1], rn[k1], cs, cs, c1)
-			_tri_n(st, s0, p1, p0, sn[k], rn[k1], rn[k], cs, c1, c0)
-			_tri(st, under, p0, p1, c_under, c0 * 0.5, c1 * 0.5, NEEDLE)
+		var t := clampf(rim_y / top, 0.0, 1.0)
+		var c_rim: Color = ramp[0].lerp(ramp[1], 0.45 + 0.1 * t)
+		var c_lit: Color = ramp[1].lerp(ramp[2], 0.55 + 0.35 * t)
+		var c_sh: Color = ramp[0].lerp(ramp[1], 0.7) if not last else ramp[1].lerp(ramp[2], 0.75)
+		var c_top: Color = ramp[2] if last else ramp[1]
+		if snow:
+			c_lit = c_lit.lerp(snow_c, 0.82)
+			c_sh = c_sh.lerp(snow_c, 0.35)
+			c_top = c_top.lerp(snow_c, 0.9)
+		var cols := [c_rim, c_lit, c_sh, c_top]
+		var lob := []
+		for k in m:
+			lob.append((0.78 if k % 3 == 0 else 1.0) * r.randf_range(0.95, 1.05))   # 0 = the notch between two lobes
+		var grid := []
+		for j in prof.size():
+			var row := []
+			for k in m:
+				var a := spin + TAU * k / m
+				var d := Vector3(cos(a), 0, sin(a))
+				var lf: float = lob[k] if j < 2 else (lerpf(lob[k], 1.0, 0.5) if j == 2 else 1.0)
+				var y: float = rim_y + h * prof[j][1]
+				if j == 0:
+					y += (0.1 if k % 3 == 0 else -0.04) * h   # the lobes droop, the notches tuck up
+				if last and j == 3:
+					y -= h * 0.14   # a round top knot, not a spike
+				row.append(d * rr * prof[j][0] * lf + Vector3(0, y, 0))
+			grid.append(row)
+		# Smooth normals from the grid (round puffs), tipped up a little.
+		var nrm := []
+		for j in prof.size():
+			var row := []
+			for k in m:
+				if j == prof.size() - 1:
+					row.append(Vector3.UP)
+					continue
+				var tang: Vector3 = grid[j][(k + 1) % m] - grid[j][(k - 1 + m) % m]
+				var up: Vector3 = grid[j + 1][k] - grid[maxi(j - 1, 0)][k]
+				var nn: Vector3 = up.cross(tang).normalized()
+				if nn.dot(Vector3(grid[j][k].x, 0, grid[j][k].z)) < 0.0:
+					nn = -nn
+				row.append((nn + Vector3(0, 0.2, 0)).normalized())
+			nrm.append(row)
+		for k in m:
+			var k1 := (k + 1) % m
+			for j in 2:
+				var l0: Vector3 = grid[j][k]
+				var l1: Vector3 = grid[j][k1]
+				var u0: Vector3 = grid[j + 1][k]
+				var u1: Vector3 = grid[j + 1][k1]
+				# The notches between lobes run dark down the rim and bulge.
+				var cl0: Color = cols[j] * (0.62 if k % 3 == 0 else 1.0)
+				var cl1: Color = cols[j] * (0.62 if k1 % 3 == 0 else 1.0)
+				var cu0: Color = cols[j + 1] * (0.62 if k % 3 == 0 and j == 0 else 1.0)
+				var cu1: Color = cols[j + 1] * (0.62 if k1 % 3 == 0 and j == 0 else 1.0)
+				cl0.a = 1.0
+				cl1.a = 1.0
+				cu0.a = 1.0
+				cu1.a = 1.0
+				_tri_n(st, u0, u1, l1, nrm[j + 1][k], nrm[j + 1][k1], nrm[j][k1], cu0, cu1, cl1)
+				_tri_n(st, u0, l1, l0, nrm[j + 1][k], nrm[j][k1], nrm[j][k], cu0, cl1, cl0)
+			_tri_n(st, grid[3][k], grid[2][k1], grid[2][k], Vector3.UP, nrm[2][k1], nrm[2][k], c_top, c_sh, c_sh)
 	if palette == "twilight":
 		for i in 6:
 			var a := r.randf() * TAU
 			var f := r.randf_range(0.0, 0.8)
-			var y: float = foot + (top - foot - 0.8) * f
-			var rad: float = base_r * (1.0 - f * 0.8) * 0.95
+			var y: float = foot + (top - foot) * f * 0.85
+			var rad: float = base_r * (1.0 - f * 0.62) * 0.95
 			var bc := Color(0.55, 0.95, 1.0, 1.0) if i % 2 == 0 else Color(1.0, 0.6, 0.9, 1.0)
-			_lobe(st, Vector3(cos(a) * rad, y - 0.15, sin(a) * rad), 0.1, 1.0, seed + 800 + i, bc, bc, 0.0, 1.0, 3.0, 0.1)
+			_lobe(st, Vector3(cos(a) * rad, y + 0.1, sin(a) * rad), 0.1, 1.0, seed + 800 + i, bc, bc, 0.0, 1.0, 3.0, 0.1)
 
 
 func _make_bush(st: SurfaceTool, seed: int, shape: int) -> void:

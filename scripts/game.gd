@@ -10776,7 +10776,9 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 				var crests: Array = []
 				for k in 5:
 					crests.append(Vector3(bx + side * (9.0 + (k - 2.0) * 2.85), 0, a.z))
-				CastleKit.palisade(self, a, b, 0, Vector3(0, 0, 1), crests, false, 811)
+				# Pass 3 (2026-10-31): the tall crenellated block wall with
+				# timber posts and crests (was the timber palisade).
+				CastleKit.station_wall(self, a, b, 0, crests, false, 811)
 			else:
 				# Pass 2 (2026-10-31): the west wall, which the camera looks
 				# along, is built tall and thick (outward, away from the yard);
@@ -10855,10 +10857,12 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	for xs in [-0.86, 0.86]:
 		_add_block(Vector3(pos.x + xs, pos.y + 1.3, zb - 0.04), Vector3(0.24, 2.6, 0.24), Color.WHITE, false, mid)
 		_add_block(Vector3(pos.x + xs, pos.y + 2.64, zb - 0.04), Vector3(0.32, 0.08, 0.32), Color.WHITE, false, _gold())
-	_add_block(Vector3(pos.x, pos.y + 1.95, zb - 0.02), Vector3(1.62, 1.07, 0.04), Color.WHITE, false, dark)
+	_add_block(Vector3(pos.x, pos.y + 1.95, zb - 0.02), Vector3(1.62, 1.07, 0.04), Color.WHITE, false, _gold() if world_style else dark)
 	# Pass 2 (2026-10-31, the picks' station banners): in the match world the
 	# sign's cloth is a deep shade of the class's own awning colour.
-	var sign_cloth: Color = CastleKit.awning_color(role).darkened(0.35) if world_style else StyleProfile.ELF_CLOTH
+	# Pass 3: the sign reads as the class's square banner (class colour; its
+	# frame in gold, the banner's hem, in the match world).
+	var sign_cloth: Color = CastleKit.awning_color(role).darkened(0.12) if world_style else StyleProfile.ELF_CLOTH
 	_add_block(Vector3(pos.x, pos.y + 1.95, zb), Vector3(1.5, 0.95, 0.06), Color.WHITE, false, _cloth(sign_cloth))
 	for yy in [1.5, 2.4]:
 		_add_block(Vector3(pos.x, pos.y + yy, zb + 0.01), Vector3(1.56, 0.07, 0.08), Color.WHITE, false, _gold())
@@ -10866,8 +10870,9 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	_picked_carved_block(Vector3(pos.x, pos.y + 2.55, zb - 0.04), Vector3(2.08, 0.18, 0.3), mid)
 	_add_block(Vector3(pos.x, pos.y + 1.34, zb), Vector3(1.5, 0.1, 0.06), Color.WHITE, false, _cloth(sign_cloth.darkened(0.12)))
 	if world_style:
-		# A striped market awning in the class colour over the sign.
-		CastleKit.station_awning(self, pos, role, zb)
+		# Pass 3 (2026-10-31, picks Spawn D / Battle A): a square class banner
+		# hung from a rod over the station (was pass 2's striped awning).
+		CastleKit.station_banner(self, pos, role, zb)
 	# The name plate: a dark strip across the panel's lower third.
 	_add_block(Vector3(pos.x, pos.y + 1.68, zb + 0.04), Vector3(1.44, 0.3, 0.03), Color.WHITE, false, dark)
 	var name := Label3D.new()

@@ -301,7 +301,7 @@ static func courtyard_wall(g, a: Vector3, b: Vector3, grey: bool, seed: int, mer
 
 
 static func _tall_courtyard_wall(g, a: Vector3, b: Vector3, along: Vector3, length: float, rot: float, grey: bool, seed: int,
-		out: Vector3) -> void:
+		out: Vector3, posts_at: Array = [], flags: bool = true) -> void:
 	var sh := out * 0.32   # the wall's centre line, moved outward off the kerb
 	var a0 := a + sh
 	var b0 := b + sh
@@ -333,11 +333,64 @@ static func _tall_courtyard_wall(g, a: Vector3, b: Vector3, along: Vector3, leng
 	# yard face were tried: at the match camera they showed as slivers on
 	# the wall's edge for a dozen extra draws, so the yard's banners stay on
 	# the castle face and the station awnings.)
-	var np := maxi(int(round(length / 4.2)), 1)
-	for k in np + 1:
-		var p := a0 + along * (k * length / np)
+	var pts: Array = []
+	if posts_at.is_empty():
+		var np := maxi(int(round(length / 4.2)), 1)
+		for k in np + 1:
+			pts.append(a0 + along * (k * length / np))
+	else:
+		# (Pass 3: the station wall's posts stand between the class banners.)
+		pts = [a0, b0]
+		for q in posts_at:
+			pts.append(Vector3(q.x, 0, q.z) + sh)
+	for p in pts:
 		block(g, Vector3(p.x, 1.3, p.z), Vector3(0.42, 2.6, 1.24), wood, rot)
 		block(g, Vector3(p.x, 2.64, p.z), Vector3(0.52, 0.12, 1.34), dark, rot)
+	if flags:
+		# Pass 3 (2026-10-31): team flags on poles along the top (the picks'
+		# walls fly banners). Flat cloth facing the camera, so they read at
+		# the match camera where banners on the wall's faces showed as slivers.
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var team_c: Color = Stats.FACTIONS[0].color
+		for i in pts.size():
+			if i % 2 == 1 and pts.size() > 3:
+				continue
+			_flag(st, pts[i] + Vector3(0, 2.7, 0), team_c, i)
+		var mi := MeshInstance3D.new()
+		mi.mesh = StaticBatch.kept_mesh(st)
+		mi.material_override = _awning_mat(g)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.add_child(mi)
+
+
+static func _flag(st: SurfaceTool, foot: Vector3, col: Color, seed: int) -> void:
+	## A flag on a pole: a dark pole with a gold knob and a swallow-tailed
+	## cloth in the team colour with a gold stripe, flying along x.
+	var dark := Color(0.3, 0.2, 0.12)
+	var gold := Color(0.85, 0.66, 0.28)
+	var h := 1.15
+	_beam(st, foot, foot + Vector3(0, h, 0), 0.07, dark)
+	_beam(st, foot + Vector3(0, h, 0), foot + Vector3(0, h + 0.1, 0), 0.12, gold)
+	var dir := 1.0 if seed % 2 == 0 else -1.0
+	var w := 0.78 * dir
+	var t := foot + Vector3(0.03 * dir, h - 0.04, 0)
+	var fh := 0.5
+	var p0 := t
+	var p1 := t + Vector3(w * 0.5, 0.06, 0.04)
+	var p2 := t + Vector3(w, 0.0, 0.0)
+	var c := col.lightened(0.05)
+	c.a = 1.0
+	# Cloth in two panels (a gentle wave), a swallow tail notched into the fly end.
+	_quad(st, p0, p1, p1 - Vector3(0, fh, 0), p0 - Vector3(0, fh, 0), c)
+	var c2 := c * 0.9
+	c2.a = 1.0
+	_quad(st, p1, p2, p2 - Vector3(w * 0.22, fh * 0.5, 0), p1 - Vector3(0, fh * 0.5, 0), c2)
+	_quad(st, p1 - Vector3(0, fh * 0.5, 0), p2 - Vector3(w * 0.22, fh * 0.5, 0), p2 - Vector3(0, fh, 0), p1 - Vector3(0, fh, 0), c2)
+	# The gold stripe across the cloth.
+	var y0 := -fh * 0.4
+	var y1 := -fh * 0.56
+	_quad(st, p0 + Vector3(0, y0, 0.006), p1 + Vector3(0, y0, 0.006), p1 + Vector3(0, y1, 0.006), p0 + Vector3(0, y1, 0.006), gold)
 
 
 static func palisade(g, a: Vector3, b: Vector3, team: int, face: Vector3, crest_at: Array, grey: bool, seed: int) -> void:
@@ -554,4 +607,73 @@ static func station_awning(g, pos: Vector3, role: int, zb: float) -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = StaticBatch.kept_mesh(st)   # (keeps its arrays for the batch: no GPU read-back)
 	mi.material_override = _awning_mat(g)
+	g.add_child(mi)
+
+
+# --- Station wall and class banners (pass 3, 2026-10-31) ------------------------
+
+static func station_wall(g, a: Vector3, b: Vector3, team: int, crest_at: Array, grey: bool, seed: int) -> void:
+	## The courtyard's north wall behind the class stations (picks Spawn D /
+	## Battle A): the tall crenellated block wall, thickened outward (north),
+	## with brown timber posts between the stations carrying the team crest.
+	## It replaces pass 2's timber palisade on the same kerb line; the kerb and
+	## the invisible wall are the caller's. No flags here: anything above the
+	## merlons would sit under the HUD's hint line at the match camera.
+	var f := _frame(a, b)
+	var along: Vector3 = f[0]
+	var length: float = f[2]
+	var rot := atan2(-along.z, along.x)
+	_tall_courtyard_wall(g, a, b, along, length, rot, grey, seed, Vector3(0, 0, -1), crest_at, false)
+	for cp in crest_at:
+		# On the post's yard face (a post 1.24 thick about a line 0.32 out).
+		g._add_crest(team, Vector3(cp.x, 1.75, a.z - 0.32 + 0.64), Vector3(0, 0, 1), 0.5)
+
+
+static func station_banner(g, pos: Vector3, role: int, zb: float) -> void:
+	## The class station's sign worn as a square class banner (pick Spawn D):
+	## a gold rod with knobs across the sign posts, cloth tabs up to it and a
+	## dagged tail below the panel, in the class colour with a gold hem. The
+	## panel itself (class colour, the class crest in its glow, the name) is
+	## game.gd's, so the sign and the hat stay exactly as readable; nothing
+	## here rises above the sign's crossbeam (the HUD hint line sits there).
+	var col: Color = awning_color(role)
+	var gold := Color(0.85, 0.66, 0.28)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var z := zb + 0.04
+	var rod_y := pos.y + 2.5
+	_beam(st, Vector3(pos.x - 1.04, rod_y, z + 0.04), Vector3(pos.x + 1.04, rod_y, z + 0.04), 0.06, gold)
+	var ct := col * 0.8
+	ct.a = 1.0
+	for xs in [-1.0, 1.0]:
+		var kx: float = pos.x + xs * 1.08
+		_beam(st, Vector3(kx, rod_y - 0.06, z + 0.04), Vector3(kx, rod_y + 0.06, z + 0.04), 0.12, gold)
+		# Cloth tabs looping over the rod down to the panel's top.
+		var tx: float = pos.x + xs * 0.5
+		_quad(st, Vector3(tx - 0.1, rod_y + 0.03, z + 0.03), Vector3(tx + 0.1, rod_y + 0.03, z + 0.03), Vector3(tx + 0.1, pos.y + 2.4, z + 0.03), Vector3(tx - 0.1, pos.y + 2.4, z + 0.03), ct)
+	# The dagged tail under the panel's lower hem: three points.
+	var y0 := pos.y + 1.31
+	var y1 := pos.y + 1.1
+	var y2 := pos.y + 0.9
+	var w := 0.75
+	var c := col * 0.92
+	c.a = 1.0
+	_quad(st, Vector3(pos.x - w, y0, z), Vector3(pos.x + w, y0, z), Vector3(pos.x + w, y1, z), Vector3(pos.x - w, y1, z), c)
+	for k in 3:
+		var x0 := pos.x - w + k * (2.0 * w / 3.0)
+		var x1 := x0 + 2.0 * w / 3.0
+		st.set_normal(Vector3(0, 0, 1))
+		st.set_color(c)
+		st.add_vertex(Vector3(x0, y1, z))
+		st.add_vertex(Vector3(x1, y1, z))
+		st.add_vertex(Vector3((x0 + x1) / 2.0, y2, z))
+	# A gold hem down the tail's sides and across its points' root.
+	for xs in [-1.0, 1.0]:
+		var hx: float = pos.x + xs * (w - 0.03)
+		_quad(st, Vector3(hx - 0.03, y0, z + 0.005), Vector3(hx + 0.03, y0, z + 0.005), Vector3(hx + 0.03, y1, z + 0.005), Vector3(hx - 0.03, y1, z + 0.005), gold)
+	_quad(st, Vector3(pos.x - w, y1 + 0.05, z + 0.005), Vector3(pos.x + w, y1 + 0.05, z + 0.005), Vector3(pos.x + w, y1, z + 0.005), Vector3(pos.x - w, y1, z + 0.005), gold)
+	var mi := MeshInstance3D.new()
+	mi.mesh = StaticBatch.kept_mesh(st)
+	mi.material_override = _awning_mat(g)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	g.add_child(mi)
