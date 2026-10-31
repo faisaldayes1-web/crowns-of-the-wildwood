@@ -621,6 +621,7 @@ func _build_world_behind() -> void:
 	## The match world, built a slice a frame behind the live menus.
 	_world_behind = true
 	StaticBatch.load_baked()   # the batch's saved mesh arrays, read on a thread meanwhile
+	_preload_world()
 	while menus_warming and not _world_rush:   # the menu warm-up first, under the loading art
 		await _world_slice
 	# A half-built world must not run (the economy's labels, the volcano):
@@ -640,6 +641,7 @@ func _build_world_behind() -> void:
 	world_style = false
 	_world_behind = false
 	_world_measure(false)
+	_preloads_done()
 	get_tree().node_added.disconnect(_hold_world_piece)
 	for held in _world_held:
 		if is_instance_valid(held[0]):
@@ -648,6 +650,56 @@ func _build_world_behind() -> void:
 	apply_graphics()   # the world's lamps take the quality setting
 	world_ready = true
 	world_finished.emit()
+
+
+const WORLD_PRELOAD := "res://assets/world_preload.res"   # per map, from tools/bake_batch_cache.gd
+var _world_preloads := PackedStringArray()   # requested on worker threads
+var _world_preload_scenes := PackedStringArray()   # waiting for the textures and materials they share
+
+
+func _preload_world() -> void:
+	## claude-faisal/stutter 2026-10-30: the scenes, textures and shaders the
+	## match world loads as it builds start loading on worker threads now, so
+	## each load() in the build finds them ready instead of reading and
+	## uploading them between two title frames (most of the 30-90 ms frames
+	## behind the title were a prop, a texture set or a character loading).
+	## The scenes wait for the files first: two threads loading scenes that
+	## share a texture each made their own copy (Godot 4.3), and the batch
+	## merges materials only when their textures are the same one.
+	if not ResourceLoader.exists(WORLD_PRELOAD):
+		return
+	var pre = load(WORLD_PRELOAD)
+	var key := StringName("map_%d" % map_variant)
+	if pre == null or not pre.has_meta(key):
+		return
+	for f in pre.get_meta(key):
+		if ResourceLoader.has_cached(f):
+			continue
+		if f.get_extension() in ["tscn", "scn", "gltf", "glb", "blend", "fbx", "obj"]:
+			_world_preload_scenes.append(f)
+		elif ResourceLoader.load_threaded_request(f) == OK:
+			_world_preloads.append(f)
+
+
+func _preload_scenes_when_ready() -> void:
+	## (Each slice: once every file is in, the scenes go.)
+	if _world_preload_scenes.is_empty():
+		return
+	for f in _world_preloads:
+		if ResourceLoader.load_threaded_get_status(f) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			return
+	for f in _world_preload_scenes:
+		if not ResourceLoader.has_cached(f) and ResourceLoader.load_threaded_request(f) == OK:
+			_world_preloads.append(f)
+	_world_preload_scenes.clear()
+
+
+func _preloads_done() -> void:
+	## The world holds what it uses; the loader lets go of the rest.
+	_world_preload_scenes.clear()
+	for f in _world_preloads:
+		ResourceLoader.load_threaded_get(f)
+	_world_preloads.clear()
 
 
 func _hold_world_piece(n: Node) -> void:
@@ -2449,6 +2501,7 @@ func _world_build_frame() -> void:
 			world_style = true
 			_world_slice_start = Time.get_ticks_usec()
 			_world_frame_deadline = _world_slice_start + (32000 if _match_waiting else _world_slice_budget())
+			_preload_scenes_when_ready()
 		return
 	# All scene-tree mutations stay on the main thread. A completed chunk
 	# yields real frames, rather than dropping OS input in a blocking build.
