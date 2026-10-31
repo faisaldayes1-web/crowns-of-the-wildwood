@@ -411,9 +411,86 @@ def make_grass():
     save("grass", color, h, 0.12)
 
 
+def make_pavers():
+    """The courtyard floors (picks Spawn D / Battle A, 2026-10-30): cream
+    flags of mixed sizes laid in an irregular ashlar bond (~1 m units at the
+    yards' 0.16 UV scale: squares, 2 m doubles and big 2 m slabs), each
+    slab its own close shade, with a rounded, slightly hand-cut bevel, worn
+    chips on the arrises, a faint crack here and there and a mid-brown joint,
+    so the floor reads as laid stone under the game camera, not a flat tile."""
+    r = np.random.default_rng(311)
+    G = 6
+    owner = -np.ones((G, G), dtype=int)
+    rects = []
+    for cy in range(G):
+        for cx in range(G):
+            if owner[cy, cx] >= 0:
+                continue
+            opts = [(1, 1)]
+            if cx + 1 < G and owner[cy, cx + 1] < 0:
+                opts.append((2, 1))
+            if cy + 1 < G:
+                opts.append((1, 2))
+                if cx + 1 < G and owner[cy, cx + 1] < 0 and owner[cy + 1, cx + 1] < 0:
+                    opts += [(2, 2)]
+            w, h = opts[r.integers(len(opts))] if r.random() < 0.72 else (1, 1)
+            for yy in range(cy, cy + h):
+                for xx in range(cx, cx + w):
+                    owner[yy, xx] = len(rects)
+            rects.append((cx, cy, cx + w, cy + h))
+    cell = N / G
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    # Hand-cut edges: the joint wanders a few pixels.
+    wob = (fbm(N, 16, 3, 312) - 0.5) * 9.0
+    wx = xs + wob
+    wy = ys + (fbm(N, 16, 3, 313) - 0.5) * 9.0
+    gx = np.clip((wx % N) // cell, 0, G - 1).astype(int)
+    gy = np.clip((wy % N) // cell, 0, G - 1).astype(int)
+    ids = owner[gy, gx]
+    R = np.array(rects, dtype=np.float64) * cell
+    x0, y0, x1, y1 = R[ids, 0], R[ids, 1], R[ids, 2], R[ids, 3]
+    px = wx % N
+    py = wy % N
+    du = np.minimum(px - x0, x1 - px)
+    dv = np.minimum(py - y0, y1 - py)
+    d = -np.log(np.exp(-du / 7.0) + np.exp(-dv / 7.0)) * 7.0
+    joint, bevel = 3.5, 22.0
+    t = np.clip((d - joint) / bevel, 0, 1)
+    face = np.sin(t * np.pi / 2) ** 0.7
+    n = len(rects)
+    shade = r.random(n)[ids]
+    tint = r.random(n)[ids]
+    # Each slab sits a touch proud or sunk and tilts a little: relief between slabs.
+    lift = (r.random(n) * 0.16)[ids]
+    tilt_a = (r.random(n) - 0.5)[ids] * 0.10
+    tilt_b = (r.random(n) - 0.5)[ids] * 0.10
+    cu = (px - x0) / np.maximum(x1 - x0, 1) - 0.5
+    cv = (py - y0) / np.maximum(y1 - y0, 1) - 0.5
+    surf = fbm(N, 12, 4, 314)
+    # Worn chips on the arrises and the odd crack.
+    chip = np.clip((fbm(N, 40, 2, 315) - 0.62) * 6.0, 0, 1) * (t < 0.75) * (t > 0.0)
+    cf1, cf2, _cid = voronoi(N, 5, 316, 1.0)
+    crack = np.clip(1 - (cf2 - cf1) / 0.018, 0, 1) * np.clip((fbm(N, 4, 2, 317) - 0.68) * 6, 0, 1) * (t > 0.9)
+    height = face * (0.76 + lift + tilt_a * cu + tilt_b * cv) + surf * 0.07 * face - chip * 0.25 - crack * 0.12
+    height = np.clip(height, 0, 1)
+    v = np.clip(0.5 + cv, 0, 1) * 0.35
+    color = painted_block_color(face, shade, tint, v, deep=rgb(0.80, 0.70, 0.52), light=rgb(0.95, 0.88, 0.71),
+                                warm=rgb(0.94, 0.80, 0.58), cool=rgb(0.85, 0.83, 0.75), joint=rgb(0.60, 0.50, 0.37), seed=318)
+    # A lit upper arris and a deeper shade in the groove (painted contact light).
+    color = color * (1.0 + 0.07 * np.clip(1 - np.abs(t - 0.55) * 4, 0, 1) * (cv < 0))[..., None]
+    color = lerp(color, color * 0.8, (chip * 0.7)[..., None])
+    color = lerp(color, rgb(0.55, 0.46, 0.34), (crack * 0.55)[..., None])
+    speck = np.clip((fbm(N, 160, 2, 319) - 0.62) * 4, 0, 1) * 0.035
+    color = color * (1.0 - speck)[..., None]
+    # Grit and a whisper of moss in the joints.
+    grit = np.clip(1 - t * 3, 0, 1) * np.clip((fbm(N, 10, 2, 320) - 0.55) * 4, 0, 1)
+    color = lerp(color, rgb(0.42, 0.50, 0.26), (grit * 0.45)[..., None])
+    save("pavers", color, height, 1.0)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     jobs = sys.argv[1:] or ["make_paths", "make_rosette", "make_stone", "make_greystone", "make_flagstone", "make_rock", "make_cobble",
-                            "make_wood", "make_wood_dark", "make_bark", "make_grass"]
+                            "make_wood", "make_wood_dark", "make_bark", "make_grass", "make_pavers"]
     for fn in jobs:
         globals()[fn]()
