@@ -125,10 +125,9 @@ func _tick() -> void:
 			last_slices = n_sl
 			slice_frames += 1
 		if d > 40.0 or (verbose and since < 4.0):
-			var sb = preload("res://scripts/static_batch.gd")
 			var vp := get_viewport().get_viewport_rid()
 			print("PROBE long_frame s=%.2f ms=%.1f slices=%d last_slice_ms=%.1f readbacks=%d physics/process/draw/rest_ms=%.1f/%.1f/%.1f/%.1f render_cpu_ms=%.1f gpu_ms=%.1f world_ready=%s idle_ms=%.1f dnodes=%d" % [since, d, n_sl,
-				sl[n_sl - 1] / 1000.0 if n_sl > 0 else 0.0, sb.readbacks, seg[0], seg[1], seg[2], seg[3],
+				sl[n_sl - 1] / 1000.0 if n_sl > 0 else 0.0, _rb("readbacks", -1), seg[0], seg[1], seg[2], seg[3],
 				RenderingServer.viewport_get_measured_render_time_cpu(vp), RenderingServer.viewport_get_measured_render_time_gpu(vp), g.world_ready, idle_ms, dn])
 			if seg[2] > 60.0 and verbose:   # a long draw: what the world added just before
 				var kids: Array = g.get_children().slice(-12)
@@ -177,6 +176,13 @@ func _press(g, since: float) -> void:
 	get_tree().quit()
 
 
+func _rb(name: String, missing: Variant) -> Variant:
+	## static_batch.gd's read-back counters (-1: a build without them).
+	var script: Script = load("res://scripts/static_batch.gd")
+	var v = script.get(name)
+	return missing if v == null else v
+
+
 func _report_build(g) -> void:
 	var sl: PackedInt32Array = g.world_slice_usec
 	var edges := [2, 4, 6, 8, 10, 12, 16, 20, 33, 50, 100]
@@ -200,9 +206,8 @@ func _report_build(g) -> void:
 	print("PROBE slices n=%d avg_ms=%.2f max_ms=%.1f total_ms=%.0f hist_ms %s" % [sl.size(), total / 1000.0 / maxf(sl.size(), 1), worst / 1000.0, total / 1000.0, " ".join(parts)])
 	if "_world_rest_usec" in g:
 		print("PROBE slice_budget rest_ms=%.1f budget_ms=%.1f" % [g._world_rest_usec / 1000.0, g._world_slice_budget() / 1000.0])
-	var sb = preload("res://scripts/static_batch.gd")
-	print("PROBE readbacks n=%d ms=%.0f" % [sb.readbacks, sb.readback_usec / 1000.0])
-	var kinds: Dictionary = sb.readback_kinds
+	print("PROBE readbacks n=%d ms=%.0f" % [_rb("readbacks", -1), _rb("readback_usec", 0) / 1000.0])
+	var kinds: Dictionary = _rb("readback_kinds", {})
 	var ks := kinds.keys()
 	ks.sort_custom(func(a, b): return kinds[a] > kinds[b])
 	for k in ks:
