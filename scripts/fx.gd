@@ -31,6 +31,7 @@ var _mats := {}
 var _arc_mesh: ArrayMesh
 var _quad: QuadMesh
 var _streak: BoxMesh
+var _streak_d: BoxMesh   # the day maps' thicker spark
 var _chip: BoxMesh
 var game
 
@@ -129,6 +130,25 @@ func _mat(tex: String, additive: bool, billboard: int) -> StandardMaterial3D:
 	return m
 
 
+func daylight() -> bool:
+	## The bright day maps (Wildwood and its seasons): additive light washes
+	## out on the sunlit cream stone and meadow there, so effects also draw a
+	## saturated, normally blended layer. Night and Ember Pass stay additive.
+	if game == null or not is_instance_valid(game):
+		return false
+	if "vmap" in game and game.vmap != null:
+		return false
+	return not (game.has_method("night") and game.night())
+
+
+static func vivid(c: Color) -> Color:
+	## The effect's colour pushed to a saturated mid-bright tone, so it holds
+	## against cream stone and yellow-green grass (pale gold reads as gold,
+	## near-white as a clear tint of its hue).
+	var s := maxf(c.s, 0.72) if c.s > 0.06 else c.s
+	return Color.from_hsv(c.h, s, minf(c.v, 0.96) * (0.92 if c.s > 0.06 else 0.8), c.a)
+
+
 # --- Particles ---------------------------------------------------------------
 
 func burst(where: Vector3, color: Color, count: int, speed: float, life: float, style: int = STYLE_SPARK,
@@ -164,15 +184,27 @@ func _x_burst(where: Vector3, color: Color, count: int, speed: float, life: floa
 			p.gravity = Vector3(0, -16, 0)
 			p.scale_amount_min = 0.5 * size
 			p.scale_amount_max = 1.1 * size
-			p.mesh.material = _mat("", true, BaseMaterial3D.BILLBOARD_DISABLED)
-			ramp.colors = PackedColorArray([Color(1, 1, 1, 1).lerp(color, 0.3), color, Color(color, 0)])
+			if daylight():
+				# Thicker, saturated streaks: white-hot additive ones vanish on the day maps' stone.
+				p.mesh = _streak_day()
+				p.mesh.material = _mat("", false, BaseMaterial3D.BILLBOARD_DISABLED)
+				var vc := vivid(color)
+				ramp.colors = PackedColorArray([Color(1, 1, 1, 1).lerp(vc, 0.55), vc, Color(vc.darkened(0.2), 0)])
+			else:
+				p.mesh.material = _mat("", true, BaseMaterial3D.BILLBOARD_DISABLED)
+				ramp.colors = PackedColorArray([Color(1, 1, 1, 1).lerp(color, 0.3), color, Color(color, 0)])
 		STYLE_MOTE:
 			p.mesh = _quad
 			p.gravity = Vector3(0, 2.8, 0)
 			p.scale_amount_min = 0.25 * size
 			p.scale_amount_max = 0.55 * size
-			p.material_override = _mat("soft", true, BaseMaterial3D.BILLBOARD_PARTICLES)
-			ramp.colors = PackedColorArray([Color(1, 1, 1, 1).lerp(color, 0.5), color, Color(color, 0)])
+			if daylight():
+				p.material_override = _mat("soft", false, BaseMaterial3D.BILLBOARD_PARTICLES)
+				var vm := vivid(color)
+				ramp.colors = PackedColorArray([Color(1, 1, 1, 1).lerp(vm, 0.6), vm, Color(vm, 0)])
+			else:
+				p.material_override = _mat("soft", true, BaseMaterial3D.BILLBOARD_PARTICLES)
+				ramp.colors = PackedColorArray([Color(1, 1, 1, 1).lerp(color, 0.5), color, Color(color, 0)])
 		STYLE_SMOKE:
 			p.mesh = _quad
 			p.gravity = Vector3(0, 1.2, 0)
@@ -202,9 +234,23 @@ func _x_burst(where: Vector3, color: Color, count: int, speed: float, life: floa
 	get_tree().create_timer(life + 0.4).timeout.connect(p.queue_free)
 
 
+func _streak_day() -> BoxMesh:
+	if _streak_d == null:
+		_streak_d = BoxMesh.new()
+		_streak_d.size = Vector3(0.085, 0.46, 0.085)
+	return _streak_d
+
+
 func _sprite(where: Vector3, tex: String, color: Color, size: float, life: float, grow: float = 1.6,
 		flat: bool = false, spin: float = 0.0, additive: bool = true) -> MeshInstance3D:
 	## A textured quad that pops, grows and fades: flares, rings, glows, decals.
+	if additive and daylight():
+		# On sunlit cream stone an additive glow adds almost nothing: lay the
+		# same shape underneath in its saturated colour (normal blending),
+		# then the glow over it, so rings, runes and flares read as coloured
+		# light in the bright day maps too (visual pass 2026-10-30).
+		_sprite(where, tex, Color(vivid(color), color.a * 0.8), size, life, grow, flat, spin, false)
+		color = Color(color, color.a * 0.7)
 	var q := MeshInstance3D.new()
 	q.mesh = _quad
 	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -368,6 +414,11 @@ func _x_slash(origin: Vector3, aim: Vector3, color: Color, reach: float = 1.0, h
 	m.vertex_color_use_as_albedo = true
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
 	m.albedo_color = Color(color, 0.95)
+	if daylight():
+		# The swing in its saturated colour, normally blended: a pale
+		# additive crescent was invisible over cream stone.
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
+		m.albedo_color = Color(vivid(color).lightened(0.15), 0.9)
 	s.material_override = m
 	add_child(s)
 	s.global_position = origin + Vector3(0, 0.95 if not heavy else 0.8, 0)

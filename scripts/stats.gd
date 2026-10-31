@@ -192,6 +192,7 @@ const ACCOUNT_XP_STEP := 150
 const ACCOUNT_MAX_LEVEL := 50
 const UNLOCK_LEVEL := 10
 const MATCH_BONUS := {"win": 300, "draw": 150, "loss": 100}
+const RESULT_BONUS_MIN_TIME := 60.0   # seconds of play before MATCH_BONUS is paid (GP-06)
 # Match rewards shown on the summary screen and banked on the account (the
 # shop that spends them is a later milestone).
 const MATCH_GOLD := {"win": 300, "draw": 250, "loss": 200}

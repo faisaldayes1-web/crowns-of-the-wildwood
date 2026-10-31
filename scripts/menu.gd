@@ -222,6 +222,34 @@ func slate(r: Rect2, name: String = "panel_slate") -> void:
 	nine(name, r, 14, 14, 14, 14)
 
 
+func board(r: Rect2) -> void:
+	## The picked family's big board (Paused C, Map A shelf): a dark slate
+	## panel in a dark-wood rim with a gold edge, gold corner brackets and
+	## leafy vines on the corners. The overlays (Credits, Progress, Players)
+	## and Play Online use it, so every board in the game reads as one set.
+	var now := Time.get_ticks_msec() / 1000.0
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0)
+	sb.set_corner_radius_all(20)
+	sb.shadow_color = Color(0, 0, 0, 0.5)
+	sb.shadow_size = 14
+	sb.shadow_offset = Vector2(0, 5)
+	h.draw_style_box(sb, r.grow(6))
+	h._plate(r.grow(6), h.WOOD_DARK, h.GOLD_DARK, 18, 3)
+	# The slate itself without _plate's half-height sheen: on a board this
+	# tall its hard edge ran straight through the text.
+	var inner := StyleBoxFlat.new()
+	inner.bg_color = Color(0.06, 0.07, 0.07, 0.97)
+	inner.set_corner_radius_all(14)
+	inner.set_border_width_all(2)
+	inner.border_color = Color(0.3, 0.2, 0.08)
+	h.draw_style_box(inner, r)
+	h.draw_rect(Rect2(r.position + Vector2(16, 3), Vector2(r.size.x - 32, 1)), Color(1.0, 0.85, 0.5, 0.25))
+	h.draw_rect(r.grow(-7), Color(0.62, 0.44, 0.16, 0.3), false, 1.0)
+	h._gold_corners(r.grow(4), 30.0, 7.0)
+	h._board_vines(r, now)
+
+
 func option_box(r: Rect2, selected: bool, hover: bool, accent: Color = Color(0.45, 0.9, 0.3)) -> void:
 	## A dark option tile; selected ones glow in the accent colour.
 	var sb := StyleBoxFlat.new()
@@ -340,8 +368,9 @@ func _draw_title() -> void:
 	slate(Rect2(0, 0, w, 48))
 	icon("crown", Vector2(28, 24), 32)
 	ttext(Vector2(54, 32), "CROWNS OF THE WILDWOOD", 25)
-	wood_button(Rect2(w - 360, 5, 185, 38), "%s GOLD" % gold_text(game.account_gold), "store", null, "crown", 15)
-	wood_button(Rect2(w - 170, 5, 160, 38), "PLAYERS", "players", null, "gamepad", 15)
+	_telemetry(Rect2(w - 372, 5, 200, 38), "coin", gold_text(game.account_gold), "GOLD", "store")
+	h.draw_rect(Rect2(w - 166, 12, 2, 24), Color(0.85, 0.66, 0.3, 0.7))
+	_telemetry(Rect2(w - 158, 5, 148, 38), "gamepad", "", "PLAYERS", "players")
 	var logo: Texture2D = load("res://assets/ui/logo.png")
 	if logo:
 		var lw := 390.0
@@ -362,6 +391,30 @@ func _draw_title() -> void:
 	wood_button(Rect2(24, h.size.y - (90 if touch else 62), 200 if touch else 166, 80 if touch else 46), "STORE", "store", null, "crown", 21)
 	wood_button(Rect2(236 if touch else 202, h.size.y - (90 if touch else 62), 220 if touch else 180, 80 if touch else 46), "ONLINE", "online", null, "gamepad", 21)
 	wood_button(Rect2(24, h.size.y - (178 if touch else 112), 300 if touch else 260, 80 if touch else 40), "LV %d  %s" % [game.account_level(), game.hero_name], "progress", null, "", 16)
+
+
+func _telemetry(r: Rect2, ic: String, value: String, unit: String, id: String) -> void:
+	## Title D's top-bar readout: an icon, a big number and a small gold unit
+	## on the dark bar itself (no plank), still a button (opens the store / players).
+	var hover := button(r, id)
+	if hover:
+		_bg_hover(r, 8)
+	var x := r.position.x + 8
+	if ic == "coin":
+		h._icon("coin", Vector2(x + 13, r.get_center().y), 7.5, Color.WHITE)
+	else:
+		icon(ic, Vector2(x + 13, r.get_center().y), 28)
+	x += 32
+	var room := r.end.x - 8 - x
+	var us := 13
+	var uw: float = font_title.get_string_size(unit, HORIZONTAL_ALIGNMENT_LEFT, -1, us).x if font_title else 50.0
+	if value != "":
+		# A big purse shrinks to stay inside its readout (NUM-01).
+		var vs := fit_size(value, 22, room - uw - 8)
+		ttext(Vector2(x, r.get_center().y + vs * 0.36), value, vs, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+		x += font_title.get_string_size(value, HORIZONTAL_ALIGNMENT_LEFT, -1, vs).x + 8 if font_title else 60.0
+	us = fit_size(unit, us, r.end.x - 6 - x)
+	ttext(Vector2(x, r.get_center().y + us * 0.36), unit, us, Color(1.0, 0.8, 0.3), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 
 
 # --- Online -----------------------------------------------------------------------
@@ -410,7 +463,7 @@ func _code_boxes(center_x: float, y: float, text: String, box: float, caret: boo
 func _draw_online() -> void:
 	var net = game.net
 	var frame := Rect2(82, 46, h.size.x - 164, 600)
-	nine("frame_big", frame, 40, 40, 40, 40)
+	board(frame)
 	plaque(h.size.x / 2.0, 14, "PLAY ONLINE", 420)
 	var cx: float = h.size.x / 2.0
 	var hosting: bool = net != null and net.is_host()
@@ -1119,8 +1172,9 @@ func _draw_lobby() -> void:
 			"bot":
 				ttext(Vector2(plate.position.x, plate.position.y + 30), s.name, 21, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 4)
 				h._text(Vector2(plate.position.x, plate.position.y + 50), "BOT  ·  %s" % game.bot_difficulty.to_upper(), 12, Color(0.75, 0.8, 0.85), HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 3)
-				var side_name: String = Stats.FACTIONS[s.team].name.to_upper()
-				h._text(Vector2(plate.position.x, plate.position.y + 72), side_name, 12, Stats.FACTIONS[s.team].color.lightened(0.45), HORIZONTAL_ALIGNMENT_CENTER, plate.size.x, 3)
+				# Their side on the same ELVES | HUMANS chip pair as a player's
+				# (Ready A), drawn only: a bot's side is not picked here.
+				_side_pair(Rect2(plate.position.x + 14, plate.position.y + 62, plate.size.x - 28, 80 if touch else 22), s.team)
 				_ready_bar(Rect2(plate.position.x + 14, plate.position.y + (146 if touch else 84), plate.size.x - 28, 80 if touch else 28), true, -1)
 			"join":
 				var r := Rect2(plate.position.x + 14, plate.position.y + 14, plate.size.x - 28, plate.size.y - 28)
@@ -1172,6 +1226,20 @@ func _side_chip(r: Rect2, k: int, team: int) -> void:
 		h._text(Vector2(cr.position.x, cr.get_center().y + 5.5), "ELVES" if side == 0 else "HUMANS", 20 if game.touch_active else 13, Color.WHITE if on else Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_CENTER, cr.size.x, 2)
 
 
+func _side_pair(r: Rect2, team: int) -> void:
+	## The ELVES | HUMANS chips of _side_chip, drawn without buttons (a bot's side).
+	for side in 2:
+		var cr := Rect2(r.position.x + side * r.size.x / 2.0, r.position.y, r.size.x / 2.0 - 2, r.size.y)
+		var on := team == side
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Stats.FACTIONS[side].color.darkened(0.25) if on else Color(0.15, 0.15, 0.18)
+		sb.set_corner_radius_all(5)
+		sb.set_border_width_all(2 if on else 1)
+		sb.border_color = Color(1.0, 0.85, 0.4) if on else Color(0.3, 0.3, 0.32)
+		h.draw_style_box(sb, cr)
+		h._text(Vector2(cr.position.x, cr.get_center().y + 5.5), "ELVES" if side == 0 else "HUMANS", 20 if game.touch_active else 13, Color.WHITE if on else Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_CENTER, cr.size.x, 2)
+
+
 func _ready_bar(r: Rect2, is_ready: bool, k: int) -> void:
 	var ov := false
 	if k > 0:
@@ -1190,16 +1258,18 @@ func _ready_bar(r: Rect2, is_ready: bool, k: int) -> void:
 
 func _overlay_frame(title: String) -> Rect2:
 	var frame := Rect2(150, 70, h.size.x - 300, 590)
-	nine("frame_big", frame, 40, 40, 40, 40)
+	board(frame)
 	plaque(h.size.x / 2.0, 38, title, 380)
 	_overlay_close_x(frame, button(Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34), "close", null))
 	return frame.grow(-40)
 
 
 func _overlay_close_x(frame: Rect2, ov: bool) -> void:
+	# The brass-ringed X of the pause board (Paused C), lit under the pointer.
 	var x := Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34)
-	h._plate(x, Color(0.5, 0.14, 0.12) if ov else Color(0.38, 0.1, 0.09), Color(0.85, 0.65, 0.3), 6, 2)
-	h._text(x.position + Vector2(0, 24), "✕", 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, x.size.x, 0)
+	if ov:
+		h._ring_button(x.get_center(), 13.0, 1.0)   # the hover glow under the ring
+	h.x_button(x.get_center(), 13.0)
 
 
 func _draw_credits() -> void:

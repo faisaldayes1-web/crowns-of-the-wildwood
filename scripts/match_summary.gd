@@ -76,8 +76,9 @@ func capture(g, unit, winner_team: int) -> void:
 	result = "draw" if winner < 0 else ("win" if winner == team else "loss")
 	reward_gold = Stats.MATCH_GOLD[result]
 	reward_shards = Stats.MATCH_SHARDS[result]
-	lines.append([{"win": "Victory", "draw": "Draw", "loss": "Played to the end"}[result], "crown" if result == "win" else "guard",
-		Stats.MATCH_BONUS[result]])
+	if not g.has_method("result_bonus_earned") or g.result_bonus_earned():
+		lines.append([{"win": "Victory", "draw": "Draw", "loss": "Played to the end"}[result], "crown" if result == "win" else "guard",
+			Stats.MATCH_BONUS[result]])
 	started = Time.get_ticks_msec() / 1000.0
 
 
@@ -225,49 +226,44 @@ func _header(h, cx: float, t: float) -> void:
 		cloth = Color(0.85, 0.6, 0.12) if winner == team else Color(0.68, 0.1, 0.1)
 	var pop := clampf(t / 0.45, 0.0, 1.0)
 	var s := 0.8 + 0.2 * ease_out_back(pop)
-	var bar_y := 48.0
-	# The two score bands and crest shields, like the HUD's top bar.
-	for side in 2:
-		var dir := -1.0 if side == 0 else 1.0
-		var band := Rect2(Vector2(cx - 295.0 if side == 0 else cx + 105.0, bar_y), Vector2(190, 46))
-		h._score_band(band, h.SCORE_BANDS[side])
-		var mid := cx + dir * 200.0
-		_bold(h, Vector2(mid - 60, bar_y + 18), Stats.FACTIONS[side].name.to_upper(), 14, Color(1.0, 0.95, 0.86), HORIZONTAL_ALIGNMENT_CENTER, 120, 4)
-		_bold(h, Vector2(mid - 60, bar_y + 42), str(game.score[side]), 26, Color(1.0, 0.95, 0.84), HORIZONTAL_ALIGNMENT_CENTER, 120, 5)
-		h._crest_shield(Vector2(cx + dir * 320.0, bar_y + 24), 62.0, 76.0, side)
-	# Torn cloth either side of the plank, then the plank itself.
-	var plank := Rect2(Vector2(cx - 100 * s, 36 + (68 - 68 * s) / 2.0), Vector2(200 * s, 68 * s))
-	for side in [-1.0, 1.0]:
-		var x0: float = cx + side * 98.0 * s
-		var py := plank.position.y
-		var pe := plank.end.y
-		# A tattered tail hanging off each end of the plank.
-		var pts := PackedVector2Array([Vector2(x0, py + 4), Vector2(x0 + side * 30, py + 8), Vector2(x0 + side * 38, py + 28),
-			Vector2(x0 + side * 32, pe + 4), Vector2(x0 + side * 27, pe + 30), Vector2(x0 + side * 19, pe + 10),
-			Vector2(x0 + side * 12, pe + 36), Vector2(x0 + side * 4, pe + 12), Vector2(x0, pe - 2)])
-		h.draw_colored_polygon(pts, cloth.darkened(0.3))
-		var inner := PackedVector2Array()
-		for q in pts:
-			inner.append(q.lerp(Vector2(x0 + side * 16, plank.get_center().y + 10), 0.15))
-		h.draw_colored_polygon(inner, cloth)
-		h.draw_line(Vector2(x0 + side * 8, py + 12), Vector2(x0 + side * 14, pe + 20), cloth.darkened(0.2), 1.5)
-		pts.append(pts[0])
-		h.draw_polyline(pts, Color(0.15, 0.05, 0.05, 0.8), 1.5)
-	_wood(h, plank, 10, 3)
-	# Steel spikes nailed through the plank ends.
-	for side in [-1.0, 1.0]:
-		var sx: float = cx + side * 96.0 * s
-		for yy in [plank.position.y + 12, plank.end.y - 12]:
-			h.draw_colored_polygon(PackedVector2Array([Vector2(sx, yy - 6), Vector2(sx + side * 16, yy), Vector2(sx, yy + 6)]), Color(0.7, 0.72, 0.78))
-			h.draw_circle(Vector2(sx, yy), 3.0, Color(0.85, 0.87, 0.92))
-	h._title_text(Vector2(plank.position.x, plank.position.y + 50 * s), outcome, int(38 * s), face, drop, Color(0.12, 0.04, 0.04), plank.size.x)
-	# Match time pill.
 	var mins := int(game.match_clock()) / 60
 	var secs := int(game.match_clock()) % 60
-	var pill := Rect2(Vector2(cx - 90, 113), Vector2(180, 28))
-	h._plate(pill, Color(0.08, 0.07, 0.07, 0.95), Color(0.45, 0.32, 0.12), 12, 2)
-	_bold(h, Vector2(pill.position.x + 14, pill.position.y + 20), "Match Time", 13, Color(0.75, 0.72, 0.68), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	_bold(h, Vector2(pill.position.x, pill.position.y + 20), "%d:%02d%s" % [mins, secs, "+" if game.overtime else ""], 15, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, pill.size.x - 14, 2)
+	var tf: Font = h.bar_font if h.bar_font else h.font
+	var ink := Color(0.2, 0.07, 0.04)
+	# The match's own top bar (the picked Live battle C art: stag and lion
+	# crests, cloth bands, the gold clock with its crown), so the end screen
+	# reads as the same game; the clock frame holds the final match time.
+	if h.topbar_tex:
+		var tsz: Vector2 = h.topbar_tex.get_size() * 0.4969
+		h.draw_texture_rect(h.topbar_tex, Rect2(Vector2(cx - tsz.x / 2.0, 0), tsz), false)
+	else:
+		for side in 2:
+			h._score_band(Rect2(Vector2(cx - 292.0 if side == 0 else cx + 62.0, 12), Vector2(230, 62)), h.SCORE_BANDS[side])
+			h._crest_shield(Vector2(cx + (-1.0 if side == 0 else 1.0) * 310.0, 54.0), 76.0, 94.0, side)
+		h._ornate_clock(Rect2(cx - 84, 8, 168, 78))
+	for side in 2:
+		var mid := cx + (-157.0 if side == 0 else 159.0)
+		h._bar_text(Vector2(mid, 31), Stats.FACTIONS[side].name.to_upper(), tf, 17, Color(1.0, 0.95, 0.86), ink, 6)
+		h._bar_text(Vector2(mid, 61), str(game.score[side]), tf, 38, Color(1.0, 0.95, 0.84), ink, 10)
+	h._bar_text(Vector2(cx + 3.0, 42), "FINAL", tf, 18, Color(1.0, 0.78, 0.32), ink, 4)
+	# A long match (59:59+) keeps inside the clock frame (NUM: worst case).
+	var clock := "%d:%02d%s" % [mins, secs, "+" if game.overtime else ""]
+	var cfs := 38
+	while cfs > 20 and tf.get_string_size(clock, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x > 118.0:
+		cfs -= 2
+	h._bar_text(Vector2(cx + 3.0, 70), clock, tf, cfs, Color(1.0, 0.97, 0.92), ink, 5)
+	# The outcome on a wooden plaque with leaf sprigs under the bar (the
+	# family's title plaque: SELECT MAP, READY UP, PAUSED), in the result's colour.
+	var now := Time.get_ticks_msec() / 1000.0
+	var pw := 260.0
+	h.draw_set_transform(Vector2(cx, 132.0), 0.0, Vector2(s, s))
+	var plq := Rect2(-pw / 2.0, -26.0, pw, 52.0)
+	h._plate(plq, Color(0.22, 0.12, 0.05), h.GOLD, 12, 3)
+	h._plate(plq.grow(-5), Color(0.14, 0.08, 0.04), cloth, 9, 2)
+	for sx in [-1.0, 1.0]:
+		h._leaf_cluster(Vector2(sx * (pw / 2.0 + 4.0), 0.0), sx, now)
+	h._title_text(Vector2(plq.position.x, plq.position.y + 41.0), outcome, 34, face, drop, Color(0.12, 0.04, 0.04), plq.size.x)
+	h.draw_set_transform(Vector2.ZERO)
 
 
 func _tile(h, r: Rect2) -> void:

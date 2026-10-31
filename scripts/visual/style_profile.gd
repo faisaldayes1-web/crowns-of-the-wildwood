@@ -28,6 +28,9 @@ const TEX := {
 	"wood_dark": {"normal": 0.5, "rough": 0.9},
 	"bark": {"normal": 0.6, "rough": 1.0},
 	"grass": {"normal": 0.4, "rough": 1.0},
+	# Courtyard flags (picks Spawn D / Battle A): mixed-size slabs with a
+	# deep hand-cut bevel, so the yards read as laid stone, not a flat tile.
+	"pavers": {"normal": 1.0, "rough": 0.9},
 }
 const TEX_DIR := "res://assets/textures/style/"
 

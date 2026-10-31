@@ -716,6 +716,36 @@ func _armour_stand(pos: Vector3) -> void:
 	m.process_mode = Node.PROCESS_MODE_DISABLED
 
 
+func _stone_pillar(base: Vector3, w: float, h: float) -> void:
+	## A square column of stacked, chamfered cream ashlar blocks: a stepped
+	## plinth, courses that alternate a hand's width in size and shade, and
+	## a stepped capital under the beam. Visual only (the hall has no physics).
+	var blocks := preload("res://scripts/visual/carved_block.gd")
+	var shades := [Color(0.97, 0.92, 0.82), Color(0.9, 0.84, 0.72), Color(0.94, 0.88, 0.77)]
+	var mats: Array = []
+	for t in shades:
+		mats.append(game._ashlar(t))
+	var put := func(p: Vector3, size: Vector3, m: Material) -> void:
+		var mi := MeshInstance3D.new()
+		mi.mesh = blocks.mesh(size, 0.07)
+		mi.material_override = m
+		mi.position = p
+		game.add_child(mi)
+	put.call(base + Vector3(0, 0.16, 0), Vector3(w + 0.5, 0.32, w * 0.86 + 0.5), mats[1])
+	put.call(base + Vector3(0, 0.44, 0), Vector3(w + 0.26, 0.24, w * 0.86 + 0.26), mats[0])
+	var y := 0.56
+	var k := 0
+	var top := h - 0.62
+	while y < top - 0.05:
+		var ch := minf(0.62 if k % 2 == 0 else 0.48, top - y)
+		var inset := 0.0 if k % 2 == 0 else 0.08
+		put.call(base + Vector3(0, y + ch / 2.0, 0), Vector3(w - inset, ch - 0.03, w * 0.86 - inset), mats[(k * 2 + int(base.x)) % 3])
+		y += ch
+		k += 1
+	put.call(base + Vector3(0, top + 0.13, 0), Vector3(w + 0.22, 0.26, w * 0.86 + 0.22), mats[0])
+	put.call(base + Vector3(0, top + 0.4, 0), Vector3(w + 0.42, 0.28, w * 0.86 + 0.42), mats[1])
+
+
 func _build_hall() -> void:
 	## Stone walls, a flagstone floor, timber beams, blue lion banners, torches,
 	## barrels and crates. Built with the world's own helpers, then moved here.
@@ -744,6 +774,12 @@ func _build_hall() -> void:
 	for x in [-8.5, -3.2, 3.2, 8.5]:
 		await game._world_build_frame()
 		game._add_block(c + Vector3(x, 3.5, -5.8), Vector3(0.5, 7.0, 0.5), Color.GRAY, false, timber)
+	# Map hall pick A (visual pass 2026-10-30): chunky stacked cream ashlar
+	# pillars in the back corners, framing the SELECT MAP screen's edges
+	# (the posts above sit behind its map cards), each with a torch.
+	for s in [-1.0, 1.0]:
+		await game._world_build_frame()
+		_stone_pillar(c + Vector3(s * 10.0, 0, -5.6), 1.1, 9.0)
 	await game._world_build_frame()
 	game._add_block(c + Vector3(0, 6.9, -5.8), Vector3(22, 0.5, 0.6), Color.GRAY, false, timber)
 	for s in [-1.0, 1.0]:
@@ -804,6 +840,11 @@ func _build_hall() -> void:
 		game._add_wall_torch(c + Vector3(x, 2.4, -5.5), Vector3(0, 0, 1))
 		await game._world_build_frame()
 		_flame(c + Vector3(x, 2.4, -5.5), Vector3(0, 0, 1))
+	for s in [-1.0, 1.0]:   # on the corner pillars' faces
+		await game._world_build_frame()
+		game._add_wall_torch(c + Vector3(s * 10.0, 3.3, -5.08), Vector3(0, 0, 1))
+		await game._world_build_frame()
+		_flame(c + Vector3(s * 10.0, 3.3, -5.08), Vector3(0, 0, 1))
 	for s in [-1.0, 1.0]:
 		await game._world_build_frame()
 		game._add_wall_torch(c + Vector3(s * 10.45, 2.4, 1.5), Vector3(-s, 0, 0))

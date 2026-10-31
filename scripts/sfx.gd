@@ -191,6 +191,7 @@ func play(name: String, pos: Vector3, db: float = 0.0, jitter: float = 0.08) -> 
 		if not p.playing:
 			p.stream = streams[name]
 			p.global_position = mixed_pos
+			p.set_meta("base_db", db)
 			p.volume_db = db + _db(sound_volume)
 			p.pitch_scale = randf_range(1.0 - jitter, 1.0 + jitter)
 			p.play()
@@ -203,6 +204,7 @@ func ui(name: String, db: float = 0.0, pitch: float = 1.0) -> void:
 	for p in pool_ui:
 		if not p.playing:
 			p.stream = streams[name]
+			p.set_meta("base_db", db)
 			p.volume_db = db + _db(sound_volume)
 			p.pitch_scale = pitch
 			p.play()
@@ -349,6 +351,10 @@ func play_ambience(on: bool) -> void:
 
 func apply_volumes() -> void:
 	## After the sliders move. Music levels follow music_volume every frame
-	## (_process), so only the ambience needs setting here.
+	## (_process). Effects already playing take the new Sound level at once
+	## (AUD-03: a long clip used to finish at the old level).
+	for p in pool_3d + pool_ui:
+		if p.playing:
+			p.volume_db = float(p.get_meta("base_db", 0.0)) + _db(sound_volume)
 	if ambience.playing:
 		ambience.volume_db = AMBIENCE_DB + _db(sound_volume)

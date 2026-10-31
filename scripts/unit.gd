@@ -400,6 +400,8 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	var cl := OmniLight3D.new()
 	cl.light_color = Color(1.0, 0.8, 0.3)
 	cl.light_energy = 1.6
+	if Fx.of(game).daylight():
+		cl.light_energy = 0.7   # day maps: the crown's own glow and the ground sunburst mark the carrier (visual pass 2026-10-30)
 	cl.omni_range = 5.0
 	cl.position.y = 2.2
 	carry_fx.add_child(cl)
