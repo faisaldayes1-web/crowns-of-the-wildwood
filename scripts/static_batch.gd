@@ -88,11 +88,75 @@ static func _sig(o: Object, cache: Dictionary) -> String:
 	return "|".join(parts)
 
 
+# claude-faisal/stutter 2026-10-30: every surface_get_arrays /
+# get_mesh_arrays is a GPU read-back that stalls the renderer until the GPU
+# is idle (1-4 ms each on an RTX 4090, far more on an integrated GPU), and
+# behind the title each one was a dropped frame. run() now reads none in a
+# normal game: primitives are worked out on the CPU from a unit shape, and
+# the unit shapes and the imported models' surfaces come from
+# BAKED (tools/bake_batch_cache.gd), the read-backs saved at build time.
+# Anything not in it (a model changed since the bake) is still read back, so
+# the output never changes. readbacks counts them (tools/title_stutter_probe.gd).
+const BAKED := "res://assets/batch_cache.res"
+static var readbacks := 0
+static var readback_usec := 0
+static var readback_kinds := {}   # mesh class (and file, for imported ones) -> read-backs
+static var record = null   # tools/bake_batch_cache.gd: a Dictionary collecting every keyed read-back
+static var _baked = null   # BAKED's arrays (key -> surface arrays), loaded once
+static var verify_misses = null   # tools/batch_cache_test.gd: an Array of keys whose baked arrays differ from the read-back
+
+
+static func load_baked() -> void:
+	## Starts loading BAKED on a thread (game.gd, when the world starts
+	## building behind the title); _baked_arrays() picks it up.
+	if _baked == null and record == null and ResourceLoader.exists(BAKED):
+		ResourceLoader.load_threaded_request(BAKED)
+
+
+static func _baked_arrays(key: String) -> Array:
+	if record != null:   # baking: read everything back
+		return []
+	if _baked == null:
+		_baked = {}
+		if ResourceLoader.exists(BAKED):
+			if ResourceLoader.load_threaded_get_status(BAKED) == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+				ResourceLoader.load_threaded_request(BAKED)
+			var res = ResourceLoader.load_threaded_get(BAKED)
+			if res != null and res.has_meta(&"arrays"):
+				_baked = res.get_meta(&"arrays")
+	return _baked.get(key, [])
+
+
+static func _read_back(mesh: Mesh, s: int, key := "") -> Array:
+	if key != "":
+		var b := _baked_arrays(key)
+		# (An imported model's entry must still fit it: same vertex and index counts.)
+		if not b.is_empty() and (mesh is PrimitiveMesh or (
+				(b[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() == mesh.surface_get_array_len(s)
+				and (0 if b[Mesh.ARRAY_INDEX] == null else (b[Mesh.ARRAY_INDEX] as PackedInt32Array).size()) == mesh.surface_get_array_index_len(s))):
+			if verify_misses != null:
+				var fresh: Array = (mesh as PrimitiveMesh).get_mesh_arrays() if mesh is PrimitiveMesh else mesh.surface_get_arrays(s)
+				for i in Mesh.ARRAY_MAX:
+					if fresh[i] != b[i]:
+						verify_misses.append("%s (array %d)" % [key, i])
+						break
+			return b
+	var t := Time.get_ticks_usec()
+	var a: Array = (mesh as PrimitiveMesh).get_mesh_arrays() if mesh is PrimitiveMesh else mesh.surface_get_arrays(s)
+	readbacks += 1
+	var kind := mesh.get_class() + (" " + mesh.resource_path.get_file().get_slice("::", 0) if mesh.resource_path != "" else "")
+	readback_kinds[kind] = readback_kinds.get(kind, 0) + 1
+	readback_usec += Time.get_ticks_usec() - t
+	if record != null and key != "":
+		record[key] = a
+	return a
+
+
 static func _arrays(mesh: Mesh, s: int, cache: Dictionary) -> Array:
-	## A surface's vertex arrays. Mesh surfaces live on the GPU and are read
-	## back once per mesh (props share theirs between every copy); primitive
-	## meshes too (get_mesh_arrays is a read-back), except boxes and
-	## cylinders, worked out on the CPU from one read-back per grid.
+	## A surface's vertex arrays, read once per mesh (props share theirs
+	## between every copy). Generated meshes keep a CPU copy (kept_mesh),
+	## primitives are worked out from a unit shape (_scaled_primitive) and
+	## imported models' surfaces come from BAKED.
 	var key := "%d|%d" % [mesh.get_instance_id(), s]
 	var a: Array = cache.get(key, [])
 	if a.is_empty():
@@ -103,24 +167,27 @@ static func _arrays(mesh: Mesh, s: int, cache: Dictionary) -> Array:
 			if a.is_empty():
 				a = _scaled_primitive(mesh)
 				if a.is_empty():
-					a = _lighter(mesh).get_mesh_arrays()
+					a = _read_back(_lighter(mesh), 0)
 				cache[pkey] = a
 		elif s == 0 and mesh.has_meta(&"batch_arrays"):
 			a = mesh.get_meta(&"batch_arrays")   # kept_mesh: no GPU read-back
 		else:
-			a = mesh.surface_get_arrays(s)
+			a = _read_back(mesh, s, "res|%s|%d" % [mesh.resource_path, s] if mesh.resource_path != "" else "")
 		cache[key] = a
 	return a
 
 
-static var _unit_shapes := {}   # grid key -> the read-back arrays of a unit box or cylinder
+static var _unit_shapes := {}   # grid key -> the arrays of a unit primitive
 
 
 static func _unit_shape(key: String, make: Callable) -> Array:
-	## (A new primitive is a renderer mesh and a queued build: made only once.)
+	## (A new primitive is a renderer mesh and a queued build: made only once,
+	## and only when BAKED does not have it.)
 	var a: Array = _unit_shapes.get(key, [])
 	if a.is_empty():
-		a = (make.call() as PrimitiveMesh).get_mesh_arrays()
+		a = _baked_arrays("unit|" + key)
+		if a.is_empty():
+			a = _read_back(make.call(), 0, "unit|" + key)
 		_unit_shapes[key] = a
 	return a
 
@@ -207,7 +274,113 @@ static func _scaled_primitive(mesh: PrimitiveMesh) -> Array:
 		out[Mesh.ARRAY_VERTEX] = verts
 		out[Mesh.ARRAY_NORMAL] = normals
 		return out
+	# claude-faisal/stutter 2026-10-30: spheres, prisms, planes and quads are
+	# their unit shape stretched along the axes (Godot builds each vertex as
+	# a per-axis multiple of its size, primitive_meshes.cpp, 4.3), so their
+	# normals are the unit's divided by the stretch, renormalised; tori keep
+	# their unit's normals, UVs and tangents and only move each ring.
+	if mesh is SphereMesh:
+		var sp: SphereMesh = _lighter(mesh)
+		if sp.radius <= 0.0 or sp.height <= 0.0:
+			return []
+		var hemi := sp.is_hemisphere
+		var t := _unit_shape("sph|%d|%d|%s" % [sp.radial_segments, sp.rings, hemi], func() -> PrimitiveMesh:
+			var unit := SphereMesh.new()
+			unit.radius = 1.0
+			unit.height = 1.0 if hemi else 2.0
+			unit.radial_segments = sp.radial_segments
+			unit.rings = sp.rings
+			unit.is_hemisphere = hemi
+			return unit)
+		return _stretched(t, Vector3(sp.radius, sp.height * (1.0 if hemi else 0.5), sp.radius), Vector3.ZERO)
+	if mesh is PrismMesh:
+		var pr: PrismMesh = mesh
+		if pr.size.x <= 0.0 or pr.size.y <= 0.0 or pr.size.z <= 0.0:
+			return []
+		var t := _unit_shape("prism|%s|%d|%d|%d" % [pr.left_to_right, pr.subdivide_width, pr.subdivide_height, pr.subdivide_depth], func() -> PrimitiveMesh:
+			var unit := PrismMesh.new()
+			unit.size = Vector3.ONE
+			unit.left_to_right = pr.left_to_right
+			unit.subdivide_width = pr.subdivide_width
+			unit.subdivide_height = pr.subdivide_height
+			unit.subdivide_depth = pr.subdivide_depth
+			return unit)
+		return _stretched(t, pr.size, Vector3.ZERO)
+	if mesh is PlaneMesh:   # (QuadMesh is a PlaneMesh facing +Z)
+		var pl: PlaneMesh = mesh
+		if pl.size.x <= 0.0 or pl.size.y <= 0.0:
+			return []
+		var orient := pl.orientation
+		var t := _unit_shape("plane|%s|%d|%d|%d" % [mesh.get_class(), orient, pl.subdivide_width, pl.subdivide_depth], func() -> PrimitiveMesh:
+			var unit: PlaneMesh = QuadMesh.new() if mesh is QuadMesh else PlaneMesh.new()
+			unit.size = Vector2.ONE
+			unit.orientation = orient
+			unit.subdivide_width = pl.subdivide_width
+			unit.subdivide_depth = pl.subdivide_depth
+			return unit)
+		var st := Vector3(pl.size.x, 1.0, pl.size.y)   # FACE_Y: x across, z down the size
+		if orient == PlaneMesh.FACE_Z:
+			st = Vector3(pl.size.x, pl.size.y, 1.0)
+		elif orient == PlaneMesh.FACE_X:
+			st = Vector3(1.0, pl.size.y, pl.size.x)
+		return _stretched(t, st, pl.center_offset)
+	if mesh is TorusMesh:
+		var to: TorusMesh = _lighter(mesh)
+		var lo := minf(to.inner_radius, to.outer_radius)
+		var hi := maxf(to.inner_radius, to.outer_radius)
+		if lo <= 0.0 or hi - lo <= 0.0:
+			return []
+		var t := _unit_shape("torus|%d|%d" % [to.rings, to.ring_segments], func() -> PrimitiveMesh:
+			var unit := TorusMesh.new()
+			unit.inner_radius = 0.5
+			unit.outer_radius = 1.0
+			unit.rings = to.rings
+			unit.ring_segments = to.ring_segments
+			return unit)
+		if t.is_empty():
+			return []
+		var tv: PackedVector3Array = t[Mesh.ARRAY_VERTEX]
+		var tn: PackedVector3Array = t[Mesh.ARRAY_NORMAL]
+		var verts := PackedVector3Array()
+		verts.resize(tv.size())
+		var radius := (hi - lo) * 0.5
+		var centre := lo + radius
+		for i in tv.size():
+			# The ring's direction from the unit vertex, its angle from the normal.
+			var d := Vector2(tv[i].x, tv[i].z).normalized()
+			var n := tn[i]
+			var r := centre + (n.x * d.x + n.z * d.y) * radius
+			verts[i] = Vector3(d.x * r, n.y * radius, d.y * r)
+		var out := t.duplicate()
+		out[Mesh.ARRAY_VERTEX] = verts
+		return out
 	return []
+
+
+static func _stretched(t: Array, stretch: Vector3, offset: Vector3) -> Array:
+	## Unit arrays t stretched per axis and moved: normals divided by the
+	## stretch and renormalised, tangents multiplied by it (UVs as they are).
+	if t.is_empty():
+		return []
+	var out := t.duplicate()
+	out[Mesh.ARRAY_VERTEX] = Transform3D(Basis.from_scale(stretch), offset) * (t[Mesh.ARRAY_VERTEX] as PackedVector3Array)
+	var inv := Vector3(1.0 / stretch.x, 1.0 / stretch.y, 1.0 / stretch.z)
+	var tn: PackedVector3Array = t[Mesh.ARRAY_NORMAL]
+	var normals := PackedVector3Array()
+	normals.resize(tn.size())
+	for i in tn.size():
+		normals[i] = (tn[i] * inv).normalized()
+	out[Mesh.ARRAY_NORMAL] = normals
+	if t[Mesh.ARRAY_TANGENT] != null:
+		var tt: PackedFloat32Array = t[Mesh.ARRAY_TANGENT]
+		var tangents := tt.duplicate()
+		for k in range(0, tt.size(), 4):
+			var v := (Vector3(tt[k], tt[k + 1], tt[k + 2]) * stretch).normalized()
+			tangents[k] = v.x
+			tangents[k + 1] = v.y
+			tangents[k + 2] = v.z
+		out[Mesh.ARRAY_TANGENT] = tangents
+	return out
 
 
 static func _lighter(mesh: PrimitiveMesh) -> PrimitiveMesh:
@@ -322,7 +495,13 @@ static func run(game: Node3D) -> Dictionary:
 			start = _emit(holder, b, start)
 			made += 1
 	# Only now, with every mesh copied, do the originals let go of theirs.
-	for mi in batched:
+	# (Behind the title, 256 a frame: all 8,500 at once was a 55 ms frame.)
+	for k in batched.size():
+		if k % 256 == 255:
+			await _slice(game)
+		var mi = batched[k]
+		if not is_instance_valid(mi) or mi.mesh == null:
+			continue
 		mi.mesh.remove_meta(&"batch_arrays")   # merged: free the CPU copy
 		mi.set_meta("batched_mesh", mi.mesh)
 		mi.mesh = null
@@ -330,6 +509,7 @@ static func run(game: Node3D) -> Dictionary:
 		"meshes_out": made, "ms": Time.get_ticks_msec() - t0}
 	print("BATCH merged %d scenery meshes (%d left alone) into %d meshes; %d materials became %d; %d ms (%d ms reading meshes)" % [
 		info.nodes, info.skipped, info.meshes_out, info.materials_in, info.materials_out, info.ms, t_collect])
+	print("BATCH read-backs %d (%d ms)" % [readbacks, readback_usec / 1000])
 	return info
 
 
@@ -427,6 +607,11 @@ static func particles_to_gpu(game: Node3D) -> int:
 		return 0
 	var done := 0
 	for n in game.find_children("*", "CPUParticles3D", true, false):
+		# (Behind the title, a few a frame: each new GPU particle material is
+		# a shader to build; at a match start this never waits.)
+		await _slice(game)
+		if not is_instance_valid(n):
+			continue
 		var cp := n as CPUParticles3D
 		if cp.one_shot or not cp.emitting or _skip_subtree(cp, game):
 			continue

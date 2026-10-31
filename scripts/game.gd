@@ -620,22 +620,28 @@ func _world_can_wait() -> bool:
 func _build_world_behind() -> void:
 	## The match world, built a slice a frame behind the live menus.
 	_world_behind = true
+	StaticBatch.load_baked()   # the batch's saved mesh arrays, read on a thread meanwhile
+	_preload_world()
 	while menus_warming and not _world_rush:   # the menu warm-up first, under the loading art
 		await _world_slice
 	# A half-built world must not run (the economy's labels, the volcano):
 	# each piece is held still until the whole world is there.
 	get_tree().node_added.connect(_hold_world_piece)
 	world_style = true
-	_world_frame_deadline = Time.get_ticks_usec() + WORLD_SLICE_USEC
+	_world_measure(true)
+	_world_slice_start = Time.get_ticks_usec()
+	_world_frame_deadline = _world_slice_start + WORLD_SLICE_USEC
 	await _build_world_land()
 	if not "--no-batch" in OS.get_cmdline_user_args():
 		# The scenery batching (static_batch.gd, ~1 s) waited for the match
 		# start; the world is finished here, so it is done now, in slices.
 		await StaticBatch.run(self)
-		StaticBatch.particles_to_gpu(self)
+		await StaticBatch.particles_to_gpu(self)
 		_world_batched = true
 	world_style = false
 	_world_behind = false
+	_world_measure(false)
+	_preloads_done()
 	get_tree().node_added.disconnect(_hold_world_piece)
 	for held in _world_held:
 		if is_instance_valid(held[0]):
@@ -644,6 +650,58 @@ func _build_world_behind() -> void:
 	apply_graphics()   # the world's lamps take the quality setting
 	world_ready = true
 	world_finished.emit()
+
+
+const WORLD_PRELOAD := "res://assets/world_preload.res"   # per map, from tools/bake_batch_cache.gd
+var _world_preloads := PackedStringArray()   # requested on worker threads
+var _world_preload_scenes := PackedStringArray()   # waiting for the textures and materials they share
+
+
+func _preload_world() -> void:
+	## claude-faisal/stutter 2026-10-30: the scenes, textures and shaders the
+	## match world loads as it builds start loading on worker threads now, so
+	## each load() in the build finds them ready instead of reading and
+	## uploading them between two title frames (most of the 30-90 ms frames
+	## behind the title were a prop, a texture set or a character loading).
+	## The scenes wait for the files first: two threads loading scenes that
+	## share a texture each made their own copy (Godot 4.3), and the batch
+	## merges materials only when their textures are the same one.
+	if not ResourceLoader.exists(WORLD_PRELOAD):
+		return
+	var pre = load(WORLD_PRELOAD)
+	var key := StringName("map_%d" % map_variant)
+	if pre == null or not pre.has_meta(key):
+		return
+	for f in pre.get_meta(key):
+		# (Not the shaders: small to read, and one loaded on a thread was
+		# never freed at exit, Godot 4.3.)
+		if ResourceLoader.has_cached(f) or f.get_extension() == "gdshader":
+			continue
+		if f.get_extension() in ["tscn", "scn", "gltf", "glb", "blend", "fbx", "obj"]:
+			_world_preload_scenes.append(f)
+		elif ResourceLoader.load_threaded_request(f) == OK:
+			_world_preloads.append(f)
+
+
+func _preload_scenes_when_ready() -> void:
+	## (Each slice: once every file is in, the scenes go.)
+	if _world_preload_scenes.is_empty():
+		return
+	for f in _world_preloads:
+		if ResourceLoader.load_threaded_get_status(f) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+			return
+	for f in _world_preload_scenes:
+		if not ResourceLoader.has_cached(f) and ResourceLoader.load_threaded_request(f) == OK:
+			_world_preloads.append(f)
+	_world_preload_scenes.clear()
+
+
+func _preloads_done() -> void:
+	## The world holds what it uses; the loader lets go of the rest.
+	_world_preload_scenes.clear()
+	for f in _world_preloads:
+		ResourceLoader.load_threaded_get(f)
+	_world_preloads.clear()
 
 
 func _hold_world_piece(n: Node) -> void:
@@ -2388,12 +2446,25 @@ var loading_label: Label
 var loading_tween: Tween   # its hold-then-fade; _warm_up_world holds it while it sweeps
 var _stream_world := false
 var _world_frame_deadline := 0
+var _world_slice_start := 0   # when the running behind-the-title slice began
+var world_slice_usec := PackedInt32Array()   # each behind-the-title slice's CPU time (tools/title_stutter_probe.gd)
 # claude-faisal3 2026-10-29 (PERF-05): the title no longer waits for the
 # match world. It is built behind the menus in slices of WORLD_SLICE_USEC a
 # frame; a match started before it is done waits under the loading art.
 signal world_finished
 signal _world_slice   # each frame while the world builds behind the menus
-const WORLD_SLICE_USEC := 10000
+const WORLD_SLICE_USEC := 10000   # the first slice; then _world_slice_budget()
+# claude-faisal/stutter 2026-10-30: a fixed 10 ms slice plus the menus and
+# drawing did not fit a 60 fps frame on an integrated GPU's laptop (the
+# title ran 40-56 fps while the world built). Each slice now takes what the
+# last frames left of WORLD_FRAME_CPU_USEC, between the two limits below
+# (with 8 ms of extra menu load the title held 60-65 fps instead of 29-48).
+const WORLD_FRAME_CPU_USEC := 14500   # a title frame's CPU in all: 60 fps (16.7 ms) with room
+const WORLD_SLICE_MIN_USEC := 3000
+const WORLD_SLICE_MAX_USEC := 12000
+var _world_rest_usec := 4000.0   # running average: a frame's CPU besides the slice (menus, drawing)
+var _world_main_usec := 0   # last frame's main-thread CPU, from the draw before it to its own
+var _world_post_draw := 0
 var world_ready := true
 var _world_behind := false
 var _match_waiting := false
@@ -2428,9 +2499,12 @@ func _world_build_frame() -> void:
 			# their own look. (Nothing may leave this scene with the world
 			# half built: finish_world_now.)
 			world_style = false
+			world_slice_usec.append(Time.get_ticks_usec() - _world_slice_start)
 			await _world_slice
 			world_style = true
-			_world_frame_deadline = Time.get_ticks_usec() + (32000 if _match_waiting else WORLD_SLICE_USEC)
+			_world_slice_start = Time.get_ticks_usec()
+			_world_frame_deadline = _world_slice_start + (32000 if _match_waiting else _world_slice_budget())
+			_preload_scenes_when_ready()
 		return
 	# All scene-tree mutations stay on the main thread. A completed chunk
 	# yields real frames, rather than dropping OS input in a blocking build.
@@ -2441,6 +2515,39 @@ func _world_build_frame() -> void:
 		# A 32 ms work budget keeps loading responsive without spending a
 		# full extra rendered frame after each tiny construction operation.
 		_world_frame_deadline = Time.get_ticks_usec() + 32000
+
+
+func _world_slice_budget() -> int:
+	## How long this frame's slice may run: the frame's CPU target less what
+	## the rest of the last frames cost (their main thread outside the slice,
+	## and drawing's CPU; the wait for the screen is not counted).
+	if _world_main_usec > 0 and not world_slice_usec.is_empty():
+		var vp := get_viewport().get_viewport_rid()
+		var draw_usec := RenderingServer.viewport_get_measured_render_time_cpu(vp) * 1000.0
+		var rest := clampf(_world_main_usec - world_slice_usec[world_slice_usec.size() - 1] + draw_usec, 0.0, 12000.0)
+		_world_rest_usec = lerpf(_world_rest_usec, rest, 0.15)
+		_world_main_usec = 0
+	return clampi(WORLD_FRAME_CPU_USEC - int(_world_rest_usec), WORLD_SLICE_MIN_USEC, WORLD_SLICE_MAX_USEC)
+
+
+func _world_pre_draw() -> void:
+	## (RenderingServer.frame_pre_draw while the world builds.)
+	if _world_post_draw > 0:
+		_world_main_usec = Time.get_ticks_usec() - _world_post_draw
+
+
+func _world_after_draw() -> void:
+	_world_post_draw = Time.get_ticks_usec()
+
+
+func _world_measure(on: bool) -> void:
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), on)
+	if on and not RenderingServer.frame_pre_draw.is_connected(_world_pre_draw):
+		RenderingServer.frame_pre_draw.connect(_world_pre_draw)
+		RenderingServer.frame_post_draw.connect(_world_after_draw)
+	elif not on and RenderingServer.frame_pre_draw.is_connected(_world_pre_draw):
+		RenderingServer.frame_pre_draw.disconnect(_world_pre_draw)
+		RenderingServer.frame_post_draw.disconnect(_world_after_draw)
 
 
 var _alive_ms := 0   # last time _keep_window_alive answered the OS
@@ -2636,7 +2743,7 @@ func _start_match(team: int) -> void:
 	# (scripts/static_batch.gd): ~9,800 draw calls a frame became ~1,500.
 	if not "--no-batch" in OS.get_cmdline_user_args() and not _world_batched:
 		await StaticBatch.run(self)   # (never waits here, the match builds in this frame: only behind the title does it slice)
-		StaticBatch.particles_to_gpu(self)
+		await StaticBatch.particles_to_gpu(self)
 	_warm_up_world()   # (a coroutine: a few frames under the loading art)
 	if prep_left >= 0.0:
 		prep_left = Stats.PREP_TIME
@@ -6477,6 +6584,8 @@ func _add_river() -> void:
 				_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][k % 5], Vector3(sx * (RIVER_HALF + 2.0 + fmod(z * 7.3, 1.0) * 0.4), 0, z), 2.5, z)
 			k += 1
 			z += 1.2
+			if k % 8 == 0:
+				await _world_build_frame()   # (claude-faisal/stutter: each bank was one 30-50 ms step behind the title)
 		# Bank walls between the bridges.
 		var edges: Array = [-length / 2.0]
 		for i in BRIDGES.size():
@@ -6486,11 +6595,14 @@ func _add_river() -> void:
 		for i in range(0, edges.size(), 2):
 			var z0: float = edges[i]
 			var z1: float = edges[i + 1]
+			await _world_build_frame()
 			_add_bank_wall(sx, z0, z1, 1.0, 2.0)
 		# Along the island the bank wall stays below the plateau top: it keeps
 		# walkers on the bank out of the water, but anyone up on the shrine
 		# walks straight over it.
+		await _world_build_frame()
 		_add_bank_wall(sx, -ISLAND_R - 0.4, ISLAND_R + 0.4, -0.05, 1.0)
+	await _world_build_frame()
 	_add_island()
 	# Low stone rims on the island's north and south edges so nobody walks
 	# off the shrine into the river channel (there is no way back up).
@@ -6774,6 +6886,7 @@ func _add_cover() -> void:
 			# ashlar walls across the field. (No timber palisades: they read
 			# as stray fences, Faisal 11:27 "did you fix the random fence
 			# issues". The cover and its collider are unchanged.)
+			await _world_build_frame()   # (claude-faisal/stutter: the cover was one 61 ms step behind the title)
 			match kind:
 				0:
 					var n := int(length / 1.15)
@@ -6807,9 +6920,13 @@ func _add_cover() -> void:
 		cover_points.append(-p)
 	# The Northern Ruins: broken columns and rubble by the north bridge, and
 	# a smaller ruin on the south river path. Mirrored.
+	await _world_build_frame()
 	_add_ruins(Vector3(11, 0, -27))
+	await _world_build_frame()
 	_add_ruins(Vector3(-11, 0, 27))
+	await _world_build_frame()
 	_add_ruins(Vector3(-24, 0, -29), true)
+	await _world_build_frame()
 	_add_ruins(Vector3(24, 0, 29), true)
 
 
@@ -9027,7 +9144,7 @@ func _build_outskirts() -> void:
 		await _world_build_frame()
 		_build_farm(team, sx)
 		await _world_build_frame()
-		_build_works(team, sx)
+		await _build_works(team, sx)
 	await _world_build_frame()
 	_add_road_lanterns()
 	await _world_build_frame()
@@ -9042,7 +9159,7 @@ func _build_outskirts() -> void:
 	await _world_build_frame()
 	_add_clouds()
 	await _world_build_frame()
-	_add_ground_patches()
+	await _add_ground_patches()
 	await _world_build_frame()
 	_add_ambient_life()
 
@@ -9060,10 +9177,12 @@ func _add_ground_patches() -> void:
 			if not blocked:
 				_add_block(Vector3(sx * (RIVER_HALF + 0.9), 0.004, z + 2.0), Vector3(1.6, 0.008, 4.0), Color.WHITE, false, sand)
 			z += 4.0
+			await _world_build_frame()   # (claude-faisal/stutter: one 31 ms step behind the title before)
 	var moss := _moss()
 	var r := RandomNumberGenerator.new()
 	r.seed = 606
 	for t in map_trees:
+		await _world_build_frame()
 		if t.x < -8.0 and r.randf() < 0.6:
 			var size := r.randf_range(2.4, 4.2)
 			_add_block(Vector3(t.x + r.randf_range(-0.6, 0.6), 0.003, t.z + r.randf_range(-0.6, 0.6)), Vector3(size, 0.006, size * r.randf_range(0.7, 1.0)), Color.WHITE, false, moss)
@@ -9235,10 +9354,12 @@ func _build_works(team: int, sx: float) -> void:
 	var c := _hex_color(team)
 	var x := sx * 100.0   # clear of the (bigger) spawn cellar
 	_add_house("mine" if team == 1 else "lumbermill", team, Vector3(x, 0, 14.0), 4.0, -PI / 2.0 * sx, team == 1)
+	await _world_build_frame()   # (claude-faisal/stutter: one 55 ms step behind the title before)
 	if team == 1:
 		_add_house("barracks", team, Vector3(x, 0, -14.0), 3.6, -PI / 2.0 * sx)
 	else:
 		_add_treehouse(Vector3(x, 0, -14.0), 53, 1.08)
+	await _world_build_frame()
 	for k in 3:
 		_prop("hex/resource_%s" % ["stone" if team == 1 else "lumber"], Vector3(x - sx * 5.0, 0, 9.5 + k * 2.4), 4.0, float(k) * 0.7)
 	# (The tent and flag gave way to the trees.)
@@ -9251,7 +9372,9 @@ func _build_works(team: int, sx: float) -> void:
 	# the ground beyond the wall reads as woodland, not a busy yard (Faisal
 	# 2026-10-09 08:13 Humans, 08:18 Elves: "flush this area out with trees").
 	for tp in [Vector3(92.5, 0, -9.0), Vector3(94.0, 0, -3.5), Vector3(92.5, 0, 2.0), Vector3(94.0, 0, 7.5), Vector3(97.5, 0, -6.0), Vector3(97.5, 0, 0.5), Vector3(97.0, 0, 6.0), Vector3(92.0, 0, 11.5)]:
+		await _world_build_frame()
 		_add_tree(Vector3(sx * tp.x, 0, tp.z), int(tp.z) % 2 == 0)
+	await _world_build_frame()
 	if team == 1:
 		# Kingdom: drill yard by the barracks and a half-built wall.
 		_prop("hex/weaponrack", Vector3(x + sx * 4.5, 0, -9.0), 4.0, PI / 2.0)
@@ -10329,6 +10452,7 @@ func _build_castle(team: int) -> void:
 
 	await _world_build_frame()
 	await _build_cellar(team, bx, side)
+	await _world_build_frame()
 
 	var ring := MeshInstance3D.new()
 	var ring_mesh := TorusMesh.new()
@@ -10966,6 +11090,7 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		var h_to_spawn := Vector3(bx + side * 14.5, CELLAR_Y, 0) - hup
 		await _world_build_frame()
 		_add_upgrade_pad(team, hup, atan2(h_to_spawn.x, h_to_spawn.z), true)
+	await _world_build_frame()   # (claude-faisal/stutter: the guide and the castle's rest were one 74 ms step)
 	var g := Guide.new()
 	add_child(g)
 	if open:
@@ -11692,7 +11817,12 @@ func _finish_world() -> void:
 	camera.fov = 40.0
 	camera.position = Vector3(0, 40, 26)
 	add_child(camera)
-	camera.make_current()
+	# (Built behind the title, the menus keep their camera: the match one took
+	# over and drew the whole battlefield behind the opaque title art, 2,600
+	# objects a frame, and its first frame stalled ~180 ms drawing it.
+	# _start_match makes it current when the menus go.)
+	if not _world_behind:
+		camera.make_current()
 	Season.attach_weather(camera, air_kind())
 	await _world_build_frame()
 	_add_ink()

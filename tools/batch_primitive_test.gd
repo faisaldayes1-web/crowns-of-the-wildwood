@@ -61,15 +61,55 @@ func _init() -> void:
 		c.cap_top = k % 3 != 0
 		c.cap_bottom = k % 4 != 0
 		same_shape = _compare(c, worst) and same_shape
+	# claude-faisal/stutter 2026-10-30: spheres, prisms, planes, quads and tori too.
+	for k in 120:
+		var sp := SphereMesh.new()
+		sp.radius = rng.randf_range(0.02, 6.0)
+		sp.height = sp.radius * 2.0 if k % 3 == 0 else rng.randf_range(0.02, 10.0)
+		sp.radial_segments = [6, 8, 10, 12, 16, 24, 64][k % 7]
+		sp.rings = [3, 4, 6, 8, 12, 32][k % 6]
+		sp.is_hemisphere = k % 4 == 0
+		same_shape = _compare(sp, worst) and same_shape
+	for k in 60:
+		var pr := PrismMesh.new()
+		pr.size = Vector3(rng.randf_range(0.02, 8.0), rng.randf_range(0.02, 8.0), rng.randf_range(0.02, 8.0))
+		pr.left_to_right = [0.0, 0.5, 1.0, rng.randf()][k % 4]
+		if k % 5 == 0:
+			pr.subdivide_width = rng.randi_range(0, 2)
+			pr.subdivide_height = rng.randi_range(0, 2)
+			pr.subdivide_depth = rng.randi_range(0, 2)
+		same_shape = _compare(pr, worst) and same_shape
+	for k in 60:
+		var pl: PlaneMesh = QuadMesh.new() if k % 2 == 0 else PlaneMesh.new()
+		pl.size = Vector2(rng.randf_range(0.02, 20.0), rng.randf_range(0.02, 20.0))
+		pl.orientation = [PlaneMesh.FACE_X, PlaneMesh.FACE_Y, PlaneMesh.FACE_Z][k % 3]
+		if k % 4 == 0:
+			pl.center_offset = Vector3(rng.randf_range(-2, 2), rng.randf_range(-2, 2), rng.randf_range(-2, 2))
+		if k % 5 == 0:
+			pl.subdivide_width = rng.randi_range(0, 3)
+			pl.subdivide_depth = rng.randi_range(0, 3)
+		same_shape = _compare(pl, worst) and same_shape
+	for k in 60:
+		var to := TorusMesh.new()
+		to.inner_radius = rng.randf_range(0.02, 3.0)
+		to.outer_radius = to.inner_radius + rng.randf_range(0.02, 2.0)
+		if k % 6 == 0:
+			var swap := to.inner_radius
+			to.inner_radius = to.outer_radius
+			to.outer_radius = swap
+		to.rings = [8, 12, 16, 24, 64][k % 5]
+		to.ring_segments = [4, 6, 8, 12, 32][k % 5]
+		same_shape = _compare(to, worst) and same_shape
 	var flipped := BoxMesh.new()
 	flipped.flip_faces = true
 	print("PRIMS compared %d (%d left to the read-back): worst position %.7f of size, normal %.5f, uv %.6f, tangent %.5f" % [
 		worst.compared, worst.skipped, worst.pos, worst.normal, worst.uv, worst.tangent])
-	check(same_shape, "every box and cylinder has the read-back's vertex count and triangles")
-	check(worst.compared == 400, "all 400 shapes are worked out on the CPU")
-	check(worst.pos < 0.00001, "every vertex is where the read-back has it")
+	check(same_shape, "every box, cylinder, sphere, prism, plane, quad and torus has the read-back's vertex count and triangles")
+	check(worst.compared == 700, "all 700 shapes are worked out on the CPU")
+	check(worst.pos < 0.00002, "every vertex is where the read-back has it")   # (tori: ring angles rebuilt from float32 normals)
 	check(worst.normal < 0.003, "every normal matches the read-back")
-	check(worst.uv < 0.00001 and worst.tangent < 0.003, "UVs and tangents match the read-back")
+	check(worst.uv < 0.00001 and worst.tangent < 0.005,   # (the read-back's tangents are octahedral-compressed: ~0.003 off)
+		"UVs and tangents match the read-back")
 	check(StaticBatch._scaled_primitive(flipped).is_empty(), "a flipped box is left to the read-back")
 	print("batch primitive test: %d failure(s)" % failures)
 	quit(1 if failures else 0)
