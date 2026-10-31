@@ -11698,7 +11698,12 @@ func _finish_world() -> void:
 	camera.fov = 40.0
 	camera.position = Vector3(0, 40, 26)
 	add_child(camera)
-	camera.make_current()
+	# (Built behind the title, the menus keep their camera: the match one took
+	# over and drew the whole battlefield behind the opaque title art, 2,600
+	# objects a frame, and its first frame stalled ~180 ms drawing it.
+	# _start_match makes it current when the menus go.)
+	if not _world_behind:
+		camera.make_current()
 	Season.attach_weather(camera, air_kind())
 	await _world_build_frame()
 	_add_ink()
