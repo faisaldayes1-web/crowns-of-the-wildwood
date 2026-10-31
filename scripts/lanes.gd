@@ -182,7 +182,8 @@ static func twilight() -> Dictionary:
 		["c1", "i7", 2.8, "spoke"], ["c0", "i3", 2.8, "spoke"]])
 	for t in ["0", "1"]:
 		edges.append_array([["m" + t, "q" + t, 2.4, "nook"], ["m" + t, "r" + t, 2.4, "nook"], ["b" + t, "t" + t, 2.4, "nook"], ["c" + t, "u" + t, 2.4, "nook"]])
-	return {"nodes": nodes, "edges": edges, "lanes": ["i6", "i2", "o0", "o1"]}
+	return {"nodes": nodes, "edges": edges, "lanes": ["i6", "i2", "o0", "o1"],
+		"flats": [[Vector3.ZERO, Vector2(9.8, 9.8)]]}   # the pool's banks stay level, open across the water
 
 
 func _build_graph() -> void:
@@ -556,7 +557,7 @@ func height(x: float, z: float) -> float:
 
 
 func pool_y() -> float:
-	return 0.03
+	return 0.3   # (a hand deep over the basin, so the water shader reads depth, not shore foam)
 
 
 # --- Build -------------------------------------------------------------------
@@ -757,23 +758,26 @@ func _build_stonekeep() -> void:
 	for sx in [-1.0, 1.0]:
 		await game._world_build_frame()
 		# North and south walls (broken in two places each).
+		# (The south wall, toward the camera, is ruined lower so it never
+		# hides the courtyard fight.)
 		var wz: float = sx * 8.0
-		game._add_wall(Vector3(-6.2, 1.5, wz), Vector3(8.6, 3.0, 1.0))
-		game._add_wall(Vector3(6.2, 1.5, wz), Vector3(8.6, 3.0, 1.0))
+		var wh: float = 3.0 if sx < 0.0 else 1.8
+		game._add_wall(Vector3(-6.2, wh / 2.0, wz), Vector3(8.6, wh, 1.0))
+		game._add_wall(Vector3(6.2, wh / 2.0, wz), Vector3(8.6, wh, 1.0))
 		game._add_wall(Vector3(0, 0.6, wz), Vector3(3.8, 1.2, 1.0), false)   # the broken middle
 		# The gate walls: x = +-10, the gate gap |z| < 2.4.
 		for zs in [-1.0, 1.0]:
-			game._add_wall(Vector3(sx * 10.0, 1.5, zs * 5.9), Vector3(1.0, 3.0, 4.2))
+			var gh: float = 3.0 if zs < 0.0 else 2.0
+			game._add_wall(Vector3(sx * 10.0, gh / 2.0, zs * 5.9), Vector3(1.0, gh, 4.2))
 		# Flagstones through the gate and down the pass to its plaza.
 		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(5.6, 0.02, 4.4), Color.WHITE, false, floor_mat)
 		await game._world_build_frame()
 		for zs in [-1.0, 1.0]:
-			_tower(Vector3(sx * 10.0, 0, zs * 3.6), 1.15, 4.6 if zs < 0.0 else 3.9)
-		_tower(Vector3(sx * 10.0, 0, 8.0), 1.0, 3.6)
+			_tower(Vector3(sx * 10.0, 0, zs * 3.6), 1.15, 4.6 if zs < 0.0 else 2.2)   # the south one a stump: the gate stays in view
+		_tower(Vector3(sx * 10.0, 0, 8.0), 1.0, 2.4)
 		_tower(Vector3(sx * 10.0, 0, -8.0), 1.0, 3.4)
 		# A broken lintel stub over each gate, high enough to see under.
 		game._add_block(Vector3(sx * 10.0, 4.3, -2.7), Vector3(1.3, 0.7, 1.8), Color.WHITE, false, game._ashlar())
-		game._add_block(Vector3(sx * 10.0, 4.3, 2.9), Vector3(1.3, 0.7, 1.4), Color.WHITE, false, game._ashlar())
 		# Torches by the gates.
 		game._add_torch(Vector3(sx * 8.0, 0, -2.8))
 		game._add_torch(Vector3(sx * 8.0, 0, 2.8))
@@ -946,19 +950,40 @@ func _build_grove() -> void:
 	var wmat := ShaderMaterial.new()
 	wmat.shader = load("res://assets/shaders/water.gdshader")
 	wmat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	wmat.set_shader_parameter("half_width", 1000.0)   # (the river shader's bank foam: none out in the pool...)
+	wmat.set_shader_parameter("island_r", 2.5)        # (...only round the islet)
+	wmat.set_shader_parameter("open_foam", 0.3)
 	water.material_override = wmat
 	water.position = Vector3(0, pool_y(), 0)
 	game.add_child(water)
+	# A deep basin under the see-through water, glowing faintly from below.
+	var basin := MeshInstance3D.new()
+	var bm0 := CylinderMesh.new()
+	bm0.top_radius = POOL_R
+	bm0.bottom_radius = POOL_R
+	bm0.height = 0.01
+	bm0.radial_segments = 40
+	bm0.rings = 1
+	basin.mesh = bm0
+	var bmat := StandardMaterial3D.new()
+	bmat.albedo_color = Color(0.05, 0.16, 0.22)
+	bmat.emission_enabled = true
+	bmat.emission = Color(0.1, 0.45, 0.55)
+	bmat.emission_energy_multiplier = 0.6
+	bmat.roughness = 0.3
+	basin.material_override = bmat
+	basin.position = Vector3(0, 0.04, 0)
+	game.add_child(basin)
 	# A stone kerb round the water.
 	var kerb = game._ashlar(Color(0.78, 0.76, 0.86))
 	for k in 28:
 		var a := TAU * k / 28.0
 		var b := MeshInstance3D.new()
 		var bm := BoxMesh.new()
-		bm.size = Vector3(1.75, 0.32, 0.6)
+		bm.size = Vector3(1.75, 0.44, 0.6)
 		b.mesh = bm
 		b.material_override = kerb
-		b.position = Vector3(cos(a) * (POOL_R + 0.25), 0.16, sin(a) * (POOL_R + 0.25))
+		b.position = Vector3(cos(a) * (POOL_R + 0.25), 0.22, sin(a) * (POOL_R + 0.25))
 		b.rotation.y = -a + PI / 2.0
 		game.add_child(b)
 	await game._world_build_frame()

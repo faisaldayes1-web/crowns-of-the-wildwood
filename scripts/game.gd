@@ -6986,6 +6986,11 @@ func _add_cover(barricades: Array = COVER_BARRICADES, boulders: Array = COVER_BO
 		_add_boulder(-p)
 		cover_points.append(p)
 		cover_points.append(-p)
+		if lmap:
+			# On the narrower lanes walkers must know to step round them
+			# (route_point goes round anything in cover_boxes).
+			for q in [p, -p]:
+				cover_boxes.append(AABB(Vector3(q.x - 1.2, 0, q.z - 1.2), Vector3(2.4, 1.6, 2.4)))
 	if not ruins:
 		return
 	# The Northern Ruins: broken columns and rubble by the north bridge, and
