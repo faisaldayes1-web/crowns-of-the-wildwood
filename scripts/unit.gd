@@ -2059,7 +2059,7 @@ func _downed_process(delta: float) -> void:
 	move_and_slide()
 	_clamp_to_map()
 	_unstick(delta)
-	if game.in_channel(global_position):
+	if game.lmap == null and game.in_channel(global_position):
 		var bank := 1.0 if global_position.x >= 0.0 else -1.0
 		global_position.x = bank * (game.RIVER_HALF + 0.9)
 
@@ -2457,7 +2457,7 @@ func _physics_process(delta: float) -> void:
 
 	# Nobody stands in the river: anyone shoved or blown into the channel
 	# (a knockback over the shrine's rim) is set back on the nearer bank.
-	if game.vmap == null and game.in_channel(global_position):
+	if game.vmap == null and game.lmap == null and game.in_channel(global_position):
 		var bank := 1.0 if global_position.x >= 0.0 else -1.0
 		if game.demo:
 			print("RIVER t=%d team%d %s at %s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1)])
@@ -3062,6 +3062,8 @@ func nearest_free_spot(at: Vector3, reach: float = 4.0) -> Vector3:
 			var p := at + Vector3(cos(ang) * r, 0, sin(ang) * r)
 			if game.vmap and not game.vmap.walkable(p):
 				continue
+			if game.lmap and not game.lmap.walkable(p, 0.3):
+				continue
 			if game.vmap == null and game.in_channel(p):
 				continue
 			if spot_free(p):
@@ -3141,6 +3143,8 @@ func _clamp_to_map() -> void:
 	position.z = clampf(position.z, -game.map_half.y, game.map_half.y)
 	if game.vmap:
 		position = game.vmap.clamp_walk(position)  # Ember Pass: nobody steps into the lava
+	elif game.lmap:
+		position = game.lmap.clamp_walk(position)  # Stonekeep / Twilight: nobody walks up the ridges or into the trees
 
 
 # --- Combat ----------------------------------------------------------------
@@ -3608,6 +3612,13 @@ func _raid_goal(delta: float) -> Vector3:
 	## outside the enemy door, where the raid waits for company. One raider at
 	## a time just feeds the turrets; two or three together break in.
 	var theirs = game.monarchs[1 - team]
+	if game.lmap and not game.gates[1 - team].broken and not game.overtime:
+		# Stonekeep Fortress / Twilight Grove: this life's lane first (one
+		# per life, scripts/lanes.gd), so the raids use every route.
+		var via: Vector3 = game.lmap.lane_via(self)
+		if via.is_finite():
+			rally_wait = 0.0
+			return via + Vector3(bot_offset.x, 0, bot_offset.z) * 0.3
 	var rally: Vector3 = game.rally_point(team)
 	var toward_enemy := 1.0 if team == 0 else -1.0
 	var past_rally: bool = (global_position.x - rally.x) * toward_enemy > 1.0

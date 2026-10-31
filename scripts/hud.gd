@@ -1617,6 +1617,9 @@ func _minimap_static(c: Vector2, r: float) -> void:
 			var q := c + Vector2(cos(a), sin(a) * 0.6) * d
 			if field.has_point(q):
 				draw_circle(q, r * (0.07 + 0.03 * fmod(i * 0.618, 1.0)), _mm_season(Color(0.55, 0.78, 0.33, 0.28)))
+		if game.lmap:
+			# Stonekeep's ridges / the Grove's banks over everything off the lanes.
+			_lanes_cells(m, sx, sz, func(q: Vector2) -> bool: return (q - c).length() < r - 1.0)
 		# Trees on the field.
 		for t in game.map_trees:
 			var q: Vector2 = m.call(t)
@@ -1656,35 +1659,48 @@ func _minimap_static(c: Vector2, r: float) -> void:
 			elif mark[1] == "mill":
 				draw_rect(Rect2(q - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.62, 0.46, 0.3))
 				draw_arc(q + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
-		# The river (drawn a little wider than life so it reads), then bridges.
-		var rh: float = maxf(game.RIVER_HALF * sx * 1.7, r * 0.055)
-		_mm_rect(Rect2(c.x - rh - 2.0, c.y - r, 2.0 * rh + 4.0, 2.0 * r), clip, Color(0.62, 0.55, 0.36))
-		var river_deep: Color = Color(0.13, 0.45, 0.95) if game.season == "" else Season.water(game.season, true)
-		var river_lit: Color = Color(0.4, 0.72, 1.0, 0.55) if game.season == "" else Season.water(game.season, false) * Color(1, 1, 1, 0.55)
-		_mm_rect(Rect2(c.x - rh, c.y - r, 2.0 * rh, 2.0 * r), clip, river_deep)
-		_mm_rect(Rect2(c.x - rh * 0.35, c.y - r, rh * 0.7, 2.0 * r), clip, river_lit)
-		for i in game.BRIDGES.size():
-			if i == 1:
-				continue
-			var bz: float = game.BRIDGES[i]
-			var half: float = game.BRIDGE_HALF[i]
-			var bq: Vector2 = m.call(Vector3(0, 0, bz))
-			var br := Rect2(bq.x - rh - 3.0, bq.y - half * sz, 2.0 * rh + 6.0, 2.0 * half * sz)
-			_mm_rect(br, clip, Color(0.6, 0.4, 0.22), Color(0.28, 0.16, 0.07), 1.2)
-			for k in 3:
-				var ly := br.position.y + br.size.y * (k + 1) / 4.0
-				draw_line(Vector2(br.position.x + 1, ly), Vector2(br.end.x - 1, ly), Color(0.35, 0.2, 0.09, 0.6), 1.0)
-		# The Crown Shrine: a gold ring round a glowing green heart.
-		var sr: float = maxf(game.ISLAND_R * sx * 1.15, 7.0)
-		draw_circle(c + Vector2(0, 1.5), sr + 2.5, Color(0, 0, 0, 0.35))
-		draw_circle(c, sr + 2.0, Color(0.38, 0.27, 0.06))
-		draw_circle(c, sr, GOLD)
-		draw_circle(c, sr * 0.72, Color(0.65, 0.45, 0.1))
-		draw_circle(c, sr * 0.6, Color(0.2, 0.62, 0.22))
-		for k in 8:
-			var a := TAU * k / 8.0
-			draw_circle(c + Vector2(cos(a), sin(a)) * sr * 0.86, maxf(sr * 0.1, 0.9), Color(1, 0.95, 0.65))
+			else:
+				_lanes_mark(mark, m, sx, sz, false)
+		if game.lmap:
+			pass   # no river, bridges or Crown Shrine on these two
+		else:
+			_minimap_river(c, r, m, clip, sx, sz)
 	# The castles: team-colour blocks, crown on the throne, door gold or red.
+	_minimap_castles(c, r, m, clip, fx)
+
+
+func _minimap_river(c: Vector2, r: float, m: Callable, clip: PackedVector2Array, sx: float, sz: float) -> void:
+	# The river (drawn a little wider than life so it reads), then bridges.
+	var rh: float = maxf(game.RIVER_HALF * sx * 1.7, r * 0.055)
+	_mm_rect(Rect2(c.x - rh - 2.0, c.y - r, 2.0 * rh + 4.0, 2.0 * r), clip, Color(0.62, 0.55, 0.36))
+	var river_deep: Color = Color(0.13, 0.45, 0.95) if game.season == "" else Season.water(game.season, true)
+	var river_lit: Color = Color(0.4, 0.72, 1.0, 0.55) if game.season == "" else Season.water(game.season, false) * Color(1, 1, 1, 0.55)
+	_mm_rect(Rect2(c.x - rh, c.y - r, 2.0 * rh, 2.0 * r), clip, river_deep)
+	_mm_rect(Rect2(c.x - rh * 0.35, c.y - r, rh * 0.7, 2.0 * r), clip, river_lit)
+	for i in game.BRIDGES.size():
+		if i == 1:
+			continue
+		var bz: float = game.BRIDGES[i]
+		var half: float = game.BRIDGE_HALF[i]
+		var bq: Vector2 = m.call(Vector3(0, 0, bz))
+		var br := Rect2(bq.x - rh - 3.0, bq.y - half * sz, 2.0 * rh + 6.0, 2.0 * half * sz)
+		_mm_rect(br, clip, Color(0.6, 0.4, 0.22), Color(0.28, 0.16, 0.07), 1.2)
+		for k in 3:
+			var ly := br.position.y + br.size.y * (k + 1) / 4.0
+			draw_line(Vector2(br.position.x + 1, ly), Vector2(br.end.x - 1, ly), Color(0.35, 0.2, 0.09, 0.6), 1.0)
+	# The Crown Shrine: a gold ring round a glowing green heart.
+	var sr: float = maxf(game.ISLAND_R * sx * 1.15, 7.0)
+	draw_circle(c + Vector2(0, 1.5), sr + 2.5, Color(0, 0, 0, 0.35))
+	draw_circle(c, sr + 2.0, Color(0.38, 0.27, 0.06))
+	draw_circle(c, sr, GOLD)
+	draw_circle(c, sr * 0.72, Color(0.65, 0.45, 0.1))
+	draw_circle(c, sr * 0.6, Color(0.2, 0.62, 0.22))
+	for k in 8:
+		var a := TAU * k / 8.0
+		draw_circle(c + Vector2(cos(a), sin(a)) * sr * 0.86, maxf(sr * 0.1, 0.9), Color(1, 0.95, 0.65))
+
+
+func _minimap_castles(c: Vector2, r: float, m: Callable, clip: PackedVector2Array, fx: float) -> void:
 	for t in 2:
 		var side := -1.0 if t == 0 else 1.0
 		var tc := _team_color(t)
@@ -1716,8 +1732,9 @@ func _minimap_live(c: Vector2, r: float) -> void:
 	var pt: float = g.pt
 	var fx: float = g.fx
 	if not game.vmap:
-		var sr: float = maxf(game.ISLAND_R * sx * 1.15, 7.0)
-		draw_circle(c, sr * 0.38, Color(0.45, 0.95, 0.4, 0.75 + 0.2 * sin(pt * 3.0)))
+		if not game.lmap:
+			var sr: float = maxf(game.ISLAND_R * sx * 1.15, 7.0)
+			draw_circle(c, sr * 0.38, Color(0.45, 0.95, 0.4, 0.75 + 0.2 * sin(pt * 3.0)))
 		for t in 2:
 			var ox: float = (-1.0 if t == 0 else 1.0) * fx
 			var door_color: Color = RED if game.gates[t].broken else GOLD
@@ -4462,6 +4479,8 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		var az: Vector2 = m.call(Vector3(0, 0, 1)) - o
 		_draw_lava_plates(o, ax, az, func(q: Vector2) -> bool: return inner.grow(30.0).has_point(q), box, pt)
 		_volcano_network(inner.get_center(), inner.size.length(), m, box, sx, pt, detailed)
+	if game.lmap:
+		_lanes_cells(m, sx, sz, func(q: Vector2) -> bool: return inner.grow(-1.0).has_point(q))
 	# Forest.
 	for t in game.map_trees:
 		var r: float = (2.6 if t.y > 0.5 else 1.8) * sx
@@ -4489,8 +4508,10 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		elif mark[1] == "mill":
 			draw_rect(Rect2(c - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.6, 0.45, 0.3))
 			draw_arc(c + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
+		else:
+			_lanes_mark(mark, m, sx, sz, detailed)
 	# The river, the island and the bridges.
-	if game.vmap == null:
+	if game.vmap == null and game.lmap == null:
 		_draw_map_river(m, sx, sz, hz, detailed)
 	_draw_map_castles(rect, m, sx, sz, fx, detailed)
 
@@ -5762,7 +5783,7 @@ func _menu_map_page(body: Rect2, now: float) -> void:
 	## with a compass, - / + and the DEFENDING HOME tag, and beside it a card
 	## with the map's picture, the legend and the objective.
 	var vp := _pause_map_rect()
-	var title := "EMBER PASS" if game.vmap else "THE WILDWOOD VALLEY"
+	var title := map_title()
 	_icon("crest_forest", Vector2(vp.position.x + 10, body.position.y + 13), 8, LEAF)
 	_text(Vector2(vp.position.x + 26, body.position.y + 21), title, 18, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	_plate(vp.grow(4), Color(0.05, 0.06, 0.05), Color(0.3, 0.42, 0.22), 10, 2)
@@ -5840,8 +5861,71 @@ func _draw_zoomed_map() -> void:
 	_text(Vector2(c.x - 10, c.y - 21), "N", 12, Color(1.0, 0.95, 0.8), HORIZONTAL_ALIGNMENT_CENTER, 20, 3)
 
 
+func map_title() -> String:
+	if game.vmap:
+		return "EMBER PASS"
+	if game.lmap:
+		return "STONEKEEP FORTRESS" if game.season == "winter" else "TWILIGHT GROVE"
+	return "THE WILDWOOD VALLEY"
+
+
+func _lanes_cells(m: Callable, sx: float, sz: float, keep: Callable) -> void:
+	## Stonekeep Fortress's ridges (snow over rock, darker at the foot) or
+	## Twilight Grove's wooded banks, over every cell off the lanes.
+	var winter: bool = game.season == "winter"
+	var cs: float = game.lmap.CELL
+	var size := Vector2(cs * sx + 0.6, cs * sz + 0.6)
+	for cell in game.lmap.cells:
+		var w: Vector2 = cell[0]
+		var q: Vector2 = m.call(Vector3(w.x, 0, w.y))
+		if not keep.call(q):
+			continue
+		var d: float = cell[1]
+		var col: Color
+		if winter:
+			col = Color(0.42, 0.47, 0.58).lerp(Color(0.9, 0.93, 0.98), clampf((d - 0.6) / 4.0, 0.0, 1.0))
+		else:
+			col = Color(0.16, 0.24, 0.28).lerp(Color(0.1, 0.16, 0.2), clampf(d / 6.0, 0.0, 1.0))
+		draw_rect(Rect2(q - size / 2.0, size), col)
+
+
+func _lanes_mark(mark: Array, m: Callable, sx: float, sz: float, detailed: bool) -> void:
+	## Stonekeep's ruin and frozen tarns, the Grove's glowing pool.
+	var q: Vector2 = m.call(mark[0])
+	match mark[1]:
+		"keep":
+			var rr := Rect2(q - Vector2(10.5 * sx, 8.5 * sz), Vector2(21.0 * sx, 17.0 * sz))
+			draw_rect(rr, Color(0.62, 0.64, 0.7))
+			draw_rect(rr.grow(-maxf(1.0 * sx, 1.5)), Color(0.78, 0.8, 0.86))
+			for sd in [-1.0, 1.0]:
+				# The two gates.
+				var g: Vector2 = m.call(Vector3(sd * 10.0, 0, 0))
+				draw_rect(Rect2(g - Vector2(1.2 * sx, 2.3 * sz), Vector2(2.4 * sx, 4.6 * sz)), Color(0.78, 0.8, 0.86))
+				for zs in [-1.0, 1.0]:
+					draw_circle(m.call(Vector3(sd * 10.0, 0, zs * 3.6)), maxf(1.2 * sx, 1.6), Color(0.5, 0.52, 0.58))
+		"tarn":
+			var pts := PackedVector2Array()
+			for k in 20:
+				var a := TAU * k / 20.0
+				pts.append(q + Vector2(cos(a) * 6.6 * sx, sin(a) * 4.8 * sz))
+			draw_colored_polygon(pts, Color(0.62, 0.82, 0.96))
+			pts.append(pts[0])
+			draw_polyline(pts, Color(0.92, 0.97, 1.0), 1.5 if detailed else 1.0)
+		"pool":
+			var rr: float = game.lmap.POOL_R
+			var pts := PackedVector2Array()
+			for k in 28:
+				var a := TAU * k / 28.0
+				pts.append(q + Vector2(cos(a) * rr * sx, sin(a) * rr * sz))
+			draw_colored_polygon(pts, Color(0.18, 0.5, 0.62))
+			pts.append(pts[0])
+			draw_polyline(pts, Color(0.62, 0.6, 0.72), 2.0 if detailed else 1.2)
+			draw_circle(q, maxf(2.4 * sx, 2.0), Color(0.3, 0.55, 0.4))
+			draw_circle(q, maxf(1.2 * sx, 1.2), Color(0.5, 0.95, 1.0, 0.85))
+
+
 func _menu_overview(body: Rect2) -> void:
-	_text(body.position + Vector2(0, 16), "EMBER PASS" if game.vmap else "THE WILDWOOD VALLEY", 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 3)
+	_text(body.position + Vector2(0, 16), map_title(), 15, CREAM, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 3)
 	var keys := [["you", "You"], ["enemy", "Enemy in sight"], ["veteran", "Elite bounty"], ["potion", "Healing potion"],
 		["blessing", "Blessing"], ["turret", "Turret"], ["door", "Door (red: broken)"], ["spawn", "Spawn cellar"]]
 	var cols := 4
@@ -5868,6 +5952,10 @@ func _menu_overview(body: Rect2) -> void:
 	var blurb := "Break the enemy door, smash the Crown Vault lock, steal their crown, carry it home. Grab a class hat in your cellar."
 	if game.vmap:
 		blurb = "Hold the Fire Objective and every class on your team becomes its Fire form. Break the door, steal their crown, carry it home."
+	elif game.lmap and game.season == "winter":
+		blurb = "Force the ruin's narrow gate, or take the long snow lanes over the frozen tarns. Break the door, steal their crown, carry it home."
+	elif game.lmap:
+		blurb = "Paths ring the glowing pool and wind through the grove: no chokepoint, so flank and ambush. Steal their crown, carry it home."
 	_text(Vector2(body.position.x, y + rows * 17 + 6), blurb, 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
 
 

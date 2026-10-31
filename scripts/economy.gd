@@ -52,10 +52,15 @@ func build(p_game) -> void:
 	game = p_game
 	# (Slices: the match world can be built behind the live menus, see
 	# game.gd _build_world_behind. Outside that this never waits.)
-	for spot in TREE_SPOTS:
+	var tree_spots: Array = TREE_SPOTS
+	var ore_spots: Array = ORE_SPOTS
+	if game.lmap:   # Stonekeep Fortress / Twilight Grove: by their own lanes (scripts/lanes.gd)
+		tree_spots = game.lmap.econ_spots().wood
+		ore_spots = game.lmap.econ_spots().ore
+	for spot in tree_spots:
 		await game._world_build_frame()
 		_place_pair("wood", spot)
-	for spot in ORE_SPOTS:
+	for spot in ore_spots:
 		await game._world_build_frame()
 		_place_pair("ore" if Stats.ECONOMY.ore_on else "wood", spot)
 	for team in 2:
@@ -113,6 +118,8 @@ func _spot_ok(p: Vector3) -> bool:
 	## other trees and anything built.
 	if not game._tree_spot_ok(p, false):
 		return false
+	if game.lmap and not game.lmap.walkable(p, 1.4):
+		return false   # on the lanes, with room to stand round it
 	if absf(p.x) > game.CASTLE_X - game.CASTLE_DEPTH - 6.0:
 		return false   # keep canopies off the castle walls (and the camera's view of the ramparts)
 	if game._near_path(p, 2.2):
