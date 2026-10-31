@@ -1,0 +1,51 @@
+{
+  "agent": "Codex-faisal2",
+  "bounds_kind": "image extent, not collision or navigation bounds",
+  "image_height": 2304,
+  "image_width": 4096,
+  "landmarks": [
+    {
+      "label": "ELVEN KEEP",
+      "pixel_x": 739.555541992188,
+      "pixel_y": 1151.99975585938,
+      "world_x": -69,
+      "world_z": 0
+    },
+    {
+      "label": "HUMAN KEEP",
+      "pixel_x": 3356.4443359375,
+      "pixel_y": 1151.99975585938,
+      "world_x": 69,
+      "world_z": 0
+    },
+    {
+      "label": "NORTH BRIDGE",
+      "pixel_x": 2048,
+      "pixel_y": 772.740539550781,
+      "world_x": 0,
+      "world_z": -20
+    },
+    {
+      "label": "CENTRAL PLAZA",
+      "pixel_x": 2048,
+      "pixel_y": 1151.99975585938,
+      "world_x": 0,
+      "world_z": 0
+    },
+    {
+      "label": "SOUTH BRIDGE",
+      "pixel_x": 2048,
+      "pixel_y": 1531.25903320313,
+      "world_x": 0,
+      "world_z": 20
+    }
+  ],
+  "map_variant": 3,
+  "north": "-Z",
+  "pixel_mapping": "px=(x+108)/216*4096; py=(z+60.75)/121.5*2304",
+  "projection": "orthographic",
+  "world_x_max": 108,
+  "world_x_min": -108,
+  "world_z_max": 60.75,
+  "world_z_min": -60.75
+}
