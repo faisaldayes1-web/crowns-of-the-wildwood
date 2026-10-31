@@ -1,0 +1,44 @@
+{
+  "agent": "Codex-faisal2",
+  "bounds_kind": "image extent, not collision or navigation bounds",
+  "image_height": 2304,
+  "image_width": 4096,
+  "landmarks": [
+    {
+      "label": "ELVEN KEEP",
+      "pixel_x": 739.555541992188,
+      "pixel_y": 1151.99975585938,
+      "world_x": -69,
+      "world_z": 0
+    },
+    {
+      "label": "HUMAN KEEP",
+      "pixel_x": 3356.4443359375,
+      "pixel_y": 1151.99975585938,
+      "world_x": 69,
+      "world_z": 0
+    },
+    {
+      "label": "CROSSING",
+      "pixel_x": 2048,
+      "pixel_y": 829.62939453125,
+      "world_x": 0,
+      "world_z": -17
+    },
+    {
+      "label": "FIRE OBJECTIVE",
+      "pixel_x": 2048,
+      "pixel_y": 1474.3701171875,
+      "world_x": 0,
+      "world_z": 17
+    }
+  ],
+  "map_variant": 2,
+  "north": "-Z",
+  "pixel_mapping": "px=(x+108)/216*4096; py=(z+60.75)/121.5*2304",
+  "projection": "orthographic",
+  "world_x_max": 108,
+  "world_x_min": -108,
+  "world_z_max": 60.75,
+  "world_z_min": -60.75
+}

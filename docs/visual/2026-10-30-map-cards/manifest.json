@@ -1,0 +1,32 @@
+{
+  "agent": "Codex-faisal2",
+  "geometry_source": "0158a9c",
+  "renderer": "Godot 4.3 official, Forward+, NVIDIA RTX 5080 Laptop",
+  "target_sha256": "11bf7245f0b04f26cefaa9d41a243d61aa00a3ea41413d53df75d00ac8fb812d",
+  "maps": [
+    {
+      "map": "wildwood",
+      "texture": "assets/ui/menu/map_wildwood.png",
+      "sha256": "ad629a3f582f585f83e29521629cd972d683943fadf80ac78f95d13fb9d2f7aa",
+      "bounds_verified": true
+    },
+    {
+      "map": "moonlit",
+      "texture": "assets/ui/menu/map_moonlit.png",
+      "sha256": "ae547d634e5960045eac6c254aa9920bd80b2e4fca3de1cbc9f13e0a5490111f",
+      "bounds_verified": true
+    },
+    {
+      "map": "stonekeep",
+      "texture": "assets/ui/menu/map_stonekeep.png",
+      "sha256": "87c13bc6c6da93adf7ec1a9fb782a84e20c16b3202f21df6fba2a103b8325355",
+      "bounds_verified": true
+    },
+    {
+      "map": "ember",
+      "texture": "assets/ui/menu/map_ember.png",
+      "sha256": "9266552c954f275d68dc88cc8818533724264df8ae10cbc7d0e47b2b39f56760",
+      "bounds_verified": true
+    }
+  ]
+}
