@@ -61,3 +61,63 @@ static func dress(skeleton: Skeleton3D, role: int, color: Color, outline: Materi
 		tail.position = Vector3(0.26 + k * 0.08, 0.98 + k * 0.03, 0.26 - k * 0.03)
 		tail.rotation = Vector3(-0.25, 0.4, 0.35 + k * 0.3)
 		n.add_child(tail)
+
+
+# Team tabards (claude-faisal/tabard): a skinned cloth mesh modelled on the
+# KayKit rig in Blender (assets/characters/tabard/build_tabard.py), so a Human
+# and an Elf of the same class read apart from the match camera. One mesh per
+# body serves both teams; the colour comes from a tiny per-team palette (cloth,
+# hem) on the material. "Tabard_Front" drops the back panel for a worn cape.
+# Keyed by class (on its body): Knights (Knight body) and Healers (Mage body),
+# the classes whose two teams looked alike from above. Rangers, Mages and
+# Rogues already wear team hoods and hats; the Engineer's shirt is team
+# coloured under the bear hood.
+const TABARDS := {"knight": "res://assets/characters/tabard/tabard_knight.glb",
+	"healer": "res://assets/characters/tabard/tabard_healer.glb"}
+static var tabard_scenes := {}
+static var tabard_palettes := {}
+
+
+static func tabard(skeleton: Skeleton3D, body: String, team_col: Color, gold_hem: bool, with_back: bool,
+		outline: Material) -> StandardMaterial3D:
+	## Adds the tabard under `skeleton`; returns its material (for the hit flash).
+	if skeleton == null or not TABARDS.has(body):
+		return null
+	var ps: PackedScene = tabard_scenes.get(body)
+	if ps == null:
+		ps = load(TABARDS[body])
+		tabard_scenes[body] = ps
+	var src_root := ps.instantiate()
+	var src := src_root.find_child("Tabard" if with_back else "Tabard_Front", true, false) as MeshInstance3D
+	if src == null:
+		src_root.free()
+		return null
+	var mi := MeshInstance3D.new()
+	mi.name = "Tabard"
+	mi.mesh = src.mesh
+	mi.skin = src.skin
+	src_root.free()
+	skeleton.add_child(mi)
+	mi.skeleton = NodePath("..")
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = _palette(team_col, gold_hem)
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	mat.roughness = 0.9
+	mat.rim_enabled = true
+	mat.rim = 0.2
+	mat.rim_tint = 0.45
+	mat.next_pass = outline
+	mi.material_override = mat
+	return mat
+
+
+static func _palette(team_col: Color, gold_hem: bool) -> Texture2D:
+	var key := "%s|%s" % [team_col.to_html(), gold_hem]
+	if tabard_palettes.has(key):
+		return tabard_palettes[key]
+	var img := Image.create(2, 1, false, Image.FORMAT_RGB8)
+	img.set_pixel(0, 0, team_col)
+	img.set_pixel(1, 0, Color(0.98, 0.78, 0.26) if gold_hem else team_col.darkened(0.35))
+	var tex := ImageTexture.create_from_image(img)
+	tabard_palettes[key] = tex
+	return tex
