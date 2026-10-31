@@ -121,7 +121,7 @@ static func _frame(a: Vector3, b: Vector3) -> Array:
 
 
 static func block_course(g, a: Vector3, b: Vector3, y0: float, h: float, thick: float, grey: bool, seed: int,
-		min_len: float = 0.7, max_len: float = 1.25, shadow: bool = true) -> void:
+		min_len: float = 0.7, max_len: float = 1.25, shadow: bool = true, mats_in: Array = []) -> void:
 	## One course of individual blocks from a to b (their feet at y0), random
 	## lengths, a hand-width gap between them, each its own shade and set a
 	## touch proud or back, so the wall reads as stacked stones.
@@ -131,7 +131,7 @@ static func block_course(g, a: Vector3, b: Vector3, y0: float, h: float, thick: 
 	var length: float = f[2]
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
-	var mats := face_mats(g, grey)
+	var mats := face_mats(g, grey) if mats_in.is_empty() else mats_in
 	var rot := atan2(-along.z, along.x)
 	var t := 0.0
 	while t < length - 0.05:
@@ -282,7 +282,9 @@ static func courtyard_wall(g, a: Vector3, b: Vector3, grey: bool, seed: int, mer
 	var rot := atan2(-along.z, along.x)
 	var mid := (a + b) / 2.0
 	if tall_out != Vector3.ZERO:
-		_tall_courtyard_wall(g, a, b, along, length, rot, grey, seed, tall_out)
+		# Pass 4 (2026-10-31): the tall warm tan stone wall (was pass 2's
+		# 2.4 m block wall, _tall_courtyard_wall).
+		_yard_side_wall(g, a, b, along, length, rot, seed, tall_out)
 		return
 	var core := Vector3(length, 0.9, 0.5) if absf(along.x) > 0.5 else Vector3(0.5, 0.9, length)
 	_box(g, Vector3(mid.x, 0.3 + 0.45, mid.z), core, mortar_mat(g, grey))
@@ -391,6 +393,100 @@ static func _flag(st: SurfaceTool, foot: Vector3, col: Color, seed: int) -> void
 	var y0 := -fh * 0.4
 	var y1 := -fh * 0.56
 	_quad(st, p0 + Vector3(0, y0, 0.006), p1 + Vector3(0, y0, 0.006), p1 + Vector3(0, y1, 0.006), p0 + Vector3(0, y1, 0.006), gold)
+
+
+# --- The yard's west wall (pass 4, 2026-10-31) ---------------------------------
+
+static func ashlar_mats(g) -> Array:
+	## Warm tan stone (tools/make_castle_textures.py make_castle_ashlar): the
+	## wall face (a touch under the lit merlons, so the face reads as the
+	## shadow side), a darker coping, a darker plinth, and two lighter
+	## shades of the modelled blocks' stone for the merlons and corbels.
+	var c := _cache(g)
+	if not c.has("ashlar" + str(g.soot)):
+		# (Tints pull the tan toward the picks' pale, pinkish sandstone: under
+		# the golden key and the grade's saturation a plain tan reads orange.)
+		c["ashlar" + str(g.soot)] = [g._pbr("castle_ashlar", 0.3, Color(0.98, 0.98, 1.14)),
+			g._pbr("castle_ashlar", 0.3, Color(0.86, 0.84, 0.94)), g._pbr("castle_ashlar", 0.3, Color(0.7, 0.67, 0.74)),
+			g._pbr("castle_face", 0.5, Color(1.04, 1.02, 1.2)), g._pbr("castle_face", 0.5, Color(0.96, 0.94, 1.1))]
+	return c["ashlar" + str(g.soot)]
+
+
+static func _yard_side_wall(g, a: Vector3, b: Vector3, along: Vector3, length: float, rot: float, seed: int, out: Vector3) -> void:
+	## The open yard's outer side wall, the one the match camera looks along
+	## (pick Battle A's left wall): a tall, thick wall of warm tan stone
+	## blocks, a darker plinth and coping, chunky light merlons along its
+	## outer edge and lit braziers on corbels along its yard face. Its yard
+	## face stays where pass 2's wall had it (0.24 m in from the kerb line)
+	## and it grows only outward, away from the yard, so at the match camera
+	## it leans away from the yard. Visual only: the kerb and
+	## the invisible wall stay the caller's.
+	const INNER := -0.24
+	const OUTER := 1.4
+	const TOP := 2.9   # the stone body's top (the coping and merlons sit on it)
+	var thick := OUTER - INNER
+	var sh := out * (INNER + OUTER) / 2.0
+	# Run a little past both corner piers, so the corners close.
+	var a0 := a + sh - along * 0.6
+	var b0 := b + sh + along * 0.6
+	var full := length + 1.2
+	var mid := (a0 + b0) / 2.0
+	var am := ashlar_mats(g)
+	var body := Vector3(full, TOP - 0.3, thick) if absf(along.x) > 0.5 else Vector3(thick, TOP - 0.3, full)
+	_box(g, Vector3(mid.x, 0.3 + (TOP - 0.3) / 2.0, mid.z), body, am[0])
+	# A darker plinth course at the foot (shadowless: it sits in the wall's shade).
+	block_course(g, a0, b0, 0.3, 0.46, thick + 0.14, false, seed, 0.9, 1.5, false, [am[2]])
+	# The coping: big blocks of a darker tan, proud of both faces; it shows
+	# in the crenels between the light merlons, so the crenellation reads.
+	block_course(g, a0, b0, TOP, 0.3, thick + 0.22, false, seed + 2, 0.9, 1.5, true, [am[1]])
+	# Chunky light-tan merlons along the outer edge (the modelled blocks'
+	# stone), the wall walk open behind them on the yard side.
+	var pitch := 1.35
+	var n := maxi(int(round(full / pitch)), 1)
+	var step := full / n
+	var r := RandomNumberGenerator.new()
+	r.seed = seed + 5
+	var mt := 0.9
+	var mo := out * (OUTER - 0.02 - mt / 2.0 - (INNER + OUTER) / 2.0)
+	for k in n:
+		var c := a0 + along * ((k + 0.5) * step) + mo
+		var hh := 0.84 * r.randf_range(0.95, 1.0)
+		block(g, Vector3(c.x, TOP + 0.3 + hh / 2.0, c.z), Vector3(step * 0.58, hh, mt), am[3 + k % 2], rot)
+	# Braziers on stone corbels along the yard face: an iron bowl and a
+	# flame (game.gd's own fire, so it batches with the yard's), two of the
+	# four with a cheap shadowless light.
+	var iron: Material = g._iron()
+	var fr := [0.17, 0.39, 0.61, 0.83]
+	for i in fr.size():
+		var p: Vector3 = a + along * (length * fr[i])
+		var face := p + out * INNER
+		block(g, Vector3(face.x, 2.38, face.z) - out * 0.22, Vector3(0.62, 0.24, 0.5), am[3], rot)
+		block(g, Vector3(face.x, 2.16, face.z) - out * 0.12, Vector3(0.4, 0.2, 0.3), am[4], rot, false)
+		var bowl := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.3
+		cm.bottom_radius = 0.15
+		cm.height = 0.24
+		cm.radial_segments = 10
+		bowl.mesh = cm
+		bowl.position = Vector3(face.x, 2.62, face.z) - out * 0.3
+		bowl.material_override = iron
+		bowl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.add_child(bowl)
+		g._add_fire(Vector3(face.x, 2.68, face.z) - out * 0.3, 1.9)
+		if i == 1 or i == 2:
+			var light := OmniLight3D.new()
+			light.light_color = Color(1.0, 0.66, 0.32)
+			light.light_energy = 1.2
+			light.omni_range = 6.0
+			light.omni_attenuation = 1.3
+			light.shadow_enabled = false
+			light.position = Vector3(face.x, 3.2, face.z) - out * 0.8
+			g.add_child(light)
+	# (Team banners were tried on the yard face too: at the match camera the
+	# face is nearly edge-on and they showed as green slivers, so the wall
+	# carries none; banners hung outward over the merlons floated over the
+	# forest.)
 
 
 static func palisade(g, a: Vector3, b: Vector3, team: int, face: Vector3, crest_at: Array, grey: bool, seed: int) -> void:

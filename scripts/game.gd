@@ -10874,7 +10874,12 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 		# hung from a rod over the station (was pass 2's striped awning).
 		CastleKit.station_banner(self, pos, role, zb)
 	# The name plate: a dark strip across the panel's lower third.
-	_add_block(Vector3(pos.x, pos.y + 1.68, zb + 0.04), Vector3(1.44, 0.3, 0.03), Color.WHITE, false, dark)
+	# Pass 4 (2026-10-31): the Mage's tall hat reaches the lower third at the
+	# match camera and hid "GE", so its name plate takes the panel's top and
+	# the crest drops under it (the hat and the station stay as they are).
+	var name_y := 2.22 if world_style and role == 3 else 1.68
+	var crest_y := 1.8 if world_style and role == 3 else 2.08
+	_add_block(Vector3(pos.x, pos.y + name_y, zb + 0.04), Vector3(1.44, 0.3, 0.03), Color.WHITE, false, dark)
 	var name := Label3D.new()
 	name.text = str(Stats.FACTIONS[team].roles[role]).to_upper()
 	name.font_size = 64
@@ -10882,7 +10887,7 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	name.outline_size = 10
 	name.outline_modulate = Color(0.08, 0.05, 0.02)
 	name.modulate = Color(1.0, 0.82, 0.32)
-	name.position = Vector3(pos.x, pos.y + 1.68, zb + 0.065)
+	name.position = Vector3(pos.x, pos.y + name_y, zb + 0.065)
 	name.shaded = false
 	add_child(name)
 	var disc := MeshInstance3D.new()
@@ -10892,7 +10897,7 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	dm.height = 0.02
 	dm.radial_segments = 24
 	disc.mesh = dm
-	disc.position = Vector3(pos.x, pos.y + 2.08, zb + 0.045)
+	disc.position = Vector3(pos.x, pos.y + crest_y, zb + 0.045)
 	disc.rotation.x = PI / 2.0
 	var glow := _material(accent.darkened(0.25))
 	glow.emission_enabled = true
@@ -10906,7 +10911,7 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 	q.size = Vector2.ONE * 0.54
 	em.mesh = q
 	em.material_override = _icon_mat(_class_icon_name(role))
-	em.position = Vector3(pos.x, pos.y + 2.08, zb + 0.07)
+	em.position = Vector3(pos.x, pos.y + crest_y, zb + 0.07)
 	add_child(em)
 
 
