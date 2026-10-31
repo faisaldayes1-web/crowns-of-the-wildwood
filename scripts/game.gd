@@ -627,6 +627,7 @@ func _build_world_behind() -> void:
 	# each piece is held still until the whole world is there.
 	get_tree().node_added.connect(_hold_world_piece)
 	world_style = true
+	_world_measure(true)
 	_world_slice_start = Time.get_ticks_usec()
 	_world_frame_deadline = _world_slice_start + WORLD_SLICE_USEC
 	await _build_world_land()
@@ -638,6 +639,7 @@ func _build_world_behind() -> void:
 		_world_batched = true
 	world_style = false
 	_world_behind = false
+	_world_measure(false)
 	get_tree().node_added.disconnect(_hold_world_piece)
 	for held in _world_held:
 		if is_instance_valid(held[0]):
@@ -2397,7 +2399,17 @@ var world_slice_usec := PackedInt32Array()   # each behind-the-title slice's CPU
 # frame; a match started before it is done waits under the loading art.
 signal world_finished
 signal _world_slice   # each frame while the world builds behind the menus
-const WORLD_SLICE_USEC := 10000
+const WORLD_SLICE_USEC := 10000   # the first slice; then _world_slice_budget()
+# claude-faisal/stutter 2026-10-30: a fixed 10 ms slice plus the menus and
+# drawing did not fit a 60 fps frame on an integrated GPU's laptop (the
+# title ran 40-56 fps while the world built). Each slice now takes what the
+# last frames left of WORLD_FRAME_CPU_USEC, between the two limits below.
+const WORLD_FRAME_CPU_USEC := 13500   # a title frame's CPU in all: 60 fps with room
+const WORLD_SLICE_MIN_USEC := 2000
+const WORLD_SLICE_MAX_USEC := 12000
+var _world_rest_usec := 4000.0   # running average: a frame's CPU besides the slice (menus, drawing)
+var _world_main_usec := 0   # last frame's main-thread CPU, from the draw before it to its own
+var _world_post_draw := 0
 var world_ready := true
 var _world_behind := false
 var _match_waiting := false
@@ -2436,7 +2448,7 @@ func _world_build_frame() -> void:
 			await _world_slice
 			world_style = true
 			_world_slice_start = Time.get_ticks_usec()
-			_world_frame_deadline = _world_slice_start + (32000 if _match_waiting else WORLD_SLICE_USEC)
+			_world_frame_deadline = _world_slice_start + (32000 if _match_waiting else _world_slice_budget())
 		return
 	# All scene-tree mutations stay on the main thread. A completed chunk
 	# yields real frames, rather than dropping OS input in a blocking build.
@@ -2447,6 +2459,39 @@ func _world_build_frame() -> void:
 		# A 32 ms work budget keeps loading responsive without spending a
 		# full extra rendered frame after each tiny construction operation.
 		_world_frame_deadline = Time.get_ticks_usec() + 32000
+
+
+func _world_slice_budget() -> int:
+	## How long this frame's slice may run: the frame's CPU target less what
+	## the rest of the last frames cost (their main thread outside the slice,
+	## and drawing's CPU; the wait for the screen is not counted).
+	if _world_main_usec > 0 and not world_slice_usec.is_empty():
+		var vp := get_viewport().get_viewport_rid()
+		var draw_usec := RenderingServer.viewport_get_measured_render_time_cpu(vp) * 1000.0
+		var rest := clampf(_world_main_usec - world_slice_usec[world_slice_usec.size() - 1] + draw_usec, 0.0, 12000.0)
+		_world_rest_usec = lerpf(_world_rest_usec, rest, 0.15)
+		_world_main_usec = 0
+	return clampi(WORLD_FRAME_CPU_USEC - int(_world_rest_usec), WORLD_SLICE_MIN_USEC, WORLD_SLICE_MAX_USEC)
+
+
+func _world_pre_draw() -> void:
+	## (RenderingServer.frame_pre_draw while the world builds.)
+	if _world_post_draw > 0:
+		_world_main_usec = Time.get_ticks_usec() - _world_post_draw
+
+
+func _world_after_draw() -> void:
+	_world_post_draw = Time.get_ticks_usec()
+
+
+func _world_measure(on: bool) -> void:
+	RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), on)
+	if on and not RenderingServer.frame_pre_draw.is_connected(_world_pre_draw):
+		RenderingServer.frame_pre_draw.connect(_world_pre_draw)
+		RenderingServer.frame_post_draw.connect(_world_after_draw)
+	elif not on and RenderingServer.frame_pre_draw.is_connected(_world_pre_draw):
+		RenderingServer.frame_pre_draw.disconnect(_world_pre_draw)
+		RenderingServer.frame_post_draw.disconnect(_world_after_draw)
 
 
 var _alive_ms := 0   # last time _keep_window_alive answered the OS

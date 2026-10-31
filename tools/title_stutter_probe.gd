@@ -13,6 +13,8 @@ extends Node
 ## Args: --probe-press=S  start a match S s after the title (default: never)
 ##       --probe-shot=PNG  a screenshot 4 s into the match
 ##       --probe-hold=S    after the world is ready, keep measuring S s (default 5)
+##       --probe-title-shot=PNG  the title, once the world is built (at the end)
+##       --probe-load=MS   busy-wait MS every frame (a slower machine's menus)
 
 const WINDOWS := [1.0, 2.0, 3.0, 5.0, 8.0, 10.0, 15.0, 20.0]   # fps windows: seconds after the title
 
@@ -22,6 +24,8 @@ var t_world := -1.0
 var press_at := -1.0
 var shot := ""
 var hold := 5.0
+var load_ms := 0.0
+var title_shot := ""
 var frames: Array = []   # [s after title, frame ms]
 var pressed := false
 var quit_at := -1.0
@@ -40,6 +44,10 @@ var idle_ms := 0.0   # last frame: from the last _process to drawing (deferred c
 
 
 func _process(_d: float) -> void:
+	if load_ms > 0.0:   # a slower machine's menus: this much more CPU every frame
+		var until := Time.get_ticks_usec() + int(load_ms * 1000.0)
+		while Time.get_ticks_usec() < until:
+			pass
 	t_late = Time.get_ticks_usec()
 var slice_frames := 0
 
@@ -54,6 +62,10 @@ func _ready() -> void:
 			press_at = float(arg.trim_prefix("--probe-press="))
 		elif arg.begins_with("--probe-shot="):
 			shot = arg.trim_prefix("--probe-shot=")
+		elif arg.begins_with("--probe-title-shot="):
+			title_shot = arg.trim_prefix("--probe-title-shot=")
+		elif arg.begins_with("--probe-load="):
+			load_ms = float(arg.trim_prefix("--probe-load="))
 		elif arg.begins_with("--probe-hold="):
 			hold = float(arg.trim_prefix("--probe-hold="))
 	print("PROBE start ms=%.0f press=%.1f gpu=%s %s" % [ms(), press_at,
@@ -118,9 +130,14 @@ func _tick() -> void:
 			print("PROBE long_frame s=%.2f ms=%.1f slices=%d last_slice_ms=%.1f readbacks=%d physics/process/draw/rest_ms=%.1f/%.1f/%.1f/%.1f render_cpu_ms=%.1f gpu_ms=%.1f world_ready=%s idle_ms=%.1f dnodes=%d" % [since, d, n_sl,
 				sl[n_sl - 1] / 1000.0 if n_sl > 0 else 0.0, sb.readbacks, seg[0], seg[1], seg[2], seg[3],
 				RenderingServer.viewport_get_measured_render_time_cpu(vp), RenderingServer.viewport_get_measured_render_time_gpu(vp), g.world_ready, idle_ms, dn])
+			if seg[2] > 60.0 and verbose:   # a long draw: what the world added just before
+				var kids: Array = g.get_children().slice(-12)
+				print("PROBE   last added: ", kids.map(func(k): return "%s:%s" % [k.name, k.get_class()] + ("/" + String(k.get_child(0).name) if k.get_child_count() else "")))
 	if t_world < 0.0 and g.world_ready:
 		t_world = ms()
-		print("PROBE world_ready s_after_title=%.2f" % ((t_world - t_title) / 1000.0))
+		var cam := get_viewport().get_camera_3d()
+		print("PROBE world_ready s_after_title=%.2f camera=%s match_camera_current=%s" % [(t_world - t_title) / 1000.0,
+			cam.get_path() if cam else "none", cam != null and cam == g.camera])
 		_report_build(g)
 		if press_at < 0.0:
 			quit_at = ms() + hold * 1000.0
@@ -129,7 +146,12 @@ func _tick() -> void:
 		_press(g, since)
 	if quit_at > 0.0 and ms() >= quit_at:
 		quit_at = -1.0
+		print("PROBE title_after_build objects=%d draw_calls=%d" % [RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME),
+			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)])
 		_report_frames()
+		if title_shot != "":
+			get_viewport().get_texture().get_image().save_png(title_shot)
+			print("PROBE title_shot %s" % title_shot)
 		get_tree().quit()
 
 
@@ -176,6 +198,8 @@ func _report_build(g) -> void:
 	for i in hist.size():
 		parts.append("%s:%d" % ["<%d" % edges[i] if i < edges.size() else ">=100", hist[i]])
 	print("PROBE slices n=%d avg_ms=%.2f max_ms=%.1f total_ms=%.0f hist_ms %s" % [sl.size(), total / 1000.0 / maxf(sl.size(), 1), worst / 1000.0, total / 1000.0, " ".join(parts)])
+	if "_world_rest_usec" in g:
+		print("PROBE slice_budget rest_ms=%.1f budget_ms=%.1f" % [g._world_rest_usec / 1000.0, g._world_slice_budget() / 1000.0])
 	var sb = preload("res://scripts/static_batch.gd")
 	print("PROBE readbacks n=%d ms=%.0f" % [sb.readbacks, sb.readback_usec / 1000.0])
 	var kinds: Dictionary = sb.readback_kinds
