@@ -244,12 +244,13 @@ func _streak_day() -> BoxMesh:
 func _sprite(where: Vector3, tex: String, color: Color, size: float, life: float, grow: float = 1.6,
 		flat: bool = false, spin: float = 0.0, additive: bool = true) -> MeshInstance3D:
 	## A textured quad that pops, grows and fades: flares, rings, glows, decals.
+	var underlay: MeshInstance3D = null
 	if additive and daylight():
 		# On sunlit cream stone an additive glow adds almost nothing: lay the
 		# same shape underneath in its saturated colour (normal blending),
 		# then the glow over it, so rings, runes and flares read as coloured
 		# light in the bright day maps too (visual pass 2026-10-30).
-		_sprite(where, tex, Color(vivid(color), color.a * 0.8), size, life, grow, flat, spin, false)
+		underlay = _sprite(where, tex, Color(vivid(color), color.a * 0.8), size, life, grow, flat, spin, false)
 		color = Color(color, color.a * 0.7)
 	var q := MeshInstance3D.new()
 	q.mesh = _quad
@@ -261,7 +262,9 @@ func _sprite(where: Vector3, tex: String, color: Color, size: float, life: float
 	add_child(q)
 	q.global_position = where
 	if flat:
-		q.rotation = Vector3(-PI / 2.0, randf() * TAU, 0)
+		# Both layers describe the same shape. Independent random angles split
+		# rune ticks into offset rings and give their spin tweens different ends.
+		q.rotation = underlay.rotation if underlay != null else Vector3(-PI / 2.0, randf() * TAU, 0)
 	q.scale = Vector3.ONE * size * 0.45
 	var tw := q.create_tween()
 	tw.set_parallel(true)

@@ -1,0 +1,25 @@
+{
+  "agent": "Codex-faisal2",
+  "daylight": true,
+  "failures": 4,
+  "fixture": "actual courtyard and gameplay camera; rune staged at fixed position, not a combat playtest",
+  "layers": 2,
+  "observations": [
+    {
+      "tick": 0,
+      "yaw_difference_radians": 2.83955115476717
+    },
+    {
+      "tick": 6,
+      "yaw_difference_radians": 2.83955127397646
+    },
+    {
+      "tick": 12,
+      "yaw_difference_radians": 2.8395507971393
+    },
+    {
+      "tick": 24,
+      "yaw_difference_radians": 2.83955127397646
+    }
+  ]
+}
