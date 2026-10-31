@@ -5415,7 +5415,9 @@ func _stone(tint: Color = Color.WHITE, scale: float = 0.26) -> StandardMaterial3
 
 
 func _grass() -> StandardMaterial3D:
-	return _pbr("grass", 0.11)
+	# The match meadow is lighter and warmer (StyleProfile.GRASS_TINT); a
+	# swapped texture (Stonekeep's snow) and the menus keep their own.
+	return _pbr("grass", 0.11, StyleProfile.GRASS_TINT if world_style and not tex_swap.has("grass") else Color.WHITE)
 
 
 const PATH_SHADER := """
@@ -11446,7 +11448,7 @@ func apply_graphics() -> void:
 		world_environment.glow_enabled = q >= 1
 		world_environment.volumetric_fog_enabled = q >= 3
 	if cam_attrs:
-		cam_attrs.dof_blur_far_enabled = q >= 2
+		cam_attrs.dof_blur_far_enabled = q >= 2 and not style_live   # the match keeps its woods sharp (_match_grade)
 	for pane in panes:
 		pane.view.msaa_3d = vp.msaa_3d
 		pane.view.screen_space_aa = vp.screen_space_aa
@@ -11627,6 +11629,7 @@ func _style_light() -> void:
 	# Worlds are reused between matches: restore the original occlusion on
 	# non-day variants, rather than leaking the day grade into night/Ember.
 	var daylight: bool = not vmap and season == "" and not night()
+	_match_grade()
 	world_environment.ssao_radius = StyleProfile.DAY.ao_radius if daylight else 1.1
 	world_environment.ssao_intensity = StyleProfile.DAY.ao_intensity if daylight else 3.2
 	world_environment.ssao_power = StyleProfile.DAY.ao_power if daylight else 1.2
@@ -11644,6 +11647,8 @@ func _style_light() -> void:
 	var d: Dictionary = StyleProfile.DAY
 	sun_light.light_color = d.sun_color
 	sun_light.light_energy = d.sun_energy
+	sun_light.shadow_blur = d.shadow_blur
+	sun_light.light_angular_distance = d.sun_angle
 	world_environment.ambient_light_energy = d.ambient_energy
 	world_environment.ambient_light_color = d.ambient_color
 	world_environment.ambient_light_sky_contribution = d.ambient_sky
@@ -11653,6 +11658,32 @@ func _style_light() -> void:
 	world_environment.fog_light_color = d.fog_color
 	if fill_light:
 		fill_light.light_energy = d.fill_energy
+
+
+func _match_grade() -> void:
+	## The match camera's post grade (StyleProfile.GRADE): crisp and
+	## saturated, without the haze, wide bloom and edge blur that washed the
+	## frame out. Glow and bounce light stay switched by the graphics preset
+	## (apply_graphics); this sets how strong they are.
+	var mood := "ember" if vmap else (season if season in ["winter", "twilight"] else ("night" if night() else "day"))
+	var g: Dictionary = StyleProfile.GRADE[mood]
+	world_environment.tonemap_white = g.white
+	world_environment.tonemap_exposure = g.exposure
+	world_environment.glow_intensity = g.glow
+	world_environment.glow_hdr_threshold = g.glow_threshold
+	world_environment.fog_enabled = g.fog > 0.0
+	world_environment.fog_density = g.fog
+	world_environment.ssil_intensity = g.ssil
+	if g.has("contrast"):
+		world_environment.adjustment_contrast = g.contrast
+		world_environment.adjustment_saturation = g.saturation
+	if g.has("ambient"):
+		world_environment.ambient_light_energy = g.ambient
+	if cam_attrs:
+		cam_attrs.dof_blur_far_enabled = false   # the woods at the frame edge stay sharp
+	if ink_mat:
+		ink_mat.set_shader_parameter("strength", g.ink)
+		ink_mat.set_shader_parameter("vignette", g.vignette)
 
 
 func _build_world() -> void:
@@ -12171,6 +12202,7 @@ func _add_back_forest() -> void:
 
 
 var ink_on := false
+var ink_mat: ShaderMaterial = null   # the ink pass (_add_ink): _match_grade sets its strength
 
 
 func _add_ink() -> void:
@@ -12188,6 +12220,7 @@ func _add_ink() -> void:
 	mat.shader = load("res://assets/shaders/ink_outline.gdshader")
 	mat.render_priority = 100
 	q.material_override = mat
+	ink_mat = mat
 	q.extra_cull_margin = 16384.0
 	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(q)

@@ -32,7 +32,9 @@ static func _cache(g) -> Dictionary:
 
 static func wall_mat(g, grey: bool) -> StandardMaterial3D:
 	## The wall bodies: courses of big bevelled blocks (tools/make_castle_textures.py).
-	return g._pbr("castle_blocks_grey" if grey else "castle_blocks", 0.3)
+	# Grade pass 2026-10-31: a step under white, so the sunlit tops of the
+	# cream walls keep their block joints at the match camera.
+	return g._pbr("castle_blocks_grey" if grey else "castle_blocks", 0.3, Color(0.9, 0.88, 0.86))
 
 
 static func face_mats(g, grey: bool) -> Array:
@@ -41,8 +43,10 @@ static func face_mats(g, grey: bool) -> Array:
 	var key := "face_grey" if grey else "face"
 	var c := _cache(g)
 	if not c.has(key + str(g.soot)):
-		var tints := [Color(1.0, 1.0, 1.0), Color(0.93, 0.9, 0.86), Color(1.04, 1.0, 0.94)] if not grey \
-			else [Color(1.0, 1.0, 1.0), Color(0.9, 0.91, 0.94), Color(1.05, 1.04, 1.02)]
+		# (Grade pass 2026-10-31: a wider spread, so the blocks still read
+		# apart under the brighter golden sun; was 1.0 / 0.93 / 1.04.)
+		var tints := [Color(0.95, 0.93, 0.9), Color(0.8, 0.74, 0.66), Color(1.0, 0.95, 0.86)] if not grey \
+			else [Color(0.95, 0.95, 0.95), Color(0.76, 0.78, 0.82), Color(1.0, 0.99, 0.97)]
 		var mats := []
 		for t in tints:
 			mats.append(g._pbr("castle_face_grey" if grey else "castle_face", 0.5, t))
@@ -51,7 +55,7 @@ static func face_mats(g, grey: bool) -> Array:
 
 
 static func mortar_mat(g, grey: bool) -> StandardMaterial3D:
-	var m: StandardMaterial3D = g._material((Color(0.3, 0.29, 0.3) if grey else Color(0.4, 0.31, 0.22)) * g.soot)
+	var m: StandardMaterial3D = g._material((Color(0.22, 0.21, 0.23) if grey else Color(0.3, 0.21, 0.13)) * g.soot)   # darker joints (grade pass)
 	m.roughness = 1.0
 	return m
 

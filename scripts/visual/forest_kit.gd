@@ -32,6 +32,7 @@ extends RefCounted
 const StyleProfile = preload("res://scripts/visual/style_profile.gd")
 const CHUNK := 32.0
 const GRID := 4.0   # spatial hash cell for trunk spacing checks
+const NEEDLE := 5.0  # UV.x of pine tiers: sway like leaves, flat needle shading (forest_kit.gdshader)
 
 var game
 var trees := []       # [pos: Vector3, big: bool, hint: String, max_h: float, seed: int]
@@ -617,8 +618,9 @@ func _leaf_ramp(accent: String) -> Array:
 			return [Color(0.03, 0.24, 0.2), Color(0.22, 0.96, 0.58)]
 		"winter":
 			return [Color(0.12, 0.3, 0.22), Color(0.9, 0.94, 1.0)]
-	# The picks' crowns: deep cool green in the shade, warm yellow-green on top.
-	return [Color.from_hsv(0.38, 0.9, 0.15), Color.from_hsv(0.27, 0.86, 0.5)]
+	# The picks' crowns: deep cool green in the shade, warm yellow-green on top
+	# (grade pass 2026-10-31: sunlit tops a clear step lighter, was v 0.5).
+	return [Color.from_hsv(0.4, 0.86, 0.09), Color.from_hsv(0.26, 0.88, 0.4)]
 
 
 func _pine_ramp(accent: String) -> Array:
@@ -631,7 +633,8 @@ func _pine_ramp(accent: String) -> Array:
 			return [Color(0.03, 0.22, 0.18), Color(0.2, 0.82, 0.52)]
 		"winter":
 			return [Color(0.1, 0.34, 0.24), Color(0.24, 0.56, 0.36)]
-	return [Color.from_hsv(0.38, 0.84, 0.24), Color.from_hsv(0.3, 0.8, 0.56)]
+	# Grade pass 2026-10-31: deep blue-green inside, vivid yellow-green tips.
+	return [Color.from_hsv(0.44, 0.86, 0.08), Color.from_hsv(0.29, 0.86, 0.38)]
 
 
 func _bark() -> Array:
@@ -685,7 +688,7 @@ func _lobe(st: SurfaceTool, c: Vector3, rad: float, squash: float, seed: int, cb
 		nrm[i] = Vector3(d.x, d.y / maxf(squash, 0.2), d.z).normalized()
 		var t := clampf((p.y - y0) / maxf(y1 - y0, 0.01), 0.0, 1.0)
 		var col := cb.lerp(ct, smoothstep(0.0, 1.0, t))
-		col = col * (0.72 + 0.28 * clampf(d.y * 0.5 + 0.6, 0.0, 1.0))   # self shade under each clump
+		col = col * (0.58 + 0.42 * clampf(d.y * 0.5 + 0.6, 0.0, 1.0))   # self shade under each clump (grade pass: deeper, so clumps separate)
 		if snow >= 0.0 and d.y > snow:
 			col = col.lerp(Color(0.93, 0.96, 1.0), smoothstep(snow, snow + 0.3, d.y))
 		col.a = 1.0
@@ -835,9 +838,13 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var spin := r.randf() * TAU
 		var t_lo: float = clampf(rim_y / top, 0.0, 1.0)
 		var t_hi: float = clampf(apex_y / top, 0.0, 1.0)
-		var c_tip: Color = ramp[0].lerp(ramp[1], 0.3 + t_lo * 0.55)
-		var c_apex: Color = ramp[0].lerp(ramp[1], minf(t_hi * 1.1, 1.0))
-		var c_under: Color = ramp[0] * 0.7
+		# Stepped tiers (pick D, grade pass 2026-10-31): each tier is light
+		# at its drooping tips and dark where it runs in under the tier
+		# above, so the cone reads as stacked skirts, not one smooth blob.
+		# Only the top tier is light right up to its point.
+		var c_tip: Color = ramp[0].lerp(ramp[1], 0.62 + t_lo * 0.38)
+		var c_apex: Color = ramp[0].lerp(ramp[1], 0.85 if i == tiers - 1 else 0.05 + t_hi * 0.15)
+		var c_under: Color = ramp[0] * 0.5
 		c_under.a = 1.0
 		var apex := Vector3(0, apex_y, 0)
 		var under := Vector3(0, rim_y + 0.25, 0)
@@ -859,8 +866,8 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 				ca = c_apex.lerp(snow_c, 0.8)
 				c0 = c0.lerp(snow_c, 0.08 if k % 2 == 0 else 0.45)
 				c1 = c1.lerp(snow_c, 0.08 if (k + 1) % 2 == 0 else 0.45)
-			_tri(st, apex, p1, p0, ca, c1, c0, 0.0)
-			_tri(st, under, p0, p1, c_under, c0 * 0.8, c1 * 0.8, 0.0)
+			_tri(st, apex, p1, p0, ca, c1, c0, NEEDLE)
+			_tri(st, under, p0, p1, c_under, c0 * 0.55, c1 * 0.55, NEEDLE)
 	if palette == "twilight":
 		for i in 6:
 			var a := r.randf() * TAU

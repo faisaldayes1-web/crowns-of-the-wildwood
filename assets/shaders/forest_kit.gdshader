@@ -1,10 +1,13 @@
 shader_type spatial;
-render_mode cull_back, diffuse_lambert_wrap, specular_disabled;
+render_mode cull_back, diffuse_lambert, specular_disabled;
 // Forest kit (claude-faisal/crowns-foliage 2026-10-31, picks Battle A /
 // Spawn D): one material for every kit tree, bush, rock, flower and fence.
 // The colours are baked into the meshes' vertex colours (times the
 // MultiMesh instance colour); UV.x says what a vertex is:
-//   0 leaves, 1 bark and wood, 2 rock, 3 glowing leaves or blooms, 4 plain.
+//   0 leaves, 1 bark and wood, 2 rock, 3 glowing leaves or blooms, 4 plain,
+//   5 pine needles (grade pass 2026-10-31: flat tiers with a fine needle
+//   grain, no leaf-scale bumps, so the stepped tiers keep crisp edges).
+// Plain Lambert (was wrap): shaded sides read darker, crowns less blobby.
 // Leaves get the same small overlapping leaf scales as leaf_soft.gdshader,
 // so kit crowns read like the rest of the world's foliage.
 
@@ -52,7 +55,7 @@ void vertex() {
 	kind = UV.x;
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnorm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
-	if (kind < 0.5 || (kind > 2.5 && kind < 3.5)) {
+	if (kind < 0.5 || (kind > 2.5 && kind < 3.5) || kind > 4.5) {
 		float w = sin(TIME * 1.3 + wpos.x * 0.7 + wpos.z * 0.5) * sway * clamp(VERTEX.y * 0.3, 0.0, 1.5);
 		VERTEX.x += w;
 		VERTEX.z += w * 0.5;
@@ -79,6 +82,11 @@ void fragment() {
 		vec3 tb = an.y > 0.6 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, -1.0, 0.0);
 		vec3 bend = (ta * lc.z + tb * lc.w) * leaf_depth * 0.7;
 		NORMAL = normalize(NORMAL + (VIEW_MATRIX * vec4(bend, 0.0)).xyz);
+	} else if (kind > 4.5) {
+		// Pine needles: a fine grain down the slope and a soft mottle.
+		float m = texture(noise_tex, wpos.xz * 0.6).r;
+		float g = texture(noise_tex, vec2((wpos.x - wpos.z) * 3.0, wpos.y * 0.6)).r;
+		col *= 0.9 + 0.14 * m + 0.1 * (g - 0.5);
 	} else if (kind < 1.5) {
 		// Bark and planks: soft vertical grain.
 		float g = texture(noise_tex, vec2((wpos.x + wpos.z) * 2.5, wpos.y * 0.35)).r;
@@ -90,12 +98,12 @@ void fragment() {
 		col *= 0.8 + 0.3 * b + 0.12 * (g - 0.5);
 	}
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-	col *= 1.0 - rim * rim_strength * (leafy ? 1.0 : 0.5);
+	col *= 1.0 - rim * rim_strength * (leafy ? 1.0 : 0.5) * (kind > 4.5 ? 0.0 : 1.0);
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
 	if (kind > 2.5 && kind < 3.5) {
 		EMISSION = COLOR.rgb * glow_energy * smoothstep(0.55, 0.9, COLOR.a);
-	} else if (leafy) {
+	} else if (leafy || kind > 4.5) {
 		EMISSION = col * self_lit;
 	}
 }
