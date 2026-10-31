@@ -31,6 +31,14 @@ const TEX := {
 	# Courtyard flags (picks Spawn D / Battle A): mixed-size slabs with a
 	# deep hand-cut bevel, so the yards read as laid stone, not a flat tile.
 	"pavers": {"normal": 1.0, "rough": 0.9},
+	# Castle pass 2026-10-31 (tools/make_castle_textures.py): big warm flags,
+	# chunky wall blocks and the face of a modelled block, cream and grey.
+	"castle_flags": {"normal": 1.0, "rough": 0.9},
+	"castle_flags_grey": {"normal": 1.0, "rough": 0.9},
+	"castle_blocks": {"normal": 1.0, "rough": 0.92},
+	"castle_blocks_grey": {"normal": 1.0, "rough": 0.92},
+	"castle_face": {"normal": 0.6, "rough": 0.92},
+	"castle_face_grey": {"normal": 0.6, "rough": 0.92},
 }
 const TEX_DIR := "res://assets/textures/style/"
 
@@ -74,11 +82,15 @@ const WATER_OPEN_FOAM := 0.25  # foam keeps to the banks; open-water patches rea
 const DAY := {
 	# Native matched-camera comparison: cream stone retains its local colour;
 	# softer contact shade separates the blocks without a muddy yellow cast.
-	"sun_color": Color(1.0, 0.96, 0.88), "sun_energy": 1.30,
-	"ambient_energy": 0.35, "ambient_color": Color(0.60, 0.68, 0.82), "ambient_sky": 0.40,
-	"saturation": 1.08, "contrast": 1.08, "brightness": 1.0,
-	"fog_color": Color(0.96, 0.86, 0.68), "fill_energy": 0.16,
-	"ao_radius": 0.8, "ao_intensity": 1.6, "ao_power": 1.1,
+	# Castle pass 2026-10-31 (picks Live battle A / Spawn D): a warm golden
+	# key (was a near-white 1.0/0.96/0.88), warmer, slightly lower ambient
+	# so lit and shaded faces separate, a touch more colour, and a wider,
+	# stronger occlusion for soft contact shadows at wall feet and props.
+	"sun_color": Color(1.0, 0.87, 0.68), "sun_energy": 1.32,
+	"ambient_energy": 0.33, "ambient_color": Color(0.70, 0.67, 0.70), "ambient_sky": 0.35,
+	"saturation": 1.15, "contrast": 1.06, "brightness": 1.0,
+	"fog_color": Color(0.98, 0.84, 0.62), "fill_energy": 0.16,
+	"ao_radius": 1.3, "ao_intensity": 2.2, "ao_power": 1.15,
 }
 # Night readability (visual pass 2026-10-16, claude-faisallaptop): a brighter
 # moon and a little more ambient, so units, paths and walls read in the

@@ -33,6 +33,7 @@ const Legend = preload("res://scripts/legend.gd")
 const MenuStage = preload("res://scripts/menu_stage.gd")
 const Economy = preload("res://scripts/economy.gd")
 const StyleProfile = preload("res://scripts/visual/style_profile.gd")
+const CastleKit = preload("res://scripts/visual/castle_kit.gd")
 const Role = Stats.Role
 
 const TEST_TEAM_MAX := 6     # --team-size=N cap for balance batches only
@@ -8055,6 +8056,20 @@ func _gold() -> StandardMaterial3D:
 	return m
 
 
+func _castle_kit() -> bool:
+	## The 2026-10-31 castle kit (scripts/visual/castle_kit.gd): match world
+	## castles only (the menus keep the old pieces; the mid-field ruins too).
+	return world_style and (elf_castle or grey)
+
+
+func _audit_ghost(pos: Vector3, size: Vector3) -> void:
+	## The audit footprint of a pre-kit trim block the castle kit replaced.
+	## Tree, resource and dressing placement read audit_blocks, so the kit
+	## records exactly what the old pieces did and the world's layout (and
+	## its gameplay fingerprint) stays the same.
+	audit_blocks.append([audit_label if audit_label != "" else "block", AABB(pos - size / 2.0, size)])
+
+
 func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	## A solid ashlar wall with a cornice and merlons along its long axis.
 	## The elven castle's walls are trimmed hedges instead (2026-10-08 target).
@@ -8062,6 +8077,32 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 	# inside the cross walls: flush, the end and the cross wall's face shared
 	# a plane at every corner and flickered.
 	var body := size - Vector3(0.02, 0, 0) if size.x > size.z else size
+	if _castle_kit():
+		# Castle pass 2026-10-31 (picks Spawn D / Battle A): the same solid
+		# body in big bevelled blocks, with a modelled coping, merlons and a
+		# plinth course, and ivy on the Elves' walls instead of hedge tops.
+		_add_block(center, body, Color.WHITE, true, CastleKit.wall_mat(self, grey))
+		CastleKit.castle_wall_top(self, center, size, grey, merlons, elf_castle)
+		# (The old trim's audit footprint, as below.)
+		var gl := 0.008 if size.x >= size.z else 0.0
+		var gtop := center.y + size.y / 2.0
+		if grey and size.y >= WALL_H - 0.01:
+			_audit_ghost(Vector3(center.x, center.y - size.y / 2.0 + 0.2 + gl, center.z), Vector3(size.x + 0.36, 0.4, size.z + 0.36))
+		if hedge_tops or mossy:
+			return
+		if grey:
+			_audit_ghost(Vector3(center.x, gtop + 0.15 + gl, center.z), size * Vector3(1, 0, 1) + Vector3(0.24, 0.3, 0.24))
+			_audit_ghost(Vector3(center.x, gtop - 0.08 + gl, center.z), size * Vector3(1, 0, 1) + Vector3(0.12, 0.12, 0.12))
+		else:
+			_audit_ghost(Vector3(center.x, gtop + 0.1 + gl, center.z), size * Vector3(1, 0, 1) + Vector3(0.2, 0.2, 0.2))
+		if merlons:
+			var glen := maxf(size.x, size.z)
+			var gn := maxi(int(glen / 1.3), 1)
+			for k in gn:
+				var t := -glen / 2.0 + (k + 0.5) * glen / gn
+				var gp := Vector3(center.x + t, gtop + 0.5 + gl, center.z) if size.x >= size.z else Vector3(center.x, gtop + 0.5 + gl, center.z + t)
+				_audit_ghost(gp, Vector3(0.6, 0.6, size.z) if size.x >= size.z else Vector3(size.x, 0.6, 0.6))
+		return
 	_add_block(center, body, Color.WHITE, true, _ashlar())
 	var top := center.y + size.y / 2.0
 	var along_x := size.x >= size.z
@@ -8119,6 +8160,39 @@ func _add_wall(center: Vector3, size: Vector3, merlons: bool = true) -> void:
 func _add_tower(pos: Vector3, team: int, side: float, width: float = 2.6, height: float = 5.4, flag: bool = true) -> void:
 	## A square corner tower with a crenellated top and a team-coloured roof.
 	var color: Color = Stats.FACTIONS[team].color
+	if _castle_kit():
+		# Castle pass 2026-10-31 (pick Spawn D's towers): block body, plinth,
+		# corbelled parapet with merlons, a tall team-tiled roof and long
+		# banners on the faces nothing is built against (corner towers: the
+		# outer x face, toward the field or the spawn courtyard, and the
+		# camera-side z face). Same solid footprint.
+		_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(width, height, width), Color.WHITE, true, CastleKit.wall_mat(self, grey))
+		var outs: Array = []
+		if flag:
+			outs.append(Vector3(signf(pos.x - side * CASTLE_X), 0, 0))
+			if pos.z > 0.0:
+				outs.append(Vector3(0, 0, 1))
+		CastleKit.tower_dress(self, pos, team, width, height, grey, outs)
+		CastleKit.tower_roof(self, pos, team, width, height)
+		if mossy:
+			CastleKit.lantern(self, pos + Vector3(-side * width / 2.0, height - 1.5, 0), Vector3(-side, 0, 0), false)
+		# (The old trim's audit footprint and flag marker, so placement around
+		# the castle stays the same.)
+		_audit_ghost(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5))
+		if grey:
+			_audit_ghost(pos + Vector3(0, 0.262, 0), Vector3(width + 0.5, 0.5, width + 0.5))
+			_audit_ghost(pos + Vector3(0, height * 0.55 + 0.016, 0), Vector3(width + 0.2, 0.16, width + 0.2))
+		if not mossy:
+			for xs in [-1.0, 1.0]:
+				for zs in [-1.0, 1.0]:
+					_audit_ghost(pos + Vector3(xs * (width / 2.0), height + 0.6, zs * (width / 2.0)), Vector3(0.5, 0.6, 0.5))
+		_audit_ghost(pos + Vector3(0, height + 0.38, 0), Vector3(width * 0.95, 0.16, width * 0.95))
+		if flag:
+			var marker := Node3D.new()
+			marker.position = pos + Vector3(0, height + 2.25, 0)
+			add_child(marker)
+			audit_props.append(["hex/flag_%s" % ["green", "blue"][team], marker])
+		return
 	_add_block(pos + Vector3(0, height / 2.0, 0), Vector3(width, height, width), Color.WHITE, true, _ashlar())
 	_add_block(pos + Vector3(0, height + 0.15, 0), Vector3(width + 0.5, 0.3, width + 0.5), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
 	if grey:
@@ -10568,7 +10642,11 @@ func _pavers() -> StandardMaterial3D:
 	## (tools/make_textures.py make_pavers), one tile every 4.5 m. The match
 	## world's style copy (tools/make_style_textures.py make_pavers) lays
 	## mixed 1-2 m flags, one tile every 6.25 m (picks Spawn D / Battle A).
-	return _pbr("pavers", 0.16 if world_style else 0.22, Color(1.0, 0.98, 0.94))
+	if world_style:
+		# Castle pass 2026-10-31: larger warm-cream flags with a darker joint
+		# and a painted bevel light (tools/make_castle_textures.py).
+		return _pbr("castle_flags", 0.16)
+	return _pbr("pavers", 0.22, Color(1.0, 0.98, 0.94))
 
 
 func _add_invisible_wall(pos: Vector3, size: Vector3) -> void:
@@ -10601,7 +10679,9 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 		[Vector3(bx + side * 0.5, 0, -(hz + 0.5)), Vector3(ox, 0, -(hz + 0.5))],
 		[Vector3(bx + side * 0.5, 0, hz + 0.5), Vector3(ox, 0, hz + 0.5)],
 		[Vector3(ox, 0, -(hz + 0.5)), Vector3(ox, 0, hz + 0.5)]]
-	for ln in lines:
+	var kit := world_style
+	for li in lines.size():
+		var ln: Array = lines[li]
 		var a: Vector3 = ln[0]
 		var b: Vector3 = ln[1]
 		var c := (a + b) / 2.0
@@ -10610,6 +10690,20 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 		var size := Vector3(length + 0.5, 0.3, 0.5) if along_x else Vector3(0.5, 0.3, length + 0.5)
 		_add_block(Vector3(c.x, 0.15, c.z), size, Color.WHITE, true, kerb)
 		_add_invisible_wall(Vector3(c.x, 1.0, c.z), Vector3(size.x, 1.4, size.z))
+		if kit:
+			# Castle pass 2026-10-31 (picks Spawn D / Battle A), on the same
+			# kerb line and inside the same invisible wall: a timber palisade
+			# with the team crest between the class signs along the north
+			# side, a chunky crenellated block wall with timber posts on the
+			# west and south (lower merlons on the south, the camera's side).
+			if li == 0:
+				var crests: Array = []
+				for k in 5:
+					crests.append(Vector3(bx + side * (9.0 + (k - 2.0) * 2.85), 0, a.z))
+				CastleKit.palisade(self, a, b, 0, Vector3(0, 0, 1), crests, false, 811)
+			else:
+				CastleKit.courtyard_wall(self, a, b, false, 821 + li * 10, 0.3 if li == 1 else 0.44)
+			continue
 		_add_picket_fence(a + Vector3(0, 0.3, 0), b + Vector3(0, 0.3, 0))
 		# Pick D: modular low masonry under the timber, inside the existing
 		# invisible boundary. Raised visual detail does not alter collision.
@@ -10626,6 +10720,14 @@ func _add_elf_courtyard_fence(bx: float, side: float, hz: float) -> void:
 				_picked_carved_block(p + Vector3(0, 1.1, 0), cap_size, cap_stone)
 	# Kerb posts at the three outer corners.
 	for p in [Vector3(ox, 0, -(hz + 0.5)), Vector3(ox, 0, hz + 0.5)]:
+		if kit:   # a chunky stone pier where the walls meet
+			var fm: Array = CastleKit.face_mats(self, false)
+			CastleKit.block(self, p + Vector3(0, 0.95, 0), Vector3(1.05, 1.9, 1.05), fm[0])
+			CastleKit.block(self, p + Vector3(0, 1.98, 0), Vector3(1.25, 0.18, 1.25), fm[2])
+			CastleKit.block(self, p + Vector3(0, 2.2, 0), Vector3(0.7, 0.26, 0.7), fm[1])
+			_audit_ghost(p + Vector3(0, 0.35, 0), Vector3(0.7, 0.7, 0.7))
+			_audit_ghost(p + Vector3(0, 0.76, 0), Vector3(0.8, 0.12, 0.8))
+			continue
 		_add_block(p + Vector3(0, 0.35, 0), Vector3(0.7, 0.7, 0.7), Color.WHITE, false, kerb)
 		_add_block(p + Vector3(0, 0.76, 0), Vector3(0.8, 0.12, 0.8), Color.WHITE, false, _ashlar(Color(0.96, 0.94, 0.9)))
 
@@ -10858,7 +10960,10 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 		_add_elf_courtyard_fence(bx, side, hz)
 	else:
 		await _world_build_frame()
-		_add_block(Vector3(cx, CELLAR_Y - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), Color.WHITE, true, _flagstone(Color(0.9, 0.86, 0.8)))
+		# (Castle pass 2026-10-31: the match world's sunken spawn halls take
+		# the courtyard's big flags, grey for the Humans.)
+		var cellar_mat: Material = _pbr("castle_flags_grey" if grey else "castle_flags", 0.16, Color(0.95, 0.93, 0.9)) if world_style else _flagstone(Color(0.9, 0.86, 0.8))
+		_add_block(Vector3(cx, CELLAR_Y - 0.05, 0), Vector3(CELLAR_DEPTH + 1.0, 0.1, hz * 2 + 1), Color.WHITE, true, cellar_mat)
 		# The Elves' courtyard is walled in trimmed hedge (the Wildbloom reference).
 		hedge_tops = team == 0
 		await _world_build_frame()
@@ -11016,6 +11121,9 @@ func _build_cellar(team: int, bx: float, side: float) -> void:
 	if open:
 		await _world_build_frame()
 		_dress_elf_open_courtyard(team, bx, side)
+		if world_style:
+			await _world_build_frame()
+			CastleKit.courtyard_castle_face(self, team, bx, side)
 	elif team == 0:
 		await _world_build_frame()
 		_dress_elf_courtyard(team, bx, side)
