@@ -42,7 +42,8 @@ void fragment() {
 	float e = (max(-lap, 0.0) + max(lap, 0.0) * 0.4) / max(c, 1e-5) * gmask;
 	// Silhouettes: this pixel sits clearly in front of a neighbour.
 	float back = min(min(l, r), min(u, b));
-	e = max(e, (c - back) / max(c, 1e-5) * 0.5);
+	// (A terrain pixel never inks its own silhouette: a bank edge against the lawn is not an object.)
+	e = max(e, (c - back) / max(c, 1e-5) * 0.5 * (1.0 - step(texture(nr_tex, uv).a, 0.03)));
 	float a = smoothstep(threshold, threshold + softness, e);
 	float dist = 1.0 / max(c, 1e-5);
 	a *= 1.0 - smoothstep(fade_far * 0.6, fade_far, dist);
