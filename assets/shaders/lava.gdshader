@@ -20,12 +20,19 @@ uniform float pulse = 0.18; // how much the glow breathes
 
 varying vec3 wpos;
 
+// Sin-free hashes (claude-faisal/crowns-grass): fract(sin(big number)) loses precision on
+// some GPUs, which makes neighbouring lattice cells share values and draws the glow in
+// axis-aligned steps (the rectangular breaks in the lava).
 float hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
 }
 
 vec2 hash2(vec2 p) {
-	return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+	vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.xx + p3.yz) * p3.zy);
 }
 
 float noise(vec2 p) {
@@ -58,7 +65,10 @@ vec3 cells(vec2 p, float t) {
 		for (int x = -1; x <= 1; x++) {
 			vec2 g = vec2(float(x), float(y));
 			vec2 o = hash2(i + g);
-			o = 0.5 + 0.36 * sin(t * 0.2 + 6.2831 * o);
+			// Jitter kept small enough that the 3x3 search always finds the true second-nearest point:
+			// at 0.36 it sometimes missed it, and the crack width then jumped along the grid lines
+			// (the rectangular breaks in the lava; claude-faisal/crowns-grass).
+			o = 0.5 + 0.26 * sin(t * 0.2 + 6.2831 * o);
 			vec2 r = g + o - f;
 			float d = dot(r, r);
 			if (d < d1) {

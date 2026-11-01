@@ -5486,7 +5486,7 @@ void fragment() {
 			d = length(lxz + to_c);
 		}
 		float inner = half_w - 0.5;
-		bool kept = s.a > 0.5 ? d < inner + 0.8 * s.b : d < inner;
+		bool kept = s.a > 0.5 ? d < inner + 0.5 * s.b : d < inner;
 		if (!kept) {
 			discard;
 		}
@@ -5558,8 +5558,10 @@ void fragment() {
 	vec2 w = wpos.xz;
 	vec2 uv1 = w * scale;
 	vec2 uv2 = rot(w, 0.52) * scale * 0.83 + vec2(0.37, 0.61);
-	float mask = smoothstep(0.32, 0.68, texture(noise_tex, w * 0.07).r);
+	float mask = smoothstep(0.45, 0.55, texture(noise_tex, w * 0.07).r);
 	vec3 c = mix(texture(albedo_tex, uv1).rgb, texture(albedo_tex, uv2).rgb, mask);
+	vec3 soft = mix(textureLod(albedo_tex, uv1, 2.5).rgb, textureLod(albedo_tex, uv2, 2.5).rgb, mask);
+	c = mix(c, soft, 0.5);   // grout lines at half strength: slabs, not a drawn grid
 	vec3 n1 = texture(normal_tex, uv1).rgb * 2.0 - 1.0;
 	vec3 n2 = texture(normal_tex, uv2).rgb * 2.0 - 1.0;
 	n2.xy = rot(n2.xy, -0.52);
@@ -5568,7 +5570,7 @@ void fragment() {
 	float worn = texture(noise_tex, w * 0.043 + 0.2).r;
 	c *= (0.86 + 0.28 * v) * (0.9 + 0.2 * smoothstep(0.3, 0.7, worn));
 	ALBEDO = c * tint.rgb;
-	n.xy *= normal_scale;
+	n.xy *= normal_scale * 0.6;
 	NORMAL = normalize((VIEW_MATRIX * vec4(n.x, n.z, -n.y, 0.0)).xyz);
 	ROUGHNESS = 0.9;
 }

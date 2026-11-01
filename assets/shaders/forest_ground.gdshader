@@ -9,6 +9,8 @@ uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
 varying vec3 wpos;
 
 void vertex() {
+	// Lifted 3 cm: the patches sat 1-2 cm over the lawn and z-fought it into a stipple at a distance.
+	VERTEX.y += 0.03;
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 

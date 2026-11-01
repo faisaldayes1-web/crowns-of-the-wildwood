@@ -840,7 +840,7 @@ def make_twilight_grass():
     fine = fbm(N, 40, 2, 263)
     base = rgb(0.22, 0.52, 0.42)
     light = rgb(0.34, 0.66, 0.5)
-    color = lerp(base, light, (0.12 * shade + 0.35 * mid)[..., None])
+    color = lerp(base, light, (0.35 * mid + 0.1 * broad)[..., None])
     color = lerp(color, light * 1.05, np.clip((broad - 0.5) * 3.0, 0, 1)[..., None] * 0.3)
     color = color * (0.95 + 0.1 * fine)[..., None]
     h = 0.55 + 0.25 * mid + 0.2 * fine
