@@ -5528,26 +5528,29 @@ void fragment() {
 }
 """
 
-# The Stonekeep ruin's courtyard floor (claude-faisal/crowns-grass 2026-11-01):
-# the flagstone texture laid twice, the second layer turned and at another
-# scale, and the two blended by a slow world-space noise, so no flat repeating
-# grid shows; a low-frequency value variation and worn, darker patches break
-# the slabs up further.
+# The Stonekeep ruin's courtyard floor (claude-faisal/crowns-grass 2026-11-01): the
+# flagstone texture's own heavy joints drew a flat square grid with crossed cracks, so
+# the floor is the texture's average colour laid as irregular slabs instead: a jittered
+# cell pattern in world space (no repeating grid), each slab its own tone, with soft
+# low-contrast joints and slow worn patches.
 const UNEVEN_FLAGS_SHADER := """
 shader_type spatial;
 render_mode diffuse_lambert_wrap, specular_disabled;
-uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
-uniform vec4 tint : source_color = vec4(1.0);
-uniform float scale = 0.25;
-uniform float normal_scale = 1.0;
+uniform vec4 base : source_color = vec4(0.5);
+uniform float cell = 0.42;
 varying vec3 wpos;
 
-vec2 rot(vec2 p, float a) {
-	float c = cos(a);
-	float s = sin(a);
-	return vec2(c * p.x - s * p.y, s * p.x + c * p.y);
+float hash(vec2 p) {
+	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
+}
+
+vec2 hash2(vec2 p) {
+	vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.xx + p3.yz) * p3.zy);
 }
 
 void vertex() {
@@ -5555,23 +5558,35 @@ void vertex() {
 }
 
 void fragment() {
-	vec2 w = wpos.xz;
-	vec2 uv1 = w * scale;
-	vec2 uv2 = rot(w, 0.52) * scale * 0.83 + vec2(0.37, 0.61);
-	float mask = smoothstep(0.45, 0.55, texture(noise_tex, w * 0.07).r);
-	vec3 c = mix(texture(albedo_tex, uv1).rgb, texture(albedo_tex, uv2).rgb, mask);
-	vec3 soft = mix(textureLod(albedo_tex, uv1, 2.5).rgb, textureLod(albedo_tex, uv2, 2.5).rgb, mask);
-	c = mix(c, soft, 0.5);   // grout lines at half strength: slabs, not a drawn grid
-	vec3 n1 = texture(normal_tex, uv1).rgb * 2.0 - 1.0;
-	vec3 n2 = texture(normal_tex, uv2).rgb * 2.0 - 1.0;
-	n2.xy = rot(n2.xy, -0.52);
-	vec3 n = mix(n1, n2, mask);
-	float v = texture(noise_tex, w * 0.19 + 0.5).r;
-	float worn = texture(noise_tex, w * 0.043 + 0.2).r;
-	c *= (0.86 + 0.28 * v) * (0.9 + 0.2 * smoothstep(0.3, 0.7, worn));
-	ALBEDO = c * tint.rgb;
-	n.xy *= normal_scale * 0.6;
-	NORMAL = normalize((VIEW_MATRIX * vec4(n.x, n.z, -n.y, 0.0)).xyz);
+	vec2 p = wpos.xz * cell + 0.7 * (texture(noise_tex, wpos.xz * 0.05).rg - 0.5);
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	float d1 = 8.0;
+	float d2 = 8.0;
+	vec2 id = vec2(0.0);
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = vec2(float(x), float(y));
+			vec2 o = 0.5 + 0.26 * (hash2(i + g) * 2.0 - 1.0);
+			vec2 r = g + o - f;
+			float d = dot(r, r);
+			if (d < d1) {
+				d2 = d1;
+				d1 = d;
+				id = i + g;
+			} else if (d < d2) {
+				d2 = d;
+			}
+		}
+	}
+	float edge = sqrt(d2) - sqrt(d1);
+	float joint = smoothstep(0.02, 0.16, edge);
+	float tone = 0.86 + 0.28 * hash(id);
+	float worn = texture(noise_tex, wpos.xz * 0.043 + 0.2).r;
+	float mott = texture(noise_tex, wpos.xz * 0.21).r;
+	vec3 c = base.rgb * tone * (0.9 + 0.2 * smoothstep(0.3, 0.7, worn)) * (0.94 + 0.12 * mott);
+	c *= mix(0.74, 1.0, joint);
+	ALBEDO = c;
 	ROUGHNESS = 0.9;
 }
 """
@@ -8190,19 +8205,23 @@ func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
 
 
 func _uneven_flagstone(tint: Color = Color.WHITE) -> ShaderMaterial:
-	## _flagstone() without the flat repeating grid (UNEVEN_FLAGS_SHADER).
+	## _flagstone() as irregular slabs with no flat repeating grid (UNEVEN_FLAGS_SHADER).
 	if flags_shader == null:
 		flags_shader = Shader.new()
 		flags_shader.code = UNEVEN_FLAGS_SHADER
 	var f := _flagstone(tint)
+	var avg := Color(0.5, 0.5, 0.5)
+	if f.albedo_texture != null:
+		var img: Image = f.albedo_texture.get_image()
+		if img != null:
+			if img.is_compressed():
+				img.decompress()
+			img.resize(1, 1, Image.INTERPOLATE_BILINEAR)
+			avg = img.get_pixel(0, 0)
 	var m := ShaderMaterial.new()
 	m.shader = flags_shader
-	m.set_shader_parameter("albedo_tex", f.albedo_texture)
-	m.set_shader_parameter("normal_tex", f.normal_texture)
 	m.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
-	m.set_shader_parameter("tint", f.albedo_color)
-	m.set_shader_parameter("scale", f.uv1_scale.x)
-	m.set_shader_parameter("normal_scale", f.normal_scale)
+	m.set_shader_parameter("base", avg * f.albedo_color)
 	return m
 
 
