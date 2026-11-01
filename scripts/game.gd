@@ -5463,14 +5463,17 @@ uniform sampler2D stones_tex : filter_nearest, repeat_enable;
 uniform float scale = 0.2;
 uniform bool fray = false;
 uniform float half_w = 2.0;   // per material: the Compatibility renderer (web) has no instance uniforms
+uniform float end_x = 0.0;     // >0: the road ends here (local x): its last stones fray out one at a time past it
 uniform bool radial = false;  // a round plaza: the distance is the radius, not the way across a strip
 varying vec3 wpos;
 varying float lz;
 varying vec2 lxz;
 varying vec3 side;
+varying vec3 axis_x;
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	axis_x = normalize(MODEL_MATRIX[0].xyz);
 	lz = VERTEX.z;
 	lxz = VERTEX.xz;
 	side = normalize(MODEL_MATRIX[2].xyz);
@@ -5478,7 +5481,7 @@ void vertex() {
 
 void fragment() {
 	vec2 uv = wpos.xz * scale;
-	if (fray) {
+	if (fray || end_x > 0.0) {
 		vec4 s = texture(stones_tex, uv);
 		// The stone's centre texel (found from this pixel's way-to-centre, then snapped to
 		// the texture's own grid), so every pixel of a stone reaches the same distance d:
@@ -5496,6 +5499,13 @@ void fragment() {
 		}
 		float inner = half_w - 0.5;
 		bool kept = sc.a > 0.5 ? d < inner + 0.2 * sc.b : d < inner;
+		if (!fray) {
+			kept = true;
+		}
+		if (end_x > 0.0) {
+			float lxc = lxz.x + dot(vec2(to_c.x, to_c.y), axis_x.xz);
+			kept = kept && lxc < end_x - 0.3 + 1.3 * sc.b;
+		}
 		if (!kept) {
 			discard;
 		}
@@ -5737,7 +5747,7 @@ func _solidify_prop(inst: Node3D, pos: Vector3) -> void:
 	add_child(body)
 
 
-func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: float = 1.6) -> void:
+func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: float = 1.6, frayed_end: bool = false) -> void:
 	## A flat strip of road or dirt from one point to another (any angle),
 	## with a band of trampled grass either side so the edge is not a hard
 	## line.
@@ -5768,6 +5778,8 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		e.mesh = ebox
 		var fm: ShaderMaterial = mat.get_meta("fray").duplicate()
 		fm.set_shader_parameter("half_w", width / 2.0)
+		if frayed_end:
+			fm.set_shader_parameter("end_x", d.length() / 2.0)
 		e.material_override = fm
 		# Each path sits a millimetre above the one before (four steps), so
 		# where two paths' frayed strips overlap they don't z-fight into a
@@ -5779,7 +5791,13 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 	var box := BoxMesh.new()
 	box.size = Vector3(length, 0.012, core_w)
 	m.mesh = box
-	m.material_override = mat
+	if frayed_end:
+		var cm2: ShaderMaterial = mat.duplicate()
+		cm2.set_shader_parameter("end_x", d.length() / 2.0)
+		cm2.set_shader_parameter("half_w", width / 2.0)
+		m.material_override = cm2
+	else:
+		m.material_override = mat
 	m.position = mid + Vector3(0, 0.012 + 0.002 * float(map_paths.size() % 4), 0)   # every core above every frayed strip   # every core above every frayed strip
 	m.rotation.y = rot
 	add_child(m)
