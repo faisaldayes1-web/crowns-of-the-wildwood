@@ -9,7 +9,7 @@ extends RefCounted
 ## Look only: the tags' text, colours and the fight are unchanged. Skipped in
 ## couch split screen, where every pane sees the same tags from its own camera.
 
-const STEP := 0.5        # metres a lifted tag rises per step
+const STEP := 0.7        # metres a lifted tag rises per step
 const CHAR_W := 0.15     # the tag font's mean glyph width at its pixel size (m)
 const TAG_H := 0.5       # name plus health bar (m)
 
@@ -42,9 +42,11 @@ static func run(game, cam: Camera3D, xf: Transform2D, delta: float) -> Array[Rec
 		var px_m: float = (xf * cam.unproject_position(base + cam.global_basis.x)).distance_to(c)
 		var w: float = maxf(u.label.text.length() * CHAR_W, 1.1) * px_m
 		var h: float = TAG_H * px_m
+		# A world-up lift shows foreshortened on screen (the camera looks down).
+		var step_px: float = c.y - (xf * cam.unproject_position(base + Vector3(0, STEP, 0))).y
 		var want := -1
 		for step in 3:
-			var r := Rect2(c.x - w / 2.0, c.y - h * 0.8 - step * STEP * px_m, w, h)
+			var r := Rect2(c.x - w / 2.0, c.y - h * 0.8 - step * step_px, w, h)
 			var free := true
 			for q in placed:
 				if r.intersects(q):
