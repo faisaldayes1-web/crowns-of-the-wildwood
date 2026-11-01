@@ -631,7 +631,7 @@ func _paths() -> void:
 		fmat.set_shader_parameter("half_w", r0)
 		fmat.set_shader_parameter("radial", true)
 		fr.material_override = fmat
-		fr.position = pos[i] + Vector3(0, 0.0045, 0)
+		fr.position = pos[i] + Vector3(0, 0.0105, 0)
 		game.add_child(fr)
 
 
@@ -649,11 +649,22 @@ func _terrain() -> void:
 			await game._world_build_frame()
 		for i in nx:
 			var hv: float = height(-MESH_X + i * step, -EDGE_Z + j * step)
-			if kind == "winter" and hv > 0.0:
+			if hv > 0.0:
 				# Eased off the foot (visual only; the colliders keep height()): the bank rose
 				# at a fixed 45 degrees straight from the ruin's flat edge, a long straight crease.
-				hv *= smoothstep(0.0, 2.6, hv)
+				hv *= smoothstep(0.0, 2.6 if kind == "winter" else 0.5, hv)
 			hs[j * nx + i] = hv
+	# One 3x3 blur over the visual heights: the 1 m facets' creases are what the ink pass
+	# (a depth-fold edge detector) drew as thin angular seams across the snow and the lawn.
+	var hb := hs.duplicate()
+	for j in range(1, nz - 1):
+		for i in range(1, nx - 1):
+			var acc := 0.0
+			for dj in [-1, 0, 1]:
+				for di in [-1, 0, 1]:
+					acc += hs[(j + dj) * nx + i + di]
+			hb[j * nx + i] = maxf(acc / 9.0, -0.15) if hs[j * nx + i] > -0.15 or acc / 9.0 > 0.0 else -0.15
+	hs = hb
 	var mat := ShaderMaterial.new()
 	var sh := Shader.new()
 	sh.code = TERRAIN_SHADER
@@ -810,8 +821,8 @@ func _build_stonekeep() -> void:
 		# Flagstones through the gate and down the pass to its plaza.
 		var gate_floor: ShaderMaterial = floor_mat.duplicate()
 		gate_floor.set_shader_parameter("center", Vector2(sx * 12.3, 0.0))
-		gate_floor.set_shader_parameter("half_ext", Vector2(2.8, 2.2))
-		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(5.6, 0.02, 4.4), Color.WHITE, false, gate_floor)
+		gate_floor.set_shader_parameter("half_ext", Vector2(3.4, 3.6))   # (wider than the gap: its fade lies under the towers and over the road end)
+		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(6.8, 0.02, 7.2), Color.WHITE, false, gate_floor)
 		game.map_marks.append([Vector3(sx * 12.8, 0, 0), "gate"])   # (keeps snowmen and drifts out of the gateway)
 		await game._world_build_frame()
 		for zs in [-1.0, 1.0]:
