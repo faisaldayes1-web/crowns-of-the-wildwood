@@ -5486,7 +5486,7 @@ void fragment() {
 			d = length(lxz + to_c);
 		}
 		float inner = half_w - 0.5;
-		bool kept = s.a > 0.5 ? d < inner + 0.5 * s.b : d < inner;
+		bool kept = s.a > 0.5 ? d < inner + 0.2 * s.b : d < inner;
 		if (!kept) {
 			discard;
 		}

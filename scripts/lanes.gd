@@ -31,6 +31,7 @@ const EDGE_Z := 60.0        # the terrain runs on past the field's edge (z 36) t
 const CELL := 2.0           # minimap / collider cell
 const TERRAIN_SHADER := """
 shader_type spatial;
+render_mode blend_mix, depth_prepass_alpha;
 // Two textures projected in world space and blended by vertex colour red:
 // tops (snow / moss) where it is 1, faces (rock / forest litter) where 0.
 uniform sampler2D top_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -59,6 +60,7 @@ void fragment() {
 	vec3 face = tri(face_tex, face_scale) * face_tint.rgb;
 	ALBEDO = mix(face, top, COLOR.r) * mix(0.8, 1.0, COLOR.g);
 	ROUGHNESS = mix(0.92, 0.8, COLOR.r);
+	ALPHA = COLOR.b;   // the foot of a bank fades into the open ground instead of ending in a stair-stepped edge
 }
 """
 
@@ -730,7 +732,7 @@ func _vcolor(v: Vector3, n: Vector3) -> Color:
 	else:
 		top = smoothstep(0.75, 0.95, n.y)
 	var lit := 1.0   # (no fold darkening: the foothills must match the open ground)
-	return Color(top, lit, 0.0)
+	return Color(top, lit, smoothstep(-0.02, 0.3, v.y))
 
 
 func _ridge_colliders() -> void:
