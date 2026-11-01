@@ -385,14 +385,20 @@ func _pave() -> StandardMaterial3D:
 	## bevelled, varied) tinted a warm volcanic grey, not the old dark flags.
 	if not game.world_style:
 		return game._flagstone(Color(0.45, 0.42, 0.42))
-	return game._pbr("castle_flags_grey", 0.24, Color(0.66, 0.55, 0.5))   # (round 7: smaller stones, was 0.16)
+	var m: StandardMaterial3D = game._pbr("castle_flags_grey", 0.32, Color(0.7, 0.57, 0.5))   # (round 7: smaller stones, was 0.16)
+	# Round 8: deeper bevels and contact shading, more tonal spread per stone.
+	m.normal_scale = 2.2
+	m.roughness = 0.82
+	return m
 
 
 func _kerb(tint: Color) -> StandardMaterial3D:
 	## Kerbs and rims in the castle's bevelled wall blocks, lighter basalt.
 	if not game.world_style:
 		return game._ashlar(tint)
-	return game._pbr("castle_blocks_grey", 0.3, tint.lerp(Color(0.66, 0.56, 0.52), 0.5))
+	var m: StandardMaterial3D = game._pbr("castle_blocks_grey", 0.3, tint.lerp(Color(0.68, 0.57, 0.52), 0.5))
+	m.normal_scale = 2.2   # (round 8: deeper bevels)
+	return m
 
 
 func _mesh(mesh: Mesh, at: Vector3, mat: Material, rot: Vector3 = Vector3.ZERO, shadow: bool = true) -> MeshInstance3D:

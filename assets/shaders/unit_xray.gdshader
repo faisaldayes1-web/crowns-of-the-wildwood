@@ -9,6 +9,7 @@ render_mode unshaded, cull_back, depth_test_disabled, depth_draw_never, blend_mi
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
 uniform vec4 tint : source_color = vec4(1.0, 0.9, 0.4, 0.55);
+uniform vec3 centre = vec3(0.0);   // the unit's chest, world space (unit.gd sets it each frame)
 
 float lin(vec2 uv, float z, mat4 inv_proj) {
 	vec4 v = inv_proj * vec4(uv * 2.0 - 1.0, z, 1.0);
@@ -27,7 +28,11 @@ void fragment() {
 		scene = max(scene, lin(uv, texture(depth_tex, uv).r, INV_PROJECTION_MATRIX));
 	}
 	float me = lin(SCREEN_UV, FRAGCOORD.z, INV_PROJECTION_MATRIX);
-	if (scene > me - 1.5) {
+	// Round 8: the occluder must stand in front of the unit's whole body
+	// (nearer than its chest by 0.9 m), so the unit's own hair, hat or shield
+	// never tints its visible face, while a tree crown just in front counts.
+	vec4 cv = VIEW_MATRIX * vec4(centre, 1.0);
+	if (scene > -cv.z - 0.9) {
 		discard;
 	}
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);

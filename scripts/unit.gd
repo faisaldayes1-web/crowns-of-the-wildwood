@@ -2332,12 +2332,13 @@ func _update_xray() -> void:
 				_xray_shader = load("res://assets/shaders/unit_xray.gdshader")
 			_xray_mat = ShaderMaterial.new()
 			_xray_mat.shader = _xray_shader
-			_xray_mat.render_priority = 6
+			_xray_mat.render_priority = 120   # (round 8: after the foliage cover pass, 101, so trees no longer hide it)
 		var c: Color = (game.player_color(maxi(local_index, 0)) if is_player else (Color(1.0, 0.85, 0.3) if carrying != null else Stats.FACTIONS[team].color)).lightened(0.2)
 		c.a = 0.6
 		_xray_mat.set_shader_parameter("tint", c)
 		if ol.next_pass != _xray_mat:
 			ol.next_pass = _xray_mat
+		_xray_mat.set_shader_parameter("centre", global_position + Vector3(0, 0.9, 0))
 	elif ol.next_pass != null and ol.next_pass == _xray_mat:
 		ol.next_pass = null
 

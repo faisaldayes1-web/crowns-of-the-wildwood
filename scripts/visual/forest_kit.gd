@@ -1075,7 +1075,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	r.seed = seed
 	var ramp := _pine_ramp(accent)
 	var bark := _bark()
-	var tiers: int = [5, 4, 6][shape]
+	var tiers: int = [7, 5, 8][shape]   # (round 8: more, finer tier steps, was 5 / 4 / 6)
 	var base_r: float = [1.7, 1.3, 1.8][shape]
 	var top: float = [5.4, 3.4, 6.0][shape]
 	var foot: float = [0.75, 0.5, 0.8][shape]   # first tier's rim height
@@ -1088,14 +1088,14 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	# under the next tier, the apex.
 	# (Round 7: the shoulder tucks in deeper, 0.6 -> 0.42, so a dark notch
 	# separates each tier from the next.)
-	var prof := [[0.9, 0.0], [1.0, 0.24], [0.42, 0.6], [0.0, 1.0]]
+	var prof := [[0.9, 0.0], [1.0, 0.24], [0.5, 0.6], [0.0, 1.0]]   # (round 8: smaller notches with the extra tiers)
 	for i in tiers:
 		var f := float(i) / maxf(tiers - 1, 1)
 		var last := i == tiers - 1
 		var rr: float = base_r * (1.0 - f * 0.68)   # (round 7: each tier a touch narrower, was 0.62)
 		var rim_y: float = foot + step * i
-		var h: float = step * (1.38 if not last else 1.65)   # (round 7: less overlap, was 1.55 / 1.75)
-		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - 2, 5) if low else maxi(11 - int(f * 3.0), 8)
+		var h: float = step * (1.5 if not last else 1.8)   # (round 7: less overlap, was 1.55 / 1.75)
+		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - 2, 5) if low else maxi(14 - int(f * 4.0), 9)
 		var samples := 3 if low else 4
 		var m := lobes * samples
 		var spin := r.randf() * TAU
