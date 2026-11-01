@@ -1,0 +1,261 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+FOREST KIT day: 6925 placements, 22 meshes, 371 ms
+BATCH merged 4983 scenery meshes (1121 left alone) into 962 meshes; 1838 materials became 227; 450 ms (303 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+   econ team0 pool 0 wood 0 ore  gathered { "wood": 0, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+   econ team1 pool 0 wood 0 ore  gathered { "wood": 0, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+t=0s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 0 / 0
+   team0 Elf (-85.4, 0, -4) hearts=4 dead=false job=prep
+   team0 Elf (-85.4, 0, -2.1) hearts=4 dead=false job=prep
+   team0 Elf (-85.5, 0, -0.1) hearts=4 dead=false job=prep
+   team0 Elf (-85.5, 0, 1.9) hearts=4 dead=false job=prep
+   team1 Human (85.4, -2.4, -4) hearts=4 dead=false job=prep
+   team1 Human (85.4, -2.4, -2.1) hearts=4 dead=false job=prep
+   team1 Human (85.5, -2.4, -0.1) hearts=4 dead=false job=prep
+   team1 Human (85.5, -2.4, 1.9) hearts=4 dead=false job=prep
+BUMP t=0 team1 Knight at (74.1, -2.4, -8.8) job=prep target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@5014[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+BUMP t=0 team1 Knight at (74.1, -2.4, -8.8) job=prep target=(79.9, -2.4, -3.2) hits=["@StaticBody3D@5014[(0.8, 0.8, 0.8)]@(74, -1.6, -8.400001)"]
+Battle begins: barricades 2/2, traps 3, turrets 0/0
+   econ team0 pool 0 wood 0 ore  gathered { "wood": 3, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+   econ team1 pool 0 wood 0 ore  gathered { "wood": 3, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 0, "tend": 0 }  hats []
+t=30s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 0 / 0
+   team0 Knight (-38.3, 0, 6.7) hearts=4 dead=false job=gather
+   team0 Ranger (8.2, 0.1, 0.3) hearts=4 dead=false job=attack
+   team0 Mage (-10.5, 0, 3.5) hearts=2 dead=false job=attack
+   team0 Healer (-12.9, 0, 6.4) hearts=4 dead=false job=support
+   team1 Knight (38.1, 0, -6.9) hearts=4 dead=false job=gather
+   team1 Ranger (-7.5, 0.2, -0.4) hearts=4 dead=false job=attack
+   team1 Mage (20.6, 0, 4) hearts=4 dead=false job=attack
+   team1 Healer (21.3, 0, 2) hearts=4 dead=false job=support
+DOWN t=10 team0 Mage ally=4 foes=1
+KILL t=11 kteam=0 krole=2 klevel=2 kmastery=1 vteam=1 vrole=3 vlevel=1 vmastery=0 kfire=0 burn=0
+DOWN t=11 team1 Mage ally=2 foes=1
+KILL t=12 kteam=1 krole=2 klevel=2 kmastery=1 vteam=0 vrole=4 vlevel=1 vmastery=0 kfire=0 burn=0
+DOWN t=12 team0 Healer ally=30 foes=1
+BUMP t=13 team1 Ranger at (-17.3, 0.2, -3.1) job=attack target=(-20, 0, -4.1) hits=["@StaticBody3D@6605[(0.9, 0.3, 0.9)]@(-17.5, 0.3, -3.2)"]
+ECON t=13 team1 deposit by Garrick pool 4 wood 0 ore
+ECON t=14 team1 pad turret
+ECON t=14 team0 deposit by Aelith pool 4 wood 0 ore
+FINISH t=15 team1 Mage by=Ranger
+SKIP t=15 team0 Mage
+SKIP t=15 team0 Healer
+ECON t=16 team0 pad turret
+KILL t=21 kteam=1 krole=2 klevel=3 kmastery=2 vteam=0 vrole=1 vlevel=2 vmastery=1 kfire=0 burn=0
+DOWN t=21 team0 Knight ally=56 foes=1
+KILL t=22 kteam=1 krole=1 klevel=2 kmastery=1 vteam=0 vrole=2 vlevel=3 vmastery=2 kfire=0 burn=0
+DOWN t=22 team0 Ranger ally=99 foes=2
+FINISH t=24 team0 Ranger by=Healer
+SKIP t=24 team0 Knight
+BUMP t=36 team1 Healer at (-29.1, 0, 6.4) job=support target=(-29.8, 0, 6.4) hits=["@StaticBody3D@5115[(1, 1.2, 3.5)]@(-29.5, 1.2, 6.4)"]
+   econ team0 pool 1 wood 0 ore  gathered { "wood": 6, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 1 wood 0 ore  gathered { "wood": 4, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=60s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Knight (-57.7, 0, 2.6) hearts=4 dead=false job=attack
+   team0 Ranger (-59, 0, 3.7) hearts=4 dead=false job=attack
+   team0 Mage (-35.4, 0, -6.9) hearts=4 dead=false job=gather
+   team0 Healer (-56.5, 0, 1.3) hearts=4 dead=false job=support
+   team1 Knight (27.4, 0, 10.6) hearts=4 dead=false job=gather
+   team1 Trapper (-30, 0, 8.400001) hearts=4 dead=false job=attack
+   team1 Mage (2.6, 0.5, -1.2) hearts=4 dead=false job=attack
+   team1 Healer (-29.1, 0, 6.6) hearts=4 dead=false job=support
+ECON t=46 team0 deposit by Sylvara pool 5 wood 0 ore
+KILL t=51 kteam=1 krole=3 klevel=3 kmastery=2 vteam=0 vrole=4 vlevel=1 vmastery=0 kfire=0 burn=0
+DOWN t=51 team0 Healer ally=19 foes=1
+KILL t=62 kteam=1 krole=1 klevel=3 kmastery=2 vteam=0 vrole=2 vlevel=2 vmastery=3 kfire=0 burn=0
+DOWN t=62 team0 Sharpshooter ally=25 foes=1
+FINISH t=66 team0 Sharpshooter by=Warden
+SKIP t=66 team0 Healer
+   econ team0 pool 5 wood 0 ore  gathered { "wood": 8, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 1 wood 0 ore  gathered { "wood": 4, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=90s  score 0-0  monarchs 0 / 0  doors 118 / 150  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Knight (48.1, 0, 0.6) hearts=4 dead=false job=attack
+   team0 Sharpshooter (38.1, 0, -22) hearts=0 dead=true job=attack
+   team0 Mage (-51.6, 0, -2.3) hearts=4 dead=false job=gather
+   team0 Healer (-31.3, 0, -3.2) hearts=0 dead=true job=support
+   team1 Warden (47.5, 0, -0.1) hearts=1 dead=false job=defend
+   team1 Trapper (-41.1, 0, 2.7) hearts=4 dead=false job=attack
+   team1 Mage (21, 0, -1.5) hearts=4 dead=false job=defend
+   team1 Healer (43.6, 0, -9.3) hearts=4 dead=false job=support
+KILL t=72 kteam=0 krole=1 klevel=2 kmastery=2 vteam=1 vrole=1 vlevel=4 vmastery=3 kfire=0 burn=0
+DOWN t=72 team1 Warden ally=7 foes=1
+FINISH t=75 team1 Warden by=Warden
+ECON t=80 team0 door repair hp=115
+KILL t=84 kteam=1 krole=3 klevel=4 kmastery=3 vteam=0 vrole=1 vlevel=4 vmastery=4 kfire=0 burn=0
+DOWN t=84 team0 Warden ally=90 foes=0
+KILL t=84 kteam=0 krole=2 klevel=1 kmastery=3 vteam=1 vrole=2 vlevel=5 vmastery=4 kfire=0 burn=0
+DOWN t=84 team1 Trapper ally=20 foes=0
+FINISH t=87 team1 Trapper by=Healer
+SKIP t=87 team0 Warden
+BUMP t=93 team0 Healer at (-5, 0, 3.9) job=support target=(-9.6, 0, 0) hits=["@StaticBody3D@390@(-4.7, 0.5, 3.7)"]
+BUMP t=93 team0 Healer at (-5.9, 0, 2.4) job=support target=(-9.6, 0, 0) hits=["@StaticBody3D@482[(4, 0.4, 3.6)]@(-5.9, 0.5, 2)"]
+ECON t=98 team0 deposit by Sylvara pool 6 wood 0 ore
+   econ team0 pool 6 wood 0 ore  gathered { "wood": 12, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 1 wood 0 ore  gathered { "wood": 7, "ore": 0 }  bought { "hat": 0, "repair": 0, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=120s  score 0-0  monarchs 0 / 0  doors 109 / 82  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-75.9, 0, -7) hearts=4 dead=false job=attack
+   team0 Sharpshooter (27.8, 0, 3.9) hearts=1 dead=false job=attack
+   team0 Mage (-47.7, 0, -1.5) hearts=4 dead=false job=gather
+   team0 Healer (16.8, 0, 5.4) hearts=4 dead=false job=support
+   team1 Warden (27.7, 0, 2.7) hearts=3 dead=false job=attack
+   team1 Trapper (79.7, -2.4, -8.1) hearts=4 dead=false job=attack
+   team1 Frostweaver (38.5, 0, -6.6) hearts=4 dead=false job=gather
+   team1 Healer (31.3, 0, -2.2) hearts=4 dead=false job=support
+KILL t=100 kteam=1 krole=4 klevel=3 kmastery=2 vteam=0 vrole=2 vlevel=3 vmastery=5 kfire=0 burn=0
+DOWN t=100 team0 Sharpshooter ally=11 foes=1
+FINISH t=102 team0 Sharpshooter by=Cleric
+ECON t=103 team1 deposit by Ysolde pool 5 wood 0 ore
+ECON t=105 team1 door repair hp=117
+ECON t=113 team0 deposit by Sylvara pool 10 wood 0 ore
+ECON t=119 team1 deposit by Ysolde pool 6 wood 0 ore
+KILL t=123 kteam=0 krole=3 klevel=3 kmastery=2 vteam=1 vrole=2 vlevel=4 vmastery=5 kfire=0 burn=0
+DOWN t=123 team1 Trapper ally=35 foes=1
+SKIP t=126 team1 Trapper
+   econ team0 pool 10 wood 0 ore  gathered { "wood": 20, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 6 wood 0 ore  gathered { "wood": 14, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=150s  score 0-0  monarchs 0 / 0  doors 109 / 117  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (27.7, 0, 0.8) hearts=3 dead=false job=attack
+   team0 Sharpshooter (-19.9, 0, 2.6) hearts=4 dead=false job=attack
+   team0 Mage (-40.1, 0, 6.5) hearts=3 dead=false job=gather
+   team0 Healer (-10.6, 0, -1.8) hearts=4 dead=false job=support
+   team1 Warden (20.6, 0, 4) hearts=4 dead=false job=attack
+   team1 Trapper (-27.1, 0, 6.1) hearts=0 dead=true job=attack
+   team1 Frostweaver (30.6, 0, -9.6) hearts=4 dead=false job=gather
+   team1 Cleric (18.8, 0.2, 3.3) hearts=4 dead=false job=support
+ECON t=133 team0 deposit by Sylvara pool 14 wood 0 ore
+BUMP t=136 team0 Frostweaver at (-34.9, 0, -3.9) job=gather target=(-28, 0, -5.4) hits=["@StaticBody3D@6638[(0.9, 0.3, 0.9)]@(-34.5, 0.3, -3.9)"]
+ECON t=138 team1 deposit by Ysolde pool 10 wood 0 ore
+KILL t=140 kteam=1 krole=4 klevel=5 kmastery=4 vteam=0 vrole=1 vlevel=3 vmastery=5 kfire=0 burn=0
+DOWN t=140 team0 Warden ally=34 foes=2
+FINISH t=143 team0 Warden by=Cleric
+KILL t=150 kteam=1 krole=1 klevel=3 kmastery=4 vteam=0 vrole=2 vlevel=2 vmastery=6 kfire=0 burn=0
+DOWN t=150 team0 Sharpshooter ally=4 foes=1
+REVIVE t=152 team0 Sharpshooter by=Healer healer=true
+KILL t=155 kteam=1 krole=2 klevel=3 kmastery=6 vteam=0 vrole=2 vlevel=3 vmastery=7 kfire=0 burn=0
+DOWN t=155 team0 Sharpshooter ally=16 foes=0
+ECON t=157 team1 deposit by Ysolde pool 14 wood 0 ore
+   econ team0 pool 14 wood 0 ore  gathered { "wood": 24, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 14 wood 0 ore  gathered { "wood": 20, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=180s  score 0-0  monarchs 0 / 0  doors 97 / 117  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-59, 0, 4.2) hearts=4 dead=false job=attack
+   team0 Sharpshooter (-5.7, 0.5, 0.7) hearts=0 dead=false job=attack
+   team0 Frostweaver (-27.9, 0, -10.3) hearts=3 dead=false job=gather
+   team0 Healer (-8, 0.2, 0) hearts=1 dead=false job=support
+   team1 Warden (-47, 0, -0.4) hearts=4 dead=false job=attack
+   team1 Trapper (-29.6, 0, 0.8) hearts=4 dead=false job=attack
+   team1 Frostweaver (40.7, 0, -5) hearts=4 dead=false job=gather
+   team1 Cleric (-22.1, 0, 1.1) hearts=4 dead=false job=support
+REVIVE t=160 team0 Sharpshooter by=Dark Priest healer=true
+BUMP t=160 team1 Frostweaver at (39.6, 0, -6.4) job=gather target=(38.5, 0, -5.2) hits=["@StaticBody3D@10263[(3.2, 1.1, 0.4)]@(39.2, 1.1, -6.2)"]
+KILL t=166 kteam=1 krole=4 klevel=6 kmastery=5 vteam=0 vrole=1 vlevel=1 vmastery=5 kfire=0 burn=0
+DOWN t=166 team0 Warden ally=7 foes=1
+FINISH t=169 team0 Warden by=Cleric
+Door broken: Elves t=171
+ECON t=172 team1 deposit by Ysolde pool 18 wood 0 ore
+KILL t=173 kteam=1 krole=2 klevel=4 kmastery=7 vteam=0 vrole=3 vlevel=4 vmastery=3 kfire=0 burn=0
+DOWN t=173 team0 Frostweaver ally=11 foes=2
+KILL t=179 kteam=1 krole=4 klevel=6 kmastery=5 vteam=0 vrole=4 vlevel=4 vmastery=3 kfire=0 burn=0
+DOWN t=179 team0 Dark Priest ally=10 foes=0
+ECON t=179 team0 door rebuild hp=100
+ECON t=181 team0 door repair hp=135
+BUMP t=182 team0 Sharpshooter at (-17.1, 0, -13.3) job=recover target=(-18.1, 0, -13.5) hits=["@StaticBody3D@5101[(1, 1.2, 3)]@(-17.5, 1.2, -13.3)"]
+BUMP t=182 team0 Sharpshooter at (-17.1, 0, -11.5) job=recover target=(-18.5, 0, -13.4) hits=["@StaticBody3D@5101[(1, 1.2, 3)]@(-17.5, 1.2, -11.5)", "@StaticBody3D@49[(138, 1, 132)]@(-17.1, 0, -11.5)"]
+BLEEDOUT t=188 team0 Frostweaver
+   econ team0 pool 5 wood 0 ore  gathered { "wood": 24, "ore": 0 }  bought { "hat": 0, "repair": 2, "rebuild": 1, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 18 wood 0 ore  gathered { "wood": 24, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=210s  score 0-0  monarchs 1 / 0  doors 135 / 117  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-28.3, 0, -4.3) hearts=3 dead=false job=recover
+   team0 Sharpshooter (0.9, 0.5, -1.6) hearts=3 dead=false job=recover
+   team0 Frostweaver (-31.9, 0, -9.900001) hearts=0 dead=true job=recover
+   team0 Dark Priest (-26.9, 0, -3.9) hearts=0 dead=false job=support
+   team1 Warden (24.7, 0, -1.3) hearts=4 dead=false job=escort
+   team1 Trapper (19.1, 0, 1.5) hearts=4 dead=false job=attack
+   team1 Frostweaver (19.1, 0, 1.3) hearts=4 dead=false job=escort
+   team1 Cleric (14.2, 0, -2.1) hearts=4 dead=false job=support
+KILL t=193 kteam=1 krole=3 klevel=5 kmastery=4 vteam=0 vrole=2 vlevel=4 vmastery=8 kfire=0 burn=0
+DOWN t=193 team0 Sharpshooter ally=23 foes=1
+BLEEDOUT t=194 team0 Dark Priest
+Capture: Humans  (score 0 - 1) t=196
+REVIVE t=200 team0 Sharpshooter by=Warden healer=false
+KILL t=203 kteam=1 krole=2 klevel=5 kmastery=8 vteam=0 vrole=2 vlevel=4 vmastery=8 kfire=0 burn=0
+DOWN t=203 team0 Sharpshooter ally=28 foes=0
+SKIP t=206 team0 Sharpshooter
+KILL t=207 kteam=0 krole=1 klevel=2 kmastery=6 vteam=1 vrole=2 vlevel=6 vmastery=9 kfire=0 burn=0
+DOWN t=207 team1 Trapper ally=4 foes=1
+KILL t=207 kteam=1 krole=1 klevel=6 kmastery=7 vteam=0 vrole=1 vlevel=3 vmastery=7 kfire=0 burn=0
+DOWN t=207 team0 Warden ally=38 foes=1
+SKIP t=210 team0 Warden
+REVIVE t=211 team1 Trapper by=Warden healer=false
+KILL t=213 kteam=0 krole=3 klevel=2 kmastery=3 vteam=1 vrole=3 vlevel=6 vmastery=5 kfire=0 burn=0
+DOWN t=213 team1 Frostweaver ally=9 foes=0
+REVIVE t=217 team1 Frostweaver by=Cleric healer=true
+   econ team0 pool 5 wood 0 ore  gathered { "wood": 24, "ore": 0 }  bought { "hat": 0, "repair": 2, "rebuild": 1, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 18 wood 0 ore  gathered { "wood": 24, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=240s  score 0-1  monarchs 0 / 0  doors 120 / 117  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Elf (-83.3, 0, -4.6) hearts=4 dead=false job=attack
+   team0 Sharpshooter (-73.2, 0, -0.5) hearts=4 dead=false job=attack
+   team0 Frostweaver (-31.5, 0, 7.2) hearts=4 dead=false job=gather
+   team0 Dark Priest (-38.4, 0, 11.3) hearts=4 dead=false job=support
+   team1 Warden (-46.8, 0, -1.4) hearts=4 dead=false job=attack
+   team1 Trapper (-41.1, 0, 0.5) hearts=4 dead=false job=attack
+   team1 Frostweaver (-41, 0, -0.1) hearts=4 dead=false job=attack
+   team1 Cleric (-38.3, 0, -2.2) hearts=4 dead=false job=support
+Door broken: Elves t=226
+KILL t=230 kteam=1 krole=3 klevel=6 kmastery=5 vteam=0 vrole=1 vlevel=1 vmastery=7 kfire=0 burn=0
+DOWN t=230 team0 Warden ally=8 foes=4
+FINISH t=233 team0 Warden by=Trapper
+BUMP t=235 team1 Warden at (-59.9, 0.7, 1.4) job=attack target=(-63.1, 0.9, -1.1) hits=["@StaticBody3D@2126[(2.4, 1.2, 0.3)]@(-59.9, 1.2, 1.8)"]
+BUMP t=235 team1 Warden at (-59.9, 0.7, 1.4) job=attack target=(-60.3, 0.5, 2.3) hits=["@StaticBody3D@2150[(0.7, 3.5, 0.3)]@(-60.3, 1.9, 1.4)"]
+KILL t=236 kteam=1 krole=3 klevel=6 kmastery=5 vteam=0 vrole=2 vlevel=3 vmastery=9 kfire=0 burn=0
+DOWN t=236 team0 Sharpshooter ally=12 foes=1
+KILL t=237 kteam=1 krole=1 klevel=6 kmastery=7 vteam=0 vrole=4 vlevel=3 vmastery=4 kfire=0 burn=0
+DOWN t=237 team0 Dark Priest ally=5 foes=4
+KILL t=239 kteam=1 krole=1 klevel=6 kmastery=7 vteam=0 vrole=3 vlevel=5 vmastery=6 kfire=0 burn=0
+DOWN t=239 team0 Frostweaver ally=99 foes=1
+FINISH t=240 team0 Dark Priest by=Frostweaver
+SKIP t=242 team0 Sharpshooter
+FINISH t=243 team0 Frostweaver by=Warden
+   econ team0 pool 5 wood 0 ore  gathered { "wood": 24, "ore": 0 }  bought { "hat": 0, "repair": 2, "rebuild": 1, "turret": 1, "tend": 0 }  hats []
+   econ team1 pool 18 wood 0 ore  gathered { "wood": 24, "ore": 0 }  bought { "hat": 0, "repair": 1, "rebuild": 0, "turret": 1, "tend": 0 }  hats []
+t=270s  score 0-1  monarchs 1 / 0  doors 0 / 117  turrets 1 / 1
+   turret team1 L1 hp=8 (54.5, 0, -5)
+   turret team0 L1 hp=8 (-54.5, 0, -5)
+   team0 Warden (-56.6, 0, 1) hearts=3 dead=false job=recover
+   team0 Sharpshooter (-59.5, 0, 7.3) hearts=0 dead=true job=recover
+   team0 Frostweaver (-39.7, 0, 4.7) hearts=0 dead=true job=recover
+   team0 Elf (-85.2, 0, 1.7) hearts=4 dead=false job=recover
+   team1 Warden (-35.5, 0, -1.9) hearts=4 dead=false job=attack
+   team1 Trapper (-0.4, 0.5, 1.6) hearts=4 dead=false job=escort
+   team1 Frostweaver (-2.7, 0.5, 2.3) hearts=4 dead=false job=escort
+   team1 Cleric (-14.3, 0, 0.9) hearts=4 dead=false job=support
+Capture: Humans  (score 0 - 2) t=262
+Match over: Elves 0, Humans 2
+RESULT winner=Humans score=0-2 t=262 overtime=false turrets=1/1 turret_kills=0/0 raid_deaths=0/0
+STAT team=0 class=Warden kills=2 deaths=6 assists=0 dmg=26 heal=0 caps=0 level=1 revives=1 revived=0
+STAT team=0 class=Sharpshooter kills=2 deaths=8 assists=4 dmg=54 heal=0 caps=0 level=1 revives=0 revived=3
+STAT team=0 class=Frostweaver kills=2 deaths=3 assists=1 dmg=35 heal=0 caps=0 level=3 revives=0 revived=0
+STAT team=0 class=DarkPriest kills=0 deaths=4 assists=1 dmg=17 heal=19 caps=0 level=1 revives=2 revived=0
+STAT team=1 class=Warden kills=6 deaths=1 assists=5 dmg=23 heal=0 caps=1 level=6 revives=1 revived=0
+STAT team=1 class=Trapper kills=5 deaths=3 assists=7 dmg=45 heal=0 caps=1 level=6 revives=0 revived=1
+STAT team=1 class=Frostweaver kills=5 deaths=2 assists=5 dmg=32 heal=0 caps=0 level=6 revives=0 revived=1
+STAT team=1 class=Cleric kills=4 deaths=0 assists=5 dmg=26 heal=52 caps=0 level=6 revives=1 revived=0
+ECONSUM team=0 wood_gathered=24 ore_gathered=0 hats=0 repairs=2 rebuilds=1 turrets=1 tends=0 pool=5/0
+ECONSUM team=1 wood_gathered=24 ore_gathered=0 hats=0 repairs=1 rebuilds=0 turrets=1 tends=0 pool=18/0
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 8 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)

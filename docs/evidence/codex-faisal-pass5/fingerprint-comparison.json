@@ -1,0 +1,16 @@
+[
+  {
+    "map": 0,
+    "match": true,
+    "before": "FINGERPRINT colliders=704 shapes=696 lines=1473 sha256=b3a44308e9ac566212b0e3f5a4349c836ea49e3f56e8bca08682ba3329412beb",
+    "after": "FINGERPRINT colliders=704 shapes=696 lines=1473 sha256=b3a44308e9ac566212b0e3f5a4349c836ea49e3f56e8bca08682ba3329412beb",
+    "script_errors": false
+  },
+  {
+    "map": 3,
+    "match": true,
+    "before": "FINGERPRINT colliders=625 shapes=617 lines=1305 sha256=0f61ef38d361407c8fe92a02b1edd4f16095103a0a3bb8f6d79e0359c9dcace0",
+    "after": "FINGERPRINT colliders=625 shapes=617 lines=1305 sha256=0f61ef38d361407c8fe92a02b1edd4f16095103a0a3bb8f6d79e0359c9dcace0",
+    "script_errors": false
+  }
+]

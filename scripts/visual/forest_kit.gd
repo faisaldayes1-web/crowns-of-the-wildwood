@@ -969,8 +969,9 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	## a mid green, a shaded band where the next tier overhangs, and a warm
 	## lit crown on the top tier. Shape 1 is a small, stout pine (the picks'
 	## woods hold many small ones). Stonekeep's carry snow on each tier.
-	## 3 vertices a lobe, 5-7 lobes a tier: ~75-105 triangles a tier, no
-	## underside (never seen from the match camera; Low: two lobes fewer).
+	## Pass 5 (Codex-faisal): finer needle bunches, with a rounded centre
+	## between each pair of notches. Low retains the original 5-7 lobes and
+	## three samples; other presets use 8-11 lobes and four samples.
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var ramp := _pine_ramp(accent)
@@ -993,8 +994,9 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var rr: float = base_r * (1.0 - f * 0.62)
 		var rim_y: float = foot + step * i
 		var h: float = step * (1.55 if not last else 1.75)
-		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - (2 if low else 0), 5)
-		var m := lobes * 3
+		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - 2, 5) if low else maxi(11 - int(f * 3.0), 8)
+		var samples := 3 if low else 4
+		var m := lobes * samples
 		var spin := r.randf() * TAU
 		var t := clampf(rim_y / top, 0.0, 1.0)
 		var c_rim: Color = ramp[0].lerp(ramp[1], 0.45 + 0.1 * t)
@@ -1008,7 +1010,8 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var cols := [c_rim, c_lit, c_sh, c_top]
 		var lob := []
 		for k in m:
-			lob.append((0.78 if k % 3 == 0 else 1.0) * r.randf_range(0.95, 1.05))   # 0 = the notch between two lobes
+			var profile: float = (0.78 if k % samples == 0 else 1.0) if low else [0.76, 0.92, 1.0, 0.92][k % samples]
+			lob.append(profile * r.randf_range(0.95, 1.05))
 		var grid := []
 		for j in prof.size():
 			var row := []
@@ -1018,7 +1021,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 				var lf: float = lob[k] if j < 2 else (lerpf(lob[k], 1.0, 0.5) if j == 2 else 1.0)
 				var y: float = rim_y + h * prof[j][1]
 				if j == 0:
-					y += (0.1 if k % 3 == 0 else -0.04) * h   # the lobes droop, the notches tuck up
+					y += (0.1 if k % samples == 0 else -0.04) * h   # the lobes droop, the notches tuck up
 				if last and j == 3:
 					y -= h * 0.14   # a round top knot, not a spike
 				row.append(d * rr * prof[j][0] * lf + Vector3(0, y, 0))
@@ -1046,10 +1049,10 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 				var u0: Vector3 = grid[j + 1][k]
 				var u1: Vector3 = grid[j + 1][k1]
 				# The notches between lobes run dark down the rim and bulge.
-				var cl0: Color = cols[j] * (0.62 if k % 3 == 0 else 1.0)
-				var cl1: Color = cols[j] * (0.62 if k1 % 3 == 0 else 1.0)
-				var cu0: Color = cols[j + 1] * (0.62 if k % 3 == 0 and j == 0 else 1.0)
-				var cu1: Color = cols[j + 1] * (0.62 if k1 % 3 == 0 and j == 0 else 1.0)
+				var cl0: Color = cols[j] * (0.62 if k % samples == 0 else 1.0)
+				var cl1: Color = cols[j] * (0.62 if k1 % samples == 0 else 1.0)
+				var cu0: Color = cols[j + 1] * (0.62 if k % samples == 0 and j == 0 else 1.0)
+				var cu1: Color = cols[j + 1] * (0.62 if k1 % samples == 0 and j == 0 else 1.0)
 				cl0.a = 1.0
 				cl1.a = 1.0
 				cu0.a = 1.0
