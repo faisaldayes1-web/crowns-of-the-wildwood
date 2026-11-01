@@ -55,6 +55,10 @@ void fragment() {
 	vec3 scr = texture(screen_tex, uv).rgb;
 	float lum = dot(scr, vec3(0.3, 0.59, 0.11));
 	float leafy = smoothstep(0.02, 0.1, scr.g - max(scr.r, scr.b * 0.9)) * (1.0 - smoothstep(0.3, 0.45, lum));
-	ALBEDO = mix(ink.rgb, scr * 0.42, leafy);
-	ALPHA = max(a * strength * (1.0 - 0.3 * leafy), v);
+	// (Round 4: snow and pale-teal crowns count as foliage too, and the
+	// foliage line is fainter still.)
+	float pale = smoothstep(0.55, 0.7, lum) * (1.0 - smoothstep(0.06, 0.16, abs(scr.r - scr.b) * 0.5 + max(scr.r - scr.g, 0.0)));
+	leafy = max(leafy, pale * 0.8 * step(scr.r, scr.b + 0.03));
+	ALBEDO = mix(ink.rgb, scr * 0.5, leafy);
+	ALPHA = max(a * strength * (1.0 - 0.45 * leafy), v);
 }

@@ -1130,11 +1130,11 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 				if k % samples == 2:
 					var cr: float = rr * r.randf_range(0.19, 0.26)
 					var cc: Vector3 = off + dd * rr * r.randf_range(0.84, 0.97) + Vector3(0, rim_y + h * r.randf_range(0.03, 0.12), 0)
-					_lobe(st, cc, cr, 0.66, seed + i * 97 + k, c_rim, c_tip, cc.y - cr, cc.y + cr * 0.7, NEEDLE, 0.2, 0.3 if snow else -1.0)
+					_lobe(st, cc, cr, 0.66, seed + i * 97 + k, c_rim, c_tip, cc.y - cr, cc.y + cr * 0.7, NEEDLE, 0.2, 0.5 if snow else -1.0)
 				elif k % (samples * 2) == 0:
 					var cr2: float = rr * r.randf_range(0.15, 0.2)
 					var cc2: Vector3 = off + dd * rr * r.randf_range(0.5, 0.6) + Vector3(0, rim_y + h * r.randf_range(0.36, 0.48), 0)
-					_lobe(st, cc2, cr2, 0.7, seed + i * 89 + k, c_sh, c_tip, cc2.y - cr2, cc2.y + cr2 * 0.7, NEEDLE, 0.2, 0.3 if snow else -1.0)
+					_lobe(st, cc2, cr2, 0.7, seed + i * 89 + k, c_sh, c_tip, cc2.y - cr2, cc2.y + cr2 * 0.7, NEEDLE, 0.2, 0.5 if snow else -1.0)
 	if palette == "twilight":
 		for i in 6:
 			var a := r.randf() * TAU

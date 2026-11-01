@@ -63,6 +63,30 @@ vec4 leaf_cells(vec2 p) {
 void vertex() {
 	kind = UV.x;
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	// Polish round 4: crowns between a fighter and the camera part like a
+	// curtain: leaf vertices near the sight line are pushed smoothly out to
+	// the opening's rim (no cut, no dither), and spring back afterwards.
+	if (cut_n > 0 && (UV.x < 0.5 || UV.x > 4.5 || (UV.x > 2.5 && UV.x < 3.5))) {
+		vec3 disp = vec3(0.0);
+		for (int i = 0; i < cut_n; i++) {
+			vec3 p = cut_pts[i].xyz;
+			vec3 d = cut_eye - p;
+			float t = dot(wpos - p, d) / dot(d, d);
+			if (t > 0.01 && t < 0.6) {
+				float r = cut_pts[i].w * 1.35 * (1.0 - t * 0.6);
+				vec3 q = wpos + disp - (p + d * t);
+				float l = length(q);
+				if (l < r) {
+					vec3 dir = l > 0.001 ? q / l : normalize(cross(d, vec3(0.0, 1.0, 0.0)));
+					disp += dir * (r - l) * (1.0 - 0.35 * l / r);
+				}
+			}
+		}
+		if (dot(disp, disp) > 0.0) {
+			wpos += disp;
+			VERTEX += (inverse(mat3(MODEL_MATRIX)) * disp);
+		}
+	}
 	wnorm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	if (kind < 0.5 || (kind > 2.5 && kind < 3.5) || kind > 4.5) {
 		float w = sin(TIME * 1.3 + wpos.x * 0.7 + wpos.z * 0.5) * sway * clamp(VERTEX.y * 0.3, 0.0, 1.5);
@@ -72,12 +96,9 @@ void vertex() {
 }
 
 void fragment() {
-	float cut_rim = 0.0;
 	if (cut_n > 0) {
-		// Polish round 3 (reviewers: the dithered cutaway read as stipple): a
-		// clean round opening where the line to a fighter passes through the
-		// crown, with no screen-door pattern; the leaves just outside it are
-		// shaded a little darker so the opening reads as a soft-edged hole.
+		// (Polish round 4: the vertex push above opens the crown; this only
+		// catches what remains right on the line.)
 		float fade = 0.0;
 		for (int i = 0; i < cut_n; i++) {
 			vec3 p = cut_pts[i].xyz;
@@ -86,13 +107,14 @@ void fragment() {
 			if (t > 0.01 && t < 0.6) {
 				float r = cut_pts[i].w * (1.0 - t * 0.6);
 				float q = length(wpos - (p + d * t));
-				fade = max(fade, 1.0 - smoothstep(r * 0.7, r * 1.3, q));
+				fade = max(fade, 1.0 - smoothstep(r * 0.2, r * 0.6, q));
 			}
 		}
-		if (fade > 0.5) {
+		// Anything still right on the sight line after the push (a large
+		// lobe whose vertices sit outside) is thinned only at the very core.
+		if (fade > 0.8) {
 			discard;
 		}
-		cut_rim = fade * 2.0;
 	}
 	vec3 col = COLOR.rgb;
 	vec3 an = abs(wnorm);
@@ -135,7 +157,6 @@ void fragment() {
 	}
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	col *= 1.0 - rim * rim_strength * (leafy ? 1.0 : 0.5) * (kind > 4.5 ? 0.0 : 1.0);
-	col *= 1.0 - 0.35 * cut_rim;
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
 	if (kind > 2.5 && kind < 3.5) {

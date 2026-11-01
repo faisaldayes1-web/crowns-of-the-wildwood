@@ -8018,12 +8018,14 @@ func _cross_glyph(c: Vector2, r: float, col: Color, ink: Color) -> void:
 func _draw_revive_prompt(me, mate, cam: Camera3D) -> void:
 	## Standing over a downed teammate: "HOLD [F] REVIVE NAME", with the
 	## progress filling the pill while it is held.
-	# (Polish pass: under the body, clear of the name tags and dizzy marks
-	# above the fight; was 2 m over it.)
 	var at: Vector3 = mate.global_position
 	if cam.is_position_behind(at):
 		return
-	var sp: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at) + Vector2(0, 34)
+	# (Round 4: like FINISH, the pill sits just above the skill bar, off the
+	# actors; a small gold ring marks the teammate's feet.)
+	var feet: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at)
+	draw_arc(feet, 16.0, 0, TAU, 24, Color(1.0, 0.82, 0.3, 0.85), 2.5, true)
+	var sp := Vector2(size.x / 2.0, size.y - 214.0 * clampf(size.x / 1280.0, 0.6, 1.0))
 	var healer: bool = me.role == Stats.Role.HEALER
 	var text: String = ("REVIVING " if me.revive_target == mate else "HOLD  ·  REVIVE ") + mate.display_name.to_upper()
 	if healer:
@@ -8049,7 +8051,12 @@ func _draw_finish_prompt(me, foe, cam: Camera3D) -> void:
 	if cam.is_position_behind(at):
 		return
 	var now := Time.get_ticks_msec() / 1000.0
-	var sp: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at)
+	# Polish round 4 (reviewers, Twilight fight: the plate hid the player's
+	# head and the downed bodies): the plate sits centred just above the
+	# skill bar, off the actors; a small red ring marks the target's feet.
+	var feet: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(foe.global_position)
+	draw_arc(feet, 16.0, 0, TAU, 24, Color(1.0, 0.3, 0.2, 0.85), 2.5, true)
+	var sp := Vector2(size.x / 2.0 - 18.0, size.y - 214.0 * clampf(size.x / 1280.0, 0.6, 1.0))
 	var ready: bool = me.can_finish(foe)
 	var holding: bool = me.finish_target == foe and me.finish_progress > 0.0
 	var prog: float = clampf(me.finish_progress, 0.0, 1.0) if holding else 0.0
