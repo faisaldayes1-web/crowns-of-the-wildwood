@@ -5763,7 +5763,7 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		# Each path sits a millimetre above the one before (four steps), so
 		# where two paths' frayed strips overlap they don't z-fight into a
 		# green speckle (Faisal 2026-10-09 08:16, "what is this texture bug?").
-		e.position = mid + Vector3(0, 0.004 + 0.001 * float(map_paths.size() % 4), 0)
+		e.position = mid + Vector3(0, 0.003 + 0.002 * float(map_paths.size() % 4), 0)   # (2 mm steps: 1 mm z-fought into hatched stones where two roads' rims overlap)
 		e.rotation.y = rot
 		add_child(e)
 	var m := MeshInstance3D.new()
@@ -5771,7 +5771,7 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 	box.size = Vector3(length, 0.012, core_w)
 	m.mesh = box
 	m.material_override = mat
-	m.position = mid + Vector3(0, 0.010 + 0.001 * float(map_paths.size() % 4), 0)   # every core above every frayed strip
+	m.position = mid + Vector3(0, 0.012 + 0.002 * float(map_paths.size() % 4), 0)   # every core above every frayed strip   # every core above every frayed strip
 	m.rotation.y = rot
 	add_child(m)
 	map_paths.append([from, to, width])
