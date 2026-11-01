@@ -5535,11 +5535,14 @@ void fragment() {
 # low-contrast joints and slow worn patches.
 const UNEVEN_FLAGS_SHADER := """
 shader_type spatial;
-render_mode diffuse_lambert_wrap, specular_disabled;
+render_mode blend_mix, depth_prepass_alpha, diffuse_lambert_wrap, specular_disabled;
 uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
 uniform vec4 base : source_color = vec4(0.5);
 uniform float cell = 0.42;
+uniform vec2 center = vec2(0.0);
+uniform vec2 half_ext = vec2(1000.0);   // the slab's half size: its rim frays into the snow instead of a straight cut
 varying vec3 wpos;
+varying vec2 lxz;
 
 float hash(vec2 p) {
 	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
@@ -5555,9 +5558,13 @@ vec2 hash2(vec2 p) {
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	lxz = wpos.xz - center;   // (world space: the static batch bakes the box into world coordinates)
 }
 
 void fragment() {
+	vec2 q = half_ext - abs(lxz);
+	float rim = min(q.x, q.y) + (texture(noise_tex, wpos.xz * 0.31).r - 0.5) * 1.6;
+	ALPHA = smoothstep(0.0, 1.1, rim);
 	vec2 p = wpos.xz * cell + 0.7 * (texture(noise_tex, wpos.xz * 0.05).rg - 0.5);
 	vec2 i = floor(p);
 	vec2 f = fract(p);

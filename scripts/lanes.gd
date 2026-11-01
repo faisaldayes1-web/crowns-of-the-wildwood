@@ -646,7 +646,12 @@ func _terrain() -> void:
 		if j % 12 == 0:
 			await game._world_build_frame()
 		for i in nx:
-			hs[j * nx + i] = height(-MESH_X + i * step, -EDGE_Z + j * step)
+			var hv: float = height(-MESH_X + i * step, -EDGE_Z + j * step)
+			if kind == "winter" and hv > 0.0:
+				# Eased off the foot (visual only; the colliders keep height()): the bank rose
+				# at a fixed 45 degrees straight from the ruin's flat edge, a long straight crease.
+				hv *= smoothstep(0.0, 2.6, hv)
+			hs[j * nx + i] = hv
 	var mat := ShaderMaterial.new()
 	var sh := Shader.new()
 	sh.code = TERRAIN_SHADER
@@ -782,7 +787,10 @@ func _build_stonekeep() -> void:
 	game.grey = true
 	game.audit_label = "ruin"
 	var floor_mat = game._uneven_flagstone(Color(0.86, 0.88, 0.92))
-	game._add_block(Vector3(0, 0.012, 0), Vector3(19.6, 0.02, 15.4), Color.WHITE, false, floor_mat)
+	var main_floor: ShaderMaterial = floor_mat.duplicate()
+	main_floor.set_shader_parameter("center", Vector2(0.0, 0.0))
+	main_floor.set_shader_parameter("half_ext", Vector2(9.8, 7.7))
+	game._add_block(Vector3(0, 0.012, 0), Vector3(19.6, 0.02, 15.4), Color.WHITE, false, main_floor)
 	for sx in [-1.0, 1.0]:
 		await game._world_build_frame()
 		# North and south walls (broken in two places each).
@@ -798,7 +806,10 @@ func _build_stonekeep() -> void:
 			var gh: float = 3.0 if zs < 0.0 else 2.0
 			game._add_wall(Vector3(sx * 10.0, gh / 2.0, zs * 5.9), Vector3(1.0, gh, 4.2))
 		# Flagstones through the gate and down the pass to its plaza.
-		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(5.6, 0.02, 4.4), Color.WHITE, false, floor_mat)
+		var gate_floor: ShaderMaterial = floor_mat.duplicate()
+		gate_floor.set_shader_parameter("center", Vector2(sx * 12.3, 0.0))
+		gate_floor.set_shader_parameter("half_ext", Vector2(2.8, 2.2))
+		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(5.6, 0.02, 4.4), Color.WHITE, false, gate_floor)
 		game.map_marks.append([Vector3(sx * 12.8, 0, 0), "gate"])   # (keeps snowmen and drifts out of the gateway)
 		await game._world_build_frame()
 		for zs in [-1.0, 1.0]:
