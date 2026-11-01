@@ -687,7 +687,7 @@ func _build() -> void:
 		var tm := MeshInstance3D.new()
 		tm.name = "ForestKit_trails"
 		tm.mesh = _trail_mesh()
-		tm.material_override = mat
+		tm.material_override = ground_mat   # soft, noise-broken edges (forest_ground.gdshader), no hard strip
 		tm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		tm.set_meta("no_batch", true)
 		game.add_child(tm)
@@ -1217,11 +1217,12 @@ func _trail_mesh() -> ArrayMesh:
 		var prev := []
 		for i in n + 1:
 			var c := a + dir * len * float(i) / n + Vector3(0, 0.018, 0)
-			var hw0 := w * 0.5 * r.randf_range(0.8, 1.15)
-			var hw1 := w * 0.5 * r.randf_range(0.8, 1.15)
+			var hw0 := w * 0.5 * r.randf_range(0.8, 1.15) * 1.35
+			var hw1 := w * 0.5 * r.randf_range(0.8, 1.15) * 1.35
 			var row := [c - side * hw0, c - side * hw0 * 0.35, c + side * hw1 * 0.35, c + side * hw1]
 			if not prev.is_empty():
-				var cs := [dirt, worn, worn, dirt]
+				# Opaque down the middle, fading to nothing at both rims.
+				var cs := [Color(dirt, 0.0), Color(worn, 1.0), Color(worn, 1.0), Color(dirt, 0.0)]
 				for k in 3:
 					_v(st, prev[k], Vector3.UP, cs[k], 4.0)
 					_v(st, row[k], Vector3.UP, cs[k], 4.0)
