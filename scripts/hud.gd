@@ -3161,7 +3161,7 @@ func _draw_kill_feed() -> void:
 	## The last few kills, under the logo at the right edge: killer, sword,
 	## victim, each in their team's colour, fading out after a few seconds.
 	var now: float = Time.get_ticks_msec() / 1000.0
-	var y: float = 104.0
+	var y: float = 144.0   # below the full 132px scoreboard/phase strip
 	var right: float = size.x - 104.0   # clear of the CROWN / KITS / MAP column
 	var shown := 0
 	for i in range(game.kill_feed.size() - 1, -1, -1):

@@ -1044,7 +1044,8 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		energy -= Stats.BLOCK_COST
 		knockback = push * knock * 0.5
 		game.spawn_splash(global_position + facing * 0.6 + Vector3(0, 1.0, 0), Color(0.9, 0.95, 1.0), 10, 4.0, 0.3)
-		game.spawn_popup(global_position + Vector3(0, 2.0, 0), "BLOCKED", Color(0.75, 0.85, 1.0))
+		# Shield sparks, recoil and sound confirm the block without a word
+		# floating through the unit's nameplate.
 		Fx.of(game).hit(global_position + facing * 0.6 + Vector3(0, 1.0, 0), -push + Vector3(0, 0.2, 0), "frost")
 		_hitstop(0.05)
 		model.play_once("Block_Hit", 1.6)   # the shield arm takes the blow; the held block resumes after

@@ -32,8 +32,19 @@ func run() -> void:
 	game.chat_log.clear()
 	for i in 12:
 		game.chat_system("Battle update %d: defend the castle and bring supplies home." % i)
+	game.kill_feed.clear()
+	for i in 5:
+		game.kill_feed.append({"killer": "Elven Knight", "kteam": 0, "krole": 0,
+			"victim": "Human Ranger", "vteam": 1, "vrole": 1, "time": Time.get_ticks_msec() / 1000.0})
 	game.hud.queue_redraw()
 	for i in 12:
+		# A background capture can render slowly on a shared GPU. Keep the
+		# staged recent events alive rather than photographing expired rows.
+		for message in game.chat_log:
+			message.time = Time.get_ticks_msec() / 1000.0
+		for message in game.kill_feed:
+			message.time = Time.get_ticks_msec() / 1000.0 - 0.5
+		game.hud.queue_redraw()
 		await process_frame
 	await RenderingServer.frame_post_draw
 	var out := OS.get_environment("CROWNS_CAPTURE_DIR")
@@ -42,6 +53,8 @@ func run() -> void:
 	game.chat_open = true
 	game.hud.queue_redraw()
 	for i in 3:
+		for message in game.kill_feed:
+			message.time = Time.get_ticks_msec() / 1000.0 - 0.5
 		await process_frame
 	await RenderingServer.frame_post_draw
 	root.get_texture().get_image().save_png(out.path_join("typing-chat.png"))
