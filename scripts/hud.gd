@@ -6542,13 +6542,27 @@ func _chat_display_text(message: Dictionary) -> String:
 	return text
 
 
+func _chat_rect() -> Rect2:
+	var top: float = 382.0 if game.rosters_visible else 130.0
+	if not game.couch_active:
+		# Reserve the minimap and its stock/cargo warning even when chat is
+		# busy. Keep the space stable as cargo fills and empties.
+		var map_bottom := 158.0 if _narrow() else 224.0
+		if _corner_score():
+			map_bottom += 84.0
+		var reserved_bottom := map_bottom + 20.0
+		if game.economy and _me():
+			reserved_bottom = map_bottom + 86.0
+		top = maxf(top, reserved_bottom)
+	return Rect2(14, top, 380 if touch_ui else 290, maxf(0.0, size.y - 166 - top))
+
+
 func _draw_chat() -> void:
 	## The chat log in the reference's style: each message is a row with the
 	## speaker's portrait, their name in team colour, the match clock and the
 	## line; while typing it sits in a panel with All/Team tabs and an input
 	## box with a send arrow. Idle, recent rows fade out over the field.
-	var top: float = 382.0 if game.rosters_visible else 130.0
-	var rect := Rect2(14, top, 380 if touch_ui else 290, size.y - 166 - top)
+	var rect := _chat_rect()
 	var now := Time.get_ticks_msec() / 1000.0
 	var typing: bool = game.chat_open
 	if not game.chat_visible and not typing:
