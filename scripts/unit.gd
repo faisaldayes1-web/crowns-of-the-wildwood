@@ -2292,6 +2292,26 @@ var _was_carrying := false
 
 static var _xray_shader: Shader
 var _xray_mat: ShaderMaterial
+var _tower_near := false
+var _tower_check := 0
+
+
+func _near_tower() -> bool:
+	## Within 8 m of a castle tower (the castle kit's roof cutaways), where
+	## the tower body can hide anyone: checked four times a second.
+	var now := Time.get_ticks_msec()
+	if now - _tower_check < 250:
+		return _tower_near
+	_tower_check = now + (get_instance_id() % 7) * 10
+	_tower_near = false
+	if not game.has_meta(&"castle_kit"):
+		return false
+	for e in game.get_meta(&"castle_kit").get("cutaways", []):
+		var c: Vector3 = (e[1] as AABB).get_center()
+		if Vector2(c.x - global_position.x, c.z - global_position.z).length_squared() < 64.0:
+			_tower_near = true
+			break
+	return _tower_near
 
 
 func _update_xray() -> void:
@@ -2302,7 +2322,7 @@ func _update_xray() -> void:
 	## model's outline pass; everyone else keeps the plain look.
 	if model == null or not "outline" in model or model.outline == null:
 		return
-	var want: bool = (is_player or carrying != null) and not dead
+	var want: bool = (is_player or carrying != null or _near_tower()) and not dead
 	var ol: StandardMaterial3D = model.outline
 	if want:
 		if _xray_mat == null:
@@ -2311,7 +2331,7 @@ func _update_xray() -> void:
 			_xray_mat = ShaderMaterial.new()
 			_xray_mat.shader = _xray_shader
 			_xray_mat.render_priority = 6
-		var c: Color = (game.player_color(maxi(local_index, 0)) if is_player else Color(1.0, 0.85, 0.3)).lightened(0.2)
+		var c: Color = (game.player_color(maxi(local_index, 0)) if is_player else (Color(1.0, 0.85, 0.3) if carrying != null else Stats.FACTIONS[team].color)).lightened(0.2)
 		c.a = 0.6
 		_xray_mat.set_shader_parameter("tint", c)
 		if ol.next_pass != _xray_mat:

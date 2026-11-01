@@ -18,7 +18,9 @@ float lin(vec2 uv, float z, mat4 inv_proj) {
 void fragment() {
 	float scene = lin(SCREEN_UV, texture(depth_tex, SCREEN_UV).r, INV_PROJECTION_MATRIX);
 	float me = lin(SCREEN_UV, FRAGCOORD.z, INV_PROJECTION_MATRIX);
-	if (scene > me - 0.3) {
+	// Only scenery at least 1.2 m nearer than the unit counts, so the unit's
+	// own hat, hair or shield (self-occlusion) never tints its visible face.
+	if (scene > me - 1.2) {
 		discard;
 	}
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);

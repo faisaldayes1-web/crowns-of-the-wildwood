@@ -111,7 +111,7 @@ void fragment() {
 	} else if (kind > 4.5) {
 		// Pine needles: a fine grain down the slope and a soft mottle.
 		float m = texture(noise_tex, wpos.xz * 0.6).r;
-		float g = texture(noise_tex, vec2((wpos.x - wpos.z) * 3.0, wpos.y * 0.6)).r;
+		float g = texture(noise_tex, wpos.xz * 2.6 + vec2(wpos.y * 1.3)).r;   // (polish: was a diagonal grain that read as stripes)
 		col *= 0.9 + 0.14 * m + 0.1 * (g - 0.5);
 		// Polish pass (claude-faisal/crowns-polish 2026-11-01): needle clumps,
 		// small light tufts with darker gaps between, so a tier's slope reads

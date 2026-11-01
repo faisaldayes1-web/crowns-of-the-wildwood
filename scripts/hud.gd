@@ -6576,12 +6576,22 @@ func _in_fight() -> bool:
 	_fight_checked = now
 	_fight_cached = false
 	var me = _me()
-	if me == null or not is_instance_valid(me) or me.dead or not game.playing:
+	if me == null or not is_instance_valid(me) or not game.playing:
 		return false
+	# Near the player, or (the camera can be elsewhere) both sides fighting
+	# around the view centre.
+	var centre: Vector3 = game.cam_pos - game.CAMERA_OFFSET * game.cam_zoom
+	var sides := [0, 0]
 	for u in game.units:
-		if not u.dead and u.team != me.team and u.global_position.distance_squared_to(me.global_position) < 196.0:
+		if u.dead:
+			continue
+		if not me.dead and u.team != me.team and u.global_position.distance_squared_to(me.global_position) < 196.0:
 			_fight_cached = true
 			break
+		if u.team in [0, 1] and Vector2(u.global_position.x - centre.x, u.global_position.z - centre.z).length_squared() < 225.0:
+			sides[u.team] += 1
+	if sides[0] > 0 and sides[1] > 0:
+		_fight_cached = true
 	return _fight_cached
 
 
@@ -6600,11 +6610,11 @@ func _draw_chat() -> void:
 	var input_h := 34.0 if typing else 0.0
 	# Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers, Ember
 	# frame-020: the left stack "obscures a substantial arena region"): idle,
-	# the log shows its newest five rows, and only two (for 8 s, not 14)
-	# while the player is in a fight. The open chat still shows twelve.
+	# the log shows its newest three rows, and only two (for 8 s, not 14)
+	# while a fight is near the player or on screen. Open chat shows twelve.
 	var fight := not typing and _in_fight()
-	var max_rows := 12 if typing else (2 if fight else 5)
-	var max_age := 8.0 if fight else 14.0
+	var max_rows := 12 if typing else (2 if fight else 3)
+	var max_age := 8.0 if fight else 12.0
 	var lines: Array = []
 	for i in range(game.chat_log.size() - 1, -1, -1):
 		var m: Dictionary = game.chat_log[i]
@@ -7997,10 +8007,12 @@ func _cross_glyph(c: Vector2, r: float, col: Color, ink: Color) -> void:
 func _draw_revive_prompt(me, mate, cam: Camera3D) -> void:
 	## Standing over a downed teammate: "HOLD [F] REVIVE NAME", with the
 	## progress filling the pill while it is held.
-	var at: Vector3 = mate.global_position + Vector3(0, 2.0, 0)
+	# (Polish pass: under the body, clear of the name tags and dizzy marks
+	# above the fight; was 2 m over it.)
+	var at: Vector3 = mate.global_position
 	if cam.is_position_behind(at):
 		return
-	var sp: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at)
+	var sp: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at) + Vector2(0, 34)
 	var healer: bool = me.role == Stats.Role.HEALER
 	var text: String = ("REVIVING " if me.revive_target == mate else "HOLD  ·  REVIVE ") + mate.display_name.to_upper()
 	if healer:

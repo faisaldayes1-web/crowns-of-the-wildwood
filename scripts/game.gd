@@ -7316,7 +7316,10 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 	if team == 0:
 		# In front of the Elves' timber board and turned to the camera, so
 		# the name reads from the top-down view (it hid inside the board).
-		label.position = Vector3(pos.x, sign_y + 0.05, wall_z + 1.08)
+		# (Polish pass 2026-11-01: 0.25 m further out, so the billboard's top,
+		# tipped back toward the camera, no longer sinks into the timber
+		# above it; reviewers saw the letters' tops sliced off.)
+		label.position = Vector3(pos.x, sign_y + 0.05, wall_z + 1.33)
 		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		label.font_size = 72
 	label.shaded = false

@@ -905,14 +905,6 @@ func _tri_n(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, n0: Vector3,
 	_v(st, p1, n1, c1, NEEDLE)
 
 
-func _tri_out(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, face: Vector3, n: Vector3, c0: Color, c1: Color, c2: Color) -> void:
-	## A needle triangle drawn on the side facing `face` (polish pass sprigs).
-	if (p1 - p0).cross(p2 - p0).dot(face) < 0.0:
-		_tri_n(st, p0, p2, p1, n, n, n, c0, c2, c1)
-	else:
-		_tri_n(st, p0, p1, p2, n, n, n, c0, c1, c2)
-
-
 func _box(st: SurfaceTool, c: Vector3, h: Vector3, yaw: float, col: Color, kind: float) -> void:
 	## An axis box (half extents h) turned by yaw round y.
 	var bs := Basis(Vector3.UP, yaw)
@@ -1011,8 +1003,8 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	## Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers: "large
 	## smooth stacked-cone pines"): a taller bare trunk with a root flare under
 	## a higher first tier, every tier set a little off the axis, a wider
-	## spread of lobe sizes with now and then a deep gap, and drooping needle
-	## sprigs poking out past the rim at the lobe tips (not on Low), so each
+	## spread of lobe sizes with now and then a deep gap, and round needle
+	## clumps sitting out past the rim at the lobe tips (not on Low), so each
 	## tier's outline breaks into small leafy branches instead of a smooth cone.
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
@@ -1111,29 +1103,18 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 				_tri_n(st, u0, l1, l0, nrm[j + 1][k], nrm[j][k1], nrm[j][k], cu0, cl1, cl0)
 			_tri_n(st, grid[3][k], grid[2][k1], grid[2][k], Vector3.UP, nrm[2][k1], nrm[2][k], c_top, c_sh, c_sh)
 		if not low:
-			# Needle sprigs: at most lobe tips a small drooping branch end
-			# pokes out past the rim, sunlit on top, dark beneath.
-			var c_tip: Color = c_lit.lerp(ramp[2], 0.35) if not snow else c_lit
-			c_tip.a = 1.0
-			var c_und: Color = c_rim * 0.55
-			c_und.a = 1.0
-			var c_up: Color = c_lit
-			c_up.a = 1.0
+			# Needle clumps (polish pass 2): at most lobe tips a small round
+			# tuft of needles sits on the rim and pokes out past it, lit on
+			# top and dark beneath (snow-capped on Stonekeep), so each tier's
+			# edge breaks into leafy clumps instead of a smooth plate.
 			for k in m:
-				if k % samples != 2 or r.randf() > 0.75:
+				if k % samples != 2 or r.randf() > 0.7:
 					continue
-				var ka := (k - 1 + m) % m
-				var kb := (k + 1) % m
 				var pd: Vector3 = grid[1][k] - off
 				pd.y = 0.0
-				var tip: Vector3 = off + pd * r.randf_range(1.16, 1.3) + Vector3(0, rim_y - h * r.randf_range(0.02, 0.1), 0)
-				var b0: Vector3 = grid[0][ka].lerp(grid[1][ka], 0.6)
-				var b1: Vector3 = grid[0][kb].lerp(grid[1][kb], 0.6)
-				var bt: Vector3 = grid[1][k].lerp(grid[2][k], 0.45)
-				var out_n: Vector3 = (pd.normalized() + Vector3(0, 0.9, 0)).normalized()
-				_tri_out(st, b0, bt, tip, out_n, out_n, c_up, c_up, c_tip)
-				_tri_out(st, bt, b1, tip, out_n, out_n, c_up, c_up, c_tip)
-				_tri_out(st, b0, b1, tip, -out_n, (pd.normalized() - Vector3(0, 0.6, 0)).normalized(), c_und, c_und, c_und)
+				var cr: float = rr * r.randf_range(0.17, 0.24)
+				var cc: Vector3 = off + pd * r.randf_range(0.98, 1.08) + Vector3(0, rim_y + h * r.randf_range(0.04, 0.12), 0)
+				_lobe(st, cc, cr, 0.62, seed + i * 97 + k, c_rim, c_lit.lerp(ramp[2], 0.3) if not snow else c_lit, cc.y - cr, cc.y + cr * 0.7, NEEDLE, 0.22, 0.35 if snow else -1.0)
 	if palette == "twilight":
 		for i in 6:
 			var a := r.randf() * TAU
