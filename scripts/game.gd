@@ -5463,13 +5463,16 @@ uniform sampler2D stones_tex : filter_nearest, repeat_enable;
 uniform float scale = 0.2;
 uniform bool fray = false;
 uniform float half_w = 2.0;   // per material: the Compatibility renderer (web) has no instance uniforms
+uniform bool radial = false;  // a round plaza: the distance is the radius, not the way across a strip
 varying vec3 wpos;
 varying float lz;
+varying vec2 lxz;
 varying vec3 side;
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	lz = VERTEX.z;
+	lxz = VERTEX.xz;
 	side = normalize(MODEL_MATRIX[2].xyz);
 }
 
@@ -5479,6 +5482,9 @@ void fragment() {
 		vec4 s = texture(stones_tex, uv);
 		vec2 to_c = (s.rg - 0.5) * 0.5 / scale;
 		float d = abs(lz + dot(vec3(to_c.x, 0.0, to_c.y), side));
+		if (radial) {
+			d = length(lxz + to_c);
+		}
 		float inner = half_w - 0.5;
 		bool kept = s.a > 0.5 ? d < inner + 0.8 * s.b : d < inner;
 		if (!kept) {
@@ -5492,7 +5498,85 @@ void fragment() {
 }
 """
 
+# The soft verge under a cobbled road (claude-faisal/crowns-grass 2026-11-01):
+# the meadow's own grass and tint, faded out toward the rim of the strip with
+# a noise-broken edge, so no rectangle shows on the ground beside the road.
+const VERGE_SHADER := """
+shader_type spatial;
+render_mode blend_mix, depth_draw_never, cull_back, specular_disabled;
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform vec2 half_ext = vec2(4.0, 2.0);
+uniform float scale = 0.11;
+varying vec3 wpos;
+varying vec2 lxz;
+
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	lxz = VERTEX.xz;
+}
+
+void fragment() {
+	vec2 q = half_ext - abs(lxz);
+	float e = min(q.x, q.y);
+	float n = texture(noise_tex, wpos.xz * 0.23).r - 0.5;
+	float a = smoothstep(0.0, 1.7, e + n * 1.6);
+	ALBEDO = texture(albedo_tex, wpos.xz * scale).rgb * tint.rgb;
+	ALPHA = a * 0.55;
+	ROUGHNESS = 0.9;
+}
+"""
+
+# The Stonekeep ruin's courtyard floor (claude-faisal/crowns-grass 2026-11-01):
+# the flagstone texture laid twice, the second layer turned and at another
+# scale, and the two blended by a slow world-space noise, so no flat repeating
+# grid shows; a low-frequency value variation and worn, darker patches break
+# the slabs up further.
+const UNEVEN_FLAGS_SHADER := """
+shader_type spatial;
+render_mode diffuse_lambert_wrap, specular_disabled;
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform float scale = 0.25;
+uniform float normal_scale = 1.0;
+varying vec3 wpos;
+
+vec2 rot(vec2 p, float a) {
+	float c = cos(a);
+	float s = sin(a);
+	return vec2(c * p.x - s * p.y, s * p.x + c * p.y);
+}
+
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+	vec2 w = wpos.xz;
+	vec2 uv1 = w * scale;
+	vec2 uv2 = rot(w, 0.52) * scale * 0.83 + vec2(0.37, 0.61);
+	float mask = smoothstep(0.32, 0.68, texture(noise_tex, w * 0.07).r);
+	vec3 c = mix(texture(albedo_tex, uv1).rgb, texture(albedo_tex, uv2).rgb, mask);
+	vec3 n1 = texture(normal_tex, uv1).rgb * 2.0 - 1.0;
+	vec3 n2 = texture(normal_tex, uv2).rgb * 2.0 - 1.0;
+	n2.xy = rot(n2.xy, -0.52);
+	vec3 n = mix(n1, n2, mask);
+	float v = texture(noise_tex, w * 0.19 + 0.5).r;
+	float worn = texture(noise_tex, w * 0.043 + 0.2).r;
+	c *= (0.86 + 0.28 * v) * (0.9 + 0.2 * smoothstep(0.3, 0.7, worn));
+	ALBEDO = c * tint.rgb;
+	n.xy *= normal_scale;
+	NORMAL = normalize((VIEW_MATRIX * vec4(n.x, n.z, -n.y, 0.0)).xyz);
+	ROUGHNESS = 0.9;
+}
+"""
+
 var path_shader: Shader
+var verge_shader: Shader
+var flags_shader: Shader
 var world_style := false   # while the match world is built: builders use scripts/visual/style_profile.gd
 var style_live := false    # the match is on: the style's light grade replaces the menus' light
 var style_cache := {}      # shared, never-mutated world materials (bark, glow buds), by key
@@ -5523,6 +5607,22 @@ func _stones(loose: bool = false, fray: bool = false) -> ShaderMaterial:
 
 
 var verge_mat: StandardMaterial3D
+
+
+func _soft_verge(half_ext: Vector2) -> ShaderMaterial:
+	## The meadow's own grass, faded out toward the strip's rim (VERGE_SHADER).
+	if verge_shader == null:
+		verge_shader = Shader.new()
+		verge_shader.code = VERGE_SHADER
+	var g := _grass()
+	var m := ShaderMaterial.new()
+	m.shader = verge_shader
+	m.set_shader_parameter("albedo_tex", g.albedo_texture)
+	m.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	m.set_shader_parameter("tint", g.albedo_color * Color(0.96, 0.92, 0.8))
+	m.set_shader_parameter("half_ext", half_ext)
+	m.set_shader_parameter("scale", 0.11)
+	return m
 
 
 func _verge() -> StandardMaterial3D:
@@ -5615,7 +5715,7 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		var vbox := BoxMesh.new()
 		vbox.size = Vector3(d.length() + width * 0.6 + verge, 0.008, width + verge)
 		v.mesh = vbox
-		v.material_override = _verge()
+		v.material_override = _soft_verge(Vector2(vbox.size.x, vbox.size.z) * 0.5)
 		v.position = (from + to) / 2.0 + Vector3(0, 0.003, 0)
 		v.rotation.y = atan2(-d.z, d.x)
 		add_child(v)
@@ -8085,6 +8185,23 @@ func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	if elf_castle:   # cream sandstone squares (the reference's base floor)
 		return _pbr("flagstone", 0.25, Color(0.97, 0.96, 0.9) * tint)
 	return _pbr("flagstone_moss" if mossy else "flagstone", 0.25, tint)
+
+
+func _uneven_flagstone(tint: Color = Color.WHITE) -> ShaderMaterial:
+	## _flagstone() without the flat repeating grid (UNEVEN_FLAGS_SHADER).
+	if flags_shader == null:
+		flags_shader = Shader.new()
+		flags_shader.code = UNEVEN_FLAGS_SHADER
+	var f := _flagstone(tint)
+	var m := ShaderMaterial.new()
+	m.shader = flags_shader
+	m.set_shader_parameter("albedo_tex", f.albedo_texture)
+	m.set_shader_parameter("normal_tex", f.normal_texture)
+	m.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	m.set_shader_parameter("tint", f.albedo_color)
+	m.set_shader_parameter("scale", f.uv1_scale.x)
+	m.set_shader_parameter("normal_scale", f.normal_scale)
+	return m
 
 
 func _timber(tint: Color = Color.WHITE) -> StandardMaterial3D:
