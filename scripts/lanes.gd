@@ -608,9 +608,29 @@ func _paths() -> void:
 		cm.radial_segments = 20
 		cm.rings = 1
 		disc.mesh = cm
-		disc.material_override = game._pbr("cobble", 0.6, Color(0.92, 0.88, 0.8))
-		disc.position = pos[i] + Vector3(0, 0.006, 0)
+		# The plaza is paved in the roads' own stones (it was a finer grey
+		# cobble that met them abruptly), its rim fraying into the ground
+		# like a road's (PATH_SHADER, radial).
+		var r0: float = rad[i] * 0.62
+		cm.top_radius = maxf(r0 - 1.1, 0.6)
+		cm.bottom_radius = cm.top_radius
+		disc.material_override = cob
+		disc.position = pos[i] + Vector3(0, 0.014, 0)
 		game.add_child(disc)
+		var fr := MeshInstance3D.new()
+		var fm := CylinderMesh.new()
+		fm.top_radius = r0 + 1.3
+		fm.bottom_radius = fm.top_radius
+		fm.height = 0.01
+		fm.radial_segments = 28
+		fm.rings = 1
+		fr.mesh = fm
+		var fmat: ShaderMaterial = cob.get_meta("fray").duplicate()
+		fmat.set_shader_parameter("half_w", r0)
+		fmat.set_shader_parameter("radial", true)
+		fr.material_override = fmat
+		fr.position = pos[i] + Vector3(0, 0.0045, 0)
+		game.add_child(fr)
 
 
 func _terrain() -> void:
@@ -761,7 +781,7 @@ func _build_stonekeep() -> void:
 	# a round tower either side of each gate, flagstones inside.
 	game.grey = true
 	game.audit_label = "ruin"
-	var floor_mat = game._flagstone(Color(0.86, 0.88, 0.92))
+	var floor_mat = game._uneven_flagstone(Color(0.86, 0.88, 0.92))
 	game._add_block(Vector3(0, 0.012, 0), Vector3(19.6, 0.02, 15.4), Color.WHITE, false, floor_mat)
 	for sx in [-1.0, 1.0]:
 		await game._world_build_frame()

@@ -828,19 +828,22 @@ def make_snow():
 
 
 def make_twilight_grass():
-    """Twilight Grove's meadow: the same soft cells as the grass in a deep
-    dusk teal with violet seams, so the magenta light reads on it."""
+    """Twilight Grove's meadow: a deep dusk teal with soft, slow tonal drifts
+    and fine mottling (claude-faisal/crowns-grass 2026-11-01: the hard Voronoi
+    cell outlines read as a tiled field of polygons; the cells now only
+    nudge the tone, with no seam lines)."""
     f1, f2, ids = voronoi(N, 5, 259)
     r = np.random.default_rng(258)
     shade = r.random(25)[ids]
     broad = fbm(N, 2, 2, 260)
+    mid = fbm(N, 6, 3, 262)
+    fine = fbm(N, 40, 2, 263)
     base = rgb(0.22, 0.52, 0.42)
     light = rgb(0.34, 0.66, 0.5)
-    color = lerp(base, light, (shade * 0.5)[..., None])
-    color = lerp(color, light * 1.05, np.clip((broad - 0.5) * 3.0, 0, 1)[..., None] * 0.4)
-    seam = np.clip(1 - (f2 - f1) / 0.05, 0, 1)
-    color = lerp(color, rgb(0.20, 0.22, 0.36), seam[..., None] * 0.4)
-    h = 0.5 + 0.5 * np.clip((f2 - f1) * 4, 0, 1)
+    color = lerp(base, light, (0.12 * shade + 0.35 * mid)[..., None])
+    color = lerp(color, light * 1.05, np.clip((broad - 0.5) * 3.0, 0, 1)[..., None] * 0.3)
+    color = color * (0.95 + 0.1 * fine)[..., None]
+    h = 0.55 + 0.25 * mid + 0.2 * fine
     save("grass_twilight", np.clip(color, 0, 1), np.clip(h, 0, 1), 0.15)
 
 
