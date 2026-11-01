@@ -59,7 +59,8 @@ void fragment() {
 	vec3 top = mix(tri(top_tex, top_scale), texture(top_tex, wpos.xz * vec2(1.0, -1.0) * top_scale).rgb, b.y) * top_tint.rgb;
 	vec3 face = tri(face_tex, face_scale) * face_tint.rgb;
 	ALBEDO = mix(face, top, COLOR.r) * mix(0.8, 1.0, COLOR.g);
-	ROUGHNESS = mix(0.92, 0.8, COLOR.r);
+	ROUGHNESS = 0.0;   // (also the ink pass's terrain mask)
+	SPECULAR = 0.0;
 	ALPHA = COLOR.b;   // the foot of a bank fades into the open ground instead of ending in a stair-stepped edge
 }
 """
