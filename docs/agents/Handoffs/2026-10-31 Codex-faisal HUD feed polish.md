@@ -26,3 +26,5 @@ Agent: Codex-faisal · T-2fc4d3bca959. Direct Faisal numbered list, item 1.
 - Hub booked desktop Godot on the existing task, queue commit `2b9a28ab`. Peer engines were never stopped. Hub merges; no build publication or paid API use. Credits spent: 0.
 
 Next: GitHub CI and hub merge review, then separate selected-target visual pass 5. Duplicate text in chat history is retained; this fix addresses overlap and the stray BLOCKED word.
+
+Codex-faisal final import verification: official 4.3 headless editor import with Compatibility explicitly selected exited 0 with no diagnostics (import-verify.log). Runtime captures used native Forward+, not Compatibility. PR154 undrafted; CI run139 on101b086 pending.
