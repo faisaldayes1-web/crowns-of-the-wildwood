@@ -6,6 +6,7 @@ render_mode unshaded, blend_mix, depth_draw_never, depth_test_disabled, cull_dis
 // linear across any flat surface, so open ground and floors stay clean.
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+uniform sampler2D nr_tex : hint_normal_roughness_texture, filter_nearest;   // roughness 0 = terrain (lanes.gd TERRAIN_SHADER): no fold lines on its facets
 uniform vec4 ink : source_color = vec4(0.09, 0.07, 0.06, 1.0);
 uniform float thickness = 1.25;  // the reference's lines are fine and dark (graphics pass 2026-10-09; was 1.6)
 uniform float threshold = 0.010;   // relative change in inverse depth that starts a line
@@ -37,7 +38,8 @@ void fragment() {
 	// Strongest on the near side of a break (silhouettes, convex corners),
 	// lighter on the far side and in concave folds such as a wall's foot.
 	float lap = (l + r + u + b) - 4.0 * c;
-	float e = (max(-lap, 0.0) + max(lap, 0.0) * 0.4) / max(c, 1e-5);
+	float gmask = 1.0 - max(max(step(texture(nr_tex, uv).a, 0.03), step(texture(nr_tex, uv - vec2(px.x, 0.0)).a, 0.03)), max(max(step(texture(nr_tex, uv + vec2(px.x, 0.0)).a, 0.03), step(texture(nr_tex, uv - vec2(0.0, px.y)).a, 0.03)), step(texture(nr_tex, uv + vec2(0.0, px.y)).a, 0.03)));
+	float e = (max(-lap, 0.0) + max(lap, 0.0) * 0.4) / max(c, 1e-5) * gmask;
 	// Silhouettes: this pixel sits clearly in front of a neighbour.
 	float back = min(min(l, r), min(u, b));
 	e = max(e, (c - back) / max(c, 1e-5) * 0.5);

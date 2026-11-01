@@ -5480,13 +5480,22 @@ void fragment() {
 	vec2 uv = wpos.xz * scale;
 	if (fray) {
 		vec4 s = texture(stones_tex, uv);
-		vec2 to_c = (s.rg - 0.5) * 0.5 / scale;
+		// The stone's centre texel (found from this pixel's way-to-centre, then snapped to
+		// the texture's own grid), so every pixel of a stone reaches the same distance d:
+		// per-pixel rounding of the stored vector put pixels of edge stones either side of
+		// the cut, which punched dotted holes in them.
+		vec2 uvc = uv + (s.rg - 0.5) * 0.5;
+		vec2 tc = (floor(uvc * 1024.0) + 0.5) / 1024.0;
+		vec4 sc = texture(stones_tex, tc);
+		tc = (floor((tc + (sc.rg - 0.5) * 0.5) * 1024.0) + 0.5) / 1024.0;   // (a second step settles on the centre texel)
+		sc = texture(stones_tex, tc);
+		vec2 to_c = (tc - uv) / scale;
 		float d = abs(lz + dot(vec3(to_c.x, 0.0, to_c.y), side));
 		if (radial) {
 			d = length(lxz + to_c);
 		}
 		float inner = half_w - 0.5;
-		bool kept = s.a > 0.5 ? d < inner + 0.2 * s.b : d < inner;
+		bool kept = sc.a > 0.5 ? d < inner + 0.2 * sc.b : d < inner;
 		if (!kept) {
 			discard;
 		}
