@@ -630,34 +630,19 @@ func _ensure() -> void:
 	mat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	mat.set_shader_parameter("glow_energy", 2.2 if palette == "twilight" else (1.4 if palette == "night" else 1.0))
 	mat.set_shader_parameter("self_lit", 0.35 if palette == "twilight" else 0.0)
-
-
-func update_cutaway(cam: Camera3D) -> void:
-	## Polish pass (claude-faisal/crowns-polish 2026-11-01): hands the kit
-	## shader up to 12 living fighters near the camera's view centre, so
-	## tree crowns between them and the camera thin out (forest_kit.gdshader).
-	if mat == null or cam == null:
-		return
-	var centre: Vector3 = game.cam_pos - game.CAMERA_OFFSET * game.cam_zoom
-	var near := []
-	for u in game.units:
-		if u.dead or not u.visible:
-			continue
-		var d2: float = Vector2(u.global_position.x - centre.x, u.global_position.z - centre.z).length_squared()
-		if d2 < 900.0:
-			near.append([d2, u])
-	near.sort_custom(func(a, b): return a[0] < b[0])
-	var pts := []
-	pts.resize(12)
-	pts.fill(Vector4.ZERO)
-	var n := mini(near.size(), 12)
-	for i in n:
-		var u = near[i][1]
-		var p: Vector3 = u.global_position + Vector3(0, 0.9, 0)
-		pts[i] = Vector4(p.x, p.y, p.z, 1.6 if u == game.player or u.carrying != null else 1.25)
-	mat.set_shader_parameter("cut_pts", pts)
-	mat.set_shader_parameter("cut_n", n)
-	mat.set_shader_parameter("cut_eye", cam.global_position)
+	# Polish round 5 (reviewers: the targets' trees have no hard outlines):
+	# a cover pass redraws every kit surface, unchanged, in the transparent
+	# pass after the screen ink (render priority 101 > the ink's 100), so no
+	# ink line lands on a tree, bush or rock. Same shader code and uniforms.
+	if not low:
+		var cs := Shader.new()
+		cs.code = mat.shader.code.replace("render_mode cull_back,", "render_mode cull_back, blend_mix, depth_draw_never,")
+		var cover := ShaderMaterial.new()
+		cover.shader = cs
+		cover.render_priority = 101
+		for p in ["noise_tex", "glow_energy", "self_lit"]:
+			cover.set_shader_parameter(p, mat.get_shader_parameter(p))
+		mat.next_pass = cover
 
 
 func kit_tree(parent: Node3D, key: String, at: Vector3, s: float, yaw: float) -> MeshInstance3D:
@@ -954,6 +939,26 @@ func _make_broad(st: SurfaceTool, seed: int, shape: int, accent: String) -> void
 	var ramp := _leaf_ramp("violet" if palette == "twilight" and accent == "" and shape == 1 else accent)
 	var bark := _bark()
 	var trunk_h: float = [1.7, 1.9, 1.55][shape]
+	var crown_r0: float = [1.45, 1.25, 1.6][shape]
+	if _emit_model(st, "broad%d" % shape, ramp, 0.0):
+		# Polish round 5: the modelled crown, plus the twilight blooms and
+		# the day/night blossoms as before.
+		var cy0 := trunk_h + crown_r0 * 0.7
+		if palette == "twilight":
+			for i in 9:
+				var a := r.randf() * TAU
+				var up := r.randf_range(-0.1, 0.8)
+				var d := Vector3(cos(a) * (1.0 - up * 0.5), up, sin(a) * (1.0 - up * 0.5)).normalized()
+				var bc := Color(0.55, 0.95, 1.0, 1.0) if i % 3 != 0 else Color(1.0, 0.55, 0.9, 1.0)
+				_lobe(st, Vector3(0, cy0, 0) + d * crown_r0 * 0.98, 0.1, 1.0, seed + 700 + i, bc, bc, 0.0, 1.0, 3.0, 0.1)
+		elif accent == "" and palette in ["day", "night"] and shape == 2:
+			for i in 7:
+				var a := r.randf() * TAU
+				var up := r.randf_range(0.0, 0.85)
+				var d := Vector3(cos(a) * (1.0 - up * 0.5), up, sin(a) * (1.0 - up * 0.5)).normalized()
+				var bc := Color(0.98, 0.95, 0.86, 1.0)
+				_lobe(st, Vector3(0, cy0, 0) + d * crown_r0 * 0.96, 0.08, 1.0, seed + 900 + i, bc, bc, 0.0, 1.0, 4.0, 0.1)
+		return
 	var crown_r: float = [1.45, 1.25, 1.6][shape]
 	var cy: float = trunk_h + crown_r * 0.7    # crown centre
 	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, trunk_h + 0.3, 0), 0.22, 0.13, 6, bark[0], bark[1], 1.0)
@@ -1001,7 +1006,57 @@ func _make_broad(st: SurfaceTool, seed: int, shape: int, accent: String) -> void
 			_lobe(st, Vector3(0, cy, 0) + d * crown_r * 1.0, 0.08, 1.0, seed + 900 + i, bc, bc, 0.0, 1.0, 4.0 if not glow else 3.0, 0.1)
 
 
+func _emit_model(st: SurfaceTool, name: String, ramp: Array, kind: float) -> bool:
+	## Polish round 5: a modelled tree (tools/blender/kit_trees.py ->
+	## assets/models/kit/<name>.res), its (shade, hue, kind) vertex data
+	## mapped through this map's palette: ramp is [under, body, lit] (or
+	## [under, lit]); Stonekeep gets snow on the up-facing sunlit clumps.
+	var path := "res://assets/models/kit/%s.res" % name
+	if low or not ResourceLoader.exists(path):
+		return false
+	var m: ArrayMesh = load(path)
+	var arr := m.surface_get_arrays(0)
+	var pos: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var nrm: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var dat: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+	var bark := _bark()
+	var snow_c := Color(0.93, 0.96, 1.0, 1.0)
+	for i in pos.size():
+		var d: Color = dat[i]
+		var sh := clampf(d.r, 0.0, 1.0)
+		var c: Color
+		var k := kind
+		if d.b > 0.5:
+			c = bark[0].lerp(bark[1], sh)
+			k = 1.0
+		else:
+			if ramp.size() >= 3:
+				c = ramp[0].lerp(ramp[1], sh / 0.5) if sh < 0.5 else ramp[1].lerp(ramp[2], (sh - 0.5) / 0.5)
+			else:
+				c = ramp[0].lerp(ramp[1], smoothstep(0.0, 1.0, sh))
+			var j := d.g - 0.5
+			c = Color(c.r * (1.0 + j * 0.16), c.g * (1.0 + j * 0.05), c.b * (1.0 - j * 0.16))
+			if palette == "winter" and sh > 0.5:
+				c = c.lerp(snow_c, smoothstep(0.3, 0.8, nrm[i].y) * smoothstep(0.5, 0.85, sh) * 0.9)
+		c.a = 1.0
+		_v(st, pos[i], nrm[i], c, k)
+	return true
+
+
 func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
+	if _emit_model(st, "pine%d" % shape, _pine_ramp(accent), NEEDLE):
+		if palette == "twilight":
+			var r0 := RandomNumberGenerator.new()
+			r0.seed = seed
+			var base_r: float = [1.7, 1.3, 1.8][shape]
+			var top: float = [5.4, 3.4, 6.0][shape]
+			for i in 6:
+				var a := r0.randf() * TAU
+				var f := r0.randf_range(0.0, 0.8)
+				var rad: float = base_r * (1.0 - f * 0.62) * 0.9
+				var bc := Color(0.55, 0.95, 1.0, 1.0) if i % 2 == 0 else Color(1.0, 0.6, 0.9, 1.0)
+				_lobe(st, Vector3(cos(a) * rad, 1.0 + (top - 1.0) * f * 0.85, sin(a) * rad), 0.1, 1.0, seed + 800 + i, bc, bc, 0.0, 1.0, 3.0, 0.1)
+		return
 	## Pick D's conifer, pass 3 (2026-10-31): a short visible trunk and five
 	## or six stacked, rounded tiers. Each tier is a puffy cap ringed with
 	## many small cloud-like lobes (a scalloped, drooping rim of round needle

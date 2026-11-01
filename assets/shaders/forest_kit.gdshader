@@ -19,15 +19,6 @@ uniform float rim_strength = 0.3;
 uniform float glow_energy = 1.2;
 uniform float self_lit = 0.0;    // Twilight: leaves keep a little of their own colour under the magenta dusk light
 
-// Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers, Twilight
-// round 4: "a row of crowns hides much of the fighting bodies"): fighters'
-// chest points (set every frame by forest_kit.gd update_cutaway) and the
-// camera. Crown and tier fragments close to the line from a fighter to the
-// camera are screen-door thinned, so the fighter shows through the canopy.
-uniform vec4 cut_pts[12];
-uniform int cut_n = 0;
-uniform vec3 cut_eye = vec3(0.0, 1000.0, 0.0);
-
 varying vec3 wpos;
 varying vec3 wnorm;
 varying float kind;
@@ -63,30 +54,6 @@ vec4 leaf_cells(vec2 p) {
 void vertex() {
 	kind = UV.x;
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	// Polish round 4: crowns between a fighter and the camera part like a
-	// curtain: leaf vertices near the sight line are pushed smoothly out to
-	// the opening's rim (no cut, no dither), and spring back afterwards.
-	if (cut_n > 0 && (UV.x < 0.5 || UV.x > 4.5 || (UV.x > 2.5 && UV.x < 3.5))) {
-		vec3 disp = vec3(0.0);
-		for (int i = 0; i < cut_n; i++) {
-			vec3 p = cut_pts[i].xyz;
-			vec3 d = cut_eye - p;
-			float t = dot(wpos - p, d) / dot(d, d);
-			if (t > 0.01 && t < 0.6) {
-				float r = cut_pts[i].w * 1.35 * (1.0 - t * 0.6);
-				vec3 q = wpos + disp - (p + d * t);
-				float l = length(q);
-				if (l < r) {
-					vec3 dir = l > 0.001 ? q / l : normalize(cross(d, vec3(0.0, 1.0, 0.0)));
-					disp += dir * (r - l) * (1.0 - 0.35 * l / r);
-				}
-			}
-		}
-		if (dot(disp, disp) > 0.0) {
-			wpos += disp;
-			VERTEX += (inverse(mat3(MODEL_MATRIX)) * disp);
-		}
-	}
 	wnorm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	if (kind < 0.5 || (kind > 2.5 && kind < 3.5) || kind > 4.5) {
 		float w = sin(TIME * 1.3 + wpos.x * 0.7 + wpos.z * 0.5) * sway * clamp(VERTEX.y * 0.3, 0.0, 1.5);
@@ -96,26 +63,6 @@ void vertex() {
 }
 
 void fragment() {
-	if (cut_n > 0) {
-		// (Polish round 4: the vertex push above opens the crown; this only
-		// catches what remains right on the line.)
-		float fade = 0.0;
-		for (int i = 0; i < cut_n; i++) {
-			vec3 p = cut_pts[i].xyz;
-			vec3 d = cut_eye - p;
-			float t = dot(wpos - p, d) / dot(d, d);
-			if (t > 0.01 && t < 0.6) {
-				float r = cut_pts[i].w * (1.0 - t * 0.6);
-				float q = length(wpos - (p + d * t));
-				fade = max(fade, 1.0 - smoothstep(r * 0.2, r * 0.6, q));
-			}
-		}
-		// Anything still right on the sight line after the push (a large
-		// lobe whose vertices sit outside) is thinned only at the very core.
-		if (fade > 0.8) {
-			discard;
-		}
-	}
 	vec3 col = COLOR.rgb;
 	vec3 an = abs(wnorm);
 	bool leafy = kind < 0.5 || (kind > 2.5 && kind < 3.5);
@@ -156,9 +103,10 @@ void fragment() {
 		col *= 0.8 + 0.3 * b + 0.12 * (g - 0.5);
 	}
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-	col *= 1.0 - rim * rim_strength * (leafy ? 1.0 : 0.5) * (kind > 4.5 ? 0.0 : 1.0);
+	col *= 1.0 - rim * rim_strength * (leafy ? 0.3 : 0.5) * (kind > 4.5 ? 0.0 : 1.0);   // (round 5: leaves 0.3, so no dark rim reads as an outline)
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
+	ALPHA = 1.0;   // (read only by the cover pass, see forest_kit.gd _ensure)
 	if (kind > 2.5 && kind < 3.5) {
 		EMISSION = COLOR.rgb * glow_energy * smoothstep(0.55, 0.9, COLOR.a);
 	} else if (leafy || kind > 4.5) {

@@ -2322,7 +2322,9 @@ func _update_xray() -> void:
 	## model's outline pass; everyone else keeps the plain look.
 	if model == null or not "outline" in model or model.outline == null:
 		return
-	var want: bool = (is_player or carrying != null or _near_tower()) and not dead
+	# (Round 5: every fighter, so trees and towers never swallow anyone; the
+	# pass draws only where scenery 1.5 m nearer hides the unit.)
+	var want: bool = not dead and visible
 	var ol: StandardMaterial3D = model.outline
 	if want:
 		if _xray_mat == null:

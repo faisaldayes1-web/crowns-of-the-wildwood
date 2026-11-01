@@ -364,8 +364,6 @@ func _draw() -> void:
 	_label_rects = LabelDeclutter.run(game, get_viewport().get_camera_3d(), get_global_transform().affine_inverse(), get_process_delta_time())
 	if not pane:
 		CastleKit.update_cutaways(game, get_viewport().get_camera_3d(), get_process_delta_time())
-		if game.forest_kit and not game.couch_active:
-			game.forest_kit.update_cutaway(get_viewport().get_camera_3d())
 	_draw_dizzy_marks()
 	_draw_toasts()
 	if _me() and not game.guide_open:
@@ -3355,6 +3353,18 @@ func _draw_event_banner(b: Dictionary) -> void:
 	if a <= 0.0:
 		return
 	var good: bool = b.mood == "win"
+	if _in_fight():
+		# Polish round 5 (reviewers: the ribbon clipped fighters' name tags in
+		# the top band): while a fight is on screen the news shows as a small
+		# scroll bottom right, where world labels never go.
+		var fit0 := clampf(size.x / 1280.0, 0.55, 1.0)
+		var txt: String = str(b.title)
+		var fs0 := 15
+		var tw0 := (_text_width(txt, fs0) + 60.0) * fit0
+		draw_set_transform(Vector2(minf(size.x - 236.0 * fit0, size.x - 14.0 - tw0 / 2.0), size.y - 206.0 * fit0), 0.0, Vector2(fit0, fit0))
+		_scroll_hint(0.0, _text_width(txt, fs0) + 40.0, txt, a, str(b.icon), fs0, Color(0.95, 0.66, 0.16, a) if good else Color(0.86, 0.18, 0.14, a))
+		draw_set_transform(Vector2.ZERO)
+		return
 	var light := Color(0.95, 0.66, 0.16, a) if good else Color(0.86, 0.18, 0.14, a)
 	var deep := Color(0.55, 0.26, 0.05, a) if good else Color(0.42, 0.05, 0.05, a)
 	var disc := Color(0.42, 0.08, 0.08, a) if good else Color(0.16, 0.05, 0.05, a)
@@ -3379,10 +3389,7 @@ func _draw_event_banner(b: Dictionary) -> void:
 		draw_circle(ic, 21.0, Color(1.0, 0.8, 0.22, a))
 		draw_circle(ic, 18.0, disc)
 		_icon(str(b.icon), ic, 9.5, Color(1, 1, 1, a))
-	if not _in_fight():
-		# (Round 3: during a fight the detail line would sit on the fighters;
-		# the kill feed and chat already carry it.)
-		_bar_text(Vector2(0, 52.0), str(b.line), bar_font if bar_font else font, 15, Color(1.0, 0.92, 0.7, a), Color(0.2, 0.08, 0.02, a), 3)
+	_bar_text(Vector2(0, 52.0), str(b.line), bar_font if bar_font else font, 15, Color(1.0, 0.92, 0.7, a), Color(0.2, 0.08, 0.02, a), 3)
 	_twinkles(now, a * (0.6 if good else 0.25), [Vector2(-half - 20, -50), Vector2(half + 16, -46), Vector2(-half * 0.6, 50), Vector2(half * 0.6, 54)])
 	draw_set_transform(Vector2.ZERO)
 
