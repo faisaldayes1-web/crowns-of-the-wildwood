@@ -14,7 +14,7 @@ const CHAR_W := 0.15     # the tag font's mean glyph width at its pixel size (m)
 const TAG_H := 0.5       # name plus health bar (m)
 
 
-static func run(game, cam: Camera3D, xf: Transform2D, delta: float) -> Array[Rect2]:
+static func run(game, cam: Camera3D, xf: Transform2D, delta: float, blocked: Array[Rect2] = []) -> Array[Rect2]:
 	var placed: Array[Rect2] = []
 	if cam == null or game.couch_active:
 		return placed
@@ -23,7 +23,7 @@ static func run(game, cam: Camera3D, xf: Transform2D, delta: float) -> Array[Rec
 	for u in game.units:
 		if u.label == null or u.overhead == null:
 			continue
-		if u.dead or u.downed or not u.label.visible or not u.overhead.visible:
+		if u.dead or u.downed or not u.label.visible or (not u.overhead.visible and not u.has_meta(&"hud_hid")):
 			if u.overhead_lift != 0.0:
 				u.overhead_lift = 0.0
 				u.label.transparency = 0.0
@@ -59,4 +59,17 @@ static func run(game, cam: Camera3D, xf: Transform2D, delta: float) -> Array[Rec
 		var lift := STEP * maxi(want, 0)
 		u.overhead_lift = lerpf(u.overhead_lift, lift, k) if absf(u.overhead_lift - lift) > 0.01 else lift
 		u.label.transparency = 0.0 if want >= 0 else 0.6
+		# (Round 7: a tag under a fixed HUD panel is hidden, bar and all.)
+		var tag := Rect2(c.x - w / 2.0, c.y - h * 0.8 - lift / STEP * step_px, w, h)
+		var hidden := false
+		for b in blocked:
+			if b.intersects(tag):
+				hidden = true
+				break
+		var show: bool = not hidden and (u.stealth_timer <= 0.0 or u.is_player)
+		u.overhead.visible = show
+		if show:
+			u.remove_meta(&"hud_hid")
+		else:
+			u.set_meta(&"hud_hid", true)
 	return placed

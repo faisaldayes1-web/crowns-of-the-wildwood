@@ -385,7 +385,7 @@ func _pave() -> StandardMaterial3D:
 	## bevelled, varied) tinted a warm volcanic grey, not the old dark flags.
 	if not game.world_style:
 		return game._flagstone(Color(0.45, 0.42, 0.42))
-	return game._pbr("castle_flags_grey", 0.16, Color(0.66, 0.55, 0.5))
+	return game._pbr("castle_flags_grey", 0.24, Color(0.66, 0.55, 0.5))   # (round 7: smaller stones, was 0.16)
 
 
 func _kerb(tint: Color) -> StandardMaterial3D:
@@ -647,7 +647,17 @@ func _build_plaza(i: int) -> void:
 	var r: float = rad[i]
 	if castle_of(c) >= 0:
 		# The door court on the plateau: just the paving.
-		game._add_rosette(c + Vector3(0, 0.032, 0), r + 0.5, Color(0.72, 0.62, 0.58))
+		# (Round 7: the gate courts in the bevelled castle flags, smaller
+		# stones, instead of the broad flat rosette.)
+		if game.world_style:
+			var court := CylinderMesh.new()
+			court.top_radius = r + 0.5
+			court.bottom_radius = r + 0.5
+			court.height = 0.02
+			court.radial_segments = 40
+			_mesh(court, c + Vector3(0, 0.032, 0), _pave())
+		else:
+			game._add_rosette(c + Vector3(0, 0.032, 0), r + 0.5, Color(0.72, 0.62, 0.58))
 		return
 	var top := CylinderMesh.new()
 	top.top_radius = r

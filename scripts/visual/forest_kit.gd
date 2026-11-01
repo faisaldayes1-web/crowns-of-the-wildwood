@@ -313,6 +313,9 @@ func _tree_cluster(t: Array, r: RandomNumberGenerator) -> void:
 	var s := (1.12 if big else 0.95) * r.randf_range(0.9, 1.08)
 	if max_h > 0.0:
 		s = minf(s, max_h / base_h)
+	var field0 := _in_field(pos) or pos.y < -0.5 or hint == "canopy"
+	if not field0 and not low:
+		s *= 0.66   # round 7: out-of-bounds groves in small trees too (its collider, out of play, is unchanged)
 	_tree(pos, species, seed, s, r)
 	# Companions: lower trees round the spot. In the field they stay close
 	# (inside the old crown's footprint, where nobody walked under a trunk
@@ -323,7 +326,7 @@ func _tree_cluster(t: Array, r: RandomNumberGenerator) -> void:
 		n = 0 if pos.y < -0.5 else 1
 	for i in n:
 		var a := r.randf() * TAU
-		var d := r.randf_range(1.05, 1.35) if field else r.randf_range(1.7, 2.7)
+		var d := r.randf_range(1.05, 1.35) if field else r.randf_range(1.1, 1.9)
 		var q := pos + Vector3(cos(a), 0, sin(a)) * d
 		if _crowded(q, 0.7) or not _clear(q, 0.9):
 			continue
@@ -345,8 +348,13 @@ func _fill_forest(r: RandomNumberGenerator) -> void:
 	# Pass 2 (2026-10-31): a closer grid on High (the picks' woods are a
 	# packed canopy of conifers right up to the walls); Low a little sparser
 	# than before (was 3.8), so its frame stays as light with the bigger pines.
-	var step := 2.0 if not low else 4.3
-	var gap := 0.9 if not low else 1.25
+	# Round 7 (reviewers: "broad fused scalloped tier surfaces"): many
+	# smaller trees, 62% of the old size on a closer grid, so the woods read
+	# as separate small conifers with a short trunk under each. Decoration
+	# only (no colliders); one MultiMesh per mesh per chunk as before.
+	var step := 1.55 if not low else 4.3
+	var gap := 0.6 if not low else 1.25
+	var small := 0.62 if not low else 1.0
 	var hx: float = game.map_half.x
 	var hz: float = game.map_half.y
 	var x := -118.0
@@ -367,7 +375,7 @@ func _fill_forest(r: RandomNumberGenerator) -> void:
 			# behind a yard they grow full height right up to its wall.
 			var near_yard: bool = _in_castle(p, 7.0) and absf(p.z) > game.CELLAR_HALF_Z - 1.0 and p.z > 0.0
 			var species := _species(p, "", seed)
-			var s := r.randf_range(0.78, 1.12) if not near_yard else r.randf_range(0.6, 0.75)
+			var s := (r.randf_range(0.78, 1.12) if not near_yard else r.randf_range(0.6, 0.75)) * small
 			_mark(p, gap)
 			_tree(p, species, seed, s, r)
 		x += step
@@ -1078,13 +1086,15 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	# One tier's profile, [radius factor, height factor], from the rim up:
 	# the drooping rim, the bulge (the lobes' sunlit tops), the shoulder
 	# under the next tier, the apex.
-	var prof := [[0.9, 0.0], [1.0, 0.24], [0.6, 0.6], [0.0, 1.0]]
+	# (Round 7: the shoulder tucks in deeper, 0.6 -> 0.42, so a dark notch
+	# separates each tier from the next.)
+	var prof := [[0.9, 0.0], [1.0, 0.24], [0.42, 0.6], [0.0, 1.0]]
 	for i in tiers:
 		var f := float(i) / maxf(tiers - 1, 1)
 		var last := i == tiers - 1
-		var rr: float = base_r * (1.0 - f * 0.62)
+		var rr: float = base_r * (1.0 - f * 0.68)   # (round 7: each tier a touch narrower, was 0.62)
 		var rim_y: float = foot + step * i
-		var h: float = step * (1.55 if not last else 1.75)
+		var h: float = step * (1.38 if not last else 1.65)   # (round 7: less overlap, was 1.55 / 1.75)
 		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - 2, 5) if low else maxi(11 - int(f * 3.0), 8)
 		var samples := 3 if low else 4
 		var m := lobes * samples

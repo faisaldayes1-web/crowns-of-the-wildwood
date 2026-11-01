@@ -361,7 +361,7 @@ func _draw() -> void:
 				draw_set_transform(Vector2(0, 84))
 			game.economy.draw_counter(self, _me())   # team stock stays below the relocated map
 			draw_set_transform(Vector2.ZERO)
-	_label_rects = LabelDeclutter.run(game, get_viewport().get_camera_3d(), get_global_transform().affine_inverse(), get_process_delta_time())
+	_label_rects = LabelDeclutter.run(game, get_viewport().get_camera_3d(), get_global_transform().affine_inverse(), get_process_delta_time(), hud_block_rects())
 	if not pane:
 		CastleKit.update_cutaways(game, get_viewport().get_camera_3d(), get_process_delta_time())
 	_draw_dizzy_marks()
@@ -6585,6 +6585,24 @@ func _chat_rect() -> Rect2:
 	return Rect2(14, top, 380 if touch_ui else 290, maxf(0.0, size.y - 166 - top))
 
 
+func hud_block_rects() -> Array[Rect2]:
+	## Polish round 7: the fixed HUD panels (score/timer bar, minimap, skill
+	## bar) in screen pixels, measured off the 1920x1080 layout and scaled;
+	## world status marks and unit tags never draw inside them.
+	var k := Vector2(size.x / 1920.0, size.y / 1080.0)
+	var out: Array[Rect2] = []
+	for r in [Rect2(440, 0, 1060, 150), Rect2(0, 0, 365, 365), Rect2(655, 850, 820, 230), Rect2(0, 900, 600, 180)]:
+		out.append(Rect2(r.position * k, r.size * k))
+	return out
+
+
+func _in_hud_panel(p: Vector2, pad: float = 0.0) -> bool:
+	for r in hud_block_rects():
+		if r.grow(pad).has_point(p):
+			return true
+	return false
+
+
 func _in_fight() -> bool:
 	## The player is standing within 14 m of a living enemy (the chat log
 	## shrinks while it lasts). Checked at most every 0.25 s.
@@ -7974,6 +7992,8 @@ func _draw_dizzy_marks() -> void:
 		var sp: Vector2 = xf * cam.unproject_position(at)
 		if sp.x < -50 or sp.y < -50 or sp.x > size.x + 50 or sp.y > size.y + 50:
 			continue
+		if _in_hud_panel(sp + Vector2(0, -36), 22.0):
+			continue   # (round 7: never over the score bar, minimap or skill bar)
 		var bob := 1.5 * sin(now * 3.0 + u.get_instance_id())
 		var bc := Vector2.INF
 		for off in [Vector2(26, -44), Vector2(-26, -44), Vector2(30, -14), Vector2(-30, -14)]:
