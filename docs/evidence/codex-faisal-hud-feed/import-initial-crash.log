@@ -1,12 +1,12 @@
 Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
 
-Godot_v4.3-stable_win64_console.exe : 
+Godot_v4.3-stable_win64_console.exe :
 At line:2 char:175
 + ... h/profile"; & C:/Tools/Godot/Godot_v4.3-stable_win64_console.exe --he ...
 +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
- 
+
 ================================================================
 CrashHandlerException: Program crashed with signal 11
 Engine version: Godot Engine v4.3.stable.official (77dcf97d82cbfe4e4615475fa52ca03da645dbd8)
