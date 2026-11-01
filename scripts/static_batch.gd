@@ -172,9 +172,22 @@ static func _arrays(mesh: Mesh, s: int, cache: Dictionary) -> Array:
 		elif s == 0 and mesh.has_meta(&"batch_arrays"):
 			a = mesh.get_meta(&"batch_arrays")   # kept_mesh: no GPU read-back
 		else:
-			a = _read_back(mesh, s, "res|%s|%d" % [mesh.resource_path, s] if mesh.resource_path != "" else "")
+			a = _read_back(mesh, s, _baked_key(mesh, s))
 		cache[key] = a
 	return a
+
+
+static func _baked_key(mesh: Mesh, s: int) -> String:
+	## BAKED's key for an imported model's surface. Not the full resource_path:
+	## its "::ArrayMesh_xxxxx" part is a sub-resource id that every fresh
+	## import makes up again, so a bake only matched the checkout it was made
+	## in (a clean clone or a release export read ~100 surfaces back). The
+	## model file, the mesh's own name from the file and the surface's sizes
+	## stay the same from one import to the next.
+	if mesh.resource_path == "":
+		return ""
+	return "res|%s|%s|%d|%d|%d" % [mesh.resource_path.get_slice("::", 0), mesh.resource_name, s,
+			mesh.surface_get_array_len(s), mesh.surface_get_array_index_len(s)]
 
 
 static var _unit_shapes := {}   # grid key -> the arrays of a unit primitive
