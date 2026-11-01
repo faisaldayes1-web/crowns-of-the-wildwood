@@ -821,8 +821,8 @@ func _build_stonekeep() -> void:
 		# Flagstones through the gate and down the pass to its plaza.
 		var gate_floor: ShaderMaterial = floor_mat.duplicate()
 		gate_floor.set_shader_parameter("center", Vector2(sx * 12.3, 0.0))
-		gate_floor.set_shader_parameter("half_ext", Vector2(2.8, 2.2))
-		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(5.6, 0.02, 4.4), Color.WHITE, false, gate_floor)
+		gate_floor.set_shader_parameter("half_ext", Vector2(3.4, 3.6))   # (wider than the gap: its fade lies under the towers and over the road end)
+		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(6.8, 0.02, 7.2), Color.WHITE, false, gate_floor)
 		game.map_marks.append([Vector3(sx * 12.8, 0, 0), "gate"])   # (keeps snowmen and drifts out of the gateway)
 		await game._world_build_frame()
 		for zs in [-1.0, 1.0]:
