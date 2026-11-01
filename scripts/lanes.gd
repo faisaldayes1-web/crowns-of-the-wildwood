@@ -593,7 +593,7 @@ func _paths() -> void:
 			continue   # the courtyard is flagged, the gate has a flagstone strip of its own; nooks are left wild
 		if s[3] == "pass":
 			w = 3.4
-		game._add_path(a, b, w, cob, 0.0 if kind == "winter" else 1.2)   # (no verge on the snow: it read as a slab against the ridges)
+		game._add_path(a, b, w, cob, 0.0 if kind == "winter" else 1.2, s[3] == "pass" and ids[s[1]].begins_with("w"))   # (no verge on the snow: it read as a slab against the ridges)
 	for sx in [-1.0, 1.0]:
 		# The road runs on from the door court right up to the castle door.
 		var g: Vector3 = node("g0" if sx < 0.0 else "g1")
