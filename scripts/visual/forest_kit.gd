@@ -634,7 +634,7 @@ func _ensure() -> void:
 	# a cover pass redraws every kit surface, unchanged, in the transparent
 	# pass after the screen ink (render priority 101 > the ink's 100), so no
 	# ink line lands on a tree, bush or rock. Same shader code and uniforms.
-	if not low:
+	if not low and not "--kit-no-cover" in OS.get_cmdline_user_args():
 		var cs := Shader.new()
 		cs.code = mat.shader.code.replace("render_mode cull_back,", "render_mode cull_back, blend_mix, depth_draw_never,")
 		var cover := ShaderMaterial.new()
@@ -789,7 +789,9 @@ func _pine_ramp(accent: String) -> Array:
 	# Pass 3 (2026-10-31): the picks' pines are a mid green body with clearly
 	# lit, warm yellow-green tops on every tier and dark undersides (pass 2
 	# was a deep green body, tips only a step lighter). Vertex colours are linear.
-	return [Color.from_hsv(0.42, 0.85, 0.022), Color.from_hsv(0.36, 0.84, 0.085), Color.from_hsv(0.28, 0.78, 0.22)]
+	# Round 6 (lead: mid-green bodies, lighter yellow-green tier tops, no
+	# near-black cores): was v 0.022 / 0.085 / 0.22.
+	return [Color.from_hsv(0.41, 0.82, 0.04), Color.from_hsv(0.35, 0.8, 0.12), Color.from_hsv(0.26, 0.74, 0.34)]
 
 
 func _bark() -> Array:
@@ -940,7 +942,7 @@ func _make_broad(st: SurfaceTool, seed: int, shape: int, accent: String) -> void
 	var bark := _bark()
 	var trunk_h: float = [1.7, 1.9, 1.55][shape]
 	var crown_r0: float = [1.45, 1.25, 1.6][shape]
-	if _emit_model(st, "broad%d" % shape, ramp, 0.0):
+	if "--kit-pine-model" in OS.get_cmdline_user_args() and _emit_model(st, "broad%d" % shape, ramp, 0.0):
 		# Polish round 5: the modelled crown, plus the twilight blooms and
 		# the day/night blossoms as before.
 		var cy0 := trunk_h + crown_r0 * 0.7
@@ -1044,18 +1046,11 @@ func _emit_model(st: SurfaceTool, name: String, ramp: Array, kind: float) -> boo
 
 
 func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
-	if _emit_model(st, "pine%d" % shape, _pine_ramp(accent), NEEDLE):
-		if palette == "twilight":
-			var r0 := RandomNumberGenerator.new()
-			r0.seed = seed
-			var base_r: float = [1.7, 1.3, 1.8][shape]
-			var top: float = [5.4, 3.4, 6.0][shape]
-			for i in 6:
-				var a := r0.randf() * TAU
-				var f := r0.randf_range(0.0, 0.8)
-				var rad: float = base_r * (1.0 - f * 0.62) * 0.9
-				var bc := Color(0.55, 0.95, 1.0, 1.0) if i % 2 == 0 else Color(1.0, 0.6, 0.9, 1.0)
-				_lobe(st, Vector3(cos(a) * rad, 1.0 + (top - 1.0) * f * 0.85, sin(a) * rad), 0.1, 1.0, seed + 800 + i, bc, bc, 0.0, 1.0, 3.0, 0.1)
+	# Round 6 (lead review of r5: the modelled pines regressed): the shipping
+	# pine is #155's tiered pine again (closest to Pick D at the match
+	# camera), with the ink kept off foliage and lighter tier tops. The
+	# Blender model path stays behind --kit-pine-model for further work.
+	if "--kit-pine-model" in OS.get_cmdline_user_args() and _emit_model(st, "pine%d" % shape, _pine_ramp(accent), NEEDLE):
 		return
 	## Pick D's conifer, pass 3 (2026-10-31): a short visible trunk and five
 	## or six stacked, rounded tiers. Each tier is a puffy cap ringed with
@@ -1068,12 +1063,6 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	## Pass 5 (Codex-faisal): finer needle bunches, with a rounded centre
 	## between each pair of notches. Low retains the original 5-7 lobes and
 	## three samples; other presets use 8-11 lobes and four samples.
-	## Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers: "large
-	## smooth stacked-cone pines"): a taller bare trunk with a root flare under
-	## a higher first tier, every tier set a little off the axis, a wider
-	## spread of lobe sizes with now and then a deep gap, and round needle
-	## clumps sitting out past the rim at the lobe tips (not on Low), so each
-	## tier's outline breaks into small leafy branches instead of a smooth cone.
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var ramp := _pine_ramp(accent)
@@ -1081,12 +1070,8 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	var tiers: int = [5, 4, 6][shape]
 	var base_r: float = [1.7, 1.3, 1.8][shape]
 	var top: float = [5.4, 3.4, 6.0][shape]
-	var foot: float = [1.05, 0.72, 1.1][shape]   # first tier's rim height (polish: was 0.75 / 0.5 / 0.8)
-	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, top * 0.55, 0), 0.25 * base_r / 1.7, 0.08, 6, bark[0], bark[1], 1.0)
-	for k in 3:
-		# The root flare, so the trunk stands on the ground.
-		var ra := TAU * k / 3.0 + r.randf() * 0.7
-		_cyl(st, Vector3(cos(ra) * 0.34, -0.05, sin(ra) * 0.34) * base_r / 1.7, Vector3(0, 0.42, 0), 0.06, 0.13, 4, bark[0], bark[0], 1.0)
+	var foot: float = [0.75, 0.5, 0.8][shape]   # first tier's rim height
+	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, top * 0.55, 0), 0.2 * base_r / 1.7, 0.08, 6, bark[0], bark[1], 1.0)
 	var snow: bool = palette == "winter"
 	var snow_c := Color(0.93, 0.96, 1.0, 1.0)
 	var step: float = (top - foot) / (tiers + 0.3)
@@ -1104,11 +1089,6 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var samples := 3 if low else 4
 		var m := lobes * samples
 		var spin := r.randf() * TAU
-		# Round 3: the cone is only a filler under the clumps (82% wide), so
-		# the clumps, not a smooth sheet, make each tier's outline.
-		var shell := 1.0 if low else 0.82
-		# Each tier a little off the trunk's axis (none on the bottom one).
-		var off := Vector3(r.randf_range(-1.0, 1.0), 0, r.randf_range(-1.0, 1.0)) * rr * (0.0 if i == 0 or low else 0.07)
 		var t := clampf(rim_y / top, 0.0, 1.0)
 		var c_rim: Color = ramp[0].lerp(ramp[1], 0.45 + 0.1 * t)
 		var c_lit: Color = ramp[1].lerp(ramp[2], 0.55 + 0.35 * t)
@@ -1122,9 +1102,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var lob := []
 		for k in m:
 			var profile: float = (0.78 if k % samples == 0 else 1.0) if low else [0.76, 0.92, 1.0, 0.92][k % samples]
-			if not low and k % samples == 0 and r.randf() < 0.2:
-				profile = 0.6   # now and then a deep gap between two branches
-			lob.append(profile * (r.randf_range(0.95, 1.05) if low else r.randf_range(0.86, 1.12)))
+			lob.append(profile * r.randf_range(0.95, 1.05))
 		var grid := []
 		for j in prof.size():
 			var row := []
@@ -1137,7 +1115,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 					y += (0.1 if k % samples == 0 else -0.04) * h   # the lobes droop, the notches tuck up
 				if last and j == 3:
 					y -= h * 0.14   # a round top knot, not a spike
-				row.append(d * rr * shell * prof[j][0] * lf + Vector3(0, y, 0) + off)
+				row.append(d * rr * prof[j][0] * lf + Vector3(0, y, 0))
 			grid.append(row)
 		# Smooth normals from the grid (round puffs), tipped up a little.
 		var nrm := []
@@ -1173,23 +1151,6 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 				_tri_n(st, u0, u1, l1, nrm[j + 1][k], nrm[j + 1][k1], nrm[j][k1], cu0, cu1, cl1)
 				_tri_n(st, u0, l1, l0, nrm[j + 1][k], nrm[j][k1], nrm[j][k], cu0, cl1, cl0)
 			_tri_n(st, grid[3][k], grid[2][k1], grid[2][k], Vector3.UP, nrm[2][k1], nrm[2][k], c_top, c_sh, c_sh)
-		if not low:
-			# Needle clumps (polish round 3): a full ring of small round tufts
-			# on every lobe of the rim, standing out past the shrunken cone,
-			# and a looser ring on the shoulder, so each tier reads as a
-			# cluster of little branches (snow-capped on Stonekeep).
-			var c_tip: Color = c_lit.lerp(ramp[2], 0.3) if not snow else c_lit
-			for k in m:
-				var a := spin + TAU * k / m
-				var dd := Vector3(cos(a), 0, sin(a))
-				if k % samples == 2:
-					var cr: float = rr * r.randf_range(0.19, 0.26)
-					var cc: Vector3 = off + dd * rr * r.randf_range(0.84, 0.97) + Vector3(0, rim_y + h * r.randf_range(0.03, 0.12), 0)
-					_lobe(st, cc, cr, 0.66, seed + i * 97 + k, c_rim, c_tip, cc.y - cr, cc.y + cr * 0.7, NEEDLE, 0.2, 0.5 if snow else -1.0)
-				elif k % (samples * 2) == 0:
-					var cr2: float = rr * r.randf_range(0.15, 0.2)
-					var cc2: Vector3 = off + dd * rr * r.randf_range(0.5, 0.6) + Vector3(0, rim_y + h * r.randf_range(0.36, 0.48), 0)
-					_lobe(st, cc2, cr2, 0.7, seed + i * 89 + k, c_sh, c_tip, cc2.y - cr2, cc2.y + cr2 * 0.7, NEEDLE, 0.2, 0.5 if snow else -1.0)
 	if palette == "twilight":
 		for i in 6:
 			var a := r.randf() * TAU

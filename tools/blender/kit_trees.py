@@ -31,9 +31,9 @@ os.makedirs(OUT, exist_ok=True)
 
 # Kit shapes (forest_kit.gd _make_pine / _make_broad) and triangle budgets
 # (the procedural meshes these replace: pine 6.3k / 4.9k / 7.5k, broad 1.4k / 1.2k / 1.9k).
-PINES = {0: dict(tiers=5, base_r=1.7, top=5.4, foot=1.05, budget=6200),
-         1: dict(tiers=4, base_r=1.3, top=3.4, foot=0.72, budget=4800),
-         2: dict(tiers=6, base_r=1.8, top=6.0, foot=1.1, budget=7400)}
+PINES = {0: dict(tiers=5, base_r=1.7, top=5.4, foot=0.72, budget=6200),
+         1: dict(tiers=4, base_r=1.3, top=3.4, foot=0.5, budget=4800),
+         2: dict(tiers=6, base_r=1.8, top=6.0, foot=0.78, budget=7400)}
 BROADS = {0: dict(trunk_h=1.7, crown_r=1.45, budget=1900),
           1: dict(trunk_h=1.9, crown_r=1.25, budget=1700),
           2: dict(trunk_h=1.55, crown_r=1.6, budget=2100)}
@@ -89,11 +89,13 @@ class Builder:
             v[self.hue] = 0.5
             v[self.kind] = 1.0
 
-    def cone(self, c, r, h, sides, shade, hue):
-        """A dark filler cone inside a tier (closes the gaps between clumps)."""
+    def cone(self, c, r, h, sides, shade_lo, shade_hi, hue):
+        """A tier's body cone (round 6: wide and shaded from its rim up to
+        a sunlit top, so each tier reads as a clear cone step)."""
         ret = bmesh.ops.create_cone(self.bm, cap_ends=False, segments=sides, radius1=r, radius2=0.0, depth=h)
         bmesh.ops.translate(self.bm, vec=c + Vector((0, 0, h / 2)), verts=ret["verts"])
-        self._tag(ret["verts"], lambda v: shade, hue, 0.0)
+        cz = c.z
+        self._tag(ret["verts"], lambda v: shade_lo + (shade_hi - shade_lo) * max(0.0, min(1.0, (v.co.z - cz) / h)), hue, 0.0)
 
 
 def pine(shape):
@@ -102,7 +104,7 @@ def pine(shape):
     b = Builder()
     tiers, base_r, top, foot = P["tiers"], P["base_r"], P["top"], P["foot"]
     sc = base_r / 1.7
-    b.tube(Vector((0, 0, -0.1)), Vector((0, 0, top * 0.62)), 0.25 * sc, 0.07, 7, 0.25, 0.6)
+    b.tube(Vector((0, 0, -0.1)), Vector((0, 0, foot + (top - foot) * 0.4)), 0.25 * sc, 0.1, 7, 0.08, 0.25)
     for k in range(3):
         a = math.tau * k / 3 + rnd.random() * 0.7
         b.tube(Vector((math.cos(a) * 0.36 * sc, math.sin(a) * 0.36 * sc, -0.05)), Vector((0, 0, 0.45)), 0.06, 0.13, 5, 0.2, 0.3)
@@ -114,7 +116,7 @@ def pine(shape):
         rim = foot + step * i
         h = step * 1.5
         off = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), 0)) * rr * (0.0 if i == 0 else 0.06)
-        b.cone(off + Vector((0, 0, rim - 0.05)), rr * 0.62, h * 0.95, 9, 0.1, 0.5)
+        b.cone(off + Vector((0, 0, rim + h * 0.02)), rr * 0.86, h * 0.92, 14, 0.45, 0.95, 0.5)
         # Rim ring: small clumps drooping out past the filler.
         n_rim = max(8, round(rr * 11.0))
         spin = rnd.random() * math.tau
@@ -122,16 +124,16 @@ def pine(shape):
             a = spin + math.tau * (k + rnd.uniform(-0.25, 0.25)) / n_rim
             d = Vector((math.cos(a), math.sin(a), 0))
             cr = rr * rnd.uniform(0.17, 0.23)
-            c = off + d * rr * rnd.uniform(0.72, 0.9) + Vector((0, 0, rim + h * rnd.uniform(0.02, 0.14)))
+            c = off + d * rr * rnd.uniform(0.86, 0.94) + Vector((0, 0, rim + h * rnd.uniform(0.06, 0.12)))
             seed += 1
-            b.clump(c, cr, 0.62, seed, rnd.random(), 0.82 + 0.18 * f, droop=d * 0.35 + Vector((0, 0, -0.25)))
+            b.clump(c, cr, 0.55, seed, rnd.random(), 0.9 + 0.1 * f, droop=d * 0.2 + Vector((0, 0, -0.15)))
         # Shoulder ring higher in: the tier's sunlit top.
-        n_mid = max(4, round(rr * 5.0))
+        n_mid = max(3, round(rr * 3.0))
         for k in range(n_mid):
             a = spin + math.tau * (k + 0.5 + rnd.uniform(-0.2, 0.2)) / n_mid
             d = Vector((math.cos(a), math.sin(a), 0))
             cr = rr * rnd.uniform(0.17, 0.22)
-            c = off + d * rr * rnd.uniform(0.32, 0.45) + Vector((0, 0, rim + h * rnd.uniform(0.38, 0.5)))
+            c = off + d * rr * rnd.uniform(0.5, 0.58) + Vector((0, 0, rim + h * rnd.uniform(0.34, 0.42)))
             seed += 1
             b.clump(c, cr, 0.7, seed, rnd.random(), 1.0)
     seed += 1
@@ -145,16 +147,16 @@ def broad(shape):
     b = Builder()
     th, cr = P["trunk_h"], P["crown_r"]
     cy = th + cr * 0.7
-    b.tube(Vector((0, 0, -0.1)), Vector((0, 0, th + 0.4)), 0.22, 0.12, 7, 0.25, 0.55)
+    b.tube(Vector((0, 0, -0.1)), Vector((0, 0, th + 0.4)), 0.22, 0.12, 7, 0.1, 0.35)
     for k in range(3):
         a = math.tau * k / 3 + rnd.random() * 0.6
         b.tube(Vector((math.cos(a) * 0.36, math.sin(a) * 0.36, -0.05)), Vector((0, 0, 0.45)), 0.07, 0.14, 5, 0.2, 0.3)
     for k in range(3):
         a = math.tau * k / 3 + rnd.random() * 0.8
-        b.tube(Vector((0, 0, th * 0.72)), Vector((math.cos(a) * cr * 0.5, math.sin(a) * cr * 0.5, cy - 0.05)), 0.09, 0.04, 5, 0.3, 0.45)
+        b.tube(Vector((0, 0, th * 0.8)), Vector((math.cos(a) * cr * 0.28, math.sin(a) * cr * 0.28, cy - cr * 0.25)), 0.08, 0.04, 5, 0.3, 0.45)
     seed = 5000 + shape * 100
     seed += 1
-    b.clump(Vector((0, 0, cy)), cr * 0.66, 0.85, seed, 0.5, 0.45)   # a dark core
+    b.clump(Vector((0, 0, cy)), cr * 0.72, 0.85, seed, 0.5, 0.7)   # the core (round 6: not near black)
     n = 30
     for k in range(n):
         u = (k + 0.5) / n
