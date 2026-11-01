@@ -387,7 +387,7 @@ func _pave() -> StandardMaterial3D:
 		return game._flagstone(Color(0.45, 0.42, 0.42))
 	var m: StandardMaterial3D = game._pbr("castle_flags_grey", 0.32, Color(0.7, 0.57, 0.5))   # (round 7: smaller stones, was 0.16)
 	# Round 8: deeper bevels and contact shading, more tonal spread per stone.
-	m.normal_scale = 2.2
+	m.normal_scale = 3.0   # (round 9: one more step, was 2.2)
 	m.roughness = 0.82
 	return m
 
@@ -397,7 +397,7 @@ func _kerb(tint: Color) -> StandardMaterial3D:
 	if not game.world_style:
 		return game._ashlar(tint)
 	var m: StandardMaterial3D = game._pbr("castle_blocks_grey", 0.3, tint.lerp(Color(0.68, 0.57, 0.52), 0.5))
-	m.normal_scale = 2.2   # (round 8: deeper bevels)
+	m.normal_scale = 3.0   # (round 9: deeper bevels)
 	return m
 
 

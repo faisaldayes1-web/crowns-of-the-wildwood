@@ -7983,6 +7983,12 @@ func _draw_dizzy_marks() -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	var xf := get_global_transform().affine_inverse()
 	var placed: Array[Vector2] = []
+	# (Round 9: where more than two downed units stand close on screen, the
+	# stars are dropped and each keeps only its own small offset swirl.)
+	var spots: Array[Vector2] = []
+	for u in game.units:
+		if u.downed and not cam.is_position_behind(u.global_position):
+			spots.append(xf * cam.unproject_position(u.global_position + Vector3(0, 0.9, 0)))
 	for u in game.units:
 		if not u.downed:
 			continue
@@ -7996,7 +8002,7 @@ func _draw_dizzy_marks() -> void:
 			continue   # (round 7: never over the score bar, minimap or skill bar)
 		var bob := 1.5 * sin(now * 3.0 + u.get_instance_id())
 		var bc := Vector2.INF
-		for off in [Vector2(26, -44), Vector2(-26, -44), Vector2(30, -14), Vector2(-30, -14)]:
+		for off in [Vector2(26, -44), Vector2(-26, -44), Vector2(30, -14), Vector2(-30, -14), Vector2(0, -62), Vector2(40, -60), Vector2(-40, -60)]:
 			var c: Vector2 = sp + off + Vector2(0, bob)
 			var free := true
 			for q in placed:
@@ -8025,6 +8031,12 @@ func _draw_dizzy_marks() -> void:
 				var ang := -now * 5.0 + t * TAU * 2.2
 				sw.append(bc + Vector2(cos(ang), sin(ang)) * (1.5 + 7.5 * t))
 			draw_polyline(sw, Color(0.12, 0.1, 0.1), 2.0, true)
+		var close := 0
+		for q in spots:
+			if q.distance_to(sp) < 90.0:
+				close += 1
+		if close > 1:   # (itself plus any other downed unit close by)
+			continue
 		for i in 3:
 			var ang := now * 2.6 + i * TAU / 3.0
 			var st := sp + Vector2(cos(ang) * 18.0, sin(ang) * 5.5 - 30.0)

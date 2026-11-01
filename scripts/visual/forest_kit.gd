@@ -315,7 +315,7 @@ func _tree_cluster(t: Array, r: RandomNumberGenerator) -> void:
 		s = minf(s, max_h / base_h)
 	var field0 := _in_field(pos) or pos.y < -0.5 or hint == "canopy"
 	if not field0 and not low:
-		s *= 0.66   # round 7: out-of-bounds groves in small trees too (its collider, out of play, is unchanged)
+		s *= 0.88   # round 9 (round 7 was 0.66): out-of-bounds groves in small trees too (its collider, out of play, is unchanged)
 	_tree(pos, species, seed, s, r)
 	# Companions: lower trees round the spot. In the field they stay close
 	# (inside the old crown's footprint, where nobody walked under a trunk
@@ -352,9 +352,11 @@ func _fill_forest(r: RandomNumberGenerator) -> void:
 	# smaller trees, 62% of the old size on a closer grid, so the woods read
 	# as separate small conifers with a short trunk under each. Decoration
 	# only (no colliders); one MultiMesh per mesh per chunk as before.
-	var step := 1.55 if not low else 4.3
-	var gap := 0.6 if not low else 1.25
-	var small := 0.62 if not low else 1.0
+	# (Round 9: back up to ~85% size on a 1.85 m grid: distinct, readable
+	# pines with dark gaps between them, not confetti.)
+	var step := 1.85 if not low else 4.3
+	var gap := 0.75 if not low else 1.25
+	var small := 0.85 if not low else 1.0
 	var hx: float = game.map_half.x
 	var hz: float = game.map_half.y
 	var x := -118.0
@@ -799,7 +801,9 @@ func _pine_ramp(accent: String) -> Array:
 	# was a deep green body, tips only a step lighter). Vertex colours are linear.
 	# Round 6 (lead: mid-green bodies, lighter yellow-green tier tops, no
 	# near-black cores): was v 0.022 / 0.085 / 0.22.
-	return [Color.from_hsv(0.41, 0.82, 0.04), Color.from_hsv(0.35, 0.8, 0.12), Color.from_hsv(0.26, 0.74, 0.34)]
+	# (Round 9, target D: deep saturated mid-dark body, only the tier tops
+	# lit warm yellow-green.)
+	return [Color.from_hsv(0.43, 0.92, 0.022), Color.from_hsv(0.405, 0.92, 0.07), Color.from_hsv(0.31, 0.82, 0.24)]
 
 
 func _bark() -> Array:
