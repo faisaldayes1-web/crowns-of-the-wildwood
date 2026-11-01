@@ -13,12 +13,15 @@ extends Node
 ## Args: --probe-press=S   seconds after the title to press PLAY (default 5)
 ##       --probe-live=S    seconds of the live match to record (default 5)
 ##       --probe-shot=PNG  a screenshot at the end
+##       --probe-slow=MS   busy-wait MS ms at the start of every frame (a slow CPU)
 
 var t_last := 0
 var t_title := -1.0
 var press_at := 5.0
 var live_s := 5.0
 var shot := ""
+var slow_ms := 0.0
+var stats: Array = []   # per live frame: [draw calls, primitives, nodes, objects, orphan nodes]
 var t_press := -1.0
 var t_visible := -1.0
 var t_phys := 0
@@ -47,6 +50,8 @@ func _ready() -> void:
 			press_at = float(arg.trim_prefix("--probe-press="))
 		elif arg.begins_with("--probe-live="):
 			live_s = float(arg.trim_prefix("--probe-live="))
+		elif arg.begins_with("--probe-slow="):
+			slow_ms = float(arg.trim_prefix("--probe-slow="))
 		elif arg.begins_with("--probe-shot="):
 			shot = arg.trim_prefix("--probe-shot=")
 	print("PROBE start ms=%.0f press=%.1f gpu=%s %s" % [ms(), press_at,
@@ -62,6 +67,10 @@ func _ready() -> void:
 
 
 func _process(_d: float) -> void:
+	if slow_ms > 0.0:
+		var end := Time.get_ticks_usec() + int(slow_ms * 1000.0)
+		while Time.get_ticks_usec() < end:
+			pass
 	t_late = Time.get_ticks_usec()
 
 
@@ -87,7 +96,7 @@ func _tick() -> void:
 	var nn := int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT))
 	var dn := nn - last_nodes
 	last_nodes = nn
-	if ms() > 240000.0:
+	if ms() > 900000.0:
 		print("PROBE timeout")
 		get_tree().quit(3)
 		return
@@ -112,6 +121,9 @@ func _tick() -> void:
 	var phase := "art" if is_instance_valid(g.loading_layer) else "live"
 	if phase == "live" and t_visible < 0.0:
 		t_visible = ms()
+	if phase == "live":
+		stats.append([Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME),
+			nn, Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)])
 	rows.append([ms() - t_press, d, Engine.get_process_frames(), phase, seg[0], seg[1], seg[2], seg[3], seg[4],
 		RenderingServer.viewport_get_measured_render_time_cpu(vp), RenderingServer.viewport_get_measured_render_time_gpu(vp), dn])
 	if t_visible > 0.0 and ms() - t_visible >= live_s * 1000.0:
@@ -203,6 +215,26 @@ func _report(g) -> void:
 			by_s[s][2] = maxf(by_s[s][2], r[1])
 	for s in by_s.keys():
 		print("PROBE live_s %d fps=%.1f worst_ms=%.1f" % [s, by_s[s][0] / maxf(by_s[s][1] / 1000.0, 0.001), by_s[s][2]])
+	if not stats.is_empty():
+		var mid: Array = stats[stats.size() / 2]
+		var first: Array = stats[0]
+		print("PROBE live_stats first draws=%d prims=%d nodes=%d objects=%d orphans=%d | mid draws=%d prims=%d nodes=%d objects=%d orphans=%d | vmem_mb=%.0f" % [
+			first[0], first[1], first[2], first[3], first[4], mid[0], mid[1], mid[2], mid[3], mid[4], Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0])
+		var counts := {}
+		var q := [get_tree().root]
+		while not q.is_empty():
+			var n: Node = q.pop_back()
+			counts[n.get_class()] = int(counts.get(n.get_class(), 0)) + 1
+			q.append_array(n.get_children())
+		var keys := counts.keys()
+		keys.sort_custom(func(a, b): return counts[a] > counts[b])
+		print("PROBE classes " + " ".join(keys.slice(0, 14).map(func(k): return "%s=%d" % [k, counts[k]])))
+		var n3 := 0
+		var vis3 := 0
+		for mi in get_tree().root.find_children("*", "MeshInstance3D", true, false):
+			n3 += 1
+			vis3 += int(mi.is_visible_in_tree())
+		print("PROBE meshinst total=%d visible=%d" % [n3, vis3])
 	print("PROBE summary call_ms=%.0f visible_ms=%.0f art_worst_ms=%.1f live_worst_ms=%.1f" % [call_ms, t_visible - t_press,
 		rows.filter(func(r): return r[3] == "art").reduce(func(a, r): return maxf(a, r[1]), 0.0),
 		rows.filter(func(r): return r[3] == "live").reduce(func(a, r): return maxf(a, r[1]), 0.0)])

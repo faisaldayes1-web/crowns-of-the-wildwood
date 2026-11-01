@@ -809,8 +809,8 @@ func _net_ready_hooks() -> void:
 func _process(delta: float) -> void:
 	if _world_behind:
 		_world_slice.emit()
-	if is_instance_valid(_warm_rack) and not playing:
-		_prebuild_tick.emit()
+	if world_ready and not playing:
+		_prebuild_tick.emit()   # (a prebuild step waits for it; nobody listening costs nothing)
 	if _match_waiting:
 		return   # a match is waiting for the world under the loading art
 	if debug_kill and player and not player.kill_banner.is_empty():
@@ -12523,6 +12523,7 @@ func _warm_up_world() -> void:
 
 
 const WARM_MODEL_SLICE_USEC := 30000
+const WARM_REVEAL_LOT := 12   # prebuilt warm-up models shown per drawn frame
 var _warm_rack: Node3D   # the warm-up models, built hidden behind the title (_prebuild_warm_rack)
 var _loading_art: Array = []   # both loading pictures, held once loaded behind the title
 signal _prebuild_tick   # each title frame while the rack is prebuilt (a signal of this node: a
@@ -12558,15 +12559,36 @@ func _add_warm_look(rack: Node3D, i: int, look: Array) -> void:
 			mat.emission_energy_multiplier = 0.1
 
 
+var _step_from := 0   # when the last prebuild step began (usec)
+var _step_est_ms := 0.0   # what a prebuild step has been costing (the dearest lately)
+
+
 func _title_spare_frame() -> void:
-	## The next title frame with time to spare: after a slow one (over 25 ms)
-	## one more is skipped, up to 30, so a prebuild step never lands on a
-	## frame that is already late.
+	## The next title frame with room for one prebuild step. The step that
+	## just ran is timed: a dear one (over 5 ms) is followed by idle frames in
+	## proportion (about one frame in four goes to the prebuild at most), and
+	## a step only runs on a frame whose predecessor leaves room for it: not
+	## over 18 ms (a 60 Hz frame is 16.7), and that frame plus a step's usual
+	## cost under 30 ms. The estimate is forgotten slowly while frames are
+	## skipped, so a machine that is slow only now and then still gets there;
+	## a slow one never does, and the match start builds the rest under its
+	## loading art (claude-faisal/crowns-perf04b 2026-11-01: on the iGPU the
+	## title's worst frame went 32 -> 37 ms with a step on every frame).
+	var rest := 0
+	if _step_from > 0:
+		var cost := (Time.get_ticks_usec() - _step_from) / 1000.0
+		_step_est_ms = maxf(cost, _step_est_ms * 0.92)
+		if cost > 5.0:
+			rest = int(cost / 5.0) * 2
 	await _prebuild_tick
-	for i in 30:
-		if get_process_delta_time() < 0.025 or _prebuild_off():
-			return
+	while not _prebuild_off():
+		var frame_ms := get_process_delta_time() * 1000.0
+		if rest <= 0 and frame_ms < 18.0 and frame_ms + _step_est_ms <= 30.0:
+			break
+		rest -= 1
+		_step_est_ms *= 0.97
 		await _prebuild_tick
+	_step_from = Time.get_ticks_usec()
 
 
 var _prebuild_stop := false   # the scene is going: a waiting prebuild ends
@@ -12584,7 +12606,15 @@ func _prebuild_warm_rack() -> void:
 	## 50-110 ms (claude-faisal/crowns-perf04 2026-10-31, PERF-04). Each
 	## character scene's meshes are faceted first, a mesh a frame (the
 	## Engineer's took ~35 ms in one go). The match start only shows them.
-	if DisplayServer.get_name() == "headless" or is_instance_valid(_warm_rack):
+	if DisplayServer.get_name() == "headless" or is_instance_valid(_warm_rack) or "--no-prebuild" in OS.get_cmdline_user_args():
+		return
+	# Only once the title is settled: the menus warmed, and the world (this
+	# is called when it is built) not competing with anything.
+	_step_from = 0
+	_step_est_ms = 0.0
+	while menus_warming and not _prebuild_off():
+		await _prebuild_tick
+	if _prebuild_off() or is_instance_valid(_warm_rack):
 		return
 	var rack := Node3D.new()
 	rack.name = "WarmRack"
@@ -12703,11 +12733,23 @@ func _warm_up_models() -> void:
 	rack.visible = true
 	rack.process_mode = Node.PROCESS_MODE_INHERIT
 	var looks := _warm_looks()
+	# The prebuilt ones are shown a lot a frame, not all in one: ~50 first
+	# draws at once were a 160-215 ms frame on the iGPU, and their pipelines
+	# compiled all together.
+	var built := rack.get_children()
+	for m in built:
+		m.visible = false
+	for i in range(0, built.size(), WARM_REVEAL_LOT):
+		for j in range(i, mini(i + WARM_REVEAL_LOT, built.size())):
+			built[j].visible = true
+		await _drawn_frame()
+		if not is_inside_tree() or not is_instance_valid(rack):
+			return
 	# A few at a time, each lot drawn (and its shaders compiled) before the
 	# next: all ~50 in the Play click's own frame held the loading art
 	# frozen ~1.7 s (claude-faisal3 2026-10-29, PERF-04 rest).
 	var slice_end := Time.get_ticks_usec() + WARM_MODEL_SLICE_USEC
-	for i in range(rack.get_child_count(), looks.size()):
+	for i in range(built.size(), looks.size()):
 		if i > 0 and Time.get_ticks_usec() >= slice_end:
 			await _drawn_frame()
 			if not is_inside_tree() or not is_instance_valid(rack):
