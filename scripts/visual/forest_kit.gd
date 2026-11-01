@@ -631,6 +631,34 @@ func _ensure() -> void:
 	mat.set_shader_parameter("self_lit", 0.35 if palette == "twilight" else 0.0)
 
 
+func update_cutaway(cam: Camera3D) -> void:
+	## Polish pass (claude-faisal/crowns-polish 2026-11-01): hands the kit
+	## shader up to 12 living fighters near the camera's view centre, so
+	## tree crowns between them and the camera thin out (forest_kit.gdshader).
+	if mat == null or cam == null:
+		return
+	var centre: Vector3 = game.cam_pos - game.CAMERA_OFFSET * game.cam_zoom
+	var near := []
+	for u in game.units:
+		if u.dead or not u.visible:
+			continue
+		var d2: float = Vector2(u.global_position.x - centre.x, u.global_position.z - centre.z).length_squared()
+		if d2 < 900.0:
+			near.append([d2, u])
+	near.sort_custom(func(a, b): return a[0] < b[0])
+	var pts := []
+	pts.resize(12)
+	pts.fill(Vector4.ZERO)
+	var n := mini(near.size(), 12)
+	for i in n:
+		var u = near[i][1]
+		var p: Vector3 = u.global_position + Vector3(0, 0.9, 0)
+		pts[i] = Vector4(p.x, p.y, p.z, 1.6 if u == game.player or u.carrying != null else 1.25)
+	mat.set_shader_parameter("cut_pts", pts)
+	mat.set_shader_parameter("cut_n", n)
+	mat.set_shader_parameter("cut_eye", cam.global_position)
+
+
 func kit_tree(parent: Node3D, key: String, at: Vector3, s: float, yaw: float) -> MeshInstance3D:
 	## One kit model as its own MeshInstance3D (for things that move or
 	## change, such as the economy's wood trees that are felled and regrow).
@@ -877,6 +905,14 @@ func _tri_n(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, n0: Vector3,
 	_v(st, p1, n1, c1, NEEDLE)
 
 
+func _tri_out(st: SurfaceTool, p0: Vector3, p1: Vector3, p2: Vector3, face: Vector3, n: Vector3, c0: Color, c1: Color, c2: Color) -> void:
+	## A needle triangle drawn on the side facing `face` (polish pass sprigs).
+	if (p1 - p0).cross(p2 - p0).dot(face) < 0.0:
+		_tri_n(st, p0, p2, p1, n, n, n, c0, c2, c1)
+	else:
+		_tri_n(st, p0, p1, p2, n, n, n, c0, c1, c2)
+
+
 func _box(st: SurfaceTool, c: Vector3, h: Vector3, yaw: float, col: Color, kind: float) -> void:
 	## An axis box (half extents h) turned by yaw round y.
 	var bs := Basis(Vector3.UP, yaw)
@@ -972,6 +1008,12 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	## Pass 5 (Codex-faisal): finer needle bunches, with a rounded centre
 	## between each pair of notches. Low retains the original 5-7 lobes and
 	## three samples; other presets use 8-11 lobes and four samples.
+	## Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers: "large
+	## smooth stacked-cone pines"): a taller bare trunk with a root flare under
+	## a higher first tier, every tier set a little off the axis, a wider
+	## spread of lobe sizes with now and then a deep gap, and drooping needle
+	## sprigs poking out past the rim at the lobe tips (not on Low), so each
+	## tier's outline breaks into small leafy branches instead of a smooth cone.
 	var r := RandomNumberGenerator.new()
 	r.seed = seed
 	var ramp := _pine_ramp(accent)
@@ -979,8 +1021,12 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	var tiers: int = [5, 4, 6][shape]
 	var base_r: float = [1.7, 1.3, 1.8][shape]
 	var top: float = [5.4, 3.4, 6.0][shape]
-	var foot: float = [0.75, 0.5, 0.8][shape]   # first tier's rim height
-	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, top * 0.55, 0), 0.2 * base_r / 1.7, 0.08, 6, bark[0], bark[1], 1.0)
+	var foot: float = [1.05, 0.72, 1.1][shape]   # first tier's rim height (polish: was 0.75 / 0.5 / 0.8)
+	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, top * 0.55, 0), 0.25 * base_r / 1.7, 0.08, 6, bark[0], bark[1], 1.0)
+	for k in 3:
+		# The root flare, so the trunk stands on the ground.
+		var ra := TAU * k / 3.0 + r.randf() * 0.7
+		_cyl(st, Vector3(cos(ra) * 0.34, -0.05, sin(ra) * 0.34) * base_r / 1.7, Vector3(0, 0.42, 0), 0.06, 0.13, 4, bark[0], bark[0], 1.0)
 	var snow: bool = palette == "winter"
 	var snow_c := Color(0.93, 0.96, 1.0, 1.0)
 	var step: float = (top - foot) / (tiers + 0.3)
@@ -998,6 +1044,8 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var samples := 3 if low else 4
 		var m := lobes * samples
 		var spin := r.randf() * TAU
+		# Each tier a little off the trunk's axis (none on the bottom one).
+		var off := Vector3(r.randf_range(-1.0, 1.0), 0, r.randf_range(-1.0, 1.0)) * rr * (0.0 if i == 0 or low else 0.07)
 		var t := clampf(rim_y / top, 0.0, 1.0)
 		var c_rim: Color = ramp[0].lerp(ramp[1], 0.45 + 0.1 * t)
 		var c_lit: Color = ramp[1].lerp(ramp[2], 0.55 + 0.35 * t)
@@ -1011,7 +1059,9 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var lob := []
 		for k in m:
 			var profile: float = (0.78 if k % samples == 0 else 1.0) if low else [0.76, 0.92, 1.0, 0.92][k % samples]
-			lob.append(profile * r.randf_range(0.95, 1.05))
+			if not low and k % samples == 0 and r.randf() < 0.2:
+				profile = 0.6   # now and then a deep gap between two branches
+			lob.append(profile * (r.randf_range(0.95, 1.05) if low else r.randf_range(0.86, 1.12)))
 		var grid := []
 		for j in prof.size():
 			var row := []
@@ -1024,7 +1074,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 					y += (0.1 if k % samples == 0 else -0.04) * h   # the lobes droop, the notches tuck up
 				if last and j == 3:
 					y -= h * 0.14   # a round top knot, not a spike
-				row.append(d * rr * prof[j][0] * lf + Vector3(0, y, 0))
+				row.append(d * rr * prof[j][0] * lf + Vector3(0, y, 0) + off)
 			grid.append(row)
 		# Smooth normals from the grid (round puffs), tipped up a little.
 		var nrm := []
@@ -1060,6 +1110,30 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 				_tri_n(st, u0, u1, l1, nrm[j + 1][k], nrm[j + 1][k1], nrm[j][k1], cu0, cu1, cl1)
 				_tri_n(st, u0, l1, l0, nrm[j + 1][k], nrm[j][k1], nrm[j][k], cu0, cl1, cl0)
 			_tri_n(st, grid[3][k], grid[2][k1], grid[2][k], Vector3.UP, nrm[2][k1], nrm[2][k], c_top, c_sh, c_sh)
+		if not low:
+			# Needle sprigs: at most lobe tips a small drooping branch end
+			# pokes out past the rim, sunlit on top, dark beneath.
+			var c_tip: Color = c_lit.lerp(ramp[2], 0.35) if not snow else c_lit
+			c_tip.a = 1.0
+			var c_und: Color = c_rim * 0.55
+			c_und.a = 1.0
+			var c_up: Color = c_lit
+			c_up.a = 1.0
+			for k in m:
+				if k % samples != 2 or r.randf() > 0.75:
+					continue
+				var ka := (k - 1 + m) % m
+				var kb := (k + 1) % m
+				var pd: Vector3 = grid[1][k] - off
+				pd.y = 0.0
+				var tip: Vector3 = off + pd * r.randf_range(1.16, 1.3) + Vector3(0, rim_y - h * r.randf_range(0.02, 0.1), 0)
+				var b0: Vector3 = grid[0][ka].lerp(grid[1][ka], 0.6)
+				var b1: Vector3 = grid[0][kb].lerp(grid[1][kb], 0.6)
+				var bt: Vector3 = grid[1][k].lerp(grid[2][k], 0.45)
+				var out_n: Vector3 = (pd.normalized() + Vector3(0, 0.9, 0)).normalized()
+				_tri_out(st, b0, bt, tip, out_n, out_n, c_up, c_up, c_tip)
+				_tri_out(st, bt, b1, tip, out_n, out_n, c_up, c_up, c_tip)
+				_tri_out(st, b0, b1, tip, -out_n, (pd.normalized() - Vector3(0, 0.6, 0)).normalized(), c_und, c_und, c_und)
 	if palette == "twilight":
 		for i in 6:
 			var a := r.randf() * TAU

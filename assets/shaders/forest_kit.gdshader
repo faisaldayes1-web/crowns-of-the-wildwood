@@ -19,6 +19,15 @@ uniform float rim_strength = 0.3;
 uniform float glow_energy = 1.2;
 uniform float self_lit = 0.0;    // Twilight: leaves keep a little of their own colour under the magenta dusk light
 
+// Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers, Twilight
+// round 4: "a row of crowns hides much of the fighting bodies"): fighters'
+// chest points (set every frame by forest_kit.gd update_cutaway) and the
+// camera. Crown and tier fragments close to the line from a fighter to the
+// camera are screen-door thinned, so the fighter shows through the canopy.
+uniform vec4 cut_pts[12];
+uniform int cut_n = 0;
+uniform vec3 cut_eye = vec3(0.0, 1000.0, 0.0);
+
 varying vec3 wpos;
 varying vec3 wnorm;
 varying float kind;
@@ -63,6 +72,23 @@ void vertex() {
 }
 
 void fragment() {
+	if (cut_n > 0) {
+		int sd = (int(FRAGCOORD.x) & 1) + (int(FRAGCOORD.y) & 1) * 2;
+		if (sd != 3) {
+			for (int i = 0; i < cut_n; i++) {
+				vec3 p = cut_pts[i].xyz;
+				vec3 d = cut_eye - p;
+				float t = dot(wpos - p, d) / dot(d, d);
+				if (t > 0.01 && t < 0.6) {
+					float r = cut_pts[i].w * (1.0 - t);
+					vec3 q = wpos - (p + d * t);
+					if (dot(q, q) < r * r) {
+						discard;
+					}
+				}
+			}
+		}
+	}
 	vec3 col = COLOR.rgb;
 	vec3 an = abs(wnorm);
 	bool leafy = kind < 0.5 || (kind > 2.5 && kind < 3.5);
@@ -87,6 +113,11 @@ void fragment() {
 		float m = texture(noise_tex, wpos.xz * 0.6).r;
 		float g = texture(noise_tex, vec2((wpos.x - wpos.z) * 3.0, wpos.y * 0.6)).r;
 		col *= 0.9 + 0.14 * m + 0.1 * (g - 0.5);
+		// Polish pass (claude-faisal/crowns-polish 2026-11-01): needle clumps,
+		// small light tufts with darker gaps between, so a tier's slope reads
+		// as many little branches rather than one smooth cone.
+		float tuft = texture(noise_tex, wpos.xz * 1.7 + vec2(wpos.y * 0.9, -wpos.y * 0.6)).r;
+		col *= mix(0.86, 1.06, smoothstep(0.34, 0.66, tuft));
 	} else if (kind < 1.5) {
 		// Bark and planks: soft vertical grain.
 		float g = texture(noise_tex, vec2((wpos.x + wpos.z) * 2.5, wpos.y * 0.35)).r;

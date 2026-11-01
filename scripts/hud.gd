@@ -11,6 +11,8 @@ const Monarch = preload("res://scripts/monarch.gd")
 const Scoreboard = preload("res://scripts/scoreboard.gd")
 const Store = preload("res://scripts/store.gd")
 const Season = preload("res://scripts/visual/season.gd")
+const LabelDeclutter = preload("res://scripts/visual/label_declutter.gd")
+const CastleKit = preload("res://scripts/visual/castle_kit.gd")
 const Role = Stats.Role
 
 const INK := Color(0.09, 0.1, 0.15, 0.92)
@@ -127,6 +129,9 @@ var faction_buttons: Array = []     # [rect, team]
 var title_buttons: Array = []       # [rect, tab] on the title screen
 var menu_buttons: Array = []        # [rect, id, arg] drawn by the main menu (menu.gd)
 var lava_cells: Array = []          # Ember Pass maps: crust plates [centre, polygon, shade] in world x/z
+var _fight_checked := -100000   # polish pass: when _in_fight() last looked (msec)
+var _fight_cached := false
+var _label_rects: Array[Rect2] = []   # polish pass: unit tags placed this frame (screen)
 
 
 func _ready() -> void:
@@ -356,6 +361,11 @@ func _draw() -> void:
 				draw_set_transform(Vector2(0, 84))
 			game.economy.draw_counter(self, _me())   # team stock stays below the relocated map
 			draw_set_transform(Vector2.ZERO)
+	_label_rects = LabelDeclutter.run(game, get_viewport().get_camera_3d(), get_global_transform().affine_inverse(), get_process_delta_time())
+	if not pane:
+		CastleKit.update_cutaways(game, get_viewport().get_camera_3d(), get_process_delta_time())
+		if game.forest_kit and not game.couch_active:
+			game.forest_kit.update_cutaway(get_viewport().get_camera_3d())
 	_draw_dizzy_marks()
 	_draw_toasts()
 	if _me() and not game.guide_open:
@@ -6557,6 +6567,24 @@ func _chat_rect() -> Rect2:
 	return Rect2(14, top, 380 if touch_ui else 290, maxf(0.0, size.y - 166 - top))
 
 
+func _in_fight() -> bool:
+	## The player is standing within 14 m of a living enemy (the chat log
+	## shrinks while it lasts). Checked at most every 0.25 s.
+	var now := Time.get_ticks_msec()
+	if now - _fight_checked < 250:
+		return _fight_cached
+	_fight_checked = now
+	_fight_cached = false
+	var me = _me()
+	if me == null or not is_instance_valid(me) or me.dead or not game.playing:
+		return false
+	for u in game.units:
+		if not u.dead and u.team != me.team and u.global_position.distance_squared_to(me.global_position) < 196.0:
+			_fight_cached = true
+			break
+	return _fight_cached
+
+
 func _draw_chat() -> void:
 	## The chat log in the reference's style: each message is a row with the
 	## speaker's portrait, their name in team colour, the match clock and the
@@ -6570,16 +6598,23 @@ func _draw_chat() -> void:
 		return
 	var tab_h := 34.0 if typing else 0.0
 	var input_h := 34.0 if typing else 0.0
+	# Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers, Ember
+	# frame-020: the left stack "obscures a substantial arena region"): idle,
+	# the log shows its newest five rows, and only two (for 8 s, not 14)
+	# while the player is in a fight. The open chat still shows twelve.
+	var fight := not typing and _in_fight()
+	var max_rows := 12 if typing else (2 if fight else 5)
+	var max_age := 8.0 if fight else 14.0
 	var lines: Array = []
 	for i in range(game.chat_log.size() - 1, -1, -1):
 		var m: Dictionary = game.chat_log[i]
 		var age: float = now - m.time
-		if not typing and age > 14.0:
+		if not typing and age > max_age:
 			break
 		if typing and game.chat_tab == 1 and not m.team:
 			continue
 		lines.push_front(m)
-		if lines.size() >= 12:
+		if lines.size() >= max_rows:
 			break
 	if lines.is_empty() and not typing:
 		return
@@ -6601,7 +6636,7 @@ func _draw_chat() -> void:
 	var tw: float = rect.size.x - 62
 	for i in range(lines.size() - 1, -1, -1):
 		var m: Dictionary = lines[i]
-		var alpha := 1.0 if typing else clampf((14.0 - (now - m.time)) / 3.0, 0.0, 1.0)
+		var alpha := 1.0 if typing else clampf((max_age - (now - m.time)) / 3.0, 0.0, 1.0)
 		var named: bool = m.who != ""
 		var body := _chat_display_text(m)
 		var touch_hint: bool = touch_ui and not named and body != m.text
@@ -7891,11 +7926,17 @@ func _paint_splash(c: Vector2, rx: float, ry: float, dark: Color, light: Color) 
 func _draw_dizzy_marks() -> void:
 	## Over every downed soldier on screen: a speech bubble with a dizzy
 	## swirl and three gold stars circling the head.
+	## Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers, Ember
+	## frame-020: "oversized stun spirals ... overlap each other and units"):
+	## about 60% of the old size, the bubble lifted clear of the body, and a
+	## bubble that would land on one already drawn flips to the other side
+	## (or, with no room either side, keeps only its stars).
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
 		return
 	var now := Time.get_ticks_msec() / 1000.0
 	var xf := get_global_transform().affine_inverse()
+	var placed: Array[Vector2] = []
 	for u in game.units:
 		if not u.downed:
 			continue
@@ -7905,22 +7946,41 @@ func _draw_dizzy_marks() -> void:
 		var sp: Vector2 = xf * cam.unproject_position(at)
 		if sp.x < -50 or sp.y < -50 or sp.x > size.x + 50 or sp.y > size.y + 50:
 			continue
-		var bob := 2.0 * sin(now * 3.0 + u.get_instance_id())
-		var bc := sp + Vector2(42, -40 + bob)
-		draw_colored_polygon(PackedVector2Array([bc + Vector2(-14, 10), bc + Vector2(-30, 26), bc + Vector2(-4, 16)]), Color(0.08, 0.06, 0.05))
-		draw_circle(bc, 22.0, Color(0.08, 0.06, 0.05))
-		draw_colored_polygon(PackedVector2Array([bc + Vector2(-12, 10), bc + Vector2(-26, 23), bc + Vector2(-5, 14)]), Color(0.97, 0.96, 0.92))
-		draw_circle(bc, 19.0, Color(0.97, 0.96, 0.92))
-		var sw := PackedVector2Array()
-		for i in 40:
-			var t := i / 39.0
-			var ang := -now * 5.0 + t * TAU * 2.2
-			sw.append(bc + Vector2(cos(ang), sin(ang)) * (2.0 + 12.0 * t))
-		draw_polyline(sw, Color(0.12, 0.1, 0.1), 3.0, true)
+		var bob := 1.5 * sin(now * 3.0 + u.get_instance_id())
+		var bc := Vector2.INF
+		for off in [Vector2(26, -44), Vector2(-26, -44), Vector2(30, -14), Vector2(-30, -14)]:
+			var c: Vector2 = sp + off + Vector2(0, bob)
+			var free := true
+			for q in placed:
+				if c.distance_to(q) < 30.0:
+					free = false
+					break
+			if free:
+				var box := Rect2(c - Vector2(15, 15), Vector2(30, 30))
+				for lr in _label_rects:
+					if box.intersects(lr):
+						free = false
+						break
+			if free:
+				bc = c
+				break
+		if bc != Vector2.INF:
+			placed.append(bc)
+			var tail := 1.0 if bc.x > sp.x else -1.0
+			draw_colored_polygon(PackedVector2Array([bc + Vector2(-8 * tail, 6), bc + Vector2(-18 * tail, 16), bc + Vector2(-2 * tail, 10)]), Color(0.08, 0.06, 0.05))
+			draw_circle(bc, 13.5, Color(0.08, 0.06, 0.05))
+			draw_colored_polygon(PackedVector2Array([bc + Vector2(-7 * tail, 6), bc + Vector2(-15 * tail, 14), bc + Vector2(-3 * tail, 8)]), Color(0.97, 0.96, 0.92))
+			draw_circle(bc, 11.5, Color(0.97, 0.96, 0.92))
+			var sw := PackedVector2Array()
+			for i in 32:
+				var t := i / 31.0
+				var ang := -now * 5.0 + t * TAU * 2.2
+				sw.append(bc + Vector2(cos(ang), sin(ang)) * (1.5 + 7.5 * t))
+			draw_polyline(sw, Color(0.12, 0.1, 0.1), 2.0, true)
 		for i in 3:
 			var ang := now * 2.6 + i * TAU / 3.0
-			var st := sp + Vector2(cos(ang) * 30.0, sin(ang) * 9.0 - 44.0)
-			_inked_star(st, 7.5, Color(1.0, 0.85, 0.25), Color(0.35, 0.2, 0.02))
+			var st := sp + Vector2(cos(ang) * 18.0, sin(ang) * 5.5 - 30.0)
+			_inked_star(st, 4.5, Color(1.0, 0.85, 0.25), Color(0.35, 0.2, 0.02))
 
 
 func _cross_glyph(c: Vector2, r: float, col: Color, ink: Color) -> void:

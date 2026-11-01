@@ -199,6 +199,7 @@ var death_timer := 0.0        # the body stays for a moment after dying
 var guard_ring: MeshInstance3D
 var overhead: Node3D
 var label: Label3D
+var overhead_lift := 0.0                   # polish pass: metres the HUD's label declutter lifts the tag
 var hp_bar: Node3D                         # overhead health bar (trough + segments)
 var hp_fill_mat: StandardMaterial3D
 var hp_segs: Array[MeshInstance3D] = []
@@ -2289,6 +2290,36 @@ func bubble_up(duration: float) -> void:
 var _was_carrying := false
 
 
+static var _xray_shader: Shader
+var _xray_mat: ShaderMaterial
+
+
+func _update_xray() -> void:
+	## Polish pass (claude-faisal/crowns-polish 2026-11-01): the local
+	## player(s) and whoever carries a monarch get a soft silhouette pass
+	## (unit_xray.gdshader) that only shows where scenery hides them, so the
+	## gate towers and tree crowns never swallow them. Chained after the
+	## model's outline pass; everyone else keeps the plain look.
+	if model == null or not "outline" in model or model.outline == null:
+		return
+	var want: bool = (is_player or carrying != null) and not dead
+	var ol: StandardMaterial3D = model.outline
+	if want:
+		if _xray_mat == null:
+			if _xray_shader == null:
+				_xray_shader = load("res://assets/shaders/unit_xray.gdshader")
+			_xray_mat = ShaderMaterial.new()
+			_xray_mat.shader = _xray_shader
+			_xray_mat.render_priority = 6
+		var c: Color = (game.player_color(maxi(local_index, 0)) if is_player else Color(1.0, 0.85, 0.3)).lightened(0.2)
+		c.a = 0.6
+		_xray_mat.set_shader_parameter("tint", c)
+		if ol.next_pass != _xray_mat:
+			ol.next_pass = _xray_mat
+	elif ol.next_pass != null and ol.next_pass == _xray_mat:
+		ol.next_pass = null
+
+
 func _process(_delta: float) -> void:
 	_animate()
 	class_banner = maxf(class_banner - _delta, 0.0)
@@ -2301,8 +2332,9 @@ func _process(_delta: float) -> void:
 		bubble_mesh.scale = Vector3.ONE * (0.6 + 0.4 * k + 0.03 * sin(Time.get_ticks_msec() / 90.0))
 		if bubble_timer <= 0.0 or dead:
 			bubble_mesh.visible = false
+	_update_xray()
 	if overhead:
-		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + (1.25 if carrying else 0.35), 0)   # above a worn crown
+		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + (1.25 if carrying else 0.35) + overhead_lift, 0)   # above a worn crown
 		if downed:
 			overhead.global_position.y = global_position.y + 1.3   # over the body on the ground
 	_update_down_fx()
