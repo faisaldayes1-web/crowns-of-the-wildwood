@@ -48,6 +48,7 @@ var ground_mat: ShaderMaterial
 var palette := "day"  # day, night, winter, twilight
 var low := false
 static var _unit := []
+static var _unit_small := []   # polish round 3: a coarser sphere for pine needle clumps
 
 
 static func enabled(g) -> bool:
@@ -819,6 +820,16 @@ static func _hash(v: Vector3, seed: int) -> float:
 	return h - floorf(h)
 
 
+static func _small_sphere() -> void:
+	var s := SphereMesh.new()
+	s.radius = 1.0
+	s.height = 2.0
+	s.radial_segments = 6
+	s.rings = 3
+	var a := s.get_mesh_arrays()
+	_unit_small = [a[Mesh.ARRAY_VERTEX], a[Mesh.ARRAY_INDEX]]
+
+
 static func _unit_sphere() -> void:
 	var s := SphereMesh.new()
 	s.radius = 1.0
@@ -836,13 +847,15 @@ func _v(st: SurfaceTool, p: Vector3, n: Vector3, c: Color, kind: float) -> void:
 	st.add_vertex(p)
 
 
-func _lobe(st: SurfaceTool, c: Vector3, rad: float, squash: float, seed: int, cb: Color, ct: Color, y0: float, y1: float, kind: float, jitter: float = 0.14, snow: float = -1.0) -> void:
+func _lobe(st: SurfaceTool, c: Vector3, rad: float, squash: float, seed: int, cb: Color, ct: Color, y0: float, y1: float, kind: float, jitter: float = 0.14, snow: float = -1.0, small: bool = false) -> void:
 	## A lumpy leaf clump (or rock): a jittered sphere, coloured by height
 	## through the whole crown (y0..y1), darker underneath.
 	if _unit.is_empty():
 		_unit_sphere()
-	var verts: PackedVector3Array = _unit[0]
-	var idx: PackedInt32Array = _unit[1]
+	if small and _unit_small.is_empty():
+		_small_sphere()
+	var verts: PackedVector3Array = _unit_small[0] if small else _unit[0]
+	var idx: PackedInt32Array = _unit_small[1] if small else _unit[1]
 	var pts := PackedVector3Array()
 	var nrm := PackedVector3Array()
 	var cols := PackedColorArray()
@@ -1036,6 +1049,9 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var samples := 3 if low else 4
 		var m := lobes * samples
 		var spin := r.randf() * TAU
+		# Round 3: the cone is only a filler under the clumps (82% wide), so
+		# the clumps, not a smooth sheet, make each tier's outline.
+		var shell := 1.0 if low else 0.82
 		# Each tier a little off the trunk's axis (none on the bottom one).
 		var off := Vector3(r.randf_range(-1.0, 1.0), 0, r.randf_range(-1.0, 1.0)) * rr * (0.0 if i == 0 or low else 0.07)
 		var t := clampf(rim_y / top, 0.0, 1.0)
@@ -1066,7 +1082,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 					y += (0.1 if k % samples == 0 else -0.04) * h   # the lobes droop, the notches tuck up
 				if last and j == 3:
 					y -= h * 0.14   # a round top knot, not a spike
-				row.append(d * rr * prof[j][0] * lf + Vector3(0, y, 0) + off)
+				row.append(d * rr * shell * prof[j][0] * lf + Vector3(0, y, 0) + off)
 			grid.append(row)
 		# Smooth normals from the grid (round puffs), tipped up a little.
 		var nrm := []
@@ -1103,18 +1119,22 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 				_tri_n(st, u0, l1, l0, nrm[j + 1][k], nrm[j][k1], nrm[j][k], cu0, cl1, cl0)
 			_tri_n(st, grid[3][k], grid[2][k1], grid[2][k], Vector3.UP, nrm[2][k1], nrm[2][k], c_top, c_sh, c_sh)
 		if not low:
-			# Needle clumps (polish pass 2): at most lobe tips a small round
-			# tuft of needles sits on the rim and pokes out past it, lit on
-			# top and dark beneath (snow-capped on Stonekeep), so each tier's
-			# edge breaks into leafy clumps instead of a smooth plate.
+			# Needle clumps (polish round 3): a full ring of small round tufts
+			# on every lobe of the rim, standing out past the shrunken cone,
+			# and a looser ring on the shoulder, so each tier reads as a
+			# cluster of little branches (snow-capped on Stonekeep).
+			var c_tip: Color = c_lit.lerp(ramp[2], 0.3) if not snow else c_lit
 			for k in m:
-				if k % samples != 2 or r.randf() > 0.7:
-					continue
-				var pd: Vector3 = grid[1][k] - off
-				pd.y = 0.0
-				var cr: float = rr * r.randf_range(0.17, 0.24)
-				var cc: Vector3 = off + pd * r.randf_range(0.98, 1.08) + Vector3(0, rim_y + h * r.randf_range(0.04, 0.12), 0)
-				_lobe(st, cc, cr, 0.62, seed + i * 97 + k, c_rim, c_lit.lerp(ramp[2], 0.3) if not snow else c_lit, cc.y - cr, cc.y + cr * 0.7, NEEDLE, 0.22, 0.35 if snow else -1.0)
+				var a := spin + TAU * k / m
+				var dd := Vector3(cos(a), 0, sin(a))
+				if k % samples == 2:
+					var cr: float = rr * r.randf_range(0.19, 0.26)
+					var cc: Vector3 = off + dd * rr * r.randf_range(0.84, 0.97) + Vector3(0, rim_y + h * r.randf_range(0.03, 0.12), 0)
+					_lobe(st, cc, cr, 0.66, seed + i * 97 + k, c_rim, c_tip, cc.y - cr, cc.y + cr * 0.7, NEEDLE, 0.2, 0.3 if snow else -1.0)
+				elif k % (samples * 2) == 0:
+					var cr2: float = rr * r.randf_range(0.15, 0.2)
+					var cc2: Vector3 = off + dd * rr * r.randf_range(0.5, 0.6) + Vector3(0, rim_y + h * r.randf_range(0.36, 0.48), 0)
+					_lobe(st, cc2, cr2, 0.7, seed + i * 89 + k, c_sh, c_tip, cc2.y - cr2, cc2.y + cr2 * 0.7, NEEDLE, 0.2, 0.3 if snow else -1.0)
 	if palette == "twilight":
 		for i in 6:
 			var a := r.randf() * TAU

@@ -3360,8 +3360,11 @@ func _draw_event_banner(b: Dictionary) -> void:
 	var disc := Color(0.42, 0.08, 0.08, a) if good else Color(0.16, 0.05, 0.05, a)
 	var now := Time.get_ticks_msec() / 1000.0
 	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
-	var s := (1.0 + (1.0 - pop) * 0.3) * fit * 0.78 * BANNER_SIZE
-	draw_set_transform(Vector2(size.x / 2.0, (118.0 - (1.0 - pop) * 20.0) * fit), 0.0, Vector2(s, s))
+	# Polish round 3 (reviewers: the FIRST BLOOD subtitle sat on names and
+	# stun marks): a smaller ribbon tucked up under the score strip (was
+	# 0.78 at 118 px), so its detail line clears the arena below.
+	var s := (1.0 + (1.0 - pop) * 0.3) * fit * 0.6 * BANNER_SIZE
+	draw_set_transform(Vector2(size.x / 2.0, (106.0 - (1.0 - pop) * 16.0) * fit), 0.0, Vector2(s, s))
 	var ink := Color(0.12, 0.05, 0.03, a)
 	var tf: Font = title_font if title_font else font
 	var title: String = b.title
@@ -3376,7 +3379,10 @@ func _draw_event_banner(b: Dictionary) -> void:
 		draw_circle(ic, 21.0, Color(1.0, 0.8, 0.22, a))
 		draw_circle(ic, 18.0, disc)
 		_icon(str(b.icon), ic, 9.5, Color(1, 1, 1, a))
-	_bar_text(Vector2(0, 60.0), str(b.line), bar_font if bar_font else font, 15, Color(1.0, 0.92, 0.7, a), Color(0.2, 0.08, 0.02, a), 3)
+	if not _in_fight():
+		# (Round 3: during a fight the detail line would sit on the fighters;
+		# the kill feed and chat already carry it.)
+		_bar_text(Vector2(0, 52.0), str(b.line), bar_font if bar_font else font, 15, Color(1.0, 0.92, 0.7, a), Color(0.2, 0.08, 0.02, a), 3)
 	_twinkles(now, a * (0.6 if good else 0.25), [Vector2(-half - 20, -50), Vector2(half + 16, -46), Vector2(-half * 0.6, 50), Vector2(half * 0.6, 54)])
 	draw_set_transform(Vector2.ZERO)
 
@@ -3448,7 +3454,12 @@ func _draw_toasts() -> void:
 	var fs := 14
 	while fs > 10 and _text_width(t.text, fs) > 560.0:
 		fs -= 1
-	draw_set_transform(Vector2(size.x / 2.0, 134.0 * fit), 0.0, Vector2(k, k))
+	# Polish round 3 (reviewers, B12: HOME DEFENSE covered the first class
+	# signs): the notice scroll sits bottom right, beside the skill bar and
+	# over the menu keys, off the play area (was centred 134 px down, on the
+	# class stations and the gate).
+	var tw := (_text_width(t.text, fs) + 60.0) * k
+	draw_set_transform(Vector2(minf(size.x - 236.0 * fit, size.x - 14.0 - tw / 2.0), size.y - 168.0 * fit), 0.0, Vector2(k, k))
 	_scroll_hint(0.0, _text_width(t.text, fs) + 40.0, t.text, a, "", fs, Color(t.color, a))
 	draw_set_transform(Vector2.ZERO)
 

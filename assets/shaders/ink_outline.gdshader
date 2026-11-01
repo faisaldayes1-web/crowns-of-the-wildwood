@@ -6,6 +6,7 @@ render_mode unshaded, blend_mix, depth_draw_never, depth_test_disabled, cull_dis
 // linear across any flat surface, so open ground and floors stay clean.
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
 uniform vec4 ink : source_color = vec4(0.09, 0.07, 0.06, 1.0);
 uniform float thickness = 1.25;  // the reference's lines are fine and dark (graphics pass 2026-10-09; was 1.6)
 uniform float threshold = 0.010;   // relative change in inverse depth that starts a line
@@ -47,6 +48,13 @@ void fragment() {
 	// Vignette: the same warm ink, faint, towards the corners.
 	vec2 q = (uv - 0.5) * vec2(1.25, 1.0);
 	float v = smoothstep(0.3, 0.8, length(q)) * vignette;
-	ALBEDO = ink.rgb;
-	ALPHA = max(a * strength, v);
+	// Polish round 3 (claude-faisal/crowns-polish; reviewers: "hard outlines"
+	// on the trees): over foliage-green pixels the line is a deep shade of
+	// the leaves themselves and a touch lighter, not near-black ink. Bright
+	// greens (Elf uniforms) and everything else keep the black ink.
+	vec3 scr = texture(screen_tex, uv).rgb;
+	float lum = dot(scr, vec3(0.3, 0.59, 0.11));
+	float leafy = smoothstep(0.02, 0.1, scr.g - max(scr.r, scr.b * 0.9)) * (1.0 - smoothstep(0.3, 0.45, lum));
+	ALBEDO = mix(ink.rgb, scr * 0.42, leafy);
+	ALPHA = max(a * strength * (1.0 - 0.3 * leafy), v);
 }

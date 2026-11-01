@@ -1348,4 +1348,4 @@ func apply_light() -> void:
 	if game.fill_light:
 		# The lava lights everything from below and the side.
 		game.fill_light.light_color = Color(1.0, 0.5, 0.25)
-		game.fill_light.light_energy = 0.3
+		game.fill_light.light_energy = 0.55   # polish round 3: warm rock edges (was 0.3)

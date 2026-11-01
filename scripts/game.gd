@@ -2381,7 +2381,8 @@ func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 	l.modulate = color
 	add_child(l)
 	_popups.append([now, where, text, l])
-	l.global_position = where + Vector3(jx, 0.62 * mini(near, 3), 0)
+	# (Round 3: 0.7 m higher, above the unit's name tag rather than on it.)
+	l.global_position = where + Vector3(jx, 0.7 + 0.62 * mini(near, 3), 0)
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(l, "global_position", l.global_position + Vector3(0, 1.4, 0), 0.8).set_ease(Tween.EASE_OUT)

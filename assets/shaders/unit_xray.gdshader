@@ -16,11 +16,18 @@ float lin(vec2 uv, float z, mat4 inv_proj) {
 }
 
 void fragment() {
-	float scene = lin(SCREEN_UV, texture(depth_tex, SCREEN_UV).r, INV_PROJECTION_MATRIX);
+	// Polish round 3: the farthest of five depth samples (centre and 2 px
+	// round it) must still be 1.5 m nearer than the unit, so MSAA-resolved
+	// edges, hair and the unit's own parts never leave pale specks.
+	vec2 px = 2.0 / VIEWPORT_SIZE;
+	float scene = 0.0;
+	for (int i = 0; i < 5; i++) {
+		vec2 o = i == 0 ? vec2(0.0) : (i == 1 ? vec2(px.x, 0.0) : (i == 2 ? vec2(-px.x, 0.0) : (i == 3 ? vec2(0.0, px.y) : vec2(0.0, -px.y))));
+		vec2 uv = SCREEN_UV + o;
+		scene = max(scene, lin(uv, texture(depth_tex, uv).r, INV_PROJECTION_MATRIX));
+	}
 	float me = lin(SCREEN_UV, FRAGCOORD.z, INV_PROJECTION_MATRIX);
-	// Only scenery at least 1.2 m nearer than the unit counts, so the unit's
-	// own hat, hair or shield (self-occlusion) never tints its visible face.
-	if (scene > me - 1.2) {
+	if (scene > me - 1.5) {
 		discard;
 	}
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);

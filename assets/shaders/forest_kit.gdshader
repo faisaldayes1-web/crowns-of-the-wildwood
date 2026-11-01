@@ -72,22 +72,27 @@ void vertex() {
 }
 
 void fragment() {
+	float cut_rim = 0.0;
 	if (cut_n > 0) {
-		int sd = (int(FRAGCOORD.x) & 1) + (int(FRAGCOORD.y) & 1) * 2;
-		if (sd != 3) {
-			for (int i = 0; i < cut_n; i++) {
-				vec3 p = cut_pts[i].xyz;
-				vec3 d = cut_eye - p;
-				float t = dot(wpos - p, d) / dot(d, d);
-				if (t > 0.01 && t < 0.6) {
-					float r = cut_pts[i].w * (1.0 - t);
-					vec3 q = wpos - (p + d * t);
-					if (dot(q, q) < r * r) {
-						discard;
-					}
-				}
+		// Polish round 3 (reviewers: the dithered cutaway read as stipple): a
+		// clean round opening where the line to a fighter passes through the
+		// crown, with no screen-door pattern; the leaves just outside it are
+		// shaded a little darker so the opening reads as a soft-edged hole.
+		float fade = 0.0;
+		for (int i = 0; i < cut_n; i++) {
+			vec3 p = cut_pts[i].xyz;
+			vec3 d = cut_eye - p;
+			float t = dot(wpos - p, d) / dot(d, d);
+			if (t > 0.01 && t < 0.6) {
+				float r = cut_pts[i].w * (1.0 - t * 0.6);
+				float q = length(wpos - (p + d * t));
+				fade = max(fade, 1.0 - smoothstep(r * 0.7, r * 1.3, q));
 			}
 		}
+		if (fade > 0.5) {
+			discard;
+		}
+		cut_rim = fade * 2.0;
 	}
 	vec3 col = COLOR.rgb;
 	vec3 an = abs(wnorm);
@@ -130,6 +135,7 @@ void fragment() {
 	}
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	col *= 1.0 - rim * rim_strength * (leafy ? 1.0 : 0.5) * (kind > 4.5 ? 0.0 : 1.0);
+	col *= 1.0 - 0.35 * cut_rim;
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
 	if (kind > 2.5 && kind < 3.5) {

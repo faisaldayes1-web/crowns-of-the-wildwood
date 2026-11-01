@@ -131,7 +131,10 @@ const NIGHT := {
 	"ambient_energy": 0.48, "sun_energy": 0.75, "fill_energy": 0.2,   # grade pass 2026-10-31: was 0.6, the yard read lavender, not night
 }
 const EMBER := {
-	"ambient_energy": 0.34,
+	# Polish round 3 (reviewers: "dark rock vs lava emission imbalance"): a
+	# warmer, stronger lava bounce so the basalt reads as lit warm stone,
+	# not black against orange (was 0.34).
+	"ambient_energy": 0.52,
 }
 
 # Approved 2026-10-25 picks: a single miniature material family.
