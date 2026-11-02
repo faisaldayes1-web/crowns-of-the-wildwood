@@ -28,6 +28,25 @@ func _finish(game) -> void:
 		await process_frame
 	for i in 3:
 		await process_frame
+	# Agent: Codex-faisal. Retire the tool's match before engine shutdown.
+	# Keep all save/enumeration locals in the synchronous helper so their
+	# resource references leave scope before the queued scene is destroyed.
+	var result: int = _save_outputs(game)
+	var retired := weakref(game)
+	game.queue_free()
+	current_scene = null
+	game = null
+	for i in 3:
+		await process_frame
+	var scene_freed: bool = retired.get_ref() == null
+	print("BAKE teardown: scene freed=%s" % scene_freed)
+	if not scene_freed:
+		push_error("BAKE teardown did not release the match scene")
+		result = 1
+	quit(result)
+
+
+func _save_outputs(game) -> int:
 	var arrays := {}
 	if not "--reset" in OS.get_cmdline_user_args() and ResourceLoader.exists(OUT):
 		var old = load(OUT)
@@ -74,7 +93,7 @@ func _finish(game) -> void:
 	pre.set_meta(StringName("map_%d" % game.map_variant), keep)
 	var err2 := ResourceSaver.save(pre, PRELOAD)
 	print("BAKE preload map %d: %d files; save %s" % [game.map_variant, keep.size(), error_string(err2)])
-	quit(0 if err == OK and err2 == OK and game.playing else 1)
+	return 0 if err == OK and err2 == OK and game.playing else 1
 
 
 func _file(r: Resource, files: Dictionary) -> void:
