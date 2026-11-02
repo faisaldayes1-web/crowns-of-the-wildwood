@@ -32,6 +32,13 @@ func _finish(game) -> void:
 	# Keep all save/enumeration locals in the synchronous helper so their
 	# resource references leave scope before the queued scene is destroyed.
 	var result: int = _save_outputs(game)
+	# Retire this tool's active audio playbacks before freeing their nodes.
+	# Audio commands are consumed on the mixer thread, not process frames.
+	for player in game.find_children("*", "AudioStreamPlayer", true, false):
+		player.stop()
+	for player in game.find_children("*", "AudioStreamPlayer3D", true, false):
+		player.stop()
+	await create_timer(0.1, true, false, true).timeout
 	var retired: WeakRef = weakref(game)
 	game.queue_free()
 	current_scene = null
