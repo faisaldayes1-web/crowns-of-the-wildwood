@@ -50,8 +50,23 @@ static func _z(x: float) -> float:
 	return PROFILE[-1][1]
 
 
+static var patch_cache := {}
+
+
 static func _patch(rect: Rect2, pivot_y: float, z_add: float, flat_z: float = -1.0) -> ArrayMesh:
 	## A grid bent round the face, UV 0..1 over the rect (v down), around pivot_y.
+	## Cached: every face asks for the same few grids, and building one in
+	## script took ~3 ms, ~12 ms a model (each unit spawn and the match-start
+	## warm-up of ~50 looks; claude-faisal/crowns-perf04 2026-10-31, PERF-04).
+	var key := [rect, pivot_y, z_add, flat_z]
+	if patch_cache.has(key):
+		return patch_cache[key]
+	var mesh := _build_patch(rect, pivot_y, z_add, flat_z)
+	patch_cache[key] = mesh
+	return mesh
+
+
+static func _build_patch(rect: Rect2, pivot_y: float, z_add: float, flat_z: float) -> ArrayMesh:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var nx := 18

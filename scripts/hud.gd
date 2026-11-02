@@ -129,8 +129,24 @@ var menu_buttons: Array = []        # [rect, id, arg] drawn by the main menu (me
 var lava_cells: Array = []          # Ember Pass maps: crust plates [centre, polygon, shade] in world x/z
 
 
+static var _art_loaded := false   # the static art below is in (by the first HUD)
+
+
 func _ready() -> void:
 	font = ThemeDB.fallback_font
+	if not _art_loaded:
+		_load_art()
+		_art_loaded = true
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+
+static func _load_art() -> void:
+	## The fonts, icons, cards and tiles every HUD shares (static). Once is
+	## enough: each baked layer is drawn by a HUD copy (_bake), and every copy
+	## listing the icon folders again and re-checking ~40 files took 12-15 ms,
+	## seven of them in the match's first HUD frame (claude-faisal/crowns-perf04
+	## 2026-10-31, PERF-04).
 	title_font = load("res://assets/fonts/LuckiestGuy-Regular.ttf")
 	bar_font = load("res://assets/fonts/LilitaOne-Regular.ttf")
 	if topbar_tex == null and ResourceLoader.exists("res://assets/ui/topbar/topbar.png"):
@@ -145,7 +161,7 @@ func _ready() -> void:
 			img.fill_rect(Rect2i(176, 163, img.get_width() - 352, img.get_height() - 163), Color(0, 0, 0, 0))
 			topbar_tex = ImageTexture.create_from_image(img)
 	if title_font == null:
-		title_font = font
+		title_font = ThemeDB.fallback_font
 	logo = load("res://assets/ui/logo.png")
 	# Every painted icon in assets/ui/icons (tools/make_icons.py).
 	var dir := DirAccess.open("res://assets/ui/icons")
@@ -186,8 +202,6 @@ func _ready() -> void:
 		var path := "res://assets/ui/skills/%s.png" % key
 		if ResourceLoader.exists(path):
 			skill_art[key] = load(path)
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _process(_delta: float) -> void:
@@ -3161,7 +3175,7 @@ func _draw_kill_feed() -> void:
 	## The last few kills, under the logo at the right edge: killer, sword,
 	## victim, each in their team's colour, fading out after a few seconds.
 	var now: float = Time.get_ticks_msec() / 1000.0
-	var y: float = 104.0
+	var y: float = 144.0   # below the full 132px scoreboard/phase strip
 	var right: float = size.x - 104.0   # clear of the CROWN / KITS / MAP column
 	var shown := 0
 	for i in range(game.kill_feed.size() - 1, -1, -1):
@@ -6542,13 +6556,27 @@ func _chat_display_text(message: Dictionary) -> String:
 	return text
 
 
+func _chat_rect() -> Rect2:
+	var top: float = 382.0 if game.rosters_visible else 130.0
+	if not game.couch_active:
+		# Reserve the minimap and its stock/cargo warning even when chat is
+		# busy. Keep the space stable as cargo fills and empties.
+		var map_bottom := 158.0 if _narrow() else 224.0
+		if _corner_score():
+			map_bottom += 84.0
+		var reserved_bottom := map_bottom + 20.0
+		if game.economy and _me():
+			reserved_bottom = map_bottom + 86.0
+		top = maxf(top, reserved_bottom)
+	return Rect2(14, top, 380 if touch_ui else 290, maxf(0.0, size.y - 166 - top))
+
+
 func _draw_chat() -> void:
 	## The chat log in the reference's style: each message is a row with the
 	## speaker's portrait, their name in team colour, the match clock and the
 	## line; while typing it sits in a panel with All/Team tabs and an input
 	## box with a send arrow. Idle, recent rows fade out over the field.
-	var top: float = 382.0 if game.rosters_visible else 130.0
-	var rect := Rect2(14, top, 380 if touch_ui else 290, size.y - 166 - top)
+	var rect := _chat_rect()
 	var now := Time.get_ticks_msec() / 1000.0
 	var typing: bool = game.chat_open
 	if not game.chat_visible and not typing:
