@@ -31,6 +31,7 @@ const EDGE_Z := 60.0        # the terrain runs on past the field's edge (z 36) t
 const CELL := 2.0           # minimap / collider cell
 const TERRAIN_SHADER := """
 shader_type spatial;
+render_mode blend_mix, depth_prepass_alpha;
 // Two textures projected in world space and blended by vertex colour red:
 // tops (snow / moss) where it is 1, faces (rock / forest litter) where 0.
 uniform sampler2D top_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -58,7 +59,9 @@ void fragment() {
 	vec3 top = mix(tri(top_tex, top_scale), texture(top_tex, wpos.xz * vec2(1.0, -1.0) * top_scale).rgb, b.y) * top_tint.rgb;
 	vec3 face = tri(face_tex, face_scale) * face_tint.rgb;
 	ALBEDO = mix(face, top, COLOR.r) * mix(0.8, 1.0, COLOR.g);
-	ROUGHNESS = mix(0.92, 0.8, COLOR.r);
+	ROUGHNESS = 0.0;   // (also the ink pass's terrain mask)
+	SPECULAR = 0.0;
+	ALPHA = COLOR.b;   // the foot of a bank fades into the open ground instead of ending in a stair-stepped edge
 }
 """
 
@@ -590,7 +593,7 @@ func _paths() -> void:
 			continue   # the courtyard is flagged, the gate has a flagstone strip of its own; nooks are left wild
 		if s[3] == "pass":
 			w = 3.4
-		game._add_path(a, b, w, cob, 0.0 if kind == "winter" else 1.2)   # (no verge on the snow: it read as a slab against the ridges)
+		game._add_path(a, b, w, cob, 0.0 if kind == "winter" else 1.2, s[3] == "pass" and ids[s[1]].begins_with("w"))   # (no verge on the snow: it read as a slab against the ridges)
 	for sx in [-1.0, 1.0]:
 		# The road runs on from the door court right up to the castle door.
 		var g: Vector3 = node("g0" if sx < 0.0 else "g1")
@@ -608,9 +611,29 @@ func _paths() -> void:
 		cm.radial_segments = 20
 		cm.rings = 1
 		disc.mesh = cm
-		disc.material_override = game._pbr("cobble", 0.6, Color(0.92, 0.88, 0.8))
-		disc.position = pos[i] + Vector3(0, 0.006, 0)
+		# The plaza is paved in the roads' own stones (it was a finer grey
+		# cobble that met them abruptly), its rim fraying into the ground
+		# like a road's (PATH_SHADER, radial).
+		var r0: float = rad[i] * 0.62
+		cm.top_radius = maxf(r0 - 1.1, 0.6)
+		cm.bottom_radius = cm.top_radius
+		disc.material_override = cob
+		disc.position = pos[i] + Vector3(0, 0.014, 0)
 		game.add_child(disc)
+		var fr := MeshInstance3D.new()
+		var fm := CylinderMesh.new()
+		fm.top_radius = r0 + 1.3
+		fm.bottom_radius = fm.top_radius
+		fm.height = 0.01
+		fm.radial_segments = 28
+		fm.rings = 1
+		fr.mesh = fm
+		var fmat: ShaderMaterial = cob.get_meta("fray").duplicate()
+		fmat.set_shader_parameter("half_w", r0)
+		fmat.set_shader_parameter("radial", true)
+		fr.material_override = fmat
+		fr.position = pos[i] + Vector3(0, 0.0105, 0)
+		game.add_child(fr)
 
 
 func _terrain() -> void:
@@ -626,7 +649,23 @@ func _terrain() -> void:
 		if j % 12 == 0:
 			await game._world_build_frame()
 		for i in nx:
-			hs[j * nx + i] = height(-MESH_X + i * step, -EDGE_Z + j * step)
+			var hv: float = height(-MESH_X + i * step, -EDGE_Z + j * step)
+			if hv > 0.0:
+				# Eased off the foot (visual only; the colliders keep height()): the bank rose
+				# at a fixed 45 degrees straight from the ruin's flat edge, a long straight crease.
+				hv *= smoothstep(0.0, 2.6 if kind == "winter" else 0.5, hv)
+			hs[j * nx + i] = hv
+	# One 3x3 blur over the visual heights: the 1 m facets' creases are what the ink pass
+	# (a depth-fold edge detector) drew as thin angular seams across the snow and the lawn.
+	var hb := hs.duplicate()
+	for j in range(1, nz - 1):
+		for i in range(1, nx - 1):
+			var acc := 0.0
+			for dj in [-1, 0, 1]:
+				for di in [-1, 0, 1]:
+					acc += hs[(j + dj) * nx + i + di]
+			hb[j * nx + i] = maxf(acc / 9.0, -0.15) if hs[j * nx + i] > -0.15 or acc / 9.0 > 0.0 else -0.15
+	hs = hb
 	var mat := ShaderMaterial.new()
 	var sh := Shader.new()
 	sh.code = TERRAIN_SHADER
@@ -705,7 +744,7 @@ func _vcolor(v: Vector3, n: Vector3) -> Color:
 	else:
 		top = smoothstep(0.75, 0.95, n.y)
 	var lit := 1.0   # (no fold darkening: the foothills must match the open ground)
-	return Color(top, lit, 0.0)
+	return Color(top, lit, smoothstep(-0.02, 0.3, v.y))
 
 
 func _ridge_colliders() -> void:
@@ -761,8 +800,11 @@ func _build_stonekeep() -> void:
 	# a round tower either side of each gate, flagstones inside.
 	game.grey = true
 	game.audit_label = "ruin"
-	var floor_mat = game._flagstone(Color(0.86, 0.88, 0.92))
-	game._add_block(Vector3(0, 0.012, 0), Vector3(19.6, 0.02, 15.4), Color.WHITE, false, floor_mat)
+	var floor_mat = game._uneven_flagstone(Color(0.86, 0.88, 0.92))
+	var main_floor: ShaderMaterial = floor_mat.duplicate()
+	main_floor.set_shader_parameter("center", Vector2(0.0, 0.0))
+	main_floor.set_shader_parameter("half_ext", Vector2(9.8, 7.7))
+	game._add_block(Vector3(0, 0.012, 0), Vector3(19.6, 0.02, 15.4), Color.WHITE, false, main_floor)
 	for sx in [-1.0, 1.0]:
 		await game._world_build_frame()
 		# North and south walls (broken in two places each).
@@ -778,7 +820,10 @@ func _build_stonekeep() -> void:
 			var gh: float = 3.0 if zs < 0.0 else 2.0
 			game._add_wall(Vector3(sx * 10.0, gh / 2.0, zs * 5.9), Vector3(1.0, gh, 4.2))
 		# Flagstones through the gate and down the pass to its plaza.
-		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(5.6, 0.02, 4.4), Color.WHITE, false, floor_mat)
+		var gate_floor: ShaderMaterial = floor_mat.duplicate()
+		gate_floor.set_shader_parameter("center", Vector2(sx * 12.3, 0.0))
+		gate_floor.set_shader_parameter("half_ext", Vector2(3.4, 3.6))   # (wider than the gap: its fade lies under the towers and over the road end)
+		game._add_block(Vector3(sx * 12.3, 0.013, 0), Vector3(6.8, 0.02, 7.2), Color.WHITE, false, gate_floor)
 		game.map_marks.append([Vector3(sx * 12.8, 0, 0), "gate"])   # (keeps snowmen and drifts out of the gateway)
 		await game._world_build_frame()
 		for zs in [-1.0, 1.0]:
