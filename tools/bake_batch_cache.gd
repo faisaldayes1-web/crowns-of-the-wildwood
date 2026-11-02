@@ -32,7 +32,7 @@ func _finish(game) -> void:
 	# Keep all save/enumeration locals in the synchronous helper so their
 	# resource references leave scope before the queued scene is destroyed.
 	var result: int = _save_outputs(game)
-	var retired := weakref(game)
+	var retired: WeakRef = weakref(game)
 	game.queue_free()
 	current_scene = null
 	game = null
