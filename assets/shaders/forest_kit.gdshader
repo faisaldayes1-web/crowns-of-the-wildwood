@@ -85,8 +85,13 @@ void fragment() {
 	} else if (kind > 4.5) {
 		// Pine needles: a fine grain down the slope and a soft mottle.
 		float m = texture(noise_tex, wpos.xz * 0.6).r;
-		float g = texture(noise_tex, vec2((wpos.x - wpos.z) * 3.0, wpos.y * 0.6)).r;
+		float g = texture(noise_tex, wpos.xz * 2.6 + vec2(wpos.y * 1.3)).r;   // (polish: was a diagonal grain that read as stripes)
 		col *= 0.9 + 0.14 * m + 0.1 * (g - 0.5);
+		// Polish pass (claude-faisal/crowns-polish 2026-11-01): needle clumps,
+		// small light tufts with darker gaps between, so a tier's slope reads
+		// as many little branches rather than one smooth cone.
+		float tuft = texture(noise_tex, wpos.xz * 1.7 + vec2(wpos.y * 0.9, -wpos.y * 0.6)).r;
+		col *= mix(0.86, 1.06, smoothstep(0.34, 0.66, tuft));
 	} else if (kind < 1.5) {
 		// Bark and planks: soft vertical grain.
 		float g = texture(noise_tex, vec2((wpos.x + wpos.z) * 2.5, wpos.y * 0.35)).r;
@@ -98,9 +103,10 @@ void fragment() {
 		col *= 0.8 + 0.3 * b + 0.12 * (g - 0.5);
 	}
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-	col *= 1.0 - rim * rim_strength * (leafy ? 1.0 : 0.5) * (kind > 4.5 ? 0.0 : 1.0);
+	col *= 1.0 - rim * rim_strength * (leafy ? 0.3 : 0.5) * (kind > 4.5 ? 0.0 : 1.0);   // (round 5: leaves 0.3, so no dark rim reads as an outline)
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
+	ALPHA = 1.0;   // (read only by the cover pass, see forest_kit.gd _ensure)
 	if (kind > 2.5 && kind < 3.5) {
 		EMISSION = COLOR.rgb * glow_energy * smoothstep(0.55, 0.9, COLOR.a);
 	} else if (leafy || kind > 4.5) {

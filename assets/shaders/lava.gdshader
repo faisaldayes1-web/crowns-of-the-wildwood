@@ -9,12 +9,12 @@ render_mode cull_disabled, fog_disabled;   // no red haze over the black crust
 
 uniform float drift = 0.03;
 uniform float scale = 0.16;
-uniform float glow = 2.0;
+uniform float glow = 1.65;   // polish round 4: was 2.0 (lava out-shone the rock)
 uniform vec3 core : source_color = vec3(1.0, 0.66, 0.24);      // the hottest crack cores
 uniform vec3 hot : source_color = vec3(1.0, 0.34, 0.04);      // molten rock
 uniform vec3 deep : source_color = vec3(0.45, 0.04, 0.015);    // cooling, deep red
-uniform vec3 crust_lo : source_color = vec3(0.008, 0.006, 0.007);   // near black
-uniform vec3 crust_hi : source_color = vec3(0.06, 0.03, 0.028);
+uniform vec3 crust_lo : source_color = vec3(0.03, 0.018, 0.016);   // dark warm basalt (polish round 4: was near black)
+uniform vec3 crust_hi : source_color = vec3(0.11, 0.055, 0.045);
 uniform float flow = 0.0;   // falls: how fast the pattern pours down (v)
 uniform float pulse = 0.18; // how much the glow breathes
 

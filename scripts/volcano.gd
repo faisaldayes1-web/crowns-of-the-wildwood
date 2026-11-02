@@ -374,7 +374,31 @@ func _animate(delta: float) -> void:
 # --- Building the world ------------------------------------------------------------
 
 func basalt(tint: Color = Color(0.25, 0.19, 0.2)) -> StandardMaterial3D:
-	return game._pbr("rock", 0.22, tint)
+	# (Polish round 5: lifted ~35% toward warm grey-brown basalt; the arena
+	# read black against the lava.)
+	return game._pbr("rock", 0.22, tint.lerp(Color(0.5, 0.4, 0.37), 0.35))
+
+
+func _pave() -> StandardMaterial3D:
+	## Polish round 5 (reviewers: Ember stone flat, dark, strongly jointed):
+	## the causeways and courts in the castle flagstones (thin soft joints,
+	## bevelled, varied) tinted a warm volcanic grey, not the old dark flags.
+	if not game.world_style:
+		return game._flagstone(Color(0.45, 0.42, 0.42))
+	var m: StandardMaterial3D = game._pbr("castle_flags_grey", 0.32, Color(0.7, 0.57, 0.5))   # (round 7: smaller stones, was 0.16)
+	# Round 8: deeper bevels and contact shading, more tonal spread per stone.
+	m.normal_scale = 3.0   # (round 9: one more step, was 2.2)
+	m.roughness = 0.82
+	return m
+
+
+func _kerb(tint: Color) -> StandardMaterial3D:
+	## Kerbs and rims in the castle's bevelled wall blocks, lighter basalt.
+	if not game.world_style:
+		return game._ashlar(tint)
+	var m: StandardMaterial3D = game._pbr("castle_blocks_grey", 0.3, tint.lerp(Color(0.68, 0.57, 0.52), 0.5))
+	m.normal_scale = 3.0   # (round 9: deeper bevels)
+	return m
 
 
 func _mesh(mesh: Mesh, at: Vector3, mat: Material, rot: Vector3 = Vector3.ZERO, shadow: bool = true) -> MeshInstance3D:
@@ -562,7 +586,7 @@ func _build_corridor(s: Array) -> void:
 		var deck: Material = game._plank_dark(Color(0.5, 0.4, 0.36))
 		_box(mid + Vector3(0, -0.12, 0), Vector3(half * 2.0, 0.24, length), deck, yaw)
 		# Stone kerbs under the rails.
-		var kerb: Material = game._ashlar(Color(0.4, 0.33, 0.33))
+		var kerb: Material = _kerb(Color(0.4, 0.33, 0.33))
 		for sd in [-1.0, 1.0]:
 			_box(mid + side * sd * (half + 0.12) + Vector3(0, -0.08, 0), Vector3(0.36, 0.4, length - rad[s[0]] - rad[s[1]] + 1.0), kerb, yaw)
 		var timber: Material = game._timber(Color(0.32, 0.22, 0.18))
@@ -591,12 +615,12 @@ func _build_corridor(s: Array) -> void:
 		_box(mid + Vector3(0, -0.36, 0), Vector3(half * 2.0 - 0.3, 0.2, length - 1.0), basalt(Color(0.25, 0.2, 0.2)), yaw)
 		return
 	# Causeway and the grand stair: paved rock with a cliff skirt.
-	var pave: Material = game._flagstone(Color(0.45, 0.42, 0.42))
+	var pave: Material = _pave()
 	# (Its top sits 8 mm above the plateau rock it runs onto, and the plazas
 	# 8 mm above it: all three were at y 0 and z-fought in front of the doors.)
 	_box(mid + Vector3(0, -0.032, 0), Vector3(half * 2.0, 0.08, length), pave, yaw)
 	_skirt(mid + Vector3(0, -0.08, 0), Vector3(half * 2.0 + 0.6, absf(LAVA_Y) + 1.5, length), yaw)
-	var kerb: Material = game._ashlar(Color(0.44, 0.36, 0.35))
+	var kerb: Material = _kerb(Color(0.44, 0.36, 0.35))
 	var start: Vector3 = a + dir * (rad[s[0]] - 0.4)
 	var end: Vector3 = b - dir * (rad[s[1]] - 0.4)
 	if kind == "causeway" and castle_of(a) >= 0:
@@ -618,7 +642,7 @@ func _build_corridor(s: Array) -> void:
 	if kind == "stairs":
 		# Step lines across the flags, so the long run reads as a stair.
 		var steps := int(cl / 1.1)
-		var edge: Material = game._ashlar(Color(0.38, 0.31, 0.31))
+		var edge: Material = _kerb(Color(0.38, 0.31, 0.31))
 		for k in steps:
 			var at: Vector3 = start + dir * ((k + 0.5) * cl / steps)
 			_box(at + Vector3(0, 0.005, 0), Vector3(half * 2.0, 0.03, 0.14), edge, yaw, false)
@@ -629,14 +653,24 @@ func _build_plaza(i: int) -> void:
 	var r: float = rad[i]
 	if castle_of(c) >= 0:
 		# The door court on the plateau: just the paving.
-		game._add_rosette(c + Vector3(0, 0.032, 0), r + 0.5, Color(0.62, 0.55, 0.55))
+		# (Round 7: the gate courts in the bevelled castle flags, smaller
+		# stones, instead of the broad flat rosette.)
+		if game.world_style:
+			var court := CylinderMesh.new()
+			court.top_radius = r + 0.5
+			court.bottom_radius = r + 0.5
+			court.height = 0.02
+			court.radial_segments = 40
+			_mesh(court, c + Vector3(0, 0.032, 0), _pave())
+		else:
+			game._add_rosette(c + Vector3(0, 0.032, 0), r + 0.5, Color(0.72, 0.62, 0.58))
 		return
 	var top := CylinderMesh.new()
 	top.top_radius = r
 	top.bottom_radius = r
 	top.height = 0.1
 	top.radial_segments = 40
-	_mesh(top, c + Vector3(0, -0.034, 0), game._flagstone(Color(0.45, 0.42, 0.42)))
+	_mesh(top, c + Vector3(0, -0.034, 0), _pave())
 	var cliff := CylinderMesh.new()
 	cliff.top_radius = r + 0.5
 	cliff.bottom_radius = r + 1.6
@@ -661,7 +695,7 @@ func _build_plaza(i: int) -> void:
 			var o: int = s[1] if s[0] == i else s[0]
 			var d: Vector3 = pos[o] - c
 			gaps.append([atan2(d.z, d.x), asin(clampf((s[2] + 0.5) / r, 0.0, 1.0))])
-	var kerb: Material = game._ashlar(Color(0.44, 0.36, 0.35))
+	var kerb: Material = _kerb(Color(0.44, 0.36, 0.35))
 	var n := int(TAU * r / 1.3)
 	for k in n:
 		var ang := TAU * k / n
@@ -680,7 +714,7 @@ func _build_fire_objective() -> void:
 	## over a font of fire, braziers and red banners round it, and the capture
 	## ring that glows in the holder's colour.
 	var c := FIRE_POS
-	game._add_rosette(c + Vector3(0, 0.03, 0), 8.2, Color(0.42, 0.3, 0.3))
+	game._add_rosette(c + Vector3(0, 0.03, 0), 8.2, Color(0.58, 0.44, 0.4))   # (round 5: lighter, was 0.42 / 0.3 / 0.3)
 	# A ring of burning runes round the font, glowing straight off the paving.
 	var rune_mat := StandardMaterial3D.new()
 	rune_mat.albedo_texture = load("res://assets/textures/emblems/runes.png")
@@ -720,7 +754,7 @@ func _build_fire_objective() -> void:
 	rim.outer_radius = 2.5
 	rim.rings = 32
 	rim.ring_segments = 8
-	var rim_m := _mesh(rim, c + Vector3(0, 0.06, 0), game._ashlar(Color(0.45, 0.38, 0.36)))
+	var rim_m := _mesh(rim, c + Vector3(0, 0.06, 0), _kerb(Color(0.45, 0.38, 0.36)))
 	rim_m.scale = Vector3(1.0, 0.4, 1.0)
 	game._add_fire(c + Vector3(0, 0.05, 0), 6.0)
 	# The burning crystal, floating and turning over the font.
@@ -814,7 +848,7 @@ func _build_watch_post(team: int) -> void:
 	# Cover: a low wall right on the south rim (solid; no gap behind it for
 	# anyone to get wedged in), shooters' spots in front of it.
 	var wall := c + Vector3(sx * 1.0, 0, 6.0)
-	var stone: Material = game._ashlar(Color(0.44, 0.36, 0.35))
+	var stone: Material = _kerb(Color(0.44, 0.36, 0.35))
 	_box(wall + Vector3(0, 0.55, 0), Vector3(2.8, 1.1, 0.7), stone)
 	game._add_collider(wall + Vector3(0, 0.55, 0), Vector3(2.8, 1.1, 0.7))
 	game.cover_points.append(wall + Vector3(0, 0, -1.4))
@@ -1348,4 +1382,4 @@ func apply_light() -> void:
 	if game.fill_light:
 		# The lava lights everything from below and the side.
 		game.fill_light.light_color = Color(1.0, 0.5, 0.25)
-		game.fill_light.light_energy = 0.3
+		game.fill_light.light_energy = 0.55   # polish round 3: warm rock edges (was 0.3)

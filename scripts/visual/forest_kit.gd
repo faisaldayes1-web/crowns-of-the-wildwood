@@ -48,6 +48,7 @@ var ground_mat: ShaderMaterial
 var palette := "day"  # day, night, winter, twilight
 var low := false
 static var _unit := []
+static var _unit_small := []   # polish round 3: a coarser sphere for pine needle clumps
 
 
 static func enabled(g) -> bool:
@@ -312,6 +313,9 @@ func _tree_cluster(t: Array, r: RandomNumberGenerator) -> void:
 	var s := (1.12 if big else 0.95) * r.randf_range(0.9, 1.08)
 	if max_h > 0.0:
 		s = minf(s, max_h / base_h)
+	var field0 := _in_field(pos) or pos.y < -0.5 or hint == "canopy"
+	if not field0 and not low:
+		s *= 0.88   # round 9 (round 7 was 0.66): out-of-bounds groves in small trees too (its collider, out of play, is unchanged)
 	_tree(pos, species, seed, s, r)
 	# Companions: lower trees round the spot. In the field they stay close
 	# (inside the old crown's footprint, where nobody walked under a trunk
@@ -322,7 +326,7 @@ func _tree_cluster(t: Array, r: RandomNumberGenerator) -> void:
 		n = 0 if pos.y < -0.5 else 1
 	for i in n:
 		var a := r.randf() * TAU
-		var d := r.randf_range(1.05, 1.35) if field else r.randf_range(1.7, 2.7)
+		var d := r.randf_range(1.05, 1.35) if field else r.randf_range(1.1, 1.9)
 		var q := pos + Vector3(cos(a), 0, sin(a)) * d
 		if _crowded(q, 0.7) or not _clear(q, 0.9):
 			continue
@@ -344,8 +348,15 @@ func _fill_forest(r: RandomNumberGenerator) -> void:
 	# Pass 2 (2026-10-31): a closer grid on High (the picks' woods are a
 	# packed canopy of conifers right up to the walls); Low a little sparser
 	# than before (was 3.8), so its frame stays as light with the bigger pines.
-	var step := 2.0 if not low else 4.3
-	var gap := 0.9 if not low else 1.25
+	# Round 7 (reviewers: "broad fused scalloped tier surfaces"): many
+	# smaller trees, 62% of the old size on a closer grid, so the woods read
+	# as separate small conifers with a short trunk under each. Decoration
+	# only (no colliders); one MultiMesh per mesh per chunk as before.
+	# (Round 9: back up to ~85% size on a 1.85 m grid: distinct, readable
+	# pines with dark gaps between them, not confetti.)
+	var step := 1.85 if not low else 4.3
+	var gap := 0.75 if not low else 1.25
+	var small := 0.85 if not low else 1.0
 	var hx: float = game.map_half.x
 	var hz: float = game.map_half.y
 	var x := -118.0
@@ -366,7 +377,7 @@ func _fill_forest(r: RandomNumberGenerator) -> void:
 			# behind a yard they grow full height right up to its wall.
 			var near_yard: bool = _in_castle(p, 7.0) and absf(p.z) > game.CELLAR_HALF_Z - 1.0 and p.z > 0.0
 			var species := _species(p, "", seed)
-			var s := r.randf_range(0.78, 1.12) if not near_yard else r.randf_range(0.6, 0.75)
+			var s := (r.randf_range(0.78, 1.12) if not near_yard else r.randf_range(0.6, 0.75)) * small
 			_mark(p, gap)
 			_tree(p, species, seed, s, r)
 		x += step
@@ -629,6 +640,19 @@ func _ensure() -> void:
 	mat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	mat.set_shader_parameter("glow_energy", 2.2 if palette == "twilight" else (1.4 if palette == "night" else 1.0))
 	mat.set_shader_parameter("self_lit", 0.35 if palette == "twilight" else 0.0)
+	# Polish round 5 (reviewers: the targets' trees have no hard outlines):
+	# a cover pass redraws every kit surface, unchanged, in the transparent
+	# pass after the screen ink (render priority 101 > the ink's 100), so no
+	# ink line lands on a tree, bush or rock. Same shader code and uniforms.
+	if not low and not "--kit-no-cover" in OS.get_cmdline_user_args():
+		var cs := Shader.new()
+		cs.code = mat.shader.code.replace("render_mode cull_back,", "render_mode cull_back, blend_mix, depth_draw_never,")
+		var cover := ShaderMaterial.new()
+		cover.shader = cs
+		cover.render_priority = 101
+		for p in ["noise_tex", "glow_energy", "self_lit"]:
+			cover.set_shader_parameter(p, mat.get_shader_parameter(p))
+		mat.next_pass = cover
 
 
 func kit_tree(parent: Node3D, key: String, at: Vector3, s: float, yaw: float) -> MeshInstance3D:
@@ -775,7 +799,11 @@ func _pine_ramp(accent: String) -> Array:
 	# Pass 3 (2026-10-31): the picks' pines are a mid green body with clearly
 	# lit, warm yellow-green tops on every tier and dark undersides (pass 2
 	# was a deep green body, tips only a step lighter). Vertex colours are linear.
-	return [Color.from_hsv(0.42, 0.85, 0.022), Color.from_hsv(0.36, 0.84, 0.085), Color.from_hsv(0.28, 0.78, 0.22)]
+	# Round 6 (lead: mid-green bodies, lighter yellow-green tier tops, no
+	# near-black cores): was v 0.022 / 0.085 / 0.22.
+	# (Round 9, target D: deep saturated mid-dark body, only the tier tops
+	# lit warm yellow-green.)
+	return [Color.from_hsv(0.43, 0.92, 0.022), Color.from_hsv(0.405, 0.92, 0.07), Color.from_hsv(0.31, 0.82, 0.24)]
 
 
 func _bark() -> Array:
@@ -789,6 +817,16 @@ func _bark() -> Array:
 static func _hash(v: Vector3, seed: int) -> float:
 	var h := sin(v.x * 12.9898 + v.y * 78.233 + v.z * 37.719 + float(seed % 1000) * 0.618) * 43758.5453
 	return h - floorf(h)
+
+
+static func _small_sphere() -> void:
+	var s := SphereMesh.new()
+	s.radius = 1.0
+	s.height = 2.0
+	s.radial_segments = 6
+	s.rings = 3
+	var a := s.get_mesh_arrays()
+	_unit_small = [a[Mesh.ARRAY_VERTEX], a[Mesh.ARRAY_INDEX]]
 
 
 static func _unit_sphere() -> void:
@@ -808,13 +846,15 @@ func _v(st: SurfaceTool, p: Vector3, n: Vector3, c: Color, kind: float) -> void:
 	st.add_vertex(p)
 
 
-func _lobe(st: SurfaceTool, c: Vector3, rad: float, squash: float, seed: int, cb: Color, ct: Color, y0: float, y1: float, kind: float, jitter: float = 0.14, snow: float = -1.0) -> void:
+func _lobe(st: SurfaceTool, c: Vector3, rad: float, squash: float, seed: int, cb: Color, ct: Color, y0: float, y1: float, kind: float, jitter: float = 0.14, snow: float = -1.0, small: bool = false) -> void:
 	## A lumpy leaf clump (or rock): a jittered sphere, coloured by height
 	## through the whole crown (y0..y1), darker underneath.
 	if _unit.is_empty():
 		_unit_sphere()
-	var verts: PackedVector3Array = _unit[0]
-	var idx: PackedInt32Array = _unit[1]
+	if small and _unit_small.is_empty():
+		_small_sphere()
+	var verts: PackedVector3Array = _unit_small[0] if small else _unit[0]
+	var idx: PackedInt32Array = _unit_small[1] if small else _unit[1]
 	var pts := PackedVector3Array()
 	var nrm := PackedVector3Array()
 	var cols := PackedColorArray()
@@ -913,6 +953,26 @@ func _make_broad(st: SurfaceTool, seed: int, shape: int, accent: String) -> void
 	var ramp := _leaf_ramp("violet" if palette == "twilight" and accent == "" and shape == 1 else accent)
 	var bark := _bark()
 	var trunk_h: float = [1.7, 1.9, 1.55][shape]
+	var crown_r0: float = [1.45, 1.25, 1.6][shape]
+	if "--kit-pine-model" in OS.get_cmdline_user_args() and _emit_model(st, "broad%d" % shape, ramp, 0.0):
+		# Polish round 5: the modelled crown, plus the twilight blooms and
+		# the day/night blossoms as before.
+		var cy0 := trunk_h + crown_r0 * 0.7
+		if palette == "twilight":
+			for i in 9:
+				var a := r.randf() * TAU
+				var up := r.randf_range(-0.1, 0.8)
+				var d := Vector3(cos(a) * (1.0 - up * 0.5), up, sin(a) * (1.0 - up * 0.5)).normalized()
+				var bc := Color(0.55, 0.95, 1.0, 1.0) if i % 3 != 0 else Color(1.0, 0.55, 0.9, 1.0)
+				_lobe(st, Vector3(0, cy0, 0) + d * crown_r0 * 0.98, 0.1, 1.0, seed + 700 + i, bc, bc, 0.0, 1.0, 3.0, 0.1)
+		elif accent == "" and palette in ["day", "night"] and shape == 2:
+			for i in 7:
+				var a := r.randf() * TAU
+				var up := r.randf_range(0.0, 0.85)
+				var d := Vector3(cos(a) * (1.0 - up * 0.5), up, sin(a) * (1.0 - up * 0.5)).normalized()
+				var bc := Color(0.98, 0.95, 0.86, 1.0)
+				_lobe(st, Vector3(0, cy0, 0) + d * crown_r0 * 0.96, 0.08, 1.0, seed + 900 + i, bc, bc, 0.0, 1.0, 4.0, 0.1)
+		return
 	var crown_r: float = [1.45, 1.25, 1.6][shape]
 	var cy: float = trunk_h + crown_r * 0.7    # crown centre
 	_cyl(st, Vector3(0, -0.1, 0), Vector3(0, trunk_h + 0.3, 0), 0.22, 0.13, 6, bark[0], bark[1], 1.0)
@@ -960,7 +1020,50 @@ func _make_broad(st: SurfaceTool, seed: int, shape: int, accent: String) -> void
 			_lobe(st, Vector3(0, cy, 0) + d * crown_r * 1.0, 0.08, 1.0, seed + 900 + i, bc, bc, 0.0, 1.0, 4.0 if not glow else 3.0, 0.1)
 
 
+func _emit_model(st: SurfaceTool, name: String, ramp: Array, kind: float) -> bool:
+	## Polish round 5: a modelled tree (tools/blender/kit_trees.py ->
+	## assets/models/kit/<name>.res), its (shade, hue, kind) vertex data
+	## mapped through this map's palette: ramp is [under, body, lit] (or
+	## [under, lit]); Stonekeep gets snow on the up-facing sunlit clumps.
+	var path := "res://assets/models/kit/%s.res" % name
+	if low or not ResourceLoader.exists(path):
+		return false
+	var m: ArrayMesh = load(path)
+	var arr := m.surface_get_arrays(0)
+	var pos: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var nrm: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var dat: PackedColorArray = arr[Mesh.ARRAY_COLOR]
+	var bark := _bark()
+	var snow_c := Color(0.93, 0.96, 1.0, 1.0)
+	for i in pos.size():
+		var d: Color = dat[i]
+		var sh := clampf(d.r, 0.0, 1.0)
+		var c: Color
+		var k := kind
+		if d.b > 0.5:
+			c = bark[0].lerp(bark[1], sh)
+			k = 1.0
+		else:
+			if ramp.size() >= 3:
+				c = ramp[0].lerp(ramp[1], sh / 0.5) if sh < 0.5 else ramp[1].lerp(ramp[2], (sh - 0.5) / 0.5)
+			else:
+				c = ramp[0].lerp(ramp[1], smoothstep(0.0, 1.0, sh))
+			var j := d.g - 0.5
+			c = Color(c.r * (1.0 + j * 0.16), c.g * (1.0 + j * 0.05), c.b * (1.0 - j * 0.16))
+			if palette == "winter" and sh > 0.5:
+				c = c.lerp(snow_c, smoothstep(0.3, 0.8, nrm[i].y) * smoothstep(0.5, 0.85, sh) * 0.9)
+		c.a = 1.0
+		_v(st, pos[i], nrm[i], c, k)
+	return true
+
+
 func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
+	# Round 6 (lead review of r5: the modelled pines regressed): the shipping
+	# pine is #155's tiered pine again (closest to Pick D at the match
+	# camera), with the ink kept off foliage and lighter tier tops. The
+	# Blender model path stays behind --kit-pine-model for further work.
+	if "--kit-pine-model" in OS.get_cmdline_user_args() and _emit_model(st, "pine%d" % shape, _pine_ramp(accent), NEEDLE):
+		return
 	## Pick D's conifer, pass 3 (2026-10-31): a short visible trunk and five
 	## or six stacked, rounded tiers. Each tier is a puffy cap ringed with
 	## many small cloud-like lobes (a scalloped, drooping rim of round needle
@@ -976,7 +1079,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	r.seed = seed
 	var ramp := _pine_ramp(accent)
 	var bark := _bark()
-	var tiers: int = [5, 4, 6][shape]
+	var tiers: int = [7, 5, 8][shape]   # (round 8: more, finer tier steps, was 5 / 4 / 6)
 	var base_r: float = [1.7, 1.3, 1.8][shape]
 	var top: float = [5.4, 3.4, 6.0][shape]
 	var foot: float = [0.75, 0.5, 0.8][shape]   # first tier's rim height
@@ -987,14 +1090,16 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 	# One tier's profile, [radius factor, height factor], from the rim up:
 	# the drooping rim, the bulge (the lobes' sunlit tops), the shoulder
 	# under the next tier, the apex.
-	var prof := [[0.9, 0.0], [1.0, 0.24], [0.6, 0.6], [0.0, 1.0]]
+	# (Round 7: the shoulder tucks in deeper, 0.6 -> 0.42, so a dark notch
+	# separates each tier from the next.)
+	var prof := [[0.9, 0.0], [1.0, 0.24], [0.5, 0.6], [0.0, 1.0]]   # (round 8: smaller notches with the extra tiers)
 	for i in tiers:
 		var f := float(i) / maxf(tiers - 1, 1)
 		var last := i == tiers - 1
-		var rr: float = base_r * (1.0 - f * 0.62)
+		var rr: float = base_r * (1.0 - f * 0.68)   # (round 7: each tier a touch narrower, was 0.62)
 		var rim_y: float = foot + step * i
-		var h: float = step * (1.55 if not last else 1.75)
-		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - 2, 5) if low else maxi(11 - int(f * 3.0), 8)
+		var h: float = step * (1.5 if not last else 1.8)   # (round 7: less overlap, was 1.55 / 1.75)
+		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - 2, 5) if low else maxi(14 - int(f * 4.0), 9)
 		var samples := 3 if low else 4
 		var m := lobes * samples
 		var spin := r.randf() * TAU

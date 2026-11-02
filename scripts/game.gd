@@ -2352,22 +2352,46 @@ func spawn_splash(where: Vector3, color: Color, count: int, speed: float, life: 
 		fx.burst(where, color, count, speed, life, fx.STYLE_SHARD)
 
 
+var _popups: Array = []   # polish pass: recent popups [msec, where, text, label] for stacking
+
+
 func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 	## A number or word that floats up and fades, like damage numbers.
 	if net:
 		net.rec("game", "spawn_popup", [where, text, color])
 	if not damage_numbers and (text.begins_with("-") or text.begins_with("+")):
 		return
+	# Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers: combat
+	# words piled into doubled, unreadable text): the same word on the same
+	# spot within 0.4 s shows once, and a word born next to others still
+	# rising is stacked above them, a touch smaller than before. (The jitter
+	# is still drawn first, exactly as before, so the shared RNG sequence and
+	# with it every seeded match stay the same.)
+	var jx := randf_range(-0.3, 0.3)
+	var now := Time.get_ticks_msec()
+	var near := 0
+	for i in range(_popups.size() - 1, -1, -1):
+		var q: Array = _popups[i]
+		if now - int(q[0]) > 700 or not is_instance_valid(q[3]):
+			_popups.remove_at(i)
+			continue
+		var d := Vector2(where.x - q[1].x, where.z - q[1].z).length()
+		if d < 0.5 and q[2] == text and now - int(q[0]) < 400:
+			return
+		if d < 1.6:
+			near += 1
 	var l := Label3D.new()
 	l.text = text
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
-	l.font_size = 40
+	l.font_size = 34
 	l.pixel_size = 0.012
-	l.outline_size = 10
+	l.outline_size = 9
 	l.modulate = color
 	add_child(l)
-	l.global_position = where + Vector3(randf_range(-0.3, 0.3), 0, 0)
+	_popups.append([now, where, text, l])
+	# (Round 3: 0.7 m higher, above the unit's name tag rather than on it.)
+	l.global_position = where + Vector3(jx, 0.7 + 0.62 * mini(near, 3), 0)
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(l, "global_position", l.global_position + Vector3(0, 1.4, 0), 0.8).set_ease(Tween.EASE_OUT)
@@ -7452,7 +7476,10 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 	if team == 0:
 		# In front of the Elves' timber board and turned to the camera, so
 		# the name reads from the top-down view (it hid inside the board).
-		label.position = Vector3(pos.x, sign_y + 0.05, wall_z + 1.08)
+		# (Polish pass 2026-11-01: 0.25 m further out, so the billboard's top,
+		# tipped back toward the camera, no longer sinks into the timber
+		# above it; reviewers saw the letters' tops sliced off.)
+		label.position = Vector3(pos.x, sign_y + 0.05, wall_z + 1.33)
 		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		label.font_size = 72
 	label.shaded = false
