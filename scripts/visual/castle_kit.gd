@@ -252,6 +252,17 @@ static func castle_wall_top(g, center: Vector3, size: Vector3, grey: bool, crene
 	# A plinth course at the foot (taller walls only; low parapets stay clean).
 	if size.y >= 2.0 and foot > -0.5:
 		block_course(g, a, b, foot, 0.42, thick + 0.16, grey, seed + 2, 0.8, 1.4, false)
+	# Pass 5 (Codex-faisal): repeat the existing caged lantern along tall
+	# wall faces. Emissive glass only; no extra lights, bodies or audit boxes.
+	if size.y >= 3.0 and length >= 4.0 and foot > -0.5:
+		var axis := Vector3.RIGHT if along_x else Vector3.BACK
+		var normal := Vector3.BACK if along_x else Vector3.RIGHT
+		var count := maxi(int(length / 6.0), 1)
+		for i in count:
+			var at := a + axis * (length * (i + 0.5) / count)
+			at.y = foot + minf(size.y - 0.8, 2.6)
+			for sign in [-1.0, 1.0]:
+				lantern(g, at + normal * sign * (thick / 2.0 + 0.03), normal * sign, false)
 	if ivy_on:
 		var r := RandomNumberGenerator.new()
 		r.seed = seed + 3
@@ -483,6 +494,12 @@ static func _yard_side_wall(g, a: Vector3, b: Vector3, along: Vector3, length: f
 			light.shadow_enabled = false
 			light.position = Vector3(face.x, 3.2, face.z) - out * 0.8
 			g.add_child(light)
+	# Ivy drapes from the coping in the gaps between the braziers. Its
+	# flattened leaves stay on each wall face, outside the open wall walk.
+	for i in 3:
+		var at := a + along * (length * (0.27 + i * 0.23))
+		ivy(g, Vector3(at.x, TOP + 0.15, at.z) + out * (INNER - 0.03), -out, 1.15 + i * 0.18, seed + 800 + i, 0.75)
+		ivy(g, Vector3(at.x, TOP + 0.15, at.z) + out * (OUTER + 0.03), out, 1.7 + i * 0.16, seed + 810 + i, 1.0)
 	# (Team banners were tried on the yard face too: at the match camera the
 	# face is nearly edge-on and they showed as green slivers, so the wall
 	# carries none; banners hung outward over the merlons floated over the
