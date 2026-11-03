@@ -5,6 +5,7 @@ extends Control
 ## hearts, energy, experience and ability slots at the bottom, and the
 ## chat on the left. Reskin by editing here.
 
+const ReferenceSkillArt = preload("res://scripts/ui/reference_skill_art.gd")
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
 const Monarch = preload("res://scripts/monarch.gd")
@@ -57,6 +58,8 @@ static var logo: Texture2D
 static var icons: Dictionary = {}  # kind -> Texture2D, painted icons from tools/make_icons.py
 static var skill_art: Dictionary = {}   # hexagon skill tiles and shield faces (assets/ui/skills)
 var touch_ui := false            # touch-screen layout: big thumb buttons, no keycaps (see _touch_cluster)
+var _reference_frame_node: TextureRect # own isolated material; hidden before every HUD draw
+var _reference_connected_frame := false # instance-local; never shared between seats/bake HUDs
 var next_slot_art := ""          # set just before _slot(): the skill art to draw for it
 static var clean_icons: Dictionary = {}  # kind -> the icon without its painted halo, for the ability bar (tools/center_icons.py)
 static var strips: Dictionary = {}  # slug -> Texture2D, Faisal's painted skill-row art (tools/make_skill_strips.py)
@@ -267,6 +270,7 @@ func _click_end(at: Vector2) -> void:
 
 
 func _draw() -> void:
+	ReferenceSkillArt.hide_frame(self) # before ALL early returns, including null game/menu/bake
 	if game == null:
 		return
 	touch_ui = game.touch_active and not pane
@@ -975,14 +979,13 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		slot_flash[slot_id] = fl - get_process_delta_time()
 		var k := 1.0 - fl / 0.45
 		_glow("arc", [rect.get_center(), size_px * (0.55 + 0.4 * k), Color(1.0, 0.9, 0.5, 1.0 - k), 3.0])
-	# Hexagon tiles, like Faisal's UI reference (2026-10-08): a dark outer
-	# edge, a thick bronze rim, then the glossy coloured face lit from the top.
+	# Owner Nov3 reference: circular faces inside gold frames; real state is unchanged.
 	var hc := rect.get_center()
-	var hr := size_px * 0.62
+	var hr := size_px * 0.5
 	if glow and not locked:
 		var gpulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() / 220.0)
 		for i in 5:
-			_glow("poly", [_hex_pts(hc, hr + 8.0 + i * 3.0), Color(1.0, 0.78, 0.25, 0.07 * gpulse)])
+			_glow("poly", [ReferenceSkillArt.circle_points(hc, hr + 8.0 + i * 3.0), Color(1.0, 0.78, 0.25, 0.07 * gpulse)])
 	var frame := BRASS
 	if glow and not locked:
 		frame = GOLD.lightened(0.15)
@@ -1009,14 +1012,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		return
 	if remaining > 0.0:
 		var frac := clampf(remaining / maxf(total, 0.01), 0.0, 1.0)
-		var top := hc.y - hr
-		var cut := PackedVector2Array([Vector2(hc.x - hr * 2.0, top - 2.0), Vector2(hc.x + hr * 2.0, top - 2.0),
-			Vector2(hc.x + hr * 2.0, top + 2.0 * hr * frac), Vector2(hc.x - hr * 2.0, top + 2.0 * hr * frac)])
-		# The shade's band starts 2.5 px above the hex's tip: under about a pixel
-		# of overlap the clip is a sliver the renderer can't triangulate.
-		if 2.0 * hr * frac > 3.5:
-			for poly in Geometry2D.intersect_polygons(_hex_pts(hc, hr - 2.5), cut):
-				draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
+		ReferenceSkillArt.draw_cooldown(self, hc, hr - 2.5, frac)
 		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
 			int(16 * maxf(1.0, size_px / 60.0)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
 		if panel_pass == "live" and not touch_ui:
@@ -1034,46 +1030,10 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		draw_arc(rect.end - Vector2(7 + i * 8, size_px - 7), 2.6, 0, TAU, 10, Color(0.3, 0.2, 0.05), 1.0)
 
 
-func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vector2, hr: float, frame: Color,
-		art: String, locked: bool, ready: bool) -> void:
-	## The slot's tile and icon (the baked part of a slot).
-	var shadow := _hex_pts(hc + Vector2(0, 3), hr + 7.0)
-	draw_colored_polygon(shadow, Color(0, 0, 0, 0.45))
-	# Every slot now draws its emblem from Faisal's 2026-10-14 icon sheet,
-	# centred on the hexagon: the old painted hex tiles had their symbols off
-	# centre (Faisal 08:09 "this is off center", on Perks and Grab).
-	art = ""
-	if art != "" and skill_art.has(art):
-		# The painted hexagon (rim and all) from the reference art: its hex
-		# fills 90% of the picture's height.
-		# The cut-outs from the reference were cropped at their edges (a
-		# sliced rim; Faisal 2026-10-10 "the tiles still look cropped"), so
-		# the drawn hexagon gives every tile a whole rim and the painting
-		# fills only its face.
-		_hex_tile(hc, hr, frame, color, locked, ready)
-		var th := 2.0 * (hr + 6.0) / 0.9 * 1.16   # zoomed past the painting's own (sliced) rim
-		var tex: Texture2D = skill_art[art]
-		var tw := th * tex.get_width() / tex.get_height()
-		var box := Rect2(hc - Vector2(tw, th) / 2.0 - Vector2(tw * 0.03, 0), Vector2(tw, th))
-		var face := _hex_pts(hc, hr - 2.5)
-		var uvs := PackedVector2Array()
-		for q in face:
-			uvs.append((q - box.position) / box.size)
-		draw_colored_polygon(face, Color.WHITE if (ready or locked) else Color(0.55, 0.55, 0.58), uvs, tex)
-	else:
-		_hex_tile(hc, hr, frame, color, locked, ready)
-	if art != "" and skill_art.has(art):
-		pass   # the painted tile carries its own icon
-	elif locked:
-		_padlock(hc + Vector2(0, -2), size_px * 0.3, Color(0.58, 0.58, 0.62))
-	elif clean_icons.has(icon):
-		# Without its lopsided painted halo (Faisal 2026-10-14 18:16: "make
-		# sure the icons are not off centered"): the hexagon is the backing.
-		var px := size_px * 0.3 * 2.9
-		draw_texture_rect(clean_icons[icon], Rect2(hc + Vector2(0, -2) - Vector2(px, px) / 2.0, Vector2(px, px)), false,
-			Color.WHITE if ready else Color(0.45, 0.45, 0.5))
-	else:
-		_icon(icon, hc + Vector2(0, -2), size_px * 0.3, Color.WHITE, not ready)
+func _slot_face(rect: Rect2, _size_px: float, icon: String, color: Color, _hc: Vector2, _hr: float, frame: Color,
+		_art: String, locked: bool, ready: bool) -> void:
+	# Agent: Codex-faisal/build_delivery. Real HUD state, supplied art only.
+	ReferenceSkillArt.draw_face(self, rect, icon, color, frame, locked, ready, _reference_connected_frame)
 
 
 func _hex_tile(hc: Vector2, hr: float, frame: Color, color: Color, locked: bool, ready: bool) -> void:
@@ -1394,6 +1354,7 @@ func _bake(name: String, px: Vector2, key: Variant, mode: String, args: Array, o
 		h.set_script(get_script())
 		h.game = game
 		h.pane = pane
+		h.local_unit = local_unit # static keycaps must belong to the same actual seat
 		h.bake_mode = mode
 		vp.add_child(h)
 		h.set_process(false)
@@ -4190,29 +4151,24 @@ func _draw_xp_bar(p, bar: Rect2) -> void:
 
 
 func _ability_strip(p, strip: Rect2) -> void:
-	# Pick C: a shallow hex arc on a slate silhouette, keeping the world open.
-	if _st():
-		var outline := PackedVector2Array()
-		for v in [Vector2(0, 48), Vector2(84, 10), Vector2(270, -12), Vector2(456, 10), Vector2(540, 48), Vector2(526, 118), Vector2(14, 118)]:
-			outline.append(strip.position + v)
-		draw_colored_polygon(outline, Color(0.08, 0.11, 0.15, 0.96))
-		outline.append(outline[0])
-		draw_polyline(outline, Color("d8aa47"), 3.0, true)
-		_ivy(strip.position + Vector2(12, 74), Vector2(0, -1), 38, 3)
-		_ivy(strip.position + Vector2(528, 74), Vector2(0, -1), 38, 6)
-	var at := []
-	var offsets := [Vector2(35, 28), Vector2(115, 12), Vector2(195, 0), Vector2(275, 0), Vector2(355, 12), Vector2(435, 28)]
-	if p.can_block():
-		offsets = [Vector2(10, 28), Vector2(86, 12), Vector2(162, 0), Vector2(238, 0), Vector2(314, 12), Vector2(466, 34)]
-	for v in offsets:
-		at.append(strip.position + v)
-	_move_slots(p, at, [52.0, 52.0, 52.0, 52.0, 52.0, 52.0])
-	if p.can_block():
+	# Six ordinary slots follow the supplied six-hole frame; all labels/timers remain real.
+	# A blocking class retains its existing additional Perks affordance (seven real actions).
+	_reference_connected_frame = false
+	if not p.can_block():
+		if _st():
+			_reference_connected_frame = ReferenceSkillArt.draw_strip(self, strip)
+		_move_slots(p, ReferenceSkillArt.row_origins(strip, 68.0), [68.0, 68.0, 68.0, 68.0, 68.0, 68.0])
+	else:
+		var at := []
+		for x in [10.0, 86.0, 162.0, 238.0, 314.0, 466.0]:
+			at.append(strip.position + Vector2(x, 28))
+		_move_slots(p, at, [52.0, 52.0, 52.0, 52.0, 52.0, 52.0])
 		var pos := strip.position + Vector2(390, 28)
 		next_slot_art = "perks"
 		_slot(pos, 52.0, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
 		if not pane:
 			touch_rects.append([Rect2(pos * hud_scale, Vector2(52, 83) * hud_scale), "rank_menu"])
+	_reference_connected_frame = false
 
 
 func _strip_board(strip: Rect2) -> void:
