@@ -2290,7 +2290,7 @@ func bubble_up(duration: float) -> void:
 var _was_carrying := false
 
 
-static var _xray_shader: Shader
+var _xray_shader: Shader
 var _xray_mat: ShaderMaterial
 var _tower_near := false
 var _tower_check := 0
