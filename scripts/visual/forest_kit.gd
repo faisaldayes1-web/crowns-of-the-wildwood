@@ -211,19 +211,28 @@ func finish() -> void:
 	## must not touch the kit's own colours).
 	var t0 := Time.get_ticks_msec()
 	_ensure()
+	await game._world_build_frame()
 	_index_world()
+	await game._world_build_frame()
 	var r := RandomNumberGenerator.new()
 	r.seed = 31031
 	_trail_layout(r)
+	await game._world_build_frame()
 	_fences(r)
+	await game._world_build_frame()
 	for t in trees:
 		_tree_cluster(t, r)
+		await game._world_build_frame()
 	_fill_forest(r)
+	await game._world_build_frame()
 	for b in bushes:
 		_bush(b[0], b[1], r, 1.0)
+		await game._world_build_frame()
 	_dressing(r)
+	await game._world_build_frame()
 	_meadow()
-	_build()
+	await game._world_build_frame()
+	await _build()
 	if OS.is_debug_build() or "--forest-kit-log" in OS.get_cmdline_user_args():
 		var n := 0
 		for k in _place:
@@ -675,16 +684,21 @@ func _build() -> void:
 	ground_mat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	for key in _place:
 		var mesh := _mesh_for(key)
+		await game._world_build_frame()
 		if mesh == null:
 			continue
 		var list: Array = _place[key]
 		var cells := {}
+		var grouped := 0
 		for it in list:
 			var xf: Transform3D = it[0]
 			var k := _key(xf.origin, CHUNK)
 			if not cells.has(k):
 				cells[k] = []
 			cells[k].append(it)
+			grouped += 1
+			if grouped % 64 == 0:
+				await game._world_build_frame()
 		var ground: bool = key == "patch"
 		var small: bool = ground or key.begins_with("flower") or key.begins_with("rock") or key.begins_with("bush") or key.begins_with("tuft")
 		for k in cells:
@@ -697,6 +711,8 @@ func _build() -> void:
 			for i in items.size():
 				mm.set_instance_transform(i, items[i][0])
 				mm.set_instance_color(i, items[i][1])
+				if (i + 1) % 64 == 0:
+					await game._world_build_frame()
 			var mmi := MultiMeshInstance3D.new()
 			mmi.name = "ForestKit_%s" % key
 			mmi.multimesh = mm
@@ -707,6 +723,7 @@ func _build() -> void:
 				# (they would only add shadow draws for specks).
 				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			game.add_child(mmi)
+			await game._world_build_frame()
 	if not _trails.is_empty():
 		var tm := MeshInstance3D.new()
 		tm.name = "ForestKit_trails"
@@ -715,6 +732,7 @@ func _build() -> void:
 		tm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		tm.set_meta("no_batch", true)
 		game.add_child(tm)
+		await game._world_build_frame()
 
 
 func kit_mesh(key: String) -> ArrayMesh:

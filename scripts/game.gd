@@ -12311,7 +12311,7 @@ func _finish_world() -> void:
 		# The kit's trees and dressing, after the grade (it has its own
 		# palette per map) and once everything they keep clear of is built.
 		await _world_build_frame()
-		forest_kit.finish()
+		await forest_kit.finish()
 	await _world_build_frame()
 	_apply_map_variant()
 	camera = Camera3D.new()
