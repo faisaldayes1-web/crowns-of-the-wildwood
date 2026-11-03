@@ -4157,7 +4157,7 @@ func _ability_strip(p, strip: Rect2) -> void:
 	if not p.can_block():
 		if _st():
 			_reference_connected_frame = ReferenceSkillArt.draw_strip(self, strip)
-		_move_slots(p, ReferenceSkillArt.row_origins(strip, 68.0), [68.0, 68.0, 68.0, 68.0, 68.0, 68.0])
+		_move_slots(p, ReferenceSkillArt.row_origins(strip, 56.0), [56.0, 56.0, 56.0, 56.0, 56.0, 56.0])
 	else:
 		var at := []
 		for x in [10.0, 86.0, 162.0, 238.0, 314.0, 466.0]:

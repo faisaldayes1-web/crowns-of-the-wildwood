@@ -14,8 +14,8 @@ const FACE_RADIUS := 62.0
 # Registration for the supplied unmodified transparent 1024x1024 orb-border.png.
 const ORB_CENTER := Vector2(508, 486)
 const ORB_HOLE_RADIUS := 320.0
-const STRIP_CENTERS := [Vector2(200, 204), Vector2(532, 200), Vector2(866, 198),
-	Vector2(1194, 198), Vector2(1530, 202), Vector2(1850, 206)]
+const STRIP_CENTERS := [Vector2(200, 206), Vector2(529, 192.5), Vector2(859.5, 187),
+	Vector2(1187.5, 187), Vector2(1518, 192.5), Vector2(1847, 206)]
 static var _textures: Dictionary = {}
 
 
@@ -88,7 +88,9 @@ static func draw_face(hud, rect: Rect2, icon: String, color: Color, frame: Color
 		locked: bool, ready: bool, connected_frame: bool) -> void:
 	var center := rect.get_center()
 	var radius := rect.size.x * 0.5
-	hud.draw_circle(center + Vector2(0, 3), radius + 4.0, Color(0, 0, 0, 0.45))
+	# The connected owner frame already paints its own shadow; do not cover inner gold.
+	if not connected_frame:
+		hud.draw_circle(center + Vector2(0, 3), radius + 4.0, Color(0, 0, 0, 0.45))
 	var tint := Color.WHITE if (ready or locked) else Color(0.45, 0.45, 0.5)
 	var face_index := -1
 	if locked:
