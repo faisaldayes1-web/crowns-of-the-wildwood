@@ -211,9 +211,101 @@ static func _load(path: String) -> Resource:
 static var build_log: Array = []   # ms of each setup() since a probe last cleared it (tools/spawn_hitch_probe.gd)
 
 
+# Built looks kept for reuse (claude-faisal/crowns-spawn 2026-11-04): a
+# rebuild parks the old look (its nodes out of the tree, its state) by key,
+# and a model that puts on a parked look again takes it back instead of
+# instantiating and dressing a scene (~6 ms, plus a tree of new nodes).
+const LOOK_POOL_CAP := 4   # parked looks per key
+const RUNTIME_VARS := ["busy_until", "recover_at", "held", "current", "swing_index", "last_swing_at", "look_key", "mat_rest"]
+static var look_pool := {}   # key -> Array of [children, vars]
+static var look_reuses := 0   # (tests)
+var look_key := ""
+var mat_rest: Array = []   # each flash_mats entry's colours as built: a hit flash or side glow is undone on reuse
+
+
+static func look_of(team: int, role: int, variant: String, custom: Dictionary, rank: int) -> String:
+	return var_to_str([team, role, variant, rank, custom])
+
+
+static func free_look_pool() -> void:
+	## Frees every parked look (the game going: nothing else holds them).
+	for key in look_pool:
+		for entry in look_pool[key]:
+			for n in entry[0]:
+				if is_instance_valid(n):
+					n.free()
+	look_pool = {}
+
+
+func _park_look() -> void:
+	var kids := get_children()
+	if kids.is_empty():
+		return
+	var pool: Array = look_pool.get(look_key, [])
+	if look_key == "" or pool.size() >= LOOK_POOL_CAP or not is_inside_tree():
+		for child in kids:
+			child.queue_free()
+		return
+	var vars := {}
+	for prop in get_property_list():
+		if prop.usage & PROPERTY_USAGE_SCRIPT_VARIABLE and not prop.name in RUNTIME_VARS:
+			vars[prop.name] = get(prop.name)
+	vars["mat_rest"] = mat_rest
+	for child in kids:
+		remove_child(child)
+	pool.append([kids, vars])
+	look_pool[look_key] = pool
+
+
+func _reuse_look(key: String) -> bool:
+	var pool: Array = look_pool.get(key, [])
+	while not pool.is_empty():
+		var entry: Array = pool.pop_back()
+		var ok := true
+		for n in entry[0]:
+			ok = ok and is_instance_valid(n)
+		if not ok:
+			continue
+		for name in entry[1]:
+			set(name, entry[1][name])
+		for n in entry[0]:
+			add_child(n)
+		busy_until = 0.0
+		recover_at = 0.0
+		held = ""
+		current = ""
+		swing_index = 0
+		last_swing_at = -10.0
+		for i in mini(flash_mats.size(), mat_rest.size()):
+			var m = flash_mats[i]
+			if not m is BaseMaterial3D:
+				continue
+			var r: Array = mat_rest[i]
+			m.albedo_color = r[0]
+			m.rim = r[1]
+			m.rim_tint = r[2]
+			m.emission_enabled = r[3]
+			m.emission = r[4]
+			m.emission_energy_multiplier = r[5]
+		if anim:
+			anim.speed_scale = 1.0
+			if anim.has_animation(idle_anim):
+				anim.play(idle_anim)
+		look_reuses += 1
+		return true
+	return false
+
+
 func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, rank: int = 1) -> void:
 	var t_build := Time.get_ticks_usec()
-	_setup(team, role, variant, custom, rank)
+	var key := look_of(team, role, variant, custom, rank)
+	_park_look()
+	if not _reuse_look(key):
+		_setup(team, role, variant, custom, rank)
+		mat_rest = []
+		for m in flash_mats:
+			mat_rest.append([m.albedo_color, m.rim, m.rim_tint, m.emission_enabled, m.emission, m.emission_energy_multiplier])
+	look_key = key
 	if build_log.size() < 512:
 		build_log.append((Time.get_ticks_usec() - t_build) / 1000.0)
 	if OS.has_environment("CROWNS_BUILD_TRACE") and (Time.get_ticks_usec() - t_build) > 12000:

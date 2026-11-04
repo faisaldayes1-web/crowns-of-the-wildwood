@@ -47,6 +47,60 @@ static func of(g) -> Node:
 	return f
 
 
+# --- Pool ----------------------------------------------------------------------
+# Effects come and go many times a second; each used to be a new node (with
+# its own material, gradient and mesh) freed when done. Now a finished one
+# leaves the tree and waits here by kind (the same properties get set again on
+# reuse), so spawn and action frames build nothing (claude-faisal/crowns-spawn
+# 2026-11-04; tools/spawn_warm_test.gd).
+const POOL_CAP := 96   # per kind
+var _pool := {}   # kind -> Array of nodes out of the tree
+var pool_made := 0   # nodes built for the pool (tests)
+
+
+func take(kind: String, make: Callable) -> Node:
+	var a: Array = _pool.get(kind, [])
+	while not a.is_empty():
+		var n = a.pop_back()
+		if is_instance_valid(n):
+			return n
+	var n: Node = make.call()
+	n.set_meta("fx_kind", kind)
+	pool_made += 1
+	return n
+
+
+func recycle(n: Node) -> void:
+	## Done: back to the pool (at the end of the frame, out of any callback).
+	if is_instance_valid(n):
+		_park.call_deferred(n)
+
+
+func _park(n: Node) -> void:
+	if not is_instance_valid(n):
+		return
+	if n.get_parent():
+		n.get_parent().remove_child(n)
+	if not is_inside_tree():
+		n.free()
+		return
+	var kind: String = n.get_meta("fx_kind") if n.has_meta("fx_kind") else ""
+	if not _pool.has(kind):
+		_pool[kind] = []
+	if kind == "" or _pool[kind].size() >= POOL_CAP:
+		n.free()
+	else:
+		_pool[kind].append(n)
+
+
+func _exit_tree() -> void:
+	for kind in _pool:
+		for n in _pool[kind]:
+			if is_instance_valid(n):
+				n.free()
+	_pool = {}
+
+
 func _ready() -> void:
 	_quad = QuadMesh.new()
 	_quad.size = Vector2(1, 1)
@@ -163,7 +217,7 @@ func _x_burst(where: Vector3, color: Color, count: int, speed: float, life: floa
 	## A one-shot spray. `dir`/`spread` aim it (hits spray away from the blow).
 	if count <= 0:
 		return
-	var p := CPUParticles3D.new()
+	var p: CPUParticles3D = take("burst/%d/%s" % [style, daylight()], func(): return CPUParticles3D.new())
 	p.one_shot = true
 	p.explosiveness = 0.95
 	p.amount = count
@@ -175,7 +229,7 @@ func _x_burst(where: Vector3, color: Color, count: int, speed: float, life: floa
 	p.initial_velocity_max = speed
 	p.damping_min = 2.0
 	p.damping_max = 5.0
-	var ramp := Gradient.new()
+	var ramp: Gradient = p.color_ramp if p.color_ramp else Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.6, 1.0])
 	match style:
 		STYLE_SPARK:
@@ -211,10 +265,11 @@ func _x_burst(where: Vector3, color: Color, count: int, speed: float, life: floa
 			p.explosiveness = 0.8
 			p.scale_amount_min = 0.7 * size
 			p.scale_amount_max = 1.3 * size
-			var grow := Curve.new()
-			grow.add_point(Vector2(0, 0.5))
-			grow.add_point(Vector2(1, 1.6))
-			p.scale_amount_curve = grow
+			if p.scale_amount_curve == null:
+				var grow := Curve.new()
+				grow.add_point(Vector2(0, 0.5))
+				grow.add_point(Vector2(1, 1.6))
+				p.scale_amount_curve = grow
 			p.material_override = _mat("soft", false, BaseMaterial3D.BILLBOARD_PARTICLES)
 			ramp.colors = PackedColorArray([Color(color, 0.55), Color(color, 0.35), Color(color, 0)])
 		STYLE_SHARD:
@@ -230,8 +285,9 @@ func _x_burst(where: Vector3, color: Color, count: int, speed: float, life: floa
 	p.color_ramp = ramp
 	add_child(p)
 	p.global_position = where
+	p.restart()
 	p.emitting = true
-	get_tree().create_timer(life + 0.4).timeout.connect(p.queue_free)
+	get_tree().create_timer(life + 0.4).timeout.connect(recycle.bind(p))
 
 
 func _streak_day() -> BoxMesh:
@@ -252,10 +308,11 @@ func _sprite(where: Vector3, tex: String, color: Color, size: float, life: float
 		# light in the bright day maps too (visual pass 2026-10-30).
 		underlay = _sprite(where, tex, Color(vivid(color), color.a * 0.8), size, life, grow, flat, spin, false)
 		color = Color(color, color.a * 0.7)
-	var q := MeshInstance3D.new()
+	var q: MeshInstance3D = take("sprite/%s/%s/%s" % [tex, additive, flat], func(): return MeshInstance3D.new())
 	q.mesh = _quad
 	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var m: StandardMaterial3D = _mat(tex, additive, BaseMaterial3D.BILLBOARD_DISABLED if flat else BaseMaterial3D.BILLBOARD_ENABLED).duplicate()
+	q.rotation = Vector3.ZERO
+	var m: StandardMaterial3D = q.material_override if q.material_override else _mat(tex, additive, BaseMaterial3D.BILLBOARD_DISABLED if flat else BaseMaterial3D.BILLBOARD_ENABLED).duplicate()
 	m.vertex_color_use_as_albedo = false
 	m.albedo_color = color
 	q.material_override = m
@@ -272,7 +329,7 @@ func _sprite(where: Vector3, tex: String, color: Color, size: float, life: float
 	tw.tween_property(m, "albedo_color:a", 0.0, life).set_ease(Tween.EASE_IN)
 	if spin != 0.0:
 		tw.tween_property(q, "rotation:y" if flat else "rotation:z", q.rotation.y + spin if flat else spin, life)
-	tw.chain().tween_callback(q.queue_free)
+	tw.chain().tween_callback(recycle.bind(q))
 	return q
 
 
@@ -344,12 +401,13 @@ func _x_beam(from: Vector3, to: Vector3, color: Color, life: float = 0.3, width:
 	var length := d.length()
 	if length < 0.2:
 		return
-	var b := MeshInstance3D.new()
-	var box := BoxMesh.new()
+	var b: MeshInstance3D = take("beam", func(): return MeshInstance3D.new())
+	var box: BoxMesh = b.mesh if b.mesh else BoxMesh.new()
 	box.size = Vector3(width, width, length)
 	b.mesh = box
+	b.scale = Vector3.ONE
 	b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var m := StandardMaterial3D.new()
+	var m: StandardMaterial3D = b.material_override if b.material_override else StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
@@ -362,7 +420,7 @@ func _x_beam(from: Vector3, to: Vector3, color: Color, life: float = 0.3, width:
 	tw.set_parallel(true)
 	tw.tween_property(b, "scale", Vector3(0.2, 0.2, 1.0), life).set_ease(Tween.EASE_IN)
 	tw.tween_property(m, "albedo_color:a", 0.0, life)
-	tw.chain().tween_callback(b.queue_free)
+	tw.chain().tween_callback(recycle.bind(b))
 
 
 # --- Slash arcs ---------------------------------------------------------------
@@ -407,10 +465,11 @@ func slash(origin: Vector3, aim: Vector3, color: Color, reach: float = 1.0, heav
 
 func _x_slash(origin: Vector3, aim: Vector3, color: Color, reach: float = 1.0, heavy: bool = false, flip: bool = false) -> void:
 	## A crescent that sweeps across the aim direction and fades: the swing.
-	var s := MeshInstance3D.new()
+	var s: MeshInstance3D = take("slash/%s" % daylight(), func(): return MeshInstance3D.new())
 	s.mesh = _arc()
+	s.scale = Vector3.ONE
 	s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var m := StandardMaterial3D.new()
+	var m: StandardMaterial3D = s.material_override if s.material_override else StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
@@ -437,7 +496,7 @@ func _x_slash(origin: Vector3, aim: Vector3, color: Color, reach: float = 1.0, h
 	tw.set_parallel(true)
 	tw.tween_property(s, "rotation:y", -yaw + sweep * 0.5, life).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
 	tw.tween_property(m, "albedo_color:a", 0.0, life * 1.4).set_delay(life * 0.35)
-	tw.chain().tween_callback(s.queue_free)
+	tw.chain().tween_callback(recycle.bind(s))
 
 
 # --- Composite effects ---------------------------------------------------------
@@ -572,7 +631,7 @@ func _x_heal_on(target: Node3D, amount: int, healer: Node3D = null) -> void:
 
 func _cross(where: Vector3, color: Color, delay: float) -> void:
 	## A little "+" of light that floats up and fades.
-	var l := Label3D.new()
+	var l: Label3D = take("cross", func(): return Label3D.new())
 	l.text = "+"
 	l.font_size = 72
 	l.pixel_size = 0.01
@@ -589,7 +648,7 @@ func _cross(where: Vector3, color: Color, delay: float) -> void:
 	tw.set_parallel(true)
 	tw.tween_property(l, "global_position:y", where.y + 0.9, 0.7).set_ease(Tween.EASE_OUT)
 	tw.tween_property(l, "modulate:a", 0.0, 0.5).set_delay(0.25)
-	tw.chain().tween_callback(l.queue_free)
+	tw.chain().tween_callback(recycle.bind(l))
 
 
 func cast(caster: Node3D, color: Color, radius: float = 1.1) -> void:
@@ -615,7 +674,7 @@ func _x_death(where: Vector3, color: Color) -> void:
 	burst(where + Vector3(0, 0.6, 0), Color(0.6, 0.57, 0.52), 8, 2.2, 1.0, STYLE_SMOKE, Vector3.UP, 80.0, 1.2)
 	burst(where + Vector3(0, 1.0, 0), color, 14, 3.5, 0.9, STYLE_MOTE)
 	ground_ring(where, 1.8, color.lightened(0.3), 0.5)
-	var wisp := CPUParticles3D.new()
+	var wisp: CPUParticles3D = take("wisp", func(): return CPUParticles3D.new())
 	wisp.one_shot = true
 	wisp.amount = 10
 	wisp.lifetime = 1.2
@@ -630,13 +689,14 @@ func _x_death(where: Vector3, color: Color) -> void:
 	wisp.scale_amount_min = 0.35
 	wisp.scale_amount_max = 0.6
 	wisp.material_override = _mat("soft", true, BaseMaterial3D.BILLBOARD_PARTICLES)
-	var ramp := Gradient.new()
+	var ramp: Gradient = wisp.color_ramp if wisp.color_ramp else Gradient.new()
 	ramp.colors = PackedColorArray([Color(1, 1, 1, 0.9), Color(color.lightened(0.4), 0)])
 	wisp.color_ramp = ramp
 	add_child(wisp)
 	wisp.global_position = where + Vector3(0, 1.0, 0)
+	wisp.restart()
 	wisp.emitting = true
-	get_tree().create_timer(1.6).timeout.connect(wisp.queue_free)
+	get_tree().create_timer(1.6).timeout.connect(recycle.bind(wisp))
 
 
 func status_emitter(host: Node3D, kind: String) -> CPUParticles3D:
@@ -715,7 +775,7 @@ func petals(where: Vector3, color: Color, count: int, speed: float = 3.0, life: 
 
 func _x_petals(where: Vector3, color: Color, count: int, speed: float = 3.0, life: float = 1.4, up: float = 1.0) -> void:
 	## Leaves, petals or feathers: flat flakes thrown up that tumble and drift down.
-	var p := CPUParticles3D.new()
+	var p: CPUParticles3D = take("petals", func(): return CPUParticles3D.new())
 	p.one_shot = true
 	p.explosiveness = 0.85
 	p.amount = count
@@ -731,20 +791,21 @@ func _x_petals(where: Vector3, color: Color, count: int, speed: float = 3.0, lif
 	p.angular_velocity_min = -300.0
 	p.angular_velocity_max = 300.0
 	p.particle_flag_rotate_y = true
-	var leaf := QuadMesh.new()
+	var leaf: QuadMesh = p.mesh if p.mesh else QuadMesh.new()
 	leaf.size = Vector2(0.18, 0.1)
 	p.mesh = leaf
 	p.mesh.material = _mat("soft", false, BaseMaterial3D.BILLBOARD_DISABLED)
 	p.scale_amount_min = 0.8
 	p.scale_amount_max = 1.5
-	var ramp := Gradient.new()
+	var ramp: Gradient = p.color_ramp if p.color_ramp else Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.7, 1.0])
 	ramp.colors = PackedColorArray([color.lightened(0.25), color, Color(color, 0)])
 	p.color_ramp = ramp
 	add_child(p)
 	p.global_position = where
+	p.restart()
 	p.emitting = true
-	get_tree().create_timer(life + 0.4).timeout.connect(p.queue_free)
+	get_tree().create_timer(life + 0.4).timeout.connect(recycle.bind(p))
 
 
 func swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, rise: float = 2.5, life: float = 0.9,

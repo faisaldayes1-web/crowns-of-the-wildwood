@@ -741,6 +741,7 @@ func _reload_scene() -> void:
 
 func _exit_tree() -> void:
 	_free_shot_pool()   # pooled shots are out of the tree: nothing else frees them
+	CharacterModel.free_look_pool()   # parked looks too (character_model.gd)
 	# A prebuild still waiting for a title frame ends now; left waiting it
 	# outlived the scene (two leaked coroutine states at exit).
 	_prebuild_stop = true
@@ -2411,7 +2412,8 @@ func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 			return
 		if d < 1.6:
 			near += 1
-	var l := Label3D.new()
+	var fx: Node = Fx.of(self)
+	var l: Label3D = fx.take("popup", func(): return Label3D.new())   # pooled (fx.gd take)
 	l.text = text
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
@@ -2427,7 +2429,7 @@ func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 	tw.set_parallel(true)
 	tw.tween_property(l, "global_position", l.global_position + Vector3(0, 1.4, 0), 0.8).set_ease(Tween.EASE_OUT)
 	tw.tween_property(l, "modulate:a", 0.0, 0.8).set_delay(0.3)
-	tw.chain().tween_callback(l.queue_free)
+	tw.chain().tween_callback(fx.recycle.bind(l))
 
 
 func spawn_ring(where: Vector3, radius: float, color: Color, duration: float = 0.5, thickness: float = 0.12) -> void:
@@ -2439,14 +2441,16 @@ func spawn_pillar(where: Vector3, color: Color, height: float = 4.0, duration: f
 	## A column of light that narrows and fades: level ups, rank ups, captures.
 	if net:
 		net.rec("game", "spawn_pillar", [where, color, height, duration])
-	var pillar := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
+	var fx: Node = Fx.of(self)
+	var pillar: MeshInstance3D = fx.take("pillar", func(): return MeshInstance3D.new())   # pooled (fx.gd take)
+	pillar.scale = Vector3.ONE
+	var cyl: CylinderMesh = pillar.mesh if pillar.mesh else CylinderMesh.new()
 	cyl.top_radius = 0.6
 	cyl.bottom_radius = 0.9
 	cyl.height = height
 	cyl.radial_segments = 12
 	pillar.mesh = cyl
-	var mat := StandardMaterial3D.new()
+	var mat: StandardMaterial3D = pillar.material_override if pillar.material_override else StandardMaterial3D.new()
 	mat.albedo_color = Color(color, 0.55)
 	mat.emission_enabled = true
 	mat.emission = color
@@ -2468,14 +2472,15 @@ func spawn_pillar(where: Vector3, color: Color, height: float = 4.0, duration: f
 	tw.set_parallel(true)
 	tw.tween_property(pillar, "scale", Vector3(0.15, 1.3, 0.15), duration).set_ease(Tween.EASE_IN)
 	tw.tween_property(mat, "albedo_color:a", 0.0, duration).set_delay(duration * 0.4)
-	tw.chain().tween_callback(pillar.queue_free)
+	tw.chain().tween_callback(fx.recycle.bind(pillar))
 
 
 func spawn_flash(where: Vector3, color: Color, energy: float = 3.0, duration: float = 0.25) -> void:
 	## A brief point light: impacts and casts.
 	if net:
 		net.rec("game", "spawn_flash", [where, color, energy, duration])
-	var light := OmniLight3D.new()
+	var fx: Node = Fx.of(self)
+	var light: OmniLight3D = fx.take("flash", func(): return OmniLight3D.new())   # pooled (fx.gd take)
 	light.light_color = color
 	light.light_energy = energy
 	light.omni_range = 6.0
@@ -2484,7 +2489,7 @@ func spawn_flash(where: Vector3, color: Color, energy: float = 3.0, duration: fl
 	light.global_position = where + Vector3(0, 1.0, 0)
 	var tw := create_tween()
 	tw.tween_property(light, "light_energy", 0.0, duration)
-	tw.tween_callback(light.queue_free)
+	tw.tween_callback(fx.recycle.bind(light))
 
 
 func spawn_swing(u, aim: Vector3) -> void:
@@ -12795,11 +12800,14 @@ func _warm_looks() -> Array:
 	var looks := []
 	for team in 2:
 		for role in Stats.Role.values():
-			looks.append([team, role, "", 1])
-			looks.append([team, role, "", 3])
+			# Every gear rank (1-4): ranks 2 and 4 were built cold the first
+			# time a bot stepped up mid-match (~7 ms each; claude-faisal/crowns-spawn).
+			for rank in ([1] if role == Stats.Role.BASE else [1, 2, 3, 4]):
+				looks.append([team, role, "", rank])
 			if Stats.VARIANTS.has(role):
 				for v in Stats.VARIANTS[role]:
-					looks.append([team, role, v.name, 1])
+					for rank in range(1 + mini(3, Stats.VARIANT_UNLOCK), 5):   # (a variant needs VARIANT_UNLOCK upgrades)
+						looks.append([team, role, v.name, rank])
 	return looks
 
 
@@ -13024,6 +13032,11 @@ func _warm_up_models(buried: bool = false) -> void:
 	await _drawn_frame()
 	await _drawn_frame()
 	if is_instance_valid(rack):
+		# The warmed looks are kept (parked, out of the tree): the first bot
+		# to take each class puts one on instead of building it.
+		for m in rack.get_children():
+			if m is CharacterModel:
+				m._park_look()
 		rack.queue_free()
 	warm_models_done = true   # (tools/spawn_warm_test.gd waits for it)
 
