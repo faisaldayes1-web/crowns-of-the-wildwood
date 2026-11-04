@@ -62,6 +62,13 @@ jobs:
           timeout 120 bash tools/tests/isolated.sh --headless --path . --script tools/player_movement_test.gd 2>&1 | tee ci-logs/player-movement.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/player-movement.log
           grep -q '^player movement test: 0 failure(s)$' ci-logs/player-movement.log
+      - name: Spawn bursts after warm-up (no cold model builds, pooled shots)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300 bash tools/tests/isolated.sh --headless --path . --script tools/spawn_warm_test.gd -- --demo --seed=7 --map=3 2>&1 | tee ci-logs/spawn-warm.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/spawn-warm.log
+          grep -q '^spawn warm test: 0 failure(s)$' ci-logs/spawn-warm.log
       - name: Save recovery and progression regressions
         shell: bash
         run: |

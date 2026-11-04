@@ -740,6 +740,7 @@ func _reload_scene() -> void:
 
 
 func _exit_tree() -> void:
+	_free_shot_pool()   # pooled shots are out of the tree: nothing else frees them
 	# A prebuild still waiting for a title frame ends now; left waiting it
 	# outlived the scene (two leaked coroutine states at exit).
 	_prebuild_stop = true
@@ -1489,7 +1490,7 @@ func spawn_bolt(team: int, from: Vector3, dir: Vector3, s: Dictionary, color: Co
 	if net:
 		net.rec("game", "net_shot", [team, from, dir, s, color, true])
 		net.mute += 1
-	var shot = Projectile.new()
+	var shot = _new_shot()
 	shot.owner_unit = owner_unit
 	shot.from_turret = true
 	add_child(shot)
@@ -2209,13 +2210,43 @@ func _around_throne_room(team: int, from: Vector3, to: Vector3) -> Vector3:
 
 # --- Effects -----------------------------------------------------------------
 
+var shot_pool: Array = []    # finished projectiles, out of the tree (projectile.gd _retire)
+var shot_looks := {}         # their meshes/trails/lights by kind (projectile.gd look_key)
+
+
+func _new_shot():
+	## A projectile from the pool, or a new one: spawn bursts no longer build
+	## and free a node tree per shot (claude-faisal/crowns-spawn 2026-11-04).
+	while not shot_pool.is_empty():
+		var shot = shot_pool.pop_back()
+		if is_instance_valid(shot):
+			shot.owner_unit = null
+			shot.from_turret = false
+			shot.inert = false
+			shot.set_physics_process(true)
+			shot.set_process(true)
+			return shot
+	return Projectile.new()
+
+
+func _free_shot_pool() -> void:
+	for shot in shot_pool:
+		if is_instance_valid(shot):
+			shot.free()
+	shot_pool = []
+	for k in shot_looks:
+		for n in shot_looks[k]:
+			if is_instance_valid(n):
+				n.free()
+	shot_looks = {}
+
 func spawn_shot(u, dir: Vector3, s: Dictionary, color: Color) -> void:
 	## An arrow, spell or bolt. `s` carries damage, gate_damage, range and
 	## optionally splash and speed (see projectile.gd).
 	if net:
 		net.rec("game", "net_shot", [u.team, u.global_position, dir, s, color, false])
 		net.mute += 1
-	var shot = Projectile.new()
+	var shot = _new_shot()
 	shot.owner_unit = u
 	add_child(shot)
 	shot.setup(self, u.team, u.global_position, dir, s, color)
@@ -2226,7 +2257,7 @@ func spawn_shot(u, dir: Vector3, s: Dictionary, color: Color) -> void:
 func net_shot(team: int, from: Vector3, dir: Vector3, s: Dictionary, color: Color, turret: bool) -> void:
 	## Client: the host's arrow or spell, flying for the look of it (the
 	## host decides what it hits; its impact arrives as effects).
-	var shot = Projectile.new()
+	var shot = _new_shot()
 	shot.inert = true
 	shot.from_turret = turret
 	add_child(shot)
@@ -12687,6 +12718,13 @@ func _warm_up_match() -> void:
 	if not is_instance_valid(loading_layer) or DisplayServer.get_name() == "headless" or player == null:
 		_warm_up_world()   # (they return at once without the art)
 		_warm_up_effects()
+		if player != null:
+			# No loading art (a --demo match, tests, a headless host): the
+			# models still warm, under the ground in view, or the first bot
+			# to pick each class built it cold mid-match: 25-185 ms frames,
+			# ~24 of the 1% worst on Stonekeep seed 7 (claude-faisal/crowns-spawn
+			# 2026-11-04; tools/spawn_hitch_probe.gd, tools/spawn_warm_test.gd).
+			_warm_up_models(true)
 		return
 	if loading_tween:
 		loading_tween.pause()   # the art holds until the warm-ups are done
@@ -12938,7 +12976,10 @@ func _prebuild_warm_rack() -> void:
 		hero.queue_free()
 
 
-func _warm_up_models() -> void:
+var warm_models_done := false
+
+
+func _warm_up_models(buried: bool = false) -> void:
 	## Every class (and every promotion) once per team, drawn in front of the
 	## camera under the loading art: the first build of each model loads its
 	## scene, skins and faces and compiles their shaders (55-65 ms, a visible
@@ -12952,6 +12993,8 @@ func _warm_up_models() -> void:
 		rack = Node3D.new()
 		add_child(rack)
 	rack.global_position = cam_pos - CAMERA_OFFSET * cam_zoom
+	if buried:
+		rack.global_position.y -= 4.0   # drawn (shaders compile) but under the ground, unseen
 	rack.visible = true
 	rack.process_mode = Node.PROCESS_MODE_INHERIT
 	var looks := _warm_looks()
@@ -12982,6 +13025,7 @@ func _warm_up_models() -> void:
 	await _drawn_frame()
 	if is_instance_valid(rack):
 		rack.queue_free()
+	warm_models_done = true   # (tools/spawn_warm_test.gd waits for it)
 
 
 func _warm_up_effects() -> void:

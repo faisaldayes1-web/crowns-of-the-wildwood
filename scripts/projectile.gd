@@ -36,11 +36,17 @@ var effect := {}         # slow / root seconds applied on a hit
 var hit_list: Array = []
 var color := Color.WHITE
 var spin: Node3D
+var look_node: Node3D      # the shot's meshes, trails and light; kept with its key when pooled
+var look_key := ""
 
 
 func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dictionary, p_color: Color) -> void:
 	game = p_game
 	team = p_team
+	hit_list = []
+	effect = {}
+	fall_speed = 0.0
+	spin = null
 	damage = stats.damage
 	gate_damage = stats.gate_damage
 	splash = stats.get("splash", 0.0)
@@ -90,21 +96,75 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 	var look: String = stats.get("look", "")
 	if look == "" and stats.get("nature", false):
 		look = "thorn"
+	var kind := "arrow"
 	if look == "thorn":
-		_build_thorn(splash >= 2.5)
-	elif look == "star":
-		_build_arrow()
-		_build_star()
-	elif look == "moon":
-		_build_holy(Color(0.8, 0.9, 1.0))
+		kind = "seed" if splash >= 2.5 else "thorn"
+	elif look in ["star", "moon"]:
+		kind = look
 	elif fire:
-		_build_fireball()
+		kind = "fire"
 	elif splash > 0.0:
-		_build_arcane()
+		kind = "arcane"
 	elif holy:
-		_build_holy()
+		kind = "holy"
+	look_key = "%s/%s" % [kind, color.to_html()]
+	# A pooled look of the same kind: no new meshes, materials or particles
+	# (claude-faisal/crowns-spawn 2026-11-04: spawn bursts built ~10 resources a shot).
+	var pool: Array = game.shot_looks.get(look_key, []) if game and "shot_looks" in game else []
+	if not pool.is_empty():
+		look_node = pool.pop_back()
+		add_child(look_node)
+		spin = look_node.get_meta("spin") if look_node.has_meta("spin") else null
+		for p in look_node.find_children("*", "CPUParticles3D", true, false):
+			p.restart()
+		return
+	look_node = Node3D.new()
+	add_child(look_node)
+	match kind:
+		"thorn", "seed":
+			_build_thorn(kind == "seed")
+		"star":
+			_build_arrow()
+			_build_star()
+		"moon":
+			_build_holy(Color(0.8, 0.9, 1.0))
+		"fire":
+			_build_fireball()
+		"arcane":
+			_build_arcane()
+		"holy":
+			_build_holy()
+		_:
+			_build_arrow()
+	if spin:
+		look_node.set_meta("spin", spin)
+
+
+func _retire() -> void:
+	## Done flying: back to the game's pool (game.gd _new_shot), its look
+	## kept by kind, instead of freed. Outside a game, freed as before.
+	if game == null or not is_instance_valid(game) or not "shot_pool" in game or game.shot_pool.size() >= 256:
+		queue_free()
+		return
+	set_physics_process(false)
+	set_process(false)
+	if look_node and look_node.get_parent() == self:
+		remove_child(look_node)
+		if not game.shot_looks.has(look_key):
+			game.shot_looks[look_key] = []
+		game.shot_looks[look_key].append(look_node)
+	look_node = null
+	owner_unit = null
+	_park.call_deferred()
+
+
+func _park() -> void:
+	if get_parent():
+		get_parent().remove_child(self)
+	if is_instance_valid(game):
+		game.shot_pool.append(self)
 	else:
-		_build_arrow()
+		free()
 
 
 func _glow(c: Color, energy: float = 2.0) -> StandardMaterial3D:
@@ -127,7 +187,7 @@ func _sphere(radius: float, mat: Material, pos: Vector3 = Vector3.ZERO) -> MeshI
 	m.mesh = s
 	m.material_override = mat
 	m.position = pos
-	add_child(m)
+	look_node.add_child(m)
 	return m
 
 
@@ -151,7 +211,7 @@ func _trail(c: Color, amount: int, lifetime: float, size: float, rise: float = 0
 	fade.set_color(0, Color(1, 1, 1, 1))
 	fade.set_color(1, Color(1, 1, 1, 0))
 	p.color_ramp = fade
-	add_child(p)
+	look_node.add_child(p)
 
 
 func _light(c: Color, energy: float, range_m: float) -> void:
@@ -160,7 +220,7 @@ func _light(c: Color, energy: float, range_m: float) -> void:
 	l.light_energy = energy
 	l.omni_range = range_m
 	l.shadow_enabled = false
-	add_child(l)
+	look_node.add_child(l)
 
 
 func _build_arrow() -> void:
@@ -171,7 +231,7 @@ func _build_arrow() -> void:
 	var wood := StandardMaterial3D.new()
 	wood.albedo_color = Color(0.75, 0.6, 0.4)
 	shaft.material_override = wood
-	add_child(shaft)
+	look_node.add_child(shaft)
 	var tip := MeshInstance3D.new()
 	var cone := CylinderMesh.new()
 	cone.top_radius = 0.0
@@ -184,7 +244,7 @@ func _build_arrow() -> void:
 	steel.albedo_color = Color(0.85, 0.87, 0.9)
 	steel.metallic = 0.6
 	tip.material_override = steel
-	add_child(tip)
+	look_node.add_child(tip)
 	for side in [-1.0, 1.0]:
 		var vane := MeshInstance3D.new()
 		var quad := BoxMesh.new()
@@ -193,14 +253,14 @@ func _build_arrow() -> void:
 		vane.position = Vector3(side * 0.03, 0.04, 0.33)
 		vane.rotation.z = side * 0.5
 		vane.material_override = _glow(color, 0.3)
-		add_child(vane)
+		look_node.add_child(vane)
 	_trail(Color(1, 1, 0.9), 5, 0.15, 0.05)
 
 
 func _build_arcane() -> void:
 	_sphere(0.17, _glow(Color(0.85, 0.7, 1.0), 3.0))
 	spin = Node3D.new()
-	add_child(spin)
+	look_node.add_child(spin)
 	for i in 3:
 		var ang := TAU * i / 3.0
 		var orb := MeshInstance3D.new()
@@ -234,7 +294,7 @@ func _build_holy(c: Color = Color(1.0, 0.97, 0.75)) -> void:
 	streak.mesh = cap
 	streak.rotation.x = PI / 2.0
 	streak.material_override = _glow(c, 3.5)
-	add_child(streak)
+	look_node.add_child(streak)
 	_trail(c.lerp(Color(1.0, 0.95, 0.6), 0.3), 10, 0.3, 0.07)
 	_light(c, 1.2, 4.0)
 
@@ -251,7 +311,7 @@ func _build_thorn(seed: bool) -> void:
 	spike.radial_segments = 4
 	if seed:
 		spin = Node3D.new()
-		add_child(spin)
+		look_node.add_child(spin)
 		var core := _sphere(0.3, _glow(Color(0.25, 0.55, 0.18), 1.4))
 		core.reparent(spin)
 		_sphere(0.18, _glow(Color(0.75, 1.0, 0.5), 3.0))
@@ -273,7 +333,7 @@ func _build_thorn(seed: bool) -> void:
 	box.size = Vector3(0.07, 0.07, 0.8)
 	shaft.mesh = box
 	shaft.material_override = _glow(green, 2.4)
-	add_child(shaft)
+	look_node.add_child(shaft)
 	var tip := MeshInstance3D.new()
 	var cone := CylinderMesh.new()
 	cone.top_radius = 0.0
@@ -283,7 +343,7 @@ func _build_thorn(seed: bool) -> void:
 	tip.rotation.x = -PI / 2.0
 	tip.position.z = -0.52
 	tip.material_override = _glow(Color(0.8, 1.0, 0.6), 3.0)
-	add_child(tip)
+	look_node.add_child(tip)
 	for i in 6:
 		var t := MeshInstance3D.new()
 		t.mesh = spike
@@ -291,7 +351,7 @@ func _build_thorn(seed: bool) -> void:
 		var side := 1.0 if i % 2 == 0 else -1.0
 		t.position = Vector3(side * 0.05, 0.0 if i % 4 < 2 else 0.04, -0.25 + i * 0.1)
 		t.rotation = Vector3(0.0, 0.0, -side * 1.1) + Vector3(0.5, 0, 0)
-		add_child(t)
+		look_node.add_child(t)
 	# Green streaks behind it.
 	var streak := MeshInstance3D.new()
 	var cap := CapsuleMesh.new()
@@ -306,7 +366,7 @@ func _build_thorn(seed: bool) -> void:
 	sm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	sm.albedo_color = Color(0.4, 1.0, 0.35, 0.45)
 	streak.material_override = sm
-	add_child(streak)
+	look_node.add_child(streak)
 	_trail(Color(0.45, 1.0, 0.35), 12, 0.3, 0.06)
 	_light(green, 1.0, 3.5)
 
@@ -339,7 +399,7 @@ func _physics_process(delta: float) -> void:
 		ray.exclude = skip
 		hit = get_world_3d().direct_space_state.intersect_ray(ray)
 	if hit and inert:
-		queue_free()   # the impact effects come from the host
+		_retire()   # the impact effects come from the host
 		return
 	if hit:
 		global_position = hit.position
@@ -359,12 +419,12 @@ func _physics_process(delta: float) -> void:
 	global_position = after
 	# Nothing reaches into the enemy's spawn sanctuary.
 	if game._in_cellar(1 - team, Vector3(after.x, -1.0, after.z)):
-		queue_free()
+		_retire()
 		return
 	life -= delta
 	if life <= 0.0:
 		if inert:
-			queue_free()
+			_retire()
 			return
 		_burst()
 		return
@@ -372,7 +432,7 @@ func _physics_process(delta: float) -> void:
 		for unit in game.units:
 			if unit.team != team and not unit.dead and not pierce and _flat(unit.global_position - global_position) < HIT_RADIUS \
 					and absf(global_position.y - (unit.global_position.y + 1.0)) < 1.5:
-				queue_free()
+				_retire()
 				return
 		return
 
@@ -442,7 +502,7 @@ func _burst() -> void:
 	else:
 		game.sfx.play("arrow_hit", global_position, -6.0, 0.15)
 		game.spawn_splash(global_position, Color(0.9, 0.85, 0.7), 6, 2.5, 0.3)
-	queue_free()
+	_retire()
 
 
 func _flat(v: Vector3) -> float:

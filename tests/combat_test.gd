@@ -196,7 +196,7 @@ func _wall_shots() -> void:
 	for f in 120:
 		await get_tree().physics_frame
 		for e in shots:
-			if is_instance_valid(e.shot):
+			if is_instance_valid(e.shot) and e.shot.is_inside_tree():   # a finished shot goes back to the pool (game.gd _new_shot)
 				e.last = e.shot.global_position
 	var space: PhysicsDirectSpaceState3D = game.get_world_3d().direct_space_state
 	var leaks := 0
