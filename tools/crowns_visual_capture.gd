@@ -1,6 +1,7 @@
 extends SceneTree
 ## Agent: Codex-faisal/ui. Real viewport state captures, not input-playtest proof.
 ## Requires isolated saves; CROWNS_CAPTURE_DIR chooses the output folder.
+## --map=N picks a map; Moonlit (1) also needs --debug-unlock.
 const Isolated = preload("res://tools/tests/isolated.gd")
 var game
 var out_dir := ""
@@ -38,6 +39,12 @@ func run() -> void:
 	await capture("01-title")
 	await press("play")
 	await capture("02-map")
+	# Moonlit Wildwood (--map=1) unlocks at an account level a throwaway
+	# save never has: say so instead of timing out in the lobby.
+	if not game.main_menu._card_open(game.main_menu.map_pick):
+		push_error("The picked map is locked for this save: add --debug-unlock")
+		quit(2)
+		return
 	await press("to_lobby")
 	await capture("03-ready")
 	await press("start")
