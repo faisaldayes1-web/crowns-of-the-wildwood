@@ -31,6 +31,7 @@ extends RefCounted
 
 const StyleProfile = preload("res://scripts/visual/style_profile.gd")
 const CHUNK := 32.0
+const FAR_WOODS := 24.0   # metres past the field edge where the woods go coarse (_build)
 const GRID := 4.0   # spatial hash cell for trunk spacing checks
 const NEEDLE := 5.0  # UV.x of pine tiers: sway like leaves, flat needle shading (forest_kit.gdshader)
 
@@ -49,6 +50,8 @@ var mat: ShaderMaterial
 var ground_mat: ShaderMaterial
 var palette := "day"  # day, night, winter, twilight
 var low := false
+var quality := 2   # the graphics preset the meshes are built for (_ensure)
+var _coarse := false   # building a coarse (LOD) mesh: the low pine lobes and the small clump sphere
 var cover: ShaderMaterial   # the ink-cover pass (_ensure), kept so a preset change can switch it
 static var _unit := []
 static var _unit_small := []   # polish round 3: a coarser sphere for pine needle clumps
@@ -728,10 +731,12 @@ func _ensure() -> void:
 	if mat != null:
 		return
 	palette = game.season if game.season in ["winter", "twilight"] else ("night" if game.night() else "day")
-	low = game.gfx_quality <= 0
+	quality = game.gfx_quality
+	low = quality <= 0
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--gfx="):   # (game.gd reads this test flag only after the world is built)
-			low = int(arg.trim_prefix("--gfx=")) <= 0
+			quality = int(arg.trim_prefix("--gfx="))
+			low = quality <= 0
 	mat = ShaderMaterial.new()
 	mat.shader = load("res://assets/shaders/forest_kit.gdshader")
 	mat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
@@ -770,10 +775,13 @@ func _build() -> void:
 	ground_mat = ShaderMaterial.new()
 	ground_mat.shader = load("res://assets/shaders/forest_ground.gdshader")
 	ground_mat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	var lod_all: bool = quality <= 1   # Low and Medium: every tree coarse
 	for key in _place:
-		var mesh := _mesh_for(key)
+		var lod_key: bool = key.begins_with("pine") or key.begins_with("autumn") or key.begins_with("broad") or key == "blossom" or key.begins_with("bush")
+		var mesh_far: ArrayMesh = _mesh_for(key, true) if lod_key else null
+		var mesh: ArrayMesh = null if (lod_all and mesh_far != null) else _mesh_for(key)   # (full mesh only when a chunk needs it)
 		await game._world_build_frame()
-		if mesh == null:
+		if mesh == null and mesh_far == null:
 			continue
 		var list: Array = _place[key]
 		var cells := {}
@@ -794,7 +802,16 @@ func _build() -> void:
 			var mm := MultiMesh.new()
 			mm.transform_format = MultiMesh.TRANSFORM_3D
 			mm.use_colors = true
-			mm.mesh = mesh
+			# Chunks well outside the playfield (the backdrop woods) take the coarse
+			# mesh on every preset; inside it only Low and Medium do.
+			var far_c := Vector2((k.x + 0.5) * CHUNK, (k.y + 0.5) * CHUNK)
+			var out: float = maxf(absf(far_c.x) - game.map_half.x, absf(far_c.y) - game.map_half.y)
+			if mesh_far != null and (lod_all or out > FAR_WOODS):
+				mm.mesh = mesh_far
+			else:
+				if mesh == null:
+					mesh = _mesh_for(key)
+				mm.mesh = mesh
 			mm.instance_count = items.size()
 			for i in items.size():
 				mm.set_instance_transform(i, items[i][0])
@@ -828,9 +845,13 @@ func kit_mesh(key: String) -> ArrayMesh:
 	return _mesh_for(key)
 
 
-func _mesh_for(key: String) -> ArrayMesh:
-	if _meshes.has(key):
-		return _meshes[key]
+func _mesh_for(key: String, coarse: bool = false) -> ArrayMesh:
+	## coarse: the same tree with fewer lobes and coarser clumps (~40% of the
+	## triangles), for Low, Medium and the far woods (_build).
+	var ck := key + "~c" if coarse else key
+	if _meshes.has(ck):
+		return _meshes[ck]
+	_coarse = coarse
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var seed := key.hash()
@@ -860,7 +881,8 @@ func _mesh_for(key: String) -> ArrayMesh:
 	else:
 		return null
 	var m := st.commit()
-	_meshes[key] = m
+	_coarse = false
+	_meshes[ck] = m
 	return m
 
 
@@ -957,6 +979,7 @@ func _lobe(st: SurfaceTool, c: Vector3, rad: float, squash: float, seed: int, cb
 	## through the whole crown (y0..y1), darker underneath.
 	if _unit.is_empty():
 		_unit_sphere()
+	small = small or _coarse
 	if small and _unit_small.is_empty():
 		_small_sphere()
 	var verts: PackedVector3Array = _unit_small[0] if small else _unit[0]
@@ -1205,8 +1228,8 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var rr: float = base_r * (1.0 - f * 0.68)   # (round 7: each tier a touch narrower, was 0.62)
 		var rim_y: float = foot + step * i
 		var h: float = step * (1.5 if not last else 1.8)   # (round 7: less overlap, was 1.55 / 1.75)
-		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - 2, 5) if low else maxi(14 - int(f * 4.0), 9)
-		var samples := 3 if low else 4
+		var lobes: int = maxi(7 - int(f * 2.2 + 0.3) - 2, 5) if (low or _coarse) else maxi(14 - int(f * 4.0), 9)
+		var samples := 3 if (low or _coarse) else 4
 		var m := lobes * samples
 		var spin := r.randf() * TAU
 		var t := clampf(rim_y / top, 0.0, 1.0)
@@ -1221,7 +1244,7 @@ func _make_pine(st: SurfaceTool, seed: int, shape: int, accent: String) -> void:
 		var cols := [c_rim, c_lit, c_sh, c_top]
 		var lob := []
 		for k in m:
-			var profile: float = (0.78 if k % samples == 0 else 1.0) if low else [0.76, 0.92, 1.0, 0.92][k % samples]
+			var profile: float = (0.78 if k % samples == 0 else 1.0) if (low or _coarse) else [0.76, 0.92, 1.0, 0.92][k % samples]
 			lob.append(profile * r.randf_range(0.95, 1.05))
 		var grid := []
 		for j in prof.size():
