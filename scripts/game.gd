@@ -1191,7 +1191,7 @@ func _score_capture(carrier, m) -> void:
 		_finish(carrier.team)
 	else:
 		announce("The %s captured the %s!" % [team_name, m.title])
-	print("Capture: %s  (score %d - %d) t=%d" % [team_name, score[0], score[1], match_clock()])
+	LogQ.line("Capture: %s  (score %d - %d) t=%d" % [team_name, score[0], score[1], match_clock()])
 
 
 func match_clock() -> int:
@@ -1232,14 +1232,14 @@ func _end_on_time() -> void:
 		announce("OVERTIME! Both doors are down and nobody respawns. Next capture or last team standing wins!")
 		chat_system("Overtime: the doors are down, no respawns. Next capture or last team standing wins.")
 		sfx.ui("horn", 0.0, 0.8)
-		print("Overtime")
+		LogQ.line("Overtime")
 		return
 	time_left = 0.0
 	if score[0] == score[1]:
 		_finish(-1)
 	else:
 		_finish(0 if score[0] > score[1] else 1)
-	print("Time up")
+	LogQ.line("Time up")
 
 
 func _finish(winner: int) -> void:
@@ -2888,6 +2888,9 @@ func in_prep() -> bool:
 func _build_barrier() -> void:
 	## The fortify barrier: a wall of light down the middle of the field that
 	## nothing crosses until the battle begins.
+	if is_instance_valid(_fallen_barrier):
+		_fallen_barrier.queue_free()   # last match's (under the loading art)
+	_fallen_barrier = null
 	barrier = Node3D.new()
 	barrier.set_meta("no_batch", true)   # falls when the fight starts
 	add_child(barrier)
@@ -2953,10 +2956,17 @@ func _begin_battle() -> void:
 	## The fortify phase ends: the barrier falls and the clock starts.
 	prep_left = 0.0
 	if is_instance_valid(barrier):
-		barrier.queue_free()
+		# Hidden and made passable, not freed: freeing its shader, meshes and
+		# body in the fight's first frame was a 40-55 ms stall
+		# (claude-faisal/crowns-spawn 2026-11-04, tools/stall_probe.gd). It
+		# goes with the next match's barrier, or the game.
+		barrier.visible = false
+		for cs in barrier.find_children("*", "CollisionShape3D", true, false):
+			cs.set_deferred("disabled", true)
+		_fallen_barrier = barrier
 		barrier = null
 	if demo:
-		print("Battle begins: barricades %d/%d, traps %d, turrets %d/%d" % [Stats.BARRICADE_TEAM - barricades_left[0], Stats.BARRICADE_TEAM - barricades_left[1], get_children().filter(func(c): return c is Trap).size(), turrets_built[0], turrets_built[1]])
+		LogQ.line("Battle begins: barricades %d/%d, traps %d, turrets %d/%d" % [Stats.BARRICADE_TEAM - barricades_left[0], Stats.BARRICADE_TEAM - barricades_left[1], get_children().filter(func(c): return c is Trap).size(), turrets_built[0], turrets_built[1]])
 	announce("FIGHT! The barrier is down. Capture the crown!")
 	chat_system("The barrier is down. Fight!")
 	sfx.ui("horn", 0.0, 1.0)
@@ -12766,6 +12776,8 @@ func _warm_up_match() -> void:
 	## panel, top bar), the effects and the first models came on top of it,
 	## so the art sat frozen for one 0.5-0.9 s frame (claude-faisal/crowns-perf04
 	## 2026-10-31, PERF-04; tools/match_start_probe.gd).
+	if sfx:
+		sfx.prewarm_stings()   # the battle-start and crown stings, read now and kept
 	if not is_instance_valid(loading_layer) or DisplayServer.get_name() == "headless" or player == null:
 		_warm_up_world()   # (they return at once without the art)
 		_warm_up_effects()
@@ -13031,6 +13043,7 @@ func _prebuild_warm_rack() -> void:
 
 
 var warm_models_done := false
+var _fallen_barrier: Node3D   # the last fight's barrier, hidden (see _begin_battle)
 
 
 func _warm_up_models(buried: bool = false) -> void:

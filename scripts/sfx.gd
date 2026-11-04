@@ -239,9 +239,27 @@ func _setup_buses() -> void:
 		AudioServer.add_bus_effect(mi, duck)
 
 
+var _music_cache := {}   # name -> AudioStream (or null): music and stings, read from disk once
+
+
 func _music_stream(name: String) -> AudioStream:
+	## Kept once loaded: a sting dropped by its player was read and decoded
+	## from disk again the next time it played, inside that frame (the
+	## battle-start sting was part of a 50 ms frame; claude-faisal/crowns-spawn
+	## 2026-11-04, tools/stall_probe.gd).
+	if _music_cache.has(name):
+		return _music_cache[name]
 	var path := MUSIC_DIR + name + ".ogg"
-	return load(path) if ResourceLoader.exists(path) else null
+	var st: AudioStream = load(path) if ResourceLoader.exists(path) else null
+	_music_cache[name] = st
+	return st
+
+
+func prewarm_stings() -> void:
+	## Every music sting, loaded now (behind the loading art) rather than the
+	## first time it plays.
+	for name in ["match_start", "crown_captured", "crown_lost", "victory", "defeat"]:
+		_music_stream("sting_" + name)
 
 
 func _music_player(name: String) -> AudioStreamPlayer:
