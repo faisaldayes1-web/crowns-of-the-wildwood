@@ -11582,6 +11582,8 @@ func _audit_clipping() -> void:
 	var items: Array = []
 	for p in audit_props:
 		var n: Node3D = p[1]
+		if not is_instance_valid(n) or not n.is_visible_in_tree():
+			continue   # hidden stand-ins (the forest kit draws those trees)
 		var aabb := AABB()
 		var first := true
 		for m in n.find_children("*", "MeshInstance3D", true, false):
@@ -11618,6 +11620,15 @@ func _audit_clipping() -> void:
 			if pen > 0.15:
 				print("CLIP prop/%s %s : %.2f at %s (block %s %s)" % [b[0], items[i][0], pen, items[i][1].get_center().snapped(Vector3(0.1, 0.1, 0.1)), bb.position.snapped(Vector3(0.1, 0.1, 0.1)), bb.size.snapped(Vector3(0.1, 0.1, 0.1))])
 				count += 1
+	# The forest kit's trees, bushes and boulders (scripts/visual/forest_kit.gd
+	# checks every one against the built world and shrinks or drops those
+	# that clip; what still clips is listed here).
+	if forest_kit != null and not forest_kit.audit.is_empty():
+		var ka: Dictionary = forest_kit.audit
+		for rem in ka.remaining:
+			print("CLIP kit/block %s : %.2f at %s" % [rem[0], rem[2], rem[1].snapped(Vector3(0.1, 0.1, 0.1))])
+			count += 1
+		print("AUDIT kit: %d checked, %d shrunk, %d dropped, %d still clipping" % [ka.checked, ka.shrunk, ka.dropped, ka.remaining.size()])
 	print("AUDIT done: %d overlaps in %d props" % [count, items.size()])
 
 
