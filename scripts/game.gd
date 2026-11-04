@@ -5560,6 +5560,7 @@ uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
 uniform vec4 tint : source_color = vec4(1.0);
 uniform vec2 half_ext = vec2(4.0, 2.0);
 uniform float scale = 0.11;
+uniform float alpha_max = 0.55;
 varying vec3 wpos;
 varying vec2 lxz;
 
@@ -5574,7 +5575,7 @@ void fragment() {
 	float n = texture(noise_tex, wpos.xz * 0.23).r - 0.5;
 	float a = smoothstep(0.0, 1.7, e + n * 1.6);
 	ALBEDO = texture(albedo_tex, wpos.xz * scale).rgb * tint.rgb;
-	ALPHA = a * 0.55;
+	ALPHA = a * alpha_max;
 	ROUGHNESS = 0.9;
 }
 """
@@ -5684,20 +5685,35 @@ func _stones(loose: bool = false, fray: bool = false) -> ShaderMaterial:
 var verge_mat: StandardMaterial3D
 
 
-func _soft_verge(half_ext: Vector2) -> ShaderMaterial:
-	## The meadow's own grass, faded out toward the strip's rim (VERGE_SHADER).
+func _soft_verge(half_ext: Vector2, src: StandardMaterial3D = null, alpha_max: float = 0.55) -> ShaderMaterial:
+	## The meadow's own grass (or `src`'s texture), faded out toward the strip's
+	## rim (VERGE_SHADER).
 	if verge_shader == null:
 		verge_shader = Shader.new()
 		verge_shader.code = VERGE_SHADER
-	var g := _grass()
+	var g := src if src else _grass()
 	var m := ShaderMaterial.new()
 	m.shader = verge_shader
 	m.set_shader_parameter("albedo_tex", g.albedo_texture)
 	m.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
-	m.set_shader_parameter("tint", g.albedo_color * Color(0.96, 0.92, 0.8))
+	m.set_shader_parameter("tint", g.albedo_color * (Color(0.96, 0.92, 0.8) if src == null else Color.WHITE))
 	m.set_shader_parameter("half_ext", half_ext)
 	m.set_shader_parameter("scale", 0.11)
+	m.set_shader_parameter("alpha_max", alpha_max)
 	return m
+
+
+func _add_soft_patch(pos: Vector3, size: Vector2, yaw: float, src: StandardMaterial3D, alpha_max: float) -> void:
+	## A ground patch (moss bed, sandy bank) with a noise-broken rim instead of
+	## the hard rectangle the plain boxes drew (claude-faisal3 2026-11-04).
+	var mesh := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = Vector3(size.x, 0.006, size.y)
+	mesh.mesh = box
+	mesh.material_override = _soft_verge(size * 0.5, src, alpha_max)
+	mesh.position = pos
+	mesh.rotation.y = yaw
+	add_child(mesh)
 
 
 func _verge() -> StandardMaterial3D:
@@ -9531,7 +9547,7 @@ func _add_ground_patches() -> void:
 				if absf(z - b) < 3.2:
 					blocked = true
 			if not blocked:
-				_add_block(Vector3(sx * (RIVER_HALF + 0.9), 0.004, z + 2.0), Vector3(1.6, 0.008, 4.0), Color.WHITE, false, sand)
+				_add_soft_patch(Vector3(sx * (RIVER_HALF + 0.9), 0.004, z + 2.0), Vector2(2.6, 5.2), 0.0, sand, 0.9)
 			z += 4.0
 			await _world_build_frame()   # (claude-faisal/stutter: one 31 ms step behind the title before)
 	var moss := _moss()
@@ -9541,7 +9557,7 @@ func _add_ground_patches() -> void:
 		await _world_build_frame()
 		if t.x < -8.0 and r.randf() < 0.6:
 			var size := r.randf_range(2.4, 4.2)
-			_add_block(Vector3(t.x + r.randf_range(-0.6, 0.6), 0.003, t.z + r.randf_range(-0.6, 0.6)), Vector3(size, 0.006, size * r.randf_range(0.7, 1.0)), Color.WHITE, false, moss)
+			_add_soft_patch(Vector3(t.x + r.randf_range(-0.6, 0.6), 0.003, t.z + r.randf_range(-0.6, 0.6)), Vector2(size * 1.5, size * 1.5 * r.randf_range(0.7, 1.0)), r.randf_range(0.0, PI), moss, 0.9)
 
 
 func _hex_color(team: int) -> String:

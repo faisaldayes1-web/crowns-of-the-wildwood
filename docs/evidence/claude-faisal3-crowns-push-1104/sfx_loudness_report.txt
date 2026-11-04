@@ -1,0 +1,7 @@
+name  pick  dur_s  orig_active_rms  new_active_rms  new_peak_db  gain_db
+swing_heavy  v1   0.53    -15.5    -14.7     -4.5    -4.2
+hit_heavy    v1   0.45    -17.3    -16.4     -5.6    -5.5
+hit_shield   v2   0.70    -16.6    -16.6     -1.2    -0.2
+hurt         v2   0.27    -16.2    -16.0     -4.7    -4.5
+death        v1   0.60    -13.5    -13.3     -3.9    -3.8
+crown_grab   v1   1.00    -15.0    -15.6     -1.0     5.3
