@@ -400,10 +400,9 @@ func _draw() -> void:
 		"levelup": _draw_rankup_flourish()
 		"event": _draw_event_banner(_event_banner())
 	if pane:
-		if local_unit:
-			# Under the BASE STOCK card when the economy draws one (economy.gd draw_counter).
-			var ly: float = (300.0 if _narrow() else 356.0) if game.economy else (184.0 if _narrow() else 252.0)
-			_text(Vector2(30 if _narrow() else 44, ly), "PLAYER %d" % (local_unit.local_index + 1), 15, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
+		# (No second "PLAYER n" tag under the coin counter: the player panel
+		# already names the pane, and the tag landed on the class signs.
+		# Visual pass 2026-11-04.)
 		if game.rank_open and game.rank_player == local_unit:
 			_draw_rank_menu(local_unit)
 		return
@@ -6593,6 +6592,11 @@ func _chat_rect() -> Rect2:
 		if game.economy and _me():
 			reserved_bottom = map_bottom + 86.0
 		top = maxf(top, reserved_bottom)
+	elif not game.chat_open:
+		# Split screen, idle: a short log low in the left pane's corner,
+		# just above its bottom row, clear of the class signs and the spawn
+		# ring (visual pass 2026-11-04: it sat over the spawn ring).
+		return Rect2(14, size.y - 222.0, 270, 130.0)
 	return Rect2(14, top, 380 if touch_ui else 290, maxf(0.0, size.y - 166 - top))
 
 
@@ -6660,7 +6664,7 @@ func _draw_chat() -> void:
 	# the log shows its newest three rows, and only two (for 8 s, not 14)
 	# while a fight is near the player or on screen. Open chat shows twelve.
 	var fight := not typing and _in_fight()
-	var max_rows := 12 if typing else (2 if fight else 3)
+	var max_rows := 12 if typing else (2 if fight or game.couch_active else 3)
 	var max_age := 8.0 if fight else 12.0
 	var lines: Array = []
 	for i in range(game.chat_log.size() - 1, -1, -1):
