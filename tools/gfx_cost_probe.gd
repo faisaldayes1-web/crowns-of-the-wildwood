@@ -75,6 +75,12 @@ func _toggle(what: String, off: bool) -> void:
 			game.cam_attrs.dof_blur_far_enabled = not off
 		"fxaa":
 			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED if off else Viewport.SCREEN_SPACE_AA_FXAA
+		"atlas_2048":
+			RenderingServer.directional_shadow_atlas_set_size(2048 if off else 4096, true)
+		"cascades_1":
+			game.sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL if off else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+		"filter_vlow":
+			RenderingServer.directional_soft_shadow_filter_set_quality(RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW if off else RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM)
 		"shadow_far_45":
 			game.sun_light.directional_shadow_max_distance = 45.0 if off else 70.0
 

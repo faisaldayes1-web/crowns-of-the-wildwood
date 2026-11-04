@@ -11831,8 +11831,15 @@ func apply_graphics() -> void:
 		# shrink on the lower presets. Set before the 3-4 pane override below.
 		sun_light.directional_shadow_mode = [DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS, DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS, DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS, DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS][q]
 		sun_light.directional_shadow_max_distance = [45.0, 55.0, 62.0, 70.0][q]
+	# The ink outline is a full-screen depth pass (~3 ms on integrated graphics)
+	# and the forest kit redraws every tree a second time to keep ink off them:
+	# Low and Medium draw neither (claude-faisal3 gfx_cost_probe, 2026-11-04).
+	if ink_quad:
+		ink_quad.visible = q >= 2
+	if forest_kit:
+		forest_kit.set_cover(q >= 2)
 	if world_environment:
-		world_environment.ssao_enabled = q >= 1
+		world_environment.ssao_enabled = q >= 2   # ~2.3 ms of Medium's frame on integrated graphics (gfx_cost_probe)
 		world_environment.ssil_enabled = q >= 2
 		world_environment.glow_enabled = q >= 1
 		world_environment.volumetric_fog_enabled = q >= 3
@@ -12645,6 +12652,7 @@ func _add_back_forest() -> void:
 
 
 var ink_on := false
+var ink_quad: MeshInstance3D = null   # the ink pass's full-screen quad: High and Ultra only (apply_graphics)
 var ink_mat: ShaderMaterial = null   # the ink pass (_add_ink): _match_grade sets its strength
 
 
@@ -12664,6 +12672,7 @@ func _add_ink() -> void:
 	mat.render_priority = 100
 	q.material_override = mat
 	ink_mat = mat
+	ink_quad = q
 	q.extra_cull_margin = 16384.0
 	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(q)

@@ -49,6 +49,7 @@ var mat: ShaderMaterial
 var ground_mat: ShaderMaterial
 var palette := "day"  # day, night, winter, twilight
 var low := false
+var cover: ShaderMaterial   # the ink-cover pass (_ensure), kept so a preset change can switch it
 static var _unit := []
 static var _unit_small := []   # polish round 3: a coarser sphere for pine needle clumps
 
@@ -714,6 +715,13 @@ func _patch_tones() -> Array:
 
 # --- Meshes ------------------------------------------------------------------
 
+func set_cover(on: bool) -> void:
+	## The cover pass only matters while the screen ink is drawn (High, Ultra);
+	## without it every tree would be drawn twice for nothing.
+	if mat != null:
+		mat.next_pass = cover if on else null
+
+
 func _ensure() -> void:
 	## Palette, preset and the shared material (also asked for before
 	## finish() by the economy's wood trees, kit_tree()).
@@ -733,15 +741,15 @@ func _ensure() -> void:
 	# a cover pass redraws every kit surface, unchanged, in the transparent
 	# pass after the screen ink (render priority 101 > the ink's 100), so no
 	# ink line lands on a tree, bush or rock. Same shader code and uniforms.
-	if not low and not "--kit-no-cover" in OS.get_cmdline_user_args():
+	if not "--kit-no-cover" in OS.get_cmdline_user_args():
 		var cs := Shader.new()
 		cs.code = mat.shader.code.replace("render_mode cull_back,", "render_mode cull_back, blend_mix, depth_draw_never,")
-		var cover := ShaderMaterial.new()
+		cover = ShaderMaterial.new()
 		cover.shader = cs
 		cover.render_priority = 101
 		for p in ["noise_tex", "glow_energy", "self_lit"]:
 			cover.set_shader_parameter(p, mat.get_shader_parameter(p))
-		mat.next_pass = cover
+		set_cover(true)   # (apply_graphics drops it on the presets that draw no ink)
 
 
 func kit_tree(parent: Node3D, key: String, at: Vector3, s: float, yaw: float) -> MeshInstance3D:
