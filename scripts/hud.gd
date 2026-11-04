@@ -2448,9 +2448,10 @@ func _shield_portrait(c: Vector2, w: float, h: float, team: int, role: int, dead
 func _narrow() -> bool:
 	## Couch panes too small for the full top row: the scoreboard shrinks,
 	## the minimap gets smaller and the logo is left out.
-	# (Split panes: below 1200, so both panes of a split always share one
-	# layout: they sat either side of 1140 and drew different top bars.)
-	return size.x < (1200.0 if pane else 1140.0)
+	# (Split panes: below 1100. A pane whose bottom row sets its scale is
+	# exactly game.SPLIT_HUD_WIDTH (1140) wide, give or take a unit, so both
+	# panes of a split share the full top bar instead of straddling 1140.)
+	return size.x < (1100.0 if pane else 1140.0)
 
 
 func _clock_plate(rect: Rect2) -> void:
