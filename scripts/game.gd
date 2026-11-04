@@ -3603,7 +3603,9 @@ func _layout_panes() -> void:
 		# bottom row together stay near a quarter of the pane's height, and
 		# the bottom row still fits the pane's width.
 		var px: Vector2 = get_viewport().get_visible_rect().size * r.size
-		pane.hud_scale = clampf(minf(px.y * SPLIT_HUD_SHARE / SPLIT_HUD_ROWS, px.x / SPLIT_HUD_WIDTH), 0.4, 0.72)
+		# (Cap 0.82, was 0.72: side-by-side panes had 8-9 px labels; the
+		# width term still keeps the bottom row inside the pane.)
+		pane.hud_scale = clampf(minf(px.y * SPLIT_HUD_SHARE / SPLIT_HUD_ROWS, px.x / SPLIT_HUD_WIDTH), 0.4, 0.82)
 		pane.zoom = SPLIT_TALL_ZOOM if tall else 1.0
 		pane.hud_scale *= px_scale   # the pane's pixels are px_scale finer than canvas units
 		pane.hud.scale = Vector2.ONE * pane.hud_scale
@@ -7534,6 +7536,11 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 	label.outline_size = 14
 	label.outline_modulate = color.darkened(0.7)
 	label.modulate = Color(1.0, 0.98, 0.92)
+	if color.get_luminance() > 0.7:
+		# A pale board (the Kingdom's white Healer): cream letters washed
+		# out on it, so they go dark brown on a cream rim (visual pass 2026-11-04).
+		label.modulate = Color(0.24, 0.15, 0.07)
+		label.outline_modulate = Color(1.0, 0.96, 0.86)
 	label.position = Vector3(pos.x, sign_y, wall_z + 1.0)
 	if team == 0:
 		# In front of the Elves' timber board and turned to the camera, so
