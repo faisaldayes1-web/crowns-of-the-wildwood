@@ -208,7 +208,19 @@ static func _load(path: String) -> Resource:
 	return r
 
 
+static var build_log: Array = []   # ms of each setup() since a probe last cleared it (tools/spawn_hitch_probe.gd)
+
+
 func setup(team: int, role: int, variant: String = "", custom: Dictionary = {}, rank: int = 1) -> void:
+	var t_build := Time.get_ticks_usec()
+	_setup(team, role, variant, custom, rank)
+	if build_log.size() < 512:
+		build_log.append((Time.get_ticks_usec() - t_build) / 1000.0)
+	if OS.has_environment("CROWNS_BUILD_TRACE") and (Time.get_ticks_usec() - t_build) > 12000:
+		print("BUILD slow %.1f ms team=%d role=%d variant=%s rank=%d custom=%s" % [(Time.get_ticks_usec() - t_build) / 1000.0, team, role, variant, rank, str(custom.keys())])
+
+
+func _setup(team: int, role: int, variant: String, custom: Dictionary, rank: int) -> void:
 	for child in get_children():
 		child.queue_free()
 	var c := config(team, role, variant, rank)
