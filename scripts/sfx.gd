@@ -24,6 +24,12 @@ const CROSSFADE := 1.6       # seconds for menu <-> match
 const LAYER_FADE := 1.2      # seconds for a battle stem to come in or out
 const DOOR_ALARM := 6.0      # seconds the drums stay after your door takes a hit
 const Monarch = preload("res://scripts/monarch.gd")
+## Six high-salience clips replaced by recorded ones (assets/sfx/override/,
+## built by tools/make_sfx_overrides.py, loudness-matched to the originals).
+## The synthesized originals stay in assets/sfx/ and are what plays if an
+## override is missing. claude-faisal3 2026-11-04.
+const OVERRIDE_DIR := "res://assets/sfx/override/"
+const OVERRIDES := ["swing_heavy", "hit_heavy", "hit_shield", "hurt", "death", "crown_grab"]
 
 var streams := {}
 var pool_3d: Array = []
@@ -62,6 +68,9 @@ func _ready() -> void:
 				var clip := f.trim_suffix(".import")
 				streams[clip.trim_suffix(".wav")] = load(DIR + clip)
 			f = d.get_next()
+	for name in OVERRIDES:
+		if ResourceLoader.exists(OVERRIDE_DIR + name + ".wav"):
+			streams[name] = load(OVERRIDE_DIR + name + ".wav")
 	for i in POOL_3D:
 		var p := AudioStreamPlayer3D.new()
 		p.unit_size = 14.0

@@ -986,11 +986,11 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 	# Hexagon tiles, like Faisal's UI reference (2026-10-08): a dark outer
 	# edge, a thick bronze rim, then the glossy coloured face lit from the top.
 	var hc := rect.get_center()
-	var hr := size_px * 0.62
+	var hr := size_px * 0.55   # outer ring 0.55*52+6 = 34.6 px radius: clear of the 72 px pitch
 	if glow and not locked:
 		var gpulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() / 220.0)
 		for i in 5:
-			_glow("poly", [_hex_pts(hc, hr + 8.0 + i * 3.0), Color(1.0, 0.78, 0.25, 0.07 * gpulse)])
+			_glow("poly", [_orb_pts(hc, hr + 8.0 + i * 3.0), Color(1.0, 0.78, 0.25, 0.07 * gpulse)])
 	var frame := BRASS
 	if glow and not locked:
 		frame = GOLD.lightened(0.15)
@@ -1023,7 +1023,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		# The shade's band starts 2.5 px above the hex's tip: under about a pixel
 		# of overlap the clip is a sliver the renderer can't triangulate.
 		if 2.0 * hr * frac > 3.5:
-			for poly in Geometry2D.intersect_polygons(_hex_pts(hc, hr - 2.5), cut):
+			for poly in Geometry2D.intersect_polygons(_orb_pts(hc, hr - 2.5), cut):
 				draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
 		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
 			int(16 * maxf(1.0, size_px / 60.0)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
@@ -1045,8 +1045,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vector2, hr: float, frame: Color,
 		art: String, locked: bool, ready: bool) -> void:
 	## The slot's tile and icon (the baked part of a slot).
-	var shadow := _hex_pts(hc + Vector2(0, 3), hr + 7.0)
-	draw_colored_polygon(shadow, Color(0, 0, 0, 0.45))
+	draw_colored_polygon(_orb_pts(hc + Vector2(0, 3), hr + 7.0), Color(0, 0, 0, 0.45))
 	# Every slot now draws its emblem from Faisal's 2026-10-14 icon sheet,
 	# centred on the hexagon: the old painted hex tiles had their symbols off
 	# centre (Faisal 08:09 "this is off center", on Perks and Grab).
@@ -1058,18 +1057,18 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 		# sliced rim; Faisal 2026-10-10 "the tiles still look cropped"), so
 		# the drawn hexagon gives every tile a whole rim and the painting
 		# fills only its face.
-		_hex_tile(hc, hr, frame, color, locked, ready)
+		_orb_tile(hc, hr, frame, color, locked, ready)
 		var th := 2.0 * (hr + 6.0) / 0.9 * 1.16   # zoomed past the painting's own (sliced) rim
 		var tex: Texture2D = skill_art[art]
 		var tw := th * tex.get_width() / tex.get_height()
 		var box := Rect2(hc - Vector2(tw, th) / 2.0 - Vector2(tw * 0.03, 0), Vector2(tw, th))
-		var face := _hex_pts(hc, hr - 2.5)
+		var face := _orb_pts(hc, hr - 2.5)
 		var uvs := PackedVector2Array()
 		for q in face:
 			uvs.append((q - box.position) / box.size)
 		draw_colored_polygon(face, Color.WHITE if (ready or locked) else Color(0.55, 0.55, 0.58), uvs, tex)
 	else:
-		_hex_tile(hc, hr, frame, color, locked, ready)
+		_orb_tile(hc, hr, frame, color, locked, ready)
 	if art != "" and skill_art.has(art):
 		pass   # the painted tile carries its own icon
 	elif locked:
@@ -1082,6 +1081,54 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 			Color.WHITE if ready else Color(0.45, 0.45, 0.5))
 	else:
 		_icon(icon, hc + Vector2(0, -2), size_px * 0.3, Color.WHITE, not ready)
+
+
+func _orb_pts(c: Vector2, r: float) -> PackedVector2Array:
+	## A circle as a 48-gon, first point at the top, clockwise (slot shapes).
+	var pts := PackedVector2Array()
+	for i in 48:
+		var ang := -PI / 2.0 + i * TAU / 48.0
+		pts.append(c + Vector2(cos(ang), sin(ang)) * r)
+	return pts
+
+
+func _orb_tile(hc: Vector2, hr: float, frame: Color, color: Color, locked: bool, ready: bool) -> void:
+	## One modular slot: a round brass ring (lit from the top) round a band of
+	## dark leaf green and a green face tinted a little by the move's colour,
+	## with a glossy cap and four brass studs. Each slot stands alone.
+	draw_colored_polygon(_orb_pts(hc, hr + 6.0), Color(0.12, 0.08, 0.03))
+	var rim := _orb_pts(hc, hr + 4.5)
+	var rim_cols := PackedColorArray()
+	for q in rim:
+		var f := clampf((q.y - (hc.y - hr)) / (2.0 * hr), 0.0, 1.0)
+		rim_cols.append(frame.lightened(0.32).lerp(frame.darkened(0.38), f))
+	draw_polygon(rim, rim_cols)
+	var leaf := Color(0.09, 0.25, 0.1) if not locked else Color(0.12, 0.17, 0.13)
+	draw_colored_polygon(_orb_pts(hc, hr + 0.5), leaf.darkened(0.35))
+	draw_colored_polygon(_orb_pts(hc, hr - 1.0), leaf)
+	var tile := Color(0.14, 0.4, 0.17).lerp(color, 0.28)
+	if locked:
+		tile = Color(0.2, 0.27, 0.22)
+	elif not ready:
+		tile = tile.darkened(0.4).lerp(Color(0.2, 0.22, 0.2), 0.2)
+	var face := _orb_pts(hc, hr - 3.0)
+	var face_cols := PackedColorArray()
+	for q in face:
+		var f := clampf((q.y - (hc.y - hr)) / (2.0 * hr), 0.0, 1.0)
+		face_cols.append(tile.lightened(0.3).lerp(tile.darkened(0.4), f))
+	draw_polygon(face, face_cols)
+	if not locked:
+		draw_circle(hc + Vector2(0, -2), hr * 0.55, Color(1, 1, 1, 0.1 if ready else 0.03))
+	var cap := PackedVector2Array()
+	for i in 13:
+		var ang := PI * 1.12 + i * (PI * 0.76) / 12.0
+		cap.append(hc + Vector2(cos(ang), sin(ang)) * (hr - 3.5))
+	draw_colored_polygon(cap, Color(1, 1, 1, 0.14 if not locked else 0.05))
+	draw_arc(hc, hr - 3.0, 0, TAU, 48, Color(0, 0, 0, 0.55), 1.2)
+	draw_arc(hc, hr + 3.5, PI * 1.05, PI * 1.9, 24, Color(1, 0.95, 0.75, 0.6), 1.2)
+	for ang in [PI * 0.25, PI * 0.75, PI * 1.25, PI * 1.75]:
+		var q := hc + Vector2(cos(ang), sin(ang)) * (hr + 0.2)
+		draw_circle(q, 1.7, frame.lightened(0.45))
 
 
 func _hex_tile(hc: Vector2, hr: float, frame: Color, color: Color, locked: bool, ready: bool) -> void:
