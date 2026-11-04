@@ -6,8 +6,11 @@ extends RefCounted
 ## own tag first, then the rest nearest the player first. A tag that would
 ## land on one already placed is lifted a step (up to two steps), and one
 ## with no free spot is dimmed, so a pile of fighters reads as a neat stack.
-## Look only: the tags' text, colours and the fight are unchanged. Skipped in
-## couch split screen, where every pane sees the same tags from its own camera.
+## Look only: the tags' text, colours and the fight are unchanged. In couch
+## split screen every pane runs it with its own camera; a unit's tag (shared
+## by the panes) takes the highest lift any pane asked for this frame and
+## dims if any pane had no free spot (visual pass 2026-11-04: split-screen
+## tags piled up because the panes skipped it).
 
 const STEP := 0.7        # metres a lifted tag rises per step
 const CHAR_W := 0.15     # the tag font's mean glyph width at its pixel size (m)
@@ -16,9 +19,21 @@ const TAG_H := 0.5       # name plus health bar (m)
 
 static func run(game, cam: Camera3D, xf: Transform2D, delta: float, blocked: Array[Rect2] = []) -> Array[Rect2]:
 	var placed: Array[Rect2] = []
-	if cam == null or game.couch_active:
+	if cam == null:
 		return placed
+	var couch: bool = game.couch_active
+	var frame := Engine.get_process_frames()
+	if couch and int(game.get_meta(&"declutter_frame", -1)) != frame:
+		game.set_meta(&"declutter_frame", frame)
+		game.set_meta(&"declutter_want", {})
+	var wants: Dictionary = game.get_meta(&"declutter_want", {}) if couch else {}
+	if couch:
+		blocked = []   # (one pane's HUD panels must not hide a tag in the other)
 	var me = game.player
+	if couch:
+		for pn in game.panes:
+			if pn.cam == cam:
+				me = pn.unit
 	var list := []
 	for u in game.units:
 		if u.label == null or u.overhead == null:
@@ -56,9 +71,15 @@ static func run(game, cam: Camera3D, xf: Transform2D, delta: float, blocked: Arr
 				want = step
 				placed.append(r)
 				break
+		var dim := want < 0
+		if couch:
+			var prev: Array = wants.get(u, [0, false])
+			want = maxi(want, int(prev[0]))
+			dim = dim or bool(prev[1])
+			wants[u] = [want, dim]
 		var lift := STEP * maxi(want, 0)
 		u.overhead_lift = lerpf(u.overhead_lift, lift, k) if absf(u.overhead_lift - lift) > 0.01 else lift
-		u.label.transparency = 0.0 if want >= 0 else 0.6
+		u.label.transparency = 0.6 if dim else 0.0
 		# (Round 7: a tag under a fixed HUD panel is hidden, bar and all.)
 		var tag := Rect2(c.x - w / 2.0, c.y - h * 0.8 - lift / STEP * step_px, w, h)
 		var hidden := false
