@@ -273,7 +273,7 @@ var split_fill: ColorRect
 const SPLIT_TALL_ZOOM := 1.3    # camera pull-back in a side-by-side (half-width, full-height) pane
 const SPLIT_HUD_SHARE := 0.26   # most of a pane's height the HUD's top bar + bottom row may cover
 const SPLIT_HUD_ROWS := 260.0   # those two rows' height in HUD units
-const SPLIT_HUD_WIDTH := 1240.0 # HUD units the bottom row needs across
+const SPLIT_HUD_WIDTH := 1140.0 # HUD units the pane bottom row needs across (hud.gd: buttons moved top-right)
 var rank_player = null          # whose perk menu is open
 var rank_from_pad := false      # the perk menu was opened by stepping on the Upgrade Station (it lets you walk off)
 const COUCH_MAX := 4
@@ -3605,7 +3605,7 @@ func _layout_panes() -> void:
 		var px: Vector2 = get_viewport().get_visible_rect().size * r.size
 		# (Cap 0.82, was 0.72: side-by-side panes had 8-9 px labels; the
 		# width term still keeps the bottom row inside the pane.)
-		pane.hud_scale = clampf(minf(px.y * SPLIT_HUD_SHARE / SPLIT_HUD_ROWS, px.x / SPLIT_HUD_WIDTH), 0.4, 0.82)
+		pane.hud_scale = clampf(minf(px.y * SPLIT_HUD_SHARE / SPLIT_HUD_ROWS, px.x / SPLIT_HUD_WIDTH), 0.4, 0.9)
 		pane.zoom = SPLIT_TALL_ZOOM if tall else 1.0
 		pane.hud_scale *= px_scale   # the pane's pixels are px_scale finer than canvas units
 		pane.hud.scale = Vector2.ONE * pane.hud_scale

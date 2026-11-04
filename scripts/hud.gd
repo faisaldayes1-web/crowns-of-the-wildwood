@@ -2448,7 +2448,10 @@ func _shield_portrait(c: Vector2, w: float, h: float, team: int, role: int, dead
 func _narrow() -> bool:
 	## Couch panes too small for the full top row: the scoreboard shrinks,
 	## the minimap gets smaller and the logo is left out.
-	return size.x < 1140.0
+	# (Split panes: below 1100. A pane whose bottom row sets its scale is
+	# exactly game.SPLIT_HUD_WIDTH (1140) wide, give or take a unit, so both
+	# panes of a split share the full top bar instead of straddling 1140.)
+	return size.x < (1100.0 if pane else 1140.0)
 
 
 func _clock_plate(rect: Rect2) -> void:
@@ -2609,7 +2612,7 @@ func _corner_score() -> bool:
 	# The selected desktop reference joins both banners around the clock.
 	# Below 1180px the separate layout keeps that strip clear of the minimap;
 	# split panes retain their existing compact layout.
-	return not _narrow() and size.x < 1180.0
+	return not pane and not _narrow() and size.x < 1180.0
 
 
 func _draw_scoreboard() -> void:
@@ -3472,7 +3475,10 @@ func _draw_toasts() -> void:
 	# over the menu keys, off the play area (was centred 134 px down, on the
 	# class stations and the gate).
 	var tw := (_text_width(t.text, fs) + 60.0) * k
-	draw_set_transform(Vector2(minf(size.x - 236.0 * fit, size.x - 14.0 - tw / 2.0), size.y - 168.0 * fit), 0.0, Vector2(k, k))
+	var at := Vector2(minf(size.x - 236.0 * fit, size.x - 14.0 - tw / 2.0), size.y - 168.0 * fit)
+	if pane:
+		at = Vector2(size.x / 2.0, 118.0)   # split screen: the strip fills the bottom right, so under the top bar
+	draw_set_transform(at, 0.0, Vector2(k, k))
 	_scroll_hint(0.0, _text_width(t.text, fs) + 40.0, t.text, a, "", fs, Color(t.color, a))
 	draw_set_transform(Vector2.ZERO)
 
@@ -3727,6 +3733,23 @@ func _draw_player_panel(p) -> void:
 	# 09:03 2026-10-09. Kits left show in the FORTIFY prompt; the map is the pause menu's first tab.)
 	var buttons_w := 3.0 * 42.0 + 2.0 * 8.0
 	var bx := W - 22.0 - buttons_w
+	if pane:
+		# Split screen (visual pass 2026-11-04): the map/bag/menu buttons and
+		# the hat move go to the pane's top-right corner, and the ability
+		# strip sits at the right of the bottom row. The bottom row needs
+		# game.SPLIT_HUD_WIDTH (1140) units, not 1240, so the pane HUD can
+		# scale up.
+		_corner_buttons(Vector2(bx, 14))
+		_ability_strip(p, Rect2(Vector2(W - 560.0, H - 142), Vector2(540, 126)))
+		if _lv():
+			if game.economy:
+				game.economy.draw_hat_slot(self, p, Rect2(Vector2(W - 112.0, 74), Vector2(90, 110)))
+			_status_tags(p, panel)
+		if k < 1.0:
+			draw_set_transform(Vector2.ZERO)
+		if bake_mode == "":
+			panel_pass = ""
+		return
 	_corner_buttons(Vector2(bx, H - 89))
 	_ability_strip(p, Rect2(Vector2(W / 2.0 - 200.0, H - 142), Vector2(540, 126)))
 	if _lv():
