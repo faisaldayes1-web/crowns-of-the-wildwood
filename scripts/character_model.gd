@@ -7,6 +7,7 @@ extends Node3D
 const Stats = preload("res://scripts/stats.gd")
 const Role = Stats.Role
 const Face = preload("res://scripts/face.gd")
+const Fx = preload("res://scripts/fx.gd")
 const OutfitFlair = preload("res://scripts/outfit_flair.gd")
 const StoreGear = preload("res://scripts/store_gear.gd")
 const CharacterMaterials = preload("res://scripts/visual/character_material_profile.gd")
@@ -526,6 +527,7 @@ func _add_class_flair(role: int, variant: String) -> void:
 			mat.albedo_color.a = 0.8
 			cp.material_override = mat
 			add_child(cp)
+			Fx.to_gpu(cp, 2.0)   # the class sparkle, drawn on the GPU (fx.gd)
 
 
 func _gear_node(name: String) -> Node3D:

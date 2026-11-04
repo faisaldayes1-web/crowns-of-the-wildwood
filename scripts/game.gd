@@ -12780,7 +12780,7 @@ func _warm_up_match() -> void:
 		sfx.prewarm_stings()   # the battle-start and crown stings, read now and kept
 	if not is_instance_valid(loading_layer) or DisplayServer.get_name() == "headless" or player == null:
 		_warm_up_world()   # (they return at once without the art)
-		_warm_up_effects()
+		_warm_up_effects(player != null and DisplayServer.get_name() != "headless")   # no art: under the ground in view
 		if player != null:
 			# No loading art (a --demo match, tests, a headless host): the
 			# models still warm, under the ground in view, or the first bot
@@ -13103,14 +13103,28 @@ func _warm_up_models(buried: bool = false) -> void:
 	warm_models_done = true   # (tools/spawn_warm_test.gd waits for it)
 
 
-func _warm_up_effects() -> void:
+func _warm_up_effects(buried: bool = false) -> void:
 	## One of every combat effect under the match's loading art, so the
 	## first punch, spell and death of the match do not stall while their
-	## shaders compile.
-	if not is_instance_valid(loading_layer) or DisplayServer.get_name() == "headless":
+	## shaders compile. `buried` (no art: a --demo match): under the ground
+	## in view, where they still draw and compile; without it the first
+	## shots, blasts and particles of a demo stalled 20-380 ms
+	## (claude-faisal/crowns-spawn 2026-11-04, tools/stall_probe.gd).
+	if not buried and (not is_instance_valid(loading_layer) or DisplayServer.get_name() == "headless"):
 		return
 	var fx = Fx.of(self)
 	var p: Vector3 = (player.global_position if player else camera.global_position + Vector3(0, -40, -26)) + Vector3(0, 0.1, 0)
+	if buried:
+		p.y -= 4.0
+	# One shot of every look (projectile.gd), flying a moment and pooled.
+	for st in [{}, {"look": "thorn"}, {"look": "thorn", "splash": 3.0}, {"look": "star"}, {"look": "moon"},
+			{"fire": true, "splash": 3.0}, {"splash": 2.0}, {"holy": true}]:
+		var s := {"damage": 1, "gate_damage": 1, "range": 0.5, "shot_speed": 30.0}
+		s.merge(st)
+		var shot = _new_shot()
+		shot.inert = true
+		add_child(shot)
+		shot.setup(self, 0, p - Vector3(0, Projectile.FLIGHT_HEIGHT, 0), Vector3.FORWARD, s, Color.WHITE)
 	var w := Color.WHITE
 	for style in 4:
 		fx.burst(p, w, 3, 1.0, 0.25, style)
