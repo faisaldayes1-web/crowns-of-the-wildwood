@@ -9,6 +9,7 @@ const Isolated = preload("res://tools/tests/isolated.gd")
 const CharacterModel = preload("res://scripts/character_model.gd")
 const Stats = preload("res://scripts/stats.gd")
 const Projectile = preload("res://scripts/projectile.gd")
+const Fx = preload("res://scripts/fx.gd")
 const BUILD_MS := 40.0   # one warm rebuild (~5-8 ms on a desktop; CI runners are slower)
 
 var failures := 0
@@ -76,6 +77,36 @@ func _init() -> void:
 		if c is Projectile and not seen.has(c.get_instance_id()):
 			fresh += 1
 	check(fresh == 0, "%d new projectiles built while the pool had shots" % fresh)
+	# Effects, popups and lights: a second round builds no new nodes.
+	var fx = Fx.of(game)
+	for round in 2:
+		var made: int = fx.pool_made
+		for i in 8:
+			var at: Vector3 = u.global_position + Vector3(i * 0.3, 0.1, 0)
+			for style in 4:
+				fx.burst(at, Color.WHITE, 4, 1.0, 0.25, style)
+			fx.flare(at, Color.WHITE)
+			fx.ground_ring(at, 1.0, Color.WHITE)
+			fx.slash(at, Vector3.FORWARD, Color.WHITE)
+			fx.beam(at, at + Vector3(2, 1, 0), Color.WHITE)
+			fx.death(at, Color.WHITE)
+			game.spawn_popup(at + Vector3(i, 0, 0), "-%d" % i, Color.WHITE)
+			game.spawn_flash(at, Color.WHITE)
+			game.spawn_pillar(at, Color.WHITE)
+		await create_timer(2.5).timeout   # (the longest, the death wisp, goes after 1.6 s)
+		await process_frame
+		if round == 1:
+			check(fx.pool_made == made, "%d effect nodes built on the second round" % (fx.pool_made - made))
+	# Back to an earlier class: the parked look is put on again, not rebuilt.
+	var reuses: int = CharacterModel.look_reuses
+	CharacterModel.build_log.clear()
+	for role in [Stats.Role.KNIGHT, Stats.Role.RANGER]:
+		for v in game.units:
+			if is_instance_valid(v) and not v.dead:
+				v.set_role(role)
+		await process_frame
+	print("spawn warm: look reuses %d" % (CharacterModel.look_reuses - reuses))
+	check(CharacterModel.look_reuses - reuses >= CharacterModel.build_log.size() / 2, "parked looks not reused (%d of %d)" % [CharacterModel.look_reuses - reuses, CharacterModel.build_log.size()])
 	print("spawn warm test: %d failure(s)" % failures)
 	game.queue_free()
 	await process_frame
