@@ -2849,12 +2849,20 @@ func _build_barrier() -> void:
 	wm.size = Vector3(0.3, 6.0, length)
 	wall.mesh = wm
 	wall.position = Vector3(0, 3.0, 0)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.9, 0.55, 0.22)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# A flat 22% additive wall laid a pale band across every road (worst at
+	# Twilight, where it washed the cobbles and the pool): the glow now fades
+	# out with height, strongest at the ground line.
+	var mat := ShaderMaterial.new()
+	var shader := Shader.new()
+	shader.code = """shader_type spatial;
+render_mode blend_add, unshaded, cull_disabled, depth_draw_never, shadows_disabled;
+varying float h;
+void vertex() { h = clamp((VERTEX.y + 3.0) / 6.0, 0.0, 1.0); }
+void fragment() {
+	ALBEDO = vec3(1.0, 0.84, 0.5);
+	ALPHA = 0.15 * pow(1.0 - h, 2.6) + 0.02 * (1.0 - h);
+}"""
+	mat.shader = shader
 	wall.material_override = mat
 	wall.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	barrier.add_child(wall)

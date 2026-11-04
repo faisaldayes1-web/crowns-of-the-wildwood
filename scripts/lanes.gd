@@ -842,8 +842,8 @@ func _build_stonekeep() -> void:
 	for c in [Vector3(-5.5, 0, -6.6), Vector3(5.5, 0, 6.6), Vector3(2.4, 0, -6.6), Vector3(-2.4, 0, 6.6)]:
 		game._prop("dungeon/column", c, 1.1 if c.x > 0.0 else 0.75, 0.0)
 		game._add_collider(c + Vector3(0, 1.0, 0), Vector3(0.9, 2.0, 0.9))
-	game._prop("dungeon/rubble_large", Vector3(0, 0, -7.0), 0.35, 0.3)
-	game._prop("dungeon/rubble_large", Vector3(0, 0, 7.0), 0.35, 2.1)
+	game._prop("dungeon/rubble_large", Vector3(0, 0, -5.7), 0.35, 0.3)
+	game._prop("dungeon/rubble_large", Vector3(0, 0, 5.7), 0.35, 2.1)
 	# Banners of both sides on the gate towers: the ruin is no one's.
 	for sx in [-1.0, 1.0]:
 		game._add_flag(Vector3(sx * 10.0, 4.6, -3.6), 0 if sx < 0.0 else 1, -sx)
