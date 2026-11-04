@@ -4221,12 +4221,14 @@ func _ability_strip(p, strip: Rect2) -> void:
 	var at := []
 	var offsets := [Vector2(35, 28), Vector2(115, 12), Vector2(195, 0), Vector2(275, 0), Vector2(355, 12), Vector2(435, 28)]
 	if p.can_block():
-		offsets = [Vector2(10, 28), Vector2(86, 12), Vector2(162, 0), Vector2(238, 0), Vector2(314, 12), Vector2(466, 34)]
+		# Seven slots on one symmetric arc (attack, dodge, Q, E, block, perks,
+		# grab): grab sat 6 units under perks, so its label hung off the strip.
+		offsets = [Vector2(10, 28), Vector2(86, 12), Vector2(162, 4), Vector2(238, 0), Vector2(314, 4), Vector2(466, 28)]
 	for v in offsets:
 		at.append(strip.position + v)
 	_move_slots(p, at, [52.0, 52.0, 52.0, 52.0, 52.0, 52.0])
 	if p.can_block():
-		var pos := strip.position + Vector2(390, 28)
+		var pos := strip.position + Vector2(390, 12)
 		next_slot_art = "perks"
 		_slot(pos, 52.0, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
 		if not pane:
@@ -5748,10 +5750,15 @@ func _draw_game_menu() -> void:
 		if leaving:
 			# What leaving costs (rewards are only banked when the match ends).
 			footer = "Leaving now forfeits this match's XP, gold and chest."
-		var fy := minf(R.end.y + 18.0, size.y - 5.0)
-		var fw := _text_width(footer, 12) + 24.0
-		_plate(Rect2(cx - fw / 2.0, fy - 12.0, fw, 16.0), Color(0.04, 0.04, 0.05, 0.75), Color(0, 0, 0, 0), 6, 0)
-		_text(Vector2(R.position.x, fy), footer, 12, Color(1.0, 0.7, 0.6) if leaving else Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
+		# Below the board's 6 px frame with a 2 px gap; on a 720-unit screen the
+		# strip under the board is only 16 units, so the hint shrinks to fit
+		# instead of overlapping the frame (visual pass 2026-11-04).
+		var room := size.y - (R.end.y + 8.0)
+		var fs := 12 if room >= 20.0 else 11
+		var fy := minf(R.end.y + 20.0, size.y - 3.0)
+		var fw := _text_width(footer, fs) + 24.0
+		_plate(Rect2(cx - fw / 2.0, fy - fs, fw, fs + 4.0), Color(0.04, 0.04, 0.05, 0.75), Color(0, 0, 0, 0), 6, 0)
+		_text(Vector2(R.position.x, fy), footer, fs, Color(1.0, 0.7, 0.6) if leaving else Color(0.85, 0.8, 0.68), HORIZONTAL_ALIGNMENT_CENTER, R.size.x, 2)
 
 
 func _menu_body() -> Rect2:
