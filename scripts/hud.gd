@@ -5880,7 +5880,11 @@ func _menu_map_page(body: Rect2, now: float) -> void:
 	var card := Rect2(vp.end.x + 16, body.position.y, body.end.x - vp.end.x - 16, body.size.y + 4)
 	_plate(card, Color(0.08, 0.09, 0.1, 0.97), Color(0.3, 0.28, 0.22), 10, 2)
 	var pic := Rect2(card.position + Vector2(8, 8), Vector2(card.size.x - 16, 72))
-	var thumb := _menu_icon("map_ember" if game.vmap else "map_wildwood")
+	# Each map's own card art (Moonlit, Stonekeep and Twilight showed the
+	# Wildwood's; visual pass 2026-11-04).
+	var thumb := _menu_icon(["map_wildwood", "map_moonlit", "map_ember", "map_stonekeep", "map_twilight"][clampi(game.map_variant, 0, 4)])
+	if thumb == null:
+		thumb = _menu_icon("map_ember" if game.vmap else "map_wildwood")
 	_plate(pic.grow(2), Color(0.04, 0.05, 0.05), GOLD_DARK, 6, 1)
 	if thumb:
 		var ts := thumb.get_size()
@@ -5934,7 +5938,7 @@ func map_title() -> String:
 		return "EMBER PASS"
 	if game.lmap:
 		return "STONEKEEP FORTRESS" if game.season == "winter" else "TWILIGHT GROVE"
-	return "THE WILDWOOD VALLEY"
+	return "MOONLIT WILDWOOD" if game.map_variant == 1 else "THE WILDWOOD VALLEY"
 
 
 func _lanes_cells(m: Callable, sx: float, sz: float, keep: Callable) -> void:
