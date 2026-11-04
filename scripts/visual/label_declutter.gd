@@ -49,6 +49,16 @@ static func run(game, cam: Camera3D, xf: Transform2D, delta: float, blocked: Arr
 		var pri: float = -1.0 if u == me else (u.global_position.distance_to(me.global_position) if me else 0.0)
 		list.append([pri, u, base])
 	list.sort_custom(func(a, b): return a[0] < b[0])
+	# Visual pass 2026-11-04 (reviewers: a lifted tag sat over the next
+	# unit's hat): each unit's head and hat on screen, which other units'
+	# tags keep off when they have a step that is clear of them.
+	var heads := []
+	for it in list:
+		var hu = it[1]
+		var foot: Vector2 = xf * cam.unproject_position(hu.global_position + Vector3(0, 0.9, 0))
+		var top: Vector2 = xf * cam.unproject_position(hu.global_position + Vector3(0, 2.1, 0))
+		var hw: float = absf(foot.y - top.y) * 0.45
+		heads.append([hu, Rect2(top.x - hw, top.y, hw * 2.0, maxf(foot.y - top.y, 1.0))])
 	var k := clampf(delta * 10.0, 0.0, 1.0)
 	for it in list:
 		var u = it[1]
@@ -60,28 +70,41 @@ static func run(game, cam: Camera3D, xf: Transform2D, delta: float, blocked: Arr
 		# A world-up lift shows foreshortened on screen (the camera looks down).
 		var step_px: float = c.y - (xf * cam.unproject_position(base + Vector3(0, STEP, 0))).y
 		var want := -1
-		for step in 3:
-			var r := Rect2(c.x - w / 2.0, c.y - h * 0.8 - step * step_px, w, h)
-			var free := true
-			for q in placed:
-				if r.intersects(q):
-					free = false
+		# Steps up, then (only if those all land on another unit's hat) one
+		# under the unit's feet, where the camera sees open floor.
+		for strict in [true, false]:
+			for step in ([0, 1, 2, -4] if strict else [0, 1, 2]):
+				var r := Rect2(c.x - w / 2.0, c.y - h * 0.8 - step * step_px, w, h)
+				var free := true
+				for q in placed:
+					if r.intersects(q):
+						free = false
+						break
+				if free and strict:
+					for hd in heads:
+						if hd[0] != u and r.intersects(hd[1]):
+							free = false
+							break
+				if free:
+					want = step
+					placed.append(r)
 					break
-			if free:
-				want = step
-				placed.append(r)
+			if want != -1:
 				break
-		var dim := want < 0
+		var dim := want == -1
 		if couch:
-			var prev: Array = wants.get(u, [0, false])
-			want = maxi(want, int(prev[0]))
+			var prev: Array = wants.get(u, [-99, false])
+			var pw := int(prev[0])
+			if want != -1 and pw != -99:
+				# Under the feet holds unless another pane needs a lift.
+				want = -4 if (want == -4 or pw == -4) and maxi(want, pw) <= 0 else maxi(want, pw)
 			dim = dim or bool(prev[1])
 			wants[u] = [want, dim]
-		var lift := STEP * maxi(want, 0)
+		var lift := STEP * want if want != -1 else 0.0   # (want -4: under the feet)
 		u.overhead_lift = lerpf(u.overhead_lift, lift, k) if absf(u.overhead_lift - lift) > 0.01 else lift
 		u.label.transparency = 0.6 if dim else 0.0
 		# (Round 7: a tag under a fixed HUD panel is hidden, bar and all.)
-		var tag := Rect2(c.x - w / 2.0, c.y - h * 0.8 - lift / STEP * step_px, w, h)
+		var tag := Rect2(c.x - w / 2.0, c.y - h * 0.8 - lift / STEP * step_px, w, h)   # (lift < 0: under the feet)
 		var hidden := false
 		for b in blocked:
 			if b.intersects(tag):
