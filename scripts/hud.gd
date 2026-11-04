@@ -3751,10 +3751,14 @@ func _draw_player_panel(p) -> void:
 			panel_pass = ""
 		return
 	_corner_buttons(Vector2(bx, H - 89))
-	_ability_strip(p, Rect2(Vector2(W / 2.0 - 200.0, H - 142), Vector2(540, 126)))
+	# Visual pass 2026-11-04: the strip as near the screen's centre as the
+	# status panel allows (it ended about x 400; the strip was at W/2-200,
+	# hard by the map/menu keys), and the hat move just right of it.
+	var sx := maxf(W / 2.0 - 270.0, 418.0)
+	_ability_strip(p, Rect2(Vector2(sx, H - 142), Vector2(540, 126)))
 	if _lv():
 		if game.economy:
-			game.economy.draw_hat_slot(self, p, Rect2(Vector2(W / 2.0 + 440.0, H - 140), Vector2(90, 110)))   # the upgraded hat's move
+			game.economy.draw_hat_slot(self, p, Rect2(Vector2(sx + 540.0 + 84.0, H - 140.0), Vector2(90, 110)))   # (draw_hat_slot puts the slot 66 left of this)   # the upgraded hat's move
 		_status_tags(p, panel)
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
