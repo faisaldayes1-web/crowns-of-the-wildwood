@@ -7747,7 +7747,7 @@ func _draw_class_banner(p) -> void:
 	if p.class_banner <= 0.0:
 		return
 	var fit := minf(size.x / 1280.0, 1.0)
-	var c := Vector2(size.x / 2.0, 168.0 * fit)
+	var c := Vector2(size.x / 2.0, 190.0 * fit + (18.0 if pane else 0.0))   # (190, was 168: its crest leaf sat on the timer's lower edge. Visual pass 2026-11-04)
 	var age: float = p.CLASS_BANNER_TIME - p.class_banner
 	var pop := 1.0 + 0.14 * clampf(1.0 - age / 0.2, 0.0, 1.0)
 	draw_set_transform(c, 0.0, Vector2.ONE * fit * 0.8 * pop)
