@@ -199,6 +199,7 @@ var death_timer := 0.0        # the body stays for a moment after dying
 var guard_ring: MeshInstance3D
 var overhead: Node3D
 var label: Label3D
+var overhead_lift := 0.0                   # polish pass: metres the HUD's label declutter lifts the tag
 var hp_bar: Node3D                         # overhead health bar (trough + segments)
 var hp_fill_mat: StandardMaterial3D
 var hp_segs: Array[MeshInstance3D] = []
@@ -2289,6 +2290,59 @@ func bubble_up(duration: float) -> void:
 var _was_carrying := false
 
 
+var _xray_shader: Shader
+var _xray_mat: ShaderMaterial
+var _tower_near := false
+var _tower_check := 0
+
+
+func _near_tower() -> bool:
+	## Within 8 m of a castle tower (the castle kit's roof cutaways), where
+	## the tower body can hide anyone: checked four times a second.
+	var now := Time.get_ticks_msec()
+	if now - _tower_check < 250:
+		return _tower_near
+	_tower_check = now + (get_instance_id() % 7) * 10
+	_tower_near = false
+	if not game.has_meta(&"castle_kit"):
+		return false
+	for e in game.get_meta(&"castle_kit").get("cutaways", []):
+		var c: Vector3 = (e[1] as AABB).get_center()
+		if Vector2(c.x - global_position.x, c.z - global_position.z).length_squared() < 64.0:
+			_tower_near = true
+			break
+	return _tower_near
+
+
+func _update_xray() -> void:
+	## Polish pass (claude-faisal/crowns-polish 2026-11-01): the local
+	## player(s) and whoever carries a monarch get a soft silhouette pass
+	## (unit_xray.gdshader) that only shows where scenery hides them, so the
+	## gate towers and tree crowns never swallow them. Chained after the
+	## model's outline pass; everyone else keeps the plain look.
+	if model == null or not "outline" in model or model.outline == null:
+		return
+	# (Round 5: every fighter, so trees and towers never swallow anyone; the
+	# pass draws only where scenery 1.5 m nearer hides the unit.)
+	var want: bool = not dead and visible
+	var ol: StandardMaterial3D = model.outline
+	if want:
+		if _xray_mat == null:
+			if _xray_shader == null:
+				_xray_shader = load("res://assets/shaders/unit_xray.gdshader")
+			_xray_mat = ShaderMaterial.new()
+			_xray_mat.shader = _xray_shader
+			_xray_mat.render_priority = 120   # (round 8: after the foliage cover pass, 101, so trees no longer hide it)
+		var c: Color = (game.player_color(maxi(local_index, 0)) if is_player else (Color(1.0, 0.85, 0.3) if carrying != null else Stats.FACTIONS[team].color)).lightened(0.2)
+		c.a = 0.6
+		_xray_mat.set_shader_parameter("tint", c)
+		if ol.next_pass != _xray_mat:
+			ol.next_pass = _xray_mat
+		_xray_mat.set_shader_parameter("centre", global_position + Vector3(0, 0.9, 0))
+	elif ol.next_pass != null and ol.next_pass == _xray_mat:
+		ol.next_pass = null
+
+
 func _process(_delta: float) -> void:
 	_animate()
 	class_banner = maxf(class_banner - _delta, 0.0)
@@ -2301,8 +2355,9 @@ func _process(_delta: float) -> void:
 		bubble_mesh.scale = Vector3.ONE * (0.6 + 0.4 * k + 0.03 * sin(Time.get_ticks_msec() / 90.0))
 		if bubble_timer <= 0.0 or dead:
 			bubble_mesh.visible = false
+	_update_xray()
 	if overhead:
-		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + (1.25 if carrying else 0.35), 0)   # above a worn crown
+		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + (1.25 if carrying else 0.35) + overhead_lift, 0)   # above a worn crown
 		if downed:
 			overhead.global_position.y = global_position.y + 1.3   # over the body on the ground
 	_update_down_fx()

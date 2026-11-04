@@ -507,6 +507,9 @@ static func run(game: Node3D) -> Dictionary:
 		while start < b.items.size():
 			start = _emit(holder, b, start)
 			made += 1
+			# Check the existing budget between chunks of a large bucket.
+			if start < b.items.size():
+				await _slice(game)
 	# Only now, with every mesh copied, do the originals let go of theirs.
 	# (Behind the title, 256 a frame: all 8,500 at once was a 55 ms frame.)
 	for k in batched.size():
@@ -516,7 +519,10 @@ static func run(game: Node3D) -> Dictionary:
 		if not is_instance_valid(mi) or mi.mesh == null:
 			continue
 		mi.mesh.remove_meta(&"batch_arrays")   # merged: free the CPU copy
-		mi.set_meta("batched_mesh", mi.mesh)
+		# Offline bake enumerates source dependencies after batching.
+		# Shipping worlds do not consume this strong source-mesh reference.
+		if record != null:
+			mi.set_meta("batched_mesh", mi.mesh)
 		mi.mesh = null
 	var info := {"nodes": batched.size(), "skipped": skipped, "materials_in": canon_of.size(), "materials_out": canon.size(),
 		"meshes_out": made, "ms": Time.get_ticks_msec() - t0}

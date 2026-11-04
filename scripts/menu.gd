@@ -74,12 +74,6 @@ func _init(g) -> void:
 	game = g
 	store = Store.new(g, self)
 	font_title = load("res://assets/ui/fonts/LilitaOne-Regular.ttf")
-	var dir := DirAccess.open("res://assets/ui/menu")
-	if dir:
-		for file in dir.get_files():
-			var f := file.trim_suffix(".import")
-			if f.ends_with(".png") and not tex.has(f.trim_suffix(".png")):
-				tex[f.trim_suffix(".png")] = load("res://assets/ui/menu/%s" % f)
 	map_pick = 0
 	for i in MAP_CARDS.size():
 		if MAP_CARDS[i][2] == game.map_variant:
@@ -117,9 +111,17 @@ func back() -> void:
 
 # --- Drawing helpers --------------------------------------------------------------
 
+func texture(name: String) -> Texture2D:
+	# Existing screen warm-ups acquire only the art those screens draw.
+	if not tex.has(name):
+		var path := "res://assets/ui/menu/%s.png" % name
+		tex[name] = load(path) if ResourceLoader.exists(path) else null
+	return tex[name]
+
+
 func nine(name: String, r: Rect2, l: float, t: float, rr: float, b: float, mod: Color = Color.WHITE) -> void:
 	## Nine-slice one of the painted pieces (margins in texture pixels).
-	var tx: Texture2D = tex.get(name)
+	var tx: Texture2D = texture(name)
 	if tx == null:
 		h._plate(r)
 		return
@@ -140,7 +142,7 @@ func nine(name: String, r: Rect2, l: float, t: float, rr: float, b: float, mod: 
 
 
 func icon(name: String, c: Vector2, size: float, mod: Color = Color.WHITE) -> void:
-	var tx: Texture2D = tex.get("icon_" + name)
+	var tx: Texture2D = texture("icon_" + name)
 	if tx:
 		h.draw_texture_rect(tx, Rect2(c - Vector2(size, size) / 2.0, Vector2(size, size)), false, mod)
 
@@ -610,7 +612,7 @@ func _map_card(r: Rect2, i: int) -> void:
 		sb.shadow_size = 14
 	h.draw_style_box(sb, r)
 	var img := Rect2(r.position + Vector2(5, 5), r.size - Vector2(10, 44))
-	var tx: Texture2D = tex.get(c[1])
+	var tx: Texture2D = texture(c[1])
 	if tx:
 		var dim := Color.WHITE if open else Color(0.5, 0.5, 0.52)
 		var ts := tx.get_size()

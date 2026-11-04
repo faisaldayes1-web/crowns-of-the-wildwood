@@ -2352,22 +2352,46 @@ func spawn_splash(where: Vector3, color: Color, count: int, speed: float, life: 
 		fx.burst(where, color, count, speed, life, fx.STYLE_SHARD)
 
 
+var _popups: Array = []   # polish pass: recent popups [msec, where, text, label] for stacking
+
+
 func spawn_popup(where: Vector3, text: String, color: Color) -> void:
 	## A number or word that floats up and fades, like damage numbers.
 	if net:
 		net.rec("game", "spawn_popup", [where, text, color])
 	if not damage_numbers and (text.begins_with("-") or text.begins_with("+")):
 		return
+	# Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers: combat
+	# words piled into doubled, unreadable text): the same word on the same
+	# spot within 0.4 s shows once, and a word born next to others still
+	# rising is stacked above them, a touch smaller than before. (The jitter
+	# is still drawn first, exactly as before, so the shared RNG sequence and
+	# with it every seeded match stay the same.)
+	var jx := randf_range(-0.3, 0.3)
+	var now := Time.get_ticks_msec()
+	var near := 0
+	for i in range(_popups.size() - 1, -1, -1):
+		var q: Array = _popups[i]
+		if now - int(q[0]) > 700 or not is_instance_valid(q[3]):
+			_popups.remove_at(i)
+			continue
+		var d := Vector2(where.x - q[1].x, where.z - q[1].z).length()
+		if d < 0.5 and q[2] == text and now - int(q[0]) < 400:
+			return
+		if d < 1.6:
+			near += 1
 	var l := Label3D.new()
 	l.text = text
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
-	l.font_size = 40
+	l.font_size = 34
 	l.pixel_size = 0.012
-	l.outline_size = 10
+	l.outline_size = 9
 	l.modulate = color
 	add_child(l)
-	l.global_position = where + Vector3(randf_range(-0.3, 0.3), 0, 0)
+	_popups.append([now, where, text, l])
+	# (Round 3: 0.7 m higher, above the unit's name tag rather than on it.)
+	l.global_position = where + Vector3(jx, 0.7 + 0.62 * mini(near, 3), 0)
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(l, "global_position", l.global_position + Vector3(0, 1.4, 0), 0.8).set_ease(Tween.EASE_OUT)
@@ -5471,24 +5495,49 @@ uniform sampler2D stones_tex : filter_nearest, repeat_enable;
 uniform float scale = 0.2;
 uniform bool fray = false;
 uniform float half_w = 2.0;   // per material: the Compatibility renderer (web) has no instance uniforms
+uniform float end_x = 0.0;     // >0: the road ends here (local x): its last stones fray out one at a time past it
+uniform bool radial = false;  // a round plaza: the distance is the radius, not the way across a strip
 varying vec3 wpos;
 varying float lz;
+varying vec2 lxz;
 varying vec3 side;
+varying vec3 axis_x;
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	axis_x = normalize(MODEL_MATRIX[0].xyz);
 	lz = VERTEX.z;
+	lxz = VERTEX.xz;
 	side = normalize(MODEL_MATRIX[2].xyz);
 }
 
 void fragment() {
 	vec2 uv = wpos.xz * scale;
-	if (fray) {
+	if (fray || end_x > 0.0) {
 		vec4 s = texture(stones_tex, uv);
-		vec2 to_c = (s.rg - 0.5) * 0.5 / scale;
+		// The stone's centre texel (found from this pixel's way-to-centre, then snapped to
+		// the texture's own grid), so every pixel of a stone reaches the same distance d:
+		// per-pixel rounding of the stored vector put pixels of edge stones either side of
+		// the cut, which punched dotted holes in them.
+		vec2 uvc = uv + (s.rg - 0.5) * 0.5;
+		vec2 tc = (floor(uvc * 1024.0) + 0.5) / 1024.0;
+		vec4 sc = texture(stones_tex, tc);
+		tc = (floor((tc + (sc.rg - 0.5) * 0.5) * 1024.0) + 0.5) / 1024.0;   // (a second step settles on the centre texel)
+		sc = texture(stones_tex, tc);
+		vec2 to_c = (tc - uv) / scale;
 		float d = abs(lz + dot(vec3(to_c.x, 0.0, to_c.y), side));
+		if (radial) {
+			d = length(lxz + to_c);
+		}
 		float inner = half_w - 0.5;
-		bool kept = s.a > 0.5 ? d < inner + 0.8 * s.b : d < inner;
+		bool kept = sc.a > 0.5 ? d < inner + 0.2 * sc.b : d < inner;
+		if (!fray) {
+			kept = true;
+		}
+		if (end_x > 0.0) {
+			float lxc = lxz.x + dot(vec2(to_c.x, to_c.y), axis_x.xz);
+			kept = kept && lxc < end_x - 0.3 + 1.3 * sc.b;
+		}
 		if (!kept) {
 			discard;
 		}
@@ -5500,7 +5549,109 @@ void fragment() {
 }
 """
 
+# The soft verge under a cobbled road (claude-faisal/crowns-grass 2026-11-01):
+# the meadow's own grass and tint, faded out toward the rim of the strip with
+# a noise-broken edge, so no rectangle shows on the ground beside the road.
+const VERGE_SHADER := """
+shader_type spatial;
+render_mode blend_mix, depth_draw_never, cull_back, specular_disabled;
+uniform sampler2D albedo_tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform vec2 half_ext = vec2(4.0, 2.0);
+uniform float scale = 0.11;
+varying vec3 wpos;
+varying vec2 lxz;
+
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	lxz = VERTEX.xz;
+}
+
+void fragment() {
+	vec2 q = half_ext - abs(lxz);
+	float e = min(q.x, q.y);
+	float n = texture(noise_tex, wpos.xz * 0.23).r - 0.5;
+	float a = smoothstep(0.0, 1.7, e + n * 1.6);
+	ALBEDO = texture(albedo_tex, wpos.xz * scale).rgb * tint.rgb;
+	ALPHA = a * 0.55;
+	ROUGHNESS = 0.9;
+}
+"""
+
+# The Stonekeep ruin's courtyard floor (claude-faisal/crowns-grass 2026-11-01): the
+# flagstone texture's own heavy joints drew a flat square grid with crossed cracks, so
+# the floor is the texture's average colour laid as irregular slabs instead: a jittered
+# cell pattern in world space (no repeating grid), each slab its own tone, with soft
+# low-contrast joints and slow worn patches.
+const UNEVEN_FLAGS_SHADER := """
+shader_type spatial;
+render_mode blend_mix, depth_prepass_alpha, diffuse_lambert_wrap, specular_disabled;
+uniform sampler2D noise_tex : repeat_enable, filter_linear_mipmap;
+uniform vec4 base : source_color = vec4(0.5);
+uniform float cell = 0.42;
+uniform vec2 center = vec2(0.0);
+uniform vec2 half_ext = vec2(1000.0);   // the slab's half size: its rim frays into the snow instead of a straight cut
+varying vec3 wpos;
+varying vec2 lxz;
+
+float hash(vec2 p) {
+	vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.x + p3.y) * p3.z);
+}
+
+vec2 hash2(vec2 p) {
+	vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.xx + p3.yz) * p3.zy);
+}
+
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	lxz = wpos.xz - center;   // (world space: the static batch bakes the box into world coordinates)
+}
+
+void fragment() {
+	vec2 q = half_ext - abs(lxz);
+	float rim = min(q.x, q.y) + (texture(noise_tex, wpos.xz * 0.31).r - 0.5) * 1.6;
+	ALPHA = smoothstep(0.0, 1.1, rim);
+	vec2 p = wpos.xz * cell + 0.7 * (texture(noise_tex, wpos.xz * 0.05).rg - 0.5);
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	float d1 = 8.0;
+	float d2 = 8.0;
+	vec2 id = vec2(0.0);
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = vec2(float(x), float(y));
+			vec2 o = 0.5 + 0.26 * (hash2(i + g) * 2.0 - 1.0);
+			vec2 r = g + o - f;
+			float d = dot(r, r);
+			if (d < d1) {
+				d2 = d1;
+				d1 = d;
+				id = i + g;
+			} else if (d < d2) {
+				d2 = d;
+			}
+		}
+	}
+	float edge = sqrt(d2) - sqrt(d1);
+	float joint = smoothstep(0.02, 0.16, edge);
+	float tone = 0.86 + 0.28 * hash(id);
+	float worn = texture(noise_tex, wpos.xz * 0.043 + 0.2).r;
+	float mott = texture(noise_tex, wpos.xz * 0.21).r;
+	vec3 c = base.rgb * tone * (0.9 + 0.2 * smoothstep(0.3, 0.7, worn)) * (0.94 + 0.12 * mott);
+	c *= mix(0.74, 1.0, joint);
+	ALBEDO = c;
+	ROUGHNESS = 0.9;
+}
+"""
+
 var path_shader: Shader
+var verge_shader: Shader
+var flags_shader: Shader
 var world_style := false   # while the match world is built: builders use scripts/visual/style_profile.gd
 var style_live := false    # the match is on: the style's light grade replaces the menus' light
 var style_cache := {}      # shared, never-mutated world materials (bark, glow buds), by key
@@ -5531,6 +5682,22 @@ func _stones(loose: bool = false, fray: bool = false) -> ShaderMaterial:
 
 
 var verge_mat: StandardMaterial3D
+
+
+func _soft_verge(half_ext: Vector2) -> ShaderMaterial:
+	## The meadow's own grass, faded out toward the strip's rim (VERGE_SHADER).
+	if verge_shader == null:
+		verge_shader = Shader.new()
+		verge_shader.code = VERGE_SHADER
+	var g := _grass()
+	var m := ShaderMaterial.new()
+	m.shader = verge_shader
+	m.set_shader_parameter("albedo_tex", g.albedo_texture)
+	m.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	m.set_shader_parameter("tint", g.albedo_color * Color(0.96, 0.92, 0.8))
+	m.set_shader_parameter("half_ext", half_ext)
+	m.set_shader_parameter("scale", 0.11)
+	return m
 
 
 func _verge() -> StandardMaterial3D:
@@ -5612,7 +5779,7 @@ func _solidify_prop(inst: Node3D, pos: Vector3) -> void:
 	add_child(body)
 
 
-func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: float = 1.6) -> void:
+func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: float = 1.6, frayed_end: bool = false) -> void:
 	## A flat strip of road or dirt from one point to another (any angle),
 	## with a band of trampled grass either side so the edge is not a hard
 	## line.
@@ -5623,7 +5790,7 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		var vbox := BoxMesh.new()
 		vbox.size = Vector3(d.length() + width * 0.6 + verge, 0.008, width + verge)
 		v.mesh = vbox
-		v.material_override = _verge()
+		v.material_override = _soft_verge(Vector2(vbox.size.x, vbox.size.z) * 0.5)
 		v.position = (from + to) / 2.0 + Vector3(0, 0.003, 0)
 		v.rotation.y = atan2(-d.z, d.x)
 		add_child(v)
@@ -5643,19 +5810,27 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		e.mesh = ebox
 		var fm: ShaderMaterial = mat.get_meta("fray").duplicate()
 		fm.set_shader_parameter("half_w", width / 2.0)
+		if frayed_end:
+			fm.set_shader_parameter("end_x", d.length() / 2.0)
 		e.material_override = fm
 		# Each path sits a millimetre above the one before (four steps), so
 		# where two paths' frayed strips overlap they don't z-fight into a
 		# green speckle (Faisal 2026-10-09 08:16, "what is this texture bug?").
-		e.position = mid + Vector3(0, 0.004 + 0.001 * float(map_paths.size() % 4), 0)
+		e.position = mid + Vector3(0, 0.003 + 0.002 * float(map_paths.size() % 4), 0)   # (2 mm steps: 1 mm z-fought into hatched stones where two roads' rims overlap)
 		e.rotation.y = rot
 		add_child(e)
 	var m := MeshInstance3D.new()
 	var box := BoxMesh.new()
 	box.size = Vector3(length, 0.012, core_w)
 	m.mesh = box
-	m.material_override = mat
-	m.position = mid + Vector3(0, 0.010 + 0.001 * float(map_paths.size() % 4), 0)   # every core above every frayed strip
+	if frayed_end:
+		var cm2: ShaderMaterial = mat.duplicate()
+		cm2.set_shader_parameter("end_x", d.length() / 2.0)
+		cm2.set_shader_parameter("half_w", width / 2.0)
+		m.material_override = cm2
+	else:
+		m.material_override = mat
+	m.position = mid + Vector3(0, 0.012 + 0.002 * float(map_paths.size() % 4), 0)   # every core above every frayed strip   # every core above every frayed strip
 	m.rotation.y = rot
 	add_child(m)
 	map_paths.append([from, to, width])
@@ -7301,7 +7476,10 @@ func _add_class_alcove(team: int, role: int, pos: Vector3) -> void:
 	if team == 0:
 		# In front of the Elves' timber board and turned to the camera, so
 		# the name reads from the top-down view (it hid inside the board).
-		label.position = Vector3(pos.x, sign_y + 0.05, wall_z + 1.08)
+		# (Polish pass 2026-11-01: 0.25 m further out, so the billboard's top,
+		# tipped back toward the camera, no longer sinks into the timber
+		# above it; reviewers saw the letters' tops sliced off.)
+		label.position = Vector3(pos.x, sign_y + 0.05, wall_z + 1.33)
 		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		label.font_size = 72
 	label.shaded = false
@@ -8093,6 +8271,27 @@ func _flagstone(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	if elf_castle:   # cream sandstone squares (the reference's base floor)
 		return _pbr("flagstone", 0.25, Color(0.97, 0.96, 0.9) * tint)
 	return _pbr("flagstone_moss" if mossy else "flagstone", 0.25, tint)
+
+
+func _uneven_flagstone(tint: Color = Color.WHITE) -> ShaderMaterial:
+	## _flagstone() as irregular slabs with no flat repeating grid (UNEVEN_FLAGS_SHADER).
+	if flags_shader == null:
+		flags_shader = Shader.new()
+		flags_shader.code = UNEVEN_FLAGS_SHADER
+	var f := _flagstone(tint)
+	var avg := Color(0.5, 0.5, 0.5)
+	if f.albedo_texture != null:
+		var img: Image = f.albedo_texture.get_image()
+		if img != null:
+			if img.is_compressed():
+				img.decompress()
+			img.resize(1, 1, Image.INTERPOLATE_BILINEAR)
+			avg = img.get_pixel(0, 0)
+	var m := ShaderMaterial.new()
+	m.shader = flags_shader
+	m.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	m.set_shader_parameter("base", avg * f.albedo_color)
+	return m
 
 
 func _timber(tint: Color = Color.WHITE) -> StandardMaterial3D:
@@ -12112,7 +12311,7 @@ func _finish_world() -> void:
 		# The kit's trees and dressing, after the grade (it has its own
 		# palette per map) and once everything they keep clear of is built.
 		await _world_build_frame()
-		forest_kit.finish()
+		await forest_kit.finish()
 	await _world_build_frame()
 	_apply_map_variant()
 	camera = Camera3D.new()

@@ -58,7 +58,10 @@ static func face_mats(g, grey: bool) -> Array:
 
 
 static func mortar_mat(g, grey: bool) -> StandardMaterial3D:
-	var m: StandardMaterial3D = g._material((Color(0.22, 0.21, 0.23) if grey else Color(0.24, 0.15, 0.09)) * g.soot)   # darker joints (grade pass; pass 2 browner)
+	# Polish pass (claude-faisal/crowns-polish 2026-11-01): a softer warm
+	# mortar (was 0.24 / 0.15 / 0.09), so the joints read as thin shaded gaps
+	# between bevelled blocks rather than thick dark graphic lines.
+	var m: StandardMaterial3D = g._material((Color(0.34, 0.33, 0.35) if grey else Color(0.40, 0.29, 0.19)) * g.soot)
 	m.roughness = 1.0
 	return m
 
@@ -569,7 +572,21 @@ static func tower_dress(g, pos: Vector3, team: int, width: float, height: float,
 static func tower_roof(g, pos: Vector3, team: int, width: float, height: float) -> void:
 	## A tall tiled roof in the team colour with a gold finial, overhanging
 	## the parapet (pick Spawn D's tower).
+	## Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers,
+	## Stonekeep frame-017: the gatehouse roof hid the player at the gate):
+	## on every castle tower (gatehouse and corners, all maps) the tiled
+	## roof and finial sit under one unbatched holder (two draws) that
+	## update_cutaways() fades while it hides a unit; the eave and posts stay
+	## batched. (The player and a crown carrier also get a silhouette through
+	## the tower body itself: unit.gd _update_xray.)
 	var color: Color = Stats.FACTIONS[team].color
+	var cutaway := true
+	var holder: Node3D = g
+	if cutaway:
+		holder = Node3D.new()
+		holder.name = "TowerRoof"
+		holder.set_meta("no_batch", true)
+		g.add_child(holder)
 	var roof := MeshInstance3D.new()
 	var rm := CylinderMesh.new()
 	rm.top_radius = 0.0
@@ -580,7 +597,7 @@ static func tower_roof(g, pos: Vector3, team: int, width: float, height: float) 
 	roof.rotation.y = PI / 4.0
 	roof.position = pos + Vector3(0, height + 0.9 + 1.2, 0)
 	roof.material_override = g._pbr("shingle", 1.4, color.lightened(0.08))
-	g.add_child(roof)
+	holder.add_child(roof)
 	# The eave: a dark timber band under the tiles.
 	_box(g, pos + Vector3(0, height + 0.86, 0), Vector3(width * 0.98, 0.14, width * 0.98), g._timber(Color(0.5, 0.36, 0.24)))
 	for xs in [-1.0, 1.0]:
@@ -593,7 +610,51 @@ static func tower_roof(g, pos: Vector3, team: int, width: float, height: float) 
 	knob.mesh = sm
 	knob.position = pos + Vector3(0, height + 0.9 + 2.45, 0)
 	knob.material_override = g._gold()
-	g.add_child(knob)
+	holder.add_child(knob)
+	if not cutaway:
+		return
+	var half := width * 0.72
+	var kit := _cache(g)
+	if not kit.has("cutaways"):
+		kit["cutaways"] = []
+	var cut: Array = kit["cutaways"]
+	cut.append([holder, AABB(pos + Vector3(-half, height + 0.8, -half), Vector3(half * 2.0, 2.8, half * 2.0)), 0.0])
+
+
+static func update_cutaways(g, cam: Camera3D, delta: float) -> void:
+	## Fades each registered roof (to 75% see-through) while the line from a
+	## living unit's chest to the camera passes through it, and back after.
+	if cam == null or not g.has_meta(&"castle_kit"):
+		return
+	var cut: Array = _cache(g).get("cutaways", [])
+	if cut.is_empty():
+		return
+	var eye := cam.global_position
+	var k := clampf(delta * 6.0, 0.0, 1.0)
+	for e in cut:
+		var holder: Node3D = e[0]
+		if not is_instance_valid(holder):
+			continue
+		var box: AABB = e[1]
+		var hide := false
+		for u in g.units:
+			if u.dead:
+				continue
+			var p: Vector3 = u.global_position + Vector3(0, 1.0, 0)
+			if absf(p.x - box.get_center().x) > 14.0 or absf(p.z - box.get_center().z) > 14.0:
+				continue
+			if box.intersects_segment(p, eye):
+				hide = true
+				break
+		var want := 0.75 if hide else 0.0
+		var cur: float = e[2]
+		if absf(cur - want) < 0.01:
+			continue
+		cur = lerpf(cur, want, k) if absf(cur - want) > 0.02 else want
+		e[2] = cur
+		for c in holder.get_children():
+			if c is GeometryInstance3D:
+				c.transparency = cur
 
 
 static func courtyard_castle_face(g, team: int, bx: float, side: float) -> void:

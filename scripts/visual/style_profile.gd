@@ -33,14 +33,15 @@ const TEX := {
 	"pavers": {"normal": 1.0, "rough": 0.9},
 	# Castle pass 2026-10-31 (tools/make_castle_textures.py): big warm flags,
 	# chunky wall blocks and the face of a modelled block, cream and grey.
-	"castle_flags": {"normal": 1.0, "rough": 0.9},
-	"castle_flags_grey": {"normal": 1.0, "rough": 0.9},
-	"castle_blocks": {"normal": 1.0, "rough": 0.92},
-	"castle_blocks_grey": {"normal": 1.0, "rough": 0.92},
+	"castle_flags": {"normal": 1.35, "rough": 0.9},
+	"castle_flags_grey": {"normal": 1.35, "rough": 0.9},
+	"castle_blocks": {"normal": 1.4, "rough": 0.92},
+	"castle_blocks_grey": {"normal": 1.4, "rough": 0.92},
 	"castle_face": {"normal": 0.6, "rough": 0.92},
 	"castle_face_grey": {"normal": 0.6, "rough": 0.92},
 	# Pass 4 (2026-10-31): the yard's tall west wall in warm tan stone.
-	"castle_ashlar": {"normal": 0.8, "rough": 0.94},
+	# (Polish round 4: castle stone normals up ~40% for bevel relief.)
+	"castle_ashlar": {"normal": 1.15, "rough": 0.94},
 }
 const TEX_DIR := "res://assets/textures/style/"
 
@@ -131,7 +132,10 @@ const NIGHT := {
 	"ambient_energy": 0.48, "sun_energy": 0.75, "fill_energy": 0.2,   # grade pass 2026-10-31: was 0.6, the yard read lavender, not night
 }
 const EMBER := {
-	"ambient_energy": 0.34,
+	# Polish round 3 (reviewers: "dark rock vs lava emission imbalance"): a
+	# warmer, stronger lava bounce so the basalt reads as lit warm stone,
+	# not black against orange (was 0.34).
+	"ambient_energy": 0.52,
 }
 
 # Approved 2026-10-25 picks: a single miniature material family.

@@ -11,6 +11,8 @@ const Monarch = preload("res://scripts/monarch.gd")
 const Scoreboard = preload("res://scripts/scoreboard.gd")
 const Store = preload("res://scripts/store.gd")
 const Season = preload("res://scripts/visual/season.gd")
+const LabelDeclutter = preload("res://scripts/visual/label_declutter.gd")
+const CastleKit = preload("res://scripts/visual/castle_kit.gd")
 const Role = Stats.Role
 
 const INK := Color(0.09, 0.1, 0.15, 0.92)
@@ -127,6 +129,9 @@ var faction_buttons: Array = []     # [rect, team]
 var title_buttons: Array = []       # [rect, tab] on the title screen
 var menu_buttons: Array = []        # [rect, id, arg] drawn by the main menu (menu.gd)
 var lava_cells: Array = []          # Ember Pass maps: crust plates [centre, polygon, shade] in world x/z
+var _fight_checked := -100000   # polish pass: when _in_fight() last looked (msec)
+var _fight_cached := false
+var _label_rects: Array[Rect2] = []   # polish pass: unit tags placed this frame (screen)
 
 
 static var _art_loaded := false   # the static art below is in (by the first HUD)
@@ -370,6 +375,9 @@ func _draw() -> void:
 				draw_set_transform(Vector2(0, 84))
 			game.economy.draw_counter(self, _me())   # team stock stays below the relocated map
 			draw_set_transform(Vector2.ZERO)
+	_label_rects = LabelDeclutter.run(game, get_viewport().get_camera_3d(), get_global_transform().affine_inverse(), get_process_delta_time(), hud_block_rects())
+	if not pane:
+		CastleKit.update_cutaways(game, get_viewport().get_camera_3d(), get_process_delta_time())
 	_draw_dizzy_marks()
 	_draw_toasts()
 	if _me() and not game.guide_open:
@@ -3359,13 +3367,28 @@ func _draw_event_banner(b: Dictionary) -> void:
 	if a <= 0.0:
 		return
 	var good: bool = b.mood == "win"
+	if _in_fight():
+		# Polish round 5 (reviewers: the ribbon clipped fighters' name tags in
+		# the top band): while a fight is on screen the news shows as a small
+		# scroll bottom right, where world labels never go.
+		var fit0 := clampf(size.x / 1280.0, 0.55, 1.0)
+		var txt: String = str(b.title)
+		var fs0 := 15
+		var tw0 := (_text_width(txt, fs0) + 60.0) * fit0
+		draw_set_transform(Vector2(minf(size.x - 236.0 * fit0, size.x - 14.0 - tw0 / 2.0), size.y - 206.0 * fit0), 0.0, Vector2(fit0, fit0))
+		_scroll_hint(0.0, _text_width(txt, fs0) + 40.0, txt, a, str(b.icon), fs0, Color(0.95, 0.66, 0.16, a) if good else Color(0.86, 0.18, 0.14, a))
+		draw_set_transform(Vector2.ZERO)
+		return
 	var light := Color(0.95, 0.66, 0.16, a) if good else Color(0.86, 0.18, 0.14, a)
 	var deep := Color(0.55, 0.26, 0.05, a) if good else Color(0.42, 0.05, 0.05, a)
 	var disc := Color(0.42, 0.08, 0.08, a) if good else Color(0.16, 0.05, 0.05, a)
 	var now := Time.get_ticks_msec() / 1000.0
 	var fit := clampf(size.x / 1280.0, 0.55, 1.0)
-	var s := (1.0 + (1.0 - pop) * 0.3) * fit * 0.78 * BANNER_SIZE
-	draw_set_transform(Vector2(size.x / 2.0, (118.0 - (1.0 - pop) * 20.0) * fit), 0.0, Vector2(s, s))
+	# Polish round 3 (reviewers: the FIRST BLOOD subtitle sat on names and
+	# stun marks): a smaller ribbon tucked up under the score strip (was
+	# 0.78 at 118 px), so its detail line clears the arena below.
+	var s := (1.0 + (1.0 - pop) * 0.3) * fit * 0.6 * BANNER_SIZE
+	draw_set_transform(Vector2(size.x / 2.0, (106.0 - (1.0 - pop) * 16.0) * fit), 0.0, Vector2(s, s))
 	var ink := Color(0.12, 0.05, 0.03, a)
 	var tf: Font = title_font if title_font else font
 	var title: String = b.title
@@ -3380,7 +3403,7 @@ func _draw_event_banner(b: Dictionary) -> void:
 		draw_circle(ic, 21.0, Color(1.0, 0.8, 0.22, a))
 		draw_circle(ic, 18.0, disc)
 		_icon(str(b.icon), ic, 9.5, Color(1, 1, 1, a))
-	_bar_text(Vector2(0, 60.0), str(b.line), bar_font if bar_font else font, 15, Color(1.0, 0.92, 0.7, a), Color(0.2, 0.08, 0.02, a), 3)
+	_bar_text(Vector2(0, 52.0), str(b.line), bar_font if bar_font else font, 15, Color(1.0, 0.92, 0.7, a), Color(0.2, 0.08, 0.02, a), 3)
 	_twinkles(now, a * (0.6 if good else 0.25), [Vector2(-half - 20, -50), Vector2(half + 16, -46), Vector2(-half * 0.6, 50), Vector2(half * 0.6, 54)])
 	draw_set_transform(Vector2.ZERO)
 
@@ -3452,7 +3475,12 @@ func _draw_toasts() -> void:
 	var fs := 14
 	while fs > 10 and _text_width(t.text, fs) > 560.0:
 		fs -= 1
-	draw_set_transform(Vector2(size.x / 2.0, 134.0 * fit), 0.0, Vector2(k, k))
+	# Polish round 3 (reviewers, B12: HOME DEFENSE covered the first class
+	# signs): the notice scroll sits bottom right, beside the skill bar and
+	# over the menu keys, off the play area (was centred 134 px down, on the
+	# class stations and the gate).
+	var tw := (_text_width(t.text, fs) + 60.0) * k
+	draw_set_transform(Vector2(minf(size.x - 236.0 * fit, size.x - 14.0 - tw / 2.0), size.y - 168.0 * fit), 0.0, Vector2(k, k))
 	_scroll_hint(0.0, _text_width(t.text, fs) + 40.0, t.text, a, "", fs, Color(t.color, a))
 	draw_set_transform(Vector2.ZERO)
 
@@ -6571,6 +6599,52 @@ func _chat_rect() -> Rect2:
 	return Rect2(14, top, 380 if touch_ui else 290, maxf(0.0, size.y - 166 - top))
 
 
+func hud_block_rects() -> Array[Rect2]:
+	## Polish round 7: the fixed HUD panels (score/timer bar, minimap, skill
+	## bar) in screen pixels, measured off the 1920x1080 layout and scaled;
+	## world status marks and unit tags never draw inside them.
+	var k := Vector2(size.x / 1920.0, size.y / 1080.0)
+	var out: Array[Rect2] = []
+	for r in [Rect2(440, 0, 1060, 150), Rect2(0, 0, 365, 365), Rect2(655, 850, 820, 230), Rect2(0, 900, 600, 180)]:
+		out.append(Rect2(r.position * k, r.size * k))
+	return out
+
+
+func _in_hud_panel(p: Vector2, pad: float = 0.0) -> bool:
+	for r in hud_block_rects():
+		if r.grow(pad).has_point(p):
+			return true
+	return false
+
+
+func _in_fight() -> bool:
+	## The player is standing within 14 m of a living enemy (the chat log
+	## shrinks while it lasts). Checked at most every 0.25 s.
+	var now := Time.get_ticks_msec()
+	if now - _fight_checked < 250:
+		return _fight_cached
+	_fight_checked = now
+	_fight_cached = false
+	var me = _me()
+	if me == null or not is_instance_valid(me) or not game.playing:
+		return false
+	# Near the player, or (the camera can be elsewhere) both sides fighting
+	# around the view centre.
+	var centre: Vector3 = game.cam_pos - game.CAMERA_OFFSET * game.cam_zoom
+	var sides := [0, 0]
+	for u in game.units:
+		if u.dead:
+			continue
+		if not me.dead and u.team != me.team and u.global_position.distance_squared_to(me.global_position) < 196.0:
+			_fight_cached = true
+			break
+		if u.team in [0, 1] and Vector2(u.global_position.x - centre.x, u.global_position.z - centre.z).length_squared() < 225.0:
+			sides[u.team] += 1
+	if sides[0] > 0 and sides[1] > 0:
+		_fight_cached = true
+	return _fight_cached
+
+
 func _draw_chat() -> void:
 	## The chat log in the reference's style: each message is a row with the
 	## speaker's portrait, their name in team colour, the match clock and the
@@ -6584,16 +6658,23 @@ func _draw_chat() -> void:
 		return
 	var tab_h := 34.0 if typing else 0.0
 	var input_h := 34.0 if typing else 0.0
+	# Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers, Ember
+	# frame-020: the left stack "obscures a substantial arena region"): idle,
+	# the log shows its newest three rows, and only two (for 8 s, not 14)
+	# while a fight is near the player or on screen. Open chat shows twelve.
+	var fight := not typing and _in_fight()
+	var max_rows := 12 if typing else (2 if fight else 3)
+	var max_age := 8.0 if fight else 12.0
 	var lines: Array = []
 	for i in range(game.chat_log.size() - 1, -1, -1):
 		var m: Dictionary = game.chat_log[i]
 		var age: float = now - m.time
-		if not typing and age > 14.0:
+		if not typing and age > max_age:
 			break
 		if typing and game.chat_tab == 1 and not m.team:
 			continue
 		lines.push_front(m)
-		if lines.size() >= 12:
+		if lines.size() >= max_rows:
 			break
 	if lines.is_empty() and not typing:
 		return
@@ -6615,7 +6696,7 @@ func _draw_chat() -> void:
 	var tw: float = rect.size.x - 62
 	for i in range(lines.size() - 1, -1, -1):
 		var m: Dictionary = lines[i]
-		var alpha := 1.0 if typing else clampf((14.0 - (now - m.time)) / 3.0, 0.0, 1.0)
+		var alpha := 1.0 if typing else clampf((max_age - (now - m.time)) / 3.0, 0.0, 1.0)
 		var named: bool = m.who != ""
 		var body := _chat_display_text(m)
 		var touch_hint: bool = touch_ui and not named and body != m.text
@@ -7905,11 +7986,23 @@ func _paint_splash(c: Vector2, rx: float, ry: float, dark: Color, light: Color) 
 func _draw_dizzy_marks() -> void:
 	## Over every downed soldier on screen: a speech bubble with a dizzy
 	## swirl and three gold stars circling the head.
+	## Polish pass (claude-faisal/crowns-polish 2026-11-01; reviewers, Ember
+	## frame-020: "oversized stun spirals ... overlap each other and units"):
+	## about 60% of the old size, the bubble lifted clear of the body, and a
+	## bubble that would land on one already drawn flips to the other side
+	## (or, with no room either side, keeps only its stars).
 	var cam := get_viewport().get_camera_3d()
 	if cam == null:
 		return
 	var now := Time.get_ticks_msec() / 1000.0
 	var xf := get_global_transform().affine_inverse()
+	var placed: Array[Vector2] = []
+	# (Round 9: where more than two downed units stand close on screen, the
+	# stars are dropped and each keeps only its own small offset swirl.)
+	var spots: Array[Vector2] = []
+	for u in game.units:
+		if u.downed and not cam.is_position_behind(u.global_position):
+			spots.append(xf * cam.unproject_position(u.global_position + Vector3(0, 0.9, 0)))
 	for u in game.units:
 		if not u.downed:
 			continue
@@ -7919,22 +8012,49 @@ func _draw_dizzy_marks() -> void:
 		var sp: Vector2 = xf * cam.unproject_position(at)
 		if sp.x < -50 or sp.y < -50 or sp.x > size.x + 50 or sp.y > size.y + 50:
 			continue
-		var bob := 2.0 * sin(now * 3.0 + u.get_instance_id())
-		var bc := sp + Vector2(42, -40 + bob)
-		draw_colored_polygon(PackedVector2Array([bc + Vector2(-14, 10), bc + Vector2(-30, 26), bc + Vector2(-4, 16)]), Color(0.08, 0.06, 0.05))
-		draw_circle(bc, 22.0, Color(0.08, 0.06, 0.05))
-		draw_colored_polygon(PackedVector2Array([bc + Vector2(-12, 10), bc + Vector2(-26, 23), bc + Vector2(-5, 14)]), Color(0.97, 0.96, 0.92))
-		draw_circle(bc, 19.0, Color(0.97, 0.96, 0.92))
-		var sw := PackedVector2Array()
-		for i in 40:
-			var t := i / 39.0
-			var ang := -now * 5.0 + t * TAU * 2.2
-			sw.append(bc + Vector2(cos(ang), sin(ang)) * (2.0 + 12.0 * t))
-		draw_polyline(sw, Color(0.12, 0.1, 0.1), 3.0, true)
+		if _in_hud_panel(sp + Vector2(0, -36), 22.0):
+			continue   # (round 7: never over the score bar, minimap or skill bar)
+		var bob := 1.5 * sin(now * 3.0 + u.get_instance_id())
+		var bc := Vector2.INF
+		for off in [Vector2(26, -44), Vector2(-26, -44), Vector2(30, -14), Vector2(-30, -14), Vector2(0, -62), Vector2(40, -60), Vector2(-40, -60)]:
+			var c: Vector2 = sp + off + Vector2(0, bob)
+			var free := true
+			for q in placed:
+				if c.distance_to(q) < 30.0:
+					free = false
+					break
+			if free:
+				var box := Rect2(c - Vector2(15, 15), Vector2(30, 30))
+				for lr in _label_rects:
+					if box.intersects(lr):
+						free = false
+						break
+			if free:
+				bc = c
+				break
+		if bc != Vector2.INF:
+			placed.append(bc)
+			var tail := 1.0 if bc.x > sp.x else -1.0
+			draw_colored_polygon(PackedVector2Array([bc + Vector2(-8 * tail, 6), bc + Vector2(-18 * tail, 16), bc + Vector2(-2 * tail, 10)]), Color(0.08, 0.06, 0.05))
+			draw_circle(bc, 13.5, Color(0.08, 0.06, 0.05))
+			draw_colored_polygon(PackedVector2Array([bc + Vector2(-7 * tail, 6), bc + Vector2(-15 * tail, 14), bc + Vector2(-3 * tail, 8)]), Color(0.97, 0.96, 0.92))
+			draw_circle(bc, 11.5, Color(0.97, 0.96, 0.92))
+			var sw := PackedVector2Array()
+			for i in 32:
+				var t := i / 31.0
+				var ang := -now * 5.0 + t * TAU * 2.2
+				sw.append(bc + Vector2(cos(ang), sin(ang)) * (1.5 + 7.5 * t))
+			draw_polyline(sw, Color(0.12, 0.1, 0.1), 2.0, true)
+		var close := 0
+		for q in spots:
+			if q.distance_to(sp) < 90.0:
+				close += 1
+		if close > 1:   # (itself plus any other downed unit close by)
+			continue
 		for i in 3:
 			var ang := now * 2.6 + i * TAU / 3.0
-			var st := sp + Vector2(cos(ang) * 30.0, sin(ang) * 9.0 - 44.0)
-			_inked_star(st, 7.5, Color(1.0, 0.85, 0.25), Color(0.35, 0.2, 0.02))
+			var st := sp + Vector2(cos(ang) * 18.0, sin(ang) * 5.5 - 30.0)
+			_inked_star(st, 4.5, Color(1.0, 0.85, 0.25), Color(0.35, 0.2, 0.02))
 
 
 func _cross_glyph(c: Vector2, r: float, col: Color, ink: Color) -> void:
@@ -7951,10 +8071,14 @@ func _cross_glyph(c: Vector2, r: float, col: Color, ink: Color) -> void:
 func _draw_revive_prompt(me, mate, cam: Camera3D) -> void:
 	## Standing over a downed teammate: "HOLD [F] REVIVE NAME", with the
 	## progress filling the pill while it is held.
-	var at: Vector3 = mate.global_position + Vector3(0, 2.0, 0)
+	var at: Vector3 = mate.global_position
 	if cam.is_position_behind(at):
 		return
-	var sp: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at)
+	# (Round 4: like FINISH, the pill sits just above the skill bar, off the
+	# actors; a small gold ring marks the teammate's feet.)
+	var feet: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at)
+	draw_arc(feet, 16.0, 0, TAU, 24, Color(1.0, 0.82, 0.3, 0.85), 2.5, true)
+	var sp := Vector2(size.x / 2.0, size.y - 214.0 * clampf(size.x / 1280.0, 0.6, 1.0))
 	var healer: bool = me.role == Stats.Role.HEALER
 	var text: String = ("REVIVING " if me.revive_target == mate else "HOLD  ·  REVIVE ") + mate.display_name.to_upper()
 	if healer:
@@ -7980,7 +8104,12 @@ func _draw_finish_prompt(me, foe, cam: Camera3D) -> void:
 	if cam.is_position_behind(at):
 		return
 	var now := Time.get_ticks_msec() / 1000.0
-	var sp: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(at)
+	# Polish round 4 (reviewers, Twilight fight: the plate hid the player's
+	# head and the downed bodies): the plate sits centred just above the
+	# skill bar, off the actors; a small red ring marks the target's feet.
+	var feet: Vector2 = get_global_transform().affine_inverse() * cam.unproject_position(foe.global_position)
+	draw_arc(feet, 16.0, 0, TAU, 24, Color(1.0, 0.3, 0.2, 0.85), 2.5, true)
+	var sp := Vector2(size.x / 2.0 - 18.0, size.y - 214.0 * clampf(size.x / 1280.0, 0.6, 1.0))
 	var ready: bool = me.can_finish(foe)
 	var holding: bool = me.finish_target == foe and me.finish_progress > 0.0
 	var prog: float = clampf(me.finish_progress, 0.0, 1.0) if holding else 0.0

@@ -92,6 +92,71 @@ def _slabs(owner, rects, gx_n, gy_n, joint, bevel, wobble, seed):
     return ids, t, cu, cv, top_edge, left_edge, vert_near
 
 
+def _courses(G, seed, joint, bevel, wobble, max_len=3):
+    """Polish pass (claude-faisal/crowns-polish 2026-11-01): G courses of
+    blocks 1..max_len cells long, each course slid along by its own half-cell
+    offset (wrapping round the tile), chosen so no head joint lines up with
+    the course above or below, the tile seam included: no stacked joint
+    columns repeating every tile. Returns what _slabs returns."""
+    r = np.random.default_rng(seed)
+    H = 2 * G   # head joints sit on half cells
+    rows = []
+    for cy in range(G):
+        for _try in range(400):
+            lens = []
+            while sum(lens) < G:
+                lens.append(int(min(r.integers(1, max_len + 1), G - sum(lens))))
+            if len(lens) > 1 and lens.count(1) > 1:
+                continue
+            off = int(r.integers(0, H))
+            cuts = set()
+            acc = 0
+            for l in lens:
+                cuts.add((acc * 2 + off) % H)
+                acc += l
+            prev = rows[-1][2] if rows else set()
+            first = rows[0][2] if (rows and cy == G - 1) else set()
+            if not (cuts & prev) and not (cuts & first):
+                break
+        rows.append((lens, off, cuts))
+    cw = N / G
+    ch = N / G
+    ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
+    wx = xs + (fbm(N, 16, 3, seed + 1) - 0.5) * wobble
+    wy = ys + (fbm(N, 16, 3, seed + 2) - 0.5) * wobble
+    py = wy % N
+    gy = np.clip(py // ch, 0, G - 1).astype(int)
+    offs = np.array([o for _l, o, _c in rows], dtype=np.float64) * (cw / 2.0)
+    sx = (wx - offs[gy]) % N   # x inside the course, measured from its first head joint
+    ids = np.zeros((N, N), dtype=int)
+    x0 = np.zeros((N, N))
+    x1 = np.zeros((N, N))
+    nid = 0
+    for cy, (lens, _o, _c) in enumerate(rows):
+        acc = 0
+        m_row = gy == cy
+        for l in lens:
+            a, b = acc * cw, (acc + l) * cw
+            m = m_row & (sx >= a) & (sx < b)
+            ids[m] = nid
+            x0[m] = a
+            x1[m] = b
+            nid += 1
+            acc += l
+    y0 = gy * ch
+    y1 = y0 + ch
+    du = np.minimum(sx - x0, x1 - sx)
+    dv = np.minimum(py - y0, y1 - py)
+    d = -np.log(np.exp(-du / 8.0) + np.exp(-dv / 8.0)) * 8.0
+    t = np.clip((d - joint) / bevel, 0, 1)
+    cu = (sx - x0) / np.maximum(x1 - x0, 1) - 0.5
+    cv = (py - y0) / np.maximum(y1 - y0, 1) - 0.5
+    top_edge = (py - y0) < (y1 - py)
+    left_edge = (sx - x0) < (x1 - sx)
+    vert_near = dv <= du
+    return ids, t, cu, cv, top_edge, left_edge, vert_near, nid
+
+
 def _paint(ids, t, cu, cv, top_edge, left_edge, vert_near, n, palette, joint_col, seed, chips=0.7):
     r = np.random.default_rng(seed)
     face = np.sin(t * np.pi / 2) ** 0.75
@@ -100,22 +165,30 @@ def _paint(ids, t, cu, cv, top_edge, left_edge, vert_near, n, palette, joint_col
     base = pal[pick]
     shade = (r.random(n) - 0.5)[ids]
     base = base * (1.0 + 0.10 * shade)[..., None]
+    # Polish pass (claude-faisal/crowns-polish 2026-11-01): each block its own
+    # gentle light, its upper-left half a touch brighter than its lower-right,
+    # so neighbouring blocks read apart without a heavy dark joint.
+    base = base * (1.0 - 0.07 * cv - 0.035 * cu)[..., None]
     # Broad mottling and a speckle inside every face.
     mott = fbm(N, 6, 3, seed + 2)
     base = base * (0.94 + 0.12 * mott)[..., None]
     speck = np.clip((fbm(N, 150, 2, seed + 3) - 0.6) * 4, 0, 1)
     base = base * (1.0 - 0.05 * speck)[..., None]
-    # Painted bevel light: the upper and left arrises lit, the lower and right in shade.
-    band = np.clip(1.0 - t, 0, 1) * (t > 0.0)
+    # Painted bevel light: the upper and left arrises lit, the lower and right
+    # in shade (polish pass: softer, fading over the bevel, was a hard 0.22 band).
+    band = np.clip(1.0 - t, 0, 1) ** 1.5 * (t > 0.0)
     lit = np.where(vert_near, np.where(top_edge, 1.0, -1.0), np.where(left_edge, 0.55, -0.55))
-    base = base * (1.0 + band * lit * 0.22)[..., None]
+    base = base * (1.0 + band * lit * 0.15)[..., None]
     # Worn chips on the arrises.
     chip = np.clip((fbm(N, 44, 2, seed + 4) - chips) * 6.0, 0, 1) * (t < 0.8) * (t > 0.0)
-    base = lerp(base, base * 0.78, (chip * 0.8)[..., None])
-    # A soft warm contact shade where the face meets the joint.
-    base = lerp(base, base * 0.8, (np.clip(1 - t * 2.5, 0, 1) * (t > 0))[..., None])
-    jt = np.clip(t * 6.0, 0, 1)
-    color = lerp(np.broadcast_to(joint_col, base.shape) * (0.9 + 0.2 * mott)[..., None], base, jt[..., None])
+    base = lerp(base, base * 0.82, (chip * 0.7)[..., None])
+    # A soft contact shade where the face meets the joint (polish pass: a
+    # gradual falloff over the whole bevel instead of a dark rim).
+    base = lerp(base, base * 0.84, (np.clip(1 - t, 0, 1) ** 2 * (t > 0))[..., None])
+    # Thin, soft joint: the face blends into the mortar over the bevel's foot.
+    jt = np.clip(t / 0.22, 0, 1)
+    jt = jt * jt * (3 - 2 * jt)
+    color = lerp(np.broadcast_to(joint_col, base.shape) * (0.92 + 0.16 * mott)[..., None], base, jt[..., None])
     height = np.clip(face * (0.8 + 0.12 * (r.random(n)[ids] - 0.5)) + fbm(N, 12, 4, seed + 5) * 0.06 * face - chip * 0.25, 0, 1)
     return color, height, chip
 
@@ -125,17 +198,17 @@ def make_castle_flags():
     tile), mixed squares and doubles, warm cream to peach to pale tan."""
     G = 5
     owner, rects = _layout(G, 411, big=0.6)
-    ids, t, cu, cv, te, le, vn = _slabs(owner, rects, G, G, joint=7.0, bevel=26.0, wobble=7.0, seed=412)
+    ids, t, cu, cv, te, le, vn = _slabs(owner, rects, G, G, joint=2.5, bevel=24.0, wobble=7.0, seed=412)
     palette = [rgb(0.93, 0.83, 0.65), rgb(0.95, 0.86, 0.69), rgb(0.90, 0.78, 0.60), rgb(0.94, 0.80, 0.63),
                rgb(0.88, 0.80, 0.66), rgb(0.96, 0.88, 0.72), rgb(0.86, 0.75, 0.58)]
-    color, height, _chip = _paint(ids, t, cu, cv, te, le, vn, len(rects), palette, rgb(0.48, 0.37, 0.26), 413)
+    color, height, _chip = _paint(ids, t, cu, cv, te, le, vn, len(rects), palette, rgb(0.62, 0.52, 0.40), 413)
     # A whisper of moss and grit in the joints.
     grit = np.clip(1 - t * 3, 0, 1) * np.clip((fbm(N, 10, 2, 414) - 0.55) * 4, 0, 1)
-    color = lerp(color, rgb(0.40, 0.48, 0.24), (grit * 0.4)[..., None])
+    color = lerp(color, rgb(0.50, 0.54, 0.34), (grit * 0.3)[..., None])
     mst.save("castle_flags", color, height, 1.0)
     # The Humans' and the snowy keep floors: the same flags in cool grey.
     grey = [rgb(0.74, 0.74, 0.76), rgb(0.70, 0.71, 0.74), rgb(0.78, 0.77, 0.76), rgb(0.66, 0.68, 0.72), rgb(0.80, 0.79, 0.78)]
-    gcol, gh, _c = _paint(ids, t, cu, cv, te, le, vn, len(rects), grey, rgb(0.36, 0.35, 0.36), 415)
+    gcol, gh, _c = _paint(ids, t, cu, cv, te, le, vn, len(rects), grey, rgb(0.50, 0.50, 0.52), 415)
     mst.save("castle_flags_grey", gcol, gh, 1.0)
 
 
@@ -143,15 +216,14 @@ def make_castle_blocks():
     """Castle wall blocks: courses of 1-3 unit blocks (~0.55 m tall, 0.6-1.8 m
     long at the walls' 0.3 UV: 6 courses and 6 units per 3.33 m tile), big
     soft bevels, warm cream; and the Humans' grey."""
-    G = 6
-    owner, rects = _layout(G, 421, rows_only=True)
-    ids, t, cu, cv, te, le, vn = _slabs(owner, rects, G, G, joint=6.0, bevel=24.0, wobble=5.0, seed=422)
+    # (Polish pass: offset courses, no head joints stacked up the tile seam.)
+    ids, t, cu, cv, te, le, vn, nb = _courses(6, 421, joint=2.5, bevel=22.0, wobble=5.0)
     palette = [rgb(0.92, 0.83, 0.66), rgb(0.88, 0.78, 0.60), rgb(0.95, 0.87, 0.71), rgb(0.86, 0.77, 0.62),
                rgb(0.93, 0.80, 0.62), rgb(0.90, 0.84, 0.72)]
-    color, height, _chip = _paint(ids, t, cu, cv, te, le, vn, len(rects), palette, rgb(0.45, 0.35, 0.25), 423, chips=0.68)
+    color, height, _chip = _paint(ids, t, cu, cv, te, le, vn, nb, palette, rgb(0.58, 0.48, 0.36), 423, chips=0.68)
     mst.save("castle_blocks", color, height, 1.0)
     grey = [rgb(0.70, 0.71, 0.74), rgb(0.64, 0.66, 0.70), rgb(0.76, 0.76, 0.77), rgb(0.60, 0.63, 0.68), rgb(0.72, 0.70, 0.67)]
-    gcol, gh, _c = _paint(ids, t, cu, cv, te, le, vn, len(rects), grey, rgb(0.32, 0.32, 0.34), 424, chips=0.68)
+    gcol, gh, _c = _paint(ids, t, cu, cv, te, le, vn, nb, grey, rgb(0.46, 0.46, 0.49), 424, chips=0.68)
     mst.save("castle_blocks_grey", gcol, gh, 1.0)
 
 
@@ -173,27 +245,15 @@ def make_castle_face():
 
 def make_castle_ashlar():
     """Pass 4 (2026-10-31): the yard's tall west wall in warm tan stone (pick
-    Battle A's left wall): a running bond of 8 courses a tile, each block two
-    cells long and every other course offset by a cell (~0.42 x 0.83 m at the
-    wall's 0.3 UV), soft bevels, darker warm mortar, a quiet spread of tans."""
-    G = 8
-    owner = -np.ones((G, G), dtype=int)
-    rects = []
-    for cy in range(G):
-        cx = 0
-        if cy % 2 == 1:   # the offset course starts and ends on a half block
-            owner[cy, 0] = len(rects)
-            rects.append((0, cy, 1, cy + 1))
-            cx = 1
-        while cx < G:
-            w = 2 if cx + 1 < G else 1
-            owner[cy, cx:cx + w] = len(rects)
-            rects.append((cx, cy, cx + w, cy + 1))
-            cx += w
-    ids, t, cu, cv, te, le, vn = _slabs(owner, rects, G, G, joint=6.0, bevel=22.0, wobble=4.0, seed=452)
+    Battle A's left wall). Polish pass (claude-faisal/crowns-polish
+    2026-11-01): the reviewers read pass 4's eight thin courses as repeated
+    brick faces, so it now lays six courses a tile (~0.55 m at the wall's 0.3
+    UV) of chunky blocks one to three cells long in an irregular bond
+    (pick A's big individual blocks), with a thin soft joint."""
+    ids, t, cu, cv, te, le, vn, nb = _courses(6, 451, joint=2.5, bevel=22.0, wobble=4.0)
     palette = [rgb(0.84, 0.70, 0.54), rgb(0.80, 0.66, 0.50), rgb(0.87, 0.74, 0.58), rgb(0.78, 0.64, 0.49),
-               rgb(0.83, 0.71, 0.56), rgb(0.86, 0.72, 0.55)]
-    color, height, _chip = _paint(ids, t, cu, cv, te, le, vn, len(rects), palette, rgb(0.38, 0.28, 0.19), 453, chips=0.7)
+               rgb(0.83, 0.71, 0.56), rgb(0.86, 0.72, 0.55), rgb(0.89, 0.77, 0.61)]
+    color, height, _chip = _paint(ids, t, cu, cv, te, le, vn, nb, palette, rgb(0.55, 0.44, 0.33), 453, chips=0.7)
     mst.save("castle_ashlar", color, height, 1.0)
 
 
