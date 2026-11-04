@@ -3,6 +3,7 @@ extends Node3D
 ## capture-the-monarch rules. Everything is built in code from simple shapes,
 ## so it can be swapped for real art later without changing the rules.
 
+const LogQ = preload("res://scripts/log_queue.gd")
 const Stats = preload("res://scripts/stats.gd")
 const SaveFile = preload("res://scripts/save_file.gd")
 const Unit = preload("res://scripts/unit.gd")
@@ -740,6 +741,7 @@ func _reload_scene() -> void:
 
 
 func _exit_tree() -> void:
+	LogQ.flush()   # the match log's worker (scripts/log_queue.gd) prints the rest and stops
 	_free_shot_pool()   # pooled shots are out of the tree: nothing else frees them
 	CharacterModel.free_look_pool()   # parked looks too (character_model.gd)
 	# A prebuild still waiting for a title frame ends now; left waiting it
@@ -905,12 +907,12 @@ func _process(delta: float) -> void:
 	_tick_tutorial()
 	_update_camera(delta)
 	if demo and Engine.get_process_frames() % 1800 == 0:
-		print("t=%ds  score %d-%d  monarchs %s / %s  doors %d / %d  turrets %d / %d" % [Engine.get_process_frames() / 60,
+		LogQ.line("t=%ds  score %d-%d  monarchs %s / %s  doors %d / %d  turrets %d / %d" % [Engine.get_process_frames() / 60,
 			score[0], score[1], monarchs[0].state, monarchs[1].state, gates[0].hp, gates[1].hp, turrets_built[0], turrets_built[1]])
 		for t in turrets:
-			print("   turret team%d L%d hp=%d %s" % [t.team, t.level, t.hp, t.global_position.snapped(Vector3.ONE * 0.1)])
+			LogQ.line("   turret team%d L%d hp=%d %s" % [t.team, t.level, t.hp, t.global_position.snapped(Vector3.ONE * 0.1)])
 		for u in units:
-			print("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
+			LogQ.line("   team%d %s %s hearts=%d dead=%s job=%s" % [u.team, u.role_name(), u.global_position.snapped(Vector3.ONE * 0.1), u.hearts, u.dead, u.bot_job])
 	perf_clock += delta
 	if perf_log and perf_clock >= 5.0:
 		perf_clock = 0.0
@@ -1199,6 +1201,7 @@ func match_clock() -> int:
 
 
 func _demo_summary() -> void:
+	LogQ.flush()   # the queued match log first, then the result lines
 	## One line per unit at the end of a bot match, for balance tallies.
 	var w: String = "Draw" if winner_team < 0 else Stats.FACTIONS[winner_team].name
 	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1]])

@@ -12,6 +12,7 @@ extends Node3D
 ## Bots gather (one per team), and on a team with no human player they also
 ## spend, door first. Every number is in Stats.ECONOMY.
 
+const LogQ = preload("res://scripts/log_queue.gd")
 const Stats = preload("res://scripts/stats.gd")
 const ResourceNode = preload("res://scripts/resource_node.gd")
 const Role = Stats.Role
@@ -284,7 +285,7 @@ func upgrade_hat(team: int, role: int, by, at_machine: bool = true) -> bool:
 	elif by:
 		game.chat_system("%s upgraded the %s %s hat machine." % [by.display_name, Stats.FACTIONS[team].name, cls])
 	if game.demo:
-		print("ECON t=%d team%d upgrade %s" % [game.match_clock(), team, cls])
+		LogQ.line("ECON t=%d team%d upgrade %s" % [game.match_clock(), team, cls])
 	if at_machine and by and by.role == role and not by.dead:
 		seal.take(by)   # standing at it wearing the class: put the new hat straight on
 	# Everyone on the team already wearing this class gets the move now, wherever
@@ -353,7 +354,7 @@ func train(p) -> bool:
 	else:
 		game.chat_system("%s trained as a %s." % [p.display_name, cls])
 	if game.demo:
-		print("ECON t=%d team%d train %s L%d" % [game.match_clock(), p.team, cls, p.level])
+		LogQ.line("ECON t=%d team%d train %s L%d" % [game.match_clock(), p.team, cls, p.level])
 	return true
 
 
@@ -401,7 +402,7 @@ func fix_door(team: int, by) -> bool:
 	game.sfx.play("door_rebuilt", gate.global_position, -1.0)
 	_build_xp(by)
 	if game.demo:
-		print("ECON t=%d team%d door %s hp=%d" % [game.match_clock(), team, job, gate.hp])
+		LogQ.line("ECON t=%d team%d door %s hp=%d" % [game.match_clock(), team, job, gate.hp])
 	return true
 
 
@@ -465,7 +466,7 @@ func work_pad(team: int, pos: Vector3, by) -> bool:
 			t.upgrade()
 			bought[team].tend += 1
 	if game.demo:
-		print("ECON t=%d team%d pad %s" % [game.match_clock(), team, what])
+		LogQ.line("ECON t=%d team%d pad %s" % [game.match_clock(), team, what])
 	_build_xp(by)
 	return true
 
@@ -566,7 +567,7 @@ func _tick_cargo() -> void:
 			_refresh_cargo(u)
 			_refresh_pile(u.team)
 			if game.demo:
-				print("ECON t=%d team%d deposit by %s pool %d wood %d ore" % [game.match_clock(), u.team, u.display_name, wood[u.team], ore[u.team]])
+				LogQ.line("ECON t=%d team%d deposit by %s pool %d wood %d ore" % [game.match_clock(), u.team, u.display_name, wood[u.team], ore[u.team]])
 
 
 func _drop_load(u) -> void:
@@ -832,7 +833,7 @@ func _physics_process(delta: float) -> void:
 					_cost_text(Stats.ECONOMY.train_wood, Stats.ECONOMY.train_ore), game.key_label("interact")], Color(1.0, 0.9, 0.5))
 	if game.demo and Engine.get_process_frames() % 1800 == 0:
 		for team in 2:
-			print("   econ team%d pool %d wood %d ore  gathered %s  bought %s  hats %s" % [team, wood[team], ore[team],
+			LogQ.line("   econ team%d pool %d wood %d ore  gathered %s  bought %s  hats %s" % [team, wood[team], ore[team],
 				gathered[team], bought[team], upgraded[team].keys()])
 
 

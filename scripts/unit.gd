@@ -4,6 +4,7 @@ extends CharacterBody3D
 ## class station in their castle. Dying resets you to the plain form and
 ## wipes the experience you earned this life. All numbers live in stats.gd.
 
+const LogQ = preload("res://scripts/log_queue.gd")
 const PlayerMovement = preload("res://scripts/player_movement.gd")
 const Stats = preload("res://scripts/stats.gd")
 const Turret = preload("res://scripts/turret.gd")
@@ -1130,7 +1131,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	if hearts <= 0:
 		if game.demo and attacker and attacker != self:
 			# Balance log: who killed whom, at what in-match level and role.
-			print("KILL t=%d kteam=%d krole=%d klevel=%d kmastery=%d vteam=%d vrole=%d vlevel=%d vmastery=%d kfire=%d burn=%d" % [game.match_clock(),
+			LogQ.line("KILL t=%d kteam=%d krole=%d klevel=%d kmastery=%d vteam=%d vrole=%d vlevel=%d vmastery=%d kfire=%d burn=%d" % [game.match_clock(),
 				attacker.team, attacker.role, attacker.level, attacker.total_upgrades(), team, role, level, total_upgrades(),
 				int(attacker.fire_form), int(burn_tick)])
 		if is_player or remote_peer > 0:
@@ -1700,7 +1701,7 @@ func _go_down(attacker) -> void:
 		aim_ring.visible = false
 	if game.demo:
 		var mate = _nearest_standing_ally()
-		print("DOWN t=%d team%d %s ally=%.0f foes=%d" % [game.match_clock(), team, role_name(), _flat_to(mate.global_position).length() if mate else 99.0, game.enemies_near(team, global_position, 6.0)])
+		LogQ.line("DOWN t=%d team%d %s ally=%.0f foes=%d" % [game.match_clock(), team, role_name(), _flat_to(mate.global_position).length() if mate else 99.0, game.enemies_near(team, global_position, 6.0)])
 	_refresh_overhead()
 
 
@@ -1756,7 +1757,7 @@ func _hit_while_downed(attacker, finisher: bool = false) -> bool:
 		if game.kill_feed.size() > 6:
 			game.kill_feed.pop_front()
 	if game.demo:
-		print("FINISH t=%d team%d %s by=%s" % [game.match_clock(), team, role_name(), attacker.role_name() if attacker else "trap"])
+		LogQ.line("FINISH t=%d team%d %s by=%s" % [game.match_clock(), team, role_name(), attacker.role_name() if attacker else "trap"])
 	_die(attacker)
 	return true
 
@@ -1997,7 +1998,7 @@ func _revive(by) -> void:
 	if by and (by.is_player or by.remote_peer > 0):
 		game.toast("YOU REVIVED %s" % display_name.to_upper(), col, by)
 	if game.demo:
-		print("REVIVE t=%d team%d %s by=%s healer=%s" % [game.match_clock(), team, role_name(), by.role_name() if by else "?", healer])
+		LogQ.line("REVIVE t=%d team%d %s by=%s healer=%s" % [game.match_clock(), team, role_name(), by.role_name() if by else "?", healer])
 	_refresh_overhead()
 
 
@@ -2014,7 +2015,7 @@ func _downed_process(delta: float) -> void:
 		downed_timer -= delta
 	if downed_timer <= 0.0:
 		if game.demo:
-			print("BLEEDOUT t=%d team%d %s" % [game.match_clock(), team, role_name()])
+			LogQ.line("BLEEDOUT t=%d team%d %s" % [game.match_clock(), team, role_name()])
 		_die()
 		return
 	var move := Vector3.ZERO
@@ -2033,7 +2034,7 @@ func _downed_process(delta: float) -> void:
 				skip_hold = 0.0
 			if skip_hold >= Stats.DOWNED_SKIP_HOLD:
 				if game.demo:
-					print("SKIP t=%d team%d %s" % [game.match_clock(), team, role_name()])
+					LogQ.line("SKIP t=%d team%d %s" % [game.match_clock(), team, role_name()])
 				_die()
 				return
 	else:
@@ -2044,7 +2045,7 @@ func _downed_process(delta: float) -> void:
 			bot_down_wait += delta
 			if bot_down_wait >= Stats.BOT_DOWNED_GIVE_UP:
 				if game.demo:
-					print("SKIP t=%d team%d %s" % [game.match_clock(), team, role_name()])
+					LogQ.line("SKIP t=%d team%d %s" % [game.match_clock(), team, role_name()])
 				_die()
 				return
 		else:
@@ -2516,7 +2517,7 @@ func _physics_process(delta: float) -> void:
 	if game.vmap == null and game.lmap == null and game.in_channel(global_position):
 		var bank := 1.0 if global_position.x >= 0.0 else -1.0
 		if game.demo:
-			print("RIVER t=%d team%d %s at %s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1)])
+			LogQ.line("RIVER t=%d team%d %s at %s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1)])
 		global_position.x = bank * (game.RIVER_HALF + 0.9)
 		knockback = Vector3.ZERO
 	# Spawn protection ends on its timer or the moment you leave the cellar.
@@ -2754,12 +2755,12 @@ func _physics_process(delta: float) -> void:
 			elif stall_clock > 20.0:
 				stall_clock = 0.0
 				var e = _nearest_enemy(30.0)
-				print("STALL t=%d team%d %s at %s job=%s move=%s attack=%s enemy=%s d=%.1f" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), bot_job, move.snapped(Vector3.ONE * 0.01), wants_attack, (e.role_name() + str(e.global_position.snapped(Vector3.ONE * 0.1))) if e else "none", _flat_to(e.global_position).length() if e else 0.0])
+				LogQ.line("STALL t=%d team%d %s at %s job=%s move=%s attack=%s enemy=%s d=%.1f" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), bot_job, move.snapped(Vector3.ONE * 0.01), wants_attack, (e.role_name() + str(e.global_position.snapped(Vector3.ONE * 0.1))) if e else "none", _flat_to(e.global_position).length() if e else 0.0])
 				var hits := []
 				for ci in get_slide_collision_count():
 					var col := get_slide_collision(ci).get_collider()
 					hits.append("%s@%s" % [col.name if col else "?", (col.global_position.snapped(Vector3.ONE * 0.1)) if col is Node3D else ""])
-				print("STALLINFO target=%s hits=%s" % [stall_target.snapped(Vector3.ONE * 0.1), hits])
+				LogQ.line("STALLINFO target=%s hits=%s" % [stall_target.snapped(Vector3.ONE * 0.1), hits])
 
 	# Shield up: hold to block. It drains stamina, slows you and stops attacks.
 	var block_now: bool = wants_block and can_block() and energy > 0.0 and carrying == null and guard_timer <= 0.0
@@ -3171,7 +3172,7 @@ func _unstick(delta: float) -> void:
 		velocity = Vector3.ZERO
 		knockback = Vector3.ZERO
 		if game.demo:
-			print("UNSTICK t=%d team%d %s fell out of the world" % [game.match_clock(), team, role_name()])
+			LogQ.line("UNSTICK t=%d team%d %s fell out of the world" % [game.match_clock(), team, role_name()])
 		return
 	if (Engine.get_physics_frames() + get_index()) % 10 != 0:
 		return
@@ -3185,7 +3186,7 @@ func _unstick(delta: float) -> void:
 	embed_time = 0.0
 	var to := nearest_free_spot(global_position, 4.0)
 	if game.demo:
-		print("UNSTICK t=%d team%d %s at %s -> %s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), to.snapped(Vector3.ONE * 0.1)])
+		LogQ.line("UNSTICK t=%d team%d %s at %s -> %s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), to.snapped(Vector3.ONE * 0.1)])
 	if to != global_position:
 		global_position = to
 		velocity = Vector3.ZERO
@@ -3362,7 +3363,7 @@ func _steer_to(target: Vector3) -> Vector3:
 							what += "[%s]" % [ch.shape.size.snapped(Vector3.ONE * 0.1)]
 					hits.append("%s@%s" % [what, get_slide_collision(ci).get_position().snapped(Vector3.ONE * 0.1)])
 			if not hits.is_empty():
-				print("BUMP t=%d team%d %s at %s job=%s target=%s hits=%s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), bot_job, target.snapped(Vector3.ONE * 0.1), hits])
+				LogQ.line("BUMP t=%d team%d %s at %s job=%s target=%s hits=%s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), bot_job, target.snapped(Vector3.ONE * 0.1), hits])
 		sidestep_timer = 1.2
 		sidestep_sign = -sidestep_sign
 	if sidestep_timer > 0.0:
