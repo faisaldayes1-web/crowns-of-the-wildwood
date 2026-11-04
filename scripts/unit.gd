@@ -431,6 +431,13 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	carry_fx.add_child(cp)
 	carry_fx.visible = false
 	add_child(carry_fx)
+	# The downed ring, cross and bar, built now and hidden: built at the first
+	# fall they were ~10 ms inside the killing blow's frame
+	# (claude-faisal/crowns-spawn 2026-11-04, tools/stall_probe.gd).
+	_build_down_fx()
+	down_fx.visible = false
+	down_cross.visible = false
+	down_bar.visible = false
 
 	set_role(Role.BASE)
 

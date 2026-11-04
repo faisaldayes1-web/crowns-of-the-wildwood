@@ -93,6 +93,10 @@ func _init() -> void:
 			game.spawn_popup(at + Vector3(i, 0, 0), "-%d" % i, Color.WHITE)
 			game.spawn_flash(at, Color.WHITE)
 			game.spawn_pillar(at, Color.WHITE)
+			fx.thorns(at, 1.5, Color.GREEN, 8)
+			fx.dome(u, 1.2, Color.WHITE)
+			fx.swirl(u, Color.WHITE)
+			fx.afterimage(u.model, Color.WHITE)
 		await create_timer(2.5).timeout   # (the longest, the death wisp, goes after 1.6 s)
 		await process_frame
 		if round == 1:
