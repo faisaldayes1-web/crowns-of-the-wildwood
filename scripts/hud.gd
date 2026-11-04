@@ -4525,9 +4525,16 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		# Room for the spawn cellars, which reach past the playfield's edge.
 		hx = maxf(hx, game.CASTLE_X + game.CASTLE_DEPTH + game.CELLAR_DEPTH + 1.0)
 	var hz: float = game.map_half.y
-	_plate(rect, GRASS.darkened(0.2), GOLD_DARK, 8, 2)
+	# The ground in the map's own season (visual pass 2026-11-04: Stonekeep
+	# and Twilight Grove drew summer grass round their snow and violet fields).
+	var ground := GRASS
+	if game.season == "winter":
+		ground = Color(0.8, 0.85, 0.9)
+	elif game.season == "twilight":
+		ground = Color(0.3, 0.27, 0.45)
+	_plate(rect, ground.darkened(0.2), GOLD_DARK, 8, 2)
 	var inner := rect.grow(-3)
-	draw_rect(inner, GRASS)
+	draw_rect(inner, ground)
 	# Elven ground reads a touch bluer and deeper, human ground warmer.
 	draw_rect(Rect2(inner.position, Vector2(inner.size.x / 2.0, inner.size.y)), Color(0.2, 0.45, 0.35, 0.25))
 	draw_rect(Rect2(inner.position + Vector2(inner.size.x / 2.0, 0), Vector2(inner.size.x / 2.0, inner.size.y)), Color(0.55, 0.5, 0.2, 0.18))
