@@ -103,7 +103,6 @@ var bake_mode := ""              # set on a copy: which layer it draws
 var bake_args: Array = []        # the copy's draw arguments (centre, radius)
 var _bakes: Dictionary = {}      # name -> {vp, hud, key, px}
 var _pin_ready: Dictionary = {}  # map pin look -> frame its bake was asked for (_map_pin)
-var _frame_rect: TextureRect     # shows the baked screen frame behind the HUD
 var _layers: Dictionary = {}     # baked layer name -> its TextureRect behind the HUD
 # The player panel and the top bar are baked too: their art changes only
 # when the state behind it does (hearts, level, a slot coming ready, the
@@ -278,8 +277,6 @@ func _draw() -> void:
 	if bake_mode != "":
 		_draw_bake()
 		return
-	if _frame_rect:
-		_frame_rect.visible = false   # shown again below while the live HUD draws
 	for lr in _layers.values():
 		lr.visible = false
 	if not _under_items.is_empty() and _under:
@@ -354,8 +351,7 @@ func _draw() -> void:
 				_draw_cursor()
 		return
 	_draw_screen_fx()
-	if not pane:
-		_screen_frame_baked()
+	# (No screen frame/ivy border: removed at Faisal's request 2026-11-04.)
 	# (No logo during play: Faisal 2026-10-07 21:14.)
 	_draw_scoreboard()
 	if game.show_fps:
@@ -1412,8 +1408,6 @@ func _draw_bake() -> void:
 			_minimap_ring(bake_args[0], bake_args[1])
 		"map_pin":
 			_map_pin_shapes(bake_args[0], bake_args[1], bake_args[2], bake_args[3])
-		"frame":
-			_screen_frame()
 		"panel":
 			panel_pass = "static"
 			if bake_args[0] and is_instance_valid(bake_args[0]):
@@ -1468,30 +1462,6 @@ func _bake(name: String, px: Vector2, key: Variant, mode: String, args: Array, o
 		b.hud.queue_redraw()
 		b.vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	return b.vp.get_texture()
-
-
-func _screen_frame_baked() -> void:
-	## The bronze frame and ivy (177 polygons) drawn once into a texture and
-	## shown by a TextureRect behind the HUD. A SubViewport's texture carries
-	## premultiplied alpha, so the rect blends it that way (drawing it with
-	## draw_texture_rect would dim the thin translucent lines).
-	var tex := _bake("frame", size, [size], "frame", [])
-	if tex == null:
-		_screen_frame()
-		return
-	if _frame_rect == null:
-		_frame_rect = TextureRect.new()
-		_frame_rect.show_behind_parent = true
-		_frame_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_frame_rect.stretch_mode = TextureRect.STRETCH_SCALE
-		var mat := CanvasItemMaterial.new()
-		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
-		_frame_rect.material = mat
-		add_child(_frame_rect)
-	_frame_rect.texture = tex
-	_frame_rect.position = Vector2.ZERO
-	_frame_rect.size = size
-	_frame_rect.visible = true
 
 
 func _layer(name: String, rect: Rect2, key: Variant, mode: String, args: Array) -> bool:
@@ -1560,10 +1530,10 @@ func _glow(kind: String, args: Array) -> void:
 			_under.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			_under.draw.connect(_draw_under)
 			add_child(_under)
-			# Beneath the baked panel layers, above the frame and the top bar.
+			# Beneath the baked panel layers, above the top bar.
 			var at := 0
-			for lname in ["frame", "topbar"]:
-				var l = _frame_rect if lname == "frame" else _layers.get(lname)
+			for lname in ["topbar"]:
+				var l = _layers.get(lname)
 				if l and l.get_parent() == self:
 					at = maxi(at, l.get_index() + 1)
 			move_child(_under, at)
@@ -2605,33 +2575,6 @@ func _draw_tutorial() -> void:
 			draw_line(box.position + Vector2(2, 6), box.position + Vector2(5, 9), CREAM, 2.0)
 			draw_line(box.position + Vector2(5, 9), box.position + Vector2(10, 2), CREAM, 2.0)
 		_text(Vector2(rect.position.x + 30, y + 1), steps[i], 11, GREY if done else CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-
-
-func _screen_frame() -> void:
-	## A thin bronze frame round the whole screen with ivy creeping in from
-	## the corners and along the sides, like a storybook page (Faisal's UI
-	## reference, 2026-10-08).
-	var r := Rect2(Vector2(6, 6), size - Vector2(12, 12))
-	draw_rect(r.grow(2), Color(0.12, 0.07, 0.02, 0.7), false, 3.0)
-	draw_rect(r, Color(0.62, 0.44, 0.18, 0.85), false, 2.0)
-	draw_rect(r.grow(-2), Color(1.0, 0.85, 0.5, 0.25), false, 1.0)
-	for c in [r.position, Vector2(r.end.x, r.position.y), r.end, Vector2(r.position.x, r.end.y)]:
-		var dx := 1.0 if c.x < size.x / 2.0 else -1.0
-		var dy := 1.0 if c.y < size.y / 2.0 else -1.0
-		var q := PackedVector2Array([c, c + Vector2(dx * 18, 0), c + Vector2(dx * 14, dy * 4), c + Vector2(dx * 4, dy * 4), c + Vector2(dx * 4, dy * 14), c + Vector2(0, dy * 18)])
-		draw_colored_polygon(q, BRASS)
-		q.append(q[0])
-		draw_polyline(q, Color(0.3, 0.17, 0.04), 1.2)
-	# Ivy: a wavy stem with leaves, from each corner along both edges, and a
-	# sprig half-way down the sides.
-	var runs := [
-		[r.position, Vector2(1, 0), 150.0], [r.position, Vector2(0, 1), 120.0],
-		[Vector2(r.end.x, r.position.y), Vector2(-1, 0), 150.0], [Vector2(r.end.x, r.position.y), Vector2(0, 1), 120.0],
-		[Vector2(r.position.x, r.end.y), Vector2(0, -1), 140.0], [r.end, Vector2(0, -1), 140.0],
-		[Vector2(r.position.x, r.end.y), Vector2(1, 0), 70.0], [r.end, Vector2(-1, 0), 60.0],
-		[Vector2(r.position.x, size.y * 0.5), Vector2(0, -1), 60.0], [Vector2(r.end.x, size.y * 0.55), Vector2(0, 1), 60.0]]
-	for i in runs.size():
-		_ivy(runs[i][0], runs[i][1], runs[i][2], i)
 
 
 func _ivy(start: Vector2, dir: Vector2, length: float, seed_i: int) -> void:
