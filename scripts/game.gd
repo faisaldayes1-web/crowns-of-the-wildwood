@@ -13069,7 +13069,10 @@ func _warm_up_models(buried: bool = false) -> void:
 	# frozen ~1.7 s (claude-faisal3 2026-10-29, PERF-04 rest).
 	var slice_end := Time.get_ticks_usec() + WARM_MODEL_SLICE_USEC
 	for i in range(built.size(), looks.size()):
-		if i > 0 and Time.get_ticks_usec() >= slice_end:
+		if i > 0 and not buried and Time.get_ticks_usec() >= slice_end:
+			# (Buried, with no loading art, the match is already running:
+			# 30 ms slices were a run of 30-40 ms frames in its first two
+			# seconds. All of it goes in the match start's own frame instead.)
 			await _drawn_frame()
 			if not is_inside_tree() or not is_instance_valid(rack):
 				return
