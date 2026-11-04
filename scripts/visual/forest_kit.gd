@@ -455,7 +455,10 @@ func _fill_forest(r: RandomNumberGenerator) -> void:
 				continue   # the field: only game.gd's own trees there
 			if r.randf() < 0.08:
 				continue   # small clearings
-			if _crowded(p, gap + 0.15) or not _clear(p, 1.6):
+			# (0.6, was 1.6: the woods grow right up to the walls again. Each
+			# crown is checked against the walls in _cull_clipping, which
+			# shrinks or drops any that would clip. Visual pass 2026-11-04.)
+			if _crowded(p, gap + 0.15) or not _clear(p, 0.6):
 				continue
 			var seed := absi(int(p.x * 13 + p.z * 7)) + 5
 			# Near the spawn yards the trees stay low where they would stand
