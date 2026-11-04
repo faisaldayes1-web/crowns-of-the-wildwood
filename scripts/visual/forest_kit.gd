@@ -42,6 +42,8 @@ var _blocks := {}     # Vector2i (8 m) -> Array of AABB (built things, from game
 var _props := {}      # Vector2i (8 m) -> Array of Vector3 (props, from game.audit_props)
 var _trails := []     # [from, to, width] dirt trails (decor), kept clear like paths
 var _place := {}      # mesh key -> Array of [Transform3D, Color]
+var _primary := {}    # Vector3i (dm) -> true: tree spots game.gd gave a collider (shrunk, never dropped)
+var audit := {}       # clutter clipping check (finish): checked, shrunk, dropped, remaining [[key, pos, pen]]
 var _meshes := {}     # mesh key -> ArrayMesh
 var mat: ShaderMaterial
 var ground_mat: ShaderMaterial
@@ -232,6 +234,8 @@ func finish() -> void:
 	await game._world_build_frame()
 	_meadow()
 	await game._world_build_frame()
+	_cull_clipping()
+	await game._world_build_frame()
 	await _build()
 	if OS.is_debug_build() or "--forest-kit-log" in OS.get_cmdline_user_args():
 		var n := 0
@@ -243,6 +247,78 @@ func finish() -> void:
 			for k in _place:
 				by[k] = _place[k].size()
 			print("FOREST KIT keys ", by)
+
+
+const CLIP_TOL := 0.15   # metres of overlap allowed (same as game.gd's --audit)
+
+
+func _clip_depth(box: AABB) -> float:
+	## The deepest overlap of `box` with anything built (walls, houses,
+	## fences, the gate, the vault), as game.gd's --audit measures it.
+	var worst := 0.0
+	var a := _key(box.position, 8.0)
+	var b := _key(box.end, 8.0)
+	var seen := {}
+	for x in range(a.x, b.x + 1):
+		for z in range(a.y, b.y + 1):
+			for blk in _blocks.get(Vector2i(x, z), []):
+				if seen.has(blk):
+					continue
+				seen[blk] = true
+				var i: AABB = box.intersection(blk)
+				if i.size.x > 0.0 and i.size.y > 0.0 and i.size.z > 0.0:
+					worst = maxf(worst, minf(i.size.x, minf(i.size.y, i.size.z)))
+	return worst
+
+
+func _footprint(local: AABB, xf: Transform3D) -> AABB:
+	## A placement's world box, pulled in 20% sideways: crowns, bushes and
+	## boulders are round, so the corners of their box are empty air.
+	var w: AABB = xf * local
+	var inset := Vector3(w.size.x * 0.1, 0.0, w.size.z * 0.1)
+	return AABB(w.position + inset, w.size - inset * 2.0)
+
+
+func _cull_clipping() -> void:
+	## Visual pass 2026-11-04 (Faisal: no trees or clutter clipping walls):
+	## every tree, bush and boulder is checked against the built world. A
+	## decoration that clips is shrunk (down to 55%) until it clears, else
+	## dropped; a tree spot game.gd gave a collider is only ever shrunk, and
+	## if it still clips it is listed in `audit` (--audit fails on it).
+	audit = {"checked": 0, "shrunk": 0, "dropped": 0, "remaining": []}
+	for key in _place.keys():
+		if key == "patch" or key == "fence" or key.begins_with("tuft") or key.begins_with("flower"):
+			continue   # flat or tiny, or (fences) drawn along walls on purpose
+		var mesh := _mesh_for(key)
+		if mesh == null:
+			continue
+		var local := mesh.get_aabb()
+		var keep := []
+		for it in _place[key]:
+			var xf: Transform3D = it[0]
+			audit.checked += 1
+			var pen := _clip_depth(_footprint(local, xf))
+			if pen <= CLIP_TOL:
+				keep.append(it)
+				continue
+			var fixed := false
+			for f in [0.85, 0.7, 0.55]:
+				var sx := Transform3D(xf.basis.scaled(Vector3.ONE * f), xf.origin)
+				pen = _clip_depth(_footprint(local, sx))
+				if pen <= CLIP_TOL:
+					keep.append([sx, it[1]])
+					audit.shrunk += 1
+					fixed = true
+					break
+			if fixed:
+				continue
+			if _primary.has(Vector3i((xf.origin * 10.0).round())) and _in_field(xf.origin):
+				# (Out of bounds a spot's collider is out of play: its look may go.)
+				keep.append([Transform3D(xf.basis.scaled(Vector3.ONE * 0.55), xf.origin), it[1]])
+				audit.remaining.append([key, xf.origin, pen])
+			else:
+				audit.dropped += 1
+		_place[key] = keep
 
 
 func _add(key: String, xf: Transform3D, tint: Color = Color.WHITE) -> void:
@@ -325,6 +401,7 @@ func _tree_cluster(t: Array, r: RandomNumberGenerator) -> void:
 	var field0 := _in_field(pos) or pos.y < -0.5 or hint == "canopy"
 	if not field0 and not low:
 		s *= 0.88   # round 9 (round 7 was 0.66): out-of-bounds groves in small trees too (its collider, out of play, is unchanged)
+	_primary[Vector3i((pos * 10.0).round())] = true
 	_tree(pos, species, seed, s, r)
 	# Companions: lower trees round the spot. In the field they stay close
 	# (inside the old crown's footprint, where nobody walked under a trunk
