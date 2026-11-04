@@ -1,0 +1,48 @@
+isolated user dir: C:\Temp\ct\crowns-tests\run-x6djBL (left in place; clear /c/Temp/ct/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/pad_split_test.gd: user dir C:/Temp/ct/crowns-tests/run-x6djBL/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT day: 7048 placements, 22 meshes, 359 ms
+NET ready
+PASS  on the READY UP lobby (got lobby)
+PASS  three pads joined with A (players 4, pads [0, 1, 2])
+PASS  each pad readied with A again
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+BATCH merged 4914 scenery meshes (1215 left alone) into 938 meshes; 1814 materials became 224; 411 ms (276 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+PASS  the match started with four panes
+PASS  players 2-4 are bound to the pads they joined with ([-1, 0, 1, 2])
+PASS  pad 0's stick moves player 2 only (moved [0, 3.1, 0, 0])
+PASS  pad 1's stick moves player 3 only (moved [0, 0, 5.08, 0])
+PASS  pad 2's stick moves player 4 only (moved [0, 0, 0, 3.1])
+PASS  the keyboard moves player 1 only (moved [1.63, 0, 0, 0])
+PASS  a fourth pad nobody joined with moves nobody (moved [0, 0, 0, 0])
+PASS  pad 1's B dodges player 3 only (moved [0, 0, 5.51, 0])
+pad split test: 0 failure(s)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 10 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)

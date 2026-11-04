@@ -1,0 +1,33 @@
+isolated user dir: C:\Temp\ct\crowns-tests\run-musmDv (left in place; clear /c/Temp/ct/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/kbm_move_test.gd: user dir C:/Temp/ct/crowns-tests/run-musmDv/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT day: 7048 placements, 22 meshes, 355 ms
+NET ready
+BATCH merged 4914 scenery meshes (1207 left alone) into 938 meshes; 1814 materials became 224; 418 ms (281 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+PASS  W walks up the screen with the cursor at (5, 0, 0)
+PASS  D walks right on screen with the cursor at (5, 0, 0)
+PASS  S walks down the screen with the cursor at (5, 0, 0)
+PASS  A walks left on screen with the cursor at (5, 0, 0)
+PASS  W walks up the screen with the cursor at (-5, 0, 0)
+PASS  D walks right on screen with the cursor at (-5, 0, 0)
+PASS  S walks down the screen with the cursor at (-5, 0, 0)
+PASS  A walks left on screen with the cursor at (-5, 0, 0)
+PASS  W walks up the screen with the cursor at (0, 0, 5)
+PASS  D walks right on screen with the cursor at (0, 0, 5)
+PASS  S walks down the screen with the cursor at (0, 0, 5)
+PASS  A walks left on screen with the cursor at (0, 0, 5)
+PASS  W walks up the screen with the cursor at (0.3, 0, 0)
+PASS  D walks right on screen with the cursor at (0.3, 0, 0)
+PASS  S walks down the screen with the cursor at (0.3, 0, 0)
+PASS  A walks left on screen with the cursor at (0.3, 0, 0)
+PASS  a gamepad's stick is camera-relative too
+PASS  moving the mouse switches the hints back to keys
+PASS  a pad button switches the hints to the pad
+PASS  the movement pick is saved
+KBM MOVE TEST: 0 failed
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 11 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)

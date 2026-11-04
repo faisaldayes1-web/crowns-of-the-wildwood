@@ -10,6 +10,19 @@ var previous_position := Vector3.INF
 var stalled_seconds := 0.0
 var force_goal := false
 var interaction_sequence := 0
+# A click aimed straight at a pillar corner or crate edge leaves the body pressed
+# against it. Before a stalled goal is dropped it sidesteps along the obstacle,
+# once to each side at most, so a wall still ends the goal.
+const DETOUR_STALL := 0.1
+const DETOUR_TIME := 0.25
+const DETOUR_ANGLE := deg_to_rad(75.0)
+const DETOUR_MAX := 2
+const DETOUR_GIVE_UP := 1.6   # seconds of sidestepping without 0.5 m net progress: sliding back along a wall is not progress
+var detour_clock := 0.0
+var detour_distance := 0.0
+var detour_left := 0.0
+var detour_sign := 1.0
+var detours := 0
 
 
 static func camera_motion(keys: Vector2, camera_basis: Basis) -> Vector2:
@@ -43,6 +56,9 @@ func cancel() -> void:
 	previous_position = Vector3.INF
 	stalled_seconds = 0.0
 	force_goal = false
+	detour_left = 0.0
+	detour_clock = 0.0
+	detours = 0
 
 
 func _select(point: Vector3, kind: String = "move", node = null) -> void:
@@ -51,6 +67,9 @@ func _select(point: Vector3, kind: String = "move", node = null) -> void:
 		return
 	if target == Vector3.INF or target.distance_to(point) > 0.5:
 		stalled_seconds = 0.0
+		detour_left = 0.0
+		detour_clock = 0.0
+		detours = 0
 	target = point
 	target_kind = kind
 	target_ref = weakref(node) if is_instance_valid(node) else null
@@ -167,11 +186,30 @@ func resolve(frame: Dictionary, route: Callable = Callable()) -> Dictionary:
 	else:
 		stalled_seconds = 0.0
 	previous_position = position
+	if detours > 0:
+		detour_clock += delta
+		if detour_clock > DETOUR_GIVE_UP:
+			if offset.length() > detour_distance - 0.5:
+				cancel()  # went round and still no closer: it is a wall
+				return result
+			detour_clock = 0.0
+			detour_distance = offset.length()
 	if stalled_seconds > 1.0:
 		cancel()  # a blocked click never tunnels through walls or walks forever
 		return result
 	var distance_left := maxf(0.0, offset.length() - reach) if level_compatible else leg.length()
 	var strength := minf(1.0, distance_left / maxf(0.001, float(frame.get("speed", 1.0)) * delta))
 	var wish := leg.normalized() * strength
+	if detour_left > 0.0:
+		detour_left -= delta
+		wish = wish.rotated(Vector3.UP, detour_sign * DETOUR_ANGLE)
+	elif stalled_seconds > DETOUR_STALL and detours < DETOUR_MAX:
+		detours += 1
+		if detours == 1:
+			detour_distance = offset.length()
+		detour_sign = 1.0 if detours % 2 == 1 else -1.0
+		detour_left = DETOUR_TIME
+		stalled_seconds = 0.0
+		wish = wish.rotated(Vector3.UP, detour_sign * DETOUR_ANGLE)
 	result.move = Vector2(wish.x, wish.z)
 	return result

@@ -1,0 +1,7 @@
+PROBE start ms=3887 press=25.0 gpu=Intel(R) Arc(TM) Graphics 1.4.348
+PROBE press s_after_title=25.04 world_ready=true
+PROBE start_match_call_ms=62.7
+PROBE phase art frames=63 total_ms=2545 worst_ms=216.8 worst_process_ms=192.2 worst_draw_ms=65.4 over25=43 over33=17 over50=12 over100=3 fps=24.8
+PROBE phase live frames=198 total_ms=6029 worst_ms=52.0 worst_process_ms=33.3 worst_draw_ms=30.4 over25=191 over33=31 over50=1 over100=0 fps=32.8
+PROBE live_stats first draws=3317 prims=6892814 nodes=7343 objects=15082 orphans=0 | mid draws=2894 prims=6597610 nodes=7340 objects=15070 orphans=0 | vmem_mb=1061
+PROBE summary call_ms=63 visible_ms=2551 art_worst_ms=216.8 live_worst_ms=52.0
