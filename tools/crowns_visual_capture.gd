@@ -58,6 +58,15 @@ func run() -> void:
 	game.prep_left = 0.0
 	game.time_left = 589.0
 	await capture("05-live-battle")
+	# The HUD's FPS counter averages the last second, so a capture taken a
+	# few frames after the load hitch reads a few FPS. CROWNS_CAPTURE_SETTLE
+	# (seconds) also takes a settled shot and prints the steady frame rate.
+	var settle := float(OS.get_environment("CROWNS_CAPTURE_SETTLE"))
+	if settle > 0.0:
+		print("FPS at 05-live-battle: ", Engine.get_frames_per_second())
+		await create_timer(settle).timeout
+		print("FPS after %.1fs settle: %d" % [settle, Engine.get_frames_per_second()])
+		await capture("05b-live-battle-settled")
 	game.menu_open = true
 	game.menu_tab = 0
 	await capture("06-paused-map")
