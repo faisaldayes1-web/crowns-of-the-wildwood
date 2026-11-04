@@ -93,6 +93,67 @@ func _park(n: Node) -> void:
 		_pool[kind].append(n)
 
 
+# --- GPU particles ---------------------------------------------------------------
+# The effects' particles are set up as CPUParticles3D (a template, never in
+# the tree) and drawn as GPUParticles3D made from it (convert_from_particles
+# keeps every setting): 30-95 CPU systems simulated on the main thread were
+# most of a busy fight's slow frames (claude-faisal/crowns-spawn 2026-11-04,
+# tools/stall_probe.gd). Headless and the web's Compatibility renderer keep
+# the CPU ones.
+static func gpu_ok() -> bool:
+	return RenderingServer.get_rendering_device() != null and DisplayServer.get_name() != "headless"
+
+
+static func to_gpu(cp: CPUParticles3D, cull: float = 8.0) -> Node3D:
+	## A long-lived CPU system in the tree swapped for its GPU twin (same
+	## place, same settings); returns whichever stays.
+	if not gpu_ok() or cp == null:
+		return cp
+	var gp := GPUParticles3D.new()
+	gp.convert_from_particles(cp)
+	gp.name = cp.name
+	gp.transform = cp.transform
+	gp.visible = cp.visible
+	gp.cast_shadow = cp.cast_shadow
+	gp.visibility_aabb = AABB(Vector3.ONE * -cull, Vector3.ONE * cull * 2.0)
+	var parent := cp.get_parent()
+	if parent:
+		parent.add_child(gp)
+		parent.move_child(gp, cp.get_index())
+		parent.remove_child(cp)
+	cp.free()
+	return gp
+
+
+func _emit(p: CPUParticles3D, parent: Node, at: Vector3, global: bool, keep: float) -> void:
+	## Play one-shot template `p` under `parent` at `at` for `keep` seconds,
+	## as GPU particles where possible (pooled by the template's kind).
+	if not gpu_ok():
+		parent.add_child(p)
+		if global:
+			p.global_position = at
+		else:
+			p.position = at
+		p.restart()
+		p.emitting = true
+		get_tree().create_timer(keep).timeout.connect(recycle.bind(p))
+		return
+	var kind: String = p.get_meta("fx_kind") if p.has_meta("fx_kind") else "x"
+	var gp: GPUParticles3D = take("gpu/" + kind, func(): return GPUParticles3D.new())
+	gp.convert_from_particles(p)
+	gp.cast_shadow = p.cast_shadow
+	gp.visibility_aabb = AABB(Vector3(-10, -6, -10), Vector3(20, 16, 20))
+	parent.add_child(gp)
+	if global:
+		gp.global_position = at
+	else:
+		gp.position = at
+	gp.restart()
+	gp.emitting = true
+	_park(p)   # the template waits for the next one
+	get_tree().create_timer(keep).timeout.connect(recycle.bind(gp))
+
+
 func _exit_tree() -> void:
 	for kind in _pool:
 		for n in _pool[kind]:
@@ -283,11 +344,7 @@ func _x_burst(where: Vector3, color: Color, count: int, speed: float, life: floa
 			p.mesh.material = _mat("", false, BaseMaterial3D.BILLBOARD_DISABLED)
 			ramp.colors = PackedColorArray([color.lightened(0.3), color, Color(color, 0)])
 	p.color_ramp = ramp
-	add_child(p)
-	p.global_position = where
-	p.restart()
-	p.emitting = true
-	get_tree().create_timer(life + 0.4).timeout.connect(recycle.bind(p))
+	_emit(p, self, where, true, life + 0.4)
 
 
 func _streak_day() -> BoxMesh:
@@ -692,11 +749,7 @@ func _x_death(where: Vector3, color: Color) -> void:
 	var ramp: Gradient = wisp.color_ramp if wisp.color_ramp else Gradient.new()
 	ramp.colors = PackedColorArray([Color(1, 1, 1, 0.9), Color(color.lightened(0.4), 0)])
 	wisp.color_ramp = ramp
-	add_child(wisp)
-	wisp.global_position = where + Vector3(0, 1.0, 0)
-	wisp.restart()
-	wisp.emitting = true
-	get_tree().create_timer(1.6).timeout.connect(recycle.bind(wisp))
+	_emit(wisp, self, where + Vector3(0, 1.0, 0), true, 1.6)
 
 
 func status_emitter(host: Node3D, kind: String) -> CPUParticles3D:
@@ -801,11 +854,7 @@ func _x_petals(where: Vector3, color: Color, count: int, speed: float = 3.0, lif
 	ramp.offsets = PackedFloat32Array([0.0, 0.7, 1.0])
 	ramp.colors = PackedColorArray([color.lightened(0.25), color, Color(color, 0)])
 	p.color_ramp = ramp
-	add_child(p)
-	p.global_position = where
-	p.restart()
-	p.emitting = true
-	get_tree().create_timer(life + 0.4).timeout.connect(recycle.bind(p))
+	_emit(p, self, where, true, life + 0.4)
 
 
 func swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, rise: float = 2.5, life: float = 0.9,
@@ -845,11 +894,7 @@ func _x_swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, 
 	var ramp: Gradient = p.color_ramp if p.color_ramp else Gradient.new()
 	ramp.colors = PackedColorArray([Color(1, 1, 1, 0.9).lerp(color, 0.4), Color(color, 0)])
 	p.color_ramp = ramp
-	host.add_child(p)
-	p.position = Vector3(0, 0.15, 0)
-	p.restart()
-	p.emitting = true
-	get_tree().create_timer(life + 0.5).timeout.connect(recycle.bind(p))
+	_emit(p, host, Vector3(0, 0.15, 0), false, life + 0.5)
 
 
 func afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:

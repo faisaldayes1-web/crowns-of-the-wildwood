@@ -117,6 +117,8 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 		spin = look_node.get_meta("spin") if look_node.has_meta("spin") else null
 		for p in look_node.find_children("*", "CPUParticles3D", true, false):
 			p.restart()
+		for p in look_node.find_children("*", "GPUParticles3D", true, false):
+			p.restart()
 		return
 	look_node = Node3D.new()
 	add_child(look_node)
@@ -212,6 +214,7 @@ func _trail(c: Color, amount: int, lifetime: float, size: float, rise: float = 0
 	fade.set_color(1, Color(1, 1, 1, 0))
 	p.color_ramp = fade
 	look_node.add_child(p)
+	Fx.to_gpu(p, 40.0)   # drawn on the GPU (fx.gd); the trail streams far behind a fast shot
 
 
 func _light(c: Color, energy: float, range_m: float) -> void:
