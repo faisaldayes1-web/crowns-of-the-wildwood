@@ -4214,13 +4214,17 @@ func _ability_strip(p, strip: Rect2) -> void:
 	# Pick C: a shallow hex arc on a slate silhouette, keeping the world open.
 	if _st():
 		var outline := PackedVector2Array()
-		for v in [Vector2(0, 48), Vector2(84, 10), Vector2(270, -12), Vector2(456, 10), Vector2(540, 48), Vector2(526, 118), Vector2(14, 118)]:
+		# Seven slots (shield classes) run 10 units from each end, where the
+		# outer hexes touched the gold edge at 720p: the silhouette widens by
+		# 12 a side for them (visual pass 2026-11-04).
+		var wx := 12.0 if p.can_block() else 0.0
+		for v in [Vector2(-wx, 48), Vector2(84 - wx * 0.5, 10), Vector2(270, -12), Vector2(456 + wx * 0.5, 10), Vector2(540 + wx, 48), Vector2(526 + wx, 118), Vector2(14 - wx, 118)]:
 			outline.append(strip.position + v)
 		draw_colored_polygon(outline, Color(0.08, 0.11, 0.15, 0.96))
 		outline.append(outline[0])
 		draw_polyline(outline, Color("d8aa47"), 3.0, true)
-		_ivy(strip.position + Vector2(12, 74), Vector2(0, -1), 38, 3)
-		_ivy(strip.position + Vector2(528, 74), Vector2(0, -1), 38, 6)
+		_ivy(strip.position + Vector2(12 - wx, 74), Vector2(0, -1), 38, 3)
+		_ivy(strip.position + Vector2(528 + wx, 74), Vector2(0, -1), 38, 6)
 	var at := []
 	var offsets := [Vector2(35, 28), Vector2(115, 12), Vector2(195, 0), Vector2(275, 0), Vector2(355, 12), Vector2(435, 28)]
 	if p.can_block():
