@@ -2758,6 +2758,9 @@ func _scoreboard_static(quiet: bool = false) -> void:
 		line = ""
 	if line != "":
 		var fs := 14 if _text_width(line, 14) < 520.0 else 12
+		# A soft dark band behind it, so the line reads over bright ground.
+		var lw := minf(_text_width(line, fs) + 28.0, 548.0)
+		_plate(Rect2(cx - lw / 2.0, 100.0 - fs - 3.0, lw, fs + 9.0), Color(0.04, 0.04, 0.05, 0.6), Color(0, 0, 0, 0), 8, 0)
 		_text(Vector2(cx - 260.0, 100.0), line, fs, line_ink.lerp(Color(1.0, 0.95, 0.82), 0.85), HORIZONTAL_ALIGNMENT_CENTER, 520.0, 4)
 	if not fire.is_empty() and line == fire.text:
 		# Ember Pass: the Fire Objective's flame beside the strip, and the
