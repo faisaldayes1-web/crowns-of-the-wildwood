@@ -838,8 +838,9 @@ func _build_stonekeep() -> void:
 	game.audit_label = ""
 	game.grey = false
 	await game._world_build_frame()
-	# Broken columns and rubble along the inside of the north and south walls.
-	for c in [Vector3(-5.5, 0, -6.6), Vector3(5.5, 0, 6.6), Vector3(2.4, 0, -6.6), Vector3(-2.4, 0, 6.6)]:
+	# Broken columns and rubble along the inside of the north and south walls
+	# (the SE one stands clear of the wall stub's rubble at 4.9, 5.8).
+	for c in [Vector3(-5.5, 0, -6.6), Vector3(6.6, 0, 6.6), Vector3(2.4, 0, -6.6), Vector3(-2.4, 0, 6.6)]:
 		game._prop("dungeon/column", c, 1.1 if c.x > 0.0 else 0.75, 0.0)
 		game._add_collider(c + Vector3(0, 1.0, 0), Vector3(0.9, 2.0, 0.9))
 	game._prop("dungeon/rubble_large", Vector3(0, 0, -5.7), 0.35, 0.3)
