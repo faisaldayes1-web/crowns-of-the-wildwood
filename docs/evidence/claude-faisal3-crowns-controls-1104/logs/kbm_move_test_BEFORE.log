@@ -1,0 +1,23 @@
+isolated user dir: C:\Temp\ct\crowns-tests\run-PkntyW (left in place; clear /c/Temp/ct/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/kbm_move_test.gd: user dir C:/Temp/ct/crowns-tests/run-PkntyW/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT day: 7048 placements, 22 meshes, 373 ms
+NET ready
+BATCH merged 4914 scenery meshes (1207 left alone) into 938 meshes; 1814 materials became 224; 3357 ms (3183 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+FAIL  W walks toward the cursor (east)
+FAIL  S backs away from it
+FAIL  D steps to the right of the aim
+FAIL  A steps to the left of the aim
+PASS  with the cursor on the player, W walks up the screen
+PASS  UP THE SCREEN keeps W walking up
+PASS  a gamepad's stick is never turned
+PASS  moving the mouse switches the hints back to keys
+PASS  a pad button switches the hints to the pad
+PASS  the movement pick is saved
+KBM MOVE TEST: 4 failed
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 10 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)

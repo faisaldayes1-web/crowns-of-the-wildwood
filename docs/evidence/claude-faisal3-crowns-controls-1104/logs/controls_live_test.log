@@ -1,0 +1,61 @@
+isolated user dir: C:\Temp\ct\crowns-tests\run-hlB8zM (left in place; clear /c/Temp/ct/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.348 - Forward+ - Using Device #0: Intel - Intel(R) Arc(TM) Graphics
+
+tools/controls_live_test.gd: user dir C:/Temp/ct/crowns-tests/run-hlB8zM/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT day: 7048 placements, 22 meshes, 1379 ms
+NET ready
+BATCH merged 4914 scenery meshes (1208 left alone) into 938 meshes; 1814 materials became 224; 1532 ms (938 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+PASS  a solo match is running
+PASS  the spawn has scenery on the straight line 5 m east (so this click tests the sidestep)
+PASS  a click straight behind the scenery still arrives (0.15 m off)
+PASS  the game's ground ray resolves a clicked point 5 m from the player
+PASS  a click starts the player walking (moved 5.34 m in 20 frames)
+PASS  the player arrives at the clicked point (0.35 m off)
+PASS  and stops there (drift 0.000 m)
+PASS  hold: a cursor spot with a clear path
+PASS  holding LMB keeps the hero walking toward the cursor (2.64 m in 10 frames)
+PASS  holding LMB, moving the cursor to the other side turns the hero round (cos -1.00)
+PASS  releasing LMB, the walk finishes and the player stands still with no goal left
+PASS  Shift + LMB attacks
+PASS  Shift + LMB stands and attacks, no walking goal (moved 0.30 m)
+PASS  a wheel tick force-moves with attack suppressed
+PASS  force move walks toward the cursor (moved 3.77 m)
+PASS  W walks up the screen while facing (1, 0, 0) (cos 1.00)
+PASS  D walks right the screen while facing (1, 0, 0) (cos 1.00)
+PASS  S walks down the screen while facing (1, 0, 0) (cos 1.00)
+PASS  A walks left the screen while facing (1, 0, 0) (cos 1.00)
+PASS  W walks up the screen while facing (-1, 0, 0) (cos 1.00)
+PASS  D walks right the screen while facing (-1, 0, 0) (cos 0.98)
+PASS  S walks down the screen while facing (-1, 0, 0) (cos 1.00)
+PASS  A walks left the screen while facing (-1, 0, 0) (cos 1.00)
+PASS  W walks up the screen while facing (0, 0, 1) (cos 1.00)
+PASS  D walks right the screen while facing (0, 0, 1) (cos 1.00)
+PASS  S walks down the screen while facing (0, 0, 1) (cos 1.00)
+PASS  A walks left the screen while facing (0, 0, 1) (cos 1.00)
+PASS  a direction key cancels a pending click goal
+FOREST KIT day: 7048 placements, 22 meshes, 1171 ms
+NET ready
+PASS  couch lobby: one pad joined makes two players (got 2)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+WARNING: Nodes with non-equal opposite anchors will have their size overridden after _ready(). 
+If you want to set size, change the anchors or consider using set_deferred().
+     at: _set_size (scene/gui/control.cpp:1448)
+BATCH merged 4914 scenery meshes (1210 left alone) into 938 meshes; 1814 materials became 224; 1094 ms (759 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+PASS  the couch match started with two panes (active true, panes 2, players 2, locals 2)
+PASS  couch: the mouse in pane 1 resolves a ground point for player 1
+PASS  couch: a click in pane 1 walks player 1 there (0.11 m off)
+PASS  couch: player 2 did not move (0.00 m)
+PASS  couch: a click over pane 2 does not move player 2 (0.00 m)
+PASS  couch: seat 2 has no mouse, and a click over pane 2 does not move player 1 either (0.00 m)
+controls live test: 0 failure(s)

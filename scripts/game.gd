@@ -12726,7 +12726,6 @@ func _warm_up_world() -> void:
 		for pane in panes:
 			pane.cam_pos = cam_pos
 		await _drawn_frame()
-		await _drawn_frame()
 	cam_lock = keep
 	if player:
 		cam_pos = player.global_position + CAMERA_OFFSET * cam_zoom

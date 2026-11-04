@@ -1,7 +1,7 @@
 extends SceneTree
 
 const Isolated = preload("res://tools/tests/isolated.gd")
-## Keyboard + mouse movement follows the aim (Faisal 2026-10-15), and the
+## Keyboard and stick movement is camera-relative (was: follows the aim, Faisal 2026-10-15; replaced 2026-10-29), and the
 ## hints follow the device last used. Run from the project root:
 ##     tools/tests/isolated.sh --headless --path . --script tools/kbm_move_test.gd
 
@@ -44,19 +44,20 @@ func _init() -> void:
 	game.touch_active = false
 	p.has_mouse = true
 	p.aim_mode = "mouse"
-	p.aim_point = p.global_position + Vector3(5, 0, 0)   # the cursor due east
-	check(near(p.aim_relative(Vector2(0, -1)), Vector2(1, 0)), "W walks toward the cursor (east)")
-	check(near(p.aim_relative(Vector2(0, 1)), Vector2(-1, 0)), "S backs away from it")
-	check(near(p.aim_relative(Vector2(1, 0)), Vector2(0, 1)), "D steps to the right of the aim")
-	check(near(p.aim_relative(Vector2(-1, 0)), Vector2(0, -1)), "A steps to the left of the aim")
-	p.aim_point = p.global_position + Vector3(0.3, 0, 0)
-	check(near(p.aim_relative(Vector2(0, -1)), Vector2(0, -1)), "with the cursor on the player, W walks up the screen")
-	p.aim_point = p.global_position + Vector3(5, 0, 0)
-	game.move_mode = "screen"
-	check(near(p.aim_relative(Vector2(0, -1)), Vector2(0, -1)), "UP THE SCREEN keeps W walking up")
-	game.move_mode = "aim"
+	# Directions are camera-relative (Codex-faisal, 2026-10-29, Faisal: forward
+	# is screen-up and right is screen-right, whatever the hero faces or the
+	# cursor does). The old "W walks toward the cursor" rule is gone.
+	var cam: Camera3D = game.camera_for(p)
+	var up := Vector2(-cam.global_basis.z.x, -cam.global_basis.z.z).normalized()
+	var right := Vector2(cam.global_basis.x.x, cam.global_basis.x.z).normalized()
+	for aim in [Vector3(5, 0, 0), Vector3(-5, 0, 0), Vector3(0, 0, 5), Vector3(0.3, 0, 0)]:
+		p.aim_point = p.global_position + aim
+		check(near(p.aim_relative(Vector2(0, -1)), up), "W walks up the screen with the cursor at %s" % str(aim))
+		check(near(p.aim_relative(Vector2(1, 0)), right), "D walks right on screen with the cursor at %s" % str(aim))
+		check(near(p.aim_relative(Vector2(0, 1)), -up), "S walks down the screen with the cursor at %s" % str(aim))
+		check(near(p.aim_relative(Vector2(-1, 0)), -right), "A walks left on screen with the cursor at %s" % str(aim))
 	game.pad_active = true
-	check(near(p.aim_relative(Vector2(0, -1)), Vector2(0, -1)), "a gamepad's stick is never turned")
+	check(near(p.aim_relative(Vector2(0, -1)), up), "a gamepad's stick is camera-relative too")
 	# The hints follow the last device: a mouse move after the pad goes back to keys.
 	var mm := InputEventMouseMotion.new()
 	mm.relative = Vector2(20, 0)

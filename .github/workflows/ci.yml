@@ -55,6 +55,13 @@ jobs:
           timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 30000 -- --demo --selftest 2>&1 | tee ci-logs/selftest.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^TEST FAIL' ci-logs/selftest.log
           grep -Eq '^TESTS DONE failures=0$' ci-logs/selftest.log
+      - name: Movement logic (camera-relative keys, click goals, sidestep)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120 bash tools/tests/isolated.sh --headless --path . --script tools/player_movement_test.gd 2>&1 | tee ci-logs/player-movement.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/player-movement.log
+          grep -q '^player movement test: 0 failure(s)$' ci-logs/player-movement.log
       - name: Save recovery and progression regressions
         shell: bash
         run: |

@@ -1,0 +1,31 @@
+isolated user dir: C:\Temp\ct\crowns-tests\run-ICeHtu (left in place; clear /c/Temp/ct/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+PASS  unrotated camera: up walks -Z, the screen's up
+PASS  unrotated camera: right walks +X
+PASS  camera yaw 30: up follows the camera forward
+PASS  camera yaw 30: right follows the camera right
+PASS  camera yaw 90: up follows the camera forward
+PASS  camera yaw 90: right follows the camera right
+PASS  camera yaw 180: up follows the camera forward
+PASS  camera yaw 180: right follows the camera right
+PASS  camera yaw -135: up follows the camera forward
+PASS  camera yaw -135: right follows the camera right
+PASS  a pitched camera still walks the ground plane
+PASS  a half-pushed stick walks at half speed
+PASS  a diagonal is not faster than a straight line
+PASS  a broken stick value walks nowhere
+PASS  a click walks to the point and the goal ends (0.22 m off, 2.48 s)
+PASS  holding the button, the goal follows the cursor to the other side
+PASS  releasing the button keeps the last goal
+PASS  a direction key cancels the click goal and drives instead
+PASS  Shift + click attacks in place and sets no goal
+PASS  Shift + click never interacts
+PASS  force move walks to the cursor with attack and interact suppressed
+PASS  a wheel tick (force pulse) force-moves
+PASS  a goal dead behind a pillar is reached by sidestepping (0.22 m off, 1.90 s)
+PASS  a long walk that sidestepped a pillar early still arrives (0.22 m off, 8.10 s)
+PASS  a goal behind an endless wall is dropped, not walked through (stopped at x=3.00 after 2.23 s)
+PASS  and it is dropped within four seconds (2.23 s)
+PASS  a fresh click gets fresh sidesteps
+player movement test: 0 failure(s)
