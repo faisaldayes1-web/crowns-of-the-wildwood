@@ -752,7 +752,7 @@ func _x_death(where: Vector3, color: Color) -> void:
 	_emit(wisp, self, where + Vector3(0, 1.0, 0), true, 1.6)
 
 
-func status_emitter(host: Node3D, kind: String) -> CPUParticles3D:
+func status_emitter(host: Node3D, kind: String) -> Node3D:
 	## A looping aura on a unit, switched on and off with `emitting`:
 	## "slow" green venom drips, "root" vines of light, "haste" wind streaks,
 	## "guard" bark/steel motes.
@@ -812,7 +812,7 @@ func status_emitter(host: Node3D, kind: String) -> CPUParticles3D:
 			ramp.colors = PackedColorArray([Color(0.75, 0.88, 1.0, 0.8), Color(0.5, 0.75, 1.0, 0)])
 	p.color_ramp = ramp
 	host.add_child(p)
-	return p
+	return to_gpu(p, 3.0)   # a CPU- or GPUParticles3D, switched with `emitting`
 
 
 # --- Skill building blocks (used by skill_fx.gd) -------------------------------

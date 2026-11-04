@@ -2,6 +2,7 @@ extends Node3D
 ## A health potion that sits at a fixed spot on the map. Anyone who is hurt
 ## can walk over it to get hearts back; it comes back a while later.
 
+const Fx = preload("res://scripts/fx.gd")
 const Stats = preload("res://scripts/stats.gd")
 
 var game
@@ -11,7 +12,7 @@ var orb: Node3D            # the bottle (kept as "orb" for the HUD and bots)
 var t := 0.0
 var light: OmniLight3D
 var ring: MeshInstance3D
-var sparks: CPUParticles3D
+var sparks: Node3D   # CPU- or GPUParticles3D (fx.gd to_gpu)
 var beam: MeshInstance3D
 var halo: MeshInstance3D   # soft red glow behind the bottle so it stands out from any ground
 
@@ -74,6 +75,7 @@ func setup(p_game, pos: Vector3) -> void:
 	sparks.mesh = smesh
 	sparks.position.y = 0.6
 	add_child(sparks)
+	sparks = Fx.to_gpu(sparks, 2.0)   # drawn on the GPU (fx.gd to_gpu; claude-faisal/crowns-spawn)
 
 	# The bottle: a round glass body full of red, a neck and a cork.
 	orb = Node3D.new()
@@ -213,7 +215,7 @@ func _process(delta: float) -> void:
 			light.visible = true
 			halo.visible = true
 			beam.visible = true
-			sparks.emitting = true
+			sparks.set("emitting", true)
 			game.spawn_splash(global_position + Vector3(0, 0.6, 0), PINK, 12, 2.0, 0.6, true)
 		else:
 			# The ring fills back in as the potion brews.
@@ -243,6 +245,6 @@ func _process(delta: float) -> void:
 			light.visible = false
 			halo.visible = false
 			beam.visible = false
-			sparks.emitting = false
+			sparks.set("emitting", false)
 			respawn_timer = Stats.HEAL_ORB_RESPAWN
 			return

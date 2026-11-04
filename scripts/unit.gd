@@ -429,6 +429,7 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	cpq.material = cpm
 	cp.mesh = cpq
 	carry_fx.add_child(cp)
+	Fx.to_gpu(cp, 3.0)   # drawn on the GPU (fx.gd to_gpu; claude-faisal/crowns-spawn)
 	carry_fx.visible = false
 	add_child(carry_fx)
 	# The downed ring, cross and bar, built now and hidden: built at the first
@@ -594,6 +595,7 @@ func _fire_look() -> void:
 		p.mesh = sph
 		p.position = Vector3(0, 0.15, 0)
 		fire_fx.add_child(p)
+		Fx.to_gpu(p, 3.0)   # drawn on the GPU (fx.gd to_gpu; claude-faisal/crowns-spawn)
 		var light := OmniLight3D.new()
 		light.light_color = flame
 		light.light_energy = 0.5

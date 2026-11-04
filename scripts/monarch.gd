@@ -1,4 +1,6 @@
 extends Node3D
+
+const Fx = preload("res://scripts/fx.gd")
 ## A team's crown. Rests on its cushioned pedestal in the throne room until an
 ## enemy grabs it, rides high over the carrier's head, and floats back home on
 ## its own if dropped. (It was a king or queen until 2026-10-07; the class
@@ -307,4 +309,5 @@ func _build_crown(elf: bool) -> Node3D:
 	dot.material = dm
 	p.mesh = dot
 	root.add_child(p)
+	Fx.to_gpu(p, 3.0)   # drawn on the GPU (fx.gd to_gpu; claude-faisal/crowns-spawn)
 	return root
