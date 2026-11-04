@@ -11769,7 +11769,11 @@ func apply_graphics() -> void:
 		if is_instance_valid(l):
 			l.shadow_enabled = q >= 1 and not OS.has_feature("web")   # each is six more depth passes a frame
 	if sun_light and not OS.has_feature("web"):
-		sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if q == 0 else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+		# Sun shadow budget per preset: every cascade redraws the casters in its
+		# slice and the match camera sees ~45 m, so range and cascade count
+		# shrink on the lower presets. Set before the 3-4 pane override below.
+		sun_light.directional_shadow_mode = [DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS, DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS, DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS, DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS][q]
+		sun_light.directional_shadow_max_distance = [45.0, 55.0, 62.0, 70.0][q]
 	if world_environment:
 		world_environment.ssao_enabled = q >= 1
 		world_environment.ssil_enabled = q >= 2
