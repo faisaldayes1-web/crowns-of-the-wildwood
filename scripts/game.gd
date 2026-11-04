@@ -2514,9 +2514,11 @@ func _announce_here(text: String) -> void:
 	## News goes to the notice scroll and the chat log (the old floating
 	## centre line overlapped the banners: Faisal 2026-10-10 08:35). The
 	## FORTIFY! call-out repeats the objective banner word for word, so it
-	## stays in the chat log only.
-	if not text.begins_with("FORTIFY!"):
-		toast(text, Color(1.0, 0.85, 0.4))
+	## is neither toasted nor logged: the line under the top bar says it,
+	## with the kits left (visual pass 2026-11-04: it showed twice).
+	if text.begins_with("FORTIFY!"):
+		return
+	toast(text, Color(1.0, 0.85, 0.4))
 	chat_system(text)
 
 
