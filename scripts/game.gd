@@ -821,6 +821,7 @@ func _process(delta: float) -> void:
 		player.kill_banner.time = Time.get_ticks_msec() / 1000.0 - 0.7
 		for k in kill_feed:
 			k.time = Time.get_ticks_msec() / 1000.0 - 1.0
+	_refill_looks()
 	_debug_hooks()
 	_ui_sounds()
 	_auto_quality()
@@ -2216,6 +2217,22 @@ func _around_throne_room(team: int, from: Vector3, to: Vector3) -> Vector3:
 
 var shot_pool: Array = []    # finished projectiles, out of the tree (projectile.gd _retire)
 var shot_looks := {}         # their meshes/trails/lights by kind (projectile.gd look_key)
+
+
+func _refill_looks() -> void:
+	## One spare copy of a character look whose pool ran dry, built hidden in
+	## a quiet frame (one well under 60 fps' budget) and parked, so the next
+	## unit to put it on takes it instead of building it (claude-faisal/crowns-spawn).
+	if CharacterModel.refill.is_empty() or not playing or get_process_delta_time() > 0.010:
+		return
+	var look: Array = CharacterModel.refill.pop_front()
+	var m = CharacterModel.new()
+	m.visible = false
+	add_child(m)
+	m.setup(look[0], look[1], look[2], look[4], look[3])
+	m._park_look()
+	remove_child(m)
+	m.free()
 
 
 func _new_shot():

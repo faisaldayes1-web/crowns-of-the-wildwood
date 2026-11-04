@@ -219,6 +219,7 @@ const LOOK_POOL_CAP := 4   # parked looks per key
 const RUNTIME_VARS := ["busy_until", "recover_at", "held", "current", "swing_index", "last_swing_at", "look_key", "mat_rest"]
 static var look_pool := {}   # key -> Array of [children, vars]
 static var look_reuses := 0   # (tests)
+static var refill: Array = []   # [team, role, variant, rank, custom] of looks whose pool ran dry (game.gd _refill_looks)
 var look_key := ""
 var mat_rest: Array = []   # each flash_mats entry's colours as built: a hit flash or side glow is undone on reuse
 
@@ -292,6 +293,8 @@ func _reuse_look(key: String) -> bool:
 			if anim.has_animation(idle_anim):
 				anim.play(idle_anim)
 		look_reuses += 1
+		if pool.is_empty() and refill.size() < 32:
+			refill.append(str_to_var(key))   # a spare copy, built in a quiet frame
 		return true
 	return false
 

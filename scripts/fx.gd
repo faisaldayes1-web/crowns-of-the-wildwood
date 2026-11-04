@@ -818,7 +818,7 @@ func swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, ris
 func _x_swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, rise: float = 2.5, life: float = 0.9,
 		glow: bool = true) -> void:
 	## Light spiralling up round a unit (casts, buffs). Follows the unit.
-	var p := CPUParticles3D.new()
+	var p: CPUParticles3D = take("swirl/%s" % glow, func(): return CPUParticles3D.new())   # pooled (take)
 	p.one_shot = true
 	p.explosiveness = 0.2
 	p.amount = count
@@ -842,13 +842,14 @@ func _x_swirl(host: Node3D, color: Color, count: int = 24, radius: float = 0.9, 
 	p.material_override = _mat("soft", glow, BaseMaterial3D.BILLBOARD_PARTICLES)
 	p.scale_amount_min = 0.2
 	p.scale_amount_max = 0.4
-	var ramp := Gradient.new()
+	var ramp: Gradient = p.color_ramp if p.color_ramp else Gradient.new()
 	ramp.colors = PackedColorArray([Color(1, 1, 1, 0.9).lerp(color, 0.4), Color(color, 0)])
 	p.color_ramp = ramp
 	host.add_child(p)
 	p.position = Vector3(0, 0.15, 0)
+	p.restart()
 	p.emitting = true
-	get_tree().create_timer(life + 0.5).timeout.connect(p.queue_free)
+	get_tree().create_timer(life + 0.5).timeout.connect(recycle.bind(p))
 
 
 func afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
@@ -862,7 +863,37 @@ func _x_afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 	## stood: dashes and blinks leave a trail of these.
 	if model == null or not is_instance_valid(model) or model.is_queued_for_deletion():
 		return
-	var ghost: Node3D = model.duplicate(0)
+	# A ghost of the same look from the pool (take) only needs the pose:
+	# duplicating the whole rig was the dearest effect of a dash.
+	var key: String = model.get("look_key") if model.get("look_key") is String else ""
+	var ghost: Node3D = null
+	if key != "":
+		var a: Array = _pool.get("ghost/" + key, [])
+		while ghost == null and not a.is_empty():
+			var g = a.pop_back()
+			if is_instance_valid(g):
+				ghost = g
+		if ghost and not _copy_pose(model, ghost):
+			ghost.free()
+			ghost = null
+	if ghost:
+		ghost.scale = model.scale
+		var mi0 := ghost.find_children("*", "MeshInstance3D", true, false)
+		var m0: StandardMaterial3D = mi0[0].material_override if not mi0.is_empty() else null
+		if m0:
+			m0.albedo_color = Color(color, 0.6 * color.a)
+			add_child(ghost)
+			ghost.global_transform = model.global_transform
+			var tw0 := ghost.create_tween()
+			tw0.set_parallel(true)
+			tw0.tween_property(m0, "albedo_color:a", 0.0, life).set_ease(Tween.EASE_IN)
+			tw0.tween_property(ghost, "scale", ghost.scale * 1.06, life)
+			tw0.chain().tween_callback(recycle.bind(ghost))
+			return
+		ghost.free()
+	ghost = model.duplicate(0)
+	if key != "":
+		ghost.set_meta("fx_kind", "ghost/" + key)
 	# A role change can leave the former rig queued beside its replacement.
 	# Snapshot only the live pose; remove nonvisual/simulation children while
 	# the clone is still off tree, before they register rendering resources.
@@ -887,7 +918,25 @@ func _x_afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 	tw.set_parallel(true)
 	tw.tween_property(m, "albedo_color:a", 0.0, life).set_ease(Tween.EASE_IN)
 	tw.tween_property(ghost, "scale", ghost.scale * 1.06, life)
-	tw.chain().tween_callback(ghost.queue_free)
+	tw.chain().tween_callback(recycle.bind(ghost) if key != "" else ghost.queue_free)
+
+
+func _copy_pose(model: Node, ghost: Node) -> bool:
+	## The model's current bone poses onto a pooled ghost of the same look.
+	var src: Array = model.find_children("*", "Skeleton3D", true, false)
+	var dst: Array = ghost.find_children("*", "Skeleton3D", true, false)
+	if src.size() != dst.size():
+		return false
+	for i in src.size():
+		var a: Skeleton3D = src[i]
+		var b: Skeleton3D = dst[i]
+		if a.get_bone_count() != b.get_bone_count():
+			return false
+		for bone in a.get_bone_count():
+			b.set_bone_pose_position(bone, a.get_bone_pose_position(bone))
+			b.set_bone_pose_rotation(bone, a.get_bone_pose_rotation(bone))
+			b.set_bone_pose_scale(bone, a.get_bone_pose_scale(bone))
+	return true
 
 
 func _prune_afterimage(source: Node, snapshot: Node) -> bool:
@@ -933,16 +982,19 @@ func thorns(where: Vector3, radius: float, color: Color, count: int = 12, life: 
 
 func _x_thorns(where: Vector3, radius: float, color: Color, count: int = 12, life: float = 1.0, height: float = 1.1) -> void:
 	## A ring of thorny spikes that burst out of the ground and sink back.
-	var root := Node3D.new()
+	# Pooled by shape (take): the spikes and their material are reused, the
+	# random draws stay the same (seeded matches play out as before).
+	var root: Node3D = take("thorns/%d/%.2f" % [count, height], func(): return Node3D.new())
 	add_child(root)
 	root.global_position = where
-	var m := StandardMaterial3D.new()
+	var kids := root.get_children()
+	var m: StandardMaterial3D = kids[0].material_override if not kids.is_empty() else StandardMaterial3D.new()
 	m.albedo_color = color
 	m.emission_enabled = true
 	m.emission = color.lightened(0.2)
 	m.emission_energy_multiplier = 0.6
 	m.roughness = 0.8
-	var spike := CylinderMesh.new()
+	var spike: CylinderMesh = kids[0].mesh if not kids.is_empty() else CylinderMesh.new()
 	spike.top_radius = 0.0
 	spike.bottom_radius = 0.13
 	spike.height = height
@@ -951,19 +1003,20 @@ func _x_thorns(where: Vector3, radius: float, color: Color, count: int = 12, lif
 	for i in count:
 		var a := TAU * i / count + randf_range(-0.15, 0.15)
 		for k in 2:
-			var s := MeshInstance3D.new()
+			var s: MeshInstance3D = kids[i * 2 + k] if kids.size() > i * 2 + k else MeshInstance3D.new()
 			s.mesh = spike
 			s.material_override = m
 			var r := radius * (1.0 if k == 0 else randf_range(0.45, 0.8))
 			s.position = Vector3(cos(a) * r, -height * 0.6, sin(a) * r)
 			s.rotation = Vector3(randf_range(-0.5, 0.5), randf() * TAU, randf_range(-0.5, 0.5))
 			s.scale = Vector3.ONE * randf_range(0.7, 1.2) * (1.0 if k == 0 else 0.75)
-			root.add_child(s)
+			if s.get_parent() != root:
+				root.add_child(s)
 			var tw := s.create_tween()
 			tw.tween_property(s, "position:y", height * 0.35, 0.12).set_delay(randf() * 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 			tw.tween_interval(life * 0.6)
 			tw.tween_property(s, "position:y", -height * 0.7, life * 0.3).set_ease(Tween.EASE_IN)
-	get_tree().create_timer(life + 0.4).timeout.connect(root.queue_free)
+	get_tree().create_timer(life + 0.4).timeout.connect(recycle.bind(root))
 
 
 func dome(host: Node3D, radius: float, color: Color, life: float = 0.5) -> void:
@@ -974,15 +1027,15 @@ func dome(host: Node3D, radius: float, color: Color, life: float = 0.5) -> void:
 
 func _x_dome(host: Node3D, radius: float, color: Color, life: float = 0.5) -> void:
 	## A shell of light that snaps up round a unit and fades (shields, wards).
-	var d := MeshInstance3D.new()
-	var sph := SphereMesh.new()
+	var d: MeshInstance3D = take("dome", func(): return MeshInstance3D.new())   # pooled (take)
+	var sph: SphereMesh = d.mesh if d.mesh else SphereMesh.new()
 	sph.radius = 1.0
 	sph.height = 2.0
 	sph.radial_segments = 20
 	sph.rings = 10
 	d.mesh = sph
 	d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var m := StandardMaterial3D.new()
+	var m: StandardMaterial3D = d.material_override if d.material_override else StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -996,7 +1049,7 @@ func _x_dome(host: Node3D, radius: float, color: Color, life: float = 0.5) -> vo
 	tw.set_parallel(true)
 	tw.tween_property(d, "scale", Vector3(radius, radius * 0.85, radius), life * 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_property(m, "albedo_color:a", 0.0, life).set_delay(life * 0.3)
-	tw.chain().tween_callback(d.queue_free)
+	tw.chain().tween_callback(recycle.bind(d))
 
 
 func rays(where: Vector3, color: Color, count: int = 8, length: float = 3.0, life: float = 0.4) -> void:
