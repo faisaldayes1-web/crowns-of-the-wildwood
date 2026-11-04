@@ -3,6 +3,7 @@ extends Node3D
 ## after Fat Princess's hat machines. It hovers over a pedestal, turning
 ## slowly. Walk up and press the interact key (bots simply step on it).
 
+const Fx = preload("res://scripts/fx.gd")
 const Stats = preload("res://scripts/stats.gd")
 
 var game
@@ -124,6 +125,7 @@ func setup(p_game, p_team: int, p_role: int, pos: Vector3) -> void:
 	sparks.mesh = smesh
 	sparks.position.y = 1.4 + lift
 	add_child(sparks)
+	Fx.to_gpu(sparks, 3.0)   # drawn on the GPU (fx.gd to_gpu; claude-faisal/crowns-spawn)
 
 	light = OmniLight3D.new()
 	light.light_color = color

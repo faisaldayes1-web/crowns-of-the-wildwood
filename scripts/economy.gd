@@ -12,6 +12,7 @@ extends Node3D
 ## Bots gather (one per team), and on a team with no human player they also
 ## spend, door first. Every number is in Stats.ECONOMY.
 
+const Fx = preload("res://scripts/fx.gd")
 const LogQ = preload("res://scripts/log_queue.gd")
 const Stats = preload("res://scripts/stats.gd")
 const ResourceNode = preload("res://scripts/resource_node.gd")
@@ -1076,9 +1077,9 @@ func _update_hat_glow(u) -> void:
 		cp.mesh = sm
 		cp.position.y = 2.05
 		u.add_child(cp)
-		glow = cp
+		glow = Fx.to_gpu(cp, 2.0)   # drawn on the GPU (fx.gd to_gpu; claude-faisal/crowns-spawn)
 	glow.visible = want
-	(glow as CPUParticles3D).emitting = want
+	glow.set("emitting", want)
 
 
 func _build_depot(team: int) -> void:

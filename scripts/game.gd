@@ -13125,6 +13125,21 @@ func _warm_up_effects(buried: bool = false) -> void:
 	var p: Vector3 = (player.global_position if player else camera.global_position + Vector3(0, -40, -26)) + Vector3(0, 0.1, 0)
 	if buried:
 		p.y -= 4.0
+	# The looping auras (fx.gd status_emitter, GPU particles), a barricade
+	# and a trap's look: their first use compiled mid-fight (the planted
+	# barricade's frame was 20-30 ms; claude-faisal/crowns-spawn 2026-11-04).
+	var scratch := Node3D.new()
+	add_child(scratch)
+	scratch.global_position = p
+	for k in ["slow", "root", "haste", "guard"]:
+		var e = fx.status_emitter(scratch, k)
+		e.set("emitting", true)
+	var wb := Barricade.new()   # (out of the barricades list: nothing aims at it, layer 0)
+	scratch.add_child(wb)
+	wb.setup(self, 0, p, 2.4, 0.0)
+	wb.collision_layer = 0
+	wb.position = Vector3.ZERO
+	get_tree().create_timer(1.0).timeout.connect(scratch.queue_free)
 	# One shot of every look (projectile.gd), flying a moment and pooled.
 	for st in [{}, {"look": "thorn"}, {"look": "thorn", "splash": 3.0}, {"look": "star"}, {"look": "moon"},
 			{"fire": true, "splash": 3.0}, {"splash": 2.0}, {"holy": true}]:

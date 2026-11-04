@@ -3,6 +3,7 @@ extends Node3D
 ## then (game.gd spawns them). Walk into the pillar of light to take it:
 ## Regeneration, Swiftness or Might for a few seconds. It fades if nobody does.
 
+const Fx = preload("res://scripts/fx.gd")
 const Stats = preload("res://scripts/stats.gd")
 
 var game
@@ -133,6 +134,7 @@ func setup(p_game, pos: Vector3, p_kind: String) -> void:
 	smesh.material = sm
 	sparks.position.y = 0.3
 	add_child(sparks)
+	Fx.to_gpu(sparks, 3.0)   # drawn on the GPU (fx.gd to_gpu; claude-faisal/crowns-spawn)
 
 	light = OmniLight3D.new()
 	light.light_color = color
