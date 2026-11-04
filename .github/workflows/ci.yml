@@ -168,10 +168,10 @@ jobs:
           timeout 600 xvfb-run -a bash tools/tests/isolated.sh --path "$GITHUB_WORKSPACE" --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script "$GITHUB_WORKSPACE/tools/world_behind_test.gd" -- --seed=7 --gfx=0 --world-behind 2>&1 | tee ci-logs/world-behind.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Leaked instance|were leaked|ObjectDB instances leaked' ci-logs/world-behind.log
           grep -q '^world behind test: 0 failure(s)$' ci-logs/world-behind.log
-      - name: Keep logs
-        if: always()
+      - name: Keep logs (failure only)
+        if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: crowns-ci-${{ github.run_id }}-${{ github.run_attempt }}
           path: ci-logs/
-          retention-days: 3
+          retention-days: 1
