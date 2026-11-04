@@ -15,14 +15,19 @@ var saved := []
 
 
 func _median() -> float:
+	# Two seconds of settling first: a switched feature recompiles shaders.
+	var t1 := Time.get_ticks_usec()
+	while Time.get_ticks_usec() - t1 < 2.0e6:
+		await process_frame
 	var times := []
 	var last := Time.get_ticks_usec()
 	var t0 := last
+	var vp_rid: RID = root.get_viewport_rid()
+	RenderingServer.viewport_set_measure_render_time(vp_rid, true)
 	while Time.get_ticks_usec() - t0 < SECS * 1e6:
 		await process_frame
-		var now := Time.get_ticks_usec()
-		times.append((now - last) / 1000.0)
-		last = now
+		# GPU time, not frame time: the frame cap hides headroom.
+		times.append(RenderingServer.viewport_get_measured_render_time_gpu(vp_rid))
 	times.sort()
 	return times[times.size() / 2]
 
@@ -58,6 +63,18 @@ func _toggle(what: String, off: bool) -> void:
 			vp.scaling_3d_scale = 0.75 if off else 1.0
 		"cascades_2":
 			game.sun_light.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if off else DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+		"ink":
+			for q in root.find_children("*", "MeshInstance3D", true, false):
+				if q.material_override == game.ink_mat:
+					q.visible = not off
+		"shadow_filter_hard":
+			var lvl := RenderingServer.SHADOW_QUALITY_HARD if off else RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM
+			RenderingServer.directional_soft_shadow_filter_set_quality(lvl)
+			RenderingServer.positional_soft_shadow_filter_set_quality(lvl)
+		"dof":
+			game.cam_attrs.dof_blur_far_enabled = not off
+		"fxaa":
+			vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED if off else Viewport.SCREEN_SPACE_AA_FXAA
 		"shadow_far_45":
 			game.sun_light.directional_shadow_max_distance = 45.0 if off else 70.0
 
@@ -70,7 +87,7 @@ func _init() -> void:
 	while Time.get_ticks_msec() - t0 < SETTLE * 1000.0:
 		await process_frame
 	print("GFXCOST gpu=%s msaa=%d scale=%.2f shadow_max=%.0f mode=%d" % [RenderingServer.get_video_adapter_name(), game.get_viewport().msaa_3d, game.get_viewport().scaling_3d_scale, game.sun_light.directional_shadow_max_distance, game.sun_light.directional_shadow_mode])
-	var all := ["omni_lights", "ssao", "ssil", "glow", "hud", "render_0.75", "cascades_2", "shadow_far_45"]
+	var all := ["omni_lights", "ssao", "ssil", "glow", "hud", "render_0.75", "cascades_2", "shadow_far_45", "sun_shadow", "ink", "shadow_filter_hard", "dof", "fxaa"]
 	var only := all
 	var rounds := 1
 	for arg in OS.get_cmdline_user_args():
