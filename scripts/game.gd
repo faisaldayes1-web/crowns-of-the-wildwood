@@ -11289,7 +11289,9 @@ func _dress_elf_open_courtyard(team: int, bx: float, side: float) -> void:
 	for k in 3:
 		_add_canopy_tree(Vector3(bx + side * (4.2 + k * 5.4), 0, -(hz + 3.6)), 710 + k, 0.95)
 	for zs in [-1.0, 1.0]:
-		_add_canopy_tree(Vector3(bx + side * (CELLAR_DEPTH + 2.8), 0, zs * 8.6), 720 + int(zs), 1.05)
+		# (4.8, was 2.8: the tall west yard wall grows 1.5 m outward and its
+		# crenellations sat inside these crowns. Visual pass 2026-11-04.)
+		_add_canopy_tree(Vector3(bx + side * (CELLAR_DEPTH + 4.8), 0, zs * 8.6), 720 + int(zs), 1.05)
 	for k in 3:
 		_add_hedge_blob(Vector3(bx + side * (5.1 + k * 4.9), 0, hz + 1.5), 0.62, 730 + k)
 		_add_hedge_blob(Vector3(bx + side * (5.7 + k * 4.9), 0, hz + 2.1), 0.45, 740 + k)

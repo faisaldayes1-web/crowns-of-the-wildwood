@@ -316,6 +316,16 @@ static func courtyard_wall(g, a: Vector3, b: Vector3, grey: bool, seed: int, mer
 		block(g, Vector3(p.x, 1.94, p.z), Vector3(0.44, 0.1, 0.94), g._timber(Color(0.45, 0.32, 0.21)), rot)
 
 
+static func _audit_extent(g, mid: Vector3, length: float, thick: float, top: float, along: Vector3) -> void:
+	## Visual pass 2026-11-04: these walls are built outward from the kerb
+	## line, well past the caller's kerb block, so the kerb alone let trees
+	## and clutter grow into them. The wall's real body goes into
+	## audit_blocks too (tree spots, the forest kit and --audit all read it;
+	## collision is unchanged).
+	var size := Vector3(length, top, thick) if absf(along.x) > 0.5 else Vector3(thick, top, length)
+	g.audit_blocks.append(["wall", AABB(Vector3(mid.x - size.x / 2.0, 0.0, mid.z - size.z / 2.0), size)])
+
+
 static func _tall_courtyard_wall(g, a: Vector3, b: Vector3, along: Vector3, length: float, rot: float, grey: bool, seed: int,
 		out: Vector3, posts_at: Array = [], flags: bool = true) -> void:
 	var sh := out * 0.32   # the wall's centre line, moved outward off the kerb
@@ -324,6 +334,7 @@ static func _tall_courtyard_wall(g, a: Vector3, b: Vector3, along: Vector3, leng
 	var mid := (a0 + b0) / 2.0
 	var core := Vector3(length, 1.55, 0.86) if absf(along.x) > 0.5 else Vector3(0.86, 1.55, length)
 	_box(g, Vector3(mid.x, 0.3 + 0.78, mid.z), core, mortar_mat(g, grey))
+	_audit_extent(g, mid, length, 1.12, 2.4, along)
 	block_course(g, a0, b0, 0.3, 0.5, 1.12, grey, seed, 0.8, 1.35)
 	var a2 := a0 + along * 0.4
 	block_course(g, a2, b0, 0.82, 0.5, 1.08, grey, seed + 1, 0.75, 1.25)
@@ -448,6 +459,7 @@ static func _yard_side_wall(g, a: Vector3, b: Vector3, along: Vector3, length: f
 	var am := ashlar_mats(g)
 	var body := Vector3(full, TOP - 0.3, thick) if absf(along.x) > 0.5 else Vector3(thick, TOP - 0.3, full)
 	_box(g, Vector3(mid.x, 0.3 + (TOP - 0.3) / 2.0, mid.z), body, am[0])
+	_audit_extent(g, mid, full, thick + 0.22, TOP + 1.14, along)
 	# A darker plinth course at the foot (shadowless: it sits in the wall's shade).
 	block_course(g, a0, b0, 0.3, 0.46, thick + 0.14, false, seed, 0.9, 1.5, false, [am[2]])
 	# The coping: big blocks of a darker tan, proud of both faces; it shows
