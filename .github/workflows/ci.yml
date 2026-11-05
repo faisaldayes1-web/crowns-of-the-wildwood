@@ -312,7 +312,7 @@ jobs:
 
   gates-render:
     if: ${{ github.event.pull_request.draft == false || github.event_name != 'pull_request' }}
-    name: Gates - missing resources, UI text fit, perf budget
+    name: Gates - missing resources and UI text fit
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -343,20 +343,51 @@ jobs:
           timeout 300 bash tools/tests/isolated.sh --headless --path . --script tools/gates/resource_gate.gd 2>&1 | tee ci-logs/resource-gate.log
           if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' ci-logs/resource-gate.log; then echo 'gate log has errors (above)'; exit 1; fi
           grep -q '^resource gate: 0 failure(s)$' ci-logs/resource-gate.log
-      - name: UI text fits its box (menus, HUD, pause, summary; 720p/1080p/1440p; split screen 2-4)
+      - name: UI text fits its box (menus, HUD, pause, summary; 720p/1080p/1440p; 1 player and split screen 2-4)
         shell: bash
         run: |
           set -euo pipefail
-          for run in menus play-1 play-2 play-3 play-4; do
-            if [ "$run" = menus ]; then args="--menus"; else args="--play --couch=${run#play-}"; fi
-            export CROWNS_GATE_SHOTS="$GITHUB_WORKSPACE/ci-logs/shots/$run"
-            export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-ui-$run"
-            mkdir -p "$MESA_SHADER_CACHE_DIR"
-            timeout 600 xvfb-run -a -s "-screen 0 2560x1440x24" bash tools/tests/isolated.sh --path . --rendering-method gl_compatibility --rendering-driver opengl3 --script tools/gates/ui_fit_gate.gd -- $args --seed=7 --gfx=0 > "ci-logs/ui-$run.log" 2>&1 || true
-            grep -E '^FAIL|^UI window|^ui fit gate' "ci-logs/ui-$run.log" || true
-            if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' "ci-logs/ui-$run.log"; then echo 'gate log has errors (above)'; exit 1; fi
-            grep -Eq '^ui fit gate: .* 0 failure\(s\)$' "ci-logs/ui-$run.log"
-          done
+          export CROWNS_GATE_SHOTS="$GITHUB_WORKSPACE/ci-logs/shots"
+          export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-ui"
+          mkdir -p "$MESA_SHADER_CACHE_DIR"
+          timeout 1200 xvfb-run -a -s "-screen 0 2560x1440x24" bash tools/tests/isolated.sh --path . --rendering-method gl_compatibility --rendering-driver opengl3 --script tools/gates/ui_fit_gate.gd -- --menus --couches=1,2,3,4 --seed=7 --gfx=0 > ci-logs/ui-fit.log 2>&1 || true
+          grep -E '^FAIL|^UI window|^ui fit gate' ci-logs/ui-fit.log || true
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' ci-logs/ui-fit.log; then echo 'gate log has errors (above)'; exit 1; fi
+          grep -Eq '^ui fit gate: .* 0 failure\(s\)$' ci-logs/ui-fit.log
+      - name: Keep logs and tiny screen shots (failure only)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crowns-gates-render-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-logs/
+          retention-days: 1
+
+  gates-perf:
+    if: ${{ github.event.pull_request.draft == false || github.event_name != 'pull_request' }}
+    name: Gates - perf budget and runtime references per map
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GODOT: /tmp/crowns-godot/Godot_v4.3-stable_linux.x86_64
+      TMPDIR: /tmp
+      LIBGL_ALWAYS_SOFTWARE: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install official Godot 4.3 and xvfb
+        shell: bash
+        run: bash tools/gates/ci_godot.sh --xvfb
+      - name: Restore the import cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .godot
+          key: crowns-import-${{ hashFiles('**/*.import', 'project.godot') }}
+          restore-keys: crowns-import-
+      - name: Headless import
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 bash tools/tests/isolated.sh --headless --editor --path . --import > ci-logs/import.log 2>&1 || { tail -50 ci-logs/import.log; exit 1; }
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log; then echo 'gate log has errors (above)'; exit 1; fi
       - name: Perf budget and runtime references per map (draw calls, primitives, CPU frame time)
         shell: bash
         run: |
@@ -369,10 +400,10 @@ jobs:
             if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' "ci-logs/perf-map$map.log"; then echo 'gate log has errors (above)'; exit 1; fi
             grep -q '^perf gate map: 0 failure(s)$' "ci-logs/perf-map$map.log"
           done
-      - name: Keep logs and tiny screen shots (failure only)
+      - name: Keep logs (failure only)
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: crowns-gates-render-${{ github.run_id }}-${{ github.run_attempt }}
+          name: crowns-gates-perf-${{ github.run_id }}-${{ github.run_attempt }}
           path: ci-logs/
           retention-days: 1
