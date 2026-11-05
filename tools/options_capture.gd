@@ -18,6 +18,9 @@ func shot(label: String) -> void:
 	var path := out_dir.path_join(label + ".png")
 	var error := root.get_texture().get_image().save_png(path)
 	print("CAPTURE %s result=%d actual=%s" % [path, error, DisplayServer.window_get_size()])
+	if error != OK:
+		push_error("Could not save capture: " + path)
+		quit(1)
 
 
 func run() -> void:

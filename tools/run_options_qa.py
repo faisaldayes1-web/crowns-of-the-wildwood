@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import struct
 import tempfile
 import time
 
@@ -48,11 +49,25 @@ def main():
                 code = p.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
                 # Only terminate the process this runner created.
-                p.terminate()
+                # The Windows console executable owns a GUI child as well.
+                if os.name == "nt" and p.poll() is None:
+                    subprocess.run(["taskkill", "/PID", str(p.pid), "/T", "/F"], capture_output=True)
+                else:
+                    p.terminate()
                 p.wait(timeout=30)
                 code = 124
         raw = log.read_text(encoding="utf-8", errors="replace")
         bad = [line for line in raw.splitlines() if any(token in line for token in ["SCRIPT ERROR", "Parse Error", "ERROR:", "FAIL ", "FAIL  ", "leaked at exit", "still in use at exit"])]
+        if label == "bot-seed7" and not ("\nRESULT winner=" in raw and "\nSTAT " in raw):
+            bad.append("Bot did not reach a final RESULT and STAT report")
+        if capture_dir:
+            expected = ["before-settings"] if label.startswith("before-") else ["after-" + t for t in ["gameplay", "video", "audio", "controls", "accessibility"]]
+            requested = command[command.index("--resolution") + 1]
+            dimensions = tuple(map(int, requested.split("x")))
+            for name in expected:
+                png = capture_dir / (name + ".png")
+                if not png.exists() or struct.unpack(">II", png.read_bytes()[16:24]) != dimensions:
+                    bad.append("Missing or wrongly sized capture: " + str(png))
         result = {"label": label, "source": source, "exit": code, "seconds": round(time.time() - started, 2), "errors": bad, "log": log.name, "profile": str(profile)}
         results.append(result)
         (OUT / (args.stage + "-results.json")).write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
