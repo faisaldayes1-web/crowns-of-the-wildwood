@@ -42,6 +42,8 @@ var map_first := 0           # leftmost map card shown
 var map_cols := 4            # how many map cards fit across (5 on 21:9)
 var map_pick := 0            # selected card (MAP_CARDS index)
 var char_tab := 0
+var armor_cat := 0   # the ARMOR tab's sub-tab (ARMOR_CATS)
+var armor_page := 0
 var preview_role := Role.BASE
 var preview_team := 1
 var preview_rank := 1
@@ -1018,46 +1020,141 @@ func _tab_face(panel: Rect2) -> void:
 		h._paragraph(Vector2(r.position.x + 8, r.position.y + 146), Stats.HERO_FACES[i][1], 12, Color(1, 1, 1, 0.95), r.size.x - 16, 13.0)
 
 
+const ARMOR_CATS := [["LOOK", "look"], ["TINT", "outfit"], ["HAT", "hat"], ["CAPE", "cape"], ["WEAPON", "weapon"], ["RANK", "rank"]]
+const ARMOR_PER_PAGE := 8   # two rows of four tiles; more turn pages
+
+
 func _tab_armor(panel: Rect2) -> void:
-	var y := panel.position.y + 74
-	label(Vector2(panel.position.x + 26, y), "LOOK", 15)
+	## ARMOR (Faisal 11-05: "looks like Microsoft Paint"): six category tabs, a
+	## paged grid of big tiles (the real rendered item, a rarity frame, a lock
+	## laid over the art, the unlock price on the tile) and the live 3D hero
+	## beside it. Choices still go through the "gear", "look" and "rank" presses.
+	var x0 := panel.position.x + 18.0
+	var tab_w := (panel.size.x - 36.0) / ARMOR_CATS.size()
+	for i in ARMOR_CATS.size():
+		var tr := Rect2(x0 + i * tab_w, panel.position.y + 58, tab_w - 4, 34)
+		var on: bool = armor_cat == i
+		var ov := button(tr, "armor_cat", i)
+		option_box(tr, on, ov, Color(1.0, 0.8, 0.25))
+		ttext(Vector2(tr.position.x, tr.position.y + 23), ARMOR_CATS[i][0], 13, Color(1.0, 0.92, 0.65) if on else Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tr.size.x, 3)
+	var cat: String = ARMOR_CATS[armor_cat][1]
+	var area := Rect2(x0, panel.position.y + 104, panel.size.x - 36.0, panel.size.y - 118.0)
+	if cat == "look":
+		_armor_look(area)
+		return
+	if cat == "rank":
+		_armor_rank(area)
+		return
+	var n: int = Store.table(cat).size()
+	var pages := maxi(1, int(ceil(float(n) / ARMOR_PER_PAGE)))
+	armor_page = clampi(armor_page, 0, pages - 1)
+	label(Vector2(area.position.x + 2, area.position.y + 12), Store.KIND_LABEL.get(cat, cat).to_upper() + ("  ·  no class hat on" if cat == "hat" else ""), 13)
+	var cols := 4
+	var gap := 8.0
+	var tw: float = (area.size.x - gap * (cols - 1)) / cols
+	var th := 150.0
+	var first: int = armor_page * ARMOR_PER_PAGE
+	var hover_tip := ""
+	for k in ARMOR_PER_PAGE:
+		var i: int = first + k
+		if i >= n:
+			break
+		var r := Rect2(area.position + Vector2((k % cols) * (tw + gap), 24.0 + (k / cols) * (th + gap)), Vector2(tw, th))
+		if _armor_tile(r, cat, i):
+			hover_tip = _armor_tip(cat, i)
+	if pages > 1:
+		var py := area.end.y - 30.0
+		var prev := Rect2(area.position.x, py, 74, 30)
+		var next := Rect2(area.end.x - 74, py, 74, 30)
+		wood_button(prev, "PREV", "armor_page", armor_page - 1, "", 14, false, armor_page > 0)
+		wood_button(next, "NEXT", "armor_page", armor_page + 1, "", 14, false, armor_page < pages - 1)
+		ttext(Vector2(area.position.x, py + 21), "%d / %d" % [armor_page + 1, pages], 14, Color(0.92, 0.9, 0.85), HORIZONTAL_ALIGNMENT_CENTER, area.size.x, 3)
+	if hover_tip != "":
+		var tipr := Rect2(area.position.x, area.end.y - 64, area.size.x, 26)
+		h._plate(tipr, Color(0.05, 0.04, 0.03, 0.95), Color(1.0, 0.8, 0.3), 7, 2)
+		h._text(Vector2(tipr.position.x, tipr.position.y + 18), hover_tip, 12, Color(1.0, 0.92, 0.7), HORIZONTAL_ALIGNMENT_CENTER, tipr.size.x, 2)
+
+
+func _armor_tip(cat: String, i: int) -> String:
+	var it := Store.item_for(cat, i)
+	if it.is_empty() or Store.owns(game, cat, i):
+		return Store.item_name(cat, i)
+	return "%s  ·  %s  ·  %d gold in the STORE" % [Store.item_name(cat, i), Stats.RARITIES[it[2]][0], Store.price(it)]
+
+
+func _armor_tile(r: Rect2, cat: String, i: int) -> bool:
+	## One choice: rarity frame, the rendered item, its name, a state line.
+	## Returns whether the pointer is over it.
+	var it := Store.item_for(cat, i)
+	var rar: Array = Stats.RARITIES[it[2]] if not it.is_empty() else Stats.RARITIES["common"]
+	var have := Store.owns(game, cat, i)
+	var worn: bool = Store.equipped(game, cat) == i
+	var ov := button(r, "gear", [cat, i])
+	var tier: int = Store.TIER_RANK.get(it[2] if not it.is_empty() else "common", 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.11, 0.12, 0.15).lerp(rar[1].darkened(0.6), 0.3 + 0.1 * tier)
+	sb.set_corner_radius_all(9)
+	sb.set_border_width_all(4 if worn else 2)
+	sb.border_color = Color(1.0, 0.85, 0.35) if worn else (rar[1].lightened(0.25) if ov else rar[1].darkened(0.2 - 0.1 * tier))
+	if worn:
+		sb.shadow_color = Color(1.0, 0.8, 0.25, 0.5)
+		sb.shadow_size = 8
+	elif ov:
+		sb.shadow_color = Color(rar[1], 0.4)
+		sb.shadow_size = 6
+	h.draw_style_box(sb, r)
+	h.draw_rect(Rect2(r.position + Vector2(6, 5), Vector2(r.size.x - 12, 4)), rar[1])
+	var pic := Rect2(r.position + Vector2(6, 12), Vector2(r.size.x - 12, r.size.x - 12))
+	h.draw_circle(pic.get_center(), pic.size.x * 0.46, Color(rar[1], 0.12))
+	if i == 0:
+		# "None" / the default: a clear ring with a slash, not a stray diagonal.
+		h.draw_arc(pic.get_center(), pic.size.x * 0.28, 0, TAU, 28, Color(0.82, 0.8, 0.76), 3.0)
+		h.draw_line(pic.get_center() + Vector2(-1, 1) * pic.size.x * 0.2, pic.get_center() + Vector2(1, -1) * pic.size.x * 0.2, Color(0.82, 0.8, 0.76), 3.0)
+	else:
+		store.h = h
+		store.thumb(pic, cat, i)
+	if not have:
+		# The lock sits on the corner and the art stays visible under a light veil.
+		h.draw_rect(r.grow(-2), Color(0, 0, 0, 0.28))
+		icon("lock", r.position + Vector2(r.size.x - 17, 24), 24)
+	if tier >= 2:
+		h._plate(Rect2(r.get_center().x - 26, r.position.y - 6, 52, 13), rar[1].darkened(0.35), rar[1].lightened(0.35), 4, 1)
+		h._text(Vector2(r.get_center().x - 26, r.position.y + 4), rar[0].to_upper(), 8, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 52, 1)
+	var name_y := r.end.y - 30.0
+	h.draw_rect(Rect2(r.position.x + 4, name_y - 13, r.size.x - 8, 18), Color(0.04, 0.03, 0.02, 0.55))
+	h._text(Vector2(r.position.x + 3, name_y), Store.item_name(cat, i).to_upper(), 10, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x - 6, 2)
+	var by := r.end.y - 9.0
+	if worn:
+		h._text(Vector2(r.position.x, by), "WORN", 11, Color(0.55, 1.0, 0.45), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+	elif have:
+		h._text(Vector2(r.position.x, by), "OWNED", 11, Color(0.8, 0.9, 1.0), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+	else:
+		h._text(Vector2(r.position.x, by), "%d gold" % Store.price(it), 11, Color(1.0, 0.85, 0.35), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+	return ov
+
+
+func _armor_look(area: Rect2) -> void:
+	label(Vector2(area.position.x + 2, area.position.y + 12), "LOOK", 13)
 	for i in Stats.HERO_LOOKS.size():
-		var r := Rect2(panel.position.x + 26 + i * 204, y + 10, 192, 56)
+		var r := Rect2(area.position.x, area.position.y + 26 + i * 112, area.size.x, 100)
 		var locked: bool = i > 0 and not game.unlocked()
 		var on: bool = game.hero_look == i
 		var ov := button(r, "look", i)
 		option_box(r, on, ov, Color(1.0, 0.8, 0.25) if i == 0 else Color(0.75, 0.5, 1.0))
-		ttext(Vector2(r.position.x, r.position.y + 27), Stats.HERO_LOOKS[i][0].to_upper(), 19, Color.WHITE if not locked else Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
-		h._text(Vector2(r.position.x, r.position.y + 45), "Team colours" if i == 0 else ("LEVEL %d" % Stats.UNLOCK_LEVEL if locked else "Dusk armour, violet glow, a cape"), 10, Color(0.85, 0.85, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+		ttext(Vector2(r.position.x, r.position.y + 42), Stats.HERO_LOOKS[i][0].to_upper(), 26, Color.WHITE if not locked else Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 5)
+		h._text(Vector2(r.position.x, r.position.y + 70), "Your team's colours" if i == 0 else ("Unlocks at level %d" % Stats.UNLOCK_LEVEL if locked else "Dusk armour, violet glow, a cape"), 13, Color(0.88, 0.86, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 		if locked:
-			icon("lock", r.position + Vector2(r.size.x - 18, 16), 22)
-	# STORE gear: what you own is worn on a click, the rest opens the store.
-	y += 84
-	for row in [["ARMOUR TINT", "outfit"], ["HAT  ·  no class hat on", "hat"], ["CAPE & SCARF", "cape"], ["WEAPON SKIN", "weapon"]]:
-		label(Vector2(panel.position.x + 26, y), row[0], 13)
-		var kind: String = row[1]
-		var n: int = Store.table(kind).size()
-		for i in n:
-			var r := Rect2(panel.position.x + 26 + i * minf(52.0, (panel.size.x - 52 - 44) / maxf(n - 1, 1)), y + 8, 44, 38)
-			var have := Store.owns(game, kind, i)
-			var on: bool = Store.equipped(game, kind) == i
-			var ov := button(r, "gear", [kind, i])
-			option_box(r, on, ov, Color(1.0, 0.8, 0.25))
-			if i == 0:
-				h.draw_line(r.get_center() + Vector2(-8, -8), r.get_center() + Vector2(8, 8), Color(0.8, 0.78, 0.74), 2.5)
-			else:
-				store.h = h
-				store.thumb(r.grow(-5), kind, i)
-			if not have:
-				h.draw_rect(r.grow(-2), Color(0, 0, 0, 0.45))
-				icon("lock", r.end - Vector2(9, 9), 16)
-		y += 60
-	label(Vector2(panel.position.x + 26, y), "GEAR RANK  ·  preview what promotions earn", 13)
+			icon("lock", r.position + Vector2(r.size.x - 26, 26), 28)
+
+
+func _armor_rank(area: Rect2) -> void:
+	label(Vector2(area.position.x + 2, area.position.y + 12), "GEAR RANK  ·  preview what promotions earn", 13)
 	for k in 4:
-		var r := Rect2(panel.position.x + 26 + k * 102, y + 8, 92, 40)
+		var r := Rect2(area.position.x + (k % 2) * (area.size.x / 2.0 + 4), area.position.y + 28 + (k / 2) * 96, area.size.x / 2.0 - 4, 86)
 		var ov := button(r, "rank", k + 1)
 		option_box(r, preview_rank == k + 1, ov, Color(1.0, 0.8, 0.25))
-		ttext(Vector2(r.position.x, r.position.y + 28), "RANK %d" % (k + 1), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 4)
+		ttext(Vector2(r.position.x, r.position.y + 38), "RANK %d" % (k + 1), 24, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 5)
+		h._text(Vector2(r.position.x, r.position.y + 62), ["Plain kit", "Trimmed", "Plumed", "Gilded"][k], 12, Color(0.85, 0.85, 0.8), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 
 
 func _tab_colors(panel: Rect2) -> void:
@@ -1808,6 +1905,10 @@ func _press(id: String, arg) -> void:
 			if _card_open(map_pick):
 				go("lobby")
 		"char_tab": char_tab = int(arg)
+		"armor_cat":
+			armor_cat = int(arg)
+			armor_page = 0
+		"armor_page": armor_page = int(arg)
 		"preview_team": preview_team = int(arg)
 		"preview_role": preview_role = int(arg)
 		"rank": preview_rank = int(arg)
