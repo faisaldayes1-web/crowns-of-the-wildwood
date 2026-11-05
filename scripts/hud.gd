@@ -135,6 +135,37 @@ var _label_rects: Array[Rect2] = []   # polish pass: unit tags placed this frame
 
 
 static var _art_loaded := false   # the static art below is in (by the first HUD)
+# tools/gates/ui_fit_gate.gd (claude-faisal/crowns-gates): when a Dictionary,
+# every lettering helper (_text here, menu.gd ttext, match_summary.gd _bold,
+# legend.gd _ttext/_btext) notes text that runs past its box or off screen.
+static var fit_log = null
+static var fit_lines := 0   # lines noted (the gate checks that it saw text at all)
+
+
+static func fit_note(h: Control, f: Font, pos: Vector2, text: String, align: int, width: float, fs: int, where: String) -> void:
+	if fit_log == null or f == null or text == "" or "\n" in text:
+		return
+	fit_lines += 1
+	var tw := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var drawn := minf(tw, width) if width > 0.0 else tw
+	var x0 := pos.x
+	if width > 0.0 and align == HORIZONTAL_ALIGNMENT_CENTER:
+		x0 = pos.x + (width - drawn) / 2.0
+	elif width > 0.0 and align == HORIZONTAL_ALIGNMENT_RIGHT:
+		x0 = pos.x + width - drawn
+	var top := pos.y - f.get_ascent(fs)
+	var bottom := pos.y + f.get_descent(fs)
+	var view := Rect2(Vector2.ZERO, h.size)
+	var issue := ""
+	if width > 0.0 and tw > width + 2.0:
+		issue = "BOX %.0f px wide in a %.0f px box" % [tw, width]
+	elif (where.begins_with("menu") or where == "legend") and (x0 < -2.0 or top < -4.0 or x0 + drawn > view.end.x + 2.0 or bottom > view.end.y + 4.0):
+		# (Only the menus and the legend lay their lines out in screen space:
+		# the HUD and the summary scale whole panels with draw_set_transform,
+		# which a CanvasItem cannot report, so there only the box is checked.)
+		issue = "OFFSCREEN x %.0f..%.0f y %.0f..%.0f of %s" % [x0, x0 + drawn, top, bottom, view.size]
+	if issue != "":
+		fit_log["%s|%s|%s" % [where, text, issue]] = true
 
 
 func _ready() -> void:
@@ -522,6 +553,8 @@ func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHIT
 			if fs != font_size and pos.y > 0.0:
 				pos.y -= (font_size - fs) * 0.35   # stay on the same visual line
 			font_size = fs
+	if fit_log != null:
+		fit_note(self, font, pos, text, align, width, font_size, "hud")
 	if outline > 0:
 		draw_string_outline(font, pos, text, align, width, font_size, outline, Color(0.05, 0.04, 0.06, 0.85))
 	draw_string(font, pos, text, align, width, font_size, color)

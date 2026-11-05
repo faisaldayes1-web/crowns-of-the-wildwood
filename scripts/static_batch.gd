@@ -524,6 +524,7 @@ static func run(game: Node3D) -> Dictionary:
 		if record != null:
 			mi.set_meta("batched_mesh", mi.mesh)
 		mi.mesh = null
+		mi.set_meta(&"batched", true)   # (drawn by the merged mesh: tools/gates/perf_gate.gd skips it)
 	var info := {"nodes": batched.size(), "skipped": skipped, "materials_in": canon_of.size(), "materials_out": canon.size(),
 		"meshes_out": made, "ms": Time.get_ticks_msec() - t0}
 	print("BATCH merged %d scenery meshes (%d left alone) into %d meshes; %d materials became %d; %d ms (%d ms reading meshes)" % [
