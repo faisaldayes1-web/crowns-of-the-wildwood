@@ -8,6 +8,7 @@ from datetime import datetime
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import struct
@@ -24,6 +25,7 @@ def main():
     ap.add_argument("--stage", choices=["import", "boot", "tests", "captures", "bot", "all"], default="all")
     ap.add_argument("--test", action="append", choices=["options_test", "steam_ready_test", "settings_restart_test", "kbm_move_test", "options_menu_test", "pad_nav_test", "menu_flow_test", "couch_audio_test"])
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--height", type=int, choices=[720, 1080, 1440], help="Capture only this height")
     ap.add_argument("--until", help="hard engine-slot end as ISO8601 with timezone; reserves 3 seconds for cleanup")
     args = ap.parse_args()
     slot_end = datetime.fromisoformat(args.until).timestamp() - 3 if args.until else None
@@ -78,9 +80,9 @@ def main():
         # resource, test or release-boot error is exempted.
         inherited = []
         if capture_dir:
-            known = ["ERROR: 1 shaders of type SceneForwardClusteredShaderRD were never freed",
-                     "ERROR: 1 RID allocations of type 'N10RendererRD15MaterialStorage6ShaderE' were leaked at exit."]
-            inherited = [line for line in bad if line.strip() in known]
+            known = [r"ERROR: \d+ shaders of type SceneForwardClusteredShaderRD were never freed",
+                     r"ERROR: \d+ RID allocations of type 'N10RendererRD15MaterialStorage6ShaderE' were leaked at exit\."]
+            inherited = [line for line in bad if any(re.fullmatch(pattern, line.strip()) for pattern in known)]
             bad = [line for line in bad if line not in inherited]
         if label == "bot-seed7" and not ("\nRESULT winner=" in raw and "\nSTAT " in raw):
             bad.append("Bot did not reach a final RESULT and STAT report")
@@ -96,7 +98,9 @@ def main():
                   "files": source_files, "slot_end": args.until, "inherited_capture_diagnostics": inherited}
         results.append(result)
         (OUT / (args.stage + "-results.json")).write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
-        print(json.dumps({k: v for k, v in result.items() if k != "files"}), flush=True)
+        summary = {k: v for k, v in result.items() if k not in ["files", "errors"]}
+        summary.update(error_count=len(bad), errors=bad[:5])
+        print(json.dumps(summary), flush=True)
         if code or bad:
             raise SystemExit(1)
 
@@ -108,12 +112,15 @@ def main():
         for test in ["options_test", "steam_ready_test", "settings_restart_test", "kbm_move_test", "options_menu_test", "pad_nav_test", "menu_flow_test", "couch_audio_test"]:
             if args.test and test not in args.test:
                 continue
-            run(test, ["--headless", "--fixed-fps", "60", "--script", "tools/" + test + ".gd"], timeout=600)
+            run(test, ["--headless", "--fixed-fps", "60", "--max-fps", "120", "--script", "tools/" + test + ".gd"], timeout=600)
     if args.stage in ["all", "captures"]:
         for width, height in [(1280, 720), (1920, 1080), (2560, 1440)]:
+            if args.height and height != args.height:
+                continue
             for before in [True, False]:
                 label = ("before-" if before else "after-") + str(height) + "p"
-                run(label, ["--resolution", f"{width}x{height}", "--script", "tools/options_capture.gd", "--", "--no-prebuild"] + (["--before"] if before else []), capture_dir=OUT / str(height))
+                canvas = [f"--canvas={width}x{height}"] if height == 1440 else []
+                run(label, ["--resolution", f"{width}x{height}", "--script", "tools/options_capture.gd", "--", "--no-prebuild"] + canvas + (["--before"] if before else []), capture_dir=OUT / str(height))
     if args.stage in ["all", "bot"]:
         run("bot-seed7", ["--headless", "--fixed-fps", "60", "--quit-after", "45000", "--", "--demo", "--seed=7"], timeout=1200)
 

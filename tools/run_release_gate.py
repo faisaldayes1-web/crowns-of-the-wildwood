@@ -61,7 +61,8 @@ def main():
                        log=log.name, engine_log=str(engine_log) if engine_log else None)
         receipts.append(receipt)
         (out / 'release-results.json').write_text(json.dumps(receipts, indent=2)+'\n', encoding='utf-8')
-        print(json.dumps(receipt), flush=True)
+        print(json.dumps(dict(label=label, source=source, exit=code,
+                              seconds=receipt['seconds'], error_count=len(errors), errors=errors[:3])), flush=True)
         if code or errors:
             raise SystemExit(1)
 

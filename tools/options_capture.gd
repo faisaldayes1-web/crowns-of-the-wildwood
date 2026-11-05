@@ -5,6 +5,7 @@ extends SceneTree
 const Isolated = preload("res://tools/tests/isolated.gd")
 var game
 var out_dir := ""
+var capture_view: Viewport
 
 
 func _initialize() -> void:
@@ -16,8 +17,9 @@ func shot(label: String) -> void:
 		await process_frame
 	await RenderingServer.frame_post_draw
 	var path := out_dir.path_join(label + ".png")
-	var error := root.get_texture().get_image().save_png(path)
-	print("CAPTURE %s result=%d actual=%s" % [path, error, DisplayServer.window_get_size()])
+	var pixels := capture_view.get_texture().get_image()
+	var error := pixels.save_png(path)
+	print("CAPTURE %s result=%d pixels=%s native_window=%s" % [path, error, pixels.get_size(), DisplayServer.window_get_size()])
 	if error != OK:
 		push_error("Could not save capture: " + path)
 		quit(1)
@@ -29,9 +31,21 @@ func run() -> void:
 		return
 	out_dir = OS.get_environment("CROWNS_CAPTURE_DIR")
 	DirAccess.make_dir_recursive_absolute(out_dir)
+	capture_view = root
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--canvas="):
+			var parts := arg.trim_prefix("--canvas=").split("x")
+			var canvas := SubViewport.new()
+			canvas.size = Vector2i(int(parts[0]), int(parts[1]))
+			canvas.size_2d_override = Vector2i(1280, 720)
+			canvas.size_2d_override_stretch = true
+			canvas.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+			root.add_child(canvas)
+			capture_view = canvas
 	game = load("res://scenes/main.tscn").instantiate()
-	root.add_child(game)
-	current_scene = game
+	capture_view.add_child(game)
+	if capture_view == root:
+		current_scene = game
 	var deadline := Time.get_ticks_msec() + 180000
 	while game.main_menu == null or game.menus_warming or not game.world_ready or is_instance_valid(game.loading_layer):
 		if Time.get_ticks_msec() > deadline:

@@ -38,7 +38,7 @@ func _init() -> void:
 	m._press("to_lobby", null)
 	m.start()
 	var load_deadline := Time.get_ticks_msec() + 120000
-	while not game.world_ready or game._match_waiting or not game.playing or is_instance_valid(game.loading_layer):
+	while not game.world_ready or game._match_waiting or not game.playing or not game.warm_models_done or is_instance_valid(game.loading_layer):
 		if Time.get_ticks_msec() > load_deadline:
 			check(false, "match finishes loading before movement checks")
 			game.free()
@@ -84,6 +84,8 @@ func _init() -> void:
 	# Retire the fixture's menu/world coroutines and playback before quitting the tree.
 	current_scene = null
 	game.free()
-	await frames(4)
+	var retire_at := Time.get_ticks_msec() + 300
+	while Time.get_ticks_msec() < retire_at:
+		await frames(1)
 	print("KBM MOVE TEST: %d failed" % fails)
 	quit(fails)

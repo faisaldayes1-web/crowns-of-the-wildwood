@@ -146,10 +146,31 @@ func run() -> void:
 	check(screen.row_controls.master.value == old + 1, "pad/keyboard left-right adjusts slider by one percent")
 	screen._navigate(Vector2.DOWN)
 	check(root.gui_get_focus_owner() == screen.row_controls.music, "down moves focus to next setting")
+	game.playing = true
+	game.get_tree().paused = true
+	screen.row_controls.master.grab_focus()
+	var paused_key := InputEventKey.new()
+	paused_key.keycode = KEY_DOWN
+	paused_key.pressed = true
+	root.push_input(paused_key, true)
+	await settle()
+	check(root.gui_get_focus_owner() == screen.row_controls.music, "real key input navigates options while game is paused")
+	var paused_pad := InputEventJoypadButton.new()
+	paused_pad.button_index = JOY_BUTTON_B
+	paused_pad.pressed = true
+	root.push_input(paused_pad, true)
+	await settle()
+	check(not screen.active and game.menu_open and game.menu_tab == 0, "real pad B returns paused options to the map")
+	game.get_tree().paused = false
+	game.playing = false
+	game.menu_open = true
+	screen.open_screen(2)
 	screen.close_screen()
 	check(not screen.active and not game.menu_open, "Back returns to title and consumes the closing input")
 	game._flush_save()
 	game.free()
-	await settle()
+	var retire_at := Time.get_ticks_msec() + 300
+	while Time.get_ticks_msec() < retire_at:
+		await process_frame
 	print("OPTIONS_TEST: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

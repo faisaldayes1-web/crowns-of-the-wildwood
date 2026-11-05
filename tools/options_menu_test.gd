@@ -100,11 +100,11 @@ func _init() -> void:
 				continue
 			var before := [game.hero_body, game.hero_skin, game.hero_face, game.hero_eye, game.hero_mark, game.hero_hair, game.hero_hair_style,
 				game.hero_trim, game.hero_look, game.banner_bg, game.banner_emblem, game.banner_frame, m.preview_team, m.preview_role, m.preview_rank, m.char_tab,
-				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0]
+				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0, m.armor_cat, m.armor_page]
 			await tap(b[0])
 			var after := [game.hero_body, game.hero_skin, game.hero_face, game.hero_eye, game.hero_mark, game.hero_hair, game.hero_hair_style,
 				game.hero_trim, game.hero_look, game.banner_bg, game.banner_emblem, game.banner_frame, m.preview_team, m.preview_role, m.preview_rank, m.char_tab,
-				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0]
+				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0, m.armor_cat, m.armor_page]
 			tried += 1
 			if before == after and not _already(b, before):
 				dead.append("%s %s" % [b[1], str(b[2])])
@@ -217,7 +217,13 @@ func _init() -> void:
 	m._press("team_size", 1)
 	m._press("to_lobby", null)
 	m.start()
-	await frames(10)
+	var match_deadline := Time.get_ticks_msec() + 120000
+	while not game.playing or is_instance_valid(game.loading_layer):
+		if Time.get_ticks_msec() > match_deadline:
+			check(false, "match loading art retires before paused mouse checks")
+			quit(1)
+			return
+		await frames(1)
 	check(game.playing, "a 1v1 match starts")
 	var p = game.player
 	game.menu_open = true
@@ -439,6 +445,7 @@ func _init() -> void:
 func _already(b: Array, before: Array) -> bool:
 	## A swatch that is already the current choice changes nothing.
 	match b[1]:
+		"armor_cat": return int(before[-2]) == int(b[2])
 		"body": return game.hero_body == int(b[2])
 		"skin": return game.hero_skin == int(b[2])
 		"face": return game.hero_face == int(b[2])
@@ -465,12 +472,17 @@ func native_tap(control: Control, fraction := 0.5) -> void:
 	var ev := InputEventMouseButton.new()
 	ev.button_index = MOUSE_BUTTON_LEFT
 	ev.position = at
+	ev.global_position = at
+	ev.button_mask = MOUSE_BUTTON_MASK_LEFT
 	ev.pressed = true
-	Input.parse_input_event(ev)
+	# These coordinates are in the control's viewport, independent of the
+	# physical window/work-area size (including the headless display).
+	root.push_input(ev, true)
 	await frames(2)
 	ev = ev.duplicate()
 	ev.pressed = false
-	Input.parse_input_event(ev)
+	ev.button_mask = 0
+	root.push_input(ev, true)
 	await frames(2)
 
 
