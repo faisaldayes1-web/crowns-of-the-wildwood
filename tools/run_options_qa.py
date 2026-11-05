@@ -20,14 +20,20 @@ OUT = ROOT / "docs/evidence/crowns-settings-1105e"
 
 
 def main():
+    global ROOT, OUT
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--godot", required=True)
     ap.add_argument("--stage", choices=["import", "boot", "tests", "captures", "bot", "all"], default="all")
     ap.add_argument("--test", action="append", choices=["options_test", "steam_ready_test", "settings_restart_test", "kbm_move_test", "options_menu_test", "pad_nav_test", "menu_flow_test", "couch_audio_test"])
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--height", type=int, choices=[720, 1080, 1440], help="Capture only this height")
+    ap.add_argument("--project", help="Immutable comparison checkout; default this project")
+    ap.add_argument("--suite", default="settings-1105e")
     ap.add_argument("--until", help="hard engine-slot end as ISO8601 with timezone; reserves 3 seconds for cleanup")
     args = ap.parse_args()
+    if args.project:
+        ROOT = Path(args.project).resolve()
+    OUT = ROOT / ("docs/evidence/crowns-" + args.suite)
     slot_end = datetime.fromisoformat(args.until).timestamp() - 3 if args.until else None
     OUT.mkdir(parents=True, exist_ok=True)
     source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
