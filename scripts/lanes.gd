@@ -205,7 +205,7 @@ const HEART_FLAT := 4.6       # the dais is level out to this radius...
 const HEART_FOOT := 7.4       # ...and ramps down to the ground here
 const MOAT_IN := 8.2
 const MOAT_OUT := 10.4
-const SEATS_OUT := 12.4       # the amphitheatre's tiers end here
+const SEATS_OUT := 12.9       # the amphitheatre's tiers end here (the seats start clear of the moat's outer kerb)
 const BROOK := [Vector3(6.6, 0, -6.6), Vector3(10.0, 0, -15.0), Vector3(12.0, 0, -25.0), Vector3(13.0, 0, -40.0), Vector3(13.8, 0, -47.0)]
 const BROOK_HALF := 1.25      # the water's half width (its banks stay flat a little wider)
 
@@ -842,13 +842,19 @@ func _terrain() -> void:
 
 
 func _vnormal(hs: PackedFloat32Array, nx: int, nz: int, step: float, v: Vector3) -> Vector3:
+	## Smooth vertex normal: central differences over a 5 x 5 cell window, so the 1 m facets
+	## do not show as hard-edged darker and lighter patches on the slope (Faisal 11-05, Wildwood hill).
 	var i := clampi(int(round((v.x + MESH_X) / step)), 0, nx - 1)
 	var j := clampi(int(round((v.z + EDGE_Z) / step)), 0, nz - 1)
-	var hl: float = maxf(hs[j * nx + maxi(i - 1, 0)], 0.0)
-	var hr: float = maxf(hs[j * nx + mini(i + 1, nx - 1)], 0.0)
-	var hu: float = maxf(hs[maxi(j - 1, 0) * nx + i], 0.0)
-	var hd: float = maxf(hs[mini(j + 1, nz - 1) * nx + i], 0.0)
-	return Vector3(hl - hr, 2.0 * step, hu - hd).normalized()
+	var dx := 0.0
+	var dz := 0.0
+	for k in range(-2, 3):
+		var w := 3.0 - absf(k)   # 1 2 3 2 1
+		var jk := clampi(j + k, 0, nz - 1)
+		var ik := clampi(i + k, 0, nx - 1)
+		dx += w * (maxf(hs[jk * nx + maxi(i - 2, 0)], 0.0) - maxf(hs[jk * nx + mini(i + 2, nx - 1)], 0.0))
+		dz += w * (maxf(hs[maxi(j - 2, 0) * nx + ik], 0.0) - maxf(hs[mini(j + 2, nz - 1) * nx + ik], 0.0))
+	return Vector3(dx / 9.0, 4.0 * step, dz / 9.0).normalized()
 
 
 func _vcolor(v: Vector3, n: Vector3) -> Color:
@@ -862,7 +868,9 @@ func _vcolor(v: Vector3, n: Vector3) -> Color:
 		top = maxf(top, smoothstep(5.2, 6.6, v.y) * 0.8)   # snow caps on the high ground
 		top = maxf(top, 0.35)
 	else:
-		top = smoothstep(0.75, 0.95, n.y)
+		# One lawn colour over the banks; only the steep faces go to litter/moss (a hard 0.75-0.95
+		# cut made blotchy light and dark facets on the Wildwood hills).
+		top = maxf(smoothstep(0.5, 0.8, n.y), 0.88)
 	var lit := 1.0   # (no fold darkening: the foothills must match the open ground)
 	return Color(top, lit, smoothstep(-0.02, 0.3, v.y))
 
@@ -1412,8 +1420,11 @@ func _crossing(a: Vector3, b: Vector3) -> Vector3:
 
 
 func _build_heartwood() -> void:
+	# One stone family for the whole island (Faisal 11-05: "mismatched textures"): the kerbs, the dais
+	# rim and the seats share one ashlar; the cobbles are the map's own path stones. The moss variant
+	# is gone (it read as a second stone), and so are the rune circle and the bark-wrapped trunk.
 	var stone = game._ashlar(Color(0.88, 0.86, 0.8))
-	var mossy = game._ashlar(Color(0.72, 0.8, 0.62))
+	var mossy = stone
 	# The moat: a dark bed under see-through water between stone kerbs.
 	var bed := StandardMaterial3D.new()
 	bed.albedo_color = Color(0.12, 0.3, 0.32)
@@ -1473,58 +1484,18 @@ func _build_heartwood() -> void:
 	for k in kc:
 		var a := TAU * (k + 0.5) / kc
 		_box_at(game, Vector3(1.1, 0.12, 0.34), Vector3(cos(a) * (HEART_FLAT + 0.1), HEART_TOP + 0.03, sin(a) * (HEART_FLAT + 0.1)), stone, -a + PI / 2.0)
-	game._add_runes(Vector3(0, HEART_TOP - 0.03, 0), 2.6, Color(1.0, 0.6, 0.85))
 	await game._world_build_frame()
-	# The Heart-Tree: a giant blossom tree with glowing roots.
+	# The Heart-Tree: the map's own broadleaf (the forest kit's dotted-blossom shape, so the same
+	# shading and outline as every other tree), grown large; no separate textured trunk or roots.
 	var trunk_at := Vector3(0, HEART_TOP, 0)
 	game._add_blocker(trunk_at, 1.9, 6.0)
 	if game._kit():
-		var crown = game._kit().kit_tree(game, "blossom", trunk_at + Vector3(0, 0.6, 0), 1.9, 0.6)
+		var crown = game._kit().kit_tree(game, "broad2", trunk_at, 2.3, 0.6)
 		# (Its shadow fell as a dark blot fifteen metres off, its caster out of view.)
 		crown.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	else:
 		game._add_tree_grown(trunk_at, true)
-	var glow := StandardMaterial3D.new()
-	glow.albedo_color = Color(1.0, 0.7, 0.9)
-	glow.emission_enabled = true
-	glow.emission = Color(1.0, 0.5, 0.8)
-	glow.emission_energy_multiplier = 1.6
-	var bark = game._tree_bark()
-	# An ancient trunk, far thicker than the wood's, under the crown.
-	var trunk := MeshInstance3D.new()
-	var tm := CylinderMesh.new()
-	tm.top_radius = 0.55
-	tm.bottom_radius = 1.15
-	tm.height = 3.6
-	tm.radial_segments = 10
-	trunk.mesh = tm
-	trunk.material_override = bark
-	trunk.position = trunk_at + Vector3(0, 1.8, 0)
-	game.add_child(trunk)
-	for k in 7:
-		var a := TAU * k / 7.0 + 0.3
-		var root := MeshInstance3D.new()
-		var rc := CylinderMesh.new()
-		rc.top_radius = 0.16
-		rc.bottom_radius = 0.42
-		rc.height = 1.5
-		rc.radial_segments = 6
-		root.mesh = rc
-		root.material_override = bark
-		root.position = Vector3(cos(a) * 1.15, HEART_TOP + 0.35, sin(a) * 1.15)
-		root.rotation = Vector3(sin(a) * 0.85, 0, -cos(a) * 0.85)
-		game.add_child(root)
-		var bud := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.16
-		sm.height = 0.32
-		sm.radial_segments = 8
-		sm.rings = 4
-		bud.mesh = sm
-		bud.material_override = glow
-		bud.position = Vector3(cos(a) * 2.35, HEART_TOP + 0.12, sin(a) * 2.35)
-		game.add_child(bud)
-	game._add_light(Vector3(0, HEART_TOP + 3.2, 0), Color(1.0, 0.72, 0.88), 1.8, 14.0)
+	game._add_light(Vector3(0, HEART_TOP + 3.2, 0), Color(1.0, 0.9, 0.72), 1.4, 14.0)   # (warm, like the lanterns; was pink)
 	game.map_trees.append(Vector3(0, 1.0, 0))
 	game.map_marks.append([Vector3.ZERO, "heart"])
 	await game._world_build_frame()
@@ -1535,7 +1506,7 @@ func _build_heartwood() -> void:
 	for q in 4:
 		var mid := PI / 4.0 + q * PI / 2.0
 		for tier in 3:
-			var rad: float = MOAT_OUT + 0.55 + tier * 0.55
+			var rad: float = MOAT_OUT + 0.95 + tier * 0.58   # (the first tier clears the outer kerb, which reaches MOAT_OUT + 0.5)
 			var h: float = 0.32 * (tier + 1)
 			var span := deg_to_rad(15.0)
 			var n := 6
@@ -1546,12 +1517,9 @@ func _build_heartwood() -> void:
 				var arc_len: float = rad * span * 2.0 / n
 				_box_at(game, Vector3(arc_len - 0.06, h, 0.52), Vector3(cos(a) * rad, h / 2.0, sin(a) * rad), stone if (k + tier) % 4 else mossy, -a + PI / 2.0)
 		for e in [-1.0, 1.0]:
-			var a: float = mid + e * deg_to_rad(19.0)
-			var cp := Vector3(cos(a) * (MOAT_OUT + 1.1), 0, sin(a) * (MOAT_OUT + 1.1))
+			var a: float = mid + e * deg_to_rad(21.0)
+			var cp := Vector3(cos(a) * (MOAT_OUT + 1.4), 0, sin(a) * (MOAT_OUT + 1.4))
 			game._prop("dungeon/column", cp, 0.7 if (q + int(e)) % 2 == 0 else 0.45, a)
-		# A fallen block at the foot of each arc.
-		var fa: float = mid + r.randf_range(-0.12, 0.12)
-		_box_at(game, Vector3(0.9, 0.45, 0.6), Vector3(cos(fa) * (MOAT_OUT + 0.55), 0.2, sin(fa) * (MOAT_OUT + 0.55)), mossy, r.randf() * TAU)
 	await game._world_build_frame()
 	# The four moat bridges, with fire braziers at their outer heads.
 	for q in 4:
