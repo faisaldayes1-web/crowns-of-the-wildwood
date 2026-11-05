@@ -522,6 +522,7 @@ func _controls() -> void:
 			var text_value: String = game.binding_text(entry[0], device)
 			var b := _button(("Key: " if device == "key" else "Pad: ") + ("Unbound" if text_value == "-" else text_value), Callable(), hint)
 			b.custom_minimum_size.x = 166
+			b.custom_minimum_size.y = 52
 			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			b.add_theme_font_size_override("font_size", 14)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
