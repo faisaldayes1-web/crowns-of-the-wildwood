@@ -24,6 +24,7 @@ def main():
     ap.add_argument("--stage", choices=["import", "boot", "tests", "captures", "bot", "all"], default="all")
     ap.add_argument("--test", action="append", choices=["options_test", "steam_ready_test", "settings_restart_test", "kbm_move_test", "options_menu_test", "pad_nav_test", "menu_flow_test", "couch_audio_test"])
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--height", type=int, choices=[720, 1080, 1440], help="Capture only this height")
     ap.add_argument("--until", help="hard engine-slot end as ISO8601 with timezone; reserves 3 seconds for cleanup")
     args = ap.parse_args()
     slot_end = datetime.fromisoformat(args.until).timestamp() - 3 if args.until else None
@@ -113,9 +114,12 @@ def main():
             run(test, ["--headless", "--fixed-fps", "60", "--max-fps", "120", "--script", "tools/" + test + ".gd"], timeout=600)
     if args.stage in ["all", "captures"]:
         for width, height in [(1280, 720), (1920, 1080), (2560, 1440)]:
+            if args.height and height != args.height:
+                continue
             for before in [True, False]:
                 label = ("before-" if before else "after-") + str(height) + "p"
-                run(label, ["--resolution", f"{width}x{height}", "--script", "tools/options_capture.gd", "--", "--no-prebuild"] + (["--before"] if before else []), capture_dir=OUT / str(height))
+                canvas = [f"--canvas={width}x{height}"] if height == 1440 else []
+                run(label, ["--resolution", f"{width}x{height}", "--script", "tools/options_capture.gd", "--", "--no-prebuild"] + canvas + (["--before"] if before else []), capture_dir=OUT / str(height))
     if args.stage in ["all", "bot"]:
         run("bot-seed7", ["--headless", "--fixed-fps", "60", "--quit-after", "45000", "--", "--demo", "--seed=7"], timeout=1200)
 
