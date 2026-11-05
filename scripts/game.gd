@@ -6044,8 +6044,8 @@ func _add_boulder(pos: Vector3) -> void:
 		for rp in RESERVED_GROUND:
 			if _flat_dist(pp, rp) < 6.0:
 				reserved = true   # the barrow's fence and the mills stand there later
-		if reserved:
-			continue
+		if reserved or _near_path(pp, 0.6):
+			continue   # (and no pebbles on the cobbles)
 		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][absi(int(pos.x * 7 + pos.z) + i) % 5], pp, 4.0, ang)
 
 
@@ -6291,7 +6291,8 @@ func _open_ground(p: Vector3) -> bool:
 
 ## Ground kept clear of trees for the outskirts built later: the two
 ## watermills and the barrow.
-const RESERVED_GROUND := [Vector3(-6.2, 0, -30), Vector3(6.2, 0, 30), Vector3(-30, 0, 22)]
+const BARROW_POS := Vector3(-31.5, 0, 27)   # (was -30, 22: the River Path ran through its graves)
+const RESERVED_GROUND := [Vector3(-6.2, 0, -30), Vector3(6.2, 0, 30), BARROW_POS]
 
 
 func _near_path(p: Vector3, margin: float) -> bool:
@@ -6979,6 +6980,7 @@ func _add_river() -> void:
 		var bz: float = BRIDGES[i]
 		var half: float = BRIDGE_HALF[i]
 		var deck_len := RIVER_HALF * 2 + 2.4
+		audit_label = "bridge"   # (the roads run onto it: --audit's road rule skips it)
 		# Ashlar abutments on each bank carry the timber stringers and planks.
 		for xs in [-1.0, 1.0]:
 			_add_block(Vector3(xs * (deck_len / 2.0 + 0.35), 0.17, bz), Vector3(1.1, 0.34, half * 2 + 1.0), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
@@ -6990,6 +6992,7 @@ func _add_river() -> void:
 			var px: float = -deck_len / 2.0 + (k + 0.5) * deck_len / planks
 			var tint := Color(0.9, 0.78, 0.6) if k % 2 == 0 else Color(0.84, 0.7, 0.52)
 			_add_block(Vector3(px, 0.06, bz), Vector3(deck_len / planks - 0.05, 0.1, half * 2), Color.WHITE, false, _plank_dark(tint))
+		audit_label = ""
 		for zs in [-1.0, 1.0]:
 			var rz: float = bz + zs * (half + 0.12)
 			_add_railing(Vector3(-deck_len / 2.0 + 0.2, 0.1, rz), Vector3(deck_len / 2.0 - 0.2, 0.1, rz))
@@ -7222,10 +7225,20 @@ func _add_cover(barricades: Array = COVER_BARRICADES, boulders: Array = COVER_BO
 			# Wall stubs stand beside the road, not on it (the one at x -31
 			# sat across the Forest Path like a post): step them away from
 			# the paths, cover point and collider with them.
+			# (2026-11-04, Faisal: "no random fences or rocks on roads": the
+			# supply stacks step off the road onto the verge too, and a stub
+			# by a slanting road steps outward in x when z alone won't clear.)
+			var c0 := c
 			var k := 0
-			while kind == 2 and _near_path(c, length / 2.0 + 0.4) and k < 8:
+			while _near_path(c, length / 2.0 + 0.4) and k < 8:
 				c.z += 1.0 if c.z >= 0.0 else -1.0
 				k += 1
+			if _near_path(c, length / 2.0 + 0.4):
+				c = c0
+				k = 0
+				while _near_path(c, length / 2.0 + 0.4) and k < 8:
+					c.x += 1.0 if c.x >= 0.0 else -1.0
+					k += 1
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
 			cover_points.append(Vector3(c.x, 0, c.z))
 			cover_boxes.append(AABB(Vector3(c.x - 0.5, 0, c.z - length / 2.0), Vector3(1.0, 1.2, length)))
@@ -7345,7 +7358,13 @@ func _add_wall_stub(c: Vector3, length: float) -> void:
 	_add_block(Vector3(c.x, 0.4, c.z + tall_len / 2.0), Vector3(0.6, 0.8, low_len), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
 	_add_block(Vector3(c.x, 0.9, c.z + tall_len / 2.0 - low_len / 4.0), Vector3(0.6, 0.2, low_len / 2.0), Color.WHITE, false, _ashlar(Color(0.88, 0.85, 0.78)))
 	audit_label = ""
-	_prop("dungeon/rubble_large", Vector3(c.x + 0.4 * signf(c.x), 0, c.z + length / 2.0 + 0.7), 0.22, 0.4)
+	# Rubble spills off the low end, or off the tall end when the low end
+	# faces a road (it lay on the cobbles).
+	var rubble := Vector3(c.x + 0.4 * signf(c.x), 0, c.z + length / 2.0 + 0.7)
+	if _near_path(rubble, 0.8):
+		rubble.z = c.z - length / 2.0 - 0.7
+	if not _near_path(rubble, 0.8):
+		_prop("dungeon/rubble_large", rubble, 0.22, 0.4)
 
 
 func _add_ruins(c: Vector3, small: bool = false) -> void:
@@ -8628,6 +8647,9 @@ func _add_railing(from: Vector3, to: Vector3, skip: Array = []) -> void:
 	## (and slope) from `from` to `to`. `skip` lists [z_min, z_max] gaps.
 	var d := to - from
 	var n := maxi(int(d.length() / 1.4), 1)
+	var outer_label := audit_label
+	if audit_label == "":
+		audit_label = "railing"   # (rails line stairs and bridges: --audit's road rule skips them)
 	var wood := _timber()
 	var dark := _timber(Color(0.7, 0.6, 0.5))
 	for k in n + 1:
@@ -8671,6 +8693,7 @@ func _add_railing(from: Vector3, to: Vector3, skip: Array = []) -> void:
 				for y in [0.55, 0.9]:
 					_add_block(Vector3(from.x, from.y + y, (z0 + z1) / 2.0), Vector3(0.1, 0.08, absf(z1 - z0)), Color.WHITE, false, wood)
 			k += 2
+	audit_label = outer_label
 
 
 func _add_stairs(bottom: Vector3, top: Vector3, width: float, mat: Material, rail_side: float) -> void:
@@ -9607,7 +9630,7 @@ func _build_outskirts() -> void:
 		await _world_build_frame()
 		_add_river_plants()
 		await _world_build_frame()
-		_add_barrow(Vector3(-30, 0, 22))
+		_add_barrow(BARROW_POS)
 		# (No watermills: Faisal 08:20, "random useless building".)
 		await _world_build_frame()
 		_add_field_rocks()
@@ -11668,7 +11691,62 @@ func _audit_clipping() -> void:
 			print("CLIP kit/block %s : %.2f at %s" % [rem[0], rem[2], rem[1].snapped(Vector3(0.1, 0.1, 0.1))])
 			count += 1
 		print("AUDIT kit: %d checked, %d shrunk, %d dropped, %d still clipping" % [ka.checked, ka.shrunk, ka.dropped, ka.remaining.size()])
+	# Nothing on the roads (Faisal 2026-11-04: "no random fences or rocks on
+	# roads or paths that don't make sense"): no prop, fence, rubble, rock or
+	# kit tree, bush or boulder may stand on a road's paved core.
+	var road_hits := 0
+	for it in items:
+		var hit := _road_hit(it[1])
+		if hit != "":
+			print("CLIP prop/road %s at %s (%s)" % [it[0], it[1].get_center().snapped(Vector3(0.1, 0.1, 0.1)), hit])
+			road_hits += 1
+	for b in audit_blocks:
+		if b[0] in ["gate", "ramp", "vault", "building", "hearth", "bridge", "railing"]:
+			continue   # doors, stairs and houses the roads lead to
+		var bb: AABB = b[1]
+		if bb.position.y + bb.size.y <= 0.02:
+			continue   # the ground
+		var hit := _road_hit(bb)
+		if hit != "":
+			print("CLIP %s/road at %s size %s (%s)" % [b[0], bb.get_center().snapped(Vector3(0.1, 0.1, 0.1)), bb.size.snapped(Vector3(0.1, 0.1, 0.1)), hit])
+			road_hits += 1
+	if forest_kit != null:
+		for rem in forest_kit.road_audit():
+			var hit := _road_hit(rem[1])
+			if hit != "":
+				print("CLIP kit/road %s at %s (%s)" % [rem[0], rem[1].get_center().snapped(Vector3(0.1, 0.1, 0.1)), hit])
+				road_hits += 1
+	print("AUDIT roads: %d things on %d road segments" % [road_hits, map_paths.size()])
+	count += road_hits
 	print("AUDIT done: %d overlaps in %d props" % [count, items.size()])
+
+
+const ROAD_KEEP_CLEAR := 0.35   # metres in from a road's edge that must stay clear
+
+
+func _road_hit(box: AABB) -> String:
+	## "" when the box stands clear of every road's paved core, else which
+	## road it stands on. Only things at ground level count (not lanterns
+	## hung overhead, nor anything on a wall top or a bridge deck).
+	if box.position.y > 0.6 or box.size.y < 0.05:
+		return ""
+	var inset := Vector3(box.size.x * 0.15, 0.0, box.size.z * 0.15)
+	var lo := box.position + inset
+	var hi := box.end - inset
+	for path in map_paths:
+		var a: Vector3 = path[0]
+		var b: Vector3 = path[1]
+		var half: float = path[2] / 2.0 - ROAD_KEEP_CLEAR
+		if half <= 0.2:
+			continue
+		var ab := Vector2(b.x - a.x, b.z - a.z)
+		for fx in [0.0, 0.5, 1.0]:
+			for fz in [0.0, 0.5, 1.0]:
+				var q := Vector2(lerpf(lo.x, hi.x, fx), lerpf(lo.z, hi.z, fz))
+				var t := clampf((q - Vector2(a.x, a.z)).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+				if q.distance_to(Vector2(a.x, a.z) + ab * t) < half:
+					return "road %s-%s w%.1f" % [Vector3(a.x, 0, a.z).snapped(Vector3.ONE), Vector3(b.x, 0, b.z).snapped(Vector3.ONE), path[2]]
+	return ""
 
 
 func _penetration(a: AABB, b: AABB) -> float:

@@ -81,6 +81,25 @@ func run() -> void:
 	game.player.set_role(game.Role.KNIGHT)
 	game.player.class_banner = game.player.CLASS_BANNER_TIME - 0.5
 	await capture("07-class-knight")
+	# CROWNS_CAPTURE_AT="x,z;x,z;..." (claude-faisal/crowns-visual2): the
+	# player is staged at each world spot in turn (the camera follows) and
+	# a shot "08-at-<i>" is taken there, for map-wide visual passes.
+	var spots := OS.get_environment("CROWNS_CAPTURE_AT")
+	if not spots.is_empty():
+		game.menu_open = false
+		game.player.class_banner = 0.0
+		var si := 0
+		for spot in spots.split(";", false):
+			var xz := spot.split(",")
+			if xz.size() < 2:
+				continue
+			game.player.global_position = Vector3(float(xz[0]), game.player.global_position.y, float(xz[1]))
+			game.player.velocity = Vector3.ZERO
+			game.prep_left = 60.0   # (prep: nobody fights while the camera tours)
+			for i in 40:
+				await process_frame
+			await capture("08-at-%d" % si)
+			si += 1
 	var report := FileAccess.open(out_dir.path_join("capture.json"), FileAccess.WRITE)
 	report.store_string(JSON.stringify({"agent": "Codex-faisal/ui", "viewport": str(root.size), "state_staging": true, "live_battle_fixture": "quiet courtyard battle-phase HUD comparison; no combat action claimed", "hit_rect_checks_pass": not failed}, "  "))
 	game.queue_free()
