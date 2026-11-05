@@ -118,6 +118,12 @@ jobs:
           timeout 300 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/split_hud_test.gd -- --play --couch=2 --seed=7 2>&1 | tee ci-logs/split-hud.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/split-hud.log
           grep -q '^split hud test: 0 failure(s)$' ci-logs/split-hud.log
+          timeout 200 bash tools/tests/isolated.sh --headless --path . --script tools/unit_allocation_test.gd 2>&1 | tee ci-logs/unit-allocation.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' ci-logs/unit-allocation.log
+          grep -q 'UNIT_ALLOCATION_RESULT assertions=[0-9]* failures=0' ci-logs/unit-allocation.log
+          timeout 200 bash tools/tests/isolated.sh --headless --path . --script tools/bugtest_shared_xp_test.gd 2>&1 | tee ci-logs/shared-xp.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' ci-logs/shared-xp.log
+          grep -q 'BUGTEST_API_RESULT.*"failures":0' ci-logs/shared-xp.log
           timeout 120 bash tools/tests/isolated.sh --headless --path . --script tools/rock_mesh_test.gd 2>&1 | tee ci-logs/rock-mesh.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/rock-mesh.log
           grep -q '^rock mesh test: 0 failure(s)$' ci-logs/rock-mesh.log

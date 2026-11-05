@@ -63,9 +63,16 @@ func capture(g, unit, winner_team: int) -> void:
 	main_role = _main_role(me) if me else Role.BASE
 	accolades = earned(g, me) if me else []
 	lines = []
-	if me:
+	# The account banks XP from every player; keep its tally on that same scope.
+	# Bot demos still illustrate the MVP's XP without banking it.
+	var xp_units: Array = g.units.filter(func(u): return u.is_player)
+	if xp_units.is_empty() and me:
+		xp_units.append(me)
+	if not xp_units.is_empty():
 		for s in SOURCES:
-			var n: int = me.xp_sources.get(s[0], 0)
+			var n := 0
+			for u in xp_units:
+				n += int(u.xp_sources.get(s[0], 0))
 			if n > 0:
 				lines.append([s[1], s[2], n])
 	var acc_xp := 0
