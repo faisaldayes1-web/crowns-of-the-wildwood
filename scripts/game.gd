@@ -223,7 +223,7 @@ var render_scale := 1.0        # Settings: 3D resolution scale (1.0 = native; th
 const RENDER_SCALES := [1.0, 0.85, 0.75, 0.5]
 const GFX_NAMES := ["LOW", "MEDIUM", "HIGH", "ULTRA"]
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
-var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox" or "ps"
+var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox", "ps" or "switch"
 var pad_active := false        # player 1's last press came from a gamepad (labels follow it)
 var cursor := Vector2.ZERO      # the gamepad's menu cursor (screen pixels)
 var debug_kill := false
@@ -1847,7 +1847,7 @@ func toggle_setting(key: String) -> void:
 			rumble_on = not rumble_on
 			if rumble_on:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
-		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
+		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "switch", "switch": "auto"}[pad_style]
 		"move_aim", "move_screen":
 			move_mode = "screen"
 		"pc_click", "pc_wasd":
@@ -1857,7 +1857,7 @@ func toggle_setting(key: String) -> void:
 		"layout_auto", "layout_keyboard", "layout_controller", "layout_touch":
 			control_layout = key.trim_prefix("layout_")
 			apply_control_layout()
-		"pad_style_prev": pad_style = {"auto": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
+		"pad_style_prev": pad_style = {"auto": "switch", "switch": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
 		"split_vertical", "split_horizontal": set_split_layout(key.trim_prefix("split_"))
 		"test_sound":
 			sfx.ui("ui_open", 0.0)   # (there is no ui_confirm clip: the button was silent, AUD-01)
@@ -4823,8 +4823,8 @@ func binding_text(action: String, device: String, kind: String = "") -> String:
 
 func _axis_name(axis: int, kind: String) -> String:
 	match axis:
-		JOY_AXIS_TRIGGER_RIGHT: return "R2" if kind == "ps" else "RT"
-		JOY_AXIS_TRIGGER_LEFT: return "L2" if kind == "ps" else "LT"
+		JOY_AXIS_TRIGGER_RIGHT: return "R2" if kind == "ps" else ("ZR" if kind == "switch" else "RT")
+		JOY_AXIS_TRIGGER_LEFT: return "L2" if kind == "ps" else ("ZL" if kind == "switch" else "LT")
 		JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y: return "Left stick"
 		JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y: return "Right stick"
 	return "Axis %d" % axis
@@ -4854,13 +4854,18 @@ func local_pad(local_index: int) -> int:
 
 
 func pad_kind(device: int) -> String:
-	## "ps" for a DualSense / DualShock, "xbox" for everything else, unless
-	## the Settings tab forces one.
+	## "ps" for a DualSense / DualShock, "switch" for a Nintendo pad, "xbox"
+	## for everything else (Steam Deck included), unless the Settings tab
+	## forces one.
 	if pad_style != "auto":
 		return pad_style
 	if device < 0:
 		return "xbox"
-	return "ps" if _is_playstation(Input.get_joy_name(device), Input.get_joy_guid(device)) else "xbox"
+	var joy_name := Input.get_joy_name(device)
+	var guid := Input.get_joy_guid(device)
+	if _is_playstation(joy_name, guid):
+		return "ps"
+	return "switch" if _is_nintendo(joy_name, guid) else "xbox"
 
 
 func _is_playstation(joy_name: String, guid: String) -> bool:
@@ -4872,6 +4877,15 @@ func _is_playstation(joy_name: String, guid: String) -> bool:
 	return guid.length() >= 12 and guid.substr(8, 4) == "4c05"
 
 
+func _is_nintendo(joy_name: String, guid: String) -> bool:
+	var n := joy_name.to_lower()
+	for word in ["nintendo", "switch", "joy-con", "joycon", "pro controller"]:
+		if word in n:
+			return true
+	# Nintendo's USB vendor id is 057e (little-endian "7e05" in the GUID).
+	return guid.length() >= 12 and guid.substr(8, 4) == "7e05"
+
+
 func pad_title(device: int) -> String:
 	## What to call a pad in toasts and the Settings tab.
 	if device < 0 or not Input.get_connected_joypads().has(device):
@@ -4880,6 +4894,8 @@ func pad_title(device: int) -> String:
 	if pad_kind(device) == "ps":
 		var l := n.to_lower()
 		return "DualSense (PS5)" if "dualsense" in l or "ps5" in l else ("DualShock (PS4)" if "dualshock" in l or "ps4" in l else "PlayStation controller")
+	if pad_kind(device) == "switch" and n != "":
+		return n if "nintendo" in n.to_lower() else "Nintendo " + n
 	return n if n != "" else "Gamepad"
 
 
@@ -4976,6 +4992,22 @@ func _pad_name(button: int, kind: String = "xbox") -> String:
 			JOY_BUTTON_RIGHT_STICK: return "R3"
 			JOY_BUTTON_GUIDE: return "PS"
 			JOY_BUTTON_MISC1: return "Mute"
+	if kind == "switch":
+		# Buttons are named by position (A is the bottom one in Godot); a Switch pad
+		# prints B there, A on the right, Y on the left and X on top.
+		match button:
+			JOY_BUTTON_A: return "B"
+			JOY_BUTTON_B: return "A"
+			JOY_BUTTON_X: return "Y"
+			JOY_BUTTON_Y: return "X"
+			JOY_BUTTON_LEFT_SHOULDER: return "L"
+			JOY_BUTTON_RIGHT_SHOULDER: return "R"
+			JOY_BUTTON_BACK: return "-"
+			JOY_BUTTON_START: return "+"
+			JOY_BUTTON_LEFT_STICK: return "LS"
+			JOY_BUTTON_RIGHT_STICK: return "RS"
+			JOY_BUTTON_GUIDE: return "Home"
+			JOY_BUTTON_MISC1: return "Capture"
 	match button:
 		JOY_BUTTON_A: return "A"
 		JOY_BUTTON_B: return "B"
@@ -5454,7 +5486,7 @@ func _load_controls() -> void:
 	if control_layout not in CONTROL_LAYOUTS:
 		control_layout = "auto"
 	apply_control_layout()
-	if pad_style not in ["auto", "xbox", "ps"]:
+	if pad_style not in ["auto", "xbox", "ps", "switch"]:
 		pad_style = "auto"
 	sfx.sound_volume = clampf(cfg.get_value("settings", "sound_volume", 0.8), 0.0, 1.0)
 	sfx.music_volume = clampf(cfg.get_value("settings", "music_volume", 0.6), 0.0, 1.0)

@@ -954,7 +954,9 @@ func _keycap(center: Vector2, key: String, w: float = 30.0, dark: bool = false, 
 	if XBOX_GLYPHS.has(key) and not keyboard:
 		draw_circle(center, 10.5, Color(0.12, 0.12, 0.15))
 		draw_arc(center, 10.5, 0, TAU, 24, Color(0.45, 0.45, 0.5), 1.0)
-		_text(center + Vector2(-10.5, 5), key, 12, XBOX_GLYPHS[key], HORIZONTAL_ALIGNMENT_CENTER, 21, 0)
+		# A Switch pad's face buttons are plain letters; Xbox colours would mislabel them.
+		var letter: Color = CREAM if game.pad_kind(game.local_pad(0)) == "switch" else XBOX_GLYPHS[key]
+		_text(center + Vector2(-10.5, 5), key, 12, letter, HORIZONTAL_ALIGNMENT_CENTER, 21, 0)
 		return
 	var rect := Rect2(center - Vector2(w / 2.0, 9), Vector2(w, 18))
 	if dark:
@@ -6214,7 +6216,7 @@ func _menu_controls(body: Rect2) -> void:
 	var kx := R.end.x - 330.0
 	var px := R.end.x - 120.0
 	_text(Vector2(kx - 70, R.position.y + 26), "KEYBOARD / MOUSE", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 140, 2)
-	_text(Vector2(px - 60, R.position.y + 26), "DUALSENSE" if pad_kind == "ps" else "GAMEPAD", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
+	_text(Vector2(px - 60, R.position.y + 26), "DUALSENSE" if pad_kind == "ps" else ("SWITCH PAD" if pad_kind == "switch" else "GAMEPAD"), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
 	var names := {}
 	for e in game.REBINDABLE:
 		names[e[0]] = e[1]
@@ -6395,7 +6397,7 @@ func _menu_settings(body: Rect2) -> void:
 	# GAMEPAD.
 	y = _opt_section(Vector2(x, y), w, "GAMEPAD", "horn", 40.0)
 	_toggle(Rect2(x + 12, y + 2, 210, 36), "Rumble", game.rumble_on, "rumble")
-	var style_names := {"auto": "AUTO", "xbox": "XBOX", "ps": "PLAYSTATION"}
+	var style_names := {"auto": "AUTO", "xbox": "XBOX", "ps": "PLAYSTATION", "switch": "SWITCH"}
 	var style := Rect2(x + 232, y + 2, 300, 36)
 	_opt_slot(style)
 	_text(style.position + Vector2(14, 23), "Button Names", 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
