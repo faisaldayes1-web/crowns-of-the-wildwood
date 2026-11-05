@@ -37,6 +37,7 @@ var game
 var h                        # the HUD this frame (all drawing goes through it)
 var stage                    # menu_stage.gd
 var screen := "title"        # title, map, character, lobby, store
+var progress_board: Node
 var overlay := ""            # "", "credits", "tutorial", "progress"
 var map_first := 0           # leftmost map card shown
 var map_cols := 4            # how many map cards fit across (5 on 21:9)
@@ -93,6 +94,9 @@ func go(to: String) -> void:
 
 func back() -> void:
 	## Esc / Circle / B: close an overlay, else one screen back.
+	if overlay == "progress" and is_instance_valid(progress_board) and progress_board.account_open:
+		progress_board.account_open = false
+		return
 	if screen == "store" and overlay == "" and not store.reveal.is_empty():
 		store.press("store_reveal_close", null)   # first the opened chest, like A
 		return
@@ -1588,27 +1592,10 @@ static func tutorial_image(i: int) -> Texture2D:
 	return _tut_tex[i]
 
 func _draw_progress() -> void:
-	var body := _overlay_frame("PROGRESS")
-	var panel := body.grow(10)
-	h._draw_title_progress(panel, false)
-	# The progress board paints over the frame's close button: draw it again on top (UI-09).
-	var frame := body.grow(40)
-	_overlay_close_x(frame, Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34).has_point(h.get_local_mouse_position()))
-	# SAVED PROGRESS: it saves itself; the code moves it to another device.
-	var lx := panel.position.x + 30
-	var y := panel.position.y + 446
-	h._text(Vector2(lx, y), "SAVED PROGRESS", 12, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var ago := "" if game.saved_at < 0.0 else "  Last saved %s." % _ago(Time.get_ticks_msec() / 1000.0 - game.saved_at)
-	h._text(Vector2(lx, y + 16), "Your level, XP, gold, chests and store items save by themselves after every match and purchase.%s" % ago, 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
-	h._text(Vector2(lx, y + 30), "To play on another device: EXPORT here, then IMPORT the code there.", 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
-	var bw := 200.0
-	wood_button(Rect2(lx, y + 40, bw, 36), "EXPORT CODE", "progress_export", null, "", 16)
-	wood_button(Rect2(lx + bw + 16, y + 40, bw, 36), "IMPORT CODE", "progress_import", null, "", 16)
-	# The ending (legend.gd), once the account has reached its level.
-	var open: bool = game.legend_unlocked()
-	wood_button(Rect2(panel.end.x - 300, panel.position.y + 70, 260, 46), "WATCH THE LEGEND" if open else "LEGEND AT LV %d" % game.legend_level(),
-		"watch_legend", null, "crown" if open else "lock", 17, false, open)
-	h._text(Vector2(lx + 2 * bw + 34, y + 63), "Import copies the code from the clipboard" if not OS.has_feature("web") else "Import asks you to paste the code", 10, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	if not is_instance_valid(progress_board):
+		progress_board = preload("res://scripts/progress_board.gd").new()
+		game.add_child(progress_board)
+	progress_board.draw(self)
 
 
 const MAX_PLAYERS := 6
@@ -1858,6 +1845,7 @@ func _press(id: String, arg) -> void:
 				_howto_done()
 			overlay = ""
 			game.needs_name = false   # asked once; the PLAYERS button names them later
+		"progress_account": progress_board.account_open = not progress_board.account_open
 		"progress_export": game.export_progress()
 		"progress_import": game.import_progress()
 		"topic": tutorial_topic = int(arg)
