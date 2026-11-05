@@ -46,6 +46,39 @@ func _toggle(what: String, off: bool) -> void:
 				for s in saved:
 					if is_instance_valid(s[0]):
 						s[0].visible = s[1]
+		"omni_big", "omni_small":
+			# Lights split at 10 m range: big fills against small torches.
+			if off:
+				saved = []
+				var big: bool = what == "omni_big"
+				for l in root.find_children("*", "OmniLight3D", true, false):
+					if (l.omni_range >= 10.0) == big:
+						saved.append([l, l.visible])
+						l.visible = false
+			else:
+				for s in saved:
+					if is_instance_valid(s[0]):
+						s[0].visible = s[1]
+		"forest", "forest_shadows":
+			# The kit's trees, bushes and rocks: hidden, or only their sun shadows.
+			if off:
+				saved = []
+				for n in game.get_children():
+					if n is MultiMeshInstance3D and n.name.begins_with("ForestKit_"):
+						saved.append([n, n.visible, n.cast_shadow])
+						if what == "forest":
+							n.visible = false
+						else:
+							n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			else:
+				for s in saved:
+					if is_instance_valid(s[0]):
+						s[0].visible = s[1]
+						s[0].cast_shadow = s[2]
+		"lamp_shadows":
+			for l in game.lamp_shadows:
+				if is_instance_valid(l):
+					l.shadow_enabled = not off
 		"sun_shadow":
 			game.sun_light.shadow_enabled = not off
 		"ssao":
@@ -92,6 +125,7 @@ func _init() -> void:
 	var t0 := Time.get_ticks_msec()
 	while Time.get_ticks_msec() - t0 < SETTLE * 1000.0:
 		await process_frame
+	print("GFXCOST omni lights: %d total, %d with range >= 10 m" % [root.find_children("*", "OmniLight3D", true, false).size(), root.find_children("*", "OmniLight3D", true, false).filter(func(l): return l.omni_range >= 10.0).size()])
 	print("GFXCOST gpu=%s msaa=%d scale=%.2f shadow_max=%.0f mode=%d" % [RenderingServer.get_video_adapter_name(), game.get_viewport().msaa_3d, game.get_viewport().scaling_3d_scale, game.sun_light.directional_shadow_max_distance, game.sun_light.directional_shadow_mode])
 	var all := ["omni_lights", "ssao", "ssil", "glow", "hud", "render_0.75", "cascades_2", "shadow_far_45", "sun_shadow", "ink", "shadow_filter_hard", "dof", "fxaa"]
 	var only := all
