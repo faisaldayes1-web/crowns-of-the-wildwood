@@ -5575,6 +5575,13 @@ uniform bool fray = false;
 uniform float half_w = 2.0;   // per material: the Compatibility renderer (web) has no instance uniforms
 uniform float end_x = 0.0;     // >0: the road ends here (local x): its last stones fray out one at a time past it
 uniform bool radial = false;  // a round plaza: the distance is the radius, not the way across a strip
+// Per-map look (claude-faisal/crowns-visual2 2026-11-04, Faisal: each map's
+// roads fit its ground): stone and joint tints, frost in the joints
+// (Stonekeep) and a faint glow in them (Twilight's moss).
+uniform vec3 stone_tint : source_color = vec3(1.0);
+uniform vec3 joint_tint : source_color = vec3(1.0);
+uniform float frost = 0.0;
+uniform vec3 joint_glow : source_color = vec3(0.0);
 varying vec3 wpos;
 varying float lz;
 varying vec2 lxz;
@@ -5620,7 +5627,13 @@ void fragment() {
 			discard;
 		}
 	}
-	ALBEDO = texture(albedo_tex, uv).rgb;
+	vec3 col = texture(albedo_tex, uv).rgb;
+	float lum = dot(col, vec3(0.3, 0.55, 0.15));
+	float stone = smoothstep(0.22, 0.42, lum);
+	col *= mix(joint_tint, stone_tint, stone);
+	col = mix(col, vec3(0.9, 0.94, 1.0), frost * (1.0 - stone) * 0.85 + frost * 0.12);
+	ALBEDO = col;
+	EMISSION = joint_glow * (1.0 - stone);
 	vec3 n = texture(normal_tex, uv).rgb * 2.0 - 1.0;
 	NORMAL = normalize((VIEW_MATRIX * vec4(n.x, n.z, -n.y, 0.0)).xyz);
 	ROUGHNESS = 0.85;
@@ -5755,12 +5768,32 @@ func _stones(loose: bool = false, fray: bool = false) -> ShaderMaterial:
 	mat.set_shader_parameter("stones_tex", load("%s%s_stones.png" % [dir, name]))
 	mat.set_shader_parameter("scale", 0.26 if loose else 0.2)
 	mat.set_shader_parameter("fray", fray)
+	# Each map's roads in its ground's palette (Wildwood keeps the warm tan).
+	var look: Array = _road_look()
+	mat.set_shader_parameter("stone_tint", look[0])
+	mat.set_shader_parameter("joint_tint", look[1])
+	mat.set_shader_parameter("frost", look[2])
+	mat.set_shader_parameter("joint_glow", look[3])
 	if not fray:
 		mat.set_meta("fray", _stones(loose, true))
 	return mat
 
 
 var verge_mat: StandardMaterial3D
+
+
+func _road_look() -> Array:
+	## [stone tint, joint tint, frost, joint glow] for this map's cobbles.
+	if season == "winter":
+		# Stonekeep: cold grey-blue granite, snow packed in the joints.
+		return [Color(0.68, 0.74, 0.88), Color(0.7, 0.76, 0.88), 0.6, Color(0, 0, 0)]
+	if season == "twilight":
+		# Twilight Grove: dusky lavender flags, violet moss glowing faintly between.
+		return [Color(0.56, 0.62, 0.86), Color(0.36, 0.38, 0.62), 0.0, Color(0.08, 0.12, 0.22)]
+	if night():
+		# Moonlit Wildwood: moon-silvered stone, dark mossy joints.
+		return [Color(0.84, 0.88, 1.02), Color(0.6, 0.72, 0.7), 0.0, Color(0, 0, 0)]
+	return [Color(1, 1, 1), Color(1, 1, 1), 0.0, Color(0, 0, 0)]
 
 
 func _soft_verge(half_ext: Vector2, src: StandardMaterial3D = null, alpha_max: float = 0.55) -> ShaderMaterial:
