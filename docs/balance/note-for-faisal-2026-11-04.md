@@ -21,7 +21,7 @@
 
 **Tuning proposals (not applied)**
 - **Kill target 30:** keep it. Matches end in 6 to 8 minutes, close, and the clock decided only 1 in 6. If a shorter mode is wanted, 25 gives about 6 minutes; 40 would mostly run into the 10-minute clock.
-- **Respawn waves (6 s, never under 4 s):** keep. Waiting 4 to 10 s feels fine on paper, but bots cannot say how it feels to a person: please play one match and check that a death is not a long stare at the death screen.
-- **Humans lost 2 of 6 by the same 20-30:** too few matches to read; rerun 12 seeds across two maps before touching anything.
+- **Respawn waves (6 s, never under 4 s):** keep for now (a death costs 4 to 10 s). Bots cannot say how it feels: please play one match and check that a death is not a long stare at the death screen.
+- **Elves 4, Humans 2:** too few matches to read; rerun 12 seeds across two maps before touching anything.
 
 Not covered: human play, split screen in TDM, online, and maps other than the default.
