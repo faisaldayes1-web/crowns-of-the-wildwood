@@ -3763,7 +3763,7 @@ func on_player_killed(killer, weapon: String, finished: bool = false) -> void:
 
 func unlocked() -> bool:
 	## The level-10 unlocks (Rogue, Shadowborn look, Moonlit map).
-	return account_level() >= Stats.UNLOCK_LEVEL or "--debug-unlock" in OS.get_cmdline_user_args()
+	return account_level() >= Stats.UNLOCK_LEVEL or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args())
 
 
 func night() -> bool:
@@ -3822,7 +3822,7 @@ func legend_level() -> int:
 
 func legend_unlocked() -> bool:
 	## PROGRESS offers WATCH THE LEGEND from this level on.
-	return account_level() >= Legend.LEGEND_LEVEL or "--debug-unlock" in OS.get_cmdline_user_args()
+	return account_level() >= Legend.LEGEND_LEVEL or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args())
 
 
 func continue_after_summary() -> void:
@@ -4334,7 +4334,7 @@ func menu_tick() -> void:
 							else:
 								toast("That frame unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"banner_title":
-							if Stats.BANNER_TITLES[b[2]][0] <= account_level() or "--debug-unlock" in OS.get_cmdline_user_args():
+							if Stats.BANNER_TITLES[b[2]][0] <= account_level() or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args()):
 								banner_title = b[2]
 							else:
 								toast("That title unlocks at account level %d" % Stats.BANNER_TITLES[b[2]][0], Color(1.0, 0.8, 0.5))

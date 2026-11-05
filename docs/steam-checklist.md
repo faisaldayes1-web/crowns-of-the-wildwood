@@ -19,7 +19,7 @@ Status words: **DONE** (checked, how), **CODE** (in the code, not exercised in a
 ## Settings (title: SETTINGS; match: Esc > SETTINGS)
 - **DONE** Audio: sound and music sliders (also the AUDIO tab).
 - **DONE** Display: Window / Borderless / Fullscreen, **window size** (new: 1280x720, 1600x900, 1920x1080, 2560x1440, only sizes that fit the screen, windowed mode only), VSync, frame cap, 3D resolution scale, damage numbers, screen shake, FPS counter, chat, rosters.
-- **DONE** Quality presets Low / Medium / High / Ultra, with **auto-detect**: first run picks High on a discrete GPU, Low otherwise, then steps down one preset if the game stays under 40 fps for 4 s, until the player picks a preset. New **AUTO** button returns to that mode.
+- **DONE** Quality presets Low / Medium / High / Ultra, with **auto-detect**: first run picks High on a discrete GPU, Low otherwise, then steps down one preset if the game stays under 40 fps for 4 s, until the player picks a preset. New **AUTO** button returns to that mode (detection and step-down are skipped when the game is started with any launch option, which includes Steam launch options).
 - **DONE** Controls: rebindable keys, controller button names (auto / Xbox / PlayStation), control layout, rumble, split-screen layout.
 - **DONE** Everything saves and survives a restart: `tools/settings_restart_test.gd` (now includes window size, in CI).
 - **Limit** Window size and AUTO are on the title's Settings only. The paused page has no room for a third Display row under the LEAVE/RESUME bar (it overlapped the Gamepad row when I tried); change them from the title.
@@ -37,7 +37,7 @@ Status words: **DONE** (checked, how), **CODE** (in the code, not exercised in a
 
 ## No debug text in release
 - **DONE** The FPS counter no longer switches itself on at first run in a release export (it still does in a debug build, for testers). Players can turn it on in Settings.
-- **DONE** `--debug-gold`, `--debug-chests`, `--debug-own`, `--debug-xp` and `--debug-unlock` write or unlock account progress; they are now ignored unless the build is a debug build. Steam launch options can no longer cheat the account.
+- **DONE** `--debug-gold`, `--debug-chests`, `--debug-own`, `--debug-xp` and `--debug-unlock` write or unlock account progress; they are now ignored unless the build is a debug build. Steam launch options can no longer cheat the account (`--debug-unlock` is gated in all four places it is read, `--debug-end-xp` too).
 - **OPEN** The rendering-only `--debug-*` and test flags (camera, banners, forced end screens, about 60 of them) still work in release; they change what is drawn, not the save. Gate them if Faisal wants a strict build.
 - **CHECK** Export with `--export-release` (what `build_steam.sh` does). A debug export reopens the gates above. `print()` output goes to the log, not the screen.
 
