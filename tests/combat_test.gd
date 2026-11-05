@@ -297,7 +297,7 @@ func _all_skills() -> void:
 					u.use_ability(i, Vector3(1, 0, 0))
 					cast += 1
 					await _frames(25)
-					if u.model.scale.distance_to(Vector3.ONE) > 0.01 or u.model.position.length() > 0.01 or u.model.rotation.length() > 0.01:
+					if u.model.scale.distance_to(Vector3.ONE) > 0.01 or (u.model.position - u.visual_offset).length() > 0.01 or u.model.rotation.length() > 0.01:
 						bent.append(u.ability(i).name)
 					u.guard_timer = 0.0
 					u.bubble_timer = 0.0

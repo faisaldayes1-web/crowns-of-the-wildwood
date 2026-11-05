@@ -528,7 +528,7 @@ func _ready() -> void:
 				var kv := pair.split(":")
 				owned_items.append(Store.key(kv[0], int(kv[1])))
 				Store.equip(self, kv[0], int(kv[1]))
-	if "--play" in OS.get_cmdline_user_args():
+	if "--play" in OS.get_cmdline_user_args() or "--smoke-match" in OS.get_cmdline_user_args() or "--jitter-probe" in OS.get_cmdline_user_args():
 		# This route skips menu_stage.build and its construction-gate cleanup.
 		# The world is complete; let the match process and its loading tween run.
 		_restore_loading_3d()
@@ -536,6 +536,14 @@ func _ready() -> void:
 		process_mode = Node.PROCESS_MODE_INHERIT
 		menus_warming = false
 		_start_match(0)  # testing: straight into a match with a (idle) local player
+		if "--smoke-match" in OS.get_cmdline_user_args():   # the build gate's end-to-end check (tests/smoke_match.gd)
+			var smoke: Node = load("res://tests/smoke_match.gd").new()
+			smoke.game = self
+			add_child(smoke)
+		if "--jitter-probe" in OS.get_cmdline_user_args():   # frame-to-frame smoothness of the hero on screen (tests/jitter_probe.gd)
+			var probe: Node = load("res://tests/jitter_probe.gd").new()
+			probe.game = self
+			add_child(probe)
 		if "--fxshow" in OS.get_cmdline_user_args():  # combat effects showcase (tests/fx_showcase.gd)
 			var show: Node = load("res://tests/fx_showcase.gd").new()
 			show.game = self
@@ -639,7 +647,7 @@ func _world_can_wait() -> bool:
 	if get_tree().get_script() != null and not "--world-behind" in OS.get_cmdline_user_args():
 		return false
 	for arg in OS.get_cmdline_user_args():
-		if arg in ["--demo", "--play", "--audit", "--selftest"] or arg.begins_with("--shot") or arg.begins_with("--debug-"):
+		if arg in ["--demo", "--play", "--smoke-match", "--jitter-probe", "--audit", "--selftest"] or arg.begins_with("--shot") or arg.begins_with("--debug-"):
 			return false
 	return true
 
@@ -3209,11 +3217,11 @@ func _update_camera(delta: float) -> void:
 		# One camera a pane, each on its own player.
 		for pane in panes:
 			var u = pane.unit
-			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.global_position) + CAMERA_OFFSET * cam_zoom * pane.zoom
+			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.visual_position()) + CAMERA_OFFSET * cam_zoom * pane.zoom
 			pane.cam_pos = pane.cam_pos.lerp(t, clampf(delta * 5.0, 0.0, 1.0))
 			pane.cam.global_position = pane.cam_pos + jolt
 		return
-	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.global_position) + CAMERA_OFFSET * cam_zoom
+	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.visual_position()) + CAMERA_OFFSET * cam_zoom
 	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
 	if cam_top > 0.0:
 		var over: Vector3 = cam_lock if cam_lock != Vector3.INF else player.global_position
