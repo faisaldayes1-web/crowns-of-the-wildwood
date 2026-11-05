@@ -11,7 +11,9 @@ Capture: after-lmb-ranger.png (windowed, Ranger, shot fired with LMB at the curs
 Before (first to 2, 600 s): 375 s (2-0), and two 0-0 draws into overtime at 615/642 s.
 After first-to-4 / 900 s: 953 s (2-2 + overtime), 687 s (0-4), 605 s (0-4).
 Shipped first-to-5 / 900 s: both runs reached the 15 min clock (3-1 and 0-2, leader wins). Humans play slower than bots, so a casual raid lands 12-15 min.
-TDM: 60 kills / 900 s (bots made 21-22 kills each side... 43 in 600 s).
+TDM: first to 60 kills / 900 s (a bot match made 43 kills in 600 s, 21-22 a side, so 60 is about 14 min).
+
+Pre-existing, not from this change: tools/controls_live_test.gd fails 3 checks on plain main too (scenery 5 m east / ground ray), and is not in CI.
 
 ## Jitter (60 Hz physics on a >60 Hz screen)
 Godot 4.3 has no 3D physics interpolation. Units now draw at visual_position() (last two physics positions blended by the physics fraction) and the camera follows it. Probe: `--jitter-probe --probe-frames=200` at ~100 fps. Before: 88-91 of 199 frames did not advance the hero and 108-111 double-stepped. After: 0-1 stalled, 0-6 double.
