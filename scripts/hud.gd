@@ -506,6 +506,7 @@ func _plate(rect: Rect2, fill: Color = INK, edge: Color = GOLD_DARK, radius: int
 
 func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHITE,
 		align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0, outline := 4) -> void:
+	font_size = _min_font(font_size)
 	# Text always fits its spot (Faisal 2026-10-15 02:30: "make sure the
 	# text fits on the spot"): given a width, a line too long for it shrinks
 	# (down to 60% of its size) instead of running past its box.
@@ -524,7 +525,21 @@ func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHIT
 	draw_string(font, pos, text, align, width, font_size, color)
 
 
+const MIN_FONT := 12   # (final grade 2026-11-04: 9-11 px HUD text was hard to read at 720p)
+
+
+func _min_font(fs: int) -> int:
+	## The smallest HUD text (tiny pips and badges under 7 keep their size).
+	## Pixels, like every size here: the same at 720p and up (the canvas is
+	## not scaled above 1280 wide).
+	return fs if fs < 7 else maxi(fs, MIN_FONT)
+
+
 func _paragraph(pos: Vector2, text: String, font_size: int, color: Color, width: float, line_h: float, outline: int = 2) -> float:
+	var raised := _min_font(font_size)
+	if raised > font_size:
+		line_h *= float(raised) / font_size
+		font_size = raised
 	## Word-wrapped text. Returns the height used.
 	var lines := _wrap(text, font_size, width)
 	for i in lines.size():
