@@ -322,6 +322,22 @@ func _cull_clipping() -> void:
 		_place[key] = keep
 
 
+func road_audit() -> Array:
+	## [key, world AABB] of every kit tree, bush, boulder and fence (game.gd's
+	## --audit checks them against the roads).
+	var out := []
+	for key in _place.keys():
+		if key == "patch" or key.begins_with("tuft") or key.begins_with("flower"):
+			continue   # flat or tiny
+		var mesh := _mesh_for(key)
+		if mesh == null:
+			continue
+		var local := mesh.get_aabb()
+		for it in _place[key]:
+			out.append([key, _footprint(local, it[0])])
+	return out
+
+
 func _add(key: String, xf: Transform3D, tint: Color = Color.WHITE) -> void:
 	if game.lmap and xf.origin.y > -0.5:
 		# Stonekeep's ridges / the Grove's banks: trees, bushes and rocks sit

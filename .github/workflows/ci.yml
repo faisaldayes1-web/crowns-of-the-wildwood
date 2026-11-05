@@ -76,6 +76,8 @@ jobs:
           # claude-faisal/crowns-visual 2026-11-04: props, KayKit clutter and
           # every forest-kit tree, bush and boulder against walls, buildings,
           # fences, the gate and the vault. Any overlap over 15 cm fails.
+          # claude-faisal/crowns-visual2 2026-11-04: and nothing (prop, fence,
+          # rubble, rock, kit tree or boulder) on a road's paved core ("CLIP .../road").
           for map in 0 1 2 3 4; do
             timeout 300 bash tools/tests/isolated.sh --headless --path . -- --audit --seed=7 --map=$map 2>&1 | tee "ci-logs/audit-map$map.log"
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^CLIP ' "ci-logs/audit-map$map.log"
