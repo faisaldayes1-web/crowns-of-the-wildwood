@@ -84,6 +84,9 @@ var blocking := false       # shield up (hold right click): blocks hits from the
 var root_timer := 0.0       # snared: can't move
 var haste_timer := 0.0      # blessed: faster
 var knockback := Vector3.ZERO
+var last_knocker = null       # who last shoved us (Ember Pass: credit for a fall into the lava)
+var last_knock_at := -100.0
+var lava_deaths := 0           # falls into the lava this match (tools/lava_knockoff_test.gd)
 var carrying = null
 var spawn_point := Vector3.ZERO
 var facing := Vector3(1, 0, 0)
@@ -1054,9 +1057,10 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		return false
 	if downed:
 		return _hit_while_downed(attacker)
-	if dodge_timer > 0.0 or guard_timer > 0.0 or revive_protect > 0.0:
+	var lava: bool = effect.get("lava", false)   # fell in (_lava_fall): nothing saves you
+	if not lava and (dodge_timer > 0.0 or guard_timer > 0.0 or revive_protect > 0.0):
 		return false  # mid-dodge, behind the shield wall or standing up from a revive: untouchable
-	if is_protected():
+	if is_protected() and not lava:
 		if attacker and attacker.is_player:
 			game.spawn_popup(global_position + Vector3(0, 2.0, 0), "PROTECTED", Color(0.7, 0.9, 1.0))
 		return false
@@ -1081,7 +1085,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			blocking = false
 			model.release()
 		return false
-	if stats().get("armour", 0.0) > 0.0:
+	if stats().get("armour", 0.0) > 0.0 and not lava:
 		# Knights wear plate: every third hit (by default) glances off.
 		resist_pool += stats().armour * amount
 		if resist_pool >= 1.0:
@@ -1091,7 +1095,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 			game.spawn_splash(global_position + Vector3(0, 1.0, 0), Color(0.85, 0.85, 0.9), 8, 3.0, 0.3)
 			game.sfx.play("hit_shield", global_position, -4.0, 0.1)
 			return false
-	if home_defense:
+	if home_defense and not lava:
 		# Defending home: every tenth hit (by default) is shrugged off.
 		resist_pool += Stats.DEFENDER.resist * amount
 		if resist_pool >= 1.0:
@@ -1114,7 +1118,10 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 	Fx.of(game).hit(global_position + Vector3(0, 1.0, 0) - push * 0.25, push, _hit_kind(attacker, effect), amount,
 		attacker.team if attacker and attacker != self else -1)
 	last_hit_dir = push
-	knockback = push * knock
+	knockback = push * knock * (Stats.LAVA_KNOCK_MULT if game.vmap else 1.0)
+	if knock > 0.0 and attacker and attacker != self:
+		last_knocker = attacker
+		last_knock_at = Time.get_ticks_msec() / 1000.0
 	if effect.has("slow"):
 		if slow_timer <= 0.0:   # say it once, not on every cut that refreshes it
 			game.spawn_popup(global_position + Vector3(0, 1.6, 0), "SLOWED", Color(0.6, 0.85, 1.0))
@@ -1205,7 +1212,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 				game.bounty_claimed(attacker, self)
 			attacker._check_veteran()
 		game.chat_kill(attacker, self)
-		if downed_enabled():
+		if downed_enabled() and not lava:
 			_go_down(attacker)   # the kill is credited; a revive can still undo the fall
 		else:
 			_die()
@@ -3227,9 +3234,52 @@ func _clamp_to_map() -> void:
 	position.x = clampf(position.x, -hx, hx)
 	position.z = clampf(position.z, -game.map_half.y, game.map_half.y)
 	if game.vmap:
+		if not dead and not downed and knockback.length() >= Stats.LAVA_SHOVE and game.vmap.open_edge(position):
+			_lava_fall()   # shoved over an unrailed rim
+			return
 		position = game.vmap.clamp_walk(position)  # Ember Pass: nobody steps into the lava
 	elif game.lmap:
 		position = game.lmap.clamp_walk(position)  # Stonekeep / Twilight: nobody walks up the ridges or into the trees
+
+
+
+func _lava_fall() -> void:
+	## Ember Pass: knocked off an open plateau rim (volcano.gd open_edge) into
+	## the lava. No going down and no saving roll: the body drops in and burns,
+	## whoever shoved us in the last few seconds gets the kill, and the usual
+	## death and respawn follow (Faisal 2026-11-04).
+	var now_s := Time.get_ticks_msec() / 1000.0
+	var by = last_knocker if is_instance_valid(last_knocker) and now_s - last_knock_at < Stats.LAVA_CREDIT_WINDOW else null
+	var push := knockback
+	push.y = 0.0
+	knockback = Vector3.ZERO
+	lava_deaths += 1
+	if game.demo:
+		LogQ.line("LAVA t=%d team%d %s at %s by %s" % [game.match_clock(), team, role_name(), global_position.snapped(Vector3.ONE * 0.1), by.display_name if by else "-"])
+	last_hit_dir = Vector3.ZERO   # no fling back onto the rim: the body goes over
+	take_damage(maxi(hearts, 1), by, Vector3.INF, 0.0, {"lava": true})
+	var lava_at := global_position + (push.normalized() * 0.9 if push.length() > 0.05 else Vector3.ZERO)
+	lava_at.y = game.vmap.LAVA_Y
+	var fx = Fx.of(game)
+	fx.burst(lava_at + Vector3(0, 0.3, 0), Color(1.0, 0.45, 0.1), 22, 5.0, 0.7)
+	fx.burst(lava_at + Vector3(0, 0.6, 0), Color(1.0, 0.75, 0.3), 14, 2.5, 1.2, Fx.STYLE_MOTE)
+	fx.burst(lava_at + Vector3(0, 0.8, 0), Color(0.22, 0.2, 0.2), 16, 2.0, 2.2, Fx.STYLE_SMOKE, Vector3.UP, 40.0, 1.8)
+	fx.ground_glow(lava_at + Vector3(0, 0.05, 0), 1.6, Color(1.0, 0.4, 0.08), 1.2)
+	game.sfx.play("hurt", global_position, 0.0, 0.05)        # the scream
+	game.sfx.play("fireball", lava_at, -2.0, 0.15)           # the sizzle as it hits
+	if model:
+		# The body tips over the edge and sinks out of sight in the lava.
+		var local: Vector3 = global_transform.basis.inverse() * (lava_at - global_position)
+		var tw: Tween = model.create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(model, "position:x", local.x, 0.45).set_ease(Tween.EASE_OUT)
+		tw.tween_property(model, "position:z", local.z, 0.45).set_ease(Tween.EASE_OUT)
+		tw.tween_property(model, "position:y", 0.35, 0.12).set_ease(Tween.EASE_OUT)
+		tw.chain().tween_property(model, "position:y", game.vmap.LAVA_Y - 1.4, 0.7).set_ease(Tween.EASE_IN)
+		tw.chain().tween_callback(func():
+			if is_instance_valid(game):
+				Fx.of(game).burst(lava_at + Vector3(0, 0.4, 0), Color(0.3, 0.27, 0.26), 10, 1.4, 2.0, Fx.STYLE_SMOKE, Vector3.UP, 30.0, 1.4))
+	death_timer = maxf(death_timer, 1.3)
 
 
 # --- Combat ----------------------------------------------------------------
