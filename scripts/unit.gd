@@ -118,6 +118,21 @@ var peak_level := 1          # highest in-match level reached in any life
 var xp_sources := {}         # this match's XP by source: combat, takedowns, crown, siege, support
 var giant_kills := 0         # kills on enemies two or more levels above you
 var kill_banner := {}        # the HUD's KILL card for a local player: {victim, role, team, streak, time}
+var slide_vel := Vector3.ZERO   # walking velocity (eases in and out on ice, ice_step)
+const ICE_ACCEL := 7.0          # m/s^2 on ice (off ice the walk speed is reached at once)
+const ICE_KNOCK_DECAY := 9.0    # knockback fades this fast on ice (40 elsewhere)
+
+
+static func ice_step(vel: Vector3, wanted: Vector3, on_ice: bool, delta: float) -> Vector3:
+	## The walking velocity after one step: off ice it is what the feet ask
+	## for; on ice it moves towards it at ICE_ACCEL, so starts, stops and
+	## turns all slide.
+	wanted.y = 0.0
+	if not on_ice:
+		return wanted
+	return vel.move_toward(wanted, ICE_ACCEL * delta)
+
+
 var class_banner := 0.0        # seconds the "YOU ARE NOW <class>" banner has left (players only)
 const CLASS_BANNER_TIME := 3.0
 var spawn_protect := 0.0     # seconds of spawn protection left
@@ -2795,8 +2810,12 @@ func _physics_process(delta: float) -> void:
 		facing = move.normalized()
 	rotation.y = atan2(-facing.x, -facing.z)
 
-	velocity.x = move.x * speed + knockback.x
-	velocity.z = move.z * speed + knockback.z
+	# On ice (Stonekeep's frozen tarns) feet barely grip: speed builds and
+	# fades slowly, so a runner overshoots and drifts (Faisal 2026-11-04).
+	var on_ice: bool = game.lmap != null and game.lmap.has_method("on_ice") and game.lmap.on_ice(global_position)
+	slide_vel = ice_step(slide_vel, move * speed, on_ice, delta)
+	velocity.x = slide_vel.x + knockback.x
+	velocity.z = slide_vel.z + knockback.z
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
 	var meant := Vector3(velocity.x, 0, velocity.z) * delta
 	var from := global_position
@@ -2811,7 +2830,7 @@ func _physics_process(delta: float) -> void:
 		if skid_timer <= 0.0:
 			skid_timer = 0.08
 			Fx.of(game).skid(global_position, knockback)
-	knockback = knockback.move_toward(Vector3.ZERO, 40.0 * delta)
+	knockback = knockback.move_toward(Vector3.ZERO, (ICE_KNOCK_DECAY if on_ice else 40.0) * delta)
 	# Footsteps: soft on grass, a tap on stone (walls, bridges, castle floors).
 	if move.length() > 0.05 and is_on_floor():
 		step_timer -= delta * speed / 6.0

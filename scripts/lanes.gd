@@ -981,12 +981,26 @@ func _tower(at: Vector3, radius: float, h: float) -> void:
 	game.audit_blocks.append(["wall", AABB(at - Vector3(radius, 0, radius), Vector3(radius * 2.0, h, radius * 2.0))])
 
 
+var ice_sheets: Array = []   # [centre, rx, rz] of every ice sheet (on_ice: units slide there)
+
+
+func on_ice(p: Vector3) -> bool:
+	## True on a frozen tarn or the frozen river (the walkable sheet inside the rim).
+	for s in ice_sheets:
+		var c: Vector3 = s[0]
+		var dx: float = (p.x - c.x) / s[1]
+		var dz: float = (p.z - c.z) / s[2]
+		if dx * dx + dz * dz < 1.0 and p.y < 0.6:
+			return true
+	return false
+
+
 func _ice(c: Vector3, rx: float, rz: float) -> void:
-	## A sheet of blue-white ice flush with the ground, with a pale rim.
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.7, 0.86, 0.97)
-	mat.roughness = 0.12
-	mat.metallic_specular = 0.9
+	## A sheet of glossy cracked ice flush with the ground (ice.gdshader), with
+	## a pale frosted rim. Units slide on it (on_ice, unit.gd).
+	ice_sheets.append([c, rx, rz])
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assets/shaders/ice.gdshader")
 	var rim := StandardMaterial3D.new()
 	rim.albedo_color = Color(0.9, 0.95, 1.0)
 	rim.roughness = 0.6
@@ -1004,18 +1018,7 @@ func _ice(c: Vector3, rx: float, rz: float) -> void:
 		mi.scale = Vector3(rx + grow, 1.0, rz + grow)
 		mi.position = c + Vector3(0, 0.018 + 0.004 * k, 0)
 		game.add_child(mi)
-	# Cracks across the ice.
-	var crack := StandardMaterial3D.new()
-	crack.albedo_color = Color(0.5, 0.66, 0.8)
-	for k in 4:
-		var mi := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(rx * 0.9, 0.004, 0.06)
-		mi.mesh = bm
-		mi.material_override = crack
-		mi.position = c + Vector3(sin(k * 1.9) * rx * 0.25, 0.026, cos(k * 2.3) * rz * 0.3)
-		mi.rotation.y = k * 0.8 + 0.3
-		game.add_child(mi)
+	# (The cracks are drawn by the shader now: the four flat strips read as tape.)
 
 
 # --- Twilight Grove ----------------------------------------------------------
