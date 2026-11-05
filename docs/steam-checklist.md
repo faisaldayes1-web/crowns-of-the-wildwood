@@ -52,3 +52,15 @@ Status words: **DONE** (checked, how), **CODE** (in the code, not exercised in a
 - **OPEN** Code signing is off (`codesign/enable=false`); Windows SmartScreen will warn on a fresh, unsigned exe.
 - **OPEN** Real Steam client run of the exact candidate, Steam Deck / controller configuration, achievements icons: the gates in `docs/steam-readiness.md`.
 - **OPEN** Split-screen at 720p HUD legibility: separate PR from this task.
+
+## Fresh-start bug test (2026-11-04, claude-faisal3, task `cf-crowns-ship-1104t`, main cec9938)
+Every run on a new throwaway profile (`tools/tests/isolated.sh`), headless Godot 4.3, 5 maps: Wildwood, Moonlit Wildwood, Ember Pass, Stonekeep Fortress, Twilight Grove.
+- **DONE** 40 runs, all exit 0, no `SCRIPT ERROR`: per map one full all-bot match (`--demo`), one solo `--play` run, and split-screen 2, 3 and 4 players in VERSUS and CO-OP. All-bot results: Wildwood Elves 2-0, Moonlit Humans 2-0, Ember Pass Humans 2-1, Stonekeep Elves 1-0 in overtime, Twilight Grove 0-0 draw after overtime.
+- **Limit** These are scripted runs with no one watching. They prove no crash, no script error and a match that ends; they do not replace a person playing each map with a pad in hand.
+- **DONE** Fixed: a split-screen player's pad unplugging mid-match only toasted, so that player stood still. The match now pauses; replug keeps the same player on the same device (`tools/pad_unplug_test.gd`, in CI; PR #210). Player 2's pad dropping also no longer flips player 1's button hints to keys.
+- **OPEN** Wildwood and Moonlit Wildwood place 8 of 9 wood node pairs (`WARNING: Economy: no room for a wood node pair near (-34, 0, -9)`). Widening the search in `scripts/economy.gd` only moves the failure to other spots, so it needs a new spot in `TREE_SPOTS`, a design call. Both teams lose the same pair, so it is fair.
+- **OPEN** Twilight Grove: of 3 all-bot seeds that finished, 2 were decided in regulation and 1 was a 0-0 draw after overtime (7 raid deaths each). Too few runs to call it a balance bug; run a six-seed batch before tuning.
+- **Note** `tools/map_switch_test.gd` needs `-- --debug-unlock` (Moonlit and later maps are locked on a fresh profile; that is the store working, not a bug).
+- **Note** `tools/controls_live_test.gd` warps the real mouse cursor, so it fails when run unattended (2 checks, differing headless and windowed) and passed at 0 failures when written. It is not in CI. Run it with the window focused and the mouse untouched.
+- **DONE** Settings, save, relaunch: `settings_restart_test`, `save_write_test`, `save_recovery_test` (87 checks), `save_test`, `options_menu_test`, `menu_flow_test`, `store_menu_test`, `reload_menu_test`, `pad_nav_test`, `steam_ready_test` all 0 failures.
+- **CODE** Pad hot-plug is simulated (`Input.joy_connection_changed`), not done with real controllers.
