@@ -30,6 +30,7 @@ extends RefCounted
 ## "--no-forest-kit" turns the kit off (the old trees come back) for A/B.
 
 const StyleProfile = preload("res://scripts/visual/style_profile.gd")
+const BlobShadow = preload("res://scripts/visual/blob_shadow.gd")
 const CHUNK := 32.0
 const GRID := 4.0   # spatial hash cell for trunk spacing checks
 const NEEDLE := 5.0  # UV.x of pine tiers: sway like leaves, flat needle shading (forest_kit.gdshader)
@@ -828,6 +829,19 @@ func _build() -> void:
 				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			game.add_child(mmi)
 			await game._world_build_frame()
+	# Soft contact shadows under every kit tree (scripts/visual/blob_shadow.gd).
+	var spots := []
+	for key in _place:
+		if not (key.begins_with("pine") or key.begins_with("autumn") or key.begins_with("broad") or key == "blossom"):
+			continue
+		var tmesh := _mesh_for(key)
+		if tmesh == null:
+			continue
+		for it in _place[key]:
+			var txf: Transform3D = it[0]
+			spots.append([txf.origin, BlobShadow.radius_for(tmesh, txf)])
+	BlobShadow.build(game, spots)
+	await game._world_build_frame()
 	if not _trails.is_empty():
 		var tm := MeshInstance3D.new()
 		tm.name = "ForestKit_trails"
