@@ -37,6 +37,8 @@ def main():
             if remaining < 2:
                 raise SystemExit("Engine slot ended; no new process launched")
             timeout = min(timeout, remaining)
+        tracked = subprocess.check_output(["git", "ls-files", "scripts", "tools/" + label + ".gd", "tools/run_options_qa.py", "project.godot"], cwd=ROOT, text=True).splitlines()
+        source_files = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in tracked}
         profile = Path(tempfile.mkdtemp(prefix="c3cs-", dir="C:/Temp"))
         (profile / ".crowns-throwaway-user-dir").touch()
         env = os.environ.copy()
@@ -81,12 +83,11 @@ def main():
                 png = capture_dir / (name + ".png")
                 if not png.exists() or struct.unpack(">II", png.read_bytes()[16:24]) != dimensions:
                     bad.append("Missing or wrongly sized capture: " + str(png))
-        tracked = subprocess.check_output(["git", "ls-files", "scripts", "tools/" + label + ".gd", "tools/run_options_qa.py", "project.godot"], cwd=ROOT, text=True).splitlines()
         result = {"label": label, "source": source, "exit": code, "seconds": round(time.time() - started, 2), "errors": bad, "log": log.name, "profile": str(profile),
-                  "files": {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in tracked}, "slot_end": args.until}
+                  "files": source_files, "slot_end": args.until}
         results.append(result)
         (OUT / (args.stage + "-results.json")).write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
-        print(json.dumps(result), flush=True)
+        print(json.dumps({k: v for k, v in result.items() if k != "files"}), flush=True)
         if code or bad:
             raise SystemExit(1)
 
