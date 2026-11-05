@@ -787,6 +787,7 @@ func _refresh_overhead() -> void:
 		label.text = vet + tag + role_name() + lvl
 	else:
 		label.text = vet + ally_tag()
+	_name_plate()
 	if is_player and game.couch_players > 1:
 		label.modulate = game.player_color(local_index).lightened(0.3)
 		label.no_depth_test = true   # visible through walls to the other panes
@@ -806,6 +807,8 @@ func _refresh_overhead() -> void:
 		bounty_beam.visible = veteran == 2 and not dead
 		bounty_beam.material_override.albedo_color = Color(1, 0.3, 0.2, 0.3) if is_enemy_of_player() else Color(1, 0.85, 0.3, 0.25)
 	label.visible = not dead and not downed   # the downed body carries the swirl and the revive bar instead
+	if name_plate:
+		name_plate.visible = label.visible
 	if side_ring:
 		side_ring.visible = not dead
 		side_glow.visible = not dead
@@ -816,6 +819,27 @@ func ally_tag() -> String:
 	## "ELF KNIGHT", "HUMAN WARDEN"; a unit with no class yet is "ELF SOLDIER".
 	var faction: String = Stats.FACTIONS[team].roles[Role.BASE].to_upper()
 	return faction + " " + ("SOLDIER" if role == Role.BASE else role_name().to_upper())
+
+
+var name_plate: MeshInstance3D
+
+
+func _name_plate() -> void:
+	## A dark rounded backing under the player's own name (final grade
+	## 2026-11-04: "YOU · Elf" was lost over the stag emblems of the yard rug).
+	if not is_player or label == null:
+		return
+	if name_plate == null:
+		label.font_size = 40   # (a touch larger than the bots' tags: "Elf" read "Ef" at 720p)
+		name_plate = MeshInstance3D.new()
+		name_plate.mesh = QuadMesh.new()
+		name_plate.material_override = _overhead_mat(Color(0.05, 0.04, 0.03, 0.72), 3)
+		name_plate.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		overhead.add_child(name_plate)
+	var font: Font = label.font if label.font else ThemeDB.fallback_font
+	var w: float = font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.font_size).x * label.pixel_size
+	(name_plate.mesh as QuadMesh).size = Vector2(w + 0.16, label.font_size * label.pixel_size * 1.05)
+	name_plate.position = label.position + Vector3(0, 0, -0.004)
 
 
 func _overhead_mat(color: Color, priority: int) -> StandardMaterial3D:
