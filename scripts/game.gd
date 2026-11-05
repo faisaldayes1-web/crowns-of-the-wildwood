@@ -430,6 +430,10 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--map="):  # testing: play a given Stats.MAPS index (2 = Ember Pass)
 			map_variant = clampi(int(arg.trim_prefix("--map=")), 0, Stats.MAPS.size() - 1)
+		if arg.begins_with("--bot-difficulty="):  # testing: Easy / Normal / Hard, over the saved choice
+			var wanted: String = arg.trim_prefix("--bot-difficulty=").capitalize()
+			if wanted in Stats.BOT_DIFFICULTIES:
+				bot_difficulty = wanted
 	# Cartoon shading on everything that enters the scene, props and units alike.
 	get_tree().node_added.connect(func(n): _toonify.call_deferred(n))
 	if net_client and net.map_variant >= 0:
