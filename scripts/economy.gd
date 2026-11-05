@@ -1330,8 +1330,14 @@ func _wood_icon(hud, c: Vector2, r: float) -> void:
 
 
 func _ore_icon(hud, c: Vector2, r: float) -> void:
-	## Ore, shown as a gold coin: inked rim, raised edge, a stamped crown and
-	## a shine.
+	## Ore, shown as a gold coin: the painted coin icon where the HUD has it
+	## (icon set 2026-11-04), else an inked rim, raised edge, a stamped crown
+	## and a shine.
+	var icons = hud.get("icons")
+	if icons is Dictionary and icons.has("coin"):
+		var px := r * 2.5
+		hud.draw_texture_rect(icons["coin"], Rect2(c - Vector2(px, px) / 2.0, Vector2(px, px)), false)
+		return
 	var k := r / 10.0
 	hud.draw_circle(c, 10.2 * k, Color(0.3, 0.17, 0.03))
 	hud.draw_circle(c, 9.0 * k, Color(0.86, 0.56, 0.12))
