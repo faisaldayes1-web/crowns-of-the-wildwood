@@ -7,6 +7,7 @@ extends Control
 
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
+const Tips = preload("res://scripts/tips.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Scoreboard = preload("res://scripts/scoreboard.gd")
 const Store = preload("res://scripts/store.gd")
@@ -378,6 +379,7 @@ func _draw() -> void:
 	_draw_toasts()
 	if _me() and not game.guide_open:
 		_draw_world_prompt()
+		_draw_tip(_me())
 		_draw_class_pointer(_me())
 		if game.economy:
 			game.economy.draw_action_card(self, _me())   # repair / upgrade / turret button (economy.gd)
@@ -4445,6 +4447,19 @@ func _hide_world_prompts() -> void:
 				s.prompt.transparency = 1.0
 
 
+func _draw_tip(me) -> void:
+	## One first-match tip for this pane's player (scripts/tips.gd): a small
+	## pill under the top edge, the keys of the device they hold.
+	var text := Tips.current(game, me, get_process_delta_time())
+	if text == "":
+		return
+	var k := minf(1.0, size.x / 1280.0)
+	var w := minf(size.x - 16.0, 560.0 * k + 120.0)
+	var r := Rect2(Vector2((size.x - w) / 2.0, 12.0 if pane else 44.0), Vector2(w, 34.0 * maxf(k, 0.8)))
+	_plate(r, Color(0.07, 0.06, 0.05, 0.88), GOLD_DARK, 8, 1)
+	_text(Vector2(r.position.x, r.position.y + r.size.y * 0.66), text, 13 if k >= 0.8 else 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+
+
 func _draw_world_prompt() -> void:
 	## When this HUD's player stands where F (interact) does something, a
 	## small dark pill with the key and the action hangs over the thing.
@@ -6378,7 +6393,9 @@ func _menu_settings(body: Rect2) -> void:
 		var b := Rect2(x + 12 + i * 186, y + 2, 178, 34)
 		_opt_button(b, name.to_upper(), game.bot_difficulty == name, skulls[i % skulls.size()])
 		difficulty_buttons.append([b, name])
-	var desc := Rect2(x + 12 + 3 * 186, y + 2, w - 24 - 3 * 186, 34)
+	var tips_w := 150.0
+	_toggle(Rect2(x + w - 12 - tips_w, y + 2, tips_w, 34), "Tips", game.tips_on, "tips")
+	var desc := Rect2(x + 12 + 3 * 186, y + 2, w - 24 - 3 * 186 - tips_w - 8, 34)
 	_opt_slot(desc)
 	_text(desc.position + Vector2(14, 23), Stats.BOT_TUNING[game.bot_difficulty].desc, 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, desc.size.x - 20, 2)
 	y += 38 + gap

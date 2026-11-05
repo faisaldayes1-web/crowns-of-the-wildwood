@@ -202,6 +202,8 @@ var economy = null            # wood, ore and what they buy (economy.gd)
 # Quality of life settings (saved with the controls).
 var screen_shake := true
 var damage_numbers := true
+var tips_on := true             # first-match tips (scripts/tips.gd); Settings > Tips
+var tips_done := false          # every local player has been through them once
 var show_fps := false
 var quit_armed := 0.0          # pause menu: seconds the MAIN MENU button stays armed after a first click
 var gfx_quality := 2           # graphics preset: 0 Low, 1 Medium, 2 High, 3 Ultra
@@ -1946,6 +1948,12 @@ func toggle_setting(key: String) -> void:
 	match key:
 		"shake": screen_shake = not screen_shake
 		"numbers": damage_numbers = not damage_numbers
+		"tips":
+			tips_on = not tips_on
+			tips_done = false   # switching them on again replays the list
+			for l in locals:
+				if l != null and l.has_meta("tips"):
+					l.remove_meta("tips")
 		"fps": show_fps = not show_fps
 		"chat": chat_visible = not chat_visible
 		"rosters": rosters_visible = not rosters_visible
@@ -5434,6 +5442,8 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "couch_mode", couch_mode)
 	cfg.set_value("settings", "screen_shake", screen_shake)
 	cfg.set_value("settings", "damage_numbers", damage_numbers)
+	cfg.set_value("settings", "tips_on", tips_on)
+	cfg.set_value("settings", "tips_done", tips_done)
 	cfg.set_value("settings", "show_fps", show_fps)
 	cfg.set_value("settings", "vsync", vsync_on)
 	cfg.set_value("settings", "fps_cap", fps_cap)
@@ -5579,6 +5589,8 @@ func _load_controls() -> void:
 	couch_mode = "coop" if cfg.get_value("settings", "couch_mode", "versus") == "coop" else "versus"
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
+	tips_on = cfg.get_value("settings", "tips_on", true)
+	tips_done = cfg.get_value("settings", "tips_done", false)
 	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
 	vsync_on = cfg.get_value("settings", "vsync", true)
 	fps_cap = int(cfg.get_value("settings", "fps_cap", 0))
