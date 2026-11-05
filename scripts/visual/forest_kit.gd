@@ -819,7 +819,7 @@ func _ensure() -> void:
 		cs.code = mat.shader.code.replace("render_mode cull_back,", "render_mode cull_back, blend_mix, depth_draw_never,")
 		cover = ShaderMaterial.new()
 		cover.shader = cs
-		cover.render_priority = 101
+		cover.render_priority = 102   # after the ground blob shadows (101), or they show through the crowns from above
 		for p in ["noise_tex", "glow_energy", "self_lit"]:
 			cover.set_shader_parameter(p, mat.get_shader_parameter(p))
 		set_cover(true)   # (apply_graphics drops it on the presets that draw no ink)
