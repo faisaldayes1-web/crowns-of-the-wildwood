@@ -429,7 +429,7 @@ void fragment() {
 	float crack = 1.0 - smoothstep(0.02, 0.07, e);
 	col = mix(col, vec3(0.12, 0.05, 0.05), crack * 0.8);
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
-	col *= 1.0 - rim * 0.35;
+	col *= (1.0 - rim * 0.45) * 0.82;   // (grade: a step darker, so the rock separates from the lava floor)
 	ALBEDO = col;
 	float hot = 1.0 - smoothstep(0.05, 0.6, h);
 	EMISSION = vec3(1.0, 0.36, 0.08) * ((1.0 - smoothstep(0.0, 0.16, h)) * 0.6 + crack * hot * 1.6);
