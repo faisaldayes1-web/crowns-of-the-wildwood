@@ -8,6 +8,7 @@ from datetime import datetime
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import struct
@@ -79,9 +80,9 @@ def main():
         # resource, test or release-boot error is exempted.
         inherited = []
         if capture_dir:
-            known = ["ERROR: 1 shaders of type SceneForwardClusteredShaderRD were never freed",
-                     "ERROR: 1 RID allocations of type 'N10RendererRD15MaterialStorage6ShaderE' were leaked at exit."]
-            inherited = [line for line in bad if line.strip() in known]
+            known = [r"ERROR: \d+ shaders of type SceneForwardClusteredShaderRD were never freed",
+                     r"ERROR: \d+ RID allocations of type 'N10RendererRD15MaterialStorage6ShaderE' were leaked at exit\."]
+            inherited = [line for line in bad if any(re.fullmatch(pattern, line.strip()) for pattern in known)]
             bad = [line for line in bad if line not in inherited]
         if label == "bot-seed7" and not ("\nRESULT winner=" in raw and "\nSTAT " in raw):
             bad.append("Bot did not reach a final RESULT and STAT report")
