@@ -213,6 +213,9 @@ var _fps_last := 0             # the previous frame's time (msec): a long stall 
 var fullscreen := false
 var window_mode := "windowed"   # Settings > Display: "windowed", "borderless" (fullscreen window) or "exclusive"
 const WINDOW_MODES := ["windowed", "borderless", "exclusive"]
+const WINDOW_SIZES := [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440)]
+var window_size := Vector2i.ZERO   # Settings > Display: windowed size the player picked (zero = leave the window as it is)
+var _window_size_dirty := false
 var vsync_on := true          # Settings: wait for the display refresh (no tearing)
 var fps_cap := 0              # Settings: frame-rate limit, 0 = none
 const FPS_CAPS := [0, 30, 60, 120, 144, 240]
@@ -499,6 +502,8 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		# Testing the STORE: --debug-gold=N, --debug-chests=N, --debug-own=kind:i,kind:i
 		# (owned and worn). Run renders with their own XDG_DATA_HOME: these save.
+		if not OS.is_debug_build():
+			break   # a shipped build ignores the save-editing test flags below
 		if arg.begins_with("--debug-gold="):
 			account_gold = int(arg.trim_prefix("--debug-gold="))
 		if arg.begins_with("--debug-chests="):
@@ -981,7 +986,7 @@ func _debug_hooks() -> void:
 		if frame == shot_frame - 5:
 			if arg.begins_with("--debug-title-tab="):
 				title_tab = int(arg.trim_prefix("--debug-title-tab="))
-			if arg.begins_with("--debug-xp="):
+			if OS.is_debug_build() and arg.begins_with("--debug-xp="):
 				account_xp = int(arg.trim_prefix("--debug-xp="))
 		if frame == shot_frame - 50 and player and arg == "--debug-carry" and monarchs[1 - player_team].state != Monarch.State.CARRIED:
 			# Renders: the player holding the enemy crown, picked up 50 frames
@@ -1869,6 +1874,17 @@ func toggle_setting(key: String) -> void:
 			# Display: Windowed -> Borderless -> Fullscreen (exclusive) -> Windowed.
 			window_mode = WINDOW_MODES[(WINDOW_MODES.find(window_mode) + 1) % WINDOW_MODES.size()]
 			fullscreen = window_mode != "windowed"
+			apply_graphics()
+		"window_size":
+			var sizes := _window_sizes()
+			var at := sizes.find(window_size if window_size != Vector2i.ZERO else DisplayServer.window_get_size())
+			window_size = sizes[(at + 1) % sizes.size()]
+			_window_size_dirty = true
+			apply_graphics()
+		"gfx_auto":
+			# Back to the game's own pick for this graphics card (and the automatic step-down).
+			gfx_picked = false
+			_pick_graphics()
 			apply_graphics()
 		"vsync":
 			vsync_on = not vsync_on
@@ -3747,7 +3763,7 @@ func on_player_killed(killer, weapon: String, finished: bool = false) -> void:
 
 func unlocked() -> bool:
 	## The level-10 unlocks (Rogue, Shadowborn look, Moonlit map).
-	return account_level() >= Stats.UNLOCK_LEVEL or "--debug-unlock" in OS.get_cmdline_user_args()
+	return account_level() >= Stats.UNLOCK_LEVEL or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args())
 
 
 func night() -> bool:
@@ -3806,7 +3822,7 @@ func legend_level() -> int:
 
 func legend_unlocked() -> bool:
 	## PROGRESS offers WATCH THE LEGEND from this level on.
-	return account_level() >= Legend.LEGEND_LEVEL or "--debug-unlock" in OS.get_cmdline_user_args()
+	return account_level() >= Legend.LEGEND_LEVEL or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args())
 
 
 func continue_after_summary() -> void:
@@ -4318,7 +4334,7 @@ func menu_tick() -> void:
 							else:
 								toast("That frame unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"banner_title":
-							if Stats.BANNER_TITLES[b[2]][0] <= account_level() or "--debug-unlock" in OS.get_cmdline_user_args():
+							if Stats.BANNER_TITLES[b[2]][0] <= account_level() or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args()):
 								banner_title = b[2]
 							else:
 								toast("That title unlocks at account level %d" % Stats.BANNER_TITLES[b[2]][0], Color(1.0, 0.8, 0.5))
@@ -5260,6 +5276,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "howto_seen", howto_seen)
 	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "window_mode", window_mode)
+	cfg.set_value("settings", "window_size", window_size)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
 	cfg.set_value("settings", "control_layout", control_layout)
@@ -5414,6 +5431,9 @@ func _load_controls() -> void:
 	if window_mode not in WINDOW_MODES:
 		window_mode = "borderless" if fullscreen else "windowed"
 	fullscreen = window_mode != "windowed"
+	var ws = cfg.get_value("settings", "window_size", Vector2i.ZERO)
+	window_size = ws if ws is Vector2i and ws.x >= 960 and ws.y >= 540 else Vector2i.ZERO
+	_window_size_dirty = window_size != Vector2i.ZERO
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
 	control_layout = cfg.get_value("settings", "control_layout", "auto")
@@ -11823,6 +11843,18 @@ var fill_light: DirectionalLight3D
 var cam_attrs: CameraAttributesPractical
 
 
+func version_text() -> String:
+	## The version from Project Settings > Application > Config, shown on the title and in the credits.
+	return str(ProjectSettings.get_setting("application/config/version", "dev"))
+
+
+func _window_sizes() -> Array:
+	## The windowed sizes that fit this screen (always at least the smallest).
+	var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen()).size
+	var out: Array = WINDOW_SIZES.filter(func(s): return s.x <= usable.x and s.y <= usable.y)
+	return out if not out.is_empty() else [WINDOW_SIZES[0]]
+
+
 func _pick_graphics() -> void:
 	## Until the player picks a preset in Settings, the game picks one for
 	## the graphics card: Low on built-in (laptop) graphics, High on a
@@ -11838,8 +11870,8 @@ func _pick_graphics() -> void:
 		_:
 			gfx_quality = 0
 	if not fps_intro_done:
-		fps_intro_done = true   # once: the player can switch it off in Settings
-		show_fps = true
+		fps_intro_done = true
+		show_fps = OS.is_debug_build()   # a tester's number to report; a shipped game starts without it (Settings > FPS Counter)
 
 
 func _auto_quality() -> void:
@@ -11992,6 +12024,11 @@ func apply_graphics() -> void:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 		elif window_mode == "windowed" and is_full:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		if window_mode == "windowed" and _window_size_dirty and window_size != Vector2i.ZERO and DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
+			_window_size_dirty = false
+			var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
+			DisplayServer.window_set_size(Vector2i(mini(window_size.x, usable.size.x), mini(window_size.y, usable.size.y)))
+			DisplayServer.window_set_position(usable.position + (usable.size - DisplayServer.window_get_size()) / 2)
 		# VSync and the frame cap (Settings > DISPLAY), saved like the rest.
 		if not OS.has_feature("web"):
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_on else DisplayServer.VSYNC_DISABLED)

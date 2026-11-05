@@ -6259,7 +6259,9 @@ func _menu_settings(body: Rect2) -> void:
 	var x := body.position.x
 	var w := body.size.x
 	var y := body.position.y
-	var gap := clampf((body.size.y - 442.0) / 4.0, 0.0, 10.0)
+	# The title's Options has a third DISPLAY row (window size, auto-detect); the paused page has no room for it under the LEAVE / RESUME bar.
+	var extra_row: bool = not game.playing
+	var gap := clampf((body.size.y - (486.0 if extra_row else 442.0)) / 4.0, 0.0, 10.0)
 	# AUDIO.
 	y = _opt_section(Vector2(x, y), w, "AUDIO", "leaf", 40.0)
 	var half := (w - 34.0) / 2.0
@@ -6275,7 +6277,7 @@ func _menu_settings(body: Rect2) -> void:
 		volume_sliders.append([sl, "sound" if i == 0 else "music"])
 	y += 36 + gap
 	# DISPLAY: five switches, then fullscreen and the graphics quality.
-	y = _opt_section(Vector2(x, y), w, "DISPLAY", "leaf", 82.0)
+	y = _opt_section(Vector2(x, y), w, "DISPLAY", "leaf", 126.0 if extra_row else 82.0)
 	var toggles := [["Screen Shake", game.screen_shake, "shake"], ["Damage Numbers", game.damage_numbers, "numbers"],
 		["FPS Counter", game.show_fps, "fps"], ["Chat Log", game.chat_visible, "chat"], ["Player Rosters", game.rosters_visible, "rosters"]]
 	var tw := (w - 24.0 - (toggles.size() - 1) * 8.0) / toggles.size()
@@ -6318,7 +6320,26 @@ func _menu_settings(body: Rect2) -> void:
 		var b := Rect2(gq.position.x + 114 + i * (qw + 8), gq.position.y + 5, qw, 26)
 		_opt_button(b, game.GFX_NAMES[i], game.gfx_quality == i)
 		toggle_buttons.append([b, "gfx_%d" % i])
-	y += 82 + gap
+	# Third row: the windowed size (the sizes that fit this screen; Borderless and Fullscreen use the screen's own) and the
+	# graphics auto-detect, lit until a preset is picked above.
+	if extra_row:
+		var wsr := Rect2(x + 12, y + 88, tw + 40, 36)
+		_opt_slot(wsr)
+		_opt_glyph("fullscreen", wsr.position + Vector2(22, 18), GOLD)
+		_text(wsr.position + Vector2(42, 24), "Window Size", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var windowed: bool = game.window_mode == "windowed"
+		var cur: Vector2i = game.window_size if game.window_size != Vector2i.ZERO else DisplayServer.window_get_size()
+		_opt_button(Rect2(wsr.end.x - 100, wsr.position.y + 5, 92, 26), "%dx%d" % [cur.x, cur.y], windowed and game.window_size != Vector2i.ZERO)
+		if windowed:
+			toggle_buttons.append([wsr, "window_size"])
+		var aut := Rect2(wsr.end.x + 8, y + 88, 2 * tw - 40, 36)
+		_opt_slot(aut)
+		_opt_glyph("gfx", aut.position + Vector2(22, 18), GOLD)
+		_text(aut.position + Vector2(42, 24), "Graphics Auto-Detect", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_opt_button(Rect2(aut.end.x - 64, aut.position.y + 5, 56, 26), "AUTO", not game.gfx_picked)
+		toggle_buttons.append([aut, "gfx_auto"])
+		_text(Vector2(aut.end.x + 16, y + 111), "Window size applies in Windowed mode.", 12, Color(0.68, 0.7, 0.78), HORIZONTAL_ALIGNMENT_LEFT, x + w - 12 - (aut.end.x + 16), 2)
+	y += (126 if extra_row else 82) + gap
 	# BOTS.
 	y = _opt_section(Vector2(x, y), w, "BOTS", "leaf", 38.0)
 	var skulls := [Color(0.92, 0.9, 0.85), Color(1.0, 0.78, 0.25), Color(0.9, 0.25, 0.2)]
@@ -7214,7 +7235,7 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 			tx = origin.x + lx
 			ty += 22
 		var b := Rect2(tx, ty, tw, 19)
-		var have: bool = t[0] <= game.account_level() or "--debug-unlock" in OS.get_cmdline_user_args()
+		var have: bool = t[0] <= game.account_level() or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args())
 		_plate(b, INK_LIGHT if have else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_title else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_title else 1)
 		_text(b.position + Vector2(0, 13.5), t[1].to_upper(), 9, Color.WHITE if have else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
 		hero_buttons.append([b, "banner_title", i])

@@ -23,12 +23,12 @@ const CHAR_TABS := [["APPEARANCE", "appearance"], ["HAIR", "hair"], ["FACE", "fa
 const PREVIEW_ROLES := [Role.BASE, Role.KNIGHT, Role.RANGER, Role.MAGE, Role.HEALER]
 const SLOT_COLORS := [Color(0.16, 0.38, 0.95), Color(0.85, 0.16, 0.16), Color(0.2, 0.62, 0.22), Color(0.92, 0.72, 0.1)]
 const CREDITS := [
-	["A GAME BY", "Faisal"],
+	["A GAME BY", "Faisal, solo developer"],
 	["BUILT WITH", "Godot Engine 4 (MIT licence)"],
 	["CHARACTERS, PROPS AND GEAR", "KayKit Adventurers, Dungeon, Medieval Hexagon, Halloween, Furniture and Restaurant packs by Kay Lousberg (CC0)"],
 	["LETTERING", "Lilita One by Juan Montoreano (SIL Open Font License) · Luckiest Guy by Astigmatic (Apache License 2.0)"],
 	["LOGO, KEY AND CARD ART", "Supplied by the project owner"],
-	["TEXTURES, ICONS, SOUND AND MUSIC", "Made by the game's own generator scripts; music played with VSCO 2 Community Edition samples by Versilian Studios (CC0)"],
+	["TEXTURES, ICONS, SOUND AND MUSIC", "Made with the game's own generator scripts; sound effects and music generated with ElevenLabs for this game; instrument samples from VSCO 2 Community Edition by Versilian Studios (CC0)"],
 	["STEAM VERSION", "GodotSteam by GP Garcia and contributors (MIT) · Steamworks SDK by Valve"],
 	["LICENCES", "Full third-party notices are in THIRD-PARTY-NOTICES.txt beside the game"],
 ]
@@ -390,6 +390,7 @@ func _draw_title() -> void:
 	var glyphs := ["tunic", "gear", "book", "trophy", "exit"]
 	for i in ids.size():
 		wood_button(Rect2(x, y + (86 if touch else 66) + i * (86 if touch else 52), 322 if touch else 246, 80 if touch else 48), _again_label() if i == 4 and exit_armed > 0 else str(ids[i]).to_upper(), ids[i], null, glyphs[i], 27 if touch else 21)
+	h._text(Vector2(w - 212, h.size.y - 14), "v" + game.version_text(), 12, Color(0.85, 0.82, 0.74, 0.8), HORIZONTAL_ALIGNMENT_RIGHT, 200, 2)   # bottom-right corner, under EXIT, for support reports
 	wood_button(Rect2(24, h.size.y - (90 if touch else 62), 200 if touch else 166, 80 if touch else 46), "STORE", "store", null, "crown", 21)
 	wood_button(Rect2(236 if touch else 202, h.size.y - (90 if touch else 62), 220 if touch else 180, 80 if touch else 46), "ONLINE", "online", null, "gamepad", 21)
 	wood_button(Rect2(24, h.size.y - (178 if touch else 112), 300 if touch else 260, 80 if touch else 40), "LV %d  %s" % [game.account_level(), game.hero_name], "progress", null, "", 16)
@@ -1279,7 +1280,8 @@ func _draw_credits() -> void:
 	var y := body.position.y + 64
 	for c in CREDITS:
 		ttext(Vector2(body.position.x, y), c[0], 18, Color(1.0, 0.8, 0.38), HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 4)
-		var used: float = _centered_paragraph(Vector2(body.position.x + 60, y + 22), c[1], 14, body.size.x - 120)
+		var line: String = c[1] + ("  ·  version " + game.version_text()) if c[0] == "A GAME BY" else c[1]
+		var used: float = _centered_paragraph(Vector2(body.position.x + 60, y + 22), line, 14, body.size.x - 120)
 		y += 52 + used   # eight rows with breathing room (licences and the Steam version were added)
 	# ROLL CREDITS: the ending's credits roll on its own (legend.gd), in the
 	# frame's top-left corner, opposite the close X.

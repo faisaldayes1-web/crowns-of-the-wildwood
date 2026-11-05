@@ -99,7 +99,7 @@ func _debug_fill(g, u) -> void:
 	u.xp_sources = {"combat": 210, "takedowns": 450, "crown": 125, "siege": 46, "support": 16}
 	show_board = "--debug-end-board" in OS.get_cmdline_user_args()
 	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--debug-end-xp="):
+		if OS.is_debug_build() and arg.begins_with("--debug-end-xp="):
 			g.account_xp = int(arg.trim_prefix("--debug-end-xp="))
 
 

@@ -37,7 +37,7 @@ func _init() -> void:
 		"bot_difficulty": "Hard", "chat_visible": false, "rosters_visible": true, "couch_mode": "coop",
 		"screen_shake": false, "damage_numbers": false, "show_fps": true, "vsync": false,
 		"fps_cap": 60, "render_scale": 0.75, "gfx_quality": 1, "gfx_picked": true,
-		"window_mode": "borderless", "rumble_on": false, "pad_style": "ps", "control_layout": "keyboard",
+		"window_mode": "borderless", "window_size": Vector2i(1600, 900), "rumble_on": false, "pad_style": "ps", "control_layout": "keyboard",
 		"pc_movement": "wasd", "combine_move_attack": true, "wheel_zoom": true,
 		"map_variant": 3, "split_screen": true, "split_layout": "horizontal",
 		"hero_name": "Restarter", "hero_hair": 1, "hero_skin": 2, "banner_bg": 1,
