@@ -47,6 +47,14 @@ func run() -> void:
 		return
 	await press("to_lobby")
 	await capture("03-ready")
+	# CROWNS_CAPTURE_SPLIT=2 (claude-faisal/crowns-visual2): a two-player
+	# couch match (split screen), staged the way a second pad's join sets it.
+	var split := int(OS.get_environment("CROWNS_CAPTURE_SPLIT"))
+	if split > 1:
+		game.split_screen = true
+		game.couch_players = split
+		for i in range(1, split):
+			game.main_menu.readied[i] = true
 	await press("start")
 	deadline = Time.get_ticks_msec() + 120000
 	while not game.playing or game.player == null or is_instance_valid(game.loading_layer):
@@ -100,6 +108,24 @@ func run() -> void:
 				await process_frame
 			await capture("08-at-%d" % si)
 			si += 1
+	# CROWNS_CAPTURE_PAD=1: the player stands on its own first turret pad in
+	# the prep phase, so the turret build card shows ("09-turret-card").
+	if OS.get_environment("CROWNS_CAPTURE_PAD") == "1" and game.economy != null and not game.economy.pads[game.player.team].is_empty():
+		game.menu_open = false
+		game.player.class_banner = 0.0
+		var pad: Vector3 = game.economy.pads[game.player.team][0].pos
+		game.player.global_position = pad + Vector3(0, 0.1, 0)
+		game.player.velocity = Vector3.ZERO
+		game.prep_left = 60.0
+		for i in 40:
+			await process_frame
+		await capture("09-turret-card")
+		# The same card when the base can pay (gold button).
+		game.economy.wood[game.player.team] = 20
+		game.economy.ore[game.player.team] = 20
+		for i in 10:
+			await process_frame
+		await capture("09b-turret-card-ok")
 	var report := FileAccess.open(out_dir.path_join("capture.json"), FileAccess.WRITE)
 	report.store_string(JSON.stringify({"agent": "Codex-faisal/ui", "viewport": str(root.size), "state_staging": true, "live_battle_fixture": "quiet courtyard battle-phase HUD comparison; no combat action claimed", "hit_rect_checks_pass": not failed}, "  "))
 	game.queue_free()
