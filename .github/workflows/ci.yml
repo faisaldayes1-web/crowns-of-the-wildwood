@@ -103,6 +103,15 @@ jobs:
           timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/graveyard_test.gd -- --demo --seed=7 --map=1 --debug-night 2>&1 | tee ci-logs/graveyard.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/graveyard.log
           grep -q '^graveyard_test: 0 failure(s)$' ci-logs/graveyard.log
+      - name: Steam-facing menus, pads and cloud paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          for test in cloud_paths_test pad_kind_test pad_unplug_test pad_nav_test options_menu_test menu_flow_test store_menu_test; do
+            timeout 300 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script "tools/$test.gd" 2>&1 | tee "ci-logs/$test.log"
+            ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/$test.log"
+            grep -Eq '0 failure\(s\)$' "ci-logs/$test.log"
+          done
       - name: Save recovery and progression regressions
         shell: bash
         run: |
