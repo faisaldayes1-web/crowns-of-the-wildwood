@@ -90,6 +90,19 @@ jobs:
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^CLIP ' "ci-logs/audit-map$map.log"
             grep -Eq '^AUDIT done: 0 overlaps in [0-9]+ props$' "ci-logs/audit-map$map.log"
           done
+          # claude-faisal/crowns-graveyard 2026-11-04: map 1 above builds the day
+          # world on a fresh save (the Moonlit Wildwood is a level-10 unlock);
+          # this run builds the real Moonlit world with its graveyard.
+          timeout 300 bash tools/tests/isolated.sh --headless --path . -- --audit --seed=7 --map=1 --debug-night 2>&1 | tee ci-logs/audit-moonlit.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^CLIP ' ci-logs/audit-moonlit.log
+          grep -Eq '^AUDIT done: 0 overlaps in [0-9]+ props$' ci-logs/audit-moonlit.log
+      - name: Moonlit graveyard (rising timer, Cursed Bell allegiance, zombie pathing)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/graveyard_test.gd -- --demo --seed=7 --map=1 --debug-night 2>&1 | tee ci-logs/graveyard.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/graveyard.log
+          grep -q '^graveyard_test: 0 failure(s)$' ci-logs/graveyard.log
       - name: Save recovery and progression regressions
         shell: bash
         run: |

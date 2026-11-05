@@ -26,6 +26,7 @@ const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
 const Volcano = preload("res://scripts/volcano.gd")
+const Graveyard = preload("res://scripts/graveyard.gd")
 const Lanes = preload("res://scripts/lanes.gd")
 const StaticBatch = preload("res://scripts/static_batch.gd")
 const Season = preload("res://scripts/visual/season.gd")
@@ -121,6 +122,7 @@ var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
 static var reopen_screen := ""  # a menu screen to reopen after select_map() reloads the scene
 var season := ""               # "winter" (Stonekeep Fortress), "twilight" (Twilight Grove) or "" (scripts/visual/season.gd)
 var vmap = null                 # Ember Pass (the volcano map): its layout, bot routes and Fire Objective; null on the Wildwood
+var graveyard = null            # Moonlit Wildwood: the graveyard, its Cursed Bell and zombies (scripts/graveyard.gd); null elsewhere
 var lmap = null                 # Stonekeep Fortress / Twilight Grove / the Wildwood: their own lanes, terrain and bot routes (scripts/lanes.gd); null elsewhere
 var hero_skin := 1              # Stats.HERO_SKINS index
 var hero_face := 0              # Stats.HERO_FACES index
@@ -848,6 +850,8 @@ func _process(delta: float) -> void:
 		_net_test_tick(delta)
 	if vmap and world_ready:
 		vmap.tick(delta)
+	if graveyard and world_ready:
+		graveyard.tick(delta)
 	if lmap and world_ready and demo and playing and not game_over:
 		lmap.sample(delta)   # bot matches: where the fighting happens (LANESTAT in the demo report)
 	if legend or Engine.get_process_frames() == swallow_frame and game_over:
@@ -1266,6 +1270,8 @@ func _demo_summary() -> void:
 		print("FIRESTAT held=%d/%d captures=%d/%d" % [int(vmap.fire_held[0]), int(vmap.fire_held[1]), vmap.fire_captures[0], vmap.fire_captures[1]])
 	if lmap:
 		print("LANESTAT " + lmap.sample_report())
+	if graveyard:
+		print(graveyard.report())
 	for u in units:
 		# The class the bot plays all match (its current role resets on death).
 		var cls: String = Stats.FACTIONS[u.team].roles[u.bot_class]
@@ -1860,6 +1866,9 @@ func _plan_bots(team: int) -> void:
 	# Ember Pass: win the Fire Objective, then keep a guard on it.
 	if vmap and cmd != "defend":
 		_assign_nearest(bots, vmap.FIRE_POS, vmap.bots_wanted(team), "fire")
+	# The Moonlit Wildwood: ring the Cursed Bell to own the graveyard's dead.
+	if graveyard and cmd != "defend":
+		_assign_nearest(bots, graveyard.CENTER, graveyard.bots_wanted(team), "bell")
 	if economy:
 		economy.plan_gatherers(team, bots)
 
@@ -3021,6 +3030,17 @@ func _start_match(team: int) -> void:
 		net.on_match_started()
 
 
+func objective():
+	## The map's capture point, or null: Ember Pass's Fire Objective or the
+	## Moonlit Wildwood's Cursed Bell (both answer status() the same way).
+	return vmap if vmap else graveyard
+
+
+func objective_status(my_team: int) -> Dictionary:
+	var o = objective()
+	return o.status(my_team) if o else {}
+
+
 func in_prep() -> bool:
 	return prep_left > 0.0
 
@@ -3473,7 +3493,8 @@ func net_build_snapshot() -> Dictionary:
 	return {"units": us, "monarchs": ms, "gates": gs, "vaults": vs, "score": score, "time": time_left,
 		"prep": prep_left, "overtime": overtime, "mode": game_mode, "sudden": tdm_sudden, "over": game_over, "winner": winner_team, "feed": feed,
 		"ents": ents, "barr": barricades.map(func(b): return b.hp), "orbs": heal_orbs.map(func(o): return o.active),
-		"econ": econ, "fire": [vmap.fire_owner, vmap.fire_progress] if vmap else []}
+		"econ": econ, "fire": [vmap.fire_owner, vmap.fire_progress] if vmap else [],
+		"grave": graveyard.net_state() if graveyard else []}
 
 
 func net_apply_snapshot(d: Dictionary) -> void:
@@ -3599,6 +3620,8 @@ func _net_apply_entities(d: Dictionary) -> void:
 			u.refresh_fire(false)
 	if vmap and d.fire.size() == 2:
 		vmap.fire_progress = d.fire[1]
+	if graveyard and d.has("grave"):
+		graveyard.net_apply(d.grave)
 
 
 func net_button(what: String) -> void:
@@ -5264,11 +5287,11 @@ func select_map(index: int) -> void:
 	## scene restarts on the title with the new map saved.
 	# Day and night share one world; Ember Pass and the two seasons each
 	# build their own.
-	# The Wildwood (day) has its own Heart-Tree layout since 2026-11-04.
-	var built: String = "volcano" if vmap else (season if season != "" else ("day" if lmap else "wildwood"))
+	# The Wildwood (day) has its own Heart-Tree layout, and the Moonlit Wildwood its graveyard (2026-11-04).
+	var built: String = "volcano" if vmap else (season if season != "" else ("day" if lmap else ("moonlit" if graveyard else "wildwood")))
 	var kind: String = Stats.MAPS[index][1]
-	var want: String = kind if kind in ["volcano", "winter", "twilight", "day"] else "wildwood"
 	map_variant = index
+	var want: String = kind if kind in ["volcano", "winter", "twilight", "day"] else ("moonlit" if night() else "wildwood")
 	if want != built:
 		_save_settings()
 		if main_menu:
@@ -7532,10 +7555,13 @@ func _add_cover(barricades: Array = COVER_BARRICADES, boulders: Array = COVER_BO
 		return
 	# The Northern Ruins: broken columns and rubble by the north bridge, and
 	# a smaller ruin on the south river path. Mirrored.
-	await _world_build_frame()
-	_add_ruins(Vector3(11, 0, -27))
-	await _world_build_frame()
-	_add_ruins(Vector3(-11, 0, 27))
+	# (On the Moonlit Wildwood the graveyard stands where the north ruin
+	# was; its mirror on the south river path goes too, so both sides match.)
+	if graveyard == null:
+		await _world_build_frame()
+		_add_ruins(Vector3(11, 0, -27))
+		await _world_build_frame()
+		_add_ruins(Vector3(-11, 0, 27))
 	await _world_build_frame()
 	_add_ruins(Vector3(-24, 0, -29), true)
 	await _world_build_frame()
@@ -12610,6 +12636,11 @@ func _build_world_land() -> void:
 		_add_signpost(Vector3(sx * 27.5, 0, sb + 4.3), sx)
 	await _world_build_frame()
 	await _add_river()
+	if night():
+		# The Moonlit Wildwood's graveyard and Cursed Bell (scripts/graveyard.gd),
+		# before the groves and dressing so they keep clear of it.
+		graveyard = Graveyard.new(self)
+		await graveyard.build()
 
 	await _world_build_frame()
 	await _build_castle(0)
@@ -12627,14 +12658,21 @@ func _build_world_land() -> void:
 		Vector3(4, 0, -32), Vector3(10, 0, -34), Vector3(18, 0, -31), Vector3(24, 0, -34), Vector3(32, 0, -30), Vector3(40, 0, -33), Vector3(46, 0, -28),
 		Vector3(3, 0, -16), Vector3(16, 0, -11), Vector3(36, 0, -14), Vector3(8, 0, 32), Vector3(30, 0, 33), Vector3(44, 0, 30), Vector3(34, 0, 24)]
 	for p in grove:
-		await _world_build_frame()
-		_add_tree(p)
-		await _world_build_frame()
-		_add_tree(-p)
-		await _world_build_frame()
-		_add_bush(p + Vector3(1.8, 0, 0.6), int(p.x * 3 + p.z))
-		await _world_build_frame()
-		_add_bush(-p + Vector3(-1.8, 0, -0.6), int(p.x * 5 + p.z))
+		# (The Moonlit graveyard keeps the groves out of its plots.)
+		var keep_p: bool = graveyard == null or not Graveyard.in_zone(p, 1.5)
+		var keep_n: bool = graveyard == null or not Graveyard.in_zone(-p, 1.5)
+		if keep_p:
+			await _world_build_frame()
+			_add_tree(p)
+		if keep_n:
+			await _world_build_frame()
+			_add_tree(-p)
+		if keep_p:
+			await _world_build_frame()
+			_add_bush(p + Vector3(1.8, 0, 0.6), int(p.x * 3 + p.z))
+		if keep_n:
+			await _world_build_frame()
+			_add_bush(-p + Vector3(-1.8, 0, -0.6), int(p.x * 5 + p.z))
 	for p in [Vector3(12, 0, 14), Vector3(-12, 0, -14), Vector3(26, 0, 14), Vector3(-26, 0, -14), Vector3(58, 0, 22), Vector3(-58, 0, -22), Vector3(9, 0, -25), Vector3(-9, 0, 25)]:
 		await _world_build_frame()
 		_add_fireflies(p)

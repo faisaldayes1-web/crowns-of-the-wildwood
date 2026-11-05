@@ -1716,12 +1716,16 @@ func _minimap_static(c: Vector2, r: float) -> void:
 			elif mark[1] == "mill":
 				draw_rect(Rect2(q - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.62, 0.46, 0.3))
 				draw_arc(q + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
+			elif mark[1] == "graveyard":
+				draw_rect(Rect2(q - Vector2(2.2, 1.8) * sx, Vector2(4.4, 3.6) * sx), Color(0.24, 0.22, 0.2, 0.8))
 			else:
 				_lanes_mark(mark, m, sx, sz, false)
 		if game.lmap:
 			pass   # no river, bridges or Crown Shrine on these two
 		else:
 			_minimap_river(c, r, m, clip, sx, sz)
+		if game.graveyard and (m.call(game.graveyard.CENTER) - c).length() < r - 4.0:
+			_bell_icon(m.call(game.graveyard.CENTER), 5.5, game.graveyard.bell_owner, game.graveyard.bell_progress, Time.get_ticks_msec() / 1000.0)
 	# The castles: team-colour blocks, crown on the throne, door gold or red.
 	_minimap_castles(c, r, m, clip, fx)
 
@@ -2209,6 +2213,42 @@ func _map_pin_shapes(kind: String, q: Vector2, s: float, rim: Color) -> void:
 			draw_arc(q, k * 0.75, 0, TAU, 18, rim.lightened(0.45), maxf(s * 0.14, 1.0))
 			draw_circle(q, k * 0.42, rim.lightened(0.15))
 			draw_circle(q, k * 0.18, ink)
+
+
+func _objective_icon(obj: Dictionary, q: Vector2, s: float, pt: float) -> void:
+	## The map objective's marker on the top bar: Ember Pass's flame, or the
+	## Moonlit Wildwood's Cursed Bell.
+	if obj.get("icon", "") == "bell":
+		_bell_icon(q, s, obj.owner, obj.progress, pt)
+	else:
+		_fire_icon(q, s, obj.owner, obj.progress, pt)
+
+
+func _bell_icon(q: Vector2, s: float, owner: int, progress: float, pt: float) -> void:
+	## The Cursed Bell: a bell in a dark disc, ringed in the holder's colour
+	## (sickly green with nobody), the capture filling round it.
+	var ring_col := Color(0.45, 1.0, 0.35) if owner < 0 else _team_color(owner).lightened(0.25)
+	draw_circle(q, s * 1.55, Color(0, 0, 0, 0.35))
+	if absf(progress) > 0.01:
+		var lead := 0 if progress < 0.0 else 1
+		draw_arc(q, s * 1.35, -PI / 2.0, -PI / 2.0 + TAU * absf(progress), 32, _team_color(lead).lightened(0.2), 2.5)
+	draw_arc(q, s * 1.35, 0.0, TAU, 32, ring_col, 1.2)
+	var sway := sin(pt * 3.0) * 0.12
+	var top := q + Vector2(0, -s * 0.85)
+	var pts := PackedVector2Array()
+	for i in 9:
+		var f := float(i) / 8.0
+		var y := lerpf(-0.6, 0.7, f)
+		var w := lerpf(0.32, 0.78, f * f)
+		pts.append(q + Vector2(-w * s + sway * s * f, y * s))
+	for i in range(8, -1, -1):
+		var f := float(i) / 8.0
+		var y := lerpf(-0.6, 0.7, f)
+		var w := lerpf(0.32, 0.78, f * f)
+		pts.append(q + Vector2(w * s + sway * s * f, y * s))
+	draw_colored_polygon(pts, ring_col.lerp(Color(0.25, 0.45, 0.35), 0.4))
+	draw_circle(top + Vector2(0, s * 0.2), s * 0.18, ring_col)
+	draw_circle(q + Vector2(sway * s, s * 0.85), s * 0.16, Color(0.08, 0.08, 0.08))
 
 
 func _fire_icon(q: Vector2, s: float, owner: int, progress: float, pt: float) -> void:
@@ -2704,7 +2744,7 @@ func _phase_name() -> String:
 
 
 func _topbar_key() -> Array:
-	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and game.prep_left <= 0.0 and not game.overtime else {}
+	var fire: Dictionary = game.objective_status(_my_team()) if game.objective() and game.prep_left <= 0.0 and not game.overtime else {}
 	var left := maxf(game.time_left, 0.0)
 	return [size, _bake_scale(), game.score.duplicate(), game.prep_left > 0.0, ceilf(game.prep_left), int(game.prep_left * 2.0) % 2,
 		int(left), left < 60.0 and int(left * 2.0) % 2 == 0, game.overtime, game.game_mode, game.tdm_sudden, _k("interact"), game.barricades_left[_my_team()],
@@ -2727,13 +2767,13 @@ func _scoreboard_live(_full: bool, quiet: bool = false) -> void:
 		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw), 1.6)
 		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw), 1.6)
 	var fortify: bool = game.prep_left > 0.0
-	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime and not quiet else {}
+	var fire: Dictionary = game.objective_status(_my_team()) if game.objective() and not fortify and not game.overtime and not quiet else {}
 	if not fire.is_empty() and fire.text != "":
 		# Ember Pass: the Fire Objective's flame beside the strip, and the
 		# capture filling along its foot.
 		var x0 := cx - 250.0
 		draw_circle(Vector2(x0, 98), 10, Color(0.33, 0.2, 0.07))
-		_fire_icon(Vector2(x0, 98), 7.0, fire.owner, fire.progress, now)
+		_objective_icon(fire, Vector2(x0, 98), 7.0, now)
 		var p: float = absf(fire.progress)
 		if p > 0.01 and p < 0.999:
 			var lead := 0 if fire.progress < 0.0 else 1
@@ -2802,7 +2842,7 @@ func _scoreboard_static(quiet: bool = false) -> void:
 	elif game.tdm_sudden:
 		line = "Sudden death: the next kill wins the deathmatch."
 		line_ink = Color(0.55, 0.1, 0.05)
-	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime and not quiet else {}
+	var fire: Dictionary = game.objective_status(_my_team()) if game.objective() and not fortify and not game.overtime and not quiet else {}
 	if not fire.is_empty() and fire.text != "":
 		line = fire.text
 		line_ink = fire.color
@@ -2820,7 +2860,7 @@ func _scoreboard_static(quiet: bool = false) -> void:
 		# capture filling along its foot.
 		var x0 := cx - 250.0
 		draw_circle(Vector2(x0, 98), 10, Color(0.33, 0.2, 0.07))
-		_fire_icon(Vector2(x0, 98), 7.0, fire.owner, fire.progress, Time.get_ticks_msec() / 1000.0)
+		_objective_icon(fire, Vector2(x0, 98), 7.0, Time.get_ticks_msec() / 1000.0)
 		var p: float = absf(fire.progress)
 		if p > 0.01 and p < 0.999:
 			var lead := 0 if fire.progress < 0.0 else 1
@@ -4646,11 +4686,19 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		elif mark[1] == "mill":
 			draw_rect(Rect2(c - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.6, 0.45, 0.3))
 			draw_arc(c + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
+		elif mark[1] == "graveyard":
+			draw_rect(Rect2(c - Vector2(2.2, 1.8) * sx, Vector2(4.4, 3.6) * sx), Color(0.24, 0.22, 0.2, 0.8))
 		else:
 			_lanes_mark(mark, m, sx, sz, detailed)
 	# The river, the island and the bridges.
 	if game.vmap == null and game.lmap == null:
 		_draw_map_river(m, sx, sz, hz, detailed)
+	if game.graveyard:
+		var gq: Vector2 = m.call(game.graveyard.CENTER)
+		_bell_icon(gq, 11.0 if detailed else 7.0, game.graveyard.bell_owner, game.graveyard.bell_progress, Time.get_ticks_msec() / 1000.0)
+		if detailed:
+			var gtxt: String = "CURSED BELL" if game.graveyard.bell_owner < 0 else "CURSED BELL · %s" % Stats.FACTIONS[game.graveyard.bell_owner].name.to_upper()
+			_map_label(gq + Vector2(0, 22), gtxt, Color(0.6, 1.0, 0.55))
 	_draw_map_castles(rect, m, sx, sz, fx, detailed)
 
 
