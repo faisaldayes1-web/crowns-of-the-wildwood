@@ -358,7 +358,7 @@ func _species(pos: Vector3, hint: String, seed: int) -> String:
 		return "pine"
 	if hint == "canopy":
 		return "broad"
-	if palette in ["day", "night"] and hint in ["", "broad"]:
+	if palette in ["day", "night", "twilight"] and hint in ["", "broad"]:
 		# Pass 2 (2026-10-31, picks Spawn D / Battle A): the woods read as
 		# dense dark conifers. Pines are the majority on both sides; in the
 		# field one tree in three stays broadleaf for variety (the same seeds
@@ -929,7 +929,7 @@ func _pine_ramp(accent: String) -> Array:
 		return [StyleProfile.GOLD_BOTTOM, StyleProfile.GOLD_TOP, StyleProfile.GOLD_TOP.lerp(Color(1.0, 0.92, 0.55), 0.35)]
 	match palette:
 		"twilight":
-			return [Color(0.03, 0.22, 0.18), Color(0.12, 0.6, 0.42), Color(0.3, 0.9, 0.6)]
+			return [Color(0.02, 0.08, 0.14), Color(0.05, 0.26, 0.32), Color(0.18, 0.55, 0.52)]   # (8/8 pass: deep dusk teal, apart from the mint broadleaves)
 		"winter":
 			return [Color(0.06, 0.24, 0.16), Color(0.16, 0.42, 0.28), Color(0.3, 0.56, 0.36)]
 	# Pass 3 (2026-10-31): the picks' pines are a mid green body with clearly

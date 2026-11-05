@@ -6927,6 +6927,11 @@ func _add_river() -> void:
 		wmat.set_shader_parameter("shallow", StyleProfile.WATER_SHALLOW)
 		wmat.set_shader_parameter("deep", StyleProfile.WATER_DEEP)
 		wmat.set_shader_parameter("open_foam", StyleProfile.WATER_OPEN_FOAM)
+		if night() and season == "":
+			# Moonlit (8/8 pass 2026-11-04): the day's saturated river glowed
+			# against the night; a deep moonlit blue-teal instead.
+			wmat.set_shader_parameter("shallow", Color(0.24, 0.42, 0.56))
+			wmat.set_shader_parameter("deep", Color(0.08, 0.16, 0.3))
 	water.material_override = wmat
 	water.position = Vector3(0, 0.03, 0)
 	add_child(water)
@@ -11266,6 +11271,10 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 		# Pass 3 (2026-10-31, picks Spawn D / Battle A): a square class banner
 		# hung from a rod over the station (was pass 2's striped awning).
 		CastleKit.station_banner(self, pos, role, zb)
+	if night() and season == "":
+		# Moonlit (8/8 pass 2026-11-04): a small warm sign lamp, so the class
+		# banners read in the moonlight (they were near-black).
+		_add_light(Vector3(pos.x, pos.y + 2.2, zb + 1.1), Color(1.0, 0.84, 0.6), 1.6, 3.2)
 	# The name plate: a dark strip across the panel's lower third.
 	# Pass 4 (2026-10-31): the Mage's tall hat reaches the lower third at the
 	# match camera and hid "GE", so its name plate takes the panel's top and
