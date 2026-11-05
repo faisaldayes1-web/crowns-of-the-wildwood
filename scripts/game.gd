@@ -4255,6 +4255,8 @@ func _rank_pad(u) -> void:
 func _route_options_screen() -> bool:
 	# New settings are isolated from the concurrently owned HUD/pause pages.
 	if menus_warming or not menu_open or menu_tab not in [4, 5, 6]:
+		if is_instance_valid(options_screen) and options_screen.active:
+			options_screen.close_screen(false)
 		return false
 	if not is_instance_valid(options_screen):
 		var options_layer := CanvasLayer.new()

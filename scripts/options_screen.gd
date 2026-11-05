@@ -66,6 +66,20 @@ func _label(text_value: String, color := CREAM, font_size := 16) -> Label:
 	return label
 
 
+func _wood_texture(path: String, edge: int, inset: int) -> StyleBoxTexture:
+	var style := StyleBoxTexture.new()
+	style.texture = load(path)
+	style.texture_margin_left = edge
+	style.texture_margin_right = edge
+	style.texture_margin_top = edge
+	style.texture_margin_bottom = edge
+	style.content_margin_left = inset
+	style.content_margin_right = inset
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	return style
+
+
 func _button(text_value: String, callback: Callable, hint: String) -> Button:
 	var b := Button.new()
 	b.text = text_value
@@ -75,8 +89,8 @@ func _button(text_value: String, callback: Callable, hint: String) -> Button:
 	b.add_theme_color_override("font_hover_color", Color.WHITE)
 	b.add_theme_color_override("font_focus_color", Color.WHITE)
 	b.add_theme_color_override("font_disabled_color", Color("908775"))
-	b.add_theme_stylebox_override("normal", _box(Color("292c29"), Color("756342")))
-	b.add_theme_stylebox_override("hover", _box(Color("454235"), GOLD, 2))
+	b.add_theme_stylebox_override("normal", _wood_texture("res://assets/ui/menu/btn_wood.png", 8, 16))
+	b.add_theme_stylebox_override("hover", _wood_texture("res://assets/ui/menu/btn_wood_hi.png", 8, 16))
 	b.add_theme_stylebox_override("pressed", _box(Color("62502c"), GOLD, 2))
 	b.add_theme_stylebox_override("disabled", _box(Color("252620"), Color("544b39")))
 	b.add_theme_stylebox_override("focus", _box(Color(0, 0, 0, 0), Color("ffe395"), 3))
@@ -98,17 +112,30 @@ func _build() -> void:
 	frame.offset_right = -40
 	frame.offset_top = 18
 	frame.offset_bottom = -18
-	frame.add_theme_stylebox_override("panel", _box(Color("37291d"), GOLD, 2, 24))
+	var frame_style := _wood_texture("res://assets/ui/menu/frame_big.png", 32, 28)
+	frame_style.content_margin_top = 22
+	frame_style.content_margin_bottom = 22
+	frame.add_theme_stylebox_override("panel", frame_style)
 	add_child(frame)
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 10)
 	frame.add_child(stack)
 	var heading := HBoxContainer.new()
 	stack.add_child(heading)
+	var title_plaque := PanelContainer.new()
+	title_plaque.custom_minimum_size = Vector2(300, 50)
+	var plaque_style := _wood_texture("res://assets/ui/menu/plaque.png", 70, 64)
+	plaque_style.texture_margin_top = 16
+	plaque_style.texture_margin_bottom = 16
+	title_plaque.add_theme_stylebox_override("panel", plaque_style)
+	heading.add_child(title_plaque)
 	var title := _label("OPTIONS", CREAM, 32)
 	title.add_theme_font_override("font", preload("res://assets/ui/fonts/LilitaOne-Regular.ttf"))
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_child(title)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_plaque.add_child(title)
+	var heading_spacer := Control.new()
+	heading_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading.add_child(heading_spacer)
 	heading.add_child(_label("CROWNS OF THE WILDWOOD", GOLD, 13))
 	var tab_bar := HBoxContainer.new()
 	tab_bar.add_theme_constant_override("separation", 8)
@@ -179,18 +206,19 @@ func open_screen(initial := 0) -> void:
 	select_tab(initial)
 
 
-func close_screen() -> void:
+func close_screen(return_to_pause := true) -> void:
 	if preview_left > 0.0:
 		revert_video()
 	binding_action = ""
 	game.rebinding = ""
 	active = false
 	hide()
-	game.menu_open = game.playing
-	if game.playing:
-		game.menu_tab = 0
-	else:
-		game.get_tree().paused = false
+	if return_to_pause:
+		game.menu_open = game.playing
+		if game.playing:
+			game.menu_tab = 0
+		else:
+			game.get_tree().paused = false
 	game.swallow_frame = Engine.get_process_frames()
 	game.confirm_block = true
 	game.click_latched = false
@@ -201,6 +229,12 @@ func video_snapshot() -> Dictionary:
 	var data := {}
 	for key in VIDEO_KEYS:
 		data[key] = game.get(key)
+	# Zero means "leave the window alone" in legacy saves. A rollback needs
+	# its actual pre-preview size, including a window resized by dragging.
+	if data.window_size == Vector2i.ZERO:
+		data.window_size = DisplayServer.window_get_size()
+		if data.window_size.x < 960 or data.window_size.y < 540:
+			data.window_size = Vector2i(1280, 720)
 	return data
 
 
@@ -285,7 +319,7 @@ func select_tab(index: int) -> void:
 	selectors.clear()
 	focus_order = focus_order.filter(func(c): return is_instance_valid(c) and c.has_meta("footer"))
 	for i in tabs.size():
-		tabs[i].add_theme_stylebox_override("normal", _box(Color("69502b") if category == i else Color("292c29"), GOLD if category == i else Color("756342"), 2 if category == i else 1))
+		tabs[i].add_theme_stylebox_override("normal", _wood_texture("res://assets/ui/menu/btn_wood_hi.png" if category == i else "res://assets/ui/menu/btn_wood.png", 8, 16))
 	match category:
 		0: _gameplay()
 		1: _video()
@@ -320,9 +354,19 @@ func _row(key: String, title: String, control: Control, hint: String) -> void:
 	line.add_child(control)
 	panel.mouse_entered.connect(func(): _describe(hint, control, false))
 	row_controls[key] = control
+	_mark_row_focus(panel, control)
 	if control.focus_mode != Control.FOCUS_NONE:
 		focus_order.insert(focus_order.size() - 5, control)
 		control.focus_entered.connect(func(): _describe(hint, control))
+
+
+func _mark_row_focus(panel: PanelContainer, control: Control) -> void:
+	if control.focus_mode != Control.FOCUS_NONE:
+		control.focus_entered.connect(func(): panel.add_theme_stylebox_override("panel", _box(Color("fff0c9"), Color("8c6425"), 2)))
+		control.focus_exited.connect(func(): panel.add_theme_stylebox_override("panel", _box(Color("f0e2c2"), Color("c8b38a"), 1)))
+	for child in control.get_children():
+		if child is Control:
+			_mark_row_focus(panel, child)
 
 
 func _choice(key: String, title: String, values: Array, labels: Array, current, changed: Callable, hint: String) -> void:
@@ -403,6 +447,7 @@ func _volume(key: String, title: String, property: String, hint: String) -> void
 	slider.value = roundi(game.sfx.get(property) * 100.0)
 	slider.add_theme_stylebox_override("slider", _box(Color("746445"), Color("746445"), 0, 0))
 	slider.add_theme_stylebox_override("grabber_area", _box(Color("ad822f"), GOLD, 0, 0))
+	slider.add_theme_stylebox_override("grabber_area_highlight", _box(Color("c99630"), GOLD, 0, 0))
 	slider.add_theme_stylebox_override("focus", _box(Color(0, 0, 0, 0), Color("755018"), 3, 0))
 	line.add_child(slider)
 	var value := _label("%d%%" % slider.value, INK, 17)
@@ -487,6 +532,7 @@ func reset_category() -> void:
 			if preview_left > 0.0:
 				revert_video()
 			draft = VIDEO_DEFAULTS.duplicate()
+			draft.gfx_quality = 2 if RenderingServer.get_video_adapter_type() == RenderingDevice.DEVICE_TYPE_DISCRETE_GPU else 0
 		2:
 			game.sfx.master_volume = 0.8
 			game.sfx.music_volume = 0.6
@@ -516,7 +562,7 @@ func _begin_binding(action: String, device: String, button: Button) -> void:
 	binding_button = button
 	binding_frame = Engine.get_process_frames()
 	game.rebinding = action
-	button.text = "Press key / mouse..." if device == "key" else "Press button / trigger..."
+	button.text = "Press input..."
 	description.text = "Rebinding %s: %s. Escape cancels. A binding in use swaps with this action's previous binding." % [game._action_label(action), "press a key or mouse button" if device == "key" else "press a pad button or trigger"]
 
 
