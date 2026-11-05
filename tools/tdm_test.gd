@@ -203,6 +203,13 @@ func split_case() -> void:
 		if u.bot_job in ["hunt", "support", "fire"]:
 			hunting += 1
 	check(hunting == bots.size() and hunting > 0, "every living bot plays the deathmatch (%s)" % str(jobs))
+	# The player's Defend! call still pulls bots home in a deathmatch.
+	var t1: int = game.player.team
+	game.team_command[t1] = "defend"
+	game.command_timer[t1] = 5.0
+	game._plan_bots(t1)
+	var defending: int = game.units.filter(func(u): return u.team == t1 and not u.is_player and not u.dead and u.bot_job == "defend").size()
+	check(defending >= 1, "Defend! pulls %d bot(s) home" % defending)
 
 
 func menu_case() -> void:

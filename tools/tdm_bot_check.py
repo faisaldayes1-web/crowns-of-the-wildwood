@@ -31,7 +31,11 @@ def main(path: str) -> int:
     if kills == 0:
         fails.append("the bots never killed anyone")
     # Team 0 scores for every Human (team 1) fall, and the other way round.
-    if s0 != deaths[1] or s1 != deaths[0]:
+    # (Falls in the same frame as the winning kill, after the match ended,
+    # count as deaths but score nothing: allow two of those.)
+    ended_on_target = max(s0, s1) >= 30
+    slack = 2 if ended_on_target else 0
+    if not (0 <= deaths[1] - s0 <= slack and 0 <= deaths[0] - s1 <= slack):
         fails.append("score %d-%d does not match the falls %d-%d" % (s0, s1, deaths[1], deaths[0]))
     if winner != "Draw" and s0 == s1:
         fails.append("a winner on a tied score")

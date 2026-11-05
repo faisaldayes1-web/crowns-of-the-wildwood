@@ -212,7 +212,7 @@ jobs:
           unzip -q "/tmp/crowns-godot/$archive" -d /tmp/crowns-godot
           chmod +x "$GODOT"
           timeout 600 bash tools/tests/isolated.sh --headless --editor --path . --import 2>&1 | tee ci-logs/import.log
-          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log; then exit 1; fi
       - name: TDM rules on the real match
         shell: bash
         run: |
@@ -222,7 +222,7 @@ jobs:
             [ "$c" = split ] && args="$args --couch=2"
             [ "$c" = menu ] && args="--tdm-case=menu"
             timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/tdm_test.gd -- $args 2>&1 | tee "ci-logs/tdm-$c.log"
-            ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/tdm-$c.log"
+            if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/tdm-$c.log"; then exit 1; fi
             grep -q "^tdm test ($c): 0 failure(s)$" "ci-logs/tdm-$c.log"
           done
       - name: TDM bot match on every map
@@ -231,7 +231,7 @@ jobs:
           set -euo pipefail
           for map in 0 1 2 3 4; do
             timeout 900 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 30000 -- --demo --seed=7 --mode=tdm --map=$map --debug-time=150 2>&1 | tee "ci-logs/tdm-bots-map$map.log"
-            ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' "ci-logs/tdm-bots-map$map.log"
+            if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' "ci-logs/tdm-bots-map$map.log"; then exit 1; fi
             python3 tools/tdm_bot_check.py "ci-logs/tdm-bots-map$map.log"
           done
       - name: Keep logs (failure only)

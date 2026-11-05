@@ -1867,8 +1867,8 @@ func _plan_tdm_bots(team: int, bots: Array) -> void:
 	## (support), everyone else hunts the nearest enemy (unit._bot_think,
 	## tdm_hunt_target). The player's calls still work: Defend! pulls three
 	## back to the keep, To me! brings two to the call.
-	for u in bots:
-		u.bot_job = "support" if u.base_job == "support" else "hunt"
+	# (_assign_nearest only takes bots still on their lineup job, so the
+	# calls and the fire go first and the hunt takes whoever is left.)
 	var cmd: String = team_command[team] if command_timer[team] > 0.0 else ""
 	if cmd == "defend":
 		_assign_nearest(bots, thrones[team], 3, "defend")
@@ -1877,6 +1877,9 @@ func _plan_tdm_bots(team: int, bots: Array) -> void:
 	# Ember Pass: the Fire Objective is still worth holding (Fire form).
 	if vmap and cmd != "defend":
 		_assign_nearest(bots, vmap.FIRE_POS, vmap.bots_wanted(team), "fire")
+	for u in bots:
+		if u.bot_job == u.base_job:
+			u.bot_job = "support" if u.base_job == "support" else "hunt"
 
 
 func tdm_hunt_target(u):
@@ -3510,9 +3513,8 @@ func net_apply_snapshot(d: Dictionary) -> void:
 	overtime = d.overtime
 	game_mode = d.get("mode", game_mode)
 	tdm_sudden = d.get("sudden", false)
-	if is_tdm():
-		for m in monarchs:
-			m.visible = false   # the host plays a deathmatch: no crowns on the client either
+	for m in monarchs:
+		m.visible = not is_tdm()   # the host's mode, not this client's saved pick
 	if d.over and not game_over:
 		_finish(d.winner)
 
