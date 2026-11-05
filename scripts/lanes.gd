@@ -1645,7 +1645,7 @@ func _build_heartwood() -> void:
 		cm.height = 4.2
 		cm.radial_segments = 9
 		lg.mesh = cm
-		lg.material_override = bark
+		lg.material_override = game._tree_bark()
 		lg.position = Vector3(p.x, height(p.x, p.z) + 0.35, p.z)
 		lg.rotation = Vector3(0, r.randf() * TAU, PI / 2.0)
 		game.add_child(lg)
