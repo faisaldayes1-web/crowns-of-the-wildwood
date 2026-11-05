@@ -331,7 +331,7 @@ func select_tab(index: int) -> void:
 	_update_footer()
 	if not row_controls.is_empty():
 		var first: Control = row_controls.values()[0]
-		first.call_deferred("grab_focus")
+		_focus_later(first)
 
 
 func _describe(hint: String, control: Control, ensure := true) -> void:
@@ -504,7 +504,7 @@ func _controls() -> void:
 			game.pad_style = v
 			game._save_settings()
 			select_tab(3)
-			row_controls.pad_style.call_deferred("grab_focus"), "Choose the button labels shown in prompts; Auto follows the connected controller.")
+			_focus_later(row_controls.pad_style), "Choose the button labels shown in prompts; Auto follows the connected controller.")
 		_choice("layout", "Control layout", ["auto", "keyboard", "controller", "touch"], ["Auto", "Keyboard and mouse", "Controller", "Touch"], game.control_layout, func(v):
 			game.control_layout = v
 			game.apply_control_layout()
@@ -614,7 +614,7 @@ func handle_input(event: InputEvent) -> bool:
 				var target: Control = row_controls[action]
 				if device == "pad":
 					target = target.get_parent().get_child(1)
-				target.call_deferred("grab_focus")
+				_focus_later(target)
 		return true
 	if event is InputEventJoypadMotion and event.axis in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y]:
 		if event.axis == JOY_AXIS_LEFT_X:
@@ -647,6 +647,16 @@ func handle_input(event: InputEvent) -> bool:
 				focused.pressed.emit()
 		_: return event is InputEventJoypadButton or event is InputEventKey
 	return true
+
+
+func _focus_later(target: Control) -> void:
+	_focus_if_present.call_deferred(weakref(target))
+
+
+func _focus_if_present(reference: WeakRef) -> void:
+	var target := reference.get_ref() as Control
+	if target != null and target.is_inside_tree() and target.is_visible_in_tree() and is_ancestor_of(target):
+		target.grab_focus()
 
 
 func _focus_step(direction: int, include_tabs := false) -> void:

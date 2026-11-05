@@ -5180,7 +5180,7 @@ func rumble_pad(device: int, weak: float, strong: float, duration: float) -> voi
 
 func _key_name(ev: InputEventKey) -> String:
 	var code: int = ev.physical_keycode if ev.physical_keycode != 0 else ev.keycode
-	if ev.physical_keycode != 0 and not OS.has_feature("web"):   # the web display server cannot map physical keys
+	if ev.physical_keycode != 0 and not OS.has_feature("web") and DisplayServer.get_name() != "headless":
 		code = DisplayServer.keyboard_get_keycode_from_physical(code)
 	return OS.get_keycode_string(code)
 

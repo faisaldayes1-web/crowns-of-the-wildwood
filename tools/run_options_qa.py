@@ -20,6 +20,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--godot", required=True)
     ap.add_argument("--stage", choices=["import", "boot", "tests", "captures", "bot", "all"], default="all")
+    ap.add_argument("--test", action="append", help="run only a named native fixture in the tests stage")
+    ap.add_argument("--verbose", action="store_true")
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
@@ -37,6 +39,8 @@ def main():
         if capture_dir:
             env["CROWNS_CAPTURE_DIR"] = str(capture_dir)
         cmd = [args.godot, "--path", str(ROOT)] + command
+        if args.verbose:
+            cmd.append("--verbose")
         print("RUN", label, flush=True)
         started = time.time()
         log = OUT / (label + ".log")
@@ -81,6 +85,8 @@ def main():
         run("fresh-boot", ["--headless", "--max-fps", "60", "--quit-after", "2400"], timeout=600)
     if args.stage in ["all", "tests"]:
         for test in ["options_test", "steam_ready_test", "settings_restart_test", "kbm_move_test", "options_menu_test", "pad_nav_test", "menu_flow_test", "couch_audio_test"]:
+            if args.test and test not in args.test:
+                continue
             run(test, ["--headless", "--fixed-fps", "60", "--script", "tools/" + test + ".gd"], timeout=600)
     if args.stage in ["all", "captures"]:
         for width, height in [(1280, 720), (1920, 1080), (2560, 1440)]:
