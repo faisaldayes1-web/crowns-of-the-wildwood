@@ -30,6 +30,15 @@ const Monarch = preload("res://scripts/monarch.gd")
 ## override is missing. claude-faisal3 2026-11-04.
 const OVERRIDE_DIR := "res://assets/sfx/override/"
 const OVERRIDES := ["swing_heavy", "hit_heavy", "hit_shield", "hurt", "death", "crown_grab"]
+## ElevenLabs upgrade (claude-faisal/audio-upgrade 2026-11-04): every other
+## clip in assets/sfx/override/ also replaces its synthesized namesake (class
+## attacks and abilities, impacts, UI). Music and ambience recorded the same
+## way live in assets/music/el/: they win over the note-by-note score when
+## present, and each map plays its own ambience and battle loop by mood.
+const EL_MUSIC_DIR := "res://assets/music/el/"
+const MAP_MOODS := ["day", "night", "volcano", "winter", "twilight"]   # Stats.MAPS order
+const BRIGHT_MOODS := ["day", "twilight"]
+var _el_battle := false      # the match plays a single recorded loop, not the three stems
 
 var streams := {}
 var pool_3d: Array = []
@@ -71,6 +80,16 @@ func _ready() -> void:
 	for name in OVERRIDES:
 		if ResourceLoader.exists(OVERRIDE_DIR + name + ".wav"):
 			streams[name] = load(OVERRIDE_DIR + name + ".wav")
+	var od := DirAccess.open(OVERRIDE_DIR)
+	if od:
+		od.list_dir_begin()
+		var of := od.get_next()
+		while of != "":
+			if of.ends_with(".wav") or of.ends_with(".wav.import"):
+				var oclip := of.trim_suffix(".import")
+				if ResourceLoader.exists(OVERRIDE_DIR + oclip):
+					streams[oclip.trim_suffix(".wav")] = load(OVERRIDE_DIR + oclip)
+			of = od.get_next()
 	for i in POOL_3D:
 		var p := AudioStreamPlayer3D.new()
 		p.unit_size = 14.0
@@ -249,7 +268,9 @@ func _music_stream(name: String) -> AudioStream:
 	## 2026-11-04, tools/stall_probe.gd).
 	if _music_cache.has(name):
 		return _music_cache[name]
-	var path := MUSIC_DIR + name + ".ogg"
+	var path := EL_MUSIC_DIR + name + ".ogg"
+	if not ResourceLoader.exists(path):
+		path = MUSIC_DIR + name + ".ogg"
 	var st: AudioStream = load(path) if ResourceLoader.exists(path) else null
 	_music_cache[name] = st
 	return st
@@ -283,6 +304,7 @@ func play_music(in_match: bool) -> void:
 	music_mode = mode
 	if in_match:
 		_layers = [1.0, 0.0, 0.0]
+		_pick_battle_loop()
 		_gate_hp = -1
 		_door_alarm_until = 0.0
 		if battle_stream.get_sync_stream(0):
@@ -345,7 +367,7 @@ func _process(delta: float) -> void:
 	for mode in _fade:
 		_fade[mode] = move_toward(_fade[mode], 1.0 if music_mode == mode else 0.0, step)
 	for i in 3:
-		var want := 1.0 if i == 0 or danger >= i else 0.0
+		var want := 1.0 if i == 0 or (danger >= i and not _el_battle) else 0.0
 		_layers[i] = move_toward(_layers[i], want, delta / LAYER_FADE)
 		battle_stream.set_sync_stream_volume(i, _db(_layers[i]))
 	var ducking := _now() < _sting_until - 0.4
@@ -365,11 +387,38 @@ func _drive(p: AudioStreamPlayer, fade: float, base_db: float, muted: bool) -> v
 		p.stream_paused = silent
 
 
+func _map_mood() -> String:
+	var v = get_parent().get("map_variant")
+	var i := int(v) if v != null else 0
+	return MAP_MOODS[clampi(i, 0, MAP_MOODS.size() - 1)]
+
+
+func _pick_battle_loop() -> void:
+	## The recorded battle loop for this map's mood takes the first stem's
+	## place; the drum and tension stems are a different score, so they stay
+	## silent with it. Without the recorded files the three stems play as before.
+	var mood := _map_mood()
+	var st = _music_stream("battle_bright" if mood in BRIGHT_MOODS else "battle_dark")
+	_el_battle = st != null
+	if st == null:
+		st = _music_stream(BATTLE_STEMS[0])
+	if st:
+		st.loop = true
+		battle_stream.set_sync_stream(0, st)
+
+
 func play_ambience(on: bool) -> void:
-	if not streams.has("ambience"):
+	var st = _music_stream("ambience_" + _map_mood()) if on else null
+	if st:
+		st.loop = true
+	elif streams.has("ambience"):
+		st = streams["ambience"]
+	if st == null:
+		if not on:
+			ambience.stop()
 		return
 	if on and not ambience.playing:
-		ambience.stream = streams["ambience"]
+		ambience.stream = st
 		ambience.play()
 	elif not on:
 		ambience.stop()
