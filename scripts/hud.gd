@@ -3823,13 +3823,20 @@ func _ring_button(c: Vector2, r: float, hot: float = 0.0) -> void:
 	draw_arc(c, r - 1, 0, TAU, 32, Color(0.62, 0.44, 0.16, 0.6), 1.0)
 
 
+func _stacked() -> bool:
+	## A tall split-screen pane (two players side by side): the bottom row stacks, the
+	## ability strip above the status panel, so it needs 620 units across, not 1280.
+	return pane and game != null and game.pane_stacked()
+
+
 func _draw_player_panel(p) -> void:
 	## The bottom row, laid out like the HUD target (2026-10-07): bottom-left
 	## a gold-trimmed level shield on a compact dark panel (hearts and the
 	## energy bar on one row, experience underneath); bottom centre-right the
 	## ability strip on its own gold-framed board; the map, bag and menu
 	## buttons in the corner. All of it shrinks together in narrow panes.
-	var k := minf(1.0, size.x / 1280.0)
+	var stacked := _stacked()
+	var k := minf(1.0, size.x / (620.0 if stacked else 1280.0))
 	hud_scale = k
 	_under_k = k
 	var W := size.x / k
@@ -3839,7 +3846,8 @@ func _draw_player_panel(p) -> void:
 		# baked layers (the bottom row, the right-hand column); this pass
 		# then paints just the bars, cooldowns and numbers over them.
 		var key := _panel_key(p)
-		var bottom := Rect2(0, size.y - (480.0 if touch_ui else 260.0) * k, size.x, (480.0 if touch_ui else 260.0) * k)
+		var bottom_h := 480.0 if touch_ui else (300.0 if stacked else 260.0)
+		var bottom := Rect2(0, size.y - bottom_h * k, size.x, bottom_h * k)
 		var right := Rect2(size.x - 130.0 * k, 0, 130.0 * k, 340.0 * k)
 		panel_pass = ""
 		if _layer("panel_bottom", bottom, key, "panel", [p]) and _layer("panel_right", right, key, "panel", [p]):
@@ -3872,7 +3880,10 @@ func _draw_player_panel(p) -> void:
 		# game.SPLIT_HUD_WIDTH (1140) units, not 1240, so the pane HUD can
 		# scale up.
 		_corner_buttons(Vector2(bx, 14))
-		_ability_strip(p, Rect2(Vector2(W - 560.0, H - 142), Vector2(540, 126)))
+		if stacked:
+			_ability_strip(p, Rect2(Vector2(maxf((W - 540.0) / 2.0, 20.0), H - 250.0), Vector2(540, 126)))
+		else:
+			_ability_strip(p, Rect2(Vector2(W - 560.0, H - 142), Vector2(540, 126)))
 		if _lv():
 			if game.economy:
 				game.economy.draw_hat_slot(self, p, Rect2(Vector2(W - 112.0, 74), Vector2(90, 110)))
@@ -3924,7 +3935,7 @@ func _draw_quick_upgrade(p) -> void:
 		if quick_hidden == _quick_key(p):
 			return   # put away with its X (Faisal 2026-10-14: it could not be closed on the iPad)
 		quick_hidden = ""
-	var k := minf(1.0, size.x / 1280.0)
+	var k := minf(1.0, size.x / (620.0 if _stacked() else 1280.0))
 	var W := size.x / k
 	var H := size.y / k
 	var now := Time.get_ticks_msec() / 1000.0
@@ -3938,8 +3949,8 @@ func _draw_quick_upgrade(p) -> void:
 	var ew := 104.0
 	var bh := 76.0
 	var w := head_w + tracks.size() * tw + extra.size() * ew + 10.0
-	var x := W / 2.0 - w / 2.0 if touch_ui else (W - 22.0 - 142.0 - 30.0 - 235.0) - w / 2.0
-	var y := H - 130.0 - bh if touch_ui else H - 156.0 - bh   # clear of the hotbar hex tops and their cost tags (NUM-08)
+	var x := W / 2.0 - w / 2.0 if (touch_ui or _stacked()) else (W - 22.0 - 142.0 - 30.0 - 235.0) - w / 2.0
+	var y := H - 130.0 - bh if touch_ui else (H - 262.0 - bh if _stacked() else H - 156.0 - bh)   # clear of the hotbar hex tops and their cost tags (NUM-08)
 	var shake := 0.0
 	if now - quick_deny < 0.35:
 		shake = sin((now - quick_deny) * 55.0) * 5.0 * (1.0 - (now - quick_deny) / 0.35)
@@ -6851,7 +6862,11 @@ func _chat_rect() -> Rect2:
 		# Split screen, idle: a short log low in the left pane's corner,
 		# just above its bottom row, clear of the class signs and the spawn
 		# ring (visual pass 2026-11-04: it sat over the spawn ring).
-		return Rect2(14, size.y - 222.0, 270, 130.0)
+		var lift := 222.0
+		if game.pane_stacked() and not game.panes.is_empty():
+			# This HUD is the window's; the left pane's stacked bottom row is ~250 pane-HUD units tall.
+			lift = maxf(lift, 262.0 * float(game.panes[0].hud_scale) / game._pane_pixel_scale() + 138.0)
+		return Rect2(14, size.y - lift, 270, 130.0)
 	return Rect2(14, top, 380 if touch_ui else 290, maxf(0.0, size.y - 166 - top))
 
 
