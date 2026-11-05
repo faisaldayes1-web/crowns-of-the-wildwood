@@ -462,6 +462,17 @@ func _physics_process(delta: float) -> void:
 					continue
 			_burst()
 			return
+	# The Moonlit graveyard's zombies take shots like anyone else.
+	if game.graveyard:
+		var z = game.graveyard.shot_hit(team, global_position, HIT_RADIUS)
+		if z and not z in hit_list:
+			if splash <= 0.0:
+				z.take_hit(damage, owner_unit)
+				if pierce:
+					hit_list.append(z)
+					return
+			_burst()
+			return
 
 
 func _clear_to(target: Vector3) -> bool:
@@ -487,6 +498,8 @@ func _burst() -> void:
 		for t in game.turrets.duplicate():
 			if t.team != team and game._flat_dist(t.global_position, global_position) < splash + 0.5:
 				t.take_hit(damage, owner_unit)
+		if game.graveyard:
+			game.graveyard.splash(team, global_position, splash, damage, owner_unit)
 		var ground := Vector3(global_position.x, 0.0, global_position.z)
 		Fx.of(game).blast(global_position, splash, effect.fx)
 		game.sfx.play("explosion" if fire and splash > 2.5 else ("frost" if frost else "bolt_hit"), global_position, 0.0 if splash > 2.5 else -5.0, 0.12)

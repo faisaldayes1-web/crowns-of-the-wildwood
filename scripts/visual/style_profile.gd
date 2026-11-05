@@ -129,7 +129,7 @@ const GRASS_TINT := Color(1.48, 1.2, 1.05)
 # moon and a little more ambient, so units, paths and walls read in the
 # Moonlit Wildwood without losing the dark mood (was 0.5 / 0.55 / 0.14).
 const NIGHT := {
-	"ambient_energy": 0.48, "sun_energy": 0.75, "fill_energy": 0.2,   # grade pass 2026-10-31: was 0.6, the yard read lavender, not night
+	"ambient_energy": 0.6, "sun_energy": 0.92, "fill_energy": 0.24,   # (8/8 pass 2026-11-04: lifted, the night read too dark to see depth)   # grade pass 2026-10-31: was 0.6, the yard read lavender, not night
 }
 const EMBER := {
 	# Polish round 3 (reviewers: "dark rock vs lava emission imbalance"): a

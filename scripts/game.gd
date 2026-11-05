@@ -26,6 +26,7 @@ const Turret = preload("res://scripts/turret.gd")
 const Seal = preload("res://scripts/seal.gd")
 const Sfx = preload("res://scripts/sfx.gd")
 const Volcano = preload("res://scripts/volcano.gd")
+const Graveyard = preload("res://scripts/graveyard.gd")
 const Lanes = preload("res://scripts/lanes.gd")
 const StaticBatch = preload("res://scripts/static_batch.gd")
 const Season = preload("res://scripts/visual/season.gd")
@@ -121,7 +122,8 @@ var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
 static var reopen_screen := ""  # a menu screen to reopen after select_map() reloads the scene
 var season := ""               # "winter" (Stonekeep Fortress), "twilight" (Twilight Grove) or "" (scripts/visual/season.gd)
 var vmap = null                 # Ember Pass (the volcano map): its layout, bot routes and Fire Objective; null on the Wildwood
-var lmap = null                 # Stonekeep Fortress / Twilight Grove: their own lanes, terrain and bot routes (scripts/lanes.gd); null elsewhere
+var graveyard = null            # Moonlit Wildwood: the graveyard, its Cursed Bell and zombies (scripts/graveyard.gd); null elsewhere
+var lmap = null                 # Stonekeep Fortress / Twilight Grove / the Wildwood: their own lanes, terrain and bot routes (scripts/lanes.gd); null elsewhere
 var hero_skin := 1              # Stats.HERO_SKINS index
 var hero_face := 0              # Stats.HERO_FACES index
 var hero_eye := -1              # Stats.HERO_EYES index (-1: the side's own colour)
@@ -174,6 +176,8 @@ var player_team := 0
 var score := [0, 0]
 var winner_team := -1
 var overtime := false         # tied at full time: doors down, next capture wins
+var game_mode := "crowns"     # Stats.GAME_MODES: "crowns" (Crown Raid) or "tdm" (Team Deathmatch)
+var tdm_sudden := false       # Team Deathmatch tied at full time: the next kill wins
 var thrones: Array[Vector3] = []
 var monarchs: Array = []
 var units: Array = []
@@ -200,6 +204,8 @@ var economy = null            # wood, ore and what they buy (economy.gd)
 # Quality of life settings (saved with the controls).
 var screen_shake := true
 var damage_numbers := true
+var tips_on := true             # first-match tips (scripts/tips.gd); Settings > Tips
+var tips_done := false          # every local player has been through them once
 var show_fps := false
 var quit_armed := 0.0          # pause menu: seconds the MAIN MENU button stays armed after a first click
 var gfx_quality := 2           # graphics preset: 0 Low, 1 Medium, 2 High, 3 Ultra
@@ -213,6 +219,9 @@ var _fps_last := 0             # the previous frame's time (msec): a long stall 
 var fullscreen := false
 var window_mode := "windowed"   # Settings > Display: "windowed", "borderless" (fullscreen window) or "exclusive"
 const WINDOW_MODES := ["windowed", "borderless", "exclusive"]
+const WINDOW_SIZES := [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440)]
+var window_size := Vector2i.ZERO   # Settings > Display: windowed size the player picked (zero = leave the window as it is)
+var _window_size_dirty := false
 var vsync_on := true          # Settings: wait for the display refresh (no tearing)
 var fps_cap := 0              # Settings: frame-rate limit, 0 = none
 const FPS_CAPS := [0, 30, 60, 120, 144, 240]
@@ -220,7 +229,7 @@ var render_scale := 1.0        # Settings: 3D resolution scale (1.0 = native; th
 const RENDER_SCALES := [1.0, 0.85, 0.75, 0.5]
 const GFX_NAMES := ["LOW", "MEDIUM", "HIGH", "ULTRA"]
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
-var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox" or "ps"
+var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox", "ps" or "switch"
 var pad_active := false        # player 1's last press came from a gamepad (labels follow it)
 var cursor := Vector2.ZERO      # the gamepad's menu cursor (screen pixels)
 var debug_kill := false
@@ -499,6 +508,8 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		# Testing the STORE: --debug-gold=N, --debug-chests=N, --debug-own=kind:i,kind:i
 		# (owned and worn). Run renders with their own XDG_DATA_HOME: these save.
+		if not OS.is_debug_build():
+			break   # a shipped build ignores the save-editing test flags below
 		if arg.begins_with("--debug-gold="):
 			account_gold = int(arg.trim_prefix("--debug-gold="))
 		if arg.begins_with("--debug-chests="):
@@ -839,6 +850,8 @@ func _process(delta: float) -> void:
 		_net_test_tick(delta)
 	if vmap and world_ready:
 		vmap.tick(delta)
+	if graveyard and world_ready:
+		graveyard.tick(delta)
 	if lmap and world_ready and demo and playing and not game_over:
 		lmap.sample(delta)   # bot matches: where the fighting happens (LANESTAT in the demo report)
 	if legend or Engine.get_process_frames() == swallow_frame and game_over:
@@ -981,7 +994,7 @@ func _debug_hooks() -> void:
 		if frame == shot_frame - 5:
 			if arg.begins_with("--debug-title-tab="):
 				title_tab = int(arg.trim_prefix("--debug-title-tab="))
-			if arg.begins_with("--debug-xp="):
+			if OS.is_debug_build() and arg.begins_with("--debug-xp="):
 				account_xp = int(arg.trim_prefix("--debug-xp="))
 		if frame == shot_frame - 50 and player and arg == "--debug-carry" and monarchs[1 - player_team].state != Monarch.State.CARRIED:
 			# Renders: the player holding the enemy crown, picked up 50 frames
@@ -1151,7 +1164,52 @@ func _debug_hooks() -> void:
 
 # --- Rules -----------------------------------------------------------------
 
+func is_tdm() -> bool:
+	return game_mode == "tdm"
+
+
+func mode_name() -> String:
+	return Stats.GAME_MODE_NAMES.get(game_mode, "Crown Raid")
+
+
+func set_game_mode(mode: String) -> void:
+	if mode in Stats.GAME_MODES:
+		game_mode = mode
+
+
+func tdm_kill(victim) -> void:
+	## Team Deathmatch: an enemy knocked down or killed is a point for the
+	## other side (unit._fall, whatever dealt the blow: a fighter, a turret,
+	## a trap or the lava). The host only; clients take the score from it.
+	if not is_tdm() or not playing or game_over or prep_left > 0.0 or net_client:
+		return
+	var t: int = 1 - victim.team
+	score[t] += 1
+	var team_name: String = Stats.FACTIONS[t].name
+	if demo:
+		LogQ.line("TDM kill: %s  (score %d - %d) t=%d" % [team_name, score[0], score[1], match_clock()])
+	if tdm_sudden or score[t] >= Stats.TDM_KILLS_TO_WIN:
+		_finish(t)
+		return
+	var left: int = Stats.TDM_KILLS_TO_WIN - score[t]
+	if left in [10, 5, 1]:
+		chat_system("The %s need %d more kill%s to win." % [team_name, left, "" if left == 1 else "s"])
+		if left == 1:
+			announce("The %s are one kill from victory!" % team_name)
+
+
+func tdm_wave_delay() -> float:
+	## Seconds until the next respawn wave: waves roll every TDM_WAVE seconds
+	## of the match, and nobody waits less than TDM_RESPAWN_MIN.
+	var wait: float = Stats.TDM_WAVE - fmod(maxf(match_played, 0.0), Stats.TDM_WAVE)
+	if wait < Stats.TDM_RESPAWN_MIN:
+		wait += Stats.TDM_WAVE
+	return wait
+
+
 func _check_rules() -> void:
+	if is_tdm():
+		return   # no crowns to carry: kills score (tdm_kill)
 	for m in monarchs:
 		if m.state == Monarch.State.CARRIED:
 			var carrier = m.carrier
@@ -1196,6 +1254,8 @@ func _score_capture(carrier, m) -> void:
 
 func match_clock() -> int:
 	## Seconds since the match began, overtime included (for the logs).
+	if is_tdm():
+		return int(Stats.TDM_TIME + (Stats.TDM_SUDDEN if tdm_sudden else 0.0) - time_left)
 	if overtime:
 		return int(Stats.MATCH_TIME + Stats.OVERTIME - time_left)
 	return int(Stats.MATCH_TIME - time_left)
@@ -1205,11 +1265,13 @@ func _demo_summary() -> void:
 	LogQ.flush()   # the queued match log first, then the result lines
 	## One line per unit at the end of a bot match, for balance tallies.
 	var w: String = "Draw" if winner_team < 0 else Stats.FACTIONS[winner_team].name
-	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1]])
+	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d mode=%s sudden=%s" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1], game_mode, tdm_sudden])
 	if vmap:
 		print("FIRESTAT held=%d/%d captures=%d/%d" % [int(vmap.fire_held[0]), int(vmap.fire_held[1]), vmap.fire_captures[0], vmap.fire_captures[1]])
 	if lmap:
 		print("LANESTAT " + lmap.sample_report())
+	if graveyard:
+		print(graveyard.report())
 	for u in units:
 		# The class the bot plays all match (its current role resets on death).
 		var cls: String = Stats.FACTIONS[u.team].roles[u.bot_class]
@@ -1223,6 +1285,20 @@ func _demo_summary() -> void:
 
 
 func _end_on_time() -> void:
+	if is_tdm():
+		if score[0] == score[1] and not tdm_sudden:
+			# Tied at full time: a short sudden death, the next kill wins.
+			tdm_sudden = true
+			time_left = Stats.TDM_SUDDEN
+			announce("SUDDEN DEATH! The next kill wins!")
+			chat_system("Sudden death: the next kill wins the deathmatch.")
+			sfx.ui("horn", 0.0, 0.8)
+			LogQ.line("Sudden death")
+			return
+		time_left = 0.0
+		_finish(-1 if score[0] == score[1] else (0 if score[0] > score[1] else 1))
+		LogQ.line("Time up")
+		return
 	if score[0] == score[1] and not overtime:
 		# Sudden death: both doors come down and stay down, next capture wins.
 		overtime = true
@@ -1250,6 +1326,8 @@ func _finish(winner: int) -> void:
 	if winner >= 0:
 		outcome = "VICTORY!" if winner == player_team else "DEFEAT"
 		line = "The %s win %d to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
+		if is_tdm():
+			line = "The %s win the deathmatch, %d kills to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
 	winner_team = winner
 	chat_system(line)   # the summary screen carries the result; no banner over it
 	_steam_match_end(winner)
@@ -1384,6 +1462,9 @@ func try_interact(u, selected = null) -> void:
 		else:
 			SkillFx.grab_miss(u)
 		return
+	if is_tdm():
+		SkillFx.grab_miss(u)
+		return   # Team Deathmatch: no crown to take
 	var m = monarchs[1 - u.team]
 	if selected != null and (selected != m or prep_left > 0.0 or u.carrying != null):
 		return
@@ -1755,6 +1836,9 @@ func _plan_bots(team: int) -> void:
 			if u.base_job != "build":
 				u.bot_job = "prep"
 		return
+	if is_tdm():
+		_plan_tdm_bots(team, bots)
+		return
 	var side := -1.0 if team == 0 else 1.0
 	if mine.state == Monarch.State.CARRIED:
 		_assign_nearest(bots, mine.carrier.global_position, 3, "recover")
@@ -1782,8 +1866,46 @@ func _plan_bots(team: int) -> void:
 	# Ember Pass: win the Fire Objective, then keep a guard on it.
 	if vmap and cmd != "defend":
 		_assign_nearest(bots, vmap.FIRE_POS, vmap.bots_wanted(team), "fire")
+	# The Moonlit Wildwood: ring the Cursed Bell to own the graveyard's dead.
+	if graveyard and cmd != "defend":
+		_assign_nearest(bots, graveyard.CENTER, graveyard.bots_wanted(team), "bell")
 	if economy:
 		economy.plan_gatherers(team, bots)
+
+
+func _plan_tdm_bots(team: int, bots: Array) -> void:
+	## Team Deathmatch: no crowns, no doors. Healers stay with the group
+	## (support), everyone else hunts the nearest enemy (unit._bot_think,
+	## tdm_hunt_target). The player's calls still work: Defend! pulls three
+	## back to the keep, To me! brings two to the call.
+	# (_assign_nearest only takes bots still on their lineup job, so the
+	# calls and the fire go first and the hunt takes whoever is left.)
+	var cmd: String = team_command[team] if command_timer[team] > 0.0 else ""
+	if cmd == "defend":
+		_assign_nearest(bots, thrones[team], 3, "defend")
+	elif cmd == "help":
+		_assign_nearest(bots, command_pos[team], 2, "rally_to")
+	# Ember Pass: the Fire Objective is still worth holding (Fire form).
+	if vmap and cmd != "defend":
+		_assign_nearest(bots, vmap.FIRE_POS, vmap.bots_wanted(team), "fire")
+	for u in bots:
+		if u.bot_job == u.base_job:
+			u.bot_job = "support" if u.base_job == "support" else "hunt"
+
+
+func tdm_hunt_target(u):
+	## The enemy a hunter goes for: the nearest one standing (a downed one
+	## counts as further off, so a bot only detours to finish one close by).
+	var best = null
+	var best_d := INF
+	for e in units:
+		if e.team == u.team or e.dead:
+			continue
+		var d: float = _flat_dist(u.global_position, e.global_position) + (30.0 if e.downed else 0.0)
+		if d < best_d:
+			best_d = d
+			best = e
+	return best
 
 
 func command_active(team: int, kind: String) -> bool:
@@ -1835,6 +1957,12 @@ func toggle_setting(key: String) -> void:
 	match key:
 		"shake": screen_shake = not screen_shake
 		"numbers": damage_numbers = not damage_numbers
+		"tips":
+			tips_on = not tips_on
+			tips_done = false   # switching them on again replays the list
+			for l in locals:
+				if l != null and l.has_meta("tips"):
+					l.remove_meta("tips")
 		"fps": show_fps = not show_fps
 		"chat": chat_visible = not chat_visible
 		"rosters": rosters_visible = not rosters_visible
@@ -1842,7 +1970,7 @@ func toggle_setting(key: String) -> void:
 			rumble_on = not rumble_on
 			if rumble_on:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
-		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
+		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "switch", "switch": "auto"}[pad_style]
 		"move_aim", "move_screen":
 			move_mode = "screen"
 		"pc_click", "pc_wasd":
@@ -1852,7 +1980,7 @@ func toggle_setting(key: String) -> void:
 		"layout_auto", "layout_keyboard", "layout_controller", "layout_touch":
 			control_layout = key.trim_prefix("layout_")
 			apply_control_layout()
-		"pad_style_prev": pad_style = {"auto": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
+		"pad_style_prev": pad_style = {"auto": "switch", "switch": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
 		"split_vertical", "split_horizontal": set_split_layout(key.trim_prefix("split_"))
 		"test_sound":
 			sfx.ui("ui_open", 0.0)   # (there is no ui_confirm clip: the button was silent, AUD-01)
@@ -1869,6 +1997,17 @@ func toggle_setting(key: String) -> void:
 			# Display: Windowed -> Borderless -> Fullscreen (exclusive) -> Windowed.
 			window_mode = WINDOW_MODES[(WINDOW_MODES.find(window_mode) + 1) % WINDOW_MODES.size()]
 			fullscreen = window_mode != "windowed"
+			apply_graphics()
+		"window_size":
+			var sizes := _window_sizes()
+			var at := sizes.find(window_size if window_size != Vector2i.ZERO else DisplayServer.window_get_size())
+			window_size = sizes[(at + 1) % sizes.size()]
+			_window_size_dirty = true
+			apply_graphics()
+		"gfx_auto":
+			# Back to the game's own pick for this graphics card (and the automatic step-down).
+			gfx_picked = false
+			_pick_graphics()
 			apply_graphics()
 		"vsync":
 			vsync_on = not vsync_on
@@ -1892,6 +2031,9 @@ func objective_target() -> Dictionary:
 	var theirs = monarchs[1 - player_team]
 	if prep_left > 0.0:
 		return {"pos": player.global_position, "step": 0, "label": "Fortify: turrets, traps, barricades (%s)" % key_label("interact")}
+	if is_tdm():
+		var foe = tdm_hunt_target(player)
+		return {"pos": foe.global_position if foe else Vector3.ZERO, "step": 0, "label": "Defeat the enemy: first to %d kills" % Stats.TDM_KILLS_TO_WIN}
 	if player.carrying:
 		return {"pos": thrones[player_team], "step": 2, "label": "Carry it to your throne"}
 	if mine.state == Monarch.State.CARRIED:
@@ -2773,6 +2915,13 @@ func _start_match(team: int) -> void:
 		if arg.begins_with("--split="):
 			split_layout = "horizontal" if arg.trim_prefix("--split=") == "horizontal" else "vertical"  # testing: --split=vertical|horizontal
 	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--mode="):
+			set_game_mode(arg.trim_prefix("--mode="))   # testing: --mode=tdm|crowns
+	if is_tdm():
+		time_left = Stats.TDM_TIME
+		for m in monarchs:
+			m.visible = false   # no crowns in a deathmatch (try_interact, _check_rules)
+	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--team-size="):
 			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEST_TEAM_MAX)  # testing only (batches): 3v3 / 5v5; the live game stays TEAM_SIZE
 	if menu_stage:
@@ -2854,7 +3003,7 @@ func _start_match(team: int) -> void:
 		await StaticBatch.particles_to_gpu(self)
 	_warm_up_match()   # (a coroutine: the next frames under the loading art)
 	if prep_left >= 0.0:
-		prep_left = Stats.PREP_TIME
+		prep_left = Stats.TDM_PREP if is_tdm() else Stats.PREP_TIME
 		_build_barrier()
 	else:
 		prep_left = 0.0
@@ -2879,6 +3028,17 @@ func _start_match(team: int) -> void:
 		announce("FORTIFY! Build turrets, set traps and raise barricades (%s) before the barrier falls." % key_label("interact"))
 	if net and net.is_host():
 		net.on_match_started()
+
+
+func objective():
+	## The map's capture point, or null: Ember Pass's Fire Objective or the
+	## Moonlit Wildwood's Cursed Bell (both answer status() the same way).
+	return vmap if vmap else graveyard
+
+
+func objective_status(my_team: int) -> Dictionary:
+	var o = objective()
+	return o.status(my_team) if o else {}
 
 
 func in_prep() -> bool:
@@ -2967,7 +3127,14 @@ func _begin_battle() -> void:
 		barrier = null
 	if demo:
 		LogQ.line("Battle begins: barricades %d/%d, traps %d, turrets %d/%d" % [Stats.BARRICADE_TEAM - barricades_left[0], Stats.BARRICADE_TEAM - barricades_left[1], get_children().filter(func(c): return c is Trap).size(), turrets_built[0], turrets_built[1]])
-	announce("FIGHT! The barrier is down. Capture the crown!")
+	if is_tdm():
+		# Team Deathmatch: the doors come down with the barrier, so nothing
+		# stands between the two sides but each other.
+		for g in gates:
+			g.collapse()
+		announce("FIGHT! Team Deathmatch: first to %d kills!" % Stats.TDM_KILLS_TO_WIN)
+	else:
+		announce("FIGHT! The barrier is down. Capture the crown!")
 	chat_system("The barrier is down. Fight!")
 	sfx.ui("horn", 0.0, 1.0)
 	sfx.sting("match_start", "match_start")
@@ -3324,9 +3491,10 @@ func net_build_snapshot() -> Dictionary:
 		econ = {"wood": economy.wood, "ore": economy.ore, "up": economy.upgraded, "cargo": cargo,
 			"stock": economy.nodes.map(func(n): return n.stock)}
 	return {"units": us, "monarchs": ms, "gates": gs, "vaults": vs, "score": score, "time": time_left,
-		"prep": prep_left, "overtime": overtime, "over": game_over, "winner": winner_team, "feed": feed,
+		"prep": prep_left, "overtime": overtime, "mode": game_mode, "sudden": tdm_sudden, "over": game_over, "winner": winner_team, "feed": feed,
 		"ents": ents, "barr": barricades.map(func(b): return b.hp), "orbs": heal_orbs.map(func(o): return o.active),
-		"econ": econ, "fire": [vmap.fire_owner, vmap.fire_progress] if vmap else []}
+		"econ": econ, "fire": [vmap.fire_owner, vmap.fire_progress] if vmap else [],
+		"grave": graveyard.net_state() if graveyard else []}
 
 
 func net_apply_snapshot(d: Dictionary) -> void:
@@ -3372,6 +3540,10 @@ func net_apply_snapshot(d: Dictionary) -> void:
 	time_left = d.time
 	prep_left = d.prep
 	overtime = d.overtime
+	game_mode = d.get("mode", game_mode)
+	tdm_sudden = d.get("sudden", false)
+	for m in monarchs:
+		m.visible = not is_tdm()   # the host's mode, not this client's saved pick
 	if d.over and not game_over:
 		_finish(d.winner)
 
@@ -3448,6 +3620,8 @@ func _net_apply_entities(d: Dictionary) -> void:
 			u.refresh_fire(false)
 	if vmap and d.fire.size() == 2:
 		vmap.fire_progress = d.fire[1]
+	if graveyard and d.has("grave"):
+		graveyard.net_apply(d.grave)
 
 
 func net_button(what: String) -> void:
@@ -3747,7 +3921,7 @@ func on_player_killed(killer, weapon: String, finished: bool = false) -> void:
 
 func unlocked() -> bool:
 	## The level-10 unlocks (Rogue, Shadowborn look, Moonlit map).
-	return account_level() >= Stats.UNLOCK_LEVEL or "--debug-unlock" in OS.get_cmdline_user_args()
+	return account_level() >= Stats.UNLOCK_LEVEL or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args())
 
 
 func night() -> bool:
@@ -3806,7 +3980,7 @@ func legend_level() -> int:
 
 func legend_unlocked() -> bool:
 	## PROGRESS offers WATCH THE LEGEND from this level on.
-	return account_level() >= Legend.LEGEND_LEVEL or "--debug-unlock" in OS.get_cmdline_user_args()
+	return account_level() >= Legend.LEGEND_LEVEL or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args())
 
 
 func continue_after_summary() -> void:
@@ -4318,7 +4492,7 @@ func menu_tick() -> void:
 							else:
 								toast("That frame unlocks at account level %d" % Stats.UNLOCK_LEVEL, Color(1.0, 0.8, 0.5))
 						"banner_title":
-							if Stats.BANNER_TITLES[b[2]][0] <= account_level() or "--debug-unlock" in OS.get_cmdline_user_args():
+							if Stats.BANNER_TITLES[b[2]][0] <= account_level() or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args()):
 								banner_title = b[2]
 							else:
 								toast("That title unlocks at account level %d" % Stats.BANNER_TITLES[b[2]][0], Color(1.0, 0.8, 0.5))
@@ -4807,8 +4981,8 @@ func binding_text(action: String, device: String, kind: String = "") -> String:
 
 func _axis_name(axis: int, kind: String) -> String:
 	match axis:
-		JOY_AXIS_TRIGGER_RIGHT: return "R2" if kind == "ps" else "RT"
-		JOY_AXIS_TRIGGER_LEFT: return "L2" if kind == "ps" else "LT"
+		JOY_AXIS_TRIGGER_RIGHT: return "R2" if kind == "ps" else ("ZR" if kind == "switch" else "RT")
+		JOY_AXIS_TRIGGER_LEFT: return "L2" if kind == "ps" else ("ZL" if kind == "switch" else "LT")
 		JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y: return "Left stick"
 		JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y: return "Right stick"
 	return "Axis %d" % axis
@@ -4838,13 +5012,18 @@ func local_pad(local_index: int) -> int:
 
 
 func pad_kind(device: int) -> String:
-	## "ps" for a DualSense / DualShock, "xbox" for everything else, unless
-	## the Settings tab forces one.
+	## "ps" for a DualSense / DualShock, "switch" for a Nintendo pad, "xbox"
+	## for everything else (Steam Deck included), unless the Settings tab
+	## forces one.
 	if pad_style != "auto":
 		return pad_style
 	if device < 0:
 		return "xbox"
-	return "ps" if _is_playstation(Input.get_joy_name(device), Input.get_joy_guid(device)) else "xbox"
+	var joy_name := Input.get_joy_name(device)
+	var guid := Input.get_joy_guid(device)
+	if _is_playstation(joy_name, guid):
+		return "ps"
+	return "switch" if _is_nintendo(joy_name, guid) else "xbox"
 
 
 func _is_playstation(joy_name: String, guid: String) -> bool:
@@ -4856,6 +5035,15 @@ func _is_playstation(joy_name: String, guid: String) -> bool:
 	return guid.length() >= 12 and guid.substr(8, 4) == "4c05"
 
 
+func _is_nintendo(joy_name: String, guid: String) -> bool:
+	var n := joy_name.to_lower()
+	for word in ["nintendo", "switch", "joy-con", "joycon", "pro controller"]:
+		if word in n:
+			return true
+	# Nintendo's USB vendor id is 057e (little-endian "7e05" in the GUID).
+	return guid.length() >= 12 and guid.substr(8, 4) == "7e05"
+
+
 func pad_title(device: int) -> String:
 	## What to call a pad in toasts and the Settings tab.
 	if device < 0 or not Input.get_connected_joypads().has(device):
@@ -4864,6 +5052,8 @@ func pad_title(device: int) -> String:
 	if pad_kind(device) == "ps":
 		var l := n.to_lower()
 		return "DualSense (PS5)" if "dualsense" in l or "ps5" in l else ("DualShock (PS4)" if "dualshock" in l or "ps4" in l else "PlayStation controller")
+	if pad_kind(device) == "switch" and n != "":
+		return n if "nintendo" in n.to_lower() else "Nintendo " + n
 	return n if n != "" else "Gamepad"
 
 
@@ -4879,7 +5069,15 @@ func _on_pad_changed(device: int, connected: bool) -> void:
 			toast("Unknown gamepad layout: buttons may need rebinding in Controls", Color(1.0, 0.8, 0.5))
 	else:
 		toast("Gamepad disconnected%s" % who, Color(1.0, 0.8, 0.5))
-		pad_active = false
+		# Only player 1's pad drives the hint labels; player 2 unplugging used to flip them to keys.
+		if couch_players <= 1 or device == local_pad(0):
+			pad_active = false
+		if who != "" and playing and not menu_open and not (net and net.online()):
+			# A split-screen player whose pad dropped would stand still while the others fight:
+			# pause so they can plug it back in (the bound device id survives a replug).
+			menu_open = true
+			menu_tab = 0
+			get_tree().paused = true
 
 
 func rumble(u, weak: float, strong: float, duration: float) -> void:
@@ -4952,6 +5150,22 @@ func _pad_name(button: int, kind: String = "xbox") -> String:
 			JOY_BUTTON_RIGHT_STICK: return "R3"
 			JOY_BUTTON_GUIDE: return "PS"
 			JOY_BUTTON_MISC1: return "Mute"
+	if kind == "switch":
+		# Buttons are named by position (A is the bottom one in Godot); a Switch pad
+		# prints B there, A on the right, Y on the left and X on top.
+		match button:
+			JOY_BUTTON_A: return "B"
+			JOY_BUTTON_B: return "A"
+			JOY_BUTTON_X: return "Y"
+			JOY_BUTTON_Y: return "X"
+			JOY_BUTTON_LEFT_SHOULDER: return "L"
+			JOY_BUTTON_RIGHT_SHOULDER: return "R"
+			JOY_BUTTON_BACK: return "-"
+			JOY_BUTTON_START: return "+"
+			JOY_BUTTON_LEFT_STICK: return "LS"
+			JOY_BUTTON_RIGHT_STICK: return "RS"
+			JOY_BUTTON_GUIDE: return "Home"
+			JOY_BUTTON_MISC1: return "Capture"
 	match button:
 		JOY_BUTTON_A: return "A"
 		JOY_BUTTON_B: return "B"
@@ -5073,10 +5287,11 @@ func select_map(index: int) -> void:
 	## scene restarts on the title with the new map saved.
 	# Day and night share one world; Ember Pass and the two seasons each
 	# build their own.
-	var built: String = "volcano" if vmap else (season if season != "" else "wildwood")
+	# The Wildwood (day) has its own Heart-Tree layout, and the Moonlit Wildwood its graveyard (2026-11-04).
+	var built: String = "volcano" if vmap else (season if season != "" else ("day" if lmap else ("moonlit" if graveyard else "wildwood")))
 	var kind: String = Stats.MAPS[index][1]
-	var want: String = kind if kind in ["volcano", "winter", "twilight"] else "wildwood"
 	map_variant = index
+	var want: String = kind if kind in ["volcano", "winter", "twilight", "day"] else ("moonlit" if night() else "wildwood")
 	if want != built:
 		_save_settings()
 		if main_menu:
@@ -5242,6 +5457,7 @@ func _save_settings() -> void:
 	_read_save(cfg)
 	_write_control_bindings(cfg)  # migration and schema are one save transaction
 	cfg.set_value("settings", "bot_difficulty", bot_difficulty)
+	cfg.set_value("settings", "game_mode", game_mode)
 	cfg.set_value("settings", "sound_volume", sfx.sound_volume)
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
 	cfg.set_value("settings", "chat_visible", chat_visible)
@@ -5250,6 +5466,8 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "couch_mode", couch_mode)
 	cfg.set_value("settings", "screen_shake", screen_shake)
 	cfg.set_value("settings", "damage_numbers", damage_numbers)
+	cfg.set_value("settings", "tips_on", tips_on)
+	cfg.set_value("settings", "tips_done", tips_done)
 	cfg.set_value("settings", "show_fps", show_fps)
 	cfg.set_value("settings", "vsync", vsync_on)
 	cfg.set_value("settings", "fps_cap", fps_cap)
@@ -5260,6 +5478,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "howto_seen", howto_seen)
 	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "window_mode", window_mode)
+	cfg.set_value("settings", "window_size", window_size)
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
 	cfg.set_value("settings", "control_layout", control_layout)
@@ -5387,12 +5606,15 @@ func _load_controls() -> void:
 	var diff: String = cfg.get_value("settings", "bot_difficulty", "Normal")
 	if diff in Stats.BOT_DIFFICULTIES:
 		bot_difficulty = diff
+	set_game_mode(str(cfg.get_value("settings", "game_mode", game_mode)))
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
 	rosters_visible = cfg.get_value("settings", "rosters_shown", false)
 	couch_players = 1  # extra players join each session in the Ready Up lobby
 	couch_mode = "coop" if cfg.get_value("settings", "couch_mode", "versus") == "coop" else "versus"
 	screen_shake = cfg.get_value("settings", "screen_shake", true)
 	damage_numbers = cfg.get_value("settings", "damage_numbers", true)
+	tips_on = cfg.get_value("settings", "tips_on", true)
+	tips_done = cfg.get_value("settings", "tips_done", false)
 	show_fps = cfg.get_value("settings", "show_fps", OS.has_feature("web"))
 	vsync_on = cfg.get_value("settings", "vsync", true)
 	fps_cap = int(cfg.get_value("settings", "fps_cap", 0))
@@ -5414,6 +5636,9 @@ func _load_controls() -> void:
 	if window_mode not in WINDOW_MODES:
 		window_mode = "borderless" if fullscreen else "windowed"
 	fullscreen = window_mode != "windowed"
+	var ws = cfg.get_value("settings", "window_size", Vector2i.ZERO)
+	window_size = ws if ws is Vector2i and ws.x >= 960 and ws.y >= 540 else Vector2i.ZERO
+	_window_size_dirty = window_size != Vector2i.ZERO
 	rumble_on = cfg.get_value("settings", "rumble", true)
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
 	control_layout = cfg.get_value("settings", "control_layout", "auto")
@@ -5426,7 +5651,7 @@ func _load_controls() -> void:
 	if control_layout not in CONTROL_LAYOUTS:
 		control_layout = "auto"
 	apply_control_layout()
-	if pad_style not in ["auto", "xbox", "ps"]:
+	if pad_style not in ["auto", "xbox", "ps", "switch"]:
 		pad_style = "auto"
 	sfx.sound_volume = clampf(cfg.get_value("settings", "sound_volume", 0.8), 0.0, 1.0)
 	sfx.music_volume = clampf(cfg.get_value("settings", "music_volume", 0.6), 0.0, 1.0)
@@ -5575,6 +5800,13 @@ uniform bool fray = false;
 uniform float half_w = 2.0;   // per material: the Compatibility renderer (web) has no instance uniforms
 uniform float end_x = 0.0;     // >0: the road ends here (local x): its last stones fray out one at a time past it
 uniform bool radial = false;  // a round plaza: the distance is the radius, not the way across a strip
+// Per-map look (claude-faisal/crowns-visual2 2026-11-04, Faisal: each map's
+// roads fit its ground): stone and joint tints, frost in the joints
+// (Stonekeep) and a faint glow in them (Twilight's moss).
+uniform vec3 stone_tint : source_color = vec3(1.0);
+uniform vec3 joint_tint : source_color = vec3(1.0);
+uniform float frost = 0.0;
+uniform vec3 joint_glow : source_color = vec3(0.0);
 varying vec3 wpos;
 varying float lz;
 varying vec2 lxz;
@@ -5620,7 +5852,13 @@ void fragment() {
 			discard;
 		}
 	}
-	ALBEDO = texture(albedo_tex, uv).rgb;
+	vec3 col = texture(albedo_tex, uv).rgb;
+	float lum = dot(col, vec3(0.3, 0.55, 0.15));
+	float stone = smoothstep(0.22, 0.42, lum);
+	col *= mix(joint_tint, stone_tint, stone);
+	col = mix(col, vec3(0.9, 0.94, 1.0), frost * (1.0 - stone) * 0.85 + frost * 0.12);
+	ALBEDO = col;
+	EMISSION = joint_glow * (1.0 - stone);
 	vec3 n = texture(normal_tex, uv).rgb * 2.0 - 1.0;
 	NORMAL = normalize((VIEW_MATRIX * vec4(n.x, n.z, -n.y, 0.0)).xyz);
 	ROUGHNESS = 0.85;
@@ -5755,12 +5993,32 @@ func _stones(loose: bool = false, fray: bool = false) -> ShaderMaterial:
 	mat.set_shader_parameter("stones_tex", load("%s%s_stones.png" % [dir, name]))
 	mat.set_shader_parameter("scale", 0.26 if loose else 0.2)
 	mat.set_shader_parameter("fray", fray)
+	# Each map's roads in its ground's palette (Wildwood keeps the warm tan).
+	var look: Array = _road_look()
+	mat.set_shader_parameter("stone_tint", look[0])
+	mat.set_shader_parameter("joint_tint", look[1])
+	mat.set_shader_parameter("frost", look[2])
+	mat.set_shader_parameter("joint_glow", look[3])
 	if not fray:
 		mat.set_meta("fray", _stones(loose, true))
 	return mat
 
 
 var verge_mat: StandardMaterial3D
+
+
+func _road_look() -> Array:
+	## [stone tint, joint tint, frost, joint glow] for this map's cobbles.
+	if season == "winter":
+		# Stonekeep: cold grey-blue granite, snow packed in the joints.
+		return [Color(0.68, 0.74, 0.88), Color(0.7, 0.76, 0.88), 0.6, Color(0, 0, 0)]
+	if season == "twilight":
+		# Twilight Grove: dusky lavender flags, violet moss glowing faintly between.
+		return [Color(0.4, 0.6, 0.62), Color(0.24, 0.4, 0.44), 0.0, Color(0.05, 0.14, 0.16)]   # (8/8 pass: slate-teal; the violet read magenta beside the teal ground)
+	if night():
+		# Moonlit Wildwood: moon-silvered stone, dark mossy joints.
+		return [Color(0.84, 0.88, 1.02), Color(0.6, 0.72, 0.7), 0.0, Color(0, 0, 0)]
+	return [Color(1, 1, 1), Color(1, 1, 1), 0.0, Color(0, 0, 0)]
 
 
 func _soft_verge(half_ext: Vector2, src: StandardMaterial3D = null, alpha_max: float = 0.55) -> ShaderMaterial:
@@ -5910,7 +6168,7 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		# Each path sits a millimetre above the one before (four steps), so
 		# where two paths' frayed strips overlap they don't z-fight into a
 		# green speckle (Faisal 2026-10-09 08:16, "what is this texture bug?").
-		e.position = mid + Vector3(0, 0.003 + 0.002 * float(map_paths.size() % 4), 0)   # (2 mm steps: 1 mm z-fought into hatched stones where two roads' rims overlap)
+		e.position = mid + Vector3(0, 0.003 + 0.002 * float(map_paths.size() % 4) + _lane_lift(), 0)   # (2 mm steps: 1 mm z-fought into hatched stones where two roads' rims overlap)
 		e.rotation.y = rot
 		add_child(e)
 	var m := MeshInstance3D.new()
@@ -5924,10 +6182,17 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		m.material_override = cm2
 	else:
 		m.material_override = mat
-	m.position = mid + Vector3(0, 0.012 + 0.002 * float(map_paths.size() % 4), 0)   # every core above every frayed strip   # every core above every frayed strip
+	m.position = mid + Vector3(0, 0.012 + 0.002 * float(map_paths.size() % 4) + _lane_lift(), 0)   # every core above every frayed strip   # every core above every frayed strip
 	m.rotation.y = rot
 	add_child(m)
 	map_paths.append([from, to, width])
+
+
+func _lane_lift() -> float:
+	## Stonekeep / Twilight: the lane terrain's eased bank foot sits a few
+	## millimetres over 0 along the lanes, where edge stones z-fought into
+	## hatching (8/8 grade 2026-11-04); their paths ride 2 cm higher.
+	return 0.02 if lmap != null else 0.0
 
 
 func _add_collider(pos: Vector3, size: Vector3) -> void:
@@ -6044,8 +6309,8 @@ func _add_boulder(pos: Vector3) -> void:
 		for rp in RESERVED_GROUND:
 			if _flat_dist(pp, rp) < 6.0:
 				reserved = true   # the barrow's fence and the mills stand there later
-		if reserved:
-			continue
+		if reserved or _near_path(pp, 0.6):
+			continue   # (and no pebbles on the cobbles)
 		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][absi(int(pos.x * 7 + pos.z) + i) % 5], pp, 4.0, ang)
 
 
@@ -6291,7 +6556,8 @@ func _open_ground(p: Vector3) -> bool:
 
 ## Ground kept clear of trees for the outskirts built later: the two
 ## watermills and the barrow.
-const RESERVED_GROUND := [Vector3(-6.2, 0, -30), Vector3(6.2, 0, 30), Vector3(-30, 0, 22)]
+const BARROW_POS := Vector3(-31.5, 0, 27)   # (was -30, 22: the River Path ran through its graves)
+const RESERVED_GROUND := [Vector3(-6.2, 0, -30), Vector3(6.2, 0, 30), BARROW_POS]
 
 
 func _near_path(p: Vector3, margin: float) -> bool:
@@ -6865,6 +7131,11 @@ func _add_river() -> void:
 		wmat.set_shader_parameter("shallow", StyleProfile.WATER_SHALLOW)
 		wmat.set_shader_parameter("deep", StyleProfile.WATER_DEEP)
 		wmat.set_shader_parameter("open_foam", StyleProfile.WATER_OPEN_FOAM)
+		if night() and season == "":
+			# Moonlit (8/8 pass 2026-11-04): the day's saturated river glowed
+			# against the night; a deep moonlit blue-teal instead.
+			wmat.set_shader_parameter("shallow", Color(0.24, 0.42, 0.56))
+			wmat.set_shader_parameter("deep", Color(0.08, 0.16, 0.3))
 	water.material_override = wmat
 	water.position = Vector3(0, 0.03, 0)
 	add_child(water)
@@ -6979,6 +7250,7 @@ func _add_river() -> void:
 		var bz: float = BRIDGES[i]
 		var half: float = BRIDGE_HALF[i]
 		var deck_len := RIVER_HALF * 2 + 2.4
+		audit_label = "bridge"   # (the roads run onto it: --audit's road rule skips it)
 		# Ashlar abutments on each bank carry the timber stringers and planks.
 		for xs in [-1.0, 1.0]:
 			_add_block(Vector3(xs * (deck_len / 2.0 + 0.35), 0.17, bz), Vector3(1.1, 0.34, half * 2 + 1.0), Color.WHITE, false, _ashlar(Color(0.9, 0.86, 0.78)))
@@ -6990,6 +7262,7 @@ func _add_river() -> void:
 			var px: float = -deck_len / 2.0 + (k + 0.5) * deck_len / planks
 			var tint := Color(0.9, 0.78, 0.6) if k % 2 == 0 else Color(0.84, 0.7, 0.52)
 			_add_block(Vector3(px, 0.06, bz), Vector3(deck_len / planks - 0.05, 0.1, half * 2), Color.WHITE, false, _plank_dark(tint))
+		audit_label = ""
 		for zs in [-1.0, 1.0]:
 			var rz: float = bz + zs * (half + 0.12)
 			_add_railing(Vector3(-deck_len / 2.0 + 0.2, 0.1, rz), Vector3(deck_len / 2.0 - 0.2, 0.1, rz))
@@ -7222,10 +7495,20 @@ func _add_cover(barricades: Array = COVER_BARRICADES, boulders: Array = COVER_BO
 			# Wall stubs stand beside the road, not on it (the one at x -31
 			# sat across the Forest Path like a post): step them away from
 			# the paths, cover point and collider with them.
+			# (2026-11-04, Faisal: "no random fences or rocks on roads": the
+			# supply stacks step off the road onto the verge too, and a stub
+			# by a slanting road steps outward in x when z alone won't clear.)
+			var c0 := c
 			var k := 0
-			while kind == 2 and _near_path(c, length / 2.0 + 0.4) and k < 8:
+			while _near_path(c, length / 2.0 + 0.4) and k < 8:
 				c.z += 1.0 if c.z >= 0.0 else -1.0
 				k += 1
+			if _near_path(c, length / 2.0 + 0.4):
+				c = c0
+				k = 0
+				while _near_path(c, length / 2.0 + 0.4) and k < 8:
+					c.x += 1.0 if c.x >= 0.0 else -1.0
+					k += 1
 			_add_collider(Vector3(c.x, 0.6, c.z), Vector3(1.0, 1.2, length))
 			cover_points.append(Vector3(c.x, 0, c.z))
 			cover_boxes.append(AABB(Vector3(c.x - 0.5, 0, c.z - length / 2.0), Vector3(1.0, 1.2, length)))
@@ -7272,10 +7555,13 @@ func _add_cover(barricades: Array = COVER_BARRICADES, boulders: Array = COVER_BO
 		return
 	# The Northern Ruins: broken columns and rubble by the north bridge, and
 	# a smaller ruin on the south river path. Mirrored.
-	await _world_build_frame()
-	_add_ruins(Vector3(11, 0, -27))
-	await _world_build_frame()
-	_add_ruins(Vector3(-11, 0, 27))
+	# (On the Moonlit Wildwood the graveyard stands where the north ruin
+	# was; its mirror on the south river path goes too, so both sides match.)
+	if graveyard == null:
+		await _world_build_frame()
+		_add_ruins(Vector3(11, 0, -27))
+		await _world_build_frame()
+		_add_ruins(Vector3(-11, 0, 27))
 	await _world_build_frame()
 	_add_ruins(Vector3(-24, 0, -29), true)
 	await _world_build_frame()
@@ -7342,10 +7628,17 @@ func _add_wall_stub(c: Vector3, length: float) -> void:
 	var low_len: float = length - tall_len
 	_add_block(Vector3(c.x, 0.65, c.z - low_len / 2.0), Vector3(0.6, 1.3, tall_len), Color.WHITE, false, _ashlar())
 	_add_block(Vector3(c.x, 1.38, c.z - low_len / 2.0), Vector3(0.8, 0.16, tall_len + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+	preload("res://scripts/visual/snow_cap.gd").add(self, Vector3(c.x, 1.46, c.z - low_len / 2.0), Vector2(tall_len + 0.2, 0.8), PI / 2.0)   # (Stonekeep only)
 	_add_block(Vector3(c.x, 0.4, c.z + tall_len / 2.0), Vector3(0.6, 0.8, low_len), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
 	_add_block(Vector3(c.x, 0.9, c.z + tall_len / 2.0 - low_len / 4.0), Vector3(0.6, 0.2, low_len / 2.0), Color.WHITE, false, _ashlar(Color(0.88, 0.85, 0.78)))
 	audit_label = ""
-	_prop("dungeon/rubble_large", Vector3(c.x + 0.4 * signf(c.x), 0, c.z + length / 2.0 + 0.7), 0.22, 0.4)
+	# Rubble spills off the low end, or off the tall end when the low end
+	# faces a road (it lay on the cobbles).
+	var rubble := Vector3(c.x + 0.4 * signf(c.x), 0, c.z + length / 2.0 + 0.7)
+	if _near_path(rubble, 0.8):
+		rubble.z = c.z - length / 2.0 - 0.7
+	if not _near_path(rubble, 0.8):
+		_prop("dungeon/rubble_large", rubble, 0.22, 0.4)
 
 
 func _add_ruins(c: Vector3, small: bool = false) -> void:
@@ -7382,7 +7675,9 @@ func _add_ruins(c: Vector3, small: bool = false) -> void:
 	fallen.mesh = fm
 	fallen.position = c + Vector3(0.5 * m, 0.36, -1.5)
 	fallen.rotation.z = PI / 2.0
-	fallen.material_override = _ashlar(Color(0.9, 0.87, 0.8))
+	# Plain pale stone like the standing columns (final grade 2026-11-04: the
+	# ashlar texture wrapped round the cylinder read as a black slab).
+	fallen.material_override = _stone(Color(0.86, 0.82, 0.74), 0.3)
 	add_child(fallen)
 	audit_blocks.append(["wall", AABB(fallen.position - Vector3(1.3, 0.36, 0.36), Vector3(2.6, 0.72, 0.72))])
 	_add_collider(c + Vector3(0.5 * m, 0.35, -1.5), Vector3(2.6, 0.7, 0.7))
@@ -7398,7 +7693,7 @@ func _add_ruins(c: Vector3, small: bool = false) -> void:
 func _add_heal_orbs() -> void:
 	## Healing orbs at fixed spots: the road's centre, the field's flanks, and
 	## one in each castle yard. Mirrored for fairness.
-	var spots := [Vector3(9, 0, -22), Vector3(22, 0, 9), Vector3(30, 0, -14), Vector3(CASTLE_X - CASTLE_DEPTH + 4.5, 0, 0), Vector3(16, 0, 27)]
+	var spots := [Vector3(9, 0, -22), Vector3(22, 0, 12), Vector3(30, 0, -14), Vector3(CASTLE_X - CASTLE_DEPTH + 4.5, 0, 0), Vector3(16, 0, 27)]   # (22, 9) stood 0.65 m from a lumber tree: tools/gates/world_gate.gd
 	for p in spots:
 		var orb = HealOrb.new()
 		add_child(orb)
@@ -8628,6 +8923,9 @@ func _add_railing(from: Vector3, to: Vector3, skip: Array = []) -> void:
 	## (and slope) from `from` to `to`. `skip` lists [z_min, z_max] gaps.
 	var d := to - from
 	var n := maxi(int(d.length() / 1.4), 1)
+	var outer_label := audit_label
+	if audit_label == "":
+		audit_label = "railing"   # (rails line stairs and bridges: --audit's road rule skips them)
 	var wood := _timber()
 	var dark := _timber(Color(0.7, 0.6, 0.5))
 	for k in n + 1:
@@ -8671,6 +8969,7 @@ func _add_railing(from: Vector3, to: Vector3, skip: Array = []) -> void:
 				for y in [0.55, 0.9]:
 					_add_block(Vector3(from.x, from.y + y, (z0 + z1) / 2.0), Vector3(0.1, 0.08, absf(z1 - z0)), Color.WHITE, false, wood)
 			k += 2
+	audit_label = outer_label
 
 
 func _add_stairs(bottom: Vector3, top: Vector3, width: float, mat: Material, rail_side: float) -> void:
@@ -9607,7 +9906,7 @@ func _build_outskirts() -> void:
 		await _world_build_frame()
 		_add_river_plants()
 		await _world_build_frame()
-		_add_barrow(Vector3(-30, 0, 22))
+		_add_barrow(BARROW_POS)
 		# (No watermills: Faisal 08:20, "random useless building".)
 		await _world_build_frame()
 		_add_field_rocks()
@@ -11027,6 +11326,10 @@ func _pavers() -> StandardMaterial3D:
 		# Castle pass 2026-10-31: larger warm-cream flags with a darker joint
 		# and a painted bevel light (tools/make_castle_textures.py).
 		# Pass 2 (2026-10-31): a touch less green, toward the picks' cream-peach.
+		# 8/8 pass 2026-11-04: Twilight's yard in its map's palette (the cream
+		# flags read pink under the dusk sun).
+		if season == "twilight":
+			return _pbr("castle_flags", 0.16, Color(0.8, 0.92, 0.94))
 		return _pbr("castle_flags", 0.16, Color(1.0, 0.95, 0.99))
 	return _pbr("pavers", 0.22, Color(1.0, 0.98, 0.94))
 
@@ -11179,6 +11482,10 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 		# Pass 3 (2026-10-31, picks Spawn D / Battle A): a square class banner
 		# hung from a rod over the station (was pass 2's striped awning).
 		CastleKit.station_banner(self, pos, role, zb)
+	if night() and season == "":
+		# Moonlit (8/8 pass 2026-11-04): a small warm sign lamp, so the class
+		# banners read in the moonlight (they were near-black).
+		_add_light(Vector3(pos.x, pos.y + 2.2, zb + 1.1), Color(1.0, 0.84, 0.6), 1.6, 3.2)
 	# The name plate: a dark strip across the panel's lower third.
 	# Pass 4 (2026-10-31): the Mage's tall hat reaches the lower third at the
 	# match camera and hid "GE", so its name plate takes the panel's top and
@@ -11668,7 +11975,62 @@ func _audit_clipping() -> void:
 			print("CLIP kit/block %s : %.2f at %s" % [rem[0], rem[2], rem[1].snapped(Vector3(0.1, 0.1, 0.1))])
 			count += 1
 		print("AUDIT kit: %d checked, %d shrunk, %d dropped, %d still clipping" % [ka.checked, ka.shrunk, ka.dropped, ka.remaining.size()])
+	# Nothing on the roads (Faisal 2026-11-04: "no random fences or rocks on
+	# roads or paths that don't make sense"): no prop, fence, rubble, rock or
+	# kit tree, bush or boulder may stand on a road's paved core.
+	var road_hits := 0
+	for it in items:
+		var hit := _road_hit(it[1])
+		if hit != "":
+			print("CLIP prop/road %s at %s (%s)" % [it[0], it[1].get_center().snapped(Vector3(0.1, 0.1, 0.1)), hit])
+			road_hits += 1
+	for b in audit_blocks:
+		if b[0] in ["gate", "ramp", "vault", "building", "hearth", "bridge", "railing"]:
+			continue   # doors, stairs and houses the roads lead to
+		var bb: AABB = b[1]
+		if bb.position.y + bb.size.y <= 0.02:
+			continue   # the ground
+		var hit := _road_hit(bb)
+		if hit != "":
+			print("CLIP %s/road at %s size %s (%s)" % [b[0], bb.get_center().snapped(Vector3(0.1, 0.1, 0.1)), bb.size.snapped(Vector3(0.1, 0.1, 0.1)), hit])
+			road_hits += 1
+	if forest_kit != null:
+		for rem in forest_kit.road_audit():
+			var hit := _road_hit(rem[1])
+			if hit != "":
+				print("CLIP kit/road %s at %s (%s)" % [rem[0], rem[1].get_center().snapped(Vector3(0.1, 0.1, 0.1)), hit])
+				road_hits += 1
+	print("AUDIT roads: %d things on %d road segments" % [road_hits, map_paths.size()])
+	count += road_hits
 	print("AUDIT done: %d overlaps in %d props" % [count, items.size()])
+
+
+const ROAD_KEEP_CLEAR := 0.35   # metres in from a road's edge that must stay clear
+
+
+func _road_hit(box: AABB) -> String:
+	## "" when the box stands clear of every road's paved core, else which
+	## road it stands on. Only things at ground level count (not lanterns
+	## hung overhead, nor anything on a wall top or a bridge deck).
+	if box.position.y > 0.6 or box.size.y < 0.05:
+		return ""
+	var inset := Vector3(box.size.x * 0.15, 0.0, box.size.z * 0.15)
+	var lo := box.position + inset
+	var hi := box.end - inset
+	for path in map_paths:
+		var a: Vector3 = path[0]
+		var b: Vector3 = path[1]
+		var half: float = path[2] / 2.0 - ROAD_KEEP_CLEAR
+		if half <= 0.2:
+			continue
+		var ab := Vector2(b.x - a.x, b.z - a.z)
+		for fx in [0.0, 0.5, 1.0]:
+			for fz in [0.0, 0.5, 1.0]:
+				var q := Vector2(lerpf(lo.x, hi.x, fx), lerpf(lo.z, hi.z, fz))
+				var t := clampf((q - Vector2(a.x, a.z)).dot(ab) / maxf(ab.length_squared(), 0.001), 0.0, 1.0)
+				if q.distance_to(Vector2(a.x, a.z) + ab * t) < half:
+					return "road %s-%s w%.1f" % [Vector3(a.x, 0, a.z).snapped(Vector3.ONE), Vector3(b.x, 0, b.z).snapped(Vector3.ONE), path[2]]
+	return ""
 
 
 func _penetration(a: AABB, b: AABB) -> float:
@@ -11711,6 +12073,18 @@ var fill_light: DirectionalLight3D
 var cam_attrs: CameraAttributesPractical
 
 
+func version_text() -> String:
+	## The version from Project Settings > Application > Config, shown on the title and in the credits.
+	return str(ProjectSettings.get_setting("application/config/version", "dev"))
+
+
+func _window_sizes() -> Array:
+	## The windowed sizes that fit this screen (always at least the smallest).
+	var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen()).size
+	var out: Array = WINDOW_SIZES.filter(func(s): return s.x <= usable.x and s.y <= usable.y)
+	return out if not out.is_empty() else [WINDOW_SIZES[0]]
+
+
 func _pick_graphics() -> void:
 	## Until the player picks a preset in Settings, the game picks one for
 	## the graphics card: Low on built-in (laptop) graphics, High on a
@@ -11726,8 +12100,8 @@ func _pick_graphics() -> void:
 		_:
 			gfx_quality = 0
 	if not fps_intro_done:
-		fps_intro_done = true   # once: the player can switch it off in Settings
-		show_fps = true
+		fps_intro_done = true
+		show_fps = OS.is_debug_build()   # a tester's number to report; a shipped game starts without it (Settings > FPS Counter)
 
 
 func _auto_quality() -> void:
@@ -11880,6 +12254,11 @@ func apply_graphics() -> void:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 		elif window_mode == "windowed" and is_full:
 			DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+		if window_mode == "windowed" and _window_size_dirty and window_size != Vector2i.ZERO and DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
+			_window_size_dirty = false
+			var usable := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
+			DisplayServer.window_set_size(Vector2i(mini(window_size.x, usable.size.x), mini(window_size.y, usable.size.y)))
+			DisplayServer.window_set_position(usable.position + (usable.size - DisplayServer.window_get_size()) / 2)
 		# VSync and the frame cap (Settings > DISPLAY), saved like the rest.
 		if not OS.has_feature("web"):
 			DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync_on else DisplayServer.VSYNC_DISABLED)
@@ -11996,7 +12375,7 @@ func _season_light() -> void:
 		sky_material.ground_horizon_color = Color(0.6, 0.36, 0.5)
 		world_environment.ambient_light_energy = 0.58
 		world_environment.ambient_light_sky_contribution = 0.35
-		world_environment.ambient_light_color = Color(0.66, 0.58, 1.0)
+		world_environment.ambient_light_color = Color(0.56, 0.66, 0.96)   # (8/8 pass: teal-violet, not pink)
 		world_environment.fog_light_color = Color(0.9, 0.5, 0.7)
 		world_environment.fog_density = 0.0024
 		world_environment.glow_intensity = 0.9
@@ -12004,7 +12383,7 @@ func _season_light() -> void:
 		world_environment.adjustment_saturation = 1.06
 		world_environment.adjustment_contrast = 1.06
 		world_environment.adjustment_brightness = 1.04
-		sun_light.light_color = Color(1.0, 0.66, 0.52)
+		sun_light.light_color = Color(1.0, 0.8, 0.7)   # (8/8 pass: a softer dusk sun; the yard read hot pink)
 		sun_light.light_energy = 1.35
 		sun_light.rotation_degrees = Vector3(-34, -62, 0)
 		sun_light.shadow_opacity = 0.8
@@ -12213,10 +12592,12 @@ func _build_world_land() -> void:
 		for zs in [-1.0, 1.0]:
 			await _world_build_frame()
 			_add_block(Vector3(sx * (h0 + h1) / 2.0, -0.5, zs * (hz + gz) / 2.0), Vector3(h1 - h0, 1, gz - hz), grass, true, _grass())
-	if season != "":
-		# Stonekeep Fortress and Twilight Grove: their own layouts on the same
-		# ground, castles and outskirts (scripts/lanes.gd).
-		lmap = Lanes.new(self, season)
+	if season != "" or Stats.MAPS[map_variant][1] == "day":
+		# Stonekeep Fortress, Twilight Grove and the Wildwood (its Heart-Tree
+		# layout, claude-faisal/crowns-wildwood): their own layouts on the
+		# same ground, castles and outskirts (scripts/lanes.gd). The Moonlit
+		# Wildwood keeps the river valley below.
+		lmap = Lanes.new(self, season if season != "" else "heartwood")
 		await _build_lanes_land()
 		return
 	# A dirt road from door to door, with a worn patch at each door and in the middle.
@@ -12259,6 +12640,11 @@ func _build_world_land() -> void:
 		_add_signpost(Vector3(sx * 27.5, 0, sb + 4.3), sx)
 	await _world_build_frame()
 	await _add_river()
+	if night():
+		# The Moonlit Wildwood's graveyard and Cursed Bell (scripts/graveyard.gd),
+		# before the groves and dressing so they keep clear of it.
+		graveyard = Graveyard.new(self)
+		await graveyard.build()
 
 	await _world_build_frame()
 	await _build_castle(0)
@@ -12276,14 +12662,21 @@ func _build_world_land() -> void:
 		Vector3(4, 0, -32), Vector3(10, 0, -34), Vector3(18, 0, -31), Vector3(24, 0, -34), Vector3(32, 0, -30), Vector3(40, 0, -33), Vector3(46, 0, -28),
 		Vector3(3, 0, -16), Vector3(16, 0, -11), Vector3(36, 0, -14), Vector3(8, 0, 32), Vector3(30, 0, 33), Vector3(44, 0, 30), Vector3(34, 0, 24)]
 	for p in grove:
-		await _world_build_frame()
-		_add_tree(p)
-		await _world_build_frame()
-		_add_tree(-p)
-		await _world_build_frame()
-		_add_bush(p + Vector3(1.8, 0, 0.6), int(p.x * 3 + p.z))
-		await _world_build_frame()
-		_add_bush(-p + Vector3(-1.8, 0, -0.6), int(p.x * 5 + p.z))
+		# (The Moonlit graveyard keeps the groves out of its plots.)
+		var keep_p: bool = graveyard == null or not Graveyard.in_zone(p, 1.5)
+		var keep_n: bool = graveyard == null or not Graveyard.in_zone(-p, 1.5)
+		if keep_p:
+			await _world_build_frame()
+			_add_tree(p)
+		if keep_n:
+			await _world_build_frame()
+			_add_tree(-p)
+		if keep_p:
+			await _world_build_frame()
+			_add_bush(p + Vector3(1.8, 0, 0.6), int(p.x * 3 + p.z))
+		if keep_n:
+			await _world_build_frame()
+			_add_bush(-p + Vector3(-1.8, 0, -0.6), int(p.x * 5 + p.z))
 	for p in [Vector3(12, 0, 14), Vector3(-12, 0, -14), Vector3(26, 0, 14), Vector3(-26, 0, -14), Vector3(58, 0, 22), Vector3(-58, 0, -22), Vector3(9, 0, -25), Vector3(-9, 0, 25)]:
 		await _world_build_frame()
 		_add_fireflies(p)
@@ -12430,6 +12823,13 @@ func _finish_world() -> void:
 		# finished world, then its own scenery.
 		Season.grade(self, season)
 		Season.decorate(self, season, {"half": RIVER_HALF if lmap == null else 0.0, "y": 0.03, "bridges": BRIDGES, "island": ISLAND_R})
+		# Snow on the wall tops the castle kit recorded (Stonekeep only).
+		preload("res://scripts/visual/snow_cap.gd").build(self)
+	elif night() and vmap == null:
+		# Moonlit Wildwood: the moon's cool cast over the built world (the
+		# yard's warm paving read pink against the night forest); torch and
+		# lantern glows are left warm, so only their pools stay warm.
+		Season.grade(self, "night")
 	if forest_kit:
 		# The kit's trees and dressing, after the grade (it has its own
 		# palette per map) and once everything they keep clear of is built.

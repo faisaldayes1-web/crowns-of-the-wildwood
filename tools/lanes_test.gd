@@ -42,9 +42,9 @@ func walk(l, from: Vector3, to: Vector3, max_steps: int = 900) -> bool:
 
 func _init() -> void:
 	var game := FakeGame.new()
-	for kind in ["winter", "twilight"]:
+	for kind in ["winter", "twilight", "heartwood"]:
 		var l = Lanes.new(game, kind)
-		var name: String = "Stonekeep" if kind == "winter" else "Twilight"
+		var name: String = "Stonekeep" if kind == "winter" else ("Wildwood" if kind == "heartwood" else "Twilight")
 		var n: int = l.ids.size()
 		for i in n:
 			for j in n:

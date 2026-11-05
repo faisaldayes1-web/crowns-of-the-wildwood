@@ -42,6 +42,11 @@ func setup(what: String, at: Vector3, bounds: Rect2, seed: int = 0) -> void:
 		"bird":
 			speed = 6.0
 			_build_bird()
+		"deer":
+			# The Wildwood's glades (claude-faisal/crowns-wildwood): a
+			# cartoony fawn-brown deer that grazes and ambles about.
+			speed = 0.9
+			_build_deer()
 	_pick_target()
 
 
@@ -91,6 +96,33 @@ func _build_sheep() -> void:
 			legs.append(_box(body, Vector3(0.09, 0.32, 0.09), Vector3(lx, 0.16, lz), dark))
 
 
+func _build_deer() -> void:
+	var coat := _mat(Color(0.72, 0.46, 0.26))
+	var belly := _mat(Color(0.95, 0.88, 0.74))
+	var dark := _mat(Color(0.24, 0.16, 0.1))
+	var antler := _mat(Color(0.9, 0.84, 0.7))
+	_ball(body, 0.34, Vector3(0, 0.82, 0), coat, 0.75)          # barrel
+	_ball(body, 0.26, Vector3(0, 0.8, -0.3), coat, 0.85)        # haunch
+	_ball(body, 0.22, Vector3(0, 0.74, 0.02), belly, 0.6)       # pale belly
+	var neck := _box(body, Vector3(0.16, 0.42, 0.16), Vector3(0, 1.08, 0.34), coat)
+	neck.rotation.x = -0.45
+	_ball(body, 0.16, Vector3(0, 1.32, 0.46), coat, 0.95)       # head
+	_ball(body, 0.08, Vector3(0, 1.28, 0.6), dark, 0.9)          # nose
+	_ball(body, 0.08, Vector3(0, 0.9, -0.5), belly, 1.0)         # white tail tuft
+	for sx in [-1.0, 1.0]:
+		var ear := _box(body, Vector3(0.06, 0.16, 0.04), Vector3(sx * 0.13, 1.46, 0.42), coat)
+		ear.rotation.z = sx * -0.6
+		if r.randf() < 0.5:
+			# A stag: two little branched antlers.
+			var a := _box(body, Vector3(0.04, 0.3, 0.04), Vector3(sx * 0.08, 1.6, 0.44), antler)
+			a.rotation.z = sx * -0.35
+			var tine := _box(body, Vector3(0.03, 0.14, 0.03), Vector3(sx * 0.16, 1.66, 0.48), antler)
+			tine.rotation.x = 0.6
+	for lx in [-0.12, 0.12]:
+		for lz in [-0.28, 0.26]:
+			legs.append(_box(body, Vector3(0.07, 0.58, 0.07), Vector3(lx, 0.3, lz), dark if lz < 0.0 else coat))
+
+
 func _build_chicken() -> void:
 	var feather := _mat(Color(0.95, 0.93, 0.88) if r.randf() < 0.6 else Color(0.6, 0.38, 0.2))
 	var red := _mat(Color(0.85, 0.15, 0.12))
@@ -128,8 +160,11 @@ func _build_butterfly() -> void:
 
 
 func _build_bird() -> void:
-	var dark := _mat(Color(0.12, 0.1, 0.1), 1.0)
+	# Soft slate feathers and a little orange beak (visual pass 2026-11-04:
+	# the flat near-black boxes read as stray black shapes over the roads).
+	var dark := _mat(Color(0.46, 0.44, 0.52), 1.0)   # (8/8 pass: still read as a black cross from the match camera)
 	_box(body, Vector3(0.12, 0.08, 0.45), Vector3.ZERO, dark)
+	_box(body, Vector3(0.05, 0.04, 0.1), Vector3(0, 0, -0.27), _mat(Color(1.0, 0.62, 0.2), 0.8))
 	for sx in [-1.0, 1.0]:
 		var w := Node3D.new()
 		body.add_child(w)
@@ -164,8 +199,10 @@ func _process(delta: float) -> void:
 		return
 	if idle > 0.0:
 		idle -= delta
-		if kind == "sheep" or kind == "chicken":
+		if kind == "sheep" or kind == "chicken" or kind == "deer":
 			body.position.y = 0.0
+		if kind == "deer":
+			body.rotation.x = lerpf(body.rotation.x, 0.25 if fmod(t, 7.0) < 4.0 else 0.0, 3.0 * delta)   # head down to graze, then up
 		if idle <= 0.0:
 			_pick_target()
 		return
@@ -183,6 +220,11 @@ func _process(delta: float) -> void:
 			body.position.y = absf(sin(t * 6.0)) * 0.04
 			for i in legs.size():
 				legs[i].rotation.x = sin(t * 6.0 + (PI if i % 3 == 0 else 0.0)) * 0.5
+		"deer":
+			body.rotation.x = 0.0
+			body.position.y = absf(sin(t * 5.0)) * 0.05
+			for i in legs.size():
+				legs[i].rotation.x = sin(t * 5.0 + (PI if i % 3 == 0 else 0.0)) * 0.45
 		"chicken":
 			body.position.y = absf(sin(t * 12.0)) * 0.05
 			body.rotation.x = sin(t * 12.0) * 0.08

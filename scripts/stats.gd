@@ -123,6 +123,24 @@ const FIRE_POINT := {"radius": 7.0, "capture_time": 8.0, "extra_rate": 0.5, "max
 const FIRE_FORM := {"burn_delay": 2.0, "burn_cooldown": 6.0, "burn_damage": 1, "cost_mult": 0.85, "cooldown_mult": 0.85,
 	"prefix": "Fire", "flame": [Color(1.0, 0.78, 0.28), Color(1.0, 0.42, 0.12)]}
 
+# The Moonlit Wildwood's graveyard (Faisal 2026-11-04: "a graveyard that
+# summons zombies from the ground every 1 minute and if you hold something on
+# the map the zombies are friendly to you"). scripts/graveyard.gd. Every
+# `interval` seconds of battle `wave` zombies claw up from the graves (no more
+# than `max_alive` at once; each crumbles after `life` s). The Cursed Bell on
+# its pier in the river is captured like the Fire Objective: alone it takes
+# capture_time seconds, each extra teammate adds extra_rate (up to
+# max_count), both sides on it freezes it, and taking it from the holder
+# first rings it back to neutral. Its holder's zombies fight for them; with
+# nobody holding it they attack everyone. Bots send bots_take to win it
+# (one more when a rising is due within `rise_soon` s) and bots_hold to keep
+# it, one more while enemies stand on it. PROPOSED balance, claude-faisal/crowns-graveyard.
+const GRAVEYARD := {"interval": 60.0, "wave": 3, "max_alive": 6, "life": 75.0, "rise_time": 1.8,
+	"hp": 4, "damage": 1, "attack_range": 1.35, "attack_cooldown": 1.5, "speed": 2.1,
+	"aggro": 9.0, "leash": 17.0, "march_aggro": 10.0,
+	"radius": 7.5, "capture_time": 7.0, "extra_rate": 0.5, "max_count": 3, "settle": 0.25,
+	"bots_take": 1, "bots_hold": 0, "rise_soon": 15.0, "bot_engage": 6.0, "xp_kill": 25}
+
 # Player banners (the calling card the enemy sees when you kill them, and
 # that you edit on the HERO tab): a background, an emblem, a frame and a title.
 # Entries from BANNER_*_FREE on are bought in the STORE.
@@ -281,6 +299,17 @@ const UNLOCKS := [["class", "Rogue", "A sixth class: daggers, shadow dashes and 
 	["map", "Moonlit Wildwood", "A night map: moonlight, mist, lanterns and fireflies everywhere."]]
 
 
+static func next_goal(level: int) -> Array:
+	## What the account is working toward: [short text, icon]. The level-10
+	## unlocks first (Rogue, Shadowborn, Moonlit Wildwood), then the next rank title.
+	if level < UNLOCK_LEVEL:
+		return ["Moonlit at Lv %d" % UNLOCK_LEVEL, "lock"]
+	for entry in RANK_TITLES:
+		if entry[0] > level:
+			return ["Lv %d: %s" % [entry[0], entry[1]], "xp"]
+	return ["Top rank reached", "crown"]
+
+
 static func account_level_cost(level: int) -> int:
 	return ACCOUNT_XP_BASE + ACCOUNT_XP_STEP * (level - 1)
 
@@ -376,6 +405,22 @@ const MATCH_TIME := 600.0     # seconds
 const SEAL_REACH := 2.2     # how close you stand to a class seal to grab it with F
 const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins
 const CAPTURES_TO_WIN := 2
+
+# Team Deathmatch (claude-faisal/crowns-tdm 2026-11-04): the same maps, no
+# crowns and no doors. Every enemy knocked down or killed is a point; the
+# first side to TDM_KILLS_TO_WIN, or the leader when the clock runs out,
+# wins. A tie at full time plays TDM_SUDDEN seconds where the next kill wins.
+# The fallen come back together in respawn waves every TDM_WAVE seconds
+# (never sooner than TDM_RESPAWN_MIN), so a team regroups instead of
+# trickling in one by one.
+const GAME_MODES := ["crowns", "tdm"]
+const GAME_MODE_NAMES := {"crowns": "Crown Raid", "tdm": "Team Deathmatch"}
+const TDM_KILLS_TO_WIN := 30
+const TDM_TIME := 600.0
+const TDM_SUDDEN := 60.0
+const TDM_WAVE := 6.0
+const TDM_RESPAWN_MIN := 4.0
+const TDM_PREP := 10.0
 
 # Experience, earned in battle. Each level gives one rank point to spend in
 # the rank menu on Attack, Q, E or Vigor. Falling costs DEATH_LEVEL_LOSS levels

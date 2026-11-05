@@ -118,6 +118,21 @@ var peak_level := 1          # highest in-match level reached in any life
 var xp_sources := {}         # this match's XP by source: combat, takedowns, crown, siege, support
 var giant_kills := 0         # kills on enemies two or more levels above you
 var kill_banner := {}        # the HUD's KILL card for a local player: {victim, role, team, streak, time}
+var slide_vel := Vector3.ZERO   # walking velocity (eases in and out on ice, ice_step)
+const ICE_ACCEL := 7.0          # m/s^2 on ice (off ice the walk speed is reached at once)
+const ICE_KNOCK_DECAY := 9.0    # knockback fades this fast on ice (40 elsewhere)
+
+
+static func ice_step(vel: Vector3, wanted: Vector3, on_ice: bool, delta: float) -> Vector3:
+	## The walking velocity after one step: off ice it is what the feet ask
+	## for; on ice it moves towards it at ICE_ACCEL, so starts, stops and
+	## turns all slide.
+	wanted.y = 0.0
+	if not on_ice:
+		return wanted
+	return vel.move_toward(wanted, ICE_ACCEL * delta)
+
+
 var class_banner := 0.0        # seconds the "YOU ARE NOW <class>" banner has left (players only)
 const CLASS_BANNER_TIME := 3.0
 var spawn_protect := 0.0     # seconds of spawn protection left
@@ -772,6 +787,7 @@ func _refresh_overhead() -> void:
 		label.text = vet + tag + role_name() + lvl
 	else:
 		label.text = vet + ally_tag()
+	_name_plate()
 	if is_player and game.couch_players > 1:
 		label.modulate = game.player_color(local_index).lightened(0.3)
 		label.no_depth_test = true   # visible through walls to the other panes
@@ -791,6 +807,8 @@ func _refresh_overhead() -> void:
 		bounty_beam.visible = veteran == 2 and not dead
 		bounty_beam.material_override.albedo_color = Color(1, 0.3, 0.2, 0.3) if is_enemy_of_player() else Color(1, 0.85, 0.3, 0.25)
 	label.visible = not dead and not downed   # the downed body carries the swirl and the revive bar instead
+	if name_plate:
+		name_plate.visible = label.visible
 	if side_ring:
 		side_ring.visible = not dead
 		side_glow.visible = not dead
@@ -801,6 +819,27 @@ func ally_tag() -> String:
 	## "ELF KNIGHT", "HUMAN WARDEN"; a unit with no class yet is "ELF SOLDIER".
 	var faction: String = Stats.FACTIONS[team].roles[Role.BASE].to_upper()
 	return faction + " " + ("SOLDIER" if role == Role.BASE else role_name().to_upper())
+
+
+var name_plate: MeshInstance3D
+
+
+func _name_plate() -> void:
+	## A dark rounded backing under the player's own name (final grade
+	## 2026-11-04: "YOU · Elf" was lost over the stag emblems of the yard rug).
+	if not is_player or label == null:
+		return
+	if name_plate == null:
+		label.font_size = 40   # (a touch larger than the bots' tags: "Elf" read "Ef" at 720p)
+		name_plate = MeshInstance3D.new()
+		name_plate.mesh = QuadMesh.new()
+		name_plate.material_override = _overhead_mat(Color(0.05, 0.04, 0.03, 0.72), 3)
+		name_plate.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		overhead.add_child(name_plate)
+	var font: Font = label.font if label.font else ThemeDB.fallback_font
+	var w: float = font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.font_size).x * label.pixel_size
+	(name_plate.mesh as QuadMesh).size = Vector2(w + 0.16, label.font_size * label.pixel_size * 1.05)
+	name_plate.position = label.position + Vector3(0, 0, -0.004)
 
 
 func _overhead_mat(color: Color, priority: int) -> StandardMaterial3D:
@@ -1616,6 +1655,8 @@ func _die(finisher = null) -> void:
 	if not was_down:
 		model.die()   # a finished body is already on the ground: it just stays down
 	respawn_timer = minf(Stats.RESPAWN_TIME + Stats.RESPAWN_PER_LEVEL * (timer_level - 1), Stats.RESPAWN_MAX)
+	if game.is_tdm():
+		respawn_timer = game.tdm_wave_delay()   # Team Deathmatch: the fallen come back together, in waves
 	respawn_total = respawn_timer
 	fell_level = timer_level
 	var fell_from := level
@@ -1657,6 +1698,7 @@ func _fall() -> void:
 	slow_timer = 0.0
 	overhead.visible = true
 	_lose_levels(Stats.DEATH_LEVEL_LOSS)
+	game.tdm_kill(self)   # Team Deathmatch: every fall is a point for the other side
 
 
 # --- Downed and revive -------------------------------------------------------
@@ -2795,8 +2837,12 @@ func _physics_process(delta: float) -> void:
 		facing = move.normalized()
 	rotation.y = atan2(-facing.x, -facing.z)
 
-	velocity.x = move.x * speed + knockback.x
-	velocity.z = move.z * speed + knockback.z
+	# On ice (Stonekeep's frozen tarns) feet barely grip: speed builds and
+	# fades slowly, so a runner overshoots and drifts (Faisal 2026-11-04).
+	var on_ice: bool = game.lmap != null and game.lmap.has_method("on_ice") and game.lmap.on_ice(global_position)
+	slide_vel = ice_step(slide_vel, move * speed, on_ice, delta)
+	velocity.x = slide_vel.x + knockback.x
+	velocity.z = slide_vel.z + knockback.z
 	velocity.y = 0.0 if is_on_floor() else velocity.y - GRAVITY * delta
 	var meant := Vector3(velocity.x, 0, velocity.z) * delta
 	var from := global_position
@@ -2811,7 +2857,7 @@ func _physics_process(delta: float) -> void:
 		if skid_timer <= 0.0:
 			skid_timer = 0.08
 			Fx.of(game).skid(global_position, knockback)
-	knockback = knockback.move_toward(Vector3.ZERO, 40.0 * delta)
+	knockback = knockback.move_toward(Vector3.ZERO, (ICE_KNOCK_DECAY if on_ice else 40.0) * delta)
 	# Footsteps: soft on grass, a tap on stone (walls, bridges, castle floors).
 	if move.length() > 0.05 and is_on_floor():
 		step_timer -= delta * speed / 6.0
@@ -3298,6 +3344,8 @@ func _attack(dir: Vector3) -> void:
 		if dist <= s.range and absf(other.global_position.y - global_position.y) < 1.5 \
 				and (dist < 0.8 or dir.dot(to / dist) > 0.3):
 			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE, effect) or landed
+	if game.graveyard:
+		landed = game.graveyard.melee(self, dir, s.range, s.damage) or landed   # the Moonlit graveyard's zombies
 	if landed:
 		_hitstop(0.06)
 		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
@@ -3707,8 +3755,8 @@ func _bot_think(delta: float) -> Dictionary:
 	var ranged: bool = s.attack == "arrow" or s.attack == "spell"
 	var on_ground: bool = global_position.y < 1.0
 
-	# Grab the enemy monarch whenever it's within reach.
-	if not carrying and theirs.state != Monarch.State.CARRIED \
+	# Grab the enemy monarch whenever it's within reach (no crowns in a deathmatch).
+	if not carrying and not game.is_tdm() and theirs.state != Monarch.State.CARRIED \
 			and _flat_to(theirs.global_position).length() < PICKUP_RANGE:
 		game.try_interact(self)
 
@@ -3755,6 +3803,8 @@ func _bot_think(delta: float) -> Dictionary:
 		goal = game.defense_post(team, bot_offset.z) + _post_spread()
 	elif bot_job == "fire" and game.vmap:
 		goal = game.vmap.fire_spot(bot_offset)   # Ember Pass: take and hold the Fire Objective
+	elif bot_job == "bell" and game.graveyard:
+		goal = game.graveyard.bell_spot(team, bot_offset)   # Moonlit Wildwood: ring and hold the Cursed Bell
 	elif bot_job == "gather" and game.economy:
 		goal = game.economy.bot_goal(self, plan)   # wood and ore (economy.gd)
 	elif bless:
@@ -3769,6 +3819,13 @@ func _bot_think(delta: float) -> Dictionary:
 		goal = _follow_spot(buddy) if buddy else game.thrones[team] + bot_offset * 0.6
 	elif bot_job == "attack":
 		goal = _raid_goal(delta)
+	elif bot_job == "hunt":
+		# Team Deathmatch: go after the nearest enemy; the fight code below
+		# takes over once they are in sight.
+		var foe = game.tdm_hunt_target(self)
+		goal = foe.global_position if foe else bot_offset
+		if foe and not foe.downed and _flat_to(foe.global_position).length() < game.bot_tuning().chase:
+			priority_target = foe
 	else:
 		goal = game.thrones[team] + Vector3(6.0 if team == 0 else -6.0, 0, 0) + bot_offset
 	# Outnumbered and hurt: fall back toward the nearest teammate instead of
@@ -3810,7 +3867,7 @@ func _bot_think(delta: float) -> Dictionary:
 
 	# The Crown Vault lock stands between us and their monarch: break it.
 	var vault = game.vaults[1 - team]
-	if vault.is_locked() and theirs.state == Monarch.State.HOME and game._inside_keep(1 - team, global_position):
+	if vault.is_locked() and not game.is_tdm() and theirs.state == Monarch.State.HOME and game._inside_keep(1 - team, global_position):
 		var vside := signf(global_position.x - vault.lock_pos.x)
 		var vstandoff := 5.0 if ranged else 1.2
 		var vspot := Vector3(vault.lock_pos.x + vside * vstandoff, 0, clampf(global_position.z, -2.0, 2.0))
@@ -3918,6 +3975,21 @@ func _bot_think(delta: float) -> Dictionary:
 			return plan
 		plan.move = _steer_to(game.route_point(global_position, enemy.global_position))
 		return plan
+
+	# Moonlit Wildwood: put down zombies that are after us (bell ringers
+	# clear the graveyard; everyone else only what is close).
+	if game.graveyard and not carrying:
+		var reach: float = sight if bot_job == "bell" else Stats.GRAVEYARD.bot_engage
+		var z = game.graveyard.threat_for(team, global_position, reach)
+		if z:
+			var zto := _flat_to(z.global_position)
+			plan.aim = _bot_aim(zto)
+			plan.attack = plan.attack or zto.length() <= s.range * 0.9
+			if zto.length() > s.range * 0.9:
+				plan.move = _steer_to(game.route_point(global_position, z.global_position))
+			elif ranged and on_ground and zto.length() < 4.0:
+				plan.move = -zto.normalized() * 0.6
+			return plan
 
 	plan.move = _steer_to(next)
 	return plan

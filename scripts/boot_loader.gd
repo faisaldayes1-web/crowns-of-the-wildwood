@@ -18,7 +18,7 @@ extends Node
 ## cache cannot drop one before its caller asks; the HUD, prop and character
 ## caches hold them all for the session anyway.
 
-const HUD_DIRS := ["res://assets/ui/icons", "res://assets/ui/icons_clean", "res://assets/ui/strips",
+const HUD_DIRS := ["res://assets/ui/icons", "res://assets/ui/minimap", "res://assets/ui/icons_clean", "res://assets/ui/strips",
 	"res://assets/ui/cards", "res://assets/ui/skills"]
 const FILES := ["res://assets/ui/logo.png", "res://assets/ui/topbar/topbar.png",
 	"res://assets/fonts/LuckiestGuy-Regular.ttf", "res://assets/fonts/LilitaOne-Regular.ttf",

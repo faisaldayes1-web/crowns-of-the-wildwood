@@ -13,6 +13,14 @@ extends RefCounted
 ##   six short spokes between them and the forecourts: many routes, flanks
 ##   and ambushes, no single chokepoint.
 ##
+##   The Wildwood ("heartwood", claude-faisal/crowns-wildwood 2026-11-04,
+##   Faisal: map 0 "feels kind of basic" and "should be a little more unique
+##   and maybe not be so linear"): three routes through a jungle-thick wood.
+##   The middle road crosses a moat on one of four bridges onto the raised
+##   ring of the Heart-Tree amphitheatre; two flank loops swing wide to the
+##   north and south, each over a log bridge where the Heartbrook runs out of
+##   the moat; and winding jungle trails link the glades in between.
+##
 ## Like Ember Pass (scripts/volcano.gd) the walkable ground is data: round
 ## plazas joined by straight corridors, a few rectangles, and each castle's
 ## own land (land_dist()). clamp_walk() keeps everyone on it and route()
@@ -93,9 +101,9 @@ var route_cache := {}      # quantised (from, to) -> next point (null: walk stra
 func _init(p_game, p_kind: String) -> void:
 	game = p_game
 	kind = p_kind
-	noise.seed = 31 if kind == "winter" else 47
+	noise.seed = 31 if kind == "winter" else (59 if kind == "heartwood" else 47)
 	noise.frequency = 0.07
-	var lay: Dictionary = stonekeep() if kind == "winter" else twilight()
+	var lay: Dictionary = stonekeep() if kind == "winter" else (heartwood() if kind == "heartwood" else twilight())
 	for id in lay.nodes:
 		ids.append(id)
 		pos.append(lay.nodes[id][0])
@@ -187,6 +195,77 @@ static func twilight() -> Dictionary:
 		edges.append_array([["m" + t, "q" + t, 2.4, "nook"], ["m" + t, "r" + t, 2.4, "nook"], ["b" + t, "t" + t, 2.4, "nook"], ["c" + t, "u" + t, 2.4, "nook"]])
 	return {"nodes": nodes, "edges": edges, "lanes": ["i6", "i2", "o0", "o1"],
 		"flats": [[Vector3.ZERO, Vector2(9.8, 9.8)]]}   # the pool's banks stay level, open across the water
+
+
+# The Wildwood's Heart-Tree amphitheatre: a raised ring round the tree, a moat,
+# and ruined stone tiers outside it; the Heartbrook leaves the moat to the
+# north-east and (its twin) the south-west.
+const HEART_TOP := 0.9        # the dais's top, over the ground
+const HEART_FLAT := 4.6       # the dais is level out to this radius...
+const HEART_FOOT := 7.4       # ...and ramps down to the ground here
+const MOAT_IN := 8.2
+const MOAT_OUT := 10.4
+const SEATS_OUT := 12.4       # the amphitheatre's tiers end here
+const BROOK := [Vector3(6.6, 0, -6.6), Vector3(10.0, 0, -15.0), Vector3(12.0, 0, -25.0), Vector3(13.0, 0, -40.0), Vector3(13.8, 0, -47.0)]
+const BROOK_HALF := 1.25      # the water's half width (its banks stay flat a little wider)
+
+
+static func heartwood() -> Dictionary:
+	var nodes := {}
+	_mirror(nodes, {
+		"g0": [Vector3(-43, 0, 0), 7.5],
+		"m0": [Vector3(-31, 0, 0), 7.0],
+		"w0": [Vector3(-18, 0, 0), 3.8],      # the glade before the west moat bridge (the middle road)
+		"a0": [Vector3(-26, 0, -15), 4.0],    # the north flank loop, Elf side...
+		"b0": [Vector3(-13, 0, -27), 4.5],
+		"o0": [Vector3(3, 0, -30), 5.0],      # ...its far end (its twin, o1, the south loop's)
+		"c0": [Vector3(-18, 0, 25), 4.0],     # the south loop, Elf side
+		"d0": [Vector3(-28, 0, 13), 4.0],
+		"f0": [Vector3(0, 0, -15), 3.2],      # the north moat bridge's foot (its twin, f1, the south one's)
+		"j0": [Vector3(-15, 0, -11), 3.4],    # jungle glades between the road and the loops
+		"k0": [Vector3(-15, 0, 12), 3.4],
+		# Glades off the paths where the lumber trees grow (economy.gd).
+		"q0": [Vector3(-38, 0, -9), 3.6], "r0": [Vector3(-38, 0, 9), 3.6],
+		"t0": [Vector3(-21, 0, -31.5), 3.6], "u0": [Vector3(-25.5, 0, 30.5), 3.6],
+	}, true)
+	# The dais ring round the Heart-Tree: i0 east, i2 south, i4 west, i6 north.
+	for k in 8:
+		var a := TAU * k / 8.0
+		nodes["i%d" % k] = [Vector3(cos(a) * 5.2, 0, sin(a) * 5.2), 2.6]
+	var edges := []
+	for k in 8:
+		edges.append(["i%d" % k, "i%d" % ((k + 1) % 8), 2.4, "ring"])
+	edges.append_array([["w0", "i4", 2.2, "bridge"], ["w1", "i0", 2.2, "bridge"], ["f0", "i6", 2.2, "bridge"], ["f1", "i2", 2.2, "bridge"],
+		["m0", "a0", 3.0, "loop"], ["a0", "b0", 3.0, "loop"], ["b0", "o0", 3.0, "loop"], ["o0", "c1", 3.0, "loop"],
+		["c1", "d1", 3.0, "loop"], ["d1", "m1", 3.0, "loop"], ["m1", "a1", 3.0, "loop"], ["a1", "b1", 3.0, "loop"],
+		["b1", "o1", 3.0, "loop"], ["o1", "c0", 3.0, "loop"], ["c0", "d0", 3.0, "loop"], ["d0", "m0", 3.0, "loop"]])
+	for t in ["0", "1"]:
+		var u := "1" if t == "0" else "0"
+		edges.append_array([["g" + t, "m" + t, 4.6, "road"], ["m" + t, "w" + t, 3.4, "lane"],
+			["a" + t, "j" + t, 2.6, "trail"], ["j" + t, "w" + t, 2.6, "trail"], ["j" + t, "f" + t, 2.6, "trail"],
+			["d" + t, "k" + t, 2.6, "trail"], ["k" + t, "w" + t, 2.6, "trail"], ["k" + t, "f" + u, 2.6, "trail"],
+			["f" + t, "o" + t, 2.6, "trail"],
+			["m" + t, "q" + t, 2.4, "nook"], ["m" + t, "r" + t, 2.4, "nook"], ["b" + t, "t" + t, 2.4, "nook"], ["c" + t, "u" + t, 2.4, "nook"]])
+	# Raids spread over all three routes: the moat bridges, the far loops and
+	# the jungle glades.
+	return {"nodes": nodes, "edges": edges, "lanes": ["i6", "o0", "j1", "i2", "o1", "k1", "j0", "k0"]}
+
+
+static func brook_dist(p: Vector3) -> float:
+	## How far `p` is from the Heartbrook's middle line (either of the twins).
+	var d := INF
+	for sgn in [1.0, -1.0]:
+		for k in BROOK.size() - 1:
+			d = minf(d, _seg_dist(p, BROOK[k] * sgn, BROOK[k + 1] * sgn))
+	return d
+
+
+func heart_y(p: Vector3) -> float:
+	## The dais's surface height at `p` (0 off it).
+	if kind != "heartwood":
+		return 0.0
+	var r := Vector2(p.x, p.z).length()
+	return HEART_TOP * clampf((HEART_FOOT - r) / (HEART_FOOT - HEART_FLAT), 0.0, 1.0)
 
 
 func _build_graph() -> void:
@@ -471,6 +550,14 @@ func _area(p: Vector3) -> String:
 	var r := Vector2(p.x, p.z).length()
 	if absf(p.x) > 26.0 and absf(p.z) < 9.0:
 		return "forecourts"
+	if kind == "heartwood":
+		if r < MOAT_OUT + 1.0:
+			return "heart"         # the dais ring round the Heart-Tree
+		if absf(p.z) < 5.0:
+			return "road"          # the middle road's glades and bridges
+		if absf(p.z) > 20.0:
+			return "loop_north" if p.z < 0.0 else "loop_south"
+		return "jungle"
 	if r < 19.0:
 		return "ring"
 	return "loop_north" if p.z < 0.0 else "loop_south"
@@ -495,6 +582,9 @@ func blessing_spots() -> Array:
 	if kind == "winter":
 		return [Vector3(0, 0, 0), Vector3(0, 0, -27), Vector3(0, 0, 27), Vector3(-24, 0, -20), Vector3(24, 0, 20),
 			Vector3(-24, 0, 20), Vector3(24, 0, -20)]
+	if kind == "heartwood":
+		var top := Vector3(0, HEART_TOP, 0)
+		return [node("i6") + top, node("i2") + top, node("j0"), node("j1"), node("k0"), node("k1"), node("o0"), node("o1")]
 	return [node("i6"), node("i2"), node("i5"), node("i1"), node("i3"), node("i7"), node("o0"), node("o1")]
 
 
@@ -504,6 +594,8 @@ func heal_orb_spots() -> Array:
 	var half := [Vector3(fx + 4.5, 0, 0)]
 	if kind == "winter":
 		half.append_array([Vector3(24, 0, -20), Vector3(24, 0, 20), Vector3(0, 0, -4.5)])
+	elif kind == "heartwood":
+		half.append_array([node("f0"), node("o1"), node("w1") + Vector3(0, 0, -2.0)])
 	else:
 		half.append_array([Vector3(0, 0, -14.5), Vector3(3, 0, -32.0), Vector3(28, 0, -12)])
 	var out := []
@@ -520,6 +612,10 @@ func cover() -> Dictionary:
 		return {"barricades": [[Vector3(4.5, 0, -3.8), 2.6], [Vector3(-4.5, 0, -3.8), 2.6], [Vector3(27, 0, 4.5), 3.0]],
 			"boulders": [Vector3(4.0, 0, -28.5), Vector3(-4.5, 0, -25.5), Vector3(17, 0, -24.2), Vector3(26.5, 0, -14),
 				Vector3(-14, 0, -26.5)]}
+	if kind == "heartwood":
+		# Cover at the glades and loop bends, never on a bridge or the ring.
+		return {"barricades": [[Vector3(20.0, 0, -2.4), 2.4], [Vector3(31, 0, 4.0), 3.0]],
+			"boulders": [Vector3(24.5, 0, 17.5), Vector3(-12.0, 0, -25.0), Vector3(15.5, 0, -9.0), Vector3(17.0, 0, 13.5), Vector3(-1.5, 0, -28.5)]}
 	return {"barricades": [[Vector3(14.5, 0, -4.5), 2.6], [Vector3(31, 0, 4.0), 3.0]],
 		"boulders": [Vector3(23.5, 0, -18.5), Vector3(-12.5, 0, -24.5), Vector3(9.5, 0, -13.4), Vector3(27, 0, 9)]}
 
@@ -541,6 +637,8 @@ func height(x: float, z: float) -> float:
 		fd = minf(fd, _rect_dist(p, f[0], f[1]))
 	if fd < 0.0:
 		return 0.0
+	if kind == "heartwood" and (_in_heart(p, 0.0) or brook_dist(p) < BROOK_HALF + 1.4):
+		return -0.15   # the amphitheatre's lawn and the Heartbrook's flat banks
 	# Banks rise from the edge of the level ground, not in a step at it
 	# (a step left the gate approach's paving looking like a floating slab).
 	var d: float = minf(field(p), fd)
@@ -559,6 +657,14 @@ func height(x: float, z: float) -> float:
 		# of sight to anyone standing at the foot, CAMERA_OFFSET 19 over 16),
 		# craggy with noise, topping out near 7 m.
 		return minf(d * 1.05, 7.0) + n * minf(d * 0.16, 1.3)
+	if kind == "heartwood":
+		# The Wildwood's jungle floor: rooty banks a little higher than the
+		# Grove's, easing up off the brook's banks and the amphitheatre too.
+		d = minf(d, brook_dist(p) - BROOK_HALF - 1.4)
+		d = minf(d, Vector2(x, z).length() - SEATS_OUT - 0.6)
+		if d <= 0.0:
+			return -0.15
+		return minf(d * 0.4, 1.3) + n * minf(d * 0.08, 0.35)
 	# The grove's floor: soft mossy banks under the trees.
 	return minf(d * 0.32, 0.9) + n * minf(d * 0.06, 0.25)
 
@@ -576,6 +682,8 @@ func build() -> void:
 	_ridge_colliders()
 	if kind == "winter":
 		await _build_stonekeep()
+	elif kind == "heartwood":
+		await _build_heartwood()
 	else:
 		await _build_grove()
 
@@ -593,6 +701,12 @@ func _paths() -> void:
 			continue   # the courtyard is flagged, the gate has a flagstone strip of its own; nooks are left wild
 		if s[3] == "pass":
 			w = 3.4
+		if kind == "heartwood":
+			if s[3] == "ring":
+				continue   # the dais is paved itself
+			# Narrow winding trails through the jungle, a little wider on the
+			# loops and the middle road: the woods read, not a sea of cobbles.
+			w = {"trail": 2.4, "loop": 3.0, "bridge": 3.0, "lane": 3.6}.get(s[3], w)
 		game._add_path(a, b, w, cob, 0.0 if kind == "winter" else 1.2, s[3] == "pass" and ids[s[1]].begins_with("w"))   # (no verge on the snow: it read as a slab against the ridges)
 	for sx in [-1.0, 1.0]:
 		# The road runs on from the door court right up to the castle door.
@@ -618,7 +732,7 @@ func _paths() -> void:
 		cm.top_radius = maxf(r0 - 1.1, 0.6)
 		cm.bottom_radius = cm.top_radius
 		disc.material_override = cob
-		disc.position = pos[i] + Vector3(0, 0.014, 0)
+		disc.position = pos[i] + Vector3(0, 0.034, 0)   # (+2 cm with the lanes, game._lane_lift)
 		game.add_child(disc)
 		var fr := MeshInstance3D.new()
 		var fm := CylinderMesh.new()
@@ -632,7 +746,7 @@ func _paths() -> void:
 		fmat.set_shader_parameter("half_w", r0)
 		fmat.set_shader_parameter("radial", true)
 		fr.material_override = fmat
-		fr.position = pos[i] + Vector3(0, 0.0105, 0)
+		fr.position = pos[i] + Vector3(0, 0.0305, 0)
 		game.add_child(fr)
 
 
@@ -678,7 +792,10 @@ func _terrain() -> void:
 	mat.set_shader_parameter("top_scale", ground.uv1_scale.x)
 	if kind == "winter":
 		mat.set_shader_parameter("face_tex", load("res://assets/textures/rock_color.jpg"))
-		mat.set_shader_parameter("face_tint", Color(0.66, 0.7, 0.8))
+		mat.set_shader_parameter("face_tint", Color(0.76, 0.81, 0.92))
+	elif kind == "heartwood":
+		mat.set_shader_parameter("face_tex", load("res://assets/textures/moss_color.jpg"))
+		mat.set_shader_parameter("face_tint", Color(0.55, 0.62, 0.42))
 	else:
 		mat.set_shader_parameter("face_tex", load("res://assets/textures/moss_color.jpg"))
 		mat.set_shader_parameter("face_tint", Color(0.42, 0.4, 0.58))
@@ -739,8 +856,11 @@ func _vcolor(v: Vector3, n: Vector3) -> Color:
 	## the grove's moss on top, litter on the banks). Green: light in the folds.
 	var top: float
 	if kind == "winter":
-		top = smoothstep(0.62, 0.86, n.y)
+		# Snow holds on all but the steepest rock, and frosts even that
+		# (final grade 2026-11-04: the gentle banks showed as grey smudges).
+		top = smoothstep(0.42, 0.7, n.y)
 		top = maxf(top, smoothstep(5.2, 6.6, v.y) * 0.8)   # snow caps on the high ground
+		top = maxf(top, 0.35)
 	else:
 		top = smoothstep(0.75, 0.95, n.y)
 	var lit := 1.0   # (no fold darkening: the foothills must match the open ground)
@@ -927,7 +1047,13 @@ func in_flat(p: Vector3) -> bool:
 	return _near_flat(p, 0.0)
 
 
+func _in_heart(p: Vector3, m: float) -> bool:
+	return kind == "heartwood" and Vector2(p.x, p.z).length() < SEATS_OUT + 0.6 + m
+
+
 func _near_flat(p: Vector3, m: float) -> bool:
+	if kind == "heartwood" and (_in_heart(p, m) or brook_dist(p) < BROOK_HALF + 0.6 + m):
+		return true   # the amphitheatre and the Heartbrook stay clear of scenery
 	for f in flats:
 		if _rect_dist(p, f[0], f[1]) < m:
 			return true
@@ -981,12 +1107,26 @@ func _tower(at: Vector3, radius: float, h: float) -> void:
 	game.audit_blocks.append(["wall", AABB(at - Vector3(radius, 0, radius), Vector3(radius * 2.0, h, radius * 2.0))])
 
 
+var ice_sheets: Array = []   # [centre, rx, rz] of every ice sheet (on_ice: units slide there)
+
+
+func on_ice(p: Vector3) -> bool:
+	## True on a frozen tarn or the frozen river (the walkable sheet inside the rim).
+	for s in ice_sheets:
+		var c: Vector3 = s[0]
+		var dx: float = (p.x - c.x) / s[1]
+		var dz: float = (p.z - c.z) / s[2]
+		if dx * dx + dz * dz < 1.0 and p.y < 0.6:
+			return true
+	return false
+
+
 func _ice(c: Vector3, rx: float, rz: float) -> void:
-	## A sheet of blue-white ice flush with the ground, with a pale rim.
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.7, 0.86, 0.97)
-	mat.roughness = 0.12
-	mat.metallic_specular = 0.9
+	## A sheet of glossy cracked ice flush with the ground (ice.gdshader), with
+	## a pale frosted rim. Units slide on it (on_ice, unit.gd).
+	ice_sheets.append([c, rx, rz])
+	var mat := ShaderMaterial.new()
+	mat.shader = load("res://assets/shaders/ice.gdshader")
 	var rim := StandardMaterial3D.new()
 	rim.albedo_color = Color(0.9, 0.95, 1.0)
 	rim.roughness = 0.6
@@ -1004,18 +1144,7 @@ func _ice(c: Vector3, rx: float, rz: float) -> void:
 		mi.scale = Vector3(rx + grow, 1.0, rz + grow)
 		mi.position = c + Vector3(0, 0.018 + 0.004 * k, 0)
 		game.add_child(mi)
-	# Cracks across the ice.
-	var crack := StandardMaterial3D.new()
-	crack.albedo_color = Color(0.5, 0.66, 0.8)
-	for k in 4:
-		var mi := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(rx * 0.9, 0.004, 0.06)
-		mi.mesh = bm
-		mi.material_override = crack
-		mi.position = c + Vector3(sin(k * 1.9) * rx * 0.25, 0.026, cos(k * 2.3) * rz * 0.3)
-		mi.rotation.y = k * 0.8 + 0.3
-		game.add_child(mi)
+	# (The cracks are drawn by the shader now: the four flat strips read as tape.)
 
 
 # --- Twilight Grove ----------------------------------------------------------
@@ -1150,3 +1279,415 @@ func _build_grove() -> void:
 		if n % 6 == 0:
 			await game._world_build_frame()
 		game._add_bush(Vector3(p.x, maxf(height(p.x, p.z), 0.0), p.z), int(p.x * 7 + p.z * 3))
+
+
+# --- The Wildwood: the Heart-Tree amphitheatre ---------------------------------
+
+func _water_mat() -> ShaderMaterial:
+	var wmat := ShaderMaterial.new()
+	wmat.shader = load("res://assets/shaders/water.gdshader")
+	wmat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
+	wmat.set_shader_parameter("half_width", 1000.0)   # (no river-bank foam band: the kerbs and banks frame it)
+	wmat.set_shader_parameter("island_r", 0.0)
+	wmat.set_shader_parameter("open_foam", 0.25)
+	return wmat
+
+
+func _annulus(r0: float, r1: float, y: float, mat: Material, segs: int = 64) -> void:
+	## A flat ring (the moat's water and its dark bed).
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in segs:
+		var a0 := TAU * k / segs
+		var a1 := TAU * (k + 1) / segs
+		var p := [Vector3(cos(a0) * r0, 0, sin(a0) * r0), Vector3(cos(a0) * r1, 0, sin(a0) * r1),
+			Vector3(cos(a1) * r1, 0, sin(a1) * r1), Vector3(cos(a1) * r0, 0, sin(a1) * r0)]
+		for tri in [[0, 1, 2], [0, 2, 3]]:
+			for v in tri:
+				st.set_normal(Vector3.UP)
+				st.set_uv(Vector2(p[v].x, p[v].z))
+				st.add_vertex(p[v])
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.position.y = y
+	game.add_child(mi)
+
+
+func _ribbon(pts: Array, half: float, y: float, mat: Material) -> void:
+	## A flat strip along a polyline (the Heartbrook's water and bed).
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for k in pts.size() - 1:
+		var a: Vector3 = pts[k]
+		var b: Vector3 = pts[k + 1]
+		var dir := Vector3(b.x - a.x, 0, b.z - a.z).normalized()
+		var side := Vector3(-dir.z, 0, dir.x) * half
+		# Round joins: each piece runs half a width past its ends.
+		var q := [a - side - dir * half * 0.5, a + side - dir * half * 0.5, b + side + dir * half * 0.5, b - side + dir * half * 0.5]
+		for tri in [[0, 2, 1], [0, 3, 2]]:
+			for v in tri:
+				st.set_normal(Vector3.UP)
+				st.set_uv(Vector2(q[v].x, q[v].z))
+				st.add_vertex(Vector3(q[v].x, 0, q[v].z))
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = mat
+	mi.position.y = y
+	game.add_child(mi)
+
+
+func _box_at(parent: Node3D, size: Vector3, at: Vector3, mat: Material, yaw: float = 0.0) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	mi.mesh = bm
+	mi.material_override = mat
+	mi.position = at
+	mi.rotation.y = yaw
+	parent.add_child(mi)
+	return mi
+
+
+func _deck(centre: Vector3, along: Vector3, length: float, half: float, logs: bool) -> void:
+	## A bridge over the water: planks (the moat) or split logs (the brook)
+	## on two stringers, with a low rail each side. Walkers stay on the
+	## corridor (walkable()), so the rails are only drawn.
+	var pivot := Node3D.new()
+	pivot.position = centre + Vector3(0, 0.12, 0)   # (clear of the water: its transparent surface drew over a flush deck)
+	pivot.rotation.y = atan2(along.x, along.z)
+	game.add_child(pivot)
+	var dark = game._plank_dark(Color(0.86, 0.72, 0.54))
+	var light = game._plank_dark(Color(0.94, 0.8, 0.62))
+	var timber = game._timber(Color(0.72, 0.58, 0.44))
+	var rail = game._timber(Color(0.9, 0.76, 0.58))
+	# A solid board under the planks: the water must not show through the joints.
+	_box_at(pivot, Vector3(half * 2.0, 0.08, length), Vector3(0, -0.04, 0), game._timber(Color(0.42, 0.32, 0.24)))
+	for zs in [-1.0, 1.0]:
+		_box_at(pivot, Vector3(0.3, 0.26, length), Vector3(zs * (half - 0.3), -0.1, 0), timber)
+	var n := int(length / (0.62 if logs else 0.5))
+	for k in n:
+		var z := -length / 2.0 + (k + 0.5) * length / n
+		if logs:
+			var lg2 := MeshInstance3D.new()
+			var cm := CylinderMesh.new()
+			cm.top_radius = 0.26
+			cm.bottom_radius = 0.26
+			cm.height = half * 2.0 + 0.2
+			cm.radial_segments = 8
+			lg2.mesh = cm
+			lg2.material_override = game._tree_bark()
+			lg2.position = Vector3(0, -0.04, z)
+			lg2.rotation.z = PI / 2.0
+			lg2.scale = Vector3(0.45, 1.0, 1.0)   # split: flat side up
+			pivot.add_child(lg2)
+		else:
+			_box_at(pivot, Vector3(half * 2.0, 0.1, length / n - 0.015), Vector3(0, 0.03, z), dark if k % 2 == 0 else light)
+	# Rails: posts and a top bar.
+	for xs in [-1.0, 1.0]:
+		var x: float = xs * (half + 0.1)
+		var posts := maxi(int(length / 1.6), 1)
+		for k in posts + 1:
+			_box_at(pivot, Vector3(0.16, 0.7, 0.16), Vector3(x, 0.35, -length / 2.0 + k * length / posts), timber)
+		_box_at(pivot, Vector3(0.14, 0.12, length + 0.2), Vector3(x, 0.72, 0), rail)
+
+
+func _crossing(a: Vector3, b: Vector3) -> Vector3:
+	## Where the corridor a-b crosses the Heartbrook (INF if it does not).
+	for sgn in [1.0, -1.0]:
+		for k in BROOK.size() - 1:
+			var c: Vector3 = BROOK[k] * sgn
+			var d: Vector3 = BROOK[k + 1] * sgn
+			var r := Vector2(b.x - a.x, b.z - a.z)
+			var s := Vector2(d.x - c.x, d.z - c.z)
+			var den := r.x * s.y - r.y * s.x
+			if absf(den) < 0.0001:
+				continue
+			var ca := Vector2(c.x - a.x, c.z - a.z)
+			var t := (ca.x * s.y - ca.y * s.x) / den
+			var u := (ca.x * r.y - ca.y * r.x) / den
+			if t > 0.0 and t < 1.0 and u >= 0.0 and u <= 1.0:
+				return a.lerp(b, t)
+	return Vector3.INF
+
+
+func _build_heartwood() -> void:
+	var stone = game._ashlar(Color(0.88, 0.86, 0.8))
+	var mossy = game._ashlar(Color(0.72, 0.8, 0.62))
+	# The moat: a dark bed under see-through water between stone kerbs.
+	var bed := StandardMaterial3D.new()
+	bed.albedo_color = Color(0.12, 0.3, 0.32)
+	bed.roughness = 0.6
+	_annulus(MOAT_IN - 0.2, MOAT_OUT + 0.2, 0.01, bed)
+	var water := _water_mat()
+	_annulus(MOAT_IN - 0.2, MOAT_OUT + 0.2, 0.04, water)
+	await game._world_build_frame()
+	for edge in [MOAT_IN - 0.25, MOAT_OUT + 0.25]:
+		var count := int(TAU * edge / 1.5)
+		for k in count:
+			var a := TAU * (k + 0.5) / count
+			var gap := false
+			for q in 4:
+				if absf(wrapf(a - q * PI / 2.0, -PI, PI)) < asin(2.6 / edge):
+					gap = true   # a bridge lands here
+			if gap:
+				continue
+			_box_at(game, Vector3(1.45, 0.34, 0.5), Vector3(cos(a) * edge, 0.17, sin(a) * edge), stone if k % 3 else mossy, -a + PI / 2.0)
+	await game._world_build_frame()
+	# The dais: a raised ring of cobbles round the tree, ramping down to the
+	# bridges all the way round (walkable from anywhere: no ledge to stick on).
+	var prof := [[0.0, HEART_TOP], [HEART_FLAT, HEART_TOP], [HEART_FOOT, 0.0], [MOAT_IN - 0.1, -0.05]]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var nseg := 48
+	for k in nseg:
+		var a0 := TAU * k / nseg
+		var a1 := TAU * (k + 1) / nseg
+		for i in prof.size() - 1:
+			var r0: float = prof[i][0]
+			var r1: float = prof[i + 1][0]
+			var y0: float = prof[i][1]
+			var y1: float = prof[i + 1][1]
+			var q := [Vector3(cos(a0) * r0, y0, sin(a0) * r0), Vector3(cos(a0) * r1, y1, sin(a0) * r1),
+				Vector3(cos(a1) * r1, y1, sin(a1) * r1), Vector3(cos(a1) * r0, y0, sin(a1) * r0)]
+			for tri in [[0, 1, 2], [0, 2, 3]]:
+				for v in tri:
+					var p: Vector3 = q[v]
+					var slope := (y0 - y1) / maxf(r1 - r0, 0.01)
+					var nrm := Vector3(cos(a0) * slope, 1.0, sin(a0) * slope).normalized()
+					st.set_normal(nrm)
+					st.set_uv(Vector2(p.x, p.z) * 0.25)
+					st.add_vertex(p)
+	var dais_mesh: ArrayMesh = st.commit()
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	shape.shape = dais_mesh.create_trimesh_shape()
+	body.add_child(shape)
+	var dais := MeshInstance3D.new()
+	dais.mesh = dais_mesh
+	dais.material_override = game._stones()
+	body.add_child(dais)
+	game.add_child(body)
+	# A carved kerb round the dais's top and a ring of glowing runes.
+	var kc := 24
+	for k in kc:
+		var a := TAU * (k + 0.5) / kc
+		_box_at(game, Vector3(1.1, 0.12, 0.34), Vector3(cos(a) * (HEART_FLAT + 0.1), HEART_TOP + 0.03, sin(a) * (HEART_FLAT + 0.1)), stone, -a + PI / 2.0)
+	game._add_runes(Vector3(0, HEART_TOP - 0.03, 0), 2.6, Color(1.0, 0.6, 0.85))
+	await game._world_build_frame()
+	# The Heart-Tree: a giant blossom tree with glowing roots.
+	var trunk_at := Vector3(0, HEART_TOP, 0)
+	game._add_blocker(trunk_at, 1.9, 6.0)
+	if game._kit():
+		var crown = game._kit().kit_tree(game, "blossom", trunk_at + Vector3(0, 0.6, 0), 1.9, 0.6)
+		# (Its shadow fell as a dark blot fifteen metres off, its caster out of view.)
+		crown.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	else:
+		game._add_tree_grown(trunk_at, true)
+	var glow := StandardMaterial3D.new()
+	glow.albedo_color = Color(1.0, 0.7, 0.9)
+	glow.emission_enabled = true
+	glow.emission = Color(1.0, 0.5, 0.8)
+	glow.emission_energy_multiplier = 1.6
+	var bark = game._tree_bark()
+	# An ancient trunk, far thicker than the wood's, under the crown.
+	var trunk := MeshInstance3D.new()
+	var tm := CylinderMesh.new()
+	tm.top_radius = 0.55
+	tm.bottom_radius = 1.15
+	tm.height = 3.6
+	tm.radial_segments = 10
+	trunk.mesh = tm
+	trunk.material_override = bark
+	trunk.position = trunk_at + Vector3(0, 1.8, 0)
+	game.add_child(trunk)
+	for k in 7:
+		var a := TAU * k / 7.0 + 0.3
+		var root := MeshInstance3D.new()
+		var rc := CylinderMesh.new()
+		rc.top_radius = 0.16
+		rc.bottom_radius = 0.42
+		rc.height = 1.5
+		rc.radial_segments = 6
+		root.mesh = rc
+		root.material_override = bark
+		root.position = Vector3(cos(a) * 1.15, HEART_TOP + 0.35, sin(a) * 1.15)
+		root.rotation = Vector3(sin(a) * 0.85, 0, -cos(a) * 0.85)
+		game.add_child(root)
+		var bud := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.16
+		sm.height = 0.32
+		sm.radial_segments = 8
+		sm.rings = 4
+		bud.mesh = sm
+		bud.material_override = glow
+		bud.position = Vector3(cos(a) * 2.35, HEART_TOP + 0.12, sin(a) * 2.35)
+		game.add_child(bud)
+	game._add_light(Vector3(0, HEART_TOP + 3.2, 0), Color(1.0, 0.72, 0.88), 1.8, 14.0)
+	game.map_trees.append(Vector3(0, 1.0, 0))
+	game.map_marks.append([Vector3.ZERO, "heart"])
+	await game._world_build_frame()
+	# The ruined amphitheatre: three tiers of stone seats in four arcs
+	# between the bridges, some blocks fallen, a broken column at each end.
+	var r := RandomNumberGenerator.new()
+	r.seed = 7707
+	for q in 4:
+		var mid := PI / 4.0 + q * PI / 2.0
+		for tier in 3:
+			var rad: float = MOAT_OUT + 0.55 + tier * 0.55
+			var h: float = 0.32 * (tier + 1)
+			var span := deg_to_rad(15.0)
+			var n := 6
+			for k in n:
+				if r.randf() < 0.14 * (tier + 1):
+					continue   # fallen
+				var a: float = mid - span + (k + 0.5) * span * 2.0 / n
+				var arc_len: float = rad * span * 2.0 / n
+				_box_at(game, Vector3(arc_len - 0.06, h, 0.52), Vector3(cos(a) * rad, h / 2.0, sin(a) * rad), stone if (k + tier) % 4 else mossy, -a + PI / 2.0)
+		for e in [-1.0, 1.0]:
+			var a: float = mid + e * deg_to_rad(19.0)
+			var cp := Vector3(cos(a) * (MOAT_OUT + 1.1), 0, sin(a) * (MOAT_OUT + 1.1))
+			game._prop("dungeon/column", cp, 0.7 if (q + int(e)) % 2 == 0 else 0.45, a)
+		# A fallen block at the foot of each arc.
+		var fa: float = mid + r.randf_range(-0.12, 0.12)
+		_box_at(game, Vector3(0.9, 0.45, 0.6), Vector3(cos(fa) * (MOAT_OUT + 0.55), 0.2, sin(fa) * (MOAT_OUT + 0.55)), mossy, r.randf() * TAU)
+	await game._world_build_frame()
+	# The four moat bridges, with fire braziers at their outer heads.
+	for q in 4:
+		var a := q * PI / 2.0
+		var dir := Vector3(cos(a), 0, sin(a))
+		var mid_r := (HEART_FOOT + MOAT_OUT + 0.8) / 2.0
+		_deck(dir * mid_r, dir, MOAT_OUT + 0.8 - HEART_FOOT + 0.6, 2.1, false)
+		var side := Vector3(-dir.z, 0, dir.x)
+		for e in [-1.0, 1.0]:
+			game._add_stone_brazier(dir * (MOAT_OUT + 1.1) + side * e * 3.4, e > 0.0)
+	await game._world_build_frame()
+	# The Heartbrook: out of the moat to the north-east and the south-west,
+	# with a log bridge wherever a path crosses it.
+	var bed2 := bed.duplicate()
+	for sgn in [1.0, -1.0]:
+		var pts := []
+		for p in BROOK:
+			pts.append(p * sgn)
+		# (Start it under the moat's kerb so the two waters meet.)
+		pts[0] = pts[0].normalized() * (MOAT_OUT - 0.4) if pts[0].length() > 0.1 else pts[0]
+		_ribbon(pts, BROOK_HALF + 0.15, 0.01, bed2)
+		_ribbon(pts, BROOK_HALF + 0.15, 0.04, water)
+		await game._world_build_frame()
+	for s in segs:
+		if s[3] in ["bridge", "ring"]:
+			continue
+		var a: Vector3 = pos[s[0]]
+		var b: Vector3 = pos[s[1]]
+		var c := _crossing(a, b)
+		if c == Vector3.INF:
+			continue
+		var dir := Vector3(b.x - a.x, 0, b.z - a.z).normalized()
+		_deck(c, dir, BROOK_HALF * 2.0 + 2.4, 1.75, false)   # (as wide as the trail's paving)
+		game.map_marks.append([c, "logbridge"])
+	game.map_marks.append([Vector3.ZERO, "brook"])
+	await game._world_build_frame()
+	# Pebbles and reeds along the brook's banks (off the paths).
+	var pebble = game._pbr("rock", 0.45, Color(0.78, 0.8, 0.72))
+	var reed := StandardMaterial3D.new()
+	reed.albedo_color = Color(0.42, 0.62, 0.28)
+	reed.roughness = 0.9
+	var n := 0
+	for sgn in [1.0, -1.0]:
+		for k in BROOK.size() - 1:
+			var a: Vector3 = BROOK[k] * sgn
+			var b: Vector3 = BROOK[k + 1] * sgn
+			var seg_len := Vector2(b.x - a.x, b.z - a.z).length()
+			var dir := Vector3(b.x - a.x, 0, b.z - a.z) / seg_len
+			var side := Vector3(-dir.z, 0, dir.x)
+			var d := 1.0
+			while d < seg_len:
+				var e: float = 1.0 if int(d) % 2 == 0 else -1.0
+				var p: Vector3 = a + dir * d + side * e * (BROOK_HALF + r.randf_range(0.3, 0.9))
+				d += r.randf_range(1.6, 2.6)
+				if lane_dist(p) < 0.8 or absf(p.z) > 38.0 or Vector2(p.x, p.z).length() < SEATS_OUT + 1.0:
+					continue
+				n += 1
+				if n % 10 == 0:
+					await game._world_build_frame()
+				if n % 3 == 0:
+					var mi := MeshInstance3D.new()
+					mi.mesh = game._rock_mesh(r.randi() % 997, r.randf_range(0.3, 0.6))
+					mi.material_override = pebble
+					mi.position = p + Vector3(0, 0.08, 0)
+					mi.rotation.y = r.randf() * TAU
+					game.add_child(mi)
+				else:
+					for j in 3:
+						var blade := _box_at(game, Vector3(0.06, r.randf_range(0.6, 1.0), 0.06), p + Vector3(r.randf_range(-0.25, 0.25), 0.4, r.randf_range(-0.25, 0.25)), reed)
+						blade.rotation.z = r.randf_range(-0.25, 0.25)
+	# Deer graze on the brook's banks out by the field's edge (and its twin).
+	for sgn in [1.0, -1.0]:
+		var c: Vector3 = Vector3(14.6, 0, -33.0) * sgn
+		for k in 2:
+			game._add_critter("deer", c + Vector3(0, 0, k * 2.5 * sgn), Rect2(c.x - 0.3, c.z - 3.5, 0.6, 7.0), 4400 + k + (0 if sgn > 0.0 else 10))
+	await game._world_build_frame()
+	# Ruined watchtowers over the far ends of the flank loops.
+	for sgn in [1.0, -1.0]:
+		_tower(Vector3(6.4, 0, -35.6) * sgn, 1.25, 4.2)
+		_tower(Vector3(-3.6, 0, -36.4) * sgn, 0.9, 2.0)
+		game._add_flag(Vector3(6.4, 4.2, -35.6) * sgn, 0 if sgn > 0.0 else 1, -sgn)
+		game.map_marks.append([Vector3(6.4, 0, -35.6) * sgn, "tower"])
+	await game._world_build_frame()
+	# The jungle: trees packed on the banks between the paths, big ones
+	# deep in, bushes and mushroom rings at the edges, fireflies in the glades.
+	for p in _scatter_off(1.9, 40.0, 3.1, 7702, 0.42):
+		if absf(p.z) > 41.0 or _near_flat(p, 1.0):
+			continue
+		n += 1
+		if n % 4 == 0:
+			await game._world_build_frame()
+		var big: bool = sdf(p) > 4.5 and (n % 3 == 0)
+		var at := Vector3(p.x, maxf(height(p.x, p.z) - 0.1, 0.0), p.z)
+		game._add_tree_grown(at, big)
+		game.map_trees.append(Vector3(p.x, 1.0 if big else 0.0, p.z))
+	for p in _scatter_off(0.8, 1.8, 2.5, 7703, 0.35):
+		if absf(p.z) > 36.0 or _near_flat(p, 0.5):
+			continue
+		n += 1
+		if n % 6 == 0:
+			await game._world_build_frame()
+		game._add_bush(Vector3(p.x, maxf(height(p.x, p.z), 0.0), p.z), int(p.x * 7 + p.z * 3))
+	var ring_n := 0
+	for p in _scatter_off(1.6, 3.0, 9.0, 7704, 0.3):
+		if absf(p.z) > 34.0 or _near_flat(p, 1.0):
+			continue
+		ring_n += 1
+		if ring_n % 3 == 0:
+			game._add_mushrooms(Vector3(p.x, maxf(height(p.x, p.z), 0.0), p.z), 300 + ring_n)
+	for id in ["j0", "j1", "k0", "k1", "b0", "b1"]:
+		game._add_fireflies(node(id) + Vector3(0, 0.4, 0))
+	game._add_fireflies(Vector3(0, HEART_TOP + 1.0, 0))
+	# Fallen giant logs in the undergrowth.
+	var logs := 0
+	for p in _scatter_off(4.0, 8.0, 11.0, 7705, 0.3):
+		if absf(p.z) > 34.0 or _near_flat(p, 2.0) or logs >= 6:
+			continue
+		logs += 1
+		var lg := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.5
+		cm.bottom_radius = 0.6
+		cm.height = 4.2
+		cm.radial_segments = 9
+		lg.mesh = cm
+		lg.material_override = bark
+		lg.position = Vector3(p.x, height(p.x, p.z) + 0.35, p.z)
+		lg.rotation = Vector3(0, r.randf() * TAU, PI / 2.0)
+		game.add_child(lg)
+		var mi2 := MeshInstance3D.new()
+		var mm := SphereMesh.new()
+		mm.radius = 0.55
+		mm.height = 0.5
+		mm.radial_segments = 8
+		mm.rings = 3
+		mi2.mesh = mm
+		mi2.material_override = game._moss()
+		mi2.position = lg.position + Vector3(0, 0.45, 0)
+		game.add_child(mi2)
