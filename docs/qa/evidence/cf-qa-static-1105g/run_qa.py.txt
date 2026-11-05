@@ -1,0 +1,60 @@
+import os, sys, json, time, subprocess, re, hashlib
+from pathlib import Path
+BASE=Path(__file__).resolve().parent
+ENGINE=Path('C:/Users/faisa/Tools/Godot_4.3/Godot_v4.3-stable_win64_console.exe')
+game=sys.argv[1]
+root=BASE/game
+out=BASE/'logs'/game
+out.mkdir(parents=True,exist_ok=True)
+head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
+files=subprocess.check_output(['git','ls-files'],cwd=root,text=True).splitlines()
+manifest={f:hashlib.sha256((root/f).read_bytes()).hexdigest() for f in files if (root/f).is_file()}
+(out/'source.json').write_text(json.dumps({'head':head,'files':manifest},indent=2))
+def run(label,args,timeout):
+    profile=BASE/'profiles'/game/label
+    profile.mkdir(parents=True,exist_ok=False)
+    env=dict(os.environ,APPDATA=str(profile),LOCALAPPDATA=str(profile/'local'),XDG_DATA_HOME=str(profile))
+    cmd=[str(ENGINE),'--headless','--audio-driver','Dummy','--path',str(root),*args]
+    start=time.time()
+    with (out/(label+'.log')).open('x',encoding='utf-8') as log:
+        p=subprocess.Popen(cmd,env=env,stdout=log,stderr=subprocess.STDOUT)
+        timeout_hit=False
+        try: rc=p.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            timeout_hit=True;p.terminate();p.wait(timeout=20);rc=124
+    record=dict(head=head,command=cmd,exit_code=rc,timeout=timeout_hit,seconds=time.time()-start,pid=p.pid,profile=str(profile))
+    (out/(label+'.json')).write_text(json.dumps(record,indent=2))
+    raw=(out/(label+'.log')).read_text(encoding='utf-8',errors='replace')
+    print(json.dumps(record),flush=True)
+    print('\n'.join(x for x in raw.splitlines() if re.search(r'ERROR|Error|WARNING|SCRIPT',x))[:10000],flush=True)
+run('fresh-quit',['--quit'],120)
+run('import',['--editor','--quit'],300)
+run('imported-quit',['--quit'],120)
+missing=[];free=[];gd=[]
+for f in files:
+    p=root/f
+    if p.suffix not in ('.gd','.tscn','.tres','.godot','.gdshader','.gdextension') or not p.is_file():continue
+    src=p.read_text(encoding='utf-8',errors='replace')
+    if p.suffix=='.gd':gd.append(f)
+    for ln,line in enumerate(src.splitlines(),1):
+        if re.search(r'(?<![\w.])(?:self\.)?free\s*\(',line):free.append({'file':f,'line':ln,'text':line.strip()})
+        for m in re.finditer(r'res://[^"\'\s)]+',line):
+            path=m.group().split('::')[0]
+            if not (root/path[6:]).exists():missing.append({'file':f,'line':ln,'path':path,'text':line.strip()})
+(out/'static-scan.json').write_text(json.dumps(dict(head=head,scripts=len(gd),missing=missing,bare_free=free),indent=2))
+# Check every tracked GDScript explicitly; --check-only alone does not check a project.
+checks=[]
+for i,f in enumerate(gd):
+    cmd=[str(ENGINE),'--headless','--audio-driver','Dummy','--path',str(root),'--check-only','--script','res://'+f]
+    env=dict(os.environ,APPDATA=str(BASE/'profiles'/game/'parse'),LOCALAPPDATA=str(BASE/'profiles'/game/'parse-local'))
+    try:
+        r=subprocess.run(cmd,env=env,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=30)
+        raw=r.stdout+r.stderr
+        issues=bool(re.search(r'SCRIPT ERROR|Parse Error|Compile Error|Failed to load script',raw))
+        checks.append(dict(file=f,exit_code=r.returncode,issues=issues,output=raw))
+    except subprocess.TimeoutExpired as e: checks.append(dict(file=f,exit_code=124,issues=True,output=str(e)))
+    if i%50==0:print(f'{game}: checked {i+1}/{len(gd)}',flush=True)
+(out/'script-checks.json').write_text(json.dumps(checks,indent=2))
+after={f:hashlib.sha256((root/f).read_bytes()).hexdigest() for f in files if (root/f).is_file()}
+(out/'preservation.json').write_text(json.dumps({'unchanged':manifest==after,'changed':[f for f in manifest if manifest[f]!=after.get(f)]},indent=2))
+print(json.dumps({'game':game,'head':head,'scripts':len(gd),'script_failures':sum(c['issues'] for c in checks),'missing_candidates':len(missing),'bare_free':len(free),'tracked_unchanged':manifest==after}),flush=True)

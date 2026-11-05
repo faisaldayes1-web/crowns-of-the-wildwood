@@ -1,0 +1,17 @@
+{
+  "head": "a93e5b47d2f093554c8f28548e2011598fdb53eb",
+  "command": [
+    "C:\\Users\\faisa\\Tools\\Godot_4.3\\Godot_v4.3-stable_win64_console.exe",
+    "--headless",
+    "--audio-driver",
+    "Dummy",
+    "--path",
+    "D:\\ORY-Worktrees\\sw-recovery-756-1102\\_evidence\\cf-qa-static-1105g\\crowns-of-the-wildwood",
+    "--quit"
+  ],
+  "exit_code": 0,
+  "timeout": false,
+  "seconds": 10.74479055404663,
+  "pid": 73732,
+  "profile": "D:\\ORY-Worktrees\\sw-recovery-756-1102\\_evidence\\cf-qa-static-1105g\\profiles\\crowns-of-the-wildwood\\fresh-quit"
+}

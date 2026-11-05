@@ -1,0 +1,31 @@
+import sys,subprocess,os,time,json,re,hashlib
+from pathlib import Path
+B=Path(__file__).resolve().parent;game=sys.argv[1];r=B/game;o=B/'logs'/game
+engine='C:/Users/faisa/Tools/Godot_4.3/Godot_v4.3-stable_win64_console.exe'
+profile=B/'profiles'/game/'complete-import';profile.mkdir(parents=True,exist_ok=False)
+env=dict(os.environ,APPDATA=str(profile),LOCALAPPDATA=str(profile/'local'))
+def run(label,args,timeout):
+ cmd=[engine,'--headless','--audio-driver','Dummy','--path',str(r),*args]
+ start=time.time()
+ with (o/(label+'.log')).open('x',encoding='utf-8') as log:
+  p=subprocess.Popen(cmd,env=env,stdout=log,stderr=subprocess.STDOUT)
+  try:rc=p.wait(timeout=timeout)
+  except subprocess.TimeoutExpired:p.terminate();p.wait();rc=124
+ record=dict(command=cmd,exit_code=rc,seconds=time.time()-start,pid=p.pid,profile=str(profile))
+ (o/(label+'.json')).write_text(json.dumps(record,indent=2));print(json.dumps(record),flush=True)
+run('complete-import',['--import'],600)
+run('qualified-quit',['--quit'],120)
+files=subprocess.check_output(['git','ls-files','*.gd'],cwd=r,text=True).splitlines()
+checks=[]
+for i,f in enumerate(files):
+ cmd=[engine,'--headless','--audio-driver','Dummy','--path',str(r),'--check-only','--script','res://'+f]
+ try:
+  c=subprocess.run(cmd,env=env,capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=30);raw=c.stdout+c.stderr
+  checks.append(dict(file=f,exit_code=c.returncode,issues=bool(re.search(r'SCRIPT ERROR|Parse Error|Compile Error|Failed to load script',raw)),output=raw))
+ except subprocess.TimeoutExpired as e:checks.append(dict(file=f,exit_code=124,issues=True,output=str(e)))
+ if i%50==0:print(f'{game}: qualified checks {i+1}/{len(files)}',flush=True)
+(o/'qualified-script-checks.json').write_text(json.dumps(checks,indent=2))
+original=json.loads((o/'source.json').read_text())['files']
+changed=[f for f,h in original.items() if hashlib.sha256((r/f).read_bytes()).hexdigest()!=h and not f.startswith('docs/')]
+(o/'source-preservation-final.json').write_text(json.dumps(dict(source_unchanged=not changed,changed=changed),indent=2))
+print(json.dumps(dict(game=game,checks=len(checks),failed=[x['file'] for x in checks if x['issues']],source_changed=changed)),flush=True)

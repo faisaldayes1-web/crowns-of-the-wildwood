@@ -1,0 +1,19 @@
+extends SceneTree
+func _initialize() -> void:
+	_run.call_deferred()
+func _run() -> void:
+	var manifest := ""
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--qa-manifest="):
+			manifest = arg.trim_prefix("--qa-manifest=")
+	var files = JSON.parse_string(FileAccess.get_file_as_string(manifest))
+	var failures: Array = []
+	for f in files:
+		print("QA_PARSE_BEGIN ", f)
+		var script = load("res://" + f)
+		var ok: bool = script != null and script is GDScript and script.can_instantiate()
+		print("QA_PARSE_END ", f, " valid=", ok)
+		if not ok:
+			failures.append(f)
+	print("QA_PARSE_SUMMARY ", JSON.stringify({"count": files.size(), "failures": failures}))
+	quit(0 if failures.is_empty() else 1)

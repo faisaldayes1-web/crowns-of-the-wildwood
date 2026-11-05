@@ -1,0 +1,18 @@
+{
+  "command": [
+    "C:/Users/faisa/Tools/Godot_4.3/Godot_v4.3-stable_win64_console.exe",
+    "--headless",
+    "--audio-driver",
+    "Dummy",
+    "--path",
+    "D:\\ORY-Worktrees\\sw-recovery-756-1102\\_evidence\\cf-qa-static-1105g\\crowns-of-the-wildwood",
+    "--script",
+    "D:\\ORY-Worktrees\\sw-recovery-756-1102\\_evidence\\cf-qa-static-1105g\\probes\\contextual_parse.gd",
+    "--",
+    "--qa-manifest=D:\\ORY-Worktrees\\sw-recovery-756-1102\\_evidence\\cf-qa-static-1105g\\logs\\crowns-of-the-wildwood\\parse-manifest.json"
+  ],
+  "exit_code": 1,
+  "seconds": 3.6842360496520996,
+  "profile": "D:\\ORY-Worktrees\\sw-recovery-756-1102\\_evidence\\cf-qa-static-1105g\\profiles\\crowns-of-the-wildwood\\contextual-parse",
+  "pid": 28468
+}

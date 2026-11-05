@@ -1,0 +1,357 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+QA_PARSE_BEGIN docs/evidence/bugtest-downed-interact-20261027/candidate-freshpress-executed.gd
+QA_PARSE_END docs/evidence/bugtest-downed-interact-20261027/candidate-freshpress-executed.gd valid=true
+QA_PARSE_BEGIN docs/evidence/bugtest-downed-interact-20261027/candidate-preheld-green-executed.gd
+QA_PARSE_END docs/evidence/bugtest-downed-interact-20261027/candidate-preheld-green-executed.gd valid=true
+QA_PARSE_BEGIN docs/evidence/bugtest-downed-interact-20261027/candidate-release-repress-executed.gd
+QA_PARSE_END docs/evidence/bugtest-downed-interact-20261027/candidate-release-repress-executed.gd valid=true
+QA_PARSE_BEGIN docs/evidence/bugtest-downed-interact-20261027/main-freshpress-executed.gd
+QA_PARSE_END docs/evidence/bugtest-downed-interact-20261027/main-freshpress-executed.gd valid=true
+QA_PARSE_BEGIN docs/evidence/bugtest-downed-interact-20261027/main-preheld-red-executed.gd
+QA_PARSE_END docs/evidence/bugtest-downed-interact-20261027/main-preheld-red-executed.gd valid=true
+QA_PARSE_BEGIN docs/evidence/codex-faisal-afterimage/codex_faisal_fx_retirement_probe.gd
+QA_PARSE_END docs/evidence/codex-faisal-afterimage/codex_faisal_fx_retirement_probe.gd valid=true
+QA_PARSE_BEGIN docs/evidence/codex-faisal-reference-daylight/native-fixture.gd
+QA_PARSE_END docs/evidence/codex-faisal-reference-daylight/native-fixture.gd valid=true
+QA_PARSE_BEGIN docs/evidence/issue68-followup-20261027/animation/animation.gd
+SCRIPT ERROR: Parse Error: Preload file "C:/ORY-Cache/qa/crowns-68-msvc-Codex-faisal/isolated.gd" does not exist.
+          at: GDScript::reload (res://docs/evidence/issue68-followup-20261027/animation/animation.gd:3)
+ERROR: Failed to load script "res://docs/evidence/issue68-followup-20261027/animation/animation.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2936)
+QA_PARSE_END docs/evidence/issue68-followup-20261027/animation/animation.gd valid=false
+QA_PARSE_BEGIN docs/evidence/issue68-followup-20261027/shutdown.gd
+QA_PARSE_END docs/evidence/issue68-followup-20261027/shutdown.gd valid=true
+QA_PARSE_BEGIN docs/evidence/issue68-rendered-20261027/isolated.gd
+QA_PARSE_END docs/evidence/issue68-rendered-20261027/isolated.gd valid=true
+QA_PARSE_BEGIN docs/evidence/issue68-rendered-20261027/rendered.gd
+SCRIPT ERROR: Parse Error: Preload file "C:/ORY-Cache/qa/crowns-68-rendered-Codex-faisal/isolated.gd" does not exist.
+          at: GDScript::reload (res://docs/evidence/issue68-rendered-20261027/rendered.gd:18)
+ERROR: Failed to load script "res://docs/evidence/issue68-rendered-20261027/rendered.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2936)
+QA_PARSE_END docs/evidence/issue68-rendered-20261027/rendered.gd valid=false
+QA_PARSE_BEGIN docs/evidence/touch-hints-20261027/hint.gd
+QA_PARSE_END docs/evidence/touch-hints-20261027/hint.gd valid=true
+QA_PARSE_BEGIN docs/evidence/touch-hints-20261027/test.gd
+SCRIPT ERROR: Parse Error: Preload file "res://hint.gd" does not exist.
+          at: GDScript::reload (res://docs/evidence/touch-hints-20261027/test.gd:11)
+ERROR: Failed to load script "res://docs/evidence/touch-hints-20261027/test.gd" with error "Parse error".
+   at: load (modules/gdscript/gdscript.cpp:2936)
+QA_PARSE_END docs/evidence/touch-hints-20261027/test.gd valid=false
+QA_PARSE_BEGIN docs/evidence/wave5-couch-audio/pack_audio_signal_control.gd
+QA_PARSE_END docs/evidence/wave5-couch-audio/pack_audio_signal_control.gd valid=true
+QA_PARSE_BEGIN docs/evidence/wave5-couch-audio/pack_audio_test.gd
+QA_PARSE_END docs/evidence/wave5-couch-audio/pack_audio_test.gd valid=true
+QA_PARSE_BEGIN docs/visual/2026-10-27-characters/material_check.gd
+QA_PARSE_END docs/visual/2026-10-27-characters/material_check.gd valid=true
+QA_PARSE_BEGIN scripts/barricade.gd
+QA_PARSE_END scripts/barricade.gd valid=true
+QA_PARSE_BEGIN scripts/blessing.gd
+QA_PARSE_END scripts/blessing.gd valid=true
+QA_PARSE_BEGIN scripts/boot_loader.gd
+QA_PARSE_END scripts/boot_loader.gd valid=true
+QA_PARSE_BEGIN scripts/character_model.gd
+QA_PARSE_END scripts/character_model.gd valid=true
+QA_PARSE_BEGIN scripts/critter.gd
+QA_PARSE_END scripts/critter.gd valid=true
+QA_PARSE_BEGIN scripts/economy.gd
+QA_PARSE_END scripts/economy.gd valid=true
+QA_PARSE_BEGIN scripts/face.gd
+QA_PARSE_END scripts/face.gd valid=true
+QA_PARSE_BEGIN scripts/fx.gd
+QA_PARSE_END scripts/fx.gd valid=true
+QA_PARSE_BEGIN scripts/game.gd
+QA_PARSE_END scripts/game.gd valid=true
+QA_PARSE_BEGIN scripts/gate.gd
+QA_PARSE_END scripts/gate.gd valid=true
+QA_PARSE_BEGIN scripts/graveyard.gd
+QA_PARSE_END scripts/graveyard.gd valid=true
+QA_PARSE_BEGIN scripts/guide.gd
+QA_PARSE_END scripts/guide.gd valid=true
+QA_PARSE_BEGIN scripts/headless_mesh_lifetime.gd
+QA_PARSE_END scripts/headless_mesh_lifetime.gd valid=true
+QA_PARSE_BEGIN scripts/heal_orb.gd
+QA_PARSE_END scripts/heal_orb.gd valid=true
+QA_PARSE_BEGIN scripts/hud.gd
+QA_PARSE_END scripts/hud.gd valid=true
+QA_PARSE_BEGIN scripts/lanes.gd
+QA_PARSE_END scripts/lanes.gd valid=true
+QA_PARSE_BEGIN scripts/legend.gd
+QA_PARSE_END scripts/legend.gd valid=true
+QA_PARSE_BEGIN scripts/log_queue.gd
+QA_PARSE_END scripts/log_queue.gd valid=true
+QA_PARSE_BEGIN scripts/match_summary.gd
+QA_PARSE_END scripts/match_summary.gd valid=true
+QA_PARSE_BEGIN scripts/menu.gd
+QA_PARSE_END scripts/menu.gd valid=true
+QA_PARSE_BEGIN scripts/menu_stage.gd
+QA_PARSE_END scripts/menu_stage.gd valid=true
+QA_PARSE_BEGIN scripts/monarch.gd
+QA_PARSE_END scripts/monarch.gd valid=true
+QA_PARSE_BEGIN scripts/net.gd
+QA_PARSE_END scripts/net.gd valid=true
+QA_PARSE_BEGIN scripts/outfit_flair.gd
+QA_PARSE_END scripts/outfit_flair.gd valid=true
+QA_PARSE_BEGIN scripts/player_movement.gd
+QA_PARSE_END scripts/player_movement.gd valid=true
+QA_PARSE_BEGIN scripts/projectile.gd
+QA_PARSE_END scripts/projectile.gd valid=true
+QA_PARSE_BEGIN scripts/relay_peer.gd
+QA_PARSE_END scripts/relay_peer.gd valid=true
+QA_PARSE_BEGIN scripts/resource_node.gd
+QA_PARSE_END scripts/resource_node.gd valid=true
+QA_PARSE_BEGIN scripts/save_file.gd
+QA_PARSE_END scripts/save_file.gd valid=true
+QA_PARSE_BEGIN scripts/scoreboard.gd
+QA_PARSE_END scripts/scoreboard.gd valid=true
+QA_PARSE_BEGIN scripts/seal.gd
+QA_PARSE_END scripts/seal.gd valid=true
+QA_PARSE_BEGIN scripts/sfx.gd
+QA_PARSE_END scripts/sfx.gd valid=true
+QA_PARSE_BEGIN scripts/skill_fx.gd
+QA_PARSE_END scripts/skill_fx.gd valid=true
+QA_PARSE_BEGIN scripts/static_batch.gd
+QA_PARSE_END scripts/static_batch.gd valid=true
+QA_PARSE_BEGIN scripts/stats.gd
+QA_PARSE_END scripts/stats.gd valid=true
+QA_PARSE_BEGIN scripts/steam.gd
+QA_PARSE_END scripts/steam.gd valid=true
+QA_PARSE_BEGIN scripts/store.gd
+QA_PARSE_END scripts/store.gd valid=true
+QA_PARSE_BEGIN scripts/store_gear.gd
+QA_PARSE_END scripts/store_gear.gd valid=true
+QA_PARSE_BEGIN scripts/tips.gd
+QA_PARSE_END scripts/tips.gd valid=true
+QA_PARSE_BEGIN scripts/title_diorama.gd
+QA_PARSE_END scripts/title_diorama.gd valid=true
+QA_PARSE_BEGIN scripts/touch.gd
+QA_PARSE_END scripts/touch.gd valid=true
+QA_PARSE_BEGIN scripts/trap.gd
+QA_PARSE_END scripts/trap.gd valid=true
+QA_PARSE_BEGIN scripts/turret.gd
+QA_PARSE_END scripts/turret.gd valid=true
+QA_PARSE_BEGIN scripts/unit.gd
+QA_PARSE_END scripts/unit.gd valid=true
+QA_PARSE_BEGIN scripts/vault.gd
+QA_PARSE_END scripts/vault.gd valid=true
+QA_PARSE_BEGIN scripts/visual/blob_shadow.gd
+QA_PARSE_END scripts/visual/blob_shadow.gd valid=true
+QA_PARSE_BEGIN scripts/visual/carved_block.gd
+QA_PARSE_END scripts/visual/carved_block.gd valid=true
+QA_PARSE_BEGIN scripts/visual/castle_kit.gd
+QA_PARSE_END scripts/visual/castle_kit.gd valid=true
+QA_PARSE_BEGIN scripts/visual/character_material_profile.gd
+QA_PARSE_END scripts/visual/character_material_profile.gd valid=true
+QA_PARSE_BEGIN scripts/visual/forest_kit.gd
+QA_PARSE_END scripts/visual/forest_kit.gd valid=true
+QA_PARSE_BEGIN scripts/visual/label_declutter.gd
+QA_PARSE_END scripts/visual/label_declutter.gd valid=true
+QA_PARSE_BEGIN scripts/visual/season.gd
+QA_PARSE_END scripts/visual/season.gd valid=true
+QA_PARSE_BEGIN scripts/visual/snow_cap.gd
+QA_PARSE_END scripts/visual/snow_cap.gd valid=true
+QA_PARSE_BEGIN scripts/visual/style_profile.gd
+QA_PARSE_END scripts/visual/style_profile.gd valid=true
+QA_PARSE_BEGIN scripts/volcano.gd
+QA_PARSE_END scripts/volcano.gd valid=true
+QA_PARSE_BEGIN scripts/zombie.gd
+QA_PARSE_END scripts/zombie.gd valid=true
+QA_PARSE_BEGIN tests/combat_test.gd
+QA_PARSE_END tests/combat_test.gd valid=true
+QA_PARSE_BEGIN tests/fx_showcase.gd
+QA_PARSE_END tests/fx_showcase.gd valid=true
+QA_PARSE_BEGIN tools/bake_batch_cache.gd
+QA_PARSE_END tools/bake_batch_cache.gd valid=true
+QA_PARSE_BEGIN tools/balance_report.gd
+QA_PARSE_END tools/balance_report.gd valid=true
+QA_PARSE_BEGIN tools/batch_cache_test.gd
+QA_PARSE_END tools/batch_cache_test.gd valid=true
+QA_PARSE_BEGIN tools/batch_primitive_test.gd
+QA_PARSE_END tools/batch_primitive_test.gd valid=true
+QA_PARSE_BEGIN tools/batch_safety_scan.gd
+QA_PARSE_END tools/batch_safety_scan.gd valid=true
+QA_PARSE_BEGIN tools/bugtest_shared_xp_test.gd
+QA_PARSE_END tools/bugtest_shared_xp_test.gd valid=true
+QA_PARSE_BEGIN tools/cloud_paths_test.gd
+QA_PARSE_END tools/cloud_paths_test.gd valid=true
+QA_PARSE_BEGIN tools/codex3_crown_drop_test.gd
+QA_PARSE_END tools/codex3_crown_drop_test.gd valid=true
+QA_PARSE_BEGIN tools/codex_faisal_movement_test.gd
+QA_PARSE_END tools/codex_faisal_movement_test.gd valid=true
+QA_PARSE_BEGIN tools/controls_live_test.gd
+QA_PARSE_END tools/controls_live_test.gd valid=true
+QA_PARSE_BEGIN tools/cost_ab.gd
+QA_PARSE_END tools/cost_ab.gd valid=true
+QA_PARSE_BEGIN tools/couch_audio_test.gd
+QA_PARSE_END tools/couch_audio_test.gd valid=true
+QA_PARSE_BEGIN tools/crowns_visual_capture.gd
+QA_PARSE_END tools/crowns_visual_capture.gd valid=true
+QA_PARSE_BEGIN tools/frame_time_probe.gd
+QA_PARSE_END tools/frame_time_probe.gd valid=true
+QA_PARSE_BEGIN tools/gates/perf_gate.gd
+QA_PARSE_END tools/gates/perf_gate.gd valid=true
+QA_PARSE_BEGIN tools/gates/resource_gate.gd
+QA_PARSE_END tools/gates/resource_gate.gd valid=true
+QA_PARSE_BEGIN tools/gates/ui_fit_gate.gd
+QA_PARSE_END tools/gates/ui_fit_gate.gd valid=true
+QA_PARSE_BEGIN tools/gates/world_gate.gd
+QA_PARSE_END tools/gates/world_gate.gd valid=true
+QA_PARSE_BEGIN tools/gfx_cost_probe.gd
+QA_PARSE_END tools/gfx_cost_probe.gd valid=true
+QA_PARSE_BEGIN tools/graveyard_test.gd
+QA_PARSE_END tools/graveyard_test.gd valid=true
+QA_PARSE_BEGIN tools/hitch_probe.gd
+QA_PARSE_END tools/hitch_probe.gd valid=true
+QA_PARSE_BEGIN tools/hud_ab.gd
+QA_PARSE_END tools/hud_ab.gd valid=true
+QA_PARSE_BEGIN tools/hud_chat_capture.gd
+QA_PARSE_END tools/hud_chat_capture.gd valid=true
+QA_PARSE_BEGIN tools/hud_chat_space_test.gd
+QA_PARSE_END tools/hud_chat_space_test.gd valid=true
+QA_PARSE_BEGIN tools/ice_slide_test.gd
+QA_PARSE_END tools/ice_slide_test.gd valid=true
+QA_PARSE_BEGIN tools/import_kit_trees.gd
+QA_PARSE_END tools/import_kit_trees.gd valid=true
+QA_PARSE_BEGIN tools/kbm_move_test.gd
+QA_PARSE_END tools/kbm_move_test.gd valid=true
+QA_PARSE_BEGIN tools/lanes_test.gd
+QA_PARSE_END tools/lanes_test.gd valid=true
+QA_PARSE_BEGIN tools/legend_test.gd
+QA_PARSE_END tools/legend_test.gd valid=true
+QA_PARSE_BEGIN tools/light_census.gd
+QA_PARSE_END tools/light_census.gd valid=true
+QA_PARSE_BEGIN tools/loading_progress_test.gd
+QA_PARSE_END tools/loading_progress_test.gd valid=true
+QA_PARSE_BEGIN tools/loading_viewport_test.gd
+QA_PARSE_END tools/loading_viewport_test.gd valid=true
+QA_PARSE_BEGIN tools/map_card_capture.gd
+QA_PARSE_END tools/map_card_capture.gd valid=true
+QA_PARSE_BEGIN tools/map_latency_probe.gd
+QA_PARSE_END tools/map_latency_probe.gd valid=true
+QA_PARSE_BEGIN tools/map_survey_capture.gd
+QA_PARSE_END tools/map_survey_capture.gd valid=true
+QA_PARSE_BEGIN tools/map_switch_test.gd
+QA_PARSE_END tools/map_switch_test.gd valid=true
+QA_PARSE_BEGIN tools/match_profile.gd
+QA_PARSE_END tools/match_profile.gd valid=true
+QA_PARSE_BEGIN tools/match_start_art_test.gd
+QA_PARSE_END tools/match_start_art_test.gd valid=true
+QA_PARSE_BEGIN tools/match_start_probe.gd
+QA_PARSE_END tools/match_start_probe.gd valid=true
+QA_PARSE_BEGIN tools/match_start_run.gd
+QA_PARSE_END tools/match_start_run.gd valid=true
+QA_PARSE_BEGIN tools/menu_flow_test.gd
+QA_PARSE_END tools/menu_flow_test.gd valid=true
+QA_PARSE_BEGIN tools/menu_latency_probe.gd
+QA_PARSE_END tools/menu_latency_probe.gd valid=true
+QA_PARSE_BEGIN tools/mesh_census.gd
+QA_PARSE_END tools/mesh_census.gd valid=true
+QA_PARSE_BEGIN tools/model_bench.gd
+QA_PARSE_END tools/model_bench.gd valid=true
+QA_PARSE_BEGIN tools/net_event_probe.gd
+QA_PARSE_END tools/net_event_probe.gd valid=true
+QA_PARSE_BEGIN tools/net_map_switch_test.gd
+QA_PARSE_END tools/net_map_switch_test.gd valid=true
+QA_PARSE_BEGIN tools/null_mesh_probe.gd
+QA_PARSE_END tools/null_mesh_probe.gd valid=true
+QA_PARSE_BEGIN tools/options_menu_test.gd
+QA_PARSE_END tools/options_menu_test.gd valid=true
+QA_PARSE_BEGIN tools/pad_kind_test.gd
+QA_PARSE_END tools/pad_kind_test.gd valid=true
+QA_PARSE_BEGIN tools/pad_nav_test.gd
+QA_PARSE_END tools/pad_nav_test.gd valid=true
+QA_PARSE_BEGIN tools/pad_split_test.gd
+QA_PARSE_END tools/pad_split_test.gd valid=true
+QA_PARSE_BEGIN tools/pad_unplug_test.gd
+QA_PARSE_END tools/pad_unplug_test.gd valid=true
+QA_PARSE_BEGIN tools/pass5_capture.gd
+QA_PARSE_END tools/pass5_capture.gd valid=true
+QA_PARSE_BEGIN tools/pass5_mesh_test.gd
+QA_PARSE_END tools/pass5_mesh_test.gd valid=true
+QA_PARSE_BEGIN tools/perf_probe.gd
+QA_PARSE_END tools/perf_probe.gd valid=true
+QA_PARSE_BEGIN tools/player_movement_test.gd
+QA_PARSE_END tools/player_movement_test.gd valid=true
+QA_PARSE_BEGIN tools/prim_census.gd
+QA_PARSE_END tools/prim_census.gd valid=true
+QA_PARSE_BEGIN tools/progress_goal_test.gd
+QA_PARSE_END tools/progress_goal_test.gd valid=true
+QA_PARSE_BEGIN tools/prop_bounds.gd
+QA_PARSE_END tools/prop_bounds.gd valid=true
+QA_PARSE_BEGIN tools/reload_menu_test.gd
+QA_PARSE_END tools/reload_menu_test.gd valid=true
+QA_PARSE_BEGIN tools/render_ab.gd
+QA_PARSE_END tools/render_ab.gd valid=true
+QA_PARSE_BEGIN tools/render_card_portraits.gd
+QA_PARSE_END tools/render_card_portraits.gd valid=true
+QA_PARSE_BEGIN tools/render_store_icons.gd
+QA_PARSE_END tools/render_store_icons.gd valid=true
+QA_PARSE_BEGIN tools/rock_mesh_test.gd
+QA_PARSE_END tools/rock_mesh_test.gd valid=true
+QA_PARSE_BEGIN tools/save_recovery_test.gd
+QA_PARSE_END tools/save_recovery_test.gd valid=true
+QA_PARSE_BEGIN tools/save_test.gd
+QA_PARSE_END tools/save_test.gd valid=true
+QA_PARSE_BEGIN tools/save_write_test.gd
+QA_PARSE_END tools/save_write_test.gd valid=true
+QA_PARSE_BEGIN tools/settings_restart_test.gd
+QA_PARSE_END tools/settings_restart_test.gd valid=true
+QA_PARSE_BEGIN tools/sfx_override_test.gd
+QA_PARSE_END tools/sfx_override_test.gd valid=true
+QA_PARSE_BEGIN tools/showcase.gd
+QA_PARSE_END tools/showcase.gd valid=true
+QA_PARSE_BEGIN tools/snag_scan.gd
+QA_PARSE_END tools/snag_scan.gd valid=true
+QA_PARSE_BEGIN tools/spawn_hitch_probe.gd
+QA_PARSE_END tools/spawn_hitch_probe.gd valid=true
+QA_PARSE_BEGIN tools/spawn_warm_test.gd
+QA_PARSE_END tools/spawn_warm_test.gd valid=true
+QA_PARSE_BEGIN tools/split_hud_test.gd
+QA_PARSE_END tools/split_hud_test.gd valid=true
+QA_PARSE_BEGIN tools/stall_probe.gd
+QA_PARSE_END tools/stall_probe.gd valid=true
+QA_PARSE_BEGIN tools/steam_menu_capture.gd
+QA_PARSE_END tools/steam_menu_capture.gd valid=true
+QA_PARSE_BEGIN tools/steam_ready_test.gd
+QA_PARSE_END tools/steam_ready_test.gd valid=true
+QA_PARSE_BEGIN tools/store_menu_test.gd
+QA_PARSE_END tools/store_menu_test.gd valid=true
+QA_PARSE_BEGIN tools/store_test.gd
+QA_PARSE_END tools/store_test.gd valid=true
+QA_PARSE_BEGIN tools/stuck_scan.gd
+QA_PARSE_END tools/stuck_scan.gd valid=true
+QA_PARSE_BEGIN tools/tdm_test.gd
+QA_PARSE_END tools/tdm_test.gd valid=true
+QA_PARSE_BEGIN tools/tests/isolated.gd
+QA_PARSE_END tools/tests/isolated.gd valid=true
+QA_PARSE_BEGIN tools/tests/loading_viewport_probe.gd
+QA_PARSE_END tools/tests/loading_viewport_probe.gd valid=true
+QA_PARSE_BEGIN tools/tex_census.gd
+QA_PARSE_END tools/tex_census.gd valid=true
+QA_PARSE_BEGIN tools/tips_test.gd
+QA_PARSE_END tools/tips_test.gd valid=true
+QA_PARSE_BEGIN tools/title_stutter_probe.gd
+QA_PARSE_END tools/title_stutter_probe.gd valid=true
+QA_PARSE_BEGIN tools/title_stutter_run.gd
+QA_PARSE_END tools/title_stutter_run.gd valid=true
+QA_PARSE_BEGIN tools/touch_close_test.gd
+QA_PARSE_END tools/touch_close_test.gd valid=true
+QA_PARSE_BEGIN tools/tri_census.gd
+QA_PARSE_END tools/tri_census.gd valid=true
+QA_PARSE_BEGIN tools/unit_allocation_test.gd
+QA_PARSE_END tools/unit_allocation_test.gd valid=true
+QA_PARSE_BEGIN tools/vfx_layer_capture.gd
+QA_PARSE_END tools/vfx_layer_capture.gd valid=true
+QA_PARSE_BEGIN tools/visual_pass/export_map.gd
+QA_PARSE_END tools/visual_pass/export_map.gd valid=true
+QA_PARSE_BEGIN tools/window_mode_test.gd
+QA_PARSE_END tools/window_mode_test.gd valid=true
+QA_PARSE_BEGIN tools/world_behind_test.gd
+QA_PARSE_END tools/world_behind_test.gd valid=true
+QA_PARSE_BEGIN tools/world_fingerprint.gd
+QA_PARSE_END tools/world_fingerprint.gd valid=true
+QA_PARSE_BEGIN tools/write_notices.gd
+QA_PARSE_END tools/write_notices.gd valid=true
+QA_PARSE_BEGIN tools/zfight_audit.gd
+QA_PARSE_END tools/zfight_audit.gd valid=true
+QA_PARSE_SUMMARY {"count":171,"failures":["docs/evidence/issue68-followup-20261027/animation/animation.gd","docs/evidence/issue68-rendered-20261027/rendered.gd","docs/evidence/touch-hints-20261027/test.gd"]}

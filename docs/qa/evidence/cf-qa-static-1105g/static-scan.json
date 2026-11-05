@@ -1,0 +1,277 @@
+{
+  "head": "a93e5b47d2f093554c8f28548e2011598fdb53eb",
+  "scripts": 171,
+  "missing": [
+    {
+      "file": "docs/evidence/touch-hints-20261027/test.gd",
+      "line": 11,
+      "path": "res://hint.gd",
+      "text": "var hud = preload(\"res://hint.gd\").new()"
+    },
+    {
+      "file": "scripts/boot_loader.gd",
+      "line": 53,
+      "path": "res://assets/props/dungeon/%s.glb",
+      "text": "paths.append(\"res://assets/props/dungeon/%s.glb\" % p)"
+    },
+    {
+      "file": "scripts/boot_loader.gd",
+      "line": 55,
+      "path": "res://assets/characters/%s.glb",
+      "text": "paths.append(\"res://assets/characters/%s.glb\" % c)"
+    },
+    {
+      "file": "scripts/character_model.gd",
+      "line": 368,
+      "path": "res://assets/characters/skins/%s_%s.png",
+      "text": "var skin: Texture2D = _load(\"res://assets/characters/skins/%s_%s.png\" % [c.skin, \"elf\" if team == 0 else \"human\"])"
+    },
+    {
+      "file": "scripts/face.gd",
+      "line": 238,
+      "path": "res://assets/characters/faces/face_eyes_%s_%s.png",
+      "text": "eyes.material_override = _mat(_tex(\"res://assets/characters/faces/face_eyes_%s_%s.png\" % [st, iris]))"
+    },
+    {
+      "file": "scripts/face.gd",
+      "line": 245,
+      "path": "res://assets/characters/faces/face_mark_%s.png",
+      "text": "mk.material_override = _mat(_tex(\"res://assets/characters/faces/face_mark_%s.png\" % mark))"
+    },
+    {
+      "file": "scripts/face.gd",
+      "line": 251,
+      "path": "res://assets/characters/faces/face_brows_%s.png",
+      "text": "brows.material_override = _mat(_tex(\"res://assets/characters/faces/face_brows_%s.png\" % st), brow)"
+    },
+    {
+      "file": "scripts/face.gd",
+      "line": 257,
+      "path": "res://assets/characters/faces/face_mouth_%s.png",
+      "text": "mouth.material_override = _mat(_tex(\"res://assets/characters/faces/face_mouth_%s.png\" % st))"
+    },
+    {
+      "file": "scripts/game.gd",
+      "line": 6097,
+      "path": "res://assets/props/%s%s",
+      "text": "var path := \"res://assets/props/%s%s\" % [name, ext]"
+    },
+    {
+      "file": "scripts/game.gd",
+      "line": 7804,
+      "path": "res://assets/ui/icons/%s.png",
+      "text": "mat.albedo_texture = load(\"res://assets/ui/icons/%s.png\" % name)"
+    },
+    {
+      "file": "scripts/game.gd",
+      "line": 8388,
+      "path": "res://assets/textures/emblems/%s.png",
+      "text": "mat.albedo_texture = load(\"res://assets/textures/emblems/%s.png\" % emblem)"
+    },
+    {
+      "file": "scripts/game.gd",
+      "line": 9309,
+      "path": "res://assets/ui/icons/%s.png",
+      "text": "qmat.albedo_texture = load(\"res://assets/ui/icons/%s.png\" % (\"crest_forest\" if team == 0 else \"crest_kingdom\"))"
+    },
+    {
+      "file": "scripts/game.gd",
+      "line": 13421,
+      "path": "res://assets/characters/skins/%s_%s.png",
+      "text": "skins[\"res://assets/characters/skins/%s_%s.png\" % [c.skin, \"elf\" if look[0] == 0 else \"human\"]] = true"
+    },
+    {
+      "file": "scripts/game.gd",
+      "line": 13448,
+      "path": "res://assets/characters/skins/%s_%s.png",
+      "text": "var base: Texture2D = CharacterModel._load(\"res://assets/characters/skins/%s_%s.png\" % [skin_name, \"elf\" if team == 0 else \"human\"])"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 207,
+      "path": "res://assets/ui/icons/%s",
+      "text": "icons[file.trim_suffix(\".png\")] = load(\"res://assets/ui/icons/%s\" % file)"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 211,
+      "path": "res://assets/ui/icons/%s.png",
+      "text": "icons[kind] = load(\"res://assets/ui/icons/%s.png\" % kind)"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 217,
+      "path": "res://assets/ui/icons_clean/%s.png",
+      "text": "clean_icons[ck] = load(\"res://assets/ui/icons_clean/%s.png\" % ck)"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 224,
+      "path": "res://assets/ui/strips/%s.png",
+      "text": "strips[sk] = load(\"res://assets/ui/strips/%s.png\" % sk)"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 228,
+      "path": "res://assets/ui/cards/%s.png",
+      "text": "var path := \"res://assets/ui/cards/%s.png\" % key"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 231,
+      "path": "res://assets/ui/cards/%s_blur.png",
+      "text": "var blur := \"res://assets/ui/cards/%s_blur.png\" % key   # the promotion card's backdrop (tools/make_card_blur.py)"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 238,
+      "path": "res://assets/ui/skills/%s.png",
+      "text": "var path := \"res://assets/ui/skills/%s.png\" % key"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 2163,
+      "path": "res://assets/ui/minimap/%s.png",
+      "text": "var path := \"res://assets/ui/minimap/%s.png\" % key"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 5977,
+      "path": "res://assets/ui/menu/%s.png",
+      "text": "var path := \"res://assets/ui/menu/%s.png\" % name"
+    },
+    {
+      "file": "scripts/hud.gd",
+      "line": 7219,
+      "path": "res://assets/ui/banners/bg_%s.png",
+      "text": "var path := \"res://assets/ui/banners/bg_%s.png\" % key"
+    },
+    {
+      "file": "scripts/legend.gd",
+      "line": 90,
+      "path": "res://assets/ui/cards/%s_%s.png",
+      "text": "var card := \"res://assets/ui/cards/%s_%s.png\" % [[\"elf\", \"human\"][facts.team], facts.class_key]"
+    },
+    {
+      "file": "scripts/menu.gd",
+      "line": 117,
+      "path": "res://assets/ui/menu/%s.png",
+      "text": "var path := \"res://assets/ui/menu/%s.png\" % name"
+    },
+    {
+      "file": "scripts/menu.gd",
+      "line": 921,
+      "path": "res://assets/characters/faces/face_mark_%s.png",
+      "text": "var path := \"res://assets/characters/faces/face_mark_%s.png\" % mk"
+    },
+    {
+      "file": "scripts/menu.gd",
+      "line": 999,
+      "path": "res://assets/characters/faces/face_eyes_%s_%s.png",
+      "text": "var path := \"res://assets/characters/faces/face_eyes_%s_%s.png\" % [Face.STYLES[i], Stats.HERO_EYES[_eye_index()][2]]"
+    },
+    {
+      "file": "scripts/menu.gd",
+      "line": 1489,
+      "path": "res://assets/ui/tutorial/topic_%d.jpg",
+      "text": "var path := \"res://assets/ui/tutorial/topic_%d.jpg\" % i"
+    },
+    {
+      "file": "scripts/menu_stage.gd",
+      "line": 489,
+      "path": "res://assets/ui/menu/banner_crown_%s.png",
+      "text": "m.albedo_texture = load(\"res://assets/ui/menu/banner_crown_%s.png\" % color)"
+    },
+    {
+      "file": "scripts/store.gd",
+      "line": 504,
+      "path": "res://assets/ui/store/%s_%d.png",
+      "text": "var path := \"res://assets/ui/store/%s_%d.png\" % [kind, i]"
+    },
+    {
+      "file": "scripts/title_diorama.gd",
+      "line": 144,
+      "path": "res://assets/ui/menu/%s.png",
+      "text": "m.albedo_texture = load(\"res://assets/ui/menu/%s.png\" % (\"banner_tree\" if team == 0 else \"banner_lion\"))"
+    },
+    {
+      "file": "scripts/visual/forest_kit.gd",
+      "line": 1164,
+      "path": "res://assets/models/kit/%s.res",
+      "text": "var path := \"res://assets/models/kit/%s.res\" % name"
+    },
+    {
+      "file": "tools/gates/resource_gate.gd",
+      "line": 3,
+      "path": "res://:",
+      "text": "## missing. Walks every scene, resource, script and shader under res://:"
+    },
+    {
+      "file": "tools/gates/resource_gate.gd",
+      "line": 14,
+      "path": "res://evidence",
+      "text": "const SKIP_DIRS := [\"res://.godot\", \"res://.git\", \"res://server\", \"res://docs\", \"res://evidence\", \"res://build\"]   # (build/ is where tools write their output)"
+    },
+    {
+      "file": "tools/gates/resource_gate.gd",
+      "line": 14,
+      "path": "res://build",
+      "text": "const SKIP_DIRS := [\"res://.godot\", \"res://.git\", \"res://server\", \"res://docs\", \"res://evidence\", \"res://build\"]   # (build/ is where tools write their output)"
+    },
+    {
+      "file": "tools/gates/resource_gate.gd",
+      "line": 52,
+      "path": "res://[^\\",
+      "text": "var ext_re := RegEx.create_from_string(\"\\\\[ext_resource[^\\\\]]*path=\\\"(res://[^\\\"]+)\\\"\")"
+    },
+    {
+      "file": "tools/gates/resource_gate.gd",
+      "line": 53,
+      "path": "res://[^\\",
+      "text": "var lit_re := RegEx.create_from_string(\"\\\"(res://[^\\\"%{}+]*)\\\"\")"
+    },
+    {
+      "file": "tools/gates/resource_gate.gd",
+      "line": 80,
+      "path": "res://assets/ui/icon_",
+      "text": "# A prefix that a script completes (`\"res://assets/ui/icon_\" + name`) is not a whole path."
+    },
+    {
+      "file": "tools/import_kit_trees.gd",
+      "line": 47,
+      "path": "res://assets/models/kit/%s.res",
+      "text": "var err := ResourceSaver.save(m, \"res://assets/models/kit/%s.res\" % name)"
+    },
+    {
+      "file": "tools/prop_bounds.gd",
+      "line": 11,
+      "path": "res://assets/props/%s",
+      "text": "var dir := DirAccess.open(\"res://assets/props/%s\" % pack)"
+    },
+    {
+      "file": "tools/prop_bounds.gd",
+      "line": 19,
+      "path": "res://assets/props/%s%s",
+      "text": "var sc = load(\"res://assets/props/%s%s\" % [n, ext])"
+    },
+    {
+      "file": "tools/render_card_portraits.gd",
+      "line": 15,
+      "path": "res://build/card_busts",
+      "text": "const OUT := \"res://build/card_busts\""
+    },
+    {
+      "file": "tools/sfx_override_test.gd",
+      "line": 26,
+      "path": "res://assets/sfx/%s.wav",
+      "text": "var orig: AudioStreamWAV = load(\"res://assets/sfx/%s.wav\" % n)"
+    }
+  ],
+  "bare_free": [
+    {
+      "file": "scripts/projectile.gd",
+      "line": 169,
+      "text": "free()"
+    }
+  ]
+}

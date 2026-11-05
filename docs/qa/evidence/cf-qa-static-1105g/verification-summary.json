@@ -1,0 +1,21 @@
+{
+  "game": "crowns-of-the-wildwood",
+  "source_head": "a93e5b47d2f093554c8f28548e2011598fdb53eb",
+  "tracked_files": 2457,
+  "substantive_changes": [],
+  "import_metadata_changes": 0,
+  "documentation_changes": [
+    "docs/agents/Agent Board.md"
+  ],
+  "standalone_checks": 171,
+  "standalone_failures": 3,
+  "contextual": {
+    "count": 171,
+    "failures": [
+      "docs/evidence/issue68-followup-20261027/animation/animation.gd",
+      "docs/evidence/issue68-rendered-20261027/rendered.gd",
+      "docs/evidence/touch-hints-20261027/test.gd"
+    ]
+  },
+  "boot_errors": 0
+}

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "C:/Users/faisa/Tools/Godot_4.3/Godot_v4.3-stable_win64_console.exe",
+    "--headless",
+    "--audio-driver",
+    "Dummy",
+    "--path",
+    "D:\\ORY-Worktrees\\sw-recovery-756-1102\\_evidence\\cf-qa-static-1105g\\crowns-of-the-wildwood",
+    "--import"
+  ],
+  "exit_code": 0,
+  "seconds": 42.93908214569092,
+  "pid": 73468,
+  "profile": "D:\\ORY-Worktrees\\sw-recovery-756-1102\\_evidence\\cf-qa-static-1105g\\profiles\\crowns-of-the-wildwood\\complete-import"
+}

@@ -1,0 +1,22 @@
+import json,subprocess,os,re,hashlib,time
+from pathlib import Path
+B=Path(__file__).resolve().parent
+game='crowns-of-the-wildwood';o=B/'logs'/game;p=B/'profiles'/game/'nested-fixture';p.mkdir(parents=True,exist_ok=False)
+root=B/game/'docs/evidence/touch-hints-20261027'
+cmd=['C:/Users/faisa/Tools/Godot_4.3/Godot_v4.3-stable_win64_console.exe','--headless','--path',str(root),'--check-only','--script','res://test.gd']
+r=subprocess.run(cmd,env=dict(os.environ,APPDATA=str(p),LOCALAPPDATA=str(p/'local')),capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=30)
+(o/'nested-fixture.log').write_text(r.stdout+r.stderr)
+(o/'nested-fixture.json').write_text(json.dumps(dict(command=cmd,exit_code=r.returncode,profile=str(p)),indent=2));print('nested fixture',r.returncode,r.stdout+r.stderr)
+for game in ['crowns-of-the-wildwood','chief-auto','prince-of-kandahar']:
+ r=B/game;o=B/'logs'/game
+ orig=json.loads((o/'source.json').read_text())['files']
+ changed=[f for f,h in orig.items() if hashlib.sha256((r/f).read_bytes()).hexdigest()!=h]
+ substantive=[f for f in changed if not f.endswith('.import') and not f.startswith('docs/')]
+ metadata=[f for f in changed if f.endswith('.import')]
+ checks=json.loads((o/'qualified-script-checks.json').read_text())
+ raw=(o/'contextual-parse.log').read_text()
+ summary=json.loads(next(x.split('QA_PARSE_SUMMARY ',1)[1] for x in raw.splitlines() if x.startswith('QA_PARSE_SUMMARY ')))
+ result=dict(game=game,source_head=json.loads((o/'source.json').read_text())['head'],tracked_files=len(orig),substantive_changes=substantive,import_metadata_changes=len(metadata),documentation_changes=[f for f in changed if f.startswith('docs/') and not f.endswith('.import')],standalone_checks=len(checks),standalone_failures=sum(x['issues'] for x in checks),contextual=summary,boot_errors=len(re.findall(r'(?m)^(?:SCRIPT ERROR|ERROR):',(o/'qualified-quit.log').read_text())))
+ (o/'verification-summary.json').write_text(json.dumps(result,indent=2))
+ assert not substantive,result
+ print(json.dumps(result))

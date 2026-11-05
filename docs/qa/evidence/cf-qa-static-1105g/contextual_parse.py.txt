@@ -1,0 +1,17 @@
+import sys,os,json,subprocess,time
+from pathlib import Path
+B=Path(__file__).resolve().parent;game=sys.argv[1];r=B/game;o=B/'logs'/game
+files=subprocess.check_output(['git','ls-files','*.gd'],cwd=r,text=True).splitlines()
+(o/'parse-manifest.json').write_text(json.dumps(files))
+pdir=B/'profiles'/game/'contextual-parse';pdir.mkdir(parents=True,exist_ok=False)
+env=dict(os.environ,APPDATA=str(pdir),LOCALAPPDATA=str(pdir/'local'))
+cmd=['C:/Users/faisa/Tools/Godot_4.3/Godot_v4.3-stable_win64_console.exe','--headless','--audio-driver','Dummy','--path',str(r),'--script',str(B/'probes/contextual_parse.gd'),'--','--qa-manifest='+str(o/'parse-manifest.json')]
+start=time.time()
+with (o/'contextual-parse.log').open('x',encoding='utf-8') as log:
+ p=subprocess.Popen(cmd,env=env,stdout=log,stderr=subprocess.STDOUT)
+ try:rc=p.wait(timeout=120)
+ except subprocess.TimeoutExpired:p.terminate();p.wait();rc=124
+raw=(o/'contextual-parse.log').read_text(encoding='utf-8',errors='replace')
+record=dict(command=cmd,exit_code=rc,seconds=time.time()-start,profile=str(pdir),pid=p.pid)
+(o/'contextual-parse.json').write_text(json.dumps(record,indent=2))
+print(json.dumps(record));print('\n'.join(x for x in raw.splitlines() if 'ERROR' in x or 'at:' in x or 'SUMMARY' in x))
