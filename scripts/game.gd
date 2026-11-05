@@ -7693,7 +7693,7 @@ func _add_ruins(c: Vector3, small: bool = false) -> void:
 func _add_heal_orbs() -> void:
 	## Healing orbs at fixed spots: the road's centre, the field's flanks, and
 	## one in each castle yard. Mirrored for fairness.
-	var spots := [Vector3(9, 0, -22), Vector3(22, 0, 9), Vector3(30, 0, -14), Vector3(CASTLE_X - CASTLE_DEPTH + 4.5, 0, 0), Vector3(16, 0, 27)]
+	var spots := [Vector3(9, 0, -22), Vector3(22, 0, 12), Vector3(30, 0, -14), Vector3(CASTLE_X - CASTLE_DEPTH + 4.5, 0, 0), Vector3(16, 0, 27)]   # (22, 9) stood 0.65 m from a lumber tree: tools/gates/world_gate.gd
 	for p in spots:
 		var orb = HealOrb.new()
 		add_child(orb)

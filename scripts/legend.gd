@@ -302,6 +302,8 @@ func _ttext(pos: Vector2, text: String, size: int, color: Color, a: float, width
 	## Title-face lettering, centred in `width` from pos.x, faded by `a`.
 	var f: Font = font_title if font_title else h.font
 	var align := HORIZONTAL_ALIGNMENT_CENTER if width > 0.0 else HORIZONTAL_ALIGNMENT_LEFT
+	if h.fit_log != null:
+		h.fit_note(h, f, pos, text, align, width, size, "legend")
 	if outline > 0:
 		h.draw_string_outline(f, pos + Vector2(0, 3), text, align, width, size, outline, Color(0, 0, 0, 0.5 * a))
 		h.draw_string_outline(f, pos, text, align, width, size, outline, Color(0.12, 0.07, 0.03, a))
@@ -310,6 +312,8 @@ func _ttext(pos: Vector2, text: String, size: int, color: Color, a: float, width
 
 func _btext(pos: Vector2, text: String, size: int, color: Color, a: float, width: float, align := HORIZONTAL_ALIGNMENT_CENTER) -> void:
 	## Body text with an outline, faded by `a`.
+	if h.fit_log != null:
+		h.fit_note(h, h.font, pos, text, align, width, size, "legend")
 	h.draw_string_outline(h.font, pos, text, align, width, size, 4, Color(0.03, 0.02, 0.02, 0.9 * a))
 	h.draw_string(h.font, pos, text, align, width, size, Color(color, color.a * a))
 

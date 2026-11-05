@@ -151,6 +151,8 @@ func ttext(pos: Vector2, text: String, size: int, color: Color = Color.WHITE, al
 		width := -1.0, outline := 6) -> void:
 	## Lettering in the chunky title face with a dark outline and drop shadow.
 	var f: Font = font_title if font_title else h.font
+	if h.fit_log != null:
+		h.fit_note(h, f, pos, text, align, width, size, "menu/" + screen + ("/" + overlay if overlay != "" else ""))
 	if outline > 0:
 		h.draw_string_outline(f, pos + Vector2(0, 2.5), text, align, width, size, outline, Color(0, 0, 0, 0.5))
 		h.draw_string_outline(f, pos, text, align, width, size, outline, Color(0.12, 0.07, 0.03))

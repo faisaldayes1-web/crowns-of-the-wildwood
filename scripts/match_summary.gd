@@ -209,6 +209,8 @@ func draw(h) -> void:
 func _bold(h, pos: Vector2, text: String, fs: int, col: Color, align: int = HORIZONTAL_ALIGNMENT_LEFT, width: float = -1.0, outline: int = 3) -> void:
 	## Rounded bold lettering (the top bar's face) with a dark outline.
 	var f: Font = h.bar_font if h.bar_font else h.font
+	if h.fit_log != null:
+		h.fit_note(h, f, pos, text, align, width, fs, "summary")
 	if outline > 0:
 		h.draw_string_outline(f, pos, text, align, width, fs, outline, Color(0.05, 0.04, 0.06, 0.8))
 	h.draw_string(f, pos, text, align, width, fs, col)
