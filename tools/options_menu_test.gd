@@ -100,11 +100,11 @@ func _init() -> void:
 				continue
 			var before := [game.hero_body, game.hero_skin, game.hero_face, game.hero_eye, game.hero_mark, game.hero_hair, game.hero_hair_style,
 				game.hero_trim, game.hero_look, game.banner_bg, game.banner_emblem, game.banner_frame, m.preview_team, m.preview_role, m.preview_rank, m.char_tab,
-				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0]
+				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0, m.armor_cat, m.armor_page]
 			await tap(b[0])
 			var after := [game.hero_body, game.hero_skin, game.hero_face, game.hero_eye, game.hero_mark, game.hero_hair, game.hero_hair_style,
 				game.hero_trim, game.hero_look, game.banner_bg, game.banner_emblem, game.banner_frame, m.preview_team, m.preview_role, m.preview_rank, m.char_tab,
-				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0]
+				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0, m.armor_cat, m.armor_page]
 			tried += 1
 			if before == after and not _already(b, before):
 				dead.append("%s %s" % [b[1], str(b[2])])
@@ -445,6 +445,7 @@ func _init() -> void:
 func _already(b: Array, before: Array) -> bool:
 	## A swatch that is already the current choice changes nothing.
 	match b[1]:
+		"armor_cat": return int(before[-2]) == int(b[2])
 		"body": return game.hero_body == int(b[2])
 		"skin": return game.hero_skin == int(b[2])
 		"face": return game.hero_face == int(b[2])
