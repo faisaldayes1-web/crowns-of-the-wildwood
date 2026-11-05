@@ -5978,6 +5978,8 @@ func map_title() -> String:
 	if game.vmap:
 		return "EMBER PASS"
 	if game.lmap:
+		if game.lmap.kind == "heartwood":
+			return "THE WILDWOOD VALLEY"
 		return "STONEKEEP FORTRESS" if game.season == "winter" else "TWILIGHT GROVE"
 	return "MOONLIT WILDWOOD" if game.map_variant == 1 else "THE WILDWOOD VALLEY"
 
@@ -5997,6 +5999,8 @@ func _lanes_cells(m: Callable, sx: float, sz: float, keep: Callable) -> void:
 		var col: Color
 		if winter:
 			col = Color(0.42, 0.47, 0.58).lerp(Color(0.9, 0.93, 0.98), clampf((d - 0.6) / 4.0, 0.0, 1.0))
+		elif game.lmap.kind == "heartwood":
+			col = Color(0.2, 0.36, 0.16).lerp(Color(0.12, 0.26, 0.1), clampf(d / 6.0, 0.0, 1.0))
 		else:
 			col = Color(0.16, 0.24, 0.28).lerp(Color(0.1, 0.16, 0.2), clampf(d / 6.0, 0.0, 1.0))
 		draw_rect(Rect2(q - size / 2.0, size), col)
@@ -6024,6 +6028,33 @@ func _lanes_mark(mark: Array, m: Callable, sx: float, sz: float, detailed: bool)
 			draw_colored_polygon(pts, Color(0.62, 0.82, 0.96))
 			pts.append(pts[0])
 			draw_polyline(pts, Color(0.92, 0.97, 1.0), 1.5 if detailed else 1.0)
+		"heart":
+			# The Wildwood's Heart-Tree: the moat, the raised ring, the tree.
+			var pts := PackedVector2Array()
+			for k in 32:
+				var a := TAU * k / 32.0
+				pts.append(q + Vector2(cos(a) * game.lmap.MOAT_OUT * sx, sin(a) * game.lmap.MOAT_OUT * sz))
+			draw_colored_polygon(pts, Color(0.22, 0.52, 0.78))
+			var ring := PackedVector2Array()
+			for k in 32:
+				var a := TAU * k / 32.0
+				ring.append(q + Vector2(cos(a) * game.lmap.MOAT_IN * sx, sin(a) * game.lmap.MOAT_IN * sz))
+			draw_colored_polygon(ring, Color(0.8, 0.68, 0.48))
+			for k in 4:
+				var d := Vector2(cos(k * PI / 2.0), sin(k * PI / 2.0))
+				draw_line(q + Vector2(d.x * sx, d.y * sz) * (game.lmap.MOAT_IN - 0.5), q + Vector2(d.x * sx, d.y * sz) * (game.lmap.MOAT_OUT + 0.8), Color(0.62, 0.44, 0.26), maxf(4.0 * sx, 2.0))
+			draw_circle(q, maxf(2.6 * sx, 2.2), Color(0.95, 0.55, 0.78))
+			draw_circle(q, maxf(1.2 * sx, 1.2), Color(1.0, 0.85, 0.95, 0.9))
+		"brook":
+			for sgn in [1.0, -1.0]:
+				var line := PackedVector2Array()
+				for p in game.lmap.BROOK:
+					line.append(m.call(p * sgn))
+				draw_polyline(line, Color(0.22, 0.52, 0.78), maxf(game.lmap.BROOK_HALF * 2.0 * sx, 1.5))
+		"logbridge":
+			draw_circle(q, maxf(1.6 * sx, 1.5), Color(0.62, 0.44, 0.26))
+		"tower":
+			draw_circle(q, maxf(1.4 * sx, 1.4), Color(0.6, 0.6, 0.62))
 		"pool":
 			var rr: float = game.lmap.POOL_R
 			var pts := PackedVector2Array()
@@ -6067,6 +6098,8 @@ func _menu_overview(body: Rect2) -> void:
 		blurb = "Hold the Fire Objective and every class on your team becomes its Fire form. Break the door, steal their crown, carry it home."
 	elif game.lmap and game.season == "winter":
 		blurb = "Force the ruin's narrow gate, or take the long snow lanes over the frozen tarns. Break the door, steal their crown, carry it home."
+	elif game.lmap and game.lmap.kind == "heartwood":
+		blurb = "Cross a moat bridge to the Heart-Tree, swing round the far loops, or slip through the jungle glades. Steal their crown, carry it home."
 	elif game.lmap:
 		blurb = "Paths ring the glowing pool and wind through the grove: no chokepoint, so flank and ambush. Steal their crown, carry it home."
 	_text(Vector2(body.position.x, y + rows * 17 + 6), blurb, 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)

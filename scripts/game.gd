@@ -121,7 +121,7 @@ var map_variant := 0            # Stats.MAPS index (1 needs account level 10)
 static var reopen_screen := ""  # a menu screen to reopen after select_map() reloads the scene
 var season := ""               # "winter" (Stonekeep Fortress), "twilight" (Twilight Grove) or "" (scripts/visual/season.gd)
 var vmap = null                 # Ember Pass (the volcano map): its layout, bot routes and Fire Objective; null on the Wildwood
-var lmap = null                 # Stonekeep Fortress / Twilight Grove: their own lanes, terrain and bot routes (scripts/lanes.gd); null elsewhere
+var lmap = null                 # Stonekeep Fortress / Twilight Grove / the Wildwood: their own lanes, terrain and bot routes (scripts/lanes.gd); null elsewhere
 var hero_skin := 1              # Stats.HERO_SKINS index
 var hero_face := 0              # Stats.HERO_FACES index
 var hero_eye := -1              # Stats.HERO_EYES index (-1: the side's own colour)
@@ -5256,9 +5256,10 @@ func select_map(index: int) -> void:
 	## scene restarts on the title with the new map saved.
 	# Day and night share one world; Ember Pass and the two seasons each
 	# build their own.
-	var built: String = "volcano" if vmap else (season if season != "" else "wildwood")
+	# The Wildwood (day) has its own Heart-Tree layout since 2026-11-04.
+	var built: String = "volcano" if vmap else (season if season != "" else ("day" if lmap else "wildwood"))
 	var kind: String = Stats.MAPS[index][1]
-	var want: String = kind if kind in ["volcano", "winter", "twilight"] else "wildwood"
+	var want: String = kind if kind in ["volcano", "winter", "twilight", "day"] else "wildwood"
 	map_variant = index
 	if want != built:
 		_save_settings()
@@ -12549,10 +12550,12 @@ func _build_world_land() -> void:
 		for zs in [-1.0, 1.0]:
 			await _world_build_frame()
 			_add_block(Vector3(sx * (h0 + h1) / 2.0, -0.5, zs * (hz + gz) / 2.0), Vector3(h1 - h0, 1, gz - hz), grass, true, _grass())
-	if season != "":
-		# Stonekeep Fortress and Twilight Grove: their own layouts on the same
-		# ground, castles and outskirts (scripts/lanes.gd).
-		lmap = Lanes.new(self, season)
+	if season != "" or Stats.MAPS[map_variant][1] == "day":
+		# Stonekeep Fortress, Twilight Grove and the Wildwood (its Heart-Tree
+		# layout, claude-faisal/crowns-wildwood): their own layouts on the
+		# same ground, castles and outskirts (scripts/lanes.gd). The Moonlit
+		# Wildwood keeps the river valley below.
+		lmap = Lanes.new(self, season if season != "" else "heartwood")
 		await _build_lanes_land()
 		return
 	# A dirt road from door to door, with a worn patch at each door and in the middle.
