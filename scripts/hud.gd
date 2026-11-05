@@ -3949,6 +3949,10 @@ func _draw_player_panel(p) -> void:
 		panel_pass = ""
 
 
+var quick_pop_key := ""  # this panel only; a short banner pop for a new offer
+var quick_pop_at := 0.0
+
+
 func _draw_quick_upgrade(p) -> void:
 	## LEVEL UP over the ability strip while there are points to spend: a
 	## tile per skill that can still rank up, with its key (1-4 / the D-pad)
@@ -3979,18 +3983,24 @@ func _draw_quick_upgrade(p) -> void:
 	var W := size.x / k
 	var H := size.y / k
 	var now := Time.get_ticks_msec() / 1000.0
-	# The board (Faisal 2026-10-15 "change the level up upgrade from here ui"):
-	# the in-match board with a LEVEL UP name tag, a gold badge with the
-	# points left (or the combat countdown), then one hex per skill like the
-	# ability slots, its key on the corner and the level it goes to under it,
-	# and Economy's Training as a hex with its wood price.
-	var tw := 58.0
-	var head_w := 92.0
+	# Agent: Codex-faisal3. The transferred panel reuses the hotbar's actual
+	# round sockets, clean skill emblems, wood frame and leaf corners.
+	var compact := _stacked()
+	var tw := 72.0
+	var head_w := 100.0
 	var ew := 104.0
-	var bh := 76.0
-	var w := head_w + tracks.size() * tw + extra.size() * ew + 10.0
-	var x := W / 2.0 - w / 2.0 if (touch_ui or _stacked()) else (W - 22.0 - 142.0 - 30.0 - 235.0) - w / 2.0
-	var y := H - 130.0 - bh if touch_ui else (H - 262.0 - bh if _stacked() else H - 156.0 - bh)   # clear of the hotbar hex tops and their cost tags (NUM-08)
+	var bh := 78.0 if compact else 108.0
+	var w := head_w + tracks.size() * tw + extra.size() * ew + 50.0
+	var bar_x := maxf(W / 2.0 - 270.0, 418.0)
+	var bar_y := H - 142.0
+	if pane:
+		bar_x = maxf((W - 540.0) / 2.0, 20.0) if compact else W - 560.0
+		bar_y = H - 250.0 if compact else H - 142.0
+	var x := clampf(bar_x + 270.0 - w / 2.0, 20.0, W - w - 20.0)
+	var y := maxf(12.0, bar_y - 18.0 - bh)
+	if touch_ui:
+		x = (W - w) / 2.0
+		y = H - 130.0 - bh
 	var shake := 0.0
 	if now - quick_deny < 0.35:
 		shake = sin((now - quick_deny) * 55.0) * 5.0 * (1.0 - (now - quick_deny) / 0.35)
@@ -4001,11 +4011,20 @@ func _draw_quick_upgrade(p) -> void:
 	var ready := calm <= 0.0
 	var R := Rect2(x, y, w, bh)
 	var pulse := 0.5 + 0.5 * sin(now * 4.0)
-	game_board(R, "LEVEL UP", false)
+	_strip_board(R)
+	var offer_key := _quick_key(p)
+	if offer_key != quick_pop_key:
+		quick_pop_key = offer_key
+		quick_pop_at = now
+	var pop := sin(clampf((now - quick_pop_at) / 0.35, 0.0, 1.0) * PI)
+	var title_face: Font = title_font if title_font else font
+	_bar_text(Vector2(R.get_center().x, y + (20.0 if compact else 27.0) - pop * 3.0), "LEVEL UP!", title_face,
+		(18 if compact else 24) + int(pop * 2.0), GOLD.lightened(0.2), Color(0.12, 0.06, 0.02), 5)
 	if ready:
 		_glow_frame(R.grow(2), Color(1.0, 0.82, 0.3, 0.2 + 0.3 * pulse))
 	# The badge: points to spend, or how long until you are out of the fight.
-	var bc := Vector2(x + head_w / 2.0, y + 34.0)
+	var socket_y := y + (45.0 if compact else 62.0)
+	var bc := Vector2(x + head_w / 2.0, socket_y)
 	draw_circle(bc + Vector2(0, 2), 22.0, Color(0, 0, 0, 0.35))
 	draw_circle(bc, 22.0, Color(0.16, 0.09, 0.03))
 	draw_circle(bc, 19.5, BRASS if ready else Color(0.45, 0.4, 0.34))
@@ -4025,52 +4044,65 @@ func _draw_quick_upgrade(p) -> void:
 	var tx := x + head_w + 4.0
 	var abil: Array = p.abilities()
 	for t in tracks:
-		var hc := Vector2(tx + tw / 2.0, y + 32.0)
+		var hc := Vector2(tx + tw / 2.0, socket_y)
 		tx += tw
 		var icon: String = _attack_icon(p.role, p.stats()) if t == 0 else ("vigor" if t == 3 else str(abil[t - 1].get("icon", abil[t - 1].kind)))
-		_hex_tile(hc, 19.0, BRASS if ready else Color(0.45, 0.42, 0.38), Color(0.62, 0.4, 0.14), false, ready)
-		_icon(icon, hc, 9.0, Color.WHITE, not ready)
+		_quick_skill_socket(hc, 15.0 if compact else 21.0, icon, ready)
 		var qk := _k("rank_%d" % (t + 1))
-		_keycap(hc + Vector2(15, -17), qk, maxf(18.0, _text_width(qk, 10) + 8.0))   # pad names ("D-right") outgrew 18 px (NUM-04)
-		_text(Vector2(hc.x - tw / 2.0, y + bh - 9), "LV %d" % (p.rank(t) + 1), 11, GOLD if ready else GREY, HORIZONTAL_ALIGNMENT_CENTER, tw, 2)
-		var r := Rect2(hc - Vector2(tw / 2.0, 26), Vector2(tw, 56))
+		_keycap(hc + Vector2(0, -21 if compact else -29), qk, maxf(22.0, _text_width(qk, 10) + 8.0))
+		for rank_pip in Stats.MAX_RANK:
+			var pc := Vector2(hc.x + (rank_pip - (Stats.MAX_RANK - 1) / 2.0) * 9.0, y + bh - 10)
+			var earned: bool = rank_pip < p.rank(t)
+			var next: bool = rank_pip == p.rank(t)
+			draw_circle(pc, 3.0, GOLD if earned else Color(0.12, 0.16, 0.12))
+			draw_arc(pc, 3.0, 0, TAU, 12, CREAM if next and ready else BRASS.darkened(0.3), 1.4 if next else 1.0, true)
+		var r := Rect2(Vector2(hc.x - tw / 2.0, y + 28), Vector2(tw, bh - 30))
 		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
 		quick_buttons.append([sr, t])
 		if not pane:
 			touch_rects.append([sr, "quick_tap"])   # (was "rank_N": with the finger's emulated click one tap bought two ranks)
 	for e in extra:
-		var hc := Vector2(tx + 26.0, y + 34.0)
+		var hc := Vector2(tx + 26.0, socket_y)
 		var ok: bool = e.get("ok", false) and ready
-		_hex_tile(hc, 19.0, BRASS if ok else Color(0.45, 0.42, 0.38), Color(0.38, 0.52, 0.2), false, ok)
-		_icon(str(e.get("icon", "")), hc, 10.0, Color.WHITE, not ok)
+		_quick_skill_socket(hc, 15.0 if compact else 21.0, str(e.get("icon", "")), ok)
 		var lx := tx + 50.0
 		var lw := ew - 52.0
 		var label := str(e.get("label", "")).to_upper()
-		_text(Vector2(lx, y + 30), label, 12 if _text_width(label, 12) <= lw else 10, CREAM if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, lw, 2)
+		_text(Vector2(lx, socket_y - 3), label, 12 if _text_width(label, 12) <= lw else 10, CREAM if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, lw, 2)
 		var why: String = str(e.get("reason", ""))
 		if why != "" and why != "IN COMBAT":
-			_paragraph(Vector2(lx, y + 44), why, 9, Color(1.0, 0.55, 0.45), lw, 10.0)
+			_paragraph(Vector2(lx, socket_y + 8), why, 9, Color(1.0, 0.55, 0.45), lw, 10.0)
 		elif game.economy and game.economy.has_method("_wood_icon") and int(e.get("wood", 0)) > 0:
-			game.economy._wood_icon(self, Vector2(lx + 7, y + 47), 6.0)
-			_text(Vector2(lx + 17, y + 52), str(e.get("wood", 0)), 13, Color(1.0, 0.92, 0.7) if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			game.economy._wood_icon(self, Vector2(lx + 7, socket_y + 12), 6.0)
+			_text(Vector2(lx + 17, socket_y + 17), str(e.get("wood", 0)), 13, Color(1.0, 0.92, 0.7) if ok else GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		else:
-			_text(Vector2(lx, y + 52), str(e.get("cost_text", "")), 10, Color(0.9, 0.85, 0.7), HORIZONTAL_ALIGNMENT_LEFT, lw, 1)
-		var r := Rect2(Vector2(tx, y + 6), Vector2(ew, bh - 12))
+			_text(Vector2(lx, socket_y + 17), str(e.get("cost_text", "")), 10, Color(0.9, 0.85, 0.7), HORIZONTAL_ALIGNMENT_LEFT, lw, 1)
+		var r := Rect2(Vector2(tx, y + 28), Vector2(ew, bh - 30))
 		tx += ew
 		var sr := Rect2(r.position * hud_scale, r.size * hud_scale)
 		quick_buttons.append([sr, e.get("buy", Callable())])
 		if not pane:
 			touch_rects.append([sr, "quick_tap"])
-	# An X at the strip's left end puts it away (keys 1-4 still buy). Left,
-	# not right: on touch the right end runs into the move tiles.
-	var xr := 16.0 if touch_ui else 11.0
-	var xc := Vector2(x - xr - 10.0, y + 22.0)
+	# The close socket is attached inside its own reserved frame column.
+	var xr := 13.0 if touch_ui else 10.0
+	var xc := Vector2(R.end.x - 24.0, y + 20.0)
 	x_button(xc, xr)
-	quick_close = Rect2((xc - Vector2(26, 26)) * hud_scale, Vector2(52, 52) * hud_scale)
+	var hit := 52.0 if touch_ui else 36.0
+	quick_close = Rect2((xc - Vector2.ONE * hit / 2.0) * hud_scale, Vector2.ONE * hit * hud_scale)
 	if not pane:
 		touch_rects.append([quick_close, hide_quick])
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
+
+
+func _quick_skill_socket(center: Vector2, radius: float, icon: String, ready: bool) -> void:
+	_orb_tile(center, radius, BRASS if ready else Color(0.45, 0.42, 0.38), Color(0.38, 0.52, 0.2), false, ready)
+	if clean_icons.has(icon):
+		var side := radius * 1.7
+		draw_texture_rect(clean_icons[icon], Rect2(center - Vector2.ONE * side / 2.0, Vector2.ONE * side), false,
+			Color.WHITE if ready else Color(0.45, 0.45, 0.5))
+	else:
+		_icon(icon, center, radius * 0.6, Color.WHITE, not ready)
 
 
 func _touch_cluster(p, W: float, H: float) -> void:
