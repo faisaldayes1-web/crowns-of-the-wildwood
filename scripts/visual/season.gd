@@ -67,12 +67,12 @@ static func surface(season: String, c: Color) -> Color:
 			# stone, paving and timber take the moon's cool cast so the castle
 			# yard sits in the same night as the forest; greens only deepen.
 			if g > 0.0:
-				out = Color(c.r * 0.9, c.g * 0.94, c.b * 1.02, c.a)
+				out = Color(c.r * 0.96, c.g * 1.02, c.b * 1.06, c.a)   # (8/8 pass: the forest floor read near-black)
 			elif c.s > 0.45:
 				pass   # saturated cloth (class banners, signs) keeps its colour (8/8 pass: the banners went near-black)
 			else:
 				var lum := c.get_luminance()
-				out = c.lerp(Color(lum, lum, lum, c.a), 0.4) * Color(0.72, 0.8, 1.0, 1.0)
+				out = c.lerp(Color(lum, lum, lum, c.a), 0.4) * Color(0.8, 0.84, 0.96, 1.0)   # (8/8 pass: rocks read flat blue at 0.72/0.8/1.0)
 				out.a = c.a
 		"twilight":
 			# Greens slide to a deep dusk teal; pinks and violets get richer.

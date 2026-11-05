@@ -6014,7 +6014,7 @@ func _road_look() -> Array:
 		return [Color(0.68, 0.74, 0.88), Color(0.7, 0.76, 0.88), 0.6, Color(0, 0, 0)]
 	if season == "twilight":
 		# Twilight Grove: dusky lavender flags, violet moss glowing faintly between.
-		return [Color(0.5, 0.62, 0.72), Color(0.3, 0.42, 0.5), 0.0, Color(0.05, 0.14, 0.16)]   # (8/8 pass: slate-teal; the violet read magenta beside the teal ground)
+		return [Color(0.4, 0.6, 0.62), Color(0.24, 0.4, 0.44), 0.0, Color(0.05, 0.14, 0.16)]   # (8/8 pass: slate-teal; the violet read magenta beside the teal ground)
 	if night():
 		# Moonlit Wildwood: moon-silvered stone, dark mossy joints.
 		return [Color(0.84, 0.88, 1.02), Color(0.6, 0.72, 0.7), 0.0, Color(0, 0, 0)]
@@ -11326,6 +11326,10 @@ func _pavers() -> StandardMaterial3D:
 		# Castle pass 2026-10-31: larger warm-cream flags with a darker joint
 		# and a painted bevel light (tools/make_castle_textures.py).
 		# Pass 2 (2026-10-31): a touch less green, toward the picks' cream-peach.
+		# 8/8 pass 2026-11-04: Twilight's yard in its map's palette (the cream
+		# flags read pink under the dusk sun).
+		if season == "twilight":
+			return _pbr("castle_flags", 0.16, Color(0.8, 0.92, 0.94))
 		return _pbr("castle_flags", 0.16, Color(1.0, 0.95, 0.99))
 	return _pbr("pavers", 0.22, Color(1.0, 0.98, 0.94))
 

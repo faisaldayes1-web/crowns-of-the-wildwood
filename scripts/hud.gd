@@ -1025,8 +1025,16 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 			if label != "":
 				# No wider than the 72 px slot pitch: "Shadow Dash" and "Smoke Bomb"
 				# ran together as one phrase (FE-03). A long name shrinks instead.
-				_text(Vector2(rect.position.x - 8, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
-					HORIZONTAL_ALIGNMENT_CENTER, size_px + 16, 3)
+				# (8/8 pass 2026-11-04: a long two-word name goes on two 12 px lines
+				# instead of shrinking to ~8 px; 720p labels read as noise.)
+				var lw := size_px + 18.0
+				var lcol := CREAM if ready else Color(0.62, 0.58, 0.52)
+				if _text_width(label, 13) > lw and label.contains(" "):
+					var sp := label.find(" ")
+					_text(Vector2(rect.position.x - 9, rect.end.y + 30), label.substr(0, sp), 12, lcol, HORIZONTAL_ALIGNMENT_CENTER, lw, 3)
+					_text(Vector2(rect.position.x - 9, rect.end.y + 43), label.substr(sp + 1), 12, lcol, HORIZONTAL_ALIGNMENT_CENTER, lw, 3)
+				else:
+					_text(Vector2(rect.position.x - 9, rect.end.y + 31), label, 13, lcol, HORIZONTAL_ALIGNMENT_CENTER, lw, 4)
 	if not _lv():
 		return
 	if remaining > 0.0:
