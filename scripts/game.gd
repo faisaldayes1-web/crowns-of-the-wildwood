@@ -12544,6 +12544,11 @@ func _finish_world() -> void:
 		Season.decorate(self, season, {"half": RIVER_HALF if lmap == null else 0.0, "y": 0.03, "bridges": BRIDGES, "island": ISLAND_R})
 		# Snow on the wall tops the castle kit recorded (Stonekeep only).
 		preload("res://scripts/visual/snow_cap.gd").build(self)
+	elif night() and vmap == null:
+		# Moonlit Wildwood: the moon's cool cast over the built world (the
+		# yard's warm paving read pink against the night forest); torch and
+		# lantern glows are left warm, so only their pools stay warm.
+		Season.grade(self, "night")
 	if forest_kit:
 		# The kit's trees and dressing, after the grade (it has its own
 		# palette per map) and once everything they keep clear of is built.
