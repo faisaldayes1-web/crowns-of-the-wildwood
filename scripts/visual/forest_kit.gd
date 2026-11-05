@@ -358,7 +358,7 @@ func _species(pos: Vector3, hint: String, seed: int) -> String:
 		return "pine"
 	if hint == "canopy":
 		return "broad"
-	if palette in ["day", "night"] and hint in ["", "broad"]:
+	if palette in ["day", "night", "twilight"] and hint in ["", "broad"]:   # (twilight too, 8/8 pass: the all-puffball grove read as another game)
 		# Pass 2 (2026-10-31, picks Spawn D / Battle A): the woods read as
 		# dense dark conifers. Pines are the majority on both sides; in the
 		# field one tree in three stays broadleaf for variety (the same seeds
@@ -840,7 +840,7 @@ func _build() -> void:
 		for it in _place[key]:
 			var txf: Transform3D = it[0]
 			spots.append([txf.origin, BlobShadow.radius_for(tmesh, txf)])
-	BlobShadow.build(game, spots)
+	BlobShadow.build(game, spots, palette == "winter")
 	await game._world_build_frame()
 	if not _trails.is_empty():
 		var tm := MeshInstance3D.new()

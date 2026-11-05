@@ -223,7 +223,7 @@ var render_scale := 1.0        # Settings: 3D resolution scale (1.0 = native; th
 const RENDER_SCALES := [1.0, 0.85, 0.75, 0.5]
 const GFX_NAMES := ["LOW", "MEDIUM", "HIGH", "ULTRA"]
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
-var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox" or "ps"
+var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox", "ps" or "switch"
 var pad_active := false        # player 1's last press came from a gamepad (labels follow it)
 var cursor := Vector2.ZERO      # the gamepad's menu cursor (screen pixels)
 var debug_kill := false
@@ -1851,7 +1851,7 @@ func toggle_setting(key: String) -> void:
 			rumble_on = not rumble_on
 			if rumble_on:
 				rumble_pad(local_pad(0), 0.3, 0.6, 0.25)
-		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "auto"}[pad_style]
+		"pad_style": pad_style = {"auto": "xbox", "xbox": "ps", "ps": "switch", "switch": "auto"}[pad_style]
 		"move_aim", "move_screen":
 			move_mode = "screen"
 		"pc_click", "pc_wasd":
@@ -1861,7 +1861,7 @@ func toggle_setting(key: String) -> void:
 		"layout_auto", "layout_keyboard", "layout_controller", "layout_touch":
 			control_layout = key.trim_prefix("layout_")
 			apply_control_layout()
-		"pad_style_prev": pad_style = {"auto": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
+		"pad_style_prev": pad_style = {"auto": "switch", "switch": "ps", "ps": "xbox", "xbox": "auto"}[pad_style]
 		"split_vertical", "split_horizontal": set_split_layout(key.trim_prefix("split_"))
 		"test_sound":
 			sfx.ui("ui_open", 0.0)   # (there is no ui_confirm clip: the button was silent, AUD-01)
@@ -4827,8 +4827,8 @@ func binding_text(action: String, device: String, kind: String = "") -> String:
 
 func _axis_name(axis: int, kind: String) -> String:
 	match axis:
-		JOY_AXIS_TRIGGER_RIGHT: return "R2" if kind == "ps" else "RT"
-		JOY_AXIS_TRIGGER_LEFT: return "L2" if kind == "ps" else "LT"
+		JOY_AXIS_TRIGGER_RIGHT: return "R2" if kind == "ps" else ("ZR" if kind == "switch" else "RT")
+		JOY_AXIS_TRIGGER_LEFT: return "L2" if kind == "ps" else ("ZL" if kind == "switch" else "LT")
 		JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y: return "Left stick"
 		JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y: return "Right stick"
 	return "Axis %d" % axis
@@ -4858,13 +4858,18 @@ func local_pad(local_index: int) -> int:
 
 
 func pad_kind(device: int) -> String:
-	## "ps" for a DualSense / DualShock, "xbox" for everything else, unless
-	## the Settings tab forces one.
+	## "ps" for a DualSense / DualShock, "switch" for a Nintendo pad, "xbox"
+	## for everything else (Steam Deck included), unless the Settings tab
+	## forces one.
 	if pad_style != "auto":
 		return pad_style
 	if device < 0:
 		return "xbox"
-	return "ps" if _is_playstation(Input.get_joy_name(device), Input.get_joy_guid(device)) else "xbox"
+	var joy_name := Input.get_joy_name(device)
+	var guid := Input.get_joy_guid(device)
+	if _is_playstation(joy_name, guid):
+		return "ps"
+	return "switch" if _is_nintendo(joy_name, guid) else "xbox"
 
 
 func _is_playstation(joy_name: String, guid: String) -> bool:
@@ -4876,6 +4881,15 @@ func _is_playstation(joy_name: String, guid: String) -> bool:
 	return guid.length() >= 12 and guid.substr(8, 4) == "4c05"
 
 
+func _is_nintendo(joy_name: String, guid: String) -> bool:
+	var n := joy_name.to_lower()
+	for word in ["nintendo", "switch", "joy-con", "joycon", "pro controller"]:
+		if word in n:
+			return true
+	# Nintendo's USB vendor id is 057e (little-endian "7e05" in the GUID).
+	return guid.length() >= 12 and guid.substr(8, 4) == "7e05"
+
+
 func pad_title(device: int) -> String:
 	## What to call a pad in toasts and the Settings tab.
 	if device < 0 or not Input.get_connected_joypads().has(device):
@@ -4884,6 +4898,8 @@ func pad_title(device: int) -> String:
 	if pad_kind(device) == "ps":
 		var l := n.to_lower()
 		return "DualSense (PS5)" if "dualsense" in l or "ps5" in l else ("DualShock (PS4)" if "dualshock" in l or "ps4" in l else "PlayStation controller")
+	if pad_kind(device) == "switch" and n != "":
+		return n if "nintendo" in n.to_lower() else "Nintendo " + n
 	return n if n != "" else "Gamepad"
 
 
@@ -4980,6 +4996,22 @@ func _pad_name(button: int, kind: String = "xbox") -> String:
 			JOY_BUTTON_RIGHT_STICK: return "R3"
 			JOY_BUTTON_GUIDE: return "PS"
 			JOY_BUTTON_MISC1: return "Mute"
+	if kind == "switch":
+		# Buttons are named by position (A is the bottom one in Godot); a Switch pad
+		# prints B there, A on the right, Y on the left and X on top.
+		match button:
+			JOY_BUTTON_A: return "B"
+			JOY_BUTTON_B: return "A"
+			JOY_BUTTON_X: return "Y"
+			JOY_BUTTON_Y: return "X"
+			JOY_BUTTON_LEFT_SHOULDER: return "L"
+			JOY_BUTTON_RIGHT_SHOULDER: return "R"
+			JOY_BUTTON_BACK: return "-"
+			JOY_BUTTON_START: return "+"
+			JOY_BUTTON_LEFT_STICK: return "LS"
+			JOY_BUTTON_RIGHT_STICK: return "RS"
+			JOY_BUTTON_GUIDE: return "Home"
+			JOY_BUTTON_MISC1: return "Capture"
 	match button:
 		JOY_BUTTON_A: return "A"
 		JOY_BUTTON_B: return "B"
@@ -5458,7 +5490,7 @@ func _load_controls() -> void:
 	if control_layout not in CONTROL_LAYOUTS:
 		control_layout = "auto"
 	apply_control_layout()
-	if pad_style not in ["auto", "xbox", "ps"]:
+	if pad_style not in ["auto", "xbox", "ps", "switch"]:
 		pad_style = "auto"
 	sfx.sound_volume = clampf(cfg.get_value("settings", "sound_volume", 0.8), 0.0, 1.0)
 	sfx.music_volume = clampf(cfg.get_value("settings", "music_volume", 0.6), 0.0, 1.0)
@@ -7467,7 +7499,9 @@ func _add_ruins(c: Vector3, small: bool = false) -> void:
 	fallen.mesh = fm
 	fallen.position = c + Vector3(0.5 * m, 0.36, -1.5)
 	fallen.rotation.z = PI / 2.0
-	fallen.material_override = _ashlar(Color(0.9, 0.87, 0.8))
+	# Plain pale stone like the standing columns (final grade 2026-11-04: the
+	# ashlar texture wrapped round the cylinder read as a black slab).
+	fallen.material_override = _stone(Color(0.86, 0.82, 0.74), 0.3)
 	add_child(fallen)
 	audit_blocks.append(["wall", AABB(fallen.position - Vector3(1.3, 0.36, 0.36), Vector3(2.6, 0.72, 0.72))])
 	_add_collider(c + Vector3(0.5 * m, 0.35, -1.5), Vector3(2.6, 0.7, 0.7))
@@ -12157,7 +12191,7 @@ func _season_light() -> void:
 		sky_material.ground_horizon_color = Color(0.6, 0.36, 0.5)
 		world_environment.ambient_light_energy = 0.58
 		world_environment.ambient_light_sky_contribution = 0.35
-		world_environment.ambient_light_color = Color(0.66, 0.58, 1.0)
+		world_environment.ambient_light_color = Color(0.56, 0.66, 0.96)   # (8/8 pass: teal-violet, not pink)
 		world_environment.fog_light_color = Color(0.9, 0.5, 0.7)
 		world_environment.fog_density = 0.0024
 		world_environment.glow_intensity = 0.9
@@ -12165,7 +12199,7 @@ func _season_light() -> void:
 		world_environment.adjustment_saturation = 1.06
 		world_environment.adjustment_contrast = 1.06
 		world_environment.adjustment_brightness = 1.04
-		sun_light.light_color = Color(1.0, 0.66, 0.52)
+		sun_light.light_color = Color(1.0, 0.8, 0.7)   # (8/8 pass: a softer dusk sun; the yard read hot pink)
 		sun_light.light_energy = 1.35
 		sun_light.rotation_degrees = Vector3(-34, -62, 0)
 		sun_light.shadow_opacity = 0.8
@@ -12593,6 +12627,11 @@ func _finish_world() -> void:
 		Season.decorate(self, season, {"half": RIVER_HALF if lmap == null else 0.0, "y": 0.03, "bridges": BRIDGES, "island": ISLAND_R})
 		# Snow on the wall tops the castle kit recorded (Stonekeep only).
 		preload("res://scripts/visual/snow_cap.gd").build(self)
+	elif night() and vmap == null:
+		# Moonlit Wildwood: the moon's cool cast over the built world (the
+		# yard's warm paving read pink against the night forest); torch and
+		# lantern glows are left warm, so only their pools stay warm.
+		Season.grade(self, "night")
 	if forest_kit:
 		# The kit's trees and dressing, after the grade (it has its own
 		# palette per map) and once everything they keep clear of is built.

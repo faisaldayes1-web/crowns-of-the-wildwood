@@ -26,10 +26,19 @@ void fragment() {
 """
 
 static var _mat: ShaderMaterial
+static var _snow_mat: ShaderMaterial
 static var _quad: QuadMesh
 
 
-static func material() -> ShaderMaterial:
+static func material(snow: bool = false) -> ShaderMaterial:
+	if snow:
+		# On snow a dark green blob barely shows against the glare: a cool
+		# blue shade, stronger, like the sun's shadows on the snowfield.
+		if _snow_mat == null:
+			_snow_mat = material().duplicate()
+			_snow_mat.set_shader_parameter("tint", Color(0.22, 0.3, 0.52))
+			_snow_mat.set_shader_parameter("strength", 1.0)
+		return _snow_mat
 	if _mat == null:
 		var sh := Shader.new()
 		sh.code = SHADER
@@ -57,7 +66,7 @@ static func radius_for(mesh: Mesh, xf: Transform3D) -> float:
 	return clampf(maxf(a.size.x, a.size.z) * 0.5 * s * 1.45, 0.6, 5.0)
 
 
-static func build(parent: Node, spots: Array) -> void:
+static func build(parent: Node, spots: Array, snow: bool = false) -> void:
 	## spots: [Vector3 ground point, float radius]. One MultiMesh per cell.
 	var cells := {}
 	for sp in spots:
@@ -81,18 +90,18 @@ static func build(parent: Node, spots: Array) -> void:
 		var mmi := MultiMeshInstance3D.new()
 		mmi.name = "TreeBlobShadows"
 		mmi.multimesh = mm
-		mmi.material_override = material()
+		mmi.material_override = material(snow)
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mmi.set_meta("no_batch", true)
 		parent.add_child(mmi)
 
 
-static func single(parent: Node3D, radius: float, at: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+static func single(parent: Node3D, radius: float, at: Vector3 = Vector3.ZERO, snow: bool = false) -> MeshInstance3D:
 	## One blob as a child (trees that are felled and regrow carry their own).
 	var mi := MeshInstance3D.new()
 	mi.name = "BlobShadow"
 	mi.mesh = quad()
-	mi.material_override = material()
+	mi.material_override = material(snow)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.position = at + Vector3(0, LIFT, 0)
 	mi.scale = Vector3(radius, 1.0, radius)

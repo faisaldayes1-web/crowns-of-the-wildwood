@@ -62,13 +62,30 @@ static func surface(season: String, c: Color) -> Color:
 			var grey := Color(out.get_luminance(), out.get_luminance(), out.get_luminance(), out.a)
 			out = out.lerp(grey, 0.22 * (1.0 - g))
 			out.b = minf(out.b * 1.04 + 0.015, 1.0)
+		"night":
+			# Moonlit Wildwood (claude-faisal/crowns-visual2 2026-11-04): warm
+			# stone, paving and timber take the moon's cool cast so the castle
+			# yard sits in the same night as the forest; greens only deepen.
+			if g > 0.0:
+				out = Color(c.r * 0.9, c.g * 0.94, c.b * 1.02, c.a)
+			else:
+				var lum := c.get_luminance()
+				out = c.lerp(Color(lum, lum, lum, c.a), 0.4) * Color(0.72, 0.8, 1.0, 1.0)
+				out.a = c.a
 		"twilight":
 			# Greens slide to a deep dusk teal; pinks and violets get richer.
 			if g > 0.0:
 				var teal := Color.from_hsv(lerpf(c.h, 0.45, 0.7), clampf(c.s * 0.9, 0.0, 1.0), c.v * 0.95, c.a)
 				out = c.lerp(teal, g)
-			elif c.h > 0.7 or c.h < 0.02:
+			elif (c.h > 0.7 or c.h < 0.02) and c.s > 0.2:
 				out = Color.from_hsv(c.h, clampf(c.s * 1.15, 0.0, 1.0), c.v, c.a)
+			else:
+				# Warm stone, paving and timber settle into the dusk (8/8 pass,
+				# 2026-11-04: the yard read hot pink beside the teal grove, a
+				# different game from the Wildwood's cream yard).
+				var lum := c.get_luminance()
+				out = c.lerp(Color(lum, lum, lum, c.a), 0.4) * Color(0.8, 0.86, 1.0, 1.0)
+				out.a = c.a
 	return out
 
 
@@ -155,6 +172,8 @@ static func grade(game: Node3D, season: String) -> int:
 
 
 static func _grade_material(season: String, m: Material, team: Array) -> bool:
+	if m is ShaderMaterial and season == "night":
+		return false   # (night foliage and water shaders are already graded for the moon)
 	if m is ShaderMaterial:
 		var any := false
 		if m.get_shader_parameter("bottom_color") != null:
