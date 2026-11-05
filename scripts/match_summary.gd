@@ -365,13 +365,14 @@ func _xp_panel(h, r: Rect2, t: float) -> void:
 	h._icon("xp", Vector2(r.position.x + 28, ry - 5), 6.0, Color.WHITE)
 	_bold(h, Vector2(r.position.x + 44, ry), "REWARDS", 14, Color(0.9, 0.88, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	var banked: bool = not (game.demo and me and not me.is_player)
+	var goal: Array = Stats.next_goal(level)   # the next thing to play for, in place of the old locked Ranked tile
 	var rewards := [["+%d Gold" % reward_gold, "coin", GOLD], ["+%d Shards" % reward_shards, "shard", Color(0.45, 0.75, 1.0)],
-		["Match Chest", "chest", Color.WHITE], ["Ranked (Locked)", "lock", Color(0.6, 0.6, 0.64)]]
+		["Match Chest", "chest", Color.WHITE], [goal[0], goal[1], Color(0.75, 0.85, 0.7)]]
 	var gw := (r.size.x - 32.0 + 6.0) / 4.0
 	for i in rewards.size():
 		var cell := Rect2(Vector2(r.position.x + 16 + i * gw, ry + 10), Vector2(gw - 6, 72))
 		_tile(h, cell)
-		var dim: bool = i == 3
+		var dim := false
 		h._icon(rewards[i][1], cell.position + Vector2(cell.size.x / 2.0, 28), 11.0 if i < 3 else 9.0, Color.WHITE, dim)
 		_bold(h, Vector2(cell.position.x, cell.position.y + 64), rewards[i][0], 9 if i == 3 else 10, rewards[i][2], HORIZONTAL_ALIGNMENT_CENTER, cell.size.x, 2)
 	if not banked:
