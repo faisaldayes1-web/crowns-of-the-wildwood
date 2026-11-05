@@ -89,6 +89,16 @@ func run() -> void:
 	game.player.set_role(game.Role.KNIGHT)
 	game.player.class_banner = game.player.CLASS_BANNER_TIME - 0.5
 	await capture("07-class-knight")
+	# CROWNS_CAPTURE_CLASSES=1 (claude-faisal/crowns-visual2): the skill bar
+	# as every class wears it ("10-class-<name>"), banner timed out.
+	if OS.get_environment("CROWNS_CAPTURE_CLASSES") == "1":
+		game.menu_open = false
+		for rname in ["BASE", "KNIGHT", "RANGER", "MAGE", "HEALER", "ENGINEER", "ROGUE"]:
+			game.player.set_role(game.Role[rname])
+			game.player.class_banner = 0.0
+			for i in 12:
+				await process_frame
+			await capture("10-class-" + rname.to_lower())
 	# CROWNS_CAPTURE_AT="x,z;x,z;..." (claude-faisal/crowns-visual2): the
 	# player is staged at each world spot in turn (the camera follows) and
 	# a shot "08-at-<i>" is taken there, for map-wide visual passes.
@@ -96,6 +106,9 @@ func run() -> void:
 	if not spots.is_empty():
 		game.menu_open = false
 		game.player.class_banner = 0.0
+		# (The player's own physics is paused for the tour: on Ember Pass the
+		# walk clamp pulled a staged player straight back into the yard.)
+		game.player.set_physics_process(false)
 		var si := 0
 		for spot in spots.split(";", false):
 			var xz := spot.split(",")
@@ -103,11 +116,13 @@ func run() -> void:
 				continue
 			game.player.global_position = Vector3(float(xz[0]), game.player.global_position.y, float(xz[1]))
 			game.player.velocity = Vector3.ZERO
-			game.prep_left = 60.0   # (prep: nobody fights while the camera tours)
+			if OS.get_environment("CROWNS_CAPTURE_BATTLE") != "1":
+				game.prep_left = 60.0   # (prep: nobody fights while the camera tours; CROWNS_CAPTURE_BATTLE=1 keeps the battle, past the yard barrier)
 			for i in 40:
 				await process_frame
 			await capture("08-at-%d" % si)
 			si += 1
+		game.player.set_physics_process(true)
 	# CROWNS_CAPTURE_PAD=1: the player stands on its own first turret pad in
 	# the prep phase, so the turret build card shows ("09-turret-card").
 	if OS.get_environment("CROWNS_CAPTURE_PAD") == "1" and game.economy != null and not game.economy.pads[game.player.team].is_empty():
