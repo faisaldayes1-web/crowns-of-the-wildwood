@@ -204,6 +204,13 @@ func _init() -> void:
 	options.close_screen()
 	await frames()
 	check(not game.menu_open, "Back closes title OPTIONS")
+	# The legacy class viewer remains a separately owned, read-only page.
+	game.menu_open = true
+	game.menu_tab = 1
+	await frames()
+	check(hud.class_buttons.is_empty(), "Classes viewer at the title still has no SELECT buttons")
+	await tap(hud.close_button)
+	check(not game.menu_open, "the class viewer closes normally")
 
 	# --- In a match: the PAUSED board --------------------------------------
 	m._press("play", null)

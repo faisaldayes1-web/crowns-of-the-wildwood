@@ -258,7 +258,8 @@ func apply_video() -> void:
 func keep_video() -> void:
 	if preview_left <= 0.0:
 		return
-	confirmed = draft.duplicate()
+	confirmed = video_snapshot()
+	draft = confirmed.duplicate()
 	preview_left = 0.0
 	game._save_settings()
 	_update_footer()
