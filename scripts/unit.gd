@@ -2394,7 +2394,47 @@ func _update_xray() -> void:
 		ol.next_pass = null
 
 
+var NO_SMOOTH: bool = "--no-visual-smooth" in OS.get_cmdline_user_args()   # tests: the before picture for tests/jitter_probe.gd
+var visual_offset := Vector3.ZERO   # model.position is this, nothing else (tests subtract it)
+var _vis_frame := -1
+var _vis_phys := -1
+var _vis_prev := Vector3.ZERO
+var _vis_cur := Vector3.ZERO
+var _vis_pos := Vector3.ZERO
+
+
+func visual_position() -> Vector3:
+	## Where this unit is drawn: its last two physics positions blended by how far
+	## into the next physics tick this render frame is. Physics runs at 60 Hz and
+	## Godot 4.3 has no 3D physics interpolation, so on a 144 Hz screen a runner
+	## stepped in 60 Hz jumps against a smooth camera (Faisal 11-05: "jitter").
+	if NO_SMOOTH:
+		return global_position
+	var frame := Engine.get_process_frames()
+	if frame == _vis_frame:
+		return _vis_pos
+	_vis_frame = frame
+	var tick := Engine.get_physics_frames()
+	if tick != _vis_phys:
+		_vis_phys = tick
+		_vis_prev = _vis_cur
+		_vis_cur = global_position
+		if _vis_prev.distance_squared_to(_vis_cur) > 9.0 or _vis_prev == Vector3.ZERO:
+			_vis_prev = _vis_cur   # a teleport, respawn or first frame: no slide
+	_vis_pos = _vis_prev.lerp(_vis_cur, clampf(Engine.get_physics_interpolation_fraction(), 0.0, 1.0))
+	return _vis_pos
+
+
+func _smooth_visual() -> void:
+	if model == null:
+		return
+	var offset := visual_position() - global_position
+	visual_offset = global_basis.inverse() * offset if offset.length_squared() > 0.0000001 else Vector3.ZERO
+	model.position = visual_offset
+
+
 func _process(_delta: float) -> void:
+	_smooth_visual()
 	_animate()
 	class_banner = maxf(class_banner - _delta, 0.0)
 	if (carrying != null) != _was_carrying:
@@ -2408,12 +2448,12 @@ func _process(_delta: float) -> void:
 			bubble_mesh.visible = false
 	_update_xray()
 	if overhead:
-		overhead.global_position = global_position + Vector3(0, (model.height if model else 1.8) + (1.25 if carrying else 0.35) + overhead_lift, 0)   # above a worn crown
+		overhead.global_position = visual_position() + Vector3(0, (model.height if model else 1.8) + (1.25 if carrying else 0.35) + overhead_lift, 0)   # above a worn crown
 		if downed:
 			overhead.global_position.y = global_position.y + 1.3   # over the body on the ground
 	_update_down_fx()
 	if aim_marker and not dead:
-		aim_marker.global_position = global_position + aim * 1.1 + Vector3(0, 0.08, 0)
+		aim_marker.global_position = visual_position() + aim * 1.1 + Vector3(0, 0.08, 0)
 		aim_marker.rotation.y = atan2(-aim.x, -aim.z)
 		aim_ring.visible = aim_mode == "mouse"
 		aim_ring.global_position = Vector3(aim_point.x, global_position.y + 0.08, aim_point.z)
@@ -2437,7 +2477,7 @@ func _update_player_aim(move: Vector3) -> void:
 	var stick := Input.get_vector(_a("aim_left"), _a("aim_right"), _a("aim_up"), _a("aim_down"))
 	if stick.length() > 0.3 or game.touch_active or game.on_pad(self):
 		aim_mode = "stick"
-	elif has_mouse and mouse != last_mouse:
+	elif has_mouse and (mouse != last_mouse or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)):
 		aim_mode = "mouse"
 	last_mouse = mouse
 	match aim_mode:
@@ -2469,7 +2509,7 @@ func _update_player_aim(move: Vector3) -> void:
 				aim_point = hit
 				var to: Vector3 = hit - global_position
 				to.y = 0.0
-				if to.length() > 0.3:
+				if to.length() > 0.9:   # a cursor on top of the hero keeps the last aim
 					aim = to.normalized()
 		_:
 			if move.length() > 0.05:
@@ -2835,7 +2875,9 @@ func _physics_process(delta: float) -> void:
 		facing = aim.normalized()
 	elif move.length() > 0.05:
 		facing = move.normalized()
-	rotation.y = atan2(-facing.x, -facing.z)
+	# Turn quickly rather than snap: a facing that flips between two near targets
+	# (an idle bot, a cursor over the hero) must not read as looking left/right.
+	rotation.y = lerp_angle(rotation.y, atan2(-facing.x, -facing.z), 1.0 - exp(-24.0 * delta))
 
 	# On ice (Stonekeep's frozen tarns) feet barely grip: speed builds and
 	# fades slowly, so a runner overshoots and drifts (Faisal 2026-11-04).
@@ -2934,8 +2976,11 @@ func local_controls() -> Dictionary:
 	if pc and game.pc_movement != "wasd":
 		raw = Vector2.ZERO
 	var mouse: bool = pc and game.mouse_in_player_pane(self)
-	var primary: bool = pc and Input.is_action_pressed(_a("move_interact"))
-	var primary_tap: bool = pc and Input.is_action_just_pressed(_a("move_interact"))
+	# Keyboard+mouse: LEFT-CLICK is the basic attack, aimed at the cursor (hold to
+	# keep firing). Click-to-move is the opt-in "click" scheme, where LMB walks.
+	var lmb_attack: bool = pc and game.pc_movement == "wasd"
+	var primary: bool = pc and not lmb_attack and Input.is_action_pressed(_a("move_interact"))
+	var primary_tap: bool = pc and not lmb_attack and Input.is_action_just_pressed(_a("move_interact"))
 	var pulse: bool = pc and game.movement_force_pulse
 	if pc:
 		game.movement_force_pulse = false
@@ -2947,13 +2992,19 @@ func local_controls() -> Dictionary:
 	var interaction_reach: float = game.pointer_reach(self, selected) if is_instance_valid(selected) else 1.1
 	var cam: Camera3D = game.camera_for(self)
 	var attack: bool = game.non_primary_attack_held(self) if pc else Input.is_action_pressed(_a("attack"))
+	var lmb_down := false
+	var lmb_tap := false
+	if lmb_attack and mouse and not game.movement_ui_hit() and not game.movement_primary_blocked:
+		lmb_down = Input.is_action_pressed(_a("move_interact"))
+		lmb_tap = Input.is_action_just_pressed(_a("move_interact"))
+		attack = attack or lmb_down
 	var speed_hint: float = Stats.FACTIONS[team].speed * stats().speed * vigor_speed()
 	var data := {"position": global_position, "keys": raw, "basis": cam.global_basis if cam != null else Basis.IDENTITY,
 		"mouse": mouse, "keyboard": game.pc_movement == "wasd", "primary": primary, "primary_tap": primary_tap,
 		"hold": pc and Input.is_action_pressed(_a("force_hold")),
 		"force": pc and game.mapped_action_held(_a("force_move"), [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]),
 		"force_pulse": pulse, "ground": ground, "choice": choice,
-		"attack": attack, "attack_tap": attack and Input.is_action_just_pressed(_a("attack")),
+		"attack": attack, "attack_tap": attack and (lmb_tap or Input.is_action_just_pressed(_a("attack"))),
 		"interact": Input.is_action_pressed(_a("interact")), "interact_tap": Input.is_action_just_pressed(_a("interact")),
 		"attack_reach": maxf(0.4, float(attack_stats().get("range", 1.2)) * 0.85),
 		"interaction_reach": interaction_reach,

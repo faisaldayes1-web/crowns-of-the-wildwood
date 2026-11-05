@@ -401,10 +401,10 @@ const GATE_SIEGE_RADIUS := 9.0   # a broken door does not rebuild while an enemy
 const TURRET := {"hits": [8, 12, 16], "range": [7.0, 8.0, 9.0], "interval": [1.5, 1.2, 0.95],
 	"damage": 1, "shot_speed": 34.0, "max_level": 3, "team_max": 6, "place_dist": 1.8, "grounds": 14.0,
 	"door_repair": 12.0, "rampart_lift": 0.7}   # a bolt from the rampart starts this much higher, over the merlons
-const MATCH_TIME := 600.0     # seconds
+const MATCH_TIME := 900.0     # seconds (Faisal 11-05: matches ended in about 2 minutes; a casual Crown Raid should run 12-15)
 const SEAL_REACH := 2.2     # how close you stand to a class seal to grab it with F
 const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins
-const CAPTURES_TO_WIN := 2
+const CAPTURES_TO_WIN := 5   # was 2. Bot raids (3 runs, 11-05): first capture ~2.5 min, then one every ~1.5-2 min; first to 4 ended at 10-11 min, so 5 targets 12-15 (the 15-minute clock ends it for a slow side)
 
 # Team Deathmatch (claude-faisal/crowns-tdm 2026-11-04): the same maps, no
 # crowns and no doors. Every enemy knocked down or killed is a point; the
@@ -415,8 +415,8 @@ const CAPTURES_TO_WIN := 2
 # trickling in one by one.
 const GAME_MODES := ["crowns", "tdm"]
 const GAME_MODE_NAMES := {"crowns": "Crown Raid", "tdm": "Team Deathmatch"}
-const TDM_KILLS_TO_WIN := 30
-const TDM_TIME := 600.0
+const TDM_KILLS_TO_WIN := 60   # was 30 (bots made ~43 kills in 10 min, so 60 is about 14)
+const TDM_TIME := 900.0
 const TDM_SUDDEN := 60.0
 const TDM_WAVE := 6.0
 const TDM_RESPAWN_MIN := 4.0
@@ -782,7 +782,7 @@ const ECONOMY := {
 	# class's variant. Personal, and dearer than the old hat upgrade.
 	"train_wood": 12, "train_ore": 0,   # (was 14 until 2026-10-15) wood only since Faisal scrapped ore (2026-10-10 09:51); was 8 / 8
 	"ore_on": false,         # Faisal 2026-10-10 09:51: "scrap the ore idea and keep it wood for now" (ore spots grow trees)
-	"train_after": 300,      # match seconds before training opens (the second half of a 10-minute match)
+	"train_after": 450,      # match seconds before training opens (the second half of a 15-minute match)
 	"repair_wood": 3, "repair_ore": 0, "repair_hits": 35,     # mend your door by 35 hits (was 2 wood 1 ore)
 	"rebuild_wood": 6, "rebuild_ore": 0, "rebuild_hits": 100, # raise a broken door at once, not under siege (was 4 / 2)
 	"turret_wood": 3, "turret_ore": 0,    # a base turret on an empty turret pad (was 3 / 3, then 2 / 1; wood only since 2026-10-10)

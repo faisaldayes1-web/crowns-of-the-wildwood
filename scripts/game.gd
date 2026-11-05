@@ -303,7 +303,7 @@ var touch_active := false      # a finger has touched the screen: aim follows th
 var control_layout := "auto"   # Controls tab (Faisal 2026-10-14: a touch-screen laptop got the iPad layout): "auto", "keyboard", "controller", "touch"
 const CONTROL_LAYOUTS := ["auto", "keyboard", "controller", "touch"]
 var move_mode := "screen"         # keyboard + mouse: "aim" (W walks toward the cursor) or "screen" (W walks up the screen)
-var pc_movement := "click"  # click-to-move by default; "wasd" adds directional keyboard movement
+var pc_movement := "wasd"  # WASD moves and LEFT-CLICK attacks toward the cursor; "click" is the opt-in click-to-move scheme (J attacks)
 var combine_move_attack := false  # walking past an enemy must not silently attack it
 var wheel_zoom := false  # off: wheel bindings force-move; on: wheel zooms instead
 var movement_primary_blocked := false
@@ -528,7 +528,7 @@ func _ready() -> void:
 				var kv := pair.split(":")
 				owned_items.append(Store.key(kv[0], int(kv[1])))
 				Store.equip(self, kv[0], int(kv[1]))
-	if "--play" in OS.get_cmdline_user_args():
+	if "--play" in OS.get_cmdline_user_args() or "--smoke-match" in OS.get_cmdline_user_args() or "--jitter-probe" in OS.get_cmdline_user_args():
 		# This route skips menu_stage.build and its construction-gate cleanup.
 		# The world is complete; let the match process and its loading tween run.
 		_restore_loading_3d()
@@ -536,6 +536,14 @@ func _ready() -> void:
 		process_mode = Node.PROCESS_MODE_INHERIT
 		menus_warming = false
 		_start_match(0)  # testing: straight into a match with a (idle) local player
+		if "--smoke-match" in OS.get_cmdline_user_args():   # the build gate's end-to-end check (tests/smoke_match.gd)
+			var smoke: Node = load("res://tests/smoke_match.gd").new()
+			smoke.game = self
+			add_child(smoke)
+		if "--jitter-probe" in OS.get_cmdline_user_args():   # frame-to-frame smoothness of the hero on screen (tests/jitter_probe.gd)
+			var probe: Node = load("res://tests/jitter_probe.gd").new()
+			probe.game = self
+			add_child(probe)
 		if "--fxshow" in OS.get_cmdline_user_args():  # combat effects showcase (tests/fx_showcase.gd)
 			var show: Node = load("res://tests/fx_showcase.gd").new()
 			show.game = self
@@ -639,7 +647,7 @@ func _world_can_wait() -> bool:
 	if get_tree().get_script() != null and not "--world-behind" in OS.get_cmdline_user_args():
 		return false
 	for arg in OS.get_cmdline_user_args():
-		if arg in ["--demo", "--play", "--audit", "--selftest"] or arg.begins_with("--shot") or arg.begins_with("--debug-"):
+		if arg in ["--demo", "--play", "--smoke-match", "--jitter-probe", "--audit", "--selftest"] or arg.begins_with("--shot") or arg.begins_with("--debug-"):
 			return false
 	return true
 
@@ -3209,11 +3217,11 @@ func _update_camera(delta: float) -> void:
 		# One camera a pane, each on its own player.
 		for pane in panes:
 			var u = pane.unit
-			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.global_position) + CAMERA_OFFSET * cam_zoom * pane.zoom
+			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.visual_position()) + CAMERA_OFFSET * cam_zoom * pane.zoom
 			pane.cam_pos = pane.cam_pos.lerp(t, clampf(delta * 5.0, 0.0, 1.0))
 			pane.cam.global_position = pane.cam_pos + jolt
 		return
-	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.global_position) + CAMERA_OFFSET * cam_zoom
+	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.visual_position()) + CAMERA_OFFSET * cam_zoom
 	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
 	if cam_top > 0.0:
 		var over: Vector3 = cam_lock if cam_lock != Vector3.INF else player.global_position
@@ -3229,7 +3237,12 @@ func _update_camera(delta: float) -> void:
 	camera.global_position = cam_pos + jolt
 
 
+var mouse_override := Vector2(-1, -1)   # tests (tools/combat_input_test.gd): a cursor position headless cannot warp to
+
+
 func mouse_for(u) -> Vector2:
+	if mouse_override.x >= 0.0:
+		return mouse_override
 	## The mouse in the viewport of the camera looking at u. In couch play
 	## the mouse belongs to player 1 (keyboard and mouse) while the others use
 	## pads: it is read from the whole window and mapped into player 1's pane,
@@ -5502,6 +5515,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "move_mode", "screen")
 	cfg.set_value("settings", "movement_schema", 1)
 	cfg.set_value("settings", "pc_movement", pc_movement)
+	cfg.set_value("settings", "controls_rev", 2)
 	cfg.set_value("settings", "combine_move_attack", combine_move_attack)
 	cfg.set_value("settings", "wheel_zoom", wheel_zoom)
 	cfg.set_value("settings", "hero_name", hero_name)
@@ -5660,9 +5674,11 @@ func _load_controls() -> void:
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
 	control_layout = cfg.get_value("settings", "control_layout", "auto")
 	move_mode = "screen"  # owner-confirmed camera-relative axes supersede the old aim-relative default
-	pc_movement = str(cfg.get_value("settings", "pc_movement", "click"))
+	pc_movement = str(cfg.get_value("settings", "pc_movement", "wasd"))
+	if int(cfg.get_value("settings", "controls_rev", 0)) < 2:
+		pc_movement = "wasd"   # 11-05: left-click became the basic attack; older saves defaulted to click-to-move
 	if pc_movement not in ["click", "wasd"]:
-		pc_movement = "click"
+		pc_movement = "wasd"
 	combine_move_attack = bool(cfg.get_value("settings", "combine_move_attack", false))
 	wheel_zoom = bool(cfg.get_value("settings", "wheel_zoom", false))
 	if control_layout not in CONTROL_LAYOUTS:
