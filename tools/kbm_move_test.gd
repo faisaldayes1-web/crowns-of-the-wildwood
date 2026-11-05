@@ -73,5 +73,9 @@ func _init() -> void:
 	var cf := ConfigFile.new()
 	cf.load(cfg)
 	check(cf.get_value("settings", "move_mode", "") == "screen", "the movement pick is saved")
+	# Retire the fixture's menu/world coroutines and playback before quitting the tree.
+	current_scene = null
+	game.free()
+	await frames(4)
 	print("KBM MOVE TEST: %d failed" % fails)
 	quit(fails)

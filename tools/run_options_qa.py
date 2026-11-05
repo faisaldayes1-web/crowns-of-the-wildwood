@@ -4,6 +4,8 @@ Run only inside the operator's acquired Godot slot. Each process has its own
 throwaway save directory and this checkout's own import cache. No builds upload.
 """
 import argparse
+from datetime import datetime
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -20,14 +22,21 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--godot", required=True)
     ap.add_argument("--stage", choices=["import", "boot", "tests", "captures", "bot", "all"], default="all")
-    ap.add_argument("--test", action="append", help="run only a named native fixture in the tests stage")
+    ap.add_argument("--test", action="append", choices=["options_test", "steam_ready_test", "settings_restart_test", "kbm_move_test", "options_menu_test", "pad_nav_test", "menu_flow_test", "couch_audio_test"])
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--until", help="hard engine-slot end as ISO8601 with timezone; reserves 3 seconds for cleanup")
     args = ap.parse_args()
+    slot_end = datetime.fromisoformat(args.until).timestamp() - 3 if args.until else None
     OUT.mkdir(parents=True, exist_ok=True)
     source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     results = []
 
     def run(label, command, timeout=400, capture_dir=None):
+        if slot_end is not None:
+            remaining = slot_end - time.time()
+            if remaining < 2:
+                raise SystemExit("Engine slot ended; no new process launched")
+            timeout = min(timeout, remaining)
         profile = Path(tempfile.mkdtemp(prefix="c3cs-", dir="C:/Temp"))
         (profile / ".crowns-throwaway-user-dir").touch()
         env = os.environ.copy()
@@ -72,7 +81,9 @@ def main():
                 png = capture_dir / (name + ".png")
                 if not png.exists() or struct.unpack(">II", png.read_bytes()[16:24]) != dimensions:
                     bad.append("Missing or wrongly sized capture: " + str(png))
-        result = {"label": label, "source": source, "exit": code, "seconds": round(time.time() - started, 2), "errors": bad, "log": log.name, "profile": str(profile)}
+        tracked = subprocess.check_output(["git", "ls-files", "scripts", "tools/" + label + ".gd", "tools/run_options_qa.py", "project.godot"], cwd=ROOT, text=True).splitlines()
+        result = {"label": label, "source": source, "exit": code, "seconds": round(time.time() - started, 2), "errors": bad, "log": log.name, "profile": str(profile),
+                  "files": {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in tracked}, "slot_end": args.until}
         results.append(result)
         (OUT / (args.stage + "-results.json")).write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(result), flush=True)
