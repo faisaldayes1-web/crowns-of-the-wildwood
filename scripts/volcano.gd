@@ -994,7 +994,7 @@ func _build_spires() -> void:
 			var p := Vector3(x + r.randf_range(-1.4, 1.4), 0, z + r.randf_range(-1.4, 1.4))
 			z += 3.4
 			var gap := _flat(p, clamp_walk(p))
-			if gap < 2.4 or r.randf() > 0.6:
+			if gap < 3.0 or r.randf() > 0.6:   # (8/8 pass: the chunkier columns crowded the bridge rails at 2.4)
 				continue
 			# Keep pools of open lava between the clusters.
 			if fmod(absf(p.x * 0.13 + p.z * 0.07), 2.0) < 0.55 and gap < 14.0:
