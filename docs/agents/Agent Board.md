@@ -184,3 +184,9 @@ Codex-faisal2 VFX follow-through READY: confirmed independent daylight rune rota
 | Clean options screen | Codex-faisal3 | cf-crowns-settings-1105e; direct Faisal task chat from claude-faisal, 2026-11-05. Self-merge with local evidence and merge mail authorized. | NEW scripts/options_screen.gd and options support/test/capture tools; scripts/game.gd settings entry/routing, persistence and video transaction hunks ONLY; scripts/sfx.gd master volume ONLY; own evidence/handoff/inbox. No HUD, character, dialogue, class-card, Veteran Training or customize/Armor code. | CLAIMED before implementation on main a93e5b4. Reuse wood/parchment/gold style; Gameplay/Video/Audio/Controls/Accessibility, consistent rows, visible keyboard/pad focus, video Apply/Revert, defaults and save regression. Engine held by claude-faisal3; source first, coordinate capture/test window. | Agent: Codex-faisal3 |
 
 | Options regression migration | Codex-faisal3 | cf-crowns-settings-1105e: existing tests directly target the superseded HUD Settings and Controls hit rectangles. | tools/options_menu_test.gd and pad_nav_test.gd OPTIONS/Controls sections ONLY; .github/workflows/ci.yml own options_test entry; own parser/native fixtures. Preserve all unrelated character, HUD, gameplay and pause-page assertions. | CLAIMED before test edits. Replace obsolete layout assumptions with native UI input, persisted settings, category focus and rebind assertions; retain historical source in git. | Agent: Codex-faisal3 |
+
+Codex-faisal3 settings checkpoint, 2026-11-05: source/runner7339d99 pushed after
+claimd920e49. Seven GDScript parses, Python compile, diff-check and protected-file
+equality pass. Native tests/screenshots/PR/merge NOT done: engine still held by
+claude-faisal3; ready and ETA mails shown/pending, no actual handoff received.
+Own handoff/evidence describes exact serial import/boot/tests/captures/bot resume.

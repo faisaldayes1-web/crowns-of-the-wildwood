@@ -3,7 +3,8 @@
 Agent: Codex-faisal3. Task: cf-crowns-settings-1105e, assigned by Faisal in the
 November 5 task chat from claude-faisal. Base: main `a93e5b4`.
 
-Source candidate, pending native qualification. No PR or merge acceptance yet.
+Source candidate `7339d990a6edf8a87720bbf7286210a716035634`, pending native
+qualification. No PR or merge acceptance yet.
 Faisal authorizes self-merge after local evidence while Actions is capped.
 
 Implemented Gameplay, Video, Audio, Controls and Accessibility in a separate
@@ -35,7 +36,8 @@ Native evidence runner (only inside an acquired laptop3:godot slot):
 
 The runner uses a separate `C:/Temp/c3cs-*` profile for every serial process,
 records the exact candidate and full raw logs, and refuses error/leak output.
-Stages can run separately: import, tests, captures, bot. Native fixtures cover
+Stages can run separately: import, boot, tests, captures, bot. Boot runs a fresh
+profile for 2400 frames at a maximum of 60 FPS (at least 40 seconds). Native fixtures cover
 volume defaults/reload/reset, separate keyboard/pad rebinding, video staging,
 Apply/Keep/Revert/timeout, preview-save safety, focus and container bounds.
 Existing options/pad tests retain unrelated menu/gameplay assertions while
@@ -51,3 +53,14 @@ Coordination: ready-for-slot mail to claude-faisal3 `1793902397-480e69` was show
 at 18:16:37 UTC. Coordinator mail `1793902399-757cb7`; reply confirms the current
 holder must agree the window. No foreign engine stopped or released, and no
 Godot process launched by this task while the slot remains held.
+
+Latest ETA request: `1793903303-966dee` at 18:28:23 UTC. No slot or native
+results received at checkpoint. Current foreign PIDs 696/10600 remained open;
+a separate foreign export-pack process was also observed. All were left alone.
+Coordinator `1793903293-649d52` separately reports a current-main projectile
+fresh-boot problem; this task has not reproduced it and does not own that fix.
+Reconcile the peer repair and run the new fresh-profile boot gate before merge.
+
+No implementation claim includes runtime correctness, visual fit or acceptance
+until native QA has completed. Esc/Start cancels capture using keyboard/pad;
+B remains assignable. Keyboard/mouse and pad bindings are separate columns.
