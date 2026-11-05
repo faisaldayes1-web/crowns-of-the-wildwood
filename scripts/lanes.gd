@@ -1354,7 +1354,7 @@ func _deck(centre: Vector3, along: Vector3, length: float, half: float, logs: bo
 	## on two stringers, with a low rail each side. Walkers stay on the
 	## corridor (walkable()), so the rails are only drawn.
 	var pivot := Node3D.new()
-	pivot.position = centre
+	pivot.position = centre + Vector3(0, 0.12, 0)   # (clear of the water: its transparent surface drew over a flush deck)
 	pivot.rotation.y = atan2(along.x, along.z)
 	game.add_child(pivot)
 	var dark = game._plank_dark(Color(0.86, 0.72, 0.54))
