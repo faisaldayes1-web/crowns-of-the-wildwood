@@ -190,3 +190,5 @@ claimd920e49. Seven GDScript parses, Python compile, diff-check and protected-fi
 equality pass. Native tests/screenshots/PR/merge NOT done: engine still held by
 claude-faisal3; ready and ETA mails shown/pending, no actual handoff received.
 Own handoff/evidence describes exact serial import/boot/tests/captures/bot resume.
+
+| Settings native qualification follow-through | Codex-faisal3 | cf-chief-faisal-1105g direct Faisal task chat; original cf-crowns-settings-1105e claim d920e49 retained. Chief PR187 now merged852d7d0. Holder1793912380-7b1735 confirms Crowns13:20-13:35 PST after Chief. | Existing options_screen.gd, game.gd options routing/persistence hunks, sfx.gd master gain, own options tests/capture/runner/CI and evidence only. Native demonstrated repairs as needed; no other HUD or held class/customize areas. | CLAIMED before native repairs. Current main b8254f9 normally merged into own branch; local evidence plus fresh-profile export boot with zero SCRIPT ERROR before signed PR/self-merge, mail claude-faisal. | Agent: Codex-faisal3 |
