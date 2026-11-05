@@ -6138,10 +6138,24 @@ func _prop(name: String, pos: Vector3, scale: float = 1.0, rot_y: float = 0.0) -
 	inst.scale = Vector3.ONE * scale
 	inst.rotation.y = rot_y
 	add_child(inst)
+	if season == "winter" and name in WINTER_GREY_PROPS:
+		_grey_prop(inst)
 	audit_props.append([name, inst])
 	if prop_solid:
 		_solidify_prop(inst, pos)
 	return inst
+
+
+# Stonekeep Fortress: KayKit stone props come in warm sandstone; here they take
+# the castle's grey granite so the courtyard cover, pillars and rubble match the
+# walls (Faisal 11-05: "each map gets one material family").
+const WINTER_GREY_PROPS := ["dungeon/column", "dungeon/rubble_large", "dungeon/rubble_half", "dungeon/pillar", "dungeon/pillar_decorated"]
+
+
+func _grey_prop(inst: Node3D) -> void:
+	var granite := _pbr("greystone", 0.42, Color(0.74, 0.76, 0.82))
+	for m in inst.find_children("*", "MeshInstance3D", true, false):
+		m.material_override = granite
 
 
 var prop_solid := false   # while a castle is being built: clutter gets colliders
@@ -8028,7 +8042,7 @@ func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 		if tint == Color.WHITE:
 			return _hedge()
 		return _pbr("bark", 0.55, tint * Color(0.72, 0.7, 0.58))
-	if grey:
+	if grey or season == "winter":   # (Stonekeep: one grey granite family, no sandstone stubs and posts)
 		return _pbr("greystone", 0.42, Color(0.74, 0.76, 0.82).lerp(tint * Color(0.74, 0.76, 0.82), 0.35))
 	return _pbr("stone", 0.42, tint)
 
