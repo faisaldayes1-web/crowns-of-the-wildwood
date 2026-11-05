@@ -93,17 +93,21 @@ func run() -> void:
 
 
 func _menu_shots() -> void:
-	if game.main_menu == null:
-		var waited := 0
-		while game.main_menu == null and waited < 3000:
-			await process_frame
-			waited += 1
-	game.playing = false
-	game.main_menu.go("character")
-	game.main_menu.char_tab = 3
+	var waited := 0
+	while (game.main_menu == null or game.menus_warming or is_instance_valid(game.loading_layer)) and waited < 6000:
+		await process_frame
+		waited += 1
 	await _frames(60)
+	game.main_menu._press("customize", null)
+	await _frames(60)
+	game.main_menu.char_tab = 3
+	await _frames(40)
 	for cat in 6:
 		game.main_menu.armor_cat = cat
 		game.main_menu.armor_page = 0
 		await _frames(25)
 		await _shot("armor-%d" % cat)
+	game.main_menu.armor_cat = 2
+	game.main_menu.armor_page = 1
+	await _frames(25)
+	await _shot("armor-hat-page2")
