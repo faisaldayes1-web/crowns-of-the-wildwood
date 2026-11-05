@@ -96,7 +96,9 @@ def main():
                   "files": source_files, "slot_end": args.until, "inherited_capture_diagnostics": inherited}
         results.append(result)
         (OUT / (args.stage + "-results.json")).write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
-        print(json.dumps({k: v for k, v in result.items() if k != "files"}), flush=True)
+        summary = {k: v for k, v in result.items() if k not in ["files", "errors"]}
+        summary.update(error_count=len(bad), errors=bad[:5])
+        print(json.dumps(summary), flush=True)
         if code or bad:
             raise SystemExit(1)
 
@@ -108,7 +110,7 @@ def main():
         for test in ["options_test", "steam_ready_test", "settings_restart_test", "kbm_move_test", "options_menu_test", "pad_nav_test", "menu_flow_test", "couch_audio_test"]:
             if args.test and test not in args.test:
                 continue
-            run(test, ["--headless", "--fixed-fps", "60", "--script", "tools/" + test + ".gd"], timeout=600)
+            run(test, ["--headless", "--fixed-fps", "60", "--max-fps", "120", "--script", "tools/" + test + ".gd"], timeout=600)
     if args.stage in ["all", "captures"]:
         for width, height in [(1280, 720), (1920, 1080), (2560, 1440)]:
             for before in [True, False]:

@@ -465,12 +465,17 @@ func native_tap(control: Control, fraction := 0.5) -> void:
 	var ev := InputEventMouseButton.new()
 	ev.button_index = MOUSE_BUTTON_LEFT
 	ev.position = at
+	ev.global_position = at
+	ev.button_mask = MOUSE_BUTTON_MASK_LEFT
 	ev.pressed = true
-	Input.parse_input_event(ev)
+	# These coordinates are in the control's viewport, independent of the
+	# physical window/work-area size (including the headless display).
+	root.push_input(ev, true)
 	await frames(2)
 	ev = ev.duplicate()
 	ev.pressed = false
-	Input.parse_input_event(ev)
+	ev.button_mask = 0
+	root.push_input(ev, true)
 	await frames(2)
 
 
