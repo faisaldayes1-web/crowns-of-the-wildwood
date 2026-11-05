@@ -12187,7 +12187,7 @@ func _season_light() -> void:
 		sky_material.ground_horizon_color = Color(0.6, 0.36, 0.5)
 		world_environment.ambient_light_energy = 0.58
 		world_environment.ambient_light_sky_contribution = 0.35
-		world_environment.ambient_light_color = Color(0.66, 0.58, 1.0)
+		world_environment.ambient_light_color = Color(0.56, 0.66, 0.96)   # (8/8 pass: teal-violet, not pink)
 		world_environment.fog_light_color = Color(0.9, 0.5, 0.7)
 		world_environment.fog_density = 0.0024
 		world_environment.glow_intensity = 0.9
@@ -12195,7 +12195,7 @@ func _season_light() -> void:
 		world_environment.adjustment_saturation = 1.06
 		world_environment.adjustment_contrast = 1.06
 		world_environment.adjustment_brightness = 1.04
-		sun_light.light_color = Color(1.0, 0.66, 0.52)
+		sun_light.light_color = Color(1.0, 0.8, 0.7)   # (8/8 pass: a softer dusk sun; the yard read hot pink)
 		sun_light.light_energy = 1.35
 		sun_light.rotation_degrees = Vector3(-34, -62, 0)
 		sun_light.shadow_opacity = 0.8
