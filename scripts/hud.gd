@@ -1856,6 +1856,8 @@ func _minimap_live(c: Vector2, r: float) -> void:
 			draw_arc(q, ur + 4.0 + 2.0 * sin(pt * 6.0), 0, TAU, 16, Color(0.45, 1.0, 0.55, 0.8), 1.5)
 			_cross_glyph(q, ur + 2.5, Color(0.45, 1.0, 0.55), Color(0.05, 0.15, 0.05))
 			continue
+		# (The painted ally / foe markers of icon set P3 read worse than these
+		# bright dots at the minimap's 6 px: the dots stay; see the PR.)
 		draw_circle(q, ur, Color(1.0, 0.25, 0.2) if enemy else Color(0.3, 1.0, 0.45))
 		draw_arc(q, ur, 0, TAU, 12, Color(0, 0, 0, 0.65), 1.0)
 		if u.carrying:
@@ -2105,7 +2107,25 @@ func _map_label(at: Vector2, txt: String, col: Color) -> void:
 	_text(Vector2(tag.position.x, at.y + 3.5), txt, 9, col, HORIZONTAL_ALIGNMENT_CENTER, w, 1)
 
 
+static var mm_icons: Dictionary = {}   # assets/ui/minimap/*.png (icon set P3, 2026-11-04)
+
+
+static func mm_icon(key: String) -> Texture2D:
+	## A painted minimap marker by name, or null (then the drawn look stays).
+	if not mm_icons.has(key):
+		var path := "res://assets/ui/minimap/%s.png" % key
+		mm_icons[key] = load(path) if ResourceLoader.exists(path) else null
+	return mm_icons[key]
+
+
 func _map_pin(kind: String, q: Vector2, s: float, rim: Color = Color(1.0, 0.8, 0.3)) -> void:
+	if kind == "turret" and mm_icon("turret") != null:
+		# The painted turret marker on a ring in its team's colour.
+		draw_circle(q, s * 1.55, Color(0, 0, 0, 0.5))
+		draw_circle(q, s * 1.4, rim)
+		var hs := s * 1.6
+		draw_texture_rect(mm_icon("turret"), Rect2(q - Vector2(hs, hs), Vector2(hs, hs) * 2.0), false)
+		return
 	## A round map marker: a dark badge in a coloured rim, lit from the top
 	## left, with a small symbol (potion, turret, watch post, crossing, door,
 	## spawn). Each look (kind, size, rim) is drawn once into a small baked
