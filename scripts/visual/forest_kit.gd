@@ -840,7 +840,7 @@ func _build() -> void:
 		for it in _place[key]:
 			var txf: Transform3D = it[0]
 			spots.append([txf.origin, BlobShadow.radius_for(tmesh, txf)])
-	BlobShadow.build(game, spots)
+	BlobShadow.build(game, spots, palette == "winter")
 	await game._world_build_frame()
 	if not _trails.is_empty():
 		var tm := MeshInstance3D.new()
