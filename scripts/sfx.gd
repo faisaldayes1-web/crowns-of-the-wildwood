@@ -87,7 +87,8 @@ func _ready() -> void:
 		while of != "":
 			if of.ends_with(".wav") or of.ends_with(".wav.import"):
 				var oclip := of.trim_suffix(".import")
-				streams[oclip.trim_suffix(".wav")] = load(OVERRIDE_DIR + oclip)
+				if ResourceLoader.exists(OVERRIDE_DIR + oclip):
+					streams[oclip.trim_suffix(".wav")] = load(OVERRIDE_DIR + oclip)
 			of = od.get_next()
 	for i in POOL_3D:
 		var p := AudioStreamPlayer3D.new()
