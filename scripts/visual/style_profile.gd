@@ -136,6 +136,10 @@ const EMBER := {
 	# warmer, stronger lava bounce so the basalt reads as lit warm stone,
 	# not black against orange (was 0.34).
 	"ambient_energy": 0.52,
+	# Visual pass 2026-11-05 (claude-faisal3): the paving of both yards, the
+	# causeways and the bridges is one warm basalt, a step greyer than the
+	# old terracotta.
+	"paver_tint": Color(0.66, 0.55, 0.5),
 }
 
 # Approved 2026-10-25 picks: a single miniature material family.
