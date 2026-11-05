@@ -39,6 +39,9 @@ const EL_MUSIC_DIR := "res://assets/music/el/"
 const MAP_MOODS := ["day", "night", "volcano", "winter", "twilight"]   # Stats.MAPS order
 const BRIGHT_MOODS := ["day", "twilight"]
 var _el_battle := false      # the match plays a single recorded loop, not the three stems
+var _el_layers := false      # recorded drum/tension layers sit over that loop
+const EL_LAYERS := ["layer_drums", "layer_tension"]
+const EL_LAYER_DB := -3.0    # the layers sit a little under the recorded loop
 
 var streams := {}
 var pool_3d: Array = []
@@ -367,9 +370,10 @@ func _process(delta: float) -> void:
 	for mode in _fade:
 		_fade[mode] = move_toward(_fade[mode], 1.0 if music_mode == mode else 0.0, step)
 	for i in 3:
-		var want := 1.0 if i == 0 or (danger >= i and not _el_battle) else 0.0
+		var want := 1.0 if i == 0 or (danger >= i and (_el_layers or not _el_battle)) else 0.0
 		_layers[i] = move_toward(_layers[i], want, delta / LAYER_FADE)
-		battle_stream.set_sync_stream_volume(i, _db(_layers[i]))
+		var trim := EL_LAYER_DB if i > 0 and _el_layers else 0.0
+		battle_stream.set_sync_stream_volume(i, _db(_layers[i]) + trim)
 	var ducking := _now() < _sting_until - 0.4
 	_duck = move_toward(_duck, 0.3 if ducking else 1.0, delta / (0.15 if ducking else 1.0))
 	var muted := music_volume <= 0.001
@@ -395,8 +399,13 @@ func _map_mood() -> String:
 
 func _pick_battle_loop() -> void:
 	## The recorded battle loop for this map's mood takes the first stem's
-	## place; the drum and tension stems are a different score, so they stay
-	## silent with it. Without the recorded files the three stems play as before.
+	## place. claude-faisal/audio-upgrade2: the dynamic build stays with it.
+	## Recorded drum and tension layers (assets/music/el/layer_*.ogg,
+	## percussion and an unpitched string bed, so they sit over either loop)
+	## take the other two slots: drums while your door is under attack, both
+	## while your crown is out. Without the recorded layers they stay silent
+	## (the old stems are a different score); without the recorded loop the
+	## three original stems play as before.
 	var mood := _map_mood()
 	var st = _music_stream("battle_bright" if mood in BRIGHT_MOODS else "battle_dark")
 	_el_battle = st != null
@@ -405,6 +414,16 @@ func _pick_battle_loop() -> void:
 	if st:
 		st.loop = true
 		battle_stream.set_sync_stream(0, st)
+	_el_layers = false
+	for i in range(1, BATTLE_STEMS.size()):
+		var layer = _music_stream(EL_LAYERS[i - 1]) if _el_battle else null
+		if layer:
+			_el_layers = true
+		elif not _el_battle:
+			layer = _music_stream(BATTLE_STEMS[i])   # never the old score over a recorded loop
+		if layer:
+			layer.loop = true
+		battle_stream.set_sync_stream(i, layer)
 
 
 func play_ambience(on: bool) -> void:

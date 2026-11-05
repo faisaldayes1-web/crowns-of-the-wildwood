@@ -99,7 +99,7 @@ func _debug_fill(g, u) -> void:
 	u.xp_sources = {"combat": 210, "takedowns": 450, "crown": 125, "siege": 46, "support": 16}
 	show_board = "--debug-end-board" in OS.get_cmdline_user_args()
 	for arg in OS.get_cmdline_user_args():
-		if arg.begins_with("--debug-end-xp="):
+		if OS.is_debug_build() and arg.begins_with("--debug-end-xp="):
 			g.account_xp = int(arg.trim_prefix("--debug-end-xp="))
 
 
@@ -209,6 +209,8 @@ func draw(h) -> void:
 func _bold(h, pos: Vector2, text: String, fs: int, col: Color, align: int = HORIZONTAL_ALIGNMENT_LEFT, width: float = -1.0, outline: int = 3) -> void:
 	## Rounded bold lettering (the top bar's face) with a dark outline.
 	var f: Font = h.bar_font if h.bar_font else h.font
+	if h.fit_log != null:
+		h.fit_note(h, f, pos, text, align, width, fs, "summary")
 	if outline > 0:
 		h.draw_string_outline(f, pos, text, align, width, fs, outline, Color(0.05, 0.04, 0.06, 0.8))
 	h.draw_string(f, pos, text, align, width, fs, col)
@@ -245,9 +247,9 @@ func _header(h, cx: float, t: float) -> void:
 		var mid := cx + (-157.0 if side == 0 else 159.0)
 		h._bar_text(Vector2(mid, 31), Stats.FACTIONS[side].name.to_upper(), tf, 17, Color(1.0, 0.95, 0.86), ink, 6)
 		h._bar_text(Vector2(mid, 61), str(game.score[side]), tf, 38, Color(1.0, 0.95, 0.84), ink, 10)
-	h._bar_text(Vector2(cx + 3.0, 42), "FINAL", tf, 18, Color(1.0, 0.78, 0.32), ink, 4)
+	h._bar_text(Vector2(cx + 3.0, 42), "TDM FINAL" if game.is_tdm() else "FINAL", tf, 18 if not game.is_tdm() else 15, Color(1.0, 0.78, 0.32), ink, 4)
 	# A long match (59:59+) keeps inside the clock frame (NUM: worst case).
-	var clock := "%d:%02d%s" % [mins, secs, "+" if game.overtime else ""]
+	var clock := "%d:%02d%s" % [mins, secs, "+" if game.overtime or game.tdm_sudden else ""]
 	var cfs := 38
 	while cfs > 20 and tf.get_string_size(clock, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x > 118.0:
 		cfs -= 2
@@ -275,7 +277,8 @@ func _you_panel(h, r: Rect2, t: float) -> void:
 	if me == null:
 		return
 	var a := clampf((t - 0.3) / 0.4, 0.0, 1.0)
-	var stats := [["KILLS", me.kills, "vanguard"], ["DEATHS", me.deaths, "skull"], ["ASSISTS", me.assists, "assist"], ["CAPTURES", me.captures, "flag"],
+	var stats := [["KILLS", me.kills, "vanguard"], ["DEATHS", me.deaths, "skull"], ["ASSISTS", me.assists, "assist"],
+		["TEAM KILLS", game.score[me.team], "flag"] if game.is_tdm() else ["CAPTURES", me.captures, "flag"],
 		["DAMAGE", me.damage_dealt, "burst"], ["HEALING", me.healing, "potion"], ["BEST STREAK", me.best_streak, "fireball"], ["PEAK LEVEL", me.peak_level, "rank"]]
 	var gw := (r.size.x - 32.0 + 9.0) / 4.0
 	for i in stats.size():
@@ -364,13 +367,14 @@ func _xp_panel(h, r: Rect2, t: float) -> void:
 	h._icon("xp", Vector2(r.position.x + 28, ry - 5), 6.0, Color.WHITE)
 	_bold(h, Vector2(r.position.x + 44, ry), "REWARDS", 14, Color(0.9, 0.88, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	var banked: bool = not (game.demo and me and not me.is_player)
+	var goal: Array = Stats.next_goal(level)   # the next thing to play for, in place of the old locked Ranked tile
 	var rewards := [["+%d Gold" % reward_gold, "coin", GOLD], ["+%d Shards" % reward_shards, "shard", Color(0.45, 0.75, 1.0)],
-		["Match Chest", "chest", Color.WHITE], ["Ranked (Locked)", "lock", Color(0.6, 0.6, 0.64)]]
+		["Match Chest", "chest", Color.WHITE], [goal[0], goal[1], Color(0.75, 0.85, 0.7)]]
 	var gw := (r.size.x - 32.0 + 6.0) / 4.0
 	for i in rewards.size():
 		var cell := Rect2(Vector2(r.position.x + 16 + i * gw, ry + 10), Vector2(gw - 6, 72))
 		_tile(h, cell)
-		var dim: bool = i == 3
+		var dim := false
 		h._icon(rewards[i][1], cell.position + Vector2(cell.size.x / 2.0, 28), 11.0 if i < 3 else 9.0, Color.WHITE, dim)
 		_bold(h, Vector2(cell.position.x, cell.position.y + 64), rewards[i][0], 9 if i == 3 else 10, rewards[i][2], HORIZONTAL_ALIGNMENT_CENTER, cell.size.x, 2)
 	if not banked:

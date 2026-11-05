@@ -17,12 +17,19 @@ extends RefCounted
 
 const CarvedBlock = preload("res://scripts/visual/carved_block.gd")
 const StaticBatch = preload("res://scripts/static_batch.gd")
+const SnowCap = preload("res://scripts/visual/snow_cap.gd")
 const Stats = preload("res://scripts/stats.gd")
 
 const LANTERN_GLOW := Color(1.0, 0.68, 0.32)
 
 
 # --- Materials -------------------------------------------------------------
+
+static func _stone_grey(g, grey: bool) -> bool:
+	## Stonekeep Fortress (claude-faisal3 2026-11-05): both castles are grey
+	## stone, so the Elves' towers match the fortress and its snow.
+	return grey or g.season == "winter"
+
 
 static func _cache(g) -> Dictionary:
 	if not g.has_meta(&"castle_kit"):
@@ -31,6 +38,7 @@ static func _cache(g) -> Dictionary:
 
 
 static func wall_mat(g, grey: bool) -> StandardMaterial3D:
+	grey = _stone_grey(g, grey)
 	## The wall bodies: courses of big bevelled blocks (tools/make_castle_textures.py).
 	# Grade pass 2026-10-31: a step under white, so the sunlit tops of the
 	# cream walls keep their block joints at the match camera.
@@ -40,6 +48,7 @@ static func wall_mat(g, grey: bool) -> StandardMaterial3D:
 
 
 static func face_mats(g, grey: bool) -> Array:
+	grey = _stone_grey(g, grey)
 	## Three close shades of the modelled blocks' stone, so neighbouring
 	## blocks read as separate stones.
 	var key := "face_grey" if grey else "face"
@@ -58,6 +67,7 @@ static func face_mats(g, grey: bool) -> Array:
 
 
 static func mortar_mat(g, grey: bool) -> StandardMaterial3D:
+	grey = _stone_grey(g, grey)
 	# Polish pass (claude-faisal/crowns-polish 2026-11-01): a softer warm
 	# mortar (was 0.24 / 0.15 / 0.09), so the joints read as thin shaded gaps
 	# between bevelled blocks rather than thick dark graphic lines.
@@ -125,6 +135,7 @@ static func _frame(a: Vector3, b: Vector3) -> Array:
 
 static func block_course(g, a: Vector3, b: Vector3, y0: float, h: float, thick: float, grey: bool, seed: int,
 		min_len: float = 0.7, max_len: float = 1.25, shadow: bool = true, mats_in: Array = []) -> void:
+	grey = _stone_grey(g, grey)
 	## One course of individual blocks from a to b (their feet at y0), random
 	## lengths, a hand-width gap between them, each its own shade and set a
 	## touch proud or back, so the wall reads as stacked stones.
@@ -149,6 +160,7 @@ static func block_course(g, a: Vector3, b: Vector3, y0: float, h: float, thick: 
 
 static func merlons(g, a: Vector3, b: Vector3, y0: float, h: float, thick: float, grey: bool, seed: int,
 		pitch: float = 1.3, fill: float = 0.58) -> void:
+	grey = _stone_grey(g, grey)
 	## Crenellations: a merlon every `pitch` metres, `fill` of it solid.
 	var f := _frame(a, b)
 	var along: Vector3 = f[0]
@@ -163,6 +175,7 @@ static func merlons(g, a: Vector3, b: Vector3, y0: float, h: float, thick: float
 		var c := a + along * ((k + 0.5) * step)
 		var hh := h * r.randf_range(0.94, 1.0)
 		block(g, Vector3(c.x, y0 + hh / 2.0, c.z), Vector3(step * fill, hh, thick), mats[r.randi() % mats.size()], rot)
+		SnowCap.add(g, Vector3(c.x, y0 + hh, c.z), Vector2(step * fill, thick), rot)   # (Stonekeep only)
 
 
 static func ivy(g, top: Vector3, out: Vector3, drop: float, seed: int, width: float = 0.9) -> void:
@@ -236,6 +249,7 @@ static func lantern(g, pos: Vector3, out: Vector3, lit: bool) -> void:
 # --- Assemblies --------------------------------------------------------------
 
 static func castle_wall_top(g, center: Vector3, size: Vector3, grey: bool, crenel: bool, ivy_on: bool) -> void:
+	grey = _stone_grey(g, grey)
 	## On a wall body (the caller's solid box): a plinth course of blocks at
 	## the foot, a coping course along the top and merlons, and (Elves) ivy
 	## curtains on both faces here and there.
@@ -252,6 +266,11 @@ static func castle_wall_top(g, center: Vector3, size: Vector3, grey: bool, crene
 	block_course(g, a, b, top, 0.32, thick + 0.18, grey, seed, 0.9, 1.5)
 	if crenel and size.y >= 2.0:
 		merlons(g, a, b, top + 0.32, 0.62, thick + 0.02, grey, seed + 1)
+	else:
+		# Snow along the coping (Stonekeep only; merlons carry their own).
+		SnowCap.add(g, Vector3(center.x, top + 0.32, center.z), Vector2(length, thick + 0.18), 0.0 if along_x else PI / 2.0)
+	if size.y >= 2.0 and foot > -0.5:
+		SnowCap.add_drift(g, Vector3(center.x, 0.0, center.z), Vector2(length, thick + 0.9) if along_x else Vector2(thick + 0.9, length), 0.0)
 	# A plinth course at the foot (taller walls only; low parapets stay clean).
 	if size.y >= 2.0 and foot > -0.5:
 		block_course(g, a, b, foot, 0.42, thick + 0.16, grey, seed + 2, 0.8, 1.4, false)
@@ -266,7 +285,7 @@ static func castle_wall_top(g, center: Vector3, size: Vector3, grey: bool, crene
 			at.y = foot + minf(size.y - 0.8, 2.6)
 			for sign in [-1.0, 1.0]:
 				lantern(g, at + normal * sign * (thick / 2.0 + 0.03), normal * sign, false)
-	if ivy_on:
+	if ivy_on and g.season != "winter":
 		var r := RandomNumberGenerator.new()
 		r.seed = seed + 3
 		var dir := Vector3(1, 0, 0) if along_x else Vector3(0, 0, 1)
@@ -282,6 +301,7 @@ static func castle_wall_top(g, center: Vector3, size: Vector3, grey: bool, crene
 
 static func courtyard_wall(g, a: Vector3, b: Vector3, grey: bool, seed: int, merlon_h: float = 0.42, post_every: float = 4.6,
 		tall_out: Vector3 = Vector3.ZERO) -> void:
+	grey = _stone_grey(g, grey)
 	## The open courtyard's low wall on its kerb line a->b: a dark mortar
 	## core, two courses of big bevelled blocks, a crenellated cap and timber
 	## posts with iron-capped tops (picks Spawn D / Battle A).
@@ -328,6 +348,7 @@ static func _audit_extent(g, mid: Vector3, length: float, thick: float, top: flo
 
 static func _tall_courtyard_wall(g, a: Vector3, b: Vector3, along: Vector3, length: float, rot: float, grey: bool, seed: int,
 		out: Vector3, posts_at: Array = [], flags: bool = true) -> void:
+	grey = _stone_grey(g, grey)
 	var sh := out * 0.32   # the wall's centre line, moved outward off the kerb
 	var a0 := a + sh
 	var b0 := b + sh
@@ -356,6 +377,7 @@ static func _tall_courtyard_wall(g, a: Vector3, b: Vector3, along: Vector3, leng
 		block(g, Vector3(c.x, 1.82 + hh / 2.0, c.z), Vector3(step * 0.6, hh, 0.98), mats[r.randi() % mats.size()], rot)
 		if k % 3 == 1:
 			block(g, Vector3(c.x, 1.82 + hh + 0.05, c.z), Vector3(step * 0.5, 0.1, 0.9), wood, rot, false)
+		SnowCap.add(g, Vector3(c.x, 1.82 + hh + (0.1 if k % 3 == 1 else 0.0), c.z), Vector2(step * 0.6, 0.98), rot)   # (Stonekeep only)
 	# Tall timber posts through the wall with dark caps. (Banners on its
 	# yard face were tried: at the match camera they showed as slivers on
 	# the wall's edge for a dozen extra draws, so the yard's banners stay on
@@ -428,6 +450,12 @@ static func ashlar_mats(g) -> Array:
 	## shadow side), a darker coping, a darker plinth, and two lighter
 	## shades of the modelled blocks' stone for the merlons and corbels.
 	var c := _cache(g)
+	if g.season == "winter":   # Stonekeep: the same five shades in grey stone
+		if not c.has("ashlar_grey"):
+			c["ashlar_grey"] = [g._pbr("castle_blocks_grey", 0.3, Color(0.92, 0.92, 0.96)),
+				g._pbr("castle_blocks_grey", 0.3, Color(0.78, 0.78, 0.84)), g._pbr("castle_blocks_grey", 0.3, Color(0.64, 0.64, 0.7)),
+				g._pbr("castle_face_grey", 0.5, Color(1.0, 1.0, 1.04)), g._pbr("castle_face_grey", 0.5, Color(0.9, 0.9, 0.96))]
+		return c["ashlar_grey"]
 	if not c.has("ashlar" + str(g.soot)):
 		# (Tints pull the tan toward the picks' pale, pinkish sandstone: under
 		# the golden key and the grade's saturation a plain tan reads orange.)
@@ -478,6 +506,7 @@ static func _yard_side_wall(g, a: Vector3, b: Vector3, along: Vector3, length: f
 		var c := a0 + along * ((k + 0.5) * step) + mo
 		var hh := 0.84 * r.randf_range(0.95, 1.0)
 		block(g, Vector3(c.x, TOP + 0.3 + hh / 2.0, c.z), Vector3(step * 0.58, hh, mt), am[3 + k % 2], rot)
+		SnowCap.add(g, Vector3(c.x, TOP + 0.3 + hh, c.z), Vector2(step * 0.58, mt), rot)   # (Stonekeep only)
 	# Braziers on stone corbels along the yard face: an iron bowl and a
 	# flame (game.gd's own fire, so it batches with the yard's), two of the
 	# four with a cheap shadowless light.
@@ -522,6 +551,7 @@ static func _yard_side_wall(g, a: Vector3, b: Vector3, along: Vector3, length: f
 
 
 static func palisade(g, a: Vector3, b: Vector3, team: int, face: Vector3, crest_at: Array, grey: bool, seed: int) -> void:
+	grey = _stone_grey(g, grey)
 	## A timber palisade on a stone footing, behind the class stations: a
 	## course of blocks, close vertical planks, two rails, square posts with
 	## caps, and the team crest on the posts listed in `crest_at` (world
@@ -559,6 +589,7 @@ static func palisade(g, a: Vector3, b: Vector3, team: int, face: Vector3, crest_
 
 
 static func tower_dress(g, pos: Vector3, team: int, width: float, height: float, grey: bool, banner_out: Array) -> void:
+	grey = _stone_grey(g, grey)
 	## A tower body's dressing: a block plinth, a corbelled parapet ring with
 	## merlons, and long team banners on the faces in `banner_out`.
 	var seed := int(absf(pos.x) * 11.0 + absf(pos.z) * 5.0)
@@ -592,6 +623,7 @@ static func tower_roof(g, pos: Vector3, team: int, width: float, height: float) 
 	## batched. (The player and a crown carrier also get a silhouette through
 	## the tower body itself: unit.gd _update_xray.)
 	var color: Color = Stats.FACTIONS[team].color
+	var winter: bool = g.season == "winter"
 	var cutaway := true
 	var holder: Node3D = g
 	if cutaway:
@@ -610,11 +642,29 @@ static func tower_roof(g, pos: Vector3, team: int, width: float, height: float) 
 	roof.position = pos + Vector3(0, height + 0.9 + 1.2, 0)
 	roof.material_override = g._pbr("shingle", 1.4, color.lightened(0.08))
 	holder.add_child(roof)
+	if winter:
+		# Snow on the tiles: a thick cap over the upper three quarters of the
+		# roof, the team colour showing below it.
+		var cap := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.0
+		cm.bottom_radius = width * 0.72 * 0.78
+		cm.height = 2.4 * 0.78
+		cm.radial_segments = 4
+		cap.mesh = cm
+		cap.rotation.y = PI / 4.0
+		cap.position = pos + Vector3(0, height + 0.9 + 2.4 + 0.04 - cm.height / 2.0, 0)
+		cap.material_override = SnowCap.material()
+		cap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		holder.add_child(cap)
 	# The eave: a dark timber band under the tiles.
 	_box(g, pos + Vector3(0, height + 0.86, 0), Vector3(width * 0.98, 0.14, width * 0.98), g._timber(Color(0.5, 0.36, 0.24)))
 	for xs in [-1.0, 1.0]:
 		for zs in [-1.0, 1.0]:
 			_box(g, pos + Vector3(xs * width * 0.42, height + 0.55, zs * width * 0.42), Vector3(0.18, 0.62, 0.18), g._timber(Color(0.5, 0.36, 0.24)))
+	if winter:
+		# Snow banked round the tower's foot.
+		SnowCap.add_drift(g, Vector3(pos.x, 0.0, pos.z), Vector2(width + 0.8, width + 0.8), 0.0)
 	var knob := MeshInstance3D.new()
 	var sm := SphereMesh.new()
 	sm.radius = 0.16
@@ -799,6 +849,7 @@ static func station_awning(g, pos: Vector3, role: int, zb: float) -> void:
 # --- Station wall and class banners (pass 3, 2026-10-31) ------------------------
 
 static func station_wall(g, a: Vector3, b: Vector3, team: int, crest_at: Array, grey: bool, seed: int) -> void:
+	grey = _stone_grey(g, grey)
 	## The courtyard's north wall behind the class stations (picks Spawn D /
 	## Battle A): the tall crenellated block wall, thickened outward (north),
 	## with brown timber posts between the stations carrying the team crest.

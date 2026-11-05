@@ -184,6 +184,8 @@ func _build_tree(r: RandomNumberGenerator) -> void:
 		var kt = game.forest_kit
 		var shape := r.randi() % 2
 		kt.kit_tree(full, "pine%d" % (shape * 2), Vector3(0, 0.15, 0), 1.2, r.randf() * TAU)
+	# A soft contact shadow under the crown, felled with the tree (blob_shadow.gd).
+	preload("res://scripts/visual/blob_shadow.gd").single(full, 1.7, Vector3.ZERO, game.season == "winter")
 	for k in (0 if game.forest_kit != null else 4):
 		var a := TAU * k / 3.0 + r.randf() * 0.5
 		var off := Vector3(cos(a) * 0.75, 0, sin(a) * 0.75) if k < 3 else Vector3.ZERO

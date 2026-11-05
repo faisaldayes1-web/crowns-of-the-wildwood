@@ -69,6 +69,13 @@ jobs:
           timeout 300 bash tools/tests/isolated.sh --headless --path . --script tools/spawn_warm_test.gd -- --demo --seed=7 --map=3 2>&1 | tee ci-logs/spawn-warm.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/spawn-warm.log
           grep -q '^spawn warm test: 0 failure(s)$' ci-logs/spawn-warm.log
+      - name: Stonekeep ice is slippery
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/ice_slide_test.gd -- --demo --seed=7 --map=3 2>&1 | tee ci-logs/ice-slide.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/ice-slide.log
+          grep -q '^ice slide test: 0 failure(s)$' ci-logs/ice-slide.log
       - name: Clutter and tree clipping audit (all five maps)
         shell: bash
         run: |
@@ -76,16 +83,31 @@ jobs:
           # claude-faisal/crowns-visual 2026-11-04: props, KayKit clutter and
           # every forest-kit tree, bush and boulder against walls, buildings,
           # fences, the gate and the vault. Any overlap over 15 cm fails.
+          # claude-faisal/crowns-visual2 2026-11-04: and nothing (prop, fence,
+          # rubble, rock, kit tree or boulder) on a road's paved core ("CLIP .../road").
           for map in 0 1 2 3 4; do
             timeout 300 bash tools/tests/isolated.sh --headless --path . -- --audit --seed=7 --map=$map 2>&1 | tee "ci-logs/audit-map$map.log"
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^CLIP ' "ci-logs/audit-map$map.log"
             grep -Eq '^AUDIT done: 0 overlaps in [0-9]+ props$' "ci-logs/audit-map$map.log"
           done
+          # claude-faisal/crowns-graveyard 2026-11-04: map 1 above builds the day
+          # world on a fresh save (the Moonlit Wildwood is a level-10 unlock);
+          # this run builds the real Moonlit world with its graveyard.
+          timeout 300 bash tools/tests/isolated.sh --headless --path . -- --audit --seed=7 --map=1 --debug-night 2>&1 | tee ci-logs/audit-moonlit.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^CLIP ' ci-logs/audit-moonlit.log
+          grep -Eq '^AUDIT done: 0 overlaps in [0-9]+ props$' ci-logs/audit-moonlit.log
+      - name: Moonlit graveyard (rising timer, Cursed Bell allegiance, zombie pathing)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/graveyard_test.gd -- --demo --seed=7 --map=1 --debug-night 2>&1 | tee ci-logs/graveyard.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/graveyard.log
+          grep -q '^graveyard_test: 0 failure(s)$' ci-logs/graveyard.log
       - name: Save recovery and progression regressions
         shell: bash
         run: |
           set -euo pipefail
-          for test in save_write_test save_recovery_test save_test settings_restart_test legend_test; do
+          for test in save_write_test save_recovery_test save_test settings_restart_test steam_ready_test legend_test; do
             timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script "tools/$test.gd" 2>&1 | tee "ci-logs/$test.log"
             ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/$test.log"
             grep -Eq 'test: .*0 failure\(s\)$' "ci-logs/$test.log"
@@ -176,5 +198,218 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: crowns-ci-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-logs/
+          retention-days: 1
+
+  # claude-faisal/crowns-tdm 2026-11-04: Team Deathmatch in its own job (the
+  # main job is near its time budget): the rules on the real match (target
+  # win, scoring, kill feed, respawn waves, sudden death, split screen, the
+  # mode picker) and a seeded TDM bot match on every map.
+  tdm:
+    if: ${{ github.event.pull_request.draft == false || github.event_name != 'pull_request' }}
+    name: Team Deathmatch rules and bot matches on all maps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GODOT: /tmp/crowns-godot/Godot_v4.3-stable_linux.x86_64
+      TMPDIR: /tmp
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install official Godot 4.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-logs /tmp/crowns-godot
+          release=https://github.com/godotengine/godot-builds/releases/download/4.3-stable
+          archive=Godot_v4.3-stable_linux.x86_64.zip
+          curl -fsSL --retry 3 "$release/$archive" -o "/tmp/crowns-godot/$archive"
+          expected=fd52bb4ba8acc30ca5accd1c566d470ad7282f891ccc0995dfafabcf92bcf76280ce182bf9d80ebd885f3ed2165d01e1fc3f2928436b15498dfbd98656c2a45a
+          echo "$expected  /tmp/crowns-godot/$archive" | sha512sum --check
+          unzip -q "/tmp/crowns-godot/$archive" -d /tmp/crowns-godot
+          chmod +x "$GODOT"
+          timeout 600 bash tools/tests/isolated.sh --headless --editor --path . --import 2>&1 | tee ci-logs/import.log
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log; then exit 1; fi
+      - name: TDM rules on the real match
+        shell: bash
+        run: |
+          set -euo pipefail
+          for c in target sudden split menu; do
+            args="--play --mode=tdm --map=0 --tdm-case=$c"
+            [ "$c" = split ] && args="$args --couch=2"
+            [ "$c" = menu ] && args="--tdm-case=menu"
+            timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/tdm_test.gd -- $args 2>&1 | tee "ci-logs/tdm-$c.log"
+            if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/tdm-$c.log"; then exit 1; fi
+            grep -q "^tdm test ($c): 0 failure(s)$" "ci-logs/tdm-$c.log"
+          done
+      - name: TDM bot match on every map
+        shell: bash
+        run: |
+          set -euo pipefail
+          for map in 0 1 2 3 4; do
+            timeout 900 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 30000 -- --demo --seed=7 --mode=tdm --map=$map --debug-time=150 2>&1 | tee "ci-logs/tdm-bots-map$map.log"
+            if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' "ci-logs/tdm-bots-map$map.log"; then exit 1; fi
+            python3 tools/tdm_bot_check.py "ci-logs/tdm-bots-map$map.log"
+          done
+      - name: Keep logs (failure only)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crowns-ci-tdm-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-logs/
+          retention-days: 1
+
+  # claude-faisal/crowns-gates 2026-11-04: Faisal's "multiple checks checking
+  # every area and portion". Two world shards and one rendered job run beside
+  # godot43; each skips drafts and the whole run cancels on a newer push.
+  gates-world:
+    if: ${{ github.event.pull_request.draft == false || github.event_name != 'pull_request' }}
+    name: Gates - smoke and spawn/objective clipping (maps ${{ matrix.maps }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        maps: ["0 1 2", "3 4"]
+    env:
+      GODOT: /tmp/crowns-godot/Godot_v4.3-stable_linux.x86_64
+      TMPDIR: /tmp
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install official Godot 4.3
+        shell: bash
+        run: bash tools/gates/ci_godot.sh
+      - name: Restore the import cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .godot
+          key: crowns-import-${{ hashFiles('**/*.import', 'project.godot') }}
+          restore-keys: crowns-import-
+      - name: Headless import
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 bash tools/tests/isolated.sh --headless --editor --path . --import > ci-logs/import.log 2>&1 || { tail -50 ci-logs/import.log; exit 1; }
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log; then echo 'gate log has errors (above)'; exit 1; fi
+      - name: Every game mode x map x player count, bots fill the seats (no script errors, spawns and objectives clear)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for map in ${{ matrix.maps }}; do
+            # Crown capture: every player count and couch side rule; Team
+            # Deathmatch: every player count (versus and co-op alternate).
+            for run in crowns:1:versus crowns:2:versus crowns:2:coop crowns:3:versus crowns:3:coop crowns:4:versus crowns:4:coop tdm:1:versus tdm:2:coop tdm:3:versus tdm:4:coop; do
+              IFS=: read -r gm n mode <<< "$run"; log="ci-logs/world-$gm-map$map-p$n-$mode.log"
+              timeout 300 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/gates/world_gate.gd -- --play --mode=$gm --seed=7 --map=$map --couch=$n --couch-mode=$mode --no-prep --frames=600 > "$log" 2>&1 || true
+              grep -E '^FAIL|^world gate .*failure' "$log" || true
+              if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' "$log"; then echo 'gate log has errors (above)'; exit 1; fi
+              grep -Eq '^world gate .*: 0 failure\(s\)$' "$log"
+            done
+          done
+      - name: Keep logs (failure only)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crowns-gates-world-${{ strategy.job-index }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-logs/
+          retention-days: 1
+
+  gates-render:
+    if: ${{ github.event.pull_request.draft == false || github.event_name != 'pull_request' }}
+    name: Gates - missing resources and UI text fit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GODOT: /tmp/crowns-godot/Godot_v4.3-stable_linux.x86_64
+      TMPDIR: /tmp
+      LIBGL_ALWAYS_SOFTWARE: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install official Godot 4.3 and xvfb
+        shell: bash
+        run: bash tools/gates/ci_godot.sh --xvfb
+      - name: Restore the import cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .godot
+          key: crowns-import-${{ hashFiles('**/*.import', 'project.godot') }}
+          restore-keys: crowns-import-
+      - name: Headless import
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 bash tools/tests/isolated.sh --headless --editor --path . --import > ci-logs/import.log 2>&1 || { tail -50 ci-logs/import.log; exit 1; }
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log; then echo 'gate log has errors (above)'; exit 1; fi
+      - name: Missing textures, materials, scenes and paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300 bash tools/tests/isolated.sh --headless --path . --script tools/gates/resource_gate.gd 2>&1 | tee ci-logs/resource-gate.log
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' ci-logs/resource-gate.log; then echo 'gate log has errors (above)'; exit 1; fi
+          grep -q '^resource gate: 0 failure(s)$' ci-logs/resource-gate.log
+      - name: UI text fits its box (menus, HUD, pause, summary; 720p/1080p/1440p; 1 player and split screen 2-4)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export CROWNS_GATE_SHOTS="$GITHUB_WORKSPACE/ci-logs/shots"
+          export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-ui"
+          mkdir -p "$MESA_SHADER_CACHE_DIR"
+          timeout 1200 xvfb-run -a -s "-screen 0 2560x1440x24" bash tools/tests/isolated.sh --path . --rendering-method gl_compatibility --rendering-driver opengl3 --script tools/gates/ui_fit_gate.gd -- --menus --couches=1,2,3,4 --seed=7 --gfx=0 > ci-logs/ui-fit.log 2>&1 || true
+          grep -E '^FAIL|^UI window|^ui fit gate' ci-logs/ui-fit.log || true
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' ci-logs/ui-fit.log; then echo 'gate log has errors (above)'; exit 1; fi
+          grep -Eq '^ui fit gate: .* 0 failure\(s\)$' ci-logs/ui-fit.log
+      - name: Keep logs and tiny screen shots (failure only)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crowns-gates-render-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-logs/
+          retention-days: 1
+
+  gates-perf:
+    if: ${{ github.event.pull_request.draft == false || github.event_name != 'pull_request' }}
+    name: Gates - perf budget and runtime references per map
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GODOT: /tmp/crowns-godot/Godot_v4.3-stable_linux.x86_64
+      TMPDIR: /tmp
+      LIBGL_ALWAYS_SOFTWARE: "1"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install official Godot 4.3 and xvfb
+        shell: bash
+        run: bash tools/gates/ci_godot.sh --xvfb
+      - name: Restore the import cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .godot
+          key: crowns-import-${{ hashFiles('**/*.import', 'project.godot') }}
+          restore-keys: crowns-import-
+      - name: Headless import
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 bash tools/tests/isolated.sh --headless --editor --path . --import > ci-logs/import.log 2>&1 || { tail -50 ci-logs/import.log; exit 1; }
+          if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log; then echo 'gate log has errors (above)'; exit 1; fi
+      - name: Perf budget and runtime references per map (draw calls, primitives, CPU frame time)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad=0
+          for map in 0 1 2 3 4; do
+            export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-perf-$map"
+            mkdir -p "$MESA_SHADER_CACHE_DIR"
+            timeout 400 xvfb-run -a bash tools/tests/isolated.sh --path . --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script tools/gates/perf_gate.gd -- --play --seed=7 --gfx=0 --map=$map > "ci-logs/perf-map$map.log" 2>&1 || true
+            grep -E '^FAIL|^PERF|^perf gate' "ci-logs/perf-map$map.log" || true
+            # (every map is measured before the step fails, so one log shows them all)
+            if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' "ci-logs/perf-map$map.log"; then echo "map $map: gate log has errors (above)"; bad=1; fi
+            grep -q '^perf gate map: 0 failure(s)$' "ci-logs/perf-map$map.log" || bad=1
+          done
+          test "$bad" = 0
+      - name: Keep logs (failure only)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crowns-gates-perf-${{ github.run_id }}-${{ github.run_attempt }}
           path: ci-logs/
           retention-days: 1

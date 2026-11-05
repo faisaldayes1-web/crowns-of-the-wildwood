@@ -30,6 +30,7 @@ extends RefCounted
 ## "--no-forest-kit" turns the kit off (the old trees come back) for A/B.
 
 const StyleProfile = preload("res://scripts/visual/style_profile.gd")
+const BlobShadow = preload("res://scripts/visual/blob_shadow.gd")
 const CHUNK := 32.0
 const GRID := 4.0   # spatial hash cell for trunk spacing checks
 const NEEDLE := 5.0  # UV.x of pine tiers: sway like leaves, flat needle shading (forest_kit.gdshader)
@@ -322,6 +323,22 @@ func _cull_clipping() -> void:
 		_place[key] = keep
 
 
+func road_audit() -> Array:
+	## [key, world AABB] of every kit tree, bush, boulder and fence (game.gd's
+	## --audit checks them against the roads).
+	var out := []
+	for key in _place.keys():
+		if key == "patch" or key.begins_with("tuft") or key.begins_with("flower"):
+			continue   # flat or tiny
+		var mesh := _mesh_for(key)
+		if mesh == null:
+			continue
+		var local := mesh.get_aabb()
+		for it in _place[key]:
+			out.append([key, _footprint(local, it[0])])
+	return out
+
+
 func _add(key: String, xf: Transform3D, tint: Color = Color.WHITE) -> void:
 	if game.lmap and xf.origin.y > -0.5:
 		# Stonekeep's ridges / the Grove's banks: trees, bushes and rocks sit
@@ -341,7 +358,7 @@ func _species(pos: Vector3, hint: String, seed: int) -> String:
 		return "pine"
 	if hint == "canopy":
 		return "broad"
-	if palette in ["day", "night"] and hint in ["", "broad"]:
+	if palette in ["day", "night", "twilight"] and hint in ["", "broad"]:   # (twilight too, 8/8 pass: the all-puffball grove read as another game)
 		# Pass 2 (2026-10-31, picks Spawn D / Battle A): the woods read as
 		# dense dark conifers. Pines are the majority on both sides; in the
 		# field one tree in three stays broadleaf for variety (the same seeds
@@ -812,6 +829,19 @@ func _build() -> void:
 				mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			game.add_child(mmi)
 			await game._world_build_frame()
+	# Soft contact shadows under every kit tree (scripts/visual/blob_shadow.gd).
+	var spots := []
+	for key in _place:
+		if not (key.begins_with("pine") or key.begins_with("autumn") or key.begins_with("broad") or key == "blossom"):
+			continue
+		var tmesh := _mesh_for(key)
+		if tmesh == null:
+			continue
+		for it in _place[key]:
+			var txf: Transform3D = it[0]
+			spots.append([txf.origin, BlobShadow.radius_for(tmesh, txf)])
+	BlobShadow.build(game, spots, palette == "winter")
+	await game._world_build_frame()
 	if not _trails.is_empty():
 		var tm := MeshInstance3D.new()
 		tm.name = "ForestKit_trails"
@@ -899,7 +929,7 @@ func _pine_ramp(accent: String) -> Array:
 		return [StyleProfile.GOLD_BOTTOM, StyleProfile.GOLD_TOP, StyleProfile.GOLD_TOP.lerp(Color(1.0, 0.92, 0.55), 0.35)]
 	match palette:
 		"twilight":
-			return [Color(0.03, 0.22, 0.18), Color(0.12, 0.6, 0.42), Color(0.3, 0.9, 0.6)]
+			return [Color(0.02, 0.08, 0.14), Color(0.05, 0.26, 0.32), Color(0.18, 0.55, 0.52)]   # (8/8 pass: deep dusk teal, apart from the mint broadleaves)
 		"winter":
 			return [Color(0.06, 0.24, 0.16), Color(0.16, 0.42, 0.28), Color(0.3, 0.56, 0.36)]
 	# Pass 3 (2026-10-31): the picks' pines are a mid green body with clearly

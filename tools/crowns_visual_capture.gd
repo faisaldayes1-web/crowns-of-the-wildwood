@@ -47,6 +47,14 @@ func run() -> void:
 		return
 	await press("to_lobby")
 	await capture("03-ready")
+	# CROWNS_CAPTURE_SPLIT=2 (claude-faisal/crowns-visual2): a two-player
+	# couch match (split screen), staged the way a second pad's join sets it.
+	var split := int(OS.get_environment("CROWNS_CAPTURE_SPLIT"))
+	if split > 1:
+		game.split_screen = true
+		game.couch_players = split
+		for i in range(1, split):
+			game.main_menu.readied[i] = true
 	await press("start")
 	deadline = Time.get_ticks_msec() + 120000
 	while not game.playing or game.player == null or is_instance_valid(game.loading_layer):
@@ -81,6 +89,84 @@ func run() -> void:
 	game.player.set_role(game.Role.KNIGHT)
 	game.player.class_banner = game.player.CLASS_BANNER_TIME - 0.5
 	await capture("07-class-knight")
+	# CROWNS_CAPTURE_CLASSES=1 (claude-faisal/crowns-visual2): the skill bar
+	# as every class wears it ("10-class-<name>"), banner timed out.
+	if OS.get_environment("CROWNS_CAPTURE_CLASSES") == "1":
+		game.menu_open = false
+		for rname in ["BASE", "KNIGHT", "RANGER", "MAGE", "HEALER", "ENGINEER", "ROGUE"]:
+			game.player.set_role(game.Role[rname])
+			game.player.class_banner = 0.0
+			for i in 12:
+				await process_frame
+			await capture("10-class-" + rname.to_lower())
+	# CROWNS_CAPTURE_AT="x,z;x,z;..." (claude-faisal/crowns-visual2): the
+	# player is staged at each world spot in turn (the camera follows) and
+	# a shot "08-at-<i>" is taken there, for map-wide visual passes.
+	var spots := OS.get_environment("CROWNS_CAPTURE_AT")
+	if not spots.is_empty():
+		game.menu_open = false
+		game.player.class_banner = 0.0
+		# (The player's own physics is paused for the tour: on Ember Pass the
+		# walk clamp pulled a staged player straight back into the yard.)
+		game.player.set_physics_process(false)
+		var si := 0
+		for spot in spots.split(";", false):
+			var xz := spot.split(",")
+			if xz.size() < 2:
+				continue
+			game.player.global_position = Vector3(float(xz[0]), game.player.global_position.y, float(xz[1]))
+			game.player.velocity = Vector3.ZERO
+			if OS.get_environment("CROWNS_CAPTURE_BATTLE") != "1":
+				game.prep_left = 60.0   # (prep: nobody fights while the camera tours; CROWNS_CAPTURE_BATTLE=1 keeps the battle, past the yard barrier)
+			for i in 40:
+				await process_frame
+			await capture("08-at-%d" % si)
+			si += 1
+		game.player.set_physics_process(true)
+	# CROWNS_CAPTURE_PAD=1: the player stands on its own first turret pad in
+	# the prep phase, so the turret build card shows ("09-turret-card").
+	if OS.get_environment("CROWNS_CAPTURE_PAD") == "1" and game.economy != null and not game.economy.pads[game.player.team].is_empty():
+		game.menu_open = false
+		game.player.class_banner = 0.0
+		var pad: Vector3 = game.economy.pads[game.player.team][0].pos
+		game.player.global_position = pad + Vector3(0, 0.1, 0)
+		game.player.velocity = Vector3.ZERO
+		game.prep_left = 60.0
+		for i in 40:
+			await process_frame
+		await capture("09-turret-card")
+		# The same card when the base can pay (gold button).
+		game.economy.wood[game.player.team] = 20
+		game.economy.ore[game.player.team] = 20
+		for i in 10:
+			await process_frame
+		await capture("09b-turret-card-ok")
+	# CROWNS_CAPTURE_GRAVEYARD=1 (claude-faisal/crowns-graveyard, --map=1): the
+	# Moonlit graveyard in battle: the plots and bell, zombies mid-rise,
+	# neutral zombies, then the Elves holding the Cursed Bell (team glow).
+	if OS.get_environment("CROWNS_CAPTURE_GRAVEYARD") == "1" and game.graveyard != null:
+		var gy = game.graveyard
+		game.menu_open = false
+		game.player.class_banner = 0.0
+		game.prep_left = 0.0
+		game.player.global_position = Vector3(-4.8, 0.0, -27.0)
+		game.player.velocity = Vector3.ZERO
+		for i in 40:
+			await process_frame
+		await capture("10-graveyard")
+		gy.rise_left = 0.05
+		await create_timer(0.9).timeout
+		await capture("11-graveyard-rising")
+		await create_timer(2.2).timeout
+		await capture("12-graveyard-neutral")
+		gy.bell_progress = -1.0
+		gy._set_owner(0)
+		await create_timer(2.5).timeout
+		await capture("13-graveyard-elves-hold")
+		gy.bell_progress = 1.0
+		gy._set_owner(1)
+		await create_timer(1.5).timeout
+		await capture("14-graveyard-humans-hold")
 	var report := FileAccess.open(out_dir.path_join("capture.json"), FileAccess.WRITE)
 	report.store_string(JSON.stringify({"agent": "Codex-faisal/ui", "viewport": str(root.size), "state_staging": true, "live_battle_fixture": "quiet courtyard battle-phase HUD comparison; no combat action claimed", "hit_rect_checks_pass": not failed}, "  "))
 	game.queue_free()

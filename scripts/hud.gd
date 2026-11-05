@@ -7,6 +7,7 @@ extends Control
 
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
+const Tips = preload("res://scripts/tips.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Scoreboard = preload("res://scripts/scoreboard.gd")
 const Store = preload("res://scripts/store.gd")
@@ -134,6 +135,37 @@ var _label_rects: Array[Rect2] = []   # polish pass: unit tags placed this frame
 
 
 static var _art_loaded := false   # the static art below is in (by the first HUD)
+# tools/gates/ui_fit_gate.gd (claude-faisal/crowns-gates): when a Dictionary,
+# every lettering helper (_text here, menu.gd ttext, match_summary.gd _bold,
+# legend.gd _ttext/_btext) notes text that runs past its box or off screen.
+static var fit_log = null
+static var fit_lines := 0   # lines noted (the gate checks that it saw text at all)
+
+
+static func fit_note(h: Control, f: Font, pos: Vector2, text: String, align: int, width: float, fs: int, where: String) -> void:
+	if fit_log == null or f == null or text == "" or "\n" in text:
+		return
+	fit_lines += 1
+	var tw := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var drawn := minf(tw, width) if width > 0.0 else tw
+	var x0 := pos.x
+	if width > 0.0 and align == HORIZONTAL_ALIGNMENT_CENTER:
+		x0 = pos.x + (width - drawn) / 2.0
+	elif width > 0.0 and align == HORIZONTAL_ALIGNMENT_RIGHT:
+		x0 = pos.x + width - drawn
+	var top := pos.y - f.get_ascent(fs)
+	var bottom := pos.y + f.get_descent(fs)
+	var view := Rect2(Vector2.ZERO, h.size)
+	var issue := ""
+	if width > 0.0 and tw > width + 2.0:
+		issue = "BOX %.0f px wide in a %.0f px box" % [tw, width]
+	elif (where.begins_with("menu") or where == "legend") and (x0 < -2.0 or top < -4.0 or x0 + drawn > view.end.x + 2.0 or bottom > view.end.y + 4.0):
+		# (Only the menus and the legend lay their lines out in screen space:
+		# the HUD and the summary scale whole panels with draw_set_transform,
+		# which a CanvasItem cannot report, so there only the box is checked.)
+		issue = "OFFSCREEN x %.0f..%.0f y %.0f..%.0f of %s" % [x0, x0 + drawn, top, bottom, view.size]
+	if issue != "":
+		fit_log["%s|%s|%s" % [where, text, issue]] = true
 
 
 func _ready() -> void:
@@ -378,6 +410,7 @@ func _draw() -> void:
 	_draw_toasts()
 	if _me() and not game.guide_open:
 		_draw_world_prompt()
+		_draw_tip(_me())
 		_draw_class_pointer(_me())
 		if game.economy:
 			game.economy.draw_action_card(self, _me())   # repair / upgrade / turret button (economy.gd)
@@ -506,6 +539,7 @@ func _plate(rect: Rect2, fill: Color = INK, edge: Color = GOLD_DARK, radius: int
 
 func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHITE,
 		align := HORIZONTAL_ALIGNMENT_LEFT, width := -1.0, outline := 4) -> void:
+	font_size = _min_font(font_size)
 	# Text always fits its spot (Faisal 2026-10-15 02:30: "make sure the
 	# text fits on the spot"): given a width, a line too long for it shrinks
 	# (down to 60% of its size) instead of running past its box.
@@ -519,12 +553,28 @@ func _text(pos: Vector2, text: String, font_size: int, color: Color = Color.WHIT
 			if fs != font_size and pos.y > 0.0:
 				pos.y -= (font_size - fs) * 0.35   # stay on the same visual line
 			font_size = fs
+	if fit_log != null:
+		fit_note(self, font, pos, text, align, width, font_size, "hud")
 	if outline > 0:
 		draw_string_outline(font, pos, text, align, width, font_size, outline, Color(0.05, 0.04, 0.06, 0.85))
 	draw_string(font, pos, text, align, width, font_size, color)
 
 
+const MIN_FONT := 12   # (final grade 2026-11-04: 9-11 px HUD text was hard to read at 720p)
+
+
+func _min_font(fs: int) -> int:
+	## The smallest HUD text (tiny pips and badges under 7 keep their size).
+	## Pixels, like every size here: the same at 720p and up (the canvas is
+	## not scaled above 1280 wide).
+	return fs if fs < 7 else maxi(fs, MIN_FONT)
+
+
 func _paragraph(pos: Vector2, text: String, font_size: int, color: Color, width: float, line_h: float, outline: int = 2) -> float:
+	var raised := _min_font(font_size)
+	if raised > font_size:
+		line_h *= float(raised) / font_size
+		font_size = raised
 	## Word-wrapped text. Returns the height used.
 	var lines := _wrap(text, font_size, width)
 	for i in lines.size():
@@ -939,7 +989,9 @@ func _keycap(center: Vector2, key: String, w: float = 30.0, dark: bool = false, 
 	if XBOX_GLYPHS.has(key) and not keyboard:
 		draw_circle(center, 10.5, Color(0.12, 0.12, 0.15))
 		draw_arc(center, 10.5, 0, TAU, 24, Color(0.45, 0.45, 0.5), 1.0)
-		_text(center + Vector2(-10.5, 5), key, 12, XBOX_GLYPHS[key], HORIZONTAL_ALIGNMENT_CENTER, 21, 0)
+		# A Switch pad's face buttons are plain letters; Xbox colours would mislabel them.
+		var letter: Color = CREAM if game.pad_kind(game.local_pad(0)) == "switch" else XBOX_GLYPHS[key]
+		_text(center + Vector2(-10.5, 5), key, 12, letter, HORIZONTAL_ALIGNMENT_CENTER, 21, 0)
 		return
 	var rect := Rect2(center - Vector2(w / 2.0, 9), Vector2(w, 18))
 	if dark:
@@ -1006,8 +1058,16 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 			if label != "":
 				# No wider than the 72 px slot pitch: "Shadow Dash" and "Smoke Bomb"
 				# ran together as one phrase (FE-03). A long name shrinks instead.
-				_text(Vector2(rect.position.x - 8, rect.end.y + 31), label, 12, CREAM if ready else Color(0.62, 0.58, 0.52),
-					HORIZONTAL_ALIGNMENT_CENTER, size_px + 16, 3)
+				# (8/8 pass 2026-11-04: a long two-word name goes on two 12 px lines
+				# instead of shrinking to ~8 px; 720p labels read as noise.)
+				var lw := size_px + 18.0
+				var lcol := CREAM if ready else Color(0.62, 0.58, 0.52)
+				if _text_width(label, 13) > lw and label.contains(" "):
+					var sp := label.find(" ")
+					_text(Vector2(rect.position.x - 9, rect.end.y + 30), label.substr(0, sp), 12, lcol, HORIZONTAL_ALIGNMENT_CENTER, lw, 3)
+					_text(Vector2(rect.position.x - 9, rect.end.y + 43), label.substr(sp + 1), 12, lcol, HORIZONTAL_ALIGNMENT_CENTER, lw, 3)
+				else:
+					_text(Vector2(rect.position.x - 9, rect.end.y + 31), label, 13, lcol, HORIZONTAL_ALIGNMENT_CENTER, lw, 4)
 	if not _lv():
 		return
 	if remaining > 0.0:
@@ -1697,12 +1757,16 @@ func _minimap_static(c: Vector2, r: float) -> void:
 			elif mark[1] == "mill":
 				draw_rect(Rect2(q - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.62, 0.46, 0.3))
 				draw_arc(q + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
+			elif mark[1] == "graveyard":
+				draw_rect(Rect2(q - Vector2(2.2, 1.8) * sx, Vector2(4.4, 3.6) * sx), Color(0.24, 0.22, 0.2, 0.8))
 			else:
 				_lanes_mark(mark, m, sx, sz, false)
 		if game.lmap:
 			pass   # no river, bridges or Crown Shrine on these two
 		else:
 			_minimap_river(c, r, m, clip, sx, sz)
+		if game.graveyard and (m.call(game.graveyard.CENTER) - c).length() < r - 4.0:
+			_bell_icon(m.call(game.graveyard.CENTER), 5.5, game.graveyard.bell_owner, game.graveyard.bell_progress, Time.get_ticks_msec() / 1000.0)
 	# The castles: team-colour blocks, crown on the throne, door gold or red.
 	_minimap_castles(c, r, m, clip, fx)
 
@@ -1755,7 +1819,7 @@ func _minimap_castles(c: Vector2, r: float, m: Callable, clip: PackedVector2Arra
 		_mm_rect(outer, clip, tc.darkened(0.1), tc.lightened(0.45), 1.5)
 		_mm_rect(outer.grow(-outer.size.x * 0.16), clip, tc.lightened(0.12), tc.darkened(0.35), 1.0)
 		var th: Vector2 = m.call(game.thrones[t])
-		if (th - c).length() < r - 4.0:
+		if (th - c).length() < r - 4.0 and not game.is_tdm():   # no crowns in a deathmatch
 			var cs := clampf(r / 180.0, 0.38, 0.62)
 			_crown(th + Vector2(0.6, 1.0), cs, Color(0.25, 0.15, 0.02, 0.6))
 			_crown(th, cs, GOLD)
@@ -1839,6 +1903,8 @@ func _minimap_live(c: Vector2, r: float) -> void:
 			draw_arc(q, ur + 4.0 + 2.0 * sin(pt * 6.0), 0, TAU, 16, Color(0.45, 1.0, 0.55, 0.8), 1.5)
 			_cross_glyph(q, ur + 2.5, Color(0.45, 1.0, 0.55), Color(0.05, 0.15, 0.05))
 			continue
+		# (The painted ally / foe markers of icon set P3 read worse than these
+		# bright dots at the minimap's 6 px: the dots stay; see the PR.)
 		draw_circle(q, ur, Color(1.0, 0.25, 0.2) if enemy else Color(0.3, 1.0, 0.45))
 		draw_arc(q, ur, 0, TAU, 12, Color(0, 0, 0, 0.65), 1.0)
 		if u.carrying:
@@ -2088,7 +2154,25 @@ func _map_label(at: Vector2, txt: String, col: Color) -> void:
 	_text(Vector2(tag.position.x, at.y + 3.5), txt, 9, col, HORIZONTAL_ALIGNMENT_CENTER, w, 1)
 
 
+static var mm_icons: Dictionary = {}   # assets/ui/minimap/*.png (icon set P3, 2026-11-04)
+
+
+static func mm_icon(key: String) -> Texture2D:
+	## A painted minimap marker by name, or null (then the drawn look stays).
+	if not mm_icons.has(key):
+		var path := "res://assets/ui/minimap/%s.png" % key
+		mm_icons[key] = load(path) if ResourceLoader.exists(path) else null
+	return mm_icons[key]
+
+
 func _map_pin(kind: String, q: Vector2, s: float, rim: Color = Color(1.0, 0.8, 0.3)) -> void:
+	if kind == "turret" and mm_icon("turret") != null:
+		# The painted turret marker on a ring in its team's colour.
+		draw_circle(q, s * 1.55, Color(0, 0, 0, 0.5))
+		draw_circle(q, s * 1.4, rim)
+		var hs := s * 1.6
+		draw_texture_rect(mm_icon("turret"), Rect2(q - Vector2(hs, hs), Vector2(hs, hs) * 2.0), false)
+		return
 	## A round map marker: a dark badge in a coloured rim, lit from the top
 	## left, with a small symbol (potion, turret, watch post, crossing, door,
 	## spawn). Each look (kind, size, rim) is drawn once into a small baked
@@ -2170,6 +2254,42 @@ func _map_pin_shapes(kind: String, q: Vector2, s: float, rim: Color) -> void:
 			draw_arc(q, k * 0.75, 0, TAU, 18, rim.lightened(0.45), maxf(s * 0.14, 1.0))
 			draw_circle(q, k * 0.42, rim.lightened(0.15))
 			draw_circle(q, k * 0.18, ink)
+
+
+func _objective_icon(obj: Dictionary, q: Vector2, s: float, pt: float) -> void:
+	## The map objective's marker on the top bar: Ember Pass's flame, or the
+	## Moonlit Wildwood's Cursed Bell.
+	if obj.get("icon", "") == "bell":
+		_bell_icon(q, s, obj.owner, obj.progress, pt)
+	else:
+		_fire_icon(q, s, obj.owner, obj.progress, pt)
+
+
+func _bell_icon(q: Vector2, s: float, owner: int, progress: float, pt: float) -> void:
+	## The Cursed Bell: a bell in a dark disc, ringed in the holder's colour
+	## (sickly green with nobody), the capture filling round it.
+	var ring_col := Color(0.45, 1.0, 0.35) if owner < 0 else _team_color(owner).lightened(0.25)
+	draw_circle(q, s * 1.55, Color(0, 0, 0, 0.35))
+	if absf(progress) > 0.01:
+		var lead := 0 if progress < 0.0 else 1
+		draw_arc(q, s * 1.35, -PI / 2.0, -PI / 2.0 + TAU * absf(progress), 32, _team_color(lead).lightened(0.2), 2.5)
+	draw_arc(q, s * 1.35, 0.0, TAU, 32, ring_col, 1.2)
+	var sway := sin(pt * 3.0) * 0.12
+	var top := q + Vector2(0, -s * 0.85)
+	var pts := PackedVector2Array()
+	for i in 9:
+		var f := float(i) / 8.0
+		var y := lerpf(-0.6, 0.7, f)
+		var w := lerpf(0.32, 0.78, f * f)
+		pts.append(q + Vector2(-w * s + sway * s * f, y * s))
+	for i in range(8, -1, -1):
+		var f := float(i) / 8.0
+		var y := lerpf(-0.6, 0.7, f)
+		var w := lerpf(0.32, 0.78, f * f)
+		pts.append(q + Vector2(w * s + sway * s * f, y * s))
+	draw_colored_polygon(pts, ring_col.lerp(Color(0.25, 0.45, 0.35), 0.4))
+	draw_circle(top + Vector2(0, s * 0.2), s * 0.18, ring_col)
+	draw_circle(q + Vector2(sway * s, s * 0.85), s * 0.16, Color(0.08, 0.08, 0.08))
 
 
 func _fire_icon(q: Vector2, s: float, owner: int, progress: float, pt: float) -> void:
@@ -2638,7 +2758,7 @@ func _draw_scoreboard() -> void:
 			_crown_glyph(Vector2(size.x / 2.0, 9), 20.0, 0.6)
 		_ivy(clock.position + Vector2(6, 60), Vector2(0, -1), 38, 7)
 		_ivy(clock.position + Vector2(214, 60), Vector2(0, -1), 38, 5)
-		_bar_text(Vector2(size.x / 2.0, 42), "FORTIFY" if game.prep_left > 0.0 else ("OVERTIME" if game.overtime else "BATTLE"), tf, 18, GOLD, ink, 4)
+		_bar_text(Vector2(size.x / 2.0, 42), "FORTIFY" if game.prep_left > 0.0 else _phase_name(), tf, 18, GOLD, ink, 4)
 		var sec := maxi(0, ceili(game.prep_left) if game.prep_left > 0.0 else int(game.time_left))
 		_bar_text(Vector2(size.x / 2.0, 78), "%d:%02d" % [sec / 60, sec % 60], tf, 38, CREAM, ink, 5)
 		if game.prep_left > 0.0:
@@ -2657,11 +2777,18 @@ func _draw_scoreboard() -> void:
 	_scoreboard_live(true, quiet)
 
 
+func _phase_name() -> String:
+	## The word over the match clock once the battle is on.
+	if game.is_tdm():
+		return "SUDDEN DEATH" if game.tdm_sudden else "FIRST TO %d" % Stats.TDM_KILLS_TO_WIN
+	return "OVERTIME" if game.overtime else "BATTLE"
+
+
 func _topbar_key() -> Array:
-	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and game.prep_left <= 0.0 and not game.overtime else {}
+	var fire: Dictionary = game.objective_status(_my_team()) if game.objective() and game.prep_left <= 0.0 and not game.overtime else {}
 	var left := maxf(game.time_left, 0.0)
 	return [size, _bake_scale(), game.score.duplicate(), game.prep_left > 0.0, ceilf(game.prep_left), int(game.prep_left * 2.0) % 2,
-		int(left), left < 60.0 and int(left * 2.0) % 2 == 0, game.overtime, _k("interact"), game.barricades_left[_my_team()],
+		int(left), left < 60.0 and int(left * 2.0) % 2 == 0, game.overtime, game.game_mode, game.tdm_sudden, _k("interact"), game.barricades_left[_my_team()],
 		fire.get("text", ""), fire.get("color", Color.BLACK), fire.is_empty()]
 
 
@@ -2681,13 +2808,13 @@ func _scoreboard_live(_full: bool, quiet: bool = false) -> void:
 		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw), 1.6)
 		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw), 1.6)
 	var fortify: bool = game.prep_left > 0.0
-	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime and not quiet else {}
+	var fire: Dictionary = game.objective_status(_my_team()) if game.objective() and not fortify and not game.overtime and not quiet else {}
 	if not fire.is_empty() and fire.text != "":
 		# Ember Pass: the Fire Objective's flame beside the strip, and the
 		# capture filling along its foot.
 		var x0 := cx - 250.0
 		draw_circle(Vector2(x0, 98), 10, Color(0.33, 0.2, 0.07))
-		_fire_icon(Vector2(x0, 98), 7.0, fire.owner, fire.progress, now)
+		_objective_icon(fire, Vector2(x0, 98), 7.0, now)
 		var p: float = absf(fire.progress)
 		if p > 0.01 and p < 0.999:
 			var lead := 0 if fire.progress < 0.0 else 1
@@ -2736,7 +2863,8 @@ func _scoreboard_static(quiet: bool = false) -> void:
 	else:
 		var left := maxf(game.time_left, 0.0)
 		var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
-		_bar_text(Vector2(clock_x, 42), "OVERTIME" if game.overtime else "BATTLE", tf, 18, Color(1, 0.55, 0.4) if game.overtime else Color(1.0, 0.78, 0.32), ink, 4)
+		var hot: bool = game.overtime or game.tdm_sudden
+		_bar_text(Vector2(clock_x, 42), _phase_name(), tf, 18 if _phase_name().length() < 10 else 15, Color(1, 0.55, 0.4) if hot else Color(1.0, 0.78, 0.32), ink, 4)
 		_bar_text(Vector2(clock_x, 70), "%d:%02d" % [int(left) / 60, int(left) % 60], tf, 38,
 			Color(1, 0.4, 0.3) if urgent else Color(1.0, 0.97, 0.92), ink, 5)
 	# The phase line only when there is news (fortify, overtime, the Ember
@@ -2752,24 +2880,28 @@ func _scoreboard_static(quiet: bool = false) -> void:
 	elif game.overtime:
 		line = "Overtime: no respawns. The last team standing or the next capture wins."
 		line_ink = Color(0.55, 0.1, 0.05)
-	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime and not quiet else {}
+	elif game.tdm_sudden:
+		line = "Sudden death: the next kill wins the deathmatch."
+		line_ink = Color(0.55, 0.1, 0.05)
+	var fire: Dictionary = game.objective_status(_my_team()) if game.objective() and not fortify and not game.overtime and not quiet else {}
 	if not fire.is_empty() and fire.text != "":
 		line = fire.text
 		line_ink = fire.color
 	if quiet:
 		line = ""
 	if line != "":
-		var fs := 14 if _text_width(line, 14) < 520.0 else 12
-		# A soft dark band behind it, so the line reads over bright ground.
-		var lw := minf(_text_width(line, fs) + 28.0, 548.0)
-		_plate(Rect2(cx - lw / 2.0, 100.0 - fs - 3.0, lw, fs + 9.0), Color(0.04, 0.04, 0.05, 0.6), Color(0, 0, 0, 0), 8, 0)
-		_text(Vector2(cx - 260.0, 100.0), line, fs, line_ink.lerp(Color(1.0, 0.95, 0.82), 0.85), HORIZONTAL_ALIGNMENT_CENTER, 520.0, 4)
+		# (8/8 pass 2026-11-04: 15 px over a 680 px band, darker; the long
+		# fortify line had shrunk to ~10 px inside 520 at 720p.)
+		var fs := 15 if _text_width(line, 15) < 660.0 else 13
+		var lw := minf(_text_width(line, fs) + 28.0, 690.0)
+		_plate(Rect2(cx - lw / 2.0, 100.0 - fs - 3.0, lw, fs + 10.0), Color(0.04, 0.04, 0.05, 0.74), Color(0, 0, 0, 0), 8, 0)
+		_text(Vector2(cx - 330.0, 100.0), line, fs, line_ink.lerp(Color(1.0, 0.95, 0.82), 0.85), HORIZONTAL_ALIGNMENT_CENTER, 660.0, 4)
 	if not fire.is_empty() and line == fire.text:
 		# Ember Pass: the Fire Objective's flame beside the strip, and the
 		# capture filling along its foot.
 		var x0 := cx - 250.0
 		draw_circle(Vector2(x0, 98), 10, Color(0.33, 0.2, 0.07))
-		_fire_icon(Vector2(x0, 98), 7.0, fire.owner, fire.progress, Time.get_ticks_msec() / 1000.0)
+		_objective_icon(fire, Vector2(x0, 98), 7.0, Time.get_ticks_msec() / 1000.0)
 		var p: float = absf(fire.progress)
 		if p > 0.01 and p < 0.999:
 			var lead := 0 if fire.progress < 0.0 else 1
@@ -4427,6 +4559,19 @@ func _hide_world_prompts() -> void:
 				s.prompt.transparency = 1.0
 
 
+func _draw_tip(me) -> void:
+	## One first-match tip for this pane's player (scripts/tips.gd): a small
+	## pill under the top edge, the keys of the device they hold.
+	var text := Tips.current(game, me, get_process_delta_time())
+	if text == "":
+		return
+	var k := minf(1.0, size.x / 1280.0)
+	var w := minf(size.x - 16.0, 560.0 * k + 120.0)
+	var r := Rect2(Vector2((size.x - w) / 2.0, 12.0 if pane else 44.0), Vector2(w, 34.0 * maxf(k, 0.8)))
+	_plate(r, Color(0.07, 0.06, 0.05, 0.88), GOLD_DARK, 8, 1)
+	_text(Vector2(r.position.x, r.position.y + r.size.y * 0.66), text, 13 if k >= 0.8 else 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
+
+
 func _draw_world_prompt() -> void:
 	## When this HUD's player stands where F (interact) does something, a
 	## small dark pill with the key and the action hangs over the thing.
@@ -4467,7 +4612,7 @@ func _draw_world_prompt() -> void:
 				else:
 					text = "TAKE THE %s'S HAT" % s.class_title().to_upper()
 				break
-	if text == "" and me.carrying == null and game.prep_left <= 0.0:
+	if text == "" and me.carrying == null and game.prep_left <= 0.0 and not game.is_tdm():
 		var m = game.monarchs[1 - me.team]
 		var flat := Vector2(me.global_position.x - m.global_position.x, me.global_position.z - m.global_position.z).length()
 		# 1.8 m is Unit.PICKUP_RANGE, the reach of a grab.
@@ -4593,11 +4738,19 @@ func _draw_map(rect: Rect2, detailed: bool) -> void:
 		elif mark[1] == "mill":
 			draw_rect(Rect2(c - Vector2(2.0, 2.0) * sx, Vector2(4, 4) * sx), Color(0.6, 0.45, 0.3))
 			draw_arc(c + Vector2(-signf(mark[0].x) * 2.6 * sx, 0), 1.8 * sx, 0, TAU, 8, Color(0.35, 0.25, 0.15), 1.0)
+		elif mark[1] == "graveyard":
+			draw_rect(Rect2(c - Vector2(2.2, 1.8) * sx, Vector2(4.4, 3.6) * sx), Color(0.24, 0.22, 0.2, 0.8))
 		else:
 			_lanes_mark(mark, m, sx, sz, detailed)
 	# The river, the island and the bridges.
 	if game.vmap == null and game.lmap == null:
 		_draw_map_river(m, sx, sz, hz, detailed)
+	if game.graveyard:
+		var gq: Vector2 = m.call(game.graveyard.CENTER)
+		_bell_icon(gq, 11.0 if detailed else 7.0, game.graveyard.bell_owner, game.graveyard.bell_progress, Time.get_ticks_msec() / 1000.0)
+		if detailed:
+			var gtxt: String = "CURSED BELL" if game.graveyard.bell_owner < 0 else "CURSED BELL · %s" % Stats.FACTIONS[game.graveyard.bell_owner].name.to_upper()
+			_map_label(gq + Vector2(0, 22), gtxt, Color(0.6, 1.0, 0.55))
 	_draw_map_castles(rect, m, sx, sz, fx, detailed)
 
 
@@ -4649,7 +4802,8 @@ func _draw_map_castles(rect: Rect2, m: Callable, sx: float, sz: float, fx: float
 		if detailed:
 			_map_pin("door", m.call(Vector3(ox - side * 3.0, 0, 0)), 7.5, door_color)
 			_map_pin("spawn", m.call(Vector3(cx - side * game.CELLAR_DEPTH * 0.5, 0, 0)), 7.5, tc)
-		_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
+		if not game.is_tdm():
+			_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
 		if detailed:
 			_text(outer.position + Vector2(-40, -6), "%s CASTLE" % Stats.FACTIONS[t].name.to_upper(), 11, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, outer.size.x + 80, 2)
 			_card("crest_elf" if t == 0 else "crest_human", Rect2(keep.position + Vector2(keep.size.x / 2.0 - 11, 2), Vector2(22, 22)))
@@ -5959,6 +6113,8 @@ func map_title() -> String:
 	if game.vmap:
 		return "EMBER PASS"
 	if game.lmap:
+		if game.lmap.kind == "heartwood":
+			return "THE WILDWOOD VALLEY"
 		return "STONEKEEP FORTRESS" if game.season == "winter" else "TWILIGHT GROVE"
 	return "MOONLIT WILDWOOD" if game.map_variant == 1 else "THE WILDWOOD VALLEY"
 
@@ -5978,6 +6134,8 @@ func _lanes_cells(m: Callable, sx: float, sz: float, keep: Callable) -> void:
 		var col: Color
 		if winter:
 			col = Color(0.42, 0.47, 0.58).lerp(Color(0.9, 0.93, 0.98), clampf((d - 0.6) / 4.0, 0.0, 1.0))
+		elif game.lmap.kind == "heartwood":
+			col = Color(0.2, 0.36, 0.16).lerp(Color(0.12, 0.26, 0.1), clampf(d / 6.0, 0.0, 1.0))
 		else:
 			col = Color(0.16, 0.24, 0.28).lerp(Color(0.1, 0.16, 0.2), clampf(d / 6.0, 0.0, 1.0))
 		draw_rect(Rect2(q - size / 2.0, size), col)
@@ -6005,6 +6163,33 @@ func _lanes_mark(mark: Array, m: Callable, sx: float, sz: float, detailed: bool)
 			draw_colored_polygon(pts, Color(0.62, 0.82, 0.96))
 			pts.append(pts[0])
 			draw_polyline(pts, Color(0.92, 0.97, 1.0), 1.5 if detailed else 1.0)
+		"heart":
+			# The Wildwood's Heart-Tree: the moat, the raised ring, the tree.
+			var pts := PackedVector2Array()
+			for k in 32:
+				var a := TAU * k / 32.0
+				pts.append(q + Vector2(cos(a) * game.lmap.MOAT_OUT * sx, sin(a) * game.lmap.MOAT_OUT * sz))
+			draw_colored_polygon(pts, Color(0.22, 0.52, 0.78))
+			var ring := PackedVector2Array()
+			for k in 32:
+				var a := TAU * k / 32.0
+				ring.append(q + Vector2(cos(a) * game.lmap.MOAT_IN * sx, sin(a) * game.lmap.MOAT_IN * sz))
+			draw_colored_polygon(ring, Color(0.8, 0.68, 0.48))
+			for k in 4:
+				var d := Vector2(cos(k * PI / 2.0), sin(k * PI / 2.0))
+				draw_line(q + Vector2(d.x * sx, d.y * sz) * (game.lmap.MOAT_IN - 0.5), q + Vector2(d.x * sx, d.y * sz) * (game.lmap.MOAT_OUT + 0.8), Color(0.62, 0.44, 0.26), maxf(4.0 * sx, 2.0))
+			draw_circle(q, maxf(2.6 * sx, 2.2), Color(0.95, 0.55, 0.78))
+			draw_circle(q, maxf(1.2 * sx, 1.2), Color(1.0, 0.85, 0.95, 0.9))
+		"brook":
+			for sgn in [1.0, -1.0]:
+				var line := PackedVector2Array()
+				for p in game.lmap.BROOK:
+					line.append(m.call(p * sgn))
+				draw_polyline(line, Color(0.22, 0.52, 0.78), maxf(game.lmap.BROOK_HALF * 2.0 * sx, 1.5))
+		"logbridge":
+			draw_circle(q, maxf(1.6 * sx, 1.5), Color(0.62, 0.44, 0.26))
+		"tower":
+			draw_circle(q, maxf(1.4 * sx, 1.4), Color(0.6, 0.6, 0.62))
 		"pool":
 			var rr: float = game.lmap.POOL_R
 			var pts := PackedVector2Array()
@@ -6048,6 +6233,8 @@ func _menu_overview(body: Rect2) -> void:
 		blurb = "Hold the Fire Objective and every class on your team becomes its Fire form. Break the door, steal their crown, carry it home."
 	elif game.lmap and game.season == "winter":
 		blurb = "Force the ruin's narrow gate, or take the long snow lanes over the frozen tarns. Break the door, steal their crown, carry it home."
+	elif game.lmap and game.lmap.kind == "heartwood":
+		blurb = "Cross a moat bridge to the Heart-Tree, swing round the far loops, or slip through the jungle glades. Steal their crown, carry it home."
 	elif game.lmap:
 		blurb = "Paths ring the glowing pool and wind through the grove: no chokepoint, so flank and ambush. Steal their crown, carry it home."
 	_text(Vector2(body.position.x, y + rows * 17 + 6), blurb, 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, body.size.x, 2)
@@ -6210,7 +6397,7 @@ func _menu_controls(body: Rect2) -> void:
 	var kx := R.end.x - 330.0
 	var px := R.end.x - 120.0
 	_text(Vector2(kx - 70, R.position.y + 26), "KEYBOARD / MOUSE", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 140, 2)
-	_text(Vector2(px - 60, R.position.y + 26), "DUALSENSE" if pad_kind == "ps" else "GAMEPAD", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
+	_text(Vector2(px - 60, R.position.y + 26), "DUALSENSE" if pad_kind == "ps" else ("SWITCH PAD" if pad_kind == "switch" else "GAMEPAD"), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
 	var names := {}
 	for e in game.REBINDABLE:
 		names[e[0]] = e[1]
@@ -6270,7 +6457,9 @@ func _menu_settings(body: Rect2) -> void:
 	var x := body.position.x
 	var w := body.size.x
 	var y := body.position.y
-	var gap := clampf((body.size.y - 442.0) / 4.0, 0.0, 10.0)
+	# The title's Options has a third DISPLAY row (window size, auto-detect); the paused page has no room for it under the LEAVE / RESUME bar.
+	var extra_row: bool = not game.playing
+	var gap := clampf((body.size.y - (486.0 if extra_row else 442.0)) / 4.0, 0.0, 10.0)
 	# AUDIO.
 	y = _opt_section(Vector2(x, y), w, "AUDIO", "leaf", 40.0)
 	var half := (w - 34.0) / 2.0
@@ -6286,7 +6475,7 @@ func _menu_settings(body: Rect2) -> void:
 		volume_sliders.append([sl, "sound" if i == 0 else "music"])
 	y += 36 + gap
 	# DISPLAY: five switches, then fullscreen and the graphics quality.
-	y = _opt_section(Vector2(x, y), w, "DISPLAY", "leaf", 82.0)
+	y = _opt_section(Vector2(x, y), w, "DISPLAY", "leaf", 126.0 if extra_row else 82.0)
 	var toggles := [["Screen Shake", game.screen_shake, "shake"], ["Damage Numbers", game.damage_numbers, "numbers"],
 		["FPS Counter", game.show_fps, "fps"], ["Chat Log", game.chat_visible, "chat"], ["Player Rosters", game.rosters_visible, "rosters"]]
 	var tw := (w - 24.0 - (toggles.size() - 1) * 8.0) / toggles.size()
@@ -6329,7 +6518,26 @@ func _menu_settings(body: Rect2) -> void:
 		var b := Rect2(gq.position.x + 114 + i * (qw + 8), gq.position.y + 5, qw, 26)
 		_opt_button(b, game.GFX_NAMES[i], game.gfx_quality == i)
 		toggle_buttons.append([b, "gfx_%d" % i])
-	y += 82 + gap
+	# Third row: the windowed size (the sizes that fit this screen; Borderless and Fullscreen use the screen's own) and the
+	# graphics auto-detect, lit until a preset is picked above.
+	if extra_row:
+		var wsr := Rect2(x + 12, y + 88, tw + 40, 36)
+		_opt_slot(wsr)
+		_opt_glyph("fullscreen", wsr.position + Vector2(22, 18), GOLD)
+		_text(wsr.position + Vector2(42, 24), "Window Size", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		var windowed: bool = game.window_mode == "windowed"
+		var cur: Vector2i = game.window_size if game.window_size != Vector2i.ZERO else DisplayServer.window_get_size()
+		_opt_button(Rect2(wsr.end.x - 100, wsr.position.y + 5, 92, 26), "%dx%d" % [cur.x, cur.y], windowed and game.window_size != Vector2i.ZERO)
+		if windowed:
+			toggle_buttons.append([wsr, "window_size"])
+		var aut := Rect2(wsr.end.x + 8, y + 88, 2 * tw - 40, 36)
+		_opt_slot(aut)
+		_opt_glyph("gfx", aut.position + Vector2(22, 18), GOLD)
+		_text(aut.position + Vector2(42, 24), "Graphics Auto-Detect", 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		_opt_button(Rect2(aut.end.x - 64, aut.position.y + 5, 56, 26), "AUTO", not game.gfx_picked)
+		toggle_buttons.append([aut, "gfx_auto"])
+		_text(Vector2(aut.end.x + 16, y + 111), "Window size applies in Windowed mode.", 12, Color(0.68, 0.7, 0.78), HORIZONTAL_ALIGNMENT_LEFT, x + w - 12 - (aut.end.x + 16), 2)
+	y += (126 if extra_row else 82) + gap
 	# BOTS.
 	y = _opt_section(Vector2(x, y), w, "BOTS", "leaf", 38.0)
 	var skulls := [Color(0.92, 0.9, 0.85), Color(1.0, 0.78, 0.25), Color(0.9, 0.25, 0.2)]
@@ -6338,7 +6546,9 @@ func _menu_settings(body: Rect2) -> void:
 		var b := Rect2(x + 12 + i * 186, y + 2, 178, 34)
 		_opt_button(b, name.to_upper(), game.bot_difficulty == name, skulls[i % skulls.size()])
 		difficulty_buttons.append([b, name])
-	var desc := Rect2(x + 12 + 3 * 186, y + 2, w - 24 - 3 * 186, 34)
+	var tips_w := 150.0
+	_toggle(Rect2(x + w - 12 - tips_w, y + 2, tips_w, 34), "Tips", game.tips_on, "tips")
+	var desc := Rect2(x + 12 + 3 * 186, y + 2, w - 24 - 3 * 186 - tips_w - 8, 34)
 	_opt_slot(desc)
 	_text(desc.position + Vector2(14, 23), Stats.BOT_TUNING[game.bot_difficulty].desc, 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, desc.size.x - 20, 2)
 	y += 38 + gap
@@ -6370,7 +6580,7 @@ func _menu_settings(body: Rect2) -> void:
 	# GAMEPAD.
 	y = _opt_section(Vector2(x, y), w, "GAMEPAD", "horn", 40.0)
 	_toggle(Rect2(x + 12, y + 2, 210, 36), "Rumble", game.rumble_on, "rumble")
-	var style_names := {"auto": "AUTO", "xbox": "XBOX", "ps": "PLAYSTATION"}
+	var style_names := {"auto": "AUTO", "xbox": "XBOX", "ps": "PLAYSTATION", "switch": "SWITCH"}
 	var style := Rect2(x + 232, y + 2, 300, 36)
 	_opt_slot(style)
 	_text(style.position + Vector2(14, 23), "Button Names", 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -6761,8 +6971,8 @@ func _draw_chat() -> void:
 		var named: bool = m.who != ""
 		var body := _chat_display_text(m)
 		var touch_hint: bool = touch_ui and not named and body != m.text
-		var body_size := 22 if touch_hint else 11
-		var line_height := 26.0 if touch_hint else 13.0
+		var body_size := 22 if touch_hint else 13
+		var line_height := 26.0 if touch_hint else 16.0
 		var body_h := _paragraph_height(body, body_size, tw, line_height)
 		var h: float = maxf(36.0, body_h + (22.0 if named else 10.0))
 		y -= h + 4
@@ -6796,10 +7006,10 @@ func _draw_chat() -> void:
 				draw_circle(row.position + Vector2(20, 18), 13, Color(0.2, 0.2, 0.26, alpha))
 				_icon("crown", row.position + Vector2(20, 18), 7, Color(GOLD.r, GOLD.g, GOLD.b, alpha))
 			var who: String = m.who + ("  [Team]" if m.team else "")
-			_text(row.position + Vector2(40, 14), who, 11, col, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(row.position + Vector2(40, 14), who, 12, col, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			var clock: float = m.get("clock", 0.0)
 			_text(row.position + Vector2(0, 14), "%02d:%02d" % [int(clock) / 60, int(clock) % 60], 9, Color(0.6, 0.62, 0.7, alpha), HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 8, 1)
-			_paragraph(row.position + Vector2(40, 29), m.text, 11, Color(0.92, 0.92, 0.95, alpha), tw, 13.0, 1)
+			_paragraph(row.position + Vector2(40, 30), m.text, 13, Color(0.96, 0.96, 0.98, alpha), tw, 16.0, 2)
 		else:
 			_icon("crown", row.position + Vector2(20, h / 2.0), 6, Color(GOLD.r, GOLD.g, GOLD.b, 0.8 * alpha))
 			# Centre the whole block: the first line used to sit at the middle
@@ -7229,7 +7439,7 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 			tx = origin.x + lx
 			ty += 22
 		var b := Rect2(tx, ty, tw, 19)
-		var have: bool = t[0] <= game.account_level() or "--debug-unlock" in OS.get_cmdline_user_args()
+		var have: bool = t[0] <= game.account_level() or (OS.is_debug_build() and "--debug-unlock" in OS.get_cmdline_user_args())
 		_plate(b, INK_LIGHT if have else Color(0.2, 0.2, 0.24), GOLD if i == game.banner_title else Color(0.1, 0.1, 0.14), 4, 2 if i == game.banner_title else 1)
 		_text(b.position + Vector2(0, 13.5), t[1].to_upper(), 9, Color.WHITE if have else GREY, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 1)
 		hero_buttons.append([b, "banner_title", i])

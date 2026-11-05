@@ -1330,8 +1330,14 @@ func _wood_icon(hud, c: Vector2, r: float) -> void:
 
 
 func _ore_icon(hud, c: Vector2, r: float) -> void:
-	## Ore, shown as a gold coin: inked rim, raised edge, a stamped crown and
-	## a shine.
+	## Ore, shown as a gold coin: the painted coin icon where the HUD has it
+	## (icon set 2026-11-04), else an inked rim, raised edge, a stamped crown
+	## and a shine.
+	var icons = hud.get("icons")
+	if icons is Dictionary and icons.has("coin"):
+		var px := r * 2.5
+		hud.draw_texture_rect(icons["coin"], Rect2(c - Vector2(px, px) / 2.0, Vector2(px, px)), false)
+		return
 	var k := r / 10.0
 	hud.draw_circle(c, 10.2 * k, Color(0.3, 0.17, 0.03))
 	hud.draw_circle(c, 9.0 * k, Color(0.86, 0.56, 0.12))
@@ -1541,15 +1547,15 @@ func offer(p) -> Dictionary:
 		var t = _turret_on(team, pad.pos)
 		if t == null:
 			return _offer("Build a Turret", "A base turret that shoots enemies near your castle.", E.turret_wood, E.turret_ore, "BUILD",
-				can_afford(team, E.turret_wood, E.turret_ore), _need(team, E.turret_wood, E.turret_ore), Vector2.ZERO, "turret", Color(0.35, 0.4, 0.5), "TURRET PAD")
+				can_afford(team, E.turret_wood, E.turret_ore), _need(team, E.turret_wood, E.turret_ore), Vector2.ZERO, "turret", Color(0.24, 0.5, 0.33), "TURRET PAD")
 		var hp := Vector2(float(t.hp), float(t.max_hp()))
 		if t.hp < t.max_hp():
 			return _offer("Repair the Turret", "Patch it back to full health.", E.turret_fix_wood, E.turret_fix_ore, "REPAIR",
-				can_afford(team, E.turret_fix_wood, E.turret_fix_ore), _need(team, E.turret_fix_wood, E.turret_fix_ore), hp, "turret", Color(0.35, 0.4, 0.5))
+				can_afford(team, E.turret_fix_wood, E.turret_fix_ore), _need(team, E.turret_fix_wood, E.turret_fix_ore), hp, "turret", Color(0.24, 0.5, 0.33))
 		if t.level < Stats.TURRET.max_level:
 			return _offer("Upgrade the Turret", "Level %d to level %d: tougher and harder hitting." % [t.level, t.level + 1], E.turret_up_wood, E.turret_up_ore, "UPGRADE",
-				can_afford(team, E.turret_up_wood, E.turret_up_ore), _need(team, E.turret_up_wood, E.turret_up_ore), hp, "turret", Color(0.35, 0.4, 0.5))
-		return _offer("Turret", "Level %d, the highest it goes." % t.level, 0, 0, "UPGRADE", false, "MAX LEVEL", hp, "turret", Color(0.35, 0.4, 0.5), "LV %d" % t.level)
+				can_afford(team, E.turret_up_wood, E.turret_up_ore), _need(team, E.turret_up_wood, E.turret_up_ore), hp, "turret", Color(0.24, 0.5, 0.33))
+		return _offer("Turret", "Level %d, the highest it goes." % t.level, 0, 0, "UPGRADE", false, "MAX LEVEL", hp, "turret", Color(0.24, 0.5, 0.33), "LV %d" % t.level)
 	return {}
 
 
@@ -1596,11 +1602,18 @@ func draw_action_card(hud, me) -> void:
 	# (Above the LEVEL UP strip and its name tag, at H-224..H-138 by the ability bar:
 	# at H-282 the card's + button was under it, FE-02.)
 	var card := Rect2(Vector2(W / 2.0 - 300.0, H - (490.0 if touch else 346.0)), Vector2(600, 112))
-	_wood_board(hud, card, 4, true)
-	# Hex tile with the move's (or the job's) painted icon.
+	if W < 1200.0 and not touch:
+		# A split-screen pane: the ability strip sits at the right and the
+		# controls tip at the left above the status panel, under the card's
+		# usual spot; the card rises clear of both.
+		card.position.y -= 116.0
+	_slate_card(hud, card)
+	# A round slot like the ability strip's, with the job's painted icon
+	# (claude-faisal/crowns-visual2 2026-11-04, Faisal: the build-a-turret
+	# card restyled to match the rest of the HUD).
 	var hc := card.position + Vector2(62, 56)
-	hud._hex_tile(hc, 36.0, BRASS if o.ok else Color(0.5, 0.5, 0.52), o.tile, false, o.ok)
-	hud._icon(o.icon, hc, 15.0, Color.WHITE, not o.ok)
+	_slot_disc(hud, hc, 38.0, o.tile, o.ok)
+	hud._icon(o.icon, hc, 19.0, Color.WHITE, not o.ok)
 	var x := card.position.x + 118.0
 	hud._text(Vector2(x, card.position.y + 32), o.title, 21, Color(1.0, 0.84, 0.36), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
 	hud._paragraph(Vector2(x, card.position.y + 53), o.detail, 13, Color(0.97, 0.93, 0.8), 300.0, 16.0)
@@ -1615,7 +1628,7 @@ func draw_action_card(hud, me) -> void:
 		# A level-chip style tag (gold outline) like the LV chips in the menu.
 		var tw: float = hud._text_width(o.tag, 11) + 16.0
 		var tr := Rect2(Vector2(x, card.end.y - 26), Vector2(tw, 18))
-		hud.draw_rect(tr, Color(0.12, 0.06, 0.02, 0.6))
+		hud.draw_rect(tr, Color(0.04, 0.06, 0.09, 0.75))
 		hud.draw_rect(tr, BRASS, false, 1.2)
 		hud._text(tr.position + Vector2(8, 13), o.tag, 11, Color(1.0, 0.85, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	# Price, right-aligned above the button, red when the base is short.
@@ -1665,7 +1678,7 @@ func draw_action_card(hud, me) -> void:
 		hud.draw_rect(Rect2(pc - Vector2(16, 3.5), Vector2(32, 7)), ink)
 		hud.draw_rect(Rect2(pc - Vector2(3.5, 16), Vector2(7, 32)), ink)
 	if o.ok and not touch:
-		hud._keycap(btn.position + Vector2(btn.size.x - 4, 4), hud._k("interact"), 24.0)
+		hud._keycap(btn.position + Vector2(btn.size.x - 4, btn.size.y - 6), hud._k("interact"), 24.0)
 	var label: String = o.verb if o.ok or o.reason == "" else o.reason
 	hud._text(Vector2(btn.position.x - 40, card.end.y - 12), label, 12 if label.length() <= 12 else 10,
 		Color(1.0, 0.88, 0.5) if o.ok else Color(1.0, 0.55, 0.5), HORIZONTAL_ALIGNMENT_CENTER, btn.size.x + 80, 2)
@@ -1769,6 +1782,38 @@ func close_training() -> void:
 
 const BRASS := Color(0.86, 0.66, 0.28)   # hud.gd's palette: the ability board's rim
 const WOOD_DARK := Color(0.27, 0.15, 0.07)
+
+
+func _slate_card(hud, r: Rect2) -> void:
+	## The ability strip's look (hud._ability_strip): a slate silhouette with
+	## chamfered corners in a 3 px gold line, ivy sprigs at the ends.
+	var c := 14.0
+	var pts := PackedVector2Array([r.position + Vector2(c, 0), Vector2(r.end.x - c, r.position.y), Vector2(r.end.x, r.position.y + c),
+		r.end - Vector2(0, c), Vector2(r.end.x - c, r.end.y), Vector2(r.position.x + c, r.end.y), Vector2(r.position.x, r.end.y - c), r.position + Vector2(0, c)])
+	var shadow := PackedVector2Array()
+	for q in pts:
+		shadow.append(q + Vector2(0, 4))
+	hud.draw_colored_polygon(shadow, Color(0, 0, 0, 0.4))
+	hud.draw_colored_polygon(pts, Color(0.08, 0.11, 0.15, 0.96))
+	var line := pts.duplicate()
+	line.append(pts[0])
+	hud.draw_polyline(line, Color("d8aa47"), 3.0, true)
+	hud.draw_line(r.position + Vector2(c + 4, 4), Vector2(r.end.x - c - 4, r.position.y + 4), Color(1, 0.9, 0.6, 0.18), 1.0)
+	if hud.has_method("_ivy"):
+		hud._ivy(r.position + Vector2(6, r.size.y * 0.62), Vector2(0, -1), 34, 3)
+		hud._ivy(Vector2(r.end.x - 6, r.position.y + r.size.y * 0.62), Vector2(0, -1), 34, 6)
+
+
+func _slot_disc(hud, c: Vector2, rad: float, tile: Color, ok: bool) -> void:
+	## A round icon slot in the ability slots' style: dark bevel, brass ring,
+	## the job's colour inside (greyed when it can't be bought).
+	hud.draw_circle(c + Vector2(0, 3), rad + 4.0, Color(0, 0, 0, 0.4))
+	hud.draw_circle(c, rad + 4.0, Color(0.2, 0.12, 0.04))
+	hud.draw_circle(c, rad + 2.0, Color("d8aa47") if ok else Color(0.55, 0.52, 0.48))
+	var fill := tile if ok else tile.lerp(Color(0.3, 0.3, 0.32), 0.65)
+	hud.draw_circle(c, rad - 1.0, fill.darkened(0.35))
+	hud.draw_circle(c - Vector2(0, rad * 0.18), rad * 0.78, fill)
+	hud.draw_arc(c, rad - 1.0, PI * 1.1, PI * 1.9, 24, Color(1, 1, 1, 0.22), 2.0, true)
 
 
 func _wood_board(hud, rect: Rect2, planks: int, trim: bool) -> void:
@@ -1891,11 +1936,11 @@ func draw_hat_slot(hud, p, strip: Rect2) -> void:
 	if hud.get("touch_ui") != true:
 		hud._keycap(Vector2(hc.x, at.y + slot + 4), hud._k("ability_3"), 24.0)
 	var label := "TRAINING"
-	var lc := Color(0.97, 0.93, 0.8) if ready else Color(0.75, 0.68, 0.58)
+	var lc := Color(0.97, 0.93, 0.8) if ready else Color(0.9, 0.85, 0.74)   # (8/8 pass: "AT 5:00" was near-invisible)
 	if wait > 0.0:
 		var left := int(Stats.MATCH_TIME) - int(Stats.ECONOMY.train_after)
 		label = "AT %d:%02d" % [left / 60, left % 60]
-	hud._text(Vector2(at.x - 30, at.y + slot + 31), label, 12, lc, HORIZONTAL_ALIGNMENT_CENTER, slot + 60, 3)
+	hud._text(Vector2(at.x - 30, at.y + slot + 31), label, 13, lc, HORIZONTAL_ALIGNMENT_CENTER, slot + 60, 5)
 	slot_rect = Rect2(at, Vector2(slot, slot))
 	if hud.get("touch_ui") == true and hud.get("touch_rects") != null:
 		hud.touch_rects.append([Rect2(at * hud.hud_scale, Vector2(slot, slot) * hud.hud_scale).grow(8), "ability_3"])
