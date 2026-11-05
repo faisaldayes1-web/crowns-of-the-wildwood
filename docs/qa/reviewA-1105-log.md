@@ -33,6 +33,10 @@ P0: blocks use or safe traversal; P1: major visible defect/UI obstruction; P2: l
 - Preserved raw boot log and artifact hash; closed only owned failed process. No match, class, pad, split-screen, screenshot review or clean pass claimed.
 - Supplemental follow-up: inspected two pre-existing local WEBP frames (Wildwood 805x746, Stonekeep 1308x773). Logged two suspected intersections and one visible world-label overlap, with pixel bounds and unknown-source/grid caveats. These are not current capture sets or full review passes. Did not copy the Stonekeep desktop notification into repository evidence.
 - Host requested a read-only startup audit in mail `1793902973-15a2b8`. Searched all 56 checked-out `scripts/**/*.gd` files for unqualified `free(...)`; only `projectile.gd:169` matched. No additional compile failure proven; no headless/editor launch without a slot.
+- Reports/evidence published in `7ba9819`; supplementary visual lists in `d6dad9b`. Host milestone receipt `1793903108-2ee76f`; gameplay fixer receipts `1793903058-6217c2` and `1793903309-08d932`. Initial visual-list mail hit a Git synchronization error; serialized retry delivered as `cf-crowns-reviewA-supp-1105f` at 18:30:01 UTC.
+- Host mail `1793903290-2046be` independently reports current-main `a93e5b4` fails the new fresh-export boot gate on the projectile call. Crowns smoke-match hook is assigned to claude-faisal3; Reviewer A remains analysis-only.
+- Source follow-up located Stonekeep's paired courtyard rubble and health pickups 1.2 world units apart; added world coordinates and mesh-bound confirmation request to VA-SK-001. Source proximity is not a substitute for current rendered confirmation.
+- No gameplay code, scenes, assets or Reviewer B reports changed. Branch diff contains only the own appended claim, QA reports/coverage and raw startup evidence. Raw log trailing whitespace is retained verbatim; documentation diff checks pass.
 
 ## Next executable steps
 
