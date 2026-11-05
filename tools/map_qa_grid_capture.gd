@@ -39,6 +39,8 @@ const EXTRA := [
 	["x4-se-flank-nw", 30.0, 24.0, 4.0, 6.0],
 	["x5-ne-hill-east", 22.0, -14.0, 40.0, -22.0],
 	["x6-sw-hill-west", -22.0, 14.0, -40.0, 22.0],
+	["x7-ne-corner-alt", 27.0, -15.0, -6.0, 2.0],   # the g8 sightline from a clear spot (g8 itself stays put)
+	["x8-sw-corner-alt", -27.0, 15.0, 6.0, -2.0],   # the same for g7
 ]
 var game
 var output := ""
