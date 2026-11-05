@@ -125,6 +125,23 @@ func _index_world() -> void:
 		if not _props.has(k):
 			_props[k] = []
 		_props[k].append(q)
+		# The prop's own box counts as built too, so a bush or tree never grows through a pillar or a
+		# rubble pile (Faisal 11-05: a wall pillar stood inside a bush).
+		var pb := AABB()
+		var first := true
+		for mi in ap[1].find_children("*", "MeshInstance3D", true, false):
+			var ab: AABB = mi.global_transform * mi.get_aabb() if mi.is_inside_tree() else ap[1].transform * mi.get_aabb()
+			pb = ab if first else pb.merge(ab)
+			first = false
+		if not first and pb.size.y >= 0.3 and pb.end.y >= 0.3:
+			var pa := _key(pb.position, 8.0)
+			var pe := _key(pb.end, 8.0)
+			for x in range(pa.x, pe.x + 1):
+				for z in range(pa.y, pe.y + 1):
+					var pk := Vector2i(x, z)
+					if not _blocks.has(pk):
+						_blocks[pk] = []
+					_blocks[pk].append(pb)
 
 
 func _swap_prop_tree(name: String, node: Node3D, q: Vector3) -> bool:
@@ -321,6 +338,45 @@ func _cull_clipping() -> void:
 			else:
 				audit.dropped += 1
 		_place[key] = keep
+	_cull_fences()
+
+
+func _cull_fences() -> void:
+	## Faisal 11-05 (Wildwood, by the Ranger): a broken fence ran into a tree and stump cluster. Fences
+	## are laid before the trees, so every fence segment is checked here against the trees, bushes and
+	## boulders that ended up beside it and dropped when its box comes within FENCE_GAP of one.
+	if not _place.has("fence"):
+		return
+	var fmesh := _mesh_for("fence")
+	var fl := fmesh.get_aabb()
+	var boxes := []
+	for key in _place.keys():
+		if key == "patch" or key == "fence" or key.begins_with("tuft") or key.begins_with("flower"):
+			continue
+		var mesh := _mesh_for(key)
+		if mesh == null:
+			continue
+		var tree: bool = key.begins_with("pine") or key.begins_with("broad") or key.begins_with("autumn") or key == "blossom"
+		for it in _place[key]:
+			var w: AABB = it[0] * mesh.get_aabb()
+			# A crown overhangs a fence harmlessly; its trunk (the middle 40%) must not.
+			var inset := 0.3 if tree else 0.0
+			var m := Vector3(w.size.x * inset - FENCE_GAP, 0.0, w.size.z * inset - FENCE_GAP)
+			boxes.append(AABB(w.position + m, w.size - m * 2.0))
+	var keep := []
+	for it in _place["fence"]:
+		var fb: AABB = it[0] * fl
+		var hit := false
+		for b in boxes:
+			if b.intersects(AABB(fb.position, Vector3(fb.size.x, maxf(fb.size.y, 0.5), fb.size.z))):
+				hit = true
+				break
+		if not hit:
+			keep.append(it)
+	_place["fence"] = keep
+
+
+const FENCE_GAP := 0.6   # metres a fence keeps from a trunk, bush or boulder
 
 
 func road_audit() -> Array:

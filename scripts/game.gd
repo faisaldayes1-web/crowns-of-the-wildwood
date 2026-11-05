@@ -303,7 +303,7 @@ var touch_active := false      # a finger has touched the screen: aim follows th
 var control_layout := "auto"   # Controls tab (Faisal 2026-10-14: a touch-screen laptop got the iPad layout): "auto", "keyboard", "controller", "touch"
 const CONTROL_LAYOUTS := ["auto", "keyboard", "controller", "touch"]
 var move_mode := "screen"         # keyboard + mouse: "aim" (W walks toward the cursor) or "screen" (W walks up the screen)
-var pc_movement := "click"  # click-to-move by default; "wasd" adds directional keyboard movement
+var pc_movement := "wasd"  # WASD moves and LEFT-CLICK attacks toward the cursor; "click" is the opt-in click-to-move scheme (J attacks)
 var combine_move_attack := false  # walking past an enemy must not silently attack it
 var wheel_zoom := false  # off: wheel bindings force-move; on: wheel zooms instead
 var movement_primary_blocked := false
@@ -529,7 +529,7 @@ func _ready() -> void:
 				var kv := pair.split(":")
 				owned_items.append(Store.key(kv[0], int(kv[1])))
 				Store.equip(self, kv[0], int(kv[1]))
-	if "--play" in OS.get_cmdline_user_args():
+	if "--play" in OS.get_cmdline_user_args() or "--smoke-match" in OS.get_cmdline_user_args() or "--jitter-probe" in OS.get_cmdline_user_args():
 		# This route skips menu_stage.build and its construction-gate cleanup.
 		# The world is complete; let the match process and its loading tween run.
 		_restore_loading_3d()
@@ -537,6 +537,14 @@ func _ready() -> void:
 		process_mode = Node.PROCESS_MODE_INHERIT
 		menus_warming = false
 		_start_match(0)  # testing: straight into a match with a (idle) local player
+		if "--smoke-match" in OS.get_cmdline_user_args():   # the build gate's end-to-end check (tests/smoke_match.gd)
+			var smoke: Node = load("res://tests/smoke_match.gd").new()
+			smoke.game = self
+			add_child(smoke)
+		if "--jitter-probe" in OS.get_cmdline_user_args():   # frame-to-frame smoothness of the hero on screen (tests/jitter_probe.gd)
+			var probe: Node = load("res://tests/jitter_probe.gd").new()
+			probe.game = self
+			add_child(probe)
 		if "--fxshow" in OS.get_cmdline_user_args():  # combat effects showcase (tests/fx_showcase.gd)
 			var show: Node = load("res://tests/fx_showcase.gd").new()
 			show.game = self
@@ -640,7 +648,7 @@ func _world_can_wait() -> bool:
 	if get_tree().get_script() != null and not "--world-behind" in OS.get_cmdline_user_args():
 		return false
 	for arg in OS.get_cmdline_user_args():
-		if arg in ["--demo", "--play", "--audit", "--selftest"] or arg.begins_with("--shot") or arg.begins_with("--debug-"):
+		if arg in ["--demo", "--play", "--smoke-match", "--jitter-probe", "--audit", "--selftest"] or arg.begins_with("--shot") or arg.begins_with("--debug-"):
 			return false
 	return true
 
@@ -3210,11 +3218,11 @@ func _update_camera(delta: float) -> void:
 		# One camera a pane, each on its own player.
 		for pane in panes:
 			var u = pane.unit
-			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.global_position) + CAMERA_OFFSET * cam_zoom * pane.zoom
+			var t: Vector3 = (cam_lock if cam_lock != Vector3.INF and u == player else u.visual_position()) + CAMERA_OFFSET * cam_zoom * pane.zoom
 			pane.cam_pos = pane.cam_pos.lerp(t, clampf(delta * 5.0, 0.0, 1.0))
 			pane.cam.global_position = pane.cam_pos + jolt
 		return
-	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.global_position) + CAMERA_OFFSET * cam_zoom
+	var target: Vector3 = (cam_lock if cam_lock != Vector3.INF else player.visual_position()) + CAMERA_OFFSET * cam_zoom
 	cam_pos = cam_pos.lerp(target, clampf(delta * 5.0, 0.0, 1.0))
 	if cam_top > 0.0:
 		var over: Vector3 = cam_lock if cam_lock != Vector3.INF else player.global_position
@@ -3230,7 +3238,12 @@ func _update_camera(delta: float) -> void:
 	camera.global_position = cam_pos + jolt
 
 
+var mouse_override := Vector2(-1, -1)   # tests (tools/combat_input_test.gd): a cursor position headless cannot warp to
+
+
 func mouse_for(u) -> Vector2:
+	if mouse_override.x >= 0.0:
+		return mouse_override
 	## The mouse in the viewport of the camera looking at u. In couch play
 	## the mouse belongs to player 1 (keyboard and mouse) while the others use
 	## pads: it is read from the whole window and mapped into player 1's pane,
@@ -5108,7 +5121,25 @@ func pad_title(device: int) -> String:
 	return n if n != "" else "Gamepad"
 
 
+func _release_stuck_input() -> void:
+	## A pad plugged or pulled mid-menu or mid-match can leave an action latched
+	## (a trigger or stick last seen held), which kept the hero walking or
+	## swinging with no one touching anything, or blocked the keyboard until the
+	## device came back (Faisal 11-05: hot-plug bugs the controls). Release every
+	## game action and forget half-made clicks; the next real event sets them again.
+	for action in InputMap.get_actions():
+		if not str(action).begins_with("ui_") and Input.is_action_pressed(action):
+			Input.action_release(action)
+	movement_force_pulse = false
+	movement_primary_blocked = false
+	click_latched = false
+	confirm_block = false
+	if player != null:
+		player.cancel_click_movement()
+
+
 func _on_pad_changed(device: int, connected: bool) -> void:
+	_release_stuck_input()
 	var who := ""
 	if couch_players > 1:
 		for k in couch_players:
@@ -5123,6 +5154,7 @@ func _on_pad_changed(device: int, connected: bool) -> void:
 		# Only player 1's pad drives the hint labels; player 2 unplugging used to flip them to keys.
 		if couch_players <= 1 or device == local_pad(0):
 			pad_active = false
+			cursor_shown = false   # the pad's menu pointer goes with it; the mouse takes over at once
 		if who != "" and playing and not menu_open and not (net and net.online()):
 			# A split-screen player whose pad dropped would stand still while the others fight:
 			# pause so they can plug it back in (the bound device id survives a replug).
@@ -5543,6 +5575,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "move_mode", "screen")
 	cfg.set_value("settings", "movement_schema", 1)
 	cfg.set_value("settings", "pc_movement", pc_movement)
+	cfg.set_value("settings", "controls_rev", 2)
 	cfg.set_value("settings", "combine_move_attack", combine_move_attack)
 	cfg.set_value("settings", "wheel_zoom", wheel_zoom)
 	cfg.set_value("settings", "hero_name", hero_name)
@@ -5701,9 +5734,11 @@ func _load_controls() -> void:
 	pad_style = cfg.get_value("settings", "pad_style", "auto")
 	control_layout = cfg.get_value("settings", "control_layout", "auto")
 	move_mode = "screen"  # owner-confirmed camera-relative axes supersede the old aim-relative default
-	pc_movement = str(cfg.get_value("settings", "pc_movement", "click"))
+	pc_movement = str(cfg.get_value("settings", "pc_movement", "wasd"))
+	if int(cfg.get_value("settings", "controls_rev", 0)) < 2:
+		pc_movement = "wasd"   # 11-05: left-click became the basic attack; older saves defaulted to click-to-move
 	if pc_movement not in ["click", "wasd"]:
-		pc_movement = "click"
+		pc_movement = "wasd"
 	combine_move_attack = bool(cfg.get_value("settings", "combine_move_attack", false))
 	wheel_zoom = bool(cfg.get_value("settings", "wheel_zoom", false))
 	if control_layout not in CONTROL_LAYOUTS:
@@ -6146,10 +6181,24 @@ func _prop(name: String, pos: Vector3, scale: float = 1.0, rot_y: float = 0.0) -
 	inst.scale = Vector3.ONE * scale
 	inst.rotation.y = rot_y
 	add_child(inst)
+	if season == "winter" and name in WINTER_GREY_PROPS:
+		_grey_prop(inst)
 	audit_props.append([name, inst])
 	if prop_solid:
 		_solidify_prop(inst, pos)
 	return inst
+
+
+# Stonekeep Fortress: KayKit stone props come in warm sandstone; here they take
+# the castle's grey granite so the courtyard cover, pillars and rubble match the
+# walls (Faisal 11-05: "each map gets one material family").
+const WINTER_GREY_PROPS := ["dungeon/column", "dungeon/rubble_large", "dungeon/rubble_half", "dungeon/pillar", "dungeon/pillar_decorated"]
+
+
+func _grey_prop(inst: Node3D) -> void:
+	var granite := _pbr("greystone", 0.42, Color(0.74, 0.76, 0.82))
+	for m in inst.find_children("*", "MeshInstance3D", true, false):
+		m.material_override = granite
 
 
 var prop_solid := false   # while a castle is being built: clutter gets colliders
@@ -8036,7 +8085,7 @@ func _ashlar(tint: Color = Color.WHITE) -> StandardMaterial3D:
 		if tint == Color.WHITE:
 			return _hedge()
 		return _pbr("bark", 0.55, tint * Color(0.72, 0.7, 0.58))
-	if grey:
+	if grey or season == "winter":   # (Stonekeep: one grey granite family, no sandstone stubs and posts)
 		return _pbr("greystone", 0.42, Color(0.74, 0.76, 0.82).lerp(tint * Color(0.74, 0.76, 0.82), 0.35))
 	return _pbr("stone", 0.42, tint)
 
@@ -11301,36 +11350,7 @@ func _dress_elf_yard(team: int, fx: float, kx: float, side: float, hz: float) ->
 	# read as "giant blobs inside the building", one of them pink.)
 	for zs in [-1.0, 1.0]:
 		_add_stone_brazier(Vector3(kx - side * 1.9, 0, zs * 3.4))
-	# Turret pads where the Engineers build (the sheet's outer-defence turrets).
-	for spot in turret_spots(team):
-		_add_turret_pad(spot)
-
-
-func _add_turret_pad(pos: Vector3) -> void:
-	## A round sandstone pad with a gold ring: a marked turret spot.
-	var pad := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.95
-	cm.bottom_radius = 1.0
-	cm.height = 0.05
-	cm.radial_segments = 32
-	pad.mesh = cm
-	# (5 cm high, so the Economy's smaller build pad laid on the same spot
-	# stands 1 cm proud of it instead of sharing its top and flickering.)
-	pad.position = pos + Vector3(0, 0.025, 0)
-	pad.material_override = _ashlar(Color(0.95, 0.92, 0.86))
-	add_child(pad)
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 0.72
-	tm.outer_radius = 0.84
-	tm.rings = 32
-	tm.ring_segments = 4
-	ring.mesh = tm
-	ring.scale = Vector3(1, 0.3, 1)
-	ring.position = pos + Vector3(0, 0.065, 0)
-	ring.material_override = _gold()
-	add_child(ring)
+	# (The turret platforms are built by economy.gd _build_pads, for both teams on every map.)
 
 
 func _dress_human_castle(team: int, fx: float, kx: float, side: float, dh: float) -> void:

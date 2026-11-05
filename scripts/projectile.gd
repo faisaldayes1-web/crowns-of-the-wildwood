@@ -166,7 +166,7 @@ func _park() -> void:
 	if is_instance_valid(game):
 		game.shot_pool.append(self)
 	else:
-		free()
+		queue_free()
 
 
 func _glow(c: Color, energy: float = 2.0) -> StandardMaterial3D:
