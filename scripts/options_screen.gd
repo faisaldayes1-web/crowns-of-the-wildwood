@@ -370,8 +370,14 @@ func _mark_row_focus(panel: PanelContainer, control: Control) -> void:
 
 
 func _choice(key: String, title: String, values: Array, labels: Array, current, changed: Callable, hint: String) -> void:
-	var b := _button("", func(): _step_choice(key, 1), hint)
+	var b := _button("", func():
+		var direction: int = selectors[key].button.get_meta("step_direction", 1)
+		selectors[key].button.set_meta("step_direction", 1)
+		_step_choice(key, direction), hint)
 	selectors[key] = {"button": b, "values": values, "labels": labels, "index": maxi(values.find(current), 0), "changed": changed}
+	b.gui_input.connect(func(event):
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			b.set_meta("step_direction", -1 if event.position.x < 44.0 else 1))
 	b.text = "<   %s   >" % labels[selectors[key].index]
 	_row(key, title, b, hint)
 
@@ -388,8 +394,8 @@ func _step_choice(key: String, direction: int) -> void:
 
 func _toggle(key: String, title: String, property: String, hint: String) -> void:
 	_choice(key, title, [false, true], ["Off", "On"], game.get(property), func(v):
-		game.set(property, v)
-		game._save_settings(), hint)
+		if game.get(property) != v:
+			game.toggle_setting(key), hint)
 
 
 func _gameplay() -> void:
@@ -504,6 +510,8 @@ func _controls() -> void:
 			var text_value: String = game.binding_text(entry[0], device)
 			var b := _button(("Key: " if device == "key" else "Pad: ") + ("Unbound" if text_value == "-" else text_value), Callable(), hint)
 			b.custom_minimum_size.x = 166
+			b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			b.add_theme_font_size_override("font_size", 14)
 			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			b.pressed.connect(_begin_binding.bind(entry[0], device, b))
 			line.add_child(b)

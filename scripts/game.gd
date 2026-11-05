@@ -5534,6 +5534,7 @@ func _save_settings() -> void:
 	# A preview is not a confirmed display preference. Other settings may
 	# still save (e.g. account progress in an online match) during the timer.
 	if is_instance_valid(options_screen) and options_screen.preview_left > 0.0:
+		cfg.set_value("settings", "fullscreen", options_screen.confirmed.window_mode != "windowed")
 		for key in options_screen.VIDEO_KEYS:
 			cfg.set_value("settings", "vsync" if key == "vsync_on" else key, options_screen.confirmed[key])
 	cfg.set_value("settings", "rumble", rumble_on)
