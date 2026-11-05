@@ -5817,7 +5817,7 @@ func _road_look() -> Array:
 		return [Color(0.68, 0.74, 0.88), Color(0.7, 0.76, 0.88), 0.6, Color(0, 0, 0)]
 	if season == "twilight":
 		# Twilight Grove: dusky lavender flags, violet moss glowing faintly between.
-		return [Color(0.56, 0.62, 0.86), Color(0.36, 0.38, 0.62), 0.0, Color(0.08, 0.12, 0.22)]
+		return [Color(0.5, 0.62, 0.72), Color(0.3, 0.42, 0.5), 0.0, Color(0.05, 0.14, 0.16)]   # (8/8 pass: slate-teal; the violet read magenta beside the teal ground)
 	if night():
 		# Moonlit Wildwood: moon-silvered stone, dark mossy joints.
 		return [Color(0.84, 0.88, 1.02), Color(0.6, 0.72, 0.7), 0.0, Color(0, 0, 0)]
@@ -5971,7 +5971,7 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		# Each path sits a millimetre above the one before (four steps), so
 		# where two paths' frayed strips overlap they don't z-fight into a
 		# green speckle (Faisal 2026-10-09 08:16, "what is this texture bug?").
-		e.position = mid + Vector3(0, 0.003 + 0.002 * float(map_paths.size() % 4), 0)   # (2 mm steps: 1 mm z-fought into hatched stones where two roads' rims overlap)
+		e.position = mid + Vector3(0, 0.003 + 0.002 * float(map_paths.size() % 4) + _lane_lift(), 0)   # (2 mm steps: 1 mm z-fought into hatched stones where two roads' rims overlap)
 		e.rotation.y = rot
 		add_child(e)
 	var m := MeshInstance3D.new()
@@ -5985,10 +5985,17 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		m.material_override = cm2
 	else:
 		m.material_override = mat
-	m.position = mid + Vector3(0, 0.012 + 0.002 * float(map_paths.size() % 4), 0)   # every core above every frayed strip   # every core above every frayed strip
+	m.position = mid + Vector3(0, 0.012 + 0.002 * float(map_paths.size() % 4) + _lane_lift(), 0)   # every core above every frayed strip   # every core above every frayed strip
 	m.rotation.y = rot
 	add_child(m)
 	map_paths.append([from, to, width])
+
+
+func _lane_lift() -> float:
+	## Stonekeep / Twilight: the lane terrain's eased bank foot sits a few
+	## millimetres over 0 along the lanes, where edge stones z-fought into
+	## hatching (8/8 grade 2026-11-04); their paths ride 2 cm higher.
+	return 0.02 if lmap != null else 0.0
 
 
 func _add_collider(pos: Vector3, size: Vector3) -> void:
