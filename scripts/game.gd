@@ -4989,6 +4989,8 @@ func key_label(action: String, unit = null) -> String:
 	if not hit.is_empty() and now - int(hit[1]) < 500:
 		return hit[0]
 	var label := _key_label(action, unit)
+	if action == "attack" and pc_movement == "wasd" and not touch_active and not on_pad(unit) and (unit == null or unit.has_mouse):
+		label = "LMB"   # 11-05: left-click is the basic attack on keyboard+mouse (J still works)
 	_key_labels[ck] = [label, now]
 	return label
 

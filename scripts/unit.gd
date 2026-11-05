@@ -2430,8 +2430,11 @@ func _smooth_visual() -> void:
 	if model == null:
 		return
 	var offset := visual_position() - global_position
-	visual_offset = global_basis.inverse() * offset if offset.length_squared() > 0.0000001 else Vector3.ZERO
-	model.position = visual_offset
+	var want: Vector3 = global_basis.inverse() * offset if offset.length_squared() > 0.0000001 else Vector3.ZERO
+	if want.is_equal_approx(visual_offset) and model.position.is_equal_approx(visual_offset):
+		return   # unchanged: no transform write, no TRANSFORM_CHANGED on the rig's bone attachments
+	visual_offset = want
+	model.position = want
 
 
 func _process(_delta: float) -> void:
