@@ -150,7 +150,7 @@ func _build() -> void:
 	# A glowing shroud-sash across the chest in the bell holder's colour.
 	sash_mat = StandardMaterial3D.new()
 	sash_mat.emission_enabled = true
-	sash_mat.emission_energy_multiplier = 1.6
+	sash_mat.emission_energy_multiplier = 0.7
 	_part(torso, _box(0.14, 0.7, 0.04), Vector3(-0.02, 0.32, 0.165), sash_mat, Vector3(0, 0, 0.6))
 	_part(torso, _box(0.14, 0.7, 0.04), Vector3(-0.02, 0.32, -0.165), sash_mat, Vector3(0, 0, -0.6))
 	# Arms hinge at the shoulder, held out straight in front.
@@ -192,7 +192,7 @@ func _build() -> void:
 	ring_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	ring_mat.emission_enabled = true
-	ring_mat.emission_energy_multiplier = 1.4
+	ring_mat.emission_energy_multiplier = 0.5
 	ring_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var tor := TorusMesh.new()
 	tor.inner_radius = 0.55
@@ -349,6 +349,17 @@ func _think(delta: float) -> void:
 			goal = wander
 		else:
 			goal = gy.march_goal(team, position)
+			# At the enemy door: claw at it (a heart of door a swipe).
+			var gate = game.gates[1 - team]
+			if _flat(goal - position) < 1.5 and gate.is_intact():
+				facing = Vector3(signf(gate.position.x - position.x), 0, 0)
+				if attack_cd <= 0.0:
+					attack_cd = g.attack_cooldown
+					state = State.ATTACK
+					t = 0.0
+					gate.take_hit(g.damage, null)
+					gy.door_hits[team] += g.damage
+				return
 	_walk_to(goal, delta)
 
 
@@ -422,7 +433,7 @@ func _animate() -> void:
 		arm_r.rotation.x = -1.35 + sin(w * 0.9 + 2.0) * 0.12
 		body.rotation.x = 0.0
 	if ring_mat:
-		ring_mat.emission_energy_multiplier = 1.2 + 0.4 * sin(age * 3.0 + phase)
+		ring_mat.emission_energy_multiplier = 0.45 + 0.2 * sin(age * 3.0 + phase)
 
 
 static func _flat(v: Vector3) -> float:

@@ -64,6 +64,7 @@ var risings := 0
 var risen := 0
 var kills := [0, 0, 0]        # zombies put down by Elves, Humans, (other)
 var bites := [0, 0]           # hearts zombies took from Elves, Humans
+var door_hits := [0, 0]       # door hits by the Elves' and the Humans' zombies
 var warned := false
 var started := false
 var _debug_owner := -2
@@ -671,8 +672,8 @@ func status(my_team: int) -> Dictionary:
 
 
 func report() -> String:
-	return "GRAVESTAT risings=%d risen=%d held=%d/%d captures=%d/%d zombie_kills=%d/%d bites=%d/%d" % [risings, risen,
-		int(bell_held[0]), int(bell_held[1]), bell_captures[0], bell_captures[1], kills[0], kills[1], bites[0], bites[1]]
+	return "GRAVESTAT risings=%d risen=%d held=%d/%d captures=%d/%d zombie_kills=%d/%d bites=%d/%d door_hits=%d/%d" % [risings, risen,
+		int(bell_held[0]), int(bell_held[1]), bell_captures[0], bell_captures[1], kills[0], kills[1], bites[0], bites[1], door_hits[0], door_hits[1]]
 
 
 # --- Online --------------------------------------------------------------------

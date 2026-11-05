@@ -141,6 +141,8 @@ func run() -> void:
 	check(gy.bell_owner == 0, "one Elf in the ring captures the Cursed Bell (%.1f s)" % secs)
 	check(absf(secs - s.capture_time) < 1.0, "the capture takes about %d s" % s.capture_time)
 	check(z0.team == 0 and not z0.hostile_to(0) and z0.hostile_to(1), "the Elves' bell makes the zombie theirs")
+	check(z0.sash_mat.emission.is_equal_approx(game._team_color(0).lightened(0.08)) and z0.glow.light_color.is_equal_approx(game._team_color(0).lightened(0.08)), "the Elves' zombie glows Elf green")
+	check(gy.status(0).text.begins_with("Elves hold the Cursed Bell"), "the HUD line says the Elves hold the bell (%s)" % gy.status(0).text)
 	check(gy.bots_wanted(1) >= 1, "Human bots want the bell back (%d)" % gy.bots_wanted(1))
 	check(gy.threat_for(0, z0.position, 5.0) == null and gy.threat_for(1, z0.position, 5.0) == z0, "bots see an Elf zombie as a threat only to Humans")
 	# A Human in the ring with the Elf freezes it; alone it rings it back to neutral.
@@ -236,6 +238,8 @@ func run() -> void:
 				print("  short of the door: zombie %d at %s (home %s, moved %.1f m)" % [z.id, z.position.snapped(Vector3.ONE * 0.1), z.home.snapped(Vector3.ONE * 0.1), z.moved])
 		check(wet == 0, "%s zombies never step into the river (%d wet steps)" % [Stats.FACTIONS[t].name, wet])
 		check(arrived == walkers.size(), "%s zombies all reach the enemy door in 45 s (%d / %d)" % [Stats.FACTIONS[t].name, arrived, walkers.size()])
+		check(game.gates[1 - t].hp < Stats.GATE_HITS, "%s zombies claw at the enemy door when they get there" % Stats.FACTIONS[t].name)
+		game.gates[1 - t].hp = Stats.GATE_HITS
 		check(worst_stall < 3.0, "%s zombies never stall on the way (worst %.1f s)" % [Stats.FACTIONS[t].name, worst_stall])
 		_clear_zombies(gy)
 	# Neutral zombies wander their plot and keep near it.
