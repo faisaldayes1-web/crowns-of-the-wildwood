@@ -128,8 +128,11 @@ func _build_butterfly() -> void:
 
 
 func _build_bird() -> void:
-	var dark := _mat(Color(0.12, 0.1, 0.1), 1.0)
+	# Soft slate feathers and a little orange beak (visual pass 2026-11-04:
+	# the flat near-black boxes read as stray black shapes over the roads).
+	var dark := _mat(Color(0.26, 0.26, 0.34), 1.0)
 	_box(body, Vector3(0.12, 0.08, 0.45), Vector3.ZERO, dark)
+	_box(body, Vector3(0.05, 0.04, 0.1), Vector3(0, 0, -0.27), _mat(Color(1.0, 0.62, 0.2), 0.8))
 	for sx in [-1.0, 1.0]:
 		var w := Node3D.new()
 		body.add_child(w)
