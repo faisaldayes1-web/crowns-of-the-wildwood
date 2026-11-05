@@ -117,6 +117,13 @@ func run() -> void:
 	await settle()
 	screen.handle_input(escape)
 	check(screen.active and screen.binding_action == "" and game.rebinding == "", "Escape cancels capture without closing options")
+	screen._begin_binding("attack", "pad", screen.row_controls.attack.get_parent().get_child(1))
+	await settle()
+	var cancel := InputEventJoypadButton.new()
+	cancel.button_index = JOY_BUTTON_START
+	cancel.pressed = true
+	screen.handle_input(cancel)
+	check(screen.active and screen.binding_action == "", "pad Start cancels binding capture without a keyboard")
 	var xp: int = game.account_xp
 	screen.reset_category()
 	check(game.account_xp == xp, "reset bindings preserves account progress")

@@ -18,7 +18,7 @@ OUT = ROOT / "docs/evidence/crowns-settings-1105e"
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--godot", required=True)
-    ap.add_argument("--stage", choices=["import", "tests", "captures", "bot", "all"], default="all")
+    ap.add_argument("--stage", choices=["import", "boot", "tests", "captures", "bot", "all"], default="all")
     args = ap.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     source = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
@@ -62,6 +62,8 @@ def main():
 
     if args.stage in ["all", "import"]:
         run("import", ["--headless", "--editor", "--import"], timeout=600)
+    if args.stage in ["all", "boot"]:
+        run("fresh-boot", ["--headless", "--max-fps", "60", "--quit-after", "2400"], timeout=600)
     if args.stage in ["all", "tests"]:
         for test in ["options_test", "steam_ready_test", "settings_restart_test", "kbm_move_test", "options_menu_test", "pad_nav_test", "menu_flow_test", "couch_audio_test"]:
             run(test, ["--headless", "--fixed-fps", "60", "--script", "tools/" + test + ".gd"], timeout=600)

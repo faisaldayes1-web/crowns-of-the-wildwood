@@ -371,16 +371,25 @@ func _mark_row_focus(panel: PanelContainer, control: Control) -> void:
 
 
 func _choice(key: String, title: String, values: Array, labels: Array, current, changed: Callable, hint: String) -> void:
-	var b := _button("", func():
-		var direction: int = selectors[key].button.get_meta("step_direction", 1)
-		selectors[key].button.set_meta("step_direction", 1)
-		_step_choice(key, direction), hint)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 4)
+	var left := _button("<", func(): _step_choice(key, -1), hint)
+	left.custom_minimum_size.x = 36
+	left.focus_mode = Control.FOCUS_NONE
+	line.add_child(left)
+	var b := _button("", func(): _step_choice(key, 1), hint)
+	b.custom_minimum_size.x = 260
+	line.add_child(b)
+	var right := _button(">", func(): _step_choice(key, 1), hint)
+	right.custom_minimum_size.x = 36
+	right.focus_mode = Control.FOCUS_NONE
+	line.add_child(right)
 	selectors[key] = {"button": b, "values": values, "labels": labels, "index": maxi(values.find(current), 0), "changed": changed}
-	b.gui_input.connect(func(event):
-		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-			b.set_meta("step_direction", -1 if event.position.x < 44.0 else 1))
-	b.text = "<   %s   >" % labels[selectors[key].index]
-	_row(key, title, b, hint)
+	b.text = labels[selectors[key].index]
+	_row(key, title, line, hint)
+	row_controls[key] = b
+	focus_order.insert(focus_order.size() - 5, b)
+	b.focus_entered.connect(func(): _describe(hint, b))
 
 
 func _step_choice(key: String, direction: int) -> void:
@@ -388,7 +397,7 @@ func _step_choice(key: String, direction: int) -> void:
 		return
 	var data: Dictionary = selectors[key]
 	data.index = posmod(data.index + direction, data.values.size())
-	data.button.text = "<   %s   >" % data.labels[data.index]
+	data.button.text = data.labels[data.index]
 	data.changed.call(data.values[data.index])
 	_update_footer()
 
@@ -509,7 +518,7 @@ func _controls() -> void:
 		var line := HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		for device in ["key", "pad"]:
-			var hint := "Rebind %s for %s. Press a new key, mouse button, pad button or trigger. Escape cancels; conflicts swap bindings." % [entry[1], "Keyboard / Mouse" if device == "key" else "Gamepad"]
+			var hint := "Rebind %s for %s. Press a key, mouse button, pad button or trigger. Escape / Start cancels; conflicts swap bindings." % [entry[1], "Keyboard / Mouse" if device == "key" else "Gamepad"]
 			var text_value: String = game.binding_text(entry[0], device)
 			var b := _button(("Key: " if device == "key" else "Pad: ") + ("Unbound" if text_value == "-" else text_value), Callable(), hint)
 			b.custom_minimum_size.x = 166
@@ -574,7 +583,7 @@ func _begin_binding(action: String, device: String, button: Button) -> void:
 	binding_frame = Engine.get_process_frames()
 	game.rebinding = action
 	button.text = "Press input..."
-	description.text = "Rebinding %s: %s. Escape cancels. A binding in use swaps with this action's previous binding." % [game._action_label(action), "press a key or mouse button" if device == "key" else "press a pad button or trigger"]
+	description.text = "Rebinding %s: %s. Escape / Start cancels. A binding in use swaps with this action's previous binding." % [game._action_label(action), "press a key or mouse button" if device == "key" else "press a pad button or trigger"]
 
 
 func _cancel_binding() -> void:
@@ -588,7 +597,8 @@ func handle_input(event: InputEvent) -> bool:
 	if binding_action != "":
 		if Engine.get_process_frames() == binding_frame:
 			return true
-		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE \
+			or event is InputEventJoypadButton and event.pressed and event.button_index == JOY_BUTTON_START:
 			_cancel_binding()
 			select_tab(3)
 			return true
