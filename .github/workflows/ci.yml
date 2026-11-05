@@ -184,3 +184,60 @@ jobs:
           name: crowns-ci-${{ github.run_id }}-${{ github.run_attempt }}
           path: ci-logs/
           retention-days: 1
+
+  # claude-faisal/crowns-tdm 2026-11-04: Team Deathmatch in its own job (the
+  # main job is near its time budget): the rules on the real match (target
+  # win, scoring, kill feed, respawn waves, sudden death, split screen, the
+  # mode picker) and a seeded TDM bot match on every map.
+  tdm:
+    if: ${{ github.event.pull_request.draft == false || github.event_name != 'pull_request' }}
+    name: Team Deathmatch rules and bot matches on all maps
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      GODOT: /tmp/crowns-godot/Godot_v4.3-stable_linux.x86_64
+      TMPDIR: /tmp
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install official Godot 4.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ci-logs /tmp/crowns-godot
+          release=https://github.com/godotengine/godot-builds/releases/download/4.3-stable
+          archive=Godot_v4.3-stable_linux.x86_64.zip
+          curl -fsSL --retry 3 "$release/$archive" -o "/tmp/crowns-godot/$archive"
+          expected=fd52bb4ba8acc30ca5accd1c566d470ad7282f891ccc0995dfafabcf92bcf76280ce182bf9d80ebd885f3ed2165d01e1fc3f2928436b15498dfbd98656c2a45a
+          echo "$expected  /tmp/crowns-godot/$archive" | sha512sum --check
+          unzip -q "/tmp/crowns-godot/$archive" -d /tmp/crowns-godot
+          chmod +x "$GODOT"
+          timeout 600 bash tools/tests/isolated.sh --headless --editor --path . --import 2>&1 | tee ci-logs/import.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script|Error importing' ci-logs/import.log
+      - name: TDM rules on the real match
+        shell: bash
+        run: |
+          set -euo pipefail
+          for c in target sudden split menu; do
+            args="--play --mode=tdm --map=0 --tdm-case=$c"
+            [ "$c" = split ] && args="$args --couch=2"
+            [ "$c" = menu ] && args="--tdm-case=menu"
+            timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/tdm_test.gd -- $args 2>&1 | tee "ci-logs/tdm-$c.log"
+            ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' "ci-logs/tdm-$c.log"
+            grep -q "^tdm test ($c): 0 failure(s)$" "ci-logs/tdm-$c.log"
+          done
+      - name: TDM bot match on every map
+        shell: bash
+        run: |
+          set -euo pipefail
+          for map in 0 1 2 3 4; do
+            timeout 900 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 30000 -- --demo --seed=7 --mode=tdm --map=$map --debug-time=150 2>&1 | tee "ci-logs/tdm-bots-map$map.log"
+            ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' "ci-logs/tdm-bots-map$map.log"
+            python3 tools/tdm_bot_check.py "ci-logs/tdm-bots-map$map.log"
+          done
+      - name: Keep logs (failure only)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: crowns-ci-tdm-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ci-logs/
+          retention-days: 1

@@ -572,11 +572,18 @@ func _draw_map() -> void:
 		ttext(r.position + Vector2(56, r.size.y / 2.0 + 9 if touch else 20), d[0], 26 if game.touch_active else 19)
 		if not game.touch_active:
 			label(r.position + Vector2(56, 37), d[1], 12)
-	ttext(Vector2(490 + ox, (364 if touch else 478) + oy), "TEAM SIZE", 22, Color("d8aa47"), HORIZONTAL_ALIGNMENT_CENTER, 300)
-	var tr := Rect2(526 + ox, (414 if touch else 512) + oy, 228, 82 if touch else 55)
-	option_box(tr, true, false, Color("d8aa47"))
-	ttext(Vector2(tr.position.x, tr.get_center().y + 10), "%dv%d" % [game.TEAM_SIZE, game.TEAM_SIZE], 27, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, tr.size.x)
-	h._text(Vector2(490 + ox, (550 if touch else 604) + oy), "Bots fill any empty seats", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 300)
+	# GAME MODE (claude-faisal/crowns-tdm 2026-11-04): Crown Raid or Team
+	# Deathmatch, on every map; the team size stays 4v4 (the line under it).
+	ttext(Vector2(490 + ox, (364 if touch else 478) + oy), "GAME MODE", 22, Color("d8aa47"), HORIZONTAL_ALIGNMENT_CENTER, 300)
+	for k in Stats.GAME_MODES.size():
+		var mr := Rect2(500 + ox + k * 144, (414 if touch else 512) + oy, 136, 82 if touch else 55)
+		var mode: String = Stats.GAME_MODES[k]
+		option_box(mr, game.game_mode == mode, button(mr, "game_mode", mode), Color("d8aa47"))
+		ttext(Vector2(mr.position.x, mr.get_center().y + 8), ["CROWNS", "DEATHMATCH"][k], 18, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, mr.size.x)
+	var mode_note := "%dv%d  ·  bots fill any empty seats" % [game.TEAM_SIZE, game.TEAM_SIZE]
+	if game.is_tdm():
+		mode_note = "%dv%d  ·  first to %d kills" % [game.TEAM_SIZE, game.TEAM_SIZE, Stats.TDM_KILLS_TO_WIN]
+	h._text(Vector2(490 + ox, (550 if touch else 604) + oy), mode_note, 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, 300)
 	ttext(Vector2(818 + ox, (364 if touch else 478) + oy), "SPLIT SCREEN", 22, Color("d8aa47"), HORIZONTAL_ALIGNMENT_CENTER, 400)
 	for k in 2:
 		var r := Rect2(850 + ox + k * 175, (414 if touch else 516) + oy, 156, 82 if touch else 54)
@@ -1188,7 +1195,7 @@ func _draw_lobby() -> void:
 				h._text(Vector2(r.position.x, r.position.y + 62), "or select this to add a gamepad player", 11, Color(0.8, 0.8, 0.76), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 	var sizes := "%dv%d" % [game.team_size, game.team_size]
 	var extra: int = game.team_size * 2 - slots.filter(func(s): return s.kind != "join").size()
-	var note := "%s on %s  ·  %s" % [sizes, MAP_CARDS[map_pick][0].capitalize(), DIFFICULTIES[maxi(["Easy", "Normal", "Hard"].find(game.bot_difficulty), 0)][0].capitalize()]
+	var note := "%s %s on %s  ·  %s" % [sizes, game.mode_name(), MAP_CARDS[map_pick][0].capitalize(), DIFFICULTIES[maxi(["Easy", "Normal", "Hard"].find(game.bot_difficulty), 0)][0].capitalize()]
 	if extra > 0:
 		note += "  ·  +%d more bot%s" % [extra, "" if extra == 1 else "s"]
 	var fy := _foot_y()
@@ -1784,6 +1791,9 @@ func _press(id: String, arg) -> void:
 			game._save_settings()
 		"team_size":
 			pass   # fixed at 4v4 for now
+		"game_mode":
+			game.set_game_mode(str(arg))
+			game._save_settings()
 		"split":
 			game.split_screen = bool(arg)
 			if not game.split_screen:

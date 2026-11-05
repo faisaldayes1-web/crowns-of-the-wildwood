@@ -1655,6 +1655,8 @@ func _die(finisher = null) -> void:
 	if not was_down:
 		model.die()   # a finished body is already on the ground: it just stays down
 	respawn_timer = minf(Stats.RESPAWN_TIME + Stats.RESPAWN_PER_LEVEL * (timer_level - 1), Stats.RESPAWN_MAX)
+	if game.is_tdm():
+		respawn_timer = game.tdm_wave_delay()   # Team Deathmatch: the fallen come back together, in waves
 	respawn_total = respawn_timer
 	fell_level = timer_level
 	var fell_from := level
@@ -1696,6 +1698,7 @@ func _fall() -> void:
 	slow_timer = 0.0
 	overhead.visible = true
 	_lose_levels(Stats.DEATH_LEVEL_LOSS)
+	game.tdm_kill(self)   # Team Deathmatch: every fall is a point for the other side
 
 
 # --- Downed and revive -------------------------------------------------------
@@ -3750,8 +3753,8 @@ func _bot_think(delta: float) -> Dictionary:
 	var ranged: bool = s.attack == "arrow" or s.attack == "spell"
 	var on_ground: bool = global_position.y < 1.0
 
-	# Grab the enemy monarch whenever it's within reach.
-	if not carrying and theirs.state != Monarch.State.CARRIED \
+	# Grab the enemy monarch whenever it's within reach (no crowns in a deathmatch).
+	if not carrying and not game.is_tdm() and theirs.state != Monarch.State.CARRIED \
 			and _flat_to(theirs.global_position).length() < PICKUP_RANGE:
 		game.try_interact(self)
 
@@ -3812,6 +3815,13 @@ func _bot_think(delta: float) -> Dictionary:
 		goal = _follow_spot(buddy) if buddy else game.thrones[team] + bot_offset * 0.6
 	elif bot_job == "attack":
 		goal = _raid_goal(delta)
+	elif bot_job == "hunt":
+		# Team Deathmatch: go after the nearest enemy; the fight code below
+		# takes over once they are in sight.
+		var foe = game.tdm_hunt_target(self)
+		goal = foe.global_position if foe else bot_offset
+		if foe and not foe.downed and _flat_to(foe.global_position).length() < game.bot_tuning().chase:
+			priority_target = foe
 	else:
 		goal = game.thrones[team] + Vector3(6.0 if team == 0 else -6.0, 0, 0) + bot_offset
 	# Outnumbered and hurt: fall back toward the nearest teammate instead of
@@ -3853,7 +3863,7 @@ func _bot_think(delta: float) -> Dictionary:
 
 	# The Crown Vault lock stands between us and their monarch: break it.
 	var vault = game.vaults[1 - team]
-	if vault.is_locked() and theirs.state == Monarch.State.HOME and game._inside_keep(1 - team, global_position):
+	if vault.is_locked() and not game.is_tdm() and theirs.state == Monarch.State.HOME and game._inside_keep(1 - team, global_position):
 		var vside := signf(global_position.x - vault.lock_pos.x)
 		var vstandoff := 5.0 if ranged else 1.2
 		var vspot := Vector3(vault.lock_pos.x + vside * vstandoff, 0, clampf(global_position.z, -2.0, 2.0))
