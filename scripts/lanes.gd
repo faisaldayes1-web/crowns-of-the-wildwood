@@ -66,7 +66,12 @@ void fragment() {
 	b /= (b.x + b.y + b.z);
 	vec3 top = mix(tri(top_tex, top_scale), texture(top_tex, wpos.xz * vec2(1.0, -1.0) * top_scale).rgb, b.y) * top_tint.rgb;
 	vec3 face = tri(face_tex, face_scale) * face_tint.rgb;
-	ALBEDO = mix(face, top, COLOR.r) * mix(0.8, 1.0, COLOR.g);
+	// A broad, slow mottling (the same lawn texture at a third of the scale) so a long bank does not read as one flat
+	// painted colour next to the open lawn (Faisal 11-05: "hill texture"), and a little more of the face texture
+	// where the slope steepens.
+	float macro = dot(texture(top_tex, wpos.xz * top_scale * 0.31).rgb, vec3(0.333));
+	float mottle = mix(0.9, 1.1, smoothstep(0.25, 0.75, macro));
+	ALBEDO = mix(face, top * mottle, COLOR.r) * mix(0.8, 1.0, COLOR.g);
 	ROUGHNESS = 0.0;   // (also the ink pass's terrain mask)
 	SPECULAR = 0.0;
 	ALPHA = COLOR.b;   // the foot of a bank fades into the open ground instead of ending in a stair-stepped edge
@@ -86,7 +91,13 @@ var dist: Array = []       # all-pairs path length
 var nxt: Array = []        # next hop on the shortest path
 var cells: Array = []      # [Vector2 centre, distance off the walkable ground] for the maps
 var noise := FastNoiseLite.new()
+var terrain_mat: ShaderMaterial   # the banks' material (_terrain), also the Twilight islet's lawn
 const POOL_R := 7.5        # Twilight Grove's glowing pool at the centre
+# The Wildwood's and the Grove's banks are low and gentle (a 22 degree slope at most), so anyone may walk up
+# them this far off the paving (Faisal 11-05: "walkable hills"). Stonekeep's ridges stay walls. The
+# terrain collider (_terrain) covers the same band, so a unit climbs the slope it sees. Only clamp_walk
+# knows about it: spawns, pickups, bots' routes and placement keep asking walkable() for the paving.
+const HILL_REACH := 1.9
 # The distance field baked on a grid (bots ask walkable() every tick):
 # GRID metres a cell over the middle; outside it the shapes are asked directly.
 const GRID := 0.5
@@ -367,8 +378,38 @@ func walkable(p: Vector3, margin: float = 0.0) -> bool:
 	return field(p) < -margin
 
 
+func on_hill(p: Vector3) -> bool:
+	## Whether `p` is on the walkable bank beside the paving (never on Stonekeep's ridges).
+	return kind != "winter" and absf(p.x) < MESH_X and field(p) < HILL_REACH and not _in_flat_zone(p)
+
+
+func _in_flat_zone(p: Vector3) -> bool:
+	for f in flats:
+		if _rect_dist(p, f[0], f[1]) < 0.0:
+			return true
+	return false
+
+
 func clamp_walk(p: Vector3) -> Vector3:
-	## `p` if it is on walkable ground, else the nearest point that is.
+	## `p` if it is on walkable ground (the paving, or the bank beside it), else the nearest point that is.
+	if walkable(p) or on_hill(p):
+		return p
+	var edge := _clamp_paving(p)
+	if kind == "winter":
+		return edge
+	# Out on the bank: the nearest paving edge, then back up the slope toward `p` as far as the reach allows.
+	var out := Vector3(p.x - edge.x, 0, p.z - edge.z)
+	var up := out.length()
+	if up > 0.001:
+		var q := edge + out / up * minf(up, HILL_REACH - 0.15)
+		q.y = p.y
+		if on_hill(q) or walkable(q):
+			return q
+	return edge
+
+
+func _clamp_paving(p: Vector3) -> Vector3:
+	## The nearest point on the walkable paving.
 	if walkable(p):
 		return p
 	var side := -1.0 if p.x < 0.0 else 1.0
@@ -781,6 +822,7 @@ func _terrain() -> void:
 			hb[j * nx + i] = maxf(acc / 9.0, -0.15) if hs[j * nx + i] > -0.15 or acc / 9.0 > 0.0 else -0.15
 	hs = hb
 	var mat := ShaderMaterial.new()
+	terrain_mat = mat
 	var sh := Shader.new()
 	sh.code = TERRAIN_SHADER
 	mat.shader = sh
@@ -799,6 +841,7 @@ func _terrain() -> void:
 	else:
 		mat.set_shader_parameter("face_tex", load("res://assets/textures/moss_color.jpg"))
 		mat.set_shader_parameter("face_tint", Color(0.42, 0.4, 0.58))
+	var walk_faces := PackedVector3Array()   # the bank beside the paving, for units to climb
 	var chunk := 24
 	var cj := 0
 	while cj < nz - 1:
@@ -820,6 +863,11 @@ func _terrain() -> void:
 					var x0 := -MESH_X + i * step
 					var z0 := -EDGE_Z + j * step
 					var quad := [Vector3(x0, h00, z0), Vector3(x0 + step, h10, z0), Vector3(x0 + step, h11, z0 + step), Vector3(x0, h01, z0 + step)]
+					if kind != "winter" and field(Vector3(x0 + step * 0.5, 0, z0 + step * 0.5)) < HILL_REACH + 1.5:
+						var cq := [Vector3(x0, maxf(h00, 0.0), z0), Vector3(x0 + step, maxf(h10, 0.0), z0), Vector3(x0 + step, maxf(h11, 0.0), z0 + step), Vector3(x0, maxf(h01, 0.0), z0 + step)]
+						for tri_c in [[0, 1, 2], [0, 2, 3]]:
+							for vi in tri_c:
+								walk_faces.append(cq[vi])
 					for tri in [[0, 1, 2], [0, 2, 3]]:
 						var a: Vector3 = quad[tri[0]]
 						var b: Vector3 = quad[tri[1]]
@@ -839,6 +887,15 @@ func _terrain() -> void:
 				game.add_child(mi)
 			ci += chunk
 		cj += chunk
+	if walk_faces.size() > 0:
+		var shape := ConcavePolygonShape3D.new()
+		shape.set_faces(walk_faces)
+		shape.backface_collision = true   # (a unit knocked down the slope still finds the floor)
+		var body := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		cs.shape = shape
+		body.add_child(cs)
+		game.add_child(body)
 
 
 func _vnormal(hs: PackedFloat32Array, nx: int, nz: int, step: float, v: Vector3) -> Vector3:
@@ -1171,7 +1228,7 @@ func _build_grove() -> void:
 	wmat.shader = load("res://assets/shaders/water.gdshader")
 	wmat.set_shader_parameter("noise_tex", load("res://assets/textures/water_noise.png"))
 	wmat.set_shader_parameter("half_width", 1000.0)   # (the river shader's bank foam: none out in the pool...)
-	wmat.set_shader_parameter("island_r", 2.5)        # (...only round the islet)
+	wmat.set_shader_parameter("island_r", 3.0)        # (...only round the islet)
 	wmat.set_shader_parameter("open_foam", 0.3)
 	water.material_override = wmat
 	water.position = Vector3(0, pool_y(), 0)
@@ -1207,18 +1264,19 @@ func _build_grove() -> void:
 		b.rotation.y = -a + PI / 2.0
 		game.add_child(b)
 	await game._world_build_frame()
-	# The islet and the shrine tree: a grown elven tree, glowing.
+	# The islet and the shrine tree, one set (Faisal 11-05, reviewers A and B: "straight faceted dark-green
+	# bank against the bright water"): a smooth lawn mound in the lawn's own colour (the banks' material,
+	# so it matches the ground round the pool), ringed by the same stone as the pool's kerb, and the
+	# glowing tree standing on it.
 	var islet := MeshInstance3D.new()
-	var im := CylinderMesh.new()
-	im.top_radius = 2.2
-	im.bottom_radius = 2.6
-	im.height = 0.5
-	im.radial_segments = 16
-	islet.mesh = im
-	islet.material_override = game._pbr("moss", 0.5, Color(0.5, 0.82, 0.95))
-	islet.position = Vector3(0, 0.2, 0)
+	islet.mesh = _mound_mesh(2.9, 0.62, 48)
+	islet.material_override = terrain_mat   # (the banks' own shader: same lawn, same tint)
+	islet.position = Vector3(0, 0.0, 0)
 	game.add_child(islet)
-	game._add_tree_grown(Vector3(0, 0.4, 0), true)
+	for k in 18:
+		var a := TAU * (k + 0.5) / 18.0
+		_box_at(game, Vector3(1.1, 0.34, 0.5), Vector3(cos(a) * 2.75, 0.17, sin(a) * 2.75), kerb, -a + PI / 2.0)
+	game._add_tree_grown(Vector3(0, 0.6, 0), true)
 	game.map_trees.append(Vector3(0, 1.0, 0))
 	game._add_light(Vector3(0, 2.6, 0), Color(0.55, 0.95, 1.0), 2.2, 13.0)
 	# Glowing stones and lily lights on the water.
@@ -1261,6 +1319,8 @@ func _build_grove() -> void:
 		n += 1
 		if n % 4 == 0:
 			await game._world_build_frame()
+		if game.near_fence(p, 2.2):
+			continue
 		var big: bool = sdf(p) > 5.0 and (n % 3 == 0)
 		var at := Vector3(p.x, maxf(height(p.x, p.z) - 0.1, 0.0), p.z)
 		var seed_v := absi(int(p.x * 13 + p.z * 7))
@@ -1280,7 +1340,7 @@ func _build_grove() -> void:
 		else:
 			game._add_tree_grown(at, big)
 			game.map_trees.append(Vector3(p.x, 1.0 if big else 0.0, p.z))
-	for p in _scatter_off(0.9, 2.0, 3.6, 6603, 0.3):
+	for p in _scatter_off(HILL_REACH + 0.2, HILL_REACH + 1.3, 3.6, 6603, 0.3):
 		if absf(p.z) > 36.0 or Vector2(p.x, p.z).length() < POOL_R + 1.5:
 			continue
 		n += 1
@@ -1290,6 +1350,31 @@ func _build_grove() -> void:
 
 
 # --- The Wildwood: the Heart-Tree amphitheatre ---------------------------------
+
+func _mound_mesh(radius: float, height: float, segs: int) -> ArrayMesh:
+	## A smooth lawn mound (a lathe): steep at the water's edge, easing to a flat crown, with its foot
+	## under the water so no straight bank edge shows.
+	var prof := [[radius, -0.25], [radius * 0.97, 0.1], [radius * 0.9, height * 0.55], [radius * 0.72, height * 0.88],
+		[radius * 0.45, height * 0.99], [0.0, height]]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	st.set_smooth_group(1)
+	for k in segs:
+		var a0 := TAU * k / segs
+		var a1 := TAU * (k + 1) / segs
+		for i in prof.size() - 1:
+			var p0: Array = prof[i]
+			var p1: Array = prof[i + 1]
+			var v00 := Vector3(cos(a0) * p0[0], p0[1], sin(a0) * p0[0])
+			var v01 := Vector3(cos(a1) * p0[0], p0[1], sin(a1) * p0[0])
+			var v10 := Vector3(cos(a0) * p1[0], p1[1], sin(a0) * p1[0])
+			var v11 := Vector3(cos(a1) * p1[0], p1[1], sin(a1) * p1[0])
+			for v in [v00, v01, v10, v01, v11, v10]:
+				st.set_color(Color(1, 1, 1, 1))   # (terrain shader: red 1 = lawn top, blue 1 = opaque)
+				st.add_vertex(v)
+	st.generate_normals()
+	return st.commit()
+
 
 func _water_mat() -> ShaderMaterial:
 	var wmat := ShaderMaterial.new()
@@ -1605,17 +1690,19 @@ func _build_heartwood() -> void:
 	await game._world_build_frame()
 	# The jungle: trees packed on the banks between the paths, big ones
 	# deep in, bushes and mushroom rings at the edges, fireflies in the glades.
-	for p in _scatter_off(1.9, 40.0, 3.1, 7702, 0.42):
+	for p in _scatter_off(HILL_REACH + 0.4, 40.0, 3.1, 7702, 0.42):   # (nothing grows in the walkable band)
 		if absf(p.z) > 41.0 or _near_flat(p, 1.0):
 			continue
 		n += 1
 		if n % 4 == 0:
 			await game._world_build_frame()
+		if game.near_fence(p, 2.2):
+			continue
 		var big: bool = sdf(p) > 4.5 and (n % 3 == 0)
 		var at := Vector3(p.x, maxf(height(p.x, p.z) - 0.1, 0.0), p.z)
 		game._add_tree_grown(at, big)
 		game.map_trees.append(Vector3(p.x, 1.0 if big else 0.0, p.z))
-	for p in _scatter_off(0.8, 1.8, 2.5, 7703, 0.35):
+	for p in _scatter_off(HILL_REACH + 0.2, HILL_REACH + 1.2, 2.5, 7703, 0.35):
 		if absf(p.z) > 36.0 or _near_flat(p, 0.5):
 			continue
 		n += 1
@@ -1623,7 +1710,7 @@ func _build_heartwood() -> void:
 			await game._world_build_frame()
 		game._add_bush(Vector3(p.x, maxf(height(p.x, p.z), 0.0), p.z), int(p.x * 7 + p.z * 3))
 	var ring_n := 0
-	for p in _scatter_off(1.6, 3.0, 9.0, 7704, 0.3):
+	for p in _scatter_off(HILL_REACH + 0.3, HILL_REACH + 1.4, 9.0, 7704, 0.3):
 		if absf(p.z) > 34.0 or _near_flat(p, 1.0):
 			continue
 		ring_n += 1

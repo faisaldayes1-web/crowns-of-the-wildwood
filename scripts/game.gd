@@ -167,6 +167,9 @@ var levelup_text := ""         # set for a class promotion: the flourish says PR
 var pine_tiers := {}   # cached pine tier meshes
 var leaf_clusters := {}  # cached small crown clusters (visual pass 2026-10-30), by seed bucket and size
 var map_trees: Array[Vector3] = []  # for the minimap: y > 0.5 means a big tree
+var map_bushes: Array[Vector3] = []  # every bush that was placed (tools/map_prop_audit.gd)
+var fence_runs: Array = []           # [from, to] of every fence run placed: trees and bushes keep clear of them
+var _cover_plan: Array = []          # [centre, half length] of the cover the lanes maps place later (bushes keep clear)
 var forest_kit = null  # scripts/visual/forest_kit.gd: the match world's tree and ground-dressing look (_kit())
 var map_paths: Array = []           # [from, to, width] of every path for the minimap
 var map_marks: Array = []           # [position, kind] ruins and such
@@ -6349,7 +6352,51 @@ func _fill_under_ramp(from: Vector3, to: Vector3, width: float) -> void:
 	add_child(body)
 
 
+func near_fence(p: Vector3, margin: float) -> bool:
+	## Whether `p` is within `margin` of a fence run (flat distance to the segment).
+	for run in fence_runs:
+		var a: Vector3 = run[0]
+		var ab := Vector2(run[1].x - a.x, run[1].z - a.z)
+		var ap := Vector2(p.x - a.x, p.z - a.z)
+		var t := clampf(ap.dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+		if (ap - ab * t).length() < margin:
+			return true
+	return false
+
+
+func _near_cover_plan(p: Vector3, margin: float) -> bool:
+	## Cover (wall stubs, palisades, boulders) is built after the scenery on the lanes maps; this is where it
+	## will stand, so a bush is not planted in the wall that comes later (Faisal 11-05: "the wall in the bush").
+	if lmap == null:
+		return false
+	if _cover_plan.is_empty():
+		var cv: Dictionary = lmap.cover()
+		for b in cv.barricades:
+			for m in [1.0, -1.0]:
+				_cover_plan.append([b[0] * m, b[1] * 0.5 + 0.4])
+		for q in cv.boulders:
+			for m in [1.0, -1.0]:
+				_cover_plan.append([q * m, 1.4])
+	for c in _cover_plan:
+		if _flat_dist(p, c[0]) < c[1] + margin:
+			return true
+	return false
+
+
+func _hill_y(pos: Vector3) -> float:
+	## The terrain's height under `pos` on the hill maps (Wildwood, Twilight Grove, Stonekeep), 0 elsewhere:
+	## a rock set at y 0 on a bank sank into it (Faisal 11-05, "rocks clipping into hills"). The mean over
+	## the stone's footprint, a hand under it so it sits in the slope and does not float off the uphill side.
+	if lmap == null:
+		return 0.0
+	var acc := 0.0
+	for o in [Vector2.ZERO, Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+		acc += maxf(lmap.height(pos.x + o.x, pos.z + o.y), 0.0)
+	return maxf(acc / 5.0 - 0.1, 0.0)
+
+
 func _add_boulder(pos: Vector3) -> void:
+	pos.y = _hill_y(pos)
 	var body := StaticBody3D.new()
 	body.position = pos
 	var shape := CollisionShape3D.new()
@@ -6377,6 +6424,7 @@ func _add_boulder(pos: Vector3) -> void:
 				reserved = true   # the barrow's fence and the mills stand there later
 		if reserved or _near_path(pp, 0.6):
 			continue   # (and no pebbles on the cobbles)
+		pp.y = _hill_y(pp)
 		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][absi(int(pos.x * 7 + pos.z) + i) % 5], pp, 4.0, ang)
 
 
@@ -6656,7 +6704,7 @@ func _tree_spot_ok(pos: Vector3, big: bool) -> bool:
 		var q: Vector3 = ap[1].position
 		if absf(q.z) < 38.0 and Vector2(q.x - pos.x, q.z - pos.z).length() < crown + 0.9:
 			return false
-	if _near_path(pos, 1.2):
+	if _near_path(pos, 1.2) or near_fence(pos, crown * 0.85):
 		return false
 	var fxr := CASTLE_X - CASTLE_DEPTH
 	for sx in [-1.0, 1.0]:
@@ -6748,6 +6796,8 @@ func _add_tree(pos: Vector3, big: bool = false) -> void:
 
 
 func _add_tree_grown(pos: Vector3, big: bool = false) -> void:
+	if near_fence(pos, 2.2 if big else 1.8):
+		return   # (a trunk in the rails: Faisal 11-05, "fence and tree spacing")
 	var body := StaticBody3D.new()
 	body.position = pos
 	var shape := CollisionShape3D.new()
@@ -7121,12 +7171,13 @@ func _add_bush(pos: Vector3, seed: int) -> void:
 	for t in map_trees:
 		if _flat_dist(pos, t) < 3.0:
 			return
-	if _near_path(pos, 0.9):
+	if _near_path(pos, 0.9) or near_fence(pos, 1.0) or _near_cover_plan(pos, 1.2):
 		return
 	for blk in audit_blocks:
 		var box: AABB = blk[1]
 		if box.size.y >= 0.3 and box.end.y >= 0.3 and pos.x > box.position.x - 1.2 and pos.x < box.end.x + 1.2 and pos.z > box.position.z - 1.2 and pos.z < box.end.z + 1.2:
 			return
+	map_bushes.append(pos)
 	if _kit():
 		_kit().bush_at(pos, seed)
 		return
@@ -8989,6 +9040,7 @@ func _add_railing(from: Vector3, to: Vector3, skip: Array = []) -> void:
 	## (and slope) from `from` to `to`. `skip` lists [z_min, z_max] gaps.
 	var d := to - from
 	var n := maxi(int(d.length() / 1.4), 1)
+	fence_runs.append([from, to])
 	var outer_label := audit_label
 	if audit_label == "":
 		audit_label = "railing"   # (rails line stairs and bridges: --audit's road rule skips them)
@@ -9872,6 +9924,11 @@ const HOUSE_HEIGHT := {"home_A": 0.93, "home_B": 0.93, "tavern": 1.4, "church": 
 
 func _add_hex_fence(pos: Vector3, along_x: bool) -> void:
 	## A hex-pack fence piece (its mesh sits 1.05 units off its origin in x), centred on `pos`.
+	var half := Vector3(4.2, 0, 0) if along_x else Vector3(0, 0, 4.2)   # (a piece is 8.4 m long at the scale it is placed)
+	for t in map_trees:
+		if _flat_dist(pos, t) < 2.4:
+			return   # (a piece that would stand in a trunk is left out: the run breaks there)
+	fence_runs.append([pos - half, pos + half])
 	if along_x:
 		_prop("hex/fence_wood_straight", pos + Vector3(0, 0, -1.05 * 4.0), 4.0, PI / 2.0)
 	else:
@@ -10755,6 +10812,7 @@ func _add_picket_fence(from: Vector3, to: Vector3) -> void:
 			continue
 		var a := from + d * (float(run[0]) / maxf(n, 1))
 		var b := from + d * (float(run[1]) / maxf(n, 1))
+		fence_runs.append([a, b])
 		for y in [0.3, 0.7]:
 			var rail := MeshInstance3D.new()
 			var rm := BoxMesh.new()
@@ -11343,6 +11401,8 @@ func _dress_elf_courtyard(team: int, bx: float, side: float) -> void:
 	_prop("furniture/shelf_B_large_decorated", Vector3(bx + side * 8.6, CELLAR_Y, hz - 0.7), BITS_SCALE, PI)
 	_prop("dungeon/bottle_A_labeled_green", Vector3(bx + side * 8.3, CELLAR_Y + 0.95, hz - 0.85), 0.5)
 	_prop("kitchen/table_round_A_decorated", Vector3(bx + side * 10.4, CELLAR_Y, hz - 3.6), BITS_SCALE, 0.3)
+	if vmap != null:
+		return   # Ember Pass: no lawn, flowers, tree or bushes in the cellar (bright green on a lava map, Faisal 11-05 "mismatched colours")
 	# Grass with blooms beside the spawn circle (the reference's lawn).
 	var grass := _pbr("grass", 0.35, Color(0.92, 1.0, 0.86))
 	grass.roughness = 1.0
