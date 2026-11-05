@@ -1,0 +1,279 @@
+{
+  "cells": [
+    {
+      "centre": [
+        -45,
+        -25.5
+      ],
+      "col": 0,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r0-c0.png",
+      "height": 28.0242696784371,
+      "row": 0
+    },
+    {
+      "centre": [
+        -15,
+        -25.5
+      ],
+      "col": 1,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r0-c1.png",
+      "height": 28.0242696784371,
+      "row": 0
+    },
+    {
+      "centre": [
+        15,
+        -25.5
+      ],
+      "col": 2,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r0-c2.png",
+      "height": 28.0242696784371,
+      "row": 0
+    },
+    {
+      "centre": [
+        45,
+        -25.5
+      ],
+      "col": 3,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r0-c3.png",
+      "height": 28.0242696784371,
+      "row": 0
+    },
+    {
+      "centre": [
+        -45,
+        -8.5
+      ],
+      "col": 0,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r1-c0.png",
+      "height": 28.0242696784371,
+      "row": 1
+    },
+    {
+      "centre": [
+        -15,
+        -8.5
+      ],
+      "col": 1,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r1-c1.png",
+      "height": 28.0242696784371,
+      "row": 1
+    },
+    {
+      "centre": [
+        15,
+        -8.5
+      ],
+      "col": 2,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r1-c2.png",
+      "height": 28.0242696784371,
+      "row": 1
+    },
+    {
+      "centre": [
+        45,
+        -8.5
+      ],
+      "col": 3,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r1-c3.png",
+      "height": 28.0242696784371,
+      "row": 1
+    },
+    {
+      "centre": [
+        -45,
+        8.5
+      ],
+      "col": 0,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r2-c0.png",
+      "height": 28.0242696784371,
+      "row": 2
+    },
+    {
+      "centre": [
+        -15,
+        8.5
+      ],
+      "col": 1,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r2-c1.png",
+      "height": 28.0242696784371,
+      "row": 2
+    },
+    {
+      "centre": [
+        15,
+        8.5
+      ],
+      "col": 2,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r2-c2.png",
+      "height": 28.0242696784371,
+      "row": 2
+    },
+    {
+      "centre": [
+        45,
+        8.5
+      ],
+      "col": 3,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r2-c3.png",
+      "height": 28.0242696784371,
+      "row": 2
+    },
+    {
+      "centre": [
+        -45,
+        25.5
+      ],
+      "col": 0,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r3-c0.png",
+      "height": 28.0242696784371,
+      "row": 3
+    },
+    {
+      "centre": [
+        -15,
+        25.5
+      ],
+      "col": 1,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r3-c1.png",
+      "height": 28.0242696784371,
+      "row": 3
+    },
+    {
+      "centre": [
+        15,
+        25.5
+      ],
+      "col": 2,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r3-c2.png",
+      "height": 28.0242696784371,
+      "row": 3
+    },
+    {
+      "centre": [
+        45,
+        25.5
+      ],
+      "col": 3,
+      "file": "docs/evidence/qa-1105/ember-pass/after/overhead-r3-c3.png",
+      "height": 28.0242696784371,
+      "row": 3
+    }
+  ],
+  "godot": "4.3-stable (official)",
+  "ground": [
+    {
+      "eye": [
+        -56,
+        1.7,
+        0
+      ],
+      "file": "docs/evidence/qa-1105/ember-pass/after/g1-west-gate-east.png",
+      "label": "g1-west-gate-east",
+      "look": [
+        -20,
+        0
+      ]
+    },
+    {
+      "eye": [
+        56,
+        1.7,
+        0
+      ],
+      "file": "docs/evidence/qa-1105/ember-pass/after/g2-east-gate-west.png",
+      "label": "g2-east-gate-west",
+      "look": [
+        20,
+        0
+      ]
+    },
+    {
+      "eye": [
+        0,
+        1.7,
+        -30
+      ],
+      "file": "docs/evidence/qa-1105/ember-pass/after/g3-north-flank-south.png",
+      "label": "g3-north-flank-south",
+      "look": [
+        0,
+        0
+      ]
+    },
+    {
+      "eye": [
+        0,
+        1.7,
+        30
+      ],
+      "file": "docs/evidence/qa-1105/ember-pass/after/g4-south-flank-north.png",
+      "label": "g4-south-flank-north",
+      "look": [
+        0,
+        0
+      ]
+    },
+    {
+      "eye": [
+        4,
+        1.7,
+        3
+      ],
+      "file": "docs/evidence/qa-1105/ember-pass/after/g5-centre-west.png",
+      "label": "g5-centre-west",
+      "look": [
+        -30,
+        0
+      ]
+    },
+    {
+      "eye": [
+        -4,
+        1.7,
+        -3
+      ],
+      "file": "docs/evidence/qa-1105/ember-pass/after/g6-centre-east.png",
+      "label": "g6-centre-east",
+      "look": [
+        30,
+        0
+      ]
+    },
+    {
+      "eye": [
+        -34,
+        1.7,
+        20
+      ],
+      "file": "docs/evidence/qa-1105/ember-pass/after/g7-sw-corner-ne.png",
+      "label": "g7-sw-corner-ne",
+      "look": [
+        6,
+        -2
+      ]
+    },
+    {
+      "eye": [
+        30,
+        1.7,
+        -23
+      ],
+      "file": "docs/evidence/qa-1105/ember-pass/after/g8-ne-corner-sw.png",
+      "label": "g8-ne-corner-sw",
+      "look": [
+        -6,
+        2
+      ]
+    }
+  ],
+  "hud": "docs/evidence/qa-1105/ember-pass/after/hud-ember-pass.png",
+  "map": "ember-pass",
+  "map_variant": 2,
+  "size": [
+    1920,
+    1080
+  ],
+  "tag": "after"
+}
