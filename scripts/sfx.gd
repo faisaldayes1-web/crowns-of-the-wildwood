@@ -64,6 +64,7 @@ var _door_alarm_until := 0.0
 var ambience: AudioStreamPlayer
 var sound_volume := 0.8      # 0..1, saved with the settings
 var music_volume := 0.6
+var master_volume := 0.8
 var enabled := true
 var _last: Dictionary = {}   # name -> last play time (ms), to stop stacks of the same clip
 
@@ -128,6 +129,7 @@ func _ready() -> void:
 	listener = AudioListener3D.new()
 	add_child(listener)
 	listener.make_current()
+	apply_volumes()
 	for name in ["ambience"]:
 		if streams.has(name) and streams[name] is AudioStreamWAV:
 			streams[name].loop_mode = AudioStreamWAV.LOOP_FORWARD
@@ -445,11 +447,13 @@ func play_ambience(on: bool) -> void:
 
 
 func apply_volumes() -> void:
+	# A separate master gain covers music, effects and ambience together.
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), _db(master_volume))
 	## After the sliders move. Music levels follow music_volume every frame
 	## (_process). Effects already playing take the new Sound level at once
 	## (AUD-03: a long clip used to finish at the old level).
 	for p in pool_3d + pool_ui:
 		if p.playing:
 			p.volume_db = float(p.get_meta("base_db", 0.0)) + _db(sound_volume)
-	if ambience.playing:
+	if is_instance_valid(ambience) and ambience.playing:
 		ambience.volume_db = AMBIENCE_DB + _db(sound_volume)

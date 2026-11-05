@@ -336,6 +336,7 @@ var cam_lock := Vector3.INF     # --debug-cam=x,z parks the camera over a spot f
 var cam_top := 0.0              # --debug-topdown=H: renders look straight down from height H (map layout shots)
 var click_was := false
 var slider_drag := -1        # the volume slider the held press started on
+var options_screen = null  # dedicated options UI; HUD and other menus stay independent
 var menus_warming := false   # _warm_up_menus is flipping screens: no clicks
 var click_latched := false   # a left press seen by _input since the last menu tick
 var scoreboard_open := false   # held: the match scoreboard overlay
@@ -4251,6 +4252,24 @@ func _rank_pad(u) -> void:
 		sfx.ui("ui_close", -4.0)
 
 
+func _route_options_screen() -> bool:
+	# New settings are isolated from the concurrently owned HUD/pause pages.
+	if menus_warming or not menu_open or menu_tab not in [4, 5, 6]:
+		return false
+	if not is_instance_valid(options_screen):
+		var options_layer := CanvasLayer.new()
+		options_layer.layer = 25
+		options_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(options_layer)
+		options_screen = load("res://scripts/options_screen.gd").new()
+		options_screen.game = self
+		options_layer.add_child(options_screen)
+	if not options_screen.active:
+		options_screen.open_screen(3 if menu_tab == 4 else (2 if menu_tab == 6 else 0))
+	cursor_shown = false
+	return true
+
+
 func menu_tabs() -> Array:
 	## Which menu tabs make sense now: at the title only Classes and Controls.
 	return [5, 4, 1, 6] if not playing else [0, 3, 1, 2, 4, 5]
@@ -4259,6 +4278,10 @@ func menu_tabs() -> Array:
 func menu_tick() -> void:
 	## Called every frame by the HUD, which keeps running while paused.
 	if _stream_world:
+		click_latched = false
+		click_was = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		return
+	if _route_options_screen():
 		click_latched = false
 		click_was = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
 		return
@@ -4363,6 +4386,10 @@ func menu_tick() -> void:
 				for i in 2:
 					if Input.is_action_just_pressed(rank_player.act_prefix + "rank_%d" % (i + 5)):
 						rank_player.choose_variant(rank_player.role, i)
+	if _route_options_screen():
+		click_latched = false
+		click_was = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+		return
 	if menu_open and rebinding == "" and not chat_open and not eaten:
 		# Not on a press a rebind just took: binding Move up to A (or a pad
 		# button to LB / RB) switched the tab as well (#85).
@@ -4687,6 +4714,9 @@ func mapped_action_held(action: StringName, excluded_mouse: Array) -> bool:
 
 
 func _input(event: InputEvent) -> void:
+	if is_instance_valid(options_screen) and options_screen.active and options_screen.handle_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		click_latched = true
 	if event.is_action_released("move_interact"):
@@ -4704,6 +4734,8 @@ func _input(event: InputEvent) -> void:
 
 func menu_input(event: InputEvent) -> void:
 	## Raw key events from the HUD: typing in chat and rebinding controls.
+	if is_instance_valid(options_screen) and options_screen.active:
+		return
 	if _stream_world:
 		return
 	# Remember whether player 1 is on the keyboard or a pad, so keycaps and
@@ -5477,6 +5509,7 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "game_mode", game_mode)
 	cfg.set_value("settings", "sound_volume", sfx.sound_volume)
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
+	cfg.set_value("settings", "master_volume", sfx.master_volume)
 	cfg.set_value("settings", "chat_visible", chat_visible)
 	cfg.set_value("settings", "rosters_shown", rosters_visible)
 	cfg.set_value("settings", "couch_players", couch_players)
@@ -5496,6 +5529,11 @@ func _save_settings() -> void:
 	cfg.set_value("settings", "fullscreen", fullscreen)
 	cfg.set_value("settings", "window_mode", window_mode)
 	cfg.set_value("settings", "window_size", window_size)
+	# A preview is not a confirmed display preference. Other settings may
+	# still save (e.g. account progress in an online match) during the timer.
+	if is_instance_valid(options_screen) and options_screen.preview_left > 0.0:
+		for key in options_screen.VIDEO_KEYS:
+			cfg.set_value("settings", "vsync" if key == "vsync_on" else key, options_screen.confirmed[key])
 	cfg.set_value("settings", "rumble", rumble_on)
 	cfg.set_value("settings", "pad_style", pad_style)
 	cfg.set_value("settings", "control_layout", control_layout)
@@ -5672,6 +5710,8 @@ func _load_controls() -> void:
 		pad_style = "auto"
 	sfx.sound_volume = clampf(cfg.get_value("settings", "sound_volume", 0.8), 0.0, 1.0)
 	sfx.music_volume = clampf(cfg.get_value("settings", "music_volume", 0.6), 0.0, 1.0)
+	sfx.master_volume = clampf(cfg.get_value("settings", "master_volume", 0.8), 0.0, 1.0)
+	sfx.apply_volumes()
 	hero_name = cfg.get_value("settings", "hero_name", "")
 	hero_hair = clampi(cfg.get_value("settings", "hero_hair", 0), 0, Stats.HERO_HAIR.size() - 1)
 	hero_trim = clampi(cfg.get_value("settings", "hero_trim", 0), 0, Stats.HERO_TRIM.size() - 1)
