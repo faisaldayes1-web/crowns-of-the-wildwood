@@ -7463,7 +7463,9 @@ func _add_ruins(c: Vector3, small: bool = false) -> void:
 	fallen.mesh = fm
 	fallen.position = c + Vector3(0.5 * m, 0.36, -1.5)
 	fallen.rotation.z = PI / 2.0
-	fallen.material_override = _ashlar(Color(0.9, 0.87, 0.8))
+	# Plain pale stone like the standing columns (final grade 2026-11-04: the
+	# ashlar texture wrapped round the cylinder read as a black slab).
+	fallen.material_override = _stone(Color(0.86, 0.82, 0.74), 0.3)
 	add_child(fallen)
 	audit_blocks.append(["wall", AABB(fallen.position - Vector3(1.3, 0.36, 0.36), Vector3(2.6, 0.72, 0.72))])
 	_add_collider(c + Vector3(0.5 * m, 0.35, -1.5), Vector3(2.6, 0.7, 0.7))
