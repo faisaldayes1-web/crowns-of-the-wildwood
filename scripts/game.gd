@@ -11293,36 +11293,7 @@ func _dress_elf_yard(team: int, fx: float, kx: float, side: float, hz: float) ->
 	# read as "giant blobs inside the building", one of them pink.)
 	for zs in [-1.0, 1.0]:
 		_add_stone_brazier(Vector3(kx - side * 1.9, 0, zs * 3.4))
-	# Turret pads where the Engineers build (the sheet's outer-defence turrets).
-	for spot in turret_spots(team):
-		_add_turret_pad(spot)
-
-
-func _add_turret_pad(pos: Vector3) -> void:
-	## A round sandstone pad with a gold ring: a marked turret spot.
-	var pad := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.95
-	cm.bottom_radius = 1.0
-	cm.height = 0.05
-	cm.radial_segments = 32
-	pad.mesh = cm
-	# (5 cm high, so the Economy's smaller build pad laid on the same spot
-	# stands 1 cm proud of it instead of sharing its top and flickering.)
-	pad.position = pos + Vector3(0, 0.025, 0)
-	pad.material_override = _ashlar(Color(0.95, 0.92, 0.86))
-	add_child(pad)
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 0.72
-	tm.outer_radius = 0.84
-	tm.rings = 32
-	tm.ring_segments = 4
-	ring.mesh = tm
-	ring.scale = Vector3(1, 0.3, 1)
-	ring.position = pos + Vector3(0, 0.065, 0)
-	ring.material_override = _gold()
-	add_child(ring)
+	# (The turret platforms are built by economy.gd _build_pads, for both teams on every map.)
 
 
 func _dress_human_castle(team: int, fx: float, kx: float, side: float, dh: float) -> void:

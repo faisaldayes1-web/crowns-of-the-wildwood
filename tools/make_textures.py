@@ -565,29 +565,24 @@ def make_marble():
 
 
 def make_carpet():
-    """A woven rug: a wide border, an inner band and a lattice of diamonds.
-    Light red so game code can tint it per team."""
+    """A woven rug cloth, seamless. The border and bands are laid as gold and
+    cloth strips by game.gd _add_rug, so this is only the field: a fine weave
+    with a soft diamond lattice (11-05: the old sheet carried its own framed
+    squares and tiled across the rug as a bright green grid, which read as a
+    debug overlay on the Elf yard). Light so game code can tint it per team."""
     ys, xs = np.mgrid[0:N, 0:N].astype(np.float64)
     weave = (np.sin(xs * 0.9) * 0.5 + 0.5) * 0.5 + (np.sin(ys * 0.9) * 0.5 + 0.5) * 0.5
     fuzz = fbm(N, 64, 2, 101)
-    # Tiles 1/2 texture across: border 0..0.08, band 0.08..0.14, field inside.
-    u = (xs % (N / 2)) / (N / 2)
-    v = (ys % (N / 2)) / (N / 2)
-    d = np.minimum(np.minimum(u, 1 - u), np.minimum(v, 1 - v))
-    border = d < 0.07
-    band = (d >= 0.07) & (d < 0.11)
-    inner = d >= 0.11
-    du = np.abs(((u * 6) % 1.0) - 0.5)
-    dv = np.abs(((v * 6) % 1.0) - 0.5)
-    diamond = ((du + dv) < 0.28) & inner
-    small = ((du + dv) < 0.1) & inner
-    color = np.where(border[..., None], rgb(0.95, 0.9, 0.78), rgb(0.8, 0.72, 0.68))
-    color = np.where(band[..., None], rgb(0.62, 0.56, 0.52), color)
-    color = np.where(diamond[..., None], rgb(0.95, 0.88, 0.7), color)
-    color = np.where(small[..., None], rgb(0.6, 0.5, 0.45), color)
-    color = color * (0.9 + 0.1 * weave + 0.06 * fuzz - 0.06)[..., None]
-    height = 0.5 + 0.25 * weave + 0.1 * fuzz + 0.1 * border
-    save("carpet", np.clip(color, 0, 1), np.clip(height, 0, 1), 0.9)
+    u = (xs / N * 8.0) % 1.0
+    v = (ys / N * 8.0) % 1.0
+    d1 = np.abs(u - 0.5) + np.abs(v - 0.5)          # diamond distance from each cell's centre
+    lattice = np.clip(1.0 - np.abs(d1 - 0.5) * 9.0, 0.0, 1.0)   # thin diamond outlines between cells
+    dot = np.clip(1.0 - d1 * 7.0, 0.0, 1.0)         # a small lozenge in each cell
+    base = rgb(0.82, 0.76, 0.72)
+    color = base + (rgb(0.97, 0.9, 0.74) - base) * (0.55 * lattice + 0.4 * dot)[..., None]
+    color = color * (0.92 + 0.08 * weave + 0.05 * fuzz - 0.05)[..., None]
+    height = 0.5 + 0.15 * weave + 0.08 * fuzz + 0.05 * lattice
+    save("carpet", np.clip(color, 0, 1), np.clip(height, 0, 1), 0.5)
 
 
 def make_sand():
