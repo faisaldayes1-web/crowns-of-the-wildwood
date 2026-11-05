@@ -15,14 +15,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
+    global ROOT
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--godot', required=True)
     ap.add_argument('--export-home', required=True, help='Existing verified template cache APPDATA')
     ap.add_argument('--until', required=True, help='Hard slot end, ISO8601 with timezone')
+    ap.add_argument('--project', help='Read-only comparison checkout; default this project')
+    ap.add_argument('--suite', default='settings-1105e')
     args = ap.parse_args()
+    if args.project:
+        ROOT = Path(args.project).resolve()
     end = datetime.fromisoformat(args.until).timestamp() - 3
     source = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
-    out = ROOT / 'docs/evidence/crowns-settings-1105e'
+    out = ROOT / ('docs/evidence/crowns-' + args.suite)
+    out.mkdir(parents=True, exist_ok=True)
     build = ROOT / 'build' / ('settings-' + source[:7])
     if build.exists():
         raise SystemExit('Use a new source-specific build destination; existing exports are preserved')
@@ -58,7 +64,10 @@ def main():
             errors.append('Missing engine boot header')
         receipt = dict(label=label, source=source, command=cmd, exit=code,
                        seconds=round(time.time()-started, 3), errors=errors,
+                       script_error_count=sum('SCRIPT ERROR' in line for line in raw.splitlines()),
                        log=log.name, engine_log=str(engine_log) if engine_log else None)
+        if exe.exists():
+            receipt.update(executable=str(exe), sha256=hashlib.sha256(exe.read_bytes()).hexdigest(), bytes=exe.stat().st_size)
         receipts.append(receipt)
         (out / 'release-results.json').write_text(json.dumps(receipts, indent=2)+'\n', encoding='utf-8')
         print(json.dumps(dict(label=label, source=source, exit=code,
