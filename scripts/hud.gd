@@ -7,6 +7,7 @@ extends Control
 
 const Stats = preload("res://scripts/stats.gd")
 const Guide = preload("res://scripts/guide.gd")
+const Portrait = preload("res://scripts/portrait_rig.gd")
 const Tips = preload("res://scripts/tips.gd")
 const Monarch = preload("res://scripts/monarch.gd")
 const Scoreboard = preload("res://scripts/scoreboard.gd")
@@ -301,6 +302,9 @@ func _draw() -> void:
 	if bake_mode != "":
 		_draw_bake()
 		return
+	if not _portraits_warm and game.playing and not pane and _my_team() >= 0:
+		_portraits_warm = true   # the class busts render in the match's first seconds, not at the first banner
+		Portrait.prewarm.call_deferred(game, _my_team())
 	for lr in _layers.values():
 		lr.visible = false
 	if not _under_items.is_empty() and _under:
@@ -358,6 +362,7 @@ func _draw() -> void:
 		# pause menu, the end).
 		if not game.guide_open:
 			_draw_chat()
+			_guide_rig_off()
 		if game.guide_open:
 			_draw_guide()
 		if game.scoreboard_open and not game.game_over:
@@ -433,6 +438,7 @@ func _draw() -> void:
 		return
 	if not game.guide_open:
 		_draw_chat()
+		_guide_rig_off()
 	if game.guide_open:
 		_draw_guide()
 	if game.scoreboard_open and not game.game_over:
@@ -2607,10 +2613,26 @@ func _clock_plate(rect: Rect2) -> void:
 
 # --- In-match panels ---------------------------------------------------------
 
+var _guide_key := ""
+var _guide_t0 := 0.0
+var _guide_rig = null
+var _portraits_warm := false
+
+
+func _guide_rig_off() -> void:
+	## The guide's bust stops rendering once the talk is closed.
+	if _guide_rig != null:
+		if is_instance_valid(_guide_rig):
+			_guide_rig.keep_live(false)
+		_guide_rig = null
+
+
 func _draw_guide() -> void:
-	## Talking to an NPC: a visual-novel box along the bottom with a big
-	## portrait on the left, a name plate, the line (or the topic menu) on
-	## parchment, and a Next marker. Drawn over the HUD.
+	## Talking to an NPC (Faisal 11-05: "too small, too low quality"): the game
+	## dims behind a full-height 3D bust of the speaker on the left, a wide
+	## parchment panel along the bottom with the name tag, the line typed out,
+	## and Next / Close with the real key or pad glyphs. The bust is rendered
+	## from the 3D model at 1024 px with 4x MSAA (scripts/portrait_rig.gd).
 	var team: int = _my_team()
 	var showing_menu: bool = game.guide_page < 0 and game.guide_topic < 0
 	var body: String
@@ -2620,57 +2642,81 @@ func _draw_guide() -> void:
 		body = Guide.INTRO[game.guide_page]
 	else:
 		body = "What would you like to know?"
-	var box := Rect2(24, size.y - 206, minf(size.x - 48, 940), 182)
+	var now := Time.get_ticks_msec() / 1000.0
+	var line_key := "%d|%d|%d" % [game.guide_page, game.guide_topic, body.length()]
+	if line_key != _guide_key:
+		_guide_key = line_key
+		_guide_t0 = now
 	var parch := Color(0.96, 0.92, 0.8, 0.98)
 	var brown := Color(0.45, 0.3, 0.14)
-	# Portrait: the guide's card art, large, standing behind the box.
-	var port := Rect2(box.position + Vector2(-6, -330), Vector2(360, 360))
-	draw_circle(port.get_center() + Vector2(0, 40), 150, Color(0, 0, 0, 0.25))
-	if not _card(_card_key(team, Role.MAGE), port, false):
+	var ink := Color(0.18, 0.12, 0.06)
+	# Dim the match behind the talk.
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.03, 0.06, 0.6))
+	var panel_h := 214.0
+	var box := Rect2(size.x * 0.27, size.y - panel_h - 26.0, size.x * 0.70, panel_h)
+	# The speaker: a big bust filling the screen's height at the left.
+	var ph: float = size.y * 1.02
+	var port := Rect2(Vector2(size.x * 0.0 - ph * 0.08, size.y - ph + 70.0), Vector2(ph, ph))
+	draw_circle(Vector2(port.get_center().x + 6.0, size.y - 24.0), ph * 0.34, Color(0, 0, 0, 0.28))   # a soft pool of shadow under it
+	var rig = Portrait.bust(game, team, Role.MAGE, 1024) if Portrait.supported() else null
+	if rig != null:
+		rig.keep_live(true)
+		_guide_rig = rig
+	if rig != null and rig.ready_to_draw():
+		draw_texture_rect(rig.texture(), port, false)
+	elif not _card(_card_key(team, Role.MAGE), Rect2(port.position + Vector2(ph * 0.2, ph * 0.1), Vector2(ph * 0.6, ph * 0.6)), false):
 		_portrait(port.get_center(), 110, team, Role.MAGE)
-	_plate(box, parch, brown, 14, 3)
-	draw_rect(box.grow(-6), Color(0.6, 0.45, 0.2, 0.35), false, 1.0)
+	_plate(box, parch, brown, 16, 4)
+	draw_rect(box.grow(-7), Color(0.6, 0.45, 0.2, 0.35), false, 1.0)
 	# Name plate.
-	var tag := Rect2(box.position + Vector2(120, -22), Vector2(260, 40))
-	_plate(tag, Color(0.12, 0.1, 0.1, 0.98), GOLD, 10, 3)
-	_text(tag.position + Vector2(0, 27), "Wildwood Guide", 18, CREAM, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 3)
-	var tx: float = box.position.x + 40
-	var tw: float = box.size.x - 80
-	var ty: float = box.position.y + 52
+	var tag := Rect2(box.position + Vector2(34, -26), Vector2(300, 46))
+	_plate(tag, Color(0.12, 0.1, 0.1, 0.98), GOLD, 12, 3)
+	_text(tag.position + Vector2(0, 31), "Wildwood Guide", 22, CREAM, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 3)
+	var tx: float = box.position.x + 44
+	var tw: float = box.size.x - 100
+	var ty: float = box.position.y + 62
 	if showing_menu:
-		_text(Vector2(tx, ty), body, 17, Color(0.2, 0.13, 0.06), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+		_text(Vector2(tx, ty), body, 20, ink, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
 		var cols := 2
-		var cw: float = (tw - 12) / cols
+		var cw: float = (tw - 14) / cols
 		for i in Guide.TOPICS.size():
-			var row := Rect2(tx + (i % cols) * (cw + 12), ty + 14 + (i / cols) * 32, cw, 27)
+			var row := Rect2(tx + (i % cols) * (cw + 14), ty + 16 + (i / cols) * 36, cw, 31)
 			var hover: bool = row.has_point(_mouse())
-			_plate(row, Color(0.9, 0.82, 0.64) if hover else Color(0.93, 0.87, 0.72), Color(0.7, 0.55, 0.3), 6, 1)
+			_plate(row, Color(0.9, 0.82, 0.64) if hover else Color(0.93, 0.87, 0.72), Color(0.7, 0.55, 0.3), 7, 1)
 			if not game.on_pad(local_unit):
-				_keycap(row.position + Vector2(16, 13), str(i + 1), 20)   # a pad picks with the cursor and A
-			_text(row.position + Vector2(34 if not game.on_pad(local_unit) else 12, 19), Guide.TOPICS[i][0], 13, Color(0.2, 0.12, 0.05), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+				_keycap(row.position + Vector2(18, 15), str(i + 1), 22)   # a pad picks with the cursor and A
+			_text(row.position + Vector2(40 if not game.on_pad(local_unit) else 14, 21), Guide.TOPICS[i][0], 15, Color(0.2, 0.12, 0.05), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
 			guide_buttons.append([row, str(i)])
 	else:
-		_paragraph(Vector2(tx, ty), body, 19, Color(0.18, 0.12, 0.06), tw, 26, 0)
+		# The line types itself out (about 70 letters a second).
+		var shown := int((now - _guide_t0) * 70.0)
+		for l in _wrap(body, 22, tw):
+			var piece: String = str(l).substr(0, maxi(shown, 0))
+			shown -= str(l).length() + 1
+			if piece != "":
+				_text(Vector2(tx, ty), piece, 22, ink, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+			ty += 31.0
 	# An answer shows its picture from a real match above the box (the same
 	# images as the title TUTORIAL).
 	var tex: Texture2D = game.MainMenu.tutorial_image(game.guide_topic) if game.guide_topic >= 0 else null
 	if tex:
-		var img := Rect2(box.end.x - 364, box.position.y - 214, 336, 189)
-		_plate(img.grow(6), Color(0.12, 0.09, 0.06, 0.98), GOLD, 8, 3)
+		var img := Rect2(box.end.x - 430, box.position.y - 250, 400, 225)
+		_plate(img.grow(7), Color(0.12, 0.09, 0.06, 0.98), GOLD, 9, 3)
 		draw_texture_rect(tex, img, false)
-	# Footer: Next / Back marker and Close.
+	# Footer: Next / Back marker and Close, with the real glyphs.
 	var next_label: String = "Back" if game.guide_topic >= 0 else ("Next" if game.guide_page >= 0 else "")
 	if next_label != "":
-		var nb := Rect2(box.end.x - 150, box.end.y - 36, 110, 24)
-		var pulse := 2.0 * sin(Time.get_ticks_msec() / 250.0)
-		draw_colored_polygon(PackedVector2Array([nb.end + Vector2(22, -6 + pulse), nb.end + Vector2(36, -6 + pulse), nb.end + Vector2(29, 4 + pulse)]), brown)
-		_text(nb.position + Vector2(0, 17), "[%s]  %s" % [_k("interact"), next_label], 12, brown, HORIZONTAL_ALIGNMENT_RIGHT, nb.size.x, 0)
-		guide_buttons.append([Rect2(nb.position, nb.size + Vector2(40, 0)), "next"])
-	var cb := Rect2(box.end.x - 110, box.position.y + 10, 96, 22)
+		var nb := Rect2(box.end.x - 190, box.end.y - 46, 150, 30)
+		var pulse := 2.5 * sin(Time.get_ticks_msec() / 250.0)
+		draw_colored_polygon(PackedVector2Array([nb.end + Vector2(24, -8 + pulse), nb.end + Vector2(42, -8 + pulse), nb.end + Vector2(33, 6 + pulse)]), brown)
+		_keycap(nb.position + Vector2(16, 14), _k("interact"), 26)
+		_text(nb.position + Vector2(34, 22), next_label, 18, brown, HORIZONTAL_ALIGNMENT_LEFT, nb.size.x - 34.0, 0)
+		guide_buttons.append([Rect2(nb.position, nb.size + Vector2(48, 0)), "next"])
+	var cb := Rect2(box.end.x - 140, box.position.y + 12, 118, 28)
 	if touch_ui:
-		cb = Rect2(box.end.x - 150, box.position.y + 6, 136, 40)   # finger-sized
-	_plate(cb, Color(0.5, 0.3, 0.2), GOLD_DARK, 6, 1)
-	_text(cb.position + Vector2(0, cb.size.y / 2.0 + (7.0 if touch_ui else 5.0)), "CLOSE" if touch_ui else "[%s]  Close" % _k("menu"), 18 if touch_ui else 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x, 2)
+		cb = Rect2(box.end.x - 170, box.position.y + 8, 150, 44)   # finger-sized
+	_plate(cb, Color(0.5, 0.3, 0.2), GOLD_DARK, 7, 1)
+	_text(cb.position + Vector2(0, cb.size.y / 2.0 + (8.0 if touch_ui else 6.0)), "CLOSE" if touch_ui else "[%s]  Close" % _k("menu"), 20 if touch_ui else 13, CREAM, HORIZONTAL_ALIGNMENT_CENTER, cb.size.x, 2)
 	guide_buttons.append([cb, "close"])
 
 
@@ -7997,7 +8043,7 @@ func _draw_class_banner(p) -> void:
 		_gold_stud(Vector2(side * 176.0, 6), 5.0)
 	var card := Rect2(-86, -84, 172, 196)
 	_carved_frame(card, 16.0, true)
-	_card_art(Rect2(-60, -70, 120, 120), p.team, p.role, 1.0)
+	_card_art(Rect2(-74, -76, 148, 126), p.team, p.role, 1.0)
 	# The caption band under the art.
 	var band := Rect2(-74, 52, 148, 52)
 	draw_rect(band, Color(0.06, 0.08, 0.12, 0.92))
@@ -8050,8 +8096,26 @@ func _gold_stud(c: Vector2, r: float) -> void:
 
 
 func _card_art(rect: Rect2, team: int, role: int, light: float) -> void:
-	## The class art from the card sheet, square in rect (light < 1 dims it);
-	## the round portrait when the art is missing.
+	## The class art in rect (light < 1 dims it): an HD 3D bust (portrait_rig.gd)
+	## on a soft team-coloured backdrop that fills the box edge to edge (Faisal
+	## 11-05: the old painted card was a small figure on flat green). The
+	## painted card, then the round portrait, stand in until the bust is ready.
+	var rig = Portrait.bust(game, team, role, 512) if Portrait.supported() else null
+	var tc := _team_color(team)
+	if rig != null and rig.ready_to_draw():
+		var top := tc.darkened(0.55).lerp(Color(0.16, 0.2, 0.3), 0.55)
+		var bot := tc.darkened(0.78).lerp(Color(0.05, 0.07, 0.12), 0.5)
+		var pts := PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), rect.end, Vector2(rect.position.x, rect.end.y)])
+		draw_polygon(pts, PackedColorArray([top * light, top * light, bot * light, bot * light]))
+		draw_circle(rect.get_center() + Vector2(0, -rect.size.y * 0.12), rect.size.x * 0.46, Color(tc.lightened(0.35), 0.16 * light))
+		var tex: Texture2D = rig.texture()
+		var ts := tex.get_size()
+		var src_h := ts.y * 0.8
+		var src_w := minf(src_h * rect.size.x / maxf(rect.size.y, 1.0), ts.x)
+		var src := Rect2(Vector2((ts.x - src_w) / 2.0, ts.y * 0.1), Vector2(src_w, src_h))
+		draw_texture_rect_region(tex, rect, src, Color(light, light, light))
+		draw_rect(rect, Color(0.28, 0.16, 0.03), false, 2.0)
+		return
 	var key := _card_key(team, role)
 	if not cards.has(key):
 		_class_card(rect.get_center(), rect.size.x * 0.4, team, role)

@@ -1641,7 +1641,7 @@ func draw_action_card(hud, me) -> void:
 		# controls tip at the left above the status panel, under the card's
 		# usual spot; the card rises clear of both.
 		card.position.y -= 116.0
-	_slate_card(hud, card)
+	_wood_card(hud, card)
 	# A round slot like the ability strip's, with the job's painted icon
 	# (claude-faisal/crowns-visual2 2026-11-04, Faisal: the build-a-turret
 	# card restyled to match the rest of the HUD).
@@ -1649,22 +1649,22 @@ func draw_action_card(hud, me) -> void:
 	_slot_disc(hud, hc, 38.0, o.tile, o.ok)
 	hud._icon(o.icon, hc, 19.0, Color.WHITE, not o.ok)
 	var x := card.position.x + 118.0
-	hud._text(Vector2(x, card.position.y + 32), o.title, 21, Color(1.0, 0.84, 0.36), HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	hud._paragraph(Vector2(x, card.position.y + 53), o.detail, 13, Color(0.97, 0.93, 0.8), 300.0, 16.0)
+	hud._text(Vector2(x, card.position.y + 33), o.title, 22, Color(0.45, 0.2, 0.04), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+	hud._paragraph(Vector2(x, card.position.y + 55), o.detail, 13, Color(0.25, 0.16, 0.07), 330.0, 16.0, 0)
 	if o.bar != Vector2.ZERO:
 		var br := Rect2(Vector2(x, card.end.y - 22), Vector2(190, 11))
 		hud.draw_rect(br.grow(2), Color(0.05, 0.04, 0.03))
 		hud.draw_rect(br, Color(0.22, 0.12, 0.1))
 		var f := clampf(o.bar.x / maxf(o.bar.y, 1.0), 0.0, 1.0)
 		hud.draw_rect(Rect2(br.position, Vector2(br.size.x * f, br.size.y)), Color(0.9, 0.25, 0.2).lerp(Color(0.3, 0.85, 0.3), f))
-		hud._text(br.position + Vector2(198, 10), "%d / %d" % [int(o.bar.x), int(o.bar.y)], 12, Color(0.95, 0.92, 0.85), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		hud._text(br.position + Vector2(198, 10), "%d / %d" % [int(o.bar.x), int(o.bar.y)], 12, Color(0.3, 0.18, 0.08), HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
 	elif o.tag != "":
 		# A level-chip style tag (gold outline) like the LV chips in the menu.
 		var tw: float = hud._text_width(o.tag, 11) + 16.0
 		var tr := Rect2(Vector2(x, card.end.y - 26), Vector2(tw, 18))
-		hud.draw_rect(tr, Color(0.04, 0.06, 0.09, 0.75))
+		hud.draw_rect(tr, Color(0.36, 0.21, 0.09, 0.9))
 		hud.draw_rect(tr, BRASS, false, 1.2)
-		hud._text(tr.position + Vector2(8, 13), o.tag, 11, Color(1.0, 0.85, 0.45), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+		hud._text(tr.position + Vector2(8, 13), o.tag, 11, Color(1.0, 0.9, 0.55), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	# Price, right-aligned above the button, red when the base is short.
 	var bx := card.end.x - 92.0
 	var px := bx - 6.0
@@ -1816,6 +1816,16 @@ func close_training() -> void:
 
 const BRASS := Color(0.86, 0.66, 0.28)   # hud.gd's palette: the ability board's rim
 const WOOD_DARK := Color(0.27, 0.15, 0.07)
+
+
+func _wood_card(hud, r: Rect2) -> void:
+	## The action card (Faisal 11-05: "a generic dark web pop-up"): the HUD's wooden
+	## board in its brass rim with gold corners, the words on a parchment inset
+	## and the price and button on the wood to its right.
+	hud.game_board(r, "")
+	var p := Rect2(r.position + Vector2(104, 10), Vector2(r.size.x - 104 - 112, r.size.y - 20))
+	hud._plate(p, Color(0.96, 0.92, 0.8), Color(0.45, 0.3, 0.14), 8, 2)
+	hud.draw_rect(p.grow(-4), Color(0.6, 0.45, 0.2, 0.3), false, 1.0)
 
 
 func _slate_card(hud, r: Rect2) -> void:
