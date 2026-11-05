@@ -31,11 +31,12 @@ static func _pillow() -> ArrayMesh:
 		for i in n + 1:
 			var u := float(i) / n - 0.5
 			var v := float(j) / n - 0.5
-			var edge := maxf(absf(u), absf(v)) * 2.0       # 0 centre .. 1 rim
+			var edge := pow(pow(absf(u) * 2.0, 4.0) + pow(absf(v) * 2.0, 4.0), 0.25)   # rounded-square rim
 			var y := (1.0 - pow(edge, 3.0)) * (0.8 + 0.2 * sin(u * 17.0 + v * 9.0) * cos(v * 13.0 - u * 5.0))
-			if edge > 0.99:
-				y = -0.35                                    # the rim droops over the edge
-			pts.append(Vector3(u * 1.04, y, v * 1.04))
+			if edge >= 1.0:
+				y = -0.45                                    # the rim droops over the edge
+			var pull := 1.0 / maxf(edge, 1.0)              # corners pulled in: a rounded outline
+			pts.append(Vector3(u * 1.12 * pull, y, v * 1.12 * pull))
 	# Smooth normals from the height grid (flat facets read as a pyramid).
 	var nrms := []
 	for j in n + 1:
@@ -67,7 +68,7 @@ static func build(g) -> void:
 	# Matte, the ground snow's own tone (the reviewers: glossy white caps read
 	# as porcelain plates).
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.95, 0.97, 1.0)
+	mat.albedo_color = Color(0.86, 0.9, 0.98)
 	mat.roughness = 1.0
 	mat.metallic_specular = 0.15
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED   # (one-sided cushion, seen from above and the sides)
@@ -78,7 +79,7 @@ static func build(g) -> void:
 	for i in caps.size():
 		var c: Vector3 = caps[i][0]
 		var s: Vector2 = caps[i][1]
-		var h := clampf(minf(s.x, s.y) * 0.22, 0.07, 0.14)
+		var h := clampf(minf(s.x, s.y) * 0.3, 0.1, 0.2)
 		var yaw: float = caps[i][2] + (PI if i % 2 == 1 else 0.0)   # (lumps differ cap to cap)
 		var b := Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3(s.x, h, s.y))
 		mm.set_instance_transform(i, Transform3D(b, c + Vector3(0, 0.01, 0)))
