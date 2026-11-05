@@ -12,6 +12,7 @@ extends RefCounted
 ## with route().
 
 const Stats = preload("res://scripts/stats.gd")
+const StyleProfile = preload("res://scripts/visual/style_profile.gd")
 
 # Plazas: [centre, radius]. Mirrored in x: g/m are each side's door court and
 # watch post, c the Crossing, f the Fire Objective.
@@ -481,13 +482,13 @@ func _chunky_column() -> ArrayMesh:
 	return st.commit()
 
 
-func _pave() -> StandardMaterial3D:
+func _pave(soot: Color = Color.WHITE) -> StandardMaterial3D:
 	## Polish round 5 (reviewers: Ember stone flat, dark, strongly jointed):
 	## the causeways and courts in the castle flagstones (thin soft joints,
 	## bevelled, varied) tinted a warm volcanic grey, not the old dark flags.
 	if not game.world_style:
 		return game._flagstone(Color(0.45, 0.42, 0.42))
-	var m: StandardMaterial3D = game._pbr("castle_flags_grey", 0.32, Color(0.7, 0.57, 0.5))   # (round 7: smaller stones, was 0.16)
+	var m: StandardMaterial3D = game._pbr("castle_flags_grey", 0.32, StyleProfile.EMBER.paver_tint / soot)   # (round 7: smaller stones, was 0.16; visual8 2026-11-05: the Ember profile's warm basalt tint)
 	# Round 8: deeper bevels and contact shading, more tonal spread per stone.
 	m.normal_scale = 3.0   # (round 9: one more step, was 2.2)
 	m.roughness = 0.82
@@ -687,37 +688,37 @@ func _build_corridor(s: Array) -> void:
 	var side := Vector3(dir.z, 0, -dir.x)
 	game.map_paths.append([a, b, half * 2.0])
 	if kind == "bridge":
-		# A timber deck on stone piers, rails both sides, torches on posts.
-		var deck: Material = game._plank_dark(Color(0.5, 0.4, 0.36))
-		_box(mid + Vector3(0, -0.12, 0), Vector3(half * 2.0, 0.24, length), deck, yaw)
-		# Stone kerbs under the rails.
-		var kerb: Material = _kerb(Color(0.4, 0.33, 0.33))
-		for sd in [-1.0, 1.0]:
-			_box(mid + side * sd * (half + 0.12) + Vector3(0, -0.08, 0), Vector3(0.36, 0.4, length - rad[s[0]] - rad[s[1]] + 1.0), kerb, yaw)
-		var timber: Material = game._timber(Color(0.32, 0.22, 0.18))
-		var n := int(length / 2.6)
-		for k in n + 1:
-			var at: Vector3 = a + dir * (float(k) / n * length)
-			if _flat(at, a) < rad[s[0]] - 0.2 or _flat(at, b) < rad[s[1]] - 0.2:
-				continue
-			for sd in [-1.0, 1.0]:
-				_box(at + side * sd * (half + 0.12) + Vector3(0, 0.55, 0), Vector3(0.16, 1.1, 0.16), timber, yaw)
-			if k % 4 == 2:
-				# Piers down into the lava.
-				_box(at + Vector3(0, (LAVA_Y - 0.3) / 2.0 - 0.2, 0), Vector3(half * 1.6, absf(LAVA_Y) + 0.2, 1.1), basalt(Color(0.42, 0.36, 0.34)), yaw)
-			if k % 4 == 0 and k > 0 and k < n:
-				for sd in [-1.0, 1.0]:
-					_hell_torch(at + side * sd * (half + 0.12) + Vector3(0, 0.0, 0), 1.6)
-		# The rails: heavy iron chains draped post to post (the 2026-10-08
-		# reference), a low timber rail under them.
+		# Visual pass (claude-faisal3 2026-11-05): a sturdy stone bridge. One
+		# unbroken body of dark basalt runs plaza to plaza under a paved deck
+		# (no gap at either end, nothing floating), piers stand in the lava,
+		# solid parapets with an obsidian coping and pillars carry the rails,
+		# torches on every other pillar.
+		var body: Material = basalt(Color(0.3, 0.24, 0.25))
+		var obsidian: Material = _obsidian()
+		_box(mid + Vector3(0, -0.5, 0), Vector3(half * 2.0 + 0.2, 0.9, length), body, yaw)
+		_box(mid + Vector3(0, -0.03, 0), Vector3(half * 2.0, 0.1, length), _pave(), yaw)
 		var start: Vector3 = a + dir * (rad[s[0]] - 0.3)
 		var end: Vector3 = b - dir * (rad[s[1]] - 0.3)
 		var rl: float = _flat(start, end)
+		var rm := (start + end) / 2.0
+		var kerb: Material = _kerb(Color(0.4, 0.33, 0.33))
 		for sd in [-1.0, 1.0]:
-			_box((start + end) / 2.0 + side * sd * (half + 0.12) + Vector3(0, 0.6, 0), Vector3(0.08, 0.08, rl), timber, yaw)
-			_chain(start + side * sd * (half + 0.12) + Vector3(0, 1.08, 0), end + side * sd * (half + 0.12) + Vector3(0, 1.08, 0), 2.6, 0.16)
-		# Chains hanging under the deck edge, a lick of glow from below.
-		_box(mid + Vector3(0, -0.36, 0), Vector3(half * 2.0 - 0.3, 0.2, length - 1.0), basalt(Color(0.25, 0.2, 0.2)), yaw)
+			var edge: Vector3 = side * sd * (half + 0.05)
+			# The parapet: a solid stone wall with a dark coping.
+			_box(rm + edge + Vector3(0, 0.4, 0), Vector3(0.44, 0.8, rl), kerb, yaw)
+			_box(rm + edge + Vector3(0, 0.84, 0), Vector3(0.6, 0.12, rl), obsidian, yaw)
+		var n := maxi(int(rl / 2.6), 1)
+		for k in n + 1:
+			var at: Vector3 = start + dir * (float(k) / n * rl)
+			for sd in [-1.0, 1.0]:
+				var pp: Vector3 = at + side * sd * (half + 0.05)
+				_box(pp + Vector3(0, 0.62, 0), Vector3(0.52, 1.24, 0.52), kerb, yaw)
+				_box(pp + Vector3(0, 1.28, 0), Vector3(0.64, 0.12, 0.64), obsidian, yaw)
+				if k % 2 == 1:
+					_hell_torch(pp + Vector3(0, 1.3, 0), 1.2)
+			if k % 4 == 2:
+				# Piers down into the lava.
+				_box(at + Vector3(0, (LAVA_Y - 0.3) / 2.0 - 0.9, 0), Vector3(half * 1.7, absf(LAVA_Y) + 0.4, 1.4), cartoon_rock(), yaw)
 		return
 	# Causeway and the grand stair: paved rock with a cliff skirt.
 	var pave: Material = _pave()

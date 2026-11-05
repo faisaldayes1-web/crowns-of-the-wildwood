@@ -11020,7 +11020,7 @@ func _build_castle(team: int) -> void:
 	# the Elves' cream pavers, the same slabs cool-tinted for the Humans.
 	# (Its top at 0.024 clears the road cores that run in under the gate.)
 	await _world_build_frame()
-	_add_block(Vector3(cx, 0.014, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _pavers() if mossy else _pbr("pavers", 0.16 if world_style else 0.22, Color(0.9, 0.9, 0.9)))
+	_add_block(Vector3(cx, 0.014, 0), Vector3(CASTLE_DEPTH * 2, 0.02, hz * 2), color, false, _pavers() if mossy or (vmap != null and world_style) else _pbr("pavers", 0.16 if world_style else 0.22, Color(0.9, 0.9, 0.9)))
 
 	# --- The outer wall ring: front wall with the gatehouse, side and back walls, corner towers. ---
 	var seg := hz - (dh + 2.2)                    # front wall from the gatehouse tower to the corner
@@ -11330,6 +11330,8 @@ func _pavers() -> StandardMaterial3D:
 		# flags read pink under the dusk sun).
 		if season == "twilight":
 			return _pbr("castle_flags", 0.16, Color(0.8, 0.92, 0.94))
+		if vmap != null:   # Ember Pass: the profile's warm basalt, as the causeways
+			return vmap._pave(soot)   # (undoing the castle soot, so the yard keeps the causeways' tone)
 		return _pbr("castle_flags", 0.16, Color(1.0, 0.95, 0.99))
 	return _pbr("pavers", 0.22, Color(1.0, 0.98, 0.94))
 

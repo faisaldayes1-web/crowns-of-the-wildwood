@@ -19,6 +19,28 @@ static func add(g, top_center: Vector3, size_xz: Vector2, rot_y: float) -> void:
 	g.get_meta("snow_caps").append([top_center, size_xz, rot_y])
 
 
+static func add_drift(g, ground_center: Vector3, size_xz: Vector2, rot_y: float) -> void:
+	## A bank of snow on the ground round a wall or tower foot (Stonekeep
+	## only): drawn with the caps, a taller, wider cushion half sunk in the
+	## ground, so the stone seems to stand in the snow.
+	if g.season != "winter":
+		return
+	if not g.has_meta("snow_drifts"):
+		g.set_meta("snow_drifts", [])
+	g.get_meta("snow_drifts").append([ground_center, size_xz, rot_y])
+
+
+static func material() -> StandardMaterial3D:
+	## Matte, the ground snow's own tone (the reviewers: glossy white caps read
+	## as porcelain plates).
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.86, 0.9, 0.98)
+	mat.roughness = 1.0
+	mat.metallic_specular = 0.15
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED   # (one-sided cushion, seen from above and the sides)
+	return mat
+
+
 static func _pillow() -> ArrayMesh:
 	## A soft, lumpy snow cushion over a unit square (x, z in -0.5..0.5): flat
 	## enough to sit flush on the stone, rounded and drooping a little over
@@ -59,19 +81,18 @@ static func _pillow() -> ArrayMesh:
 
 
 static func build(g) -> void:
-	if not g.has_meta("snow_caps"):
+	_build_set(g, "snow_caps", "WallSnow", false)
+	_build_set(g, "snow_drifts", "GroundSnow", true)
+
+
+static func _build_set(g, meta: String, node_name: String, drift: bool) -> void:
+	if not g.has_meta(meta):
 		return
-	var caps: Array = g.get_meta("snow_caps")
-	g.remove_meta("snow_caps")
+	var caps: Array = g.get_meta(meta)
+	g.remove_meta(meta)
 	if caps.is_empty():
 		return
-	# Matte, the ground snow's own tone (the reviewers: glossy white caps read
-	# as porcelain plates).
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.86, 0.9, 0.98)
-	mat.roughness = 1.0
-	mat.metallic_specular = 0.15
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED   # (one-sided cushion, seen from above and the sides)
+	var mat := material()
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.mesh = _pillow()
@@ -80,11 +101,13 @@ static func build(g) -> void:
 		var c: Vector3 = caps[i][0]
 		var s: Vector2 = caps[i][1]
 		var h := clampf(minf(s.x, s.y) * 0.3, 0.1, 0.2)
+		if drift:
+			h = 0.42
 		var yaw: float = caps[i][2] + (PI if i % 2 == 1 else 0.0)   # (lumps differ cap to cap)
 		var b := Basis(Vector3.UP, yaw) * Basis.from_scale(Vector3(s.x, h, s.y))
-		mm.set_instance_transform(i, Transform3D(b, c + Vector3(0, 0.01, 0)))
+		mm.set_instance_transform(i, Transform3D(b, c + Vector3(0, 0.03 if drift else 0.01, 0)))
 	var mmi := MultiMeshInstance3D.new()
-	mmi.name = "WallSnow"
+	mmi.name = node_name
 	mmi.multimesh = mm
 	mmi.material_override = mat
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
