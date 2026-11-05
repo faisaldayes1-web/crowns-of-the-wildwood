@@ -379,6 +379,78 @@ func basalt(tint: Color = Color(0.25, 0.19, 0.2)) -> StandardMaterial3D:
 	return game._pbr("rock", 0.22, tint.lerp(Color(0.5, 0.4, 0.37), 0.35))
 
 
+# Cartoony basalt (claude-faisal/crowns-visual2 2026-11-04, final grade:
+# the faceted dark rock read as another game's style): a painted vertical
+# gradient from a lava-lit glowing foot through warm plum-brown to a light
+# rose-tan top, sunlit tops picked out, soft matte shading.
+const CARTOON_ROCK := """
+shader_type spatial;
+render_mode diffuse_toon, specular_disabled;
+uniform vec3 tint : source_color = vec3(0.42, 0.3, 0.29);
+uniform float lava_y = -2.0;
+uniform float span = 6.0;
+varying vec3 wpos;
+varying vec3 wn;
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+void fragment() {
+	float h = clamp((wpos.y - lava_y) / span, 0.0, 1.0);
+	vec3 foot = vec3(0.2, 0.08, 0.08);
+	vec3 col = mix(foot, tint, smoothstep(0.0, 0.45, h));
+	col = mix(col, tint * vec3(1.3, 1.2, 1.12), smoothstep(0.55, 1.0, h) * 0.5);
+	col = mix(col, tint * vec3(1.45, 1.32, 1.2), smoothstep(0.6, 0.95, wn.y) * 0.55);   // lit tops
+	ALBEDO = col;
+	EMISSION = vec3(1.0, 0.36, 0.08) * (1.0 - smoothstep(0.0, 0.16, h)) * 0.6;
+	ROUGHNESS = 0.9;
+}
+"""
+var _rock_shader: Shader
+var _rock_mats := {}
+
+
+func cartoon_rock(tint: Color = Color(0.32, 0.22, 0.22)) -> ShaderMaterial:
+	var key := tint.to_html()
+	if _rock_mats.has(key):
+		return _rock_mats[key]
+	if _rock_shader == null:
+		_rock_shader = Shader.new()
+		_rock_shader.code = CARTOON_ROCK
+	var m := ShaderMaterial.new()
+	m.shader = _rock_shader
+	m.set_shader_parameter("tint", tint.lerp(Color(0.5, 0.36, 0.34), 0.15))
+	m.set_shader_parameter("lava_y", LAVA_Y)
+	_rock_mats[key] = m
+	return m
+
+
+func _chunky_column() -> ArrayMesh:
+	## A rounded, chunky basalt column (unit radius 0.5, height 1, centred):
+	## ten smooth sides bulging a little at the middle and a soft domed top.
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var sides := 10
+	var rings := [[-0.5, 0.58], [-0.1, 0.6], [0.3, 0.55], [0.44, 0.47], [0.5, 0.3], [0.52, 0.0]]
+	for k in rings.size() - 1:
+		for i in sides:
+			var a0 := TAU * i / sides
+			var a1 := TAU * (i + 1) / sides
+			var r0: float = rings[k][1]
+			var r1: float = rings[k + 1][1]
+			var y0: float = rings[k][0]
+			var y1: float = rings[k + 1][0]
+			var p00 := Vector3(cos(a0) * r0, y0, sin(a0) * r0)
+			var p10 := Vector3(cos(a1) * r0, y0, sin(a1) * r0)
+			var p01 := Vector3(cos(a0) * r1, y1, sin(a0) * r1)
+			var p11 := Vector3(cos(a1) * r1, y1, sin(a1) * r1)
+			for p in [p00, p10, p01, p10, p11, p01]:
+				var n := Vector3(p.x, 0.0, p.z).normalized() * (1.0 - smoothstep(0.3, 0.52, p.y)) + Vector3.UP * smoothstep(0.2, 0.52, p.y)
+				st.set_normal(n.normalized())
+				st.add_vertex(p)
+	return st.commit()
+
+
 func _pave() -> StandardMaterial3D:
 	## Polish round 5 (reviewers: Ember stone flat, dark, strongly jointed):
 	## the causeways and courts in the castle flagstones (thin soft joints,
@@ -500,7 +572,7 @@ func _skirt(at: Vector3, size: Vector3, yaw: float = 0.0) -> void:
 	## coplanar overlaps flickered as the camera moved (Faisal 2026-10-10).
 	var lift := 0.006 if size.z > size.x else 0.0
 	at.y += lift
-	_box(at + Vector3(0, -size.y / 2.0 - 0.02, 0), Vector3(size.x, size.y, size.z), basalt(), yaw)
+	_box(at + Vector3(0, -size.y / 2.0 - 0.02, 0), Vector3(size.x, size.y, size.z), cartoon_rock(), yaw)
 	# A darker, glowing-hot band where it meets the lava.
 	var hot := StandardMaterial3D.new()
 	hot.albedo_color = Color(0.08, 0.02, 0.01)
@@ -545,14 +617,14 @@ func _build_plateaus() -> void:
 			for zs in [-1.0, 1.0]:
 				var p := Vector3(sx * x + r.randf_range(-0.6, 0.6), 0, zs * (LAND_Z - 0.5 + r.randf_range(-0.3, 0.6)))
 				var rock := _mesh(game._rock_mesh(int(x * 13) + t * 7 + int(zs), r.randf_range(0.7, 1.3)), p + Vector3(0, 0.15, 0),
-					basalt(Color(0.22, 0.17, 0.18)), Vector3(0, r.randf() * TAU, 0))
+					cartoon_rock(Color(0.26, 0.18, 0.19)), Vector3(0, r.randf() * TAU, 0))
 				rock.scale = Vector3(1.0, r.randf_range(0.6, 1.3), 1.0)
 			x += r.randf_range(2.6, 4.2)
 		var z := -LAND_Z + 1.0
 		while z < LAND_Z:
 			if absf(z) > 4.4:
 				var p := Vector3(sx * (LAND_X + 0.5), 0, z + r.randf_range(-0.4, 0.4))
-				_mesh(game._rock_mesh(int(z * 17) + t * 3, r.randf_range(0.6, 1.0)), p + Vector3(0, 0.1, 0), basalt(Color(0.22, 0.17, 0.18)))
+				_mesh(game._rock_mesh(int(z * 17) + t * 3, r.randf_range(0.6, 1.0)), p + Vector3(0, 0.1, 0), cartoon_rock(Color(0.26, 0.18, 0.19)))
 			z += r.randf_range(2.4, 3.6)
 		if t == 0:
 			# The Elves bring the forest with them: pines and glowing crystals
@@ -678,8 +750,8 @@ func _build_plaza(i: int) -> void:
 	cliff.top_radius = r + 0.5
 	cliff.bottom_radius = r + 1.6
 	cliff.height = absf(LAVA_Y) + 1.6
-	cliff.radial_segments = 9
-	_mesh(cliff, c + Vector3(0, -cliff.height / 2.0 - 0.1, 0), basalt())
+	cliff.radial_segments = 24   # (rounder: the 9-sided cliff read faceted)
+	_mesh(cliff, c + Vector3(0, -cliff.height / 2.0 - 0.1, 0), cartoon_rock())
 	var hot := StandardMaterial3D.new()
 	hot.albedo_color = Color(0.08, 0.02, 0.01)
 	hot.emission_enabled = true
@@ -906,13 +978,7 @@ func _build_spires() -> void:
 		x += 3.4
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
-	var col := CylinderMesh.new()
-	col.top_radius = 0.5
-	col.bottom_radius = 0.58
-	col.height = 1.0
-	col.radial_segments = 6
-	col.rings = 1
-	mm.mesh = col
+	mm.mesh = _chunky_column()
 	mm.instance_count = cols.size() * 2
 	var k := 0
 	for c in cols:
@@ -932,7 +998,7 @@ func _build_spires() -> void:
 		k += 1
 	var inst := MultiMeshInstance3D.new()
 	inst.multimesh = mm
-	inst.material_override = basalt(Color(0.2, 0.15, 0.16))
+	inst.material_override = cartoon_rock(Color(0.24, 0.16, 0.18))
 	game.add_child(inst)
 
 
