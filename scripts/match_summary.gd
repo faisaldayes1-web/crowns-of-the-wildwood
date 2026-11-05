@@ -245,9 +245,9 @@ func _header(h, cx: float, t: float) -> void:
 		var mid := cx + (-157.0 if side == 0 else 159.0)
 		h._bar_text(Vector2(mid, 31), Stats.FACTIONS[side].name.to_upper(), tf, 17, Color(1.0, 0.95, 0.86), ink, 6)
 		h._bar_text(Vector2(mid, 61), str(game.score[side]), tf, 38, Color(1.0, 0.95, 0.84), ink, 10)
-	h._bar_text(Vector2(cx + 3.0, 42), "FINAL", tf, 18, Color(1.0, 0.78, 0.32), ink, 4)
+	h._bar_text(Vector2(cx + 3.0, 42), "TDM FINAL" if game.is_tdm() else "FINAL", tf, 18 if not game.is_tdm() else 15, Color(1.0, 0.78, 0.32), ink, 4)
 	# A long match (59:59+) keeps inside the clock frame (NUM: worst case).
-	var clock := "%d:%02d%s" % [mins, secs, "+" if game.overtime else ""]
+	var clock := "%d:%02d%s" % [mins, secs, "+" if game.overtime or game.tdm_sudden else ""]
 	var cfs := 38
 	while cfs > 20 and tf.get_string_size(clock, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x > 118.0:
 		cfs -= 2
@@ -275,7 +275,8 @@ func _you_panel(h, r: Rect2, t: float) -> void:
 	if me == null:
 		return
 	var a := clampf((t - 0.3) / 0.4, 0.0, 1.0)
-	var stats := [["KILLS", me.kills, "vanguard"], ["DEATHS", me.deaths, "skull"], ["ASSISTS", me.assists, "assist"], ["CAPTURES", me.captures, "flag"],
+	var stats := [["KILLS", me.kills, "vanguard"], ["DEATHS", me.deaths, "skull"], ["ASSISTS", me.assists, "assist"],
+		["TEAM KILLS", game.score[me.team], "flag"] if game.is_tdm() else ["CAPTURES", me.captures, "flag"],
 		["DAMAGE", me.damage_dealt, "burst"], ["HEALING", me.healing, "potion"], ["BEST STREAK", me.best_streak, "fireball"], ["PEAK LEVEL", me.peak_level, "rank"]]
 	var gw := (r.size.x - 32.0 + 9.0) / 4.0
 	for i in stats.size():

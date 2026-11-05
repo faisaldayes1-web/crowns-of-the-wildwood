@@ -377,6 +377,22 @@ const SEAL_REACH := 2.2     # how close you stand to a class seal to grab it wit
 const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins
 const CAPTURES_TO_WIN := 2
 
+# Team Deathmatch (claude-faisal/crowns-tdm 2026-11-04): the same maps, no
+# crowns and no doors. Every enemy knocked down or killed is a point; the
+# first side to TDM_KILLS_TO_WIN, or the leader when the clock runs out,
+# wins. A tie at full time plays TDM_SUDDEN seconds where the next kill wins.
+# The fallen come back together in respawn waves every TDM_WAVE seconds
+# (never sooner than TDM_RESPAWN_MIN), so a team regroups instead of
+# trickling in one by one.
+const GAME_MODES := ["crowns", "tdm"]
+const GAME_MODE_NAMES := {"crowns": "Crown Raid", "tdm": "Team Deathmatch"}
+const TDM_KILLS_TO_WIN := 30
+const TDM_TIME := 600.0
+const TDM_SUDDEN := 60.0
+const TDM_WAVE := 6.0
+const TDM_RESPAWN_MIN := 4.0
+const TDM_PREP := 10.0
+
 # Experience, earned in battle. Each level gives one rank point to spend in
 # the rank menu on Attack, Q, E or Vigor. Falling costs DEATH_LEVEL_LOSS levels
 # and the ranks bought with them (the most recent first), not the whole climb.

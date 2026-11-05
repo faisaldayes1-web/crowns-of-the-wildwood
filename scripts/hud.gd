@@ -1772,7 +1772,7 @@ func _minimap_castles(c: Vector2, r: float, m: Callable, clip: PackedVector2Arra
 		_mm_rect(outer, clip, tc.darkened(0.1), tc.lightened(0.45), 1.5)
 		_mm_rect(outer.grow(-outer.size.x * 0.16), clip, tc.lightened(0.12), tc.darkened(0.35), 1.0)
 		var th: Vector2 = m.call(game.thrones[t])
-		if (th - c).length() < r - 4.0:
+		if (th - c).length() < r - 4.0 and not game.is_tdm():   # no crowns in a deathmatch
 			var cs := clampf(r / 180.0, 0.38, 0.62)
 			_crown(th + Vector2(0.6, 1.0), cs, Color(0.25, 0.15, 0.02, 0.6))
 			_crown(th, cs, GOLD)
@@ -2655,7 +2655,7 @@ func _draw_scoreboard() -> void:
 			_crown_glyph(Vector2(size.x / 2.0, 9), 20.0, 0.6)
 		_ivy(clock.position + Vector2(6, 60), Vector2(0, -1), 38, 7)
 		_ivy(clock.position + Vector2(214, 60), Vector2(0, -1), 38, 5)
-		_bar_text(Vector2(size.x / 2.0, 42), "FORTIFY" if game.prep_left > 0.0 else ("OVERTIME" if game.overtime else "BATTLE"), tf, 18, GOLD, ink, 4)
+		_bar_text(Vector2(size.x / 2.0, 42), "FORTIFY" if game.prep_left > 0.0 else _phase_name(), tf, 18, GOLD, ink, 4)
 		var sec := maxi(0, ceili(game.prep_left) if game.prep_left > 0.0 else int(game.time_left))
 		_bar_text(Vector2(size.x / 2.0, 78), "%d:%02d" % [sec / 60, sec % 60], tf, 38, CREAM, ink, 5)
 		if game.prep_left > 0.0:
@@ -2674,11 +2674,18 @@ func _draw_scoreboard() -> void:
 	_scoreboard_live(true, quiet)
 
 
+func _phase_name() -> String:
+	## The word over the match clock once the battle is on.
+	if game.is_tdm():
+		return "SUDDEN DEATH" if game.tdm_sudden else "FIRST TO %d" % Stats.TDM_KILLS_TO_WIN
+	return "OVERTIME" if game.overtime else "BATTLE"
+
+
 func _topbar_key() -> Array:
 	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and game.prep_left <= 0.0 and not game.overtime else {}
 	var left := maxf(game.time_left, 0.0)
 	return [size, _bake_scale(), game.score.duplicate(), game.prep_left > 0.0, ceilf(game.prep_left), int(game.prep_left * 2.0) % 2,
-		int(left), left < 60.0 and int(left * 2.0) % 2 == 0, game.overtime, _k("interact"), game.barricades_left[_my_team()],
+		int(left), left < 60.0 and int(left * 2.0) % 2 == 0, game.overtime, game.game_mode, game.tdm_sudden, _k("interact"), game.barricades_left[_my_team()],
 		fire.get("text", ""), fire.get("color", Color.BLACK), fire.is_empty()]
 
 
@@ -2753,7 +2760,8 @@ func _scoreboard_static(quiet: bool = false) -> void:
 	else:
 		var left := maxf(game.time_left, 0.0)
 		var urgent := left < 60.0 and int(left * 2.0) % 2 == 0
-		_bar_text(Vector2(clock_x, 42), "OVERTIME" if game.overtime else "BATTLE", tf, 18, Color(1, 0.55, 0.4) if game.overtime else Color(1.0, 0.78, 0.32), ink, 4)
+		var hot: bool = game.overtime or game.tdm_sudden
+		_bar_text(Vector2(clock_x, 42), _phase_name(), tf, 18 if _phase_name().length() < 10 else 15, Color(1, 0.55, 0.4) if hot else Color(1.0, 0.78, 0.32), ink, 4)
 		_bar_text(Vector2(clock_x, 70), "%d:%02d" % [int(left) / 60, int(left) % 60], tf, 38,
 			Color(1, 0.4, 0.3) if urgent else Color(1.0, 0.97, 0.92), ink, 5)
 	# The phase line only when there is news (fortify, overtime, the Ember
@@ -2768,6 +2776,9 @@ func _scoreboard_static(quiet: bool = false) -> void:
 			line += "  %d kit%s left." % [kits, "" if kits == 1 else "s"]
 	elif game.overtime:
 		line = "Overtime: no respawns. The last team standing or the next capture wins."
+		line_ink = Color(0.55, 0.1, 0.05)
+	elif game.tdm_sudden:
+		line = "Sudden death: the next kill wins the deathmatch."
 		line_ink = Color(0.55, 0.1, 0.05)
 	var fire: Dictionary = game.vmap.status(_my_team()) if game.vmap and not fortify and not game.overtime and not quiet else {}
 	if not fire.is_empty() and fire.text != "":
@@ -4474,7 +4485,7 @@ func _draw_world_prompt() -> void:
 				else:
 					text = "TAKE THE %s'S HAT" % s.class_title().to_upper()
 				break
-	if text == "" and me.carrying == null and game.prep_left <= 0.0:
+	if text == "" and me.carrying == null and game.prep_left <= 0.0 and not game.is_tdm():
 		var m = game.monarchs[1 - me.team]
 		var flat := Vector2(me.global_position.x - m.global_position.x, me.global_position.z - m.global_position.z).length()
 		# 1.8 m is Unit.PICKUP_RANGE, the reach of a grab.
@@ -4656,7 +4667,8 @@ func _draw_map_castles(rect: Rect2, m: Callable, sx: float, sz: float, fx: float
 		if detailed:
 			_map_pin("door", m.call(Vector3(ox - side * 3.0, 0, 0)), 7.5, door_color)
 			_map_pin("spawn", m.call(Vector3(cx - side * game.CELLAR_DEPTH * 0.5, 0, 0)), 7.5, tc)
-		_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
+		if not game.is_tdm():
+			_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
 		if detailed:
 			_text(outer.position + Vector2(-40, -6), "%s CASTLE" % Stats.FACTIONS[t].name.to_upper(), 11, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, outer.size.x + 80, 2)
 			_card("crest_elf" if t == 0 else "crest_human", Rect2(keep.position + Vector2(keep.size.x / 2.0 - 11, 2), Vector2(22, 22)))
