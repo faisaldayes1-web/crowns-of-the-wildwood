@@ -11,7 +11,7 @@ extends SceneTree
 ## Run from the project root:
 ##   tools/tests/isolated.sh --headless --path . --script tools/gates/resource_gate.gd
 
-const SKIP_DIRS := ["res://.godot", "res://.git", "res://server", "res://docs", "res://evidence"]
+const SKIP_DIRS := ["res://.godot", "res://.git", "res://server", "res://docs", "res://evidence", "res://build"]   # (build/ is where tools write their output)
 const KINDS := ["tscn", "tres", "gd", "gdshader", "material", "import"]
 
 var failures := 0

@@ -1,10 +1,10 @@
 {
   "note": "claude-faisal/crowns-gates 2026-11-04. Per map, the worst of four camera spots in a --play match at --gfx=0 (tools/gates/perf_gate.gd, gl_compatibility). draws/prims/objects/nodes: about 30% over the values measured on main at 8b056ca, so in-flight visual PRs fit; cpu_ms: the game's own CPU time a frame on a CI runner, with the same headroom. Raise a number on purpose, in the PR that needs it.",
   "maps": {
-    "0": {"draws": 1650, "prims": 2000000, "objects": 1950, "nodes": 14000, "cpu_ms": 120},
-    "1": {"draws": 1650, "prims": 2000000, "objects": 1950, "nodes": 14000, "cpu_ms": 120},
-    "2": {"draws": 1550, "prims": 1950000, "objects": 1850, "nodes": 9700, "cpu_ms": 120},
-    "3": {"draws": 1650, "prims": 2150000, "objects": 1950, "nodes": 12300, "cpu_ms": 120},
-    "4": {"draws": 1600, "prims": 2650000, "objects": 1900, "nodes": 12200, "cpu_ms": 120}
+    "0": {"draws": 1650, "prims": 2000000, "objects": 1950, "nodes": 14000, "cpu_ms": 5000},
+    "1": {"draws": 1650, "prims": 2000000, "objects": 1950, "nodes": 14000, "cpu_ms": 5000},
+    "2": {"draws": 1550, "prims": 1950000, "objects": 1850, "nodes": 9700, "cpu_ms": 5000},
+    "3": {"draws": 1650, "prims": 2150000, "objects": 1950, "nodes": 12300, "cpu_ms": 5000},
+    "4": {"draws": 1600, "prims": 2650000, "objects": 1900, "nodes": 12200, "cpu_ms": 5000}
   }
 }

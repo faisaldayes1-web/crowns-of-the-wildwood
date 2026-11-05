@@ -392,14 +392,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          bad=0
           for map in 0 1 2 3 4; do
             export MESA_SHADER_CACHE_DIR="$RUNNER_TEMP/mesa-perf-$map"
             mkdir -p "$MESA_SHADER_CACHE_DIR"
             timeout 400 xvfb-run -a bash tools/tests/isolated.sh --path . --rendering-method gl_compatibility --rendering-driver opengl3 --resolution 640x360 --script tools/gates/perf_gate.gd -- --play --seed=7 --gfx=0 --map=$map > "ci-logs/perf-map$map.log" 2>&1 || true
             grep -E '^FAIL|^PERF|^perf gate' "ci-logs/perf-map$map.log" || true
-            if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' "ci-logs/perf-map$map.log"; then echo 'gate log has errors (above)'; exit 1; fi
-            grep -q '^perf gate map: 0 failure(s)$' "ci-logs/perf-map$map.log"
+            # (every map is measured before the step fails, so one log shows them all)
+            if grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL|Failed loading resource|Cannot open file|No loader found' "ci-logs/perf-map$map.log"; then echo "map $map: gate log has errors (above)"; bad=1; fi
+            grep -q '^perf gate map: 0 failure(s)$' "ci-logs/perf-map$map.log" || bad=1
           done
+          test "$bad" = 0
       - name: Keep logs (failure only)
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
