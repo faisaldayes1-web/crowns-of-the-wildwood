@@ -5087,7 +5087,25 @@ func pad_title(device: int) -> String:
 	return n if n != "" else "Gamepad"
 
 
+func _release_stuck_input() -> void:
+	## A pad plugged or pulled mid-menu or mid-match can leave an action latched
+	## (a trigger or stick last seen held), which kept the hero walking or
+	## swinging with no one touching anything, or blocked the keyboard until the
+	## device came back (Faisal 11-05: hot-plug bugs the controls). Release every
+	## game action and forget half-made clicks; the next real event sets them again.
+	for action in InputMap.get_actions():
+		if not str(action).begins_with("ui_") and Input.is_action_pressed(action):
+			Input.action_release(action)
+	movement_force_pulse = false
+	movement_primary_blocked = false
+	click_latched = false
+	confirm_block = false
+	if player != null:
+		player.cancel_click_movement()
+
+
 func _on_pad_changed(device: int, connected: bool) -> void:
+	_release_stuck_input()
 	var who := ""
 	if couch_players > 1:
 		for k in couch_players:
@@ -5102,6 +5120,7 @@ func _on_pad_changed(device: int, connected: bool) -> void:
 		# Only player 1's pad drives the hint labels; player 2 unplugging used to flip them to keys.
 		if couch_players <= 1 or device == local_pad(0):
 			pad_active = false
+			cursor_shown = false   # the pad's menu pointer goes with it; the mouse takes over at once
 		if who != "" and playing and not menu_open and not (net and net.online()):
 			# A split-screen player whose pad dropped would stand still while the others fight:
 			# pause so they can plug it back in (the bound device id survives a replug).
@@ -11274,36 +11293,7 @@ func _dress_elf_yard(team: int, fx: float, kx: float, side: float, hz: float) ->
 	# read as "giant blobs inside the building", one of them pink.)
 	for zs in [-1.0, 1.0]:
 		_add_stone_brazier(Vector3(kx - side * 1.9, 0, zs * 3.4))
-	# Turret pads where the Engineers build (the sheet's outer-defence turrets).
-	for spot in turret_spots(team):
-		_add_turret_pad(spot)
-
-
-func _add_turret_pad(pos: Vector3) -> void:
-	## A round sandstone pad with a gold ring: a marked turret spot.
-	var pad := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.95
-	cm.bottom_radius = 1.0
-	cm.height = 0.05
-	cm.radial_segments = 32
-	pad.mesh = cm
-	# (5 cm high, so the Economy's smaller build pad laid on the same spot
-	# stands 1 cm proud of it instead of sharing its top and flickering.)
-	pad.position = pos + Vector3(0, 0.025, 0)
-	pad.material_override = _ashlar(Color(0.95, 0.92, 0.86))
-	add_child(pad)
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = 0.72
-	tm.outer_radius = 0.84
-	tm.rings = 32
-	tm.ring_segments = 4
-	ring.mesh = tm
-	ring.scale = Vector3(1, 0.3, 1)
-	ring.position = pos + Vector3(0, 0.065, 0)
-	ring.material_override = _gold()
-	add_child(ring)
+	# (The turret platforms are built by economy.gd _build_pads, for both teams on every map.)
 
 
 func _dress_human_castle(team: int, fx: float, kx: float, side: float, dh: float) -> void:

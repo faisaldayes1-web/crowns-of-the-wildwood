@@ -1184,6 +1184,51 @@ func _refresh_pile(team: int) -> void:
 		k += 1
 
 
+func _platform(mark: Node3D, accent: Color) -> void:
+	## A turret spot (Faisal 11-05: "the texture feels off"): a two-tier round
+	## sandstone platform with a rune ring in the team colour and eight rim
+	## stones, a hand's breadth off the floor, so it reads as a place to build
+	## and not a decal. The glow (below) rides on top while a turret is affordable.
+	var tier := func(radius: float, height: float, y: float, mat: Material) -> void:
+		var m := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = radius
+		cm.bottom_radius = radius + 0.05
+		cm.height = height
+		cm.radial_segments = 40
+		m.mesh = cm
+		m.position = Vector3(0, y + height / 2.0, 0)
+		m.material_override = mat
+		mark.add_child(m)
+	tier.call(1.1, 0.14, 0.0, game._ashlar(Color(0.72, 0.66, 0.56)))
+	tier.call(0.88, 0.08, 0.14, game._ashlar(Color(1.0, 0.96, 0.86)))
+	var accent_mat := _mat(accent.lightened(0.1), 0.5, 0.2)
+	accent_mat.emission_enabled = true
+	accent_mat.emission = accent
+	accent_mat.emission_energy_multiplier = 0.5
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.66
+	tm.outer_radius = 0.76
+	tm.rings = 40
+	tm.ring_segments = 6
+	ring.mesh = tm
+	ring.scale = Vector3(1, 0.3, 1)
+	ring.position = Vector3(0, 0.225, 0)
+	ring.material_override = accent_mat
+	mark.add_child(ring)
+	for k in 8:
+		var a := TAU * k / 8.0
+		var rim := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = Vector3(0.22, 0.1, 0.13)
+		rim.mesh = bm
+		rim.position = Vector3(cos(a) * 1.0, 0.16, sin(a) * 1.0)
+		rim.rotation.y = -a
+		rim.material_override = game._ashlar(Color(0.58, 0.52, 0.44))
+		mark.add_child(rim)
+
+
 func _build_pads(team: int) -> void:
 	## A turret pad on each of the team's turret spots: a ring of stone with
 	## a bronze bolt-mark, visible while no turret stands on it.
@@ -1191,18 +1236,7 @@ func _build_pads(team: int) -> void:
 		var mark := Node3D.new()
 		add_child(mark)
 		mark.position = spot + Vector3(0, 0.03, 0)
-		var disc := MeshInstance3D.new()
-		disc.mesh = _cyl(0.75, 0.8, 0.06, 16)
-		disc.material_override = game._ashlar(Color(0.8, 0.78, 0.72))
-		mark.add_child(disc)
-		var inner := MeshInstance3D.new()
-		var tm := TorusMesh.new()
-		tm.inner_radius = 0.45
-		tm.outer_radius = 0.56
-		inner.mesh = tm
-		inner.position.y = 0.04
-		inner.material_override = _mat(Color(0.75, 0.55, 0.25), 0.4, 0.7)
-		mark.add_child(inner)
+		_platform(mark, Stats.FACTIONS[team].color)
 		# The glow (Faisal 2026-10-10: make the pads easy to notice): a bright
 		# gold ring and a soft column of light that pulse while your team can
 		# afford a turret there (_process).
@@ -1219,7 +1253,7 @@ func _build_pads(team: int) -> void:
 		rt.inner_radius = 0.8
 		rt.outer_radius = 0.95
 		ring.mesh = rt
-		ring.position.y = 0.06
+		ring.position.y = 0.24
 		ring.material_override = gm
 		ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		glow.add_child(ring)
@@ -1233,7 +1267,7 @@ func _build_pads(team: int) -> void:
 		beam.mesh = _cyl(0.7, 0.8, 2.2, 16)
 		(beam.mesh as CylinderMesh).cap_top = false
 		(beam.mesh as CylinderMesh).cap_bottom = false
-		beam.position.y = 1.1
+		beam.position.y = 1.3
 		beam.material_override = bm
 		beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		glow.add_child(beam)

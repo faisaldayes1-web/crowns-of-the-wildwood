@@ -310,7 +310,8 @@ func setup(p_game, p_team: int, p_is_player: bool, p_spawn: Vector3) -> void:
 	var glow_mesh := TorusMesh.new()
 	glow_mesh.inner_radius = 0.42
 	glow_mesh.outer_radius = 1.02
-	glow_mesh.rings = 6
+	glow_mesh.rings = 48   # was 6: a six-sided torus drew a hexagonal green/cyan patch around every hero (Faisal 11-05 'green squares')
+	glow_mesh.ring_segments = 6
 	side_glow.mesh = glow_mesh
 	side_glow.position.y = 0.04
 	side_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -696,8 +697,7 @@ func _apply_side_colors() -> void:
 	var enemy := is_enemy_of_player()
 	if carrying != null:
 		# The crown carrier shines gold for everyone (Faisal 2026-10-08).
-		model.outline.albedo_color = Color(1.0, 0.78, 0.2)
-		model.outline.grow_amount = 0.05
+		model.set_outline(Color(1.0, 0.78, 0.2), 0.05)
 		for m in flash_mats:
 			m.emission_enabled = true
 			m.emission = Color(1.0, 0.75, 0.25)
@@ -712,17 +712,13 @@ func _apply_side_colors() -> void:
 	if is_player and game.couch_players > 1:
 		# Couch play: every local player wears their own colour (outline,
 		# ground ring, name over walls) so partners spot each other.
-		model.outline.albedo_color = game.player_color(local_index)
-		model.outline.grow_amount = 0.04
+		model.set_outline(game.player_color(local_index), 0.04)
 	elif is_player:
-		model.outline.albedo_color = Color(0.09, 0.07, 0.1)
-		model.outline.grow_amount = 0.028
+		model.set_outline(Color(0.09, 0.07, 0.1), 0.028)
 	elif highlighted:
-		model.outline.albedo_color = Color(1.0, 0.18, 0.12) if enemy else Color(0.25, 1.0, 0.4)
-		model.outline.grow_amount = 0.045
+		model.set_outline(Color(1.0, 0.18, 0.12) if enemy else Color(0.25, 1.0, 0.4), 0.045)
 	else:
-		model.outline.albedo_color = Color(0.34, 0.05, 0.05) if enemy else Color(0.04, 0.24, 0.09)
-		model.outline.grow_amount = 0.03
+		model.set_outline(Color(0.34, 0.05, 0.05) if enemy else Color(0.04, 0.24, 0.09), 0.03)
 	if blob_mat:
 		blob_mat.albedo_color = Color(0, 0, 0, 0.3) if is_player else (Color(0.7, 0.0, 0.0, 0.4) if enemy else Color(0.0, 0.5, 0.1, 0.35))
 	_refresh_side_ring(enemy)
@@ -2376,7 +2372,12 @@ func _update_xray() -> void:
 	# (Round 5: every fighter, so trees and towers never swallow anyone; the
 	# pass draws only where scenery 1.5 m nearer hides the unit.)
 	var want: bool = not dead and visible
-	var ol: StandardMaterial3D = model.outline
+	for ol in [model.outline, model.get("smooth_outline")]:   # the plain pass and the smoothed body pass
+		if ol != null:
+			_chain_xray(ol, want)
+
+
+func _chain_xray(ol: Material, want: bool) -> void:
 	if want:
 		if _xray_mat == null:
 			if _xray_shader == null:

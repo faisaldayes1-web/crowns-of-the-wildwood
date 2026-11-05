@@ -185,17 +185,9 @@ static func _load_art() -> void:
 	## 2026-10-31, PERF-04).
 	title_font = load("res://assets/fonts/LuckiestGuy-Regular.ttf")
 	bar_font = load("res://assets/fonts/LilitaOne-Regular.ttf")
-	if topbar_tex == null and ResourceLoader.exists("res://assets/ui/topbar/topbar.png"):
-		topbar_tex = load("res://assets/ui/topbar/topbar.png")
-		# No parchment strip under the bar (Faisal 09:25 2026-10-09: "take
-		# out the steal their crown ... banner"): clear it between the crests.
-		var img: Image = topbar_tex.get_image()
-		if img:
-			if img.is_compressed():
-				img.decompress()
-			img.convert(Image.FORMAT_RGBA8)
-			img.fill_rect(Rect2i(176, 163, img.get_width() - 352, img.get_height() - 163), Color(0, 0, 0, 0))
-			topbar_tex = ImageTexture.create_from_image(img)
+	# The top bar is drawn in code (_score_band, _crest_shield, _ornate_clock): the cut-out of
+	# the reference art (assets/ui/topbar/topbar.png) carried stray sparkles, curls and hairlines
+	# and a hollow Elves stag (Faisal 11-05), so topbar_tex stays null and nothing loads it.
 	if title_font == null:
 		title_font = ThemeDB.fallback_font
 	logo = load("res://assets/ui/logo.png")
@@ -1002,9 +994,9 @@ func _keycap(center: Vector2, key: String, w: float = 30.0, dark: bool = false, 
 	_text(rect.position + Vector2(0, 14), key, 11, Color(0.18, 0.12, 0.08), HORIZONTAL_ALIGNMENT_CENTER, w, 0)
 
 
-func _attack_key() -> String:
+func _attack_key(unit) -> String:
 	## The basic attack's keycap: LMB on keyboard+mouse (11-05: left-click attacks), else the bound key or pad button.
-	if game.player != null and local_unit != null and not game.on_pad(local_unit) and not touch_ui and game.pc_movement == "wasd" and local_unit.has_mouse:
+	if unit != null and not game.on_pad(unit) and not touch_ui and game.pc_movement == "wasd" and unit.has_mouse:
 		return "LMB"
 	return _k("attack")
 
@@ -2807,13 +2799,6 @@ func _scoreboard_live(_full: bool, quiet: bool = false) -> void:
 	if k < 1.0:
 		draw_set_transform(Vector2(cx * (1.0 - k), 0), 0.0, Vector2(k, k))
 	var now := Time.get_ticks_msec() / 1000.0
-	# Twinkles round the shields, on top of the art's own.
-	for j in 4:
-		var sp := Vector2(cx + [-372.0, 362.0, -262.0, 262.0][j], [22.0, 26.0, 84.0, 82.0][j])
-		var tw := maxf(0.0, sin(now * 2.5 + j * 1.7))
-		var r := 2.5 + 6.0 * tw
-		draw_line(sp - Vector2(r, 0), sp + Vector2(r, 0), Color(1, 0.97, 0.8, tw), 1.6)
-		draw_line(sp - Vector2(0, r), sp + Vector2(0, r), Color(1, 0.97, 0.8, tw), 1.6)
 	var fortify: bool = game.prep_left > 0.0
 	var fire: Dictionary = game.objective_status(_my_team()) if game.objective() and not fortify and not game.overtime and not quiet else {}
 	if not fire.is_empty() and fire.text != "":
@@ -2852,7 +2837,7 @@ func _scoreboard_static(quiet: bool = false) -> void:
 	else:
 		for t in 2:
 			_score_band(Rect2(Vector2(cx - 292.0 if t == 0 else cx + 62.0, 12), Vector2(230, 62)), SCORE_BANDS[t])
-			_crest_shield(Vector2(cx + (-1.0 if t == 0 else 1.0) * 310.0, 54.0), 76.0, 94.0, t)
+			_crest_shield(Vector2(cx + (-1.0 if t == 0 else 1.0) * 310.0, 58.0), 76.0, 94.0, t)
 		_ornate_clock(Rect2(cx - 84, 8, 168, 78))
 		_crown_glyph(Vector2(cx, 9), 20.0, 0.6)
 	for t in 2:
@@ -2899,10 +2884,11 @@ func _scoreboard_static(quiet: bool = false) -> void:
 	if line != "":
 		# (8/8 pass 2026-11-04: 15 px over a 680 px band, darker; the long
 		# fortify line had shrunk to ~10 px inside 520 at 720p.)
-		var fs := 15 if _text_width(line, 15) < 660.0 else 13
-		var lw := minf(_text_width(line, fs) + 28.0, 690.0)
+		# Between the two crests (their inner edges are 520 px apart), so the line never runs under a shield.
+		var fs := 15 if _text_width(line, 15) < 490.0 else (13 if _text_width(line, 13) < 490.0 else 11)
+		var lw := minf(_text_width(line, fs) + 28.0, 520.0)
 		_plate(Rect2(cx - lw / 2.0, 100.0 - fs - 3.0, lw, fs + 10.0), Color(0.04, 0.04, 0.05, 0.74), Color(0, 0, 0, 0), 8, 0)
-		_text(Vector2(cx - 330.0, 100.0), line, fs, line_ink.lerp(Color(1.0, 0.95, 0.82), 0.85), HORIZONTAL_ALIGNMENT_CENTER, 660.0, 4)
+		_text(Vector2(cx - 245.0, 100.0), line, fs, line_ink.lerp(Color(1.0, 0.95, 0.82), 0.85), HORIZONTAL_ALIGNMENT_CENTER, 490.0, 4)
 	if not fire.is_empty() and line == fire.text:
 		# Ember Pass: the Fire Objective's flame beside the strip, and the
 		# capture filling along its foot.
@@ -3733,15 +3719,16 @@ func _hooded_head(c: Vector2, r: float, team: int, dead: bool) -> void:
 
 # Where each class card's face is (fractions of the card), for the round
 # portrait (measured on the 2026-10-14 cards).
-const FACE_AT := {
-	"elf_base": Vector2(0.43, 0.29), "human_base": Vector2(0.46, 0.22),
-	"elf_engineer": Vector2(0.52, 0.26), "human_engineer": Vector2(0.52, 0.26),
-	"elf_healer": Vector2(0.48, 0.23), "human_healer": Vector2(0.48, 0.23),
-	"elf_knight": Vector2(0.61, 0.19), "human_knight": Vector2(0.61, 0.19),
-	"elf_mage": Vector2(0.44, 0.26), "human_mage": Vector2(0.44, 0.26),
-	"elf_ranger": Vector2(0.43, 0.26), "human_ranger": Vector2(0.43, 0.26),
-	"elf_rogue": Vector2(0.5, 0.21), "human_rogue": Vector2(0.5, 0.21),
+const FACE_AT := {   # the head's centre on each card, re-measured 11-05 (the cards were repainted; the ring showed half a hood)
+	"elf_base": Vector2(0.49, 0.23), "human_base": Vector2(0.42, 0.24),
+	"elf_engineer": Vector2(0.49, 0.22), "human_engineer": Vector2(0.48, 0.22),
+	"elf_healer": Vector2(0.40, 0.24), "human_healer": Vector2(0.38, 0.25),
+	"elf_knight": Vector2(0.47, 0.22), "human_knight": Vector2(0.46, 0.26),
+	"elf_mage": Vector2(0.48, 0.30), "human_mage": Vector2(0.52, 0.30),
+	"elf_ranger": Vector2(0.60, 0.26), "human_ranger": Vector2(0.58, 0.27),
+	"elf_rogue": Vector2(0.49, 0.26), "human_rogue": Vector2(0.40, 0.27),
 }
+const FACE_SIDE := {"elf_mage": 0.88, "human_mage": 0.88}   # wide hats; everything else crops 72% of the card width
 
 
 func _medallion(c: Vector2, r: float, team: int, role: int, dead: bool) -> void:
@@ -3765,7 +3752,7 @@ func _medallion(c: Vector2, r: float, team: int, role: int, dead: bool) -> void:
 	if cards.has(key):
 		var tex: Texture2D = cards[key]
 		var ts := tex.get_size()
-		var side := ts.x * 0.62
+		var side := ts.x * float(FACE_SIDE.get(key, 0.72))
 		# Centred on each card's own face (Faisal 2026-10-14 18:16: "make
 		# sure the icons are not off centered"; one fixed spot left the
 		# Elf soldier's face off to the side of the ring).
@@ -4480,7 +4467,7 @@ func _move_slots(p, at: Array, sz: Array) -> void:
 	var cost_c: Color = STAMINA if p.energy_kind() == "stamina" else MANA
 	if _attack_icon(p.role, atk) == "fist":
 		next_slot_art = "punch"
-	_slot(at[0], sz[0], _attack_icon(p.role, atk), Color(0.86, 0.16, 0.14), _attack_key(), atk.attack_name,
+	_slot(at[0], sz[0], _attack_icon(p.role, atk), Color(0.86, 0.16, 0.14), _attack_key(p), atk.attack_name,
 		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0), false, atk.cost, cost_c)
 	next_slot_art = "dodge"
 	_slot(at[1], sz[1], "dodge", Color(0.22, 0.68, 0.18), _k("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,

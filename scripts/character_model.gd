@@ -37,7 +37,8 @@ var recover_at := 0.0          # ...but moving may cut in from this time (play_o
 const ATTACK_RECOVER := 0.55   # share of a basic swing that plays before a run can take over
 const RUN_BLEND := 0.18        # seconds to blend from a cut-short action into the run
 var tint := Color.WHITE        # the variant's skin tint; unit.gd restores it after a hit flash
-var outline: StandardMaterial3D  # the outline pass; unit.gd colours it by side and highlight
+var outline: StandardMaterial3D  # the outline pass; unit.gd colours it by side and highlight (through set_outline)
+var smooth_outline: ShaderMaterial   # the same line for the faceted body meshes (no slivers on hard edges)
 var held := ""                 # a loop held by the unit (blocking, casting)
 var current := ""
 var swing_index := 0          # place in the attack chain (attack())
@@ -346,6 +347,11 @@ func _setup(team: int, role: int, variant: String, custom: Dictionary, rank: int
 	outline.cull_mode = BaseMaterial3D.CULL_FRONT
 	outline.grow = true
 	outline.grow_amount = CharacterMaterials.OUTLINE_WIDTH
+	# The same line for the faceted body meshes, grown along smoothed directions.
+	smooth_outline = ShaderMaterial.new()
+	smooth_outline.shader = _smooth_outline_shader()
+	smooth_outline.set_shader_parameter("color", CharacterMaterials.OUTLINE)
+	smooth_outline.set_shader_parameter("width", CharacterMaterials.OUTLINE_WIDTH)
 
 	# Only the gear this class uses.
 	for name in ALL_GEAR:
@@ -392,7 +398,7 @@ func _setup(team: int, role: int, variant: String, custom: Dictionary, rank: int
 					dup.emission_enabled = true
 					dup.emission = Color(0.35, 0.15, 0.6)
 					dup.emission_energy_multiplier = 0.25
-				dup.next_pass = outline
+				dup.next_pass = smooth_outline if _has_smooth_dirs(mesh.mesh, i) else outline
 				mesh.set_surface_override_material(i, dup)
 				flash_mats.append(dup)
 
@@ -621,23 +627,48 @@ func _add_weapon_art(team: int, role: int, rank: int) -> void:
 			for m in _meshes(holder):
 				m.visible = false
 			holder.visible = true
-			var big: bool = holder.name == "2H_Axe"
-			var shaft_len := 1.1 if big else 0.8
-			_prism(holder, Vector3(0.05, shaft_len, 0.05), Vector3(0, shaft_len / 2.0 - 0.3, 0), Vector3.ZERO, wood)
-			var head_mat: Material = gold if rank >= 4 else iron
-			var head_size := Vector3(0.36, 0.2, 0.2) if big else Vector3(0.28, 0.16, 0.16)
-			_prism(holder, head_size, Vector3(0, shaft_len - 0.35, 0), Vector3.ZERO, head_mat)
+			# The Root Maul (Faisal 11-05: "no hammer in its hand"): a BIG two-handed
+			# maul at the knight's-sword scale: a long root-wrapped haft and a chunky
+			# wooden head banded in iron, with sprouting leaves. Boxes only, so it
+			# batches and reads from the top-down camera.
+			var maul := Node3D.new()   # the gear holder's +Y runs forward from the hand: tip the maul up over the shoulder
+			maul.rotation.z = deg_to_rad(-50.0)
+			holder.add_child(maul)
+			var heartwood := StandardMaterial3D.new()
+			heartwood.albedo_color = Color(0.36, 0.22, 0.11)
+			heartwood.roughness = 0.9
+			var bark := StandardMaterial3D.new()
+			bark.albedo_color = Color(0.55, 0.36, 0.18)
+			bark.roughness = 0.9
+			var haft_len := 1.45
+			var head_y := haft_len - 0.45
+			_box(maul, Vector3(0.09, haft_len, 0.09), Vector3(0, haft_len / 2.0 - 0.4, 0), Vector3.ZERO, wood)
+			# Root wraps spiralling down the haft.
+			for i in 4:
+				_box(maul, Vector3(0.13, 0.05, 0.13), Vector3(0, -0.15 + 0.22 * i, 0), Vector3(0.0, 0.5 * i, 0.0), bark)
+			# The head: a chunky block, bark cap-stones at both faces, iron bands.
+			var head_mat: Material = gold if rank >= 4 else heartwood
+			_box(maul, Vector3(0.7, 0.4, 0.4), Vector3(0, head_y, 0), Vector3.ZERO, head_mat)
+			_box(maul, Vector3(0.08, 0.46, 0.46), Vector3(-0.38, head_y, 0), Vector3.ZERO, iron)
+			_box(maul, Vector3(0.08, 0.46, 0.46), Vector3(0.38, head_y, 0), Vector3.ZERO, iron)
+			_box(maul, Vector3(0.74, 0.07, 0.44), Vector3(0, head_y + 0.14, 0), Vector3.ZERO, bark)
+			_box(maul, Vector3(0.74, 0.07, 0.44), Vector3(0, head_y - 0.14, 0), Vector3.ZERO, bark)
+			# Roots creeping over the head, and two sprouting leaves.
+			_box(maul, Vector3(0.06, 0.06, 0.5), Vector3(-0.15, head_y, 0), Vector3(0.0, 0.0, 0.6), bark)
+			_box(maul, Vector3(0.06, 0.06, 0.5), Vector3(0.15, head_y, 0), Vector3(0.0, 0.0, -0.6), bark)
+			_sphere(maul, 0.07, Vector3(0.0, head_y + 0.27, 0.12), leaf)
+			_sphere(maul, 0.06, Vector3(0.1, head_y + 0.24, -0.1), leaf)
 			if rank >= 2:
-				_prism(holder, Vector3(0.07, 0.05, 0.07), Vector3(0, shaft_len - 0.55, 0), Vector3.ZERO, iron)
-				_prism(holder, Vector3(0.07, 0.05, 0.07), Vector3(0, -0.2, 0), Vector3.ZERO, iron)
+				_box(maul, Vector3(0.12, 0.06, 0.12), Vector3(0, head_y - 0.3, 0), Vector3.ZERO, iron)
+				_box(maul, Vector3(0.12, 0.06, 0.12), Vector3(0, -0.4, 0), Vector3.ZERO, iron)
 			if rank >= 3:
-				_prism(holder, head_size * Vector3(1.05, 0.3, 1.05), Vector3(0, shaft_len - 0.35, 0), Vector3.ZERO, gold)
+				_box(maul, Vector3(0.74, 0.1, 0.44), Vector3(0, head_y, 0), Vector3.ZERO, gold)
 			if rank >= 4:
 				var gm := StandardMaterial3D.new()
 				gm.albedo_color = team_col.lightened(0.4)
 				gm.emission_enabled = true
 				gm.emission = team_col * 1.5
-				_sphere(holder, 0.05, Vector3(0, shaft_len - 0.2, 0), gm)
+				_sphere(maul, 0.09, Vector3(0, head_y + 0.32, 0), gm)
 		Role.RANGER:
 			var bow := _gear_node("2H_Crossbow")
 			if bow == null:
@@ -922,9 +953,65 @@ static func _flat_mesh(mesh: Mesh) -> Mesh:
 		# Re-index (vertices with different normals stay separate, so the
 		# facets survive); Face.clean_head needs an index array.
 		st.index()
-		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
+		var arrays: Array = st.commit_to_arrays()
+		arrays[Mesh.ARRAY_TANGENT] = _smooth_outline_dirs(arrays)
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, mesh.surface_get_format(s) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
 		out.surface_set_material(s, mesh.surface_get_material(s))
 	flat_cache[key] = out
+	return out
+
+
+static var _outline_shader: Shader
+
+
+static func _smooth_outline_shader() -> Shader:
+	if _outline_shader == null:
+		_outline_shader = load("res://assets/shaders/smooth_outline.gdshader")
+	return _outline_shader
+
+
+static func _has_smooth_dirs(mesh: Mesh, surface: int) -> bool:
+	return mesh is ArrayMesh and (mesh.surface_get_format(surface) & Mesh.ARRAY_FORMAT_TANGENT) != 0
+
+
+func set_outline(color: Color, width: float) -> void:
+	## Colour and thickness of the outline on every part of this model.
+	outline.albedo_color = color
+	outline.grow_amount = width
+	if smooth_outline != null:
+		smooth_outline.set_shader_parameter("color", color)
+		smooth_outline.set_shader_parameter("width", width)
+
+
+static func _smooth_outline_dirs(arrays: Array) -> PackedFloat32Array:
+	## The outline pass grows each vertex along its normal; on these faceted
+	## meshes every triangle has its own normals, so the hull split apart along
+	## every hard edge and drew the black slivers and lines Faisal circled on
+	## helmets and hoods (11-05). One averaged direction per position goes in
+	## the tangent slot instead (the skin transforms tangents with the bones;
+	## nothing here uses a normal map) and smooth_outline.gdshader reads it.
+	var v: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var idx: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	var sums := {}
+	var keys := PackedVector3Array()
+	keys.resize(v.size())
+	for i in v.size():
+		keys[i] = v[i].snapped(Vector3.ONE * 0.0005)
+	for t in range(0, idx.size(), 3):
+		var a := v[idx[t]]
+		var n := (v[idx[t + 2]] - a).cross(v[idx[t + 1]] - a)   # area-weighted; Godot fronts are clockwise, so this points out
+		for j in 3:
+			var k: Vector3 = keys[idx[t + j]]
+			sums[k] = sums.get(k, Vector3.ZERO) + n
+	var out := PackedFloat32Array()
+	out.resize(v.size() * 4)
+	for i in v.size():
+		var d: Vector3 = sums.get(keys[i], Vector3.UP)
+		d = d.normalized() if d.length_squared() > 0.0000001 else Vector3.UP
+		out[i * 4] = d.x
+		out[i * 4 + 1] = d.y
+		out[i * 4 + 2] = d.z
+		out[i * 4 + 3] = 1.0
 	return out
 
 
