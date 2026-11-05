@@ -92,12 +92,48 @@ func _ready() -> void:
 	_cam = Camera3D.new()
 	_cam.fov = 22.0
 	vp.add_child(_cam)
-	# Head and shoulders: the model's own height says where the head is.
-	var h: float = float(model.height) if "height" in model else 1.75
-	var target := Vector3(0.0, h * 0.74, 0.0)
-	_cam.position = target + Vector3(0.0, 0.05, 3.4)
-	_cam.look_at(target, Vector3.UP)
+	_frame_bust()
 	_cam.current = true
+
+
+func _frame_bust() -> void:
+	## Head and shoulders, fitted to this model's own head (the classes differ: a
+	## mage's hat, a knight's helm, a hood): the box of everything around the head
+	## sets the height of the picture and where the camera looks.
+	var head: MeshInstance3D = null
+	var meshes: Array = []
+	_collect(model, meshes)
+	for m in meshes:
+		if "_Head" in str(m.name):
+			head = m
+	if head == null:
+		_cam.position = Vector3(0.0, 1.3, 4.0)
+		_cam.look_at(Vector3(0.0, 1.3, 0.0), Vector3.UP)
+		return
+	var hb: AABB = head.global_transform * head.get_aabb()
+	var c := hb.get_center()
+	var top := hb.end.y
+	for m in meshes:
+		if not m.visible or m == head or m.mesh == null:
+			continue
+		var b: AABB = m.global_transform * m.get_aabb()
+		# Hats, hoods and hair: whatever sits over the head (near it in x and z).
+		if absf(b.get_center().x - c.x) < 0.45 and absf(b.get_center().z - c.z) < 0.45 and b.end.y > c.y:
+			top = maxf(top, b.end.y)
+	var bottom := hb.position.y - hb.size.y * 0.55   # to the shoulders
+	var tall := top - bottom
+	var mid := (top + bottom) / 2.0
+	var dist := tall * 0.5 / tan(deg_to_rad(_cam.fov) * 0.5) * 1.18
+	var look := Vector3(c.x, mid, c.z)
+	_cam.position = look + Vector3(0.0, 0.08, dist)
+	_cam.look_at(look, Vector3.UP)
+
+
+func _collect(n: Node, out: Array) -> void:
+	if n is MeshInstance3D:
+		out.append(n)
+	for ch in n.get_children():
+		_collect(ch, out)
 
 
 func _process(_delta: float) -> void:

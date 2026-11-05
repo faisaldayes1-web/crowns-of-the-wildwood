@@ -48,7 +48,10 @@ func run() -> void:
 	for u in game.units:
 		if u != p:
 			u.process_mode = Node.PROCESS_MODE_DISABLED
-	# 1. The guide's dialogue.
+	# 1. The guide's dialogue (she closes the talk when you walk away, so stand beside her).
+	var guide_npc = game.guides[p.team]
+	p.global_position = guide_npc.global_position + Vector3(1.4, 0.1, 1.4)
+	await _frames(10)
 	game.guide_open = true
 	game.guide_page = 0
 	await _frames(120)
@@ -64,6 +67,9 @@ func run() -> void:
 	game.guide_topic = -1
 	game.guide_page = -1
 	await _frames(20)
+	if "--only-dialogue" in OS.get_cmdline_user_args():
+		quit(0)
+		return
 	# 2. The class banner.
 	p.set_role(Stats.Role.MAGE)
 	p.class_banner = p.CLASS_BANNER_TIME - 0.6

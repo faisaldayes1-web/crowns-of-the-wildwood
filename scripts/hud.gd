@@ -2676,7 +2676,7 @@ func _draw_guide() -> void:
 	var tw: float = box.size.x - 100
 	var ty: float = box.position.y + 62
 	if showing_menu:
-		_text(Vector2(tx, ty), body, 20, ink, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+		_text(Vector2(tx, ty), body, 24, ink, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
 		var cols := 2
 		var cw: float = (tw - 14) / cols
 		for i in Guide.TOPICS.size():
@@ -2690,12 +2690,12 @@ func _draw_guide() -> void:
 	else:
 		# The line types itself out (about 70 letters a second).
 		var shown := int((now - _guide_t0) * 70.0)
-		for l in _wrap(body, 22, tw):
+		for l in _wrap(body, 26, tw):
 			var piece: String = str(l).substr(0, maxi(shown, 0))
 			shown -= str(l).length() + 1
 			if piece != "":
-				_text(Vector2(tx, ty), piece, 22, ink, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
-			ty += 31.0
+				_text(Vector2(tx, ty), piece, 26, ink, HORIZONTAL_ALIGNMENT_LEFT, -1, 0)
+			ty += 36.0
 	# An answer shows its picture from a real match above the box (the same
 	# images as the title TUTORIAL).
 	var tex: Texture2D = game.MainMenu.tutorial_image(game.guide_topic) if game.guide_topic >= 0 else null
