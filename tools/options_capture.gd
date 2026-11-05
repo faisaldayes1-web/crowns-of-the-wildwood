@@ -33,7 +33,7 @@ func run() -> void:
 	root.add_child(game)
 	current_scene = game
 	var deadline := Time.get_ticks_msec() + 180000
-	while game.main_menu == null or game.menus_warming or is_instance_valid(game.loading_layer):
+	while game.main_menu == null or game.menus_warming or not game.world_ready or is_instance_valid(game.loading_layer):
 		if Time.get_ticks_msec() > deadline:
 			quit(1)
 			return
@@ -59,7 +59,8 @@ func run() -> void:
 		if "--interactive" in OS.get_cmdline_user_args():
 			return
 	game._flush_save()
-	game.free()
-	for i in 4:
+	current_scene = null
+	game.queue_free()
+	for i in 60:
 		await process_frame
 	quit(0)
