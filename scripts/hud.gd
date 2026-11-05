@@ -1772,7 +1772,7 @@ func _minimap_castles(c: Vector2, r: float, m: Callable, clip: PackedVector2Arra
 		_mm_rect(outer, clip, tc.darkened(0.1), tc.lightened(0.45), 1.5)
 		_mm_rect(outer.grow(-outer.size.x * 0.16), clip, tc.lightened(0.12), tc.darkened(0.35), 1.0)
 		var th: Vector2 = m.call(game.thrones[t])
-		if (th - c).length() < r - 4.0:
+		if (th - c).length() < r - 4.0 and not game.is_tdm():   # no crowns in a deathmatch
 			var cs := clampf(r / 180.0, 0.38, 0.62)
 			_crown(th + Vector2(0.6, 1.0), cs, Color(0.25, 0.15, 0.02, 0.6))
 			_crown(th, cs, GOLD)
@@ -4485,7 +4485,7 @@ func _draw_world_prompt() -> void:
 				else:
 					text = "TAKE THE %s'S HAT" % s.class_title().to_upper()
 				break
-	if text == "" and me.carrying == null and game.prep_left <= 0.0:
+	if text == "" and me.carrying == null and game.prep_left <= 0.0 and not game.is_tdm():
 		var m = game.monarchs[1 - me.team]
 		var flat := Vector2(me.global_position.x - m.global_position.x, me.global_position.z - m.global_position.z).length()
 		# 1.8 m is Unit.PICKUP_RANGE, the reach of a grab.
@@ -4667,7 +4667,8 @@ func _draw_map_castles(rect: Rect2, m: Callable, sx: float, sz: float, fx: float
 		if detailed:
 			_map_pin("door", m.call(Vector3(ox - side * 3.0, 0, 0)), 7.5, door_color)
 			_map_pin("spawn", m.call(Vector3(cx - side * game.CELLAR_DEPTH * 0.5, 0, 0)), 7.5, tc)
-		_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
+		if not game.is_tdm():
+			_crown(m.call(game.thrones[t]), 0.45 if not detailed else 0.9)
 		if detailed:
 			_text(outer.position + Vector2(-40, -6), "%s CASTLE" % Stats.FACTIONS[t].name.to_upper(), 11, tc.lightened(0.5), HORIZONTAL_ALIGNMENT_CENTER, outer.size.x + 80, 2)
 			_card("crest_elf" if t == 0 else "crest_human", Rect2(keep.position + Vector2(keep.size.x / 2.0 - 11, 2), Vector2(22, 22)))
