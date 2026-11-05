@@ -61,4 +61,6 @@ func _init() -> void:
 	check(game.fullscreen, "fullscreen follows the saved window mode")
 	game.free()
 	print("settings restart test: %d failure(s)" % fails)
+	for i in 8:
+		await process_frame
 	quit(1 if fails > 0 else 0)

@@ -462,6 +462,8 @@ func native_tap(control: Control, fraction := 0.5) -> void:
 	await frames(3)
 	var rect := control.get_global_rect()
 	var at := Vector2(rect.position.x + rect.size.x * fraction, rect.get_center().y)
+	if game.get_tree().paused and control == game.options_screen.row_controls.get("chat"):
+		print("PAUSED MOUSE DIAGNOSTIC active=%s visible=%s can_process=%s rect=%s mode=%s layer=%s" % [game.options_screen.active, control.is_visible_in_tree(), control.can_process(), rect, game.options_screen.process_mode, game.options_screen.get_parent().process_mode])
 	var ev := InputEventMouseButton.new()
 	ev.button_index = MOUSE_BUTTON_LEFT
 	ev.position = at
