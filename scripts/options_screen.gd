@@ -492,7 +492,9 @@ func _controls() -> void:
 	elif controls_group == 2:
 		_choice("pad_style", "Controller button names", ["auto", "xbox", "ps", "switch"], ["Auto", "Xbox", "PlayStation", "Nintendo"], game.pad_style, func(v):
 			game.pad_style = v
-			game._save_settings(), "Choose the button labels shown in prompts; Auto follows the connected controller.")
+			game._save_settings()
+			select_tab(3)
+			row_controls.pad_style.call_deferred("grab_focus"), "Choose the button labels shown in prompts; Auto follows the connected controller.")
 		_choice("layout", "Control layout", ["auto", "keyboard", "controller", "touch"], ["Auto", "Keyboard and mouse", "Controller", "Touch"], game.control_layout, func(v):
 			game.control_layout = v
 			game.apply_control_layout()
@@ -593,11 +595,15 @@ func handle_input(event: InputEvent) -> bool:
 			or (binding_device == "pad" and (event is InputEventJoypadButton and event.pressed or game._is_trigger(event) and event.axis_value > 0.6))
 		if accepted and not (event is InputEventKey and event.echo):
 			var action := binding_action
+			var device := binding_device
 			game._rebind(action, event)
 			_cancel_binding()
 			select_tab(3)
 			if row_controls.has(action):
-				row_controls[action].call_deferred("grab_focus")
+				var target: Control = row_controls[action]
+				if device == "pad":
+					target = target.get_parent().get_child(1)
+				target.call_deferred("grab_focus")
 		return true
 	if event is InputEventJoypadMotion and event.axis in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y]:
 		if event.axis == JOY_AXIS_LEFT_X:
