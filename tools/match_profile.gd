@@ -67,6 +67,8 @@ func _init() -> void:
 	var cpu_r: Array = []
 	var draws: Array = []
 	var hitches: Array = []
+	var stalls := {"cpu": 0, "gpu": 0, "cpu_ms": 0.0, "gpu_ms": 0.0}   # see "PROF stalls" below
+	var stall_kinds := {}   # nodes added in the CPU-side stall frames, by kind
 	var csv := []
 	var start := Time.get_ticks_usec()
 	added = 0
@@ -94,6 +96,17 @@ func _init() -> void:
 			var kinds := ", ".join(top.slice(0, 5).map(func(k): return "%s x%d" % [k, added_kinds[k]]))
 			hitches.append("  t=%.1fs %.1f ms gpu=%.1f cpu_render=%.1f draws=%d added=%d [%s]" % [
 				(now - start) / 1e6, ms, g, c, d, added, kinds])
+		if ms > HITCH_MS:
+			# A slow frame is CPU-side when the GPU finished well inside it
+			# (the main thread or a sync stalled it), GPU-side otherwise.
+			if ms > g + 8.0:
+				stalls["cpu"] += 1
+				stalls["cpu_ms"] += ms
+				for k in added_kinds:
+					stall_kinds[k] = stall_kinds.get(k, 0) + added_kinds[k]
+			else:
+				stalls["gpu"] += 1
+				stalls["gpu_ms"] += ms
 		added = 0
 		added_kinds = {}
 	var n := times.size()
@@ -118,6 +131,11 @@ func _init() -> void:
 		Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME),
 		Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.MEMORY_STATIC) / 1048576.0,
 		Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0])
+	var sk := stall_kinds.keys()
+	sk.sort_custom(func(a, b): return stall_kinds[a] > stall_kinds[b])
+	print("PROF stalls (frames>%.0fms): cpu-side %d (mean %.1f ms), gpu-side %d (mean %.1f ms); nodes added in the cpu-side ones: %s" % [
+		HITCH_MS, stalls["cpu"], stalls["cpu_ms"] / maxi(1, stalls["cpu"]), stalls["gpu"], stalls["gpu_ms"] / maxi(1, stalls["gpu"]),
+		", ".join(sk.slice(0, 8).map(func(k): return "%s x%d" % [k, stall_kinds[k]]))])
 	print("PROF hitches (first 80):")
 	for h in hitches.slice(0, 80):
 		print(h)
