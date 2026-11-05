@@ -17,6 +17,7 @@ extends RefCounted
 
 const CarvedBlock = preload("res://scripts/visual/carved_block.gd")
 const StaticBatch = preload("res://scripts/static_batch.gd")
+const SnowCap = preload("res://scripts/visual/snow_cap.gd")
 const Stats = preload("res://scripts/stats.gd")
 
 const LANTERN_GLOW := Color(1.0, 0.68, 0.32)
@@ -163,6 +164,7 @@ static func merlons(g, a: Vector3, b: Vector3, y0: float, h: float, thick: float
 		var c := a + along * ((k + 0.5) * step)
 		var hh := h * r.randf_range(0.94, 1.0)
 		block(g, Vector3(c.x, y0 + hh / 2.0, c.z), Vector3(step * fill, hh, thick), mats[r.randi() % mats.size()], rot)
+		SnowCap.add(g, Vector3(c.x, y0 + hh, c.z), Vector2(step * fill, thick), rot)   # (Stonekeep only)
 
 
 static func ivy(g, top: Vector3, out: Vector3, drop: float, seed: int, width: float = 0.9) -> void:
@@ -252,6 +254,9 @@ static func castle_wall_top(g, center: Vector3, size: Vector3, grey: bool, crene
 	block_course(g, a, b, top, 0.32, thick + 0.18, grey, seed, 0.9, 1.5)
 	if crenel and size.y >= 2.0:
 		merlons(g, a, b, top + 0.32, 0.62, thick + 0.02, grey, seed + 1)
+	else:
+		# Snow along the coping (Stonekeep only; merlons carry their own).
+		SnowCap.add(g, Vector3(center.x, top + 0.32, center.z), Vector2(length, thick + 0.18), 0.0 if along_x else PI / 2.0)
 	# A plinth course at the foot (taller walls only; low parapets stay clean).
 	if size.y >= 2.0 and foot > -0.5:
 		block_course(g, a, b, foot, 0.42, thick + 0.16, grey, seed + 2, 0.8, 1.4, false)
@@ -356,6 +361,7 @@ static func _tall_courtyard_wall(g, a: Vector3, b: Vector3, along: Vector3, leng
 		block(g, Vector3(c.x, 1.82 + hh / 2.0, c.z), Vector3(step * 0.6, hh, 0.98), mats[r.randi() % mats.size()], rot)
 		if k % 3 == 1:
 			block(g, Vector3(c.x, 1.82 + hh + 0.05, c.z), Vector3(step * 0.5, 0.1, 0.9), wood, rot, false)
+		SnowCap.add(g, Vector3(c.x, 1.82 + hh + (0.1 if k % 3 == 1 else 0.0), c.z), Vector2(step * 0.6, 0.98), rot)   # (Stonekeep only)
 	# Tall timber posts through the wall with dark caps. (Banners on its
 	# yard face were tried: at the match camera they showed as slivers on
 	# the wall's edge for a dozen extra draws, so the yard's banners stay on
@@ -478,6 +484,7 @@ static func _yard_side_wall(g, a: Vector3, b: Vector3, along: Vector3, length: f
 		var c := a0 + along * ((k + 0.5) * step) + mo
 		var hh := 0.84 * r.randf_range(0.95, 1.0)
 		block(g, Vector3(c.x, TOP + 0.3 + hh / 2.0, c.z), Vector3(step * 0.58, hh, mt), am[3 + k % 2], rot)
+		SnowCap.add(g, Vector3(c.x, TOP + 0.3 + hh, c.z), Vector2(step * 0.58, mt), rot)   # (Stonekeep only)
 	# Braziers on stone corbels along the yard face: an iron bowl and a
 	# flame (game.gd's own fire, so it batches with the yard's), two of the
 	# four with a cheap shadowless light.
