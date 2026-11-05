@@ -67,8 +67,15 @@ static func surface(season: String, c: Color) -> Color:
 			if g > 0.0:
 				var teal := Color.from_hsv(lerpf(c.h, 0.45, 0.7), clampf(c.s * 0.9, 0.0, 1.0), c.v * 0.95, c.a)
 				out = c.lerp(teal, g)
-			elif c.h > 0.7 or c.h < 0.02:
+			elif (c.h > 0.7 or c.h < 0.02) and c.s > 0.2:
 				out = Color.from_hsv(c.h, clampf(c.s * 1.15, 0.0, 1.0), c.v, c.a)
+			else:
+				# Warm stone, paving and timber settle into the dusk (8/8 pass,
+				# 2026-11-04: the yard read hot pink beside the teal grove, a
+				# different game from the Wildwood's cream yard).
+				var lum := c.get_luminance()
+				out = c.lerp(Color(lum, lum, lum, c.a), 0.4) * Color(0.8, 0.86, 1.0, 1.0)
+				out.a = c.a
 	return out
 
 
