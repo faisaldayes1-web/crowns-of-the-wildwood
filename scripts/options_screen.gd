@@ -591,6 +591,13 @@ func _cancel_binding() -> void:
 	game.rebinding = ""
 
 
+func _input(event: InputEvent) -> void:
+	# The game node pauses during a match menu. This surface runs ALWAYS,
+	# so keyboard/pad navigation and rebinding continue while it is paused.
+	if active and handle_input(event):
+		get_viewport().set_input_as_handled()
+
+
 func handle_input(event: InputEvent) -> bool:
 	if not active:
 		return false

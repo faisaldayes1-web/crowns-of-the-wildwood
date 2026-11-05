@@ -4729,8 +4729,8 @@ func mapped_action_held(action: StringName, excluded_mouse: Array) -> bool:
 
 
 func _input(event: InputEvent) -> void:
-	if is_instance_valid(options_screen) and options_screen.active and options_screen.handle_input(event):
-		get_viewport().set_input_as_handled()
+	if is_instance_valid(options_screen) and options_screen.active:
+		# Options receives raw input on its own always-processing Control.
 		return
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		click_latched = true
