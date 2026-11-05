@@ -602,7 +602,7 @@ func handle_input(event: InputEvent) -> bool:
 			_cancel_binding()
 			select_tab(3)
 			return true
-		var accepted := (binding_device == "key" and (event is InputEventKey or event is InputEventMouseButton) and event.pressed) \
+		var accepted: bool = (binding_device == "key" and (event is InputEventKey or event is InputEventMouseButton) and event.pressed) \
 			or (binding_device == "pad" and (event is InputEventJoypadButton and event.pressed or game._is_trigger(event) and event.axis_value > 0.6))
 		if accepted and not (event is InputEventKey and event.echo):
 			var action := binding_action
