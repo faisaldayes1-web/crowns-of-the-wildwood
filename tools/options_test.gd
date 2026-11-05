@@ -169,6 +169,8 @@ func run() -> void:
 	check(not screen.active and not game.menu_open, "Back returns to title and consumes the closing input")
 	game._flush_save()
 	game.free()
-	await settle()
+	var retire_at := Time.get_ticks_msec() + 300
+	while Time.get_ticks_msec() < retire_at:
+		await process_frame
 	print("OPTIONS_TEST: %d checks, %d failures" % [checks, failures])
 	quit(1 if failures else 0)

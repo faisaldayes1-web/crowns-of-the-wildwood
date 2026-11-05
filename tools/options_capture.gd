@@ -44,7 +44,8 @@ func run() -> void:
 			capture_view = canvas
 	game = load("res://scenes/main.tscn").instantiate()
 	capture_view.add_child(game)
-	current_scene = game
+	if capture_view == root:
+		current_scene = game
 	var deadline := Time.get_ticks_msec() + 180000
 	while game.main_menu == null or game.menus_warming or not game.world_ready or is_instance_valid(game.loading_layer):
 		if Time.get_ticks_msec() > deadline:
