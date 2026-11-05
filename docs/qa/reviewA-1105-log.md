@@ -31,6 +31,8 @@ P0: blocks use or safe traversal; P1: major visible defect/UI obstruction; P2: l
 - 18:20:02 UTC: launched baseline PID16120 with isolated fresh child-process APPDATA/LOCALAPPDATA `C:/Temp/cqa1105f`. No player's profile moved, copied, overwritten or deleted. Boot produces projectile parse error and game script compile failure; GP-001 is runtime reproduced.
 - Computer Use returned `Computer Use was not approved to use crownsofthewildwood`. No screenshot/input succeeded. Requested app access through this session; did not bypass the gate.
 - Preserved raw boot log and artifact hash; closed only owned failed process. No match, class, pad, split-screen, screenshot review or clean pass claimed.
+- Supplemental follow-up: inspected two pre-existing local WEBP frames (Wildwood 805x746, Stonekeep 1308x773). Logged two suspected intersections and one visible world-label overlap, with pixel bounds and unknown-source/grid caveats. These are not current capture sets or full review passes. Did not copy the Stonekeep desktop notification into repository evidence.
+- Host requested a read-only startup audit in mail `1793902973-15a2b8`. Searched all 56 checked-out `scripts/**/*.gd` files for unqualified `free(...)`; only `projectile.gd:169` matched. No additional compile failure proven; no headless/editor launch without a slot.
 
 ## Next executable steps
 
