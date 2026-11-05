@@ -678,7 +678,7 @@ func _terrain() -> void:
 	mat.set_shader_parameter("top_scale", ground.uv1_scale.x)
 	if kind == "winter":
 		mat.set_shader_parameter("face_tex", load("res://assets/textures/rock_color.jpg"))
-		mat.set_shader_parameter("face_tint", Color(0.66, 0.7, 0.8))
+		mat.set_shader_parameter("face_tint", Color(0.76, 0.81, 0.92))
 	else:
 		mat.set_shader_parameter("face_tex", load("res://assets/textures/moss_color.jpg"))
 		mat.set_shader_parameter("face_tint", Color(0.42, 0.4, 0.58))
@@ -739,8 +739,11 @@ func _vcolor(v: Vector3, n: Vector3) -> Color:
 	## the grove's moss on top, litter on the banks). Green: light in the folds.
 	var top: float
 	if kind == "winter":
-		top = smoothstep(0.62, 0.86, n.y)
+		# Snow holds on all but the steepest rock, and frosts even that
+		# (final grade 2026-11-04: the gentle banks showed as grey smudges).
+		top = smoothstep(0.42, 0.7, n.y)
 		top = maxf(top, smoothstep(5.2, 6.6, v.y) * 0.8)   # snow caps on the high ground
+		top = maxf(top, 0.35)
 	else:
 		top = smoothstep(0.75, 0.95, n.y)
 	var lit := 1.0   # (no fold darkening: the foothills must match the open ground)

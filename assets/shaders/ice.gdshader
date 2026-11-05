@@ -57,9 +57,15 @@ void fragment() {
 	col *= 0.9 + 0.1 * smoothstep(0.05, 0.4, e1);
 	// Reflections: fresnel towards the sky colour and a slow diagonal glint.
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
-	float band = smoothstep(0.92, 1.0, sin((wpos.x + wpos.z) * 0.35 - TIME * 0.6) * 0.5 + 0.5);
+	float band = smoothstep(0.9, 1.0, sin((wpos.x + wpos.z) * 0.35 - TIME * 0.6) * 0.5 + 0.5);
+	float band2 = smoothstep(0.95, 1.0, sin((wpos.x * 0.6 - wpos.z) * 0.5 + TIME * 0.35) * 0.5 + 0.5);
+	// A mirrored sky: the far side of the sheet (away from the camera) picks
+	// up the pale sky, the near side the deep water, like a frozen mirror.
+	vec3 rv = reflect(-VIEW, NORMAL);
+	float skyward = clamp(rv.y * 0.5 + 0.5, 0.0, 1.0);
+	col = mix(col, sky, smoothstep(0.6, 0.95, skyward) * 0.2 * (1.0 - clamp(crack, 0.0, 1.0)));
 	ALBEDO = col;
-	EMISSION = sky * (fres * 0.18 + band * 0.22) + crack_col * crack * 0.06;
+	EMISSION = sky * (fres * 0.3 + band * 0.32 + band2 * 0.22) + crack_col * crack * 0.06;
 	ROUGHNESS = 0.06;
 	METALLIC = 0.0;
 	SPECULAR = 0.9;
