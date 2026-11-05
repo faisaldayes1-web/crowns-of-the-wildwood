@@ -206,7 +206,7 @@ const HEART_FOOT := 7.4       # ...and ramps down to the ground here
 const MOAT_IN := 8.2
 const MOAT_OUT := 10.4
 const SEATS_OUT := 12.4       # the amphitheatre's tiers end here
-const BROOK := [Vector3(6.6, 0, -6.6), Vector3(10.0, 0, -15.0), Vector3(12.0, 0, -25.0), Vector3(13.0, 0, -42.0)]
+const BROOK := [Vector3(6.6, 0, -6.6), Vector3(10.0, 0, -15.0), Vector3(12.0, 0, -25.0), Vector3(13.0, 0, -40.0), Vector3(13.8, 0, -47.0)]
 const BROOK_HALF := 1.25      # the water's half width (its banks stay flat a little wider)
 
 
@@ -1361,6 +1361,8 @@ func _deck(centre: Vector3, along: Vector3, length: float, half: float, logs: bo
 	var light = game._plank_dark(Color(0.94, 0.8, 0.62))
 	var timber = game._timber(Color(0.72, 0.58, 0.44))
 	var rail = game._timber(Color(0.9, 0.76, 0.58))
+	# A solid board under the planks: the water must not show through the joints.
+	_box_at(pivot, Vector3(half * 2.0, 0.08, length), Vector3(0, -0.04, 0), game._timber(Color(0.42, 0.32, 0.24)))
 	for zs in [-1.0, 1.0]:
 		_box_at(pivot, Vector3(0.3, 0.26, length), Vector3(zs * (half - 0.3), -0.1, 0), timber)
 	var n := int(length / (0.62 if logs else 0.5))
@@ -1380,7 +1382,7 @@ func _deck(centre: Vector3, along: Vector3, length: float, half: float, logs: bo
 			lg2.scale = Vector3(0.45, 1.0, 1.0)   # split: flat side up
 			pivot.add_child(lg2)
 		else:
-			_box_at(pivot, Vector3(half * 2.0, 0.1, length / n - 0.05), Vector3(0, 0.03, z), dark if k % 2 == 0 else light)
+			_box_at(pivot, Vector3(half * 2.0, 0.1, length / n - 0.015), Vector3(0, 0.03, z), dark if k % 2 == 0 else light)
 	# Rails: posts and a top bar.
 	for xs in [-1.0, 1.0]:
 		var x: float = xs * (half + 0.1)
@@ -1477,7 +1479,9 @@ func _build_heartwood() -> void:
 	var trunk_at := Vector3(0, HEART_TOP, 0)
 	game._add_blocker(trunk_at, 1.9, 6.0)
 	if game._kit():
-		game._kit().kit_tree(game, "blossom", trunk_at + Vector3(0, 0.6, 0), 1.9, 0.6)
+		var crown = game._kit().kit_tree(game, "blossom", trunk_at + Vector3(0, 0.6, 0), 1.9, 0.6)
+		# (Its shadow fell as a dark blot fifteen metres off, its caster out of view.)
+		crown.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	else:
 		game._add_tree_grown(trunk_at, true)
 	var glow := StandardMaterial3D.new()
@@ -1580,7 +1584,7 @@ func _build_heartwood() -> void:
 		if c == Vector3.INF:
 			continue
 		var dir := Vector3(b.x - a.x, 0, b.z - a.z).normalized()
-		_deck(c, dir, BROOK_HALF * 2.0 + 2.4, minf(s[2], 2.3) - 0.1, false)
+		_deck(c, dir, BROOK_HALF * 2.0 + 2.4, 1.75, false)   # (as wide as the trail's paving)
 		game.map_marks.append([c, "logbridge"])
 	game.map_marks.append([Vector3.ZERO, "brook"])
 	await game._world_build_frame()
@@ -1626,10 +1630,10 @@ func _build_heartwood() -> void:
 	await game._world_build_frame()
 	# Ruined watchtowers over the far ends of the flank loops.
 	for sgn in [1.0, -1.0]:
-		_tower(Vector3(8.8, 0, -35.2) * sgn, 1.25, 4.2)
+		_tower(Vector3(6.4, 0, -35.6) * sgn, 1.25, 4.2)
 		_tower(Vector3(-3.6, 0, -36.4) * sgn, 0.9, 2.0)
-		game._add_flag(Vector3(8.8, 4.2, -35.2) * sgn, 0 if sgn > 0.0 else 1, -sgn)
-		game.map_marks.append([Vector3(8.8, 0, -35.2) * sgn, "tower"])
+		game._add_flag(Vector3(6.4, 4.2, -35.6) * sgn, 0 if sgn > 0.0 else 1, -sgn)
+		game.map_marks.append([Vector3(6.4, 0, -35.6) * sgn, "tower"])
 	await game._world_build_frame()
 	# The jungle: trees packed on the banks between the paths, big ones
 	# deep in, bushes and mushroom rings at the edges, fireflies in the glades.
