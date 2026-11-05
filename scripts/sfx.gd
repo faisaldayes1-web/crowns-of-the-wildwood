@@ -419,8 +419,8 @@ func _pick_battle_loop() -> void:
 		var layer = _music_stream(EL_LAYERS[i - 1]) if _el_battle else null
 		if layer:
 			_el_layers = true
-		else:
-			layer = _music_stream(BATTLE_STEMS[i])
+		elif not _el_battle:
+			layer = _music_stream(BATTLE_STEMS[i])   # never the old score over a recorded loop
 		if layer:
 			layer.loop = true
 		battle_stream.set_sync_stream(i, layer)
