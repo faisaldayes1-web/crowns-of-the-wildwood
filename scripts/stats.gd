@@ -281,6 +281,17 @@ const UNLOCKS := [["class", "Rogue", "A sixth class: daggers, shadow dashes and 
 	["map", "Moonlit Wildwood", "A night map: moonlight, mist, lanterns and fireflies everywhere."]]
 
 
+static func next_goal(level: int) -> Array:
+	## What the account is working toward: [short text, icon]. The level-10
+	## unlocks first (Rogue, Shadowborn, Moonlit Wildwood), then the next rank title.
+	if level < UNLOCK_LEVEL:
+		return ["Moonlit at Lv %d" % UNLOCK_LEVEL, "lock"]
+	for entry in RANK_TITLES:
+		if entry[0] > level:
+			return ["Lv %d: %s" % [entry[0], entry[1]], "xp"]
+	return ["Top rank reached", "crown"]
+
+
 static func account_level_cost(level: int) -> int:
 	return ACCOUNT_XP_BASE + ACCOUNT_XP_STEP * (level - 1)
 
