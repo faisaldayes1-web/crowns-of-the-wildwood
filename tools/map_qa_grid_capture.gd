@@ -25,7 +25,7 @@ const GROUND := [
 	["g5-centre-west", 4.0, 3.0, -30.0, 0.0],
 	["g6-centre-east", -4.0, -3.0, 30.0, 0.0],
 	["g7-sw-corner-ne", -34.0, 20.0, 6.0, -2.0],
-	["g8-ne-corner-sw", 34.0, -20.0, -6.0, 2.0],
+	["g8-ne-corner-sw", 30.0, -23.0, -6.0, 2.0],
 ]
 var game
 var output := ""

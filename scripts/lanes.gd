@@ -1215,7 +1215,7 @@ func _build_grove() -> void:
 	im.height = 0.5
 	im.radial_segments = 16
 	islet.mesh = im
-	islet.material_override = game._pbr("moss", 0.5, Color(0.6, 0.62, 0.78))
+	islet.material_override = game._pbr("moss", 0.5, Color(0.5, 0.82, 0.95))
 	islet.position = Vector3(0, 0.2, 0)
 	game.add_child(islet)
 	game._add_tree_grown(Vector3(0, 0.4, 0), true)
