@@ -6427,7 +6427,12 @@ func _add_boulder(pos: Vector3) -> void:
 		if reserved or _near_path(pp, 0.6):
 			continue   # (and no pebbles on the cobbles)
 		pp.y = _hill_y(pp)
-		_prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][absi(int(pos.x * 7 + pos.z) + i) % 5], pp, 4.0, ang)
+		var pebble := _prop("hex/rock_single_%s" % ["A", "B", "C", "D", "E"][absi(int(pos.x * 7 + pos.z) + i) % 5], pp, 4.0, ang)
+		# (The pack's pebbles are warm sandstone: they take the boulder's own grey, Faisal 11-05 one stone family per map.)
+		var pebble_mat := _material(Color(0.6, 0.58, 0.56))
+		pebble_mat.roughness = 0.9
+		for pm in pebble.find_children("*", "MeshInstance3D", true, false):
+			pm.material_override = pebble_mat
 
 
 func _add_ground_detail() -> void:
@@ -10740,9 +10745,10 @@ func _add_clouds() -> void:
 		tw.tween_property(n, "position", sp[0], 36.0 + i * 3.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
-func _add_stone_brazier(pos: Vector3, lit: bool = true) -> void:
-	## A square grey-stone pillar with a fire bowl on top (the 2026-10-08 target art).
-	var stone := _pbr("greystone", 0.45, Color(0.82, 0.82, 0.88))
+func _add_stone_brazier(pos: Vector3, lit: bool = true, stone_mat: Material = null) -> void:
+	## A square grey-stone pillar with a fire bowl on top (the 2026-10-08 target art). A map with its
+	## own stone family passes it (the Wildwood island's braziers were grey beside tan kerbs).
+	var stone = stone_mat if stone_mat != null else _pbr("greystone", 0.45, Color(0.82, 0.82, 0.88))
 	audit_label = "pole"
 	_add_block(pos + Vector3(0, 0.15, 0), Vector3(0.95, 0.3, 0.95), Color.WHITE, true, stone)
 	_add_block(pos + Vector3(0, 0.75, 0), Vector3(0.7, 0.9, 0.7), Color.WHITE, true, stone)

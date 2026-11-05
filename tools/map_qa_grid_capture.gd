@@ -91,7 +91,7 @@ func run() -> void:
 	if tag != "":
 		dir = dir.path_join(tag)
 	DirAccess.make_dir_recursive_absolute(dir)
-	for i in 30:
+	for i in 300:   # (the battle-start shockwave is a tween: frozen mid-ring it painted a 30 m gold disc over the pass 1 and 2 frames)
 		await process_frame
 	var layers := root.find_children("*", "CanvasLayer", true, false)
 	var labels := root.find_children("*", "Label3D", true, false)
