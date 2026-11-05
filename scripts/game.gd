@@ -5087,7 +5087,25 @@ func pad_title(device: int) -> String:
 	return n if n != "" else "Gamepad"
 
 
+func _release_stuck_input() -> void:
+	## A pad plugged or pulled mid-menu or mid-match can leave an action latched
+	## (a trigger or stick last seen held), which kept the hero walking or
+	## swinging with no one touching anything, or blocked the keyboard until the
+	## device came back (Faisal 11-05: hot-plug bugs the controls). Release every
+	## game action and forget half-made clicks; the next real event sets them again.
+	for action in InputMap.get_actions():
+		if not str(action).begins_with("ui_") and Input.is_action_pressed(action):
+			Input.action_release(action)
+	movement_force_pulse = false
+	movement_primary_blocked = false
+	click_latched = false
+	confirm_block = false
+	if player != null:
+		player.cancel_click_movement()
+
+
 func _on_pad_changed(device: int, connected: bool) -> void:
+	_release_stuck_input()
 	var who := ""
 	if couch_players > 1:
 		for k in couch_players:
@@ -5102,6 +5120,7 @@ func _on_pad_changed(device: int, connected: bool) -> void:
 		# Only player 1's pad drives the hint labels; player 2 unplugging used to flip them to keys.
 		if couch_players <= 1 or device == local_pad(0):
 			pad_active = false
+			cursor_shown = false   # the pad's menu pointer goes with it; the mouse takes over at once
 		if who != "" and playing and not menu_open and not (net and net.online()):
 			# A split-screen player whose pad dropped would stand still while the others fight:
 			# pause so they can plug it back in (the bound device id survives a replug).
