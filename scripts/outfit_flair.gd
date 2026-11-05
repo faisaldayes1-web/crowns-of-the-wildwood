@@ -172,5 +172,6 @@ static func headband(skeleton: Skeleton3D, key: String, team_col: Color, gold_tr
 			mi.name = piece
 			mi.mesh = head_meshes[piece]
 			mi.material_override = mat
+			mi.scale = Vector3.ONE * 1.012   # clear of the helmet it wraps: the band's edge z-fought it in a dotted black line (Faisal 11-05)
 			n.add_child(mi)
 	return mat
