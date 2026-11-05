@@ -559,8 +559,11 @@ func _build_plateaus() -> void:
 			# on their plateau, at the corners outside the walls.
 			# Trees only on the far (north) rim: on the camera side their
 			# canopies hid the castle; glowing crystals stand there instead.
+			var blobs := []
 			for p in [Vector3(-44, 0, -12.5), Vector3(-73, 0, -13.6), Vector3(-90, 0, -12)]:
 				game._add_tree(p, false)
+				blobs.append([p, 1.8])   # the same soft contact shadow as the other maps' trees
+			preload("res://scripts/visual/blob_shadow.gd").build(game, blobs)
 			for p in [Vector3(-43.6, 0, -8.5), Vector3(-43.6, 0, 8.5), Vector3(-46.5, 0, 12.8), Vector3(-80, 0, 13.4), Vector3(-90, 0, 11.5)]:
 				game._add_crystal(p, 1.1)
 		else:

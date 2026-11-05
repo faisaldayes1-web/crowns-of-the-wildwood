@@ -69,6 +69,13 @@ jobs:
           timeout 300 bash tools/tests/isolated.sh --headless --path . --script tools/spawn_warm_test.gd -- --demo --seed=7 --map=3 2>&1 | tee ci-logs/spawn-warm.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/spawn-warm.log
           grep -q '^spawn warm test: 0 failure(s)$' ci-logs/spawn-warm.log
+      - name: Stonekeep ice is slippery
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --script tools/ice_slide_test.gd -- --demo --seed=7 --map=3 2>&1 | tee ci-logs/ice-slide.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/ice-slide.log
+          grep -q '^ice slide test: 0 failure(s)$' ci-logs/ice-slide.log
       - name: Clutter and tree clipping audit (all five maps)
         shell: bash
         run: |

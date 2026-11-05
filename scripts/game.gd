@@ -7388,6 +7388,7 @@ func _add_wall_stub(c: Vector3, length: float) -> void:
 	var low_len: float = length - tall_len
 	_add_block(Vector3(c.x, 0.65, c.z - low_len / 2.0), Vector3(0.6, 1.3, tall_len), Color.WHITE, false, _ashlar())
 	_add_block(Vector3(c.x, 1.38, c.z - low_len / 2.0), Vector3(0.8, 0.16, tall_len + 0.2), Color.WHITE, false, _ashlar(Color(0.92, 0.88, 0.8)))
+	preload("res://scripts/visual/snow_cap.gd").add(self, Vector3(c.x, 1.46, c.z - low_len / 2.0), Vector2(tall_len + 0.2, 0.8), PI / 2.0)   # (Stonekeep only)
 	_add_block(Vector3(c.x, 0.4, c.z + tall_len / 2.0), Vector3(0.6, 0.8, low_len), Color.WHITE, false, _ashlar(Color(0.9, 0.87, 0.8)))
 	_add_block(Vector3(c.x, 0.9, c.z + tall_len / 2.0 - low_len / 4.0), Vector3(0.6, 0.2, low_len / 2.0), Color.WHITE, false, _ashlar(Color(0.88, 0.85, 0.78)))
 	audit_label = ""
@@ -12541,6 +12542,8 @@ func _finish_world() -> void:
 		# finished world, then its own scenery.
 		Season.grade(self, season)
 		Season.decorate(self, season, {"half": RIVER_HALF if lmap == null else 0.0, "y": 0.03, "bridges": BRIDGES, "island": ISLAND_R})
+		# Snow on the wall tops the castle kit recorded (Stonekeep only).
+		preload("res://scripts/visual/snow_cap.gd").build(self)
 	if forest_kit:
 		# The kit's trees and dressing, after the grade (it has its own
 		# palette per map) and once everything they keep clear of is built.
