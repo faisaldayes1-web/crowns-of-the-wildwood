@@ -1930,11 +1930,11 @@ func draw_hat_slot(hud, p, strip: Rect2) -> void:
 	if hud.get("touch_ui") != true:
 		hud._keycap(Vector2(hc.x, at.y + slot + 4), hud._k("ability_3"), 24.0)
 	var label := "TRAINING"
-	var lc := Color(0.97, 0.93, 0.8) if ready else Color(0.75, 0.68, 0.58)
+	var lc := Color(0.97, 0.93, 0.8) if ready else Color(0.9, 0.85, 0.74)   # (8/8 pass: "AT 5:00" was near-invisible)
 	if wait > 0.0:
 		var left := int(Stats.MATCH_TIME) - int(Stats.ECONOMY.train_after)
 		label = "AT %d:%02d" % [left / 60, left % 60]
-	hud._text(Vector2(at.x - 30, at.y + slot + 31), label, 12, lc, HORIZONTAL_ALIGNMENT_CENTER, slot + 60, 3)
+	hud._text(Vector2(at.x - 30, at.y + slot + 31), label, 13, lc, HORIZONTAL_ALIGNMENT_CENTER, slot + 60, 5)
 	slot_rect = Rect2(at, Vector2(slot, slot))
 	if hud.get("touch_ui") == true and hud.get("touch_rects") != null:
 		hud.touch_rects.append([Rect2(at * hud.hud_scale, Vector2(slot, slot) * hud.hud_scale).grow(8), "ability_3"])
