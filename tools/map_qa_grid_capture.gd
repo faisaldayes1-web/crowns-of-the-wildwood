@@ -5,7 +5,9 @@ extends SceneTree
 ## live match view with units and UI. Output is <dir>/<slug>/ plus manifest.json (cell and shot positions).
 ## Run through tools/tests/isolated.sh with a window (not --headless), at 1080p:
 ##   CROWNS_CAPTURE_DIR=docs/evidence/qa-1105 tools/tests/isolated.sh --path . --resolution 1920x1080 \
-##     --script tools/map_qa_grid_capture.gd -- --map=0 [--tag=before] [--only=ground]
+##     --script tools/map_qa_grid_capture.gd -- --map=0 [--tag=before] [--only=ground] [--debug-night for map 1]
+## Moonlit is only night when unlocked or --debug-night is passed (pass 1 captured it as day without it).
+## Set CROWNS_SOURCE_SHA to the commit being captured; it goes in the manifest.
 const Isolated = preload("res://tools/tests/isolated.gd")
 
 const SLUGS := ["wildwood", "moonlit", "ember-pass", "stonekeep", "twilight-grove"]
@@ -17,6 +19,8 @@ const OVERHEAD_FOV := 40.0
 const MARGIN := 1.2
 const EYE := 1.7
 # [label, eye x, eye z, look x, look z]; eye height is EYE over the ground found by a ray.
+# g1..g8 are FIXED: pass 1 moved g8 and the reviewers could not compare before and after.
+# New views are only ever appended (x1.. below), never moved.
 const GROUND := [
 	["g1-west-gate-east", -56.0, 0.0, -20.0, 0.0],
 	["g2-east-gate-west", 56.0, 0.0, 20.0, 0.0],
@@ -25,7 +29,18 @@ const GROUND := [
 	["g5-centre-west", 4.0, 3.0, -30.0, 0.0],
 	["g6-centre-east", -4.0, -3.0, 30.0, 0.0],
 	["g7-sw-corner-ne", -34.0, 20.0, 6.0, -2.0],
-	["g8-ne-corner-sw", 30.0, -23.0, -6.0, 2.0],
+	["g8-ne-corner-sw", 34.0, -20.0, -6.0, 2.0],
+]
+# Added in pass 2 (11-05): the places Faisal's list and the reviewers named. Appended, so g1..g8 stay comparable.
+const EXTRA := [
+	["x1-centre-north", 0.0, -9.0, 0.0, 6.0],
+	["x2-centre-south", 0.0, 9.0, 0.0, -6.0],
+	["x3-nw-flank-se", -30.0, -24.0, -4.0, -6.0],
+	["x4-se-flank-nw", 30.0, 24.0, 4.0, 6.0],
+	["x5-ne-hill-east", 22.0, -14.0, 40.0, -22.0],
+	["x6-sw-hill-west", -22.0, 14.0, -40.0, 22.0],
+	["x7-ne-corner-alt", 27.0, -15.0, -6.0, 2.0],   # the g8 sightline from a clear spot (g8 itself stays put)
+	["x8-sw-corner-alt", -27.0, 15.0, 6.0, -2.0],   # the same for g7
 ]
 var game
 var output := ""
@@ -68,6 +83,9 @@ func run() -> void:
 	game._start_match(0)
 	while not game.playing or is_instance_valid(game.loading_layer):
 		await process_frame
+	# Reviewer A (pass 1): the yellow FORTIFY barrier hid the middle of the field in the g5/g6 frames.
+	# End it so every shot shows the battle-phase map. The HUD shot is the battle HUD too.
+	game._begin_battle()
 	var slug: String = SLUGS[clampi(game.map_variant, 0, SLUGS.size() - 1)]
 	var dir := output.path_join(slug)
 	if tag != "":
@@ -113,8 +131,8 @@ func run() -> void:
 		for i in 90:
 			await process_frame
 		await RenderingServer.frame_post_draw
-		var hud_path := dir.path_join("hud-%s.png" % slug)
-		root.get_texture().get_image().save_png(hud_path)
+		var hud_path := dir.path_join("hud-%s.jpg" % slug)
+		root.get_texture().get_image().save_jpg(hud_path, 0.92)
 		manifest["hud"] = hud_path
 		print("CAPTURE ", hud_path)
 	manifest["map"] = slug
@@ -122,6 +140,10 @@ func run() -> void:
 	manifest["size"] = [root.size.x, root.size.y]
 	manifest["tag"] = tag
 	manifest["godot"] = Engine.get_version_info().string
+	manifest["source_sha"] = OS.get_environment("CROWNS_SOURCE_SHA")
+	manifest["renderer"] = "%s / %s" % [RenderingServer.get_video_adapter_name(), ProjectSettings.get_setting("rendering/renderer/rendering_method")]
+	manifest["args"] = Array(OS.get_cmdline_user_args())
+	manifest["night"] = game.night()
 	var f := FileAccess.open(dir.path_join("manifest-%s.json" % slug), FileAccess.WRITE)
 	f.store_string(JSON.stringify(manifest, "  "))
 	f.close()
@@ -132,7 +154,7 @@ func _snap(cam: Camera3D, path: String) -> bool:
 	for i in 6:
 		await process_frame
 	await RenderingServer.frame_post_draw
-	if root.get_texture().get_image().save_png(path) != OK:
+	if root.get_texture().get_image().save_jpg(path, 0.92) != OK:
 		push_error("Capture failed: " + path)
 		quit(1)
 		return false
@@ -152,7 +174,7 @@ func _overhead(cam: Camera3D, dir: String, slug: String) -> void:
 			var c := Vector2(FIELD.position.x + cell.x * (col + 0.5), FIELD.position.y + cell.y * (row + 0.5))
 			cam.position = Vector3(c.x, h, c.y)
 			cam.look_at(Vector3(c.x, 0, c.y), Vector3(0, 0, -1))
-			var path := dir.path_join("overhead-r%d-c%d.png" % [row, col])
+			var path := dir.path_join("overhead-r%d-c%d.jpg" % [row, col])
 			if not await _snap(cam, path):
 				return
 			manifest["cells"].append({"row": row, "col": col, "centre": [c.x, c.y], "height": h, "file": path})
@@ -165,11 +187,11 @@ func _ground_y(x: float, z: float) -> float:
 
 func _ground(cam: Camera3D, dir: String, slug: String) -> void:
 	cam.fov = 70.0
-	for g in GROUND:
+	for g in GROUND + EXTRA:
 		var y := _ground_y(g[1], g[2])
 		cam.position = Vector3(g[1], y + EYE, g[2])
 		cam.look_at(Vector3(g[3], _ground_y(g[3], g[4]) + EYE * 0.8, g[4]), Vector3.UP)
-		var path := dir.path_join("%s.png" % g[0])
+		var path := dir.path_join("%s.jpg" % g[0])
 		if not await _snap(cam, path):
 			return
 		manifest["ground"].append({"label": g[0], "eye": [g[1], y + EYE, g[2]], "look": [g[3], g[4]], "file": path})
