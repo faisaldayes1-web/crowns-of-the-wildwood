@@ -954,7 +954,9 @@ func _keycap(center: Vector2, key: String, w: float = 30.0, dark: bool = false, 
 	if XBOX_GLYPHS.has(key) and not keyboard:
 		draw_circle(center, 10.5, Color(0.12, 0.12, 0.15))
 		draw_arc(center, 10.5, 0, TAU, 24, Color(0.45, 0.45, 0.5), 1.0)
-		_text(center + Vector2(-10.5, 5), key, 12, XBOX_GLYPHS[key], HORIZONTAL_ALIGNMENT_CENTER, 21, 0)
+		# A Switch pad's face buttons are plain letters; Xbox colours would mislabel them.
+		var letter: Color = CREAM if game.pad_kind(game.local_pad(0)) == "switch" else XBOX_GLYPHS[key]
+		_text(center + Vector2(-10.5, 5), key, 12, letter, HORIZONTAL_ALIGNMENT_CENTER, 21, 0)
 		return
 	var rect := Rect2(center - Vector2(w / 2.0, 9), Vector2(w, 18))
 	if dark:
@@ -2774,11 +2776,12 @@ func _scoreboard_static(quiet: bool = false) -> void:
 	if quiet:
 		line = ""
 	if line != "":
-		var fs := 14 if _text_width(line, 14) < 520.0 else 12
-		# A soft dark band behind it, so the line reads over bright ground.
-		var lw := minf(_text_width(line, fs) + 28.0, 548.0)
-		_plate(Rect2(cx - lw / 2.0, 100.0 - fs - 3.0, lw, fs + 9.0), Color(0.04, 0.04, 0.05, 0.6), Color(0, 0, 0, 0), 8, 0)
-		_text(Vector2(cx - 260.0, 100.0), line, fs, line_ink.lerp(Color(1.0, 0.95, 0.82), 0.85), HORIZONTAL_ALIGNMENT_CENTER, 520.0, 4)
+		# (8/8 pass 2026-11-04: 15 px over a 680 px band, darker; the long
+		# fortify line had shrunk to ~10 px inside 520 at 720p.)
+		var fs := 15 if _text_width(line, 15) < 660.0 else 13
+		var lw := minf(_text_width(line, fs) + 28.0, 690.0)
+		_plate(Rect2(cx - lw / 2.0, 100.0 - fs - 3.0, lw, fs + 10.0), Color(0.04, 0.04, 0.05, 0.74), Color(0, 0, 0, 0), 8, 0)
+		_text(Vector2(cx - 330.0, 100.0), line, fs, line_ink.lerp(Color(1.0, 0.95, 0.82), 0.85), HORIZONTAL_ALIGNMENT_CENTER, 660.0, 4)
 	if not fire.is_empty() and line == fire.text:
 		# Ember Pass: the Fire Objective's flame beside the strip, and the
 		# capture filling along its foot.
@@ -6214,7 +6217,7 @@ func _menu_controls(body: Rect2) -> void:
 	var kx := R.end.x - 330.0
 	var px := R.end.x - 120.0
 	_text(Vector2(kx - 70, R.position.y + 26), "KEYBOARD / MOUSE", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 140, 2)
-	_text(Vector2(px - 60, R.position.y + 26), "DUALSENSE" if pad_kind == "ps" else "GAMEPAD", 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
+	_text(Vector2(px - 60, R.position.y + 26), "DUALSENSE" if pad_kind == "ps" else ("SWITCH PAD" if pad_kind == "switch" else "GAMEPAD"), 11, GREY, HORIZONTAL_ALIGNMENT_CENTER, 120, 2)
 	var names := {}
 	for e in game.REBINDABLE:
 		names[e[0]] = e[1]
@@ -6395,7 +6398,7 @@ func _menu_settings(body: Rect2) -> void:
 	# GAMEPAD.
 	y = _opt_section(Vector2(x, y), w, "GAMEPAD", "horn", 40.0)
 	_toggle(Rect2(x + 12, y + 2, 210, 36), "Rumble", game.rumble_on, "rumble")
-	var style_names := {"auto": "AUTO", "xbox": "XBOX", "ps": "PLAYSTATION"}
+	var style_names := {"auto": "AUTO", "xbox": "XBOX", "ps": "PLAYSTATION", "switch": "SWITCH"}
 	var style := Rect2(x + 232, y + 2, 300, 36)
 	_opt_slot(style)
 	_text(style.position + Vector2(14, 23), "Button Names", 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
@@ -6782,8 +6785,8 @@ func _draw_chat() -> void:
 		var named: bool = m.who != ""
 		var body := _chat_display_text(m)
 		var touch_hint: bool = touch_ui and not named and body != m.text
-		var body_size := 22 if touch_hint else 11
-		var line_height := 26.0 if touch_hint else 13.0
+		var body_size := 22 if touch_hint else 13
+		var line_height := 26.0 if touch_hint else 16.0
 		var body_h := _paragraph_height(body, body_size, tw, line_height)
 		var h: float = maxf(36.0, body_h + (22.0 if named else 10.0))
 		y -= h + 4
@@ -6817,10 +6820,10 @@ func _draw_chat() -> void:
 				draw_circle(row.position + Vector2(20, 18), 13, Color(0.2, 0.2, 0.26, alpha))
 				_icon("crown", row.position + Vector2(20, 18), 7, Color(GOLD.r, GOLD.g, GOLD.b, alpha))
 			var who: String = m.who + ("  [Team]" if m.team else "")
-			_text(row.position + Vector2(40, 14), who, 11, col, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			_text(row.position + Vector2(40, 14), who, 12, col, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 			var clock: float = m.get("clock", 0.0)
 			_text(row.position + Vector2(0, 14), "%02d:%02d" % [int(clock) / 60, int(clock) % 60], 9, Color(0.6, 0.62, 0.7, alpha), HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 8, 1)
-			_paragraph(row.position + Vector2(40, 29), m.text, 11, Color(0.92, 0.92, 0.95, alpha), tw, 13.0, 1)
+			_paragraph(row.position + Vector2(40, 30), m.text, 13, Color(0.96, 0.96, 0.98, alpha), tw, 16.0, 2)
 		else:
 			_icon("crown", row.position + Vector2(20, h / 2.0), 6, Color(GOLD.r, GOLD.g, GOLD.b, 0.8 * alpha))
 			# Centre the whole block: the first line used to sit at the middle
