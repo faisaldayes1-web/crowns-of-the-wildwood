@@ -1,0 +1,1811 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080 Laptop GPU
+
+NET ready
+BATCH merged 4588 scenery meshes (1211 left alone) into 791 meshes; 1585 materials became 213; 425 ms (261 ms reading meshes)
+BATCH read-backs 3 (1 ms)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#789116359843>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#789116359843>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#789116359843>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#789116359843>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#789116359843>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#789116359843>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#789116359843>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#789116359843>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#789116359843>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#796968112653>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#796968112653>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#796968112653>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#796968112653>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#796968112653>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#796968112653>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#801799935139>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#801799935139>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#801799935139>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#801799935139>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#801799935139>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#801799935139>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#806631789069>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#806631789069>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#806631789069>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#806631789069>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#806631789069>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#806631789069>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#811497165987>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#811497165987>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#811497165987>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#811497165987>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#811497165987>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#811497165987>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#811497165987>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#960613083624>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#960613083624>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#960613083624>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#960613083624>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#960613083624>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#960613083624>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#960613083624>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#960613083624>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#963062557195>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#963062557195>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#963062557195>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#963062557195>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#963062557195>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#963062557195>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#963062557195>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#957291194803>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#957291194803>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#957291194803>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#957291194803>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#957291194803>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#957291194803>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#957291194803>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#957291194803>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#956016126334>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#956016126334>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#956016126334>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#956016126334>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#956016126334>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#956016126334>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#956016126334>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#956016126334>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#954724280655>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#954724280655>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#954724280655>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#954724280655>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#954724280655>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#954724280655>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#954724280655>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#953432434976>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#953432434976>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#953432434976>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#953432434976>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#953432434976>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#953432434976>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#953432434976>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#952140589297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#952140589297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#952140589297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#952140589297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#952140589297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#952140589297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#952140589297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#950899075268>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#950899075268>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#950899075268>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#950899075268>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#950899075268>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#950899075268>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#950899075268>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#949607229584>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#949607229584>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#949607229584>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#949607229584>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#949607229584>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#949607229584>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#949607229584>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#949607229584>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#949607229584>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#948315383900>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#948315383900>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#948315383900>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#948315383900>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#948315383900>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#948315383900>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#948315383900>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#948315383900>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#948315383900>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#946268563453>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#946268563453>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#946268563453>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#946268563453>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#946268563453>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#946268563453>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#946268563453>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#946268563453>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#946268563453>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#944272074656>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#944272074656>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#944272074656>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#944272074656>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#944272074656>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#944272074656>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#944272074656>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#944272074656>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#944272074656>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#942309140294>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#942309140294>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#942309140294>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#942309140294>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#942309140294>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#942309140294>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#942309140294>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#942309140294>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#942309140294>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#940463646448>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#940463646448>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#940463646448>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#940463646448>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#940463646448>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#940463646448>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#940463646448>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#940463646448>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#940463646448>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#938534266525>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#936604886574>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#934591620583>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#932779681194>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#931135513969>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#931135513969>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#931135513969>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#931135513969>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#931135513969>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#931135513969>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#931135513969>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#931135513969>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#931135513969>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#929575232826>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#929575232826>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#929575232826>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#929575232826>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#929575232826>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#929575232826>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#929575232826>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#929575232826>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#927981397238>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#927981397238>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#927981397238>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#927981397238>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#927981397238>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#927981397238>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#927981397238>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#927981397238>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#927981397238>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#926387561616>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#926387561616>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#926387561616>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#926387561616>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#926387561616>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#926387561616>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#926387561616>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#926387561616>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#926387561616>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#924558845004>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#924558845004>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#924558845004>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#924558845004>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#924558845004>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#924558845004>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#924558845004>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#924558845004>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#922897900561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#922897900561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#922897900561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#922897900561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#922897900561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#922897900561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#922897900561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#922897900561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#921371173855>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#921371173855>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#921371173855>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#921371173855>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#921371173855>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#921371173855>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#921371173855>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#921371173855>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920028996531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920028996531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920028996531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920028996531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920028996531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920028996531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#920028996531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#918602933109>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#918602933109>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#918602933109>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#918602933109>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#918602933109>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#918602933109>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#918602933109>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#918602933109>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#918602933109>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917176869687>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917176869687>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917176869687>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917176869687>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917176869687>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917176869687>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917176869687>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917176869687>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#917176869687>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#914794504897>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#914794504897>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#914794504897>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#914794504897>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#914794504897>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#914794504897>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#914794504897>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#914794504897>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#914794504897>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#912496026193>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#912496026193>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#912496026193>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#912496026193>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#912496026193>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#912496026193>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#912496026193>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#912496026193>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#912496026193>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#910365319661>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#910365319661>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#910365319661>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#910365319661>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#910365319661>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#910365319661>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#910365319661>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#910365319661>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#910365319661>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#908402385297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#908402385297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#908402385297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#908402385297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#908402385297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#908402385297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#908402385297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#908402385297>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#906590427045>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#904778487929>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#902513564025>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#900332526187>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#898319260480>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#896138222760>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#894896709026>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#894896709026>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#894896709026>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#894896709026>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#894896709026>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#894896709026>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#894896709026>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#893621640914>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#893621640914>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#893621640914>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#893621640914>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#893621640914>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#893621640914>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#893621640914>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#893621640914>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#892346572847>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#892346572847>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#892346572847>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#892346572847>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#892346572847>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#892346572847>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#892346572847>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#892346572847>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#891054727511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#891054727511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#891054727511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#891054727511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#891054727511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#891054727511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#891054727511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#889762882092>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#889762882092>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#889762882092>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#889762882092>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#889762882092>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#889762882092>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#889762882092>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#888471036671>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#888471036671>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#888471036671>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#888471036671>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#888471036671>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#888471036671>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#888471036671>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#887229522785>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#887229522785>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#887229522785>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#887229522785>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#887229522785>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#887229522785>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#887229522785>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#885937677340>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#885937677340>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#885937677340>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#885937677340>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#885937677340>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#885937677340>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#885937677340>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#885937677340>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#885937677340>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#884645831990>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#884645831990>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#884645831990>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#884645831990>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#884645831990>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#884645831990>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#884645831990>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#884645831990>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#884645831990>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#882599011962>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#882599011962>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#882599011962>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#882599011962>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#882599011962>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#882599011962>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#882599011962>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#882599011962>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#882599011962>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#880602523561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#880602523561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#880602523561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#880602523561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#880602523561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#880602523561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#880602523561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#880602523561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#880602523561>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#878639589614>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#878639589614>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#878639589614>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#878639589614>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#878639589614>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#878639589614>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#878639589614>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#878639589614>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#878639589614>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#876794096091>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#876794096091>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#876794096091>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#876794096091>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#876794096091>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#876794096091>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#876794096091>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#876794096091>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#876794096091>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#874764053351>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#872734010749>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#870620081895>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#868707479831>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#866962649531>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#863791755931>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#863791755931>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#863791755931>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#863791755931>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#863791755931>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#863791755931>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#863791755931>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#863791755931>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#863791755931>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#862097257391>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#860402759063>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#858473379690>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#858473379690>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#858473379690>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#858473379690>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#858473379690>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#858473379690>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#858473379690>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#858473379690>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#858473379690>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#856711772311>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#856711772311>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#856711772311>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#856711772311>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#856711772311>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#856711772311>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#856711772311>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#856711772311>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#856711772311>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#855084382685>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#855084382685>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#855084382685>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#855084382685>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#855084382685>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#855084382685>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#855084382685>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#855084382685>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#855084382685>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#853641542320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#853641542320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#853641542320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#853641542320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#853641542320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#853641542320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#853641542320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#853641542320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#852215479320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#852215479320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#852215479320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#852215479320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#852215479320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#852215479320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#852215479320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#852215479320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#852215479320>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#850789416157>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#850789416157>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#850789416157>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#850789416157>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#850789416157>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#850789416157>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#850789416157>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#850789416157>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#850789416157>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#848407051867>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#848407051867>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#848407051867>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#848407051867>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#848407051867>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#848407051867>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#848407051867>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#848407051867>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#848407051867>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#845856915446>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#845856915446>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#845856915446>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#845856915446>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#845856915446>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#845856915446>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#845856915446>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#845856915446>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#845856915446>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#843726209444>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#843726209444>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#843726209444>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#843726209444>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#843726209444>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#843726209444>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#843726209444>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#843726209444>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#843726209444>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#841763275673>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#841763275673>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#841763275673>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#841763275673>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#841763275673>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#841763275673>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#841763275673>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#841763275673>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#839951337333>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#838139398267>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#835874474657>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#833693438009>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#831680155199>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#829817889244>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#828576371886>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#828576371886>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#828576371886>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#828576371886>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#828576371886>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#828576371886>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#828576371886>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#590826456098>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#590826456098>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#590826456098>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#590826456098>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#590826456098>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#590826456098>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#590826456098>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#507863119270>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#507863119270>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#507863119270>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#507863119270>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#507863119270>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#507863119270>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#507863119270>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#507863119270>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#277562266349>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#277562266349>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#277562266349>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#277562266349>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#277562266349>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#277562266349>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#277562266349>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#277562266349>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#276136202916>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#273753838123>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#273753838123>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#273753838123>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#273753838123>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#273753838123>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#273753838123>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#273753838123>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#273753838123>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#271572799952>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#250181849367>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#244561481922>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#244561481922>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#244561481922>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#244561481922>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#244561481922>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#244561481922>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#244561481922>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#244561481922>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#244561481922>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#238555238511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#238555238511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#238555238511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#238555238511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#238555238511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#238555238511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#238555238511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#238555238511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#238555238511>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#232196673342>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#224110055361>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#224110055361>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#224110055361>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#224110055361>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#224110055361>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#224110055361>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#224110055361>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#189834202774>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#189834202774>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#189834202774>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#189834202774>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#189834202774>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#189834202774>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#189834202774>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#173828738461>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: Attempt to disconnect a nonexistent connection from 'Skeleton3D:<Skeleton3D#169164672275>'. Signal: 'skeleton_updated', callable: ''.
+   at: _disconnect (core/object/object.cpp:1462)
+USER ERROR: 1 shaders of type SceneForwardClusteredShaderRD were never freed
+   at: ~ShaderRD (servers/rendering/renderer_rd/shader_rd.cpp:845)
+ERROR: 1 RID allocations of type 'N10RendererRD15MaterialStorage6ShaderE' were leaked at exit.
