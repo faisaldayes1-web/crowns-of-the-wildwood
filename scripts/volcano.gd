@@ -395,14 +395,44 @@ void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
+vec2 h2(vec2 p) {
+	p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
+	return fract(sin(p) * 43758.5453);
+}
+float cell_edge(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	float d1 = 8.0;
+	float d2 = 8.0;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = vec2(float(x), float(y));
+			float d = length(g + h2(i + g) - f);
+			if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) { d2 = d; }
+		}
+	}
+	return d2 - d1;
+}
 void fragment() {
 	float h = clamp((wpos.y - lava_y) / span, 0.0, 1.0);
 	vec3 foot = vec3(0.2, 0.08, 0.08);
 	vec3 col = mix(foot, tint, smoothstep(0.0, 0.45, h));
 	col = mix(col, tint * vec3(1.3, 1.2, 1.12), smoothstep(0.55, 1.0, h) * 0.5);
 	col = mix(col, tint * vec3(1.45, 1.32, 1.2), smoothstep(0.6, 0.95, wn.y) * 0.55);   // lit tops
+	// Chunky rock form: big painted facets (a coarse cell pattern, each a
+	// slightly different shade) and glowing lava cracks between them, hotter
+	// toward the foot; the silhouette darkens toward its edge like an ink rim.
+	vec2 q = vec2(wpos.x + wpos.z * 0.7, wpos.y * 1.3 + wpos.z * 0.4) * 0.9;
+	float e = cell_edge(q);
+	float shade = h2(floor(q + 0.5)).x;
+	col *= 0.86 + 0.22 * shade;
+	float crack = 1.0 - smoothstep(0.02, 0.07, e);
+	col = mix(col, vec3(0.12, 0.05, 0.05), crack * 0.8);
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	col *= 1.0 - rim * 0.35;
 	ALBEDO = col;
-	EMISSION = vec3(1.0, 0.36, 0.08) * (1.0 - smoothstep(0.0, 0.16, h)) * 0.6;
+	float hot = 1.0 - smoothstep(0.05, 0.6, h);
+	EMISSION = vec3(1.0, 0.36, 0.08) * ((1.0 - smoothstep(0.0, 0.16, h)) * 0.6 + crack * hot * 1.6);
 	ROUGHNESS = 0.9;
 }
 """
