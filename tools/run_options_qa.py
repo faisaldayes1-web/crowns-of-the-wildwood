@@ -104,7 +104,7 @@ def main():
         for width, height in [(1280, 720), (1920, 1080), (2560, 1440)]:
             for before in [True, False]:
                 label = ("before-" if before else "after-") + str(height) + "p"
-                run(label, ["--resolution", f"{width}x{height}", "--script", "tools/options_capture.gd", "--"] + (["--before"] if before else []), capture_dir=OUT / str(height))
+                run(label, ["--resolution", f"{width}x{height}", "--script", "tools/options_capture.gd", "--", "--no-prebuild"] + (["--before"] if before else []), capture_dir=OUT / str(height))
     if args.stage in ["all", "bot"]:
         run("bot-seed7", ["--headless", "--fixed-fps", "60", "--quit-after", "45000", "--", "--demo", "--seed=7"], timeout=1200)
 
