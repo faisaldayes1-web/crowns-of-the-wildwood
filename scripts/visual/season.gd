@@ -68,6 +68,8 @@ static func surface(season: String, c: Color) -> Color:
 			# yard sits in the same night as the forest; greens only deepen.
 			if g > 0.0:
 				out = Color(c.r * 0.9, c.g * 0.94, c.b * 1.02, c.a)
+			elif c.s > 0.45:
+				pass   # saturated cloth (class banners, signs) keeps its colour (8/8 pass: the banners went near-black)
 			else:
 				var lum := c.get_luminance()
 				out = c.lerp(Color(lum, lum, lum, c.a), 0.4) * Color(0.72, 0.8, 1.0, 1.0)
