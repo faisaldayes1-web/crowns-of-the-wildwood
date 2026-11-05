@@ -358,7 +358,7 @@ func _species(pos: Vector3, hint: String, seed: int) -> String:
 		return "pine"
 	if hint == "canopy":
 		return "broad"
-	if palette in ["day", "night"] and hint in ["", "broad"]:
+	if palette in ["day", "night", "twilight"] and hint in ["", "broad"]:   # (twilight too, 8/8 pass: the all-puffball grove read as another game)
 		# Pass 2 (2026-10-31, picks Spawn D / Battle A): the woods read as
 		# dense dark conifers. Pines are the majority on both sides; in the
 		# field one tree in three stays broadleaf for variety (the same seeds
