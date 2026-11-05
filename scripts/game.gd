@@ -4895,7 +4895,15 @@ func _on_pad_changed(device: int, connected: bool) -> void:
 			toast("Unknown gamepad layout: buttons may need rebinding in Controls", Color(1.0, 0.8, 0.5))
 	else:
 		toast("Gamepad disconnected%s" % who, Color(1.0, 0.8, 0.5))
-		pad_active = false
+		# Only player 1's pad drives the hint labels; player 2 unplugging used to flip them to keys.
+		if couch_players <= 1 or device == local_pad(0):
+			pad_active = false
+		if who != "" and playing and not menu_open and not (net and net.online()):
+			# A split-screen player whose pad dropped would stand still while the others fight:
+			# pause so they can plug it back in (the bound device id survives a replug).
+			menu_open = true
+			menu_tab = 0
+			get_tree().paused = true
 
 
 func rumble(u, weak: float, strong: float, duration: float) -> void:
