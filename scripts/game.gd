@@ -174,6 +174,8 @@ var player_team := 0
 var score := [0, 0]
 var winner_team := -1
 var overtime := false         # tied at full time: doors down, next capture wins
+var game_mode := "crowns"     # Stats.GAME_MODES: "crowns" (Crown Raid) or "tdm" (Team Deathmatch)
+var tdm_sudden := false       # Team Deathmatch tied at full time: the next kill wins
 var thrones: Array[Vector3] = []
 var monarchs: Array = []
 var units: Array = []
@@ -1156,7 +1158,52 @@ func _debug_hooks() -> void:
 
 # --- Rules -----------------------------------------------------------------
 
+func is_tdm() -> bool:
+	return game_mode == "tdm"
+
+
+func mode_name() -> String:
+	return Stats.GAME_MODE_NAMES.get(game_mode, "Crown Raid")
+
+
+func set_game_mode(mode: String) -> void:
+	if mode in Stats.GAME_MODES:
+		game_mode = mode
+
+
+func tdm_kill(victim) -> void:
+	## Team Deathmatch: an enemy knocked down or killed is a point for the
+	## other side (unit._fall, whatever dealt the blow: a fighter, a turret,
+	## a trap or the lava). The host only; clients take the score from it.
+	if not is_tdm() or not playing or game_over or prep_left > 0.0 or net_client:
+		return
+	var t: int = 1 - victim.team
+	score[t] += 1
+	var team_name: String = Stats.FACTIONS[t].name
+	if demo:
+		LogQ.line("TDM kill: %s  (score %d - %d) t=%d" % [team_name, score[0], score[1], match_clock()])
+	if tdm_sudden or score[t] >= Stats.TDM_KILLS_TO_WIN:
+		_finish(t)
+		return
+	var left: int = Stats.TDM_KILLS_TO_WIN - score[t]
+	if left in [10, 5, 1]:
+		chat_system("The %s need %d more kill%s to win." % [team_name, left, "" if left == 1 else "s"])
+		if left == 1:
+			announce("The %s are one kill from victory!" % team_name)
+
+
+func tdm_wave_delay() -> float:
+	## Seconds until the next respawn wave: waves roll every TDM_WAVE seconds
+	## of the match, and nobody waits less than TDM_RESPAWN_MIN.
+	var wait: float = Stats.TDM_WAVE - fmod(maxf(match_played, 0.0), Stats.TDM_WAVE)
+	if wait < Stats.TDM_RESPAWN_MIN:
+		wait += Stats.TDM_WAVE
+	return wait
+
+
 func _check_rules() -> void:
+	if is_tdm():
+		return   # no crowns to carry: kills score (tdm_kill)
 	for m in monarchs:
 		if m.state == Monarch.State.CARRIED:
 			var carrier = m.carrier
@@ -1201,6 +1248,8 @@ func _score_capture(carrier, m) -> void:
 
 func match_clock() -> int:
 	## Seconds since the match began, overtime included (for the logs).
+	if is_tdm():
+		return int(Stats.TDM_TIME + (Stats.TDM_SUDDEN if tdm_sudden else 0.0) - time_left)
 	if overtime:
 		return int(Stats.MATCH_TIME + Stats.OVERTIME - time_left)
 	return int(Stats.MATCH_TIME - time_left)
@@ -1210,7 +1259,7 @@ func _demo_summary() -> void:
 	LogQ.flush()   # the queued match log first, then the result lines
 	## One line per unit at the end of a bot match, for balance tallies.
 	var w: String = "Draw" if winner_team < 0 else Stats.FACTIONS[winner_team].name
-	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1]])
+	print("RESULT winner=%s score=%d-%d t=%d overtime=%s turrets=%d/%d turret_kills=%d/%d raid_deaths=%d/%d mode=%s sudden=%s" % [w, score[0], score[1], match_clock(), overtime, turrets_built[0], turrets_built[1], turret_kills[0], turret_kills[1], raid_deaths[0], raid_deaths[1], game_mode, tdm_sudden])
 	if vmap:
 		print("FIRESTAT held=%d/%d captures=%d/%d" % [int(vmap.fire_held[0]), int(vmap.fire_held[1]), vmap.fire_captures[0], vmap.fire_captures[1]])
 	if lmap:
@@ -1228,6 +1277,20 @@ func _demo_summary() -> void:
 
 
 func _end_on_time() -> void:
+	if is_tdm():
+		if score[0] == score[1] and not tdm_sudden:
+			# Tied at full time: a short sudden death, the next kill wins.
+			tdm_sudden = true
+			time_left = Stats.TDM_SUDDEN
+			announce("SUDDEN DEATH! The next kill wins!")
+			chat_system("Sudden death: the next kill wins the deathmatch.")
+			sfx.ui("horn", 0.0, 0.8)
+			LogQ.line("Sudden death")
+			return
+		time_left = 0.0
+		_finish(-1 if score[0] == score[1] else (0 if score[0] > score[1] else 1))
+		LogQ.line("Time up")
+		return
 	if score[0] == score[1] and not overtime:
 		# Sudden death: both doors come down and stay down, next capture wins.
 		overtime = true
@@ -1255,6 +1318,8 @@ func _finish(winner: int) -> void:
 	if winner >= 0:
 		outcome = "VICTORY!" if winner == player_team else "DEFEAT"
 		line = "The %s win %d to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
+		if is_tdm():
+			line = "The %s win the deathmatch, %d kills to %d." % [Stats.FACTIONS[winner].name, score[winner], score[1 - winner]]
 	winner_team = winner
 	chat_system(line)   # the summary screen carries the result; no banner over it
 	_steam_match_end(winner)
@@ -1389,6 +1454,9 @@ func try_interact(u, selected = null) -> void:
 		else:
 			SkillFx.grab_miss(u)
 		return
+	if is_tdm():
+		SkillFx.grab_miss(u)
+		return   # Team Deathmatch: no crown to take
 	var m = monarchs[1 - u.team]
 	if selected != null and (selected != m or prep_left > 0.0 or u.carrying != null):
 		return
@@ -1760,6 +1828,9 @@ func _plan_bots(team: int) -> void:
 			if u.base_job != "build":
 				u.bot_job = "prep"
 		return
+	if is_tdm():
+		_plan_tdm_bots(team, bots)
+		return
 	var side := -1.0 if team == 0 else 1.0
 	if mine.state == Monarch.State.CARRIED:
 		_assign_nearest(bots, mine.carrier.global_position, 3, "recover")
@@ -1789,6 +1860,41 @@ func _plan_bots(team: int) -> void:
 		_assign_nearest(bots, vmap.FIRE_POS, vmap.bots_wanted(team), "fire")
 	if economy:
 		economy.plan_gatherers(team, bots)
+
+
+func _plan_tdm_bots(team: int, bots: Array) -> void:
+	## Team Deathmatch: no crowns, no doors. Healers stay with the group
+	## (support), everyone else hunts the nearest enemy (unit._bot_think,
+	## tdm_hunt_target). The player's calls still work: Defend! pulls three
+	## back to the keep, To me! brings two to the call.
+	# (_assign_nearest only takes bots still on their lineup job, so the
+	# calls and the fire go first and the hunt takes whoever is left.)
+	var cmd: String = team_command[team] if command_timer[team] > 0.0 else ""
+	if cmd == "defend":
+		_assign_nearest(bots, thrones[team], 3, "defend")
+	elif cmd == "help":
+		_assign_nearest(bots, command_pos[team], 2, "rally_to")
+	# Ember Pass: the Fire Objective is still worth holding (Fire form).
+	if vmap and cmd != "defend":
+		_assign_nearest(bots, vmap.FIRE_POS, vmap.bots_wanted(team), "fire")
+	for u in bots:
+		if u.bot_job == u.base_job:
+			u.bot_job = "support" if u.base_job == "support" else "hunt"
+
+
+func tdm_hunt_target(u):
+	## The enemy a hunter goes for: the nearest one standing (a downed one
+	## counts as further off, so a bot only detours to finish one close by).
+	var best = null
+	var best_d := INF
+	for e in units:
+		if e.team == u.team or e.dead:
+			continue
+		var d: float = _flat_dist(u.global_position, e.global_position) + (30.0 if e.downed else 0.0)
+		if d < best_d:
+			best_d = d
+			best = e
+	return best
 
 
 func command_active(team: int, kind: String) -> bool:
@@ -1908,6 +2014,9 @@ func objective_target() -> Dictionary:
 	var theirs = monarchs[1 - player_team]
 	if prep_left > 0.0:
 		return {"pos": player.global_position, "step": 0, "label": "Fortify: turrets, traps, barricades (%s)" % key_label("interact")}
+	if is_tdm():
+		var foe = tdm_hunt_target(player)
+		return {"pos": foe.global_position if foe else Vector3.ZERO, "step": 0, "label": "Defeat the enemy: first to %d kills" % Stats.TDM_KILLS_TO_WIN}
 	if player.carrying:
 		return {"pos": thrones[player_team], "step": 2, "label": "Carry it to your throne"}
 	if mine.state == Monarch.State.CARRIED:
@@ -2789,6 +2898,13 @@ func _start_match(team: int) -> void:
 		if arg.begins_with("--split="):
 			split_layout = "horizontal" if arg.trim_prefix("--split=") == "horizontal" else "vertical"  # testing: --split=vertical|horizontal
 	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--mode="):
+			set_game_mode(arg.trim_prefix("--mode="))   # testing: --mode=tdm|crowns
+	if is_tdm():
+		time_left = Stats.TDM_TIME
+		for m in monarchs:
+			m.visible = false   # no crowns in a deathmatch (try_interact, _check_rules)
+	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--team-size="):
 			team_size = clampi(int(arg.trim_prefix("--team-size=")), 1, TEST_TEAM_MAX)  # testing only (batches): 3v3 / 5v5; the live game stays TEAM_SIZE
 	if menu_stage:
@@ -2870,7 +2986,7 @@ func _start_match(team: int) -> void:
 		await StaticBatch.particles_to_gpu(self)
 	_warm_up_match()   # (a coroutine: the next frames under the loading art)
 	if prep_left >= 0.0:
-		prep_left = Stats.PREP_TIME
+		prep_left = Stats.TDM_PREP if is_tdm() else Stats.PREP_TIME
 		_build_barrier()
 	else:
 		prep_left = 0.0
@@ -2983,7 +3099,14 @@ func _begin_battle() -> void:
 		barrier = null
 	if demo:
 		LogQ.line("Battle begins: barricades %d/%d, traps %d, turrets %d/%d" % [Stats.BARRICADE_TEAM - barricades_left[0], Stats.BARRICADE_TEAM - barricades_left[1], get_children().filter(func(c): return c is Trap).size(), turrets_built[0], turrets_built[1]])
-	announce("FIGHT! The barrier is down. Capture the crown!")
+	if is_tdm():
+		# Team Deathmatch: the doors come down with the barrier, so nothing
+		# stands between the two sides but each other.
+		for g in gates:
+			g.collapse()
+		announce("FIGHT! Team Deathmatch: first to %d kills!" % Stats.TDM_KILLS_TO_WIN)
+	else:
+		announce("FIGHT! The barrier is down. Capture the crown!")
 	chat_system("The barrier is down. Fight!")
 	sfx.ui("horn", 0.0, 1.0)
 	sfx.sting("match_start", "match_start")
@@ -3340,7 +3463,7 @@ func net_build_snapshot() -> Dictionary:
 		econ = {"wood": economy.wood, "ore": economy.ore, "up": economy.upgraded, "cargo": cargo,
 			"stock": economy.nodes.map(func(n): return n.stock)}
 	return {"units": us, "monarchs": ms, "gates": gs, "vaults": vs, "score": score, "time": time_left,
-		"prep": prep_left, "overtime": overtime, "over": game_over, "winner": winner_team, "feed": feed,
+		"prep": prep_left, "overtime": overtime, "mode": game_mode, "sudden": tdm_sudden, "over": game_over, "winner": winner_team, "feed": feed,
 		"ents": ents, "barr": barricades.map(func(b): return b.hp), "orbs": heal_orbs.map(func(o): return o.active),
 		"econ": econ, "fire": [vmap.fire_owner, vmap.fire_progress] if vmap else []}
 
@@ -3388,6 +3511,10 @@ func net_apply_snapshot(d: Dictionary) -> void:
 	time_left = d.time
 	prep_left = d.prep
 	overtime = d.overtime
+	game_mode = d.get("mode", game_mode)
+	tdm_sudden = d.get("sudden", false)
+	for m in monarchs:
+		m.visible = not is_tdm()   # the host's mode, not this client's saved pick
 	if d.over and not game_over:
 		_finish(d.winner)
 
@@ -5298,6 +5425,7 @@ func _save_settings() -> void:
 	_read_save(cfg)
 	_write_control_bindings(cfg)  # migration and schema are one save transaction
 	cfg.set_value("settings", "bot_difficulty", bot_difficulty)
+	cfg.set_value("settings", "game_mode", game_mode)
 	cfg.set_value("settings", "sound_volume", sfx.sound_volume)
 	cfg.set_value("settings", "music_volume", sfx.music_volume)
 	cfg.set_value("settings", "chat_visible", chat_visible)
@@ -5444,6 +5572,7 @@ func _load_controls() -> void:
 	var diff: String = cfg.get_value("settings", "bot_difficulty", "Normal")
 	if diff in Stats.BOT_DIFFICULTIES:
 		bot_difficulty = diff
+	set_game_mode(str(cfg.get_value("settings", "game_mode", game_mode)))
 	chat_visible = cfg.get_value("settings", "chat_visible", true)
 	rosters_visible = cfg.get_value("settings", "rosters_shown", false)
 	couch_players = 1  # extra players join each session in the Ready Up lobby
@@ -5849,7 +5978,7 @@ func _road_look() -> Array:
 		return [Color(0.68, 0.74, 0.88), Color(0.7, 0.76, 0.88), 0.6, Color(0, 0, 0)]
 	if season == "twilight":
 		# Twilight Grove: dusky lavender flags, violet moss glowing faintly between.
-		return [Color(0.56, 0.62, 0.86), Color(0.36, 0.38, 0.62), 0.0, Color(0.08, 0.12, 0.22)]
+		return [Color(0.5, 0.62, 0.72), Color(0.3, 0.42, 0.5), 0.0, Color(0.05, 0.14, 0.16)]   # (8/8 pass: slate-teal; the violet read magenta beside the teal ground)
 	if night():
 		# Moonlit Wildwood: moon-silvered stone, dark mossy joints.
 		return [Color(0.84, 0.88, 1.02), Color(0.6, 0.72, 0.7), 0.0, Color(0, 0, 0)]
@@ -6003,7 +6132,7 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		# Each path sits a millimetre above the one before (four steps), so
 		# where two paths' frayed strips overlap they don't z-fight into a
 		# green speckle (Faisal 2026-10-09 08:16, "what is this texture bug?").
-		e.position = mid + Vector3(0, 0.003 + 0.002 * float(map_paths.size() % 4), 0)   # (2 mm steps: 1 mm z-fought into hatched stones where two roads' rims overlap)
+		e.position = mid + Vector3(0, 0.003 + 0.002 * float(map_paths.size() % 4) + _lane_lift(), 0)   # (2 mm steps: 1 mm z-fought into hatched stones where two roads' rims overlap)
 		e.rotation.y = rot
 		add_child(e)
 	var m := MeshInstance3D.new()
@@ -6017,10 +6146,17 @@ func _add_path(from: Vector3, to: Vector3, width: float, mat: Material, verge: f
 		m.material_override = cm2
 	else:
 		m.material_override = mat
-	m.position = mid + Vector3(0, 0.012 + 0.002 * float(map_paths.size() % 4), 0)   # every core above every frayed strip   # every core above every frayed strip
+	m.position = mid + Vector3(0, 0.012 + 0.002 * float(map_paths.size() % 4) + _lane_lift(), 0)   # every core above every frayed strip   # every core above every frayed strip
 	m.rotation.y = rot
 	add_child(m)
 	map_paths.append([from, to, width])
+
+
+func _lane_lift() -> float:
+	## Stonekeep / Twilight: the lane terrain's eased bank foot sits a few
+	## millimetres over 0 along the lanes, where edge stones z-fought into
+	## hatching (8/8 grade 2026-11-04); their paths ride 2 cm higher.
+	return 0.02 if lmap != null else 0.0
 
 
 func _add_collider(pos: Vector3, size: Vector3) -> void:
@@ -6959,6 +7095,11 @@ func _add_river() -> void:
 		wmat.set_shader_parameter("shallow", StyleProfile.WATER_SHALLOW)
 		wmat.set_shader_parameter("deep", StyleProfile.WATER_DEEP)
 		wmat.set_shader_parameter("open_foam", StyleProfile.WATER_OPEN_FOAM)
+		if night() and season == "":
+			# Moonlit (8/8 pass 2026-11-04): the day's saturated river glowed
+			# against the night; a deep moonlit blue-teal instead.
+			wmat.set_shader_parameter("shallow", Color(0.24, 0.42, 0.56))
+			wmat.set_shader_parameter("deep", Color(0.08, 0.16, 0.3))
 	water.material_override = wmat
 	water.position = Vector3(0, 0.03, 0)
 	add_child(water)
@@ -11298,6 +11439,10 @@ func _add_elf_class_station(team: int, role: int, pos: Vector3) -> void:
 		# Pass 3 (2026-10-31, picks Spawn D / Battle A): a square class banner
 		# hung from a rod over the station (was pass 2's striped awning).
 		CastleKit.station_banner(self, pos, role, zb)
+	if night() and season == "":
+		# Moonlit (8/8 pass 2026-11-04): a small warm sign lamp, so the class
+		# banners read in the moonlight (they were near-black).
+		_add_light(Vector3(pos.x, pos.y + 2.2, zb + 1.1), Color(1.0, 0.84, 0.6), 1.6, 3.2)
 	# The name plate: a dark strip across the panel's lower third.
 	# Pass 4 (2026-10-31): the Mage's tall hat reaches the lower third at the
 	# match camera and hid "GE", so its name plate takes the panel's top and

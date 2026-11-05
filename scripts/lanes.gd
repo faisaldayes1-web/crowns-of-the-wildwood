@@ -618,7 +618,7 @@ func _paths() -> void:
 		cm.top_radius = maxf(r0 - 1.1, 0.6)
 		cm.bottom_radius = cm.top_radius
 		disc.material_override = cob
-		disc.position = pos[i] + Vector3(0, 0.014, 0)
+		disc.position = pos[i] + Vector3(0, 0.034, 0)   # (+2 cm with the lanes, game._lane_lift)
 		game.add_child(disc)
 		var fr := MeshInstance3D.new()
 		var fm := CylinderMesh.new()
@@ -632,7 +632,7 @@ func _paths() -> void:
 		fmat.set_shader_parameter("half_w", r0)
 		fmat.set_shader_parameter("radial", true)
 		fr.material_override = fmat
-		fr.position = pos[i] + Vector3(0, 0.0105, 0)
+		fr.position = pos[i] + Vector3(0, 0.0305, 0)
 		game.add_child(fr)
 
 

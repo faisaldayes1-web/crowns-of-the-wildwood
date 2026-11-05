@@ -102,7 +102,12 @@ static func run(game, cam: Camera3D, xf: Transform2D, delta: float, blocked: Arr
 			wants[u] = [want, dim]
 		var lift := STEP * want if want != -1 else 0.0   # (want -4: under the feet)
 		u.overhead_lift = lerpf(u.overhead_lift, lift, k) if absf(u.overhead_lift - lift) > 0.01 else lift
-		u.label.transparency = 0.6 if dim else 0.0
+		# Allies idling in their own castle yard (by the class pedestals and
+		# banners) wear a quiet tag (8/8 pass 2026-11-04: bot tags stacked over
+		# the pedestal row read as clutter); the player and every foe stay full.
+		var px: float = u.global_position.x
+		var home: bool = u != me and me != null and u.team == me.team and absf(px) > game.CASTLE_X - game.CASTLE_DEPTH - 1.0 and signf(px) == (-1.0 if u.team == 0 else 1.0)
+		u.label.transparency = 0.6 if dim else (0.55 if home else 0.0)
 		# (Round 7: a tag under a fixed HUD panel is hidden, bar and all.)
 		var tag := Rect2(c.x - w / 2.0, c.y - h * 0.8 - lift / STEP * step_px, w, h)   # (lift < 0: under the feet)
 		var hidden := false
