@@ -141,6 +141,32 @@ func run() -> void:
 		for i in 10:
 			await process_frame
 		await capture("09b-turret-card-ok")
+	# CROWNS_CAPTURE_GRAVEYARD=1 (claude-faisal/crowns-graveyard, --map=1): the
+	# Moonlit graveyard in battle: the plots and bell, zombies mid-rise,
+	# neutral zombies, then the Elves holding the Cursed Bell (team glow).
+	if OS.get_environment("CROWNS_CAPTURE_GRAVEYARD") == "1" and game.graveyard != null:
+		var gy = game.graveyard
+		game.menu_open = false
+		game.player.class_banner = 0.0
+		game.prep_left = 0.0
+		game.player.global_position = Vector3(-4.8, 0.0, -27.0)
+		game.player.velocity = Vector3.ZERO
+		for i in 40:
+			await process_frame
+		await capture("10-graveyard")
+		gy.rise_left = 0.05
+		await create_timer(0.9).timeout
+		await capture("11-graveyard-rising")
+		await create_timer(2.2).timeout
+		await capture("12-graveyard-neutral")
+		gy.bell_progress = -1.0
+		gy._set_owner(0)
+		await create_timer(2.5).timeout
+		await capture("13-graveyard-elves-hold")
+		gy.bell_progress = 1.0
+		gy._set_owner(1)
+		await create_timer(1.5).timeout
+		await capture("14-graveyard-humans-hold")
 	var report := FileAccess.open(out_dir.path_join("capture.json"), FileAccess.WRITE)
 	report.store_string(JSON.stringify({"agent": "Codex-faisal/ui", "viewport": str(root.size), "state_staging": true, "live_battle_fixture": "quiet courtyard battle-phase HUD comparison; no combat action claimed", "hit_rect_checks_pass": not failed}, "  "))
 	game.queue_free()

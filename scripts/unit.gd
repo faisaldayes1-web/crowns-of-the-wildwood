@@ -3344,6 +3344,8 @@ func _attack(dir: Vector3) -> void:
 		if dist <= s.range and absf(other.global_position.y - global_position.y) < 1.5 \
 				and (dist < 0.8 or dir.dot(to / dist) > 0.3):
 			landed = other.take_damage(s.damage, self, global_position, Stats.KNOCK_MELEE, effect) or landed
+	if game.graveyard:
+		landed = game.graveyard.melee(self, dir, s.range, s.damage) or landed   # the Moonlit graveyard's zombies
 	if landed:
 		_hitstop(0.06)
 		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
@@ -3801,6 +3803,8 @@ func _bot_think(delta: float) -> Dictionary:
 		goal = game.defense_post(team, bot_offset.z) + _post_spread()
 	elif bot_job == "fire" and game.vmap:
 		goal = game.vmap.fire_spot(bot_offset)   # Ember Pass: take and hold the Fire Objective
+	elif bot_job == "bell" and game.graveyard:
+		goal = game.graveyard.bell_spot(team, bot_offset)   # Moonlit Wildwood: ring and hold the Cursed Bell
 	elif bot_job == "gather" and game.economy:
 		goal = game.economy.bot_goal(self, plan)   # wood and ore (economy.gd)
 	elif bless:
@@ -3971,6 +3975,21 @@ func _bot_think(delta: float) -> Dictionary:
 			return plan
 		plan.move = _steer_to(game.route_point(global_position, enemy.global_position))
 		return plan
+
+	# Moonlit Wildwood: put down zombies that are after us (bell ringers
+	# clear the graveyard; everyone else only what is close).
+	if game.graveyard and not carrying:
+		var reach: float = sight if bot_job == "bell" else Stats.GRAVEYARD.bot_engage
+		var z = game.graveyard.threat_for(team, global_position, reach)
+		if z:
+			var zto := _flat_to(z.global_position)
+			plan.aim = _bot_aim(zto)
+			plan.attack = plan.attack or zto.length() <= s.range * 0.9
+			if zto.length() > s.range * 0.9:
+				plan.move = _steer_to(game.route_point(global_position, z.global_position))
+			elif ranged and on_ground and zto.length() < 4.0:
+				plan.move = -zto.normalized() * 0.6
+			return plan
 
 	plan.move = _steer_to(next)
 	return plan

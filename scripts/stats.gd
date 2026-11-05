@@ -123,6 +123,24 @@ const FIRE_POINT := {"radius": 7.0, "capture_time": 8.0, "extra_rate": 0.5, "max
 const FIRE_FORM := {"burn_delay": 2.0, "burn_cooldown": 6.0, "burn_damage": 1, "cost_mult": 0.85, "cooldown_mult": 0.85,
 	"prefix": "Fire", "flame": [Color(1.0, 0.78, 0.28), Color(1.0, 0.42, 0.12)]}
 
+# The Moonlit Wildwood's graveyard (Faisal 2026-11-04: "a graveyard that
+# summons zombies from the ground every 1 minute and if you hold something on
+# the map the zombies are friendly to you"). scripts/graveyard.gd. Every
+# `interval` seconds of battle `wave` zombies claw up from the graves (no more
+# than `max_alive` at once; each crumbles after `life` s). The Cursed Bell on
+# its pier in the river is captured like the Fire Objective: alone it takes
+# capture_time seconds, each extra teammate adds extra_rate (up to
+# max_count), both sides on it freezes it, and taking it from the holder
+# first rings it back to neutral. Its holder's zombies fight for them; with
+# nobody holding it they attack everyone. Bots send bots_take to win it
+# (one more when a rising is due within `rise_soon` s) and bots_hold to keep
+# it, one more while enemies stand on it. PROPOSED balance, claude-faisal/crowns-graveyard.
+const GRAVEYARD := {"interval": 60.0, "wave": 3, "max_alive": 6, "life": 75.0, "rise_time": 1.8,
+	"hp": 4, "damage": 1, "attack_range": 1.35, "attack_cooldown": 1.5, "speed": 2.1,
+	"aggro": 9.0, "leash": 17.0, "march_aggro": 10.0,
+	"radius": 7.5, "capture_time": 7.0, "extra_rate": 0.5, "max_count": 3, "settle": 0.25,
+	"bots_take": 1, "bots_hold": 0, "rise_soon": 15.0, "bot_engage": 6.0, "xp_kill": 25}
+
 # Player banners (the calling card the enemy sees when you kill them, and
 # that you edit on the HERO tab): a background, an emblem, a frame and a title.
 # Entries from BANNER_*_FREE on are bought in the STORE.
