@@ -2437,7 +2437,7 @@ func _update_player_aim(move: Vector3) -> void:
 	var stick := Input.get_vector(_a("aim_left"), _a("aim_right"), _a("aim_up"), _a("aim_down"))
 	if stick.length() > 0.3 or game.touch_active or game.on_pad(self):
 		aim_mode = "stick"
-	elif has_mouse and mouse != last_mouse:
+	elif has_mouse and (mouse != last_mouse or Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)):
 		aim_mode = "mouse"
 	last_mouse = mouse
 	match aim_mode:
@@ -2934,8 +2934,11 @@ func local_controls() -> Dictionary:
 	if pc and game.pc_movement != "wasd":
 		raw = Vector2.ZERO
 	var mouse: bool = pc and game.mouse_in_player_pane(self)
-	var primary: bool = pc and Input.is_action_pressed(_a("move_interact"))
-	var primary_tap: bool = pc and Input.is_action_just_pressed(_a("move_interact"))
+	# Keyboard+mouse: LEFT-CLICK is the basic attack, aimed at the cursor (hold to
+	# keep firing). Click-to-move is the opt-in "click" scheme, where LMB walks.
+	var lmb_attack: bool = pc and game.pc_movement == "wasd"
+	var primary: bool = pc and not lmb_attack and Input.is_action_pressed(_a("move_interact"))
+	var primary_tap: bool = pc and not lmb_attack and Input.is_action_just_pressed(_a("move_interact"))
 	var pulse: bool = pc and game.movement_force_pulse
 	if pc:
 		game.movement_force_pulse = false
@@ -2947,13 +2950,19 @@ func local_controls() -> Dictionary:
 	var interaction_reach: float = game.pointer_reach(self, selected) if is_instance_valid(selected) else 1.1
 	var cam: Camera3D = game.camera_for(self)
 	var attack: bool = game.non_primary_attack_held(self) if pc else Input.is_action_pressed(_a("attack"))
+	var lmb_down := false
+	var lmb_tap := false
+	if lmb_attack and mouse and not game.movement_ui_hit() and not game.movement_primary_blocked:
+		lmb_down = Input.is_action_pressed(_a("move_interact"))
+		lmb_tap = Input.is_action_just_pressed(_a("move_interact"))
+		attack = attack or lmb_down
 	var speed_hint: float = Stats.FACTIONS[team].speed * stats().speed * vigor_speed()
 	var data := {"position": global_position, "keys": raw, "basis": cam.global_basis if cam != null else Basis.IDENTITY,
 		"mouse": mouse, "keyboard": game.pc_movement == "wasd", "primary": primary, "primary_tap": primary_tap,
 		"hold": pc and Input.is_action_pressed(_a("force_hold")),
 		"force": pc and game.mapped_action_held(_a("force_move"), [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]),
 		"force_pulse": pulse, "ground": ground, "choice": choice,
-		"attack": attack, "attack_tap": attack and Input.is_action_just_pressed(_a("attack")),
+		"attack": attack, "attack_tap": attack and (lmb_tap or Input.is_action_just_pressed(_a("attack"))),
 		"interact": Input.is_action_pressed(_a("interact")), "interact_tap": Input.is_action_just_pressed(_a("interact")),
 		"attack_reach": maxf(0.4, float(attack_stats().get("range", 1.2)) * 0.85),
 		"interaction_reach": interaction_reach,
