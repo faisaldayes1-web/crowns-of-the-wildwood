@@ -1002,6 +1002,13 @@ func _keycap(center: Vector2, key: String, w: float = 30.0, dark: bool = false, 
 	_text(rect.position + Vector2(0, 14), key, 11, Color(0.18, 0.12, 0.08), HORIZONTAL_ALIGNMENT_CENTER, w, 0)
 
 
+func _attack_key() -> String:
+	## The basic attack's keycap: LMB on keyboard+mouse (11-05: left-click attacks), else the bound key or pad button.
+	if game.player != null and local_unit != null and not game.on_pad(local_unit) and not touch_ui and game.pc_movement == "wasd" and local_unit.has_mouse:
+		return "LMB"
+	return _k("attack")
+
+
 func _k(action: String) -> String:
 	## The keycap label for this HUD's player: keyboard, or pad names when
 	## they hold one.
@@ -4473,7 +4480,7 @@ func _move_slots(p, at: Array, sz: Array) -> void:
 	var cost_c: Color = STAMINA if p.energy_kind() == "stamina" else MANA
 	if _attack_icon(p.role, atk) == "fist":
 		next_slot_art = "punch"
-	_slot(at[0], sz[0], _attack_icon(p.role, atk), Color(0.86, 0.16, 0.14), _k("attack"), atk.attack_name,
+	_slot(at[0], sz[0], _attack_icon(p.role, atk), Color(0.86, 0.16, 0.14), _attack_key(), atk.attack_name,
 		p.attack_timer, atk.cooldown, alive and p.energy >= atk.cost, p.rank(0), false, atk.cost, cost_c)
 	next_slot_art = "dodge"
 	_slot(at[1], sz[1], "dodge", Color(0.22, 0.68, 0.18), _k("dodge"), "Dodge", p.dodge_cooldown, Stats.DODGE_COOLDOWN,
@@ -6839,7 +6846,9 @@ func _chat_display_text(message: Dictionary) -> String:
 			return "Drag left to move. Tap actions to fight."
 		if game.player != null and game.on_pad(game.player):
 			return "Left stick moves with the camera. %s attacks; %s interacts; %s dodges." % [_k("attack"), _k("interact"), _k("dodge")]
-		var movement := "Directional keys move; " if game.pc_movement == "wasd" else ""
+		if game.pc_movement == "wasd":
+			return "WASD moves. Left-click attacks toward the cursor (hold to keep firing; %s also attacks). %s grabs and talks. %s dodges." % [_k("attack"), _k("interact"), _k("dodge")]
+		var movement := ""
 		return movement + "%s moves/interacts. %s + %s attacks in place; %s attacks. %s dodges. Force Move never attacks." % [_k("move_interact"), _k("force_hold"), _k("move_interact"), _k("attack"), _k("dodge")]
 	if touch_ui and text.begins_with("FORTIFY! Build turrets, set traps and raise barricades ("):
 		return "Fortify your base before the barrier falls."

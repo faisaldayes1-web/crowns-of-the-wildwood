@@ -55,6 +55,20 @@ jobs:
           timeout 600 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 30000 -- --demo --selftest 2>&1 | tee ci-logs/selftest.log
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^TEST FAIL' ci-logs/selftest.log
           grep -Eq '^TESTS DONE failures=0$' ci-logs/selftest.log
+      - name: Combat through the real input path (left-click, J, pad: every class and skill hurts a dummy)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 600 bash tools/tests/isolated.sh --headless --path . --script tools/combat_input_test.gd 2>&1 | tee ci-logs/combat-input.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|^FAIL' ci-logs/combat-input.log
+          grep -q '^COMBAT INPUT TEST: 0 failed$' ci-logs/combat-input.log
+      - name: Smoke match (boot straight into a match, fire the basic attack and a skill)
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 300 bash tools/tests/isolated.sh --headless --path . -- --smoke-match 2>&1 | tee ci-logs/smoke-match.log
+          ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:|Failed to load script' ci-logs/smoke-match.log
+          grep -q '^SMOKE: ok$' ci-logs/smoke-match.log
       - name: Movement logic (camera-relative keys, click goals, sidestep)
         shell: bash
         run: |
@@ -143,7 +157,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          timeout 1200 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 45000 -- --demo --seed=7 2>&1 | tee ci-logs/bot-match.log
+          timeout 1500 bash tools/tests/isolated.sh --headless --path . --fixed-fps 60 --quit-after 60000 -- --demo --seed=7 --debug-time=420 2>&1 | tee ci-logs/bot-match.log   # the real clock is 15 min since 11-05; a 7 min clock keeps CI short
           ! grep -E 'SCRIPT ERROR:|Parse Error:|Compile Error:' ci-logs/bot-match.log
           grep -Eq '^RESULT winner=.+ score=[0-9]+-[0-9]+ t=[0-9]+ overtime=' ci-logs/bot-match.log
           grep -q '^STAT ' ci-logs/bot-match.log
