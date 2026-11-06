@@ -44,7 +44,7 @@ func setup(p_game, p_team: int, from: Vector3, p_direction: Vector3, stats: Dict
 	game = p_game
 	team = p_team
 	hit_list = []
-	effect = {}
+	effect = {"ranged": true}   # lets the shooter's hit feedback play at any distance
 	fall_speed = 0.0
 	spin = null
 	damage = stats.damage

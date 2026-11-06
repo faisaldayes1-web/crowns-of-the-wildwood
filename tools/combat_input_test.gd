@@ -201,15 +201,23 @@ func _init() -> void:
 		# Keyboard + mouse: left-click is the basic attack.
 		game.pad_active = false
 		if not heal_only:
+			var fb_before: int = p.hit_feedbacks
 			var ok = await _hit(dist, func(): _lmb(true), func(): pass)
 			check(ok, "%s: LEFT-CLICK basic attack damages the dummy (mouse)" % rname)
+			var fb: Dictionary = p.last_feedback
+			check(p.hit_feedbacks > fb_before and fb.get("hitstop", 0.0) > 0.0 and fb.get("spark", false) and fb.get("sound", false) and fb.get("rumble", false),
+				"%s: the basic hit plays hitstop, spark, sound and rumble (%s)" % [rname, str(fb)])
+			if r == Stats.Role.ROGUE:
+				check(fb.get("hitstop", 1.0) < 0.06, "Rogue hitstop is shorter than the knight's 0.06 s")
 			# J stays as an alternate on the keyboard.
 			ok = await _hit(dist, func(): _key(KEY_J, true), func(): pass)
 			check(ok, "%s: J basic attack damages the dummy (keyboard alternate)" % rname)
 		else:
 			# Healers' Mend heals allies; with nobody hurt it fires a holy bolt.
+			var fb_before: int = p.hit_feedbacks
 			var ok = await _hit(dist, func(): _lmb(true), func(): pass)
 			check(ok, "%s: LEFT-CLICK bolt damages the dummy (mouse)" % rname)
+			check(p.hit_feedbacks > fb_before, "%s: the bolt hit plays its feedback" % rname)
 
 		# Pad: RT attacks, the right stick aims (+x here).
 		game.pad_active = true
