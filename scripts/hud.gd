@@ -4607,7 +4607,7 @@ func _draw_tip(me) -> void:
 		return
 	var k := minf(1.0, size.x / 1280.0)
 	var w := minf(size.x - 16.0, 560.0 * k + 120.0)
-	var r := Rect2(Vector2((size.x - w) / 2.0, 12.0 if pane else 44.0), Vector2(w, 34.0 * maxf(k, 0.8)))
+	var r := Rect2(Vector2((size.x - w) / 2.0, 12.0 if pane else maxf(44.0, 128.0 * size.y / 1080.0)), Vector2(w, 34.0 * maxf(k, 0.8)))   # (full screen: under the score and timer, which reach y 119 at 1080)
 	_plate(r, Color(0.07, 0.06, 0.05, 0.88), GOLD_DARK, 8, 1)
 	_text(Vector2(r.position.x, r.position.y + r.size.y * 0.66), text, 13 if k >= 0.8 else 11, CREAM, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 
