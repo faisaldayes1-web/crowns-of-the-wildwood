@@ -1,0 +1,61 @@
+isolated user dir: C:\Users\faisa\AppData\Local\Temp\crowns-tests\run-bypbPM (left in place; clear /tmp/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080 Laptop GPU
+ERROR: Condition "f.is_null()" is true.
+   at: _save_to_cache (servers/rendering/renderer_rd/shader_rd.cpp:474)
+ERROR: Condition "f.is_null()" is true.
+   at: _save_to_cache (servers/rendering/renderer_rd/shader_rd.cpp:474)
+
+class_playtest: user dir C:/Users/faisa/AppData/Local/Temp/crowns-tests/run-bypbPM/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT twilight: 2318 placements, 18 meshes, 362 ms
+NET ready
+BATCH merged 4151 scenery meshes (1199 left alone) into 704 meshes; 1460 materials became 204; 549 ms (362 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+PLAYTEST map=4 speed=3 slice=100s per class
+NOTE t=3 class -> KNIGHT
+LOG t=3 class=KNIGHT pos=(-85.5, 0, -4) hearts=4 score=0-0 kills=0 deaths=0 fps=79
+LOG t=33 class=KNIGHT pos=(-67.9, 0, -1.3) hearts=4 score=0-0 kills=0 deaths=0 fps=65
+LOG t=63 class=KNIGHT pos=(-67.9, 0, -1.7) hearts=4 score=0-0 kills=0 deaths=0 fps=57
+LOG t=93 class=KNIGHT pos=(-67.9, 0, -2.4) hearts=4 score=0-0 kills=0 deaths=0 fps=55
+NOTE t=100 class -> RANGER
+LOG t=123 class=RANGER pos=(-67.9, 0, -1) hearts=4 score=0-0 kills=0 deaths=0 fps=57
+LOG t=153 class=RANGER pos=(-59.3, 0, 2.9) hearts=4 score=0-0 kills=0 deaths=0 fps=51
+LOG t=183 class=RANGER pos=(-81.9, 0, -4.9) hearts=4 score=0-0 kills=0 deaths=1 fps=54
+NOTE t=200 class -> MAGE
+LOG t=213 class=MAGE pos=(-80.7, 0, -3.3) hearts=4 score=0-0 kills=0 deaths=2 fps=60
+Capture: Humans  (score 0 - 1) t=196
+LOG t=243 class=MAGE pos=(-67.9, 0, -1.5) hearts=4 score=0-1 kills=0 deaths=2 fps=58
+LOG t=273 class=MAGE pos=(-67.9, 0, -1.5) hearts=4 score=0-1 kills=0 deaths=2 fps=66
+NOTE t=300 class -> HEALER
+LOG t=303 class=HEALER pos=(-67.9, 0, -1.5) hearts=4 score=0-1 kills=0 deaths=2 fps=44
+LOG t=333 class=HEALER pos=(-62.2, 0, 5) hearts=4 score=0-1 kills=0 deaths=2 fps=53
+LOG t=363 class=HEALER pos=(-63.8, 0, 5) hearts=4 score=0-1 kills=0 deaths=2 fps=41
+Capture: Humans  (score 0 - 2) t=366
+LOG t=393 class=HEALER pos=(-29, 0, 0.1) hearts=4 score=0-2 kills=0 deaths=2 fps=45
+NOTE t=400 class -> ENGINEER
+LOG t=423 class=ENGINEER pos=(-43.3, 0, -2.8) hearts=4 score=0-2 kills=0 deaths=2 fps=41
+LOG t=453 class=ENGINEER pos=(-34.1, 0, -2.9) hearts=2 score=0-2 kills=1 deaths=2 fps=31
+LOG t=483 class=ENGINEER pos=(-56.3, 0, 1) hearts=4 score=0-2 kills=1 deaths=3 fps=46
+NOTE t=500 class -> ROGUE
+Capture: Humans  (score 0 - 3) t=494
+LOG t=520 class=ROGUE pos=(-85.2, 0, -2.7) hearts=4 score=0-3 kills=2 deaths=5 fps=65
+LOG t=557 class=ROGUE pos=(-85.4, 0, -5.1) hearts=4 score=0-3 kills=2 deaths=6 fps=45
+LOG t=587 class=ROGUE pos=(14.8, 0, -0.9) hearts=1 score=0-3 kills=2 deaths=6 fps=73
+LOG t=617 class=ROGUE pos=(-44.1, 0, 5.2) hearts=4 score=0-3 kills=2 deaths=7 fps=34
+LOG t=647 class=ROGUE pos=(-67.9, 0, -3.1) hearts=4 score=0-3 kills=2 deaths=8 fps=68
+Capture: Humans  (score 0 - 4) t=634
+LOG t=683 class=ROGUE pos=(-86.8, 0, -3.5) hearts=4 score=0-4 kills=2 deaths=9 fps=29
+LOG t=713 class=ROGUE pos=(-67.8, 0, 0.4) hearts=4 score=0-4 kills=2 deaths=10 fps=62
+LOG t=743 class=ROGUE pos=(-67.8, 0, -0.2) hearts=4 score=0-4 kills=2 deaths=10 fps=63
+LOG t=781 class=ROGUE pos=(-86.5, 0, -3.6) hearts=4 score=0-4 kills=2 deaths=11 fps=57
+Capture: Humans  (score 0 - 5) t=770
+LOG t=811 class=ROGUE pos=(-67.9, 0, -1.5) hearts=4 score=0-5 kills=2 deaths=11 fps=60
+LOG t=841 class=ROGUE pos=(-67.9, 0, -0.2) hearts=4 score=0-5 kills=3 deaths=12 fps=60
+LOG t=871 class=ROGUE pos=(-67.9, 0, -0.2) hearts=4 score=0-5 kills=3 deaths=12 fps=66
+LOG t=901 class=ROGUE pos=(-67.9, 0, 0.4) hearts=4 score=0-5 kills=3 deaths=13 fps=52
+Capture: Humans  (score 0 - 6) t=886
+Time up
+PLAYTEST_DONE map=4 t=920 score=[0, 6] notes=6
+ERROR: 1 shaders of type SceneForwardClusteredShaderRD were never freed
+   at: ~ShaderRD (servers/rendering/renderer_rd/shader_rd.cpp:845)
+ERROR: 1 RID allocations of type 'N10RendererRD15MaterialStorage6ShaderE' were leaked at exit.

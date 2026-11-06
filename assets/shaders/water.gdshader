@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_back, depth_draw_opaque, specular_schlick_ggx;
+render_mode cull_back, depth_draw_opaque, specular_schlick_ggx, shadows_disabled;
 // A stylized river: two drifting layers of noise make ripples and foam,
 // a gentle vertex bob, and a soft colour between shallows and depth.
 

@@ -1,0 +1,10 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080 Laptop GPU
+
+USER WARNING: Economy: no room for a wood node pair near (-34, 0, -9)
+   at: push_warning (core/variant/variant_utility.cpp:1112)
+BATCH merged 4925 scenery meshes (1249 left alone) into 946 meshes; 1853 materials became 229; 495 ms (323 ms reading meshes)
+BATCH read-backs 7 (9 ms)
+USER ERROR: 4 shaders of type SceneForwardClusteredShaderRD were never freed
+   at: ~ShaderRD (servers/rendering/renderer_rd/shader_rd.cpp:845)
+ERROR: 4 RID allocations of type 'N10RendererRD15MaterialStorage6ShaderE' were leaked at exit.
