@@ -722,7 +722,9 @@ func _detail(r: Rect2) -> void:
 		else:
 			menu.option_box(b, true, false)
 			menu.ttext(Vector2(b.position.x, b.position.y + 36), "EQUIPPED", 20, Color(0.6, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 4)
-	h._text(Vector2(r.position.x + 20, r.end.y - 12), "Also in Create Your Character once owned", 10, Color(0.7, 0.68, 0.62), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	# (with a "Need N more gold" line under the button the long form ran into it at 720p)
+	var short_note: bool = not have and game.account_gold < price(pick)
+	h._text(Vector2(r.position.x + 20, r.end.y - 12), "Also in Create Your Character" if short_note else "Also in Create Your Character once owned", 10, Color(0.7, 0.68, 0.62), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 
 
 func _draw_reveal() -> void:

@@ -5778,7 +5778,7 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -
 		var name_y := row.position.y + (15.0 if compact else 20.0)
 		_text(Vector2(tx, name_y), name, 15 if compact else 17, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, art.position.x - tx - 8.0, 4)
 		var desc_end := row.end.y - (19.0 if board and available else 2.0)
-		_paragraph_in(Rect2(tx, name_y + 3.0, art.position.x - tx - 8.0, desc_end - name_y - 3.0), desc, 10, 9, Color(0.86, 0.86, 0.82) if available else GREY)
+		_paragraph_in(Rect2(tx, name_y + (6.0 if compact else 3.0), art.position.x - tx - 8.0, desc_end - name_y - (6.0 if compact else 3.0)), desc, 10, 9, Color(0.86, 0.86, 0.82) if available else GREY)
 		# Cost and the + button.
 		var bs := minf(row.size.y - 26.0, 40.0)
 		var btn := Rect2(row.end.x - bs - 12.0, row.end.y - bs - 6.0, bs, bs)
@@ -5933,11 +5933,11 @@ func _upgrade_detail(p, view: int, D: Rect2, ranks: Array, abil: Array, kit: Dic
 		_text(Vector2(x, D.position.y + 22), "Pick a class at the stations to rank this up.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		return
 	for e in rows:
-		var w := _text_width(e[0] + " ", 11) + _text_width(e[1], 12) + _text_width(e[2], 12) + 24.0
+		var w := _text_width(e[0], 11) + 6.0 + _text_width(e[1], 12) + _text_width(e[2], 12) + 24.0
 		if x + w > D.end.x - 8.0:
 			break
 		_text(Vector2(x, D.position.y + 22), e[0], 11, Color(0.85, 0.83, 0.76), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		x += _text_width(e[0] + " ", 11)
+		x += _text_width(e[0], 11) + 6.0
 		_text(Vector2(x, D.position.y + 22), e[1], 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		x += _text_width(e[1], 12) + 4.0
 		draw_colored_polygon(PackedVector2Array([Vector2(x, D.position.y + 13), Vector2(x + 7, D.position.y + 17.5), Vector2(x, D.position.y + 22)]), Color(0.5, 1.0, 0.45))
@@ -7589,7 +7589,7 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 	# UI-11 (2026-10-30): bigger click targets, 24x20 with 23 px rows.
 	var sw := 24.0
 	var sh := 20.0
-	var lx := 70.0     # the row labels' column
+	var lx := 94.0     # the row labels' column (BACKGROUND needs it)
 	var per_row := maxi(int((w - lx) / (sw + 2.0)), 6)
 	var rows := [["BACKGROUND", "banner_bg", Stats.BANNER_BACKGROUNDS.size()], ["EMBLEM", "banner_emblem", Stats.BANNER_EMBLEMS.size()],
 		["FRAME", "banner_frame", Stats.BANNER_FRAMES.size()]]
