@@ -64,6 +64,9 @@ var touch_ui := false            # touch-screen layout: big thumb buttons, no ke
 var next_slot_art := ""          # set just before _slot(): the skill art to draw for it
 static var clean_icons: Dictionary = {}  # kind -> the icon without its painted halo, for the ability bar (tools/center_icons.py)
 static var strips: Dictionary = {}  # slug -> Texture2D, Faisal's painted skill-row art (tools/make_skill_strips.py)
+var pane_arc := false   # pick A (Faisal 2026-11-06): split-screen HUD hugs the pane's outer corner, moves on an arc round the portrait
+var pane_mirror := false   # ... and the right-hand panes (odd players) mirror it
+var bar_b := false   # pick B (Faisal 2026-11-06): one long brass bar, square gold-framed tiles; single player only
 static var cards: Dictionary = {}  # class portraits, crests and faction logos supplied by the project owner (assets/ui/cards)
 # Where buttons were drawn this frame, so game.gd can hit-test mouse clicks.
 var rank_buttons: Array = []
@@ -1061,7 +1064,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 					HORIZONTAL_ALIGNMENT_CENTER, size_px + 60, 4)
 		else:
 			_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
-			if label != "":
+			if label != "" and not pane_arc:
 				# No wider than the 72 px slot pitch: "Shadow Dash" and "Smoke Bomb"
 				# ran together as one phrase (FE-03). A long name shrinks instead.
 				# (8/8 pass 2026-11-04: a long two-word name goes on two 12 px lines
@@ -1083,7 +1086,9 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 			Vector2(hc.x + hr * 2.0, top + 2.0 * hr * frac), Vector2(hc.x - hr * 2.0, top + 2.0 * hr * frac)])
 		# The shade's band starts 2.5 px above the hex's tip: under about a pixel
 		# of overlap the clip is a sliver the renderer can't triangulate.
-		if 2.0 * hr * frac > 3.5:
+		if bar_b:
+			draw_rect(Rect2(rect.position + Vector2(3, 3), Vector2(size_px - 6, (size_px - 6) * frac)), Color(0, 0, 0, 0.6))
+		elif 2.0 * hr * frac > 3.5:
 			for poly in Geometry2D.intersect_polygons(_orb_pts(hc, hr - 2.5), cut):
 				draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
 		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
@@ -1128,6 +1133,8 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 		for q in face:
 			uvs.append((q - box.position) / box.size)
 		draw_colored_polygon(face, Color.WHITE if (ready or locked) else Color(0.55, 0.55, 0.58), uvs, tex)
+	elif bar_b:
+		_sq_tile(rect, frame, color, locked, ready)
 	else:
 		_orb_tile(hc, hr, frame, color, locked, ready)
 	if art != "" and skill_art.has(art):
@@ -1142,6 +1149,54 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 			Color.WHITE if ready else Color(0.45, 0.45, 0.5))
 	else:
 		_icon(icon, hc + Vector2(0, -2), size_px * 0.3, Color.WHITE, not ready)
+
+
+func _sq_tile(rect: Rect2, frame: Color, color: Color, locked: bool, ready: bool) -> void:
+	## Pick B's slot: a rounded square, gold rim round a dark leaf-green face.
+	var out := StyleBoxFlat.new()
+	out.bg_color = Color(0.12, 0.08, 0.03)
+	out.set_corner_radius_all(12)
+	draw_style_box(out, rect.grow(4))
+	var rim := StyleBoxFlat.new()
+	var tile := Color(0.14, 0.4, 0.17).lerp(color, 0.28)
+	if locked:
+		tile = Color(0.2, 0.27, 0.22)
+	elif not ready:
+		tile = tile.darkened(0.4).lerp(Color(0.2, 0.22, 0.2), 0.2)
+	rim.bg_color = tile.darkened(0.45)
+	rim.set_corner_radius_all(10)
+	rim.set_border_width_all(3)
+	rim.border_color = frame
+	draw_style_box(rim, rect)
+	var face := rect.grow(-4)
+	draw_rect(Rect2(face.position, Vector2(face.size.x, face.size.y * 0.5)), Color(1, 1, 1, 0.1 if ready else 0.03))
+
+
+func _skill_bar_b(r: Rect2, rad: int = 30) -> void:
+	## Faisal's pick B (2026-11-06): the portrait, vitals and moves share one
+	## long dark bar in a brass rim, leaf tufts at both ends.
+	var sh := StyleBoxFlat.new()
+	sh.bg_color = Color(0, 0, 0, 0)
+	sh.set_corner_radius_all(rad)
+	sh.shadow_size = 10
+	sh.shadow_color = Color(0, 0, 0, 0.5)
+	sh.shadow_offset = Vector2(0, 4)
+	draw_style_box(sh, r)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.1, 0.07, 0.96)
+	sb.set_corner_radius_all(rad)
+	sb.set_border_width_all(4)
+	sb.border_color = Color("d8aa47")
+	draw_style_box(sb, r)
+	var inner := StyleBoxFlat.new()
+	inner.bg_color = Color(0, 0, 0, 0)
+	inner.set_corner_radius_all(maxi(rad - 4, 4))
+	inner.set_border_width_all(2)
+	inner.border_color = Color(0.45, 0.3, 0.08, 0.9)
+	draw_style_box(inner, r.grow(-6))
+	draw_rect(Rect2(r.position + Vector2(34, 5), Vector2(r.size.x - 68, 2)), Color(1, 0.9, 0.55, 0.4))
+	if rad > 20:
+		_ivy(r.position + Vector2(r.size.x - 18, 20), Vector2(0, -1), 30, 6)
 
 
 func _orb_pts(c: Vector2, r: float) -> PackedVector2Array:
@@ -3896,8 +3951,19 @@ func _draw_player_panel(p) -> void:
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
 	var panel := Rect2(Vector2(116, H - 100), Vector2(430, 66))
+	pane_arc = pane and not touch_ui   # (not gated on _st(): the live pass needs the same positions as the baked one)
+	pane_mirror = pane_arc and p.local_index % 2 == 1
+	if pane_arc:
+		var plate_x := 338.0 if stacked else 350.0   # (stacked = two side-by-side panes, 620 units across)
+		panel.position.x = W - plate_x - 276.0 if pane_mirror else plate_x
+		if _st():
+			_skill_bar_b(Rect2(panel.position + Vector2(-8, -30), Vector2(284, 100)), 16)
+	bar_b = not touch_ui and not pane
+	if bar_b and _st():
+		_skill_bar_b(Rect2(Vector2(40, H - 128), Vector2(440.0 + 540.0 + 16.0 - 40.0, 112)))
 	_status_panel(p, panel)
 	if touch_ui:
+		bar_b = false
 		_touch_cluster(p, W, H)
 		if _lv():
 			_status_tags(p, panel)
@@ -3921,7 +3987,10 @@ func _draw_player_panel(p) -> void:
 		# game.SPLIT_HUD_WIDTH (1140) units, not 1240, so the pane HUD can
 		# scale up.
 		_corner_buttons(Vector2(bx, 14))
-		if stacked:
+		bar_b = false
+		if pane_arc:
+			_pane_arc_slots(p, W, H)
+		elif stacked:
 			_ability_strip(p, Rect2(Vector2(maxf((W - 540.0) / 2.0, 20.0), H - 250.0), Vector2(540, 126)))
 		else:
 			_ability_strip(p, Rect2(Vector2(W - 560.0, H - 142), Vector2(540, 126)))
@@ -3929,6 +3998,8 @@ func _draw_player_panel(p) -> void:
 			if game.economy:
 				game.economy.draw_hat_slot(self, p, Rect2(Vector2(W - 112.0, 74), Vector2(90, 110)))
 			_status_tags(p, panel)
+		pane_arc = false
+		pane_mirror = false
 		if k < 1.0:
 			draw_set_transform(Vector2.ZERO)
 		if bake_mode == "":
@@ -3938,12 +4009,13 @@ func _draw_player_panel(p) -> void:
 	# Visual pass 2026-11-04: the strip as near the screen's centre as the
 	# status panel allows (it ended about x 400; the strip was at W/2-200,
 	# hard by the map/menu keys), and the hat move just right of it.
-	var sx := maxf(W / 2.0 - 270.0, 418.0)
+	var sx := 440.0 if bar_b else maxf(W / 2.0 - 270.0, 418.0)
 	_ability_strip(p, Rect2(Vector2(sx, H - 142), Vector2(540, 126)))
 	if _lv():
 		if game.economy:
 			game.economy.draw_hat_slot(self, p, Rect2(Vector2(sx + 540.0 + 84.0, H - 140.0), Vector2(90, 110)))   # (draw_hat_slot puts the slot 66 left of this)   # the upgraded hat's move
 		_status_tags(p, panel)
+	bar_b = false
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO)
 	if bake_mode == "":
@@ -4364,10 +4436,14 @@ func _status_panel(p, panel: Rect2) -> void:
 		_text(Vector2(x0 + 4.0, panel.position.y - 12.0), name_tag, 11, Color(1.0, 0.9, 0.62), HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
 	# The portrait in its laurel wreath, the level on a small plate below.
 	var mc := Vector2(panel.position.x - 46.0, panel.get_center().y)
-	_laurel(mc + Vector2(0, 14), -1.0, 1.0, 52.0, 44.0)
-	_laurel(mc + Vector2(0, 14), 1.0, 1.0, 52.0, 44.0)
-	_medallion(mc, 44.0, p.team, p.role, p.dead)
-	_small_plate(Rect2(mc + Vector2(-24, 38), Vector2(48, 20)), "LV %d" % p.level, 12)
+	var mr := 44.0
+	if pane_arc:
+		mr = 58.0
+		mc = Vector2(size.x / hud_scale - 80.0 if pane_mirror else 80.0, size.y / hud_scale - 84.0)
+	_laurel(mc + Vector2(0, 14), -1.0, 1.0, 52.0 * mr / 44.0, mr)
+	_laurel(mc + Vector2(0, 14), 1.0, 1.0, 52.0 * mr / 44.0, mr)
+	_medallion(mc, mr, p.team, p.role, p.dead)
+	_small_plate(Rect2(mc + Vector2(-24, mr - 6.0), Vector2(48, 20)), "LV %d" % p.level, 12)
 
 
 func _big_heart(c: Vector2, scale: float, full: bool) -> void:
@@ -4449,7 +4525,7 @@ func _draw_xp_bar(p, bar: Rect2) -> void:
 
 func _ability_strip(p, strip: Rect2) -> void:
 	# Pick C: a shallow hex arc on a slate silhouette, keeping the world open.
-	if _st():
+	if _st() and not bar_b:
 		var outline := PackedVector2Array()
 		# Seven slots (shield classes) run 10 units from each end, where the
 		# outer hexes touched the gold edge at 720p: the silhouette widens by
@@ -4468,15 +4544,44 @@ func _ability_strip(p, strip: Rect2) -> void:
 		# Seven slots on one symmetric arc (attack, dodge, Q, E, block, perks,
 		# grab): grab sat 6 units under perks, so its label hung off the strip.
 		offsets = [Vector2(10, 28), Vector2(86, 12), Vector2(162, 4), Vector2(238, 0), Vector2(314, 4), Vector2(466, 28)]
+	if bar_b:
+		# One straight row inside the brass bar (pick B). Seven slots when a
+		# shield is carried: the x offsets are the arc's, the y all one line.
+		var xs := [10.0, 86.0, 162.0, 238.0, 314.0, 466.0] if p.can_block() else [20.0, 106.0, 192.0, 278.0, 364.0, 450.0]
+		offsets = []
+		for x in xs:
+			offsets.append(Vector2(x, 24))
 	for v in offsets:
 		at.append(strip.position + v)
 	_move_slots(p, at, [52.0, 52.0, 52.0, 52.0, 52.0, 52.0])
 	if p.can_block():
-		var pos := strip.position + Vector2(390, 12)
+		var pos := strip.position + Vector2(390, 24 if bar_b else 12)
 		next_slot_art = "perks"
 		_slot(pos, 52.0, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
 		if not pane:
 			touch_rects.append([Rect2(pos * hud_scale, Vector2(52, 83) * hud_scale), "rank_menu"])
+
+
+func _pane_arc_slots(p, W: float, H: float) -> void:
+	## Pick A: the moves on a quarter arc round the portrait in the pane's
+	## outer bottom corner, first move straight above it, last to its side.
+	var c := Vector2(80.0, H - 84.0)
+	var r := 208.0 if _stacked() else 224.0
+	var n := 7 if p.can_block() else 6
+	var pts := []
+	for i in n:
+		var ang := -PI / 2.0 + (PI / 2.0) * i / float(n - 1)
+		var q := c + Vector2(cos(ang), sin(ang)) * r
+		if pane_mirror:
+			q.x = W - q.x
+		pts.append(q - Vector2(26, 26))
+	var at: Array = pts
+	if n == 7:
+		at = [pts[0], pts[1], pts[2], pts[3], pts[4], pts[6]]
+	_move_slots(p, at, [52.0, 52.0, 52.0, 52.0, 52.0, 52.0])
+	if n == 7:
+		next_slot_art = "perks"
+		_slot(pts[5], 52.0, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
 
 
 func _strip_board(strip: Rect2) -> void:
@@ -8218,9 +8323,9 @@ func _card_art(rect: Rect2, team: int, role: int, light: float) -> void:
 		draw_circle(rect.get_center() + Vector2(0, -rect.size.y * 0.12), rect.size.x * 0.46, Color(tc.lightened(0.35), 0.16 * light))
 		var tex: Texture2D = rig.texture()
 		var ts := tex.get_size()
-		var src_h := ts.y * 0.8
+		var src_h := ts.y * 0.9   # (0.8 from 0.1: tall hats such as the Mage's were cut at the card's top edge)
 		var src_w := minf(src_h * rect.size.x / maxf(rect.size.y, 1.0), ts.x)
-		var src := Rect2(Vector2((ts.x - src_w) / 2.0, ts.y * 0.1), Vector2(src_w, src_h))
+		var src := Rect2(Vector2((ts.x - src_w) / 2.0, 0.0), Vector2(src_w, src_h))
 		draw_texture_rect_region(tex, rect, src, Color(light, light, light))
 		draw_rect(rect, Color(0.28, 0.16, 0.03), false, 2.0)
 		return
