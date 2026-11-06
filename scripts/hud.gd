@@ -86,6 +86,7 @@ var class_buttons: Array = []      # [rect, role] Classes tab SELECT
 var quick_buttons: Array = []      # [rect, track] the level-up tiles over the ability strip (mouse clicks)
 var quick_deny := -10.0             # when a quick upgrade was refused (in combat): the strip shakes
 var quick_close := Rect2()          # the LEVEL UP strip's X (screen coordinates)
+var quick_shown := false            # the LEVEL UP strip was drawn this frame (notices lift clear of it)
 var quick_hidden := ""              # the strip's contents when its X was pressed: hidden until they change
 var corner_buttons: Array = []     # [rect, "menu" | "scoreboard"] the HUD corner squares (mouse clicks)
 static var menu_tex: Dictionary = {}      # assets/ui/menu art used by the pause menu
@@ -3541,7 +3542,7 @@ func _draw_event_banner(b: Dictionary) -> void:
 		var txt: String = str(b.title)
 		var fs0 := 15
 		var tw0 := (_text_width(txt, fs0) + 60.0) * fit0
-		draw_set_transform(Vector2(minf(size.x - 236.0 * fit0, size.x - 14.0 - tw0 / 2.0), size.y - 206.0 * fit0), 0.0, Vector2(fit0, fit0))
+		draw_set_transform(Vector2(minf(size.x - 236.0 * fit0, size.x - 14.0 - tw0 / 2.0), size.y - (276.0 if quick_shown and not touch_ui else 206.0) * fit0), 0.0, Vector2(fit0, fit0))
 		_scroll_hint(0.0, _text_width(txt, fs0) + 40.0, txt, a, str(b.icon), fs0, Color(0.95, 0.66, 0.16, a) if good else Color(0.86, 0.18, 0.14, a))
 		draw_set_transform(Vector2.ZERO)
 		return
@@ -3646,7 +3647,7 @@ func _draw_toasts() -> void:
 	# over the menu keys, off the play area (was centred 134 px down, on the
 	# class stations and the gate).
 	var tw := (_text_width(t.text, fs) + 60.0) * k
-	var at := Vector2(minf(size.x - 236.0 * fit, size.x - 14.0 - tw / 2.0), size.y - 168.0 * fit)
+	var at := Vector2(minf(size.x - 236.0 * fit, size.x - 14.0 - tw / 2.0), size.y - (252.0 if quick_shown and not touch_ui else 168.0) * fit)   # (above the LEVEL UP strip when it is up: the scroll sat half behind it)
 	if pane:
 		at = Vector2(size.x / 2.0, 118.0)   # split screen: the strip fills the bottom right, so under the top bar
 	draw_set_transform(at, 0.0, Vector2(k, k))
@@ -3955,6 +3956,7 @@ func _draw_quick_upgrade(p) -> void:
 	## and the level it goes to. A press buys it on the spot, anywhere, once
 	## you have been out of the fight for a few seconds (Faisal 06:04
 	## 2026-10-10: "the only way to safely upgrade is to go back to base").
+	quick_shown = false
 	if p == null or p.dead or p.downed or game.rank_open or game.menu_open or game.demo:
 		return
 	# The Veteran Training panel is open: the strip sat on its TRAIN button (FE-02).
@@ -4001,7 +4003,7 @@ func _draw_quick_upgrade(p) -> void:
 	var ready := calm <= 0.0
 	var R := Rect2(x, y, w, bh)
 	var pulse := 0.5 + 0.5 * sin(now * 4.0)
-	game_board(R, "LEVEL UP", false)
+	_slate_board(R, "LEVEL UP")
 	if ready:
 		_glow_frame(R.grow(2), Color(1.0, 0.82, 0.3, 0.2 + 0.3 * pulse))
 	# The badge: points to spend, or how long until you are out of the fight.
@@ -4067,6 +4069,7 @@ func _draw_quick_upgrade(p) -> void:
 	var xc := Vector2(x - xr - 10.0, y + 22.0)
 	x_button(xc, xr)
 	quick_close = Rect2((xc - Vector2(26, 26)) * hud_scale, Vector2(52, 52) * hud_scale)
+	quick_shown = true
 	if not pane:
 		touch_rects.append([quick_close, hide_quick])
 	if k < 1.0:
@@ -4182,7 +4185,32 @@ func _status_tags(p, panel: Rect2) -> void:
 		_icon("crown" if p.veteran == 2 else "xp", vb.position + Vector2(16, 12), 8, Color.WHITE)
 		_text(vb.position + Vector2(30, 17), ("ELITE VETERAN · BOUNTY ON YOU" if p.veteran == 2 else "VETERAN") + "  ·  %d streak" % p.streak, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	elif p.streak >= 2 and not p.dead:
-		_text(Vector2(panel.end.x, tag_y + 17), "%d kill streak" % p.streak, 11, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, -1, 3)
+		_text(Vector2(panel.end.x - 130.0, tag_y + 9), "%d kill streak" % p.streak, 11, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, 126.0, 3)   # (a width, or the right edge is where the text starts: it ran onto the Dodge slot)
+
+
+func _slate_board(r: Rect2, title: String = "") -> void:
+	## The skill bar's own plate (a slate silhouette in a 3 px gold rim with ivy up
+	## both ends, _ability_strip) as a short strip, for LEVEL UP: it used to be the
+	## brown wooden board, a different family from the bar it sits on (Faisal 11-05:
+	## "the Level Up panel in the HUD style"). Corners are cut like the bar's arc.
+	var cut := minf(16.0, r.size.y * 0.22)
+	var outline := PackedVector2Array([r.position + Vector2(0, cut + 4.0), r.position + Vector2(cut, 0), r.position + Vector2(r.size.x - cut, 0),
+		r.position + Vector2(r.size.x, cut + 4.0), r.position + Vector2(r.size.x - 5.0, r.size.y), r.position + Vector2(5.0, r.size.y)])
+	var shadow := PackedVector2Array()
+	for v in outline:
+		shadow.append(v + Vector2(0, 4))
+	draw_colored_polygon(shadow, Color(0, 0, 0, 0.4))
+	draw_colored_polygon(outline, Color(0.08, 0.11, 0.15, 0.96))
+	draw_rect(Rect2(r.position + Vector2(cut, 3), Vector2(r.size.x - cut * 2.0, 1)), Color(1, 1, 1, 0.08))
+	outline.append(outline[0])
+	draw_polyline(outline, Color("d8aa47"), 3.0, true)
+	_ivy(r.position + Vector2(8, r.size.y - 16.0), Vector2(0, -1), minf(38.0, r.size.y - 24.0), 3)
+	_ivy(r.position + Vector2(r.size.x - 8.0, r.size.y - 16.0), Vector2(0, -1), minf(38.0, r.size.y - 24.0), 6)
+	if title != "":
+		var tw := _text_width(title, 12) + 28.0
+		var tag := Rect2(r.get_center().x - tw / 2.0, r.position.y - 11.0, tw, 20.0)
+		_plate(tag, Color(0.1, 0.14, 0.19), Color("d8aa47"), 6, 2)
+		_text(Vector2(tag.position.x, tag.end.y - 5), title, 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 3)
 
 
 func game_board(r: Rect2, title: String = "", ivy: bool = true) -> void:
@@ -4602,6 +4630,8 @@ func _hide_world_prompts() -> void:
 func _draw_tip(me) -> void:
 	## One first-match tip for this pane's player (scripts/tips.gd): a small
 	## pill under the top edge, the keys of the device they hold.
+	if not pane and _banner_kind() != "":
+		return   # a big banner hangs in the same band under the clock (a BLESSING! card sat on the tip's text)
 	var text := Tips.current(game, me, get_process_delta_time())
 	if text == "":
 		return
@@ -4703,8 +4733,8 @@ func _draw_class_pointer(me) -> void:
 	# arrow"): just the PICK A CLASS plate over the stations while they are
 	# on screen. The off-screen edge arrow, whose plate was cut off at the
 	# screen's edge, is gone.
-	if inside:
-		var r := Rect2(sp + Vector2(-84, -40 + bob), Vector2(168, 30))
+	var r := Rect2(sp + Vector2(-84, -40 + bob), Vector2(168, 30))
+	if inside and not r.intersects(Rect2(0, 0, 200, 200)):   # (not over the minimap: Ember's stations sit right under it)
 		_plate(r, Color(0.3, 0.17, 0.04, 0.92), gold, 8, 2)
 		_text(r.position + Vector2(0, 21), "PICK A CLASS", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 

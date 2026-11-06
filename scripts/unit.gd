@@ -2290,6 +2290,7 @@ func _respawn() -> void:
 	game.sfx.play("respawn", global_position, -6.0)
 	if aim_marker:
 		aim_marker.visible = true
+	game.snap_camera(self)   # the view cuts to the cellar instead of sliding the whole map
 
 
 func bubble_up(duration: float) -> void:

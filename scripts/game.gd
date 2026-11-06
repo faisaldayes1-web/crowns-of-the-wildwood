@@ -3209,6 +3209,17 @@ func plant_barricade(u) -> bool:
 	return true
 
 
+func snap_camera(u) -> void:
+	## Put the camera that follows u straight on it (a respawn teleports the unit;
+	## the 5/s follow slid the view across the map for a second, the player at the screen's edge).
+	if couch_active:
+		for pane in panes:
+			if pane.unit == u:
+				pane.cam_pos = u.global_position + CAMERA_OFFSET * cam_zoom * pane.zoom
+	elif u == player and cam_lock == Vector3.INF:
+		cam_pos = u.global_position + CAMERA_OFFSET * cam_zoom
+
+
 func _update_camera(delta: float) -> void:
 	if player == null:
 		return

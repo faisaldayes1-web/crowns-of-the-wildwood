@@ -201,7 +201,9 @@ func run() -> void:
 		if Time.get_ticks_msec() - wall0 > 1500000:
 			note("wall clock cap")
 			break
-	_shot("end")
 	Engine.time_scale = 1.0
+	for i in 300:   # the end screen counts its numbers up from zero: shoot it after the count, not the first frame
+		await process_frame
+	_shot("end")
 	print("PLAYTEST_DONE map=", game.map_variant, " t=", int(game.match_played), " score=", game.score, " notes=", notes.size())
 	quit(0)

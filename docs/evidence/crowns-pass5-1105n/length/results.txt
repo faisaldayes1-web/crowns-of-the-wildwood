@@ -1,0 +1,10 @@
+b_m0_11.log 
+b_m0_12.log winner=Elves score=2-1 t=900
+b_m1_11.log winner=Humans score=0-1 t=900
+b_m1_12.log winner=Humans score=0-3 t=900
+b_m2_11.log winner=Elves score=6-1 t=900
+b_m2_12.log winner=Humans score=2-3 t=900
+b_m3_11.log winner=Humans score=0-6 t=900
+b_m3_12.log winner=Humans score=0-2 t=900
+b_m4_11.log winner=Elves score=2-1 t=900
+b_m4_12.log winner=Humans score=0-2 t=900

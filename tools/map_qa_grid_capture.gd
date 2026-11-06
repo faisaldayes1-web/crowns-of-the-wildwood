@@ -177,21 +177,64 @@ func _overhead(cam: Camera3D, dir: String, slug: String) -> void:
 			var path := dir.path_join("overhead-r%d-c%d.jpg" % [row, col])
 			if not await _snap(cam, path):
 				return
-			manifest["cells"].append({"row": row, "col": col, "centre": [c.x, c.y], "height": h, "file": path})
+			manifest["cells"].append({"row": row, "col": col, "centre": [c.x, c.y], "height": h, "file": path.get_file()})
 
 func _ground_y(x: float, z: float) -> float:
 	var space: PhysicsDirectSpaceState3D = game.get_world_3d().direct_space_state
 	var q := PhysicsRayQueryParameters3D.create(Vector3(x, 60.0, z), Vector3(x, -10.0, z))
 	var hit := space.intersect_ray(q)
-	return float(hit.position.y) if not hit.is_empty() else 0.0
+	var y := float(hit.position.y) if not hit.is_empty() else 0.0
+	if game.lmap:
+		y = maxf(y, game.lmap.height(x, z))   # the drawn terrain, where the ray found a lower collider (Stonekeep's courtyard)
+	return y
+
+var _obstacles: Array = []   # world AABBs of every tree, bush and boulder the forest kit placed (built once)
+
+
+func _blocked(p: Vector3) -> bool:
+	## True when an eye at p would sit in foliage or against a rock: inside (or within 1.6 m of) a kit tree,
+	## bush or boulder box, or a solid collider within 1.1 m (torches, walls, trunks).
+	if _obstacles.is_empty() and game.forest_kit:
+		for it in game.forest_kit.road_audit():
+			_obstacles.append(it[1])
+	for b in _obstacles:
+		if (b as AABB).grow(1.6).has_point(p):
+			return true
+	var sph := SphereShape3D.new()
+	sph.radius = 1.1
+	var qp := PhysicsShapeQueryParameters3D.new()
+	qp.shape = sph
+	qp.transform = Transform3D(Basis.IDENTITY, p)
+	return not game.get_world_3d().direct_space_state.intersect_shape(qp, 1).is_empty()
+
+
+func _clear_eye(x: float, z: float, lx: float, lz: float) -> Vector3:
+	## The eye for a ground view: the listed spot when it is clear, else the nearest clear spot (a ring search out
+	## to 7 m, then a little higher), so a view is never inside a canopy, behind a torch or under a floor.
+	var y := _ground_y(x, z) + EYE
+	if not _blocked(Vector3(x, y, z)):
+		return Vector3(x, y, z)
+	var fwd := Vector2(lx - x, lz - z).normalized()
+	for lift in [0.0, 1.2, 2.4]:
+		for r in [1.5, 3.0, 4.5, 6.0, 7.0]:
+			for k in 16:
+				var a := TAU * k / 16.0
+				var cx: float = x + cos(a) * r
+				var cz: float = z + sin(a) * r
+				if Vector2(cx - x, cz - z).dot(fwd) > r * 0.6:
+					continue   # not toward the target: the view would lose what it was framing
+				var cy: float = _ground_y(cx, cz) + EYE + lift
+				if not _blocked(Vector3(cx, cy, cz)):
+					return Vector3(cx, cy, cz)
+	return Vector3(x, y + 2.4, z)
 
 func _ground(cam: Camera3D, dir: String, slug: String) -> void:
 	cam.fov = 70.0
 	for g in GROUND + EXTRA:
-		var y := _ground_y(g[1], g[2])
-		cam.position = Vector3(g[1], y + EYE, g[2])
+		var eye := _clear_eye(g[1], g[2], g[3], g[4])
+		cam.position = eye
 		cam.look_at(Vector3(g[3], _ground_y(g[3], g[4]) + EYE * 0.8, g[4]), Vector3.UP)
 		var path := dir.path_join("%s.jpg" % g[0])
 		if not await _snap(cam, path):
 			return
-		manifest["ground"].append({"label": g[0], "eye": [g[1], y + EYE, g[2]], "look": [g[3], g[4]], "file": path})
+		manifest["ground"].append({"label": g[0], "eye": [eye.x, eye.y, eye.z], "listed": [g[1], g[2]], "moved": absf(eye.x - g[1]) + absf(eye.z - g[2]) > 0.01, "look": [g[3], g[4]], "file": path.get_file()})
