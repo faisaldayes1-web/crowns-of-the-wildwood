@@ -70,7 +70,7 @@ void fragment() {
 	// painted colour next to the open lawn (Faisal 11-05: "hill texture"), and a little more of the face texture
 	// where the slope steepens.
 	float macro = dot(texture(top_tex, wpos.xz * top_scale * 0.31).rgb, vec3(0.333));
-	float mottle = mix(0.9, 1.1, smoothstep(0.25, 0.75, macro));
+	float mottle = mix(0.94, 1.04, smoothstep(0.25, 0.75, macro));
 	ALBEDO = mix(face, top * mottle, COLOR.r) * mix(0.8, 1.0, COLOR.g);
 	ROUGHNESS = 0.0;   // (also the ink pass's terrain mask)
 	SPECULAR = 0.0;
@@ -753,9 +753,13 @@ func _paths() -> void:
 		# The road runs on from the door court right up to the castle door.
 		var g: Vector3 = node("g0" if sx < 0.0 else "g1")
 		game._add_path(g, Vector3(sx * (game.CASTLE_X - game.CASTLE_DEPTH - 0.5), 0, 0), 5.0, cob, 0.0)
+	var nooks := []   # the lumber-tree nooks are left wild: no plaza disc (it read as a cobble patch under the felled stump, Faisal 11-05)
+	for s in segs:
+		if s[3] == "nook":
+			nooks.append(s[1])
 	for i in pos.size():
 		var id: String = ids[i]
-		if id.begins_with("g") or (id == "k" and kind == "winter") or id.begins_with("i"):
+		if id.begins_with("g") or (id == "k" and kind == "winter") or id.begins_with("i") or i in nooks:
 			continue
 		await game._world_build_frame()
 		var disc := MeshInstance3D.new()
@@ -830,7 +834,8 @@ func _terrain() -> void:
 	# season grade gives it; faces are rock (Stonekeep) or mossy litter.
 	var ground: StandardMaterial3D = game._grass()
 	mat.set_shader_parameter("top_tex", ground.albedo_texture)
-	mat.set_shader_parameter("top_tint", Season.surface(kind, ground.albedo_color))
+	# (The Wildwood bank read lighter and yellower than the lawn, which the forest kit patches darker: pulled in to match.)
+	mat.set_shader_parameter("top_tint", Season.surface(kind, ground.albedo_color) * (Color(0.86, 0.92, 1.1) if kind == "heartwood" else Color.WHITE))
 	mat.set_shader_parameter("top_scale", ground.uv1_scale.x)
 	if kind == "winter":
 		mat.set_shader_parameter("face_tex", load("res://assets/textures/rock_color.jpg"))
@@ -911,7 +916,7 @@ func _vnormal(hs: PackedFloat32Array, nx: int, nz: int, step: float, v: Vector3)
 		var ik := clampi(i + k, 0, nx - 1)
 		dx += w * (maxf(hs[jk * nx + maxi(i - 2, 0)], 0.0) - maxf(hs[jk * nx + mini(i + 2, nx - 1)], 0.0))
 		dz += w * (maxf(hs[maxi(j - 2, 0) * nx + ik], 0.0) - maxf(hs[mini(j + 2, nz - 1) * nx + ik], 0.0))
-	return Vector3(dx / 9.0, 4.0 * step, dz / 9.0).normalized()
+	return Vector3(dx / 9.0, 4.0 * step, dz / 9.0).normalized() if kind == "winter" else Vector3(dx / 18.0, 4.0 * step, dz / 18.0).normalized()   # (the lawn banks shade at half the slope: the foot read as a dark band against the open lawn)
 
 
 func _vcolor(v: Vector3, n: Vector3) -> Color:
@@ -1450,10 +1455,11 @@ func _deck(centre: Vector3, along: Vector3, length: float, half: float, logs: bo
 	pivot.position = centre + Vector3(0, 0.12, 0)   # (clear of the water: its transparent surface drew over a flush deck)
 	pivot.rotation.y = atan2(along.x, along.z)
 	game.add_child(pivot)
-	var dark = game._plank_dark(Color(0.86, 0.72, 0.54))
-	var light = game._plank_dark(Color(0.94, 0.8, 0.62))
+	# One timber for the whole bridge (the deck was the dark maroon plank texture under orange rails).
+	var dark = game._timber(Color(0.8, 0.66, 0.5))
+	var light = game._timber(Color(0.9, 0.76, 0.58))
 	var timber = game._timber(Color(0.72, 0.58, 0.44))
-	var rail = game._timber(Color(0.9, 0.76, 0.58))
+	var rail = game._timber(Color(0.86, 0.72, 0.54))
 	# A solid board under the planks: the water must not show through the joints.
 	_box_at(pivot, Vector3(half * 2.0, 0.08, length), Vector3(0, -0.04, 0), game._timber(Color(0.42, 0.32, 0.24)))
 	for zs in [-1.0, 1.0]:
@@ -1580,7 +1586,7 @@ func _build_heartwood() -> void:
 		crown.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	else:
 		game._add_tree_grown(trunk_at, true)
-	game._add_light(Vector3(0, HEART_TOP + 3.2, 0), Color(1.0, 0.9, 0.72), 1.4, 14.0)   # (warm, like the lanterns; was pink)
+	game._add_light(Vector3(0, HEART_TOP + 3.2, 0), Color(1.0, 0.9, 0.72), 0.9, 14.0)   # (warm, like the lanterns; was pink)
 	game.map_trees.append(Vector3(0, 1.0, 0))
 	game.map_marks.append([Vector3.ZERO, "heart"])
 	await game._world_build_frame()
@@ -1614,7 +1620,7 @@ func _build_heartwood() -> void:
 		_deck(dir * mid_r, dir, MOAT_OUT + 0.8 - HEART_FOOT + 0.6, 2.1, false)
 		var side := Vector3(-dir.z, 0, dir.x)
 		for e in [-1.0, 1.0]:
-			game._add_stone_brazier(dir * (MOAT_OUT + 1.1) + side * e * 3.4, e > 0.0)
+			game._add_stone_brazier(dir * (MOAT_OUT + 1.1) + side * e * 3.4, e > 0.0, stone)
 	await game._world_build_frame()
 	# The Heartbrook: out of the moat to the north-east and the south-west,
 	# with a log bridge wherever a path crosses it.

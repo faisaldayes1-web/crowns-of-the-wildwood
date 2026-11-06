@@ -662,11 +662,8 @@ func _build_plateaus() -> void:
 			# on their plateau, at the corners outside the walls.
 			# Trees only on the far (north) rim: on the camera side their
 			# canopies hid the castle; glowing crystals stand there instead.
-			var blobs := []
-			for p in [Vector3(-44, 0, -12.5), Vector3(-73, 0, -13.6), Vector3(-90, 0, -12)]:
-				game._add_tree(p, false)
-				blobs.append([p, 1.8])   # the same soft contact shadow as the other maps' trees
-			preload("res://scripts/visual/blob_shadow.gd").build(game, blobs)
+			# (No pines any more: the pale lime cones were the one green thing on the lava plateau, Faisal 11-05
+			# "off-palette props"; the glowing crystals carry the Elves' mark.)
 			for p in [Vector3(-43.6, 0, -8.5), Vector3(-43.6, 0, 8.5), Vector3(-46.5, 0, 12.8), Vector3(-80, 0, 13.4), Vector3(-90, 0, 11.5)]:
 				game._add_crystal(p, 1.1)
 		else:
@@ -949,7 +946,7 @@ func _build_watch_post(team: int) -> void:
 	## tower stump and torches.
 	var sx := -1.0 if team == 0 else 1.0
 	var c: Vector3 = pos[ids.find("m%d" % team)]
-	game._add_rosette(c + Vector3(0, 0.03, 0), 5.6, Color(0.42, 0.52, 0.42) if team == 0 else Color(0.46, 0.48, 0.6))
+	game._add_rosette(c + Vector3(0, 0.03, 0), 5.6, Color(0.6, 0.54, 0.54))   # (the Crossing's basalt tint for both sides: the green and blue-grey discs were off the Ember palette, the banner carries the team)
 	game._add_banner_pole(team, c + Vector3(sx * 2.0, 0, -5.4))
 	# Cover: a low wall right on the south rim (solid; no gap behind it for
 	# anyone to get wedged in), shooters' spots in front of it.
