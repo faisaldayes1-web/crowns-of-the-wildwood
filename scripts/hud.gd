@@ -86,6 +86,7 @@ var class_buttons: Array = []      # [rect, role] Classes tab SELECT
 var quick_buttons: Array = []      # [rect, track] the level-up tiles over the ability strip (mouse clicks)
 var quick_deny := -10.0             # when a quick upgrade was refused (in combat): the strip shakes
 var quick_close := Rect2()          # the LEVEL UP strip's X (screen coordinates)
+var quick_shown := false            # the LEVEL UP strip was drawn this frame (notices lift clear of it)
 var quick_hidden := ""              # the strip's contents when its X was pressed: hidden until they change
 var corner_buttons: Array = []     # [rect, "menu" | "scoreboard"] the HUD corner squares (mouse clicks)
 static var menu_tex: Dictionary = {}      # assets/ui/menu art used by the pause menu
@@ -3541,7 +3542,7 @@ func _draw_event_banner(b: Dictionary) -> void:
 		var txt: String = str(b.title)
 		var fs0 := 15
 		var tw0 := (_text_width(txt, fs0) + 60.0) * fit0
-		draw_set_transform(Vector2(minf(size.x - 236.0 * fit0, size.x - 14.0 - tw0 / 2.0), size.y - 206.0 * fit0), 0.0, Vector2(fit0, fit0))
+		draw_set_transform(Vector2(minf(size.x - 236.0 * fit0, size.x - 14.0 - tw0 / 2.0), size.y - (276.0 if quick_shown and not touch_ui else 206.0) * fit0), 0.0, Vector2(fit0, fit0))
 		_scroll_hint(0.0, _text_width(txt, fs0) + 40.0, txt, a, str(b.icon), fs0, Color(0.95, 0.66, 0.16, a) if good else Color(0.86, 0.18, 0.14, a))
 		draw_set_transform(Vector2.ZERO)
 		return
@@ -3646,7 +3647,7 @@ func _draw_toasts() -> void:
 	# over the menu keys, off the play area (was centred 134 px down, on the
 	# class stations and the gate).
 	var tw := (_text_width(t.text, fs) + 60.0) * k
-	var at := Vector2(minf(size.x - 236.0 * fit, size.x - 14.0 - tw / 2.0), size.y - 168.0 * fit)
+	var at := Vector2(minf(size.x - 236.0 * fit, size.x - 14.0 - tw / 2.0), size.y - (252.0 if quick_shown and not touch_ui else 168.0) * fit)   # (above the LEVEL UP strip when it is up: the scroll sat half behind it)
 	if pane:
 		at = Vector2(size.x / 2.0, 118.0)   # split screen: the strip fills the bottom right, so under the top bar
 	draw_set_transform(at, 0.0, Vector2(k, k))
@@ -3955,6 +3956,7 @@ func _draw_quick_upgrade(p) -> void:
 	## and the level it goes to. A press buys it on the spot, anywhere, once
 	## you have been out of the fight for a few seconds (Faisal 06:04
 	## 2026-10-10: "the only way to safely upgrade is to go back to base").
+	quick_shown = false
 	if p == null or p.dead or p.downed or game.rank_open or game.menu_open or game.demo:
 		return
 	# The Veteran Training panel is open: the strip sat on its TRAIN button (FE-02).
@@ -4001,7 +4003,7 @@ func _draw_quick_upgrade(p) -> void:
 	var ready := calm <= 0.0
 	var R := Rect2(x, y, w, bh)
 	var pulse := 0.5 + 0.5 * sin(now * 4.0)
-	game_board(R, "LEVEL UP", false)
+	_slate_board(R, "LEVEL UP")
 	if ready:
 		_glow_frame(R.grow(2), Color(1.0, 0.82, 0.3, 0.2 + 0.3 * pulse))
 	# The badge: points to spend, or how long until you are out of the fight.
@@ -4067,6 +4069,7 @@ func _draw_quick_upgrade(p) -> void:
 	var xc := Vector2(x - xr - 10.0, y + 22.0)
 	x_button(xc, xr)
 	quick_close = Rect2((xc - Vector2(26, 26)) * hud_scale, Vector2(52, 52) * hud_scale)
+	quick_shown = true
 	if not pane:
 		touch_rects.append([quick_close, hide_quick])
 	if k < 1.0:
@@ -4182,7 +4185,32 @@ func _status_tags(p, panel: Rect2) -> void:
 		_icon("crown" if p.veteran == 2 else "xp", vb.position + Vector2(16, 12), 8, Color.WHITE)
 		_text(vb.position + Vector2(30, 17), ("ELITE VETERAN · BOUNTY ON YOU" if p.veteran == 2 else "VETERAN") + "  ·  %d streak" % p.streak, 10, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 	elif p.streak >= 2 and not p.dead:
-		_text(Vector2(panel.end.x, tag_y + 17), "%d kill streak" % p.streak, 11, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, -1, 3)
+		_text(Vector2(panel.end.x - 130.0, tag_y + 9), "%d kill streak" % p.streak, 11, Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT, 126.0, 3)   # (a width, or the right edge is where the text starts: it ran onto the Dodge slot)
+
+
+func _slate_board(r: Rect2, title: String = "") -> void:
+	## The skill bar's own plate (a slate silhouette in a 3 px gold rim with ivy up
+	## both ends, _ability_strip) as a short strip, for LEVEL UP: it used to be the
+	## brown wooden board, a different family from the bar it sits on (Faisal 11-05:
+	## "the Level Up panel in the HUD style"). Corners are cut like the bar's arc.
+	var cut := minf(16.0, r.size.y * 0.22)
+	var outline := PackedVector2Array([r.position + Vector2(0, cut + 4.0), r.position + Vector2(cut, 0), r.position + Vector2(r.size.x - cut, 0),
+		r.position + Vector2(r.size.x, cut + 4.0), r.position + Vector2(r.size.x - 5.0, r.size.y), r.position + Vector2(5.0, r.size.y)])
+	var shadow := PackedVector2Array()
+	for v in outline:
+		shadow.append(v + Vector2(0, 4))
+	draw_colored_polygon(shadow, Color(0, 0, 0, 0.4))
+	draw_colored_polygon(outline, Color(0.08, 0.11, 0.15, 0.96))
+	draw_rect(Rect2(r.position + Vector2(cut, 3), Vector2(r.size.x - cut * 2.0, 1)), Color(1, 1, 1, 0.08))
+	outline.append(outline[0])
+	draw_polyline(outline, Color("d8aa47"), 3.0, true)
+	_ivy(r.position + Vector2(8, r.size.y - 16.0), Vector2(0, -1), minf(38.0, r.size.y - 24.0), 3)
+	_ivy(r.position + Vector2(r.size.x - 8.0, r.size.y - 16.0), Vector2(0, -1), minf(38.0, r.size.y - 24.0), 6)
+	if title != "":
+		var tw := _text_width(title, 12) + 28.0
+		var tag := Rect2(r.get_center().x - tw / 2.0, r.position.y - 11.0, tw, 20.0)
+		_plate(tag, Color(0.1, 0.14, 0.19), Color("d8aa47"), 6, 2)
+		_text(Vector2(tag.position.x, tag.end.y - 5), title, 12, CREAM, HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 3)
 
 
 func game_board(r: Rect2, title: String = "", ivy: bool = true) -> void:
@@ -4602,6 +4630,8 @@ func _hide_world_prompts() -> void:
 func _draw_tip(me) -> void:
 	## One first-match tip for this pane's player (scripts/tips.gd): a small
 	## pill under the top edge, the keys of the device they hold.
+	if not pane and _banner_kind() != "":
+		return   # a big banner hangs in the same band under the clock (a BLESSING! card sat on the tip's text)
 	var text := Tips.current(game, me, get_process_delta_time())
 	if text == "":
 		return
@@ -4703,8 +4733,8 @@ func _draw_class_pointer(me) -> void:
 	# arrow"): just the PICK A CLASS plate over the stations while they are
 	# on screen. The off-screen edge arrow, whose plate was cut off at the
 	# screen's edge, is gone.
-	if inside:
-		var r := Rect2(sp + Vector2(-84, -40 + bob), Vector2(168, 30))
+	var r := Rect2(sp + Vector2(-84, -40 + bob), Vector2(168, 30))
+	if inside and not r.intersects(Rect2(0, 0, 200, 200)):   # (not over the minimap: Ember's stations sit right under it)
 		_plate(r, Color(0.3, 0.17, 0.04, 0.92), gold, 8, 2)
 		_text(r.position + Vector2(0, 21), "PICK A CLASS", 15, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 
@@ -7696,19 +7726,32 @@ func _draw_title_hero(panel: Rect2) -> void:
 	_draw_banner_editor(Vector2(nx + 430, panel.position.y + 64), panel.end.x - (nx + 430) - 24)
 
 
+static var _progress_art: Dictionary = {}
+
+
+func _progress_tex(path: String) -> Texture2D:
+	if not _progress_art.has(path):
+		_progress_art[path] = load(path) if ResourceLoader.exists(path) else null
+	return _progress_art[path]
+
+
 func _draw_title_progress(panel: Rect2, header: bool = true) -> void:
-	## PROGRESS: account level, rank ladder and the level-10 unlocks. In the
-	## PROGRESS overlay it sits straight on the overlay's slate board (the
-	## picked family's palette: slate, leather, brass, gold), not on a purple card.
+	## PROGRESS: a hero header (level crest, rank, a thick XP bar with its numbers
+	## above it), the rank road (earned, current and locked crests, the next one
+	## marked), and a card per level-10 unlock with its art. In the PROGRESS overlay
+	## it sits straight on the overlay's slate board; Save / Export live in menu.gd's
+	## small account corner. claude-faisallaptop (cf-crowns-pass5-1105n), Faisal 11-05.
 	if header:
 		_dark_frame(panel, 12)
-	if header:   # the PROGRESS overlay already carries the title on its ribbon (UI-09)
 		_text(panel.position + Vector2(0, 30), "PROGRESS", 20, GOLD, HORIZONTAL_ALIGNMENT_CENTER, panel.size.x, 4)
+	var now := Time.get_ticks_msec() / 1000.0
 	var level: int = game.account_level()
 	var span: Array = Stats.account_span(game.account_xp)
-	var lx := panel.position.x + 30
-	var badge := Vector2(lx + 50, panel.position.y + 110)
-	# The level medallion: a brass ring round a dark disc with a laurel, like the HUD's LV badge.
+	var px := panel.position.x + 30.0
+	var pw := panel.size.x - 60.0
+	var py := panel.position.y + (14.0 if not header else 40.0)
+	# --- Hero header
+	var badge := Vector2(px + 52.0, py + 66.0)
 	draw_circle(badge + Vector2(0, 4), 52, Color(0, 0, 0, 0.4))
 	draw_circle(badge, 51, Color(0.3, 0.17, 0.04))
 	draw_circle(badge, 48, BRASS)
@@ -7719,46 +7762,111 @@ func _draw_title_progress(panel: Rect2, header: bool = true) -> void:
 		_laurel(badge + Vector2(0, 2), side, 0.5, 34.0, 30.0)
 	_text(badge + Vector2(-50, 12), str(level), 34, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 100, 5)
 	_text(badge + Vector2(-50, 32), "LEVEL", 9, CREAM, HORIZONTAL_ALIGNMENT_CENTER, 100, 2)
-	_text(Vector2(lx + 120, panel.position.y + 92), Stats.rank_title(level).to_upper(), 24, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 4)
-	_text(Vector2(lx + 120, panel.position.y + 112), "%d XP on your account" % game.account_xp, 11, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	var bar := Rect2(lx + 120, panel.position.y + 122, 330, 16)
-	_bar(bar, (float(span[0]) / span[1]) if span[1] > 0 else 1.0, Color(0.95, 0.6, 0.2))
-	_text(bar.position + Vector2(0, 13), ("%d / %d to level %d" % [span[0], span[1], level + 1]) if span[1] > 0 else "MAX LEVEL", 9, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 2)
+	var hx := px + 128.0
+	_text(Vector2(hx, py + 46), Stats.rank_title(level).to_upper(), 30, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 5)
+	var sub := "%d XP on your account" % game.account_xp
 	if game.last_match_gain > 0:
-		_text(Vector2(lx + 120, panel.position.y + 156), "Last match: +%d XP" % game.last_match_gain, 11, Color(0.6, 1.0, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	# The rank ladder.
-	_text(Vector2(lx, panel.position.y + 196), "RANKS", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-	for i in Stats.RANK_TITLES.size():
-		var entry: Array = Stats.RANK_TITLES[i]
-		var reached: bool = level >= entry[0]
-		var b := Rect2(lx + i * 82, panel.position.y + 204, 76, 40)
-		var current: bool = reached and (i == Stats.RANK_TITLES.size() - 1 or level < Stats.RANK_TITLES[i + 1][0])
-		# Reached ranks are gold plates (the current one lifted and glowing), the rest leather.
+		sub += "   ·   last match +%d XP" % game.last_match_gain
+	_text(Vector2(hx, py + 68), sub, 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var barw := px + pw - hx
+	var maxed: bool = span[1] <= 0
+	var frac: float = 1.0 if maxed else float(span[0]) / float(span[1])
+	_text(Vector2(hx, py + 92), "MAX LEVEL" if maxed else "TO LEVEL %d" % (level + 1), 11, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	if not maxed:
+		_text(Vector2(hx, py + 92), "%d / %d XP   ·   %d to go" % [span[0], span[1], span[1] - span[0]], 11, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, barw, 2)
+	var bar := Rect2(hx, py + 98, barw, 24)
+	_plate(bar, Color(0.05, 0.04, 0.05, 0.95), BRASS_DIM, 9, 2)
+	var inner := bar.grow(-3)
+	var fw := inner.size.x * clampf(frac, 0.0, 1.0)
+	if fw > 2.0:
+		var fill := Rect2(inner.position, Vector2(fw, inner.size.y))
+		_plate(fill, Color(0.93, 0.56, 0.16), Color(0.62, 0.33, 0.07), 6, 1)
+		draw_rect(Rect2(fill.position + Vector2(5, 2), Vector2(maxf(fw - 10.0, 1.0), inner.size.y * 0.32)), Color(1, 0.95, 0.7, 0.35))
+	for q in [0.25, 0.5, 0.75]:
+		draw_line(Vector2(inner.position.x + inner.size.x * q, inner.position.y + 3), Vector2(inner.position.x + inner.size.x * q, inner.end.y - 3), Color(0, 0, 0, 0.3), 1.0)
+	# --- Rank road
+	var ranks: Array = Stats.RANK_TITLES
+	var n := ranks.size()
+	var cur := 0
+	for i in n:
+		if level >= int(ranks[i][0]):
+			cur = i
+	_text(Vector2(px, py + 156), "RANK ROAD", 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	if cur < n - 1:
+		var nxt: Array = ranks[cur + 1]
+		var left: int = int(nxt[0]) - level
+		_text(Vector2(px, py + 156), "NEXT: %s at level %d  ·  %d level%s to go" % [str(nxt[1]).to_upper(), nxt[0], left, "" if left == 1 else "s"],
+			11, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, pw, 2)
+	else:
+		_text(Vector2(px, py + 156), "THE TOP RANK", 11, CREAM, HORIZONTAL_ALIGNMENT_RIGHT, pw, 2)
+	var road_y := py + 214.0
+	var x0 := px + 46.0
+	var step := (pw - 92.0) / float(n - 1)
+	draw_line(Vector2(x0, road_y + 2), Vector2(x0 + step * (n - 1), road_y + 2), Color(0, 0, 0, 0.45), 11.0)
+	draw_line(Vector2(x0, road_y), Vector2(x0 + step * (n - 1), road_y), Color(0.3, 0.2, 0.1), 9.0)
+	draw_line(Vector2(x0, road_y), Vector2(x0 + step * cur, road_y), GOLD.darkened(0.1), 6.0)
+	for i in n:
+		var entry: Array = ranks[i]
+		var c := Vector2(x0 + step * i, road_y)
+		var reached: bool = level >= int(entry[0])
+		var is_cur := i == cur
+		var is_next := i == cur + 1
+		var r := 29.0 if is_cur else 23.0
+		if is_cur:
+			_glow_frame(Rect2(c - Vector2(r + 3, r + 3), Vector2(r + 3, r + 3) * 2.0), GOLD)
+		elif is_next:
+			var pulse := 0.5 + 0.5 * sin(now * 3.5)
+			draw_arc(c, r + 5.0, 0.0, TAU, 32, Color(1.0, 0.82, 0.3, 0.35 + 0.5 * pulse), 2.5)
+		draw_circle(c + Vector2(0, 3), r + 2.0, Color(0, 0, 0, 0.4))
+		draw_circle(c, r + 2.0, Color(0.2, 0.11, 0.03))
+		draw_circle(c, r, BRASS if reached else Color(0.34, 0.27, 0.2))
+		draw_circle(c, r - 4.0, Color(0.36, 0.2, 0.06) if reached else Color(0.14, 0.11, 0.1))
 		if reached:
-			if current:
-				_glow_frame(b.grow(2), GOLD)
-			_hud_button(b, "", 9, true)
-		else:
-			_leather(b, 7)
-		var ink := Color(0.25, 0.14, 0.03) if reached else Color(0.8, 0.74, 0.62)
-		_text(b.position + Vector2(0, 17), "LV %d" % entry[0], 9, ink, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 0 if reached else 2)
-		var rt: String = entry[1].to_upper()
-		var rs := 8
-		while rs > 6 and _text_width(rt, rs) > b.size.x - 8.0:   # CROWNBREAKER poked out (NUM-09)
-			rs -= 1
-		_text(b.position + Vector2(0, 32), rt, rs, ink, HORIZONTAL_ALIGNMENT_CENTER, b.size.x, 0 if reached else 2)
-	# Unlocks.
-	_text(Vector2(lx, panel.position.y + 276), "LEVEL %d UNLOCKS" % Stats.UNLOCK_LEVEL, 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+			draw_arc(c, r - 2.0, PI * 1.1, PI * 1.9, 16, Color(1, 0.95, 0.75, 0.4), 2.0)
+		_icon("crown" if is_cur else ("rank" if reached else "lock"), c, 8.5 if is_cur else 7.0, Color.WHITE if reached else Color(0.7, 0.66, 0.6), not reached)
+		var ink := GOLD if reached else Color(0.8, 0.74, 0.62)
+		_text(Vector2(c.x - step / 2.0, c.y + r + 17), "LV %d" % entry[0], 12, ink, HORIZONTAL_ALIGNMENT_CENTER, step, 3)
+		_text(Vector2(c.x - step / 2.0, c.y + r + 31), str(entry[1]).to_upper(), 9, CREAM if reached else Color(0.72, 0.68, 0.6), HORIZONTAL_ALIGNMENT_CENTER, step - 2.0, 2)
+		if is_cur:
+			_text(Vector2(c.x - 40, c.y - r - 8), "YOU", 10, GOLD, HORIZONTAL_ALIGNMENT_CENTER, 80, 3)
+		elif is_next:
+			_text(Vector2(c.x - 40, c.y - r - 10), "NEXT", 10, Color(1.0, 0.9, 0.5), HORIZONTAL_ALIGNMENT_CENTER, 80, 3)
+	# --- Unlock cards
+	var uy := py + 296.0
+	_text(Vector2(px, uy), "LEVEL %d UNLOCKS" % Stats.UNLOCK_LEVEL, 12, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var open: bool = game.unlocked()
+	var to_go := maxi(Stats.UNLOCK_LEVEL - level, 0)
+	_text(Vector2(px, uy), "UNLOCKED" if open else "%d level%s to go" % [to_go, "" if to_go == 1 else "s"], 11, Color(0.6, 1.0, 0.6) if open else Color(1.0, 0.7, 0.5), HORIZONTAL_ALIGNMENT_RIGHT, pw, 2)
+	var gap := 14.0
+	var cw := (pw - gap * (Stats.UNLOCKS.size() - 1)) / Stats.UNLOCKS.size()
+	var art_paths := ["res://assets/ui/cards/human_rogue.png", "res://assets/ui/cards/elf_knight.png", "res://assets/ui/menu/map_moonlit.png"]
 	for i in Stats.UNLOCKS.size():
 		var u: Array = Stats.UNLOCKS[i]
-		var row := Rect2(lx, panel.position.y + 284 + i * 50, panel.size.x - 60, 44)
-		var open: bool = game.unlocked()
-		_leather(row, 8, open, Color(0.45, 0.9, 0.35) if open else BRASS_DIM)
-		var lit := Color.WHITE if open else Color(0.85, 0.8, 0.7)
-		_icon("class_rogue" if u[0] == "class" else ("cape" if u[0] == "look" else "moon"), row.position + Vector2(26, 22), 11, Color.WHITE if open else Color(0.75, 0.72, 0.68))
-		_text(row.position + Vector2(50, 19), u[1].to_upper(), 13, lit, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)
-		_text(row.position + Vector2(50, 34), u[2], 9, CREAM if open else Color(0.72, 0.68, 0.6), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
-		_text(row.position + Vector2(0, 27), "UNLOCKED" if open else "LOCKED", 10, Color(0.6, 1.0, 0.6) if open else Color(1.0, 0.7, 0.5), HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 14, 2)
+		var card := Rect2(px + i * (cw + gap), uy + 10.0, cw, 134.0)
+		_leather(card, 8, open, Color(0.45, 0.9, 0.35) if open else BRASS_DIM)
+		var art := Rect2(card.position + Vector2(8, 8), Vector2(96, 118))
+		var tx := _progress_tex(art_paths[i])
+		var dim := Color.WHITE if open else Color(0.5, 0.5, 0.56)
+		if i == 1:
+			dim = dim * Color(0.78, 0.6, 1.0)   # Shadowborn: the dusk-violet look, on a Knight card
+		draw_rect(art, Color(0.08, 0.06, 0.06))
+		if tx:
+			var ts := tx.get_size()
+			var sw := minf(ts.x, ts.y * art.size.x / art.size.y)
+			draw_texture_rect_region(tx, art, Rect2((ts.x - sw) / 2.0, 0.0 if i < 2 else (ts.y - sw * art.size.y / art.size.x) / 2.0, sw, sw * art.size.y / art.size.x), dim)
+		draw_rect(art, Color(0.1, 0.06, 0.03), false, 2.0)
+		if not open:
+			draw_circle(art.get_center() + Vector2(0, 2), 19, Color(0, 0, 0, 0.55))
+			_icon("lock", art.get_center(), 8.5, Color(1.0, 0.85, 0.5))
+		var tx0 := art.end.x + 12.0
+		var tw := card.end.x - tx0 - 8.0
+		_text(Vector2(tx0, card.position.y + 28), str(u[1]).to_upper(), 15, GOLD if open else CREAM, HORIZONTAL_ALIGNMENT_LEFT, tw, 3)
+		_text(Vector2(tx0, card.position.y + 44), ("CLASS" if u[0] == "class" else ("HERO LOOK" if u[0] == "look" else "MAP")), 9, Color(0.75, 0.7, 0.6), HORIZONTAL_ALIGNMENT_LEFT, tw, 1)
+		_paragraph(Vector2(tx0, card.position.y + 58), str(u[2]), 10, CREAM if open else Color(0.78, 0.74, 0.66), tw, 12.0, 1)
+		var chip := Rect2(tx0, card.end.y - 30, minf(tw, 118.0), 20)
+		_plate(chip, Color(0.12, 0.3, 0.1) if open else Color(0.25, 0.1, 0.06), Color(0.45, 0.9, 0.35) if open else Color(0.8, 0.45, 0.25), 7, 1)
+		_text(Vector2(chip.position.x, chip.position.y + 15), "UNLOCKED" if open else "LOCKED · LV %d" % Stats.UNLOCK_LEVEL, 10,
+			Color(0.7, 1.0, 0.7) if open else Color(1.0, 0.75, 0.55), HORIZONTAL_ALIGNMENT_CENTER, chip.size.x, 1)
 
 
 func _ribbon(center: Vector2, w: float, h: float, color: Color) -> void:

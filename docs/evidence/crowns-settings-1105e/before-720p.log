@@ -1,0 +1,11 @@
+{"source": "4e11bc27dc0a02c922bae824a0fcaa3fb670486a", "command": ["C:/Users/faisa/Tools/Godot_4.3/Godot_v4.3-stable_win64_console.exe", "--path", "C:\\Users\\faisa\\Projects\\cw-pass5", "--resolution", "1280x720", "--script", "tools/options_capture.gd", "--", "--no-prebuild", "--before"], "user_data": "C:\\Temp\\c3cs-u9o7toob"}
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080 Laptop GPU
+
+tools/options_capture.gd: user dir C:/Temp/c3cs-u9o7toob/appdata/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT day: 6378 placements, 22 meshes, 566 ms
+NET ready
+CAPTURE C:\Users\faisa\Projects\cw-pass5\docs\evidence\crowns-settings-1105e\720/before-settings.png result=0 pixels=(1280, 720) native_window=(1280, 720)
+ERROR: 6 shaders of type SceneForwardClusteredShaderRD were never freed
+   at: ~ShaderRD (servers/rendering/renderer_rd/shader_rd.cpp:845)
+ERROR: 6 RID allocations of type 'N10RendererRD15MaterialStorage6ShaderE' were leaked at exit.

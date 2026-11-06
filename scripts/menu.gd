@@ -1594,21 +1594,22 @@ func _draw_progress() -> void:
 	# The progress board paints over the frame's close button: draw it again on top (UI-09).
 	var frame := body.grow(40)
 	_overlay_close_x(frame, Rect2(frame.end.x - 62, frame.position.y + 26, 34, 34).has_point(h.get_local_mouse_position()))
-	# SAVED PROGRESS: it saves itself; the code moves it to another device.
+	# ACCOUNT: a small corner, not a panel. It saves itself; the code moves it to another device.
 	var lx := panel.position.x + 30
-	var y := panel.position.y + 446
-	h._text(Vector2(lx, y), "SAVED PROGRESS", 12, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	var y := panel.position.y + panel.size.y - 48.0
+	h.draw_line(Vector2(lx, y - 10), Vector2(panel.end.x - 30, y - 10), Color(0.62, 0.44, 0.16, 0.45), 1.0)
 	var ago := "" if game.saved_at < 0.0 else "  Last saved %s." % _ago(Time.get_ticks_msec() / 1000.0 - game.saved_at)
-	h._text(Vector2(lx, y + 16), "Your level, XP, gold, chests and store items save by themselves after every match and purchase.%s" % ago, 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
-	h._text(Vector2(lx, y + 30), "To play on another device: EXPORT here, then IMPORT the code there.", 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
-	var bw := 200.0
-	wood_button(Rect2(lx, y + 40, bw, 36), "EXPORT CODE", "progress_export", null, "", 16)
-	wood_button(Rect2(lx + bw + 16, y + 40, bw, 36), "IMPORT CODE", "progress_import", null, "", 16)
-	# The ending (legend.gd), once the account has reached its level.
+	h._text(Vector2(lx, y + 12), "ACCOUNT", 12, Color(1.0, 0.82, 0.38), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
+	h._text(Vector2(lx, y + 28), "Saves itself after every match and purchase.%s" % ago, 10, Color(0.92, 0.9, 0.84), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	var bw := 150.0
+	var bx := panel.end.x - 30.0 - bw * 2.0 - 10.0
+	wood_button(Rect2(bx, y, bw, 32), "EXPORT CODE", "progress_export", null, "", 14)
+	wood_button(Rect2(bx + bw + 10, y, bw, 32), "IMPORT CODE", "progress_import", null, "", 14)
+	# The ending (legend.gd), once the account has reached its level. It is called the
+	# ending, not "the Legend": the rank named Legend is level 30.
 	var open: bool = game.legend_unlocked()
-	wood_button(Rect2(panel.end.x - 300, panel.position.y + 70, 260, 46), "WATCH THE LEGEND" if open else "LEGEND AT LV %d" % game.legend_level(),
-		"watch_legend", null, "crown" if open else "lock", 17, false, open)
-	h._text(Vector2(lx + 2 * bw + 34, y + 63), "Import copies the code from the clipboard" if not OS.has_feature("web") else "Import asks you to paste the code", 10, Color(0.75, 0.73, 0.68), HORIZONTAL_ALIGNMENT_LEFT, -1, 1)
+	wood_button(Rect2(panel.end.x - 30.0 - 250.0, panel.position.y + 14, 250, 34), "WATCH THE ENDING" if open else "THE ENDING AT LV %d" % game.legend_level(),
+		"watch_legend", null, "crown" if open else "lock", 14, false, open)
 
 
 const MAX_PLAYERS := 6
