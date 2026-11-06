@@ -34,6 +34,7 @@ var selectors: Dictionary = {}
 var stick_dir := Vector2.ZERO
 var stick_repeat := 0.0
 var active := false
+var footer_hint: Label = null
 
 
 func _ready() -> void:
@@ -189,7 +190,8 @@ func _build() -> void:
 	var close := _button("Back", close_screen, "Return to the previous screen. Unapplied video changes are discarded.")
 	close.custom_minimum_size.x = 130
 	footer.add_child(close)
-	var hint := _label("Arrow keys / D-pad: navigate     Enter / A: select     Esc / B: back     Q E / LB RB: tabs", Color("c9ba98"), 13)
+	footer_hint = _label("", Color("c9ba98"), 13)
+	var hint := footer_hint
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stack.add_child(hint)
 	# Footer controls remain in the focus loop after each page's controls.
@@ -291,7 +293,17 @@ func _process(delta: float) -> void:
 		stick_repeat = 0.22
 
 
+func _hint_text() -> String:
+	## The pad's own button names (Cross / Circle / L1 R1 on a DualSense), not always A / B / LB RB.
+	var kind: String = game.pad_kind(game.local_pad(0))
+	return "Arrow keys / D-pad: navigate     Enter / %s: select     Esc / %s: back     Q E / %s %s: tabs" % [
+		game._pad_name(JOY_BUTTON_A, kind), game._pad_name(JOY_BUTTON_B, kind),
+		game._pad_name(JOY_BUTTON_LEFT_SHOULDER, kind), game._pad_name(JOY_BUTTON_RIGHT_SHOULDER, kind)]
+
+
 func _update_footer() -> void:
+	if footer_hint != null:
+		footer_hint.text = _hint_text()
 	var video := category == 1
 	apply_button.visible = video and preview_left <= 0.0
 	apply_button.disabled = draft == confirmed

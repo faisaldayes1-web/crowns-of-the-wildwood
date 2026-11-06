@@ -1,0 +1,26 @@
+PADS [0]
+PAD name='PS5 Controller' guid=030000004c050000f20d000000000000 known=true kind=ps title='DualSense Edge (PS5)'
+GLYPH attack     pad=Cross
+GLYPH dodge      pad=Circle
+GLYPH block      pad=L1
+GLYPH interact   pad=R1
+GLYPH rank_menu  pad=R3
+GLYPH ui_confirm pad=Cross
+GLYPH ui_back    pad=Circle
+GLYPH scoreboard pad=Create
+BUTTON  0 -> Cross
+BUTTON  1 -> Circle
+BUTTON  2 -> Square
+BUTTON  3 -> Triangle
+BUTTON  9 -> L1
+BUTTON 10 -> R1
+BUTTON  4 -> Create
+BUTTON  6 -> Options
+BUTTON  5 -> PS
+BUTTON 15 -> Mute
+BUTTON  7 -> L3
+BUTTON  8 -> R3
+RUMBLE after start: (0.7, 0.7) duration 1
+RUMBLE after 1.6 s: (0.7, 0.7)
+RUMBLE with the setting off (expect 0,0): (0.7, 0.7)
+PAD CHECK DONE

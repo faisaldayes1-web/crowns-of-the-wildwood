@@ -334,6 +334,8 @@ func _xp_panel(h, r: Rect2, t: float) -> void:
 		h._icon(line[1], row.position + Vector2(16, 13.5), 7.0, Color.WHITE)
 		_bold(h, row.position + Vector2(36, 18), line[0], 13, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		_bold(h, Vector2(row.position.x, row.position.y + 19), "+%d" % shown, 15, GOLD, HORIZONTAL_ALIGNMENT_RIGHT, row.size.x - 10, 2)
+	if lines.is_empty() and t > 0.9:
+		_bold(h, Vector2(r.position.x, r.position.y + 80), "No experience earned this time.", 13, Color(0.7, 0.68, 0.62), HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 2)
 	var ty := r.position.y + 26.0 + 7 * 29.0 + 6.0
 	h.draw_line(Vector2(r.position.x + 14, ty), Vector2(r.end.x - 14, ty), Color(0.5, 0.36, 0.14), 2.0)
 	_bold(h, Vector2(r.position.x + 18, ty + 32), "TOTAL", 20, GOLD, HORIZONTAL_ALIGNMENT_LEFT, -1, 3)

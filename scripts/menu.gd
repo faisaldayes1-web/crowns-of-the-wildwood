@@ -934,7 +934,7 @@ func _tab_hair(panel: Rect2) -> void:
 	var y := panel.position.y + 86
 	label(Vector2(panel.position.x + 26, y), "HAIR COLOUR  ·  %s" % Stats.HERO_HAIR[game.hero_hair][0], 15)
 	for i in Stats.HERO_HAIR.size():
-		var c := Vector2(panel.position.x + 62 + (i % 4) * 102, y + 46 + (i / 4) * 78)
+		var c := Vector2(panel.position.x + 62 + (i % 4) * 102, y + 46 + (i / 4) * 72)
 		var r := Rect2(c - Vector2(30, 30), Vector2(60, 60))
 		var on: bool = game.hero_hair == i
 		var have := Store.owns(game, "hair", i)

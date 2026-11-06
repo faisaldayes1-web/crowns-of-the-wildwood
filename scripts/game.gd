@@ -5131,6 +5131,8 @@ func pad_title(device: int) -> String:
 	var n := Input.get_joy_name(device)
 	if pad_kind(device) == "ps":
 		var l := n.to_lower()
+		if Input.get_joy_guid(device).substr(16, 4) == "f20d":   # Sony product id 0df2 (little-endian): the Edge reports itself as "PS5 Controller"
+			return "DualSense Edge (PS5)"
 		return "DualSense (PS5)" if "dualsense" in l or "ps5" in l else ("DualShock (PS4)" if "dualshock" in l or "ps4" in l else "PlayStation controller")
 	if pad_kind(device) == "switch" and n != "":
 		return n if "nintendo" in n.to_lower() else "Nintendo " + n

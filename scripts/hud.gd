@@ -1046,7 +1046,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 	if glow and not locked:
 		var gpulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() / 220.0)
 		for i in 5:
-			_glow("poly", [_orb_pts(hc, hr + 8.0 + i * 3.0), Color(1.0, 0.78, 0.25, 0.07 * gpulse)])
+			_glow("poly", [_slot_pts(hc, hr + 8.0 + i * 3.0), Color(1.0, 0.78, 0.25, 0.07 * gpulse)])
 	var frame := BRASS
 	if glow and not locked:
 		frame = GOLD.lightened(0.15)
@@ -1089,7 +1089,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 		if bar_b:
 			draw_rect(Rect2(rect.position + Vector2(3, 3), Vector2(size_px - 6, (size_px - 6) * frac)), Color(0, 0, 0, 0.6))
 		elif 2.0 * hr * frac > 3.5:
-			for poly in Geometry2D.intersect_polygons(_orb_pts(hc, hr - 2.5), cut):
+			for poly in Geometry2D.intersect_polygons(_slot_pts(hc, hr - 2.5), cut):
 				draw_colored_polygon(poly, Color(0, 0, 0, 0.6))
 		_text(rect.position + Vector2(0, size_px * 0.58), ("%.1f" % remaining) if remaining < 10.0 else str(ceili(remaining)),
 			int(16 * maxf(1.0, size_px / 60.0)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, size_px)
@@ -1111,7 +1111,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vector2, hr: float, frame: Color,
 		art: String, locked: bool, ready: bool) -> void:
 	## The slot's tile and icon (the baked part of a slot).
-	draw_colored_polygon(_orb_pts(hc + Vector2(0, 3), hr + 7.0), Color(0, 0, 0, 0.45))
+	draw_colored_polygon(_slot_pts(hc + Vector2(0, 3), hr + 7.0), Color(0, 0, 0, 0.45))
 	# Every slot now draws its emblem from Faisal's 2026-10-14 icon sheet,
 	# centred on the hexagon: the old painted hex tiles had their symbols off
 	# centre (Faisal 08:09 "this is off center", on Perks and Grab).
@@ -1128,7 +1128,7 @@ func _slot_face(rect: Rect2, size_px: float, icon: String, color: Color, hc: Vec
 		var tex: Texture2D = skill_art[art]
 		var tw := th * tex.get_width() / tex.get_height()
 		var box := Rect2(hc - Vector2(tw, th) / 2.0 - Vector2(tw * 0.03, 0), Vector2(tw, th))
-		var face := _orb_pts(hc, hr - 2.5)
+		var face := _slot_pts(hc, hr - 2.5)
 		var uvs := PackedVector2Array()
 		for q in face:
 			uvs.append((q - box.position) / box.size)
@@ -1208,26 +1208,33 @@ func _orb_pts(c: Vector2, r: float) -> PackedVector2Array:
 	return pts
 
 
+func _slot_pts(c: Vector2, r: float) -> PackedVector2Array:
+	## Slot outline: round, or a hexagon in the split-screen arc (pick A).
+	if pane_arc:
+		return _hex_pts(c, r * 1.06)
+	return _orb_pts(c, r)
+
+
 func _orb_tile(hc: Vector2, hr: float, frame: Color, color: Color, locked: bool, ready: bool) -> void:
 	## One modular slot: a round brass ring (lit from the top) round a band of
 	## dark leaf green and a green face tinted a little by the move's colour,
 	## with a glossy cap and four brass studs. Each slot stands alone.
-	draw_colored_polygon(_orb_pts(hc, hr + 6.0), Color(0.12, 0.08, 0.03))
-	var rim := _orb_pts(hc, hr + 4.5)
+	draw_colored_polygon(_slot_pts(hc, hr + 6.0), Color(0.12, 0.08, 0.03))
+	var rim := _slot_pts(hc, hr + 4.5)
 	var rim_cols := PackedColorArray()
 	for q in rim:
 		var f := clampf((q.y - (hc.y - hr)) / (2.0 * hr), 0.0, 1.0)
 		rim_cols.append(frame.lightened(0.32).lerp(frame.darkened(0.38), f))
 	draw_polygon(rim, rim_cols)
 	var leaf := Color(0.09, 0.25, 0.1) if not locked else Color(0.12, 0.17, 0.13)
-	draw_colored_polygon(_orb_pts(hc, hr + 0.5), leaf.darkened(0.35))
-	draw_colored_polygon(_orb_pts(hc, hr - 1.0), leaf)
+	draw_colored_polygon(_slot_pts(hc, hr + 0.5), leaf.darkened(0.35))
+	draw_colored_polygon(_slot_pts(hc, hr - 1.0), leaf)
 	var tile := Color(0.14, 0.4, 0.17).lerp(color, 0.28)
 	if locked:
 		tile = Color(0.2, 0.27, 0.22)
 	elif not ready:
 		tile = tile.darkened(0.4).lerp(Color(0.2, 0.22, 0.2), 0.2)
-	var face := _orb_pts(hc, hr - 3.0)
+	var face := _slot_pts(hc, hr - 3.0)
 	var face_cols := PackedColorArray()
 	for q in face:
 		var f := clampf((q.y - (hc.y - hr)) / (2.0 * hr), 0.0, 1.0)
@@ -1240,7 +1247,13 @@ func _orb_tile(hc: Vector2, hr: float, frame: Color, color: Color, locked: bool,
 		var ang := PI * 1.12 + i * (PI * 0.76) / 12.0
 		cap.append(hc + Vector2(cos(ang), sin(ang)) * (hr - 3.5))
 	draw_colored_polygon(cap, Color(1, 1, 1, 0.14 if not locked else 0.05))
-	draw_arc(hc, hr - 3.0, 0, TAU, 48, Color(0, 0, 0, 0.55), 1.2)
+	var edge := _slot_pts(hc, hr - 3.0)
+	edge.append(edge[0])
+	draw_polyline(edge, Color(0, 0, 0, 0.55), 1.2)
+	if pane_arc:   # hexagon: highlight the top edges, no studs
+		var hi := _slot_pts(hc, hr + 3.5)
+		draw_polyline(PackedVector2Array([hi[4], hi[5], hi[0], hi[1]]), Color(1, 0.95, 0.75, 0.6), 1.2)
+		return
 	draw_arc(hc, hr + 3.5, PI * 1.05, PI * 1.9, 24, Color(1, 0.95, 0.75, 0.6), 1.2)
 	for ang in [PI * 0.25, PI * 0.75, PI * 1.25, PI * 1.75]:
 		var q := hc + Vector2(cos(ang), sin(ang)) * (hr + 0.2)
@@ -5765,7 +5778,7 @@ func _upgrades_skills(p, view: int, C: Rect2, now: float, board: bool = false) -
 		var name_y := row.position.y + (15.0 if compact else 20.0)
 		_text(Vector2(tx, name_y), name, 15 if compact else 17, Color.WHITE if available else GREY, HORIZONTAL_ALIGNMENT_LEFT, art.position.x - tx - 8.0, 4)
 		var desc_end := row.end.y - (19.0 if board and available else 2.0)
-		_paragraph_in(Rect2(tx, name_y + 3.0, art.position.x - tx - 8.0, desc_end - name_y - 3.0), desc, 10, 9, Color(0.86, 0.86, 0.82) if available else GREY)
+		_paragraph_in(Rect2(tx, name_y + (6.0 if compact else 3.0), art.position.x - tx - 8.0, desc_end - name_y - (6.0 if compact else 3.0)), desc, 10, 9, Color(0.86, 0.86, 0.82) if available else GREY)
 		# Cost and the + button.
 		var bs := minf(row.size.y - 26.0, 40.0)
 		var btn := Rect2(row.end.x - bs - 12.0, row.end.y - bs - 6.0, bs, bs)
@@ -5920,11 +5933,11 @@ func _upgrade_detail(p, view: int, D: Rect2, ranks: Array, abil: Array, kit: Dic
 		_text(Vector2(x, D.position.y + 22), "Pick a class at the stations to rank this up.", 11, GREY, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		return
 	for e in rows:
-		var w := _text_width(e[0] + " ", 11) + _text_width(e[1], 12) + _text_width(e[2], 12) + 24.0
+		var w := _text_width(e[0], 11) + 6.0 + _text_width(e[1], 12) + _text_width(e[2], 12) + 24.0
 		if x + w > D.end.x - 8.0:
 			break
 		_text(Vector2(x, D.position.y + 22), e[0], 11, Color(0.85, 0.83, 0.76), HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
-		x += _text_width(e[0] + " ", 11)
+		x += _text_width(e[0], 11) + 6.0
 		_text(Vector2(x, D.position.y + 22), e[1], 12, CREAM, HORIZONTAL_ALIGNMENT_LEFT, -1, 2)
 		x += _text_width(e[1], 12) + 4.0
 		draw_colored_polygon(PackedVector2Array([Vector2(x, D.position.y + 13), Vector2(x + 7, D.position.y + 17.5), Vector2(x, D.position.y + 22)]), Color(0.5, 1.0, 0.45))
@@ -7576,7 +7589,7 @@ func _draw_banner_editor(origin: Vector2, w: float) -> void:
 	# UI-11 (2026-10-30): bigger click targets, 24x20 with 23 px rows.
 	var sw := 24.0
 	var sh := 20.0
-	var lx := 70.0     # the row labels' column
+	var lx := 94.0     # the row labels' column (BACKGROUND needs it)
 	var per_row := maxi(int((w - lx) / (sw + 2.0)), 6)
 	var rows := [["BACKGROUND", "banner_bg", Stats.BANNER_BACKGROUNDS.size()], ["EMBLEM", "banner_emblem", Stats.BANNER_EMBLEMS.size()],
 		["FRAME", "banner_frame", Stats.BANNER_FRAMES.size()]]
