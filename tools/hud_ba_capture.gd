@@ -28,7 +28,7 @@ func run() -> void:
 	for i in 240:
 		await process_frame
 	await RenderingServer.frame_post_draw
-	var vp := root.get_viewport().get_visible_rect().size
+	var vp := Vector2(DisplayServer.window_get_size())
 	root.get_viewport().get_texture().get_image().save_png("%s/%s_%dx%d.png" % [out, tag, int(vp.x), int(vp.y)])
 	print("BA saved ", tag)
 	quit(0)

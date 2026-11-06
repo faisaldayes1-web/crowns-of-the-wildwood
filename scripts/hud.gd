@@ -3951,16 +3951,16 @@ func _draw_player_panel(p) -> void:
 	if k < 1.0:
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
 	var panel := Rect2(Vector2(116, H - 100), Vector2(430, 66))
-	pane_arc = pane and not touch_ui and _st()
+	pane_arc = pane and not touch_ui   # (not gated on _st(): the live pass needs the same positions as the baked one)
 	pane_mirror = pane_arc and p.local_index % 2 == 1
 	if pane_arc:
-		var plate_x := 300.0 if stacked else 350.0   # (stacked = two side-by-side panes, 620 units across)
+		var plate_x := 338.0 if stacked else 350.0   # (stacked = two side-by-side panes, 620 units across)
 		panel.position.x = W - plate_x - 276.0 if pane_mirror else plate_x
-		var plate := Rect2(panel.position + Vector2(-8, -30), Vector2(292, 100))
-		_skill_bar_b(plate, 16)
-	bar_b = not touch_ui and not pane and _st()
-	if bar_b:
-		_skill_bar_b(Rect2(Vector2(40, H - 128), Vector2(570.0 + 540.0 + 16.0 - 40.0, 112)))
+		if _st():
+			_skill_bar_b(Rect2(panel.position + Vector2(-8, -30), Vector2(284, 100)), 16)
+	bar_b = not touch_ui and not pane
+	if bar_b and _st():
+		_skill_bar_b(Rect2(Vector2(40, H - 128), Vector2(440.0 + 540.0 + 16.0 - 40.0, 112)))
 	_status_panel(p, panel)
 	if touch_ui:
 		bar_b = false
@@ -4009,7 +4009,7 @@ func _draw_player_panel(p) -> void:
 	# Visual pass 2026-11-04: the strip as near the screen's centre as the
 	# status panel allows (it ended about x 400; the strip was at W/2-200,
 	# hard by the map/menu keys), and the hat move just right of it.
-	var sx := 570.0 if bar_b else maxf(W / 2.0 - 270.0, 418.0)
+	var sx := 440.0 if bar_b else maxf(W / 2.0 - 270.0, 418.0)
 	_ability_strip(p, Rect2(Vector2(sx, H - 142), Vector2(540, 126)))
 	if _lv():
 		if game.economy:
@@ -4566,7 +4566,7 @@ func _pane_arc_slots(p, W: float, H: float) -> void:
 	## Pick A: the moves on a quarter arc round the portrait in the pane's
 	## outer bottom corner, first move straight above it, last to its side.
 	var c := Vector2(80.0, H - 84.0)
-	var r := 170.0 if _stacked() else 224.0
+	var r := 208.0 if _stacked() else 224.0
 	var n := 7 if p.can_block() else 6
 	var pts := []
 	for i in n:
