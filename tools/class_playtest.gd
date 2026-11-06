@@ -116,7 +116,7 @@ func run() -> void:
 	p.aim_mode = "mouse"
 	Engine.time_scale = speed
 	var roles := [Stats.Role.KNIGHT, Stats.Role.RANGER, Stats.Role.MAGE, Stats.Role.HEALER, Stats.Role.ENGINEER, Stats.Role.ROGUE]
-	var slice: float = (Stats.MATCH_TIME + 40.0) / roles.size()
+	var slice := 100.0   # seconds of match per class: all six are played well before a rout ends
 	var role_i := -1
 	var next_shot := 5.0
 	var next_log := 0.0
@@ -157,16 +157,20 @@ func run() -> void:
 			to.y = 0.0
 			var dist := to.length()
 			if dist > reach * 0.8:
-				want_dir = to.normalized()
+				var leg: Vector3 = game.route_point(p.global_position, foe.global_position)
+				want_dir = Vector3(leg.x - p.global_position.x, 0, leg.z - p.global_position.z).normalized()
 			attack = dist < reach * 1.6
 			var cam: Camera3D = game.camera_for(p)
 			game.mouse_override = cam.unproject_position(foe.global_position + Vector3(0, 1.0, 0))
 			p.aim_mode = "mouse"
 		else:
 			var goal: Vector3 = game.thrones[1 - p.team]
-			var to2: Vector3 = goal - p.global_position
-			to2.y = 0.0
+			var leg2: Vector3 = game.route_point(p.global_position, goal)
+			var to2 := Vector3(leg2.x - p.global_position.x, 0, leg2.z - p.global_position.z)
 			want_dir = to2.normalized()
+		if stuck_for > 1.2 and want_dir.length() > 0.5:
+			# pushing straight at a round collider: a person would slide round it
+			want_dir = want_dir.rotated(Vector3.UP, PI / 2.0 * (1.0 if int(t / 3.0) % 2 == 0 else -1.0))
 		_move(want_dir)
 		_lmb(attack)
 		ability_clock += 1.0 / 60.0 * speed
