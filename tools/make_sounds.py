@@ -196,6 +196,13 @@ def sounds():
                      bandpass(noise(n), 3000, 9000) * expdecay(n, 0.15) * 1.2, chime(1760, 0.4, 0.3) * 0.5)
     n = int(SR * 0.3)
     s["blink"] = mix(sine(np.linspace(300, 2400, n), n) * env(n, 0.005, 0.25, 0.0, 0.04) * 0.5, bandpass(noise(n), 1500, 7000) * env(n, 0.01, 0.2, 0.0, 0.05))
+    # Smoke bomb: a soft low poof and a hiss, nothing like the Blink zip.
+    n = int(SR * 0.5)
+    s["smoke"] = mix(lowpass(noise(n), np.linspace(1800, 350, n)) * env(n, 0.01, 0.35, 0.0, 0.14) * 2.2, thump(70, 0.22, 0.07) * 0.9)
+    # Nature magic: a quick leafy rustle with a bright wooden pluck.
+    n = int(SR * 0.4)
+    s["leaf"] = mix(bandpass(noise(n), 2500, 8000) * env(n, 0.02, 0.2, 0.0, 0.12) * 1.1,
+                    sine(np.linspace(700, 520, n), n) * expdecay(n, 0.06) * 0.5, chime(988, 0.3, 0.2) * 0.3)
     # Healing: soft rising thirds; the blessing is a chord that swells.
     s["heal"] = seq(chime(659, 0.35, 0.3) * 0.6, chime(880, 0.45, 0.3) * 0.6, gap=-0.25)
     s["blessing"] = mix(chime(523, 1.0, 0.4), at(chime(659, 0.9, 0.4), 0.08, 1.0), at(chime(784, 0.8, 0.4), 0.16, 1.0), at(chime(1046, 0.7, 0.4), 0.24, 1.0))

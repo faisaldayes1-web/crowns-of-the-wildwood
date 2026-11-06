@@ -502,7 +502,7 @@ func _burst() -> void:
 			game.graveyard.splash(team, global_position, splash, damage, owner_unit)
 		var ground := Vector3(global_position.x, 0.0, global_position.z)
 		Fx.of(game).blast(global_position, splash, effect.fx)
-		game.sfx.play("explosion" if fire and splash > 2.5 else ("frost" if frost else "bolt_hit"), global_position, 0.0 if splash > 2.5 else -5.0, 0.12)
+		game.sfx.play("explosion" if fire and splash > 2.5 else ("frost" if frost else ("leaf" if effect.get("fx", "") == "nature" else "bolt_hit")), global_position, 0.0 if splash > 2.5 else -5.0, 0.12)
 		# The burst itself is drawn by Fx.blast above; the light and shake stay.
 		if fire:
 			game.spawn_flash(ground, Color(1.0, 0.6, 0.2), 6.0, 0.4)

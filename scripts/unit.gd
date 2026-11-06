@@ -1365,8 +1365,8 @@ func use_ability(i: int, dir: Vector3) -> void:
 	facing = dir
 	blocking = false
 	var ability_sound := {"bash": "swing_heavy", "guard": "block_up", "volley": "volley", "trap": "trap_set",
-		"fireball": "frost" if a.get("frost", false) else "fireball", "blink": "blink", "blessing": "blessing", "smite": "smite",
-		"shot": "bow", "cleave": "fireball" if a.get("fire", false) else "swing_heavy", "smoke": "blink", "curse": "curse", "bubble": "blessing"}
+		"fireball": "frost" if a.get("frost", false) else ("leaf" if a.get("nature", false) else "fireball"), "blink": "blink", "blessing": "blessing", "smite": "smite",
+		"shot": "bow", "cleave": "fireball" if a.get("fire", false) else "swing_heavy", "smoke": "smoke", "curse": "curse", "bubble": "blessing"}
 	if ability_sound.has(a.kind):
 		game.sfx.play(ability_sound[a.kind], global_position, -1.0, 0.08)
 	rotation.y = atan2(-facing.x, -facing.z)
