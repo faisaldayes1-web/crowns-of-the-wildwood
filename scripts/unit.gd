@@ -792,6 +792,9 @@ func _refresh_overhead() -> void:
 		if player_ring_mat:
 			player_ring_mat.albedo_color = game.player_color(local_index)
 	elif is_player:
+		label.render_priority = 125   # over the foliage cover pass (101)
+		label.outline_render_priority = 124
+		label.no_depth_test = true   # a pine top cut "YOU · Elf" to "..lf" (1:1 review); the plate already ignores depth
 		label.modulate = Color(1, 1, 0.6)
 		if player_ring_mat:
 			player_ring_mat.albedo_color = game.player_color(maxi(local_index, 0))
@@ -831,7 +834,7 @@ func _name_plate() -> void:
 		label.font_size = 40   # (a touch larger than the bots' tags: "Elf" read "Ef" at 720p)
 		name_plate = MeshInstance3D.new()
 		name_plate.mesh = QuadMesh.new()
-		name_plate.material_override = _overhead_mat(Color(0.05, 0.04, 0.03, 0.72), 3)
+		name_plate.material_override = _overhead_mat(Color(0.05, 0.04, 0.03, 0.72), 123)
 		name_plate.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		overhead.add_child(name_plate)
 	var font: Font = label.font if label.font else ThemeDB.fallback_font

@@ -3044,6 +3044,8 @@ func _start_match(team: int) -> void:
 		chat_system("%s attacks, %s and %s for abilities, %s dodges, %s grabs, %s for perks, hold %s for the scoreboard." % [
 			pad_label("attack", k), pad_label("ability_1", k), pad_label("ability_2", k), pad_label("dodge", k), pad_label("interact", k), pad_label("rank_menu", k), pad_label("scoreboard", k)])
 	else:
+		if _new_player():
+			chat_system("GOAL: steal the enemy crown and carry it to your throne. Two captures win. First, pick a class on a glowing station.")
 		chat_system("Click to attack, Q and E for abilities, Space to dodge, %s for perks, hold %s for the scoreboard, %s to chat." % [
 			key_label("rank_menu"), key_label("scoreboard"), key_label("chat")])
 	if prep_left > 0.0:
@@ -3061,6 +3063,11 @@ func objective():
 func objective_status(my_team: int) -> Dictionary:
 	var o = objective()
 	return o.status(my_team) if o else {}
+
+
+func _new_player() -> bool:
+	## A first-time account: the opening match spells out the goal and the class pick.
+	return not demo and account_level() <= 1
 
 
 func in_prep() -> bool:
@@ -3971,7 +3978,10 @@ func unlocked() -> bool:
 
 
 func night() -> bool:
-	return map_variant == 1 and (unlocked() or "--debug-night" in OS.get_cmdline_user_args())
+	## The Moonlit Wildwood is "a night map": always night, whatever the
+	## account level or clock. (Picking it is gated by unlocked() in the menu;
+	## a joiner or a saved profile that lands on it still gets the night.)
+	return map_variant == 1
 
 
 func _bank_match_xp(winner: int) -> void:
