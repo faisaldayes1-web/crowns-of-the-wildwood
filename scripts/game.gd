@@ -231,6 +231,7 @@ const FPS_CAPS := [0, 30, 60, 120, 144, 240]
 var render_scale := 1.0        # Settings: 3D resolution scale (1.0 = native; the UI always stays sharp)
 const RENDER_SCALES := [1.0, 0.85, 0.75, 0.5]
 const GFX_NAMES := ["LOW", "MEDIUM", "HIGH", "ULTRA"]
+var _rumble_last := {}        # per pad: when the current buzz ends and how strong it is
 var rumble_on := true          # gamepad vibration on hits, deaths and captures
 var pad_style := "auto"        # gamepad button names: "auto" (from the pad's name), "xbox", "ps" or "switch"
 var pad_active := false        # player 1's last press came from a gamepad (labels follow it)
@@ -5193,7 +5194,18 @@ func rumble(u, weak: float, strong: float, duration: float) -> void:
 func rumble_pad(device: int, weak: float, strong: float, duration: float) -> void:
 	if not rumble_on or device < 0 or not Input.get_connected_joypads().has(device):
 		return
-	Input.start_joy_vibration(device, clampf(weak, 0.0, 1.0), clampf(strong, 0.0, 1.0), duration)
+	# Capped so stacked hits never buzz the pad solid: strengths and length are
+	# limited, and a buzz inside the last one's window only replaces it if stronger.
+	weak = clampf(weak, 0.0, 0.7)
+	strong = clampf(strong, 0.0, 0.8)
+	duration = minf(duration, 0.35)
+	var now := Time.get_ticks_msec() / 1000.0
+	var level := weak + strong
+	var last: Vector2 = _rumble_last.get(device, Vector2.ZERO)   # (ends at, strength)
+	if now < last.x and level <= last.y:
+		return
+	_rumble_last[device] = Vector2(now + duration, level)
+	Input.start_joy_vibration(device, weak, strong, duration)
 
 
 func _key_name(ev: InputEventKey) -> String:

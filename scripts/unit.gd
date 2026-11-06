@@ -60,6 +60,8 @@ const HIT_CONFIRM_RANGE := 4.0   # your hits from further than this play a tick 
 const ATTACK_BUFFER := 0.2         # seconds a tapped attack waits for the swing cooldown
 var attack_buffer := 0.0
 var hit_confirms := 0
+var hit_feedbacks := 0          # every landed basic hit, melee or ranged, that played its feedback
+var last_feedback := {}         # {"hitstop", "spark", "sound", "rumble"} of the latest one (read by tests)
 var deny_at := -10.0       # when the last "still cooling down" click played
 var deny_cues := 0         # how many played (for the tests)      # ranged hit confirms played (for the tests)
 const INPUT_BUFFER := 0.25         # seconds an early skill / dodge press waits for its cooldown
@@ -1054,15 +1056,37 @@ func vigor_speed() -> float:
 # --- Damage ------------------------------------------------------------------
 
 func hit_confirm(target, amount: int) -> void:
-	## Your shot or spell landed out of earshot: a crisp tick, a white mark on
-	## whoever you hit, the aim ring pulsing and a light pad tap. Looks only.
+	## Your shot or spell landed: the same beat a blade gets. A short hitstop, a
+	## white spark on whoever you hit, a crisp tick, the aim ring pulsing and a
+	## light pad tap. Looks only.
 	hit_confirms += 1
+	var stop := 0.03 if amount < 2 else 0.045
+	_hitstop(stop)
 	game.sfx.ui("hit_tick", -6.0, 1.0 if amount < 2 else 0.85)
 	Fx.of(game).flare(target.global_position + Vector3(0, 1.2, 0), Color(1.0, 1.0, 0.95, 0.8), 0.9 if amount < 2 else 1.3, 0.12)
 	if aim_ring and aim_ring.visible:
 		aim_ring.scale = Vector3.ONE * 1.5
 		aim_ring.create_tween().tween_property(aim_ring, "scale", Vector3.ONE, 0.14).set_ease(Tween.EASE_OUT)
 	game.rumble(self, 0.18, 0.0, 0.05)
+	_note_feedback(stop, true, true, true)
+
+
+func melee_feedback(swing_dir: Vector3) -> void:
+	## A swing connected: hitstop (the Rogue's twin daggers fire too fast for a
+	## long freeze), flesh sound, shake and a pad thump. The spark is the victim's.
+	var stop := 0.035 if role == Stats.Role.ROGUE else 0.06
+	_hitstop(stop)
+	game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
+	if is_player:
+		game.shake(0.12)
+		game.kick_cam(swing_dir, 0.12)   # the view leans into the blow
+		game.rumble(self, 0.35, 0.15, 0.1)
+	_note_feedback(stop, true, true, is_player)
+
+
+func _note_feedback(stop: float, spark: bool, sound: bool, rumbled: bool) -> void:
+	hit_feedbacks += 1
+	last_feedback = {"hitstop": stop, "spark": spark, "sound": sound, "rumble": rumbled}
 
 
 func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knock: float = 0.0, effect: Dictionary = {}) -> bool:
@@ -1150,7 +1174,7 @@ func take_damage(amount: int, attacker = null, from: Vector3 = Vector3.INF, knoc
 		attacker.gain_xp(Stats.XP_HIT * amount)
 		attacker.damage_dealt += amount
 		recent_hitters[attacker] = Time.get_ticks_msec() / 1000.0
-		if attacker.is_player and hearts > 0 and _flat_to(attacker.global_position).length() > HIT_CONFIRM_RANGE:
+		if attacker.is_player and hearts > 0 and (effect.get("ranged", false) or _flat_to(attacker.global_position).length() > HIT_CONFIRM_RANGE):
 			attacker.hit_confirm(self, amount)
 	game.spawn_popup(global_position + Vector3(0, 2.0, 0), "-%d" % amount, Color(1, 0.35, 0.3))
 	game.sfx.play("hurt", global_position, -4.0 if not is_player else 0.0, 0.15)
@@ -3403,12 +3427,7 @@ func _attack(dir: Vector3) -> void:
 	if game.graveyard:
 		landed = game.graveyard.melee(self, dir, s.range, s.damage) or landed   # the Moonlit graveyard's zombies
 	if landed:
-		_hitstop(0.06)
-		game.sfx.play("hit_flesh", global_position, 0.0, 0.15)
-		if is_player:
-			game.shake(0.12)
-			game.kick_cam(dir, 0.12)   # the view leans into the blow
-			game.rumble(self, 0.35, 0.15, 0.1)
+		melee_feedback(dir)
 	# Swings from the ground also chip away at the enemy door.
 	var vault = game.vaults[1 - team]
 	if vault.is_locked() and global_position.y < 1.0 and _flat_to(vault.lock_pos).length() < s.range + 0.6 \
