@@ -64,5 +64,8 @@ func _init() -> void:
 	check(src.contains("OS.is_debug_build() and arg.begins_with(\"--debug-xp=\")"), "--debug-xp is ignored outside a debug build")
 	check(FileAccess.get_file_as_string("res://scripts/hud.gd").contains("OS.is_debug_build() and \"--debug-unlock\""), "--debug-unlock is ignored outside a debug build")
 	game.free()
+	# Allow the audio server to retire the fixture's stopped title/click playback.
+	for i in 4:
+		await process_frame
 	print("steam ready test: %d failure(s)" % fails)
 	quit(1 if fails > 0 else 0)

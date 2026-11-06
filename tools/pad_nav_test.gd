@@ -346,99 +346,64 @@ func _init() -> void:
 	await frames(3)
 	check(m.screen == "title", "Map select: B goes back to the title")
 
-	# --- Options from the title ----------------------------------------------
+	# --- Dedicated Options: actual pad/key events and native focus ----------
 	await a_on("menu:settings")
-	check(game.menu_open, "title OPTIONS opens the options board")
-	var tabs: Array = game.menu_tabs()
-	for i in tabs.size():
-		await frames(3)
-		await record("options tab %d" % game.menu_tab, "?", "?")
+	await frames(4)
+	check(game.menu_open and game.options_screen.active, "title OPTIONS opens dedicated options")
+	var options = game.options_screen
+	for i in 5:
 		await jb(JOY_BUTTON_RIGHT_SHOULDER)
-	check(game.menu_tab == tabs[0], "RB cycles every options tab and wraps")
+		check(options.category == (i + 1) % 5, "RB cycles options categories")
 	await jb(JOY_BUTTON_B)
-	await frames(3)
-	check(not game.menu_open, "B closes the options board")
-
-	# --- Options controls: toggles, sliders, rebinding, RESET ----------------
+	check(not game.menu_open, "B returns from options to title")
 	await a_on("menu:settings")
-	game.menu_tab = 5
-	await frames(3)
+	await frames(4)
+	options.select_tab(4)
+	await frames()
 	var shake: bool = game.screen_shake
-	if await a_on("toggle:shake"):
-		check(game.screen_shake != shake, "Options: A flips a toggle (screen shake)")
-	var vs: bool = game.vsync_on
-	if await a_on("toggle:vsync"):
-		check(game.vsync_on != vs, "Options: A flips VSync")
-	var wm: String = game.window_mode
-	if await a_on("toggle:fullscreen"):
-		check(game.window_mode != wm, "Options: A steps Display")
-	if await a_on("toggle:fullscreen"):
-		pass
-	if await a_on("toggle:fullscreen"):
-		pass
-	var gq: int = game.gfx_quality
-	if await a_on("toggle:gfx_%d" % ((gq + 1) % 4)):
-		check(game.gfx_quality == (gq + 1) % 4, "Options: A picks a Graphics level")
-	var tab_now: int = game.menu_tab
-	var sound: float = game.sfx.sound_volume
-	if await goto("slider:sound"):
-		await jb(JOY_BUTTON_DPAD_LEFT)
-		check(game.sfx.sound_volume < sound - 0.01, "Options: D-pad left on the sound slider turns it down (%.2f -> %.2f)" % [sound, game.sfx.sound_volume])
-		sound = game.sfx.sound_volume
-		await jb(JOY_BUTTON_DPAD_RIGHT)
-		check(game.sfx.sound_volume > sound + 0.01, "Options: D-pad right on the sound slider turns it up")
-	check(game.menu_tab == tab_now, "Options: the slider keys don't switch tabs")
-	game.menu_tab = 6
-	await frames(3)
-	var music: float = game.sfx.music_volume
-	if await goto("slider:music"):
-		await jb(JOY_BUTTON_DPAD_LEFT)
-		check(game.sfx.music_volume < music - 0.01, "Audio: D-pad left on the music slider turns it down")
-	# Controls: rebind Move up to keyboard A (also menu_left): the tab stays (#85).
-	game.menu_tab = 4
-	hud.controls_group = 0
-	await frames(3)
-	await record("options controls, group 0", "?", "?")
-	for g in hud.group_buttons.size():
-		await a_on("group:%d" % g)
-		check(hud.controls_group == g, "Controls: A opens action group %d" % g)
-		await record("options controls, group %d" % g, true, "?")
-	await a_on("group:1")
-	check(await a_on("bind:move_up"), "Controls: the cursor reaches the Move up row")
-	check(game.rebinding == "move_up", "Controls: A on a row waits for a key")
-	await key(KEY_A)
-	await frames(3)
-	check(game.rebinding == "", "Controls: keyboard A binds Move up")
-	check(game.binding_text("move_up", "key").contains("A"), "Controls: Move up shows A (%s)" % game.binding_text("move_up", "key"))
-	check(game.menu_tab == 4, "Controls: binding A (a tab key) keeps the Controls tab (tab %d)" % game.menu_tab)
-	# The same with a pad button that is also RB (menu_right).
-	game.menu_tab = 4
-	await a_on("group:3")
-	check(await a_on("bind:interact"), "Controls: the cursor reaches the Interact row")
-	check(game.rebinding == "interact", "Controls: A on Interact waits for a button")
-	await jb(JOY_BUTTON_RIGHT_SHOULDER)
-	await frames(3)
-	check(game.rebinding == "", "Controls: RB binds Interact")
-	check(game.menu_tab == 4, "Controls: binding RB (a tab button) keeps the Controls tab (tab %d)" % game.menu_tab)
-	# Binding the pad A itself must not click whatever is under the cursor.
-	var at_row: Vector2 = game.cursor
-	game.menu_tab = 4
-	await a_on("group:1")
-	check(await a_on("bind:dodge"), "Controls: the cursor reaches the Dodge row")
-	at_row = game.cursor
-	check(game.rebinding == "dodge", "Controls: A on Dodge waits for a button")
 	await jb(JOY_BUTTON_A)
-	await frames(3)
-	check(game.rebinding == "" and game.pad_label("dodge", "xbox") == "A", "Controls: pad A binds Dodge (%s)" % game.pad_label("dodge", "xbox"))
-	check(game.menu_tab == 4 and game.cursor == at_row, "Controls: that A press stays on the row (tab %d, cursor moved %s)" % [game.menu_tab, game.cursor != at_row])
-	game.menu_tab = 4
-	await frames(3)
-	check(await a_on("reset"), "Controls: the cursor reaches RESET")
-	await frames(3)
-	check(game.binding_text("move_up", "key").contains("W") and game.pad_label("dodge", "xbox") == "B", "Controls: RESET puts the defaults back")
+	check(game.screen_shake != shake, "pad A changes focused screen-shake row")
+	await jb(JOY_BUTTON_DPAD_DOWN)
+	check(root.gui_get_focus_owner() == options.row_controls.numbers, "D-pad down focuses next setting")
+	options.select_tab(1)
+	await frames()
+	var wm: String = game.window_mode
+	await jb(JOY_BUTTON_DPAD_RIGHT)
+	check(options.draft.window_mode != wm and game.window_mode == wm, "D-pad stages display mode without applying it")
+	options.revert_video()
+	options.select_tab(2)
+	await frames()
+	options.row_controls.sound.grab_focus()
+	var sound: float = game.sfx.sound_volume
+	await jb(JOY_BUTTON_DPAD_LEFT)
+	check(is_equal_approx(game.sfx.sound_volume, sound - 0.01), "D-pad left reduces sound by 1%")
+	await jb(JOY_BUTTON_DPAD_RIGHT)
+	check(is_equal_approx(game.sfx.sound_volume, sound), "D-pad right raises sound by 1% without changing tab")
+	check(options.category == 2, "slider input keeps Audio selected")
+	options.controls_group = 0
+	options.select_tab(3)
+	await frames()
+	options.row_controls.move_up.grab_focus()
+	await jb(JOY_BUTTON_A)
+	check(game.rebinding == "move_up", "pad A starts keyboard binding capture")
+	await key(KEY_A)
+	check(game.binding_text("move_up", "key").contains("A") and options.category == 3, "binding keyboard A keeps Controls open")
+	options.controls_group = 1
+	options.select_tab(3)
+	await frames()
+	options.row_controls.interact.get_parent().get_child(1).grab_focus()
+	await jb(JOY_BUTTON_A)
+	check(game.rebinding == "interact", "pad A on Pad column waits for a pad binding")
+	await jb(JOY_BUTTON_RIGHT_SHOULDER)
+	check(game.rebinding == "" and options.category == 3, "binding RB does not switch the options tab")
+	options.row_controls.dodge.get_parent().get_child(1).grab_focus()
+	await jb(JOY_BUTTON_A)
+	await jb(JOY_BUTTON_A)
+	check(game.pad_label("dodge", "xbox") == "A" and options.category == 3 and options.binding_action == "", "binding A completes capture without activating another row")
+	options.reset_category()
+	check(game.binding_text("move_up", "key").contains("W") and game.pad_label("dodge", "xbox") == "B", "Reset restores keyboard and pad defaults")
 	await jb(JOY_BUTTON_B)
-	await frames(3)
-	check(not game.menu_open, "B closes the options board")
+	check(not game.menu_open, "B closes dedicated options")
 
 	# --- In the match ----------------------------------------------------------
 	m.start()
@@ -453,12 +418,16 @@ func _init() -> void:
 	check(game.menu_open, "Start pauses")
 	await show_cursor()
 	var mtabs: Array = game.menu_tabs()
-	var tab0: int = game.menu_tab
-	for i in mtabs.size():
+	for target in mtabs:
+		game.menu_tab = 0
 		await frames(3)
-		await record("pause tab %d" % game.menu_tab, "?", "?")
-		await jb(JOY_BUTTON_RIGHT_SHOULDER)
-	check(game.menu_tab == tab0, "RB cycles every pause tab and wraps")
+		check(await a_on("tab:%d" % target), "pad reaches pause tab %d" % target)
+		check(game.menu_tab == target, "pad opens pause tab %d" % target)
+		if options.active:
+			check(options.category in [0, 3], "pause settings/controls opens its dedicated category")
+			await jb(JOY_BUTTON_B)
+			check(game.menu_open and game.menu_tab == 0, "Back from options returns to pause map")
+	check(game.menu_open, "pause and dedicated options remain navigable")
 	game.menu_tab = 0
 	await frames(3)
 	var z: float = hud.map_zoom

@@ -100,11 +100,11 @@ func _init() -> void:
 				continue
 			var before := [game.hero_body, game.hero_skin, game.hero_face, game.hero_eye, game.hero_mark, game.hero_hair, game.hero_hair_style,
 				game.hero_trim, game.hero_look, game.banner_bg, game.banner_emblem, game.banner_frame, m.preview_team, m.preview_role, m.preview_rank, m.char_tab,
-				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0]
+				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0, m.armor_cat, m.armor_page]
 			await tap(b[0])
 			var after := [game.hero_body, game.hero_skin, game.hero_face, game.hero_eye, game.hero_mark, game.hero_hair, game.hero_hair_style,
 				game.hero_trim, game.hero_look, game.banner_bg, game.banner_emblem, game.banner_frame, m.preview_team, m.preview_role, m.preview_rank, m.char_tab,
-				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0]
+				game.hero_outfit, game.hero_hat, game.hero_cape, game.hero_weapon, m.stage.hero_turn_goal if m.stage else 0.0, m.armor_cat, m.armor_page]
 			tried += 1
 			if before == after and not _already(b, before):
 				dead.append("%s %s" % [b[1], str(b[2])])
@@ -182,45 +182,48 @@ func _init() -> void:
 	check(m.exit_armed > 0.0, "EXIT asks to be clicked again (and does not quit on one click)")
 	m.exit_armed = 0.0
 
-	# --- OPTIONS -------------------------------------------------------------
+	# --- OPTIONS: dedicated native screen -----------------------------------
 	await tap(ids.get("settings", Rect2()))
-	check(game.menu_open and game.menu_tab == 5, "SETTINGS opens OPTIONS on its Settings tab")
-	await frames()
-	check(hud.tab_ids == [5, 4, 1, 6], "OPTIONS has Settings, Controls, Classes and Audio tabs (%s)" % str(hud.tab_ids))
-	for i in hud.tab_ids.size():
-		var want: int = hud.tab_ids[i]
-		await tap(hud.tab_buttons[i])
-		check(game.menu_tab == want, "the %s tab opens" % hud.TABS[want])
-	game.menu_tab = 5
-	await frames()
+	await frames(4)
+	check(game.menu_open and game.options_screen.active, "SETTINGS opens dedicated OPTIONS")
+	var options = game.options_screen
+	check(options.TABS == ["Gameplay", "Video", "Audio", "Controls", "Accessibility"], "OPTIONS has exactly the five requested categories")
+	for i in options.tabs.size():
+		await native_tap(options.tabs[i])
+		check(options.category == i, "the %s tab opens by mouse" % options.TABS[i])
 	await _settings_page("OPTIONS")
-	game.menu_tab = 6
+	options.select_tab(2)
 	await frames()
-	var s0: Rect2 = find(hud.volume_sliders, "sound")
-	await tap(Rect2(s0.position + Vector2(s0.size.x * 0.75 - 2, 0), Vector2(4, s0.size.y)))
-	check(absf(game.sfx.sound_volume - 0.75) < 0.05, "Audio tab: the sound slider sets the volume (%.2f)" % game.sfx.sound_volume)
-	check(find(hud.toggle_buttons, "test_sound").size.x > 0.0, "Audio tab: there is a test-sound button")
-	await tap(find(hud.toggle_buttons, "test_sound"))
+	await native_tap(options.row_controls.test)
 	var heard := false
 	for pl in game.sfx.pool_ui:
-		if pl.playing and pl.stream != null and pl.stream == game.sfx.streams.get("ui_open"):
+		if pl.playing and pl.stream == game.sfx.streams.get("ui_open"):
 			heard = true
-	check(heard, "Audio tab: the test-sound button plays a sound (AUD-01: its clip did not exist)")
-	game.menu_tab = 4
-	await frames()
+	check(heard, "Audio test sound plays a real clip")
 	await _controls_page()
+	options.close_screen()
+	await frames()
+	check(not game.menu_open, "Back closes title OPTIONS")
+	# The legacy class viewer remains a separately owned, read-only page.
+	game.menu_open = true
 	game.menu_tab = 1
 	await frames()
-	check(hud.class_buttons.is_empty(), "Classes tab at the title shows the classes without SELECT buttons")
+	check(hud.class_buttons.is_empty(), "Classes viewer at the title still has no SELECT buttons")
 	await tap(hud.close_button)
-	check(not game.menu_open, "the X closes OPTIONS")
+	check(not game.menu_open, "the class viewer closes normally")
 
 	# --- In a match: the PAUSED board --------------------------------------
 	m._press("play", null)
 	m._press("team_size", 1)
 	m._press("to_lobby", null)
 	m.start()
-	await frames(10)
+	var match_deadline := Time.get_ticks_msec() + 120000
+	while not game.playing or is_instance_valid(game.loading_layer):
+		if Time.get_ticks_msec() > match_deadline:
+			check(false, "match loading art retires before paused mouse checks")
+			quit(1)
+			return
+		await frames(1)
 	check(game.playing, "a 1v1 match starts")
 	var p = game.player
 	game.menu_open = true
@@ -232,6 +235,9 @@ func _init() -> void:
 		var want: int = hud.tab_ids[i]
 		await tap(hud.tab_buttons[i])
 		check(game.menu_tab == want, "pause: the %s tab opens" % hud.TABS[want])
+		if game.options_screen.active:
+			game.options_screen.close_screen()
+			await frames()
 	game.menu_tab = 0
 	await frames()
 	var z0: float = hud.map_zoom
@@ -276,9 +282,8 @@ func _init() -> void:
 	game.menu_tab = 5
 	await frames()
 	await _settings_page("PAUSED")
-	game.menu_tab = 4
-	await frames()
 	await _controls_page()
+	game.options_screen.close_screen()
 	game.menu_tab = 0
 	await frames()
 	await tap(hud.quit_button)
@@ -440,6 +445,7 @@ func _init() -> void:
 func _already(b: Array, before: Array) -> bool:
 	## A swatch that is already the current choice changes nothing.
 	match b[1]:
+		"armor_cat": return int(before[-2]) == int(b[2])
 		"body": return game.hero_body == int(b[2])
 		"skin": return game.hero_skin == int(b[2])
 		"face": return game.hero_face == int(b[2])
@@ -457,79 +463,89 @@ func _already(b: Array, before: Array) -> bool:
 	return false
 
 
+func native_tap(control: Control, fraction := 0.5) -> void:
+	if game.options_screen.rows.is_ancestor_of(control):
+		game.options_screen.scroll.ensure_control_visible(control)
+	await frames(3)
+	var rect := control.get_global_rect()
+	var at := Vector2(rect.position.x + rect.size.x * fraction, rect.get_center().y)
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.position = at
+	ev.global_position = at
+	ev.button_mask = MOUSE_BUTTON_MASK_LEFT
+	ev.pressed = true
+	# These coordinates are in the control's viewport, independent of the
+	# physical window/work-area size (including the headless display).
+	root.push_input(ev, true)
+	await frames(2)
+	ev = ev.duplicate()
+	ev.pressed = false
+	ev.button_mask = 0
+	root.push_input(ev, true)
+	await frames(2)
+
+
 func _settings_page(where: String) -> void:
-	for key in ["shake", "numbers", "fps", "chat", "rosters", "fullscreen", "rumble"]:
-		var r: Rect2 = find(hud.toggle_buttons, key)
-		check(r.size.x > 0.0, "%s settings: the %s switch is drawn" % [where, key])
-		var names := {"shake": "screen_shake", "numbers": "damage_numbers", "fps": "show_fps", "chat": "chat_visible", "rosters": "rosters_visible", "fullscreen": "fullscreen", "rumble": "rumble_on"}
-		var saved_key := {"shake": "screen_shake", "numbers": "damage_numbers", "fps": "show_fps", "chat": "chat_visible", "rosters": "rosters_shown", "fullscreen": "fullscreen", "rumble": "rumble"}
-		var was: bool = game.get(names[key])
-		await tap(r)
-		check(game.get(names[key]) != was and saved("settings", saved_key[key]) == game.get(names[key]), "%s settings: %s flips and is saved" % [where, key])
-		await tap(find(hud.toggle_buttons, key))
-	for q in game.GFX_NAMES.size():
-		await tap(find(hud.toggle_buttons, "gfx_%d" % q))
-		check(game.gfx_quality == q and saved("settings", "gfx_quality") == q, "%s settings: graphics %s is picked and saved" % [where, game.GFX_NAMES[q]])
-	for d in Stats.BOT_DIFFICULTIES:
-		await tap(find(hud.difficulty_buttons, d))
-		check(game.bot_difficulty == d and saved("settings", "bot_difficulty") == d, "%s settings: bots %s is picked and saved" % [where, d])
-	game.bot_difficulty = "Normal"
-	var style0: String = game.pad_style
-	await tap(find(hud.toggle_buttons, "pad_style"))
-	check(game.pad_style != style0 and saved("settings", "pad_style") == game.pad_style, "%s settings: button names steps forward (%s)" % [where, game.pad_style])
-	await tap(find(hud.toggle_buttons, "pad_style_prev"))
-	check(game.pad_style == style0, "%s settings: the left arrow steps back" % where)
-	# Split Screen: two couch players side by side or stacked.
+	var options = game.options_screen
+	for item in [[0, "chat", "chat_visible", "chat_visible"], [0, "rosters", "rosters_visible", "rosters_shown"],
+		[4, "shake", "screen_shake", "screen_shake"], [4, "numbers", "damage_numbers", "damage_numbers"],
+		[4, "fps", "show_fps", "show_fps"], [4, "rumble", "rumble_on", "rumble"]]:
+		options.select_tab(item[0])
+		await frames()
+		var was: bool = game.get(item[2])
+		await native_tap(options.row_controls[item[1]])
+		check(game.get(item[2]) != was and saved("settings", item[3]) == game.get(item[2]), "%s: %s changes and saves" % [where, item[1]])
+		await native_tap(options.row_controls[item[1]])
+	options.select_tab(0)
+	for i in 3:
+		await native_tap(options.row_controls.difficulty)
+		check(saved("settings", "bot_difficulty") == game.bot_difficulty, "%s: bot difficulty persists" % where)
 	for layout in ["horizontal", "vertical"]:
-		var r: Rect2 = find(hud.toggle_buttons, "split_" + layout)
-		check(r.size.x > 0.0, "%s settings: the split screen %s button is drawn" % [where, layout])
-		await tap(r)
-		check(game.split_layout == layout and saved("settings", "split_layout") == layout, "%s settings: split screen %s is picked and saved" % [where, layout])
-	for k in ["sound", "music"]:
-		var s: Rect2 = find(hud.volume_sliders, k)
-		await tap(Rect2(s.position + Vector2(s.size.x * 0.3 - 2, 0), Vector2(4, s.size.y)))
-		var v: float = game.sfx.sound_volume if k == "sound" else game.sfx.music_volume
-		check(absf(v - 0.3) < 0.05 and absf(float(saved("settings", k + "_volume")) - v) < 0.01, "%s settings: the %s slider sets %.2f and is saved" % [where, k, v])
-	# A held drag follows the pointer but writes the save once, on release
-	# (AUD-02: it rewrote the whole save every frame of the drag).
-	var sl: Rect2 = find(hud.volume_sliders, "music")
+		await native_tap(options.row_controls.split)
+		check(game.split_layout == layout and saved("settings", "split_layout") == layout, "%s: split layout %s persists" % [where, layout])
+	options.select_tab(1)
+	for q in 4:
+		options.draft.gfx_quality = q
+		options.draft.gfx_picked = true
+		options._update_footer()
+		await native_tap(options.apply_button)
+		check(options.preview_left > 0.0, "%s: quality %d awaits confirmation" % [where, q])
+		await native_tap(options.keep_button)
+		check(game.gfx_quality == q and saved("settings", "gfx_quality") == q, "%s: confirmed quality %d persists" % [where, q])
+	options.select_tab(2)
+	for key_name in ["master", "sound", "music"]:
+		await native_tap(options.row_controls[key_name], 0.3)
+		var value: float = game.sfx.get({"master": "master_volume", "sound": "sound_volume", "music": "music_volume"}[key_name])
+		check(absf(value - 0.3) < 0.06 and absf(float(saved("settings", key_name + "_volume")) - value) < 0.01, "%s: native %s slider responds and saves" % [where, key_name])
+	var slider: HSlider = options.row_controls.music
 	var before = saved("settings", "music_volume")
-	game.cursor_shown = true
-	game.cursor = sl.position + Vector2(sl.size.x * 0.8, sl.size.y / 2.0)
-	Input.action_press("ui_confirm")
-	await frames(3)
-	game.cursor = sl.position + Vector2(sl.size.x * 0.6, sl.size.y / 2.0)
-	await frames(3)
-	var held: float = game.sfx.music_volume
-	check(absf(held - 0.6) < 0.05, "%s settings: a held drag follows the pointer (%.2f)" % [where, held])
-	check(saved("settings", "music_volume") == before, "%s settings: nothing is saved while the slider is held" % where)
-	Input.action_release("ui_confirm")
-	await frames(3)
-	check(absf(float(saved("settings", "music_volume")) - held) < 0.01, "%s settings: releasing the slider saves %.2f" % [where, held])
-	game.cursor_shown = false
+	slider.drag_started.emit()
+	slider.value = 80
+	slider.value = 60
+	check(saved("settings", "music_volume") == before, "%s: active slider drag does not repeatedly write the save" % where)
+	slider.drag_ended.emit(true)
+	check(is_equal_approx(float(saved("settings", "music_volume")), 0.6), "%s: slider release persists the final value" % where)
 
 
 func _controls_page() -> void:
-	# POINTER joined the groups (hud.CONTROL_GROUPS): count them rather than a fixed 5.
-	check(hud.group_buttons.size() == hud.CONTROL_GROUPS.size() and hud.group_buttons.size() >= 6, "controls: one button per action group (%d)" % hud.group_buttons.size())
-	for i in hud.group_buttons.size():
-		await tap(hud.group_buttons[i][0])
-		check(hud.controls_group == i and hud.bind_buttons.size() > 0, "controls: group %d opens its bindings" % i)
-	# Ability Q lives in COMBAT (index 2 since POINTER was added); find its group by name.
-	for gi in hud.CONTROL_GROUPS.size():
-		if "ability_1" in hud.CONTROL_GROUPS[gi][2]:
-			hud.controls_group = gi
+	var options = game.options_screen
+	options.select_tab(3)
+	for group in 3:
+		options.controls_group = group
+		options.select_tab(3)
+		check(options.row_controls.size() > 1, "controls: group %d has binding rows" % group)
+	options.controls_group = 1
+	options.select_tab(3)
 	await frames()
-	var r: Rect2 = find(hud.bind_buttons, "ability_1")
-	await tap(r)
-	check(game.rebinding == "ability_1", "controls: clicking a row waits for a key")
-	await frames(2)
+	await native_tap(options.row_controls.ability_1)
+	check(game.rebinding == "ability_1", "controls: keyboard binding waits for a key")
 	var ev := InputEventKey.new()
 	ev.keycode = KEY_T
 	ev.physical_keycode = KEY_T
 	ev.pressed = true
-	game.menu_input(ev)
+	Input.parse_input_event(ev)
 	await frames()
-	check(game.rebinding == "" and game.binding_text("ability_1", "key") == "T", "controls: pressing T rebinds Ability Q (%s)" % game.binding_text("ability_1", "key"))
-	await tap(hud.reset_button)
-	check(game.binding_text("ability_1", "key") == "Q", "controls: RESET TO DEFAULT puts Q back")
+	check(game.rebinding == "" and game.binding_text("ability_1", "key") == "T", "controls: real T input rebinds Ability Q")
+	options.reset_category()
+	check(game.binding_text("ability_1", "key") == "Q", "controls: Reset restores Q and preserves the account")

@@ -37,7 +37,15 @@ func _init() -> void:
 	m._press("team_size", 1)
 	m._press("to_lobby", null)
 	m.start()
-	await frames(10)
+	var load_deadline := Time.get_ticks_msec() + 120000
+	while not game.world_ready or game._match_waiting or not game.playing or not game.warm_models_done or is_instance_valid(game.loading_layer):
+		if Time.get_ticks_msec() > load_deadline:
+			check(false, "match finishes loading before movement checks")
+			game.free()
+			await frames(4)
+			quit(1)
+			return
+		await frames(1)
 	var p = game.player
 	game.move_mode = "aim"
 	game.pad_active = false
@@ -73,5 +81,11 @@ func _init() -> void:
 	var cf := ConfigFile.new()
 	cf.load(cfg)
 	check(cf.get_value("settings", "move_mode", "") == "screen", "the movement pick is saved")
+	# Retire the fixture's menu/world coroutines and playback before quitting the tree.
+	current_scene = null
+	game.free()
+	var retire_at := Time.get_ticks_msec() + 300
+	while Time.get_ticks_msec() < retire_at:
+		await frames(1)
 	print("KBM MOVE TEST: %d failed" % fails)
 	quit(fails)

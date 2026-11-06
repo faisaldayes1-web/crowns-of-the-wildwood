@@ -61,4 +61,7 @@ func _init() -> void:
 	check(game.fullscreen, "fullscreen follows the saved window mode")
 	game.free()
 	print("settings restart test: %d failure(s)" % fails)
+	var retire_at := Time.get_ticks_msec() + 300
+	while Time.get_ticks_msec() < retire_at:
+		await process_frame
 	quit(1 if fails > 0 else 0)
