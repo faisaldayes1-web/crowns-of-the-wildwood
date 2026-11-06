@@ -1,0 +1,5 @@
+map 3 couch 1: FLOW game_over=true time_left=254 score=[0, 8] player_alive=true FLOW done shots=6 
+map 3 couch 2: FLOW game_over=true time_left=0 score=[0, 1] player_alive=true FLOW done shots=8 
+map 4 couch 1: FLOW game_over=true time_left=319 score=[0, 8] player_alive=true FLOW done shots=5 
+map 4 couch 2: FLOW game_over=true time_left=0 score=[0, 0] player_alive=true FLOW done shots=8 
+map 2 couch 2: FLOW game_over=true time_left=0 score=[1, 0] player_alive=true FLOW done shots=8 
