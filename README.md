@@ -1,6 +1,6 @@
 # Crowns of the Wildwood (work in progress)
 
-Elves vs Humans: steal the enemy monarch and carry them to your throne. First to 2 captures wins, or the higher score when the 10 minute clock runs out.
+Elves vs Humans: steal the enemy monarch and carry them to your throne. First to 8 captures wins, or the higher score when the 15 minute clock runs out (a rout runs about 12 minutes).
 Real low-poly models and textures (all CC0, see `assets/CREDITS.md`), with every rule and number in plain GDScript.
 
 **The look.** A bright cartoon tabletop: lime meadow in soft cells, pale flagstone paths with grass between the stones, warm sandstone castles with dark ink joints, five-petal flowers, cel-shaded light and ink outlines round everything (a full-screen depth pass, `assets/shaders/ink_outline.gdshader`; Forward+ only, so the outlines switch MSAA to FXAA). The textures are painted by `tools/make_textures.py`.

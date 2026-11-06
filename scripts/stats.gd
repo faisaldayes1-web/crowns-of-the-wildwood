@@ -404,7 +404,7 @@ const TURRET := {"hits": [8, 12, 16], "range": [7.0, 8.0, 9.0], "interval": [1.5
 const MATCH_TIME := 900.0     # seconds (Faisal 11-05: matches ended in about 2 minutes; a casual Crown Raid should run 12-15)
 const SEAL_REACH := 2.2     # how close you stand to a class seal to grab it with F
 const OVERTIME := 120.0       # a tie at full time: both doors fall, nobody respawns, next capture or last team standing wins
-const CAPTURES_TO_WIN := 5   # was 2. Bot raids (3 runs, 11-05): first capture ~2.5 min, then one every ~1.5-2 min; first to 4 ended at 10-11 min, so 5 targets 12-15 (the 15-minute clock ends it for a slow side)
+const CAPTURES_TO_WIN := 8   # was 2, then 5. A rout captures every ~60-100 s once it starts (Codex-faisal2 saw 5-0 end at 7:39, ~91 s a capture; first captures land at 3-8.5 min), so 8 keeps a rout near 12 min and anything closer runs into the 15-minute clock. There is no mercy rule.
 
 # Team Deathmatch (claude-faisal/crowns-tdm 2026-11-04): the same maps, no
 # crowns and no doors. Every enemy knocked down or killed is a point; the

@@ -260,6 +260,73 @@ func _park_look() -> void:
 	look_pool[look_key] = pool
 
 
+const BONES_PARKED := "bones_parked"
+
+
+func _watch_bones() -> void:
+	## Godot 4.3's export templates log "Attempt to disconnect a nonexistent connection ... skeleton_updated" once
+	## per BoneAttachment3D that leaves the tree while bound (the connection exists; the template's callable
+	## compare fails), about 900 lines a boot. The attachment's own tree_exiting fires before it unbinds, so each
+	## gear holder drops its connection there (through the callable the skeleton lists) and moves onto an external
+	## skeleton path with nothing behind it, which leaves the engine nothing to unbind from. `_unpark_bones` puts
+	## them back before the branch re-enters the tree. A rig that is parked and re-entered on purpose (fx.gd's
+	## afterimage pool) uses `park_rig` / `unpark_rig` (claude-faisallaptop 2026-11-05).
+	if skeleton == null:
+		return
+	if not skeleton.child_entered_tree.is_connected(_watch_bone):
+		skeleton.child_entered_tree.connect(_watch_bone)
+	for att in skeleton.get_children():
+		_watch_bone(att)
+
+
+static func _watch_bone(att: Node) -> void:
+	if att is BoneAttachment3D:
+		var cb := _park_bone.bind(att)
+		if not att.tree_exiting.is_connected(cb):
+			att.tree_exiting.connect(cb)
+
+
+static func _park_bone(att: BoneAttachment3D) -> void:
+	var sk := att.get_parent() as Skeleton3D
+	if sk == null or att.use_external_skeleton:
+		return
+	for c in sk.get_signal_connection_list("skeleton_updated"):
+		if c.callable.get_object() == att:
+			sk.disconnect("skeleton_updated", c.callable)
+	att.use_external_skeleton = true
+	att.set_meta(BONES_PARKED, true)
+
+
+static func park_rig(root: Node) -> void:
+	## Unbinds every gear holder under `root` (call it before the branch leaves the tree).
+	for sk in root.find_children("*", "Skeleton3D", true, false):
+		for att in sk.get_children():
+			if att is BoneAttachment3D:
+				_park_bone(att)
+
+
+static func unpark_rig(root: Node) -> void:
+	## Binds them again (call it while the branch is out of the tree, before it re-enters).
+	for sk in root.find_children("*", "Skeleton3D", true, false):
+		_unpark_skeleton(sk)
+
+
+static func _unpark_skeleton(sk: Skeleton3D) -> void:
+	for att in sk.get_children():
+		if att is BoneAttachment3D and att.has_meta(BONES_PARKED):
+			att.remove_meta(BONES_PARKED)
+			att.use_external_skeleton = false
+
+
+func _unpark_bones() -> void:
+	if skeleton != null and is_instance_valid(skeleton):
+		_unpark_skeleton(skeleton)
+
+
+func _enter_tree() -> void:
+	_unpark_bones()
+
+
 func _reuse_look(key: String) -> bool:
 	var pool: Array = look_pool.get(key, [])
 	while not pool.is_empty():
@@ -271,6 +338,7 @@ func _reuse_look(key: String) -> bool:
 			continue
 		for name in entry[1]:
 			set(name, entry[1][name])
+		_unpark_bones()
 		for n in entry[0]:
 			add_child(n)
 		busy_until = 0.0
@@ -334,6 +402,7 @@ func _setup(team: int, role: int, variant: String, custom: Dictionary, rank: int
 	inst.rotation.y = PI  # the models face +Z; the game's forward is -Z
 	anim = inst.find_child("AnimationPlayer", true, false)
 	skeleton = inst.find_child("Skeleton3D", true, false)
+	_watch_bones()
 	idle_anim = c.idle
 	attack_anims = c.attacks
 	tint = c.get("tint", Color.WHITE)
