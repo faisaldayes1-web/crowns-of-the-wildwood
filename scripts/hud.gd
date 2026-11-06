@@ -7029,7 +7029,8 @@ func _chat_display_text(message: Dictionary) -> String:
 		if game.player != null and game.on_pad(game.player):
 			return "Left stick moves with the camera. %s attacks; %s interacts; %s dodges." % [_k("attack"), _k("interact"), _k("dodge")]
 		if game.pc_movement == "wasd":
-			return "WASD moves. Left-click attacks toward the cursor (hold to keep firing; %s also attacks). %s grabs and talks. %s dodges." % [_k("attack"), _k("interact"), _k("dodge")]
+			var skills := "Q and E skills unlock as you level." if game._new_player() else "Q and E use your class skills."
+			return "WASD moves. Left-click attacks toward the cursor (hold to keep firing). %s grabs and talks. %s dodges. %s" % [_k("interact"), _k("dodge"), skills]
 		var movement := ""
 		return movement + "%s moves/interacts. %s + %s attacks in place; %s attacks. %s dodges. Force Move never attacks." % [_k("move_interact"), _k("force_hold"), _k("move_interact"), _k("attack"), _k("dodge")]
 	if touch_ui and text.begins_with("FORTIFY! Build turrets, set traps and raise barricades ("):
@@ -7129,7 +7130,11 @@ func _draw_chat() -> void:
 	# while a fight is near the player or on screen. Open chat shows twelve.
 	var fight := not typing and _in_fight()
 	var max_rows := 12 if typing else (2 if fight or game.couch_active else 3)
+	if not typing and not fight and not game.couch_active and game._new_player() and game.match_clock() < 40:
+		max_rows = 4   # a new player's opening tips (goal, class pick, controls) stay readable
 	var max_age := 8.0 if fight else 12.0
+	if max_rows == 4 and not typing:
+		max_age = 30.0
 	var lines: Array = []
 	for i in range(game.chat_log.size() - 1, -1, -1):
 		var m: Dictionary = game.chat_log[i]

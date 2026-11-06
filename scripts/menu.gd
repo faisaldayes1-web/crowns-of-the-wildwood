@@ -1448,8 +1448,8 @@ func _draw_tutorial() -> void:
 # [title, picture (assets/ui/tutorial/topic_N.jpg), icon, line, colour]
 # The line's {tags} become the player's own keys, pad buttons or taps.
 const HOWTO := [
-	["MOVE & FIGHT", 1, "sword", "{Move} to move. {Attack} to attack, {dodge} to dodge.", Color(0.95, 0.45, 0.3)],
-	["PICK A CLASS", 2, "class_knight", "Walk onto a glowing class station in your castle: Knight, Ranger, Mage, Healer or Engineer.", Color(0.45, 0.7, 1.0)],
+	["MOVE & FIGHT", 1, "sword", "{Move} to move. {Attack} to attack. {Skill1} and {Skill2} fire your class skills, {dodge} dodges.", Color(0.95, 0.45, 0.3)],
+	["PICK A CLASS", 2, "class_knight", "First, pick a class: walk onto a glowing class station in your castle (Knight, Ranger, Mage, Healer or Engineer). Each plays differently, and you can switch later.", Color(0.45, 0.7, 1.0)],
 	["BREAK IN", 0, "hammer", "Smash the enemy castle door, then break the lock on their Crown Vault.", Color(1.0, 0.62, 0.25)],
 	["STEAL THE CROWN", 4, "crown", "{Interact} to grab their crown and run it to your throne. Two captures win!", Color(1.0, 0.82, 0.3)],
 	["GUARD YOUR DOOR", 5, "guard", "Enemies want your crown too. Stand at your broken door and {interact} to repair it.", Color(0.5, 0.9, 0.45)],
@@ -1491,6 +1491,8 @@ func _howto_line(text: String) -> String:
 		"dodge": "the dodge button" if touch else game.key_label("dodge"),
 		"interact": "tap the crown button" if touch else "press " + game.key_label("interact"),
 		"rank_menu": "tap the upgrade button" if touch else "press " + game.key_label("rank_menu"),
+		"skill1": "tap skill 1" if touch else "press " + game.key_label("ability_1"),
+		"skill2": "skill 2" if touch else game.key_label("ability_2"),
 	}
 	for k in keys.keys():
 		var v := str(keys[k]).replace("LMB", "Left Click").replace("RMB", "Right Click")
