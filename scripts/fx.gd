@@ -6,6 +6,8 @@ extends Node3D
 ## renderer the web (iPad) build uses as in Forward+. Nothing here changes
 ## gameplay: it only draws.
 
+const CharacterModel = preload("res://scripts/character_model.gd")
+
 const STYLE_SPARK := 0   # bright streaks that fly out and fall
 const STYLE_MOTE := 1    # soft glowing dots that drift up
 const STYLE_SMOKE := 2   # soft grey puffs that grow and fade
@@ -80,6 +82,8 @@ func _park(n: Node) -> void:
 	if not is_instance_valid(n):
 		return
 	if n.get_parent():
+		if str(n.get_meta("fx_kind", "")).begins_with("ghost/"):
+			CharacterModel.park_rig(n)   # (the pooled ghost's gear holders unbind before they leave the tree)
 		n.get_parent().remove_child(n)
 	if not is_inside_tree():
 		n.free()
@@ -922,6 +926,7 @@ func _x_afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 			ghost.free()
 			ghost = null
 	if ghost:
+		CharacterModel.unpark_rig(ghost)
 		ghost.scale = model.scale
 		var mi0 := ghost.find_children("*", "MeshInstance3D", true, false)
 		var m0: StandardMaterial3D = mi0[0].material_override if not mi0.is_empty() else null
@@ -963,7 +968,13 @@ func _x_afterimage(model: Node3D, color: Color, life: float = 0.35) -> void:
 	tw.set_parallel(true)
 	tw.tween_property(m, "albedo_color:a", 0.0, life).set_ease(Tween.EASE_IN)
 	tw.tween_property(ghost, "scale", ghost.scale * 1.06, life)
-	tw.chain().tween_callback(recycle.bind(ghost) if key != "" else ghost.queue_free)
+	tw.chain().tween_callback(recycle.bind(ghost) if key != "" else _free_ghost.bind(ghost))
+
+
+func _free_ghost(ghost: Node) -> void:
+	if is_instance_valid(ghost):
+		CharacterModel.park_rig(ghost)
+		ghost.queue_free()
 
 
 func _copy_pose(model: Node, ghost: Node) -> bool:

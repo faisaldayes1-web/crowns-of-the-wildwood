@@ -94,7 +94,14 @@ func run() -> void:
 			var p := body.global_position
 			var ground := maxf(lm.height(p.x, p.z), 0.0)
 			_check(lm.field(p) < lm.HILL_REACH + 0.1, "body stopped within the reach (field %.2f)" % lm.field(p))
-			_check(p.y > ground - 0.15, "body not sunk into the bank (y %.2f, ground %.2f)" % [p.y, ground])
+			# The bank collider is the drawn (blurred, foot-eased) surface, which sits up to ~0.2 m under the raw height()
+			# near the foot: "not sunk" is measured against that collider, and it must stay close to the terrain field.
+			var rq := PhysicsRayQueryParameters3D.create(Vector3(p.x, 5, p.z), Vector3(p.x, -2, p.z), 1)
+			rq.exclude = [body.get_rid()]
+			var rh: Dictionary = game.get_world_3d().direct_space_state.intersect_ray(rq)
+			var surf: float = rh.position.y if not rh.is_empty() else -99.0
+			_check(p.y > surf - 0.05, "body not sunk into the bank (y %.2f, bank surface %.2f)" % [p.y, surf])
+			_check(absf(surf - ground) < 0.25, "bank surface follows the terrain field (surface %.2f, height %.2f)" % [surf, ground])
 			if top_y > 0.2:
 				climbed += 1
 			body.queue_free()
