@@ -1,0 +1,57 @@
+isolated user dir: C:\Users\faisa\AppData\Local\Temp\crowns-tests\run-mpWP8T (left in place; clear /tmp/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080 Laptop GPU
+ERROR: Condition "f.is_null()" is true.
+   at: _save_to_cache (servers/rendering/renderer_rd/shader_rd.cpp:474)
+ERROR: Condition "f.is_null()" is true.
+   at: _save_to_cache (servers/rendering/renderer_rd/shader_rd.cpp:474)
+
+class_playtest: user dir C:/Users/faisa/AppData/Local/Temp/crowns-tests/run-mpWP8T/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+NET ready
+BATCH merged 4631 scenery meshes (667 left alone) into 673 meshes; 1527 materials became 189; 450 ms (303 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+PLAYTEST map=2 speed=3 slice=100s per class
+NOTE t=3 class -> KNIGHT
+LOG t=3 class=KNIGHT pos=(-85.5, -2.4, -4) hearts=4 score=0-0 kills=0 deaths=0 fps=62
+LOG t=33 class=KNIGHT pos=(-67.9, 0, -0.5) hearts=4 score=0-0 kills=0 deaths=0 fps=74
+LOG t=63 class=KNIGHT pos=(-67.9, 0, -0.5) hearts=4 score=0-0 kills=0 deaths=0 fps=84
+LOG t=93 class=KNIGHT pos=(-56.8, 0, 1.5) hearts=4 score=0-0 kills=0 deaths=0 fps=27
+NOTE t=100 class -> RANGER
+Capture: Humans  (score 0 - 1) t=93
+LOG t=132 class=RANGER pos=(-84.7, -2.4, -4.2) hearts=4 score=0-1 kills=2 deaths=1 fps=65
+LOG t=162 class=RANGER pos=(-67.9, 0, 1.3) hearts=4 score=0-1 kills=2 deaths=1 fps=48
+LOG t=192 class=RANGER pos=(-61.3, 0, -5.3) hearts=4 score=0-1 kills=2 deaths=1 fps=53
+NOTE t=200 class -> MAGE
+Capture: Humans  (score 0 - 2) t=197
+LOG t=234 class=MAGE pos=(-85.4, -2.4, -3.9) hearts=4 score=0-2 kills=4 deaths=3 fps=66
+LOG t=264 class=MAGE pos=(-83.9, -2.4, -3.8) hearts=4 score=0-2 kills=5 deaths=4 fps=41
+Capture: Humans  (score 0 - 3) t=259
+NOTE t=300 class -> HEALER
+LOG t=301 class=HEALER pos=(-86.1, -2.4, -3.4) hearts=4 score=0-3 kills=5 deaths=5 fps=48
+LOG t=332 class=HEALER pos=(-85, -2.4, -3.7) hearts=4 score=0-3 kills=5 deaths=6 fps=57
+Capture: Humans  (score 0 - 4) t=320
+LOG t=362 class=HEALER pos=(-67.9, 0, 2) hearts=4 score=0-4 kills=5 deaths=6 fps=43
+Capture: Humans  (score 0 - 5) t=368
+LOG t=392 class=HEALER pos=(-11.7, 0, -11.2) hearts=4 score=0-5 kills=5 deaths=7 fps=86
+NOTE t=400 class -> ENGINEER
+LOG t=422 class=ENGINEER pos=(-67.9, 0, -2.4) hearts=4 score=0-5 kills=5 deaths=8 fps=48
+LOG t=452 class=ENGINEER pos=(-67.9, 0, -1.7) hearts=4 score=0-5 kills=5 deaths=8 fps=59
+LOG t=482 class=ENGINEER pos=(-67.9, 0, -2.4) hearts=4 score=0-5 kills=5 deaths=8 fps=86
+NOTE t=500 class -> ROGUE
+LOG t=512 class=ROGUE pos=(-67.9, 0, -1.1) hearts=4 score=0-5 kills=5 deaths=8 fps=55
+LOG t=542 class=ROGUE pos=(-67.9, 0, -2.5) hearts=4 score=0-5 kills=5 deaths=8 fps=62
+LOG t=572 class=ROGUE pos=(-67.9, 0, -1.1) hearts=4 score=0-5 kills=5 deaths=8 fps=49
+LOG t=602 class=ROGUE pos=(-67.9, 0, -1.8) hearts=4 score=0-5 kills=5 deaths=8 fps=49
+LOG t=632 class=ROGUE pos=(-67.9, 0, -1.1) hearts=4 score=0-5 kills=5 deaths=8 fps=40
+LOG t=662 class=ROGUE pos=(-67.9, 0, -1.8) hearts=4 score=0-5 kills=5 deaths=8 fps=67
+LOG t=692 class=ROGUE pos=(-67.9, 0, -2.5) hearts=4 score=0-5 kills=5 deaths=8 fps=58
+LOG t=722 class=ROGUE pos=(-39.1, 0, 1.2) hearts=4 score=0-5 kills=5 deaths=8 fps=31
+Capture: Humans  (score 0 - 6) t=713
+LOG t=752 class=ROGUE pos=(-83.6, -2.4, -4.5) hearts=4 score=0-6 kills=5 deaths=10 fps=45
+LOG t=782 class=ROGUE pos=(-67.8, 0, -2.4) hearts=4 score=0-6 kills=5 deaths=10 fps=60
+LOG t=812 class=ROGUE pos=(-67.8, 0, -1.8) hearts=4 score=0-6 kills=5 deaths=10 fps=65
+LOG t=842 class=ROGUE pos=(-67.8, 0, -3) hearts=4 score=0-6 kills=5 deaths=10 fps=52
+LOG t=872 class=ROGUE pos=(-67.8, 0, -1.8) hearts=4 score=0-6 kills=5 deaths=10 fps=74
+LOG t=902 class=ROGUE pos=(-67.8, 0, -3) hearts=4 score=0-6 kills=5 deaths=10 fps=63
+Time up
+PLAYTEST_DONE map=2 t=920 score=[0, 6] notes=696

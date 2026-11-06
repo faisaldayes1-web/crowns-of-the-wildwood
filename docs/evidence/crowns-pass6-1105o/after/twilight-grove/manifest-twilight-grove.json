@@ -1,0 +1,469 @@
+{
+  "args": [
+    "--map=4"
+  ],
+  "cells": [
+    {
+      "centre": [
+        -45,
+        -25.5
+      ],
+      "col": 0,
+      "file": "overhead-r0-c0.jpg",
+      "height": 28.0242696784371,
+      "row": 0
+    },
+    {
+      "centre": [
+        -15,
+        -25.5
+      ],
+      "col": 1,
+      "file": "overhead-r0-c1.jpg",
+      "height": 28.0242696784371,
+      "row": 0
+    },
+    {
+      "centre": [
+        15,
+        -25.5
+      ],
+      "col": 2,
+      "file": "overhead-r0-c2.jpg",
+      "height": 28.0242696784371,
+      "row": 0
+    },
+    {
+      "centre": [
+        45,
+        -25.5
+      ],
+      "col": 3,
+      "file": "overhead-r0-c3.jpg",
+      "height": 28.0242696784371,
+      "row": 0
+    },
+    {
+      "centre": [
+        -45,
+        -8.5
+      ],
+      "col": 0,
+      "file": "overhead-r1-c0.jpg",
+      "height": 28.0242696784371,
+      "row": 1
+    },
+    {
+      "centre": [
+        -15,
+        -8.5
+      ],
+      "col": 1,
+      "file": "overhead-r1-c1.jpg",
+      "height": 28.0242696784371,
+      "row": 1
+    },
+    {
+      "centre": [
+        15,
+        -8.5
+      ],
+      "col": 2,
+      "file": "overhead-r1-c2.jpg",
+      "height": 28.0242696784371,
+      "row": 1
+    },
+    {
+      "centre": [
+        45,
+        -8.5
+      ],
+      "col": 3,
+      "file": "overhead-r1-c3.jpg",
+      "height": 28.0242696784371,
+      "row": 1
+    },
+    {
+      "centre": [
+        -45,
+        8.5
+      ],
+      "col": 0,
+      "file": "overhead-r2-c0.jpg",
+      "height": 28.0242696784371,
+      "row": 2
+    },
+    {
+      "centre": [
+        -15,
+        8.5
+      ],
+      "col": 1,
+      "file": "overhead-r2-c1.jpg",
+      "height": 28.0242696784371,
+      "row": 2
+    },
+    {
+      "centre": [
+        15,
+        8.5
+      ],
+      "col": 2,
+      "file": "overhead-r2-c2.jpg",
+      "height": 28.0242696784371,
+      "row": 2
+    },
+    {
+      "centre": [
+        45,
+        8.5
+      ],
+      "col": 3,
+      "file": "overhead-r2-c3.jpg",
+      "height": 28.0242696784371,
+      "row": 2
+    },
+    {
+      "centre": [
+        -45,
+        25.5
+      ],
+      "col": 0,
+      "file": "overhead-r3-c0.jpg",
+      "height": 28.0242696784371,
+      "row": 3
+    },
+    {
+      "centre": [
+        -15,
+        25.5
+      ],
+      "col": 1,
+      "file": "overhead-r3-c1.jpg",
+      "height": 28.0242696784371,
+      "row": 3
+    },
+    {
+      "centre": [
+        15,
+        25.5
+      ],
+      "col": 2,
+      "file": "overhead-r3-c2.jpg",
+      "height": 28.0242696784371,
+      "row": 3
+    },
+    {
+      "centre": [
+        45,
+        25.5
+      ],
+      "col": 3,
+      "file": "overhead-r3-c3.jpg",
+      "height": 28.0242696784371,
+      "row": 3
+    }
+  ],
+  "godot": "4.3-stable (official)",
+  "ground": [
+    {
+      "eye": [
+        -56,
+        1.70000004768372,
+        0
+      ],
+      "file": "g1-west-gate-east.jpg",
+      "label": "g1-west-gate-east",
+      "listed": [
+        -56,
+        0
+      ],
+      "look": [
+        -20,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        56,
+        1.70000004768372,
+        0
+      ],
+      "file": "g2-east-gate-west.jpg",
+      "label": "g2-east-gate-west",
+      "listed": [
+        56,
+        0
+      ],
+      "look": [
+        20,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        0,
+        1.70000004768372,
+        -30
+      ],
+      "file": "g3-north-flank-south.jpg",
+      "label": "g3-north-flank-south",
+      "listed": [
+        0,
+        -30
+      ],
+      "look": [
+        0,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        0,
+        1.70000004768372,
+        30
+      ],
+      "file": "g4-south-flank-north.jpg",
+      "label": "g4-south-flank-north",
+      "listed": [
+        0,
+        30
+      ],
+      "look": [
+        0,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        4,
+        1.70000004768372,
+        3
+      ],
+      "file": "g5-centre-west.jpg",
+      "label": "g5-centre-west",
+      "listed": [
+        4,
+        3
+      ],
+      "look": [
+        -30,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        -4,
+        1.70000004768372,
+        -3
+      ],
+      "file": "g6-centre-east.jpg",
+      "label": "g6-centre-east",
+      "listed": [
+        -4,
+        -3
+      ],
+      "look": [
+        30,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        -34,
+        2.43318676948547,
+        14
+      ],
+      "file": "g7-sw-corner-ne.jpg",
+      "label": "g7-sw-corner-ne",
+      "listed": [
+        -34,
+        20
+      ],
+      "look": [
+        6,
+        -2
+      ],
+      "moved": true
+    },
+    {
+      "eye": [
+        38.5,
+        2.50354433059692,
+        -20
+      ],
+      "file": "g8-ne-corner-sw.jpg",
+      "label": "g8-ne-corner-sw",
+      "listed": [
+        34,
+        -20
+      ],
+      "look": [
+        -6,
+        2
+      ],
+      "moved": true
+    },
+    {
+      "eye": [
+        0,
+        1.70000004768372,
+        -9
+      ],
+      "file": "x1-centre-north.jpg",
+      "label": "x1-centre-north",
+      "listed": [
+        0,
+        -9
+      ],
+      "look": [
+        0,
+        6
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        0,
+        1.70000004768372,
+        9
+      ],
+      "file": "x2-centre-south.jpg",
+      "label": "x2-centre-south",
+      "listed": [
+        0,
+        9
+      ],
+      "look": [
+        0,
+        -6
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        -30,
+        5.10260963439941,
+        -24
+      ],
+      "file": "x3-nw-flank-se.jpg",
+      "label": "x3-nw-flank-se",
+      "listed": [
+        -30,
+        -24
+      ],
+      "look": [
+        -4,
+        -6
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        30,
+        4.91352558135986,
+        24
+      ],
+      "file": "x4-se-flank-nw.jpg",
+      "label": "x4-se-flank-nw",
+      "listed": [
+        30,
+        24
+      ],
+      "look": [
+        4,
+        6
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        21.4259757995605,
+        1.70000004768372,
+        -15.3858194351196
+      ],
+      "file": "x5-ne-hill-east.jpg",
+      "label": "x5-ne-hill-east",
+      "listed": [
+        22,
+        -14
+      ],
+      "look": [
+        40,
+        -22
+      ],
+      "moved": true
+    },
+    {
+      "eye": [
+        -20.8519496917725,
+        1.70000004768372,
+        16.7716388702393
+      ],
+      "file": "x6-sw-hill-west.jpg",
+      "label": "x6-sw-hill-west",
+      "listed": [
+        -22,
+        14
+      ],
+      "look": [
+        -40,
+        22
+      ],
+      "moved": true
+    },
+    {
+      "eye": [
+        27,
+        1.70000004768372,
+        -15
+      ],
+      "file": "x7-ne-corner-alt.jpg",
+      "label": "x7-ne-corner-alt",
+      "listed": [
+        27,
+        -15
+      ],
+      "look": [
+        -6,
+        2
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        -27,
+        1.70000004768372,
+        15
+      ],
+      "file": "x8-sw-corner-alt.jpg",
+      "label": "x8-sw-corner-alt",
+      "listed": [
+        -27,
+        15
+      ],
+      "look": [
+        6,
+        -2
+      ],
+      "moved": false
+    }
+  ],
+  "hud": "docs/evidence/crowns-pass6-1105o/after/twilight-grove/hud-twilight-grove.jpg",
+  "map": "twilight-grove",
+  "map_variant": 4,
+  "night": false,
+  "renderer": "NVIDIA GeForce RTX 5080 Laptop GPU / forward_plus",
+  "size": [
+    1920,
+    1080
+  ],
+  "source_sha": "befd95b",
+  "tag": ""
+}

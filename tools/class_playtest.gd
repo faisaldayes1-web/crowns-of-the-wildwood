@@ -17,6 +17,7 @@ var last_pos := Vector3.ZERO
 var stuck_for := 0.0
 var shot_n := 0
 var ability_clock := 0.0
+var below_noted := false
 
 
 func _initialize() -> void:
@@ -181,7 +182,9 @@ func run() -> void:
 			Input.action_release(p._a("ability_1"))
 		# anomaly checks
 		var gy: float = 0.0
-		if p.global_position.y < -1.0 and not p.get("falling"):
+		# (Ember's cellar floor is at CELLAR_Y: the spawn is down there on purpose, not a fall)
+		if p.global_position.y < -1.0 and absf(p.global_position.y - game.CELLAR_Y) > 0.6 and not p.get("falling") and not below_noted:
+			below_noted = true
 			note("below the world: %s" % p.global_position)
 		if want_dir.length() > 0.5:
 			if p.global_position.distance_to(last_pos) < 0.02 * speed:

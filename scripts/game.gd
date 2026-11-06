@@ -12703,8 +12703,9 @@ func _build_world_sky() -> void:
 	sun.light_color = Color(1.0, 0.94, 0.82)
 	sun.light_energy = 1.25
 	sun.shadow_enabled = true
-	sun.shadow_bias = 0.03
-	sun.shadow_normal_bias = 1.5
+	# Pass 6: 0.03 / 1.5 left streaks of self-shadow acne on Wildwood's boulders; these clear them without lifting shadows off the ground.
+	sun.shadow_bias = 0.08
+	sun.shadow_normal_bias = 2.2
 	sun.shadow_blur = 1.2
 	sun.light_angular_distance = 1.2   # soft shadow edges (graphics pass 2026-10-09; was 0 = crisp)
 	sun.light_volumetric_fog_energy = 1.4

@@ -1,0 +1,309 @@
+{
+  "args": [
+    "--map=0",
+    "--only=ground"
+  ],
+  "cells": [],
+  "godot": "4.3-stable (official)",
+  "ground": [
+    {
+      "eye": [
+        -56,
+        1.70000004768372,
+        0
+      ],
+      "file": "g1-west-gate-east.jpg",
+      "label": "g1-west-gate-east",
+      "listed": [
+        -56,
+        0
+      ],
+      "look": [
+        -20,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        56,
+        1.70000004768372,
+        0
+      ],
+      "file": "g2-east-gate-west.jpg",
+      "label": "g2-east-gate-west",
+      "listed": [
+        56,
+        0
+      ],
+      "look": [
+        20,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        0,
+        1.70000004768372,
+        -30
+      ],
+      "file": "g3-north-flank-south.jpg",
+      "label": "g3-north-flank-south",
+      "listed": [
+        0,
+        -30
+      ],
+      "look": [
+        0,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        0,
+        1.70000004768372,
+        30
+      ],
+      "file": "g4-south-flank-north.jpg",
+      "label": "g4-south-flank-north",
+      "listed": [
+        0,
+        30
+      ],
+      "look": [
+        0,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        4,
+        1.70000004768372,
+        3
+      ],
+      "file": "g5-centre-west.jpg",
+      "label": "g5-centre-west",
+      "listed": [
+        4,
+        3
+      ],
+      "look": [
+        -30,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        -4,
+        1.70000004768372,
+        -3
+      ],
+      "file": "g6-centre-east.jpg",
+      "label": "g6-centre-east",
+      "listed": [
+        -4,
+        -3
+      ],
+      "look": [
+        30,
+        0
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        -40.467155456543,
+        3.10101532936096,
+        17.321216583252
+      ],
+      "file": "g7-sw-corner-ne.jpg",
+      "label": "g7-sw-corner-ne",
+      "listed": [
+        -34,
+        20
+      ],
+      "look": [
+        6,
+        -2
+      ],
+      "moved": true
+    },
+    {
+      "eye": [
+        34,
+        3.94352221488953,
+        -15.5
+      ],
+      "file": "g8-ne-corner-sw.jpg",
+      "label": "g8-ne-corner-sw",
+      "listed": [
+        34,
+        -20
+      ],
+      "look": [
+        -6,
+        2
+      ],
+      "moved": true
+    },
+    {
+      "eye": [
+        0,
+        1.70000004768372,
+        -9
+      ],
+      "file": "x1-centre-north.jpg",
+      "label": "x1-centre-north",
+      "listed": [
+        0,
+        -9
+      ],
+      "look": [
+        0,
+        6
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        0,
+        1.70000004768372,
+        9
+      ],
+      "file": "x2-centre-south.jpg",
+      "label": "x2-centre-south",
+      "listed": [
+        0,
+        9
+      ],
+      "look": [
+        0,
+        -6
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        -30,
+        5.53283548355103,
+        -24
+      ],
+      "file": "x3-nw-flank-se.jpg",
+      "label": "x3-nw-flank-se",
+      "listed": [
+        -30,
+        -24
+      ],
+      "look": [
+        -4,
+        -6
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        23.5328426361084,
+        2.44783687591553,
+        26.678783416748
+      ],
+      "file": "x4-se-flank-nw.jpg",
+      "label": "x4-se-flank-nw",
+      "listed": [
+        30,
+        24
+      ],
+      "look": [
+        4,
+        6
+      ],
+      "moved": true
+    },
+    {
+      "eye": [
+        22,
+        1.70000004768372,
+        -14
+      ],
+      "file": "x5-ne-hill-east.jpg",
+      "label": "x5-ne-hill-east",
+      "listed": [
+        22,
+        -14
+      ],
+      "look": [
+        40,
+        -22
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        -22,
+        1.70000004768372,
+        14
+      ],
+      "file": "x6-sw-hill-west.jpg",
+      "label": "x6-sw-hill-west",
+      "listed": [
+        -22,
+        14
+      ],
+      "look": [
+        -40,
+        22
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        27,
+        1.70000004768372,
+        -15
+      ],
+      "file": "x7-ne-corner-alt.jpg",
+      "label": "x7-ne-corner-alt",
+      "listed": [
+        27,
+        -15
+      ],
+      "look": [
+        -6,
+        2
+      ],
+      "moved": false
+    },
+    {
+      "eye": [
+        -27,
+        1.70000004768372,
+        15
+      ],
+      "file": "x8-sw-corner-alt.jpg",
+      "label": "x8-sw-corner-alt",
+      "listed": [
+        -27,
+        15
+      ],
+      "look": [
+        6,
+        -2
+      ],
+      "moved": false
+    }
+  ],
+  "hud": "",
+  "map": "wildwood",
+  "map_variant": 0,
+  "night": false,
+  "renderer": "NVIDIA GeForce RTX 5080 Laptop GPU / forward_plus",
+  "size": [
+    1920,
+    1080
+  ],
+  "source_sha": "befd95b",
+  "tag": ""
+}
