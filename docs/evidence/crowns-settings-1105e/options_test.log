@@ -1,0 +1,127 @@
+{"source": "4e11bc27dc0a02c922bae824a0fcaa3fb670486a", "command": ["C:/Users/faisa/Tools/Godot_4.3/Godot_v4.3-stable_win64_console.exe", "--path", "C:\\Users\\faisa\\Projects\\cw-pass5", "--headless", "--fixed-fps", "60", "--max-fps", "120", "--script", "tools/options_test.gd"], "user_data": "C:\\Temp\\c3cs-10kslsrq"}
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/options_test.gd: user dir C:/Temp/c3cs-10kslsrq/appdata/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT day: 6378 placements, 22 meshes, 537 ms
+NET ready
+PASS title Options opens dedicated screen
+PASS fresh defaults: Master80 Music60 SFX80
+PASS Master gain applied on fresh startup
+PASS all three sliders survive settings reload
+PASS explicit saved mute and 1% are preserved as valid player choices
+PASS audio reset persists sensible defaults
+PASS video edits are staged before Apply
+PASS Apply starts a timed preview
+PASS unconfirmed preview never enters the save
+PASS preview requires Keep or Revert before another tab
+PASS Revert restores confirmed video
+PASS timeout restores confirmed video
+PASS Keep changes persists video
+PASS Keyboard column rebinds and saves
+PASS Gamepad column rebinds
+PASS keyboard and pad bindings survive reload independently
+PASS Escape cancels capture without closing options
+PASS pad Start cancels binding capture without a keyboard
+PASS reset bindings preserves account progress
+PASS Gameplay difficulty control fits (1280, 720)
+PASS Gameplay tips control fits (1280, 720)
+PASS Gameplay chat control fits (1280, 720)
+PASS Gameplay rosters control fits (1280, 720)
+PASS Gameplay split control fits (1280, 720)
+PASS Gameplay footer fits (1280, 720)
+PASS Video window_mode control fits (1280, 720)
+PASS Video window_size control fits (1280, 720)
+PASS Video gfx_quality control fits (1280, 720)
+PASS Video vsync_on control fits (1280, 720)
+PASS Video fps_cap control fits (1280, 720)
+PASS Video render_scale control fits (1280, 720)
+PASS Video footer fits (1280, 720)
+PASS Audio master control fits (1280, 720)
+PASS Audio music control fits (1280, 720)
+PASS Audio sound control fits (1280, 720)
+PASS Audio test control fits (1280, 720)
+PASS Audio footer fits (1280, 720)
+PASS Controls group control fits (1280, 720)
+PASS Controls attack control fits (1280, 720)
+PASS Controls block control fits (1280, 720)
+PASS Controls ability_1 control fits (1280, 720)
+PASS Controls ability_2 control fits (1280, 720)
+PASS Controls ability_3 control fits (1280, 720)
+PASS Controls dodge control fits (1280, 720)
+PASS Controls interact control fits (1280, 720)
+PASS Controls footer fits (1280, 720)
+PASS Accessibility shake control fits (1280, 720)
+PASS Accessibility numbers control fits (1280, 720)
+PASS Accessibility rumble control fits (1280, 720)
+PASS Accessibility fps control fits (1280, 720)
+PASS Accessibility footer fits (1280, 720)
+PASS Gameplay difficulty control fits (1920, 1080)
+PASS Gameplay tips control fits (1920, 1080)
+PASS Gameplay chat control fits (1920, 1080)
+PASS Gameplay rosters control fits (1920, 1080)
+PASS Gameplay split control fits (1920, 1080)
+PASS Gameplay footer fits (1920, 1080)
+PASS Video window_mode control fits (1920, 1080)
+PASS Video window_size control fits (1920, 1080)
+PASS Video gfx_quality control fits (1920, 1080)
+PASS Video vsync_on control fits (1920, 1080)
+PASS Video fps_cap control fits (1920, 1080)
+PASS Video render_scale control fits (1920, 1080)
+PASS Video footer fits (1920, 1080)
+PASS Audio master control fits (1920, 1080)
+PASS Audio music control fits (1920, 1080)
+PASS Audio sound control fits (1920, 1080)
+PASS Audio test control fits (1920, 1080)
+PASS Audio footer fits (1920, 1080)
+PASS Controls group control fits (1920, 1080)
+PASS Controls attack control fits (1920, 1080)
+PASS Controls block control fits (1920, 1080)
+PASS Controls ability_1 control fits (1920, 1080)
+PASS Controls ability_2 control fits (1920, 1080)
+PASS Controls ability_3 control fits (1920, 1080)
+PASS Controls dodge control fits (1920, 1080)
+PASS Controls interact control fits (1920, 1080)
+PASS Controls footer fits (1920, 1080)
+PASS Accessibility shake control fits (1920, 1080)
+PASS Accessibility numbers control fits (1920, 1080)
+PASS Accessibility rumble control fits (1920, 1080)
+PASS Accessibility fps control fits (1920, 1080)
+PASS Accessibility footer fits (1920, 1080)
+PASS Gameplay difficulty control fits (2560, 1440)
+PASS Gameplay tips control fits (2560, 1440)
+PASS Gameplay chat control fits (2560, 1440)
+PASS Gameplay rosters control fits (2560, 1440)
+PASS Gameplay split control fits (2560, 1440)
+PASS Gameplay footer fits (2560, 1440)
+PASS Video window_mode control fits (2560, 1440)
+PASS Video window_size control fits (2560, 1440)
+PASS Video gfx_quality control fits (2560, 1440)
+PASS Video vsync_on control fits (2560, 1440)
+PASS Video fps_cap control fits (2560, 1440)
+PASS Video render_scale control fits (2560, 1440)
+PASS Video footer fits (2560, 1440)
+PASS Audio master control fits (2560, 1440)
+PASS Audio music control fits (2560, 1440)
+PASS Audio sound control fits (2560, 1440)
+PASS Audio test control fits (2560, 1440)
+PASS Audio footer fits (2560, 1440)
+PASS Controls group control fits (2560, 1440)
+PASS Controls attack control fits (2560, 1440)
+PASS Controls block control fits (2560, 1440)
+PASS Controls ability_1 control fits (2560, 1440)
+PASS Controls ability_2 control fits (2560, 1440)
+PASS Controls ability_3 control fits (2560, 1440)
+PASS Controls dodge control fits (2560, 1440)
+PASS Controls interact control fits (2560, 1440)
+PASS Controls footer fits (2560, 1440)
+PASS Accessibility shake control fits (2560, 1440)
+PASS Accessibility numbers control fits (2560, 1440)
+PASS Accessibility rumble control fits (2560, 1440)
+PASS Accessibility fps control fits (2560, 1440)
+PASS Accessibility footer fits (2560, 1440)
+PASS pad/keyboard left-right adjusts slider by one percent
+PASS down moves focus to next setting
+PASS real key input navigates options while game is paused
+PASS real pad B returns paused options to the map
+PASS Back returns to title and consumes the closing input
+OPTIONS_TEST: 120 checks, 0 failures

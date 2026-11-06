@@ -1,0 +1,29 @@
+{"source": "4e11bc27dc0a02c922bae824a0fcaa3fb670486a", "command": ["C:/Users/faisa/Tools/Godot_4.3/Godot_v4.3-stable_win64_console.exe", "--path", "C:\\Users\\faisa\\Projects\\cw-pass5", "--headless", "--fixed-fps", "60", "--max-fps", "120", "--script", "tools/kbm_move_test.gd"], "user_data": "C:\\Temp\\c3cs-27073ozg"}
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/kbm_move_test.gd: user dir C:/Temp/c3cs-27073ozg/appdata/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT day: 6378 placements, 22 meshes, 522 ms
+NET ready
+BATCH merged 4588 scenery meshes (1319 left alone) into 791 meshes; 1585 materials became 213; 397 ms (270 ms reading meshes)
+BATCH read-backs 3 (0 ms)
+PASS  W walks up the screen with the cursor at (5, 0, 0)
+PASS  D walks right on screen with the cursor at (5, 0, 0)
+PASS  S walks down the screen with the cursor at (5, 0, 0)
+PASS  A walks left on screen with the cursor at (5, 0, 0)
+PASS  W walks up the screen with the cursor at (-5, 0, 0)
+PASS  D walks right on screen with the cursor at (-5, 0, 0)
+PASS  S walks down the screen with the cursor at (-5, 0, 0)
+PASS  A walks left on screen with the cursor at (-5, 0, 0)
+PASS  W walks up the screen with the cursor at (0, 0, 5)
+PASS  D walks right on screen with the cursor at (0, 0, 5)
+PASS  S walks down the screen with the cursor at (0, 0, 5)
+PASS  A walks left on screen with the cursor at (0, 0, 5)
+PASS  W walks up the screen with the cursor at (0.3, 0, 0)
+PASS  D walks right on screen with the cursor at (0.3, 0, 0)
+PASS  S walks down the screen with the cursor at (0.3, 0, 0)
+PASS  A walks left on screen with the cursor at (0.3, 0, 0)
+PASS  a gamepad's stick is camera-relative too
+PASS  moving the mouse switches the hints back to keys
+PASS  a pad button switches the hints to the pad
+PASS  the movement pick is saved
+KBM MOVE TEST: 0 failed
