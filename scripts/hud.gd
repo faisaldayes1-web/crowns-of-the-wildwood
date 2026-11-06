@@ -1064,7 +1064,7 @@ func _slot(origin: Vector2, size_px: float, icon: String, color: Color, key: Str
 					HORIZONTAL_ALIGNMENT_CENTER, size_px + 60, 4)
 		else:
 			_keycap(Vector2(rect.get_center().x, rect.end.y + 4), key, maxf(24.0, _text_width(key, 11) + 10.0), locked)
-			if label != "" and not pane_arc:
+			if label != "" and not pane_arc and not bar_b:   # (pick B has no names under the tiles)
 				# No wider than the 72 px slot pitch: "Shadow Dash" and "Smoke Bomb"
 				# ran together as one phrase (FE-03). A long name shrinks instead.
 				# (8/8 pass 2026-11-04: a long two-word name goes on two 12 px lines
@@ -3942,7 +3942,7 @@ func _draw_player_panel(p) -> void:
 		# baked layers (the bottom row, the right-hand column); this pass
 		# then paints just the bars, cooldowns and numbers over them.
 		var key := _panel_key(p)
-		var bottom_h := 480.0 if touch_ui else (300.0 if stacked else 260.0)
+		var bottom_h := 480.0 if touch_ui else (360.0 if pane else 260.0)   # (pane: the pick-A arc rises ~330 units)
 		var bottom := Rect2(0, size.y - bottom_h * k, size.x, bottom_h * k)
 		var right := Rect2(size.x - 130.0 * k, 0, 130.0 * k, 340.0 * k)
 		panel_pass = ""
@@ -3960,7 +3960,7 @@ func _draw_player_panel(p) -> void:
 			_skill_bar_b(Rect2(panel.position + Vector2(-8, -30), Vector2(284, 100)), 16)
 	bar_b = not touch_ui and not pane
 	if bar_b and _st():
-		_skill_bar_b(Rect2(Vector2(40, H - 128), Vector2(440.0 + 540.0 + 16.0 - 40.0, 112)))
+		_skill_bar_b(Rect2(Vector2(40, H - 134), Vector2(440.0 + 540.0 + 16.0 - 40.0, 118)))
 	_status_panel(p, panel)
 	if touch_ui:
 		bar_b = false
@@ -4428,7 +4428,7 @@ func _status_panel(p, panel: Rect2) -> void:
 	if not _st():
 		return
 	var name_tag := ""
-	if p.local_index > 0:
+	if p.local_index > 0 or pane_arc:   # (pick A names player 1 too)
 		name_tag = "PLAYER %d" % (p.local_index + 1)
 	elif game.hero_name != "":
 		name_tag = game.hero_name.to_upper()
@@ -4547,19 +4547,20 @@ func _ability_strip(p, strip: Rect2) -> void:
 	if bar_b:
 		# One straight row inside the brass bar (pick B). Seven slots when a
 		# shield is carried: the x offsets are the arc's, the y all one line.
-		var xs := [10.0, 86.0, 162.0, 238.0, 314.0, 466.0] if p.can_block() else [20.0, 106.0, 192.0, 278.0, 364.0, 450.0]
+		var xs := [6.0, 92.0, 178.0, 264.0, 350.0, 466.0] if p.can_block() else [14.0, 102.0, 190.0, 278.0, 366.0, 454.0]
 		offsets = []
 		for x in xs:
-			offsets.append(Vector2(x, 24))
+			offsets.append(Vector2(x, 20))
 	for v in offsets:
 		at.append(strip.position + v)
-	_move_slots(p, at, [52.0, 52.0, 52.0, 52.0, 52.0, 52.0])
+	var tsz := 64.0 if bar_b else 52.0   # pick B's tiles are big: ~73 units in the picture
+	_move_slots(p, at, [tsz, tsz, tsz, tsz, tsz, tsz])
 	if p.can_block():
-		var pos := strip.position + Vector2(390, 24 if bar_b else 12)
+		var pos := strip.position + Vector2(392 if bar_b else 390, 20 if bar_b else 12)
 		next_slot_art = "perks"
-		_slot(pos, 52.0, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
+		_slot(pos, tsz, "vigor", Color(0.78, 0.1, 0.16), _k("rank_menu"), "Perks", 0.0, 1.0, true, p.rank(3), false, 0.0, STAMINA, p.points > 0)
 		if not pane:
-			touch_rects.append([Rect2(pos * hud_scale, Vector2(52, 83) * hud_scale), "rank_menu"])
+			touch_rects.append([Rect2(pos * hud_scale, Vector2(tsz, tsz + 31.0) * hud_scale), "rank_menu"])
 
 
 func _pane_arc_slots(p, W: float, H: float) -> void:
@@ -7040,7 +7041,10 @@ func _chat_rect() -> Rect2:
 		# just above its bottom row, clear of the class signs and the spawn
 		# ring (visual pass 2026-11-04: it sat over the spawn ring).
 		var lift := 222.0
-		if game.pane_stacked() and not game.panes.is_empty():
+		if not game.panes.is_empty() and not touch_ui:
+			# Pick A's move arc rises ~334 pane-HUD units over the corner; the log sits above it.
+			lift = maxf(lift, 334.0 * float(game.panes[0].hud_scale) / game._pane_pixel_scale() + 138.0)
+		elif game.pane_stacked() and not game.panes.is_empty():
 			# This HUD is the window's; the left pane's stacked bottom row is ~250 pane-HUD units tall.
 			lift = maxf(lift, 262.0 * float(game.panes[0].hud_scale) / game._pane_pixel_scale() + 138.0)
 		return Rect2(14, size.y - lift, 270, 130.0)
