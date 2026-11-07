@@ -15,21 +15,26 @@ const BUBBLE_RANGE := 16.0   # the whole courtyard sees the "..."
 
 const INTRO := [
 	"Welcome to the Wildwood!",
-	"Your goal is simple: steal the enemy Crown and bring it back here.",
-	"Choose a class at the Class Station. The Upgrade Station opens your perks.",
-	"Upgrade your abilities as you gain experience.",
-	"Knights fight up close. Rangers attack from range. Mages control the battlefield. Healers keep the team alive.",
-	"Break their castle gate, reach the Crown Vault, and bring the Crown home!",
+	"Your goal is simple: steal the enemy Crown and carry it to our throne.",
+	# (claude-faisallaptop/crowns-tutorial-visual 2026-11-07: a class is taken by
+	# grabbing its hat at a station, not by walking past it; the Upgrade Station
+	# line moved next to the experience it spends.)
+	"First, pick a class: walk up to a hat on the class stands and grab it.",
+	"Fighting earns experience. Spend it on the Upgrade Station or from the perk menu.",
+	"Knights fight up close. Rangers attack from range. Mages control the battlefield. Healers keep the team alive. Engineers build turrets.",
+	"Break their castle gate, smash the lock on their Crown Vault and bring the Crown home!",
 ]
 
-# Topic menu: [question, answer]. %s slots are filled with key labels.
+# Topic menu: [question, answer]. %s / %d slots are filled by game.guide_answer
+# (key labels, the capture target and the match clock). Keep each answer to
+# four lines of the talk panel (about 240 characters): hud._draw_guide does not clip.
 const TOPICS := [
-	["What is the objective?", "Break the enemy castle door, smash the lock on their Crown Vault, grab their crown and carry it back to your own throne. The first side to two captures wins."],
-	["How do I fight?", "%s attacks. %s and %s are your class abilities, %s dodges (four seconds to recover), and Knights hold %s to block. Watch your stamina or mana bar."],
-	["How do classes work?", "KNIGHT: frontline fighter, strong against enemies and structures. RANGER: attacks from a distance, use cover and keep your space. MAGE: powerful abilities and area attacks. HEALER: keeps teammates alive and can turn losing fights around. ENGINEER: builds and tunes turrets on the walls, and the hammer wrecks doors."],
-	["How do I upgrade?", "Gain experience by fighting, supporting teammates, destroying defenses and completing objectives. Press %s (or stand on the Upgrade Station) to spend perk points. At higher levels you can specialise your class. Falling costs you two levels and the newest perks they bought; your promotion stays."],
+	["What is the objective?", "Break the enemy castle door, smash the lock on their Crown Vault, grab their crown and carry it back to your own throne. The first side to %d captures wins; if the %d-minute clock runs out first, the higher score wins (a tie goes to overtime)."],
+	["How do I fight?", "%s attacks. Once you wear a class hat, %s and %s are its two abilities. %s dodges (four seconds to recover), and Knights hold %s to block. Watch your stamina or mana bar."],
+	["How do classes work?", "KNIGHT: frontline fighter that wrecks enemies and doors. RANGER: shoots from range; keep your distance. MAGE: big area spells. HEALER: keeps the team alive. ENGINEER: builds turrets on the walls. ROGUE (account level 10): the fastest blades and a blink."],
+	["How do I upgrade?", "Fighting, helping teammates, breaking defenses and objectives earn experience. Press %s (or stand on the Upgrade Station) to spend perk points; later you can specialise your class. A fall costs two levels and their newest perks."],
 	["How does the Crown work?", "The Crown sits in the enemy's Crown Vault behind a lock. Break the lock, press %s to grab it, and run. If you fall it drops where you died; a defender can carry it home, or your team can pick it back up."],
-	["Where should I go?", "Up the stairs, through the courtyard and out the front gate. Fight for the shrine in the middle, cross a bridge, then push to the enemy gate. Blessings of Light appear in the field; Potions heal you. Call your team with %s (attack), %s (defend) or %s (to me), and plant a war banner with %s in the field so fallen friends rejoin beside it."],
+	["Where should I go?", "Out the front gate, take the shrine in the middle, cross a bridge and push to their gate. Potions heal you. Call your team with %s (attack), %s (defend) or %s (to me); %s in the field plants a war banner where fallen friends rejoin."],
 ]
 
 var game

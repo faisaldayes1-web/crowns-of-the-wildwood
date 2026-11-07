@@ -1448,10 +1448,13 @@ func _draw_tutorial() -> void:
 # [title, picture (assets/ui/tutorial/topic_N.jpg), icon, line, colour]
 # The line's {tags} become the player's own keys, pad buttons or taps.
 const HOWTO := [
-	["MOVE & FIGHT", 1, "sword", "{Move} to move. {Attack} to attack. {Skill1} and {Skill2} fire your class skills, {dodge} dodges.", Color(0.95, 0.45, 0.3)],
-	["PICK A CLASS", 2, "class_knight", "First, pick a class: walk onto a glowing class station in your castle (Knight, Ranger, Mage, Healer or Engineer). Each plays differently, and you can switch later.", Color(0.45, 0.7, 1.0)],
+	# (claude-faisallaptop/crowns-tutorial-visual 2026-11-07: a class is taken by
+	# pressing interact at its hat, Q and E only work once you wear one, and the
+	# capture target follows Stats.CAPTURES_TO_WIN.)
+	["MOVE & FIGHT", 1, "sword", "{Move} to move. {Attack} to attack. {Dodge} dodges. Once you wear a class hat, {skill1} and {skill2} to use its two skills.", Color(0.95, 0.45, 0.3)],
+	["PICK A CLASS", 2, "class_knight", "First, pick a class: walk up to a hat on the class stands in your castle and {interact} to put it on. Knight, Ranger, Mage, Healer and Engineer are open; the Rogue unlocks at account level {unlock}. You can switch later.", Color(0.45, 0.7, 1.0)],
 	["BREAK IN", 0, "hammer", "Smash the enemy castle door, then break the lock on their Crown Vault.", Color(1.0, 0.62, 0.25)],
-	["STEAL THE CROWN", 4, "crown", "{Interact} to grab their crown and run it to your throne. Two captures win!", Color(1.0, 0.82, 0.3)],
+	["STEAL THE CROWN", 4, "crown", "{Interact} to grab their crown and run it to your throne. The first side to {captures} captures wins!", Color(1.0, 0.82, 0.3)],
 	["GUARD YOUR DOOR", 5, "guard", "Enemies want your crown too. Stand at your broken door and {interact} to repair it.", Color(0.5, 0.9, 0.45)],
 	["LEVEL UP", 3, "upgrade", "Fighting earns XP. {Rank_menu} to spend points on your skills.", Color(0.8, 0.55, 1.0)],
 ]
@@ -1495,9 +1498,11 @@ func _howto_line(text: String) -> String:
 		"skill2": "skill 2" if touch else game.key_label("ability_2"),
 	}
 	for k in keys.keys():
-		var v := str(keys[k]).replace("LMB", "Left Click").replace("RMB", "Right Click")
+		var v := str(keys[k]).replace("press LMB", "click").replace("press RMB", "right-click").replace("LMB", "Left Click").replace("RMB", "Right Click")
 		keys[k] = v
 		keys[k.left(1).to_upper() + k.substr(1)] = v.left(1).to_upper() + v.substr(1)
+	keys["captures"] = str(Stats.CAPTURES_TO_WIN)
+	keys["unlock"] = str(Stats.UNLOCK_LEVEL)
 	return text.format(keys)
 
 
