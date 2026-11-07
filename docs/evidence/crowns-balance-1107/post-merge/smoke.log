@@ -1,0 +1,8 @@
+isolated user dir: C:\Temp\cl2-cr-ud\t\crowns-tests\run-0bPO5l (left in place; clear C:/Temp/cl2-cr-ud/t/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+FOREST KIT day: 6378 placements, 22 meshes, 727 ms
+BATCH merged 4586 scenery meshes (1319 left alone) into 789 meshes; 1583 materials became 212; 441 ms (287 ms reading meshes)
+BATCH read-backs 3 (0 ms)
+SMOKE: hit dealt 1 damage
+SMOKE: ok
