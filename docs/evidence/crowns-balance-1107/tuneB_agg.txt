@@ -1,0 +1,44 @@
+matches 50  wins {'Elves': 16, 'Humans': 33, 'Draw': 1}  caps E80 H109  kills E1948 H2065  overtime 9  avg length 891s  script errors 0
+first door broken: 50 of 50 matches, avg at 129s;  bot stalls per match 4.7
+
+class               n    K/m    D/m    A/m  dmg/m heal/m   K/D
+E Cleric           26    7.5    6.0    8.3   95.7  178.5  1.26
+E DarkPriest       24    7.5    7.8    7.3  111.5  161.1  0.96
+E Frostweaver      23   10.7   12.7   10.9  163.4    0.0  0.84
+E Pyromancer       27   12.0   12.2   10.1  161.6    0.0  0.98
+E Sharpshooter     31   13.5   11.7   10.4  175.1    0.0  1.15
+E Trapper          19   12.7    9.9   11.5  170.9    0.0  1.28
+E Vanguard         27    6.4   12.4    6.3   77.6    0.0  0.52
+E Warden           23    7.3   11.3    5.1   72.2    0.0  0.65
+H Cleric           32    8.6    4.8   11.3  104.5  209.8  1.79
+H DarkPriest       18    8.3    7.2    9.1  106.1  142.5  1.15
+H Frostweaver      24   10.8   11.9   10.1  156.0    0.0  0.91
+H Pyromancer       26   14.3   11.3   12.0  165.5    0.0  1.27
+H Sharpshooter     20   15.4   12.1   13.2  179.5    0.0  1.28
+H Trapper          30   11.9   11.1   11.3  160.9    0.0  1.07
+H Vanguard         26    7.1   11.4    7.2   64.3    0.0  0.62
+H Warden           24    6.6   10.4    5.7   72.6    0.0  0.63
+
+style               n    K/m    D/m  dmg/m   K/D
+E melee            50    6.8   11.9   75.1  0.57
+E ranged          100   12.3   11.8  168.0  1.05
+E support          50    7.5    6.9  103.3  1.10
+H melee            50    6.9   10.9   68.3  0.63
+H ranged          100   13.0   11.5  164.6  1.12
+H support          50    8.5    5.7  105.1  1.50
+
+downed per match (E/H): down 41.5/39.4  revive 5.1/5.9  finish 20.0/19.2  bleedout 1.3/1.0  skip 15.0/13.1
+  Elves: revived 12%, finished 48%, bled out 3%, skipped 36% of downs
+  Humans: revived 15%, finished 48%, bled out 2%, skipped 33% of downs
+
+kills logged 4013
+victim level at death: L1 13%  L2 13%  L3 13%  L4 18%  L5 13%  L6 28%
+killer level:          L1 4%  L2 10%  L3 10%  L4 17%  L5 16%  L6 39%
+level edge: {'same': 673, 'higher won': 2019, 'lower won': 1321}
+base soldier v classed: base killed 4, base died 0
+promoted (3+ points) v fresh (0 points): fresh won 9, promoted won 39
+fire form: 432 kills (10% of all), 61 finished by a burn; by class {'Mage': 152, 'Healer': 67, 'Ranger': 136, 'Knight': 77}; fire kills on base soldiers 0
+    0-220s: 977 deaths, avg victim level 3.04
+  220-440s: 1009 deaths, avg victim level 4.18
+  440-660s: 993 deaths, avg victim level 4.16
+  660-880s: 1034 deaths, avg victim level 4.23

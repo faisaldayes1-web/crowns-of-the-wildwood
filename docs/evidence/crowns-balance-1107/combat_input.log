@@ -1,0 +1,46 @@
+isolated user dir: C:\Temp\cl2-cr-ud\t\crowns-tests\run-NIo6RR (left in place; clear C:/Temp/cl2-cr-ud/t/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/combat_input_test.gd: user dir C:/Temp/cl2-cr-ud/t/crowns-tests/run-NIo6RR/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT day: 6378 placements, 22 meshes, 1516 ms
+NET ready
+BATCH merged 4588 scenery meshes (1319 left alone) into 791 meshes; 1585 materials became 213; 1022 ms (680 ms reading meshes)
+BATCH read-backs 3 (0 ms)
+PASS  the match started
+PASS  an enemy dummy exists
+PASS  KNIGHT: LEFT-CLICK basic attack damages the dummy (mouse)
+PASS  KNIGHT: the basic hit plays hitstop, spark, sound and rumble ({ "hitstop": 0.06, "spark": true, "sound": true, "rumble": true })
+PASS  KNIGHT: J basic attack damages the dummy (keyboard alternate)
+PASS  KNIGHT: pad RT + right stick basic attack damages the dummy
+PASS  KNIGHT: skill Wind Dash damages the dummy (mouse)
+PASS  KNIGHT: skill Wind Dash damages the dummy (pad)
+PASS  RANGER: LEFT-CLICK basic attack damages the dummy (mouse)
+PASS  RANGER: the basic hit plays hitstop, spark, sound and rumble ({ "hitstop": 0.03, "spark": true, "sound": true, "rumble": true })
+PASS  RANGER: J basic attack damages the dummy (keyboard alternate)
+PASS  RANGER: pad RT + right stick basic attack damages the dummy
+PASS  RANGER: skill Starfall damages the dummy (mouse)
+PASS  RANGER: skill Starfall damages the dummy (pad)
+PASS  MAGE: LEFT-CLICK basic attack damages the dummy (mouse)
+PASS  MAGE: the basic hit plays hitstop, spark, sound and rumble ({ "hitstop": 0.03, "spark": true, "sound": true, "rumble": true })
+PASS  MAGE: J basic attack damages the dummy (keyboard alternate)
+PASS  MAGE: pad RT + right stick basic attack damages the dummy
+PASS  MAGE: skill Bramble Burst damages the dummy (mouse)
+PASS  MAGE: skill Bramble Burst damages the dummy (pad)
+PASS  ENGINEER: LEFT-CLICK basic attack damages the dummy (mouse)
+PASS  ENGINEER: the basic hit plays hitstop, spark, sound and rumble ({ "hitstop": 0.06, "spark": true, "sound": true, "rumble": true })
+PASS  ENGINEER: J basic attack damages the dummy (keyboard alternate)
+PASS  ENGINEER: pad RT + right stick basic attack damages the dummy
+PASS  ROGUE: LEFT-CLICK basic attack damages the dummy (mouse)
+PASS  ROGUE: the basic hit plays hitstop, spark, sound and rumble ({ "hitstop": 0.035, "spark": true, "sound": true, "rumble": true })
+PASS  Rogue hitstop is shorter than the knight's 0.06 s
+PASS  ROGUE: J basic attack damages the dummy (keyboard alternate)
+PASS  ROGUE: pad RT + right stick basic attack damages the dummy
+PASS  ROGUE: skill Shadow Dash damages the dummy (mouse)
+PASS  ROGUE: skill Shadow Dash damages the dummy (pad)
+PASS  HEALER: LEFT-CLICK bolt damages the dummy (mouse)
+PASS  HEALER: the bolt hit plays its feedback
+PASS  HEALER: pad RT + right stick basic attack damages the dummy
+PASS  HEALER: skill Lunar Lance damages the dummy (mouse)
+PASS  HEALER: skill Lunar Lance damages the dummy (pad)
+PASS  default keyboard scheme is WASD + left-click attack
+COMBAT INPUT TEST: 0 failed

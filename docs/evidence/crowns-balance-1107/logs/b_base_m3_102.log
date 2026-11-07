@@ -1,0 +1,9 @@
+RESULT winner=Draw score=0-0 t=1020 overtime=true turrets=1/1 turret_kills=1/2 raid_deaths=6/5 mode=crowns sudden=false
+STAT team=0 class=Warden kills=11 deaths=11 assists=7 dmg=101 heal=0 caps=0 level=1 revives=0 revived=0
+STAT team=0 class=Sharpshooter kills=9 deaths=18 assists=18 dmg=139 heal=0 caps=0 level=4 revives=0 revived=3
+STAT team=0 class=Pyromancer kills=12 deaths=7 assists=11 dmg=255 heal=0 caps=0 level=4 revives=1 revived=1
+STAT team=0 class=Cleric kills=15 deaths=7 assists=10 dmg=152 heal=233 caps=0 level=6 revives=3 revived=0
+STAT team=1 class=Warden kills=13 deaths=13 assists=7 dmg=113 heal=0 caps=0 level=1 revives=1 revived=0
+STAT team=1 class=Sharpshooter kills=12 deaths=15 assists=13 dmg=181 heal=0 caps=0 level=4 revives=0 revived=3
+STAT team=1 class=Frostweaver kills=10 deaths=12 assists=13 dmg=143 heal=0 caps=0 level=3 revives=0 revived=2
+STAT team=1 class=DarkPriest kills=8 deaths=7 assists=9 dmg=209 heal=178 caps=0 level=6 revives=4 revived=0

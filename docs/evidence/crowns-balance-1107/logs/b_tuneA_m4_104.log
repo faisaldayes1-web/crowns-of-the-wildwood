@@ -1,0 +1,9 @@
+RESULT winner=Draw score=0-0 t=1020 overtime=true turrets=1/1 turret_kills=0/3 raid_deaths=6/3 mode=crowns sudden=false
+STAT team=0 class=Vanguard kills=7 deaths=10 assists=8 dmg=76 heal=0 caps=0 level=4 revives=1 revived=0
+STAT team=0 class=Trapper kills=15 deaths=12 assists=18 dmg=207 heal=0 caps=0 level=2 revives=0 revived=0
+STAT team=0 class=Frostweaver kills=7 deaths=16 assists=14 dmg=164 heal=0 caps=0 level=4 revives=0 revived=4
+STAT team=0 class=DarkPriest kills=19 deaths=7 assists=9 dmg=195 heal=202 caps=0 level=6 revives=4 revived=1
+STAT team=1 class=Warden kills=3 deaths=14 assists=3 dmg=54 heal=0 caps=0 level=2 revives=1 revived=0
+STAT team=1 class=Sharpshooter kills=16 deaths=13 assists=11 dmg=239 heal=0 caps=0 level=4 revives=0 revived=1
+STAT team=1 class=Frostweaver kills=18 deaths=13 assists=7 dmg=171 heal=0 caps=0 level=2 revives=0 revived=2
+STAT team=1 class=DarkPriest kills=8 deaths=9 assists=9 dmg=160 heal=202 caps=0 level=6 revives=2 revived=0

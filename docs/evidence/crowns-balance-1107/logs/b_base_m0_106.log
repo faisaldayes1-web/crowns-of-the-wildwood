@@ -1,0 +1,9 @@
+RESULT winner=Humans score=1-3 t=900 overtime=false turrets=1/1 turret_kills=1/2 raid_deaths=4/5 mode=crowns sudden=false
+STAT team=0 class=Vanguard kills=7 deaths=18 assists=3 dmg=59 heal=0 caps=1 level=1 revives=2 revived=0
+STAT team=0 class=Sharpshooter kills=12 deaths=14 assists=8 dmg=129 heal=0 caps=0 level=1 revives=1 revived=2
+STAT team=0 class=Pyromancer kills=10 deaths=17 assists=10 dmg=201 heal=0 caps=0 level=2 revives=1 revived=5
+STAT team=0 class=Cleric kills=5 deaths=13 assists=8 dmg=62 heal=122 caps=0 level=1 revives=4 revived=1
+STAT team=1 class=Warden kills=15 deaths=10 assists=8 dmg=98 heal=0 caps=2 level=6 revives=0 revived=0
+STAT team=1 class=Sharpshooter kills=25 deaths=12 assists=23 dmg=189 heal=0 caps=1 level=4 revives=0 revived=3
+STAT team=1 class=Frostweaver kills=15 deaths=8 assists=22 dmg=177 heal=0 caps=0 level=6 revives=0 revived=1
+STAT team=1 class=Cleric kills=7 deaths=4 assists=11 dmg=59 heal=186 caps=0 level=6 revives=4 revived=0
