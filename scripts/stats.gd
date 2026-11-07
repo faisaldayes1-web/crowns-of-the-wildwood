@@ -471,6 +471,12 @@ const SCORE_UPGRADE := 3   # per rank point spent
 const KNOCK_MELEE := 6.0
 const KNOCK_SHOT := 4.0
 const KNOCK_SPLASH := 8.0
+# Ember Pass: blows shove harder, so a fighter caught on an unrailed plateau
+# rim can be knocked into the lava (unit.gd _lava_fall). A knockback at least
+# LAVA_SHOVE m/s carries a unit over an open edge; slower, the rim holds.
+const LAVA_KNOCK_MULT := 1.6
+const LAVA_SHOVE := 2.0
+const LAVA_CREDIT_WINDOW := 3.0   # seconds: whoever shoved us this recently gets the kill
 
 # attack: the base ability on left click. "melee" swings, "arrow" and "spell"
 #   fire a shot, "heal" mends nearby hurt teammates (or fires a holy bolt when

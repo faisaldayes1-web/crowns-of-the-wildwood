@@ -5,6 +5,7 @@
 # DIFF=Easy|Normal|Hard sets the bot difficulty (default: the saved setting).
 # MAP=<Stats.MAPS index> picks the map (0 Wildwood, 2 Ember Pass; default: the
 # game's own pick). TEAM=<n> plays n a side (test only; the live game is 4v4).
+# FRAMES=<n> caps the run (default 63000 = prep 20 s + 900 s + 120 s overtime at 60 fps).
 set -u
 TAG=$1; shift
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
@@ -12,7 +13,7 @@ OUT=${OUT:-$ROOT/tools/balance/logs}
 JOBS=${JOBS:-3}
 mkdir -p "$OUT"
 run() {
-	godot --headless --path "$ROOT" --fixed-fps 60 --quit-after 45000 -- --demo --seed="$2" ${MAP:+--map=$MAP} ${TEAM:+--team-size=$TEAM} ${DIFF:+--bot-difficulty=$DIFF} 2>&1 \
+	godot --headless --path "$ROOT" --fixed-fps 60 --quit-after "${FRAMES:-63000}" -- --demo --seed="$2" ${MAP:+--map=$MAP} ${TEAM:+--team-size=$TEAM} ${DIFF:+--bot-difficulty=$DIFF} 2>&1 \
 		| grep -v 'Parameter "m" is null' > "$OUT/b_$1_$2.log"
 }
 for s in "$@"; do
