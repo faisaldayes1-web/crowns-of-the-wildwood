@@ -1,0 +1,22 @@
+isolated user dir: C:\Temp\cl2-cr-ud-tut\crowns-tests\run-hqzLWJ (left in place; clear C:/Temp/cl2-cr-ud-tut/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080 Laptop GPU
+
+ground_capture: user dir C:/Temp/cl2-cr-ud-tut/crowns-tests/run-hqzLWJ/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+FOREST KIT winter: 1885 placements, 12 meshes, 223 ms
+NET ready
+BATCH merged 4123 scenery meshes (1157 left alone) into 772 meshes; 1523 materials became 201; 453 ms (280 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map3-a-spawn.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map3-b-west-road.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map3-c-crossing.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map3-d-east-road.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map3-e-human-gate.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map3-f-north-bridge.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map3-g-south-bridge.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map3-h-north-edge.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map3-i-south-edge.png
+GROUND_DONE map=3
+ERROR: 1 shaders of type SceneForwardClusteredShaderRD were never freed
+   at: ~ShaderRD (servers/rendering/renderer_rd/shader_rd.cpp:845)
+ERROR: 1 RID allocations of type 'N10RendererRD15MaterialStorage6ShaderE' were leaked at exit.

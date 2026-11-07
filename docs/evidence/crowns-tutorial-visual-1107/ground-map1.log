@@ -1,0 +1,21 @@
+isolated user dir: C:\Temp\cl2-cr-ud-tut\crowns-tests\run-h4xjYV (left in place; clear C:/Temp/cl2-cr-ud-tut/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080 Laptop GPU
+
+ground_capture: user dir C:/Temp/cl2-cr-ud-tut/crowns-tests/run-h4xjYV/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+WARNING: Economy: no room for a wood node pair near (-34, 0, -9)
+     at: push_warning (core/variant/variant_utility.cpp:1112)
+FOREST KIT night: 6488 placements, 21 meshes, 656 ms
+NET ready
+BATCH merged 4927 scenery meshes (1249 left alone) into 948 meshes; 1855 materials became 230; 609 ms (368 ms reading meshes)
+BATCH read-backs 7 (3 ms)
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map1-a-spawn.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map1-b-west-road.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map1-c-crossing.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map1-d-east-road.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map1-e-human-gate.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map1-f-north-bridge.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map1-g-south-bridge.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map1-h-north-edge.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map1-i-south-edge.png
+GROUND_DONE map=1
