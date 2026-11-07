@@ -1,0 +1,18 @@
+isolated user dir: C:\Temp\cl2-cr-ud-tut\crowns-tests\run-tNh7Pd (left in place; clear C:/Temp/cl2-cr-ud-tut/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+Vulkan 1.4.351 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 5080 Laptop GPU
+
+ground_capture: user dir C:/Temp/cl2-cr-ud-tut/crowns-tests/run-tNh7Pd/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+NET ready
+BATCH merged 4631 scenery meshes (667 left alone) into 673 meshes; 1527 materials became 189; 677 ms (442 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map2-a-spawn.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map2-b-west-road.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map2-c-crossing.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map2-d-east-road.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map2-e-human-gate.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map2-f-north-bridge.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map2-g-south-bridge.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map2-h-north-edge.png
+GROUND C:/Temp/cl2-crowns-tut-1106/docs/evidence/crowns-tutorial-visual-1107/ground-before/map2-i-south-edge.png
+GROUND_DONE map=2

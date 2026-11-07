@@ -39,14 +39,23 @@ static func text_for(game, u, step: String) -> String:
 		"class":
 			return "Pick a class: stand by a hat in your castle and press %s" % game.key_label("interact", u)
 		"attack":
-			return "Attack: %s" % game.key_label("attack", u)
+			return "Attack: %s" % _words(game.key_label("attack", u))
 		"ability":
-			return "Abilities: %s and %s, dodge: %s" % [game.key_label("ability_1", u), game.key_label("ability_2", u), game.key_label("dodge", u)]
+			# (claude-faisallaptop/crowns-tutorial-visual: Q and E stay locked
+			# until a class hat is on, so a plain soldier is told where they come from.)
+			if u.role == Stats.Role.BASE:
+				return "Dodge: %s. Put on a class hat to unlock %s and %s" % [_words(game.key_label("dodge", u)), game.key_label("ability_1", u), game.key_label("ability_2", u)]
+			return "Abilities: %s and %s, dodge: %s" % [game.key_label("ability_1", u), game.key_label("ability_2", u), _words(game.key_label("dodge", u))]
 		"goal":
 			if game.is_tdm():
 				return "Defeat the other team: first to %d kills wins" % Stats.TDM_KILLS_TO_WIN
-			return "Break their gate, steal the Crown, carry it home"
+			return "Break their gate and vault lock, steal the Crown, carry it home"
 	return ""
+
+
+static func _words(key: String) -> String:
+	## Mouse buttons in words, as the HOW TO PLAY cards say them.
+	return key.replace("LMB", "Left Click").replace("RMB", "Right Click")
 
 
 static func _done(game, u, st: Dictionary, step: String) -> bool:

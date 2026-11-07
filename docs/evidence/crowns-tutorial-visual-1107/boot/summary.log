@@ -1,0 +1,12 @@
+after rc=0
+export rc=0 total 193320
+drwxr-xr-x 1 faisa 197609         0 Nov  7 06:48 .
+drwxr-xr-x 1 faisa 197609         0 Nov  7 06:48 ..
+-rwxr-xr-x 1 faisa 197609 197959648 Nov  7 06:48 Crowns.exe
+boot title rc=0 scripterr=0 lines=77 log=C:/Temp/cl2-cr-ud-tut/fresh-title-064822/engine.log
+boot play0 rc=0 scripterr=0 lines=8 log=C:/Temp/cl2-cr-ud-tut/fresh-play0-064845/engine.log
+boot play1 rc=0 scripterr=0 lines=10 log=C:/Temp/cl2-cr-ud-tut/fresh-play1-064932/engine.log
+boot play2 rc=0 scripterr=0 lines=8 log=C:/Temp/cl2-cr-ud-tut/fresh-play2-065027/engine.log
+boot play3 rc=0 scripterr=0 lines=5 log=C:/Temp/cl2-cr-ud-tut/fresh-play3-065111/engine.log
+boot play4 rc=0 scripterr=0 lines=8 log=C:/Temp/cl2-cr-ud-tut/fresh-play4-065202/engine.log
+f82c043ef7dcd3ac2c81bbdb6ae43a89fbbf179f511406ab4d510fd2069335c3 */c/Temp/cl2-cr-ud-tut/build/6319bb7/Crowns.exe

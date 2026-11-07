@@ -1,0 +1,36 @@
+PASS tips_test
+PASS selftest
+PASS combat_input
+PASS hotplug
+PASS smoke
+PASS player_movement
+PASS spawn_warm
+PASS ice_slide
+FAIL audit-map0 (se=0 fail=13)
+FAIL audit-map1 (se=0 fail=18)
+PASS audit-map2
+FAIL audit-map3 (se=0 fail=12)
+FAIL audit-map4 (se=0 fail=12)
+FAIL audit-moonlit (se=0 fail=18)
+PASS graveyard
+PASS cloud_paths_test
+PASS pad_kind_test
+PASS pad_unplug_test
+FAIL pad_nav_test (se=68 fail=0)
+FAIL options_menu_test (se=280 fail=0)
+PASS menu_flow_test
+PASS store_menu_test
+PASS save_write_test
+PASS save_recovery_test
+PASS save_test
+PASS settings_restart_test
+PASS steam_ready_test
+FAIL options_test (se=0 fail=0)
+PASS legend_test
+PASS split_hud
+PASS unit_alloc
+PASS shared_xp
+PASS rock_mesh
+PASS batch_prim
+PASS bot_match
+ALLDONE
