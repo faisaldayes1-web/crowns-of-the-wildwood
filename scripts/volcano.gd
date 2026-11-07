@@ -169,6 +169,24 @@ func clamp_walk(p: Vector3) -> Vector3:
 	return best
 
 
+func open_edge(p: Vector3) -> bool:
+	## Whether `p`, just off solid ground, is over an unguarded drop into the
+	## lava (the knock-off rule, Faisal 2026-11-04). Every bridge has rails,
+	## the causeways and the stair parapets, the plazas a kerb round the rim:
+	## those hold a shoved unit on. Only the castle plateaus' rims are open
+	## (crags, no rail), so only there does a shove carry over the edge.
+	if walkable(p):
+		return false
+	for i in pos.size():
+		if _flat(p, pos[i]) < rad[i] + 1.2:
+			return false
+	for s in segs:
+		if _seg_dist(p, pos[s[0]], pos[s[1]]) < s[2] + 1.2:
+			return false
+	var ax := absf(p.x)
+	return ax > LAND_X - 1.5 and ax < LAND_X1 + 1.5 and absf(p.z) < LAND_Z + 1.5
+
+
 func _straight(a: Vector3, b: Vector3) -> bool:
 	## Whether the straight walk from a to b stays on solid ground.
 	var d := _flat(a, b)
