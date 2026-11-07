@@ -1,0 +1,9 @@
+RESULT winner=Elves score=6-1 t=900 overtime=false turrets=0/0 turret_kills=0/0 raid_deaths=5/0 mode=crowns sudden=false
+STAT team=0 class=Vanguard kills=9 deaths=12 assists=9 dmg=89 heal=0 caps=5 level=2 revives=1 revived=1
+STAT team=0 class=Sharpshooter kills=33 deaths=10 assists=22 dmg=249 heal=0 caps=1 level=2 revives=1 revived=1
+STAT team=0 class=Frostweaver kills=20 deaths=15 assists=17 dmg=136 heal=0 caps=0 level=1 revives=0 revived=2
+STAT team=0 class=DarkPriest kills=9 deaths=6 assists=14 dmg=103 heal=230 caps=0 level=2 revives=3 revived=1
+STAT team=1 class=Vanguard kills=7 deaths=21 assists=9 dmg=114 heal=0 caps=1 level=2 revives=0 revived=1
+STAT team=1 class=Trapper kills=15 deaths=19 assists=6 dmg=213 heal=0 caps=0 level=4 revives=1 revived=3
+STAT team=1 class=Pyromancer kills=9 deaths=18 assists=13 dmg=148 heal=0 caps=0 level=6 revives=2 revived=1
+STAT team=1 class=Cleric kills=9 deaths=13 assists=9 dmg=103 heal=151 caps=0 level=6 revives=3 revived=1

@@ -559,7 +559,7 @@ const VARIANTS := {
 			"attacks": ["2H_Melee_Attack_Slice", "2H_Melee_Attack_Chop"], "idle": "2H_Melee_Idle",
 			"desc": "Greatsword offence: long reach, a spinning cleave and a long charge. The shield is gone, so no blocking.",
 			"attack": {"attack_name": "Greatsword", "attack_desc": "A heavy two-handed swing with long reach.",
-				"range": 2.8, "cooldown": 0.65, "cost": 12, "gate_damage": 3, "block": false, "armour": 0.45},   # armour 0.42 → 0.45 (patch 5)
+				"range": 2.8, "cooldown": 0.65, "cost": 12, "gate_damage": 3, "block": false, "armour": 0.5},   # armour 0.42 → 0.45 (patch 5) → 0.5 (PROPOSED claude-faisallaptop 2026-11-07: Vanguard won 40% and died 13.4 a match over 50 bot matches, docs/balance/pass-2026-11-07.md)
 			"abilities": [
 				{"name": "Cleave", "key": "Q", "kind": "cleave", "icon": "cleave", "cooldown": 4.5, "cost": 40.0,
 					"damage": 1, "radius": 3.2, "desc": "Spin with the greatsword, hitting and shoving everyone around you."},

@@ -1,0 +1,9 @@
+RESULT winner=Humans score=1-2 t=900 overtime=false turrets=1/1 turret_kills=0/0 raid_deaths=7/3 mode=crowns sudden=false
+STAT team=0 class=Warden kills=6 deaths=11 assists=7 dmg=97 heal=0 caps=1 level=4 revives=0 revived=0
+STAT team=0 class=Trapper kills=15 deaths=9 assists=7 dmg=111 heal=0 caps=0 level=6 revives=1 revived=0
+STAT team=0 class=Pyromancer kills=12 deaths=14 assists=11 dmg=231 heal=0 caps=0 level=4 revives=0 revived=1
+STAT team=0 class=DarkPriest kills=8 deaths=7 assists=10 dmg=189 heal=170 caps=0 level=4 revives=0 revived=0
+STAT team=1 class=Vanguard kills=3 deaths=15 assists=6 dmg=55 heal=0 caps=1 level=2 revives=1 revived=1
+STAT team=1 class=Trapper kills=16 deaths=10 assists=7 dmg=132 heal=0 caps=0 level=1 revives=0 revived=0
+STAT team=1 class=Pyromancer kills=15 deaths=8 assists=9 dmg=212 heal=0 caps=1 level=6 revives=0 revived=2
+STAT team=1 class=Cleric kills=6 deaths=9 assists=6 dmg=143 heal=214 caps=0 level=3 revives=3 revived=1

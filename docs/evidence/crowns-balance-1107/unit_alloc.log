@@ -1,0 +1,7 @@
+isolated user dir: C:\Temp\cl2-cr-ud\t\crowns-tests\run-h3me2j (left in place; clear C:/Temp/cl2-cr-ud/t/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/unit_allocation_test.gd: user dir C:/Temp/cl2-cr-ud/t/crowns-tests/run-h3me2j/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+CHECKED attack stats: both teams, seven roles, ranks 0-3, four buff states; scalar aliasing/repeat checks
+CHECKED native/web-policy production branch: cadence, movement, aim, block, ability and cache lifecycle
+UNIT_ALLOCATION_RESULT assertions=969 failures=0

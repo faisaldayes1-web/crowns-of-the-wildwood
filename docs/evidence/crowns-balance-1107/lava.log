@@ -1,0 +1,20 @@
+isolated user dir: C:\Temp\cl2-cr-ud\t\crowns-tests\run-mbjUPC (left in place; clear C:/Temp/cl2-cr-ud/t/crowns-tests by hand when you like)
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+tools/lava_knockoff_test.gd: user dir C:/Temp/cl2-cr-ud/t/crowns-tests/run-mbjUPC/Godot/app_userdata/Crowns of the Wildwood (throwaway)
+BATCH merged 4629 scenery meshes (661 left alone) into 671 meshes; 1525 materials became 188; 871 ms (591 ms reading meshes)
+BATCH read-backs 0 (0 ms)
+t=0s  score 0-0  monarchs 0 / 0  doors 200 / 200  turrets 0 / 0
+   team0 Elf (-60, 0.1, 14.4) hearts=4 dead=false job=prep
+   team0 Elf (-85.4, -2.4, -2.1) hearts=4 dead=false job=prep
+   team0 Elf (-85.5, -2.4, -0.1) hearts=4 dead=false job=prep
+   team0 Elf (-85.5, -2.4, 1.9) hearts=4 dead=false job=prep
+   team1 Human (-60, 0.1, 13.2) hearts=4 dead=false job=prep
+   team1 Human (85.4, -2.4, -2.1) hearts=4 dead=false job=prep
+   team1 Human (85.5, -2.4, -0.1) hearts=4 dead=false job=prep
+   team1 Human (85.5, -2.4, 1.9) hearts=4 dead=false job=prep
+LAVA t=0 team0 Elf at (-60, 0, 15) by Garrick
+KILL t=0 kteam=1 krole=0 klevel=2 kmastery=1 vteam=0 vrole=0 vlevel=1 vmastery=0 kfire=0 burn=0
+open rim: dead=true lava_deaths=1 kills 0->1
+bridge: dead=false at (-14.88, 0, -10.7)
+lava knockoff test: 0 failure(s)
