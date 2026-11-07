@@ -3045,7 +3045,7 @@ func _start_match(team: int) -> void:
 			pad_label("attack", k), pad_label("ability_1", k), pad_label("ability_2", k), pad_label("dodge", k), pad_label("interact", k), pad_label("rank_menu", k), pad_label("scoreboard", k)])
 	else:
 		if _new_player():
-			chat_system("GOAL: steal the enemy crown and carry it to your throne. Two captures win. First, pick a class on a glowing station.")
+			chat_system("GOAL: steal the enemy crown and carry it to your throne. First to %d captures wins. Start by picking a class: press %s at a hat in your castle." % [CAPTURES_TO_WIN, key_label("interact")])
 		chat_system("Click to attack, Q and E for abilities, Space to dodge, %s for perks, hold %s for the scoreboard, %s to chat." % [
 			key_label("rank_menu"), key_label("scoreboard"), key_label("chat")])
 	if prep_left > 0.0:
@@ -4130,15 +4130,18 @@ func guide_answer(i: int) -> String:
 	## A topic's answer with the current key labels filled in.
 	var text: String = Guide.TOPICS[i][1]
 	match i:
+		0:
+			text = text % [CAPTURES_TO_WIN, int(Stats.MATCH_TIME / 60.0)]
 		1:
-			return text % [key_label("attack"), key_label("ability_1"), key_label("ability_2"), key_label("dodge"), key_label("block")]
+			text = text % [key_label("attack"), key_label("ability_1"), key_label("ability_2"), key_label("dodge"), key_label("block")]
 		3:
-			return text % key_label("rank_menu")
+			text = text % key_label("rank_menu")
 		4:
-			return text % key_label("interact")
+			text = text % key_label("interact")
 		5:
-			return text % [key_label("cmd_attack"), key_label("cmd_defend"), key_label("cmd_help"), key_label("interact")]
-	return text
+			text = text % [key_label("cmd_attack"), key_label("cmd_defend"), key_label("cmd_help"), key_label("interact")]
+	# Mouse buttons in words, as the HOW TO PLAY cards say them ("LMB attacks" read as jargon).
+	return text.replace("LMB", "Left Click").replace("RMB", "Right Click")
 
 
 func _tick_tutorial() -> void:
