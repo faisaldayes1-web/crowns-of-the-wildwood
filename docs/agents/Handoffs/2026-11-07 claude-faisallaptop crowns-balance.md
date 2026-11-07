@@ -19,7 +19,7 @@ Agent: claude-faisallaptop/crowns-balance. Branch `claude-faisallaptop/crowns-ba
 | Sharpshooter | 45 (1.40) | 47 (1.20) |
 | Trapper | 55 (1.28) | 53 (1.14) |
 
-Elves win % per map before/after: Wildwood 70/20, Moonlit 70/30, Ember Pass 60/30, Stonekeep 35/35, Twilight 80/50; all 63/33, pooled over 150 matches 52. Faction totals swing between batches far more than chance (the demo reads the real clock in places), so no faction change. Stonekeep favours Humans in every batch (32% Elves pooled). Match length: 147/150 within 12 min to 15 min + 2 min overtime, average 15:01 before, 14:51 after.
+Elves win % per map before/after: Wildwood 70/20, Moonlit 70/30, Ember Pass 60/30, Stonekeep 35/35, Twilight 80/50; all 63/33, pooled over 150 matches 52. Faction totals swing between batches far more than chance (the demo reads the real clock in places), so no faction change. Stonekeep favours Humans in every batch (32% Elves pooled). Match length: 147/150 within 12 min to 15 min + 2 min overtime, average 15:09 before, 14:51 after.
 
 A second change (Human Crossbow cooldown 0.62 -> 0.58) was tried in a middle batch, did nothing measurable and was dropped.
 
